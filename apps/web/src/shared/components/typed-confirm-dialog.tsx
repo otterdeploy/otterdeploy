@@ -1,5 +1,5 @@
 /**
- * Shared destructive-confirmation dialog — the one safety pattern for every
+ * Shared destructive-confirmation dialog: the one safety pattern for every
  * irreversible action in the app.
  *
  * Two strengths, one component:
@@ -11,12 +11,12 @@
  * Works trigger-based (pass `trigger`, the dialog owns its open state) or
  * controlled (pass `open` + `onOpenChange`, e.g. when the confirm is raised
  * imperatively from a hook). Escape / dismiss always cancels and resets the
- * typed input. The dialog never auto-closes on confirm — async callers keep it
+ * typed input. The dialog never auto-closes on confirm. Async callers keep it
  * open via `pending` until they close/unmount it; sync callers close it in
  * `onConfirm` (controlled) or let success unmount it (trigger-based).
  *
  * Tone per DESIGN.md: destructive is a tint, the solid destructive fill is
- * reserved for the confirm button — the single most consequential action.
+ * reserved for the confirm button: the single most consequential action.
  */
 
 import { useState, type ReactElement, type ReactNode } from "react";
@@ -40,11 +40,11 @@ import { Input } from "@/shared/components/ui/input";
 interface TypedConfirmDialogProps {
   /** Trigger element (a Button, usually). Omit when controlling via `open`. */
   trigger?: ReactElement;
-  /** Controlled open state — pair with `onOpenChange`. */
+  /** Controlled open state, pair with `onOpenChange`. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   title: ReactNode;
-  /** Consequence copy — say honestly what happens, and that it can't be undone. */
+  /** Consequence copy: say honestly what happens, and that it can't be undone. */
   description: ReactNode;
   /** Optional extra consequence slot (e.g. the SQL about to run). */
   children?: ReactNode;
@@ -53,7 +53,7 @@ interface TypedConfirmDialogProps {
   confirmLabel: string;
   /** Label shown on the confirm button while `pending` (falls back to confirmLabel). */
   pendingLabel?: string;
-  /** Async in flight — disables both buttons and keeps the dialog open. */
+  /** Async in flight: disables both buttons and keeps the dialog open. */
   pending?: boolean;
   onConfirm: () => void;
 }

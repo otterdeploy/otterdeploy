@@ -13,7 +13,7 @@ import type { ProvisionInitialValues } from "./server-provision-form";
 export interface AddServerDialogState {
   open: boolean;
   initial: ProvisionInitialValues | undefined;
-  /** Remount key — TanStack Form reads defaultValues on mount only. */
+  /** Remount key: TanStack Form reads defaultValues on mount only. */
   formKey: string;
   /** Plain "+ Add server": always starts blank. */
   openFresh: () => void;

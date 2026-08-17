@@ -1,5 +1,5 @@
 /**
- * Account → Sessions — everywhere this account is signed in: device sessions,
+ * Account → Sessions: everywhere this account is signed in: device sessions,
  * CLI access, and the sign-out-everywhere escape hatch. Self-scoped
  * (better-auth client APIs), no RBAC gating.
  */
@@ -23,7 +23,7 @@ function SessionsRoute() {
     <Page width="narrow">
       <PageHeader
         title="Sessions"
-        description="Devices and machines signed in as you — browsers, the CLI, and the kill switch."
+        description="Devices and machines signed in as you: browsers, the CLI, and the kill switch."
       />
 
       <SessionsCard />

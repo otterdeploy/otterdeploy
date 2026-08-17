@@ -6,7 +6,7 @@
  * one-time script, and completed when the host reports the swarm join back.
  * The install itself runs on the remote host over a connection we did not
  * open, so between redeem and completion there is genuinely nothing to
- * narrate — this says so instead of inventing sub-steps it cannot verify.
+ * narrate: this says so instead of inventing sub-steps it cannot verify.
  *
  * Contrast ./server-provision-stepper, which drives off a live SSH log because
  * on that path otterdeploy is the one running the commands.
@@ -40,7 +40,7 @@ interface Stage {
   key: string;
   label: string;
   state: StageState;
-  /** Shown under the label — always a fact we hold, never a guess. */
+  /** Shown under the label: always a fact we hold, never a guess. */
   detail?: string;
 }
 
@@ -59,7 +59,7 @@ export function computeEnrollmentStages(row: EnrollmentProgressRow, now: number)
       return "Enrollment expired before the host ran it. Create a new one.";
     }
     const remaining = Date.parse(row.expiresAt) - now;
-    return `Waiting for the host to run the command — expires in ${formatDuration(remaining)}.`;
+    return `Waiting for the host to run the command. Expires in ${formatDuration(remaining)}.`;
   })();
 
   const installDetail = (() => {
@@ -67,7 +67,7 @@ export function computeEnrollmentStages(row: EnrollmentProgressRow, now: number)
     if (row.status === "revoked") return "Revoked while the host was installing.";
     return `Running on the host for ${formatDuration(
       now - Date.parse(redeemedAt),
-    )}. otterdeploy cannot see inside the host — it reports back when the join finishes.`;
+    )}. otterdeploy cannot see inside the host. It reports back when the join finishes.`;
   })();
 
   return [

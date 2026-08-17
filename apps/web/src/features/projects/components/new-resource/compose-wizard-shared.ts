@@ -77,8 +77,8 @@ export function toResourceName(raw: string): string {
  * schemas on the FormGroups behave (see the form-groups guide): each group runs
  * its own schema off its own `submissionAttempts`, and the parent-form
  * `onDynamic` here is only the bypass net for a whole-form `handleSubmit`. It
- * does NOT intercept the `content`/`composePath` fields' own async validators —
- * those have no `onDynamic` key, so revalidateLogic runs them normally and the
+ * does NOT intercept the `content`/`composePath` fields' own async validators.
+ * Those have no `onDynamic` key, so revalidateLogic runs them normally and the
  * live parse-on-type is untouched.
  */
 export function useComposeForm(prefill?: ComposePrefill) {

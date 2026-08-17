@@ -7,7 +7,7 @@
  * tab reloadable, shareable and reachable by back/forward.
  *
  * Each panel kind owns its own tab union, its own default, and its own subset
- * of tabs that work while the resource is still a staged ghost — so they pass
+ * of tabs that work while the resource is still a staged ghost, so they pass
  * those in rather than this module knowing about them.
  */
 
@@ -25,6 +25,6 @@ export function resolvePanelTab<T extends string>(
   allowed: readonly T[],
   fallback: T,
 ): T {
-  if (raw && (allowed as readonly string[]).includes(raw)) return raw as T;
-  return fallback;
+  if (!raw) return fallback;
+  return allowed.find((tab) => tab === raw) ?? fallback;
 }

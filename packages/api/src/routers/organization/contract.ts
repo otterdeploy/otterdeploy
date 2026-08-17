@@ -2,7 +2,7 @@
  * Organization-scoped settings contract.
  *
  * The `organization` row itself is owned by better-auth (id/name/slug/logo/
- * metadata/createdAt) — this router exposes the otterdeploy-specific columns
+ * metadata/createdAt): this router exposes the otterdeploy-specific columns
  * we layered on top: baseDomain (+ verification state), Cloudflare DNS API
  * token, Cloudflare zone id.
  *
@@ -20,7 +20,7 @@ import { runtimeSettingsDraftSchema } from "./runtime-settings-schema";
 const tag = "organization";
 const basePath = "/organizations";
 
-// FQDN regex — lowercase, labels of 1–63 chars, dot-separated, ends in
+// FQDN regex: lowercase, labels of 1–63 chars, dot-separated, ends in
 // a TLD label of ≥2 chars. Matches the standard "user-typed apex" surface;
 // rejects schemes / paths / trailing dots. Empty string clears the value.
 const FQDN_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
@@ -40,7 +40,7 @@ const organizationSettingsSchema = z.object({
   baseDomainVerifiedAt: z.date().nullable(),
   baseDomainVerifyToken: z.string().nullable(),
   cloudflareZoneId: z.string().nullable(),
-  // The token itself is never returned — we send a `cloudflareTokenConfigured`
+  // The token itself is never returned. We send a `cloudflareTokenConfigured`
   // boolean so the UI can render "Connected to Cloudflare" without exposing
   // the secret to the client.
   cloudflareTokenConfigured: z.boolean(),
@@ -68,7 +68,7 @@ const cloudflareZoneSchema = z.object({
 
 const listCloudflareZonesInput = z.object({
   /** Token is passed inline (not stored) so the UI can list zones BEFORE
-   *  committing — operator can see the zone they'd pick before saving. */
+   *  committing: operator can see the zone they'd pick before saving. */
   token: z.string().min(1),
 });
 
@@ -85,7 +85,7 @@ const autoConfigureDomainInput = z.object({
 
 const autoConfigureDomainOutput = z.object({
   ok: z.boolean(),
-  /** Cloudflare record IDs we created/updated — surfaced so the operator
+  /** Cloudflare record IDs we created/updated. Surfaced so the operator
    *  knows exactly which records are now under otterdeploy management. */
   txtRecordId: z.string().nullable(),
   aRecordId: z.string().nullable(),
@@ -107,7 +107,7 @@ const verifyBaseDomainOutput = z.object({
   recordName: z.string(),
   /** Token the TXT record value must match. */
   expected: z.string(),
-  /** TXT values the resolver actually returned — empty when no record
+  /** TXT values the resolver actually returned. Empty when no record
    *  exists. Drives "we saw X, expected Y" diagnostics. */
   found: z.array(z.string()),
   reason: z.enum(["ok", "no-record", "value-mismatch", "lookup-failed", "missing-token"]),
@@ -118,7 +118,7 @@ const verifyBaseDomainOutput = z.object({
 });
 
 // ─── Control-plane domain (platform-wide) ────────────────────────────
-// The domain this dashboard itself answers on — stored on the
+// The domain this dashboard itself answers on, stored on the
 // platform_settings singleton, surfaced under org settings alongside the
 // (per-org) base domain so operators find both in one place.
 const controlPlaneDomainSchema = z.object({
@@ -162,12 +162,12 @@ const autoConfigureControlPlaneOutput = z.object({
 // All live on the platform_settings singleton; surfaced on the Instance page.
 const serverIpSchema = z.object({
   serverIp: z.string().nullable(),
-  /** True when env SERVER_IP is set — it re-applies on every boot, so a UI
+  /** True when env SERVER_IP is set. It re-applies on every boot, so a UI
    *  edit would be overwritten. The UI disables the input and says so. */
   envOverride: z.boolean(),
 });
 
-// Loose IP shape (v4 dotted-quad or v6 hex+colons) — mirrors the boot-time
+// Loose IP shape (v4 dotted-quad or v6 hex+colons): mirrors the boot-time
 // detector's sanity check, not a full RFC validation. Empty string clears.
 const IP_RE = /^((\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]*:[0-9a-fA-F:]*)$/;
 const setServerIpInput = z.object({
@@ -197,13 +197,13 @@ const setEdgeOptionsInput = z.object({
 // the env var as the seed/fallback; see
 // packages/api/src/lib/platform-runtime-settings.ts for the resolution rule.
 // Secrets are write-only here exactly like the email transport: a string sets
-// it, null clears it, omitting it leaves it — reads return `*Configured`.
+// it, null clears it, omitting it leaves it. Reads return `*Configured`.
 
 const registrationModeEnum = z.enum(["invite-only", "open"]);
 
 const accessSettingsSchema = z.object({
   registrationMode: registrationModeEnum,
-  /** True once an account exists — before that the install is still in
+  /** True once an account exists. Before that the install is still in
    *  bootstrap and the mode is moot, which the card explains. */
   bootstrapComplete: z.boolean(),
 });
@@ -226,7 +226,7 @@ const socialProviderSchema = z.object({
   issuer: z.string().nullable(),
   /** Both halves come from env, so the provider works with nothing stored. */
   envConfigured: z.boolean(),
-  /** Registered on the live auth instance right now — the single honest
+  /** Registered on the live auth instance right now. The single honest
    *  answer to "is this button on the sign-in page?". */
   live: z.boolean(),
 });
@@ -245,7 +245,7 @@ const crowdsecSettingsSchema = z.object({
   lapiUrl: z.string().nullable(),
   bouncerKeyConfigured: z.boolean(),
   envConfigured: z.boolean(),
-  /** Whether credentials resolve AND the toggle is on — i.e. whether the next
+  /** Whether credentials resolve AND the toggle is on. I.e. whether the next
    *  reconcile will actually render the edge gate. */
   effective: z.boolean(),
 });

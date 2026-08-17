@@ -2,7 +2,7 @@
  * Stages a database deletion in the project manifest. The actual swarm
  * teardown happens when the user clicks Deploy on the pending-changes
  * bar (manifest.apply). This way deletes surface in the same place as
- * every other pending change — no second code path.
+ * every other pending change, no second code path.
  */
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
@@ -36,7 +36,7 @@ export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
   return (
     <SettingsCard
       title="Danger zone"
-      description="Permanent — the volume, swarm service, and proxy route are all torn down."
+      description="Permanent. The volume, swarm service, and proxy route are all torn down."
     >
       <div className="flex items-center justify-between gap-3 px-3 py-2.5">
         <div className="flex flex-col">

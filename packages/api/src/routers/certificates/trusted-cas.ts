@@ -1,5 +1,5 @@
 /**
- * Trusted-CA store handlers — upload (validated as an actual CA via
+ * Trusted-CA store handlers. Upload (validated as an actual CA via
  * basicConstraints), list, delete. Split out of handlers.ts, which keeps
  * the custom-certificate write path.
  */
@@ -29,7 +29,7 @@ export async function uploadTrustedCa(
     return Result.err(
       new TrustedCaInvalidError({
         message:
-          "this certificate is not a CA (basicConstraints CA:TRUE missing) — for a server certificate use Upload custom instead",
+          "this certificate is not a CA (basicConstraints CA:TRUE missing). For a server certificate use Upload custom instead",
       }),
     );
   }

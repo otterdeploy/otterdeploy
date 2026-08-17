@@ -1,4 +1,4 @@
-# Auth Screens & Organizations — Implementation Plan
+# Auth Screens & Organizations: Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -15,24 +15,24 @@
 ## File Structure
 
 **Created:**
-- `apps/web/src/features/auth/components/auth-shell.tsx` — center-card layout shared by all three auth routes
+- `apps/web/src/features/auth/components/auth-shell.tsx`: center-card layout shared by all three auth routes
 - `apps/web/src/features/auth/components/sign-in-form.tsx`
 - `apps/web/src/features/auth/components/sign-up-form.tsx`
 - `apps/web/src/features/auth/components/create-organization-form.tsx`
-- `apps/web/src/routes/_auth/onboarding/create-organization.tsx` — new route
-- `apps/web/src/features/shell/components/sidebar/organization-sidebar.tsx` — replaces `workspace-sidebar.tsx`
+- `apps/web/src/routes/_auth/onboarding/create-organization.tsx`: new route
+- `apps/web/src/features/shell/components/sidebar/organization-sidebar.tsx`: replaces `workspace-sidebar.tsx`
 
 **Modified:**
-- `packages/auth/src/index.ts` — add `organization` plugin
-- `packages/db/src/schema/auth.ts` — add `organization` / `member` / `invitation` drizzle tables
-- `packages/shared/src/id.ts` — add `organization`, `member`, `invitation` ID prefixes
-- `apps/web/src/routes/_auth/layout.tsx` — `beforeLoad` session check + render `AuthShell`
-- `apps/web/src/routes/_auth/sign-in.tsx` — render `SignInForm`
-- `apps/web/src/routes/_auth/sign-up.tsx` — render `SignUpForm`
-- `apps/web/src/routes/_app/layout.tsx` — real session + orgs gate
-- `apps/web/src/routes/_app/index.tsx` — redirect to active org slug
-- `apps/web/src/features/shell/components/sidebar/index.tsx` — re-export rename
-- `apps/web/src/features/shell/components/site-header.tsx` — use `orgSlug` instead of `workspaceId`
+- `packages/auth/src/index.ts`: add `organization` plugin
+- `packages/db/src/schema/auth.ts`: add `organization` / `member` / `invitation` drizzle tables
+- `packages/shared/src/id.ts`: add `organization`, `member`, `invitation` ID prefixes
+- `apps/web/src/routes/_auth/layout.tsx`: `beforeLoad` session check + render `AuthShell`
+- `apps/web/src/routes/_auth/sign-in.tsx`: render `SignInForm`
+- `apps/web/src/routes/_auth/sign-up.tsx`: render `SignUpForm`
+- `apps/web/src/routes/_app/layout.tsx`: real session + orgs gate
+- `apps/web/src/routes/_app/index.tsx`: redirect to active org slug
+- `apps/web/src/features/shell/components/sidebar/index.tsx`: re-export rename
+- `apps/web/src/features/shell/components/site-header.tsx`: use `orgSlug` instead of `workspaceId`
 
 **Renamed / moved:**
 - `apps/web/src/routes/_app/$workspaceId/` → `apps/web/src/routes/_app/$orgSlug/` (entire subtree, 8 files)
@@ -152,7 +152,7 @@ bunx @better-auth/cli@latest generate --config packages/auth/src/index.ts --outp
 cat /tmp/auth-schema.txt
 ```
 
-This shows the field set for `organization`, `member`, and `invitation` tables. Use it as the source of truth for field names and types — the steps below match the plugin's defaults at the time of writing.
+This shows the field set for `organization`, `member`, and `invitation` tables. Use it as the source of truth for field names and types. The steps below match the plugin's defaults at the time of writing.
 
 - [ ] **Step 2: Append tables to the auth schema**
 
@@ -883,7 +883,7 @@ cd apps/web && bun x tsr generate && cd ../..
 bun turbo typecheck --filter=web-demo
 ```
 
-Expected: clean. (The `/$orgSlug` reference inside the form will compile only after Task 9 — for now `tsr generate` will keep the existing `$workspaceId` route; the path is still typed because `to: "/$orgSlug"` will surface a router-type error if the rename is reverted. If this step fails, proceed and re-verify after Task 9.)
+Expected: clean. (The `/$orgSlug` reference inside the form will compile only after Task 9, for now `tsr generate` will keep the existing `$workspaceId` route; the path is still typed because `to: "/$orgSlug"` will surface a router-type error if the rename is reverted. If this step fails, proceed and re-verify after Task 9.)
 
 If `to: "/$orgSlug"` fails type-checking at this point, change it temporarily to:
 
@@ -904,7 +904,7 @@ git commit -m "feat(web/auth): add organization onboarding route"
 
 ---
 
-## Task 8: `_auth` layout — redirect signed-in users
+## Task 8: `_auth` layout, redirect signed-in users
 
 **Files:**
 - Modify: `apps/web/src/routes/_auth/layout.tsx`
@@ -963,7 +963,7 @@ Expected: `git status` shows 8 files as renames.
 
 - [ ] **Step 2: Update each file's `createFileRoute` path and param parser**
 
-Edit `apps/web/src/routes/_app/$orgSlug/layout.tsx` — replace the param parser and the route path. New content:
+Edit `apps/web/src/routes/_app/$orgSlug/layout.tsx`: replace the param parser and the route path. New content:
 
 ```tsx
 import { OrganizationSidebar } from "@/features/shell/components/sidebar";
@@ -1030,7 +1030,7 @@ function RouteComponent() {
 }
 ```
 
-Note `OrganizationSidebar` is created/renamed in Task 11; until then this file will not type-check. That's expected — the type-check step in this task only runs `tsr generate`, not full `typecheck`.
+Note `OrganizationSidebar` is created/renamed in Task 11; until then this file will not type-check. That's expected. The type-check step in this task only runs `tsr generate`, not full `typecheck`.
 
 - [ ] **Step 3: Update remaining route file paths**
 
@@ -1070,7 +1070,7 @@ function RouteComponent() {
 }
 ```
 
-(The previous version iterated over a fake `workspace.projects` array — that field doesn't exist on the real `Organization` shape. The follow-up project-data spec restores a real listing.)
+(The previous version iterated over a fake `workspace.projects` array, that field doesn't exist on the real `Organization` shape. The follow-up project-data spec restores a real listing.)
 
 - [ ] **Step 4: Regenerate the route tree**
 
@@ -1323,7 +1323,7 @@ Expected: server running on the api hostname, web running on its portless hostna
 
 - [ ] **Step 2: Sign-up flow**
 
-1. Visit the web URL — should land on `/sign-in` (no session).
+1. Visit the web URL: should land on `/sign-in` (no session).
 2. Click "Create an account" → `/sign-up`.
 3. Submit name + email + password (≥8 chars).
 4. Expect redirect to `/onboarding/create-organization`.
@@ -1346,7 +1346,7 @@ Expected: server running on the api hostname, web running on its portless hostna
 - [ ] **Step 5: Cross-org URL guard**
 
 1. While signed in as the first user, manually visit `/<second-user-slug>`.
-2. Expect a redirect back to `/<first-org-slug>` (the `notFound()` in `$orgSlug/layout.tsx` triggers the parent error handler — verify your default `notFoundComponent` behaves as you want; if it 404s instead of redirecting, that's also acceptable per the spec).
+2. Expect a redirect back to `/<first-org-slug>` (the `notFound()` in `$orgSlug/layout.tsx` triggers the parent error handler, verify your default `notFoundComponent` behaves as you want; if it 404s instead of redirecting, that's also acceptable per the spec).
 
 - [ ] **Step 6: Bad creds**
 
@@ -1356,7 +1356,7 @@ Expected: server running on the api hostname, web running on its portless hostna
 
 - [ ] **Step 7: Final commit**
 
-Nothing to commit if the manual checks all pass — close the loop with a clean working tree:
+Nothing to commit if the manual checks all pass. Close the loop with a clean working tree:
 
 ```bash
 git status
@@ -1368,7 +1368,7 @@ Expected: clean.
 
 ## Self-Review
 
-- **Spec coverage** — every section of the spec maps to at least one task:
+- **Spec coverage**: every section of the spec maps to at least one task:
   - 3.1 plugin → Task 2; 3.2 schema → Task 3; 3.3 session shape uses Task 3's
     `active_organization_id` column.
   - 4.1 client already exists (no task needed, called out in spec).
@@ -1376,27 +1376,27 @@ Expected: clean.
     directory rename → Task 9. 4.5 sidebar/component renames → Tasks 10, 11.
     4.6 visual layout → Task 4.
   - 5.x data flows are exercised by the Task 13 checklist.
-  - 6 error handling — forms in Tasks 5, 6, 7 all surface
+  - 6 error handling: forms in Tasks 5, 6, 7 all surface
     `result.error.message`; loader errors in Tasks 8, 12 use `throw redirect`
     and `throw new Error`.
-  - 7 testing — Task 13 is the manual checklist; no new vitest suites by spec
+  - 7 testing: Task 13 is the manual checklist; no new vitest suites by spec
     decision.
-  - 8 rollout — `bun db:push` in Task 3; no flag.
+  - 8 rollout: `bun db:push` in Task 3; no flag.
 
-- **Placeholder scan** — no TBDs or "TODO"s. The one conditional fallback
+- **Placeholder scan**, no TBDs or "TODO"s. The one conditional fallback
   in Task 7 step 3 (using `to: "/"` if `/$orgSlug` doesn't yet type-check)
   is bounded and resolved by Task 9.
 
-- **Type consistency** —
+- **Type consistency**:
   - `Organization` type defined in Task 12, referenced by Task 9's loader
     (which uses the route-context `organizations` array).
   - `orgSlug` param name is consistent across Tasks 7, 9, 10, 11, 12.
-  - `authClient.organization.create` returns `{ data: { id, slug, ... } }` —
+  - `authClient.organization.create` returns `{ data: { id, slug, ... } }`,
     Task 7 uses both `id` (for `setActive`) and `slug` (for navigation).
   - `OrganizationSidebar` is exported from the barrel in Task 11 and
     imported by the renamed layout in Task 9.
 
-- **Order safety** — Tasks 9, 10, 11 leave the tree in an intentionally
+- **Order safety**: Tasks 9, 10, 11 leave the tree in an intentionally
   non-type-checking state between commits, but each tier of the rename is
   one logical unit and Task 12 explicitly verifies the whole tree compiles
   before declaring done. If you need green-on-every-commit, fold Tasks

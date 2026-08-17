@@ -6,9 +6,9 @@
  *
  * Three flavours, depending on what the caller knows:
  *
- *   - by provider id          — the row id itself
- *   - by installation id      — joined via `git_installation.providerId`
- *   - by external app id      — webhook routing via the
+ *   - by provider id: the row id itself
+ *   - by installation id, joined via `git_installation.providerId`
+ *   - by external app id: webhook routing via the
  *                                X-GitHub-Hook-Installation-Target-ID header
  *
  * Plus an "if present" variant for the org's GitHub provider, used by the
@@ -20,17 +20,50 @@ import type { GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
+import { TaggedError } from "better-result";
 import { and, eq } from "drizzle-orm";
 
 import { decryptForDomain } from "../lib/crypto";
-import {
-  apiBaseUrlForHost,
-  type GithubAppConfig,
-  type GithubAppConfigWithWebhookSecret,
-  GithubAppNotConfiguredError,
-} from "./github-app";
 
 type OrgId = OrganizationId;
+
+/**
+ * Everything needed to authenticate as a specific GitHub App. Loaded from a
+ * `git_provider` row; the helpers in `github-app-config.ts` produce one per
+ * call so secrets stay in memory only for the duration of an API call.
+ */
+export interface GithubAppConfig {
+  /** Numeric App ID GitHub assigns (stored as text, GitHub returns it stringified). */
+  appId: string;
+  /** PEM-encoded RSA private key for signing App JWTs. */
+  privateKeyPem: string;
+  /** Resolved API base, github.com → api.github.com; GHE → {host}/api/v3. */
+  apiBaseUrl: string;
+}
+
+/** App config plus webhook secret: only loaded by the webhook receiver. */
+export interface GithubAppConfigWithWebhookSecret extends GithubAppConfig {
+  webhookSecret: string;
+  /** Provider id, surfaced so the webhook handler can scope its logging. */
+  providerId: GitProviderId;
+}
+
+export class GithubAppNotConfiguredError extends TaggedError("GithubAppNotConfiguredError")<{
+  message: string;
+}>() {
+  constructor(reason?: string) {
+    super({
+      message: `GitHub App not configured${reason ? ` (${reason})` : ""}: create one via the manifest flow in Settings → Git Providers`,
+    });
+  }
+}
+
+/** github.com → api.github.com; GHE host → host/api/v3. Exported so the
+ *  config loaders can build the URL without re-deriving the rule. */
+export function apiBaseUrlForHost(host: string): string {
+  if (host === "github.com") return "https://api.github.com";
+  return `https://${host}/api/v3`;
+}
 
 /** Look up + decrypt by provider row id (the path most callers take). */
 export async function loadGithubAppForProvider(
@@ -56,8 +89,8 @@ export async function loadGithubAppForInstallation(
   return loadGithubAppForProvider(inst.providerId);
 }
 
-/** Look up by org's GitHub provider row, if any. Returns null when absent
- *  — the connect callback uses this to fail with a typed error rather than
+/** Look up by org's GitHub provider row, if any. Returns null when absent.
+ *  The connect callback uses this to fail with a typed error rather than
  *  blowing up on a missing row. */
 export async function loadGithubAppForOrgIfPresent(orgId: OrgId): Promise<GithubAppConfig | null> {
   const [row] = await db

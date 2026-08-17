@@ -1,5 +1,5 @@
 /**
- * React-Query layer over `metrics.query` — recent CPU / memory / network
+ * React-Query layer over `metrics.query`: recent CPU / memory / network
  * samples for one resource. The server returns raw 30s samples (cumulative
  * network counters, Docker-style CPU percent); this hook derives the
  * per-second network rates and memory ratio the charts actually plot, and
@@ -7,7 +7,7 @@
  * card headers.
  *
  * `resourceId` is typed `string` and cast at the oRPC call boundary
- * (`never` is assignable to any input type) — same convention as the data
+ * (`never` is assignable to any input type). Same convention as the data
  * viewer's `use-database` hooks.
  */
 
@@ -27,7 +27,7 @@ export const METRIC_WINDOWS = [
 
 export type MetricWindowLabel = (typeof METRIC_WINDOWS)[number]["label"];
 
-/** Sampler cadence (apps/server `startMetricsSampler`) — we refetch in step. */
+/** Sampler cadence (apps/server `startMetricsSampler`): we refetch in step. */
 const SAMPLE_INTERVAL_MS = 30_000;
 
 /** One charted sample: server fields plus the derived ratio + rates. */
@@ -60,7 +60,7 @@ export interface ResourceMetrics {
   summary: MetricSummary;
   isLoading: boolean;
   isError: boolean;
-  /** Epoch ms of the last successful fetch — drives the "updated" caption. */
+  /** Epoch ms of the last successful fetch. Drives the "updated" caption. */
   updatedAt: number;
 }
 
@@ -91,7 +91,8 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
 
   const { rows, summary } = (() => {
     if (!points || points.length === 0) {
-      return { rows: [] as MetricRow[], summary: EMPTY_SUMMARY };
+      const empty: MetricRow[] = [];
+      return { rows: empty, summary: EMPTY_SUMMARY };
     }
 
     const rows: MetricRow[] = points.map((p, i) => {

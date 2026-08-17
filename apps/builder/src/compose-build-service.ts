@@ -102,7 +102,7 @@ export function buildComposeService(args: {
         catch: (cause) => new BuildStepError({ step: `push:${serviceName}`, cause }),
       });
     } else {
-      sink.system(`local build — skipping push for ${image.shaTag}`);
+      sink.system(`local build; skipping push for ${image.shaTag}`);
     }
 
     return Result.ok(image.shaTag);

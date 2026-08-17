@@ -1,8 +1,8 @@
 /**
  * Resolve the outbound email transport from platform settings, with an env
  * fallback. Read at send time (briefly cached) so a config change in the UI
- * takes effect without a restart, and so EVERY sender — better-auth invites,
- * the email job queue, notification channels without their own creds — picks
+ * takes effect without a restart, and so EVERY sender. Better-auth invites,
+ * the email job queue, notification channels without their own creds. Picks
  * up the configured transport through one path.
  */
 
@@ -28,7 +28,7 @@ export interface SmtpTransport {
   user?: string;
   pass?: string;
 }
-/** No usable transport — neither the UI nor env supplies a provider. Sends
+/** No usable transport: neither the UI nor env supplies a provider. Sends
  *  surface a clear "email isn't configured" error instead of a doomed attempt. */
 export interface NoTransport {
   provider: "none";
@@ -38,13 +38,13 @@ export type ResolvedTransport = ResendTransport | SmtpTransport | NoTransport;
 const TTL_MS = 30_000;
 let cache: { value: ResolvedTransport; at: number } | null = null;
 
-/** Drop the cached transport so the next send re-reads settings — call after
+/** Drop the cached transport so the next send re-reads settings. Call after
  *  the settings mutation persists. */
 export function invalidateTransport(): void {
   cache = null;
 }
 
-/** The env-derived default: Resend with the boot-time key — or "none" when no
+/** The env-derived default: Resend with the boot-time key, or "none" when no
  *  RESEND_API_KEY is set (self-hosted installs may configure email later, or
  *  use SMTP via the UI, or not send email at all). */
 function envTransport(): ResolvedTransport {
@@ -64,7 +64,7 @@ async function load(): Promise<ResolvedTransport> {
     .limit(1)
     .then((r) => r[0])
     .catch((cause: unknown) => {
-      // Never let a settings read break email — fall back to env.
+      // Never let a settings read break email, fall back to env.
       log.warn({
         email: { transport: "settings-read-failed" },
         error: cause instanceof Error ? cause.message : String(cause),

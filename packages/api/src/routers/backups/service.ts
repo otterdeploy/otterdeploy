@@ -1,5 +1,5 @@
 /**
- * Backups service — thin org-scoped orchestration over `queries.ts`. Read
+ * Backups service: thin org-scoped orchestration over `queries.ts`. Read
  * handlers that can miss return `Result<T, E>` with a typed error the router
  * maps to an HTTP code; pure list handlers return arrays directly (mirrors the
  * env router split).
@@ -23,7 +23,7 @@ import {
 
 type BackupKind = "database" | "volume";
 
-/** The mutation response shape — destination view plus computed usage. */
+/** The mutation response shape: destination view plus computed usage. */
 export type DestinationResult = DestinationView & { usedBytes: number };
 
 export async function listBackups(

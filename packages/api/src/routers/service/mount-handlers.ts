@@ -1,5 +1,5 @@
 /**
- * Service persistent-volume mutations — `listVolumeMounts` / `addVolumeMount` /
+ * Service persistent-volume mutations: `listVolumeMounts` / `addVolumeMount` /
  * `removeVolumeMount`. A volume mount is one `service_mount` row of type
  * "volume": a docker named volume attached at a container path that survives
  * redeploys. The DB + runtime plumbing already exists (service_mount ->

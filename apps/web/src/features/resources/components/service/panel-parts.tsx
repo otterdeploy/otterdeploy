@@ -1,5 +1,5 @@
 /**
- * Presentational pieces for {@link ServiceResourcePanel} — pulled into a
+ * Presentational pieces for {@link ServiceResourcePanel}, pulled into a
  * sibling module so the panel component stays small. The header (pause /
  * restart / build / close), the status row, and the status badges live here;
  * the header's runtime action cluster lives in `panel-header-actions.tsx`.
@@ -65,7 +65,7 @@ export function ServicePanelHeader({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {/* Runtime actions need a deployed service — omit them while the
+        {/* Runtime actions need a deployed service, omit them while the
             service is still a staged create (Deploy from the pending bar). */}
         {pending ? null : (
           <HeaderActions
@@ -102,7 +102,7 @@ export function ServiceStatusBar({
   replicas: number;
   publicEnabled: boolean;
   publicDomain: string | null;
-  /** Non-null = paused. Undefined while the live view is loading — the bar
+  /** Non-null = paused. Undefined while the live view is loading, the bar
    *  falls back to the plain resource status rather than guessing. */
   pausedReplicas?: number | null;
 }) {

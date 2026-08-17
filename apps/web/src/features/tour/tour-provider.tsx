@@ -1,18 +1,18 @@
 /**
- * Product tour — provider, engine, and the hook the rest of the app starts it
+ * Product tour: provider, engine, and the hook the rest of the app starts it
  * from.
  *
  * driver.js drives one flat step list; everything route-shaped is ours:
  *
  *   - **Cross-route steps.** A step may name a route. Navigation happens on
  *     the click that leaves the previous step, then driver waits for the next
- *     step's element to mount (`waitForElement`) — so the tour walks the
+ *     step's element to mount (`waitForElement`), so the tour walks the
  *     operator through the real app rather than describing it from one page.
  *   - **Missing anchors never dead-end.** `skipMissingElement` means a surface
  *     that isn't rendered for this viewer (an install-admin-only nav item, a
  *     button that needs a project) is stepped over instead of stalling the
  *     tour on an element that will never appear.
- *   - **Copy is translated at build time**, not baked into the step list —
+ *   - **Copy is translated at build time**, not baked into the step list.
  *     `t()` is called when the driver step is constructed, so the tour speaks
  *     whatever language the user picked.
  *
@@ -58,9 +58,9 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { activeOrgSlug, isInstallAdmin } = useRouteContext({ from: "/_app" });
-  // `strict: false` — the tour is mounted above the routes that own these
+  // `strict: false`: the tour is mounted above the routes that own these
   // params, so it reads whichever are present on the current match.
-  const params = useParams({ strict: false }) as { orgSlug?: string; projectSlug?: string };
+  const params: { orgSlug?: string; projectSlug?: string } = useParams({ strict: false });
 
   // Both collections are preloaded by the layouts below this one, so these are
   // cheap subscriptions rather than fetches. They decide which chapters apply:
@@ -92,8 +92,8 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   // re-render mid-tour can't swap the engine out from under the user.
   const driverRef = useRef<Driver | null>(null);
 
-  // Destroy an in-flight tour if the provider unmounts (sign-out, org switch)
-  // — otherwise the overlay outlives the app tree that anchored it.
+  // Destroy an in-flight tour if the provider unmounts (sign-out, org switch),
+  // otherwise the overlay outlives the app tree that anchored it.
   useEffect(() => {
     return () => {
       driverRef.current?.destroy();
@@ -145,7 +145,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       steps: driveSteps,
       popoverClass: "otterdeploy-tour",
       showProgress: true,
-      // "3 of 14" — mono, and translated so the connector word is right.
+      // "3 of 14": mono, and translated so the connector word is right.
       progressText: t("tour.progress", "{{current}} of {{total}}"),
       nextBtnText: t("tour.next", "Next"),
       prevBtnText: t("tour.previous", "Back"),

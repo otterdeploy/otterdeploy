@@ -3,7 +3,7 @@
  *
  * READS go through our own org-scoped `sso.listProviders` (see
  * packages/api/src/routers/sso/index.ts). That router delegates to the plugin
- * for authorization and redaction — it never re-implements either — and adds
+ * for authorization and redaction (it never re-implements either) and adds
  * only the workspace scope, so a settings page cannot receive a different
  * workspace's identity-provider metadata.
  *
@@ -33,8 +33,8 @@ const ssoProvidersKey = (organizationId: string) => ["sso", "providers", organiz
  * The workspace's registered identity providers.
  *
  * Reads through our own org-scoped `sso.listProviders` rather than better-auth's
- * `/sso/providers` directly. The plugin endpoint is correctly authorized — it
- * only returns providers for organizations where you are an admin — but it
+ * `/sso/providers` directly. The plugin endpoint is correctly authorized. It
+ * only returns providers for organizations where you are an admin, but it
  * returns them for ALL such organizations, and this page needs exactly one.
  *
  * Narrowing that in the browser was the wrong shape: a `.filter()` here is
@@ -48,7 +48,7 @@ export function useSsoProviders(organizationId: string) {
     ...orpc.sso.listProviders.queryOptions({ input: {} }),
     queryKey: ssoProvidersKey(organizationId),
     // The page renders this failure inline via ErrorState, so opt out of the
-    // global error toast in shared/server/orpc.ts — otherwise the same error is
+    // global error toast in shared/server/orpc.ts: otherwise the same error is
     // reported twice, once in the body and once in a toast with its own
     // competing retry button.
     meta: { suppressErrorToast: true },

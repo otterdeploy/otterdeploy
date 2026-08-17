@@ -1,5 +1,5 @@
 /**
- * A string `command:` in Compose is word-split into argv — it is NOT wrapped in
+ * A string `command:` in Compose is word-split into argv. It is NOT wrapped in
  * `/bin/sh -c`. That wrapping is DOCKERFILE shell-form semantics, and applying
  * it here broke every image carrying its own ENTRYPOINT: the wrapper became the
  * entrypoint's first argument. Authentik (`command: server`, entrypoint
@@ -39,7 +39,7 @@ describe("splitCommandString", () => {
 
   it("keeps a quoted shell script intact for an explicit sh -c", () => {
     // Plausible's shape: the operator asked for a shell, so they get exactly
-    // one — not a shell inside the shell we used to add.
+    // one, not a shell inside the shell we used to add.
     expect(splitCommandString('sh -c "db migrate && run"')).toEqual([
       "sh",
       "-c",

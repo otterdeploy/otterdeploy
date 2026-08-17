@@ -6,7 +6,7 @@
  * cross-cutting actions (snippet selection, open-in-SQL, the ⌘K spotlight).
  *
  * The editor imperative handle (`editorRef`) is intentionally NOT part of the
- * returned controller — keeping a ref out of the shared object stops the views
+ * returned controller. Keeping a ref out of the shared object stops the views
  * from tripping the "no ref access during render" rule. The owning component
  * holds the ref and passes it to the SQL view + spotlight directly.
  *
@@ -62,7 +62,7 @@ function useTableData(resource: Resource) {
   const where = buildWhere(filters);
   const tableSql = selected ? browseRowsSql(selected, where, pageSize + 1, page * pageSize) : "";
 
-  // Table-browse rows only — authored console SQL runs through `useSqlRuns`
+  // Table-browse rows only, authored console SQL runs through `useSqlRuns`
   // below (run-scoped, uncached, never retried), so its results and errors are
   // keyed to each individual run.
   const tableRowsQuery = useQueryRows({
@@ -73,7 +73,7 @@ function useTableData(resource: Resource) {
     keepPrevious: true,
   });
 
-  // Column metadata + write access for the open table — see
+  // Column metadata + write access for the open table. See
   // ./use-data-studio-tables.
   const { columnVariants, columnFks, columnTypes, canWrite, primaryKey, editable } =
     useOpenTableAccess({ resourceId: resourceIdStr, table: selected, mode });
@@ -134,7 +134,8 @@ function useTableData(resource: Resource) {
   };
   // Switch back to the (primary) table-browse view from the SQL playground.
   const backToTable = () => {
-    if (!selected && tables.length > 0) openTable(tables[0] as TableRef);
+    const first = tables[0];
+    if (!selected && first) openTable(first);
     else setMode("table");
   };
   const changeFilters = (next: Filter[]) => {
@@ -154,7 +155,7 @@ function useTableData(resource: Resource) {
     }
   }, [selected, tables]);
 
-  // Results pane source — see ./use-data-studio-console.
+  // Results pane source: see ./use-data-studio-console.
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
 
   return {
@@ -191,7 +192,7 @@ function useTableData(resource: Resource) {
     primaryKey,
     editable,
     // Toolbar only reads `.isPending` (disables the Write switch mid-run and
-    // swaps its label) — see studio-sql-toolbar.tsx.
+    // swaps its label): see studio-sql-toolbar.tsx.
     executeSql: { isPending: writeRunning },
     onUpdateRow,
     onDeleteRow,
@@ -213,13 +214,13 @@ export function useDataStudio(resource: Resource, shortcuts: boolean) {
   const table = useTableData(resource);
 
   // The SQL playground is a three-pane resizable shell. On a phone a 20% rail
-  // is ~75px — too narrow to read a snippet name and it starves the editor, so
+  // is ~75px. Too narrow to read a snippet name and it starves the editor, so
   // the snippets rail starts closed below `md`. The toolbar toggle still opens
   // it on demand; only the DEFAULT differs.
   const [showLeft, setShowLeft] = useState(
     () => typeof window === "undefined" || window.innerWidth >= 768,
   );
-  // The schema explorer is opt-in — closed until toggled from the toolbar.
+  // The schema explorer is opt-in. Closed until toggled from the toolbar.
   const [showRight, setShowRight] = useState(false);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
 
@@ -246,9 +247,9 @@ export function useDataStudio(resource: Resource, shortcuts: boolean) {
     table.setMode("sql");
   };
 
-  // ⌘K — only the visible studio listens (`enabled` is synced every render).
+  // ⌘K: only the visible studio listens (`enabled` is synced every render).
   // The global command palette also registers Mod+K (features/command-palette);
-  // that's intentional — this one only fires while the Data studio is mounted
+  // that's intentional. This one only fires while the Data studio is mounted
   // and `shortcuts` is enabled, so `conflictBehavior: "allow"` silences the
   // (correct, but noisy on every load) "already registered" console warning
   // instead of the two hooks racing to unregister each other.

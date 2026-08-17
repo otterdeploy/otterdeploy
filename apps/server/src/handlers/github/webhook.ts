@@ -10,7 +10,7 @@
  * - Dispatches the parsed event to the package-level handler in
  *   `@otterdeploy/api/git`.
  *
- * Always responds 2xx once the signature passes — GitHub retries on any
+ * Always responds 2xx once the signature passes. GitHub retries on any
  * non-2xx and we don't want a transient handler error to repeatedly
  * re-create deployment rows. Handler failures are logged and surfaced in
  * the response body but the status stays 200.
@@ -46,7 +46,7 @@ export const githubWebhookHandler: Handler = async (c) => {
 
   // Look up which org's provider row owns this App. If no row matches,
   // the App is unknown to us (someone else's webhook hit our endpoint by
-  // mistake, or the provider was deleted) — reply 404 so GitHub stops
+  // mistake, or the provider was deleted). Reply 404 so GitHub stops
   // retrying.
   const appConfig = await loadGithubAppByExternalAppIdForWebhook(targetAppId);
   if (!appConfig) {
@@ -77,7 +77,7 @@ export const githubWebhookHandler: Handler = async (c) => {
   }
 
   const parsed = Result.try({
-    try: () => JSON.parse(new TextDecoder().decode(rawBody)) as unknown,
+    try: (): unknown => JSON.parse(new TextDecoder().decode(rawBody)),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
   });
   if (parsed.isErr()) {
@@ -97,7 +97,7 @@ export const githubWebhookHandler: Handler = async (c) => {
         error: parsedErr.message,
       },
     });
-    // 200 on purpose — see file header.
+    // 200 on purpose: see file header.
     return c.json({ ok: false, error: parsedErr.message });
   }
 

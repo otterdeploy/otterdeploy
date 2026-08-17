@@ -1,18 +1,18 @@
 /**
- * Deploy crash watcher — turns container `die`/`oom` events into a visible
+ * Deploy crash watcher. Turns container `die`/`oom` events into a visible
  * story instead of a silent status flip the user only notices by staring at
  * a badge.
  *
  * For every managed container that dies abnormally it:
- *   1. Appends a `system` line to the deployment's log ("exited (code 1) —
+ *   1. Appends a `system` line to the deployment's log ("exited (code 1),
  *      restarting, attempt 2 of 5" / "gave up after 5 restart attempts"), so
  *      the deployment timeline SHOWS each retry and the moment the restart
- *      policy gave up — the exact trail an operator needs to answer "why".
+ *      policy gave up. The exact trail an operator needs to answer "why".
  *   2. Publishes resource-changed so the UI re-derives status immediately
  *      (crashed badge without waiting for the 5s poll).
  *   3. Emits a `deploy.crashed` platform event (once per deployment) when the
  *      restart policy is exhausted, disabled, or the container has died 3+
- *      times — feeding the notification channels.
+ *      times, feeding the notification channels.
  *
  * Event-driven via the shared docker /events singleton (no extra daemon
  * connection); works for both runtimes. Plain docker restarts one container in
@@ -20,18 +20,18 @@
  * tasks (each new container dies once), so attempts are counted per
  * deployment id instead.
  *
- * Best-effort by contract: every step swallows its own errors — a watcher
+ * Best-effort by contract: every step swallows its own errors. A watcher
  * hiccup must never affect deploys. In-memory state only; a control-plane
  * restart at worst re-notifies one crash loop.
  */
 
-import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
-import { canonicalId } from "@otterdeploy/shared/id";
+import { idSchema } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { log } from "evlog";
@@ -48,12 +48,12 @@ import { publishResourceChanged } from "./project-event-bus";
 const NOTIFY_DIE_THRESHOLD = 3;
 
 /** Exit codes that mean "stopped", not "crashed": 0 = clean exit, 143 =
- *  128+SIGTERM (docker stop — every redeploy stops the old container). */
+ *  128+SIGTERM (docker stop, every redeploy stops the old container). */
 const STOP_EXIT_CODES = new Set([0, 143]);
 
 interface DieContext {
-  deploymentId: string;
-  resourceId: string;
+  deploymentId: DeploymentId;
+  resourceId: ResourceId;
   exitCode: number | null;
   /** Restarts performed so far (docker RestartCount at the moment of death). */
   attemptsSoFar: number;
@@ -78,7 +78,7 @@ function bumpDieCount(deploymentId: string): number {
 
 /** Dedupe key includes the phase so a deployment gets at most TWO alerts: one
  *  when the crash loop is first detected, one when the policy gives up for
- *  good — the actionable moment, which must not be swallowed by the first. */
+ *  good: the actionable moment, which must not be swallowed by the first. */
 function markNotified(deploymentId: string, phase: "looping" | "gave-up"): boolean {
   const key = `${deploymentId}:${phase}`;
   if (notified.has(key)) return false;
@@ -90,7 +90,7 @@ function markNotified(deploymentId: string, phase: "looping" | "gave-up"): boole
 // ─── message composition ─────────────────────────────────────────────────
 
 function exitPhrase(ctx: DieContext): string {
-  if (ctx.oomKilled) return "container was killed — out of memory (OOM)";
+  if (ctx.oomKilled) return "container was killed, out of memory (OOM)";
   return ctx.exitCode != null ? `container exited (code ${ctx.exitCode})` : "container exited";
 }
 
@@ -98,12 +98,12 @@ function exitPhrase(ctx: DieContext): string {
  *  moment the restart policy gave up. */
 function retryPhrase(ctx: DieContext): { line: string; gaveUp: boolean } {
   if (ctx.swarmManaged) {
-    // Swarm restarts by scheduling a NEW task — per-container counters don't
+    // Swarm restarts by scheduling a NEW task: per-container counters don't
     // apply; the derivation's failed-task threshold covers exhaustion.
     return { line: "swarm will reschedule a replacement task", gaveUp: false };
   }
   if (ctx.maxAttempts === 0) {
-    return { line: 'restart policy is "none" — not restarting', gaveUp: true };
+    return { line: 'restart policy is "none", not restarting', gaveUp: true };
   }
   const attempt = ctx.attemptsSoFar + 1;
   if (ctx.maxAttempts == null) {
@@ -111,7 +111,7 @@ function retryPhrase(ctx: DieContext): { line: string; gaveUp: boolean } {
   }
   if (ctx.attemptsSoFar >= ctx.maxAttempts) {
     return {
-      line: `gave up after ${ctx.attemptsSoFar} restart attempts (limit ${ctx.maxAttempts}) — service is down until redeployed`,
+      line: `gave up after ${ctx.attemptsSoFar} restart attempts (limit ${ctx.maxAttempts}). Service is down until redeployed`,
       gaveUp: true,
     };
   }
@@ -148,12 +148,12 @@ async function inspectRestartState(
   }
 }
 
-async function appendSystemLine(deploymentId: string, line: string): Promise<void> {
+async function appendSystemLine(deploymentId: DeploymentId, line: string): Promise<void> {
   await db
     .insert(deploymentLog)
-    // Runtime restart/health events are deploy-phase — they belong in Deploy
+    // Runtime restart/health events are deploy-phase. They belong in Deploy
     // Logs, not Build Logs.
-    .values({ deploymentId: deploymentId as DeploymentId, stream: "system", phase: "deploy", line })
+    .values({ deploymentId, stream: "system", phase: "deploy", line })
     .catch(() => undefined);
 }
 
@@ -164,7 +164,7 @@ async function notifyCrashed(
 ): Promise<void> {
   if (!markNotified(ctx.deploymentId, phase)) return;
   // The owning stack, when this resource is a compose member. Without it the
-  // alert reads `server: container exited` — and "server" is what Authentik,
+  // alert reads `server: container exited`, and "server" is what Authentik,
   // Supabase and half the catalog call their main container, so the one thing
   // the operator needs (WHICH stack) is the one thing missing.
   const stack = alias(resource, "stack");
@@ -182,12 +182,15 @@ async function notifyCrashed(
     // database has no serviceResource row at all. Neither may drop the alert.
     .leftJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .leftJoin(stack, eq(stack.id, serviceResource.stackId))
-    .where(eq(deployment.id, ctx.deploymentId as DeploymentId));
+    .where(eq(deployment.id, ctx.deploymentId));
   if (!info) return;
+  // The column is a plain-text FK; brand it via the schema rather than a cast.
+  const organizationId = idSchema.organization.safeParse(info.organizationId);
+  if (!organizationId.success) return;
   // `authentik / server` for a stack member, plain `web` for a standalone one.
   const label = info.stackName ? `${info.stackName} / ${info.resourceName}` : info.resourceName;
   await emitPlatformEvent({
-    organizationId: info.organizationId as OrganizationId,
+    organizationId: organizationId.data,
     eventId: "deploy.crashed",
     title: "Service crashed",
     message: `${label}: ${detail}`,
@@ -215,23 +218,28 @@ function isManagedDie(event: DockerEvent): event is ContainerEvent {
 async function handleDie(event: ContainerEvent): Promise<void> {
   // Labels are stamped at container creation and never rewritten, so a
   // container predating the ID-prefix shortening still reports the old
-  // spelling; canonicalise before either is used to look anything up.
-  const rawDeploymentId = event.labels["otterdeploy.deployment.id"];
-  const rawResourceId = event.labels["otterdeploy.resource.id"];
-  const deploymentId = rawDeploymentId ? canonicalId(rawDeploymentId) : rawDeploymentId;
-  const resourceId = rawResourceId ? canonicalId(rawResourceId) : rawResourceId;
-  if (!deploymentId || !resourceId) return;
+  // spelling; the idSchema parse canonicalises (and brands) both before
+  // either is used to look anything up.
+  const parsedDeploymentId = idSchema.deployment.safeParse(
+    event.labels["otterdeploy.deployment.id"],
+  );
+  const parsedResourceId = idSchema.resource.safeParse(event.labels["otterdeploy.resource.id"]);
+  if (!parsedDeploymentId.success || !parsedResourceId.success) return;
+  const deploymentId = parsedDeploymentId.data;
+  const resourceId = parsedResourceId.data;
 
-  const rawExit = (event.raw.Actor?.Attributes as Record<string, string> | undefined)?.exitCode;
+  const rawExit = event.raw.Actor?.Attributes?.exitCode;
   const exitCode = rawExit != null && rawExit !== "" ? Number(rawExit) : null;
 
-  const restartState = await inspectRestartState(event.containerId).catch(() => ({
-    attemptsSoFar: 0,
-    maxAttempts: null as number | null,
-    oomKilled: false,
-  }));
+  const restartState = await inspectRestartState(event.containerId).catch(
+    (): Awaited<ReturnType<typeof inspectRestartState>> => ({
+      attemptsSoFar: 0,
+      maxAttempts: null,
+      oomKilled: false,
+    }),
+  );
 
-  // Clean stops (exit 0 / SIGTERM) are redeploys or operator stops — not
+  // Clean stops (exit 0 / SIGTERM) are redeploys or operator stops, not
   // crashes. OOM kills report 137 and would look like a plain kill without
   // the inspect flag, so check it before discarding.
   if (exitCode != null && STOP_EXIT_CODES.has(exitCode) && !restartState.oomKilled) return;
@@ -247,9 +255,9 @@ async function handleDie(event: ContainerEvent): Promise<void> {
   };
 
   const retry = retryPhrase(ctx);
-  const line = `${exitPhrase(ctx)} — ${retry.line}`;
+  const line = `${exitPhrase(ctx)}: ${retry.line}`;
   await appendSystemLine(deploymentId, line);
-  void publishResourceChanged(resourceId as Parameters<typeof publishResourceChanged>[0]);
+  void publishResourceChanged(resourceId);
 
   const dies = bumpDieCount(deploymentId);
   if (retry.gaveUp || dies >= NOTIFY_DIE_THRESHOLD) {

@@ -1,5 +1,5 @@
 /**
- * Metrics read side — returns a resource's recent samples, org-scoped via a
+ * Metrics read side. Returns a resource's recent samples, org-scoped via a
  * join through resource → project so one tenant can't read another's series.
  */
 import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";

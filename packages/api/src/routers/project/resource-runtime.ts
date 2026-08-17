@@ -1,5 +1,5 @@
 /**
- * Generic per-resource runtime endpoints — tasks (deployment history) and
+ * Generic per-resource runtime endpoints: tasks (deployment history) and
  * env vars. Dispatches on resource kind so the same procedures work for
  * postgres, services, and any future engine.
  *
@@ -123,7 +123,7 @@ export async function listResourceTasks(
 
   const docker = Docker.fromEnv();
 
-  // A compose stack has no swarm service of its own — aggregate instances
+  // A compose stack has no swarm service of its own. Aggregate instances
   // across every `${stack}-${key}` child, tagging each task with its compose
   // sub-service so the panel can group per service.
   if (found.kind === "compose") {
@@ -148,7 +148,7 @@ export async function listResourceTasks(
   // Runtime-aware: swarm tasks, or plain-docker containers under the default
   // runtime (where docker.tasks.list would fail with "service not found").
   const instances = await collapseAndSort(docker, target.serviceName);
-  // Single-service runtime view — no compose sub-service breakdown here.
+  // Single-service runtime view, no compose sub-service breakdown here.
   return Result.ok(instances.map((t) => toTaskInfo(t, target.serviceName, null)));
 }
 
@@ -168,12 +168,13 @@ export async function listResourceEnv(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  // The stack resource holds no env of its own — each child service does.
+  // The stack resource holds no env of its own. Each child service does.
   if (found.kind === "compose") return Result.ok([]);
 
   if (found.kind === "database") {
     const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
-    const env = (record?.database.extraEnv ?? {}) as Record<string, string>;
+    // `extraEnv` is `$type<Record<string, string>>` on the schema already.
+    const env = record?.database.extraEnv ?? {};
     return Result.ok(Object.entries(env).map(([key, value]) => ({ key, value })));
   }
 
@@ -204,7 +205,7 @@ export async function bulkSetResourceEnv(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  // Env writes target a concrete service/database — never the stack resource
+  // Env writes target a concrete service/database, never the stack resource
   // itself (its children own their env). Reject rather than write junk rows.
   if (found.kind === "compose") {
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
@@ -215,7 +216,7 @@ export async function bulkSetResourceEnv(
     // postgres container picks up the new env on its next start.
     const next: Record<string, string> = {};
     for (const e of input.env) next[e.key] = e.value;
-    // Filter secretKeys to only those that still exist in `next` — guards
+    // Filter secretKeys to only those that still exist in `next`. Guards
     // against the editor sending a key that was deleted in the same save.
     const filteredSecrets = input.secretKeys?.filter((k) => k in next);
     await setDatabaseResourceExtraEnv(input.resourceId, next, filteredSecrets);
@@ -239,7 +240,7 @@ export async function bulkSetResourceEnv(
     return Result.ok(input.env);
   }
 
-  // service — reuse the existing service env path which handles bulk
+  // service: reuse the existing service env path which handles bulk
   // replace + ref fan-out. Redeploy is best-effort: we've already saved
   // the env and the next normal deploy picks it up.
   const secretSet = new Set(input.secretKeys ?? []);

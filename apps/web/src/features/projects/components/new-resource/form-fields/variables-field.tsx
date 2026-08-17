@@ -19,7 +19,7 @@ export interface Var {
   key: string;
   value: string;
   secret: boolean;
-  /** The stack/template declares this `${VAR}` with no default — a value must be
+  /** The stack/template declares this `${VAR}` with no default: a value must be
    *  set before it can deploy. Drives the required/optional indicator. Absent =
    *  operator-added / optional. */
   required?: boolean;

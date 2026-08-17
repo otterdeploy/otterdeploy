@@ -7,10 +7,10 @@
  *
  * Three depths are supported because a palette that only works in truecolor
  * silently renders as garbage over ssh into an older `TERM`:
- *   - `truecolor` — 24-bit `38;2;r;g;b`, what modern terminals report
- *   - `ansi256`   — nearest xterm-256 index, for `TERM=*-256color`
- *   - `ansi16`    — bright-cut SGR, the universal floor
- *   - `none`      — no escapes at all (NO_COLOR, --no-color, or a pipe)
+ *   - `truecolor`: 24-bit `38;2;r;g;b`, what modern terminals report
+ *   - `ansi256`: nearest xterm-256 index, for `TERM=*-256color`
+ *   - `ansi16`: bright-cut SGR, the universal floor
+ *   - `none`, no escapes at all (NO_COLOR, --no-color, or a pipe)
  *
  * Colour is a *redundant* channel throughout: every state that gets a hue also
  * gets a distinct glyph (see glyphs.ts), so `NO_COLOR` output loses no meaning.
@@ -32,20 +32,20 @@ export type Role =
   | "danger"
   | "muted"
   | "ink"
-  /** Machine identity — ids, hashes, digests. DESIGN.md's mono register. */
+  /** Machine identity: ids, hashes, digests. DESIGN.md's mono register. */
   | "id";
 
 type Depth = "none" | "ansi16" | "ansi256" | "truecolor";
 
 /** `[hex, xterm-256 index, ansi-16 SGR]` per role. */
 const PALETTE: Record<Role, [string, number, number]> = {
-  // info-dark #60a5fa — the one accent. Kept under DESIGN.md's ≤10% budget by
+  // info-dark #60a5fa: the one accent. Kept under DESIGN.md's ≤10% budget by
   // reserving it for identity and interactive affordances, never decoration.
   accent: ["#60a5fa", 75, 94],
   ok: ["#4ade80", 78, 92], // success-dark
   warn: ["#fbbf24", 214, 93], // warning-dark
   danger: ["#f87171", 210, 91], // destructive-dark
-  muted: ["#7a7a74", 244, 90], // muted-ink — warm neutral, not a cold grey
+  muted: ["#7a7a74", 244, 90], // muted-ink, warm neutral rather than a cold grey
   ink: ["#f5f5f0", 255, 97], // ink-inverse
   id: ["#60a5fa", 75, 94],
 };
@@ -60,7 +60,7 @@ function hexToRgb(hex: string): [number, number, number] {
  * re-probing per line would show up on large tables.
  */
 function detectDepth(): Depth {
-  // https://no-color.org — any non-empty value disables colour. `--no-color`
+  // https://no-color.org: any non-empty value disables colour. `--no-color`
   // is implemented by setting this var before first output (see ../color.ts).
   if (env.NO_COLOR) return "none";
 
@@ -142,8 +142,8 @@ const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
  *
  * Every column-aligning helper measures with this rather than `String.length`,
  * because a painted cell carries ~10 invisible bytes and `padEnd` on the raw
- * string would shear the column. Wide East-Asian glyphs are not accounted for
- * — no CLI output path emits them, and the glyph set is deliberately BMP
+ * string would shear the column. Wide East-Asian glyphs are not accounted for,
+ * no CLI output path emits them, and the glyph set is deliberately BMP
  * symbols that render single-width.
  */
 export function width(text: string): number {

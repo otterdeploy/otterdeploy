@@ -1,18 +1,17 @@
+import { auth } from "@otterdeploy/auth";
+import { db } from "@otterdeploy/db";
+import { databaseEphemeralCredential } from "@otterdeploy/db/schema";
 /**
  * Ephemeral database credential handlers (see ../../ephemeral-db). Split out
  * of index.ts like nosql-handlers so the orchestrator stays scannable.
  *
  * Permissions: minting/revoking rides `database:query` (same tier as running
- * a read-only statement — a read-only URL grants nothing the actor couldn't
+ * a read-only statement. A read-only URL grants nothing the actor couldn't
  * already do through the console). A `read-write` credential hands out the app
- * role's full privileges, so it additionally demands `database:write` — same
+ * role's full privileges, so it additionally demands `database:write`. Same
  * capability check as the data viewer's write path.
  */
-import type { DatabaseEphemeralCredentialId } from "@otterdeploy/shared/id";
-
-import { auth } from "@otterdeploy/auth";
-import { db } from "@otterdeploy/db";
-import { databaseEphemeralCredential } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { desc, eq } from "drizzle-orm";
 
 import { requirePermission } from "../..";
@@ -33,7 +32,7 @@ export const ephemeralDatabaseHandlers = {
       await enforceResourceScope(context, input.resourceId);
 
       if (input.scope === "read-write") {
-        // API-key actors have no session for better-auth's role check — same
+        // API-key actors have no session for better-auth's role check. Same
         // stance as the data viewer's capabilities handler: no write surface.
         if (context.apiKey) throw errors.WRITE_SCOPE_FORBIDDEN();
         const { success } = await auth.api.hasPermission({
@@ -109,11 +108,19 @@ export const ephemeralDatabaseHandlers = {
       });
       await enforceResourceScope(context, input.resourceId);
 
+      // The contract accepts any non-empty string; brand it here. A string
+      // that isn't a dbeph id can't match a row, which is exactly the
+      // "credential not found" failure the revoke call reports itself.
+      const credentialId = idSchema.databaseEphemeralCredential.safeParse(input.credentialId);
+      if (!credentialId.success) {
+        throw errors.QUERY_FAILED({ data: { reason: "credential not found" } });
+      }
+
       try {
         const revoked = await revokeEphemeralCredential({
           organizationId: context.activeOrganizationId,
           resourceId: input.resourceId,
-          credentialId: input.credentialId as DatabaseEphemeralCredentialId,
+          credentialId: credentialId.data,
         });
         return { revoked };
       } catch (cause) {

@@ -93,7 +93,7 @@ function RouteComponent() {
     [project.id, activeEnv.id, activeEnv.isMain],
   );
   const resourceOptions = resources.map((r) => ({
-    id: r.resourceId as string,
+    id: r.resourceId,
     name: r.name,
     kind: r.type,
   }));

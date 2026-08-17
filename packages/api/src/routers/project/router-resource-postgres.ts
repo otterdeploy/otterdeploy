@@ -16,7 +16,7 @@ import { postgresSetPlacementHandler } from "./router-resource-postgres-placemen
 
 export const postgresResourceRouter = {
   // Streaming create. Pre-flight validation (project lookup + name
-  // conflict) happens BEFORE the stream opens — those failures throw
+  // conflict) happens BEFORE the stream opens. Those failures throw
   // matched oRPC errors. Once the generator runs, runtime failures
   // surface as `error` events the wizard renders alongside the
   // already-completed steps.
@@ -24,7 +24,7 @@ export const postgresResourceRouter = {
     database: ["create"],
   }).project.resource.database.postgres.create.handler(
     // Eager prelude. Everything that should land in the audit wide
-    // event has to run BEFORE we return the generator — once that
+    // event has to run BEFORE we return the generator. Once that
     // happens oRPC sets up the streaming response, hono's `next()`
     // resolves, and evlog flushes. Anything log.set() inside the
     // generator body gets dropped with a warning.

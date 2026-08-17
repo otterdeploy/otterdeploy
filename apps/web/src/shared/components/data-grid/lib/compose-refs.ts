@@ -59,7 +59,7 @@ function composeRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
  * Accepts callback refs and RefObject(s)
  */
 function useComposedRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
-  // The dep list is the rest-arg itself, which no dep-checker can analyse — and
+  // The dep list is the rest-arg itself, which no dep-checker can analyse, and
   // the point is precisely that the composed callback is rebuilt when the refs
   // array changes, not when `composeRefs`' identity does.
   return React.useCallback(composeRefs(...refs), refs);

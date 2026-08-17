@@ -3,8 +3,8 @@
  *
  * A stack had no variables view at all: the Services tab showed image, ports
  * and volumes, and env lived one level down in each child's own panel. So
- * answering "what is this stack actually configured with" — the question you
- * ask when something crash-loops — meant opening each service in turn and
+ * answering "what is this stack actually configured with". The question you
+ * ask when something crash-loops: meant opening each service in turn and
  * holding the answer in your head.
  *
  * Read from the resource collection the graph already keeps warm (children are
@@ -19,11 +19,11 @@ import { resourceCollection } from "@/features/resources/data/resource";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 function SecretValue({ value }: { value: string }) {
-  // Masked, not omitted: the operator needs to know the key HAS a value — an
-  // empty required secret is the usual reason a stack will not start — without
+  // Masked, not omitted: the operator needs to know the key HAS a value. An
+  // empty required secret is the usual reason a stack will not start, without
   // the value itself landing in a screenshot or a screen share.
   return (
-    <span className="text-muted-foreground/70" title="Hidden — open the service to reveal">
+    <span className="text-muted-foreground/70" title="Hidden. Open the service to reveal.">
       {value ? "••••••••" : "(empty)"}
     </span>
   );
@@ -55,7 +55,7 @@ function ServiceVars({
       </header>
       {keys.length === 0 ? (
         <p className="px-3 py-2.5 text-[11.5px] text-muted-foreground">
-          No variables — this service runs on its image defaults.
+          No variables. This service runs on its image defaults.
         </p>
       ) : (
         <div className="divide-y divide-border/40">
@@ -103,7 +103,7 @@ export function StackVariablesTab({
   if (children.length === 0) {
     return (
       <p className="text-[12px] text-muted-foreground">
-        No services materialized yet — variables appear once the stack deploys.
+        No services materialized yet. Variables appear once the stack deploys.
       </p>
     );
   }

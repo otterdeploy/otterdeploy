@@ -3,11 +3,10 @@
  * `/pty` upgrade auth (apps/server/src/handlers/terminal/auth.ts) so the SAME
  * check now runs once, at ticket-mint time (an ordinary oRPC procedure), not
  * a hand-rolled parallel check on the WebSocket transport. The WS upgrade
- * itself no longer authorizes anything — it only validates Origin and
+ * itself no longer authorizes anything: it only validates Origin and
  * consumes the single-use ticket this function's caller minted (od-5j8.9).
  */
-import type { OrganizationId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result, TaggedError } from "better-result";
 
 import type { ResolvedActor } from "../../authz/actor";
@@ -25,13 +24,13 @@ class TerminalAuthzError extends TaggedError("TerminalAuthzError")<{
 /**
  * Authorize `actor` to open a shell on `target` within `organizationId`.
  * Containers must be org-owned (same discovery source the terminal picker
- * uses — never a raw daemon-wide docker id); the host shell is
+ * uses, never a raw daemon-wide docker id); the host shell is
  * install-admin-only platform surface, gated purely on install capability.
  */
 export async function authorizeTerminalTarget(
   actor: ResolvedActor,
-  // Plain string, matching `Capability.organizationId` — the branded
-  // `OrganizationId` the DB layer wants is an internal detail cast at the
+  // Plain string, matching `Capability.organizationId`: the branded
+  // `OrganizationId` the DB layer wants is an internal detail parsed at the
   // one call site (`listTerminalTargets`) that needs it.
   organizationId: string,
   target: TerminalTarget,
@@ -41,7 +40,19 @@ export async function authorizeTerminalTarget(
   }
 
   if (target.kind === "container") {
-    const targets = await listTerminalTargets({ organizationId: organizationId as OrganizationId });
+    // Brand the plain-string org id at the one boundary that needs it. A
+    // string that is not a real org id can own no containers, so a parse
+    // failure is exactly the same "not found" the empty lookup produces.
+    const orgId = idSchema.organization.safeParse(organizationId);
+    if (!orgId.success) {
+      return Result.err(
+        new TerminalAuthzError({
+          status: 404,
+          message: "Container not found in this organization",
+        }),
+      );
+    }
+    const targets = await listTerminalTargets({ organizationId: orgId.data });
     const owned = targets.containers.find((ct) => ct.containerId === target.id);
     if (!owned) {
       return Result.err(
@@ -66,7 +77,7 @@ export async function authorizeTerminalTarget(
     return Result.ok({ projectId: owned.projectId });
   }
 
-  // Host shell — the most dangerous target. Install-admin only, never an
+  // Host shell: the most dangerous target. Install-admin only, never an
   // organization role and never an organization API key (authorizeCapability
   // enforces this for the "install" scope regardless of actor kind).
   const decision = await authorizeCapability(actor, { scope: "install", mode: "write" });

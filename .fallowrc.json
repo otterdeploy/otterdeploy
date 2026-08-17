@@ -5,10 +5,10 @@
   // here is a process the module graph cannot reach by static import.
   "entry": [
     // Spawned as `bun run src/build-one.ts <deploymentId>` inside the
-    // throwaway helper container — see apps/builder/src/helper-args.ts.
+    // throwaway helper container: see apps/builder/src/helper-args.ts.
     "apps/builder/src/build-one.ts",
     // Deployed as a swarm GLOBAL service, one task per node; boots from raw
-    // env with no DB — see docs/designs/server-health-agent.md.
+    // env with no DB: see docs/designs/server-health-agent.md.
     "apps/server/src/health-agent.ts",
     // TanStack Start server entry.
     "apps/www/src/start.ts",
@@ -40,7 +40,7 @@
   "ignoreExports": [
     // In-flight branch-head/deployment-sha work (commit 48340ad6): defined and
     // documented (see the `fetchPullRequestHead` doc in github-pulls.ts) but not
-    // yet wired to a caller. Not dead code — don't let `fix` unexport it.
+    // yet wired to a caller. Not dead code: don't let `fix` unexport it.
     {
       "file": "packages/api/src/git/github-app.ts",
       "exports": ["fetchBranchHeadSha"]
@@ -102,8 +102,8 @@
       "exports": ["*"]
     },
     // Vendored shadcn/ui primitives. Each file is the whole upstream component
-    // surface, so parts of it are unused until a screen reaches for them —
-    // deleting those would fork the file from upstream and `shadcn add` would
+    // surface, so parts of it are unused until a screen reaches for them.
+    // Deleting those would fork the file from upstream and `shadcn add` would
     // just put them back. Same reasoning as ui/field.tsx above.
     {
       "file": "apps/web/src/shared/components/ui/alert-dialog.tsx",

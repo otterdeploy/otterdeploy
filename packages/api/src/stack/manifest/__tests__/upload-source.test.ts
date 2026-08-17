@@ -1,4 +1,5 @@
 import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import { manifestSchema } from "../schema";

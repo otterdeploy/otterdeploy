@@ -1,5 +1,5 @@
 /**
- * Redeploy primitives — re-apply a single service to Swarm and optionally
+ * Redeploy primitives: re-apply a single service to Swarm and optionally
  * fan out to its transitive dependents (services that reference it via
  * `${{<name>.<VAR>}}` env tokens).
  */
@@ -37,7 +37,7 @@ export async function provisionFresh(
   log?: RequestLogger,
 ): Promise<Result<SwarmServiceRuntime, ResolveError>> {
   // Git-sourced services start life with a placeholder image (no build
-  // has happened yet). Skip the swarm provision step — the build worker
+  // has happened yet). Skip the swarm provision step. The build worker
   // will set the real image + drive convergence on first push. Return a
   // synthetic "pending" runtime so callers don't see an error.
   if (isPendingImage(record.service.image)) {
@@ -51,7 +51,7 @@ export async function provisionFresh(
     });
   }
 
-  const resolved = await resolveServiceEnv(projectId, record.service.resourceId as ResourceId);
+  const resolved = await resolveServiceEnv(projectId, record.service.resourceId);
   if (resolved.isErr()) {
     await updateServiceResourceStatus(record.service.resourceId, "invalid");
     return Result.err(resolved.error);
@@ -68,8 +68,8 @@ export async function provisionFresh(
   // would crash the whole `manifest.apply` (a single unreachable swarm →
   // HTTP 500, "Apply failed") and strand a draft row. Convert it into an
   // errored runtime instead: the resource lands marked `invalid` and shows
-  // as an error node on the graph, recoverable via the panel's redeploy —
-  // far better than a 500 that deploys nothing visible.
+  // as an error node on the graph, recoverable via the panel's redeploy.
+  // Far better than a 500 that deploys nothing visible.
   const provisioned = await Result.tryPromise({
     try: () => runtime().provision(swarmSpec, log),
     catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
@@ -108,8 +108,8 @@ export interface RedeployOptions {
   /** Target a PR preview. Omitted → the base deploy, byte-identical to
    *  production behavior. */
   previewId?: PreviewId;
-  /** Use this image in the spec instead of the stored serviceResource.image —
-   *  preview builds pass their built tag here so they don't clobber the base. */
+  /** Use this image in the spec instead of the stored serviceResource.image.
+   *  Preview builds pass their built tag here so they don't clobber the base. */
   imageOverride?: string;
 }
 
@@ -122,7 +122,7 @@ export async function redeployOne(
 ): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
   // Bump ForceUpdate BEFORE loading the record so buildSwarmSpec
   // serializes the new counter into TaskTemplate.ForceUpdate. Without
-  // this, "redeploy" with no spec changes would no-op at swarm — the
+  // this, "redeploy" with no spec changes would no-op at swarm. The
   // task would never roll because nothing in the diff'd template
   // changed. updateService callers, env-var setters, and expose paths
   // all funnel through redeployOne, so doing it here covers every
@@ -137,7 +137,7 @@ export async function redeployOne(
   const resolved = await resolveServiceEnv(projectId, resourceId, opts?.previewId);
   if (resolved.isErr()) {
     // A preview override resolve failure must not corrupt the BASE resource's
-    // status — the base row is shared across production and every preview.
+    // status: the base row is shared across production and every preview.
     if (!opts?.previewId) await updateServiceResourceStatus(resourceId, "invalid");
     return Result.err(resolved.error);
   }
@@ -154,12 +154,12 @@ export async function redeployOne(
     opts?.imageOverride,
   );
   // runtime().update() THROWS on any Docker/Swarm infra error (unreachable
-  // manager, image pull failure, …) — exactly like provisionFresh's provision
+  // manager, image pull failure, …). Exactly like provisionFresh's provision
   // call. Unwrapped, that throw escapes to the caller and 500s an operation
   // whose DB write already succeeded: `env set` persists the variable, then
   // this throw surfaces as INTERNAL_SERVER_ERROR even though the value was
   // saved (and the handler's manifest back-sync is skipped). Mirror
-  // provisionFresh — convert the throw into an errored runtime so the write
+  // provisionFresh: convert the throw into an errored runtime so the write
   // reports success and the resource shows an error node, recoverable via a
   // later redeploy once the infra is reachable.
   const updated = await Result.tryPromise({
@@ -212,7 +212,7 @@ export async function redeployAndFanOut(
   log.set({ fanout: { count: dependents.length } });
 
   for (const depId of dependents) {
-    const depResult = await redeployOne(projectId, depId as ResourceId, projectSlug, log);
+    const depResult = await redeployOne(projectId, depId, projectSlug, log);
     if (depResult.isErr()) {
       // One failed dependent shouldn't undo the rest, but we surface the first error.
       return Result.err(depResult.error);
@@ -224,7 +224,7 @@ export async function redeployAndFanOut(
 /**
  * Settle the row a create opened: the driver already waited for the container,
  * so flip pending → running (emits deploy.succeeded exactly once) or mark it
- * failed with the task's reason — never leave it dangling at "pending".
+ * failed with the task's reason, never leave it dangling at "pending".
  * No-ops for git/upload creates, which have no row yet.
  */
 export async function settleCreateDeployment(

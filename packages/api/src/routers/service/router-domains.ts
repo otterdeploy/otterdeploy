@@ -1,9 +1,8 @@
 /**
- * `service.domains.*` oRPC procedures — split out of index.ts to keep the
+ * `service.domains.*` oRPC procedures: split out of index.ts to keep the
  * router module under the line cap. Spread back in as `serviceRouter.domains`.
  */
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
-
+import { hasPrefix, ID_PREFIX, type ProxyRouteId } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import { projectScopedProcedure, requirePermission } from "../..";
@@ -18,6 +17,15 @@ import {
 import { autoConfigureServiceDomainDns } from "./domains-autoconfigure";
 import { checkServiceDomain, listServiceDomains } from "./domains-check";
 import { generateServiceDomain } from "./expose";
+
+/**
+ * Brand-narrow the contract's plain-string routeId. A string without the
+ * proxy-route prefix can't match any stored route, so callers surface the
+ * same DOMAIN_NOT_FOUND the row lookup would have produced.
+ */
+function toProxyRouteId(routeId: string): ProxyRouteId | null {
+  return hasPrefix(routeId, ID_PREFIX.proxyRoute) ? routeId : null;
+}
 
 export const serviceDomainsRouter = {
   list: projectScopedProcedure.service.domains.list.handler(async ({ input, context, errors }) => {
@@ -114,12 +122,14 @@ export const serviceDomainsRouter = {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
+      const routeId = toProxyRouteId(input.routeId);
+      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
       const result = await updateServiceDomain(
         {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId,
           domain: input.domain,
           port: input.port,
         },
@@ -143,12 +153,14 @@ export const serviceDomainsRouter = {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
+      const routeId = toProxyRouteId(input.routeId);
+      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
       const result = await recheckServiceDomain(
         {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId,
         },
         context.log,
       );
@@ -169,10 +181,12 @@ export const serviceDomainsRouter = {
     context.log.set({
       target: { type: "resource", id: input.resourceId, projectId: input.projectId },
     });
+    const routeId = toProxyRouteId(input.routeId);
+    if (!routeId) throw errors.DOMAIN_NOT_FOUND();
     const result = await autoConfigureServiceDomainDns({
       organizationId: context.activeOrganizationId,
       resourceId: input.resourceId,
-      routeId: input.routeId as ProxyRouteId,
+      routeId,
       serverIp: await serverIpFor({
         projectId: input.projectId,
         resourceId: input.resourceId,
@@ -194,12 +208,14 @@ export const serviceDomainsRouter = {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
+      const routeId = toProxyRouteId(input.routeId);
+      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
       const result = await setPrimaryServiceDomain(
         {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId,
         },
         context.log,
       );
@@ -219,12 +235,14 @@ export const serviceDomainsRouter = {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
+      const routeId = toProxyRouteId(input.routeId);
+      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
       const result = await removeServiceDomain(
         {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId,
         },
         context.log,
       );

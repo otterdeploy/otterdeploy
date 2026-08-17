@@ -4,7 +4,7 @@
  * This is the case placement exists for, and the case it's most dangerous in.
  * A database's volume is local to whatever node it started on. Docker Swarm
  * will happily schedule the engine somewhere else and hand it a brand-new
- * empty volume — the container comes up healthy, the connection succeeds, and
+ * empty volume: the container comes up healthy, the connection succeeds, and
  * the data is simply gone from the application's point of view. Nothing in the
  * runtime treats that as an error.
  *
@@ -35,7 +35,7 @@ import { getDatabaseResourceRecord } from "./queries/postgres-resource";
 
 /**
  * A move was refused because the database has data on its current node. Not a
- * hard stop — the caller can acknowledge and proceed — but never implicit.
+ * hard stop (the caller can acknowledge and proceed) but never implicit.
  */
 class DatabaseMoveDataLossError extends TaggedError("DatabaseMoveDataLossError")<{
   message: string;
@@ -47,7 +47,7 @@ class DatabaseMoveDataLossError extends TaggedError("DatabaseMoveDataLossError")
       message:
         `"${args.name}" has data on its current machine and that volume will NOT move with it. ` +
         `Starting it on another node gives it an empty database. Back it up, move it, then restore ` +
-        `into the moved database — or acknowledge this to move it empty.`,
+        `into the moved database, or acknowledge this to move it empty.`,
     });
   }
 }
@@ -114,7 +114,7 @@ export async function setDatabasePlacement(
     },
   });
 
-  // A draft has no running service to restart — the pin applies on its first
+  // A draft has no running service to restart. The pin applies on its first
   // deploy. Restarting one would just fail against a service that isn't there.
   if (!deployed) {
     return Result.ok({ placementServerId: input.serverId, restarted: false });
@@ -130,7 +130,7 @@ export async function setDatabasePlacement(
   );
   if (restarted.isErr()) {
     // The pin is already recorded and correct; only the rollout failed. Report
-    // it rather than reverting — reverting would leave the database pinned to a
+    // it rather than reverting, reverting would leave the database pinned to a
     // machine the operator has decided against.
     return Result.err(new DatabaseResourceNotFoundError({ resourceId: input.resourceId }));
   }

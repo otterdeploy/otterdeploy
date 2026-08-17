@@ -2,7 +2,7 @@
 // (ISC; see ./README.md). It is one self-contained `Temporal` namespace whose
 // members cross-reference by unqualified name, so it cannot be split across
 // modules (an `export namespace` can't merge across files). It is recopied as-is
-// on update — generated/vendored, not hand-maintained source — so the project
+// on update (generated/vendored, not hand-maintained source) so the project
 // line limit does not apply.
 
 /*
@@ -959,7 +959,7 @@ export namespace Temporal {
   /**
    * A `Temporal.PlainTime` represents a wall-clock time, with a precision in
    * nanoseconds, and without any time zone. "Wall-clock time" refers to the
-   * concept of a time as expressed in everyday usage — the time that you read
+   * concept of a time as expressed in everyday usage: the time that you read
    * off the clock on the wall. For example, it could be used to represent an
    * event that happens daily at a certain time, no matter what time zone.
    *

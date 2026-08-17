@@ -1,12 +1,12 @@
 /**
- * Deployment protection — the cross-domain auth wall (Vercel-Authentication
+ * Deployment protection: the cross-domain auth wall (Vercel-Authentication
  * style). Four routes, hit on two different kinds of host:
  *
  *  - GET /api/internal/deploy-authz   (forward_auth target, internal)
  *      Per-request gate. Allows on: a valid __otter_auth session cookie, a
  *      valid __otter_share cookie, or a valid x-otter-bypass automation
  *      header. Otherwise 302s to /authorize on the central auth authority.
- *      Pure HMAC checks — no DB hit on the hot path.
+ *      Pure HMAC checks, no DB hit on the hot path.
  *
  *  - GET /.well-known/otterdeploy/authorize   (on the auth authority)
  *      Reads the master Better-Auth session, checks org membership of the
@@ -131,7 +131,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
   if (env.NODE_ENV === "development") {
     const preview = c.req.query("preview");
     // Use the real incoming Host so the preview shows the actual domain, not a
-    // mock — falls back only if there's somehow no Host header.
+    // mock: falls back only if there's somehow no Host header.
     const demoDomain = domain ?? hostOf(c.req.header("host")) ?? "my-app.example.com";
     if (preview === "loading") return c.html(<Interstitial />);
     if (preview === "denied") return c.html(<Denied domain={demoDomain} />);
@@ -172,7 +172,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     );
 
   // getSession can throw (a transient session/DB error surfaces as Better Auth's
-  // "Failed to get session"). Never leak that as raw JSON — treat a failed lookup
+  // "Failed to get session"). Never leak that as raw JSON. Treat a failed lookup
   // exactly like "not signed in" and send the visitor to the login page, only
   // flagging the error so the form can hint at it.
   let sessionFailed = false;
@@ -196,7 +196,7 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
     // No master session → log in first, then come back to this authorize URL.
     // Rebuild the *public* authorize URL rather than reusing c.req.url: behind
     // a proxy (portless/Swarm) that is the internal address, which the browser
-    // can't reach after login — so the return-trip would break. It must also
+    // can't reach after login, so the return-trip would break. It must also
     // be the origin the session cookie was set on, or the hop back arrives
     // without one; authorizeBase resolves both.
     const self = new URL("/.well-known/otterdeploy/authorize", await authorizeBase());

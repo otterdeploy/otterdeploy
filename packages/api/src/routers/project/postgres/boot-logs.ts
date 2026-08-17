@@ -35,8 +35,8 @@ async function resolveServiceContainerId(
  *
  * Strategy: snapshot first (the container might already exist by the time
  * we're called), then wait on `container.start` events filtered to the
- * service's label until the deadline. The combination is intentional —
- * pure event-wait would miss a container that started in the window
+ * service's label until the deadline. The combination is intentional.
+ * Pure event-wait would miss a container that started in the window
  * between service.create completing and our subscribe; pure poll wastes
  * 250ms cycles in the common case where the container is seconds away.
  */
@@ -73,6 +73,15 @@ async function waitForRunningContainer(
   });
 }
 
+/** The docker client types `logs()` as a plain NodeJS.ReadableStream, but the
+ *  runtime object is a node Readable with `destroy()`. Narrow with a real
+ *  guard instead of asserting the extra method onto the type. */
+function isDestroyable(
+  stream: NodeJS.ReadableStream,
+): stream is NodeJS.ReadableStream & { destroy: () => void } {
+  return "destroy" in stream && typeof stream.destroy === "function";
+}
+
 export async function* tailContainerBootLogs(input: {
   serviceName: string;
   timeoutMs: number;
@@ -82,7 +91,7 @@ export async function* tailContainerBootLogs(input: {
   try {
     // Wait for the first container backing this service to enter `start`.
     // Drops a ~3s polling window down to a single event hop in the common
-    // case — `container.start` typically arrives within tens of ms of swarm
+    // case: `container.start` typically arrives within tens of ms of swarm
     // scheduling the task. Bounded at 3s so a stuck service surfaces as a
     // clean "no container yet" instead of hanging the create stream.
     const containerId = await waitForRunningContainer(
@@ -101,14 +110,12 @@ export async function* tailContainerBootLogs(input: {
     if (logsResult.isErr()) throw logsResult.error;
 
     const deadline = Date.now() + input.timeoutMs;
-    const stream = logsResult.value as NodeJS.ReadableStream & {
-      destroy?: () => void;
-    };
+    const stream = logsResult.value;
     const closeStream = () => {
       try {
-        stream.destroy?.();
+        if (isDestroyable(stream)) stream.destroy();
       } catch {
-        // best-effort — the demuxer's for-await will end either way.
+        // best-effort: the demuxer's for-await will end either way.
       }
     };
 

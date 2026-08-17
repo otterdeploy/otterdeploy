@@ -1,7 +1,7 @@
 /**
  * Live client-connections breakdown for a postgres resource, shared by the
  * Backups catalog rows and the database panel's status bar. Data comes from
- * `database.connections` (pg_stat_activity, client backends only) — see the
+ * `database.connections` (pg_stat_activity, client backends only): see the
  * contract for why the count here matches the catalog card's number.
  */
 
@@ -51,7 +51,7 @@ export function ConnectionsPopoverBody({
         </div>
       ) : query.isError ? (
         <p className="p-3 text-xs text-muted-foreground">
-          Couldn't read pg_stat_activity — the database may be unreachable.
+          Couldn't read pg_stat_activity. The database may be unreachable.
         </p>
       ) : query.data.groups.length === 0 ? (
         <p className="p-3 text-xs text-muted-foreground">No client connections right now.</p>
@@ -79,7 +79,7 @@ export function ConnectionsPopoverBody({
 
 /**
  * Status-bar chip for the database panel: a live count that opens the
- * breakdown. Fetches while mounted (panel-scoped, 60s cadence — this is the
+ * breakdown. Fetches while mounted (panel-scoped, 60s cadence, this is the
  * one place an operator is actively looking at a single database) and
  * renders nothing until the first successful read, so a non-postgres or
  * unreachable database costs no chrome.

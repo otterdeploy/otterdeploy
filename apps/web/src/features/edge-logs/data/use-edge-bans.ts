@@ -1,5 +1,5 @@
 /**
- * Active CrowdSec bans + the block actions — shared plumbing for the edge-log
+ * Active CrowdSec bans + the block actions, shared plumbing for the edge-log
  * and firewall surfaces. Exposes the set of currently-banned client IPs (so
  * rows can carry a "blocked" marker and block buttons stay honest) and the
  * single/bulk block mutations, refreshing the set after every successful block.
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { orpc } from "@/shared/server/orpc";
 
 export function useEdgeBans(onBlocked?: () => void) {
-  // The whole CrowdSec surface is install-scoped — `firewall.decisions` is
+  // The whole CrowdSec surface is install-scoped. `firewall.decisions` is
   // `requireInstallAdmin()` and block/blockMany are `requireInstallAdminPermission`.
   // The edge-log planes that use this are NOT admin-only, so without this the
   // ban poll 403s every 30s for an ordinary member while the block buttons it
@@ -35,7 +35,7 @@ export function useEdgeBans(onBlocked?: () => void) {
     ...orpc.firewall.block.mutationOptions(),
     onSuccess: (r, vars) => {
       if (r.ok) {
-        toast.success(`Blocked ${vars.ip} — enforced at the edge`);
+        toast.success(`Blocked ${vars.ip} at the edge`);
         settled();
       } else {
         toast.error(r.error ?? "Block failed");
@@ -47,9 +47,7 @@ export function useEdgeBans(onBlocked?: () => void) {
     ...orpc.firewall.blockMany.mutationOptions(),
     onSuccess: (r) => {
       if (r.ok) {
-        toast.success(
-          `Blocked ${r.blocked} IP${r.blocked === 1 ? "" : "s"} — enforced at the edge`,
-        );
+        toast.success(`Blocked ${r.blocked} IP${r.blocked === 1 ? "" : "s"} at the edge`);
         settled();
       } else {
         toast.error(r.error ?? "Block failed");

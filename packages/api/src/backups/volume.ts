@@ -10,7 +10,7 @@
  *            (same conservatism as the volumes router's remove guard), clear
  *            the volume, then extract the tar via the daemon's archive API
  *            (PUT /containers/{id}/archive on a created-but-never-started
- *            helper) — no stdin-attach plumbing needed.
+ *            helper), no stdin-attach plumbing needed.
  *
  * The pure decision/arg builders live at the top so they're unit-testable
  * without a daemon (see __tests__/volume.test.ts).
@@ -20,7 +20,7 @@ import type { Docker, Mount } from "@otterdeploy/docker";
 import { DockerNotFoundError, followProgress } from "@otterdeploy/docker";
 import { PassThrough, Readable, Writable } from "node:stream";
 
-/** Helper image for tar/clear runs — small, ships GNU-compatible busybox tar. */
+/** Helper image for tar/clear runs, small, ships GNU-compatible busybox tar. */
 const VOLUME_HELPER_IMAGE = "alpine:3.20";
 
 /** Where the volume is mounted inside helper containers. */
@@ -62,7 +62,7 @@ export function volumeRestoreBlockReason(containerNames: string[]): string | nul
   if (containerNames.length === 0) return null;
   const shown = containerNames.slice(0, 3).join(", ");
   const more = containerNames.length > 3 ? ` and ${containerNames.length - 3} more` : "";
-  return `volume is mounted by ${shown}${more} — stop and remove those containers before restoring`;
+  return `volume is mounted by ${shown}${more}. Stop and remove those containers before restoring`;
 }
 
 // ─── Daemon operations ─────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ export async function assertVolumeExists(docker: Docker, volumeName: string): Pr
 
 /** A streaming volume dump (mirrors exec.ts `DumpStream`): `stream` is the tar
  *  bytes flowing out of the helper container, `stderr()`/`exitCode` settle once
- *  the helper exits. The consumer (rustic) MUST drain `stream` — the helper is
+ *  the helper exits. The consumer (rustic) MUST drain `stream`. The helper is
  *  only reaped after its stdout is fully piped, so both promises hang otherwise. */
 export interface VolumeDumpStream {
   stream: Readable;
@@ -139,18 +139,18 @@ export interface VolumeDumpStream {
 
 /**
  * Stream a tar of the volume's contents out of a read-only helper container.
- * A live writer can still produce a crash-consistent archive — same guarantee
- * a `tar` of a running system gives — so no in-use guard on the backup side.
+ * A live writer can still produce a crash-consistent archive. Same guarantee
+ * a `tar` of a running system gives, so no in-use guard on the backup side.
  *
  * Returns immediately with a `stream` that receives the tar bytes as they flow
- * (piped `end:true` inside `docker.run`); rustic consumes it as backup stdin —
- * nothing is buffered in RAM. `runHelper` waits for the helper to exit + be
+ * (piped `end:true` inside `docker.run`); rustic consumes it as backup stdin.
+ * Nothing is buffered in RAM. `runHelper` waits for the helper to exit + be
  * auto-removed in the background, exposed via `exitCode`.
  */
 export function dumpVolume(docker: Docker, volumeName: string): VolumeDumpStream {
   const stream = new PassThrough();
   const err = bufferSink();
-  // NOTE: pulls can't race the run — runHelper pulls only after a failed run,
+  // NOTE: pulls can't race the run. runHelper pulls only after a failed run,
   // and only attaches (pipes to `stream`) on the attempt that actually starts.
   const run = runHelper(
     docker,
@@ -203,7 +203,7 @@ export async function restoreVolumeFromTar(
     volumeMountSpec(volumeName, { readOnly: false }),
   );
   if (clear.statusCode !== 0) {
-    throw new Error(`volume clear exited ${clear.statusCode} — restore aborted before extraction`);
+    throw new Error(`volume clear exited ${clear.statusCode}: restore aborted before extraction`);
   }
 
   const created = await docker.containers.create({

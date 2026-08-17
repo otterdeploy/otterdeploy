@@ -9,10 +9,10 @@ import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
 import { type CSSProperties, useState } from "react";
 
 /**
- * Operational shell — the pathless chrome wrapping every day-to-day org page
+ * Operational shell: the pathless chrome wrapping every day-to-day org page
  * (and the whole project surface). Pathless: URLs are unchanged, the segment
  * only groups files. The settings zone (`../settings/`) deliberately lives
- * OUTSIDE this layout and renders its own chrome — the two never coexist.
+ * OUTSIDE this layout and renders its own chrome, the two never coexist.
  */
 export const Route = createFileRoute("/_app/$orgSlug/_shell")({
   component: RouteComponent,
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell")({
 
 /**
  * SidebarProvider writes the `sidebar_state` cookie on toggle but only ever
- * seeds its initial state from `defaultOpen` (the shadcn SSR contract) — so in
+ * seeds its initial state from `defaultOpen` (the shadcn SSR contract), so in
  * this SPA the persisted state was ignored and the sidebar reset on every load.
  * Read the cookie here to restore it, defaulting to OPEN when unset.
  */
@@ -29,6 +29,9 @@ function readSidebarDefaultOpen(): boolean {
   const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/);
   return match ? match[1] === "true" : true;
 }
+
+/** CSSProperties + the shell's custom property, so no cast is needed. */
+type ShellStyle = CSSProperties & { "--header-height": string };
 
 function RouteComponent() {
   const { user } = Route.useRouteContext();
@@ -41,25 +44,25 @@ function RouteComponent() {
 
   // The update banner (when shown) sits above the header, so the top chrome is
   // taller. `--header-height` is the offset every shell height calc subtracts
-  // (sidebar, project tabs, full-height pages) — fold the banner's height in
+  // (sidebar, project tabs, full-height pages): fold the banner's height in
   // here so they all stay inside the viewport instead of overflowing by a bar.
   const status = useUpdateStatus();
   const firstSession = useIsFirstSession();
   const bannerShown = !firstSession && status.bannerVisible && status.latest !== null;
 
+  // header bar (12) + banner (11) when shown, else just the header bar.
+  const shellStyle: ShellStyle = {
+    "--header-height": `calc(var(--spacing) * ${bannerShown ? 23 : 12})`,
+  };
+
   return (
-    <div
-      // header bar (12) + banner (11) when shown, else just the header bar.
-      style={
-        { "--header-height": `calc(var(--spacing) * ${bannerShown ? 23 : 12})` } as CSSProperties
-      }
-    >
-      {/* UpdateProvider lives in the parent $orgSlug layout — both chromes
+    <div style={shellStyle}>
+      {/* UpdateProvider lives in the parent $orgSlug layout, both chromes
           consume it (banner here, UpdatesCard in the settings zone). */}
       <SidebarProvider defaultOpen={defaultSidebarOpen} className="flex flex-col">
-        {/* Banner + header are ONE pinned top region. Pinning them together —
-            rather than the header alone via its own sticky, with the banner
-            left in normal flow — is what keeps the banner from scrolling away
+        {/* Banner + header are ONE pinned top region. Pinning them together.
+            Rather than the header alone via its own sticky, with the banner
+            left in normal flow. Is what keeps the banner from scrolling away
             and keeps the pinned chrome's height equal to --header-height, the
             offset the sidebar starts its `top` at. Pin only the header and an
             11px gap opens between header and sidebar once the banner scrolls
@@ -74,7 +77,7 @@ function RouteComponent() {
         <div className="flex flex-1">
           {!match ? (
             <>
-              {/* No project here — sidebar collapses to just the org
+              {/* No project here: sidebar collapses to just the org
                   switcher + footer. Project sections appear once the
                   user navigates into a project. */}
               <ProjectSidebar collapsible="icon" user={user} />

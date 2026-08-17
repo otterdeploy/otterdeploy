@@ -14,7 +14,7 @@
  * a `system` log line marking the image-ready point.
  */
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { publishResourceChanged } from "@otterdeploy/api/routers/project/project-event-bus";
 import { db } from "@otterdeploy/db";
@@ -23,19 +23,19 @@ import { and, eq, inArray } from "drizzle-orm";
 
 // Build error tails routinely carry ANSI color codes (pino pretty output, tool
 // progress bars, the captured container stderr). Strip them at the storage
-// boundary so the stored errorMessage is clean everywhere the UI reads it —
-// the deployment timeline, history rows, toasts — instead of literal `[2m…`.
+// boundary so the stored errorMessage is clean everywhere the UI reads it,
+// the deployment timeline, history rows, toasts: instead of literal `[2m…`.
 const ANSI = /\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[@-Z\\-_])/g;
 const stripAnsi = (s: string): string => (s.includes("\x1b") ? s.replace(ANSI, "") : s);
 
-/** Every status write pushes a resource-changed event to the project stream —
- *  build-phase transitions happen in THIS process and produce no docker event,
+/** Every status write pushes a resource-changed event to the project stream.
+ *  Build-phase transitions happen in THIS process and produce no docker event,
  *  so without the publish the UI only notices on its 5s poll fallback.
  *  Fire-and-forget: publishResourceChanged swallows its own errors. */
-function publishFor(rows: Array<{ resourceId: string }>): void {
+function publishFor(rows: Array<{ resourceId: ResourceId }>): void {
   const resourceId = rows[0]?.resourceId;
   if (resourceId) {
-    void publishResourceChanged(resourceId as Parameters<typeof publishResourceChanged>[0]);
+    void publishResourceChanged(resourceId);
   }
 }
 
@@ -52,7 +52,7 @@ export async function markFailed(deploymentId: DeploymentId, errorMessage: strin
   const rows = await db
     .update(deployment)
     .set({
-      // Strip ANSI first, then cap — so the 2000-char budget counts real
+      // Strip ANSI first, then cap, so the 2000-char budget counts real
       // characters, not escape bytes.
       status: "failed",
       errorMessage: stripAnsi(errorMessage).slice(0, 2000),
@@ -60,7 +60,7 @@ export async function markFailed(deploymentId: DeploymentId, errorMessage: strin
     })
     // Only from a still-in-flight row. Cancelling force-removes the helper
     // container, so the build reliably dies mid-step and its error path calls
-    // in here — unconditional, that would rewrite the operator's `cancelled`
+    // in here: unconditional, that would rewrite the operator's `cancelled`
     // into a red `failed` moments after they clicked stop. Terminal states are
     // terminal; the last writer must not win.
     .where(

@@ -2,7 +2,7 @@ import { cn } from "@/shared/lib/utils";
 
 /**
  * Formatters + small presentational atoms for the databases catalog. Values
- * that couldn't be measured render "—" — the page never invents a number.
+ * that couldn't be measured render "–", the page never invents a number.
  */
 import type { CatalogDatabase } from "./data";
 
@@ -10,7 +10,7 @@ import type { CatalogDatabase } from "./data";
 export const ALL_PROJECTS = "__all__";
 
 export function fmtBytes(bytes: number | null): string {
-  if (bytes == null || bytes < 0) return "—";
+  if (bytes == null || bytes < 0) return "–";
   if (bytes < 1e6) return `${(bytes / 1e3).toFixed(bytes < 1e4 ? 1 : 0)} KB`;
   const mb = bytes / 1e6;
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
@@ -18,9 +18,9 @@ export function fmtBytes(bytes: number | null): string {
 }
 
 export function relTime(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "–";
   const diff = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(diff)) return "—";
+  if (!Number.isFinite(diff)) return "–";
   const s = Math.max(0, Math.round(diff / 1000));
   if (s < 60) return `${s}s ago`;
   const m = Math.round(s / 60);

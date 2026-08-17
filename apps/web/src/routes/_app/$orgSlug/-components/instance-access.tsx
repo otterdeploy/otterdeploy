@@ -1,5 +1,5 @@
 /**
- * Access card — who is allowed to create an account on this installation.
+ * Access card: who is allowed to create an account on this installation.
  *
  * Invitation-only is the default and the safe answer for an internet-facing
  * install. Open registration is a deliberate opt-in, and it never grants
@@ -48,8 +48,8 @@ export function AccessCard({ organizationId }: { organizationId: OrganizationId 
         title="Allow public registration"
         description={
           open
-            ? "On — anyone who can reach the sign-in page can create an account. New accounts join as ordinary members with no workspace until invited to one."
-            : "Off — an account can only be created from a pending invitation. Recommended for any installation reachable from the internet."
+            ? "On. Anyone who can reach the sign-in page can create an account. New accounts join as ordinary members with no workspace until invited to one."
+            : "Off. An account can only be created from a pending invitation. Recommended for any installation reachable from the internet."
         }
         control={
           <Switch

@@ -1,5 +1,5 @@
 /**
- * `mesh_network` persistence — one row per org, upserted by the connect flow.
+ * `mesh_network` persistence: one row per org, upserted by the connect flow.
  * Design: docs/designs/vpn-mesh.md
  */
 
@@ -34,7 +34,7 @@ export interface UpsertMeshNetworkInput {
   nodeGroupId: string | null;
 }
 
-/** Connect (or re-connect) — one mesh per org, so this upserts on the org. */
+/** Connect (or re-connect): one mesh per org, so this upserts on the org. */
 export async function upsertMeshNetwork(input: UpsertMeshNetworkInput): Promise<MeshNetworkRecord> {
   const values = {
     organizationId: input.organizationId,
@@ -56,7 +56,7 @@ export async function upsertMeshNetwork(input: UpsertMeshNetworkInput): Promise<
     .onConflictDoUpdate({ target: meshNetwork.organizationId, set: values })
     .returning();
   // An upsert with `returning()` always yields exactly one row, so this is
-  // unreachable — but it throws rather than asserting non-null, so if the
+  // unreachable, but it throws rather than asserting non-null, so if the
   // invariant ever breaks the failure names itself here instead of surfacing
   // as a `undefined is not an object` somewhere downstream.
   if (!row) throw new Error("mesh network upsert returned no row");
@@ -96,8 +96,8 @@ export async function setMeshAccessGroups(input: {
 /**
  * Disconnect. Deliberately a status flip, not a delete: existing peers keep
  * running, and any route still marked private must be reported as drift
- * rather than silently re-exposed to the internet. The credential IS cleared
- * — there's no reason to keep an API token we've been told to stop using.
+ * rather than silently re-exposed to the internet. The credential IS cleared.
+ * There's no reason to keep an API token we've been told to stop using.
  */
 export async function disconnectMeshNetwork(organizationId: OrganizationId): Promise<void> {
   await db

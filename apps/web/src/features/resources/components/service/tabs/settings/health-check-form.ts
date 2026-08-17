@@ -2,7 +2,7 @@
  * Pure form-state helpers for the health-check card: seeding the form from
  * the stored check, validity, dirtiness, and the saved patch. Split out of
  * `health-check-card.tsx` so the form component stays within the complexity
- * budget — all logic is a verbatim move.
+ * budget: all logic is a verbatim move.
  */
 
 import {

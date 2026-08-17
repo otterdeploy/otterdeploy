@@ -1,5 +1,5 @@
 /**
- * Scaling settings for a deployed service — replica stepper + per-replica
+ * Scaling settings for a deployed service. Replica stepper + per-replica
  * CPU/memory limits, persisted on the service row via `service.update`
  * (which redeploys as a rolling update). Plus two read-only truths: a
  * cluster-fit line (requested = replicas × limits vs registered server
@@ -7,7 +7,7 @@
  *
  * Pause interaction: the server clears the pause marker whenever a patch
  * carries an explicit `replicas` value, so moving the stepper on a paused
- * service resumes it with the new count — the copy says so before Save.
+ * service resumes it with the new count. The copy says so before Save.
  * A limits-only save omits `replicas` and leaves the pause intact.
  */
 
@@ -49,16 +49,16 @@ type SaveConsequence = ReturnType<typeof saveConsequence>;
 
 const SAVE_COPY = {
   redeploy: "Saving applies the new scale and redeploys the service (rolling update).",
-  resume: "Service is paused — saving this replica count resumes it.",
-  "redeploy-paused": "Service stays paused — the new limits take effect when it resumes.",
+  resume: "Service is paused. Saving this replica count resumes it.",
+  "redeploy-paused": "Service stays paused. The new limits take effect when it resumes.",
 } as const;
 
 function savedToastText(consequence: SaveConsequence | null, patch: ScalingPatch): string {
   return consequence === "resume"
-    ? `Scaling saved — service resuming with ${patch.replicas} replica${patch.replicas === 1 ? "" : "s"}`
+    ? `Scaling saved. Service resuming with ${patch.replicas} replica${patch.replicas === 1 ? "" : "s"}`
     : consequence === "redeploy-paused"
-      ? "Limits saved — service stays paused"
-      : "Scaling saved — service redeploying";
+      ? "Limits saved. Service stays paused."
+      : "Scaling saved. Service redeploying.";
 }
 
 function ScalingForm({ resource, service }: { resource: ScalingResource; service: ServiceView }) {
@@ -78,15 +78,15 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
   };
   const paused = stored.pausedReplicas !== null;
 
-  // Plain docker runs exactly one container per service — the runtime driver
-  // ignores replicas>1 — so the stepper won't offer counts it can't honor.
+  // Plain docker runs exactly one container per service. The runtime driver
+  // ignores replicas>1, so the stepper won't offer counts it can't honor.
   //
   // Two sources for the same one bit. `docker.nodes.list` is install-admin in
   // its entirety, and this Settings tab is a project-level surface any member
   // can open, so for a member it only ever returned 403 and the caveat below
   // silently vanished. `server.swarmNodes` is org-scoped and derives `swarm`
   // from the same `isSwarmRuntime()` check, so it is the same answer a member
-  // is allowed to have — the caveat survives instead of being lost with the
+  // is allowed to have. The caveat survives instead of being lost with the
   // gate. Install admins keep reading exactly what they read before.
   const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
   const nodesQuery = useQuery({

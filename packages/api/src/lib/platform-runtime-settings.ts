@@ -1,5 +1,5 @@
 /**
- * Runtime configuration resolver — the single place that reconciles the
+ * Runtime configuration resolver: the single place that reconciles the
  * `platform_settings` singleton against the env vars that seed it.
  *
  * The contract every setting here obeys:
@@ -13,13 +13,13 @@
  * That asymmetry is deliberate and matches how the email transport already
  * behaves: a fresh install works with zero UI configuration, and an operator
  * who edits a setting in the app doesn't have their edit stomped on the next
- * boot by a stale `.env` (the trap `SERVER_IP` still has — it re-applies every
+ * boot by a stale `.env` (the trap `SERVER_IP` still has, it re-applies every
  * boot, which is why its card renders read-only when the env is set).
  *
  * Reads are cached in-process for CACHE_TTL_MS because several of these sit on
  * hot paths (every egress call, every preview upsert). `invalidatePlatformRuntimeSettings()`
  * is called by every writer, so the TTL only bounds staleness across processes
- * (server / builder / job workers each hold their own copy) — a setting changed
+ * (server / builder / job workers each hold their own copy). A setting changed
  * in the UI is live immediately in the API process and within the TTL everywhere
  * else. Settings that genuinely cannot hot-reload (builder concurrency, edge-log
  * persistence) say so in their card rather than pretending otherwise.
@@ -50,7 +50,7 @@ export function invalidatePlatformRuntimeSettings(): void {
 async function loadRow(): Promise<PlatformRow | undefined> {
   const now = Date.now();
   if (cached && now - cached.at < CACHE_TTL_MS) return cached.row;
-  // Collapse concurrent misses onto one query — on a cold cache the egress
+  // Collapse concurrent misses onto one query: on a cold cache the egress
   // path can otherwise fire several identical selects for one request.
   inflight ??= (async () => {
     const [row] = await db
@@ -97,7 +97,7 @@ export interface ResolvedSocialProvider {
   id: SocialProviderId;
   clientId: string;
   clientSecret: string;
-  /** GitLab only — self-hosted instance base URL. */
+  /** GitLab only: self-hosted instance base URL. */
   issuer?: string;
 }
 
@@ -146,7 +146,7 @@ function dbProvider(row: PlatformRow | undefined, id: SocialProviderId) {
 /**
  * Fully-resolved providers, ready to hand to better-auth's `socialProviders`.
  * A provider is included only when it is enabled AND has both halves of its
- * credential — a half-configured provider is omitted rather than registered
+ * credential: a half-configured provider is omitted rather than registered
  * broken, so the sign-in page never shows a button that dead-ends.
  *
  * `enabled` defaults to "yes, if credentials exist" so an install that had
@@ -183,7 +183,7 @@ export interface TwilioConfig {
   fromNumber: string;
 }
 
-/** Null when SMS isn't configured from either source — the caller logs a
+/** Null when SMS isn't configured from either source. The caller logs a
  *  no-op rather than failing the notification (the in-app row still lands). */
 export async function twilioConfig(): Promise<TwilioConfig | null> {
   const row = await loadRow();
@@ -211,8 +211,8 @@ export interface CrowdsecConfig {
 /**
  * CrowdSec bouncer credentials for the Caddy global block + the Firewall
  * page's LAPI reads. Null when disabled or incompletely configured. Note
- * this says nothing about whether the agent container is actually running —
- * that's the compose `firewall` profile, which the control plane can't start
+ * this says nothing about whether the agent container is actually running.
+ * That's the compose `firewall` profile, which the control plane can't start
  * for you.
  */
 export async function crowdsecConfig(): Promise<CrowdsecConfig | null> {
@@ -238,8 +238,8 @@ function parseAllowlist(raw: string): string[] {
 
 /**
  * Bare IPs/CIDRs tenant-supplied destinations may reach. An empty *string* in
- * the column is an explicit "allow nothing" that overrides a non-empty env —
- * only NULL falls back. This can never re-permit the control plane's own
+ * the column is an explicit "allow nothing" that overrides a non-empty env.
+ * Only NULL falls back. This can never re-permit the control plane's own
  * addresses; that denial lives in egress-denylist.ts and is unconditional.
  */
 export async function egressAllowlistEntries(): Promise<string[]> {

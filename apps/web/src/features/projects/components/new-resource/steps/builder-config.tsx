@@ -3,7 +3,7 @@
  * builder.tsx to keep that file under the max-lines cap. `StepBuilder`
  * renders `<BuilderConfig builderId={…} />`.
  *
- * All inputs are blank with placeholders — these are the operator's choices,
+ * All inputs are blank with placeholders. These are the operator's choices,
  * not claims about their repo. Auto-detection lives in the banner above,
  * driven by the real `git.inspectRepo` result.
  */
@@ -160,7 +160,7 @@ export function BuilderConfig({ builderId }: { builderId: string }) {
             <Textarea
               className="font-mono"
               rows={3}
-              placeholder={"auto — leave blank to let the builder choose"}
+              placeholder={"auto (leave blank to let the builder choose)"}
             />
           </Field>
         </div>

@@ -1,5 +1,5 @@
 /**
- * Lookup helpers used by every handler — load the project (and optionally
+ * Lookup helpers used by every handler. Load the project (and optionally
  * the service record) for the (org, project, resource) addressing tuple,
  * surfacing a typed `Result` instead of `undefined` checks.
  */

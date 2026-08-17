@@ -9,7 +9,7 @@ import { kindFragment, nameFragment } from "./_base";
 
 const portSchema = z.object({
   // 0 = "not filled in yet" (renders as an empty input). Allowed for
-  // internal-only rows — they're simply dropped at manifest build — but a
+  // internal-only rows (they're simply dropped at manifest build) but a
   // public row must name the container port its route forwards to.
   port: z.number().int().min(0).max(65535),
   protocol: z.string().min(1),

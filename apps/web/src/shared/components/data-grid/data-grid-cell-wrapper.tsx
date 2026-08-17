@@ -12,6 +12,16 @@ import { cn } from "@/shared/lib/utils";
 interface DataGridCellWrapperProps<TData>
   extends DataGridCellProps<TData>, React.ComponentProps<"div"> {}
 
+/** `React.CSSProperties` has no channel for CSS custom properties, so the one
+ *  this cell sets (the presence ring color) is typed via extension. */
+interface PresenceRingStyle extends React.CSSProperties {
+  "--tw-ring-color": string;
+}
+
+function presenceRingStyle(color: string): PresenceRingStyle {
+  return { "--tw-ring-color": color };
+}
+
 export function DataGridCellWrapper<TData>({
   tableMeta,
   rowIndex,
@@ -157,11 +167,7 @@ export function DataGridCellWrapper<TData>({
         },
         className,
       )}
-      style={
-        cellPresence
-          ? ({ "--tw-ring-color": cellPresence.color } as React.CSSProperties)
-          : undefined
-      }
+      style={cellPresence ? presenceRingStyle(cellPresence.color) : undefined}
       onClick={onClick}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}

@@ -28,8 +28,8 @@ describe("classifyEnvVar", () => {
 
   test("url wins over secret so NEXTAUTH_URL is not masked as a credential", () => {
     // `AUTH` matches the secret pattern. Without the precedence rule this
-    // would be filled with random bytes and hidden behind a reveal toggle —
-    // for a value that is just an address.
+    // would be filled with random bytes and hidden behind a reveal toggle.
+    // For a value that is just an address.
     expect(classifyEnvVar("NEXTAUTH_URL")).toBe("url");
     expect(classifyEnvVar("AUTH_DOMAIN")).toBe("url");
     expect(isSecretKey("NEXTAUTH_URL")).toBe(false);
@@ -40,7 +40,7 @@ describe("classifyEnvVar", () => {
     expect(classifyEnvVar("HOST")).toBe("host");
   });
 
-  test("PGHOST is not a host ref — it names an internal service, not our edge", () => {
+  test("PGHOST is not a host ref, it names an internal service, not our edge", () => {
     // Word-boundary matching keeps `PGHOST`/`REDIS_HOSTNAME`-style compound
     // keys from being rewritten to the PUBLIC domain, which would point a
     // service at the internet instead of its sibling container.
@@ -55,7 +55,7 @@ describe("classifyEnvVar", () => {
 
   test("keys that come from elsewhere are never generated", () => {
     // Random bytes here produce a field that LOOKS filled and is guaranteed
-    // invalid — worse than blank, which at least tells the truth.
+    // invalid: worse than blank, which at least tells the truth.
     for (const key of ["LICENSE_KEY", "PUBLIC_KEY", "SSH_KEY", "DEPLOY_KEY", "GPG_KEY"]) {
       expect(classifyEnvVar(key), key).toBe("plain");
     }
@@ -65,7 +65,7 @@ describe("classifyEnvVar", () => {
     for (const key of ["GATEWAY_MASTERPASS", "DB_PASS", "PASSPHRASE"]) {
       expect(classifyEnvVar(key), key).toBe("secret");
     }
-    // Word-bounded — these merely contain the letters.
+    // Word-bounded: these merely contain the letters.
     for (const key of ["BYPASS_CACHE", "COMPASS_MODE"]) {
       expect(classifyEnvVar(key), key).toBe("plain");
     }

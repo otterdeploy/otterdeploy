@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-// listInstallationRepos is pure fetch — no DB, no JWT mint. The config-loader
+// listInstallationRepos is pure fetch, no DB, no JWT mint. The config-loader
 // module is mocked anyway so the import chain never touches @otterdeploy/db.
 vi.mock("./github-app-config", () => ({
   loadGithubAppForInstallation: vi.fn(),
 }));
 // github-app.ts's `ghFetch` wrapper routes every request through the shared
-// egress policy (SSRF hardening) — stub both the network call and the
+// egress policy (SSRF hardening): stub both the network call and the
 // control-plane-identity denylist lookup (a DB read) so this stays a pure
 // unit test.
 vi.mock("@otterdeploy/shared/egress-policy", () => ({
@@ -20,13 +20,13 @@ vi.mock("../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
 
+import type { EgressResponse } from "@otterdeploy/shared/egress-policy";
+
 import { egressFetch } from "@otterdeploy/shared/egress-policy";
 
 import type { GithubAppConfig, InstallationRepo } from "./github-app";
 
 import { listInstallationRepos } from "./github-app";
-
-type FetchMock = ReturnType<typeof vi.fn>;
 
 const config: GithubAppConfig = {
   appId: "12345",
@@ -49,20 +49,22 @@ function repo(n: number): InstallationRepo {
 const repos = (from: number, count: number) =>
   Array.from({ length: count }, (_, i) => repo(from + i));
 
-function jsonResponse(body: unknown, ok = true, status = 200): Response {
+function jsonResponse(body: unknown, ok = true, status = 200): EgressResponse {
   return {
     ok,
     status,
+    url: "https://api.github.com/installation/repositories",
+    headers: { get: () => null },
     json: async () => body,
     text: async () => JSON.stringify(body),
-  } as unknown as Response;
+    arrayBuffer: async () => new ArrayBuffer(0),
+  };
 }
 
 describe("listInstallationRepos → repo list + truthful count", () => {
-  let fetchMock: FetchMock;
+  const fetchMock = vi.mocked(egressFetch);
 
   beforeEach(() => {
-    fetchMock = egressFetch as unknown as FetchMock;
     fetchMock.mockReset();
   });
 
@@ -74,9 +76,9 @@ describe("listInstallationRepos → repo list + truthful count", () => {
     expect(result.repositories).toHaveLength(77);
     expect(result.totalCount).toBe(77);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe("https://api.github.com/installation/repositories?per_page=100&page=1");
-    expect(init.headers.Authorization).toBe("Bearer ghs_test");
+    expect(init?.headers?.Authorization).toBe("Bearer ghs_test");
   });
 
   it("walks pagination past 100 repos and keeps total_count", async () => {
@@ -89,7 +91,7 @@ describe("listInstallationRepos → repo list + truthful count", () => {
     expect(result.repositories).toHaveLength(137);
     expect(result.totalCount).toBe(137);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [secondUrl] = fetchMock.mock.calls[1] as [string];
+    const [secondUrl] = fetchMock.mock.calls[1] ?? [];
     expect(secondUrl).toContain("page=2");
     // No duplicates across pages.
     const ids = new Set(result.repositories.map((r) => r.id));
@@ -98,7 +100,7 @@ describe("listInstallationRepos → repo list + truthful count", () => {
 
   it("reports total_count even when the repository list lags behind it", async () => {
     // GitHub can briefly return a short/empty page right after an install
-    // while still knowing the true total — the count must come from
+    // while still knowing the true total: the count must come from
     // total_count, never repositories.length, so the UI shows 77, not 0.
     fetchMock.mockResolvedValueOnce(jsonResponse({ total_count: 77, repositories: [] }));
 

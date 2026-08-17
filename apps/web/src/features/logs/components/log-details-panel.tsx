@@ -1,4 +1,4 @@
-// Right-hand "Log details" panel — slides in when a row is clicked. Mirrors the
+// Right-hand "Log details" panel: slides in when a row is clicked. Mirrors the
 // graph resource panel's motion pattern. Shows the full (coalesced) message; when
 // the message is valid JSON it's pretty-printed via the shared JsonView, with a
 // raw/prettify toggle.
@@ -30,7 +30,7 @@ function parseJson(msg: string): unknown {
 }
 
 export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClose: () => void }) {
-  // Overlay the table's right edge (absolute) rather than pushing it — opening
+  // Overlay the table's right edge (absolute) rather than pushing it. Opening
   // mustn't reflow / re-measure the virtualized table. A STABLE key keeps the
   // panel mounted while switching rows, so the content just updates in place
   // instead of exit/enter-animating a fresh panel each click.
@@ -84,7 +84,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
         <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 font-mono text-[11.5px]">
           <Meta label="service" value={line.svc} />
           <Meta label="stream" value={line.stream} />
-          <Meta label="resource" value={line.resourceId || "—"} />
+          <Meta label="resource" value={line.resourceId || "–"} />
         </dl>
 
         <div className="mt-4 flex items-center justify-between">

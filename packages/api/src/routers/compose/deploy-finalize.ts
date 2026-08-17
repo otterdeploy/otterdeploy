@@ -26,8 +26,8 @@ export async function finalizeStackDeployment(input: {
     failed.length === 0 ? "running" : deployed === 0 ? "failed" : "partial";
   log(
     failed.length === 0
-      ? `Stack deploy complete — ${deployed}/${total} service(s) running.`
-      : `Stack deploy ${status} — ${deployed} rolled out, failed: ${failed.join(", ")}`,
+      ? `Stack deploy complete: ${deployed}/${total} service(s) running.`
+      : `Stack deploy ${status}: ${deployed} rolled out, failed: ${failed.join(", ")}`,
   );
 
   if (ownsDeployment) {

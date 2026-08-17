@@ -1,5 +1,6 @@
 import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("../../../runtime", () => ({ isSwarmRuntime: vi.fn() }));
@@ -8,17 +9,27 @@ vi.mock("@otterdeploy/db", () => ({ db: {} }));
 import { isSwarmRuntime } from "../../../runtime";
 import { branchPlacementConflict } from "../branch-placement";
 
-const organizationId = "org_1" as OrganizationId;
-const worker = "srv_worker" as ServerId;
+/** Fixture ids, narrowed by the real prefix guard rather than asserted. */
+function orgId(value: string): OrganizationId {
+  if (!hasPrefix(value, ID_PREFIX.organization)) throw new Error(`not an org id: ${value}`);
+  return value;
+}
+function serverId(value: string): ServerId {
+  if (!hasPrefix(value, ID_PREFIX.server)) throw new Error(`not a server id: ${value}`);
+  return value;
+}
+
+const organizationId = orgId("org_1");
+const worker = serverId("srv_worker");
 
 /**
- * Both branch transports reach the database from the control plane's own host —
+ * Both branch transports reach the database from the control plane's own host.
  * `docker exec` over the local socket, and `runOnHost` nsentering PID 1. On
  * Swarm a database can be scheduled anywhere, so an unpinned or worker-pinned
  * database with branching enabled is a configuration that cannot work.
  *
  * SCOPE: these cover the two short-circuits that decide whether the rule
- * applies at all — they are the branches that run on every apply. Comparing a
+ * applies at all. They are the branches that run on every apply. Comparing a
  * pin against the control-plane row needs a real `server` table and belongs in
  * the integration suite; asserting it here would mean stubbing the module under
  * test against itself, which proves nothing.

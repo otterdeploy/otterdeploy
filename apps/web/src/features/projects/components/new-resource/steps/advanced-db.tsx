@@ -3,13 +3,13 @@
  * honors get controls:
  *
  *   - Postgres extensions ARE consumed (manifest `extensions` → CREATE
- *     EXTENSION + image pinning at provision time) — real picker.
+ *     EXTENSION + image pinning at provision time): real picker.
  *   - Everything else the old step showed was decorative: no connection
  *     pooler is ever deployed (no PgBouncer/ProxySQL anywhere in the
  *     provisioner), Redis persistence is hardcoded (`--appendonly yes` in
  *     the engine adapter's buildCommand) with no eviction/RDB knobs, and
  *     no maintenance-window scheduler exists. Those controls were removed
- *     rather than shipped as switches that write to nothing — what's left
+ *     rather than shipped as switches that write to nothing. What's left
  *     states the fixed behavior instead.
  */
 
@@ -32,7 +32,7 @@ export function StepAdvancedDb({ kind }: { kind: ServiceKind }) {
         <>
           <SectionHeader
             title="Redis configuration"
-            sub="Fixed by the provisioner today — eviction and snapshot tuning aren't configurable yet"
+            sub="Fixed by the provisioner today. Eviction and snapshot tuning aren't configurable yet."
           />
           <Card className="mt-2.5 gap-0 p-4">
             <InfoRow

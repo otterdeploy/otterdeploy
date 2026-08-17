@@ -27,7 +27,7 @@ export const Route = createFileRoute("/terminal")({
   staticData: { crumb: "Terminal" },
   component: RouteComponent,
   validateSearch: terminalSearchSchema,
-  // See routes/_app/$orgSlug/_shell/terminal.tsx — strips the noisy
+  // See routes/_app/$orgSlug/_shell/terminal.tsx. Strips the noisy
   // `?session=%5B%5D` the schema's array-transform default would otherwise
   // write back on a fresh popout with no sessions yet.
   search: { middlewares: [stripSearchParams({ session: [] })] },

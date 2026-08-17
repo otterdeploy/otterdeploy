@@ -38,8 +38,11 @@ describe("encryptSecret/decryptSecret (v1, legacy)", () => {
     const ct = await encryptSecret("secret");
     // Flip many characters mid-ciphertext so the GCM tag can't possibly
     // still verify. One-char flips have a ~1/2^16 chance of landing on a
-    // valid tag through luck — too flaky for CI.
-    const [v, n, last] = ct.split(".") as [string, string, string];
+    // valid tag through luck: too flaky for CI.
+    const [v, n, last] = ct.split(".");
+    if (v === undefined || n === undefined || last === undefined) {
+      throw new Error("expected a 3-segment v1 envelope");
+    }
     const mid = Math.floor(last.length / 2);
     const tampered = `${v}.${n}.${last.slice(0, mid)}AAAA${last.slice(mid + 4)}`;
     await expect(decryptSecret(tampered)).rejects.toThrow();
@@ -69,7 +72,7 @@ describe("encryptForDomain/decryptForDomain (v2, domain-separated)", () => {
     expect(await decryptForDomain(b, "ssh-keys")).toBe("same");
   });
 
-  it("does NOT decrypt cross-domain — wrong expected domain throws", async () => {
+  it("does NOT decrypt cross-domain. Wrong expected domain throws", async () => {
     const ct = await encryptForDomain("registry-password", "registry-creds");
     await expect(decryptForDomain(ct, "ssh-keys")).rejects.toThrow(/domain mismatch/);
     await expect(decryptForDomain(ct, "certs")).rejects.toThrow(/domain mismatch/);
@@ -80,8 +83,8 @@ describe("encryptForDomain/decryptForDomain (v2, domain-separated)", () => {
   it("does NOT decrypt cross-domain even with a forged envelope domain label", async () => {
     // Encrypt for one domain, then hand-forge the envelope to *claim* it's
     // another domain's ciphertext. An honest mismatch is caught by the
-    // domain check alone; this proves the underlying KEY is also different —
-    // the forged envelope's declared domain now matches what
+    // domain check alone; this proves the underlying KEY is also different.
+    // The forged envelope's declared domain now matches what
     // `decryptForDomain` expects, so it proceeds to decrypt, and must fail
     // the AES-GCM tag rather than silently return garbage as "success".
     const ct = await encryptForDomain("ssh-private-key-material", "ssh-keys");
@@ -98,7 +101,8 @@ describe("encryptForDomain/decryptForDomain (v2, domain-separated)", () => {
   it("rejects tampered v2 ciphertext", async () => {
     const ct = await encryptForDomain("secret", "certs");
     const parts = ct.split(":");
-    const last = parts[4] as string;
+    const last = parts[4];
+    if (last === undefined) throw new Error("expected a 5-segment v2 envelope");
     const mid = Math.floor(last.length / 2);
     parts[4] = `${last.slice(0, mid)}AAAA${last.slice(mid + 4)}`;
     await expect(decryptForDomain(parts.join(":"), "certs")).rejects.toThrow();
@@ -139,7 +143,7 @@ describe("rotation", () => {
     // We can't flip the live module's CURRENT_KEY_ID mid-test (it's resolved
     // once at import), so this proves the equivalent guarantee directly: old
     // ciphertext under id "1" must keep decrypting after the keyring gains a
-    // new "current" id "2" — nothing about id "1"'s material changes.
+    // new "current" id "2", nothing about id "1"'s material changes.
     const keyring = buildKeyringFrom({
       BETTER_AUTH_SECRET: "a".repeat(32),
       DATA_ENCRYPTION_KEYS: `1:${"a".repeat(32)},2:${"b".repeat(32)}`,

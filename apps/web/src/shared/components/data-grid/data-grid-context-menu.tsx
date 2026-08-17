@@ -7,7 +7,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import type { CellUpdate, ContextMenuState } from "@/shared/components/data-grid/types";
+import type { CellOpts, CellUpdate, ContextMenuState } from "@/shared/components/data-grid/types";
 
 import { useAsRef } from "@/shared/components/data-grid/hooks/use-as-ref";
 import { parseCellKey } from "@/shared/components/data-grid/lib/data-grid";
@@ -58,10 +58,22 @@ export function DataGridContextMenu<TData>({
   );
 }
 
-interface ContextMenuProps<TData>
+/**
+ * The slice of a ColumnDef the menu actually reads (id / accessorKey lookup +
+ * the cell variant). Structural and TData-free, so the memoized component
+ * below needs no generic parameter: every ColumnDef<TData> satisfies it.
+ */
+interface ContextMenuColumn {
+  id?: string;
+  meta?: { label?: string; cell?: CellOpts };
+}
+
+// The custom TableMeta fields this menu uses are all row-type independent, so
+// the props can be stated over TableMeta<unknown> and accept any grid's meta.
+interface ContextMenuProps
   extends
     Pick<
-      TableMeta<TData>,
+      TableMeta<unknown>,
       | "dataGridRef"
       | "onContextMenuOpenChange"
       | "selectionState"
@@ -71,9 +83,9 @@ interface ContextMenuProps<TData>
       | "onCellsCut"
       | "readOnly"
     >,
-    Required<Pick<TableMeta<TData>, "contextMenu">> {
-  tableMeta: TableMeta<TData>;
-  columns: Array<ColumnDef<TData>>;
+    Required<Pick<TableMeta<unknown>, "contextMenu">> {
+  tableMeta: TableMeta<unknown>;
+  columns: ReadonlyArray<ContextMenuColumn>;
 }
 
 const ContextMenu = React.memo(ContextMenuImpl, (prev, next) => {
@@ -87,9 +99,9 @@ const ContextMenu = React.memo(ContextMenuImpl, (prev, next) => {
   if (prevSize !== nextSize) return false;
 
   return true;
-}) as typeof ContextMenuImpl;
+});
 
-function ContextMenuImpl<TData>({
+function ContextMenuImpl({
   tableMeta,
   columns,
   dataGridRef,
@@ -100,7 +112,7 @@ function ContextMenuImpl<TData>({
   onRowsDelete,
   onCellsCopy,
   onCellsCut,
-}: ContextMenuProps<TData>) {
+}: ContextMenuProps) {
   const { t } = useTranslation();
   const propsRef = useAsRef({
     dataGridRef,

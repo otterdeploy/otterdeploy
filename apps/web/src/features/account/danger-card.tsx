@@ -1,5 +1,5 @@
 /**
- * Account danger zone — "sign out everywhere": revoke every session for this
+ * Account danger zone: "sign out everywhere": revoke every session for this
  * user (better-auth `revokeSessions`, which includes the current one), clear
  * the local cookie via signOut, and land on the sign-in page. Confirmed
  * through an alert dialog since it kicks the user out of this very tab.
@@ -41,7 +41,7 @@ export function DangerCard() {
       await authClient.signOut().catch(() => undefined);
     },
     onSuccess: () => {
-      // Every cached query belongs to the account that just signed out — drop
+      // Every cached query belongs to the account that just signed out. Drop
       // the whole cache so nothing leaks into the next sign-in.
       queryClient.clear();
       void navigate({ to: "/sign-in", replace: true });
@@ -61,7 +61,7 @@ export function DangerCard() {
             {t("account.danger.signOutEverywhere")}
           </span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
-            Revokes every session on every device — including this one. You'll be returned to the
+            Revokes every session on every device, including this one. You'll be returned to the
             sign-in page.
           </span>
         </div>
@@ -83,7 +83,7 @@ export function DangerCard() {
             <AlertDialogHeader>
               <AlertDialogTitle>{t("account.danger.signOutEverywhereConfirm")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Every device signed in to your account — including this one — will be signed out
+                Every device signed in to your account, including this one, will be signed out
                 immediately. You'll need to sign in again.
               </AlertDialogDescription>
             </AlertDialogHeader>

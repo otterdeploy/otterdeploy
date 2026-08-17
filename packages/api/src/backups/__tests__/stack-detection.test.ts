@@ -1,6 +1,6 @@
 /**
  * Image → engine detection for compose-stack database backups. This is the
- * declarative allow-list that decides which stack services are dumpable — it
+ * declarative allow-list that decides which stack services are dumpable. It
  * must match real database images (across registries/tags) and, crucially, NOT
  * misfire on app images that merely contain a DB name (nocodb, postgrest, …).
  */
@@ -29,7 +29,7 @@ describe("engineFromImage", () => {
   });
 
   it("does NOT misfire on app images that merely contain a DB name", () => {
-    // The exact false-positive class Coolify maintains an exclusion list for —
+    // The exact false-positive class Coolify maintains an exclusion list for:
     // our exact-base-name allow-list rejects them for free.
     expect(engineFromImage("nocodb/nocodb:latest")).toBeNull();
     expect(engineFromImage("postgrest/postgrest")).toBeNull();

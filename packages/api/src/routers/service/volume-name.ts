@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 
 /**
  * Canonicalize a container mount path: ensure a leading slash, collapse
- * duplicate slashes, and drop any trailing slash — so "/data", "/data/", and
+ * duplicate slashes, and drop any trailing slash, so "/data", "/data/", and
  * "//data" all address the one mount.
  */
 export function normalizeMountPath(raw: string): string {

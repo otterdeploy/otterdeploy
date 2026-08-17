@@ -1,7 +1,7 @@
 /**
  * Data-tab fallback for database engines the viewer doesn't natively support
  * yet (MariaDB, MongoDB). We deliberately do NOT fall back to the Postgres SQL
- * console here — showing a relational studio over a non-relational engine is
+ * console here, showing a relational studio over a non-relational engine is
  * worse than honest: it just errors on every query. Instead we say plainly
  * that the engine isn't supported. The Terminal tab remains the escape hatch.
  */

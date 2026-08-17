@@ -1,12 +1,12 @@
 /**
- * Base URL to put in anything the operator copies OUT of the dashboard — a
+ * Base URL to put in anything the operator copies OUT of the dashboard: a
  * `otterdeploy login` line, a curl one-liner pasted onto a new host.
  *
  * `window.location.origin` is where *this* browser happens to be, which on a
  * default install is the server's raw IP over plaintext. That address is fine
  * for the tab you already have open and wrong for a command that gets pasted
  * onto another machine and outlives it. Prefer the operator's control-plane
- * domain once it is VERIFIED — unverified means a self-signed certificate, so
+ * domain once it is VERIFIED. Unverified means a self-signed certificate, so
  * a curl against it would fail closed rather than fall back.
  *
  * Client-side twin of `resolveCanonicalWebOrigin` on the server; shared so the

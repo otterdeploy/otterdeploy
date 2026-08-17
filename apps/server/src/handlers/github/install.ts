@@ -9,7 +9,6 @@
  *   manifest/callback  GitHub sends App credentials after manifest approval
  */
 
-import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { Handler } from "hono";
 
 import {
@@ -21,11 +20,12 @@ import {
 } from "@otterdeploy/api/git";
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
 
 // These callbacks run on the public ingress (the tunnel in dev), then bounce
-// the browser back to the dashboard. That target is the WEB origin — the
+// the browser back to the dashboard. That target is the WEB origin. The
 // VERIFIED control-plane FQDN when the operator has set one (keeps the raw
 // server IP out of browser redirects); otherwise the env resolution: in dev
 // BETTER_AUTH_URL is the API host, so prefer PUBLIC_WEB_URL when set (prod
@@ -33,7 +33,7 @@ import { log, parseError } from "evlog";
 const dashboardUrl = () =>
   resolveCanonicalWebOrigin((env.PUBLIC_WEB_URL ?? env.BETTER_AUTH_URL).replace(/\/$/, ""));
 
-// `returnTo` is a signed, sanitized app-relative path — when present, the
+// `returnTo` is a signed, sanitized app-relative path. When present, the
 // operator gets dropped back where they started the connect (e.g. the deploy
 // wizard) instead of the Git providers page.
 const resultRedirectUrl = async (params: {
@@ -69,10 +69,18 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
     return c.redirect(await errorRedirectUrl(`unsupported-action:${setupAction}`, state.returnTo));
   }
 
+  // The state token is signed by us and its orgId was minted by createId, so
+  // a missing `org_` prefix means a forged or corrupted token: treat it the
+  // same as a bad signature instead of asserting the brand.
+  const organizationId = state.orgId;
+  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+    return c.redirect(await errorRedirectUrl("invalid-state"));
+  }
+
   const connect = await Result.tryPromise({
     try: () =>
       completeGithubConnect({
-        organizationId: state.orgId as OrganizationId,
+        organizationId,
         installationId,
       }),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
@@ -119,11 +127,17 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
     return c.redirect(await errorRedirectUrl("invalid-state"));
   }
 
+  // Same forged-token treatment as the install callback above.
+  const organizationId = state.orgId;
+  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+    return c.redirect(await errorRedirectUrl("invalid-state"));
+  }
+
   const exchange = await Result.tryPromise({
     try: () =>
       completeManifestExchange({
         code,
-        organizationId: state.orgId as OrganizationId,
+        organizationId,
         host: state.host,
       }),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
@@ -147,7 +161,7 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
     },
   });
 
-  // Carry the install state forward — same orgId + userId + returnTo — so
+  // Carry the install state forward (same orgId + userId + returnTo) so
   // the install-callback can finish wiring this org's first installation.
   // Mint fresh because the manifest-leg state has already burned most
   // of its 15-minute TTL.

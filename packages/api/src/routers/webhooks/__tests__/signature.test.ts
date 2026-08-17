@@ -20,7 +20,10 @@ describe("signPayload / verifySignatureHeader", () => {
   });
 
   test("string and ArrayBuffer bodies produce the same signature", async () => {
-    const buf = new TextEncoder().encode(BODY).buffer as ArrayBuffer;
+    // Copy into a fresh ArrayBuffer: `.buffer` is only `ArrayBufferLike`.
+    const bytes = new TextEncoder().encode(BODY);
+    const buf = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buf).set(bytes);
     expect(await signPayload(SECRET, buf)).toBe(await signPayload(SECRET, BODY));
     const header = await signPayload(SECRET, BODY);
     expect(await verifySignatureHeader(SECRET, header, buf)).toBe(true);

@@ -1,12 +1,12 @@
 // Deploy-hooks editor for a git-sourced service. Two ordered lists of shell
-// commands — preDeploy + postDeploy — staged onto the manifest service entry
+// commands (preDeploy + postDeploy) staged onto the manifest service entry
 // (same manifest.get → patch → manifest.save path as the build card), so the
 // change rides the pending-changes bar and takes effect on the next Deploy.
 //
 // The builder runs each command in a throwaway container off the freshly built
 // image (`sh -c "<command>"`): preDeploy AFTER the build but BEFORE the rollout
-// (a non-zero exit aborts the deploy — the slot for db migrations); postDeploy
-// AFTER the new replicas are live + healthy (best-effort — a failure is logged
+// (a non-zero exit aborts the deploy, the slot for db migrations); postDeploy
+// AFTER the new replicas are live + healthy (best-effort, a failure is logged
 // but doesn't roll back).
 
 import type { ProjectId } from "@otterdeploy/shared/id";
@@ -22,7 +22,7 @@ import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
 
 interface CmdRow {
-  /** Stable identity for React keys — rows are added/removed by position. */
+  /** Stable identity for React keys: rows are added/removed by position. */
   id: string;
   value: string;
 }
@@ -46,12 +46,12 @@ export function ServiceDeployHooksCard({
   projectId,
   serviceName,
 }: {
-  projectId: string;
+  projectId: ProjectId;
   serviceName: string;
 }) {
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({
-      input: { id: projectId as ProjectId },
+      input: { id: projectId },
     }),
   );
 
@@ -88,7 +88,7 @@ function DeployHooksEditor({
   initialPre,
   initialPost,
 }: {
-  projectId: string;
+  projectId: ProjectId;
   serviceName: string;
   initialPre: string[];
   initialPost: string[];
@@ -96,8 +96,8 @@ function DeployHooksEditor({
   const [preRows, setPreRows] = useState<CmdRow[]>(() => initialPre.map(newCmdRow));
   const [postRows, setPostRows] = useState<CmdRow[]>(() => initialPost.map(newCmdRow));
 
-  const stage = useStageManifestChange(projectId as ProjectId, {
-    successToast: "Deploy hooks saved — deploy to apply",
+  const stage = useStageManifestChange(projectId, {
+    successToast: "Deploy hooks saved. Deploy to apply.",
   });
 
   const save = () =>
@@ -132,7 +132,7 @@ function DeployHooksEditor({
     >
       <HookList
         label="Pre-deploy"
-        hint="Run after the build, before traffic shifts — a non-zero exit aborts the deploy (the slot for db migrations)."
+        hint="Run after the build, before traffic shifts. A non-zero exit aborts the deploy (the slot for db migrations)."
         rows={preRows}
         setRows={setPreRows}
         busy={busy}
@@ -140,7 +140,7 @@ function DeployHooksEditor({
       />
       <HookList
         label="Post-deploy"
-        hint="Run after the new replicas are live + healthy — best-effort; a failure won't roll back (cache warmup, smoke checks)."
+        hint="Run after the new replicas are live and healthy. Best-effort: a failure won't roll back (cache warmup, smoke checks)."
         rows={postRows}
         setRows={setPostRows}
         busy={busy}

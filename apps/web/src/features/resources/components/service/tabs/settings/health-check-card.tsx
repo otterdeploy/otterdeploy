@@ -1,5 +1,5 @@
 /**
- * HTTP health-check config for a deployed service — path / interval / timeout
+ * HTTP health-check config for a deployed service. Path / interval / timeout
  * / retries, persisted on the service row (`healthcheck*` columns) via
  * `service.update`, which redeploys so the check lands as a real Docker
  * `Healthcheck` on the container.
@@ -66,10 +66,10 @@ function ToggleRow({
         <span className="text-[13px] font-medium">HTTP health check</span>
         <span className="text-[11px] text-muted-foreground">
           {port == null
-            ? "Unavailable — this service declares no container port to probe."
+            ? "Unavailable. This service declares no container port to probe."
             : form.enabled
               ? `Probes http://127.0.0.1:${port}${pathValid ? normalizedPath : "…"} inside the container`
-              : "Off — Docker only restarts the container when the process exits"}
+              : "Off. Docker only restarts the container when the process exits."}
         </span>
       </div>
       <Switch checked={form.enabled} disabled={port == null || saving} onCheckedChange={onToggle} />
@@ -116,7 +116,7 @@ function HealthCheckForm({
 
   const saveMut = useMutation({
     ...orpc.service.update.mutationOptions(),
-    onSuccess: () => toast.success("Health check saved — service redeploying"),
+    onSuccess: () => toast.success("Health check saved. Service redeploying."),
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : "Failed to save health check"),
     onSettled: async () => {
@@ -200,7 +200,7 @@ export function ServiceHealthCheckCard({ resource }: { resource: HealthCheckReso
   return (
     <SettingsCard
       title="Health check"
-      description="Runs inside the container on every interval (needs wget or curl in the image). After the retry count fails consecutively the replica is marked unhealthy — deploys wait on it and the panel surfaces it."
+      description="Runs inside the container on every interval (needs wget or curl in the image). After the retry count fails consecutively the replica is marked unhealthy. Deploys wait on it and the panel surfaces it."
     >
       {serviceQuery.data ? (
         <HealthCheckForm

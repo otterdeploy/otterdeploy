@@ -1,15 +1,15 @@
 /**
  * A single notification channel row: brand mark, delivery stats, status pill,
  * and inline actions (deliveries / test / edit / pause-resume / delete). The
- * stats row is a button too — both open the per-channel delivery-history
+ * stats row is a button too. Both open the per-channel delivery-history
  * dialog owned by the page. Mirrors the
- * registries card idiom — `rounded-md border bg-card` shell + outline button
+ * registries card idiom: `rounded-md border bg-card` shell + outline button
  * cluster. Stats + status come from the server (live delivery log).
  *
  * Delete rides `channelsCollection` (optimistic). Test and pause stay direct
  * `client.notifications.channels.*` calls: `test` has no row to mutate and
  * `pause` flips a server-computed status (active ⇆ paused) that isn't a plain
- * settable field — both refetch the list on success.
+ * settable field: both refetch the list on success.
  */
 
 import { useState } from "react";

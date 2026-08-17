@@ -1,5 +1,5 @@
 /**
- * Create a named docker volume. Drivers come from the daemon's plugin list —
+ * Create a named docker volume. Drivers come from the daemon's plugin list,
  * no invented tiers. The `local` driver has no size quota and no encryption
  * at rest, so those controls don't exist here; the footer says so instead of
  * rendering decorative toggles.
@@ -70,11 +70,13 @@ export function CreateVolumeDialog({
 
 function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: () => void }) {
   const { t } = useTranslation();
+  // Annotated so the form's `labels` field infers LabelRow[] rather than never[].
+  const noLabels: LabelRow[] = [];
   const form = useForm({
     defaultValues: {
       name: "",
       driver: drivers.includes("local") ? "local" : (drivers[0] ?? "local"),
-      labels: [] as LabelRow[],
+      labels: noLabels,
     },
     onSubmit: async ({ value }) => {
       if (!NAME_RE.test(value.name)) return;
@@ -175,7 +177,7 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
             {(driver) => (
               <span className="max-w-[55%] text-[11px] text-muted-foreground">
                 {driver === "local"
-                  ? "The local driver has no size quota or encryption — capacity is bounded by the host filesystem."
+                  ? "The local driver has no size quota or encryption. Capacity is bounded by the host filesystem."
                   : "Driver options beyond labels aren't configurable here yet."}
               </span>
             )}

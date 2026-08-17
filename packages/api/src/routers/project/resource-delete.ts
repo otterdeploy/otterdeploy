@@ -1,5 +1,5 @@
 /**
- * Resource DELETE orchestration — the destructive half of resources.ts.
+ * Resource DELETE orchestration. The destructive half of resources.ts.
  *
  * Split out because delete is a fundamentally different job from the read side:
  * the reads in resources.ts are pure projections over the query layer, whereas
@@ -43,7 +43,7 @@ async function teardownServiceRuntime(
   log: RequestLogger,
 ): Promise<void> {
   // Lazy-imported: transitively loads @otterdeploy/env/server (validated at
-  // module load) — keep it out of resources.ts's import graph.
+  // module load). Keep it out of resources.ts's import graph.
   const { runtime } = await import("../../runtime");
   // 1. Stop + remove the running container / swarm service. If the daemon is
   //    unreachable this best-effort destroy would silently leak the container;
@@ -68,7 +68,7 @@ async function teardownServiceRuntime(
         },
       });
     });
-  // 2-4. Reclaim host artifacts (images, buildx cache, volumes) — shared with
+  // 2-4. Reclaim host artifacts (images, buildx cache, volumes). Shared with
   //      the manifest-apply delete path (service/handlers.ts deleteService).
   await reclaimServiceHostArtifacts(serviceName, ref, log);
 }
@@ -86,7 +86,7 @@ async function teardownDatabaseRuntime(
   log: RequestLogger,
 ): Promise<{ containerDestroyed: boolean; volumeReclaimed: boolean }> {
   const provisioner = getDatabaseProvisioner(input.engine);
-  // Container teardown must never abort the delete — a crash-looped or
+  // Container teardown must never abort the delete. A crash-looped or
   // already-exited container (od-aww's postgres:18 repro) is exactly the
   // case that must still get cleaned up, and the DB row is the source of
   // truth regardless of daemon hiccups. On failure, hand it to the
@@ -107,8 +107,8 @@ async function teardownDatabaseRuntime(
     });
   }
   // The volume only detaches once the container is actually gone, so a
-  // failed container teardown makes this attempt a no-op "in use" error —
-  // expected, not a bug. Either way, fall back to orphan-GC on failure
+  // failed container teardown makes this attempt a no-op "in use" error.
+  // Expected, not a bug. Either way, fall back to orphan-GC on failure
   // (it retries with the org-scoped guarded remover once the container
   // teardown above has had a chance to land).
   const { removed: volumeReclaimed } = await reclaimDatabaseVolume(input.volumeName, log);
@@ -150,7 +150,7 @@ export async function deleteProjectResource(
     case "database": {
       // PRECONDITION, deliberately before the manifest strip below. That order
       // is load-bearing: the strip runs first so a partial teardown diffs as a
-      // recoverable delete rather than a phantom create — but it also means a
+      // recoverable delete rather than a phantom create, but it also means a
       // failure discovered later leaves the manifest entry gone while the data
       // is still on disk. Under `zfs` the destroy WOULD fail there, because a
       // clone pins its origin snapshot.
@@ -186,7 +186,7 @@ export async function deleteProjectResource(
         },
       });
 
-      // Strip it from the manifest FIRST, before any teardown — once a delete
+      // Strip it from the manifest FIRST, before any teardown: once a delete
       // starts the resource is no longer "desired", so a partial-teardown
       // failure can only ever diff as a (recoverable) delete, never a phantom
       // `create` ghost. A deployed resource must never revert to pending.
@@ -246,7 +246,7 @@ export async function deleteProjectResource(
       break;
     }
     case "compose": {
-      // Stack deletion is compose.delete's job — it tears down every child
+      // Stack deletion is compose.delete's job. It tears down every child
       // service, the swarm stack, routes, and seeded vars. Falling through
       // here would report success without removing anything.
       log.set({ resource: { outcome: "compose_not_deletable_here" } });

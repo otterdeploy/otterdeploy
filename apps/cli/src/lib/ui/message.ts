@@ -4,7 +4,7 @@
  * This replaces bare `consola.*` calls across the commands. Three things it
  * fixes beyond looks:
  *
- * 1. **Stream discipline** — failures, warnings and hints go to stderr, results
+ * 1. **Stream discipline**: failures, warnings and hints go to stderr, results
  *    to stdout (see stream.ts), so `--json` output stays pipeable.
  * 2. **Hints are first-class.** A failure almost always has a next action; the
  *    old code either dropped it or buried it in the message. `abort(msg, hint)`
@@ -15,7 +15,7 @@
  * Most prompts delegate to `consola.prompt`: it is a tested TTY widget with
  * cancel handling and arrow-key select. What is standardised here is the
  * question wording, the default, and what a cancel means. The one exception is
- * `secret`, which consola cannot express — see its comment.
+ * `secret`, which consola cannot express. See its comment.
  */
 
 import { consola } from "consola";
@@ -26,12 +26,12 @@ import { G } from "./glyphs";
 import { err, out } from "./stream";
 import { dim, paint, strong } from "./theme";
 
-/** Raw stderr write with no trailing newline — for in-place prompts. */
+/** Raw stderr write with no trailing newline, for in-place prompts. */
 function writeInline(text: string): void {
   process.stderr.write(text);
 }
 
-/** A successful outcome — the thing the user asked for happened. */
+/** A successful outcome: the thing the user asked for happened. */
 export function ok(message: string): void {
   out(`${strong("ok", G.check)} ${message}`);
 }
@@ -54,7 +54,7 @@ export function hint(text: string): void {
   err(`  ${dim(`${G.next} ${text}`)}`);
 }
 
-/** Like `hint`, but the text IS a command — prefixed with the invoked name. */
+/** Like `hint`, but the text IS a command, prefixed with the invoked name. */
 export function hintCmd(rest: string): void {
   hint(`run \`${cmd(rest)}\``);
 }
@@ -69,7 +69,7 @@ export function fail(message: string, ...hints: string[]): void {
  * Report a failure and exit non-zero.
  *
  * Collapses the `consola.error(...); process.exit(1)` pair that appeared ~90
- * times, and makes it impossible to print an error and forget the exit code —
+ * times, and makes it impossible to print an error and forget the exit code,
  * which silently turned failures into CI passes.
  */
 export function abort(message: string, ...hints: string[]): never {

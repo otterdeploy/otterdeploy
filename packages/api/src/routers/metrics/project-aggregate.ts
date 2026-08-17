@@ -7,8 +7,8 @@
  * per bucket). Summing bucket-*averages* rather than raw samples keeps a
  * container that happened to sample twice in a bucket from counting double.
  *
- * Honesty rule: a bucket where no container reported is omitted entirely — a
- * gap in the chart — never zero-filled as if 0% CPU was measured. `containers`
+ * Honesty rule: a bucket where no container reported is omitted entirely. A
+ * gap in the chart, never zero-filled as if 0% CPU was measured. `containers`
  * carries how many reported so partial buckets are distinguishable too.
  */
 
@@ -20,7 +20,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 
 /** One SQL row: a single container's bucket-average within the window. */
 export interface AggregateBucketRow {
-  /** Bucket ordinal — epoch seconds divided by `bucketSeconds`, floored. */
+  /** Bucket ordinal: epoch seconds divided by `bucketSeconds`, floored. */
   bucketEpoch: number;
   containerId: string;
   cpuPct: number;

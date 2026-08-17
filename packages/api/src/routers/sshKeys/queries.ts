@@ -46,7 +46,7 @@ export async function insertSshKeyRecord(input: {
   return row;
 }
 
-/** Replace the key material in place (rotate) — keeps id/name, bumps the rest. */
+/** Replace the key material in place (rotate): keeps id/name, bumps the rest. */
 export async function updateSshKeyMaterial(input: {
   id: SshKeyId;
   organizationId: OrgId;

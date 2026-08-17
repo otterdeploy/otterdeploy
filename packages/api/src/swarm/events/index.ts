@@ -7,7 +7,7 @@
  *   - subscriber.ts: process-wide singleton bus + subscribe()
  *   - wait-for.ts:   "resolve on first matching event" helpers
  *
- * Consumers should import through this barrel — never reach into the
+ * Consumers should import through this barrel, never reach into the
  * subscriber module directly, since the singleton state is private.
  */
 

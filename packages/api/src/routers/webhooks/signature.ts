@@ -5,7 +5,7 @@
  * body>` in the `X-Otterdeploy-Signature` header. Outbound deliveries are
  * signed by the delivery job (packages/jobs/src/jobs/webhook.ts) with the
  * same shared `hmacSha256Hex`, so `verifySignatureHeader` here is the exact
- * inverse — covered by __tests__/signature.test.ts.
+ * inverse, covered by __tests__/signature.test.ts.
  */
 import { bytesToHex, hmacSha256Hex, timingSafeEqual } from "@otterdeploy/shared/crypto";
 
@@ -47,7 +47,7 @@ export function mintInboundSecret(): string {
   return `inhsec_${randomHex(32)}`;
 }
 
-/** Inbound URL slug (`/api/webhooks/in/<token>`): 160 bits, hex — enough that
+/** Inbound URL slug (`/api/webhooks/in/<token>`): 160 bits, hex: enough that
  * the URL is unguessable, though the HMAC remains the real gate. */
 export function mintInboundToken(): string {
   return randomHex(20);

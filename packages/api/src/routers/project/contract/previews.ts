@@ -1,5 +1,5 @@
 /**
- * PR previews for the project graph — one entry per open preview with the
+ * PR previews for the project graph: one entry per open preview with the
  * per-service state the satellite cards render: PR number, branch, and for
  * each opted-in service its latest preview deployment status + preview URL.
  */
@@ -15,7 +15,7 @@ const previewIdField = zId(ID_PREFIX.preview);
 
 const previewScopeOnly = z.object({ projectId: projectIdField, previewId: previewIdField });
 
-/** A preview-level POST control (rebuild/pause/etc.) — scope in, loose ok out. */
+/** A preview-level POST control (rebuild/pause/etc.): scope in, loose ok out. */
 function previewAction(path: string) {
   return oc
     .errors(projectNotFoundErrors)
@@ -26,7 +26,7 @@ function previewAction(path: string) {
 
 const previewServiceSchema = z.object({
   resourceId: resourceIdField,
-  /** Base resource name — matches the graph node the card attaches to. */
+  /** Base resource name: matches the graph node the card attaches to. */
   serviceName: z.string(),
   /** Latest preview-scoped deployment status; "none" before the first build. */
   status: z.enum([
@@ -52,7 +52,7 @@ const previewSchema = z.object({
   /** Plain head branch name (`feat/checkout-v2`). */
   branch: z.string(),
   headSha: z.string(),
-  /** PR presentation metadata — nullable so previews created before it was
+  /** PR presentation metadata: nullable so previews created before it was
    *  captured (or payloads that omit it) still validate. */
   prTitle: z.string().nullable(),
   prAuthorLogin: z.string().nullable(),

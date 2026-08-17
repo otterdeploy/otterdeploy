@@ -5,8 +5,8 @@ import { Button } from "@/shared/components/ui/button";
 
 interface ToolbarProps {
   totalCount: number;
-  /** Count heading ("User Variables"). `null` hides the count entirely —
-   *  used when the surrounding tab already renders its own count header,
+  /** Count heading ("User Variables"). `null` hides the count entirely.
+   *  Used when the surrounding tab already renders its own count header,
    *  so the same rows aren't counted twice under two names. */
   countLabel?: string | null;
   hasPending: boolean;

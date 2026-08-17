@@ -42,7 +42,7 @@ export function LogsHistogram({
 }: LogsHistogramProps) {
   const { t } = useTranslation();
   // `now` anchors the 30-bucket window. Wall-clock is impure to read during
-  // render, and the window only ever advanced when `lines` changed anyway — so
+  // render, and the window only ever advanced when `lines` changed anyway, so
   // derive it from the data instead of re-stamping it from an effect: the
   // newest line's timestamp, floored at mount time so an idle tail keeps
   // showing the last 30 real minutes rather than scrolling back to whenever
@@ -68,7 +68,7 @@ export function LogsHistogram({
 
   // Non-reactive: reads the latest drag/earliest/selectedRange/onSelectRange at
   // pointerup time, so the effect below only re-subscribes when the drag itself
-  // starts or ends — not on every `onSelectRange`/`selectedRange`/`earliest`
+  // starts or ends, not on every `onSelectRange`/`selectedRange`/`earliest`
   // identity change.
   const onCommit = useEffectEvent(() => {
     if (!drag) return;

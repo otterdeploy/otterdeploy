@@ -1,11 +1,11 @@
 /**
- * `up` — zero-to-deployed in one command.
+ * `up`: zero-to-deployed in one command.
  *
  *   no config yet?  create/link the project, scaffold a config, optionally
  *                   define a first service, then deploy.
- *   config exists?  just deploy it (idempotent — re-run to redeploy).
+ *   config exists?  just deploy it (idempotent, re-run to redeploy).
  *
- * The deploy half IS `deploy`/`sync` — the shared runDeploy pipeline.
+ * The deploy half IS `deploy`/`sync`. The shared runDeploy pipeline.
  * `init` + `deploy` still exist for users who want the two steps apart;
  * `up` is the guided fast path.
  */
@@ -91,7 +91,7 @@ interface ScaffoldArgs {
 }
 
 // Create (or link) the project and write a starter config when none exists.
-// Mirrors `init` — then offers an interactive first service unless headless.
+// Mirrors `init`, then offers an interactive first service unless headless.
 async function scaffoldProject(
   client: CliClient,
   args: ScaffoldArgs,
@@ -113,7 +113,9 @@ async function scaffoldProject(
     project = await client.project.create({ name, slug });
     if (!args.json) ok(`Created project ${slug}.`);
   } catch (error) {
-    if ((error as { code?: string }).code !== "CONFLICT") throw error;
+    const code =
+      typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+    if (code !== "CONFLICT") throw error;
     project = await client.project.getBySlug({ slug });
     if (!args.json) note(`Linked to existing project ${slug}.`);
   }
@@ -130,7 +132,7 @@ async function scaffoldProject(
     detail([["file", dim(targetPath)]]);
   }
 
-  // A bare template deploys nothing useful — offer a first service.
+  // A bare template deploys nothing useful, offer a first service.
   if (!args.yes && !args.json) {
     await maybeAddFirstService(args.config);
   }
@@ -145,14 +147,17 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
 
   const name = (await ask("Service name", "web")) ?? "web";
 
-  const SOURCES = {
-    "Upload this directory (build on server)": "upload",
-    "Container image": "image",
-    "Build from a connected git repo": "git",
-  } as const;
-  const picked = await select("Source", Object.keys(SOURCES));
+  const SOURCES = [
+    { label: "Upload this directory (build on server)", value: "upload" },
+    { label: "Container image", value: "image" },
+    { label: "Build from a connected git repo", value: "git" },
+  ] as const;
+  const picked = await select(
+    "Source",
+    SOURCES.map((s) => s.label),
+  );
   const source: "image" | "git" | "upload" =
-    picked && picked in SOURCES ? SOURCES[picked as keyof typeof SOURCES] : "upload";
+    SOURCES.find((s) => s.label === picked)?.value ?? "upload";
 
   const portRaw = (await ask("HTTP port (blank to skip)", "3000")) ?? "";
   const portNum = portRaw ? Number.parseInt(portRaw, 10) : undefined;
@@ -172,7 +177,7 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
   } else {
     const image = await ask("Container image", "ghcr.io/org/app:latest");
     if (!image) {
-      warn("No image given — skipping the service.");
+      warn("No image given. Skipping the service.");
       hint(`edit the config, then run \`${cmd("deploy")}\``);
       return;
     }

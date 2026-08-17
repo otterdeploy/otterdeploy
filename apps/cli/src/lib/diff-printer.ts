@@ -1,5 +1,5 @@
 /**
- * Rendering for manifest diffs — what `deploy --dry-run`, `sync --preview` and
+ * Rendering for manifest diffs: what `deploy --dry-run`, `sync --preview` and
  * `status` all print.
  *
  * The diff marks are the ones every developer already knows from `git diff` and
@@ -38,7 +38,7 @@ function markOf(kind: string): { mark: string; role: Role } {
 
 export function printDiff(changes: Change[]): void {
   if (changes.length === 0) {
-    note("In sync — no changes.");
+    note("In sync. No changes.");
     return;
   }
 
@@ -65,7 +65,7 @@ export function countByKind(changes: Change[]): Record<string, number> {
 }
 
 /**
- * A one-line tally — `3 to create, 1 to update, 1 to delete` — so the reader
+ * A one-line tally (`3 to create, 1 to update, 1 to delete`) so the reader
  * gets the shape of a change set before scanning it. Deletes are always named
  * last and in the destructive colour, because that is the part worth a pause.
  */

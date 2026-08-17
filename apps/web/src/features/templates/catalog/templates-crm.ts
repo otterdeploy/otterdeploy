@@ -6,13 +6,13 @@ export const CRM_TEMPLATES: StackTemplate[] = [
     id: "twenty",
     name: "Twenty",
     description:
-      "Open-source CRM — a modern, keyboard-first alternative to Salesforce. App and background worker share a bundled Postgres and Redis; uploads persist to a named volume.",
+      "Open-source CRM: a modern, keyboard-first alternative to Salesforce. App and background worker share a bundled Postgres and Redis; uploads persist to a named volume.",
     category: "crm",
     includes: ["twenty", "worker", "db", "redis"],
     requiredEnv: [
       {
         key: "SERVER_URL",
-        description: "Public URL Twenty is served from — used for the API base and frontend links.",
+        description: "Public URL Twenty is served from. Used for the API base and frontend links.",
       },
       {
         key: "APP_SECRET",

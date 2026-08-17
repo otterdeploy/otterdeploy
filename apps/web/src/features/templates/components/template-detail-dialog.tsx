@@ -2,7 +2,7 @@
  * Template detail modal: description, an architecture diagram generated from
  * the parsed compose, the included-services and required-env tables, and the
  * "Deploy to project…" footer. Deploy navigates to the chosen project's graph
- * with `?new=template&template=<id>` — the resource-overlay provider picks
+ * with `?new=template&template=<id>`: the resource-overlay provider picks
  * that up and opens the compose wizard prefilled, so the normal staged
  * manifest flow (review vars → stage → Deploy) takes over from there.
  */
@@ -72,7 +72,7 @@ function TemplateDetailBody({
   initialProjectSlug?: string;
 }) {
   const { t } = useTranslation();
-  // Same parser the wizard preview and the deploy reconciler run — the
+  // Same parser the wizard preview and the deploy reconciler run. The
   // diagram and tables below can't drift from what would actually deploy.
   const parsed = parseCompose(template.compose);
 
@@ -153,7 +153,7 @@ function DeployFooter({
   return (
     <div className="flex items-center gap-2 border-t px-5 py-3.5">
       <span className="text-[11px] text-muted-foreground">
-        Stages {template.includes.length} service{template.includes.length === 1 ? "" : "s"} — you
+        Stages {template.includes.length} service{template.includes.length === 1 ? "" : "s"}. You
         review and Deploy from the project graph.
       </span>
       <div className="flex-1" />
@@ -175,7 +175,7 @@ function DeployFooter({
             size="sm"
             disabled={!projectSlug}
             onClick={() =>
-              // Plain history push so the untyped params survive — they're read
+              // Plain history push so the untyped params survive. They're read
               // from raw location search by the wizard overlay provider.
               router.history.push(
                 `/${orgSlug}/${projectSlug}/graph?new=template&template=${template.id}`,
@@ -187,7 +187,7 @@ function DeployFooter({
         </>
       ) : (
         <span className="text-xs text-muted-foreground">
-          {projects ? "No projects yet — create one first." : "Loading projects…"}
+          {projects ? "No projects yet. Create one first." : "Loading projects…"}
         </span>
       )}
     </div>

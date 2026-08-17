@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// Moved out of the settings zone alongside Git providers. Shim only — forwards
+// Moved out of the settings zone alongside Git providers. Shim only, forwards
 // the provider param and any search untouched.
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/github-app/$providerId")({
   staticData: { crumb: "GitHub app" },

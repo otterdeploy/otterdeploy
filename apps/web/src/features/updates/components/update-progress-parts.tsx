@@ -118,7 +118,7 @@ export function UpdateOutcome({
       {
         onSuccess: (res) => {
           toast.message(
-            res.cancelled ? "Update reset — you can start it again." : "No update was running.",
+            res.cancelled ? "Update reset. You can start it again." : "No update was running.",
           );
           onDone();
         },
@@ -159,14 +159,14 @@ export function UpdateOutcome({
             control plane through the old bundle. `realDone` is real-cutover only
             (a dry run never sets it), so this is never a gratuitous reload.
             The auto-reload in useCutoverRecovery normally beats the operator
-            here — this is the path for when it was blocked or unmounted. */}
+            here: this is the path for when it was blocked or unmounted. */}
         <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
           Done
         </Button>
       </div>
     );
   }
-  if (dryRun) return null; // still simulating — the header shows activity
+  if (dryRun) return null; // still simulating; the header shows activity
 
   return (
     <div className="flex items-center justify-between gap-2">

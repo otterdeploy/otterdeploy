@@ -4,12 +4,12 @@
  * endpoint does this go to?" while never exposing a credential.
  *
  * Policy by kind:
- *   - email, telegram — the address / chat id is not a secret and IS the
+ *   - email, telegram: the address / chat id is not a secret and IS the
  *     identity → shown in full.
- *   - slack, discord, webhook — the URL's origin + path are identity; any
+ *   - slack, discord, webhook: the URL's origin + path are identity; any
  *     token-looking path segment (Slack webhook tokens, Discord webhook
  *     tokens) and secret-ish query values are masked in place.
- *   - pagerduty, push — the target may BE the credential (Events API routing
+ *   - pagerduty, push. The target may BE the credential (Events API routing
  *     key, FCM device token) → masked down to the last 4 characters.
  */
 
@@ -44,7 +44,7 @@ function maskUrl(target: string): string {
     return maskOpaque(target);
   }
   // Non-http schemes (mailto:, queue:, …) have no meaningful origin/path
-  // split — treat them as opaque strings.
+  // split: treat them as opaque strings.
   if (url.protocol !== "http:" && url.protocol !== "https:") return maskOpaque(target);
   const path = url.pathname
     .split("/")

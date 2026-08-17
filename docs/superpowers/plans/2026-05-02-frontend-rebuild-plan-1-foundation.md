@@ -1,20 +1,20 @@
-# Frontend Rebuild — Plan 1: Foundation & Shell
+# Frontend Rebuild: Plan 1: Foundation & Shell
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land the new app shell — workspace + project shells, outer/inner rails, breadcrumb with env+workspace switchers, ⌘K skeleton, all v1 routes reachable as placeholders, restyled auth — so subsequent plans can fill in real screens behind a stable shell.
+**Goal:** Land the new app shell. Workspace + project shells, outer/inner rails, breadcrumb with env+workspace switchers, ⌘K skeleton, all v1 routes reachable as placeholders, restyled auth, so subsequent plans can fill in real screens behind a stable shell.
 
-**Architecture:** TanStack Router file-based routes (`routeToken: "layout"`) under `apps/web/src/routes/`. Two reusable shells (`WorkspaceShell`, `ProjectShell`) compose breadcrumb bar, outer rail, optional inner rail, and a content slot. coss ui primitives only — no handrolled replacements. Feature-folder structure under `apps/web/src/features/`. Dark-first via existing `ThemeProvider` (defaultTheme already `"dark"`); add an amber brand accent token. Tests via vitest + testing-library; no vitest config exists yet so we add one.
+**Architecture:** TanStack Router file-based routes (`routeToken: "layout"`) under `apps/web/src/routes/`. Two reusable shells (`WorkspaceShell`, `ProjectShell`) compose breadcrumb bar, outer rail, optional inner rail, and a content slot. coss ui primitives only, no handrolled replacements. Feature-folder structure under `apps/web/src/features/`. Dark-first via existing `ThemeProvider` (defaultTheme already `"dark"`); add an amber brand accent token. Tests via vitest + testing-library; no vitest config exists yet so we add one.
 
 **Tech Stack:** React 19, TanStack Router, TanStack Query, coss ui (in-tree at `components/ui/`), Tailwind v4, motion/react, lucide-react, sonner, vitest, @testing-library/react, jsdom. New deps: `@wterm/ghostty`, `@wterm/react`, `@tanstack/react-virtual` (added now even though only Plans 4–5 use them, so deps live in one commit).
 
-**Spec:** `docs/superpowers/specs/2026-05-02-frontend-rebuild-design.md`. Read §3 (direction), §4 (IA), §5 (layout shell), §7 (component conventions), §11 (keep/scrap), §13 (folder layout) before starting. This plan implements the *empty-but-correct* version of the shell — real screen content lands in Plans 2-5.
+**Spec:** `docs/superpowers/specs/2026-05-02-frontend-rebuild-design.md`. Read §3 (direction), §4 (IA), §5 (layout shell), §7 (component conventions), §11 (keep/scrap), §13 (folder layout) before starting. This plan implements the *empty-but-correct* version of the shell. Real screen content lands in Plans 2-5.
 
 **Out of scope for this plan:**
 - Real Canvas, Logs, Networking, Variables, Deployments, Settings content (Plans 2-4)
 - Service drawer, mini-canvas previews (Plan 2)
 - Project list redesign, mini-canvas, real Servers/Routing/Activity/Members content (Plan 3)
-- ⌘K real actions (Plan 5) — only the open/close skeleton lands here
+- ⌘K real actions (Plan 5): only the open/close skeleton lands here
 - WebSocket-driven status, virtualization, lazy-loading Ghostty (Plan 5)
 
 ---
@@ -192,7 +192,7 @@ export function renderWithRouter(ui: ReactElement, initialPath = "/"): RenderRes
 ```bash
 cd apps/web && bun run test
 ```
-Expected: "No test files found" (exit code may be non-zero — that's fine for now). If vitest complains about config, fix the config until it loads.
+Expected: "No test files found" (exit code may be non-zero, that's fine for now). If vitest complains about config, fix the config until it loads.
 
 - [ ] **Step 7: Commit**
 
@@ -262,14 +262,14 @@ git commit -m "feat(web): add brand-amber accent tokens"
 **Files:**
 - Delete: `apps/web/src/routes/_dashboard/playground.tsx`
 
-The old `features/environment-switcher/` folder cannot be deleted yet — it has two consumers (`hooks/use-invalidation-socket.ts` and the existing `routes/_dashboard/project/$projectId/layout.tsx` canvas). Both are properly handled in Task 13, which rewrites the canvas layout to be a thin ProjectShell wrapper, drops the stale env collection refetch, and only then deletes the old feature folder.
+The old `features/environment-switcher/` folder cannot be deleted yet. It has two consumers (`hooks/use-invalidation-socket.ts` and the existing `routes/_dashboard/project/$projectId/layout.tsx` canvas). Both are properly handled in Task 13, which rewrites the canvas layout to be a thin ProjectShell wrapper, drops the stale env collection refetch, and only then deletes the old feature folder.
 
 - [ ] **Step 1: Confirm no imports reference the playground path**
 
 ```bash
 cd apps/web && grep -rn "_dashboard/playground" src/ | grep -v routeTree.gen.ts || echo "clean"
 ```
-Should print "clean" — only `routeTree.gen.ts` should match (autogenerated; safe to ignore).
+Should print "clean". Only `routeTree.gen.ts` should match (autogenerated; safe to ignore).
 
 - [ ] **Step 2: Delete the file**
 
@@ -376,7 +376,7 @@ describe("OuterRail", () => {
 });
 ```
 
-- [ ] **Step 3: Run test — expect failure (file does not yet exist)**
+- [ ] **Step 3: Run test, expect failure (file does not yet exist)**
 
 ```bash
 cd apps/web && bun run test src/components/shell/outer-rail.test.tsx
@@ -439,7 +439,7 @@ export function OuterRail({ currentHref }: Props) {
 }
 ```
 
-- [ ] **Step 5: Run tests — expect 3 passing**
+- [ ] **Step 5: Run tests, expect 3 passing**
 
 ```bash
 cd apps/web && bun run test src/components/shell/outer-rail.test.tsx
@@ -506,7 +506,7 @@ describe("InnerRail", () => {
 });
 ```
 
-- [ ] **Step 2: Run — expect failure**
+- [ ] **Step 2: Run, expect failure**
 
 ```bash
 cd apps/web && bun run test src/components/shell/inner-rail.test.tsx
@@ -574,7 +574,7 @@ export function InnerRail({ projectId, currentHref }: Props) {
 }
 ```
 
-- [ ] **Step 4: Run tests — expect 4 passing**
+- [ ] **Step 4: Run tests, expect 4 passing**
 
 - [ ] **Step 5: Commit**
 
@@ -638,7 +638,7 @@ describe("EnvSwitcherDropdown", () => {
 });
 ```
 
-- [ ] **Step 3: Run — expect failure**
+- [ ] **Step 3: Run, expect failure**
 
 ```bash
 cd apps/web && bun run test src/features/env-switcher
@@ -703,7 +703,7 @@ export { EnvSwitcherDropdown } from "./components/env-switcher-dropdown";
 export { envOptions, type EnvName, type EnvOption } from "./types";
 ```
 
-- [ ] **Step 6: Run tests — expect 2 passing**
+- [ ] **Step 6: Run tests, expect 2 passing**
 
 If `Menu` exports differ from coss expectations, open `apps/web/src/components/ui/menu.tsx` and align names.
 
@@ -967,7 +967,7 @@ describe("CommandPalette", () => {
 });
 ```
 
-- [ ] **Step 3: Run — expect failure (no component yet)**
+- [ ] **Step 3: Run, expect failure (no component yet)**
 
 - [ ] **Step 4: Create `command-palette.tsx`**
 
@@ -1005,7 +1005,7 @@ export { CommandPalette } from "./components/command-palette";
 export { useCommandPalette } from "./hooks/use-command-palette";
 ```
 
-- [ ] **Step 6: Run tests — expect 3 passing**
+- [ ] **Step 6: Run tests, expect 3 passing**
 
 ```bash
 cd apps/web && bun run test src/features/command-palette
@@ -1237,13 +1237,13 @@ git commit -m "feat(web): wire WorkspaceShell into dashboard layout"
 - Rewrite: `apps/web/src/routes/_dashboard/project/$projectId/layout.tsx` (currently the full canvas; replace with a thin ProjectShell wrapper)
 - Create: `apps/web/src/routes/_dashboard/project/$projectId/index.tsx` (canvas placeholder for Plan 2)
 - Modify: `apps/web/src/hooks/use-invalidation-socket.ts` (drop the `envCollection.utils.refetch()` import & call)
-- Delete: `apps/web/src/features/environment-switcher/` (entire folder — only reachable now after the two consumers above are detached)
+- Delete: `apps/web/src/features/environment-switcher/` (entire folder, only reachable now after the two consumers above are detached)
 - Delete: `apps/web/src/routes/_dashboard/project/$projectId/observability.tsx` (existing experiment; the new IA puts observability in v1.1, not v1)
 - Delete: `apps/web/src/routes/_dashboard/project/$projectId/settings.tsx` (existing settings page; Task 14 creates the new placeholder)
 
 **Why this is consolidated into Task 13 and not earlier:** the existing `$projectId/layout.tsx` does triple duty (Route definition, env-switcher hotkeys, ReactFlow canvas, database drawer). We can't safely delete `environment-switcher/` until this layout file no longer imports from it. Plan 2 rebuilds the canvas with new node components; for Plan 1 we just need the layout to be the shell so all the other v1 routes can mount under it.
 
-The existing canvas content (ReactFlow + database drawer + hotkeys) is intentionally NOT preserved here — it will be rebuilt cleanly in Plan 2 around the new `GroupNode` / `ServiceNode` / `DatabaseNode` / `RoutingNode` / `VolumeNode` design. Until then, opening a project shows a "Canvas lands in Plan 2" Empty placeholder.
+The existing canvas content (ReactFlow + database drawer + hotkeys) is intentionally NOT preserved here. It will be rebuilt cleanly in Plan 2 around the new `GroupNode` / `ServiceNode` / `DatabaseNode` / `RoutingNode` / `VolumeNode` design. Until then, opening a project shows a "Canvas lands in Plan 2" Empty placeholder.
 
 - [ ] **Step 1: Drop the env-collection refetch from `use-invalidation-socket.ts`**
 
@@ -1260,7 +1260,7 @@ ws.addEventListener("message", (event) => {
 });
 ```
 
-Add `import { queryClient } from "@/utils/orpc";` at the top if it isn't already there (it currently imports `envCollection` from `environment-switcher/api` and references `envCollection.utils.queryClient` — switch to importing the queryClient directly).
+Add `import { queryClient } from "@/utils/orpc";` at the top if it isn't already there (it currently imports `envCollection` from `environment-switcher/api` and references `envCollection.utils.queryClient`, switch to importing the queryClient directly).
 
 - [ ] **Step 2: Rewrite `apps/web/src/routes/_dashboard/project/$projectId/layout.tsx`**
 
@@ -1372,7 +1372,7 @@ git -c commit.gpgsign=false commit -m "feat(web): project shell layout + canvas 
 
 Each is a 15-line placeholder. Repeat the same template for each, swapping the path and labels.
 
-- [ ] **Step 1: Create the helper placeholder template — apply once per screen**
+- [ ] **Step 1: Create the helper placeholder template, apply once per screen**
 
 Template (substitute `$PATH`, `$TITLE`, `$DESC`, `$PLAN`):
 
@@ -1572,7 +1572,7 @@ Sign out, hit the sign-in route, sign in with a test account. The form should va
 ```bash
 cd apps/web && bun run typecheck
 ```
-If `Field` subcomponent names in coss differ (e.g. `FieldErrors` instead of `FieldError`), open `apps/web/src/components/ui/field.tsx` and align. Ditto for `FieldControl` — some coss builds export it as `FieldRoot`.
+If `Field` subcomponent names in coss differ (e.g. `FieldErrors` instead of `FieldError`), open `apps/web/src/components/ui/field.tsx` and align. Ditto for `FieldControl`. Some coss builds export it as `FieldRoot`.
 
 - [ ] **Step 5: Commit**
 
@@ -1605,11 +1605,11 @@ Expected: no type errors.
 cd apps/web && bun dev
 ```
 Visit and verify:
-- [ ] `/` (existing project list — Plan 3 redesigns it; still functional)
-- [ ] `/servers`, `/routing`, `/activity`, `/members`, `/settings` — placeholders, rails active correctly
+- [ ] `/` (existing project list: Plan 3 redesigns it; still functional)
+- [ ] `/servers`, `/routing`, `/activity`, `/members`, `/settings`: placeholders, rails active correctly
 - [ ] Sign in flow renders with new coss styling
-- [ ] Create or open a project (uses existing `/_dashboard/index.tsx`), navigates to `/project/$id` — canvas placeholder renders, inner rail visible, env switcher in breadcrumb
-- [ ] `/project/$id/{logs,networking,variables,deployments,settings}` — placeholders, inner rail active correctly
+- [ ] Create or open a project (uses existing `/_dashboard/index.tsx`), navigates to `/project/$id`. Canvas placeholder renders, inner rail visible, env switcher in breadcrumb
+- [ ] `/project/$id/{logs,networking,variables,deployments,settings}`: placeholders, inner rail active correctly
 - [ ] ⌘K opens the palette on every route, ESC closes it
 - [ ] Switching env via breadcrumb updates the `?env=` search param
 
@@ -1628,11 +1628,11 @@ If the walkthrough was clean, no commit needed.
 
 ---
 
-## Done — what's next
+## Done: what's next
 
 After Plan 1 lands:
 
-- **Plan 2** — Project Canvas & Service Drawer. React Flow node redesigns (`GroupNode`, `ServiceNode`, `DatabaseNode`, `RoutingNode`, `VolumeNode`), service drawer with 5 tabs (Overview / Deployments / Variables / Logs / Settings), mini-canvas SVG renderer reused by Plan 3's project list.
-- **Plan 3** — Workspace Screens. Real Projects, Servers, Routing, Activity, Members, Settings screens, replacing today's placeholders.
-- **Plan 4** — Project Sub-screens. Real Logs (Ghostty terminal), Networking (Caddy fragment editor), Variables, Deployments, Settings (long-scroll + TOC).
-- **Plan 5** — Polish & Live. ⌘K real actions, websocket-driven status everywhere, virtualization for long lists, lazy-load Ghostty, route-level smoke tests, performance budget enforcement.
+- **Plan 2**: Project Canvas & Service Drawer. React Flow node redesigns (`GroupNode`, `ServiceNode`, `DatabaseNode`, `RoutingNode`, `VolumeNode`), service drawer with 5 tabs (Overview / Deployments / Variables / Logs / Settings), mini-canvas SVG renderer reused by Plan 3's project list.
+- **Plan 3**: Workspace Screens. Real Projects, Servers, Routing, Activity, Members, Settings screens, replacing today's placeholders.
+- **Plan 4**: Project Sub-screens. Real Logs (Ghostty terminal), Networking (Caddy fragment editor), Variables, Deployments, Settings (long-scroll + TOC).
+- **Plan 5**: Polish & Live. ⌘K real actions, websocket-driven status everywhere, virtualization for long lists, lazy-load Ghostty, route-level smoke tests, performance budget enforcement.

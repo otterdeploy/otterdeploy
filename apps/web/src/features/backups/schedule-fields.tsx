@@ -144,7 +144,7 @@ export function ScheduleFields({
       <p className="rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
         Failure alerts route via{" "}
         <span className="font-medium text-foreground/80">Notifications</span>
-        {" — "}subscribe a channel to the <span className="font-mono">backup.failed</span> event to
+        {". "}Subscribe a channel to the <span className="font-mono">backup.failed</span> event to
         get paged when a scheduled run fails.
       </p>
     </div>

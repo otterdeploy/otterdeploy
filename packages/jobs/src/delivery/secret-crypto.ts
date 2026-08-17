@@ -6,7 +6,7 @@
  *   - the API router encrypts on create/update (imports this module)
  *   - the channel-delivery job decrypts on send (right here)
  *
- * Same construction as packages/api/src/lib/crypto.ts — HKDF-SHA256 off
+ * Same construction as packages/api/src/lib/crypto.ts: HKDF-SHA256 off
  * BETTER_AUTH_SECRET, AES-256-GCM, `v1.<nonce>.<ciphertext>` base64url framing,
  * fresh random nonce per call. Because the key is derived deterministically
  * from the env secret, ciphertext written by the API decrypts here without any
@@ -24,13 +24,7 @@ let cachedKey: CryptoKey | null = null;
 async function getKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
   const ikm = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
-  const baseKey = await crypto.subtle.importKey(
-    "raw",
-    ikm as unknown as ArrayBuffer,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
+  const baseKey = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveKey"]);
   cachedKey = await crypto.subtle.deriveKey(
     {
       name: "HKDF",
@@ -64,17 +58,18 @@ export async function decryptSecret(blob: string): Promise<string> {
   if (parts.length !== 3) {
     throw new Error("decryptSecret: malformed ciphertext (expected v.n.c)");
   }
-  const [version, nonceB64, cipherB64] = parts as [string, string, string];
+  const [version, nonceB64, cipherB64] = parts;
+  if (version === undefined || nonceB64 === undefined || cipherB64 === undefined) {
+    throw new Error("decryptSecret: malformed ciphertext (expected v.n.c)");
+  }
   if (version !== FORMAT_VERSION) {
     throw new Error(`decryptSecret: unsupported version ${version}`);
   }
-  const nonce = base64UrlDecode(nonceB64);
-  const ciphertext = base64UrlDecode(cipherB64);
+  // Copied into fresh (ArrayBuffer-backed) views: `base64UrlDecode` types its
+  // result over ArrayBufferLike, which WebCrypto's BufferSource won't take.
+  const nonce = new Uint8Array(base64UrlDecode(nonceB64));
+  const ciphertext = new Uint8Array(base64UrlDecode(cipherB64));
   const key = await getKey();
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
-    key,
-    ciphertext.buffer as ArrayBuffer,
-  );
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, key, ciphertext);
   return new TextDecoder().decode(plaintext);
 }

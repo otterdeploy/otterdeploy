@@ -7,7 +7,7 @@ import type { Session, SessionSource } from "../types";
 import type { ConnState } from "./terminal-session";
 
 /**
- * At-a-glance kind glyph for a session tab — a colored mini-badge (`sh`,
+ * At-a-glance kind glyph for a session tab: a colored mini-badge (`sh`,
  * `ssh`, `pg`, `rd`, …) so a strip of open sessions reads without parsing
  * the labels. Colors follow the app's semantic vocabulary: shell→sky,
  * ssh→amber, database engines→emerald (redis→rose).

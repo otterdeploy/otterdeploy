@@ -40,7 +40,7 @@ export { deleteProjectResource } from "./resource-delete";
  * `{ available: true, suggestion: null }` when the name is free, or
  * `{ available: false, suggestion: "<base>-N" }` with the lowest free
  * suffix when taken. Names are unique per `(projectId, environmentId, name)`
- * via `resource_project_name_env_unique` — so the check MUST be scoped to the
+ * via `resource_project_name_env_unique`, so the check MUST be scoped to the
  * same environment the create will land in, or `api` in staging reads as taken
  * because production has one.
  */
@@ -68,7 +68,7 @@ export async function checkResourceName(
     return Result.ok({ available: true, suggestion: null });
   }
 
-  // Suffix `-N` until we find a free one. Bounded loop — projects with
+  // Suffix `-N` until we find a free one. Bounded loop. Projects with
   // 1000+ same-base names are extraordinary; cap at 1000 to keep this
   // cheap and predictable.
   for (let i = 2; i <= 1000; i++) {
@@ -82,7 +82,7 @@ export async function checkResourceName(
 
 /**
  * Read-only preview of the public FQDN a service named `name` would publish
- * at — the same resolver chain `exposeService` walks (project custom domain
+ * at: the same resolver chain `exposeService` walks (project custom domain
  * → org base → local dev base → sslip fallback; no per-resource override
  * exists yet for a service that isn't created). Lets the new-resource wizard
  * show and stage the real hostname instead of guessing client-side.
@@ -129,7 +129,7 @@ export async function listProjectResources(
   }
 
   // No environment pointer at all means the project predates environments and
-  // has nothing scoped to read — an empty list, not every row in the project.
+  // has nothing scoped to read, an empty list, not every row in the project.
   const scope = resolveEnvironmentScope(project, input.environmentId);
   if (!scope) return Result.ok([]);
 
@@ -137,12 +137,12 @@ export async function listProjectResources(
 
   // Batch the per-resource reads the mappers would otherwise fire one-by-one:
   // the latest deployment for every service/compose, and env vars for every
-  // service — two queries total instead of ~2 per resource on every list load.
-  const deploymentResourceIds = [
+  // service: two queries total instead of ~2 per resource on every list load.
+  const deploymentResourceIds: ResourceId[] = [
     ...services.map((r) => r.resource.id),
     ...composes.map((r) => r.resource.id),
-  ] as ResourceId[];
-  const serviceResourceIds = services.map((r) => r.resource.id) as ResourceId[];
+  ];
+  const serviceResourceIds: ResourceId[] = services.map((r) => r.resource.id);
   const [latestByResource, envByResource] = await Promise.all([
     getLatestDeploymentsForResources(deploymentResourceIds),
     listServiceEnvVarsForResources(serviceResourceIds),
@@ -150,20 +150,20 @@ export async function listProjectResources(
 
   const [databaseViews, serviceViews, composeViews] = await Promise.all([
     // Databases still resolve their live runtime individually via the
-    // self-healing recovery path (ensureSwarmRuntimeForRecord) — left as-is.
+    // self-healing recovery path (ensureSwarmRuntimeForRecord): left as-is.
     Promise.all(databases.map((record) => mapDatabaseResource(record, project.slug))),
     Promise.all(
       services.map((record) =>
         mapServiceResource(record, {
-          latest: latestByResource.get(record.resource.id as ResourceId) ?? null,
-          envRows: envByResource.get(record.resource.id as ResourceId) ?? [],
+          latest: latestByResource.get(record.resource.id) ?? null,
+          envRows: envByResource.get(record.resource.id) ?? [],
         }),
       ),
     ),
     Promise.all(
       composes.map((record) =>
         mapComposeResource(record, {
-          latest: latestByResource.get(record.resource.id as ResourceId) ?? null,
+          latest: latestByResource.get(record.resource.id) ?? null,
         }),
       ),
     ),
@@ -195,7 +195,7 @@ export async function getProjectResource(
     case "service":
       return Result.ok(await mapServiceResource(found.record));
     default:
-      // Stacks aren't served by the generic resource view — the compose
+      // Stacks aren't served by the generic resource view. The compose
       // router (compose.get) owns their read model. Also the exhaustive
       // fallback: tsc can't prove the switch covers `found.kind`, so a
       // bare case list reads as "lacks ending return statement".

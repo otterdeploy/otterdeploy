@@ -1,6 +1,6 @@
 /**
  * Redirect shim. Notifications moved out of the settings zone into the
- * operational shell (`/$orgSlug/notifications`) — routing events to a channel
+ * operational shell (`/$orgSlug/notifications`), routing events to a channel
  * is a surface you return to (add a channel, mute a noisy event, check a failed
  * delivery), not one-time configuration.
  *

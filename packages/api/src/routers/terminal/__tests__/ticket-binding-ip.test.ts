@@ -1,7 +1,7 @@
 /**
  * Regression cover for the terminal `ip_mismatch` outage.
  *
- * The bug was never in the comparison — it was that mint and consume each
+ * The bug was never in the comparison. It was that mint and consume each
  * derived "the client address" from `x-forwarded-for`, a header whose value
  * legitimately differs between a short POST and a long-lived connection when an
  * edge sits in front. The header shapes below are copied verbatim from the
@@ -56,8 +56,8 @@ describe("ticketBindingIp", () => {
   });
 
   it("returns null when nothing resolves, so binding is skipped rather than compared", () => {
-    // consumeTerminalTicket only enforces when BOTH ends produced an address —
-    // null must mean "unresolved", never a sentinel string that compares unequal.
+    // consumeTerminalTicket only enforces when BOTH ends produced an address.
+    // Null must mean "unresolved", never a sentinel string that compares unequal.
     expect(ticketBindingIp(headers({}))).toBeNull();
     expect(ticketBindingIp(headers({ "x-forwarded-for": "  " }))).toBeNull();
   });

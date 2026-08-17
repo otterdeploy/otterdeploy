@@ -2,8 +2,8 @@
  * Context for the provider-owned resource wizard dialog. Split from
  * overlay-provider.tsx so components rendered INSIDE the dialog (e.g. the
  * kind picker, which closes the overlay when routing to the templates
- * gallery) can consume the context without importing the provider module —
- * that would be a cycle: provider → dialog → wizard → steps → kind-picker.
+ * gallery) can consume the context without importing the provider module.
+ * That would be a cycle: provider → dialog → wizard → steps → kind-picker.
  */
 import { createContext, useContext } from "react";
 

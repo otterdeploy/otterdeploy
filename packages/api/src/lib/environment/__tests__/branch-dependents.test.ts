@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { branchDependentsMessage } from "../branch-dependents";
 
 /**
- * A raw ZFS error about dependent clones is unactionable — nothing in the UI
+ * A raw ZFS error about dependent clones is unactionable. Nothing in the UI
  * connects a dataset to someone's open pull request. These pin that the refusal
  * is an instruction instead: which PRs, and which of them will not clear on
  * their own.
@@ -31,8 +31,8 @@ describe("branchDependentsMessage", () => {
   });
 
   it("marks a pinned preview and changes the advice", () => {
-    // A pinned preview never reaches auto_teardown_at, so "wait" is wrong —
-    // it needs a person. The two cases must not share a resolution.
+    // A pinned preview never reaches auto_teardown_at, so "wait" is wrong.
+    // It needs a person. The two cases must not share a resolution.
     const message = branchDependentsMessage([
       { prNumber: 128, pinned: false },
       { prNumber: 140, pinned: true },

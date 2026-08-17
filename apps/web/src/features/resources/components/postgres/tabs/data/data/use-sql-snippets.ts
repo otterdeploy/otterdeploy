@@ -1,15 +1,15 @@
 /**
- * SQL snippet store — TanStack DB LocalStorage collections.
+ * SQL snippet store. TanStack DB LocalStorage collections.
  *
  * Snippets and folders are browser-local and scoped to the opened database via
  * a `resourceId` field: a single shared collection per kind, filtered in the
- * live query — the same "one collection, scope with a where" pattern as
+ * live query. The same "one collection, scope with a where" pattern as
  * `resourceCollection`. A single "Playground" scratch buffer is *always*
  * available regardless of which database is open (its own global row).
  *
  * Persistence and cross-tab sync are handled by `localStorageCollectionOptions`
  * (it writes through to `localStorage` on every mutation and listens for
- * storage events) — nothing here touches the server. These are the user's
+ * storage events), nothing here touches the server. These are the user's
  * personal scratchpads.
  */
 import { createCollection, localStorageCollectionOptions } from "@tanstack/db";

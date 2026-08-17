@@ -1,7 +1,7 @@
 /**
  * Applies the host-level nftables baseline (host-firewall.ts) to a freshly
  * provisioned node over SSH, and probes the result. Runs alongside
- * `installNodeFirewallBouncer` (provision-firewall.ts) — together they're the
+ * `installNodeFirewallBouncer` (provision-firewall.ts): together they're the
  * two per-node steps that give "every node, not just the primary" its
  * meaning: install.sh only ever touches the primary host, this is what
  * extends the same policy to nodes added afterward.
@@ -60,11 +60,11 @@ export async function installHostFirewall(
   }
   if (res.exitCode !== 0) {
     onLine(
-      "⚠ host firewall install failed — the node joined fine, but this host's own inbound ports are not locked down by otterdeploy. Check the output above and re-run remediation.",
+      "⚠ host firewall install failed. The node joined fine, but this host's own inbound ports are not locked down by otterdeploy. Check the output above and re-run remediation.",
     );
     return { status: "failed", reason: `exit ${res.exitCode}` };
   }
-  // ufw/firewalld coexistence exits 0 with no table applied — the script
+  // ufw/firewalld coexistence exits 0 with no table applied. The script
   // narrates it; the probe below tells us which happened.
   const probeRes = await session.runScript(hostFirewallStatusScript(sudo), onLine);
   const probe = parseHostFirewallStatus(probeRes.output);

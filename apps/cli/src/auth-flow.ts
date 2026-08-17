@@ -28,7 +28,7 @@ type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["co
 
 /**
  * Ask the operator for the control plane URL on stdin when none was supplied
- * (no flag, no env, no stored config). Interactive only — in a non-TTY context
+ * (no flag, no env, no stored config). Interactive only. In a non-TTY context
  * (CI, piped input) there's nobody to answer, so we return null and let the
  * caller print its actionable "set OTTERDEPLOY_URL / pass --url" error instead
  * of hanging on a prompt that never resolves.
@@ -59,7 +59,7 @@ export async function promptForUrl(): Promise<string | null> {
   return promptForNewUrl();
 }
 
-/** Free-text control plane prompt — the first-run path, and the escape hatch
+/** Free-text control plane prompt: the first-run path, and the escape hatch
  *  from the pick-list above. */
 async function promptForNewUrl(): Promise<string | null> {
   const raw = await ask("Control plane URL", "https://otter.acme.com");
@@ -92,7 +92,7 @@ export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedS
   const existing = resolveToken();
   if (existing) return { url, token: existing };
 
-  note(`Not authenticated — starting browser login at ${url}.`);
+  note(`Not authenticated. Starting browser login at ${url}.`);
   const { token, webUrl } = await deviceCodeLogin(url);
   saveConfig({ ...loadConfig(), url, webUrl, token });
   rememberHost(url);
@@ -123,7 +123,7 @@ export async function deviceCodeLogin(url: string): Promise<DeviceLoginResult> {
   ]);
   openInBrowser(fullUrl);
   const expiresIn = code.expires_in ?? 1800;
-  note(`Waiting for approval — the code expires in ${Math.round(expiresIn / 60)}m.`);
+  note(`Waiting for approval. The code expires in ${Math.round(expiresIn / 60)}m.`);
 
   const token = await pollForDeviceToken(auth, code);
   // verification_uri carries the web origin (in dev that's a different host

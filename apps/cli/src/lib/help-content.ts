@@ -3,13 +3,13 @@
  *
  * citty's `CommandMeta` has no slot for examples, and augmenting a dependency's
  * type to add one would put help copy inside every command file. Keeping it in
- * one keyed registry means the whole CLI's teaching material can be read — and
- * reviewed for tone and coverage — in a single pass.
+ * one keyed registry means the whole CLI's teaching material can be read, and
+ * reviewed for tone and coverage: in a single pass.
  *
  * Rules for what earns an example: the flag combination is non-obvious, the
  * command is destructive, or the argument shape is easy to get wrong. Commands
- * whose usage line already says everything (`logout`, `whoami`) get none —
- * padding help with restatements of the signature trains people to skip it.
+ * whose usage line already says everything (`logout`, `whoami`) get none.
+ * Padding help with restatements of the signature trains people to skip it.
  *
  * Every `run` omits the bin name; the renderer prefixes whichever one the user
  * typed. Flags here are kept in sync with the command definitions by
@@ -169,7 +169,7 @@ export const EXAMPLES: Record<string, Example[]> = {
   ],
   "backups restore": [
     {
-      note: "restore a backup — requires the database name to confirm",
+      note: "restore a backup; requires the database name to confirm",
       run: "backups restore bkp_01hxk2 --confirm postgres",
     },
   ],

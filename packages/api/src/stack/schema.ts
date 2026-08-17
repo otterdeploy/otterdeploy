@@ -4,7 +4,7 @@
  * One YAML document per project. The shape is compose-compatible so the
  * eventual apply path can hand the rendered string straight to
  * `docker stack deploy -c <file>`. Otterdeploy-specific knobs ride the
- * `x-otterdeploy` extension key — compose ignores top-level + service-level
+ * `x-otterdeploy` extension key: compose ignores top-level + service-level
  * `x-*` fields, so a third party can still parse / lint the file.
  *
  * `version` here is OUR schema version, not compose's. Compose's `version`
@@ -87,7 +87,7 @@ export type StackHealthcheck = z.infer<typeof stackHealthcheckSchema>;
 const stackResourceLimitsSchema = z.object({
   cpus: z.string().optional(),
   memory: z.string().optional(),
-  // Compose deploy.resources.limits.pids — max PIDs per replica.
+  // Compose deploy.resources.limits.pids, max PIDs per replica.
   pids: positiveInt.optional(),
 });
 
@@ -147,7 +147,7 @@ const stackOtterdeployExtensionSchema = z.object({
    *  round-trips through the file. */
   graph: z.object({ x: z.number(), y: z.number() }).optional(),
 
-  // Lifecycle hooks — no compose-deploy equivalent; ride under
+  // Lifecycle hooks, no compose-deploy equivalent; ride under
   // x-otterdeploy so the values survive YAML round-trip. preDeploy runs
   // before the new replicas take traffic, postDeploy after they're live.
   preDeploy: z.array(z.string()).optional(),

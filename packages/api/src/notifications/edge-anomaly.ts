@@ -3,10 +3,11 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+import { idSchema } from "@otterdeploy/shared/id";
 /**
- * Edge-threat detector — a periodic, conservative scan over recent edge access
+ * Edge-threat detector: a periodic, conservative scan over recent edge access
  * logs that emits `edge.probe` when one client IP hammers an org's domains with
- * scanner-style probes (`/.env`, `/actuator`, `*.php`, `?cmd=…` — see
+ * scanner-style probes (`/.env`, `/actuator`, `*.php`, `?cmd=…`. See
  * edge-logs/threat.ts). Sibling of the audit-anomaly detector: same control-plane
  * tick, in-memory cooldown, best-effort try/catch, `unref`'d timer.
  *
@@ -44,18 +45,22 @@ function pruneCooldown(now: number): void {
   }
 }
 
-/** Canonical host → owning organization id, for mapping edge hosts to orgs. */
-async function hostOrgMap(): Promise<Map<string, string>> {
+/** Canonical host → owning organization id, for mapping edge hosts to orgs.
+ *  The org id comes off a plain-text select, so it's branded at this boundary
+ *  via `idSchema.organization` (same pattern as caddy/certs.ts). */
+async function hostOrgMap(): Promise<Map<string, OrganizationId>> {
   const rows = await db
     .select({ domain: proxyRoute.domain, orgId: project.organizationId })
     .from(proxyRoute)
     .innerJoin(project, eq(project.id, proxyRoute.projectId));
-  const map = new Map<string, string>();
-  for (const r of rows) map.set(normalizeHost(r.domain), r.orgId);
+  const map = new Map<string, OrganizationId>();
+  for (const r of rows) map.set(normalizeHost(r.domain), idSchema.organization.parse(r.orgId));
   return map;
 }
 
 interface OrgIpAgg {
+  orgId: OrganizationId;
+  ip: string;
   count: number;
   country: string | null;
   samplePath: string;
@@ -66,7 +71,7 @@ interface OrgIpAgg {
  *  `"<orgId> <ip>"`. */
 function foldByOrgIp(
   groups: HostThreatGroup[],
-  hostOrg: Map<string, string>,
+  hostOrg: Map<string, OrganizationId>,
 ): Map<string, OrgIpAgg> {
   const perOrgIp = new Map<string, OrgIpAgg>();
   for (const g of groups) {
@@ -78,7 +83,13 @@ function foldByOrgIp(
       agg.count += g.count;
       agg.country ??= g.country;
     } else {
-      perOrgIp.set(key, { count: g.count, country: g.country, samplePath: g.samplePath });
+      perOrgIp.set(key, {
+        orgId,
+        ip: g.ip,
+        count: g.count,
+        country: g.country,
+        samplePath: g.samplePath,
+      });
     }
   }
   return perOrgIp;
@@ -94,15 +105,15 @@ async function scanEdgeThreats(now = Date.now()): Promise<void> {
 
     for (const [key, agg] of perOrgIp) {
       if (agg.count < REQUEST_THRESHOLD) continue;
-      const [orgId, ip] = key.split(" ");
-      if (!orgId || !ip) continue;
+      const { orgId, ip } = agg;
+      if (!ip) continue;
       if (!claim(key, now)) continue;
       const where = agg.country ? `${ip} (${agg.country})` : ip;
       await emitPlatformEvent({
-        organizationId: orgId as OrganizationId,
+        organizationId: orgId,
         eventId: "edge.probe",
         title: "Suspicious edge traffic",
-        message: `${agg.count} scanner-style probes from ${where} in the last 10 minutes — e.g. ${agg.samplePath}. Review and block from the Firewall page.`,
+        message: `${agg.count} scanner-style probes from ${where} in the last 10 minutes, e.g. ${agg.samplePath}. Review and block from the Firewall page.`,
         data: {
           ip,
           count: String(agg.count),

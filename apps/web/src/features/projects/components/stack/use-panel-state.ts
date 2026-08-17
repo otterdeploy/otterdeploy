@@ -1,6 +1,6 @@
 /**
  * Persisted UI state for the bottom stack drawer: open/collapsed, active tab,
- * and drag-resized height — stored per project in localStorage so the
+ * and drag-resized height, stored per project in localStorage so the
  * workspace reopens the way the operator left it. Hoisted out of
  * StackCodePanel so the graph layout can read the drawer's occupied height
  * and lift its bottom-anchored chrome (Controls / legend) above it.
@@ -8,12 +8,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import * as z from "zod";
+
 import type { StackTab } from "./panel-header";
 
 const PANEL_MIN_HEIGHT = 160;
 const PANEL_MAX_VH = 0.7;
 const PANEL_DEFAULT_HEIGHT = 360;
-/** Header strip height (h-10) — the drawer's footprint while collapsed. */
+/** Header strip height (h-10): the drawer's footprint while collapsed. */
 export const PANEL_COLLAPSED_HEIGHT = 40;
 
 interface PanelState {
@@ -24,6 +26,15 @@ interface PanelState {
 
 const storageKey = (projectId: string) => `otterdeploy:stack-panel:${projectId}`;
 
+/** localStorage is a JSON boundary: parse, never cast. Per-field `.catch`
+ *  keeps the old tolerance, where one corrupt field falls back to its default
+ *  without discarding the rest of the stored state. */
+const storedPanelSchema = z.object({
+  open: z.boolean().optional().catch(undefined),
+  tab: z.enum(["stack", "activity", "traffic"]).optional().catch(undefined),
+  height: z.number().optional().catch(undefined),
+});
+
 function clampHeight(h: number): number {
   const max =
     typeof window === "undefined" ? Number.POSITIVE_INFINITY : window.innerHeight * PANEL_MAX_VH;
@@ -31,7 +42,7 @@ function clampHeight(h: number): number {
 }
 
 /** `defaultOpen` only applies the first time a project's drawer is ever
- *  read (no stored preference) — a brand-new project with zero resources
+ *  read (no stored preference). A brand-new project with zero resources
  *  has nothing to show but boilerplate YAML, so it starts collapsed instead
  *  of covering the empty-state CTA underneath. Any explicit operator
  *  preference from a prior open/close always wins. */
@@ -41,13 +52,14 @@ function readState(projectId: string, defaultOpen: boolean): PanelState {
   try {
     const raw = window.localStorage.getItem(storageKey(projectId));
     if (!raw) return defaults;
-    const parsed = JSON.parse(raw) as Partial<PanelState>;
-    const tab: StackTab =
-      parsed.tab === "activity" || parsed.tab === "traffic" ? parsed.tab : "stack";
+    const parsed = storedPanelSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return defaults;
+    const stored = parsed.data;
+    const tab: StackTab = stored.tab ?? "stack";
     return {
-      open: parsed.open ?? defaultOpen,
+      open: stored.open ?? defaultOpen,
       tab,
-      height: clampHeight(typeof parsed.height === "number" ? parsed.height : PANEL_DEFAULT_HEIGHT),
+      height: clampHeight(stored.height ?? PANEL_DEFAULT_HEIGHT),
     };
   } catch {
     return defaults;
@@ -65,7 +77,7 @@ export interface StackPanelState extends PanelState {
   startDrag: (event: React.PointerEvent) => void;
 }
 
-/** `defaultOpen` — the drawer's first-visit-ever default (see readState);
+/** `defaultOpen`: the drawer's first-visit-ever default (see readState);
  *  defaults to `true` so existing callers that don't pass it keep the prior
  *  always-open behavior. Only the graph route (which knows whether the
  *  project has any resources yet) overrides it. */
@@ -74,13 +86,13 @@ export function useStackPanelState(projectId: string, defaultOpen = true): Stack
   const [dragging, setDragging] = useState(false);
 
   // Same component instance survives project→project navigation (the route
-  // layout re-renders with new params, no remount) — re-read on key change.
+  // layout re-renders with new params, no remount). Re-read on key change.
   const prevProjectId = useRef(projectId);
   useEffect(() => {
     if (prevProjectId.current === projectId) return;
     prevProjectId.current = projectId;
-    // defaultOpen is a first-render hint, not a reactive dependency —
-    // re-reading on it changing would fight the operator's own toggle.
+    // defaultOpen is a first-render hint, not a reactive dependency.
+    // Re-reading on it changing would fight the operator's own toggle.
     setState(readState(projectId, defaultOpen));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -89,20 +101,20 @@ export function useStackPanelState(projectId: string, defaultOpen = true): Stack
     try {
       window.localStorage.setItem(storageKey(projectId), JSON.stringify(state));
     } catch {
-      /* ignore quota/privacy-mode failures — state just won't persist */
+      /* ignore quota/privacy-mode failures: state just won't persist */
     }
   }, [projectId, state]);
 
   const setOpen = (open: boolean) => setState((s) => ({ ...s, open }));
   const toggleOpen = () => setState((s) => ({ ...s, open: !s.open }));
-  // Picking a tab always opens the drawer — a hidden tab switch is a no-op.
+  // Picking a tab always opens the drawer. A hidden tab switch is a no-op.
   const setTab = (tab: StackTab) => setState((s) => ({ ...s, tab, open: true }));
 
   const startDrag = (event: React.PointerEvent) => {
     event.preventDefault();
     const startY = event.clientY;
     // `startDrag` is rebuilt every render, so `state.height` is already the
-    // current one — the ref that used to mirror it (and the effect keeping that
+    // current one: the ref that used to mirror it (and the effect keeping that
     // ref in sync) was copying a value that was never stale.
     const startHeight = state.height;
     setDragging(true);

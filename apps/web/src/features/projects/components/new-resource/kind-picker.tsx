@@ -1,8 +1,8 @@
-// KindPicker — source-first launcher for the create-resource wizard's first
+// KindPicker: source-first launcher for the create-resource wizard's first
 // step. Top level is six *source/category* cards (git, image, database,
 // compose, template, empty); "Create database" drills into an engine
-// sub-picker. The workload role (web app vs static vs worker) is NOT a card —
-// it's a downstream field, because the same role can be built from any source.
+// sub-picker. The workload role (web app vs static vs worker) is NOT a card.
+// It's a downstream field, because the same role can be built from any source.
 // Extracted from StepKind so it can be reused in dialogs.
 import { useNavigate, useParams } from "@tanstack/react-router";
 
@@ -26,14 +26,14 @@ import {
 import { I } from "./icons";
 import { useResourceOverlay } from "./overlay-context";
 
-// Engines offered under "Create database" — the data-group kinds, wired ones
+// Engines offered under "Create database", the data-group kinds, wired ones
 // first, coming-soon ones gated.
 const DB_ENGINES = SERVICE_KINDS.filter((k) => k.group === "database");
 const DB_ENGINE_IDS = new Set(DB_ENGINES.map((k) => k.id));
 
 const SOON_CHIP = cn(builderPopClass, "bg-muted text-muted-foreground");
 
-// ── Category icon — sized for the 26px card tile ────────────────────────────
+// ── Category icon, sized for the 26px card tile ────────────────────────────
 function CategoryIcon({ id }: { id: LaunchCategory["id"] }) {
   const klass = "size-[15px]";
   switch (id) {

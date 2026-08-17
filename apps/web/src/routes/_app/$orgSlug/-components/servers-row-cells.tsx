@@ -1,5 +1,5 @@
 /**
- * Presentational cells for a Servers table row — name/host/labels block,
+ * Presentational cells for a Servers table row: name/host/labels block,
  * cpu+mem usage bars, and the role / status badges. Split from
  * `servers-row.tsx`, which keeps the row itself and its availability control.
  */
@@ -101,7 +101,7 @@ function UsageRow({
       </div>
       <span className="w-[110px] shrink-0 text-right tabular-nums text-muted-foreground">
         {unknown ? (
-          <span className="text-muted-foreground/40">— / — {unit}</span>
+          <span className="text-muted-foreground/40">– / – {unit}</span>
         ) : (
           <>
             <span className="text-foreground">{used}</span>

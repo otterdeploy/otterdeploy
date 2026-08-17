@@ -1,5 +1,5 @@
 /**
- * Service env-var mutations — `setEnv` / `unsetEnv` / `bulkSetEnv`. Split out of
+ * Service env-var mutations: `setEnv` / `unsetEnv` / `bulkSetEnv`. Split out of
  * handlers.ts to keep that file under the line cap; re-exported from there so
  * the router import path is unchanged. Each mutation fans a redeploy out to the
  * service and any dependents that reference its variables.
@@ -78,13 +78,13 @@ export async function unsetEnv(
 
 /**
  * Keep the saved manifest truthful after a LIVE env edit (variables tab, CLI
- * `env set`) — patches a declared env map to the applied rows so the next
+ * `env set`). Patches a declared env map to the applied rows so the next
  * diff doesn't stage phantom deletes, or resurrect a deleted var on Apply.
  *
  * Called from the ROUTER endpoints only, never from the manifest reconciler's
  * own bulkSetEnv path: apply writes ref-RESOLVED values and skips unset
  * `${secret}` keys, so syncing from inside apply would destroy those
- * declarations. Best-effort — a failure must never fail the env mutation.
+ * declarations. Best-effort: a failure must never fail the env mutation.
  */
 export async function syncManifestEnvAfterLiveEdit(input: ResourceRef): Promise<void> {
   const ctx = await loadResource(input);

@@ -1,7 +1,7 @@
 /**
  * Scanner-probe classification for edge access logs. A deliberately small,
  * high-signal rule set (same ethos as the audit-anomaly detector): each pattern
- * targets a path real clients never request but vulnerability scanners hammer —
+ * targets a path real clients never request but vulnerability scanners hammer:
  * secret files, framework debug endpoints, PHP/CGI probes, command injection.
  *
  * The pattern BODIES are shared two ways so the badge in the UI, the "suspicious"
@@ -9,24 +9,24 @@
  *   - `classifyThreat` compiles them to a JS RegExp (per-row category label);
  *   - `THREAT_SQL_REGEX` joins them for Postgres `~*` (set-level filtering).
  * They stay in lockstep because the constructs used (char classes, `\.`,
- * alternation, `$`, `?`) mean the same thing in JS regex and Postgres ARE — we
+ * alternation, `$`, `?`) mean the same thing in JS regex and Postgres ARE. We
  * avoid `\b` (which Postgres spells `\y`) on purpose.
  *
  * NOTE: `apps/web/src/features/edge-logs/threat.ts` mirrors `classifyThreat` for
- * the client badge/filter — keep the two in sync (like the notifications event
+ * the client badge/filter: keep the two in sync (like the notifications event
  * catalog). The SQL regex is server-only.
  */
 
 /** ordered, most-specific first; the first body that matches wins the label. */
 const THREAT_RULES: ReadonlyArray<readonly [category: string, body: string]> = [
   // Dotfiles that leak secrets/source: /.env, /.git/config, /.aws/credentials …
-  // (NOT /.well-known/* — legit, and absent from this list.)
+  // (NOT /.well-known/*, legit, and absent from this list.)
   ["secret-file", "/\\.(env|git|aws|ssh|svn|hg|npmrc|htpasswd|bash_history|dockercfg)([/.]|$)"],
   // Editor/IDE config: /.vscode/sftp.json, /.idea/…
   ["ide-config", "/\\.(vscode|idea)(/|$)"],
   ["php-probe", "\\.php([/?]|$)"],
   ["script-probe", "\\.(asp|aspx|jsp|jspx|cgi|axd)([/?]|$)"],
-  // Executables never served to a browser — /php-cgi/php-cgi.exe, *.dll (RCE probes).
+  // Executables never served to a browser: /php-cgi/php-cgi.exe, *.dll (RCE probes).
   ["exe-probe", "\\.(exe|dll)([/?]|$)"],
   ["cgi-probe", "/cgi-bin/"],
   // App/framework internals: /actuator/env, /telescope/requests, /wp-login.php …
@@ -49,7 +49,7 @@ const COMPILED: ReadonlyArray<readonly [string, RegExp]> = THREAT_RULES.map(
   ([category, body]) => [category, new RegExp(body, "i")] as const,
 );
 
-/** A single Postgres `~*` regex matching ANY threat rule — for set-level SQL
+/** A single Postgres `~*` regex matching ANY threat rule: for set-level SQL
  *  filtering (suspicious filter, flagged-IP aggregation, anomaly scan). */
 export const THREAT_SQL_REGEX = THREAT_RULES.map(([, body]) => `(${body})`).join("|");
 

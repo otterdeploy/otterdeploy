@@ -47,7 +47,7 @@ function AcceptInvitePage() {
       return res.data;
     },
     retry: false,
-    // The failure is rendered inline in the card below — opt out of the global
+    // The failure is rendered inline in the card below. Opt out of the global
     // QueryCache error toast so the raw "Error: … retry" toast doesn't stack
     // under it.
     meta: { suppressErrorToast: true },
@@ -83,7 +83,7 @@ function AcceptInvitePage() {
       return res.data;
     },
     onSuccess: async () => {
-      // The cached invitation still says "pending" — refetch so revisiting the
+      // The cached invitation still says "pending". Refetch so revisiting the
       // invite link shows its real (declined) state instead of the accept UI.
       await queryClient.invalidateQueries({ queryKey: authQueryKeys.invitation(invitationId) });
       toast.success("Invitation declined");
@@ -118,7 +118,7 @@ function AcceptInvitePage() {
               <Button
                 onClick={() => {
                   void authClient.signOut().finally(() => {
-                    // Router navigation, not a reload — so the cached session
+                    // Router navigation, not a reload, so the cached session
                     // would otherwise outlive the sign-out and let the gate
                     // wave the old user through.
                     clearAuthCache();

@@ -20,6 +20,7 @@ import { Button } from "@/shared/components/ui/button";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { formatDuration } from "@/shared/lib/duration";
 import { shortImageRef } from "@/shared/lib/image-ref";
+import { timeAgo } from "@/shared/lib/time";
 
 import { isRollbackEligible, type ProjectDeployment } from "../data/deployments-search";
 
@@ -31,21 +32,7 @@ const KIND_ICON: Record<ProjectDeployment["resourceKind"], HugeIcon> = {
   compose: PackageIcon,
 };
 
-/** Compact relative time ("2m ago", "3d ago"); absolute lives in the title. */
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const s = Math.max(0, Math.floor(diff / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
-
-/** Wall-clock ms since `iso` — impure by design (same idiom as `timeAgo`);
+/** Wall-clock ms since `iso`: impure by design (same idiom as `timeAgo`);
  *  it ticks via the parent's periodic refetch, not a per-row timer. */
 function elapsedSinceMs(iso: string): number {
   return Date.now() - new Date(iso).getTime();
@@ -59,12 +46,12 @@ function DurationCell({ d }: { d: ProjectDeployment }) {
     return <span className="tabular-nums">{formatDuration(ms)}</span>;
   }
   if (IN_FLIGHT.has(d.status)) {
-    // Still in flight — show honest elapsed time, ticking via the parent's
+    // Still in flight: show honest elapsed time, ticking via the parent's
     // periodic refetch (a per-second timer per row isn't worth the churn).
     return <span className="tabular-nums">{formatDuration(elapsedSinceMs(d.createdAt))}…</span>;
   }
-  // Settled without a recorded completion (old rows) — don't invent one.
-  return <span className="text-muted-foreground/50">—</span>;
+  // Settled without a recorded completion (old rows): don't invent one.
+  return <span className="text-muted-foreground/50">–</span>;
 }
 
 function CommitCell({ d }: { d: ProjectDeployment }) {
@@ -78,12 +65,12 @@ function CommitCell({ d }: { d: ProjectDeployment }) {
           className="truncate text-[12.5px] text-foreground/90"
           title={d.gitCommitMessage ?? undefined}
         >
-          {d.gitCommitMessage ?? (d.gitRef ? `on ${d.gitRef}` : "—")}
+          {d.gitCommitMessage ?? (d.gitRef ? `on ${d.gitRef}` : "–")}
         </span>
       </span>
     );
   }
-  // Uploaded local source (CLI deploy) — no commit, but the tarball's content
+  // Uploaded local source (CLI deploy), no commit, but the tarball's content
   // hash is the honest provenance.
   if (d.sourceSha) {
     return (
@@ -97,7 +84,7 @@ function CommitCell({ d }: { d: ProjectDeployment }) {
       </span>
     );
   }
-  // Image-sourced (or database) deploy — the image ref is the provenance.
+  // Image-sourced (or database) deploy. The image ref is the provenance.
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span className="truncate font-mono text-[12px] text-foreground/80" title={d.image}>
@@ -142,7 +129,7 @@ export function DeployRow({
       </TableCell>
       <TableCell className="text-[12px] text-muted-foreground">
         <span className="truncate" title={d.gitCommitAuthor ?? undefined}>
-          {d.gitCommitAuthor ?? "—"}
+          {d.gitCommitAuthor ?? "–"}
         </span>
       </TableCell>
       <TableCell className="text-right font-mono text-[11px] text-muted-foreground">
@@ -158,7 +145,7 @@ export function DeployRow({
             variant="outline"
             size="sm"
             // Recessed, never hidden. This was `opacity-0` until hover, which
-            // made rollback look like a feature the product did not have — and
+            // made rollback look like a feature the product did not have, and
             // on a touch device, where there IS no hover, the button stayed at
             // zero opacity permanently while remaining tappable: an invisible
             // live control. Resting at 70% keeps the row calm without lying

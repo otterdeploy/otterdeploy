@@ -60,7 +60,7 @@ export function CaddyfileViewer({ source, revision, loading, className }: Caddyf
     });
   }, [active, total, query]);
 
-  // Cmd/Ctrl+F focuses the find bar — but only when *this* viewer is the
+  // Cmd/Ctrl+F focuses the find bar, but only when *this* viewer is the
   // visible tab panel (hidden panels have a null offsetParent), so the
   // shortcut doesn't fight other mounted-but-hidden viewers.
   useHotkey("Mod+F", (event) => {
@@ -83,7 +83,7 @@ export function CaddyfileViewer({ source, revision, loading, className }: Caddyf
       className={cn(
         // The layout chain doesn't pass a definite height down (SidebarProvider
         // is min-h-svh, not h-svh), so flex-fill can't reach the viewport
-        // bottom — size against the viewport like EdgeLogsView does. Offset =
+        // bottom: size against the viewport like EdgeLogsView does. Offset =
         // header + project tabs + page padding + the in-page tab strip.
         "flex h-[calc(100svh-var(--header-height)-9rem)] min-h-80 flex-col overflow-hidden rounded-xl border bg-muted/20",
         className,
@@ -130,16 +130,19 @@ function CodeBody({
             <span className="mr-4 inline-block text-right text-muted-foreground/40 tabular-nums select-none">
               {String(idx + 1).padStart(gutterWidth, " ")}
             </span>
-            {segs.map((seg, i) =>
-              seg.match !== undefined ? (
+            {segs.map((seg, i) => {
+              // Hoisted so the narrowing to `number` survives into the ref
+              // closure (property narrowings don't cross function boundaries).
+              const match = seg.match;
+              return match !== undefined ? (
                 <span
                   key={i}
                   ref={(el) => {
-                    matchRefs.current.set(seg.match as number, el);
+                    matchRefs.current.set(match, el);
                   }}
                   className={cn(
                     "rounded-xs",
-                    seg.match === active ? "bg-amber-400/50 text-foreground" : "bg-amber-400/20",
+                    match === active ? "bg-amber-400/50 text-foreground" : "bg-amber-400/20",
                     KIND_CLASS[seg.kind],
                   )}
                 >
@@ -149,8 +152,8 @@ function CodeBody({
                 <span key={i} className={KIND_CLASS[seg.kind]}>
                   {seg.text}
                 </span>
-              ),
-            )}
+              );
+            })}
             {"\n"}
           </Fragment>
         ))}

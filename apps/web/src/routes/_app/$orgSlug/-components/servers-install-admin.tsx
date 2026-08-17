@@ -12,7 +12,7 @@
  *
  * These are omit-not-disable and unmount-not-hide: a disabled tab still
  * advertises something you cannot have, and a rendered-then-hidden plane
- * still fires every query it owns. Presentation only — the server re-checks
+ * still fires every query it owns. Presentation only. The server re-checks
  * the same flag on each of those procedures (packages/api authz).
  */
 
@@ -63,7 +63,7 @@ export function InstallAdminPlanes({
 
 /**
  * The LOCAL host's action surface (reclaim/grow run on the local docker
- * socket), which lives inside the otherwise-shared Overview plane — so here
+ * socket), which lives inside the otherwise-shared Overview plane, so here
  * it's the card that disappears, not the tab.
  */
 export function LocalHostHealth({ isInstallAdmin }: { isInstallAdmin: boolean }) {

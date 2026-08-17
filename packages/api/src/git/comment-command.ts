@@ -2,8 +2,8 @@
  * `@otterdeploy <command>` in a pull-request comment.
  *
  * Exists so a repository with automatic previews turned OFF can still ask for
- * one on demand. Everything downstream — branch, build, route, comment,
- * teardown — is the path the `pull_request` webhook already drives; this only
+ * one on demand. Everything downstream: branch, build, route, comment,
+ * teardown: is the path the `pull_request` webhook already drives; this only
  * decides whether a comment is a request and whether its author may make it.
  *
  * **This is an authorization boundary, not a convenience.** Anyone who can see
@@ -14,7 +14,7 @@
  * tested without a webhook.
  */
 
-/** Commands the bot answers to. Deliberately tiny — every addition is another
+/** Commands the bot answers to. Deliberately tiny: every addition is another
  *  thing a commenter can make the platform do. */
 export type CommentCommand = "preview";
 
@@ -25,7 +25,7 @@ export type CommentCommand = "preview";
  * point", which is not write access and is a low bar for spending someone
  * else's disk and CPU; `NONE`, `FIRST_TIME_CONTRIBUTOR` and
  * `FIRST_TIME_CONTRIBUTOR`-adjacent values are drive-by commenters on a public
- * repository. `MANNEQUIN` and `BOT` are excluded too — a bot echoing a command
+ * repository. `MANNEQUIN` and `BOT` are excluded too. A bot echoing a command
  * would be a trivial amplification loop.
  */
 const ALLOWED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);

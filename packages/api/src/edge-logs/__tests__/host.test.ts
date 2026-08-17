@@ -31,7 +31,7 @@ describe("normalizeHost", () => {
 describe("ingest canonicalizes the stored host", () => {
   beforeEach(() => __resetEdgeLogs());
 
-  // ts within the query window so the host filter — not the time filter —
+  // ts within the query window so the host filter (not the time filter)
   // decides the match.
   const tsSec = 1_700_000_000;
   const now = tsSec * 1000 + 1_000;

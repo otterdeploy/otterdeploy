@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Impeccable design hook — PostToolUse entry point.
+ * Impeccable design hook: PostToolUse entry point.
  *
  * Reads the Claude Code / Codex / Cursor hook event from stdin, runs the design
  * detector against the touched file, and emits a system reminder via

@@ -1,5 +1,6 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { describe, expect, test } from "vite-plus/test";
 
 import {
@@ -16,7 +17,11 @@ import {
   withTimeout,
 } from "../catalog-shared";
 
-const rid = (n: string) => n as ResourceId;
+/** Fixture id, narrowed by the real prefix guard rather than asserted. */
+const rid = (n: string): ResourceId => {
+  if (!hasPrefix(n, ID_PREFIX.resource)) throw new Error(`not a resource id: ${n}`);
+  return n;
+};
 
 describe("versionFromImage", () => {
   test("plain tag", () => {

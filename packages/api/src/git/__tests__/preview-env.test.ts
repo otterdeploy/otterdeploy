@@ -6,7 +6,7 @@ import { teardownBumpFragment } from "../preview-env";
 /**
  * Regression guard for the preview-upsert timestamp bug: the on-conflict
  * `auto_teardown_at` bump is a raw `sql` fragment, so drizzle doesn't map the
- * value. It bit twice in prod — first a bare Date bound as `Date.toString()`
+ * value. It bit twice in prod: first a bare Date bound as `Date.toString()`
  * ("… (Coordinated Universal Time)", invalid timestamp syntax), then a bare ISO
  * string bound as `text` (column is timestamp → type mismatch). The fix binds
  * an ISO string cast to `timestamp`. Compile the fragment and assert both.

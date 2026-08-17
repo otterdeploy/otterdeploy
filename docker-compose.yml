@@ -8,7 +8,7 @@ name: otterdeploy
 
 # The builder image tag, declared ONCE. The build worker spawns this same image
 # as its per-build helper container, so the `image:` it is built/tagged as and
-# the `BUILDER_HELPER_IMAGE` it spawns must be identical — if they drift, every
+# the `BUILDER_HELPER_IMAGE` it spawns must be identical. If they drift, every
 # build dies at "Build image" with `exit 125: Unable to find image … locally`
 # followed by a misleading `pull access denied` (docker falls back to hunting
 # for the tag on Docker Hub, where it was never published). Aliasing both from
@@ -32,7 +32,7 @@ services:
       # version-specific subdirectory (`/var/lib/postgresql/18/docker`) so
       # `pg_upgrade --link` can hard-link between majors on one volume. Mounting
       # at the old `.../data` path makes 18+ refuse to start. Same rule the
-      # platform applies to user databases — see `resolveMount` in
+      # platform applies to user databases. See `resolveMount` in
       # swarm/database-engines/postgres.ts.
       - otterdeploy-postgres-data:/var/lib/postgresql
     healthcheck:
@@ -83,7 +83,7 @@ services:
       context: .
       dockerfile: ./apps/server/Dockerfile
     # Pinned tag so the worker can spawn this same image as the per-build
-    # helper container — both sides alias the x-builder-image anchor at the top
+    # helper container: both sides alias the x-builder-image anchor at the top
     # of this file so they cannot drift apart.
     image: *builder-image
     working_dir: /app/apps/builder
@@ -94,17 +94,17 @@ services:
     profiles: ["build"]
     restart: unless-stopped
     # Required env (DB/Redis/auth secret/…) comes from the project .env; the two
-    # connection URLs are then overridden below so the worker — and the helper
-    # containers it forwards them to — reach the compose Postgres/Redis by
+    # connection URLs are then overridden below so the worker, and the helper
+    # containers it forwards them to: reach the compose Postgres/Redis by
     # service DNS instead of host-localhost.
     env_file:
       - .env
     environment:
-      # Reach the compose Postgres by service DNS — the host's ${DATABASE_URL}
+      # Reach the compose Postgres by service DNS. The host's ${DATABASE_URL}
       # (localhost:5432) resolves to the container itself in here, not the DB.
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
       # Reach the redis CONTAINER by service DNS on the compose network. Do NOT
-      # inject the host's ${REDIS_URL} (redis://localhost:6379) — inside this
+      # inject the host's ${REDIS_URL} (redis://localhost:6379). Inside this
       # container "localhost" is the container itself, so the builder can't reach
       # Redis, never consumes deploy.triggered jobs, and deploys hang "pending".
       REDIS_URL: redis://redis:6379
@@ -135,15 +135,15 @@ services:
       redis:
         condition: service_healthy
 
-  # CrowdSec agent + Local API (LAPI) — the IP-reputation layer the Firewall
+  # CrowdSec agent + Local API (LAPI): the IP-reputation layer the Firewall
   # page surfaces. Bundled but OPT-IN: only starts under the `firewall` profile
   # (COMPOSE_PROFILES=firewall, or `docker compose --profile firewall up -d`),
   # and only enforces once the control plane has CROWDSEC_LAPI_URL +
-  # CROWDSEC_BOUNCER_KEY set — then the reconciler wires the `crowdsec` gate
+  # CROWDSEC_BOUNCER_KEY set, then the reconciler wires the `crowdsec` gate
   # into the generated Caddyfile (hot reload, no image rebuild; the bouncer
   # plugin is already compiled into infra/caddy/Dockerfile).
   #
-  # Detection: the community blocklist (CAPI) plus local log-based scenarios —
+  # Detection: the community blocklist (CAPI) plus local log-based scenarios:
   # the agent tails the HOST's auth log (SSH brute force) and Caddy's rolled
   # access-log file (http brute force / CVE probes; the reconciler mirrors
   # access logs to the shared volume via a global `log crowdsec-access`
@@ -158,19 +158,19 @@ services:
       # the edge authenticates to LAPI with no manual `cscli bouncers add`.
       BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
       # The native host firewall bouncer's own key (install.sh sets it up as a
-      # systemd service — upstream ships no container image, and it must own
+      # systemd service: upstream ships no container image, and it must own
       # the host's nftables). Separate key so either bouncer can be revoked
       # without breaking the other. Empty ⇒ registration skipped.
       BOUNCER_KEY_firewall: ${CROWDSEC_FIREWALL_BOUNCER_KEY:-}
       # Parsers + scenarios for the two log sources below (installed on boot).
       COLLECTIONS: "crowdsecurity/sshd crowdsecurity/caddy"
-      # SQLite WAL — without it, concurrent access (cscli + LAPI + blocklist
+      # SQLite WAL: without it, concurrent access (cscli + LAPI + blocklist
       # imports) starves the LAPI into "database is locked" 401s.
       USE_WAL: "true"
     volumes:
       - otterdeploy-crowdsec-config:/etc/crowdsec
       - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
-      # Host logs, read-only — the whole directory rather than auth.log alone,
+      # Host logs, read-only. The whole directory rather than auth.log alone,
       # so logrotate's rename doesn't strand a single-file bind mount on a
       # stale inode.
       - /var/log:/var/log/host:ro
@@ -180,7 +180,7 @@ services:
       - source: crowdsec-acquis
         target: /etc/crowdsec/acquis.d/otterdeploy.yaml
     ports:
-      # LAPI on the host LOOPBACK by default — how the native firewall bouncer
+      # LAPI on the host LOOPBACK by default: how the native firewall bouncer
       # (a host process, outside the compose network) reaches the engine.
       # Multi-server installs: set CROWDSEC_LAPI_BIND to the manager's
       # routable/mesh IP so firewall bouncers installed on added nodes can
@@ -204,26 +204,26 @@ services:
     profiles: ["edge"]
     restart: unless-stopped
     environment:
-      # DEV ONLY — TCP admin instead of the 0600 unix socket production uses.
+      # DEV ONLY: TCP admin instead of the 0600 unix socket production uses.
       #
       # Why: the socket has to be bind-mounted from the host so the natively-run
       # control plane can reach it, and Docker Desktop's file sharing rejects
       # both chmod and unlink on a socket inside a bind mount (EINVAL /
       # "Not supported"), so Caddy cannot bind it and restart-loops.
       #
-      # SECURITY — this reopens what od-5j8.6 (P0) closed, and not partially.
+      # SECURITY: this reopens what od-5j8.6 (P0) closed, and not partially.
       # Docker can only publish a port the process bound on the container's
       # external interface, so this must listen on 0.0.0.0; binding the
       # container's loopback would make the published port unreachable. And
       # ensureEdgeOnProjectNetworks() (packages/api/src/swarm/client.ts) attaches
       # Caddy to EVERY managed project network on each reconcile, so once any
-      # workload is deployed, its containers can reach :2019 — an unauthenticated
+      # workload is deployed, its containers can reach :2019. An unauthenticated
       # API that can rewrite the whole proxy config and read managed certs.
       # Tolerable on a single-user dev laptop; NEVER set this in production,
       # which keeps the socket on a named volume under /run where 0600 holds.
       #
       # The static Caddyfile still DEFAULTS to the unix socket
-      # (infra/caddy/config/Caddyfile, asserted by the od-5j8.6 security test) —
+      # (infra/caddy/config/Caddyfile, asserted by the od-5j8.6 security test):
       # this only overrides it for this compose file.
       CADDY_ADMIN_BIND: ${CADDY_ADMIN_BIND:-0.0.0.0:2019}
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
@@ -262,7 +262,7 @@ volumes:
   otterdeploy-crowdsec-data:
 
 configs:
-  # CrowdSec log acquisition — which logs the agent parses for its scenarios.
+  # CrowdSec log acquisition, which logs the agent parses for its scenarios.
   # Inline so the compose file stays the single artifact an install carries.
   crowdsec-acquis:
     content: |

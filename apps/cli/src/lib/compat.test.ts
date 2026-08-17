@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { CLI_VERSION } from "../version";
 import { observeCompatHeaders, reportCompatWarning, resetCompatState } from "./compat";
 
-/** Warnings and hints go to stderr — capture that, not stdout. */
+/** Warnings and hints go to stderr, capture that, not stdout. */
 function captureStderr() {
   const written: string[] = [];
   const spy = vi

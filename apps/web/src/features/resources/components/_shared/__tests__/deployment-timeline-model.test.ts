@@ -2,7 +2,7 @@
  * A `running` deployment is not automatically a successful one.
  *
  * The incident these pin: a service came up, failed its healthcheck, and sat at
- * `Up 14 minutes (unhealthy)` 404-ing every request — while the deployment view
+ * `Up 14 minutes (unhealthy)` 404-ing every request, while the deployment view
  * showed "Deployed successfully" over four green checks. The contradicting
  * rollup was already on the row (`runningTaskCount` vs `taskCount`); the
  * timeline simply never read it.
@@ -23,7 +23,7 @@ const base: TimelineInput = {
   createdAt: "2026-07-30T10:00:00.000Z",
 };
 
-describe("buildTimeline — running", () => {
+describe("buildTimeline: running", () => {
   it("reports success when every replica is running", () => {
     const t = buildTimeline(base);
     expect(t.title).toBe("Deployed successfully");
@@ -50,7 +50,7 @@ describe("buildTimeline — running", () => {
     const run = t.phases.find((p) => p.key === "run");
     expect(run?.state).toBe("failed");
     expect(run?.detail).toContain("0/2 replicas running");
-    // The earlier phases genuinely did succeed — don't retro-fail the build.
+    // The earlier phases genuinely did succeed. Don't retro-fail the build.
     expect(t.phases.find((p) => p.key === "build")?.state).toBe("done");
     expect(t.phases.find((p) => p.key === "deploy")?.state).toBe("done");
   });
@@ -74,7 +74,7 @@ describe("buildTimeline — running", () => {
   });
 });
 
-describe("buildTimeline — other statuses are unchanged", () => {
+describe("buildTimeline: other statuses are unchanged", () => {
   it("keeps the two failure shapes apart", () => {
     const rollout = buildTimeline({ ...base, status: "failed", taskCount: 2 });
     expect(rollout.title).toBe("Deployment failed during rollout");
@@ -83,9 +83,9 @@ describe("buildTimeline — other statuses are unchanged", () => {
   });
 
   it("does not apply the replica check to non-running statuses", () => {
-    // `paused` is scaled to zero on purpose — 0 running replicas is correct.
+    // `paused` is scaled to zero on purpose. 0 running replicas is correct.
     const t = buildTimeline({ ...base, status: "paused", runningTaskCount: 0 });
     expect(t.tone).toBe("neutral");
-    expect(t.title).toBe("Paused — scaled to zero");
+    expect(t.title).toBe("Paused. Scaled to zero");
   });
 });

@@ -4,7 +4,7 @@
 // reading env (the terminal ticket store, the db client, authz) throws
 // "Invalid environment variables" before a single assertion runs. Bun loads
 // this via `[test] preload` in bunfig.toml, i.e. before any test module is
-// imported. `??=` so a real configured value always wins — this never weakens
+// imported. `??=` so a real configured value always wins: this never weakens
 // or overrides an env var that is actually set.
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: this file IS the env setup, run before any test module imports the validated env schema.
 process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";

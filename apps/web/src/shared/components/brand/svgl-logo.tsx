@@ -122,7 +122,7 @@ type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
 
 /**
  * Multi-color marks whose ink parts flip between themes (AWS's navy "aws"
- * text is invisible on the dark canvas). Selected via the app theme hook —
+ * text is invisible on the dark canvas). Selected via the app theme hook.
  * `resolvedTheme` also tracks the OS when theme="system".
  */
 const themedBrands: Record<
@@ -200,7 +200,7 @@ export function SvglLogo({
 }: Props) {
   const { resolvedTheme, theme } = useTheme();
   const isDark = (resolvedTheme ?? theme) === "dark";
-  // Module-level map lookup — the returned component identity is stable, so
+  // Module-level map lookup. The returned component identity is stable, so
   // rendering it via `createElement` (not a render-local <Capitalized />) keeps
   // React from treating it as a component created during render.
   const icon = resolveBrand(search, isDark);

@@ -1,10 +1,10 @@
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { useId, useState } from "react";
 
 import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { idSchema } from "@otterdeploy/shared/id";
 import { toast } from "sonner";
 
 import {
@@ -38,7 +38,7 @@ const copyPolicy = (policy: RoutePolicy): RoutePolicy => ({ ...policy });
  * One policy dropdown.
  *
  * Uses the app's Select rather than a bare `<select>`: the native control paints
- * its popup from the OS, so it ignored the theme entirely — a light system menu
+ * its popup from the OS, so it ignored the theme entirely: a light system menu
  * over the dark dialog, with the platform's own chevron next to our tokens. The
  * options here are also long enough ("Strict origin when cross-origin") to need
  * the popup width our Select gives them.
@@ -59,8 +59,17 @@ function SelectField<T extends string>({
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{label}</Label>
       {/* `items` is what lets the trigger show the option's label instead of
-          its wire value — "Same origin", not "same-origin". */}
-      <Select value={value} onValueChange={(next) => onChange(next as T)} items={options}>
+          its wire value: "Same origin", not "same-origin". */}
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          // The wire value can only be one of the rendered options; look it up
+          // so the narrow value comes from `options` rather than a cast.
+          const picked = options.find((option) => option.value === next);
+          if (picked) onChange(picked.value);
+        }}
+        items={options}
+      >
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>
@@ -196,7 +205,8 @@ export function RoutePolicyButton({
 
   const save = async () => {
     setSaving(true);
-    const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (row) => {
+    // The row model widens ids to string; re-brand at the mutation boundary.
+    const tx = proxyRoutesCollection.update(idSchema.proxyRoute.parse(routeId), (row) => {
       row.routePolicy = draft;
     });
     try {

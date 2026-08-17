@@ -1,5 +1,5 @@
 /**
- * Backups oRPC contract — read surface (Phase 2) plus destinations CRUD
+ * Backups oRPC contract: read surface (Phase 2) plus destinations CRUD
  * (Phase 3) and the run/logs execution surface (Phase 4). Mirrors the env
  * contract: `createSelectSchema` for outputs, `zId(...)` branded id inputs,
  * a stable `tag`/`basePath` for the generated OpenAPI doc.
@@ -26,7 +26,7 @@ const backupIdField = zId(ID_PREFIX.backup);
 const backupScheduleIdField = zId(ID_PREFIX.backupSchedule);
 const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
 
-// "stack" exists only as a reserved DB-enum value with no engine — it is
+// "stack" exists only as a reserved DB-enum value with no engine. It is
 // deliberately NOT offered here (or in the UI filter).
 const backupKind = z.enum(["database", "volume"]);
 const destinationType = z.enum(["s3", "local", "sftp"]);
@@ -60,7 +60,7 @@ export const scheduleSchema = createSelectSchema(backupSchedule).extend({
   missingSources: z.array(z.string()),
 });
 
-/** Destination — never exposes `encryptedSecret`; adds computed usage. */
+/** Destination, never exposes `encryptedSecret`; adds computed usage. */
 export const destinationSchema = createSelectSchema(backupDestination)
   .omit({ encryptedSecret: true })
   .extend({
@@ -113,7 +113,7 @@ const destinationLastActive = {
   },
 };
 
-// Structurally incomplete config (e.g. `local` with no `path`) — rejected at
+// Structurally incomplete config (e.g. `local` with no `path`), rejected at
 // create/update so it can't fail a backup run later.
 const destinationInvalidConfig = {
   INVALID_CONFIG: {
@@ -162,7 +162,7 @@ const runBackupInput = z
     // Exactly one source: a database resource, or a named Docker volume.
     resourceId: resourceIdField.optional(),
     volumeName: volumeNameField.optional(),
-    // One dump fanned out to every destination — one backup record per id.
+    // One dump fanned out to every destination: one backup record per id.
     destinationIds: z.array(backupDestinationIdField).min(1),
     encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
   })
@@ -173,7 +173,7 @@ const runBackupInput = z
 const restoreBackupInput = z.object({
   id: backupIdField,
   mode: z.enum(["download", "in-place"]).default("in-place"),
-  /** Typed-name confirmation (the name of whatever is OVERWRITTEN — the target
+  /** Typed-name confirmation (the name of whatever is OVERWRITTEN, the target
    *  database when one is given). Required for in-place; enforced server-side
    *  so the destructive path can't be called blind. */
   confirm: z.string().optional(),
@@ -201,7 +201,7 @@ const createScheduleInput = z.object({
   cron: z.string().min(1),
   destinationIds: z.array(backupDestinationIdField).min(1),
   projectId: projectIdField.optional(),
-  // GFS retention tiers — keep the most recent archive per bucket up to N.
+  // GFS retention tiers: keep the most recent archive per bucket up to N.
   keepDaily: z.number().int().nonnegative().default(0),
   keepWeekly: z.number().int().nonnegative().default(0),
   keepMonthly: z.number().int().nonnegative().default(0),
@@ -234,8 +234,8 @@ const scheduleNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Schedule not found" as const },
 };
 
-/** A manual run against an orphaned schedule — every source ref has lost its
- *  backing database — is a 422, not a silent no-op. `missing` lists the dead
+/** A manual run against an orphaned schedule. Every source ref has lost its
+ *  backing database: is a 422, not a silent no-op. `missing` lists the dead
  *  refs so the UI can name what broke. */
 const scheduleRunErrors = {
   ...scheduleNotFound,
@@ -254,7 +254,7 @@ const backupRunNotFound = {
   },
 };
 
-/** Verify output — an outcome, not an error: an unreachable archive is a
+/** Verify output: an outcome, not an error: an unreachable archive is a
  *  legitimate result the UI must show, so it's encoded in the payload. */
 const verifyResultSchema = z.object({
   ok: z.boolean(),

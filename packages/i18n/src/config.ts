@@ -21,10 +21,10 @@ export const i18nOptions = {
   /**
    * Listing base languages here is what makes regional tags work.
    *
-   * Browsers report `de-DE`, `de-AT`, `de-CH`, `es-MX` — nearly nobody sends
+   * Browsers report `de-DE`, `de-AT`, `de-CH`, `es-MX`. Nearly nobody sends
    * plain `de`. i18next walks the fallback chain `de-DE` → `de` → `en` and,
    * because `de` is supported, stops there: `resolvedLanguage` is `de` and the
-   * German bundle is served. Nothing extra is needed for that — see
+   * German bundle is served. Nothing extra is needed for that. See
    * `language-resolution.test.ts`, which enumerates the tags and would catch a
    * config change that broke the chain (dropping this list while forcing
    * `load: "currentOnly"` is the combination that does).

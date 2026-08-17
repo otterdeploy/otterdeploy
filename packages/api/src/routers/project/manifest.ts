@@ -8,10 +8,9 @@
 
 import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
-import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
-
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema";
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import { Result } from "better-result";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -48,12 +47,12 @@ export async function loadManifest(
 
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   return Result.ok({
-    manifest: row.manifest ? (manifestSchema.parse(row.manifest) as Manifest) : null,
+    manifest: row.manifest ? manifestSchema.parse(row.manifest) : null,
     version: row.version,
   });
 }
 
-/** Optimistic-locked write — bump only when expectedVersion matches. */
+/** Optimistic-locked write. Bump only when expectedVersion matches. */
 export async function saveManifest(
   scope: ProjectScope,
   input: { manifest: Manifest; expectedVersion: number },
@@ -90,7 +89,7 @@ export async function saveManifest(
 }
 
 /**
- * Discard pending manifest changes — revert to the last successfully
+ * Discard pending manifest changes. Revert to the last successfully
  * applied snapshot. `lastAppliedManifest` is updated by applyManifest
  * on every successful reconcile; this just copies it back into
  * `manifest`, bumping the version counter so concurrent CLI/UI sessions
@@ -111,8 +110,10 @@ export async function discardManifest(
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
 
   const nextManifest = manifestAfterDiscard({
-    manifest: row.manifest as Manifest | null,
-    applied: row.lastApplied as Manifest | null,
+    // jsonb columns are typed as free-form JSON; the schema parse is the
+    // boundary that turns them back into Manifest, same as loadManifest.
+    manifest: row.manifest ? manifestSchema.parse(row.manifest) : null,
+    applied: row.lastApplied ? manifestSchema.parse(row.lastApplied) : null,
     only,
   });
 
@@ -136,7 +137,7 @@ export async function discardManifest(
  * Keep the saved manifest truthful after a live public-toggle on a database.
  *
  * Only patches when the manifest EXPLICITLY declares `publicEnabled` for this
- * database — an omitted key means "live-managed" (the diff skips it, same
+ * database: an omitted key means "live-managed" (the diff skips it, same
  * convention as services), and inventing the key here would promote the field
  * to manifest control the user never asked for. Best-effort: a concurrent
  * manifest save wins the version race and this no-ops; the diff guard on
@@ -201,10 +202,10 @@ export async function syncManifestDatabaseExtraEnv(
  * Service twin of {@link syncManifestDatabaseExtraEnv}: after a LIVE env edit
  * (variables tab, CLI `env set`), patch the manifest's declared env to match
  * the applied rows so the next diff doesn't stage phantom deletes for
- * live-added keys — or worse, resurrect a live-deleted one on Apply.
+ * live-added keys, or worse, resurrect a live-deleted one on Apply.
  *
  * Declared `${secret}` and `${…ref}` values are PRESERVED when their key
- * survives — the rows hold the resolved/live value, and overwriting the
+ * survives: the rows hold the resolved/live value, and overwriting the
  * declaration would destroy it. No-op when the manifest omits env
  * (live-managed) or already matches. Best-effort on the version race, same as
  * the database sync.
@@ -243,7 +244,7 @@ export async function syncManifestServiceEnv(
 
 /**
  * Mirror a live compose-content edit (compose.updateContent) into the desired
- * manifest so the manifest stays the source of truth. Inline stacks only — a
+ * manifest so the manifest stays the source of truth. Inline stacks only. A
  * git stack's file lives in its repo, not the manifest. Without this, a later
  * manifest apply/DR restore would re-materialize the OLD YAML and silently
  * revert the operator's edit. Best-effort + optimistic-locked via saveManifest.
@@ -276,7 +277,7 @@ export async function syncManifestComposeContent(
  * Drop a resource from BOTH the desired manifest and the last-applied snapshot.
  * Called when a resource is deleted directly. Without this, `manifest.<coll>[name]`
  * survives the delete, so the next diff sees it declared-but-absent and re-stages
- * a phantom `create` — the "pending create" ghost that reappears after a deployed
+ * a phantom `create`. The "pending create" ghost that reappears after a deployed
  * resource is deleted. A deployed resource must NEVER revert to pending-create.
  * Best-effort, no optimistic lock: a delete is terminal (low contention); we bump
  * the version so live UI/CLI sessions refresh.
@@ -303,7 +304,7 @@ async function removeFromManifest(
 
   const nextManifest = strip(row.manifest);
   const nextApplied = strip(row.lastApplied);
-  // Nothing referenced this resource — leave the version untouched.
+  // Nothing referenced this resource: leave the version untouched.
   if (nextManifest === row.manifest && nextApplied === row.lastApplied) return;
 
   await db
@@ -321,13 +322,13 @@ export function removeComposeFromManifest(scope: ProjectScope, name: string): Pr
   return removeFromManifest(scope, "composes", name);
 }
 
-/** Drop a service from the manifest on delete — otherwise the next diff
+/** Drop a service from the manifest on delete. Otherwise the next diff
  *  re-stages a phantom `create` ghost for a service that was just deployed. */
 export function removeServiceFromManifest(scope: ProjectScope, name: string): Promise<void> {
   return removeFromManifest(scope, "services", name);
 }
 
-/** Drop a database from the manifest on delete — same phantom-create guard. */
+/** Drop a database from the manifest on delete. Same phantom-create guard. */
 export function removeDatabaseFromManifest(scope: ProjectScope, name: string): Promise<void> {
   return removeFromManifest(scope, "databases", name);
 }

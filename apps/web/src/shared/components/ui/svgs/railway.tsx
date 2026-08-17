@@ -2,7 +2,7 @@ import type { SVGProps } from "react";
 
 /**
  * Railway brand mark. Used for the Railpack builder (Railpack is by
- * Railway and the project doesn't publish a distinct logo — its own
+ * Railway and the project doesn't publish a distinct logo. Its own
  * favicon is literally the 📦 emoji). Stroke colour is fixed to the
  * Railway dark slate (#0B0D0E); wrap in a light-toned tile so it
  * stays visible on the dark theme.

@@ -2,7 +2,7 @@
  * Styled confirm for rolling a service back to a prior deployment. Reuses the
  * same `service.rollback` mutation as the per-resource history menu
  * (`features/resources/components/_shared/history-row-menu.tsx`) and the
- * shared TypedConfirmDialog safety pattern (plain-confirm strength — a
+ * shared TypedConfirmDialog safety pattern (plain-confirm strength, a
  * rollback is consequential but recoverable, so no type-the-phrase gate).
  */
 
@@ -26,7 +26,7 @@ export function RollbackDialog({
   target: ProjectDeployment | null;
   projectId: string;
   onClose: () => void;
-  /** Called after the rollback is accepted — refetch the list here. */
+  /** Called after the rollback is accepted. Refetch the list here. */
   onRolledBack: () => void;
 }) {
   const { t } = useTranslation();
@@ -78,9 +78,9 @@ export function RollbackDialog({
       }
       description={
         <>
-          Re-deploys {provenance} with the service's <em>current</em> configuration — environment
-          and settings changed since then are kept, only the image goes back. You can roll forward
-          again from this same history.
+          Re-deploys {provenance} with the service's <em>current</em> configuration. Environment and
+          settings changed since then are kept, only the image goes back. You can roll forward again
+          from this same history.
         </>
       }
       confirmLabel="Roll back"

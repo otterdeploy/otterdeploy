@@ -1,6 +1,6 @@
 # Gap audit: Railway vs otterdeploy (real deploy of a stateful app)
 
-**Source:** A real, unscripted attempt to deploy a stateful app ("waves" — a Bun/Hono
+**Source:** A real, unscripted attempt to deploy a stateful app ("waves", a Bun/Hono
 server + built React dashboard + SQLite + on-disk media, single container) to otterdeploy,
 then to Railway. otterdeploy took ~2 hours of fighting and never served a working URL;
 Railway got to a green build after one clear error message and a one-line fix. This
@@ -12,7 +12,7 @@ MJPEG streaming. Nothing exotic.
 
 ---
 
-## TL;DR — the five that hurt most
+## TL;DR: the five that hurt most
 
 1. **Services can't persist storage.** No volumes on services; only ephemeral `diskMb`.
    This alone forces every stateful app onto the compose path.
@@ -26,7 +26,7 @@ MJPEG streaming. Nothing exotic.
    30s), but external requests returned bare `200`-with-empty-body or `502` and **never
    appeared in the app logs**. No error, no signal.
 5. **Secrets set via `env set` are flagged for deletion by `deploy`.** `status` showed a
-   pending `delete env WAVES_INGEST_TOKEN` — the next reconcile would wipe the token and
+   pending `delete env WAVES_INGEST_TOKEN`. The next reconcile would wipe the token and
    crash the app. A silent footgun.
 
 Railway had none of these. It failed *once*, with a build error that told us exactly what
@@ -37,10 +37,10 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 ## The gaps, with evidence and recommendations
 
 ### 1. Persistent volumes for services
-- **What happened:** The config schema has no `volumes`/`mount` for services — only
+- **What happened:** The config schema has no `volumes`/`mount` for services: only
   `resources.diskMb` (ephemeral). Persisting SQLite + media was impossible on a plain
   service; we were pushed to a compose stack purely to get a Docker volume.
-- **Railway:** `railway volume add --mount-path /data` — one command, first-class, works on
+- **Railway:** `railway volume add --mount-path /data`: one command, first-class, works on
   any service.
 - **Recommendation:** First-class persistent volumes on services: `otterdeploy volume add
   --service <s> --mount-path /data`. This is table stakes for stateful apps.
@@ -52,7 +52,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
   - `otterdeploy domains list --service waves-stack` → `is a compose, not a service`
   - `otterdeploy build waves-stack` → `is a compose, not a service`
   - Runtime logs of the *inner* service worked only by guessing its name (`logs waves`).
-- **Railway:** Uniform — every resource has logs, deployments, metrics, domains.
+- **Railway:** Uniform: every resource has logs, deployments, metrics, domains.
 - **Recommendation:** Treat compose stacks (and their inner services) as first-class:
   `logs`, `deployments`, `build`, `domains`, `metrics`, `restart` must all accept a stack or
   `stack:service` selector. If a name is a compose, resolve to its services rather than
@@ -60,7 +60,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 
 ### 3. No "rebuild from latest git" for composes (and `deploy` doesn't do it)
 - **What happened:** Pushed 4 fixes to the bound branch. Every `otterdeploy deploy --yes`
-  said `Applied 0 change(s)` and kept serving the old commit (`63f716b`) — because `deploy`
+  said `Applied 0 change(s)` and kept serving the old commit (`63f716b`), because `deploy`
   diffs *resource config*, not git content. `build` rejects composes. Delete + re-add the
   stack + deploy still said `0 changes`. The deployed image only advanced when the user
   clicked **Redeploy** in the dashboard.
@@ -74,7 +74,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 ### 4. Silent "0 changes" hides a stale deployment
 - **What happened:** `deploy` reported `Applied 0 change(s) (manifest vN)` while the live
   image was several commits behind. Nothing indicated the image was stale. `export` showed
-  `image: ...:63f716b...` — you had to manually compare SHAs to notice.
+  `image: ...:63f716b...`: you had to manually compare SHAs to notice.
 - **Recommendation:** Surface deployed-SHA vs branch-HEAD drift in `status`:
   `⚠ waves is 4 commits behind main (deployed 63f716b, head c8d3a9d). Run redeploy.`
 
@@ -82,11 +82,11 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 - **What happened:** Container ran fine (`Started server: http://localhost:8000`, internal
   healthcheck `200` every 30s). But `https://waves.otterstack.dev/...` returned `200` with a
   **0-byte body** for every path, or `502`, and those requests **never showed in the app
-  logs** — the edge wasn't forwarding at all. HTTP and HTTPS behaved identically (so not
+  logs**: the edge wasn't forwarding at all. HTTP and HTTPS behaved identically (so not
   TLS). This persisted across service and compose deploys, domain delete/re-add, restarts,
   and set-primary.
 - **Railway:** Once the build was green, the generated domain routed immediately.
-- **Recommendation:** This is the worst UX failure — a healthy container that's unreachable
+- **Recommendation:** This is the worst UX failure: a healthy container that's unreachable
   with no error. The edge should (a) route to healthy upstreams reliably, and (b) when it
   can't reach the upstream, return a **clear 502 with a reason** ("no healthy upstream on
   container port 8000"), never a bare empty `200`. Add an edge↔container reachability check
@@ -104,7 +104,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 ### 7. `env set` secrets are treated as drift and marked for deletion
 - **What happened:** Setting `WAVES_INGEST_TOKEN` via `otterdeploy env set` (kept out of the
   committed config on purpose) made `status` report a pending
-  `delete env waves.WAVES_INGEST_TOKEN` — i.e., the next `deploy`/`sync` would **delete the
+  `delete env waves.WAVES_INGEST_TOKEN`. I.e., the next `deploy`/`sync` would **delete the
   secret** and crash the app on boot. Workaround was to put the secret into the local config
   (and gitignore it).
 - **Railway:** Variables live independently of any file-reconcile model; nothing deletes
@@ -116,7 +116,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 ### 8. Raw SQL error leaked on a name collision
 - **What happened:** A standalone service `waves` plus a compose stack whose inner service
   is also `waves` collided, and the deploy failed with a raw Postgres error dumped to the
-  user: `Failed query: insert into "service_resource" (...) values (...) — Stack deploy
+  user: `Failed query: insert into "service_resource" (...) values (...), Stack deploy
   failed`. No hint that the real problem was a duplicate service/network name.
 - **Recommendation:** Validate resource/network/hostname uniqueness up front and return a
   friendly error ("a service named 'waves' already exists in this project; pick another
@@ -127,7 +127,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
   log; the CLI had no `build` logs for composes.
 - **What happened (Railway):** Build failed at 4s with a one-liner that solved it instantly:
   `dockerfile invalid: docker VOLUME at Line 61 is not supported, use Railway Volumes`.
-  (Notably, **otterdeploy silently accepted the same `VOLUME` instruction** — it "worked" but
+  (Notably, **otterdeploy silently accepted the same `VOLUME` instruction**, it "worked" but
   the volume wasn't really persistent, which is arguably worse than Railway's hard, clear
   rejection.)
 - **Recommendation:** Make build + deploy logs always retrievable per resource (incl.
@@ -170,7 +170,7 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 - **One-shot service + env:** `railway add --service waves --variables K=V --variables K2=V2`.
 - **One-shot volume:** `railway volume add --mount-path /data`.
 - **One-shot domain + TLS:** `railway domain`.
-- **`railway up` always builds+deploys** the current directory — zero ambiguity about whether
+- **`railway up` always builds+deploys** the current directory: zero ambiguity about whether
   a rebuild happened.
 - **Uniform resource model:** every resource has logs, deployments, metrics, domains,
   variables, volumes.
@@ -183,13 +183,13 @@ to do, and everything else (service, env, volume, domain, TLS, routing) was one 
 
 ## Suggested priority order for otterdeploy
 
-1. **Persistent volumes on services** (#1) — unblocks all stateful apps without the compose
+1. **Persistent volumes on services** (#1): unblocks all stateful apps without the compose
    detour.
-2. **Edge routing correctness + clear 502s** (#5) — a healthy-but-unreachable container with
+2. **Edge routing correctness + clear 502s** (#5): a healthy-but-unreachable container with
    no error is the single most damaging experience.
-3. **First-class compose CLI** (#2) and **rebuild-from-git** (#3, #4) — you must be able to
+3. **First-class compose CLI** (#2) and **rebuild-from-git** (#3, #4): you must be able to
    see and redeploy what you shipped.
-4. **Don't delete `env set` secrets on reconcile** (#7) — prevents a data-loss/outage footgun.
+4. **Don't delete `env set` secrets on reconcile** (#7): prevents a data-loss/outage footgun.
 5. **Friendly errors** for name collisions (#8), build failures (#9), and `env set` (#11);
    **domain/TLS clarity** (#6, #10); **schema docs** (#12); **staged deploy view** (#13).
 

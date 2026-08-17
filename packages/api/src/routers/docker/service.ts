@@ -1,5 +1,5 @@
 /**
- * Docker debug service — read-only list functions over the daemon
+ * Docker debug service: read-only list functions over the daemon
  * (containers, images, volumes, networks, tasks, nodes). Inspect, log
  * tails, and guarded destructive operations live in service-admin.ts;
  * the shared client + result shape in client.ts.
@@ -82,7 +82,7 @@ export interface ListedNode {
   leader: boolean;
 }
 
-/** Render docker's Port entries as `docker ps`-style strings, deduped —
+/** Render docker's Port entries as `docker ps`-style strings, deduped,
  *  the daemon repeats a published port once per host IP (v4 + v6). */
 function formatPorts(ports: Port[] | undefined): string[] {
   if (!ports || ports.length === 0) return [];
@@ -175,14 +175,16 @@ function taskMessage(status: { Err?: string; Message?: string } | undefined): st
   return status?.Err || status?.Message || null;
 }
 
-function taskImage(spec: unknown): string | null {
-  const s = spec as { ContainerSpec?: { Image?: string } } | undefined;
-  return s?.ContainerSpec?.Image ?? null;
+function taskImage(spec: Record<string, unknown> | undefined): string | null {
+  const containerSpec = spec?.ContainerSpec;
+  if (typeof containerSpec !== "object" || containerSpec === null) return null;
+  const image = "Image" in containerSpec ? containerSpec.Image : undefined;
+  return typeof image === "string" ? image : null;
 }
 
 export async function listTasks(): Promise<Listed<ListedTask[]>> {
-  // Swarm-only API. Under the DEFAULT plain-docker runtime there are no tasks —
-  // return an empty list instead of surfacing the daemon's "not a swarm manager"
+  // Swarm-only API. Under the DEFAULT plain-docker runtime there are no tasks.
+  // Return an empty list instead of surfacing the daemon's "not a swarm manager"
   // error as a SERVER_ERROR on the debug page's Tasks tab.
   if (!isSwarmRuntime()) return { ok: true, items: [] };
   const result = await docker.tasks.list();
@@ -204,7 +206,7 @@ export async function listTasks(): Promise<Listed<ListedTask[]>> {
 }
 
 export async function listNodes(): Promise<Listed<{ swarm: boolean; nodes: ListedNode[] }>> {
-  // Same swarm gate as listTasks — a plain-docker daemon has no /nodes API.
+  // Same swarm gate as listTasks: a plain-docker daemon has no /nodes API.
   if (!isSwarmRuntime()) return { ok: true, items: { swarm: false, nodes: [] } };
   const result = await docker.nodes.list();
   if (result.isErr()) return { ok: false, reason: result.error.message };
@@ -217,8 +219,8 @@ export async function listNodes(): Promise<Listed<{ swarm: boolean; nodes: Liste
         hostname: n.Description?.Hostname ?? n.ID ?? "",
         role: n.Spec?.Role ?? "worker",
         availability: n.Spec?.Availability ?? "active",
-        state: (n.Status as { State?: string } | undefined)?.State ?? "",
-        addr: (n.Status as { Addr?: string } | undefined)?.Addr ?? null,
+        state: n.Status?.State ?? "",
+        addr: n.Status?.Addr ?? null,
         leader: n.ManagerStatus?.Leader ?? false,
       })),
     },

@@ -1,7 +1,7 @@
 /**
  * Display formatters for the resource metrics panel. Byte sizes come from
- * `@otterdeploy/shared/format` — Docker reports stats (`mem_bytes`,
- * `net_*_bytes`) in binary units, which is what that formatter speaks — and
+ * `@otterdeploy/shared/format`: Docker reports stats (`mem_bytes`,
+ * `net_*_bytes`) in binary units, which is what that formatter speaks, and
  * this file adds only what is metrics-specific: the `/s` rate suffix, the
  * percentage, and the chart clock labels.
  */

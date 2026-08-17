@@ -1,5 +1,5 @@
 /**
- * Column-detail model for the Structure view and the Add-record modal — the
+ * Column-detail model for the Structure view and the Add-record modal. The
  * parsed shape of `structureSql` (./queries) results. Pure: the fetching hook
  * lives in ./use-database, this file only reshapes the grid rows.
  */
@@ -19,7 +19,7 @@ export interface StructureColumn {
   isUnique: boolean;
   /** Referenced column for FK columns, null otherwise. */
   fkRef: { schema: string; table: string; column: string } | null;
-  /** Identity / serial — the database generates the value ("auto"). */
+  /** Identity / serial: the database generates the value ("auto"). */
   isAuto: boolean;
   /** No value needed from the user: nullable, defaulted, or auto-generated. */
   isRequired: boolean;

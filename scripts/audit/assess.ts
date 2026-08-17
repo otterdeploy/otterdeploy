@@ -2,7 +2,7 @@
  * Turns raw signals into flags and a review tier.
  *
  * One function per rubric axis, so the code and docs/audit/RUBRIC.md stay
- * legible against each other. A flag never means "this is wrong" — it means
+ * legible against each other. A flag never means "this is wrong". It means
  * "a human should look here, and this is what to look at".
  */
 
@@ -24,7 +24,7 @@ export interface FileSheet {
 }
 
 /**
- * Axis 2 — the largest finding in the baseline, and NOT a frontend problem:
+ * Axis 2: the largest finding in the baseline, and NOT a frontend problem:
  * packages/api hand-writes 979 type declarations against apps/web's 804. Three
  * derivation sources go unused at three layers, so each gets its own flag.
  */
@@ -32,7 +32,7 @@ function typeProvenanceFlags(s: Signals, path: string): string[] {
   const flags: string[] = [];
   const derives = s.zodInfer + s.drizzleInfer + s.infersContract;
 
-  // Layer 1 — the database. 61 drizzle tables, ~100 $inferSelect uses, against
+  // Layer 1: the database. 61 drizzle tables, ~100 $inferSelect uses, against
   // 246 hand-written Row/Record/View/Info types in the API alone.
   if (s.usesDbSchema > 0 && s.rowTypes > 0 && s.drizzleInfer === 0) {
     flags.push("row-type-not-inferred: hand-written row shape beside a drizzle table");
@@ -42,11 +42,11 @@ function typeProvenanceFlags(s: Signals, path: string): string[] {
   if (s.usesDbSchema > 0 && s.literalUnions > 0 && s.drizzleInfer === 0) {
     flags.push(`restated-enum?: ${s.literalUnions} literal union(s) beside a db import`);
   }
-  // Layer 2 — zod schemas.
+  // Layer 2: zod schemas.
   if (s.zodSchemas > 0 && s.handTypes > 0 && s.zodInfer === 0) {
     flags.push("schema-and-handwritten-types: zod schema present but no z.infer");
   }
-  // Layer 3 — the oRPC contract, consumed by the client.
+  // Layer 3: the oRPC contract, consumed by the client.
   if (path.startsWith("apps/web/") && s.handTypes >= 3 && s.infersContract === 0) {
     flags.push("web-local-types: declares shapes without deriving from the contract");
   }
@@ -57,7 +57,7 @@ function typeProvenanceFlags(s: Signals, path: string): string[] {
   return flags;
 }
 
-/** Axis 1 — not "try/catch is bad". MIXING is bad: a caller cannot tell which
+/** Axis 1, not "try/catch is bad". MIXING is bad: a caller cannot tell which
  *  half of the module it is talking to. */
 function errorModelFlags(s: Signals): string[] {
   const flags: string[] = [];
@@ -73,7 +73,7 @@ function errorModelFlags(s: Signals): string[] {
   return flags;
 }
 
-/** Axis 4 — every assertion is an unchecked claim. */
+/** Axis 4: every assertion is an unchecked claim. */
 function escapeHatchFlags(s: Signals): string[] {
   const flags: string[] = [];
   if (s.doubleCasts > 0) flags.push(`double-cast: ${s.doubleCasts} 'as unknown as'`);
@@ -82,7 +82,7 @@ function escapeHatchFlags(s: Signals): string[] {
   return flags;
 }
 
-/** Axis 6 — cycles and compatibility facades. */
+/** Axis 6: cycles and compatibility facades. */
 function graphFlags(s: Signals, inCycle: boolean): string[] {
   const flags: string[] = [];
   if (inCycle) flags.push("in-import-cycle");

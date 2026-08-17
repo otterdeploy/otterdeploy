@@ -1,5 +1,5 @@
 /**
- * Shared atoms + pure helpers for the Redis data studio — the type badge,
+ * Shared atoms + pure helpers for the Redis data studio: the type badge,
  * empty / skeleton states, TTL + JSON formatting, the SCAN-page merge, and the
  * oRPC error reader. Imported by the studio parts and the tab body.
  */
@@ -88,10 +88,11 @@ export function prettyMaybeJson(s: string): string {
 /** Pull the human reason out of an oRPC error (QUERY_FAILED carries `data.reason`). */
 export function errMessage(error: unknown): string {
   if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
+    const data = "data" in error ? error.data : undefined;
+    if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+      return data.reason;
+    }
+    if ("message" in error && typeof error.message === "string") return error.message;
   }
   return "Something went wrong.";
 }

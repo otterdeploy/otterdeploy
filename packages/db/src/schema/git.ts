@@ -1,6 +1,6 @@
 import type { GitInstallationId, GitProviderId, GitRepoId } from "@otterdeploy/shared/id";
 
-// Git source connections — providers (GitHub App, GitLab, …), per-org
+// Git source connections: providers (GitHub App, GitLab, …), per-org
 // installations of those providers, and the repos those installations expose
 // for deploys. Webhook deliveries land against `gitInstallation.installationId`
 // and matching `gitRepo` rows; a push event for a repo whose row is linked
@@ -9,7 +9,7 @@ import type { GitInstallationId, GitProviderId, GitRepoId } from "@otterdeploy/s
 // GitHub Apps are created through the manifest flow (the operator clicks
 // "Create GitHub App" in the UI; GitHub posts the app's credentials back to
 // our callback, which persists them on the gitProvider row). No env-var
-// configuration of GitHub credentials — every credential field below is
+// configuration of GitHub credentials: every credential field below is
 // nullable so the provider row can also exist for the legacy env-var path
 // during the transition, but new providers always populate them.
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
@@ -30,15 +30,15 @@ import { organization } from "./auth";
 export const gitProviderKindEnum = pgEnum("git_provider_kind", ["github"]);
 
 /**
- * One row per (org, provider kind) — the org's choice to allow that provider
+ * One row per (org, provider kind): the org's choice to allow that provider
  * for source connections. Holds the org-visible display name and (for
  * GitHub Apps created via the manifest flow) the App's credentials. Secret
  * fields are AES-GCM ciphertext, encoded as `iv:tag:ciphertext` base64
  * triples; the key is derived from BETTER_AUTH_SECRET so creds never sit
  * on disk in plaintext.
  *
- * Nullable because the row exists before the manifest callback fires —
- * the row's keyed by (organizationId, kind) and the manifest flow
+ * Nullable because the row exists before the manifest callback fires.
+ * The row's keyed by (organizationId, kind) and the manifest flow
  * upserts it with credentials populated. A row with `externalAppId =
  * null` is "App being created"; queries that mint JWTs treat that as
  * `GithubAppNotConfiguredError`.
@@ -70,7 +70,7 @@ export const gitProvider = pgTable(
     clientId: text("client_id"),
     clientSecretCiphertext: text("client_secret_ciphertext"),
 
-    // Webhook signing secret — used by webhook-handler to verify deliveries.
+    // Webhook signing secret, used by webhook-handler to verify deliveries.
     webhookSecretCiphertext: text("webhook_secret_ciphertext"),
 
     // PEM-encoded RSA private key. Used to mint installation tokens.
@@ -103,7 +103,7 @@ export const gitInstallationRepoSelectionEnum = pgEnum("git_installation_repo_se
 /**
  * A specific install of the GitHub App into a user/org account. `installationId`
  * is the GitHub-side numeric id used to mint short-lived installation access
- * tokens. We don't store the access tokens — they're minted on demand using
+ * tokens. We don't store the access tokens. They're minted on demand using
  * the App's private key (looked up via the parent `gitProvider` row).
  */
 export const gitInstallation = pgTable(
@@ -124,14 +124,14 @@ export const gitInstallation = pgTable(
     accountAvatarUrl: text("account_avatar_url"),
     repoSelection: gitInstallationRepoSelectionEnum("repo_selection").notNull(),
     /** Permissions the install was granted, as returned by GitHub. Kept for
-     *  diagnostics — we never re-grant based on this snapshot. */
+     *  diagnostics: we never re-grant based on this snapshot. */
     permissions: jsonb("permissions").$type<Record<string, string>>().notNull().default({}),
     /**
-     * Repository count as GitHub last reported it — `total_count` from
+     * Repository count as GitHub last reported it. `total_count` from
      * `GET /installation/repositories`, written on every full sync (install
      * callback + "Sync now") and delta-adjusted by `installation_repositories`
      * webhooks. Null = never successfully fetched (or the install was
-     * revoked), so the UI can show "—" instead of a confident-but-wrong 0.
+     * revoked), so the UI can show "–" instead of a confident-but-wrong 0.
      * Deliberately NOT derived from `git_repo` rows: those are our local
      * mirror, which is empty until the first successful sync.
      */
@@ -153,7 +153,7 @@ export const gitInstallation = pgTable(
 /**
  * A repo the installation grants us access to. Synced from
  * `installation_repositories` webhooks and on-demand list calls. A repo can
- * disappear (selection narrowed, install revoked) — we soft-delete by
+ * disappear (selection narrowed, install revoked): we soft-delete by
  * clearing `installationId` rather than dropping the row, so historical
  * deployments still resolve their source.
  */

@@ -9,17 +9,17 @@ if (IS_BROWSER) {
   const EXTENSION_MODE = (_myScript && _myScript.dataset.impeccableExtension === 'true')
     || document.documentElement.dataset.impeccableExtension === 'true';
 
-  // Kinpaku gold — pinned to the site's brand token (see
+  // Kinpaku gold, pinned to the site's brand token (see
   // site/styles/kinpaku-tokens.css --ks-kinpaku). Keep this in sync with
   // the picker's C.brand in skill/scripts/live-browser.js and the kit's
   // picker section in site/styles/kinpaku-kit.css.
   //
   // One color across both light and dark host pages. The outline is a
-  // 2px gesture pointing at an element + a labeled tag — it's a marker,
+  // 2px gesture pointing at an element + a labeled tag: it's a marker,
   // not body text, so it doesn't need WCAG AA against the page. The
   // label text inside the gold tag is dark (LABEL_INK) which has ~16:1
   // against the leaf gold, so reading the rule name is solid in both
-  // modes. Hover deepens the gold (preserves chroma — never drops it,
+  // modes. Hover deepens the gold (preserves chroma, never drops it,
   // dropping chroma washes the gold into a sand/olive tone).
   const BRAND_COLOR = 'oklch(84% 0.19 80.46)';
   const BRAND_COLOR_HOVER = 'oklch(74% 0.18 80)';
@@ -553,7 +553,7 @@ if (IS_BROWSER) {
         if (matches.length === 1 && matches[0] === el) {
           return trySelector;
         }
-      } catch { /* invalid selector — keep walking */ }
+      } catch { /* invalid selector: keep walking */ }
 
       current = current.parentElement;
       depth++;
@@ -1299,7 +1299,7 @@ if (IS_BROWSER) {
       addBrowserFindings(groupMap, el, findings);
 
       // Hero eyebrow: the offending element is the eyebrow above the heading,
-      // not the heading itself — highlight the previous sibling instead.
+      // not the heading itself: highlight the previous sibling instead.
       const eyebrowFindings = checkElementHeroEyebrowDOM(el)
         .map(f => ({ type: f.id, detail: f.snippet }))
         .filter(f => _ruleOk(f.type));

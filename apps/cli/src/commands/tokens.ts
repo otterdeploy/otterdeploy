@@ -96,7 +96,7 @@ const createToken = defineCommand({
       ],
     ]);
 
-    warn("Copy the key now — it is not stored and cannot be shown again.");
+    warn("Copy the key now. It is not stored and cannot be shown again.");
     panel([bold(paint("accent", created.key)), "", dim(`export OTTERDEPLOY_TOKEN=${created.key}`)]);
   },
 });

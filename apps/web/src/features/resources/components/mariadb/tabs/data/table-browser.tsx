@@ -1,5 +1,5 @@
 /**
- * Presentational pieces for the MariaDB/MySQL "Data" tab — the table picker
+ * Presentational pieces for the MariaDB/MySQL "Data" tab: the table picker
  * rail, the paginated row pane, the row grid, and the shared pager. These are
  * split out of `index.tsx` to keep that file focused on data wiring; the Mongo
  * data tab reuses `Pager` from here too (via the index re-export).

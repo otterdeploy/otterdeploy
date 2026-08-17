@@ -4,7 +4,7 @@
  * before the service exists there's nothing to attach a Caddy route to, so
  * here we edit the manifest entry's `domains` array instead. The reconciler
  * creates the actual routes on Apply (see manifest-apply `seedServiceDomains`),
- * and DNS/cert verification happens once the service is live — hence the
+ * and DNS/cert verification happens once the service is live, hence the
  * "verified after deploy" note rather than a recheck button.
  */
 
@@ -31,17 +31,15 @@ export function ManifestDomainsCard({
   projectId,
   serviceName,
 }: {
-  projectId: string;
+  projectId: ProjectId;
   serviceName: string;
 }) {
-  const manifest = useQuery(
-    orpc.project.manifest.get.queryOptions({ input: { id: projectId as ProjectId } }),
-  );
+  const manifest = useQuery(orpc.project.manifest.get.queryOptions({ input: { id: projectId } }));
   const svc = manifest.data?.manifest?.services?.[serviceName];
   const domains: ManifestDomain[] =
     svc && "domains" in svc && Array.isArray(svc.domains) ? svc.domains : [];
 
-  const stage = useStageManifestChange(projectId as ProjectId);
+  const stage = useStageManifestChange(projectId);
 
   // Stage a new domains array onto this service's manifest entry.
   const setDomains = (next: ManifestDomain[]) =>

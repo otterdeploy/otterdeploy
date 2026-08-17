@@ -6,7 +6,7 @@
 // Why snapshot, not auto-discover new resources: a single subscription that
 // outlives resource creation would mean reconciling docker subscriptions
 // while the iterator is in flight. The /logs page can reconnect on resource
-// changes from the live resource collection instead — much simpler, and the
+// changes from the live resource collection instead. Much simpler, and the
 // gap is bounded to one reconnect.
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
@@ -56,14 +56,14 @@ async function resolveTargets(
 
   const wanted = resourceIds ? new Set<string>(resourceIds) : null;
 
-  // Databases only stream when explicitly named in the filter — the default
+  // Databases only stream when explicitly named in the filter: the default
   // project-wide view shows services only, since postgres has its own log
   // surface on the resource detail panel and operators usually don't want
   // engine startup chatter mixed in with app logs.
   const dbTargets: TargetService[] = databases
     .filter((d) => (wanted ? wanted.has(d.resource.id) : false))
     .map((d) => ({
-      resourceId: d.resource.id as ResourceId,
+      resourceId: d.resource.id,
       serviceName: buildContainerName({
         engine: d.database.engine,
         projectSlug: slug,
@@ -74,7 +74,7 @@ async function resolveTargets(
   const svcTargets: TargetService[] = services
     .filter((s) => (wanted ? wanted.has(s.resource.id) : true))
     .map((s) => ({
-      resourceId: s.resource.id as ResourceId,
+      resourceId: s.resource.id,
       serviceName: s.service.serviceName,
     }));
 
@@ -114,10 +114,8 @@ async function openTargetLogStream(
       push(systemEvent(target, `services.list failed: ${listResult.error.message}`));
       return null;
     }
-    const found = listResult.value.find(
-      (s) => (s as { Spec?: { Name?: string } }).Spec?.Name === target.serviceName,
-    );
-    const serviceId = (found as { ID?: string } | undefined)?.ID;
+    const found = listResult.value.find((s) => s.Spec?.Name === target.serviceName);
+    const serviceId = found?.ID;
     if (!serviceId) {
       push(systemEvent(target, "no swarm service yet"));
       return null;
@@ -202,7 +200,7 @@ export async function* tailProjectLogs(
       stream: "system",
       line: "Project not found",
       ts: nowIso(),
-      resourceId: "" as ResourceId,
+      resourceId: "",
       serviceName: "",
     };
     return;
@@ -214,14 +212,14 @@ export async function* tailProjectLogs(
       stream: "system",
       line: "No services in this project yet",
       ts: nowIso(),
-      resourceId: "" as ResourceId,
+      resourceId: "",
       serviceName: "",
     };
     return;
   }
 
   // Pumped events live in queue; the outer generator wakes up via `notify`
-  // and drains. No bound — backpressure flows from the client through the
+  // and drains. No bound, backpressure flows from the client through the
   // orpc event-iterator transport.
   const queue: ProjectLogEvent[] = [];
   let notify: (() => void) | null = null;
@@ -247,7 +245,7 @@ export async function* tailProjectLogs(
     stream: "system",
     line: `Tailing ${targets.length} service${targets.length === 1 ? "" : "s"} in ${project.name}`,
     ts: nowIso(),
-    resourceId: "" as ResourceId,
+    resourceId: "",
     serviceName: "",
   };
 

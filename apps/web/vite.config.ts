@@ -15,8 +15,8 @@ export default defineConfig({
       generatedRouteTree: "./src/route-tree.gen.ts",
     }),
     react(),
-    // React Compiler moved out of plugin-react's inline `babel` option in v6 —
-    // it's now wired through @rolldown/plugin-babel + the exported preset.
+    // React Compiler moved out of plugin-react's inline `babel` option in v6.
+    // It's now wired through @rolldown/plugin-babel + the exported preset.
     babel({ presets: [reactCompilerPreset()] }),
   ],
   resolve: {

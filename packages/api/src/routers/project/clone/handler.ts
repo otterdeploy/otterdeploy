@@ -4,20 +4,20 @@
  * Two entry points over one plan, because the interesting facts are known
  * BEFORE anything is created and are worth showing first:
  *
- *   preview — the names the copies will get, and every env reference that will
+ *   preview: the names the copies will get, and every env reference that will
  *     still point at a resource outside the set. That second list is the one
  *     that matters: a cloned service holding `${{redis.URL}}` for a redis you
  *     didn't clone will read and write your production redis, happily, with no
  *     symptom. Showing it before the copy exists is the difference between a
  *     decision and a discovery.
  *
- *   execute — do it.
+ *   execute: do it.
  *
  * The plan is computed identically for both, so the preview cannot promise
  * something the execution won't deliver.
  */
 
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -80,17 +80,16 @@ async function buildPlan(
     .where(eq(resource.projectId, input.projectId));
 
   const selected = new Set(input.resourceIds);
-  const sources: CloneSource[] = all
-    .filter((r) => selected.has(r.id))
-    .map((r) => ({
-      resourceId: r.id,
-      name: r.name,
-      type: r.type as CloneSource["type"],
-    }));
+  const selectedRows = all.filter((r) => selected.has(r.id));
+  const sources: CloneSource[] = selectedRows.map((r) => ({
+    resourceId: r.id,
+    name: r.name,
+    type: r.type,
+  }));
 
   // Env values are needed to find refs that will reach outside the set. Only
   // services carry them; a database's config holds no refs.
-  const envRows = sources.length
+  const envRows = selectedRows.length
     ? await db
         .select({
           resourceId: serviceEnvVar.serviceResourceId,
@@ -101,7 +100,9 @@ async function buildPlan(
         .where(
           inArray(
             serviceEnvVar.serviceResourceId,
-            sources.map((s) => s.resourceId) as ResourceId[],
+            // From `selectedRows` (not `sources`) so the ids keep their
+            // ResourceId brand from the select above.
+            selectedRows.map((r) => r.id),
           ),
         )
     : [];
@@ -148,7 +149,7 @@ export async function cloneResources(
   const { plan, projectSlug } = built.value;
 
   const outcome = await executeClone(plan, { projectId: input.projectId, projectSlug }, log);
-  // The warning travels with the result too, not just the preview — a caller
+  // The warning travels with the result too, not just the preview: a caller
   // that skipped the preview still has to be told what its copies point at.
   return Result.ok({ ...outcome, externalRefs: plan.externalRefs });
 }

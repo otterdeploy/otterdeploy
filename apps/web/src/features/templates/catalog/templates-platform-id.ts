@@ -13,7 +13,7 @@ export const PLATFORM_ID_TEMPLATES: StackTemplate[] = [
     requiredEnv: [
       {
         key: "SITE_URL",
-        description: "Public base URL — used for invite links and OAuth callbacks.",
+        description: "Public base URL. Used for invite links and OAuth callbacks.",
       },
       {
         key: "ENCRYPTION_KEY",
@@ -76,7 +76,8 @@ volumes:
     requiredEnv: [
       {
         key: "KEYCLOAK_HOSTNAME",
-        description: "Public hostname Keycloak issues tokens for — must match how users reach it.",
+        description:
+          "Public hostname Keycloak issues tokens for. It must match how users reach it.",
       },
       {
         key: "KEYCLOAK_ADMIN_PASSWORD",
@@ -128,13 +129,13 @@ volumes:
     id: "docmost",
     name: "Docmost",
     description:
-      "Collaborative wiki and documentation with real-time editing, spaces and permissions — a self-hosted alternative to Confluence or Notion. Postgres for content, Redis for presence.",
+      "Collaborative wiki and documentation with real-time editing, spaces and permissions: a self-hosted alternative to Confluence or Notion. Postgres for content, Redis for presence.",
     category: "cms",
     includes: ["docmost", "db", "redis"],
     requiredEnv: [
       {
         key: "APP_URL",
-        description: "Public base URL — used for share links and invite emails.",
+        description: "Public base URL. Used for share links and invite emails.",
       },
       {
         key: "APP_SECRET",

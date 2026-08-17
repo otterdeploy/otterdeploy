@@ -1,8 +1,8 @@
 /**
- * The read-only pieces of the service Public Networking card — the domain
+ * The read-only pieces of the service Public Networking card. The domain
  * view types, the connection-status chip, and the DNS-records hint. The
- * interactive row controls live in ./domain-row-parts. All stateless —
- * handlers and busy flags come in as props.
+ * interactive row controls live in ./domain-row-parts. All stateless.
+ * Handlers and busy flags come in as props.
  */
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/shared/components/ui/button";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
-/** Verification state of the org's base domain — generated hostnames are
+/** Verification state of the org's base domain. Generated hostnames are
  *  `<slug>.apps.<baseDomain>`, so a not-yet-verified custom base domain
  *  means the generated route isn't provably reachable yet either. `"unset"`
  *  is the sslip.io fallback, which needs no ownership proof and is always
@@ -20,7 +20,7 @@ export type BaseDomainStatus = "unset" | "pending" | "verified";
 export interface DomainView {
   id: string;
   domain: string;
-  /** Container port this host proxies to — shown on the row so a
+  /** Container port this host proxies to: shown on the row so a
    *  multi-port service reads at a glance as "which door is this". */
   port: number;
   source: "generated" | "custom";
@@ -46,7 +46,7 @@ export type DomainStatusView = Pick<
 
 /** Connection chip. Generated hosts route under the org's base domain, so
  *  they only read Live once that domain is provably owned (verified, or the
- *  no-verification-needed sslip.io fallback) — otherwise the route exists
+ *  no-verification-needed sslip.io fallback). Otherwise the route exists
  *  but nothing has confirmed it resolves, so the chip says so. Custom hosts
  *  surface their own DNS reachability: pointed → cert issues here, proxied →
  *  Cloudflare serves TLS, unpointed → needs the A record below. */
@@ -84,7 +84,7 @@ export function StatusBadge({
 /**
  * Ownership TXT proof plus the A record that routes traffic here.
  *
- * Keeps the inline records — they are what someone reads at a glance — and adds
+ * Keeps the inline records (they are what someone reads at a glance) and adds
  * the "Configure DNS records" entry point, which is where Cloudflare detection
  * and one-click setup live (shared/components/domains/dns-records-dialog.tsx).
  * The same dialog serves the control-plane and workspace domains, so the flow

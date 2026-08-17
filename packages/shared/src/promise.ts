@@ -19,9 +19,9 @@ export class TimeoutError extends Error {
 /**
  * Reject with {@link TimeoutError} if `promise` hasn't settled within `ms`.
  *
- * The underlying operation keeps running — this only stops the caller from
+ * The underlying operation keeps running. This only stops the caller from
  * waiting on it. That is the point: a promise that NEVER settles (the
- * projects-page outage of od-664 was exactly that — an in-process await that
+ * projects-page outage of od-664 was exactly that. An in-process await that
  * sat forever with no I/O) otherwise wedges every caller with no error, no
  * log line, and no timeout at any other layer.
  */

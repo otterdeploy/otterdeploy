@@ -3,7 +3,7 @@
  * primitives it shares with the rest of the card. The pool is the ZFS
  * file-backed vdev the installer provisions for copy-on-write branch
  * databases: we show its fill level (when the host's zpool is readable) AND
- * what its sparse image file really costs the disk — the gap between the two
+ * what its sparse image file really costs the disk: the gap between the two
  * is what a trim hands back to the host.
  */
 

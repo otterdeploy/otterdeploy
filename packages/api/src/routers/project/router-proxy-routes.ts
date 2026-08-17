@@ -18,7 +18,7 @@ import {
 import { proxyRouteAccessRouter } from "./router-proxy-route-access";
 
 export const proxyRouteRouter = {
-  // Access surface (PIN, share links, bypass tokens, guests) — see
+  // Access surface (PIN, share links, bypass tokens, guests). See
   // router-proxy-route-access.ts.
   ...proxyRouteAccessRouter,
 
@@ -69,7 +69,7 @@ export const proxyRouteRouter = {
     getGlobalCaddyOptions(),
   ),
 
-  // Instance-wide edge options — gated on firewall:update (admin/owner), since
+  // Instance-wide edge options, gated on firewall:update (admin/owner), since
   // a single project's member shouldn't change the whole install's HTTPS behavior.
   setGlobalOptions: requireInstallAdminPermission({
     firewall: ["update"],

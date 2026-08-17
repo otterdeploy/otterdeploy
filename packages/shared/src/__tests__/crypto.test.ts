@@ -31,7 +31,7 @@ describe("base64url codec", () => {
    * Node's `base64url` is how we notice if anyone "cleans up" the codec into
    * something that no longer reads old blobs.
    */
-  test("matches Node's base64url — the format is frozen", () => {
+  test("matches Node's base64url. The format is frozen", () => {
     for (const len of [1, 2, 3, 12, 32]) {
       const bytes = new Uint8Array(len);
       crypto.getRandomValues(bytes);

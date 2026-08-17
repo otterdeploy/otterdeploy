@@ -1,5 +1,5 @@
 /**
- * Pure parsing for the registry tag browser — image-ref splitting and the
+ * Pure parsing for the registry tag browser: image-ref splitting and the
  * tags/manifest response parsers. No fetch, no db. Split out of
  * list-tags.ts, which keeps the HTTP flow and re-exports these.
  */
@@ -20,13 +20,13 @@ const REPOSITORY_RE =
  * Split an image reference into registry host + repository. Accepts the
  * same shapes `docker pull` does: bare names ("nginx"), hub org paths
  * ("acme/api"), fully-qualified refs ("ghcr.io/acme/api"), with an
- * optional :tag or @digest suffix (both are stripped — the browser lists
+ * optional :tag or @digest suffix (both are stripped, the browser lists
  * ALL tags of the repository). Returns null for anything malformed.
  */
 export function parseImageRef(input: string): ImageRef | null {
   let ref = input.trim();
   if (ref === "") return null;
-  // Strip @digest, then :tag (only when the colon is after the last slash —
+  // Strip @digest, then :tag (only when the colon is after the last slash,
   // "registry:5000/app" keeps its port).
   const at = ref.indexOf("@");
   if (at !== -1) ref = ref.slice(0, at);
@@ -67,7 +67,7 @@ export function registryApiHost(host: string): string {
 /** Extract the tag names from a /v2/…/tags/list body. Null when malformed. */
 export function parseTagsBody(body: unknown): string[] | null {
   if (typeof body !== "object" || body === null) return null;
-  const tags = (body as { tags?: unknown }).tags;
+  const tags: unknown = "tags" in body ? body.tags : undefined;
   // A repository with zero tags legitimately returns `"tags": null`.
   if (tags === null || tags === undefined) return [];
   if (!Array.isArray(tags)) return null;
@@ -82,16 +82,21 @@ export function hasNextPage(linkHeader: string | null): boolean {
 /**
  * Compressed image size from a manifest GET body: config + layer sizes for
  * single-arch image manifests. Multi-arch indexes (`manifests` array) and
- * anything malformed return undefined — no fabricated numbers.
+ * anything malformed return undefined, no fabricated numbers.
  */
 export function imageSizeFromManifest(body: unknown): number | undefined {
   if (typeof body !== "object" || body === null) return undefined;
-  const m = body as { config?: { size?: unknown }; layers?: Array<{ size?: unknown }> };
-  if (!Array.isArray(m.layers)) return undefined;
-  let total = typeof m.config?.size === "number" ? m.config.size : 0;
-  for (const layer of m.layers) {
-    if (typeof layer?.size !== "number") return undefined;
-    total += layer.size;
+  const layers: unknown = "layers" in body ? body.layers : undefined;
+  if (!Array.isArray(layers)) return undefined;
+  const config: unknown = "config" in body ? body.config : undefined;
+  const configSize: unknown =
+    typeof config === "object" && config !== null && "size" in config ? config.size : undefined;
+  let total = typeof configSize === "number" ? configSize : 0;
+  for (const layer of layers) {
+    const size: unknown =
+      typeof layer === "object" && layer !== null && "size" in layer ? layer.size : undefined;
+    if (typeof size !== "number") return undefined;
+    total += size;
   }
   return total;
 }

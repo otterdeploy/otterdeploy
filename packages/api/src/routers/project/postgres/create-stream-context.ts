@@ -40,10 +40,10 @@ export interface CreateStreamInput {
   password?: string;
   /** Postgres extensions to bake into the create: the image is resolved from
    *  these up-front (pgvector/postgis/timescaledb need a different image), so
-   *  a staged create + staged extensions deploy as ONE container — not
+   *  a staged create + staged extensions deploy as ONE container, not
    *  create-then-image-swap. Ignored for non-postgres engines. */
   extensions?: string[];
-  /** User env vars to bake into the create — staged env + staged create
+  /** User env vars to bake into the create. Staged env + staged create
    *  deploy as ONE container instead of create-then-env-roll. */
   extraEnv?: Record<string, string>;
   project: { id: string; slug: string };
@@ -78,7 +78,7 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   const adapter = getEngineAdapter(engine);
   // Bake extensions into the create so the container starts on the right
   // image immediately. Unknown names are dropped (catalog-validated); an
-  // image conflict (e.g. pgvector + timescaledb) falls back to the default —
+  // image conflict (e.g. pgvector + timescaledb) falls back to the default:
   // the post-create extensions pass surfaces the conflict as a typed error.
   const extensions =
     engine === "postgres" ? [...new Set(knownPostgresExtensions(input.extensions ?? []))] : [];
@@ -100,7 +100,7 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   // Reuse the password minted at stage time (so the credentials the operator
   // copied from the pending panel keep working), else generate a fresh one.
   const password = input.password ?? randomBytes(18).toString("base64url");
-  // Internal identity is the shared deriver's output — the SAME function the
+  // Internal identity is the shared deriver's output. The SAME function the
   // draft-credentials endpoint uses, so pending-panel display and deployed
   // reality can't drift.
   const { databaseName, username, internalHostname, internalConnectionString } =
@@ -170,7 +170,7 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
 }
 
 // Build the early hand-off PostgresResource view inline from the just-inserted
-// record. We do NOT call mapDatabaseResource here — that would trigger
+// record. We do NOT call mapDatabaseResource here. That would trigger
 // ensureSwarmRuntimeForRecord, which re-provisions synchronously when it sees
 // no runtime yet (we haven't created it). The "starting" placeholder is honest
 // about the state; the resource page renders a spinner until the container is up.
@@ -188,7 +188,7 @@ export function buildCreatedResourceView(
     status: created.resource.status,
     placementServerId: created.resource.placementServerId ?? null,
     // The create's deployment row is inserted right after this event is
-    // emitted — at this instant there is none yet. The synthetic "starting"
+    // emitted. At this instant there is none yet. The synthetic "starting"
     // runtime below keeps the card on "building" until the next list poll
     // picks up the real row.
     latestDeploymentStatus: null,

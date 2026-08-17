@@ -13,7 +13,7 @@ function parseCol<T extends z.ZodType>(
   field = "id",
 ): z.infer<T> {
   // `field` is a path array (e.g. ["projectId"] or ["d","projectId"]) shared by
-  // reference with the live-query's where-expression — read the leaf with
+  // reference with the live-query's where-expression. Read the leaf with
   // .at(-1), never mutate.
   const expr = filters.find((f) => f.field.at(-1) === field);
   if (!expr) throw new Error(`${field} is required`);
@@ -25,7 +25,7 @@ const resourceIdSchema = zId("res");
 const deploymentIdSchema = zId("dep");
 
 /**
- * Deployment history — each row is one logical push to swarm (see
+ * Deployment history: each row is one logical push to swarm (see
  * packages/api/src/routers/project/deployments.ts).
  *
  * Single shared collection rather than one-per-(project, resource): consumers
@@ -38,19 +38,19 @@ const deploymentIdSchema = zId("dep");
  * `project-event-bus`), which invalidates this collection the moment the
  * builder or the docker event bus reports a change. Status is still derived
  * from live task state on every list, so a poll remains the safety net for a
- * change no event covers — but it does not need to run at build cadence while
+ * change no event covers, but it does not need to run at build cadence while
  * nothing is building.
  *
  * Hence the adaptive interval below: a project sitting idle used to re-derive
  * every deployment's status every 5 seconds, per mounted view, forever.
  */
-/** Namespace prefix for the deployments collection — the single source of truth
+/** Namespace prefix for the deployments collection: the single source of truth
  *  the project event stream invalidates when a docker deploy event lands. See
  *  [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPLOYMENTS_COLLECTION_KEY = ["deployments"] as const;
 
 const deploymentsQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip (see
+  // Stable id, required for SQLite persistence to round-trip (see
   // projectCollection in features/projects/data/project.ts).
   id: "deployments",
   syncMode: "on-demand",
@@ -58,7 +58,7 @@ const deploymentsQueryOptions = queryCollectionOptions({
     const baseQuery = [...DEPLOYMENTS_COLLECTION_KEY];
     const { filters } = parseLoadSubsetOptions(opts);
     // Startup base-key call: query-db-collection calls queryKey({}) once to
-    // compute the prefix every subset key must extend. No filters yet — just
+    // compute the prefix every subset key must extend. No filters yet. Just
     // return the prefix.
     if (!filters.at(0)) return baseQuery;
     const projectId = parseCol(projectIdSchema, filters, "projectId");
@@ -79,11 +79,11 @@ const deploymentsQueryOptions = queryCollectionOptions({
     });
   },
   // 5s while anything is in flight (a build's phase transitions are what
-  // people watch), 30s otherwise — the push stream is what makes an idle
+  // people watch), 30s otherwise. The push stream is what makes an idle
   // project current, so the slow tick only exists to survive a stream that
   // silently died.
   refetchInterval: (query) => {
-    const rows = query.state.data as { status?: string }[] | undefined;
+    const rows = query.state.data;
     const inFlight = rows?.some((d) => d.status === "pending" || d.status === "building");
     return inFlight ? 5000 : 30_000;
   },
@@ -95,7 +95,7 @@ type DeploymentRow = Awaited<
   ReturnType<typeof orpc.project.resource.deployments.list.call>
 >[number];
 
-// Two-branch createCollection + pinned generics — same type gymnastics as
+// Two-branch createCollection + pinned generics: same type gymnastics as
 // projectCollection (features/projects/data/project.ts).
 export const deploymentsCollection = persistence
   ? createCollection(
@@ -120,13 +120,13 @@ export const deploymentsCollection = persistence
  * 5s refetchInterval so task state (running / building / error) stays current
  * as swarm converges.
  */
-/** Namespace prefix for the deployment-tasks collection — the single source of
+/** Namespace prefix for the deployment-tasks collection: the single source of
  *  truth the project event stream invalidates on a docker task event. See
  *  [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPLOYMENT_TASKS_COLLECTION_KEY = ["deployment-tasks"] as const;
 
 const deploymentTasksQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip.
+  // Stable id, required for SQLite persistence to round-trip.
   id: "deployment-tasks",
   syncMode: "on-demand",
   queryKey: (opts) => {
@@ -157,10 +157,10 @@ const deploymentTasksQueryOptions = queryCollectionOptions({
   // are still settling. A converged task set changes on a docker event, which
   // the project stream already pushes.
   refetchInterval: (query) => {
-    const rows = query.state.data as { state?: string }[] | undefined;
-    const settling = rows?.some(
-      (t) => t.state !== "running" && t.state !== "complete" && t.state !== "shutdown",
-    );
+    const rows = query.state.data;
+    // The API collapses raw swarm task states to running | building | error
+    // (see deployments-tasks.ts), so anything not running is still settling.
+    const settling = rows?.some((t) => t.state !== "running");
     return settling ? 5000 : 30_000;
   },
   queryClient,

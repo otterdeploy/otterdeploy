@@ -1,5 +1,5 @@
 /**
- * Per-table column-visibility preference — which columns the user hid via the
+ * Per-table column-visibility preference, which columns the user hid via the
  * toolbar's Columns popover. Browser-local (localStorage), keyed by database
  * resource + schema-qualified table. Hidden columns are excluded from the GRID
  * only; exports always carry every column.
@@ -27,6 +27,6 @@ export function saveHiddenColumns(resourceId: string, table: TableRef, hidden: s
     if (hidden.length === 0) localStorage.removeItem(key(resourceId, table));
     else localStorage.setItem(key(resourceId, table), JSON.stringify(hidden));
   } catch {
-    /* storage unavailable — visibility just won't persist */
+    /* storage unavailable: visibility just won't persist */
   }
 }

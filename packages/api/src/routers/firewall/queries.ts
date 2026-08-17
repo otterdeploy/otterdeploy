@@ -91,7 +91,7 @@ export async function deleteBlocklist(id: BlocklistId): Promise<void> {
 }
 
 /** Enabled lists whose `intervalMinutes` has elapsed since the last sync (or
- *  that have never synced) — the recurring job's work queue. */
+ *  that have never synced). The recurring job's work queue. */
 export async function listBlocklistsDue(now: Date): Promise<BlocklistRow[]> {
   return db
     .select()
@@ -103,7 +103,7 @@ export async function listBlocklistsDue(now: Date): Promise<BlocklistRow[]> {
           isNull(blocklist.lastSyncedAt),
           lt(
             blocklist.lastSyncedAt,
-            // Cast the bound Date to a timestamp — without it the param arrives
+            // Cast the bound Date to a timestamp. Without it the param arrives
             // untyped and Postgres coerces `$now - interval` into an interval,
             // failing with "operator does not exist: timestamp < interval".
             sql`${now}::timestamptz - (${blocklist.intervalMinutes} * interval '1 minute')`,

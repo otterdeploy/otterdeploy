@@ -48,7 +48,7 @@ export async function loadDomainSourcesForProject(
     projectCustomDomainVerifiedAt: row.projectCustomDomainVerifiedAt,
     orgBaseDomain: row.orgBaseDomain,
     orgBaseDomainVerifiedAt: row.orgBaseDomainVerifiedAt,
-    // Dev only — a real install issues ACME certs off org/project domains,
+    // Dev only: a real install issues ACME certs off org/project domains,
     // so the local wildcard must never leak into production resolution.
     localBaseDomain: env.NODE_ENV === "development" ? (env.LOCAL_BASE_DOMAIN ?? null) : null,
     serverIp: settings?.serverIp ?? null,

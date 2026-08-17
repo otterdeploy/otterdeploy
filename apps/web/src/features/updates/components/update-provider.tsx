@@ -2,8 +2,8 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 
 /**
  * Owns the single update modal (the ResourceOverlayProvider idiom) and kicks off
- * a background update check on load so the banner/header light up on their own —
- * the operator never has to visit Platform to learn an update exists. Any
+ * a background update check on load so the banner/header light up on their own.
+ * The operator never has to visit Platform to learn an update exists. Any
  * trigger just calls `openUpdate()`.
  */
 import { useQuery } from "@tanstack/react-query";
@@ -22,13 +22,13 @@ interface UpdateContextValue {
 
 const UpdateContext = createContext<UpdateContextValue | null>(null);
 
-/** No modal to open, so opening is a no-op — consumers keep a context and
+/** No modal to open, so opening is a no-op. Consumers keep a context and
  *  don't have to branch on who's looking. */
 const NOOP_UPDATE: UpdateContextValue = { openUpdate: () => undefined };
 
 /**
  * The entire updater (`system.*`) is install-admin-only server-side, so for
- * anyone else we mount NONE of it — not the settings read, not the ambient
+ * anyone else we mount NONE of it, not the settings read, not the ambient
  * check mutation, not the re-attach poll, not the dialog. Splitting the real
  * provider into its own component is what makes that true: rendering it and
  * hiding the output would still fire every query.
@@ -66,7 +66,7 @@ function InstallAdminUpdateProvider({ children }: { children: ReactNode }) {
       : null;
 
   // Auto-check once per load if the cached result is stale (or never fetched).
-  // Failures (e.g. a member without platform:read) are swallowed — the feature
+  // Failures (e.g. a member without platform:read) are swallowed. The feature
   // simply stays hidden.
   useEffect(() => {
     if (checkedRef.current || settings.isLoading) return;

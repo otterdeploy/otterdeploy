@@ -2,13 +2,13 @@ import type { AuditLogId } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
- * Audit log — append-only, queryable compliance trail. One row per
+ * Audit log: append-only, queryable compliance trail. One row per
  * audit-worthy RPC (mutations + every denial), populated from the evlog
  * audit pipeline via a Postgres drain (see `@otterdeploy/api` audit/pg-drain).
  *
  * Shape mirrors evlog's `AuditFields` (action / actor / target / outcome /
  * reason / changes / correlation) plus request context (ip / ua / requestId)
- * auto-filled by `auditEnricher`. Rows are never updated — `idempotencyKey`
+ * auto-filled by `auditEnricher`. Rows are never updated. `idempotencyKey`
  * is unique so retries across drains dedupe instead of duplicating.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
@@ -45,7 +45,7 @@ export const auditLog = pgTable(
     // When the action happened (event timestamp, not row-insert time).
     timestamp: timestamp("timestamp").notNull().defaultNow(),
 
-    // What — `<resource>.<verb>` (e.g. "project.create", "git.connectPublicRepo").
+    // What: `<resource>.<verb>` (e.g. "project.create", "git.connectPublicRepo").
     action: text("action").notNull(),
 
     // Who.
@@ -80,7 +80,7 @@ export const auditLog = pgTable(
     // evlog audit envelope schema version.
     version: integer("version").notNull().default(1),
 
-    // Stable hash from evlog `log.audit()` — dedupes retries across drains.
+    // Stable hash from evlog `log.audit()`: dedupes retries across drains.
     idempotencyKey: text("idempotency_key"),
 
     createdAt: timestamp("created_at").notNull().defaultNow(),

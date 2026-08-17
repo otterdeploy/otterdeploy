@@ -1,10 +1,10 @@
 /**
- * Fail-fast Dockerfile validation — a cheap static pass BEFORE `docker buildx`
+ * Fail-fast Dockerfile validation. A cheap static pass BEFORE `docker buildx`
  * runs, so unsupported instructions produce a clear `file:line + reason + fix`
  * instead of a silent-wrong build. Railway does exactly this (it rejects
  * `VOLUME` in ~4s with the line number); otterdeploy previously accepted the
  * same `VOLUME` and built an image whose anonymous volume isn't persisted across
- * deploys — worse than a hard error, because the data loss is invisible until it
+ * deploys. Worse than a hard error, because the data loss is invisible until it
  * happens.
  *
  * This is a light instruction-level parser, not a full Dockerfile grammar: it
@@ -46,7 +46,7 @@ export function parseInstructions(content: string): DockerfileInstruction[] {
     const raw = lines[i] ?? "";
     const trimmed = raw.trim();
     // Blank line or comment (parser directives also start with # and are not
-    // instructions) — skip.
+    // instructions): skip.
     if (trimmed === "" || trimmed.startsWith("#")) {
       i += 1;
       continue;
@@ -70,7 +70,7 @@ export function parseInstructions(content: string): DockerfileInstruction[] {
     }
 
     // If this instruction opened a heredoc, its body lines (up to the
-    // terminator) are content, not instructions — skip them.
+    // terminator) are content, not instructions. Skip them.
     const heredoc = HEREDOC.exec(joined);
     if (heredoc) {
       const terminator = heredoc[2];
@@ -86,7 +86,7 @@ export function parseInstructions(content: string): DockerfileInstruction[] {
 
 /**
  * Validate a Dockerfile's text. Returns hard `errors` (the build must not
- * proceed) and non-fatal `warnings`. Pure — no filesystem or docker access.
+ * proceed) and non-fatal `warnings`. Pure, no filesystem or docker access.
  */
 export function validateDockerfile(content: string): {
   errors: DockerfileIssue[];
@@ -100,7 +100,7 @@ export function validateDockerfile(content: string): {
       errors.push({
         line: instr.line,
         instruction: "VOLUME",
-        message: `VOLUME at line ${instr.line} is not supported — it creates an anonymous volume that is not persisted across deploys (data written there is lost on the next build).`,
+        message: `VOLUME at line ${instr.line} is not supported. It creates an anonymous volume that is not persisted across deploys (data written there is lost on the next build).`,
         fix: "Remove the VOLUME line and attach a persistent volume instead: `otterdeploy volume add --service <name> --mount-path <path>`.",
       });
     }

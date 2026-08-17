@@ -1,5 +1,5 @@
 /**
- * The active-deployment card for the resource Deployments tab — the mockup's
+ * The active-deployment card for the resource Deployments tab: the mockup's
  * expandable staged card: a trigger header (status + what triggered it + when +
  * View logs + actions) over the phase timeline (Initialization / Build / Deploy
  * / Post-deploy). Replaces the flat ActiveDeploymentCard so the phases the
@@ -52,7 +52,7 @@ function relativeTime(iso: string): string {
   return "just now";
 }
 
-/** Subject line of a commit message. The body belongs on the detail page — the
+/** Subject line of a commit message. The body belongs on the detail page. The
  *  card gets one line, so a multi-paragraph message must not wreck the layout. */
 function commitSubject(message: string | null): string | null {
   return message?.split("\n", 1)[0]?.trim() || null;
@@ -70,7 +70,7 @@ function initials(name: string): string {
   return letters.toUpperCase() || "?";
 }
 
-/** Git badge worn by every person-shaped mark — says the face came from a
+/** Git badge worn by every person-shaped mark: says the face came from a
  *  commit rather than from an otterdeploy account. */
 function GitBadge() {
   return (
@@ -88,7 +88,7 @@ function GitBadge() {
  * The card's leading mark. A deployment built from a repo is the work of a
  * person, so it leads with the commit author's face (avatar → initials);
  * anything else with a commit gets the commit glyph. The resource's own
- * framework/engine logo is the last resort only — it's already on the panel
+ * framework/engine logo is the last resort only. It's already on the panel
  * header and the graph node, and it says nothing about THIS deployment.
  */
 function DeploymentMark({
@@ -146,7 +146,7 @@ export function StagedDeploymentCard({
 }: {
   deployment: DeploymentInfo;
   /** The resource's node data (framework/engine/logoBrand). Only used as the
-   *  mark of last resort — a deployment with a commit behind it leads with its
+   *  mark of last resort: a deployment with a commit behind it leads with its
    *  author instead. See [[DeploymentMark]]. */
   logoNode?: ResourceNodeData;
   orgSlug: string;
@@ -159,7 +159,7 @@ export function StagedDeploymentCard({
   const link = { orgSlug, projectSlug, resourceId, deploymentId: deployment.id };
   const failed = deployment.status === "failed" || deployment.status === "crashed";
 
-  // The commit subject is the headline when there is one — "what changed" beats
+  // The commit subject is the headline when there is one. "what changed" beats
   // "how it was triggered", which demotes to the line below next to the commit
   // it names. With no commit (image pulls, databases) the trigger keeps the
   // headline and this line is just the timestamp, as before.

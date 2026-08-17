@@ -44,7 +44,7 @@ export function RotateButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Rotate “{name}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            A new keypair replaces this one. The old public key stops working immediately — re-add
+            A new keypair replaces this one. The old public key stops working immediately. Re-add
             the new public key wherever this key is used.
           </AlertDialogDescription>
         </AlertDialogHeader>

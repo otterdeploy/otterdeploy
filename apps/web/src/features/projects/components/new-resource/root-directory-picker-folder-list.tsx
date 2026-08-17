@@ -49,7 +49,7 @@ export function FolderList({
     >
       {parent !== null && <ParentRow onClick={() => onNavigate(parent)} />}
 
-      {/* (root) pseudo-row, only at the repo root — gives the operator
+      {/* (root) pseudo-row, only at the repo root: gives the operator
           an explicit way to commit "deploy from repo root" without
           picking a subfolder. */}
       {isRoot && (
@@ -107,7 +107,7 @@ function ParentRow({ onClick }: { onClick: () => void }) {
 /**
  * One row in the BrowsePane. Radio on the left (selects), folder name
  * in the middle (clicking the label also selects via the surrounding
- * `<label>`), chevron on the right (navigates IN — the only escape
+ * `<label>`), chevron on the right (navigates IN: the only escape
  * hatch to drill deeper).
  */
 function FolderRow({

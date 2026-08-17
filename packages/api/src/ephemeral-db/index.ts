@@ -1,10 +1,10 @@
 /**
- * Ephemeral database credentials — short-lived connection URLs you can hand to
+ * Ephemeral database credentials: short-lived connection URLs you can hand to
  * an agent (or a teammate, or a script) and forget. Each one is a REAL
  * Postgres role minted in the target database:
  *
  *   - `VALID UNTIL <expiry>` makes Postgres itself refuse new logins after the
- *     TTL — disposal doesn't depend on the control plane being alive.
+ *     TTL: disposal doesn't depend on the control plane being alive.
  *   - The sweeper (startEphemeralDbSweeper, 60s tick) finishes the job:
  *     terminates lingering sessions, drops the role, and stamps `revokedAt`.
  *   - `read-only` grants pg_read_all_data (PG14+): SELECT on everything,
@@ -13,7 +13,7 @@
  *   - The password is never stored; the URL is returned exactly once at mint.
  *
  * SQL runs through the same docker-exec psql transport as the data viewer
- * (backups/exec) — no wire driver in the control plane. Postgres only for v1.
+ * (backups/exec), no wire driver in the control plane. Postgres only for v1.
  */
 import type {
   DatabaseEphemeralCredentialId,
@@ -50,7 +50,7 @@ export interface MintedCredential {
   expiresAt: Date;
   /** Reachable from other services on the project network. */
   internalUrl: string;
-  /** Reachable from anywhere — null unless public access is enabled. */
+  /** Reachable from anywhere: null unless public access is enabled. */
   publicUrl: string | null;
 }
 
@@ -75,11 +75,11 @@ export async function mintEphemeralCredential(input: {
   const expiresAt = new Date(Date.now() + input.ttlMinutes * 60_000);
 
   // One transaction: role + connect + scope grant. VALID UNTIL is the
-  // database-native backstop — new logins die at expiry with no help from us.
+  // database-native backstop: new logins die at expiry with no help from us.
   const grant =
     input.scope === "read-write"
       ? // Membership in the owning app role: ownership rights over every object
-        // the app created (and creates later), but no role attributes — LOGIN/
+        // the app created (and creates later), but no role attributes. LOGIN/
         // SUPERUSER etc. are never inherited.
         `GRANT ${quoteIdent(target.ownerUsername)} TO ${quoteIdent(roleName)};`
       : // SELECT on everything, current and future (PG14+ predefined role).

@@ -1,4 +1,4 @@
-// Publishing templates — the MariaDB-backed classics. See ./types.ts for the
+// Publishing templates: the MariaDB-backed classics. See ./types.ts for the
 // honesty contract.
 import type { StackTemplate } from "./types";
 
@@ -7,7 +7,7 @@ export const PUBLISHING_TEMPLATES: StackTemplate[] = [
     id: "wordpress",
     name: "WordPress",
     description:
-      "The most-deployed CMS there is — themes, plugins and a familiar admin. Bundled MariaDB; the whole site directory persists to a named volume so plugins survive redeploys.",
+      "The most-deployed CMS there is: themes, plugins and a familiar admin. Bundled MariaDB; the whole site directory persists to a named volume so plugins survive redeploys.",
     category: "cms",
     includes: ["wordpress", "db"],
     requiredEnv: [
@@ -57,7 +57,7 @@ volumes:
     id: "matomo",
     name: "Matomo",
     description:
-      "Full-featured web analytics you host yourself — sessions, funnels, goals and heatmaps, with raw data that never leaves your server. Heavier than Plausible, and far more detailed.",
+      "Full-featured web analytics you host yourself: sessions, funnels, goals and heatmaps, with raw data that never leaves your server. Heavier than Plausible, and far more detailed.",
     category: "analytics",
     includes: ["matomo", "db"],
     requiredEnv: [

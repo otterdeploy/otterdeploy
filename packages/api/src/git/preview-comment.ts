@@ -1,5 +1,5 @@
 /**
- * Sticky PR-comment body for preview environments — the Vercel-style status
+ * Sticky PR-comment body for preview environments: the Vercel-style status
  * table. Pure string building over a pre-loaded snapshot (see
  * preview-report-state.ts), so it's trivially unit-testable and GitHub-API
  * free. One row per (project, service) the PR rebuilds.
@@ -38,7 +38,7 @@ const STATUS_LABEL: Record<PreviewRowStatus, string> = {
   building: "🟠 Building",
   ready: "🟢 Ready",
   failed: "🔴 Failed",
-  // Grey, not red — a preview someone stopped on purpose isn't a broken PR.
+  // Grey, not red: a preview someone stopped on purpose isn't a broken PR.
   cancelled: "⚪ Cancelled",
   superseded: "⚪ Superseded",
   removed: "⚪ Removed",
@@ -59,7 +59,7 @@ const MONTHS = [
   "Dec",
 ] as const;
 
-/** `Jul 6, 2026 3:38pm` — Vercel's comment format, always UTC. */
+/** `Jul 6, 2026 3:38pm`: Vercel's comment format, always UTC. */
 export function formatUpdatedUtc(date: Date): string {
   const month = MONTHS[date.getUTCMonth()];
   const hours24 = date.getUTCHours();
@@ -80,9 +80,9 @@ function statusCell(row: PreviewCommentRow): string {
 }
 
 function previewCell(row: PreviewCommentRow): string {
-  if (!row.previewUrl) return "—";
+  if (!row.previewUrl) return "–";
   // A preview link is only meaningful once (or while) the deployment serves.
-  if (row.status !== "ready" && row.status !== "building") return "—";
+  if (row.status !== "ready" && row.status !== "building") return "–";
   return `[Visit Preview](${row.previewUrl})`;
 }
 
@@ -110,7 +110,7 @@ export function renderPreviewComment(state: PreviewCommentState): string {
         `| ${nameCell(row, multiProject)}`,
         statusCell(row),
         previewCell(row),
-        `${row.updatedAt ? formatUpdatedUtc(row.updatedAt) : "—"} |`,
+        `${row.updatedAt ? formatUpdatedUtc(row.updatedAt) : "–"} |`,
       ].join(" | "),
     ),
     "",

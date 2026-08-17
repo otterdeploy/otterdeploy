@@ -30,7 +30,7 @@
     "closeSidebar": "Close sidebar",
     "notifications": {
       "title": "Notifications",
-      "unread": "Notifications — {{count}} unread",
+      "unread": "Notifications: {{count}} unread",
       "labelFailure": "includes a failure"
     },
     "toggleTheme": "Toggle theme",
@@ -106,7 +106,7 @@
       "eyebrow": "Internal error",
       "title": "Something Went Wrong.",
       "statusTag": "FAULT",
-      "messageDefault": "Otterdeploy hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment.",
+      "messageDefault": "Otterdeploy hit an unexpected error rendering this page. The failure has been logged. This one's on us, not you. Try again in a moment.",
       "retry": "⟳ Retry",
       "returnHome": "↩ Return home"
     },
@@ -132,6 +132,7 @@
     "graph": "Graph",
     "deployments": "Deployments",
     "logs": "Logs",
+    "analytics": "Analytics",
     "metrics": "Metrics",
     "variables": "Variables",
     "networking": "Networking",
@@ -246,15 +247,15 @@
     "steps": {
       "welcome": {
         "title": "A quick tour",
-        "description": "Six minutes through the parts of otterdeploy you'll use daily — where your machines live, how a project is laid out, and where to look when a deploy goes wrong. Leave any time with Esc; it's in your account menu when you want it back."
+        "description": "Six minutes through the parts of otterdeploy you'll use daily: where your machines live, how a project is laid out, and where to look when a deploy goes wrong. Leave any time with Esc; it's in your account menu when you want it back."
       },
       "sidebar": {
         "title": "The sidebar",
-        "description": "Everything org-wide lives here, grouped by what it's for: your projects at the top, the infrastructure they run on in the middle, and the outbound connections a deploy needs — git, registries, keys — below that."
+        "description": "Everything org-wide lives here, grouped by what it's for: your projects at the top, the infrastructure they run on in the middle, and the outbound connections a deploy needs (git, registries, keys) below that."
       },
       "projects": {
         "title": "Projects",
-        "description": "A project groups the services, databases, and routes that ship together — one app and its dependencies. The badge counts what this workspace has."
+        "description": "A project groups the services, databases, and routes that ship together: one app and its dependencies. The badge counts what this workspace has."
       },
       "infrastructure": {
         "title": "Servers",
@@ -270,11 +271,11 @@
       },
       "activity": {
         "title": "Live system state",
-        "description": "Running deploys, unread notifications, and the theme switch. The mark in the top-left changes with the same state, so a build in progress is visible from any page — and from a background tab."
+        "description": "Running deploys, unread notifications, and the theme switch. The mark in the top-left changes with the same state, so a build in progress is visible from any page, and from a background tab."
       },
       "serversPage": {
         "title": "Your cluster",
-        "description": "One row per machine, with its swarm role, availability, and last health sample. `unknown` is deliberately not a pass — it means nobody has checked yet."
+        "description": "One row per machine, with its swarm role, availability, and last health sample. `unknown` is deliberately not a pass. It means nobody has checked yet."
       },
       "addServer": {
         "title": "Add a server",
@@ -286,7 +287,7 @@
       },
       "projectGraph": {
         "title": "The project graph",
-        "description": "Your project as a canvas: services, databases, and the routes that reach them, with live status on every node. Right-click a node to open, restart, clone, or read its logs — right-click the canvas to add something new."
+        "description": "Your project as a canvas: services, databases, and the routes that reach them, with live status on every node. Right-click a node to open, restart, clone, or read its logs. Right-click the canvas to add something new."
       },
       "projectTabs": {
         "title": "Everything about this project",
@@ -298,7 +299,7 @@
       },
       "deployments": {
         "title": "Every deploy, kept",
-        "description": "One row per push, with its reason — git-push, redeploy, env-change, rollback — and the config snapshot it ran with. That snapshot is what makes rolling back a real option rather than a guess."
+        "description": "One row per push, with its reason (git-push, redeploy, env-change, rollback) and the config snapshot it ran with. That snapshot is what makes rolling back a real option rather than a guess."
       },
       "logs": {
         "title": "Logs that tell the truth",
@@ -306,7 +307,7 @@
       },
       "variables": {
         "title": "Variables",
-        "description": "Set them per project or per service, and reference other resources by name — `${database:main.DATABASE_URL}` resolves at deploy time. That late binding is what lets previews get their own database without editing config."
+        "description": "Set them per project or per service, and reference other resources by name: `${database:main.DATABASE_URL}` resolves at deploy time. That late binding is what lets previews get their own database without editing config."
       },
       "networking": {
         "title": "Domains and routes",
@@ -318,7 +319,7 @@
       },
       "done": {
         "title": "That's the shape of it",
-        "description": "The rest is documentation and the command palette. If something looks wrong, the honest answer is usually on the Deployments or Logs tab — otterdeploy tries never to hide a failure behind a spinner."
+        "description": "The rest is documentation and the command palette. If something looks wrong, the honest answer is usually on the Deployments or Logs tab. otterdeploy tries never to hide a failure behind a spinner."
       }
     }
   },
@@ -346,7 +347,7 @@
     "dialogDescription": "Add both records to your DNS provider, then verify.",
     "dialogDescriptionZone": "Add both records to {{zone}}, then verify.",
     "lookupFailed": "We couldn't reach a DNS resolver to detect your provider, so only the manual records are shown.",
-    "proxiedWarning": "This name currently resolves somewhere other than this install {{address}}. If that's a Cloudflare proxy, turn the orange cloud off — proxied records terminate TLS at the proxy and the certificate here can never finish issuing.",
+    "proxiedWarning": "This name currently resolves somewhere other than this install {{address}}. If that's a Cloudflare proxy, turn the orange cloud off. Proxied records terminate TLS at the proxy and the certificate here can never finish issuing.",
     "oneClick": {
       "title": "One-click DNS setup",
       "canAuto": "This domain is on Cloudflare. We can create both records for you.",
@@ -359,7 +360,7 @@
       "type": "Type",
       "name": "Name",
       "value": "Value",
-      "empty": "Nothing to add yet — save the domain first."
+      "empty": "Nothing to add yet. Save the domain first."
     }
   },
   "dataGrid": {
@@ -424,17 +425,17 @@
     },
     "organization": {
       "title": "Create your organization",
-      "description": "An organization is your top-level workspace — it owns your projects, servers, domains, and team. You can create more later or invite people in.",
+      "description": "An organization is your top-level workspace. It owns your projects, servers, domains, and team. You can create more later or invite people in.",
       "namePlaceholder": "Acme"
     },
     "domain": {
       "title": "Set a base domain",
-      "description": "Where your deployed apps and databases get their public URLs — not the dashboard itself.",
+      "description": "Where your deployed apps and databases get their public URLs, not the dashboard itself.",
       "label": "Base domain"
     },
     "project": {
       "title": "Create your first project",
-      "description": "A project groups the services, databases, and routes that ship together — like one app and its dependencies. We'll drop you straight into it.",
+      "description": "A project groups the services, databases, and routes that ship together, like one app and its dependencies. We'll drop you straight into it.",
       "namePlaceholder": "Storefront"
     }
   },
@@ -538,7 +539,7 @@
     "keyType": "Key type",
     "publicKey": "Public key",
     "detectedType": "Detected type:",
-    "unrecognised": "unrecognised — paste the full public-key line",
+    "unrecognised": "unrecognised: paste the full public-key line",
     "pastePrompt": "paste a public key above",
     "notInUse": "Not in use",
     "copyFingerprint": "Copy fingerprint",
@@ -618,7 +619,7 @@
     },
     "removeCa": "Remove {{name}}",
     "removeCaConfirm": "Remove “{{name}}” from the CA store?",
-    "removeCaDescription": "The stored PEM is deleted. Anything referencing it (e.g. a project's custom Caddy config pointing at a downloaded copy) is unaffected — this only removes the inventory entry."
+    "removeCaDescription": "The stored PEM is deleted. Anything referencing it (e.g. a project's custom Caddy config pointing at a downloaded copy) is unaffected. This only removes the inventory entry."
   },
   "webhooks": {
     "columns": {
@@ -641,7 +642,7 @@
     "fixedForLifetime": "The endpoint URL and HMAC secret are fixed for the endpoint's lifetime.",
     "targetAction": "Target action",
     "redeployService": "Redeploy a service",
-    "recordOnly": "Nothing — record the invocation"
+    "recordOnly": "Nothing, just record the invocation"
   },
   "firewall": {
     "title": "Firewall",
@@ -649,7 +650,7 @@
     "alreadyBanned": "This IP already has an active CrowdSec ban.",
     "listName": "List name",
     "enrollmentKey": "Enrollment key from the console",
-    "listAdded": "List added — importing…",
+    "listAdded": "List added. Importing…",
     "syncNow": "Sync now",
     "blockPlaceholder": "Block IP or CIDR…",
     "blockAria": "Block an IP or CIDR range",
@@ -657,7 +658,7 @@
     "yourLists": "Your lists",
     "yourListsSubtitle": "Public + custom lists imported into CrowdSec on a schedule.",
     "publicLists": "Public blocklists",
-    "publicListsSubtitle": "Well-known free lists — no CrowdSec account needed. One click to add.",
+    "publicListsSubtitle": "Well-known free lists, no CrowdSec account needed. One click to add.",
     "removeListDescription": "The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later.",
     "block": "Block",
     "blocking": "Blocking…",
@@ -726,7 +727,7 @@
     "searchEvents": "search message, host, error…",
     "searchLogs": "search path, ip, status…",
     "wrapHint": "Wrap long values in expanded rows instead of truncating",
-    "bannedIp": "This IP has an active CrowdSec ban — new requests are rejected at the edge.",
+    "bannedIp": "This IP has an active CrowdSec ban. New requests are rejected at the edge.",
     "searchHosts": "Search hosts…",
     "noHosts": "No hosts found.",
     "allHosts": "All hosts"
@@ -747,10 +748,10 @@
       "imageTargetHint": "Fully-qualified, no tag. Empty = local build. Credential matched by host.",
       "prPreviews": "PR previews",
       "prPreviewsHint": "Rebuild this service into an isolated preview environment for every pull request.",
-      "staged": "Source staged — Deploy to apply",
+      "staged": "Source staged. Deploy to apply.",
       "stageFailed": "Failed to stage source",
       "registryMatched": "Pushes via {{name}} ({{host}}).",
-      "registryUnmatched": "No registry credential for {{host}} — add one in Registries or clear this.",
+      "registryUnmatched": "No registry credential for {{host}}. Add one in Registries or clear this.",
       "pipe": {
         "repo": "Repo",
         "build": "Build",
@@ -764,8 +765,8 @@
   "tableSelection": {
     "genericFailure": "failed",
     "removed": "Removed {{items}}",
-    "removeFailed": "Couldn't remove {{items}} — {{reason}}",
-    "removedPartial": "Removed {{items}} · {{skipped}} skipped — {{reason}}"
+    "removeFailed": "Couldn't remove {{items}}: {{reason}}",
+    "removedPartial": "Removed {{items}} · {{skipped}} skipped: {{reason}}"
   },
   "docker": {
     "someNotRemoved": "Some {{items}} couldn't be removed",

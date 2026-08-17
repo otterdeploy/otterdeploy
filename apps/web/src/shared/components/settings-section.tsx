@@ -1,5 +1,5 @@
 /**
- * Settings section — the shared shell for a configuration group: an iconned
+ * Settings section: the shared shell for a configuration group: an iconned
  * uppercase eyebrow + description, then a hairline-ringed card body. One
  * consistent rhythm for every settings surface (edge global options, workspace
  * settings, …) so they stop hand-rolling slightly-different section markup.
@@ -91,7 +91,7 @@ export function SettingsRow({
   );
 }
 
-/** Right-aligned footer bar inside a section card — for a Save/apply action. */
+/** Right-aligned footer bar inside a section card: for a Save/apply action. */
 export function SettingsFooter({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center justify-end gap-3 bg-muted/20 px-4 py-3">{children}</div>

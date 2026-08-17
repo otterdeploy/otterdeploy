@@ -1,5 +1,5 @@
 /**
- * `crypto.randomUUID` is exposed by browsers ONLY in a "secure context" — HTTPS
+ * `crypto.randomUUID` is exposed by browsers ONLY in a "secure context". HTTPS
  * or `http://localhost`. A self-hosted dashboard reached over plain
  * `http://<ip-or-host>:<port>` is NOT a secure context, so `crypto.randomUUID`
  * is `undefined` and every call throws `crypto.randomUUID is not a function`,
@@ -18,9 +18,9 @@ if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
       const b = i === 6 ? (byte & 0x0f) | 0x40 : i === 8 ? (byte & 0x3f) | 0x80 : byte;
       return b.toString(16).padStart(2, "0");
     }).join("");
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}` as ReturnType<
-      Crypto["randomUUID"]
-    >;
+    // A template literal with `-` separators is checked structurally against
+    // the `${string}-${string}-…` return type; no assertion needed.
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   };
   crypto.randomUUID = randomUUID;
 }

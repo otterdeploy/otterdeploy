@@ -1,5 +1,5 @@
 /** Humanize CrowdSec's Go-style remaining durations ("717h30m27s") into the
- *  two most significant units ("29d 21h") — the raw string is illegible past
+ *  two most significant units ("29d 21h"): the raw string is illegible past
  *  a day or two. Unparseable input passes through untouched. */
 export function humanizeGoDuration(raw: string): string {
   const m = /^(-)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?$/.exec(raw.trim());

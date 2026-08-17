@@ -1,9 +1,7 @@
 // Variables tab body for a service resource. Wraps the shared
 // VariablesEditor (originally written for postgres) with a service-
-// flavoured header — services don't have engine-exported keys, so this
+// flavoured header: services don't have engine-exported keys, so this
 // is just the user env bag + a search/add header.
-
-import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useRef, useState } from "react";
 
@@ -31,8 +29,8 @@ export function ServiceVariablesTabBody({
   pending?: boolean;
   serviceName?: string;
 }) {
-  const stage = useStageManifestChange(resource.projectId as ProjectId, {
-    successToast: "Variables staged — Deploy to apply",
+  const stage = useStageManifestChange(resource.projectId, {
+    successToast: "Variables staged. Deploy to apply.",
   });
   const onSave =
     pending && serviceName
@@ -105,7 +103,7 @@ export function ServiceVariablesTabBody({
       )}
 
       {/* countLabel null: the tab header above already shows "N Service
-          Variables" for the same rows — a second toolbar count read as a
+          Variables" for the same rows: a second toolbar count read as a
           separate "User Variables" bag and double-counted every var. */}
       <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} countLabel={null} />
     </div>

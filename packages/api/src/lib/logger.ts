@@ -4,9 +4,9 @@
  * Helpers in swarm/caddy/docker run from both request paths (where a
  * `RequestLogger` exists and step events should accumulate on the request's
  * wide event) and from bootstrap (where they should emit standalone events
- * via the global logger). The two APIs aren't substitutable —
- *   - `globalLog.info({ event })` — object overload
- *   - `RequestLogger.info(message, context?)` — message-first
+ * via the global logger). The two APIs aren't substitutable,
+ *   - `globalLog.info({ event })`: object overload
+ *   - `RequestLogger.info(message, context?)`: message-first
  *
  * `asStepLogger` returns a tiny adapter with a single object-first call shape.
  * When backed by a `RequestLogger`, each call appends to a `steps[]` array on
@@ -22,7 +22,7 @@ import { log as globalLog, type RequestLogger } from "evlog";
 /**
  * Step events are wide-event fragments: they end up JSON-serialized on the
  * request's wide event (or a standalone one), so they are `JsonObject` by
- * construction — no functions, class instances, or other runtime values.
+ * construction, no functions, class instances, or other runtime values.
  */
 export interface StepLogger {
   info(event: JsonObject): void;

@@ -1,5 +1,5 @@
 /**
- * Text selection highlight — shared by apps/web and apps/www.
+ * Text selection highlight, shared by apps/web and apps/www.
  *
  * Import from the app's Tailwind entry:
  *
@@ -15,18 +15,18 @@
  * holds over syntax-highlighted code and mono text alike.
  *
  * No `::-moz-selection`: Firefox has supported the unprefixed selector since
- * 62, and Lightning CSS strips the prefixed copy at these targets anyway — so
+ * 62, and Lightning CSS strips the prefixed copy at these targets anyway, so
  * carrying it would be code the build silently discards.
  */
 
-/* Light (canvas #fbfbfa) — the system accent blue. */
+/* Light (canvas #fbfbfa): the system accent blue. */
 ::selection {
   background: var(--primary);
   color: var(--primary-foreground);
   text-shadow: none;
 }
 
-/* Dark (canvas #0c0c0b) — a brighter blue than `--primary`, which is dark
+/* Dark (canvas #0c0c0b): a brighter blue than `--primary`, which is dark
    enough in both apps' dark themes to sink into the canvas and leave the
    selection nearly invisible. */
 .dark ::selection {

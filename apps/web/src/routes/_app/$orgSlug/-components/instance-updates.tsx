@@ -1,5 +1,5 @@
 /**
- * Updates card — the Instance-page home for the platform self-updater.
+ * Updates card: the Instance-page home for the platform self-updater.
  * Reads the same `useUpdateStatus` model as the shell banner/header pill and
  * opens the same update dialog (owned by the org layout's UpdateProvider),
  * so every surface tells one story. This card is the always-there place to
@@ -44,13 +44,13 @@ export function UpdatesCard() {
     <SettingsSection
       icon={Rocket01Icon}
       title="Updates"
-      description="Platform self-update — check the release channel and apply new versions of otterdeploy from here."
+      description="Check the release channel and apply new versions of otterdeploy."
     >
       <SettingsRow
         title="Current version"
         description={
           status.dryRun
-            ? "Dev / dry-run install — applying an update runs as a simulation."
+            ? "Dev / dry-run install. Applying an update only simulates it."
             : "The image tag this install booted with."
         }
         control={

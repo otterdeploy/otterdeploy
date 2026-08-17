@@ -112,7 +112,7 @@ export interface BulkDeleteProgress {
 
 /**
  * Multi-select bulk delete: sequential `mutateRow` deletes (one audited,
- * primary-key-guarded statement per row — never a client-built IN list), with
+ * primary-key-guarded statement per row, never a client-built IN list), with
  * progress and a partial-failure report. Rows are addressed as indices into the
  * current result page; the PK predicate is read from the result grid itself.
  */
@@ -173,7 +173,7 @@ export function useBulkDelete({
       toast.success(`Deleted ${ok} row${ok === 1 ? "" : "s"}`);
     } else {
       toast.error(
-        `Deleted ${ok} of ${rowIndices.length} rows — ${failed} failed` +
+        `Deleted ${ok} of ${rowIndices.length} rows, ${failed} failed` +
           (firstError ? `: ${firstError}` : ""),
       );
     }

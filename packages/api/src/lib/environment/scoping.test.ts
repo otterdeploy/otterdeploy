@@ -1,5 +1,4 @@
-import type { PreviewId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { isEnvironmentSlugAllowed } from "./reserved-slugs";
@@ -16,7 +15,7 @@ import {
 } from "./scoping";
 
 const scope: PreviewScope = {
-  id: "prev_pr7" as PreviewId,
+  id: idSchema.preview.parse("prev_pr7"),
   slug: "acme-app-pr-7",
   prNumber: 7,
 };
@@ -68,7 +67,7 @@ describe("environment scoping", () => {
   });
 
   it("main renders as base regardless of what it is called", () => {
-    // The pointer decides, not the slug — a project whose main environment is
+    // The pointer decides, not the slug: a project whose main environment is
     // `staging`, or is named `prod`, must still render as base.
     expect(runtimeServiceName("web", environmentScope({ slug: "staging", isMain: true }))).toBe(
       "web",
@@ -94,7 +93,7 @@ describe("environment scoping", () => {
   it("a pr-shaped environment slug WOULD collide, which is why it is rejected at creation", () => {
     // These two produce the same container name, so nothing here can tell them
     // apart. That is the whole reason `pr-<n>` is refused when an environment
-    // is created — see reserved-slugs.test.ts. Pinned here so anyone loosening
+    // is created. See reserved-slugs.test.ts. Pinned here so anyone loosening
     // that validation sees what it was protecting.
     const envPr7 = runtimeServiceName("web", environmentScope({ slug: "pr-7", isMain: false }));
     const previewPr7 = runtimeServiceName("web", scope);

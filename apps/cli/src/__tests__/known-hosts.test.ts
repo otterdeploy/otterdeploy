@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
  * The login pick-list is only as good as the history behind it. These pin the
  * two behaviours that make it useful: most-recent-first ordering (so the
  * control plane you actually use is the default selection), and surviving
- * `logout` — signing out shouldn't cost you the domains you know.
+ * `logout`, signing out shouldn't cost you the domains you know.
  */
 
 let dir: string;
@@ -15,7 +15,7 @@ let dir: string;
 /**
  * This suite's only environment boundary, kept in one place. `config.ts`
  * resolves its directory from `OTTERDEPLOY_CONFIG_DIR` at module load, so the
- * tests have to *write* the variable before re-importing it — a write can't go
+ * tests have to *write* the variable before re-importing it. A write can't go
  * through the validated `@otterdeploy/env` object, which only reads.
  */
 /* oxlint-disable node/no-process-env -- seeds the var config.ts reads at import time */
@@ -31,11 +31,15 @@ function clearConfigDir(): void {
 // config.ts reads its directory from env at module load, so point it at a temp
 // dir and re-import per test rather than writing to the developer's real
 // ~/.config/otterdeploy.
-async function freshConfigModule() {
+async function freshConfigModule(): Promise<typeof import("../config")> {
   dir = mkdtempSync(join(tmpdir(), "otterdeploy-cli-test-"));
   setConfigDir(dir);
-  const mod = await import(`../config?${Math.random().toString(36).slice(2)}`);
-  return mod as typeof import("../config");
+  // The query string busts the module cache, so TS can't resolve the
+  // specifier; the annotation supplies the module's shape.
+  const mod: typeof import("../config") = await import(
+    `../config?${Math.random().toString(36).slice(2)}`
+  );
+  return mod;
 }
 
 beforeEach(() => {

@@ -1,5 +1,5 @@
 /**
- * Redis data-viewer fetching hooks — the React-Query layer over
+ * Redis data-viewer fetching hooks, the React-Query layer over
  * `database.redisKeyspace` / `database.redisKeys` / `database.redisValue`.
  *
  * `resourceId` is typed `string` and cast to the branded oRPC input type at the
@@ -11,7 +11,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
-/** Per-database key counts — drives the db picker. */
+/** Per-database key counts. Drives the db picker. */
 export function useRedisKeyspace(resourceId: string) {
   return useQuery(
     orpc.database.redisKeyspace.queryOptions({

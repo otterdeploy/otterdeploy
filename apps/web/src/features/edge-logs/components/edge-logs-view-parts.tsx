@@ -70,7 +70,7 @@ export function LogHistogram({ data, range }: { data: EdgeLogsData | undefined; 
   );
 }
 
-/** Log table — full bleed, separators only. */
+/** Log table: full bleed, separators only. */
 export function LogTable({
   rows,
   wrap,
@@ -86,10 +86,10 @@ export function LogTable({
   expanded: string | null;
   setExpanded: (id: string | null) => void;
   isLoading: boolean;
-  /** Omitted when the viewer can't block — CrowdSec is install-scoped. */
+  /** Omitted when the viewer can't block. CrowdSec is install-scoped. */
   onBlockIp?: (ip: string) => void;
   blocking: boolean;
-  /** Client IPs with an active CrowdSec ban — their rows get a blocked marker. */
+  /** Client IPs with an active CrowdSec ban: their rows get a blocked marker. */
   bannedIps: Set<string>;
 }) {
   return (
@@ -157,7 +157,7 @@ const HOST_FOOTER_VISIBLE = 2;
 
 /**
  * Worst first: any host serving errors outranks any healthy one, then busiest,
- * then name (stable — `hostStats` arrives in first-seen order, which reshuffles
+ * then name (stable, `hostStats` arrives in first-seen order, which reshuffles
  * on every 2s poll). The two rows that survive the fold are the two an operator
  * would have scanned for anyway.
  */
@@ -186,23 +186,23 @@ function HostStatCells({
 }
 
 /**
- * Per-host footer — request rate and latency percentiles.
+ * Per-host footer: request rate and latency percentiles.
  *
  * One row per host, columns aligned. This used to be `flex flex-wrap gap-x-8`,
  * which packed as many hosts per line as fitted and let every number land at a
- * different x — so a host with a long name pushed its own figures somewhere no
+ * different x, so a host with a long name pushed its own figures somewhere no
  * other row's figures were, and two hosts sharing a line read as one sentence.
  * At four public hosts it was already unreadable.
  *
  * The list is capped at two rows because it grows with the org's public hosts
  * (preview deploys mint one per PR) and it is a sibling of the scrolling log
- * table — every extra row is a row taken off the table. The rest fold into one
+ * table: every extra row is a row taken off the table. The rest fold into one
  * summary row that expands.
  *
  * The summary is **worst-case, not averaged**: percentiles cannot be pooled
  * without the underlying samples, and a mean would hide the one bad host, which
  * is the only reason to look at this footer. `rps` sums (that one is additive),
- * everything else is a max — labelled `worst of` so the numbers aren't read as
+ * everything else is a max. Labelled `worst of` so the numbers aren't read as
  * one host's.
  *
  * The host is a link: a domain shown to an operator is a domain they want to
@@ -214,7 +214,7 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
 
   if (hostStats.length === 0) return null;
 
-  // Folding one host away costs a click and saves nothing — the summary row
+  // Folding one host away costs a click and saves nothing. The summary row
   // occupies the height the host row would have.
   const folded = !expanded && hostStats.length > HOST_FOOTER_VISIBLE + 1;
   const shown = folded ? hostStats.slice(0, HOST_FOOTER_VISIBLE) : hostStats;
@@ -264,7 +264,7 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
   );
 }
 
-/** Additive for rate, max for everything else — see `HostFooter`. */
+/** Additive for rate, max for everything else: see `HostFooter`. */
 function worstOf(stats: EdgeHostStat[]) {
   return {
     rps: +stats.reduce((n, s) => n + s.rps, 0).toFixed(2),

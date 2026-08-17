@@ -46,7 +46,7 @@
   margin-bottom: 0;
 }
 
-/* Machine-readable strings inside tour copy — domains, env keys, commands. */
+/* Machine-readable strings inside tour copy: domains, env keys, commands. */
 .driver-popover.otterdeploy-tour .driver-popover-description code {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
@@ -109,7 +109,7 @@
   background-color: color-mix(in oklab, var(--primary) 90%, var(--foreground));
 }
 
-/* Ghost — low emphasis, hover reveals the surface. */
+/* Ghost: low emphasis, hover reveals the surface. */
 .driver-popover.otterdeploy-tour .driver-popover-prev-btn {
   background-color: transparent;
   color: var(--foreground);

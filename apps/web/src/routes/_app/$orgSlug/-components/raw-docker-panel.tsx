@@ -1,8 +1,8 @@
 /**
- * Raw Docker inventory — containers, images, volumes, networks, and swarm
+ * Raw Docker inventory: containers, images, volumes, networks, and swarm
  * tasks outside the project and Stack abstraction. Formerly the standalone
- * `/docker` page; demoted to a "Raw Docker" tab under Servers (od-u63.3) —
- * it's an escape hatch, not a peer of Servers. Content is unchanged from the
+ * `/docker` page; demoted to a "Raw Docker" tab under Servers (od-u63.3)
+ * because it's an escape hatch, not a peer of Servers. Content is unchanged from the
  * old page; only the chrome that wraps it moved.
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -24,8 +24,21 @@ import { ImagesTable } from "./docker-table-images";
 import { NetworksTable } from "./docker-table-networks";
 import { TasksTable } from "./docker-tables";
 
+/** Real narrowing for the Tabs callback, which hands the value back as a
+ *  plain string. Values come only from the triggers this panel renders, so
+ *  the guard is exhaustive over `DockerTab`. */
+function isDockerTab(value: string): value is DockerTab {
+  return (
+    value === "containers" ||
+    value === "images" ||
+    value === "volumes" ||
+    value === "networks" ||
+    value === "tasks"
+  );
+}
+
 /** Narrow swarm tasks to one node. Pulled out of the panel so the "all nodes"
- *  branch doesn't sit in the component body — see the note at the call site
+ *  branch doesn't sit in the component body. See the note at the call site
  *  for why only this tab can honestly filter by node. */
 function tasksOnNode<T extends { nodeId: string | null }>(
   tasks: T[] | undefined,
@@ -36,7 +49,7 @@ function tasksOnNode<T extends { nodeId: string | null }>(
 }
 
 /** The Images tab's prune affordance: the button, its pending label, and the
- *  count of dangling images it would reclaim. Presentational — the mutation
+ *  count of dangling images it would reclaim. Presentational; the mutation
  *  and the confirm dialog stay with the panel, which owns the refetch. */
 function PruneDanglingButton({
   pending,
@@ -80,7 +93,7 @@ export function RawDockerPanel({
   const [pruneOpen, setPruneOpen] = useState(false);
 
   // Containers/images/volumes/networks work on any daemon, so they load
-  // eagerly to populate the tab counts. Tasks need Swarm mode, so it's lazy —
+  // eagerly to populate the tab counts. Tasks need Swarm mode, so it's lazy:
   // polling it on a non-swarm daemon would error every tick and spam toasts.
   const containers = useQuery({
     ...orpc.docker.containers.list.queryOptions({ input: { all: true } }),
@@ -90,7 +103,7 @@ export function RawDockerPanel({
     ...orpc.docker.images.list.queryOptions({ input: { all: false } }),
     staleTime: 10_000,
   });
-  // The rich volumes inventory (ownership attribution, orphans) — the same
+  // The rich volumes inventory (ownership attribution, orphans), the same
   // surface the standalone /volumes page used before it merged into this tab.
   const volumes = useQuery(volumesListQuery());
   const networks = useQuery({
@@ -115,10 +128,10 @@ export function RawDockerPanel({
 
   // Node scoping is only genuinely possible for swarm TASKS (each task carries
   // its NodeID). Containers/images/volumes/networks are per-daemon state and
-  // the control plane only reaches the manager's daemon — those tabs say so
+  // the control plane only reaches the manager's daemon. Those tabs say so
   // instead of pretending to filter.
   // Pick only the QueryLike fields TasksTable reads instead of depending on the
-  // whole (referentially unstable) query object — that would recompute every
+  // whole (referentially unstable) query object, which would recompute every
   // render. Destructure the exact fields so the memo tracks only real changes.
   const { data: tasksData, isLoading, isError, error, refetch } = tasks;
   const filteredTasks = {
@@ -134,8 +147,8 @@ export function RawDockerPanel({
       onSuccess: (res) => {
         toast.success(
           res.imagesDeleted > 0
-            ? `Pruned ${res.imagesDeleted} dangling image${res.imagesDeleted === 1 ? "" : "s"} — ${formatBytes(res.reclaimedBytes)} reclaimed`
-            : "Nothing to prune — no dangling images",
+            ? `Pruned ${res.imagesDeleted} dangling image${res.imagesDeleted === 1 ? "" : "s"}, ${formatBytes(res.reclaimedBytes)} reclaimed`
+            : "Nothing to prune. No dangling images.",
         );
         setPruneOpen(false);
         void images.refetch();
@@ -167,7 +180,9 @@ export function RawDockerPanel({
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => setTab(v as DockerTab)}
+      onValueChange={(v) => {
+        if (isDockerTab(v)) setTab(v);
+      }}
       className="flex min-w-0 flex-1 flex-col gap-0"
     >
       <DockerPageHeader
@@ -218,7 +233,7 @@ export function RawDockerPanel({
         open={pruneOpen}
         onOpenChange={setPruneOpen}
         title="Prune dangling images?"
-        description="Deletes untagged leftover layers from previous builds — images with no tag and no container. Tagged images and anything in use are never touched. Frees disk; the next build may lose some layer cache."
+        description="Deletes untagged leftover layers from previous builds: images with no tag and no container. Tagged images and anything in use are never touched. Frees disk; the next build may lose some layer cache."
         confirmLabel="Prune"
         pending={prune.isPending}
         onConfirm={() => prune.mutate({})}

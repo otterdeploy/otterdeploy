@@ -1,6 +1,6 @@
 /**
  * Server-resolved preview of the public FQDN a service with this name would
- * publish at (`project.resource.publicHostPreview` — the same chain the
+ * publish at (`project.resource.publicHostPreview`, the same chain the
  * expose path walks). One source of truth for the Networking step's hostname
  * placeholder, the Review step's Access row, and the create payload, so what
  * the wizard SHOWS is exactly what Apply stages.

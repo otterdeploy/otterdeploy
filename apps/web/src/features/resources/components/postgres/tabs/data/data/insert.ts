@@ -4,11 +4,11 @@
  * The modal collects one draft string per column; these helpers decide which
  * columns actually go into the INSERT's `set` and validate the draft first.
  * Rules (mirroring the reference viewer):
- * - auto-generated columns (identity / serial) are never sent — "auto";
+ * - auto-generated columns (identity / serial) are never sent. "auto";
  * - an untouched/empty field is OMITTED, so the column takes its DEFAULT or
  *   NULL server-side (typing is always explicit, never an accidental '');
  * - the literal NULL sentinel (boolean select's "null" option) sends SQL NULL;
- * - everything else is sent as text — the server's parameterized builder casts
+ * - everything else is sent as text. The server's parameterized builder casts
  *   the unknown literal to the column type (same discipline as inline edits).
  */
 

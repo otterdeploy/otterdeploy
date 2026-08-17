@@ -1,5 +1,5 @@
 /**
- * Chrome around the per-env variables table — the search/actions toolbar,
+ * Chrome around the per-env variables table: the search/actions toolbar,
  * the drag-drop overlay, and the dashed drop hint under the table.
  */
 import {
@@ -57,7 +57,7 @@ export function VariablesToolbar({
         <HugeiconsIcon icon={FilterIcon} className="size-3.5" />
         Filters
       </Button>
-      {/* The spacer only earns its place on one line — wrapped, it would open
+      {/* The spacer only earns its place on one line, wrapped, it would open
           a gap between the wrapped rows instead of pushing icons right. */}
       <div className="hidden flex-1 sm:block" />
       <Button
@@ -102,7 +102,7 @@ export function DragOverlay({ envLabel }: { envLabel: string }) {
           <span className="capitalize">{envLabel}</span>
         </div>
         <div className="text-xs text-muted-foreground">
-          Opens bulk edit for review — nothing is saved until you apply.
+          Opens bulk edit for review. Nothing is saved until you apply.
         </div>
       </div>
     </div>

@@ -115,7 +115,7 @@ declare module "@tanstack/react-table" {
     pasteDialog?: PasteDialogState;
     onPasteDialogOpenChange?: (open: boolean) => void;
     readOnly?: boolean;
-    /** Foreign keys by column id — cells render a link to the referenced row. */
+    /** Foreign keys by column id: cells render a link to the referenced row. */
     fks?: Record<string, FkTarget>;
     onFkOpen?: (target: FkTarget, value: string, anchor: HTMLElement) => void;
   }

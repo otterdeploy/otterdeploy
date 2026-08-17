@@ -1,5 +1,5 @@
 /**
- * The shared vocabulary both PTY backends speak — the `PtyBackend` surface, the
+ * The shared vocabulary both PTY backends speak: the `PtyBackend` surface, the
  * start/exit shapes, and the process-environment helpers.
  *
  * Its own module so `host-shell.ts` and `pty.ts` can each depend on it without
@@ -16,7 +16,7 @@ import type { PtyExecError, PtySpawnError, PtyTerminalUnavailableError } from ".
 
 /** Pick an interactive shell that actually exists. $SHELL covers the dev
  *  host (zsh/bash); the production image is oven/bun:alpine, which ships
- *  neither bash nor a $SHELL env — there the POSIX sh fallback is the only
+ *  neither bash nor a $SHELL env: there the POSIX sh fallback is the only
  *  one that spawns, and without it the host terminal dies with
  *  "Executable not found in $PATH: bash" on every connect. */
 function resolveShell(): string {
@@ -30,8 +30,8 @@ function resolveShell(): string {
 export const SHELL = resolveShell();
 export const USR_HOME = nodeEnv.HOME || "/root";
 
-// Minimal shell environment. We deliberately do NOT inherit process.env —
-// that would leak server-side secrets (DATABASE_URL, BETTER_AUTH_SECRET, …)
+// Minimal shell environment. We deliberately do NOT inherit process.env.
+// That would leak server-side secrets (DATABASE_URL, BETTER_AUTH_SECRET, …)
 // into the user's shell. Loosen the allowlist if the dev shell needs more.
 export function buildBaseEnv(userId: string | undefined): Record<string, string> {
   const childEnv: Record<string, string> = {

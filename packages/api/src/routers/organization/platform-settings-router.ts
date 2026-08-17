@@ -80,7 +80,7 @@ export const platformSettingsRouter = {
         context.log.set({
           target: { type: "organization", id: context.activeOrganizationId },
         });
-        // Sources the operator's OWN org's stored Cloudflare token/zone — never
+        // Sources the operator's OWN org's stored Cloudflare token/zone, never
         // a caller-supplied organizationId (od-5j8.8: install-admin status
         // shouldn't imply "pull any org's Cloudflare credentials on request").
         const result = await autoConfigureControlPlaneDomain(
@@ -171,7 +171,7 @@ export const platformSettingsRouter = {
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: context.activeOrganizationId },
-        // Credentials never reach the log — only which provider moved and how.
+        // Credentials never reach the log. Only which provider moved and how.
         sso: { provider: input.id, enabled: input.enabled },
       });
       return saveSocialProvider({

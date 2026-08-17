@@ -7,7 +7,7 @@ import { resolveResource } from "../lib/resolve";
 import { abort } from "../lib/ui";
 
 // Mirrors the API's `resourceLogEventSchema` (docker task tails). Build-log
-// events extend this shape with a `seq` — formatEvent handles both.
+// events extend this shape with a `seq`: formatEvent handles both.
 interface ResourceLogEvent {
   stream: "stdout" | "stderr" | "system";
   line: string;
@@ -49,7 +49,7 @@ function parseSince(raw: string): string {
 const STOP_CHECK_MS = 200;
 // --no-follow against a server that predates the `follow` input (unknown keys
 // are stripped, so it keeps streaming): stop once this long passes with no
-// event — the replay burst arrives with far smaller gaps. Measured BETWEEN
+// event: the replay burst arrives with far smaller gaps. Measured BETWEEN
 // events, so it never trips before the first line.
 const NO_FOLLOW_IDLE_MS = 1_500;
 // Safety net so --no-follow still exits if the server never yields a first
@@ -102,7 +102,7 @@ async function consumeStream<T extends ResourceLogEvent>(
       lastEventAt = Date.now();
     }
   } finally {
-    // The abandoned next() may still reject after we leave — swallow it, and
+    // The abandoned next() may still reject after we leave. Swallow it, and
     // close the stream so the server-side generator's finally releases the
     // docker socket.
     pending?.catch(() => undefined);
@@ -112,7 +112,7 @@ async function consumeStream<T extends ResourceLogEvent>(
 
 // --build: stream the builder pipeline's output for one deployment. Per the
 // server's semantics, a terminal deployment yields scrollback then the stream
-// ENDS; a non-terminal one never self-terminates — so poll deployments.list
+// ENDS; a non-terminal one never self-terminates, so poll deployments.list
 // and stop (after a grace window) once the deployment goes terminal.
 async function runBuildLogs(
   ctx: ResourceContext,
@@ -215,7 +215,7 @@ export const logsCommand = defineCommand({
     const json = Boolean(args.json);
     const follow = args.follow !== false;
 
-    // Graceful SIGINT — leave the stream's `for await` early so the
+    // Graceful SIGINT: leave the stream's `for await` early so the
     // server-side generator's finally block releases the docker bus.
     let stopping = false;
     process.on("SIGINT", () => {
@@ -252,7 +252,7 @@ export const logsCommand = defineCommand({
     });
 
     // Both paths run through consumeStream so the STOP_CHECK tick re-checks
-    // `stopping` even while the stream is idle — otherwise Ctrl-C on a quiet
+    // `stopping` even while the stream is idle. Otherwise Ctrl-C on a quiet
     // follow stream would hang until the next line arrived.
     await consumeStream(stream, json, {
       idleStopMs: follow ? null : NO_FOLLOW_IDLE_MS,

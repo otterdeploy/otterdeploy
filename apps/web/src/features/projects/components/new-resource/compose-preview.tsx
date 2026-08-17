@@ -8,12 +8,11 @@
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
 import { Badge } from "@/shared/components/ui/badge";
 import { Spinner } from "@/shared/components/ui/spinner";
 
 import type { DetectedService, Preview } from "./compose-wizard-shared";
-
-import { ComposeServiceIcon } from "./compose-service-icon";
 
 export function ComposePreview({
   parsing,
@@ -61,7 +60,7 @@ export function ComposePreview({
       <div className="flex flex-col gap-1.5">
         {preview.services.map((s) => (
           <div key={s.name} className="flex items-center gap-2 rounded-md border bg-card px-3 py-2">
-            <ComposeServiceIcon image={s.image} className="size-4 shrink-0" />
+            <ServiceImageIcon image={s.image} className="size-4 shrink-0" />
             <span className="font-mono text-[13px]">{s.name}</span>
             <span className="truncate font-mono text-[11px] text-muted-foreground">
               {s.image ?? "(builds from source)"}
@@ -74,7 +73,7 @@ export function ComposePreview({
                 <button
                   key={p}
                   type="button"
-                  title={on ? "Exposed — click to make internal" : "Expose with a public domain"}
+                  title={on ? "Exposed. Click to make internal." : "Expose with a public domain"}
                   onClick={() => onToggleExpose(key)}
                   className={
                     on
@@ -102,7 +101,7 @@ export function ComposePreview({
           <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0" />
           <span>
             {buildServices.map((s) => s.name).join(", ")} build from source, which isn't supported
-            yet — use a prebuilt <code>image:</code> for now.
+            yet. Use a prebuilt <code>image:</code> for now.
           </span>
         </div>
       ) : null}

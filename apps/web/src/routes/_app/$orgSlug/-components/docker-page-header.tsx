@@ -1,5 +1,5 @@
 /**
- * Header block for the Docker route — page title/actions (refresh hint + the
+ * Header block for the Docker route: page title/actions (refresh hint + the
  * swarm-only node filter for the Tasks tab) and the tab strip with live
  * counts, plus the manager-scope caption shown on the per-daemon tabs.
  * Rendered inside the route's <Tabs> so TabsList/TabsTrigger keep context.
@@ -38,7 +38,7 @@ export function DockerPageHeader({
     <div className="border-b px-6 pb-0 pt-6">
       <PageHeader
         title="Docker"
-        description="Raw daemon-level inventory — containers, images, volumes, networks, and swarm tasks outside the project and Stack abstraction."
+        description="Containers, images, volumes, networks, and swarm tasks as the daemon sees them, outside the project and Stack abstraction."
         actions={
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">
@@ -85,7 +85,7 @@ export function DockerPageHeader({
   );
 }
 
-/** Caption for the per-daemon tabs when this deployment is a swarm — the
+/** Caption for the per-daemon tabs when this deployment is a swarm. The
  *  inventory below is the manager daemon's local state, not cluster-wide. */
 export function ManagerScopeCaption({ swarm, tab }: { swarm: boolean; tab: DockerTab }) {
   if (!swarm || tab === "tasks") return null;
@@ -93,7 +93,7 @@ export function ManagerScopeCaption({ swarm, tab }: { swarm: boolean; tab: Docke
     <p className="mb-3 text-xs text-muted-foreground">
       Scope: manager node&apos;s daemon. Per-node{" "}
       {tab === "containers" ? "container" : tab.slice(0, -1)} listing isn&apos;t reachable from
-      the control plane — only swarm tasks carry a node.
+      the control plane; only swarm tasks carry a node.
     </p>
   );
 }

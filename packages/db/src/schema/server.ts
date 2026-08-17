@@ -1,6 +1,6 @@
 import type { NodeEnrollmentId, ServerId, SshKeyId, UserId } from "@otterdeploy/shared/id";
 
-// Swarm node (server) registry — one row per host the org has joined to the
+// Swarm node (server) registry: one row per host the org has joined to the
 // Docker Swarm cluster. Live CPU/mem/disk metrics are NOT stored here; this
 // table holds capacity + identity. Runtime stats come from a separate
 // metrics path (TBD).
@@ -23,7 +23,7 @@ import { sshKey } from "./ssh-key";
 export const serverRoleEnum = pgEnum("server_role", ["manager", "worker"]);
 export const serverStatusEnum = pgEnum("server_status", ["ready", "draining", "down"]);
 export const serverAvailabilityEnum = pgEnum("server_availability", ["active", "drain", "pause"]);
-// SSH-onboarding lifecycle — distinct from `status` (a swarm concept). Tracks
+// SSH-onboarding lifecycle: distinct from `status` (a swarm concept). Tracks
 // the provision+join run: pending (row created, not started) → provisioning
 // (installing Docker) → joining (running `docker swarm join`) → ready (node
 // verified in `docker node ls`) | failed (see provisionError). The bootstrap
@@ -38,16 +38,16 @@ export const serverProvisionStatusEnum = pgEnum("server_provision_status", [
 // Node interconnect for the swarm. `none` = join over the public/given address
 // (the manager must advertise a routable IP). `tailscale`/`netbird` install a
 // WireGuard mesh agent during provisioning and use the node's mesh address as
-// the swarm advertise/join address — which also sidesteps the loopback
+// the swarm advertise/join address, which also sidesteps the loopback
 // advertise-address gap. Design: docs/designs/server-onboarding.md
 export const serverMeshProviderEnum = pgEnum("server_mesh_provider", [
   "none",
   "tailscale",
   "netbird",
 ]);
-// Host-firewall provisioning outcome (od-5j8.11 — docs/designs/vps-firewall-layering.md).
+// Host-firewall provisioning outcome (od-5j8.11, docs/designs/vps-firewall-layering.md).
 // "unknown" is the honest default for every row that predates this feature
-// (or ran an older provision) — it's drift, not a false "protected" claim.
+// (or ran an older provision). It's drift, not a false "protected" claim.
 // "unsupported" means an existing ufw/firewalld took precedence (narrated,
 // not a failure); "failed" means the install attempt itself errored.
 export const serverFirewallStatusEnum = pgEnum("server_firewall_status", [
@@ -106,10 +106,10 @@ export const server = pgTable(
     meshAddress: text("mesh_address"),
     // Dedicated build node: labelled `otterdeploy.role=build` in the swarm so
     // build workloads can be placed on it, off the deploy nodes. Image hand-off
-    // is via a registry (build here, deploy nodes pull) — see the design doc.
+    // is via a registry (build here, deploy nodes pull). See the design doc.
     buildServer: boolean("build_server").notNull().default(false),
     // Host-firewall provisioning state (nftables baseline + native CrowdSec
-    // bouncer) — see host-firewall.ts's isFirewallDrifted(). Set by
+    // bouncer): see host-firewall.ts's isFirewallDrifted(). Set by
     // provision-runner.ts on join and by the reapplyFirewall remediation
     // path; never by the operator directly.
     firewallStatus: serverFirewallStatusEnum("firewall_status").notNull().default("unknown"),
@@ -182,12 +182,12 @@ export const swarmJoinRotation = pgTable("swarm_join_rotation", {
     .notNull(),
 });
 
-// Latest host-health snapshot per server — the "separate metrics path" the
+// Latest host-health snapshot per server: the "separate metrics path" the
 // server-table note reserves. One row per server, UPSERTED in place (no
 // history; platform_metric keeps local-host series). Written by the health
 // agent's ingest route for remote swarm nodes and by the control plane's own
 // 60s sampler for the bootstrap localhost row(s). `payload` is the HostHealth
-// shape as reported; staleness is judged on receivedAt (our clock — agent
+// shape as reported; staleness is judged on receivedAt (our clock, agent
 // clocks may skew). Design: docs/designs/server-health-agent.md
 export const serverHealthSample = pgTable(
   "server_health_sample",
@@ -199,7 +199,7 @@ export const serverHealthSample = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    // Hostname as CLAIMED by the reporter — kept for attribution audit even
+    // Hostname as CLAIMED by the reporter: kept for attribution audit even
     // though the row is already matched to a server.
     hostname: text("hostname"),
     payload: jsonb("payload").notNull(),

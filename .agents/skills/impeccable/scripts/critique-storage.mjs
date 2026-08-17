@@ -37,7 +37,7 @@ const SLUG_MAX = 50;
  * input doesn't look like a stable identifier (empty, project root, etc).
  *
  * Accepts file paths and URLs. The model resolves "the homepage" to a
- * concrete artifact before calling this — we never slug a natural-language
+ * concrete artifact before calling this: we never slug a natural-language
  * phrase.
  */
 export function slugFromTarget(resolved, { cwd = process.cwd() } = {}) {
@@ -75,7 +75,7 @@ function kebab(s) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
   if (!slug) return null;
-  // Cap from the tail — the tail (filename) is more identifying than the
+  // Cap from the tail: the tail (filename) is more identifying than the
   // top-level directory.
   return slug.length <= SLUG_MAX ? slug : slug.slice(slug.length - SLUG_MAX).replace(/^-/, '');
 }

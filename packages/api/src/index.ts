@@ -1,8 +1,6 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
-import type { Id } from "@otterdeploy/shared/id";
 
 import { implement, os as orpc } from "@orpc/server";
-import { ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { Context } from "./context";
 
@@ -86,7 +84,7 @@ const authMiddleware = orpc
   .middleware(async ({ context, next, errors }) => {
     // A session/cookie/CLI-bearer user OR a verified API-key actor counts as
     // authenticated. Session-identity handlers still read `context.session`
-    // directly (null for key actors) — guard there if they need a real user.
+    // directly (null for key actors): guard there if they need a real user.
     if (!context.actor) {
       throw errors.UNAUTHORIZED();
     }
@@ -129,7 +127,7 @@ const orgScopedMiddleware = orpc
         actor: context.actor,
         session: context.session,
         apiKey: context.apiKey,
-        activeOrganizationId: context.activeOrganizationId as Id<typeof ID_PREFIX.organization>,
+        activeOrganizationId: context.activeOrganizationId,
       },
     });
   });
@@ -150,10 +148,7 @@ const installAdminMiddleware = orpc
   })
   .middleware(async ({ context, procedure, next, errors }) => {
     const definition = procedure["~orpc"];
-    const mode =
-      (isReadMethod(definition.meta, definition.route as { method?: string } | undefined) ?? false)
-        ? "read"
-        : "write";
+    const mode = (isReadMethod(definition.meta, definition.route) ?? false) ? "read" : "write";
     const decision = await authorizeCapability(context.actor, {
       scope: "install",
       mode,
@@ -171,8 +166,8 @@ export function requireInstallAdmin() {
 /**
  * Constrains an API-key actor to the project(s) its scope allows. `projectId`
  * is read from validated input (handlers vary in whether it's required, so it
- * no-ops when absent). Session/cookie actors are never project-restricted —
- * only keys minted with `projectScope: "selected"` are gated. Folded into both
+ * no-ops when absent). Session/cookie actors are never project-restricted.
+ * Only keys minted with `projectScope: "selected"` are gated. Folded into both
  * `requirePermission` and `projectScopedProcedure` below, so every gated
  * project mutation also honours the key's project scope.
  */
@@ -187,8 +182,8 @@ const projectScopeMiddleware = orpc
   .middleware(async ({ context, next, errors }, input: unknown) => {
     if (context.apiKey) {
       const projectId =
-        input && typeof input === "object" && "projectId" in input
-          ? (input as { projectId?: unknown }).projectId
+        input !== null && typeof input === "object" && "projectId" in input
+          ? input.projectId
           : undefined;
       if (typeof projectId === "string" && !requireProjectScope(context.apiKey, projectId)) {
         throw errors.FORBIDDEN();
@@ -201,7 +196,7 @@ const projectScopeMiddleware = orpc
  * Build an org-scoped procedure that additionally requires a specific RBAC
  * permission. Role resolution + the permission check are delegated to
  * better-auth's `auth.api.hasPermission` (statements/roles defined in
- * `@otterdeploy/auth/permissions`) — no hand-rolled member-table lookups. The
+ * `@otterdeploy/auth/permissions`), no hand-rolled member-table lookups. The
  * returned procedure ALSO carries the api-key project-scope guard, so a gated
  * mutation enforces RBAC, the key's resource scope, AND the key's project scope
  * in one place.
@@ -225,13 +220,12 @@ export function requirePermission(permission: PermissionCheck) {
       }
       const definition = procedure["~orpc"];
       const mode =
-        (isReadMethod(definition.meta, definition.route as { method?: string } | undefined) ??
-        isReadAction(path.join(".")))
+        (isReadMethod(definition.meta, definition.route) ?? isReadAction(path.join(".")))
           ? "read"
           : "write";
       const projectId =
-        input && typeof input === "object" && "projectId" in input
-          ? (input as { projectId?: unknown }).projectId
+        input !== null && typeof input === "object" && "projectId" in input
+          ? input.projectId
           : undefined;
       const decision = await authorizeCapability(context.actor, {
         scope: "organization",
@@ -261,7 +255,7 @@ export function requireInstallAdminPermission(permission: PermissionCheck) {
 
 /**
  * Org-scoped procedure with the api-key project-scope guard but no specific RBAC
- * permission — for project-scoped READ procedures (and any mutation gated some
+ * permission: for project-scoped READ procedures (and any mutation gated some
  * other way). Mutating project procedures should prefer `requirePermission`,
  * which layers the RBAC check on top of this same project-scope guard.
  */

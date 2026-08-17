@@ -1,10 +1,10 @@
 /**
  * Generic resource base inputs + the router slice. Resource *schemas*
  * (database/service/compose + the discriminated union) live in
- * `./resource-schemas` — split out so this file stays under the line cap.
+ * `./resource-schemas`: split out so this file stays under the line cap.
  *
  * The "generic" per-resource endpoints (tasks, env, get, delete, checkName,
- * list) live in this file's contract slice — handler dispatches on kind to
+ * list) live in this file's contract slice. Handler dispatches on kind to
  * source from the right storage.
  */
 
@@ -23,7 +23,7 @@ export {
 const listProjectResourcesInput = z.object({
   projectId: projectIdField,
   /** Which environment's resources to return. Omitted means the project's main
-   *  environment — the same default the switcher opens on. */
+   *  environment: the same default the switcher opens on. */
   environmentId: environmentIdField.optional(),
 });
 
@@ -38,7 +38,7 @@ const deleteProjectResourceInput = z.object({
 });
 
 /**
- * Generic per-resource endpoints — same shape for postgres databases,
+ * Generic per-resource endpoints: same shape for postgres databases,
  * services, and any future engine. Handler dispatches on resource kind.
  */
 const resourceTaskInput = z.object({
@@ -60,13 +60,13 @@ const resourceEnvBulkSetInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   env: z.array(resourceEnvEntrySchema),
-  // Keys to mark as sensitive — server stores this as a display hint;
+  // Keys to mark as sensitive: server stores this as a display hint;
   // values still travel the wire in plain. Optional so callers that don't
   // care about masking can omit it.
   secretKeys: z.array(z.string()).optional(),
   // Whether to re-apply the resource to Swarm after persisting. A container's
   // env is fixed at creation, so the change only takes effect on redeploy.
-  // The Variables tab passes `false` — it persists the diff and leaves the
+  // The Variables tab passes `false`. It persists the diff and leaves the
   // running container alone until the operator hits Deploy. Omitted/`true`
   // preserves the eager-redeploy behaviour for the CLI and other callers.
   redeploy: z.boolean().optional(),
@@ -76,12 +76,12 @@ const resourceEnvBulkSetInput = z.object({
  * Live name-availability check for the new-resource wizard. Used by the
  * Service name field's onBlur validator and to pre-fill a free default
  * when the page mounts. `suggestion` is non-null only when `available` is
- * false — derived by suffixing "-2", "-3", … until free.
+ * false, derived by suffixing "-2", "-3", … until free.
  */
 const checkResourceNameInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
-  /** Environment the resource will be created in — names collide per
+  /** Environment the resource will be created in. Names collide per
    *  (project, environment). Omitted means main. */
   environmentId: environmentIdField.optional(),
 });
@@ -95,8 +95,8 @@ const checkResourceNameSchema = z.object({
  * Read-only preview of the public hostname a service named `name` would be
  * published at (same resolver chain the expose path walks: resource override
  * → project custom domain → org base → local dev base → sslip fallback).
- * Used by the new-resource wizard so the Networking/Review steps can show —
- * and stage — the real hostname instead of silently dropping the Public
+ * Used by the new-resource wizard so the Networking/Review steps can show,
+ * and stage: the real hostname instead of silently dropping the Public
  * toggle. Pure lookup; writes nothing.
  */
 const publicHostPreviewInput = z.object({
@@ -115,12 +115,12 @@ const publicHostPreviewSchema = z.object({
   ]),
 });
 
-// Imported by the slice below — see ./service-tasks for the schema definition.
+// Imported by the slice below: see ./service-tasks for the schema definition.
 import { serviceTaskSchema } from "./service-tasks";
 import { environmentIdField, projectIdField, resourceIdField } from "./shared";
 
 /**
- * Router slice for the generic resource endpoints — list, checkName, tasks,
+ * Router slice for the generic resource endpoints: list, checkName, tasks,
  * env CRUD, get, delete. Composed into `projectContract.resource` along
  * with the streaming logs slice and the postgres-specific sub-slice.
  */
@@ -201,7 +201,7 @@ export const resourceContractSlice = {
     .errors({
       ...resourceNotFoundErrors,
       // 409: the request is well-formed, the database simply still has live
-      // preview branches. Closing them is the resolution — which is what a
+      // preview branches. Closing them is the resolution, which is what a
       // conflict means, as opposed to a malformed request.
       CONFLICT: {
         status: 409,
@@ -217,7 +217,7 @@ export const resourceContractSlice = {
     .output(z.object({ ok: z.boolean() })),
 
   // Clone a SET of resources. Preview first: the names the copies get, and
-  // every env reference that will still point OUTSIDE the set — the latter is
+  // every env reference that will still point OUTSIDE the set. The latter is
   // the part worth reading, because a copy holding a ref to a resource you
   // didn't clone reads and writes the original with no visible symptom.
   clonePreview: oc

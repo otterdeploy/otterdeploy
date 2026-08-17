@@ -6,7 +6,7 @@ import { defineJob } from "../define";
 export const EmailPayload = z.object({
   to: z.string().min(1),
   subject: z.string().min(1),
-  /** Plain-text message body. Rendered through the MessageEmail React template —
+  /** Plain-text message body. Rendered through the MessageEmail React template,
    *  never sent as raw HTML. Blank lines become paragraph breaks. */
   body: z.string(),
   /** Optional heading shown above the body; defaults to the subject. */
@@ -27,7 +27,7 @@ export const sendEmailJob = defineJob({
   async handler(payload, { log }) {
     log.info({ email: { step: "send", to: payload.to } });
 
-    // Every email renders through a React Email template — the plain-text body
+    // Every email renders through a React Email template. The plain-text body
     // becomes the `text` alternative; the HTML part comes from MessageEmail.
     // sendEmail throws on Resend errors; BullMQ retries per `opts.attempts`.
     const result = await sendEmail({

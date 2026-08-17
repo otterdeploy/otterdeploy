@@ -90,10 +90,10 @@ Compare: data store choice (Postgres vs SQLite) and its consequences, process mo
   },
   {
     key: 'build-pipeline',
-    prompt: `DIMENSION: Build pipeline — Railpack, framework detection, image building.
+    prompt: `DIMENSION: Build pipeline, Railpack, framework detection, image building.
 OURS: apps/builder/src/{pipeline.ts,railpack.ts,detect-framework.ts,build-one.ts,clone.ts,docker-push.ts,run-process.ts,log-stream.ts,handler.ts}. Note our memory: monorepo subdir services build from repo ROOT; static sites use Railpack Caddy image + registry.
 THEIRS: research/aeroplane/src/server/{buildkit.ts,dockerfile-build.ts,railpack-build-env.ts,frameworks.ts,framework-file-detectors.ts,framework-icon-catalog.ts,framework-icons.ts,deploy.ts}.
-Compare: how each invokes Railpack, BuildKit usage (they use BuildKit directly on 127.0.0.1:1234 — do we?), Dockerfile support, framework detection breadth/accuracy, build env handling, registry/push model, build log streaming, monorepo handling, static-site handling. Who has the more robust/complete build path?`,
+Compare: how each invokes Railpack, BuildKit usage (they use BuildKit directly on 127.0.0.1:1234, do we?), Dockerfile support, framework detection breadth/accuracy, build env handling, registry/push model, build log streaming, monorepo handling, static-site handling. Who has the more robust/complete build path?`,
   },
   {
     key: 'deploy-runtime',
@@ -107,7 +107,7 @@ Compare: zero-downtime deploy strategy, container swap/rollback, internal Docker
     prompt: `DIMENSION: Edge, networking, domains, DNS automation, TLS certs.
 OURS: packages/api/src/caddy/{reconciler.ts,builder.ts,client.ts,queries.ts}, packages/api/src/lib/{domains.ts,dns-resolver.ts,dns-verify.ts,domain-reachability.ts,cloudflare.ts,cloudflare-ips.ts,server-ip.ts}, packages/api/src/routers/caddy, proxy-route schema (multi-domain; ADD-AND-GO; custom Caddy config per project/route).
 THEIRS: research/aeroplane/src/server/{caddy.ts,caddy-certificates.ts,service-domains.ts,root-domain.ts,dns-providers.ts,railway-custom-domains.ts}, plus assets/dns-providers.
-Compare: Caddyfile vs Caddy JSON API reconciliation, multi-domain per service, wildcard/generated domains, custom-domain UX, DNS PROVIDER automation (they have dns-providers — do we?), cert handling, custom user config injection, validate-before-apply. Who has better networking?`,
+Compare: Caddyfile vs Caddy JSON API reconciliation, multi-domain per service, wildcard/generated domains, custom-domain UX, DNS PROVIDER automation (they have dns-providers, do we?), cert handling, custom user config injection, validate-before-apply. Who has better networking?`,
   },
   {
     key: 'access-control',
@@ -125,24 +125,24 @@ Compare HONESTLY and in depth: supported engines (pg/redis/mongo), data browsing
   },
   {
     key: 'observability',
-    prompt: `DIMENSION: Observability — service/build logs, edge access logs, metrics, notifications, tracing.
+    prompt: `DIMENSION: Observability, service/build logs, edge access logs, metrics, notifications, tracing.
 OURS: packages/api/src/edge-logs/* (ring + Postgres partitions + geo + persist + query), packages/api/src/metrics/* (30s sampler + query), packages/api/src/notifications + packages/jobs/src/delivery/* (Slack/Discord/email/webhook/telegram/pagerduty + subscription matrix), packages/api/src/routers/{metrics,edge-logs,notifications}, apps/web features {logs,edge-logs,notifications}, OTel (apps/server/src/lib/tracing.ts). Streaming via oRPC event-iterators.
 THEIRS: research/aeroplane/src/server/{logBus.ts,project-activity.ts}. Search for any metrics/notifications/edge-log equivalent.
-Compare: log streaming, edge/access logs, resource metrics, alert/notification channels, tracing. Who gives operators more visibility? (Likely us — verify the gap on their side honestly.)`,
+Compare: log streaming, edge/access logs, resource metrics, alert/notification channels, tracing. Who gives operators more visibility? (Likely us, verify the gap on their side honestly.)`,
   },
   {
     key: 'env-secrets',
     prompt: `DIMENSION: Environment variables & secrets management.
 OURS: packages/api/src/lib/variables/*, packages/api/src/routers/env. Memory (Dokploy-style): three-tier cascade + \${{scope.KEY}} references, plaintext at rest.
 THEIRS: research/aeroplane/src/server/{variable-resolver.ts,secret-crypto.ts,env-file.ts,env-example-suggestions.ts}.
-Compare: variable scoping/cascade, cross-reference interpolation, encryption at rest (they have secret-crypto — do we encrypt? we store plaintext per memory), .env import/export, AI-assisted env suggestions (env-example-suggestions). Who handles secrets more safely & ergonomically? Note honestly if they encrypt at rest and we don't.`,
+Compare: variable scoping/cascade, cross-reference interpolation, encryption at rest (they have secret-crypto, do we encrypt? we store plaintext per memory), .env import/export, AI-assisted env suggestions (env-example-suggestions). Who handles secrets more safely & ergonomically? Note honestly if they encrypt at rest and we don't.`,
   },
   {
     key: 'ai-features',
     prompt: `DIMENSION: AI-powered features.
 OURS: search the repo for vercel-ai / @ai-sdk usage (grep "ai-sdk", "generateText", "streamText" across apps/ and packages/). Document what AI features we actually ship (may be little/none).
 THEIRS: research/aeroplane/src/server/deployment-failure-ai.ts, env-example-suggestions.ts, research/aeroplane/src/shared/ai-providers.ts, research/aeroplane/src/client/features/services/deployment-failure-* (explanation modal, model picker, command), research/aeroplane/src/client/features/onboarding/onboarding-thread.tsx. They bundle 8 @ai-sdk providers (anthropic/openai/google/groq/mistral/xai/deepseek/openai-compatible).
-Compare: AI deploy-failure diagnosis, AI env suggestions, conversational onboarding, multi-provider/model picker, BYO-key. This is likely a THEY-do-better area — quantify it and extract what's worth copying.`,
+Compare: AI deploy-failure diagnosis, AI env suggestions, conversational onboarding, multi-provider/model picker, BYO-key. This is likely a THEY-do-better area, quantify it and extract what's worth copying.`,
   },
   {
     key: 'migration-lifecycle',
@@ -160,8 +160,8 @@ Compare: routing/state approach, component library, design polish/system, projec
   },
   {
     key: 'api-cli',
-    prompt: `DIMENSION: Programmatic surface — public API & CLI.
-OURS: oRPC contracts (packages/api/src/routers/*, served by apps/server), apps/cli (the "otterdeploy" end-user CLI — list apps/cli/src/commands), API keys feature.
+    prompt: `DIMENSION: Programmatic surface, public API & CLI.
+OURS: oRPC contracts (packages/api/src/routers/*, served by apps/server), apps/cli (the "otterdeploy" end-user CLI, list apps/cli/src/commands), API keys feature.
 THEIRS: research/aeroplane/src/server/{api-key-routes.ts,api-access-control.ts,api-keys.ts}. Search whether they ship a CLI at all (check research/aeroplane root + scripts).
 Compare: typed API contracts vs REST, scoped key permissions, end-user CLI presence/coverage, OpenAPI/docs (we serve a spec; do they?). Who offers the better automation surface?`,
   },

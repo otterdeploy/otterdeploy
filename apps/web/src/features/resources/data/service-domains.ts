@@ -1,4 +1,4 @@
-/** Namespace prefix for the service-domains collection cache entries — the
+/** Namespace prefix for the service-domains collection cache entries. The
  *  single source of truth expose/unexpose + the domains card invalidate to
  *  refetch a service's published hosts immediately. See [[RESOURCE_COLLECTION_KEY]]
  *  for why this is a distinct namespace rather than the raw orpc key. */

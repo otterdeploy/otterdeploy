@@ -26,7 +26,7 @@ export interface CaddyCodeEditorProps {
   indent?: string;
 }
 
-// Shared text metrics — the highlight layer, textarea, and gutter MUST agree
+// Shared text metrics: the highlight layer, textarea, and gutter MUST agree
 // on every property that affects glyph position, or the caret drifts.
 const TEXT_METRICS = "font-mono text-[12.5px] leading-[1.6]";
 const PAD_Y = "py-2.5";
@@ -83,7 +83,7 @@ export function CaddyCodeEditor({
         className,
       )}
     >
-      {/* Gutter — vertical-scroll only, mirrored from the textarea. */}
+      {/* Gutter: vertical-scroll only, mirrored from the textarea. */}
       <div
         ref={gutterRef}
         aria-hidden
@@ -115,7 +115,7 @@ export function CaddyCodeEditor({
             <span className="text-muted-foreground/45">{placeholder}</span>
           ) : (
             // One continuous text flow (not per-line <div>s) so it mirrors the
-            // textarea's layout exactly — empty lines keep their height and the
+            // textarea's layout exactly. Empty lines keep their height and the
             // caret never drifts. A trailing space on the final line preserves
             // its box even when empty.
             lines.map((segs, idx) => (

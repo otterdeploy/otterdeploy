@@ -1,15 +1,19 @@
-import type { JsonObject } from "../json";
-
 import { describe, expect, test } from "bun:test";
 
+import type { JsonObject } from "../json";
+
+import { isJsonObject } from "../json";
 import { omitUndefined } from "../object";
 
 // `omitUndefined`'s mapped return type turns any key whose only value is
 // `undefined` into a `never`-typed property, which makes `toEqual` against an
 // object that omits that key fail to typecheck. Widen the received value to a
-// plain JSON object at the assertion — we're asserting runtime structural
-// equality of plain-data fixtures.
-const struct = (value: object): JsonObject => value as JsonObject;
+// plain JSON object at the assertion via the real runtime guard: we're
+// asserting runtime structural equality of plain-data fixtures.
+const struct = (value: object): JsonObject => {
+  if (!isJsonObject(value)) throw new Error("expected a plain JSON object fixture");
+  return value;
+};
 
 describe("omitUndefined", () => {
   test("strips undefined-valued keys", () => {
@@ -18,7 +22,7 @@ describe("omitUndefined", () => {
     expect("b" in out).toBe(false);
   });
 
-  test("keeps null — null and undefined carry different intent", () => {
+  test("keeps null. Null and undefined carry different intent", () => {
     const out = omitUndefined({ a: null, b: undefined });
     expect(struct(out)).toEqual({ a: null });
     expect("a" in out).toBe(true);
@@ -30,7 +34,7 @@ describe("omitUndefined", () => {
     expect(struct(out)).toEqual({ a: 0, b: "", c: false });
   });
 
-  test("returns a fresh object — does not mutate input", () => {
+  test("returns a fresh object. Does not mutate input", () => {
     const input = { a: 1, b: undefined };
     const out = omitUndefined(input);
     expect(out).not.toBe(input);
@@ -38,10 +42,10 @@ describe("omitUndefined", () => {
     expect("b" in input).toBe(true);
   });
 
-  test("nested objects are not walked — shallow only", () => {
+  test("nested objects are not walked, shallow only", () => {
     const inner = { x: undefined, y: 1 };
     const out = omitUndefined({ inner });
-    // The nested undefined survives — only top-level keys are stripped.
+    // The nested undefined survives: only top-level keys are stripped.
     expect(out.inner).toBe(inner);
     expect(out.inner.x).toBeUndefined();
   });

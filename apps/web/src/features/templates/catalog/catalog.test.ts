@@ -2,8 +2,8 @@ import { collectVarRefs } from "@otterdeploy/api/routers/compose/env";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 /**
  * The catalog honesty gate: every template's compose YAML must round-trip the
- * repo's own compose parser — the exact code path the wizard's live preview
- * and the deploy reconciler use — and the typed metadata (`includes`,
+ * repo's own compose parser. The exact code path the wizard's live preview
+ * and the deploy reconciler use, and the typed metadata (`includes`,
  * `requiredEnv`) must match what the parser actually finds in the file.
  */
 import { describe, expect, it } from "vite-plus/test";
@@ -64,8 +64,7 @@ describe("template catalog", () => {
         const mounted = new Set(
           parsed.services
             .flatMap((s) => s.volumes)
-            .filter((m) => m.type === "volume" && m.source)
-            .map((m) => m.source as string),
+            .flatMap((m) => (m.type === "volume" && m.source ? [m.source] : [])),
         );
         expect([...mounted].sort()).toEqual([...parsed.volumeNames].sort());
       });

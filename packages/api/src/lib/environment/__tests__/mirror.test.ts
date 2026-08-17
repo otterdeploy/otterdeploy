@@ -2,14 +2,15 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { Manifest } from "../../../stack/manifest";
 
-import { resolveEnvironment } from "../../../stack/manifest";
+import { manifestSchema, resolveEnvironment } from "../../../stack/manifest";
 import { withEnvironmentOverlay, withoutEnvironmentOverlay } from "../mirror";
 
-const base = {
+const base = manifestSchema.parse({
   version: 1,
+  project: "demo",
   services: { web: { source: "image", image: "nginx:1", replicas: 2 } },
   databases: { pg: { engine: "postgres" } },
-} as unknown as Manifest;
+});
 
 /**
  * The property under test is that an empty overlay IS the mirror: resolving the
@@ -36,21 +37,21 @@ describe("withEnvironmentOverlay", () => {
   it("a later change to base reaches the mirrored environment", () => {
     const withEnv = withEnvironmentOverlay(base, "staging");
     // Production changes...
-    const changed = {
+    const changed: Manifest = {
       ...withEnv,
       services: { web: { source: "image", image: "nginx:2", replicas: 5 } },
-    } as unknown as Manifest;
-    // ...and staging sees it, because it overrode nothing.
-    const resolved = resolveEnvironment(changed, "staging") as unknown as {
-      services: { web: { image: string; replicas: number } };
     };
-    expect(resolved.services.web.image).toBe("nginx:2");
-    expect(resolved.services.web.replicas).toBe(5);
+    // ...and staging sees it, because it overrode nothing.
+    const resolved = resolveEnvironment(changed, "staging");
+    const web = resolved.services.web;
+    if (web?.source !== "image") throw new Error("expected the image-sourced web service");
+    expect(web.image).toBe("nginx:2");
+    expect(web.replicas).toBe(5);
   });
 
   it("returns the SAME object when the overlay already exists", () => {
-    // Identity is the caller's signal that no manifest write is needed —
-    // re-creating an environment must not bump the version and light up a
+    // Identity is the caller's signal that no manifest write is needed.
+    // Re-creating an environment must not bump the version and light up a
     // pending change on every other client.
     const once = withEnvironmentOverlay(base, "staging");
     const twice = withEnvironmentOverlay(once, "staging");
@@ -64,10 +65,10 @@ describe("withEnvironmentOverlay", () => {
   });
 
   it("does not disturb an overlay that already carries overrides", () => {
-    const customised = {
+    const customised: Manifest = {
       ...base,
       environments: { staging: { services: { web: { replicas: 1 } } } },
-    } as unknown as Manifest;
+    };
     expect(withEnvironmentOverlay(customised, "staging")).toBe(customised);
   });
 });
@@ -76,10 +77,10 @@ describe("withoutEnvironmentOverlay", () => {
   it("removes the block so a re-created environment is a clean mirror", () => {
     // A leftover block is inert but a trap: re-creating the slug would silently
     // inherit the deleted environment's overrides.
-    const customised = {
+    const customised: Manifest = {
       ...base,
       environments: { staging: { services: { web: { replicas: 1 } } } },
-    } as unknown as Manifest;
+    };
     const next = withoutEnvironmentOverlay(customised, "staging");
     expect(next.environments).toBeUndefined();
   });

@@ -1,7 +1,7 @@
 /**
  * Collapsible legend for the graph canvas (bottom-left): the edge vocabulary
  * (dependency vs live traffic) and the node status dot key. Collapse state
- * persists globally — it's a viewing preference, not project state.
+ * persists globally: it's a viewing preference, not project state.
  */
 
 import { useState } from "react";
@@ -14,7 +14,7 @@ import { cn } from "@/shared/lib/utils";
 const STORAGE_KEY = "otterdeploy:graph-legend-open";
 
 /** `hasNodes` is only the fallback for a first-ever visit (no stored
- *  preference yet) — an empty canvas has nothing for the legend to explain,
+ *  preference yet): an empty canvas has nothing for the legend to explain,
  *  so it starts collapsed instead of floating open over blank space. Any
  *  explicit operator preference (from a prior toggle) always wins. */
 function readOpen(hasNodes: boolean): boolean {

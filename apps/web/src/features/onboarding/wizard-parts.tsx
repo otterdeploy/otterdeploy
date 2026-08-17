@@ -72,7 +72,7 @@ export function WizardField({
   autoComplete?: string;
   /** Optional helper line rendered under the input. */
   hint?: ReactNode;
-  /** Render the value in Geist Mono (slugs, domains — machine-readable). */
+  /** Render the value in Geist Mono (slugs, domains, machine-readable). */
   mono?: boolean;
 }) {
   return (
@@ -110,7 +110,7 @@ export function WizardField({
 /**
  * Footer action row for a step, anchored to the bottom of the content column.
  * An optional low-emphasis skip sits on the left; the primary submit (the ink
- * CTA the auth surface uses — Signal Blue is reserved for the active step) on
+ * CTA the auth surface uses. Signal Blue is reserved for the active step) on
  * the right.
  */
 export function WizardActions({

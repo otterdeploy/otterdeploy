@@ -1,6 +1,6 @@
 /**
- * Unit tests for boot-time deploy reconciliation. Everything is injected —
- * no Postgres, no Redis — so these run in plain `bun test`.
+ * Unit tests for boot-time deploy reconciliation. Everything is injected,
+ * no Postgres, no Redis, so these run in plain `bun test`.
  *
  * The db mock is a tiny in-memory store of deployment rows plus a join table
  * for org/resource/project name resolution. It implements only the drizzle
@@ -19,6 +19,13 @@ import { beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 // real triggers/db/env modules never load (static imports would hoist above
 // the mocks and pull in @otterdeploy/env, which validates env at load time).
 let reconcileInterruptedDeployments: typeof import("../reconcile").reconcileInterruptedDeployments;
+// Namespaces of the MOCKED @otterdeploy/db / ./queues modules (see the
+// mock.module calls below). Importing them after the mocks register yields the
+// per-test fakes under the modules' real types, which is what lets each test
+// hand `db` / `getQueue` to reconcile without casting a hand-rolled object
+// into the full drizzle-client / bullmq types.
+let dbModule: typeof import("@otterdeploy/db");
+let queuesModule: typeof import("../queues");
 
 type Status = "pending" | "building" | "running" | "failed" | "superseded";
 
@@ -57,7 +64,7 @@ function rowById(rows: Row[], id: string): Row {
 function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
   const logLines: Array<{ deploymentId: string; line: string }> = [];
 
-  // running rows pre-sorted (resourceId asc, createdAt desc) — the order
+  // running rows pre-sorted (resourceId asc, createdAt desc): the order
   // reconcile relies on to keep the newest per resource.
   const runningSorted = () =>
     rows
@@ -84,7 +91,7 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
   // drizzle-orm: { __allowed } = inArray (orphans), { __eq } = eq status
   // (running), { __id } = eq id (join).
   // UnknownRecord: the projection's values are drizzle column objects and the
-  // builder is a heterogeneous bag of chainable methods — runtime values, not
+  // builder is a heterogeneous bag of chainable methods, runtime values, not
   // JSON.
   const select = (projection: UnknownRecord) => {
     const isJoinSelect = "organizationId" in projection;
@@ -122,7 +129,7 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
     const builder: UnknownRecord = {
       set: (fields: Partial<Row>) => {
         setFields = fields;
-        nextStatus = (fields.status as Status) ?? "failed";
+        nextStatus = fields.status ?? "failed";
         return builder;
       },
       where: (pred: { __id?: string; __allowed?: Status[] }) => {
@@ -150,8 +157,47 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
     },
   });
 
-  return { db: { select, update, insert } as never, rows, logLines };
+  const db = { select, update, insert };
+  // Install as the current fake behind the mocked @otterdeploy/db (below).
+  currentDb = db;
+  return { db, rows, logLines };
 }
+
+// ─── module-mock seam for db + queues ────────────────────────────────────
+//
+// `ReconcileOptions.db` / `.getQueue` are typed as the REAL drizzle client and
+// bullmq queue factory: types the in-memory fakes above cannot honestly
+// satisfy. Instead of casting the fakes into those types, they are routed
+// through bun's module-mock seam (the same mechanism as the drizzle-orm and
+// schema stubs below): the mocked module delegates to whatever the current
+// test installed, and importing the mocked module in beforeAll yields the fake
+// under the module's declared types.
+
+type FakeDb = ReturnType<typeof makeDb>["db"];
+type FakeGetQueue = ReturnType<typeof makeGetQueue>["getQueue"];
+
+let currentDb: FakeDb | null = null;
+let currentGetQueue: FakeGetQueue | null = null;
+
+function activeDb(): FakeDb {
+  if (!currentDb) throw new Error("makeDb() was not called in this test");
+  return currentDb;
+}
+
+void mock.module("@otterdeploy/db", () => ({
+  db: {
+    select: (projection: UnknownRecord) => activeDb().select(projection),
+    update: () => activeDb().update(),
+    insert: () => activeDb().insert(),
+  },
+}));
+
+void mock.module("../queues", () => ({
+  getQueue: (name: string) => {
+    if (!currentGetQueue) throw new Error("makeGetQueue() was not called in this test");
+    return currentGetQueue(name);
+  },
+}));
 
 // ─── drizzle helper stubs ────────────────────────────────────────────────
 //
@@ -174,7 +220,7 @@ void mock.module("drizzle-orm", () => ({
   desc: (col: unknown) => col,
 }));
 
-// Real schema (pure table defs — no env) spread through, but override
+// Real schema (pure table defs, no env) spread through, but override
 // `deployment` so its `id` column carries a marker the stubbed eq() recognises.
 const realSchema = await import("@otterdeploy/db/schema");
 void mock.module("@otterdeploy/db/schema", () => ({
@@ -194,7 +240,9 @@ function makeGetQueue(ownedDeploymentIds: string[][]) {
   const getJobs = mock(async () =>
     ownedDeploymentIds.map((deploymentIds) => ({ data: { deploymentIds } })),
   );
-  const getQueue = mock(() => ({ getJobs })) as never;
+  const getQueue = mock((_name: string) => ({ getJobs }));
+  // Install as the current fake behind the mocked ./queues (above).
+  currentGetQueue = getQueue;
   return { getQueue, getJobs };
 }
 
@@ -202,13 +250,17 @@ function makeGetQueue(ownedDeploymentIds: string[][]) {
 // emitEvent is injected per call rather than module-mocked, so reconcile's
 // import graph never pulls in the notification/email delivery stack.
 
-const triggerSpy = mock(async (_event: unknown) => undefined as unknown);
+const triggerSpy = mock(async (_event: unknown) => undefined);
 
 // always-acquire lock for the happy paths
 const acquire = () => Promise.resolve(async () => undefined);
 
 beforeAll(async () => {
   ({ reconcileInterruptedDeployments } = await import("../reconcile"));
+  // These resolve to the mocked modules registered above, so `dbModule.db` /
+  // `queuesModule.getQueue` are the delegating fakes, typed as the real thing.
+  dbModule = await import("@otterdeploy/db");
+  queuesModule = await import("../queues");
 });
 
 beforeEach(() => {
@@ -219,15 +271,14 @@ beforeEach(() => {
 
 describe("reconcileInterruptedDeployments", () => {
   test("(a) orphaned building with no job → failed + deploy.failed emitted", async () => {
-    const { db, rows } = makeDb(
-      [{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }],
-      { d1: { organizationId: "o1", resourceName: "api", projectName: "proj" } },
-    );
-    const { getQueue } = makeGetQueue([]); // no in-flight jobs
+    const { rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }], {
+      d1: { organizationId: "o1", resourceName: "api", projectName: "proj" },
+    });
+    makeGetQueue([]); // no in-flight jobs
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emitEvent: triggerSpy,
     });
@@ -246,12 +297,12 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(b) building WITH active job referencing its id → untouched, no notification", async () => {
-    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
-    const { getQueue } = makeGetQueue([["d1"]]); // a live job owns d1
+    const { rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
+    makeGetQueue([["d1"]]); // a live job owns d1
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emitEvent: triggerSpy,
     });
@@ -262,12 +313,12 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(c) pending with no job → failed", async () => {
-    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "pending", createdAt: 1 }]);
-    const { getQueue } = makeGetQueue([]);
+    const { rows } = makeDb([{ id: "d1", resourceId: "r1", status: "pending", createdAt: 1 }]);
+    makeGetQueue([]);
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emit: false,
     });
@@ -276,17 +327,17 @@ describe("reconcileInterruptedDeployments", () => {
     expect(firstRow(rows).status).toBe("failed");
   });
 
-  test("(d) mixed batch — only unreferenced rows reset", async () => {
-    const { db, rows } = makeDb([
+  test("(d) mixed batch: only unreferenced rows reset", async () => {
+    const { rows } = makeDb([
       { id: "d1", resourceId: "r1", status: "building", createdAt: 1 },
       { id: "d2", resourceId: "r2", status: "pending", createdAt: 1 },
       { id: "d3", resourceId: "r3", status: "building", createdAt: 1 },
     ]);
-    const { getQueue } = makeGetQueue([["d2"]]); // only d2 owned by a job
+    makeGetQueue([["d2"]]); // only d2 owned by a job
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emit: false,
     });
@@ -298,16 +349,16 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(e) duplicate running same resourceId → older superseded, newest kept; different resource untouched", async () => {
-    const { db, rows } = makeDb([
+    const { rows } = makeDb([
       { id: "new", resourceId: "r1", status: "running", createdAt: 200 },
       { id: "old", resourceId: "r1", status: "running", createdAt: 100 },
       { id: "solo", resourceId: "r2", status: "running", createdAt: 50 },
     ]);
-    const { getQueue } = makeGetQueue([]);
+    makeGetQueue([]);
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emit: false,
     });
@@ -318,21 +369,21 @@ describe("reconcileInterruptedDeployments", () => {
     expect(rowById(rows, "solo").status).toBe("running");
   });
 
-  test("(f) idempotency — second run does nothing", async () => {
-    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
-    const { getQueue } = makeGetQueue([]);
+  test("(f) idempotency: second run does nothing", async () => {
+    const { rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
+    makeGetQueue([]);
 
     const first = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emit: false,
     });
     expect(first.failed).toBe(1);
 
     const second = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emit: false,
     });
@@ -341,12 +392,12 @@ describe("reconcileInterruptedDeployments", () => {
   });
 
   test("(g) lock not acquired → no-op", async () => {
-    const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
-    const { getQueue, getJobs } = makeGetQueue([]);
+    const { rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
+    const { getJobs } = makeGetQueue([]);
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: () => Promise.resolve(null), // lock held elsewhere
       emitEvent: triggerSpy,
     });
@@ -361,15 +412,14 @@ describe("reconcileInterruptedDeployments", () => {
     triggerSpy.mockImplementationOnce(async () => {
       throw new Error("channel down");
     });
-    const { db, rows } = makeDb(
-      [{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }],
-      { d1: { organizationId: "o1", resourceName: "api", projectName: "proj" } },
-    );
-    const { getQueue } = makeGetQueue([]);
+    const { rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }], {
+      d1: { organizationId: "o1", resourceName: "api", projectName: "proj" },
+    });
+    makeGetQueue([]);
 
     const summary = await reconcileInterruptedDeployments({
-      db,
-      getQueue,
+      db: dbModule.db,
+      getQueue: queuesModule.getQueue,
       acquireLock: acquire,
       emitEvent: triggerSpy,
     });

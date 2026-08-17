@@ -4,21 +4,21 @@ description: Every otterdeploy CLI command and flag.
 ---
 
 Every command the `otterdeploy` CLI exposes, grouped the way the binary groups
-them. Each entry lists its real flags and subcommands — nothing here is
+them. Each entry lists its real flags and subcommands, nothing here is
 aspirational.
 
 ## Conventions
 
 A handful of flags recur across commands:
 
-- **`--config <path>`** — path to the manifest (defaults to `otterdeploy.json` /
+- **`--config <path>`**: path to the manifest (defaults to `otterdeploy.json` /
   `otterdeploy.ts` in the working directory).
-- **`--slug <project>`** — target a project explicitly, overriding the config's
+- **`--slug <project>`**: target a project explicitly, overriding the config's
   `project` field.
-- **`--url <url>`** — override the control-plane URL for a single command.
-- **`--json`** — raw JSON to stdout on read commands (no decoration), for
+- **`--url <url>`**: override the control-plane URL for a single command.
+- **`--json`**: raw JSON to stdout on read commands (no decoration), for
   scripting.
-- **`--yes`** — skip confirmation prompts (destructive actions confirm by
+- **`--yes`**: skip confirmation prompts (destructive actions confirm by
   default).
 
 <Callout title="Positional resource">
@@ -39,7 +39,7 @@ otterdeploy login https://deploy.example.com
 otterdeploy login --url https://deploy.example.com
 ```
 
-- `--url <url>` — control-plane URL. The bare positional form
+- `--url <url>`: control-plane URL. The bare positional form
   (`otterdeploy login <url>`) works too; if omitted, the stored URL is reused or
   you're prompted.
 
@@ -62,8 +62,8 @@ otterdeploy whoami
 otterdeploy whoami --json
 ```
 
-- `--url <url>` — override the control-plane URL.
-- `--json` — output as JSON.
+- `--url <url>`: override the control-plane URL.
+- `--json`: output as JSON.
 
 ### `org`
 
@@ -84,7 +84,7 @@ List organizations you belong to (the active one is marked `*`).
 
 Set the active organization.
 
-- `slug` *(positional, required)* — organization slug.
+- `slug` *(positional, required)*: organization slug.
 - `--url <url>`.
 
 ### `tokens`
@@ -98,14 +98,14 @@ otterdeploy tokens create --name deploy --project web --project api
 
 #### `tokens create`
 
-Create an API key for CI and scripts. The key is shown once — copy it
+Create an API key for CI and scripts. The key is shown once, copy it
 immediately.
 
-- `--name <name>` *(required)* — key name.
-- `--expires <spec>` — expiry as `<N>d`, `<N>h`, `<N>m`, or `never`. Default
+- `--name <name>` *(required)*: key name.
+- `--expires <spec>`: expiry as `<N>d`, `<N>h`, `<N>m`, or `never`. Default
   `90d`.
-- `--read-only` — restrict the key to read operations.
-- `--project <slug>` — limit the key to a project slug (repeatable — pass
+- `--read-only`: restrict the key to read operations.
+- `--project <slug>`: limit the key to a project slug (repeatable, pass
   `--project` multiple times).
 - `--url <url>`, `--json`.
 
@@ -120,12 +120,12 @@ otterdeploy init --slug my-app
 otterdeploy init --format ts
 ```
 
-- `--name <name>` — project display name (prompted if omitted).
-- `--slug <slug>` — project slug.
-- `--config <path>` — config file path (overrides `--format`).
-- `--format <json|ts>` — config format when no `--config` is given; `json` is
+- `--name <name>`: project display name (prompted if omitted).
+- `--slug <slug>`: project slug.
+- `--config <path>`: config file path (overrides `--format`).
+- `--format <json|ts>`: config format when no `--config` is given; `json` is
   the default.
-- `--yes` — skip the overwrite confirmation if a config already exists.
+- `--yes`: skip the overwrite confirmation if a config already exists.
 
 ### `up`
 
@@ -138,18 +138,18 @@ otterdeploy up
 otterdeploy up --wait --yes
 ```
 
-- `--config <path>` — config file path.
-- `--env <block>` — environment override block to apply.
-- `--name <name>` — project display name (scaffold only).
-- `--slug <slug>` — project slug (scaffold only).
-- `--wait` — wait for changed services to reach running.
-- `--timeout <minutes>` — minutes to wait with `--wait` (default 30).
-- `--yes` — skip all prompts (non-interactive).
+- `--config <path>`: config file path.
+- `--env <block>`: environment override block to apply.
+- `--name <name>`: project display name (scaffold only).
+- `--slug <slug>`: project slug (scaffold only).
+- `--wait`: wait for changed services to reach running.
+- `--timeout <minutes>`: minutes to wait with `--wait` (default 30).
+- `--yes`: skip all prompts (non-interactive).
 - `--url <url>`, `--json`.
 
 ### `add`
 
-Append a resource to the config file (a local edit — run `deploy` to apply it).
+Append a resource to the config file (a local edit, run `deploy` to apply it).
 
 ```bash
 otterdeploy add service web --image nginx:latest --port 80
@@ -162,40 +162,40 @@ otterdeploy add compose stack --file ./docker-compose.yml
 
 Add a service to the config.
 
-- `name` *(positional, required)* — service name.
-- `--image <ref>` — container image (for `source=image`).
-- `--git` — source from the project's git binding instead.
-- `--repo <owner/name>` — git repo (with `--git`).
-- `--branch <branch>` — branch whose pushes deploy (with `--git`).
-- `--source-subdir <path>` — build path within the git repo.
-- `--port <n>` — container port (HTTP, primary).
-- `--replicas <n>` — replica count.
-- `--domain <domain>` — public domain; the first is primary (repeatable).
-- `--env <KEY=VAL>` — env var (repeatable).
+- `name` *(positional, required)*: service name.
+- `--image <ref>`: container image (for `source=image`).
+- `--git`: source from the project's git binding instead.
+- `--repo <owner/name>`: git repo (with `--git`).
+- `--branch <branch>`: branch whose pushes deploy (with `--git`).
+- `--source-subdir <path>`: build path within the git repo.
+- `--port <n>`: container port (HTTP, primary).
+- `--replicas <n>`: replica count.
+- `--domain <domain>`: public domain; the first is primary (repeatable).
+- `--env <KEY=VAL>`: env var (repeatable).
 - `--config <path>`.
 
 #### `add database`
 
 Add a database to the config.
 
-- `name` *(positional, required)* — database name (your choice).
-- `--engine <engine>` *(required)* — `postgres`, `redis`, `mariadb`, or
+- `name` *(positional, required)*: database name (your choice).
+- `--engine <engine>` *(required)*: `postgres`, `redis`, `mariadb`, or
   `mongodb`.
-- `--version <version>` — engine version (optional).
-- `--public-enabled` — expose publicly (postgres only today).
+- `--version <version>`: engine version (optional).
+- `--public-enabled`: expose publicly (postgres only today).
 - `--config <path>`.
 
 #### `add compose`
 
 Add a compose stack to the config. Pass exactly one of `--file` or `--git-url`.
 
-- `name` *(positional, required)* — stack name.
-- `--file <path>` — local compose file to inline (`source=inline`).
-- `--git-url <url>` — HTTPS repo URL with the compose file (`source=git`).
-- `--git-ref <ref>` — git ref: branch/tag/sha (with `--git-url`).
-- `--compose-path <path>` — compose file path in the repo (with `--git-url`).
-- `--expose <service:port[:domain]>` — expose a service publicly (repeatable).
-- `--env <KEY=VAL>` — seed env var for `${VAR}` refs (repeatable).
+- `name` *(positional, required)*: stack name.
+- `--file <path>`: local compose file to inline (`source=inline`).
+- `--git-url <url>`: HTTPS repo URL with the compose file (`source=git`).
+- `--git-ref <ref>`: git ref: branch/tag/sha (with `--git-url`).
+- `--compose-path <path>`: compose file path in the repo (with `--git-url`).
+- `--expose <service:port[:domain]>`: expose a service publicly (repeatable).
+- `--env <KEY=VAL>`: seed env var for `${VAR}` refs (repeatable).
 - `--config <path>`.
 
 ### `remove`
@@ -212,11 +212,11 @@ otterdeploy remove database primary --yes
   next `otterdeploy deploy` **deletes the live resource**.
 </Callout>
 
-Each subcommand — `remove service`, `remove database`, `remove compose` — takes:
+Each subcommand (`remove service`, `remove database`, `remove compose`) takes:
 
-- `name` *(positional, required)* — resource name.
+- `name` *(positional, required)*: resource name.
 - `--config <path>`.
-- `--yes` — skip the confirmation prompt.
+- `--yes`: skip the confirmation prompt.
 
 ### `deploy`
 
@@ -228,12 +228,12 @@ otterdeploy deploy --dry-run
 otterdeploy deploy --wait --timeout 20
 ```
 
-- `--config <path>` — config file path.
-- `--env <block>` — environment override block to apply.
-- `--dry-run` — show the change plan without applying.
-- `--wait` — wait for changed services to reach running.
-- `--timeout <minutes>` — minutes to wait with `--wait` (default 30).
-- `--yes` — skip confirmation prompts.
+- `--config <path>`: config file path.
+- `--env <block>`: environment override block to apply.
+- `--dry-run`: show the change plan without applying.
+- `--wait`: wait for changed services to reach running.
+- `--timeout <minutes>`: minutes to wait with `--wait` (default 30).
+- `--yes`: skip confirmation prompts.
 - `--url <url>`, `--json`.
 
 <Callout type="warn" title="Deletes need confirmation">
@@ -244,7 +244,7 @@ otterdeploy deploy --wait --timeout 20
 
 ### `sync`
 
-Save the local config and reconcile resources — the same operation as `deploy`.
+Save the local config and reconcile resources. The same operation as `deploy`.
 
 ```bash
 otterdeploy sync
@@ -253,22 +253,22 @@ otterdeploy sync --preview
 
 Same flags as `deploy`, plus:
 
-- `--preview` — alias of `--dry-run`.
+- `--preview`: alias of `--dry-run`.
 
 ### `status`
 
 Show current state vs config drift. Diffs the local config against the server's
 **current** state without writing the manifest, so it surfaces changes made
 through the UI or other sessions. Exits non-zero when meaningful drift is
-detected — usable as a CI gate.
+detected: usable as a CI gate.
 
 ```bash
 otterdeploy status
 otterdeploy status --json
 ```
 
-- `--config <path>` — config file path.
-- `--env <name>` — target a specific environment.
+- `--config <path>`: config file path.
+- `--env <name>`: target a specific environment.
 - `--url <url>`, `--json`.
 
 ### `pull`
@@ -280,10 +280,10 @@ otterdeploy pull
 otterdeploy pull --slug my-app --yes
 ```
 
-- `--config <path>` — config file path.
-- `--slug <project>` — project slug (defaults to the slug in the local file).
+- `--config <path>`: config file path.
+- `--slug <project>`: project slug (defaults to the slug in the local file).
 - `--url <url>`.
-- `--yes` — overwrite an existing config file without asking (required
+- `--yes`: overwrite an existing config file without asking (required
   non-interactively).
 
 ### `export`
@@ -295,9 +295,9 @@ otterdeploy export
 otterdeploy export --out stack.yml
 ```
 
-- `--config <path>` — config file path.
-- `--slug <project>` — project slug (defaults to config).
-- `--out <path>` — write to this path instead of stdout.
+- `--config <path>`: config file path.
+- `--slug <project>`: project slug (defaults to config).
+- `--out <path>`: write to this path instead of stdout.
 - `--url <url>`.
 
 ### `project`
@@ -320,17 +320,17 @@ List projects in the active organization.
 
 Create a new project.
 
-- `--name <name>` *(required)* — display name.
-- `--slug <slug>` *(required)* — URL-safe slug.
+- `--name <name>` *(required)*: display name.
+- `--slug <slug>` *(required)*: URL-safe slug.
 - `--url <url>`, `--json`.
 
 #### `project delete`
 
 Permanently delete a project and all its resources.
 
-- `slug` *(positional, required)* — project slug.
+- `slug` *(positional, required)*: project slug.
 - `--url <url>`.
-- `--force` — skip confirmation prompts (required in non-interactive shells).
+- `--force`: skip confirmation prompts (required in non-interactive shells).
 
 <Callout type="warn" title="Irreversible">
   Deletes every service, database, and route in the project. Interactively it
@@ -346,10 +346,10 @@ otterdeploy open
 otterdeploy open web
 ```
 
-- `service` *(positional, optional)* — service or database name (omit for the
+- `service` *(positional, optional)*: service or database name (omit for the
   project overview).
-- `--config <path>` — config file path.
-- `--slug <project>` — project slug (defaults to config).
+- `--config <path>`: config file path.
+- `--slug <project>`: project slug (defaults to config).
 - `--url <url>`.
 
 ## Service operations
@@ -362,7 +362,7 @@ Restart a service (redeploy with the current image and env).
 otterdeploy restart web
 ```
 
-- `service` *(positional, required)* — service name.
+- `service` *(positional, required)*: service name.
 - `--config <path>`, `--slug <project>`, `--url <url>`, `--json`.
 
 ### `rollback`
@@ -375,11 +375,11 @@ otterdeploy rollback web
 otterdeploy rollback web dep_123 --yes
 ```
 
-- `service` *(positional, required)* — service name.
-- `deployment` *(positional, optional)* — deployment id to roll back to
+- `service` *(positional, required)*: service name.
+- `deployment` *(positional, optional)*: deployment id to roll back to
   (defaults to the last settled deploy).
 - `--config <path>`, `--slug <project>`, `--url <url>`.
-- `--yes` — skip the confirmation prompt.
+- `--yes`: skip the confirmation prompt.
 - `--json`.
 
 ### `build`
@@ -391,10 +391,10 @@ otterdeploy build api
 otterdeploy build api --wait --timeout 20
 ```
 
-- `service` *(positional, required)* — service name.
+- `service` *(positional, required)*: service name.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
-- `--wait` — wait for the deployment to settle (non-zero exit on failure).
-- `--timeout <minutes>` — wait timeout in minutes.
+- `--wait`: wait for the deployment to settle (non-zero exit on failure).
+- `--timeout <minutes>`: wait timeout in minutes.
 - `--json`.
 
 ### `redeploy`
@@ -407,10 +407,10 @@ otterdeploy redeploy web
 otterdeploy redeploy web --wait --timeout 20
 ```
 
-- `target` *(positional, required)* — service or compose stack name.
+- `target` *(positional, required)*: service or compose stack name.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
-- `--wait` — wait for the deployment to settle.
-- `--timeout <minutes>` — wait timeout in minutes.
+- `--wait`: wait for the deployment to settle.
+- `--timeout <minutes>`: wait timeout in minutes.
 - `--json`.
 
 ### `deployments`
@@ -422,9 +422,9 @@ otterdeploy deployments web
 otterdeploy deployments web --limit 5 --json
 ```
 
-- `service` *(positional, optional)* — service name.
+- `service` *(positional, optional)*: service name.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
-- `--limit <n>` — max deployments to show (default 20).
+- `--limit <n>`: max deployments to show (default 20).
 - `--json`.
 
 ### `logs`
@@ -438,17 +438,17 @@ otterdeploy logs web --since 15m --no-follow
 otterdeploy logs api --build
 ```
 
-- `resource` *(positional)* — resource name (service or database).
+- `resource` *(positional)*: resource name (service or database).
 - `--config <path>`, `--slug <project>`, `--url <url>`.
-- `--tail <n>` — replay this many lines first (default 100).
-- `--since <window>` — only runtime logs newer than `15m`, `2h`, `3d`, or an ISO
+- `--tail <n>`: replay this many lines first (default 100).
+- `--since <window>`: only runtime logs newer than `15m`, `2h`, `3d`, or an ISO
   timestamp.
-- `--follow` / `--no-follow` — keep streaming (on by default; `--no-follow`
+- `--follow` / `--no-follow`: keep streaming (on by default; `--no-follow`
   prints available logs and exits).
-- `--build` — stream the build pipeline's logs instead of runtime logs.
-- `--deployment <id>` — deployment id for `--build` (defaults to the newest
+- `--build`: stream the build pipeline's logs instead of runtime logs.
+- `--deployment <id>`: deployment id for `--build` (defaults to the newest
   deployment).
-- `--json` — one JSON event per line.
+- `--json`: one JSON event per line.
 
 ### `exec`
 
@@ -461,9 +461,9 @@ otterdeploy exec web --replica 2
 otterdeploy exec --host
 ```
 
-- `service` *(positional, optional)* — service name.
-- `--replica <slot>` — replica slot to attach to (e.g. `1`).
-- `--host` — open a shell on the control-plane host instead.
+- `service` *(positional, optional)*: service name.
+- `--replica <slot>`: replica slot to attach to (e.g. `1`).
+- `--host`: open a shell on the control-plane host instead.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
 
 ### `domains`
@@ -490,30 +490,30 @@ List domains for a service.
 
 Add a domain to a service.
 
-- `domain` *(positional, required)* — domain to add.
+- `domain` *(positional, required)*: domain to add.
 - `--service <name>` *(required)*, `--config`, `--slug`, `--url`.
 
 #### `domains remove`
 
 Remove a domain from a service.
 
-- `domain` *(positional, required)* — domain to remove.
+- `domain` *(positional, required)*: domain to remove.
 - `--service <name>` *(required)*, `--config`, `--slug`, `--url`.
-- `--yes` — skip the confirmation prompt (removing the primary promotes another
+- `--yes`: skip the confirmation prompt (removing the primary promotes another
   domain).
 
 #### `domains set-primary`
 
 Make a domain the service's primary domain.
 
-- `domain` *(positional, required)* — domain to promote.
+- `domain` *(positional, required)*: domain to promote.
 - `--service <name>` *(required)*, `--config`, `--slug`, `--url`.
 
 #### `domains recheck`
 
 Re-run the DNS reachability check for a domain.
 
-- `domain` *(positional, required)* — domain to recheck.
+- `domain` *(positional, required)*: domain to recheck.
 - `--service <name>` *(required)*, `--config`, `--slug`, `--url`, `--json`.
 
 ### `volume`
@@ -537,18 +537,18 @@ List persistent volumes on a service.
 Attach a persistent volume to a service.
 
 - `--service <name>` *(required)*.
-- `--path <path>` *(required)* — absolute container path to mount, e.g. `/data`.
-- `--read-only` — mount the volume read-only.
+- `--path <path>` *(required)*: absolute container path to mount, e.g. `/data`.
+- `--read-only`: mount the volume read-only.
 - `--config`, `--slug`, `--url`, `--json`.
 
 #### `volume remove`
 
-Detach a persistent volume from a service. **The data is left intact** — this
+Detach a persistent volume from a service. **The data is left intact**, this
 removes the mount, not the volume's contents.
 
 - `--service <name>` *(required)*.
-- `--path <path>` *(required)* — absolute container path of the volume to detach.
-- `--yes` — skip the confirmation prompt.
+- `--path <path>` *(required)*: absolute container path of the volume to detach.
+- `--yes`: skip the confirmation prompt.
 - `--config`, `--slug`, `--url`.
 
 ### `env`
@@ -568,8 +568,8 @@ otterdeploy env list --shared
 
 List env vars for a service (or `--shared` project vars).
 
-- `--service <name>` — service name (omit with `--shared`).
-- `--shared` — target project-level shared vars.
+- `--service <name>`: service name (omit with `--shared`).
+- `--shared`: target project-level shared vars.
 - `--config`, `--slug`, `--url`, `--json`.
 
 #### `env set`
@@ -577,23 +577,23 @@ List env vars for a service (or `--shared` project vars).
 Set one or more env vars from `KEY=VAL` pairs. A single service redeploy covers
 all pairs.
 
-- `KEY=VAL …` *(positional)* — one or more pairs.
+- `KEY=VAL …` *(positional)*: one or more pairs.
 - `--service <name>`, `--shared`, `--config`, `--slug`, `--url`.
 
 #### `env unset`
 
 Remove env vars by key.
 
-- `KEY …` *(positional)* — one or more keys.
+- `KEY …` *(positional)*: one or more keys.
 - `--service <name>`, `--shared`, `--config`, `--slug`, `--url`.
 
 #### `env import`
 
 Bulk-set env vars from a dotenv file.
 
-- `file` *(positional, required)* — path to the `.env` file.
+- `file` *(positional, required)*: path to the `.env` file.
 - `--service <name>`, `--shared`, `--config`, `--slug`, `--url`.
-- `--merge` — merge with existing (the default replaces wholesale).
+- `--merge`: merge with existing (the default replaces wholesale).
 
 ### `environments`
 
@@ -609,7 +609,7 @@ otterdeploy environments delete staging --project my-app
 
 List environments.
 
-- `--project <slug>` — filter by project slug.
+- `--project <slug>`: filter by project slug.
 - `--config`, `--url`, `--json`.
 
 #### `environments create`
@@ -617,18 +617,18 @@ List environments.
 Create an environment. Without `--project` it's a standalone environment
 (hidden from `list` until a project claims it).
 
-- `name` *(positional, required)* — environment name.
-- `--project <slug>` — project slug to attach the environment to.
+- `name` *(positional, required)*: environment name.
+- `--project <slug>`: project slug to attach the environment to.
 - `--config`, `--url`, `--json`.
 
 #### `environments delete`
 
 Delete an environment (its shared env vars go with it).
 
-- `environment` *(positional, required)* — environment name or `env_…` id.
-- `--project <slug>` — project slug to scope the name lookup.
+- `environment` *(positional, required)*: environment name or `env_…` id.
+- `--project <slug>`: project slug to scope the name lookup.
 - `--config`, `--url`.
-- `--yes` — skip confirmation.
+- `--yes`: skip confirmation.
 
 ## Data & backups
 
@@ -647,11 +647,11 @@ otterdeploy db creds revoke primary dbeph_123 --yes
 
 Print connection URLs for a database, or mint a short-lived credential.
 
-- `database` *(positional, required)* — database name.
-- `--ephemeral` — mint a short-lived credential instead of the standing one.
-- `--ttl <spec>` — ephemeral lifetime: minutes or `15m` / `2h` / `1d` (default
+- `database` *(positional, required)*: database name.
+- `--ephemeral`: mint a short-lived credential instead of the standing one.
+- `--ttl <spec>`: ephemeral lifetime: minutes or `15m` / `2h` / `1d` (default
   `1h`; only with `--ephemeral`).
-- `--write` — mint with read-write scope (default read-only; only with
+- `--write`: mint with read-write scope (default read-only; only with
   `--ephemeral`).
 - `--config`, `--slug`, `--url`, `--json`.
 
@@ -659,16 +659,16 @@ Print connection URLs for a database, or mint a short-lived credential.
 
 List ephemeral credentials for a database.
 
-- `database` *(positional, required)* — database name.
+- `database` *(positional, required)*: database name.
 - `--config`, `--slug`, `--url`, `--json`.
 
 #### `db creds revoke`
 
 Revoke an ephemeral credential (drops the pg role, terminating active sessions).
 
-- `database` *(positional, required)* — database name.
-- `credentialId` *(positional, required)* — credential id (`dbeph_…`).
-- `--yes` — skip the confirmation prompt.
+- `database` *(positional, required)*: database name.
+- `credentialId` *(positional, required)*: credential id (`dbeph_…`).
+- `--yes`: skip the confirmation prompt.
 - `--config`, `--slug`, `--url`.
 
 ### `backups`
@@ -686,8 +686,8 @@ otterdeploy backups destinations list
 
 List backup runs (org-wide, or filtered to one database).
 
-- `--database <name>` — filter to one database by name.
-- `--limit <n>` — show at most N runs.
+- `--database <name>`: filter to one database by name.
+- `--limit <n>`: show at most N runs.
 - `--config`, `--slug`, `--url`, `--json`.
 
 #### `backups run`
@@ -695,23 +695,23 @@ List backup runs (org-wide, or filtered to one database).
 Run a manual backup of a database now. With one destination configured it's
 picked automatically; otherwise pass `--destination`.
 
-- `database` *(positional, required)* — database name.
-- `--destination <id>` — destination id (`bakdest_…`).
+- `database` *(positional, required)*: database name.
+- `--destination <id>`: destination id (`bakdest_…`).
 - `--config`, `--slug`, `--url`.
 
 #### `backups restore`
 
-Restore a backup in place — **overwrites the live database**.
+Restore a backup in place: **overwrites the live database**.
 
-- `backupId` *(positional, required)* — backup id (`bak_…`, a unique prefix is
+- `backupId` *(positional, required)*: backup id (`bak_…`, a unique prefix is
   accepted).
-- `--confirm <phrase>` — confirmation phrase (the database name) for
+- `--confirm <phrase>`: confirmation phrase (the database name) for
   non-interactive use.
 - `--url`.
 
 <Callout type="warn" title="No --yes bypass">
   In-place restore overwrites the target database. It demands a typed
-  confirmation (the database name) — interactively it prompts, non-interactively
+  confirmation (the database name): interactively it prompts, non-interactively
   you must pass `--confirm "<database>"`. There is deliberately no `--yes`
   shortcut. Only `succeeded` backups can be restored.
 </Callout>
@@ -733,8 +733,8 @@ otterdeploy metrics web
 otterdeploy metrics web --window 60 --json
 ```
 
-- `resource` *(positional)* — resource name (service or database).
-- `--window <minutes>` — look-back window in minutes (1–1440, default 30).
+- `resource` *(positional)*: resource name (service or database).
+- `--window <minutes>`: look-back window in minutes (1–1440, default 30).
 - `--config`, `--slug`, `--url`, `--json`.
 
 ### `audit`
@@ -747,11 +747,11 @@ otterdeploy audit --failed --action project.delete
 otterdeploy audit --search deploy --limit 100
 ```
 
-- `--limit <n>` — max events to return (1–200, default 50).
-- `--failed` — only events with `outcome=failure`.
-- `--action <action>` — filter by exact action, e.g. `project.delete`.
-- `--actor <id>` — filter by actor id.
-- `--search <text>` — substring search across action/actor/target.
+- `--limit <n>`: max events to return (1–200, default 50).
+- `--failed`: only events with `outcome=failure`.
+- `--action <action>`: filter by exact action, e.g. `project.delete`.
+- `--actor <id>`: filter by actor id.
+- `--search <text>`: substring search across action/actor/target.
 - `--url`, `--json`.
 
 ### `edge`
@@ -769,14 +769,14 @@ otterdeploy edge events --json
 
 Live-tail edge (Caddy) access logs.
 
-- `--host <host>` — restrict to a single host.
+- `--host <host>`: restrict to a single host.
 - `--config`, `--slug`, `--url`, `--json` (one JSON event per line).
 
 #### `edge events`
 
 Live-tail edge operational events (certs, upstreams).
 
-- `--host <host>` — restrict to a single host.
+- `--host <host>`: restrict to a single host.
 - `--config`, `--slug`, `--url`, `--json` (one JSON event per line).
 
 ### `platform`
@@ -814,7 +814,7 @@ Apply the latest platform update. The update runs detached on the host; the
 control plane restarts itself once the new version is healthy.
 
 - `--url`.
-- `--yes` — skip the confirmation prompt.
+- `--yes`: skip the confirmation prompt.
 
 ## Meta
 
@@ -829,7 +829,7 @@ otterdeploy completions zsh  > "${fpath[1]}/_otterdeploy"
 otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish
 ```
 
-- `shell` *(positional)* — `bash`, `zsh`, or `fish`.
+- `shell` *(positional)*: `bash`, `zsh`, or `fish`.
 
 <Cards>
   <Card title="CLI overview" href="/docs/cli" />

@@ -9,8 +9,8 @@ import type { BetterAuthOptions, Session, User } from "better-auth/types";
  * `/api/auth/*` and never emits an evlog audit envelope. Everything on the
  * identity surface was therefore missing from `audit_log`: no sign-in history,
  * no record of a failed password, no trace of who invited, removed or re-roled
- * a member, and nothing when an API key — a credential that can drive the whole
- * control plane — was minted. Those are the first questions anyone asks of an
+ * a member, and nothing when an API key: a credential that can drive the whole
+ * control plane: was minted. Those are the first questions anyone asks of an
  * audit trail, so the gap mattered more than the row count suggested.
  *
  * Rows are written straight to `audit_log`, the same way (and for the same
@@ -74,7 +74,7 @@ interface AuthActor {
  * Build the `hooks.after` middleware.
  *
  * `resolveOrganizationId` is injected rather than imported so this module does
- * not have to reach back into `index.ts` (which imports this one) — and so a
+ * not have to reach back into `index.ts` (which imports this one), and so a
  * test can drive the hook without a membership table.
  */
 export function createAuthAuditHook({
@@ -85,7 +85,21 @@ export function createAuthAuditHook({
   // nameable type to the exported `auth` object's shape.
 }): AuthMiddleware {
   return createAuthMiddleware(async (rawCtx) => {
-    const ctx = rawCtx as unknown as AuthHookContext;
+    // Re-shaped field by field rather than asserted: every property below is
+    // checked against AuthHookContext by the annotation, so a better-auth
+    // upgrade that changes the hook context shape fails here at compile time.
+    const ctx: AuthHookContext = {
+      path: rawCtx.path,
+      body: rawCtx.body,
+      request: rawCtx.request,
+      headers: rawCtx.headers,
+      context: {
+        returned: rawCtx.context.returned,
+        newSession: rawCtx.context.newSession,
+        session: rawCtx.context.session,
+        options: rawCtx.context.options,
+      },
+    };
     try {
       await recordAuthEvent(ctx, resolveOrganizationId);
     } catch (cause) {
@@ -134,13 +148,13 @@ async function recordAuthEvent(
 /**
  * Who acted.
  *
- * `newSession` is the session this request is about to set a cookie for —
- * present exactly on the requests that just established identity (sign-in,
+ * `newSession` is the session this request is about to set a cookie for.
+ * Present exactly on the requests that just established identity (sign-in,
  * sign-up, 2FA verification). Everything else reads the existing session.
  *
  * A failed sign-in has no session at all, so the submitted address is the only
- * identity available. Recording it is the whole point of the row — "someone
- * tried to get into this account" — and `actorId` falls back to a sentinel
+ * identity available. Recording it is the whole point of the row: "someone
+ * tried to get into this account", and `actorId` falls back to a sentinel
  * because the column is NOT NULL and no user was ever established.
  */
 function resolveActor(ctx: AuthHookContext): AuthActor {
@@ -159,7 +173,7 @@ function resolveActor(ctx: AuthHookContext): AuthActor {
 /**
  * Which tenant the row belongs to.
  *
- * Resolved from server-side state only — never from `body.organizationId`,
+ * Resolved from server-side state only, never from `body.organizationId`,
  * which a caller controls and which would either misattribute the row or fail
  * the insert outright against the FK.
  *
@@ -167,7 +181,7 @@ function resolveActor(ctx: AuthHookContext): AuthActor {
  * account's org is used: that is what makes a brute-force burst visible to the
  * org being attacked, since the denial-burst rule in
  * packages/api/src/notifications/audit-anomaly.ts skips null-tenant rows. An
- * attempt against an address with no account stays null — genuinely
+ * attempt against an address with no account stays null, genuinely
  * un-attributable, and not worth inventing a tenant for.
  */
 async function resolveTenant(
@@ -199,8 +213,8 @@ function buildTarget(
 
 /** The submitted address on an attempt that never reached a session. */
 function readEmail(body: unknown): string | null {
-  if (typeof body !== "object" || body === null) return null;
-  return clip((body as { email?: unknown }).email, MAX_EMAIL);
+  if (typeof body !== "object" || body === null || !("email" in body)) return null;
+  return clip(body.email, MAX_EMAIL);
 }
 
 /** Attribute a failed attempt to the targeted account's org, when it exists. */
@@ -224,8 +238,8 @@ function readHeader(ctx: AuthHookContext, name: string): string | null {
  * The caller's IP, via better-auth's configured `ipAddressHeaders` (pointed at
  * `x-forwarded-for`).
  *
- * Trustworthy only because `sanitizeForwardingHeaders` — the first middleware
- * in apps/server/src/index.ts — has already deleted that header unless the
+ * Trustworthy only because `sanitizeForwardingHeaders`: the first middleware
+ * in apps/server/src/index.ts: has already deleted that header unless the
  * immediate TCP peer is in TRUSTED_PROXIES. A direct caller therefore records
  * no IP rather than one it chose. See packages/api/src/security/trusted-proxy.ts.
  */

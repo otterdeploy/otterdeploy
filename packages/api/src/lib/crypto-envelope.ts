@@ -1,14 +1,14 @@
 /**
  * The on-the-wire ciphertext envelope: the two layouts we write, how to build
  * one, and how to read one back. The base64url codec both are spelled in is
- * `@otterdeploy/shared/crypto` — shared with the token signers, which have to
+ * `@otterdeploy/shared/crypto`, shared with the token signers, which have to
  * agree with it byte-for-byte.
  *
  *     v1.<nonce>.<ciphertext_with_tag>
  *     v2:<domain>:<keyId>:<nonce>:<ciphertext_with_tag>
  *
- * Split out of ./crypto.ts so that module is purely about *keys and AES* —
- * keyring, HKDF domain separation, encrypt/decrypt/rotate. This one owns the
+ * Split out of ./crypto.ts so that module is purely about *keys and AES*.
+ * Keyring, HKDF domain separation, encrypt/decrypt/rotate. This one owns the
  * string format, which is the part that must stay byte-for-byte stable forever
  * (every secret already sitting in the database is written in it) and is
  * therefore worth keeping in one small, obvious place. Nothing here touches
@@ -46,14 +46,17 @@ export interface ParsedV1Envelope {
   ciphertext: Uint8Array;
 }
 
-/** Errors keep the `encryptSecret:` prefix they were first written with —
- *  they're the messages operators have seen in logs since v1 shipped. */
+/** Errors keep the `encryptSecret:` prefix they were first written with.
+ *  They're the messages operators have seen in logs since v1 shipped. */
 export function parseV1Envelope(blob: string): ParsedV1Envelope {
   const parts = blob.split(".");
   if (parts.length !== 3) {
     throw new Error("encryptSecret: malformed ciphertext (expected v.n.c)");
   }
-  const [version, nonceB64, cipherB64] = parts as [string, string, string];
+  const [version, nonceB64, cipherB64] = parts;
+  if (nonceB64 === undefined || cipherB64 === undefined) {
+    throw new Error("encryptSecret: malformed ciphertext (expected v.n.c)");
+  }
   if (version !== V1_FORMAT) {
     throw new Error(`encryptSecret: unsupported version ${version}`);
   }
@@ -72,7 +75,15 @@ export function parseV2Envelope(blob: string): ParsedV2Envelope {
   if (parts.length !== 5 || parts[0] !== V2_FORMAT) {
     throw new Error("decryptForDomain: malformed ciphertext (expected v2:domain:keyId:nonce:ct)");
   }
-  const [, domain, keyId, nonceB64, cipherB64] = parts as [string, string, string, string, string];
+  const [, domain, keyId, nonceB64, cipherB64] = parts;
+  if (
+    domain === undefined ||
+    keyId === undefined ||
+    nonceB64 === undefined ||
+    cipherB64 === undefined
+  ) {
+    throw new Error("decryptForDomain: malformed ciphertext (expected v2:domain:keyId:nonce:ct)");
+  }
   return {
     domain,
     keyId,

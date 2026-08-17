@@ -11,7 +11,7 @@
  *      registry's auth service accepted them; 401/403 means it didn't.
  *      Basic challenge → retry GET /v2/ with basic auth directly.
  *
- * No db imports here — the module stays unit-testable without the env/db
+ * No db imports here: the module stays unit-testable without the env/db
  * bootstrapping the rest of the router pulls in. Stored-credential lookup
  * lives in queries.ts; the handler in index.ts glues the two together;
  * the timed fetch + network-error mapping live in probe-fetch.ts.
@@ -72,8 +72,8 @@ export function parseAuthChallenge(header: string | null): AuthChallenge | null 
 /**
  * Token-endpoint URL for a bearer challenge. Preserves any query params
  * already baked into the realm and appends service/scope from the
- * challenge. Throws (TypeError) when the realm isn't an absolute URL —
- * the caller maps that to a protocol error.
+ * challenge. Throws (TypeError) when the realm isn't an absolute URL.
+ * The caller maps that to a protocol error.
  */
 export function buildTokenUrl(challenge: BearerChallenge): string {
   const url = new URL(challenge.realm);
@@ -83,7 +83,7 @@ export function buildTokenUrl(challenge: BearerChallenge): string {
 }
 
 /**
- * Extract the bearer token from a token-endpoint response body — the
+ * Extract the bearer token from a token-endpoint response body: the
  * spec allows either `token` or `access_token`. The body arrives as
  * `unknown` (parsed JSON), so narrow at runtime; returns undefined when
  * there's no non-empty token string.
@@ -119,7 +119,7 @@ async function probeWithBasicAuth(host: string, auth: string): Promise<ProbeOutc
     return Result.err(
       new RegistryProbeError({
         status: retry.value.status,
-        message: `${host} rejected the credentials (${retry.value.status}) — check username and password/token`,
+        message: `${host} rejected the credentials (${retry.value.status}). Check username and password/token`,
       }),
     );
   }
@@ -156,7 +156,7 @@ async function probeWithBearerToken(
     return Result.err(
       new RegistryProbeError({
         status: tokenRes.value.status,
-        message: `${host} rejected the credentials (${tokenRes.value.status} from its token endpoint) — check username and password/token`,
+        message: `${host} rejected the credentials (${tokenRes.value.status} from its token endpoint). Check username and password/token`,
       }),
     );
   }
@@ -164,7 +164,7 @@ async function probeWithBearerToken(
     return Result.err(
       new RegistryProbeError({
         status: tokenRes.value.status,
-        message: `${host}'s token endpoint responded ${tokenRes.value.status} — couldn't verify credentials`,
+        message: `${host}'s token endpoint responded ${tokenRes.value.status}: couldn't verify credentials`,
       }),
     );
   }
@@ -185,7 +185,7 @@ async function probeWithBearerToken(
 }
 
 /**
- * Probe a registry host with the given credentials. HTTPS only — that's
+ * Probe a registry host with the given credentials. HTTPS only: that's
  * the same constraint the builder's `docker push`/`docker pull` operate
  * under for non-localhost hosts.
  */
@@ -202,7 +202,7 @@ export async function probeRegistry(input: {
   if (ping.value.ok) {
     return Result.ok({
       status: ping.value.status,
-      message: `${host} answered the v2 handshake — no auth required`,
+      message: `${host} answered the v2 handshake, no auth required`,
     });
   }
 
@@ -210,7 +210,7 @@ export async function probeRegistry(input: {
     return Result.err(
       new RegistryProbeError({
         status: ping.value.status,
-        message: `${host} responded ${ping.value.status} to /v2/ — not a Docker Registry v2 endpoint?`,
+        message: `${host} responded ${ping.value.status} to /v2/, not a Docker Registry v2 endpoint?`,
       }),
     );
   }
@@ -220,7 +220,7 @@ export async function probeRegistry(input: {
     return Result.err(
       new RegistryProbeError({
         status: 401,
-        message: `${host} returned 401 without a challenge this probe can follow — can't verify credentials`,
+        message: `${host} returned 401 without a challenge this probe can follow. Can't verify credentials`,
       }),
     );
   }
@@ -229,7 +229,7 @@ export async function probeRegistry(input: {
     return Result.err(
       new RegistryProbeError({
         status: 401,
-        message: `${host} requires authentication — enter a username and password/token to test`,
+        message: `${host} requires authentication: enter a username and password/token to test`,
       }),
     );
   }

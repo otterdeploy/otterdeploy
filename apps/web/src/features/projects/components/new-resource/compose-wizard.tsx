@@ -30,14 +30,14 @@ import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
-import {
-  type ComposeFileValues,
-  type ComposeStep,
-  stackNamePlaceholder,
-} from "./compose-schema";
+import { type ComposeFileValues, type ComposeStep, stackNamePlaceholder } from "./compose-schema";
 import { ComposeWizardBody } from "./compose-wizard-body";
 import { useComposeParse } from "./compose-wizard-parse";
-import { type ComposeFormValues, type ComposePrefill, useComposeForm } from "./compose-wizard-shared";
+import {
+  type ComposeFormValues,
+  type ComposePrefill,
+  useComposeForm,
+} from "./compose-wizard-shared";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values: split from the

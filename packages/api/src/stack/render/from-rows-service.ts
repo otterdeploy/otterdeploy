@@ -1,6 +1,6 @@
 /**
  * Map one service_resource record (with its ports/env/mounts) to a
- * StackService entry. No engine adapter — service resources speak the
+ * StackService entry. No engine adapter: service resources speak the
  * spec users author directly.
  */
 

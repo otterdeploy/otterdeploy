@@ -1,15 +1,15 @@
 /**
- * TLS certificate probe — opens a TLS connection to the Caddy edge with the
+ * TLS certificate probe: opens a TLS connection to the Caddy edge with the
  * domain as SNI and reads the leaf certificate it presents. This is the
  * ground-truth view of what's actually served (ACME/Let's Encrypt, `tls
  * internal` self-signed, expired, or mismatched), with no dependency on
- * Caddy's filesystem or admin API — Caddy has no "list all certs" endpoint.
+ * Caddy's filesystem or admin API. Caddy has no "list all certs" endpoint.
  *
  * We connect to the edge directly (single-node: loopback; multi-node: the
  * platform server IP) rather than to the public domain, so Cloudflare-proxied
  * domains still report the ORIGIN cert Caddy serves, not Cloudflare's. SNI
  * (`servername`) is what makes Caddy pick the right cert. `rejectUnauthorized`
- * is off so we can still read self-signed/expired certs — we're inspecting,
+ * is off so we can still read self-signed/expired certs. We're inspecting,
  * not trusting.
  */
 
@@ -49,7 +49,7 @@ interface ProbeResult {
 }
 
 /** Open one TLS connection and resolve the presented leaf cert (or an error
- *  string). Never rejects — failure is returned, not thrown. */
+ *  string). Never rejects. Failure is returned, not thrown. */
 function connectAndRead(opts: {
   host: string;
   port: number;
@@ -76,14 +76,15 @@ function connectAndRead(opts: {
         // `true` (detailed) is required: under Bun the abbreviated form
         // (`getPeerCertificate(false)`) returns an EMPTY object, which made
         // every probe report "no certificate presented" even when the edge
-        // served a valid cert. We still only read the leaf's own fields. Cast
-        // to our structural subset so the rest of the module is socket-free.
-        const cert = socket.getPeerCertificate(true) as unknown as RawCert;
+        // served a valid cert. We still only read the leaf's own fields,
+        // narrowed into our structural subset so the rest of the module is
+        // socket-free.
+        const peer: unknown = socket.getPeerCertificate(true);
         socket.end();
-        const present = cert && Object.keys(cert).length > 0;
+        const cert = toRawCert(peer);
         done({
-          cert: present ? cert : null,
-          error: present ? null : "no certificate presented",
+          cert,
+          error: cert ? null : "no certificate presented",
         });
       },
     );
@@ -98,7 +99,7 @@ function connectAndRead(opts: {
   });
 }
 
-/** The leaf-cert fields we read — a structural subset of node's
+/** The leaf-cert fields we read. A structural subset of node's
  *  PeerCertificate, so the pure shaping logic can be unit-tested with plain
  *  objects (no live socket). */
 export interface RawCert {
@@ -109,6 +110,36 @@ export interface RawCert {
   valid_to?: string;
   serialNumber?: string;
   fingerprint256?: string;
+}
+
+/** Keep only string-valued entries (issuer/subject DN fields are strings). */
+function toStringRecord(value: unknown): Record<string, string | undefined> | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Narrow whatever the TLS runtime handed back (Bun's and node's peer-cert
+ * objects differ) into the {@link RawCert} subset. Returns `null` when no
+ * certificate was presented (empty object).
+ */
+function toRawCert(peer: unknown): RawCert | null {
+  if (typeof peer !== "object" || peer === null) return null;
+  if (Object.keys(peer).length === 0) return null;
+  const rec: Record<string, unknown> = Object.fromEntries(Object.entries(peer));
+  return {
+    issuer: toStringRecord(rec.issuer),
+    subject: toStringRecord(rec.subject),
+    subjectaltname: typeof rec.subjectaltname === "string" ? rec.subjectaltname : undefined,
+    valid_from: typeof rec.valid_from === "string" ? rec.valid_from : undefined,
+    valid_to: typeof rec.valid_to === "string" ? rec.valid_to : undefined,
+    serialNumber: typeof rec.serialNumber === "string" ? rec.serialNumber : undefined,
+    fingerprint256: typeof rec.fingerprint256 === "string" ? rec.fingerprint256 : undefined,
+  };
 }
 
 function fieldOf(

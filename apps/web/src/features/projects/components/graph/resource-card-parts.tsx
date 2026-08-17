@@ -22,13 +22,13 @@ import { VisitPill } from "./visit-pill";
 const badgeBase =
   "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium";
 
-/** Header — brand/framework/kind tile, name + kind label, and the pending or
+/** Header: brand/framework/kind tile, name + kind label, and the pending or
  *  status pill on the right. */
 /** Right-side column of the card header: the pending or runtime status pill,
- *  and — while a build/deploy is in flight — the live elapsed duration under it. */
+ *  and (while a build/deploy is in flight) the live elapsed duration under it. */
 function HeaderStatus({ data }: { data: ResourceNodeData }) {
   const status = data.status ? statusMeta[data.status] : null;
-  // Live build/deploy duration — ticks while the node is building.
+  // Live build/deploy duration. Ticks while the node is building.
   const buildDuration = useLiveDuration(
     data.latestDeploymentStartedAt,
     data.latestDeploymentFinishedAt,
@@ -113,10 +113,10 @@ export function ResourceCardHeader({ data }: { data: ResourceNodeData }) {
   );
 }
 
-/** Footer — muted strip with the runtime tech label and (for source-based
+/** Footer, muted strip with the runtime tech label and (for source-based
  *  resources) the deployed commit. Renders nothing when neither is present. */
 export function ResourceCardFooter({ data }: { data: ResourceNodeData }) {
-  // Visit alone is reason enough to render the footer — a pulled-image service
+  // Visit alone is reason enough to render the footer. A pulled-image service
   // has neither a tech label nor a commit, and used to show no way in at all.
   if (!data.tech && !data.git && !data.publicUrl) return null;
   return (
@@ -168,10 +168,10 @@ const trayClass =
 const trayLabelClass =
   "absolute -top-[7px] left-3.5 bg-card px-1.5 font-mono text-[9.5px] leading-none font-semibold tracking-[0.22em] text-muted-foreground/60 uppercase";
 
-/** Replicas tray — service fan-out + per-task health. Matches the MOUNTS
+/** Replicas tray: service fan-out + per-task health. Matches the MOUNTS
  *  visual so the two trays read as the same family. */
 export function ReplicasTray({ replicas }: { replicas?: ReplicaInfo[] }) {
-  // A single replica says nothing the status pill doesn't — only worth a tray
+  // A single replica says nothing the status pill doesn't. Only worth a tray
   // when there's real fan-out to show (>1).
   if (!replicas || replicas.length <= 1) return null;
   return (
@@ -193,7 +193,7 @@ export function ReplicasTray({ replicas }: { replicas?: ReplicaInfo[] }) {
   );
 }
 
-/** Mounts tray — Variant A from the design, separated from body by a hairline. */
+/** Mounts tray, Variant A from the design, separated from body by a hairline. */
 export function MountsTray({ volumes }: { volumes?: VolumeAttachment[] }) {
   if (!volumes || volumes.length === 0) return null;
   return (

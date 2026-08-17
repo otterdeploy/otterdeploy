@@ -13,7 +13,7 @@ import {
 /**
  * The sign-in hero: a dot-matrix scene rendered on canvas.
  *
- * What it depicts, so future edits keep the metaphor honest — a stepped stack of
+ * What it depicts, so future edits keep the metaphor honest. A stepped stack of
  * dot plates standing on a lattice of nodes that runs to a horizon. Every few
  * seconds the top plate lifts a hair, throws a little accent-blue spray, and a
  * ripple rolls outward from it across the whole field. That is a deploy handing

@@ -7,7 +7,7 @@ export interface CreatedOrg {
   name: string;
 }
 
-// `.slugify()` alone — derives the slug live as the user types the name.
+// `.slugify()` alone: derives the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.
 export const slugifier = z.string().slugify();
 
@@ -22,6 +22,12 @@ export const nameAndSlugSchema = z.object({
 /** Flatten TanStack Form's mixed error shape into plain messages. */
 export function messages(errors: readonly unknown[]): string[] {
   return errors
-    .map((e) => (typeof e === "string" ? e : (e as { message?: string } | undefined)?.message))
+    .map((e) => {
+      if (typeof e === "string") return e;
+      if (e !== null && typeof e === "object" && "message" in e && typeof e.message === "string") {
+        return e.message;
+      }
+      return undefined;
+    })
     .filter((m): m is string => Boolean(m));
 }

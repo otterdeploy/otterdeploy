@@ -1,4 +1,4 @@
-/** Read-only PEM viewer for a stored trusted CA — copy + download. */
+/** Read-only PEM viewer for a stored trusted CA, copy + download. */
 import { Copy01Icon, Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";

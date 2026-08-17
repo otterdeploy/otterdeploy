@@ -2,7 +2,7 @@
  * Social sign-in provider settings (platform-wide singleton). Split out of
  * ./runtime-settings.ts for size.
  *
- * Saving a provider rebuilds the better-auth instance — `socialProviders` is
+ * Saving a provider rebuilds the better-auth instance: `socialProviders` is
  * read when the instance is constructed, so nothing short of a swap applies a
  * credential change. That means a provider goes live on the next request with
  * no server restart, and (because the sign-in page reads the live list from
@@ -90,8 +90,8 @@ function toProviderView(row: PlatformRow | undefined, id: SocialProviderId): Soc
     issuer: id === "gitlab" ? (row?.gitlabOauthIssuer ?? env.GITLAB_OAUTH_ISSUER ?? null) : null,
     envConfigured: Boolean(seed.clientId && seed.clientSecret),
     // Deliberately NOT derived from the columns: this reports what the LIVE
-    // auth instance registered, so a provider whose secret won't decrypt — or
-    // one saved while a reload failed — reads as off here instead of claiming
+    // auth instance registered, so a provider whose secret won't decrypt, or
+    // one saved while a reload failed. Reads as off here instead of claiming
     // to work while its sign-in button is absent.
     live: enabledSocialProviderIds().includes(id),
   };

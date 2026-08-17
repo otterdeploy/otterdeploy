@@ -23,13 +23,13 @@ import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-componen
 import * as z from "zod";
 
 const searchSchema = z.object({
-  // Deliberately NOT `tab` — the parent /graph/$resourceId route owns that key
+  // Deliberately NOT `tab`: the parent /graph/$resourceId route owns that key
   // for the panel behind this overlay, and search params are one flat object
   // per URL. Sharing the key meant switching a log tab here rewrote the panel's
   // tab to a value it doesn't recognize, so closing the overlay dumped you on
   // the panel's default tab instead of the Deployments tab you opened it from.
   deploymentTab: z.enum(DEPLOYMENT_TABS).catch("details"),
-  // Present when opened from a PR-preview panel — the base deployments
+  // Present when opened from a PR-preview panel. The base deployments
   // collection only loads previewId-null rows, so a preview row must be
   // fetched with this scope or the Details panel loads forever.
   previewId: z.string().optional(),
@@ -47,7 +47,7 @@ export const Route = createFileRoute(
 
 /** The address this deployment is actually reachable at.
  *
- *  A preview deployment does NOT serve the base service's domain — it has its
+ *  A preview deployment does NOT serve the base service's domain. It has its
  *  own `<service>-pr-N-<project>` host. Showing `resource.publicDomain` in a
  *  preview panel pointed at production while you were looking at a pull
  *  request's build, which is a confusing thing to hand someone and a dangerous
@@ -94,8 +94,8 @@ function reachableUrl(resource: ProjectResource | undefined, previewUrl: string 
   return null;
 }
 
-/** The deployment's address. A link when a browser can open it — that is the
- *  one thing anyone wants from this line — plain text otherwise. */
+/** The deployment's address. A link when a browser can open it. That is the
+ *  one thing anyone wants from this line, plain text otherwise. */
 function Subline({ text, href }: { text: string; href: string | null }) {
   if (!text) return null;
   if (!href) return <div className="font-mono text-[12px] text-muted-foreground/80">{text}</div>;
@@ -117,14 +117,14 @@ function Subline({ text, href }: { text: string; href: string | null }) {
 }
 
 /** Marks a build as belonging to a pull request rather than to production.
- *  Dashed to match the graph's preview edges and the preview panel's chrome —
- *  one vocabulary for "ephemeral, PR-scoped" wherever it appears. */
+ *  Dashed to match the graph's preview edges and the preview panel's chrome.
+ *  One vocabulary for "ephemeral, PR-scoped" wherever it appears. */
 function PreviewChip({ active }: { active: boolean }) {
   if (!active) return null;
   return (
     <span
       className="inline-flex shrink-0 items-center rounded-full border border-dashed border-border bg-muted/30 px-2 py-0.5 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase"
-      title="A pull-request preview build — temporary, and torn down with its PR"
+      title="A pull-request preview build. Temporary, and torn down with its PR."
     >
       preview
     </span>
@@ -137,11 +137,11 @@ function RouteComponent() {
   const { deploymentTab: tab, previewId } = Route.useSearch();
   const navigate = Route.useNavigate();
   // Drives the slide-OUT. Closing navigates back to the resource, which makes
-  // TanStack's <Outlet> render null at once — so the unmount-time `exit` has
+  // TanStack's <Outlet> render null at once, so the unmount-time `exit` has
   // nothing to animate and the overlay just vanishes. Animate to x:"100%" on
   // `closing`, then navigate when it finishes (see onAnimationComplete below).
   const [closing, setClosing] = useState(false);
-  // Escape closes the overlay the same way its X does — set `closing`, let the
+  // Escape closes the overlay the same way its X does. Set `closing`, let the
   // slide-out finish, then navigate back to the resource panel. Guarded on
   // `closing` so a second press mid-animation is not a second close.
   useEscapeKey(!closing, () => setClosing(true));
@@ -246,7 +246,7 @@ function RouteComponent() {
           <div className="flex items-center gap-3">
             {/* Renders itself away unless this deployment is still in flight. */}
             {deployment && (
-              // The loaded row's id, not the route param — it carries the
+              // The loaded row's id, not the route param. It carries the
               // branded type, and it is the row we are actually acting on.
               <CancelDeploymentButton
                 deploymentId={deployment.id}
@@ -256,7 +256,7 @@ function RouteComponent() {
             <span className="font-mono text-[11.5px] text-muted-foreground">
               {deployment
                 ? new Date(deployment.createdAt).toLocaleString()
-                : "—"}
+                : "–"}
             </span>
             <button
               type="button"

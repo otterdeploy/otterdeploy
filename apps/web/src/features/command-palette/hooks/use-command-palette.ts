@@ -4,7 +4,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 
 // Shared open-state so the palette can be toggled from anywhere (the Mod+K
 // hotkey AND the user menu's "Command menu" item) and stay in sync. A tiny
-// external store rather than a context — no provider to thread through.
+// external store rather than a context, no provider to thread through.
 let isOpen = false;
 const listeners = new Set<() => void>();
 

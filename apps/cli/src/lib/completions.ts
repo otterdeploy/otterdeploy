@@ -1,6 +1,6 @@
 /**
  * Shell-completion generation. Walks the resolved citty command tree so the
- * scripts never drift from the real command set — add a command and its
+ * scripts never drift from the real command set. Add a command and its
  * completion appears automatically on the next `completions` run.
  *
  * Covers command/subcommand names and each command's long flags. Two levels
@@ -12,7 +12,7 @@
  * rather than baked in.
  */
 
-import type { ArgsDef, CommandDef } from "citty";
+import type { ArgsDef, CommandDef, Resolvable, SubCommandsDef } from "citty";
 
 interface CommandNode {
   name: string;
@@ -20,20 +20,29 @@ interface CommandNode {
   children: CommandNode[];
 }
 
-async function resolve<T>(value: T | (() => T | Promise<T>)): Promise<T> {
-  return typeof value === "function" ? await (value as () => T | Promise<T>)() : value;
+/**
+ * A `Resolvable<T>` is a thunk exactly when it's callable: none of the
+ * resolvable citty shapes (ArgsDef, SubCommandsDef, CommandDef) are functions,
+ * so the typeof check decides the union completely.
+ */
+function isThunk<T>(value: Resolvable<T>): value is (() => T) | (() => Promise<T>) {
+  return typeof value === "function";
+}
+
+async function resolve<T>(value: Resolvable<T>): Promise<T> {
+  return isThunk(value) ? value() : value;
 }
 
 function flagsOf(args: ArgsDef | undefined): string[] {
   if (!args) return [];
   return Object.entries(args)
-    .filter(([, def]) => (def as { type?: string }).type !== "positional")
+    .filter(([, def]) => def.type !== "positional")
     .map(([name]) => `--${name}`);
 }
 
 export async function buildTree(cmd: CommandDef, name: string): Promise<CommandNode> {
-  const args = (await resolve(cmd.args)) as ArgsDef | undefined;
-  const subs = (await resolve(cmd.subCommands)) as Record<string, CommandDef> | undefined;
+  const args = await resolve<ArgsDef | undefined>(cmd.args);
+  const subs = await resolve<SubCommandsDef | undefined>(cmd.subCommands);
   const children: CommandNode[] = [];
   if (subs) {
     for (const [subName, subCmd] of Object.entries(subs)) {
@@ -82,7 +91,7 @@ function zshScript(root: CommandNode, bin: string): string {
         `      ${c.name}) _values 'subcommand' ${c.children.map((s) => `'${s.name}'`).join(" ")} ;;`,
     )
     .join("\n");
-  // NB: don't name the static list `words` — that shadows zsh's special
+  // NB: don't name the static list `words`. That shadows zsh's special
   // command-line array, which the `case` below reads to find the subcommand.
   return `#compdef ${bin}
 # ${bin} zsh completion. Install: ${bin} completions zsh > "\${fpath[1]}/_${bin}"

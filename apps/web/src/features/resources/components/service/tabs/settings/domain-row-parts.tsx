@@ -3,8 +3,8 @@
  * inline edit row, and the copy / edit / remove icon actions.
  *
  * Split from ./domains-card-parts (which keeps the status chip and the DNS
- * hint) so neither file carries the other's concerns. All stateless —
- * handlers and busy flags come in as props.
+ * hint) so neither file carries the other's concerns. All stateless.
+ * Handlers and busy flags come in as props.
  */
 
 import type { IconSvgElement } from "@hugeicons/react";
@@ -21,7 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import type { DomainView } from "./domains-card-parts";
 
 /** The container ports a host may be routed at. Empty means the service
- *  declares none — the caller hides the picker rather than offering nothing. */
+ *  declares none: the caller hides the picker rather than offering nothing. */
 export interface PortChoice {
   containerPort: number;
   appProtocol: "http" | "tcp";
@@ -29,7 +29,7 @@ export interface PortChoice {
 }
 
 /** Which container port a domain forwards to. A single-port service gets a
- *  plain label — a dropdown with one option is a question with one answer. */
+ *  plain label: a dropdown with one option is a question with one answer. */
 export function PortPicker({
   value,
   ports,
@@ -118,7 +118,7 @@ export function DomainEditRow({
 
 /**
  * Per-host actions. Copy / edit / remove are the three icons that sit on
- * every row — the shape Railway's public-networking list uses, and the three
+ * every row: the shape Railway's public-networking list uses, and the three
  * things an operator reaches for most. Recheck DNS and Set primary are
  * conditional and stay worded, because neither is guessable from a glyph.
  */

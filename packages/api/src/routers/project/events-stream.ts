@@ -14,7 +14,7 @@
  * projects) are silently dropped.
  *
  * The map is refreshed on `service.create`/`service.remove` events that
- * pattern-match the project's slug — those don't tell us a resource id
+ * pattern-match the project's slug. Those don't tell us a resource id
  * directly, but they invalidate the cache so the next event from the
  * affected service gets resolved fresh.
  */
@@ -43,7 +43,7 @@ export type ProjectStreamEvent =
   | {
       kind: "route";
       action: "created" | "updated";
-      /** The row itself, minus the two secret columns — see the contract for
+      /** The row itself, minus the two secret columns: see the contract for
        *  why routes push rows and deployments don't. */
       route: PublishableRoute;
     }
@@ -61,8 +61,8 @@ export type ProjectStreamEvent =
       taskId: string;
       state: string | null;
     }
-  /** Staged manifest changed (save/apply/discard, UI or git). No payload —
-   *  consumers resync diff/manifest reads. NOT forwarded on the legacy
+  /** Staged manifest changed (save/apply/discard, UI or git). No payload.
+   *  Consumers resync diff/manifest reads. NOT forwarded on the legacy
    *  per-project stream, whose deployed clients predate the kind. */
   | { kind: "manifest"; action: "changed" }
   /** Preview lifecycle changed (PR opened/updated/closed). Same rules. */
@@ -82,7 +82,7 @@ interface StreamInput {
 /**
  * Build the initial service-name → resource-id map for the project.
  * Database resources don't carry a stored `serviceName` (we derive it
- * from project slug + resource name), service resources do — both kinds
+ * from project slug + resource name), service resources do. Both kinds
  * land in the same lookup so downstream code doesn't have to dispatch.
  */
 async function loadServiceNameMap(
@@ -92,7 +92,7 @@ async function loadServiceNameMap(
   const map = new Map<string, ResourceId>();
   const sanitizedSlug = sanitizeProjectSlug(projectSlug);
   // "all": this map is a reverse lookup from a container/service NAME back to
-  // a resource id, so it must span every environment — scoping it would leave a
+  // a resource id, so it must span every environment. Scoping it would leave a
   // staging container's events unattributable.
   const { databases, services } = await listProjectResources(projectId, "all");
   for (const row of databases) {
@@ -101,10 +101,10 @@ async function loadServiceNameMap(
       projectSlug: sanitizedSlug,
       resourceName: row.resource.name,
     });
-    map.set(serviceName, row.resource.id as ResourceId);
+    map.set(serviceName, row.resource.id);
   }
   for (const row of services) {
-    map.set(row.service.serviceName, row.resource.id as ResourceId);
+    map.set(row.service.serviceName, row.resource.id);
   }
   return map;
 }
@@ -120,7 +120,7 @@ function eventServiceName(event: DockerEvent): string | null {
     // Under swarm the container carries `com.docker.swarm.service.name`. Under
     // the DEFAULT plain-docker runtime there's no such label, but the container
     // is named exactly `serviceName` (the docker driver's container name), which
-    // the event carries as `event.name` — fall back to it so container
+    // the event carries as `event.name`. Fall back to it so container
     // lifecycle/health events actually reach the stream (matching the same
     // `event.name` fallback in postgres/boot-logs.ts).
     return event.labels["com.docker.swarm.service.name"] ?? event.name ?? null;
@@ -145,7 +145,7 @@ export async function* streamProjectEvents(
   if (!project) {
     // Generators can't return a Result from the outermost caller without
     // throwing, but the contract is "stream until aborted" so we just
-    // end the stream — the absence of events is the correct behaviour
+    // end the stream. The absence of events is the correct behaviour
     // for a not-found project at this layer. The router refuses the
     // request earlier when it can.
     return;
@@ -154,7 +154,7 @@ export async function* streamProjectEvents(
   let serviceMap = await loadServiceNameMap(input.projectId, project.slug);
 
   // Bounded queue. Listeners that fall behind drop oldest events rather
-  // than indefinitely backpressuring the docker bus — the frontend will
+  // than indefinitely backpressuring the docker bus: the frontend will
   // catch up via its next refetch when the stream resumes flowing.
   const queue: ProjectStreamEvent[] = [];
   const MAX_QUEUE = 200;
@@ -179,7 +179,7 @@ export async function* streamProjectEvents(
 
   const sub = subscribeDockerEvents((raw) => {
     if (aborted) return;
-    // Healthcheck probes surface as exec_* container events — an
+    // Healthcheck probes surface as exec_* container events. An
     // exec_create/exec_start/exec_die triple per probe, per container,
     // forever. They change nothing the dashboard shows, but forwarded they
     // made every idle browser refetch the resource list on each probe
@@ -189,11 +189,11 @@ export async function* streamProjectEvents(
     const serviceName = eventServiceName(raw);
     if (!serviceName) return;
 
-    // Service lifecycle events from docker — refresh the cache and emit
+    // Service lifecycle events from docker: refresh the cache and emit
     // a coarse resource event so the frontend can invalidate the list.
     if (raw.kind === "service") {
       if (raw.action === "create" || raw.action === "remove") {
-        // Invalidate the cache lazily — the next event from this service
+        // Invalidate the cache lazily. The next event from this service
         // will trigger a refresh via the miss path below.
         if (raw.action === "remove") {
           const knownResource = serviceMap.get(serviceName);
@@ -213,7 +213,7 @@ export async function* streamProjectEvents(
     }
 
     const resourceId = serviceMap.get(serviceName);
-    if (!resourceId) return; // not our project — silently drop
+    if (!resourceId) return; // not our project. Silently drop
 
     if (raw.kind === "task") {
       push({
@@ -287,7 +287,7 @@ export async function* streamProjectEvents(
 /**
  * Pre-flight check the router uses to throw NOT_FOUND with the right
  * shape before opening the stream. Generators can't reject cleanly with
- * a typed error on the outermost contract level — easier to gate here.
+ * a typed error on the outermost contract level: easier to gate here.
  */
 export async function validateProjectEventsStream(
   input: StreamInput,
@@ -299,7 +299,7 @@ export async function validateProjectEventsStream(
   if (!project) {
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
-  // Wrap with `_void` to silence unused — we keep the docker import alive
+  // Wrap with `_void` to silence unused. We keep the docker import alive
   // for the Result.ok return path's type inference even though we don't
   // call into docker here.
   void Docker;

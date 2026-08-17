@@ -1,5 +1,5 @@
 /**
- * Workspace SSO settings — register and remove the OIDC identity providers that
+ * Workspace SSO settings: register and remove the OIDC identity providers that
  * sign people into THIS workspace.
  *
  * Owner/admin only, and enforced twice on purpose: this page hides the controls,
@@ -102,7 +102,7 @@ function ProviderRow({
             size="icon"
             className="size-6 shrink-0"
             aria-label="Copy redirect URI"
-            // Insecure-context safe — `navigator.clipboard` is absent over
+            // Insecure-context safe: `navigator.clipboard` is absent over
             // plain http://<ip>. See shared/lib/clipboard.ts.
             onClick={() => {
               void copyToClipboard(uri).then((ok) =>

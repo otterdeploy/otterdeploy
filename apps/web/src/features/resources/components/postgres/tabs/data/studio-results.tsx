@@ -1,5 +1,5 @@
 /**
- * The shared results panel for the Data studio — identical in both Table and
+ * The shared results panel for the Data studio: identical in both Table and
  * SQL modes; only the surrounding chrome differs. Wraps {@link ResultsPanel}
  * with a mode-aware left slot (Data/Structure toggle · filters · columns · add
  * record / open-in-SQL) and footer (row count + selection actions +

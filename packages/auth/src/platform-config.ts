@@ -5,13 +5,13 @@
  * Why this file exists rather than importing
  * packages/api/src/lib/platform-runtime-settings.ts: `@otterdeploy/api`
  * depends on `@otterdeploy/auth`, so the import can only go this direction.
- * Same reasoning — and the same resolution — as
+ * Same reasoning (and the same resolution) as
  * packages/jobs/src/delivery/secret-crypto.ts, which mirrors the identical v1
  * primitive for the same dependency reason.
  *
  * Only DECRYPT is mirrored here: auth reads these credentials, it never writes
  * them (the settings router in packages/api owns every write, and encrypts
- * with the byte-identical v1 construction — HKDF-SHA256 off BETTER_AUTH_SECRET
+ * with the byte-identical v1 construction: HKDF-SHA256 off BETTER_AUTH_SECRET
  * with a fixed salt/info, AES-256-GCM, `v1.<nonce>.<ciphertext>` base64url).
  * Because the key derives deterministically from the env secret, ciphertext
  * written over there decrypts here with no shared state.
@@ -34,7 +34,7 @@ async function getKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
   const base = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(env.BETTER_AUTH_SECRET) as unknown as ArrayBuffer,
+    new TextEncoder().encode(env.BETTER_AUTH_SECRET),
     "HKDF",
     false,
     ["deriveKey"],
@@ -55,20 +55,25 @@ async function getKey(): Promise<CryptoKey> {
 }
 
 /** Null on any malformed/undecryptable blob. A provider whose secret can't be
- *  read must degrade to "not configured" — which the settings UI shows and the
- *  sign-in page reflects by omitting the button — rather than throw during
+ *  read must degrade to "not configured", which the settings UI shows and the
+ *  sign-in page reflects by omitting the button: rather than throw during
  *  auth construction and take the whole install's sign-in down. */
 async function decryptOrNull(blob: string | null | undefined): Promise<string | null> {
   if (!blob) return null;
   const parts = blob.split(".");
   if (parts.length !== 3 || parts[0] !== V1_FORMAT) return null;
+  const [, nonceB64, cipherB64] = parts;
+  if (nonceB64 === undefined || cipherB64 === undefined) return null;
   try {
-    const nonce = base64UrlDecode(parts[1] as string);
-    const ciphertext = base64UrlDecode(parts[2] as string);
+    // Copied into fresh (ArrayBuffer-backed) views: `base64UrlDecode` types
+    // its result over ArrayBufferLike, which WebCrypto's BufferSource won't
+    // take. Same resolution as packages/jobs/src/delivery/secret-crypto.ts.
+    const nonce = new Uint8Array(base64UrlDecode(nonceB64));
+    const ciphertext = new Uint8Array(base64UrlDecode(cipherB64));
     const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
+      { name: "AES-GCM", iv: nonce },
       await getKey(),
-      ciphertext.buffer as ArrayBuffer,
+      ciphertext,
     );
     return new TextDecoder().decode(plaintext);
   } catch {
@@ -100,7 +105,7 @@ async function readRow(): Promise<PlatformRow | undefined> {
 }
 
 /**
- * Read fresh on every signup attempt — deliberately uncached. This is the
+ * Read fresh on every signup attempt. Deliberately uncached. This is the
  * decision of whether a stranger may create an account, so an operator who
  * closes registration must have it take effect on the very next request, not
  * after a cache TTL. Signups are rare enough that the extra select is free.
@@ -120,7 +125,7 @@ export async function registrationPolicy(): Promise<RegistrationPolicy> {
 }
 
 /** Column names per provider. Must stay identical to PROVIDER_COLUMNS in
- *  packages/api/src/lib/platform-runtime-settings.ts — that module writes these
+ *  packages/api/src/lib/platform-runtime-settings.ts: that module writes these
  *  columns, this one reads them. */
 const PROVIDER_COLUMNS = {
   github: {
@@ -163,7 +168,7 @@ function stored(row: PlatformRow | undefined, id: SocialProviderId) {
 /**
  * Providers to register with better-auth. A provider is included only when it
  * is enabled AND carries both halves of its credential, so a half-configured
- * provider is skipped rather than registered broken — the sign-in page mirrors
+ * provider is skipped rather than registered broken. The sign-in page mirrors
  * this exact list, so it can never render a button that dead-ends.
  *
  * `enabled === null` (never touched in the UI) counts as enabled, which is what

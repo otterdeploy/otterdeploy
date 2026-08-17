@@ -1,5 +1,5 @@
 /**
- * Presentational cards/rows for the resource Deployments tab — the active-
+ * Presentational cards/rows for the resource Deployments tab: the active-
  * deployment hero, the compact history rows + their action menu, and the status
  * badge. Split out of `resource-tasks-tab.tsx` to keep that file focused on the
  * live-query wiring and the hero/history split.
@@ -47,7 +47,7 @@ export interface DeploymentInfo {
    *  = unlimited. */
   restartCount: number | null;
   restartMaxAttempts: number | null;
-  /** Commit provenance — the change this deployment put into service. Present
+  /** Commit provenance: the change this deployment put into service. Present
    *  for anything built from a repo (push, UI deploy, initial deploy) and
    *  inherited by a rollback; null for image/database deploys. */
   gitSha: string | null;
@@ -75,7 +75,7 @@ export function HistoryRow({
   canRollback: boolean;
 }) {
   const duration = useLiveDuration(deployment.createdAt, deployment.completedAt);
-  // A failed/crashed history row must say WHY inline — the badge alone made
+  // A failed/crashed history row must say WHY inline. The badge alone made
   // past failures opaque without a click-through to the detail page.
   const showError =
     deployment.errorMessage && (deployment.status === "failed" || deployment.status === "crashed");
@@ -130,7 +130,7 @@ export function HistoryRow({
   );
 }
 
-// "superseded" is accurate but reads as jargon — a superseded deployment is
+// "superseded" is accurate but reads as jargon. A superseded deployment is
 // simply an older one a newer deploy replaced. Show plainer words.
 const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
   pending: "pending",
@@ -138,7 +138,7 @@ const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
   starting: "starting",
   running: "running",
   crashed: "crashed",
-  // Deliberately stopped (scaled to zero) — rendered calm grey, no pulse, so it
+  // Deliberately stopped (scaled to zero). Rendered calm grey, no pulse, so it
   // never reads as the green live "running" it replaces.
   paused: "paused",
   failed: "failed",

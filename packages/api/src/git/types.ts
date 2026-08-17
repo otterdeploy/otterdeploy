@@ -1,7 +1,7 @@
 /**
  * Shapes of the GitHub webhook payloads we read fields off of.
  *
- * Intentionally narrow — the real payloads are huge and we don't want a
+ * Intentionally narrow: the real payloads are huge and we don't want a
  * type-level dependency on the full Octokit types. Anything we ever want
  * to read must be listed here so handlers stay typed end-to-end.
  */
@@ -42,7 +42,7 @@ export interface InstallationReposEvent {
 }
 
 /** A single commit in a push payload. `added`/`removed`/`modified` are
- *  repo-root-relative paths — GitHub omits them on very large pushes, so
+ *  repo-root-relative paths: GitHub omits them on very large pushes, so
  *  treat an absent/empty list as "unknown", not "nothing changed". */
 export interface GithubCommitPayload {
   id: string;
@@ -61,12 +61,12 @@ export interface PushEvent {
   installation?: { id: number | string };
   head_commit?: GithubCommitPayload;
   commits?: GithubCommitPayload[];
-  /** The GitHub user who pushed — carries their `avatar_url` + `login`, which
+  /** The GitHub user who pushed. Carries their `avatar_url` + `login`, which
    *  the deployment card shows as the author's face. */
   sender?: GithubAccountPayload;
 }
 
-/** `pull_request` webhook — drives preview environments. We read the action
+/** `pull_request` webhook: drives preview environments. We read the action
  *  (opened/reopened/synchronize/closed), the PR number + node id, and the head
  *  ref/sha to build from. See docs/designs/pr-previews.md §7. */
 export interface PullRequestEvent {
@@ -78,7 +78,7 @@ export interface PullRequestEvent {
     state: "open" | "closed";
     merged?: boolean;
     title?: string;
-    /** Author, for the preview card. Optional — never gate a preview on it. */
+    /** Author, for the preview card. Optional, never gate a preview on it. */
     user?: { login?: string; avatar_url?: string } | null;
     /** Canonical web URL of the PR. */
     html_url?: string;
@@ -90,7 +90,7 @@ export interface PullRequestEvent {
 }
 
 /**
- * `issue_comment` — GitHub delivers PR comments as issue comments. The payload
+ * `issue_comment`: GitHub delivers PR comments as issue comments. The payload
  * carries the ISSUE, not the pull request, so `issue.pull_request` is the only
  * signal that it is a PR at all, and the head to build must be fetched.
  */

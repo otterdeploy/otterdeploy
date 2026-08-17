@@ -1,5 +1,5 @@
 /**
- * Presentational pieces for {@link RealResourcePanel} — pulled into a sibling
+ * Presentational pieces for {@link RealResourcePanel}, pulled into a sibling
  * module so the panel component stays small. The header (back / restart /
  * close), the status row, the runtime badge, and the engine-specific data
  * browser switch all live here.
@@ -7,8 +7,6 @@
 
 import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-
-import type { ResourceEngine } from "@/features/projects/components/graph/resource-node";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { UnsupportedDataViewer } from "@/features/resources/components/_shared/data/unsupported-data-viewer";
@@ -56,7 +54,7 @@ export function DatabasePanelHeader({
             kind: "database",
             name: resource.name,
             description: "",
-            engine: resource.engine as ResourceEngine,
+            engine: resource.engine,
           }}
         />
         <div className="flex min-w-0 flex-col gap-0.5">
@@ -75,7 +73,7 @@ export function DatabasePanelHeader({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {/* Restart needs a running container — omit it while the database is
+        {/* Restart needs a running container. Omit it while the database is
             still a staged create (Deploy from the pending bar). */}
         {!pending && (
           <Button
@@ -87,7 +85,7 @@ export function DatabasePanelHeader({
             aria-label={restarting ? "Restarting" : "Restart"}
           >
             <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-            {/* Label drops below `sm` — the icon carries it, and the row has to
+            {/* Label drops below `sm`. The icon carries it, and the row has to
                 leave room for the resource name. */}
             <span className="hidden sm:inline">{restarting ? "Restarting…" : "Restart"}</span>
           </Button>
@@ -113,12 +111,12 @@ export function DatabaseStatusBar({
   trailing,
 }: {
   pending: boolean;
-  /** Absent on a staged create — no container (and so no runtime) exists
+  /** Absent on a staged create, no container (and so no runtime) exists
    *  until the first apply, so this must never be read in pending mode. */
   runtime: DbResource["runtime"] | undefined;
   latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
   /** Right-edge extras (e.g. the live connections chip). Only rendered for a
-   *  provisioned database — a staged create has nothing to connect to. */
+   *  provisioned database: a staged create has nothing to connect to. */
   trailing?: React.ReactNode;
 }) {
   return (
@@ -131,7 +129,7 @@ export function DatabaseStatusBar({
             PENDING
           </span>
           <span className="min-w-0 text-[13px] text-muted-foreground">
-            Staged — Deploy the pending changes to create it
+            Staged. Deploy the pending changes to create it
           </span>
         </>
       ) : (
@@ -144,7 +142,7 @@ export function DatabaseStatusBar({
   );
 }
 
-/** Split out so `runtime` is narrowed to present by the caller's guard — the
+/** Split out so `runtime` is narrowed to present by the caller's guard. The
  *  status computation reads it unconditionally and a staged database has none. */
 function ProvisionedStatus({
   runtime,
@@ -154,7 +152,7 @@ function ProvisionedStatus({
   latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
 }) {
   // A container that's missing/stopped while a deploy is in flight isn't
-  // broken — the image is still pulling or docker hasn't created it yet.
+  // broken: the image is still pulling or docker hasn't created it yet.
   // Say "deploying" instead of a scary MISSING/ERROR badge for that window.
   const deploying =
     runtime.status !== "running" &&
@@ -167,7 +165,7 @@ function ProvisionedStatus({
       <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
       <span className="min-w-0 text-[13px] text-muted-foreground">
         {deploying
-          ? "Deploy in progress — pulling the image can take a few minutes"
+          ? "Deploy in progress. Pulling the image can take a few minutes."
           : (runtime.health ?? "Provisioned")}
       </span>
     </>

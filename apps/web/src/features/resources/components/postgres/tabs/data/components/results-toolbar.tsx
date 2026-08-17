@@ -1,7 +1,7 @@
 /**
  * Sub-toolbar for {@link ResultsPanel}: the owner's `leftSlot`, the grid/JSON
  * view toggle, and the export menu. Exports (CSV / JSON, all or selected rows)
- * always carry EVERY column — column hiding only trims the grid.
+ * always carry EVERY column. Column hiding only trims the grid.
  */
 
 import { Download01Icon, SourceCodeIcon, Table01Icon } from "@hugeicons/core-free-icons";
@@ -91,7 +91,9 @@ export function ResultsToolbar({
         <ToggleGroup
           size="sm"
           value={[view]}
-          onValueChange={([v]) => v && onViewChange(v as ResultView)}
+          onValueChange={([v]) => {
+            if (v === "grid" || v === "json") onViewChange(v);
+          }}
           className="gap-0.5"
         >
           <ToggleGroupItem value="grid" aria-label="Grid view" className="h-6 px-1.5">

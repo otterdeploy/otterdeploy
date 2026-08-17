@@ -1,7 +1,7 @@
 export const PLATFORM = {
   database: {
     // Public Postgres rides on :443 by TLS-SNI (caddy-l4 listener wrapper),
-    // next to HTTP — never a raw 5432 on the host. See
+    // next to HTTP, never a raw 5432 on the host. See
     // docs/designs/db-tls-multiplex-443.md.
     publicPort: 443,
     internalBaseDomain: "otterdeploy.internal",
@@ -16,8 +16,8 @@ export const PLATFORM = {
     // Host path that file-type mounts get materialized under. Each service
     // gets a subdirectory named by its swarm service name; individual
     // file-mount rows write to relative paths beneath that. Must exist
-    // and be writable on every swarm node that could schedule a task —
-    // either via a shared filesystem or by bind-mounting the same host
+    // and be writable on every swarm node that could schedule a task.
+    // Either via a shared filesystem or by bind-mounting the same host
     // path on every node. Override via OTTERDEPLOY_FILES_ROOT for tests.
     // oxlint-disable-next-line node/no-process-env -- leaf config constant evaluated at import; this is a test-only override not part of the validated env schema, and importing @otterdeploy/env into this near-universally-imported module would pull full env validation into the import graph.
     root: process.env.OTTERDEPLOY_FILES_ROOT ?? "/var/lib/otterdeploy/files",

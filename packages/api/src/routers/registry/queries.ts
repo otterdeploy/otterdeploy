@@ -2,13 +2,13 @@
  * DB-facing helpers for container registry credentials.
  *
  * Encryption is applied at the boundary here: callers pass plaintext, we
- * encryptForDomain(..., "registry-creds") before INSERT/UPDATE — a key
+ * encryptForDomain(..., "registry-creds") before INSERT/UPDATE. A key
  * derived independently of every other secret category, see
- * packages/api/src/lib/crypto.ts — and we never SELECT the
+ * packages/api/src/lib/crypto.ts, and we never SELECT the
  * encrypted_password column for the "view" shape. The decrypted paths
  * are swarm/registry-auth.ts (resolveRegistryAuth), the build pipeline
  * (apps/builder/src/pipeline.ts), and getRegistryCredentialForOrg below
- * (testConnection probe only — plaintext never leaves the server).
+ * (testConnection probe only, plaintext never leaves the server).
  */
 import type { ContainerRegistryId, OrganizationId } from "@otterdeploy/shared/id";
 
@@ -35,7 +35,7 @@ const VIEW_COLUMNS = {
  * Canonical host: lowercase, with the implicit Docker Hub form
  * collapsed to the registry hostname `resolveRegistryAuth` will
  * compare against. Operators sometimes paste "https://ghcr.io" or
- * "docker.io/" — strip the scheme + trailing slash so a credential
+ * "docker.io/": strip the scheme + trailing slash so a credential
  * added that way still matches images under the bare hostname.
  */
 export function canonicalizeHost(input: string): string {
@@ -87,7 +87,7 @@ export async function getRegistryForOrg(organizationId: OrgId, id: RegistryId) {
 /**
  * host + username + DECRYPTED password for the testConnection probe.
  * The plaintext is used server-side for the registry handshake and is
- * never serialized into an RPC response — keep it that way.
+ * never serialized into an RPC response: keep it that way.
  */
 export async function getRegistryCredentialForOrg(organizationId: OrgId, id: RegistryId) {
   const [row] = await db
@@ -110,7 +110,7 @@ export async function getRegistryCredentialForOrg(organizationId: OrgId, id: Reg
 }
 
 /**
- * Decrypted credential for a HOST — the same "most recently updated wins"
+ * Decrypted credential for a HOST: the same "most recently updated wins"
  * rule `resolveRegistryAuth` applies at deploy time, so the tag browser
  * authenticates exactly like the eventual pull will. Null when the org
  * has no credential for that host (anonymous is the honest fallback).
@@ -205,12 +205,12 @@ export async function updateRegistryRecord(input: {
 
 /**
  * Delete a registry credential. Projects that pointed at it lose the
- * binding — the column is set NULL so the next build of those projects
+ * binding: the column is set NULL so the next build of those projects
  * fails fast with a clear "no registry configured" error rather than
  * crashing inside the docker push step.
  */
 export async function deleteRegistryRecord(input: { organizationId: OrgId; id: RegistryId }) {
-  // No project/service column to null anymore — services reference a registry by
+  // No project/service column to null anymore: services reference a registry by
   // the image target's HOST (matched at build time), not by id. Deleting the
   // credential just means a build pushing to that host fails with a clear "no
   // registry credential for <host>" until the operator re-adds one.

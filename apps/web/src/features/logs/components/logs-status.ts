@@ -4,7 +4,7 @@ export type LogStreamStatus = "connecting" | "live" | "ended" | "error";
 
 /** Maps the live-stream status (and the operator's pause) to a toolbar badge. */
 export function statusBadge(status: LogStreamStatus, paused: boolean): StatusBadge {
-  // Paused overrides any stream status — operator explicitly stopped the tail.
+  // Paused overrides any stream status: operator explicitly stopped the tail.
   if (paused) {
     return {
       label: "paused",

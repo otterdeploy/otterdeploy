@@ -36,22 +36,23 @@ export class ServerConflictError extends TaggedError("ServerConflictError")<{
  * Postgres error, so provisioning 500s carried no diagnostic at all. Carrying
  * the cause's message through as a value keeps it in the log.
  */
-/** A readable one-liner for any thrown value — never "[object Object]", which
+/** A readable one-liner for any thrown value, never "[object Object]", which
  *  would throw away the very detail this error exists to carry. */
 function describeCause(cause: unknown): string {
   if (cause instanceof Error) return cause.message;
   if (cause == null) return "unknown error";
   if (typeof cause === "string") return cause;
   if (typeof cause === "object") {
-    const message = (cause as { message?: unknown }).message;
-    if (typeof message === "string" && message.length > 0) return message;
+    if ("message" in cause && typeof cause.message === "string" && cause.message.length > 0) {
+      return cause.message;
+    }
     try {
       return JSON.stringify(cause) ?? "unknown error";
     } catch {
       return "unserializable error";
     }
   }
-  // Remaining primitives only — enumerated so nothing `unknown` reaches String().
+  // Remaining primitives only, enumerated so nothing `unknown` reaches String().
   if (typeof cause === "number" || typeof cause === "boolean" || typeof cause === "bigint") {
     return String(cause);
   }
@@ -70,14 +71,14 @@ export class ServerDatabaseError extends TaggedError("ServerDatabaseError")<{
   }
 }
 
-/** Provision auth must be exactly one of a managed key or a one-time password
- *  — neither (nothing to auth with) and both (ambiguous) are rejected. */
+/** Provision auth must be exactly one of a managed key or a one-time password.
+ *  Neither (nothing to auth with) and both (ambiguous) are rejected. */
 export class ProvisionCredentialError extends TaggedError("ProvisionCredentialError")<{
   message: string;
 }>() {
   constructor() {
     super({
-      message: "provide exactly one SSH credential — a managed key or a one-time password",
+      message: "provide exactly one SSH credential: a managed key or a one-time password",
     });
   }
 }
@@ -90,7 +91,7 @@ export class ProvisionNotFailedError extends TaggedError("ProvisionNotFailedErro
   constructor(args: { serverId: ServerId; status: string }) {
     super({
       serverId: args.serverId,
-      message: `server ${args.serverId} is "${args.status}", not "failed" — nothing to retry`,
+      message: `server ${args.serverId} is "${args.status}", not "failed". Nothing to retry`,
     });
   }
 }
@@ -111,7 +112,7 @@ export class ProvisionMissingCredentialError extends TaggedError(
   }
 }
 
-/** Availability is a swarm scheduler concept — the plain-docker runtime has
+/** Availability is a swarm scheduler concept. The plain-docker runtime has
  *  no node to drain/pause, so the mutation is refused instead of faked. */
 export class SwarmUnavailableError extends TaggedError("SwarmUnavailableError")<{
   message: string;
@@ -123,7 +124,7 @@ export class SwarmUnavailableError extends TaggedError("SwarmUnavailableError")<
   }
 }
 
-/** The server row exists but no swarm node's hostname matches it — e.g. the
+/** The server row exists but no swarm node's hostname matches it. E.g. the
  *  machine was registered via the join flow but never actually joined. */
 export class SwarmNodeNotFoundError extends TaggedError("SwarmNodeNotFoundError")<{
   message: string;
@@ -161,7 +162,7 @@ export class SwarmNodeListError extends TaggedError("SwarmNodeListError")<{
   }
 }
 
-/** Demoting this node would leave the swarm with zero managers — refused,
+/** Demoting this node would leave the swarm with zero managers. Refused,
  *  because a manager-less swarm can never promote one back. */
 export class SwarmLastManagerError extends TaggedError("SwarmLastManagerError")<{
   message: string;
@@ -175,7 +176,7 @@ export class SwarmLastManagerError extends TaggedError("SwarmLastManagerError")<
   }
 }
 
-/** The target is the current Raft leader — demote is refused; promote
+/** The target is the current Raft leader. Demote is refused; promote
  *  another manager and let leadership move first. */
 export class SwarmLeaderDemoteError extends TaggedError("SwarmLeaderDemoteError")<{
   message: string;

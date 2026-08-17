@@ -1,5 +1,5 @@
 /**
- * Preview lifecycle controls — the Settings tab of the preview panel.
+ * Preview lifecycle controls: the Settings tab of the preview panel.
  * Rebuild, redeploy, pause/resume, teardown-now, and keep-alive. Every action
  * goes through the same guard (project-in-org + preview belongs to it + preview
  * still open) and, like every preview roll, never rewrites the shared BASE
@@ -48,7 +48,7 @@ function scopeOf(preview: PreviewRow): PreviewScope {
   return { id: preview.id, slug: preview.slug, prNumber: preview.prNumber };
 }
 
-/** ALL of this repo's base git service names in the project — used by pause,
+/** ALL of this repo's base git service names in the project. Used by pause,
  *  which must stop even services that opted OUT of previews after deploying
  *  (destroy is a no-op for containers that don't exist). */
 async function allPreviewServiceNames(
@@ -79,7 +79,7 @@ export async function rebuildPreview(
   const { preview } = g.value;
   await resumeActivity(preview);
   const created = await triggerPreviewBuild({
-    projectId: preview.projectId as ProjectId,
+    projectId: preview.projectId,
     gitRepoId: preview.gitRepoId,
     previewId: preview.id,
     sha: preview.headSha,
@@ -107,8 +107,8 @@ export async function pausePreview(
   const { preview } = g.value;
   const scope = scopeOf(preview);
   // Stop ALL of this repo's services (incl. ones that opted out after deploy)
-  // plus the preview's branch DB containers — everything the preview runs.
-  const services = await allPreviewServiceNames(preview.projectId as ProjectId, preview.gitRepoId);
+  // plus the preview's branch DB containers. Everything the preview runs.
+  const services = await allPreviewServiceNames(preview.projectId, preview.gitRepoId);
   let destroyFailed = 0;
   for (const serviceName of services.map((n) => runtimeServiceName(n, scope))) {
     const r = await Result.tryPromise({
@@ -120,10 +120,10 @@ export async function pausePreview(
       globalLog.warn({ preview: { step: "pause-destroy", previewId: preview.id, serviceName } });
     }
   }
-  // Stop branch DB containers too (destroy the container, keep the volume/row —
+  // Stop branch DB containers too (destroy the container, keep the volume/row,
   // resume re-runs the DB and its data survives). buildContainerName gives the
   // branch container's name; runtime().destroy removes the container only.
-  const branches = (await listDatabaseResourceRecords(preview.projectId as ProjectId)).filter(
+  const branches = (await listDatabaseResourceRecords(preview.projectId)).filter(
     (r) => r.resource.previewId === preview.id,
   );
   for (const br of branches) {
@@ -164,7 +164,7 @@ export async function teardownPreviewNow(
   await teardownPreview(
     {
       id: preview.id,
-      projectId: preview.projectId as ProjectId,
+      projectId: preview.projectId,
       projectSlug: project.slug,
       gitRepoId: preview.gitRepoId,
       slug: preview.slug,
@@ -182,7 +182,7 @@ export async function setPreviewKeepAlive(
   if (g.isErr()) return Result.err(g.error);
   // Pin = NULL deadline. Un-pin = the server's configured default TTL (which is
   // itself NULL when idle teardown is globally disabled, so un-pinning under a
-  // disabled policy stays un-reapable — matching the documented contract).
+  // disabled policy stays un-reapable, matching the documented contract).
   const deadline = input.keepAlive ? null : await defaultTeardownAt();
   await setPreviewAutoTeardown(g.value.preview.id, deadline);
   return Result.ok({ pinned: deadline === null });

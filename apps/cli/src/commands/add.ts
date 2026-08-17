@@ -10,6 +10,13 @@ import { abort, detail, dim, hint, ok } from "../lib/ui";
 
 type ServiceEntry = Manifest["services"][string];
 
+const DB_ENGINES = ["postgres", "redis", "mariadb", "mongodb"] as const;
+
+/** Narrow a raw --engine flag to a supported engine without asserting. */
+function parseEngine(value: string): (typeof DB_ENGINES)[number] | undefined {
+  return DB_ENGINES.find((engine) => engine === value);
+}
+
 // citty keeps only the last value of a repeated string flag, so repeatable
 // flags (--domain, --env, --expose) are re-collected from rawArgs.
 function collectFlag(rawArgs: string[], flag: string): string[] {
@@ -69,7 +76,7 @@ const addService = defineCommand({
     "source-subdir": { type: "string", description: "Build path within the git repo" },
     port: { type: "string", description: "Container port (HTTP, primary)" },
     replicas: { type: "string", description: "Replica count" },
-    domain: { type: "string", description: "Public domain — first is primary (repeatable)" },
+    domain: { type: "string", description: "Public domain; first is primary (repeatable)" },
     env: { type: "string", description: "Env var KEY=VAL (repeatable)" },
     config: { type: "string", description: "Path to config file" },
   },
@@ -80,10 +87,10 @@ const addService = defineCommand({
     }
 
     if (args.upload && args.git) {
-      abort("--upload and --git are mutually exclusive — pick one source.");
+      abort("--upload and --git are mutually exclusive. Pick one source.");
     }
     if ((args.repo || args.branch) && !args.git) {
-      abort("--repo/--branch only apply to git services — pass --git as well.");
+      abort("--repo/--branch only apply to git services. Pass --git as well.");
     }
     if (args.repo) {
       const parts = args.repo.split("/");
@@ -169,8 +176,8 @@ const addDatabase = defineCommand({
     if (manifest.databases[args.name]) {
       abort(`Database ${args.name} already exists.`);
     }
-    const engine = args.engine as "postgres" | "redis" | "mariadb" | "mongodb";
-    if (!["postgres", "redis", "mariadb", "mongodb"].includes(engine)) {
+    const engine = parseEngine(args.engine);
+    if (!engine) {
       abort(`Unknown engine: ${args.engine}`);
     }
 
@@ -178,11 +185,12 @@ const addDatabase = defineCommand({
       ...manifest,
       databases: { ...manifest.databases },
     };
-    next.databases[args.name] = {
+    const entry: Manifest["databases"][string] = {
       engine,
       ...(args.version ? { version: args.version } : {}),
       ...(args["public-enabled"] ? { publicEnabled: true } : {}),
-    } as Manifest["databases"][string];
+    };
+    next.databases[args.name] = entry;
 
     const path = writeConfig(next, args.config);
     ok(`Added database ${args.name}.`);
@@ -200,7 +208,7 @@ const addCompose = defineCommand({
     name: { type: "positional", required: true, description: "Stack name" },
     file: { type: "string", description: "Local compose file to inline (source=inline)" },
     "git-url": { type: "string", description: "HTTPS repo URL with the compose file (source=git)" },
-    "git-ref": { type: "string", description: "Git ref — branch/tag/sha (with --git-url)" },
+    "git-ref": { type: "string", description: "Git ref: branch/tag/sha (with --git-url)" },
     "compose-path": {
       type: "string",
       description: "Compose file path in the repo (with --git-url)",

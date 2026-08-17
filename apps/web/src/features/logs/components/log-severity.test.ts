@@ -23,7 +23,7 @@ describe("classifyLogSeverity", () => {
   test("crash headers marked only by a ❌ emoji classify as errors", () => {
     // Regression: the t3-env/zod env-validation crash header renders as plain
     // text because ❌ (U+274C) wasn't in the cross-mark set and the phrase has
-    // no error keyword — the single most important line in the log went white.
+    // no error keyword: the single most important line in the log went white.
     expect(classifyLogSeverity("❌ Invalid environment variables: [")).toBe("error");
     expect(classifyLogSeverity("🛑 build aborted")).toBe("error");
     // The phrase alone catches it even if the terminal strips the emoji.
@@ -33,7 +33,7 @@ describe("classifyLogSeverity", () => {
   test("non-zero container exit lines classify as errors", () => {
     // Docker/otterdeploy print "Exited (1)"; the old `exit code:` pattern (with
     // a literal colon) missed both this and "exited with code N".
-    expect(classifyLogSeverity("── abc123 · state: exited — Exited (1) 11 seconds ago ──")).toBe(
+    expect(classifyLogSeverity("── abc123 · state: exited, Exited (1) 11 seconds ago ──")).toBe(
       "error",
     );
     expect(classifyLogSeverity('error: script "start" exited with code 137')).toBe("error");
@@ -49,7 +49,7 @@ describe("classifyLogSeverity", () => {
 
   test("nginx-style timestamped [notice] lines classify as info, not warn (od-1kc.1)", () => {
     // nginx's error_log writes notice-level boot chatter to stderr with its
-    // own timestamp ahead of the bracketed level tag — the old `^`-anchored
+    // own timestamp ahead of the bracketed level tag. The old `^`-anchored
     // pattern only matched when `[notice]` opened the line, so these fell
     // through to "normal" and the stream-based fallback (stderr → warn)
     // painted a healthy boot as a wall of warnings.
@@ -104,7 +104,7 @@ describe("classifyLogSeverity", () => {
   });
 
   test("keeps error markers ahead of the config-complaint bucket", () => {
-    // "failed" outranks "is missing" — first matching bucket wins.
+    // "failed" outranks "is missing", first matching bucket wins.
     expect(classifyLogSeverity("failed: config file is missing")).toBe("error");
     expect(classifyLogSeverity("Error: connect ECONNREFUSED 127.0.0.1:6379")).toBe("error");
   });

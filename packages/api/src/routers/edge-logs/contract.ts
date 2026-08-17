@@ -1,5 +1,5 @@
 /**
- * Edge access logs contract — live tail (event-iterator) + a range query
+ * Edge access logs contract: live tail (event-iterator) + a range query
  * powering the volume histogram and per-host percentile footer. Org-scoped:
  * the server restricts to the caller's own domains; clients never pass hosts.
  */
@@ -78,7 +78,7 @@ const edgeLogQueryResultSchema = z.object({
 
 // ─── Per-route traffic stats (graph edges + stack Traffic tab) ─────────────
 
-/** Short windows only — this powers a ~10s poll on the project graph, so the
+/** Short windows only: this powers a ~10s poll on the project graph, so the
  *  cheap ring/DB scan stays cheap. Longer forensics live in `query`. */
 const routeStatsRange = z.enum(["5m", "1h"]);
 
@@ -87,13 +87,13 @@ const routeStatsInput = z.object({
   range: routeStatsRange.default("5m"),
 });
 
-/** One row per public host routed by this project — traffic stats over the
+/** One row per public host routed by this project: traffic stats over the
  *  window, zero-filled when the host saw no requests, so consumers can list
  *  every host honestly and mark the quiet ones as quiet. */
 const routeStatSchema = z.object({
-  /** Canonical host (lowercase, no port) — matches serviceResource.publicDomain. */
+  /** Canonical host (lowercase, no port): matches serviceResource.publicDomain. */
   host: z.string(),
-  /** Owning resource (service/database) — null for routes without one. */
+  /** Owning resource (service/database): null for routes without one. */
   resourceId: zId("res").nullable(),
   /** True for the resource's canonical host (mirrors publicDomain). */
   isPrimary: z.boolean(),
@@ -132,10 +132,139 @@ const requestSeriesResultSchema = z.object({
   bucketSeconds: z.number(),
   /** Public HTTP hosts routed by the project; 0 ⇒ nothing can appear here. */
   hostCount: z.number(),
-  /** Which store served the window — "ring" means short in-memory history. */
+  /** Which store served the window. "ring" means short in-memory history. */
   source: z.enum(["db", "ring"]),
   /** True when the fetch cap truncated the window (oldest buckets undercount). */
   sampled: z.boolean(),
+});
+
+// ─── Analytics (rollup-backed, any window) ────────────────────────────────
+
+/** Windows served entirely from the `edge_stat_*` rollups: cheap at every
+ *  size, unlike the raw-scan procedures above whose 10k-row cap silently
+ *  truncates long ranges. */
+const analyticsRange = z.enum(["24h", "7d", "30d", "90d"]);
+
+const analyticsInput = z
+  .object({
+    /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
+    projectId: zId("prj").optional(),
+    /** Install-wide: EVERY host in the rollups, including the control-plane
+     *  dashboard domain (which no org's domain list contains — the dominant
+     *  traffic on a small install would otherwise be invisible everywhere).
+     *  Install-admin only; overrides projectId. */
+    installWide: z.boolean().optional(),
+    range: analyticsRange.default("24h"),
+    /** Narrow to ONE domain. Intersected with the caller's authorized host
+     *  scope server-side: a host outside the scope yields empty data, never
+     *  someone else's. */
+    host: z.string().optional(),
+    /** Custom window (epoch ms), overriding `range`. Both or neither. */
+    from: z.number().int().positive().optional(),
+    to: z.number().int().positive().optional(),
+  })
+  .refine((v) => (v.from === undefined) === (v.to === undefined), {
+    message: "from and to must be provided together",
+  })
+  .refine((v) => v.from === undefined || v.to === undefined || v.from < v.to, {
+    message: "from must be before to",
+  })
+  .refine(
+    (v) => v.from === undefined || v.to === undefined || v.to - v.from <= 400 * 24 * 60 * 60 * 1000,
+    { message: "window must be 400 days or less" },
+  );
+
+const analyticsErrors = {
+  FORBIDDEN: {
+    status: 403,
+    message: "Installation administrator access is required for install-wide analytics.",
+  },
+} as const;
+
+/** One series bucket. Percentiles come from merged latency histograms; null
+ *  when the bucket saw no requests (a p95 of nothing doesn't exist). */
+const analyticsSeriesBucketSchema = z.object({
+  /** ISO start of the bucket. */
+  t: z.string(),
+  requests: z.number(),
+  botRequests: z.number(),
+  s2xx: z.number(),
+  s3xx: z.number(),
+  s4xx: z.number(),
+  s5xx: z.number(),
+  sOther: z.number(),
+  resBytes: z.number(),
+  p50: z.number().nullable(),
+  p95: z.number().nullable(),
+  p99: z.number().nullable(),
+});
+
+const analyticsSummarySchema = z.object({
+  requests: z.number(),
+  botRequests: z.number(),
+  /** Sum of per-day distinct visitors. Deliberately NOT named "visitors":
+   *  per-day counts cannot be combined into a window-distinct figure, so this
+   *  is the honest upper bound and `peakDayVisitors` the exact lower bound. */
+  visitorDays: z.number(),
+  peakDayVisitors: z.number(),
+  bytesOut: z.number(),
+  avgLatencyMs: z.number().nullable(),
+  p50: z.number().nullable(),
+  p95: z.number().nullable(),
+  p99: z.number().nullable(),
+  /** 4xx+5xx over total, 0..1. */
+  errorRate: z.number(),
+  hostCount: z.number(),
+});
+
+const analyticsFlagsSchema = z.object({
+  /** Some day in the window is degraded: visitor-set eviction or a
+   *  restart-reseed. Numbers are honest floors, not measurements. */
+  approximate: z.boolean(),
+  /** "rollup+live" when the current in-process accumulator was merged in. */
+  source: z.enum(["rollup", "rollup+live"]),
+  /** False ⇒ no GeoIP database configured: an empty countries list means
+   *  "unknown", never "no visitors". */
+  geoAvailable: z.boolean(),
+});
+
+/** The previous window of equal length, for the tiles' trend deltas. */
+const analyticsPreviousSchema = z.object({
+  requests: z.number(),
+  visitorDays: z.number(),
+  bytesOut: z.number(),
+  p95: z.number().nullable(),
+  errorRate: z.number(),
+});
+
+const analyticsOverviewResultSchema = z.object({
+  series: z.array(analyticsSeriesBucketSchema),
+  bucketSeconds: z.number(),
+  summary: analyticsSummarySchema,
+  previous: analyticsPreviousSchema,
+  flags: analyticsFlagsSchema,
+});
+
+const analyticsTopEntrySchema = z.object({
+  key: z.string(),
+  count: z.number(),
+});
+
+const analyticsBreakdownsResultSchema = z.object({
+  /** Requests per domain: the hosts the window's traffic actually hit. */
+  hosts: z.array(analyticsTopEntrySchema),
+  statuses: z.array(analyticsTopEntrySchema),
+  paths: z.array(analyticsTopEntrySchema),
+  referrers: z.array(analyticsTopEntrySchema),
+  countries: z.array(analyticsTopEntrySchema),
+  browsers: z.array(analyticsTopEntrySchema),
+  oses: z.array(analyticsTopEntrySchema),
+  deviceTypes: z.array(analyticsTopEntrySchema),
+  /** Breakdowns are day-granular: the UTC days intersecting the range. For
+   *  "24h" that is typically 2 calendar days — the UI labels this honestly
+   *  instead of pretending sub-day precision. */
+  breakdownDays: z.number(),
+  flags: analyticsFlagsSchema,
 });
 
 // ─── Operational log plane (Phase 3) ──────────────────────────────────────
@@ -197,14 +326,30 @@ export const edgeLogsContract = {
     .output(z.array(routeStatSchema)),
 
   // Bucketed request-rate + per-bucket p95 across all of one project's public
-  // hosts — the request half of the project metrics overview. Same org
+  // hosts: the request half of the project metrics overview. Same org
   // host-scope guard as `query`/`routeStats`.
   requestSeries: oc
     .meta({ path: "/edge-logs/request-series", tag, method: "GET" })
     .input(requestSeriesInput)
     .output(requestSeriesResultSchema),
 
-  // Operational events (cert/ACME, upstream errors) — the second Caddy log
+  // Traffic analytics from the ingest-time rollups: any window, exact counts,
+  // no raw-row scans. Same org host-scope guard as everything above.
+  analytics: {
+    overview: oc
+      .errors(analyticsErrors)
+      .meta({ path: "/edge-logs/analytics/overview", tag, method: "GET" })
+      .input(analyticsInput)
+      .output(analyticsOverviewResultSchema),
+
+    breakdowns: oc
+      .errors(analyticsErrors)
+      .meta({ path: "/edge-logs/analytics/breakdowns", tag, method: "GET" })
+      .input(analyticsInput)
+      .output(analyticsBreakdownsResultSchema),
+  },
+
+  // Operational events (cert/ACME, upstream errors): the second Caddy log
   // plane. Same org host-scope guard as access logs.
   events: {
     query: oc

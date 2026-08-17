@@ -12,7 +12,7 @@
  *     wget||curl `CMD-SHELL` probe the service settings card writes
  *     (healthcheck-http.ts) and land in the manifest's `healthcheck`,
  *     which the swarm driver enforces. The old "successes before ready"
- *     input was removed — Docker has no such concept.
+ *     input was removed. Docker has no such concept.
  *   - The edge-proxy section is a plain summary of platform defaults.
  *     They are not per-service toggles anywhere in the reconciler, so
  *     rendering switches for them would be fake controls.
@@ -38,7 +38,7 @@ export function StaticBuild() {
     <>
       <SectionHeader
         title="Static build"
-        sub="Railpack builds this into a Caddy image and serves it over our Caddy edge — no port, no Dockerfile. Platform defaults (TLS, HTTP → HTTPS, HTTP/3, compression) apply automatically. Requires a project container registry for the build."
+        sub="Railpack builds this into a Caddy image and serves it over our Caddy edge, with no port and no Dockerfile. Platform defaults (TLS, HTTP → HTTPS, HTTP/3, compression) apply automatically. Requires a project container registry for the build."
       />
       <Card className="mt-3 rounded-md">
         <CardContent>
@@ -48,7 +48,7 @@ export function StaticBuild() {
                 label="Single-page app (SPA) routing"
                 description={
                   label
-                    ? `Detected ${label} — set automatically. Fall back to index.html for unmatched routes.`
+                    ? `Detected ${label}, set automatically. Fall back to index.html for unmatched routes.`
                     : "Fall back to index.html for unmatched routes · Vite / React / Vue / Angular"
                 }
               />
@@ -74,8 +74,8 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
   const { framework, defaultPort } = useRepoDetection();
   const label = frameworkLabel(framework);
 
-  // The hostname a public row with no typed host will actually publish at —
-  // resolved by the server (org base domain → local dev base → sslip), shown
+  // The hostname a public row with no typed host will actually publish at.
+  // Resolved by the server (org base domain → local dev base → sslip), shown
   // as the host input's placeholder and echoed below so "Public, no
   // hostname" is never a silent unknown.
   const name = useStore(form.store, (s) => s.values.name);
@@ -89,7 +89,7 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
         title="Ports"
         sub={
           label && defaultPort != null
-            ? `Detected ${label} — port ${defaultPort} prefilled; most apps don't need to change it.`
+            ? `Detected ${label}. Port ${defaultPort} prefilled; most apps don't need to change it.`
             : "Which container ports should be exposed?"
         }
       />
@@ -99,7 +99,7 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
       {publicWithoutHost && derivedHost && (
         <p className="mt-2 text-[11px] text-muted-foreground">
           Public with no hostname publishes at{" "}
-          <span className="font-mono text-foreground/80">{derivedHost}</span> — type a hostname to
+          <span className="font-mono text-foreground/80">{derivedHost}</span>. Type a hostname to
           override.
         </p>
       )}
@@ -107,7 +107,7 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
       <div className="mt-4.5">
         <SectionHeader
           title="Health check"
-          sub="Optional HTTP probe against the primary port, run inside the container as a wget/curl one-liner — images with neither (nor sh) will fail the check. Leave the path empty to rely on process liveness."
+          sub="Optional HTTP probe against the primary port, run inside the container as a wget/curl one-liner. Images with neither (nor sh) will fail the check. Leave the path empty to rely on process liveness."
         />
       </div>
       <Card className="mt-2.5 rounded-md">
@@ -138,7 +138,7 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
       <div className="mt-4.5">
         <SectionHeader
           title="Edge proxy"
-          sub="Applied by the platform to every public route — not configurable per service yet."
+          sub="Applied by the platform to every public route. Not configurable per service yet."
         />
       </div>
       <Card className="mt-2.5 gap-0 rounded-md p-4">

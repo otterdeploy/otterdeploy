@@ -2,7 +2,7 @@
  * Drives the real drizzle-kit-generated migrations from packages/db against
  * a throwaway database, independent of the `@otterdeploy/db` singleton
  * client (which reads `DATABASE_URL` from `@otterdeploy/env/server` once, at
- * module load — unsuitable for a suite that needs several isolated
+ * module load. Unsuitable for a suite that needs several isolated
  * databases in one process). Every helper here opens and closes its own
  * short-lived `bun:sql` connection instead.
  */
@@ -37,7 +37,7 @@ function allMigrationFolders(): string[] {
  *  fresh temp directory. drizzle's migrator tracks "already applied" by
  *  folder NAME (see drizzle-orm/migrator.utils.ts `getMigrationsToRun`), so
  *  a folder copied here is interchangeable with the real one for that
- *  bookkeeping — running against a subset dir first and the full dir second
+ *  bookkeeping, running against a subset dir first and the full dir second
  *  correctly resumes from where the subset left off. */
 function buildMigrationsDir(folderNames: readonly string[]): string {
   const dir = mkdtempSync(join(tmpdir(), "otterdeploy-migrations-"));
@@ -47,7 +47,7 @@ function buildMigrationsDir(folderNames: readonly string[]): string {
   return dir;
 }
 
-/** All migration folders strictly before the bootstrap pair — the schema
+/** All migration folders strictly before the bootstrap pair: the schema
  *  shape of an "existing install" that has never seen od-5j8.1. */
 export function preBootstrapMigrationsDir(): string {
   const all = allMigrationFolders();
@@ -58,7 +58,7 @@ export function preBootstrapMigrationsDir(): string {
   return buildMigrationsDir(all.slice(0, cutoff));
 }
 
-/** Pre-bootstrap folders plus exactly the two bootstrap migrations — i.e.
+/** Pre-bootstrap folders plus exactly the two bootstrap migrations: i.e.
  *  "apply migrations up to the pre-bootstrap revision, then apply the
  *  bootstrap migrations" without pulling in any later, unrelated schema
  *  changes that may have landed since. */
@@ -71,7 +71,7 @@ export function upToBootstrapMigrationsDir(): string {
   return buildMigrationsDir(all.slice(0, end + 1));
 }
 
-/** The full, real migrations directory (fresh-install path — everything up
+/** The full, real migrations directory (fresh-install path, everything up
  *  to and including the latest migration). */
 export function allMigrationsDir(): string {
   return REAL_MIGRATIONS_DIR;
@@ -92,7 +92,7 @@ export async function applyMigrations(
 
 /** Removes a directory built by `buildMigrationsDir` (via the exported
  *  `preBootstrapMigrationsDir` / `upToBootstrapMigrationsDir`). Safe to call
- *  on `allMigrationsDir()`'s return value too — it's a no-op guard, not a
+ *  on `allMigrationsDir()`'s return value too. It's a no-op guard, not a
  *  destructive rm of the real source tree, because that path never matches
  *  the tmp-dir prefix this checks for. */
 export function cleanupMigrationsDir(dir: string): void {

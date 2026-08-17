@@ -1,23 +1,23 @@
-# Frontend Rebuild — Plan 2: Project Canvas & Service Drawer
+# Frontend Rebuild: Plan 2: Project Canvas & Service Drawer
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Land the project canvas — Railway-style React Flow with custom nodes (Group, Service, Database, Volume, Routing), a click-to-open right-side drawer with five tabs, floating canvas controls, a skeleton "+ Add" sheet, and a mini-canvas SVG renderer that Plan 3 will use to make project list cards.
+**Goal:** Land the project canvas: Railway-style React Flow with custom nodes (Group, Service, Database, Volume, Routing), a click-to-open right-side drawer with five tabs, floating canvas controls, a skeleton "+ Add" sheet, and a mini-canvas SVG renderer that Plan 3 will use to make project list cards.
 
-**Architecture:** React Flow's parentNode + custom node types. Drawer is a coss `Sheet` with coss `Tabs` inside; tabs whose backends ship in Plan 4 (Logs, Deployments, Variables) are explicit Empty placeholders tagged with their owning plan. Real data flows via the existing project oRPC surface (`project.get`, `project.database.{listPostgres,getPostgres,createPostgres,deletePostgres}`, `project.proxyRoute.list`). Services and Groups are client-only concepts in v1 (no backend yet) — `ServiceNode` renders fixture data driven by a feature flag for now; `GroupNode` is opt-in, derived from a project-local layout config that defaults to "all databases in one group."
+**Architecture:** React Flow's parentNode + custom node types. Drawer is a coss `Sheet` with coss `Tabs` inside; tabs whose backends ship in Plan 4 (Logs, Deployments, Variables) are explicit Empty placeholders tagged with their owning plan. Real data flows via the existing project oRPC surface (`project.get`, `project.database.{listPostgres,getPostgres,createPostgres,deletePostgres}`, `project.proxyRoute.list`). Services and Groups are client-only concepts in v1 (no backend yet): `ServiceNode` renders fixture data driven by a feature flag for now; `GroupNode` is opt-in, derived from a project-local layout config that defaults to "all databases in one group."
 
 **Tech Stack:** React 19, TanStack Router/Query, oRPC client (`@/utils/orpc`), `@xyflow/react` (already installed), coss UI primitives only, motion/react for micro-animations, lucide-react for icons. **No new deps.**
 
-**Spec:** `docs/superpowers/specs/2026-05-02-frontend-rebuild-design.md` — read §4 (drawers + IA), §6 (Canvas page), §7 (component conventions), §11 (project-flow keep+redesign), §15 (open questions; #1 GroupNode is the live one for this plan).
+**Spec:** `docs/superpowers/specs/2026-05-02-frontend-rebuild-design.md`: read §4 (drawers + IA), §6 (Canvas page), §7 (component conventions), §11 (project-flow keep+redesign), §15 (open questions; #1 GroupNode is the live one for this plan).
 
 **Foundation in place:** Plan 1 shipped (`feat/v2-rebuild` branch through commit `5537034`). Tests: 13 green. tsc: clean for `apps/web/src/`. The shell, rails, breadcrumb, env switcher, command palette, and 10 placeholder routes all render under `WorkspaceShell` / `ProjectShell`. The canvas placeholder route at `routes/_dashboard/project/$projectId/index.tsx` is what this plan replaces.
 
 **Out of scope for this plan:**
-- Real Logs (Ghostty integration — Plan 4)
+- Real Logs (Ghostty integration: Plan 4)
 - Real Deployments tab content (Plan 4)
 - Real Variables tab content (Plan 4)
-- Workspace project list redesign (Plan 3 — but the `MiniCanvasPreview` component lands here so Plan 3 can drop it in)
-- Service backend / running services for real (the API has no `service.*` router yet — `ServiceNode` is design-only, hidden behind a feature flag that defaults off)
+- Workspace project list redesign (Plan 3, but the `MiniCanvasPreview` component lands here so Plan 3 can drop it in)
+- Service backend / running services for real (the API has no `service.*` router yet, `ServiceNode` is design-only, hidden behind a feature flag that defaults off)
 - Group persistence (groups are client-side only in v1; persistence ships when the API gains a `project.layout` resource)
 - Metrics tab (v1.1)
 
@@ -65,7 +65,7 @@ apps/web/
         index.ts                               ← CREATE
       add-resource-sheet/
         components/
-          add-resource-sheet.tsx               ← CREATE (skeleton coss Sheet — kinds: github, image, postgres, volume, route)
+          add-resource-sheet.tsx               ← CREATE (skeleton coss Sheet, kinds: github, image, postgres, volume, route)
         types.ts                               ← CREATE
         index.ts                               ← CREATE
     routes/
@@ -93,7 +93,7 @@ apps/web/
 ## Task 1: Migrate `project-flow` → `project-canvas` & set up types
 
 **Files:**
-- Delete: `apps/web/src/features/project-flow/` (entire folder — `database-resource.tsx` and `resource.tsx` are not preserved; this plan rebuilds the nodes)
+- Delete: `apps/web/src/features/project-flow/` (entire folder, `database-resource.tsx` and `resource.tsx` are not preserved; this plan rebuilds the nodes)
 - Create: `apps/web/src/features/project-canvas/types.ts`
 - Create: `apps/web/src/features/project-canvas/api/schema.ts`
 - Create: `apps/web/src/features/project-canvas/index.ts`
@@ -104,7 +104,7 @@ apps/web/
 cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy/apps/web && grep -rn "features/project-flow" src/ || echo "clean"
 ```
 
-If anything matches outside `routeTree.gen.ts`, stop and report NEEDS_CONTEXT — Plan 1's Task 13 should have wiped the only consumer when it rewrote the canvas layout. Anything left is unexpected.
+If anything matches outside `routeTree.gen.ts`, stop and report NEEDS_CONTEXT: Plan 1's Task 13 should have wiped the only consumer when it rewrote the canvas layout. Anything left is unexpected.
 
 - [ ] **Step 2: Delete the old folder**
 
@@ -226,10 +226,10 @@ Expected: only the 3 pre-existing `packages/api/src/swarm/postgres.ts` errors. Z
 - [ ] **Step 7: Regenerate route tree (just to surface anything stale)**
 
 ```bash
-cd apps/web && bunx tsr generate 2>&1 || echo "tsr quirk — verify via vite dev separately"
+cd apps/web && bunx tsr generate 2>&1 || echo "tsr quirk: verify via vite dev separately"
 ```
 
-If the regen fails or produces broken output, ignore — the vite plugin handles it correctly at runtime; the CLI quirk is documented.
+If the regen fails or produces broken output, ignore. The vite plugin handles it correctly at runtime; the CLI quirk is documented.
 
 - [ ] **Step 8: Commit**
 
@@ -246,7 +246,7 @@ git -c commit.gpgsign=false commit -m "refactor(web): replace project-flow with 
 - Create: `apps/web/src/features/project-canvas/components/volume-node.tsx`
 - Create: `apps/web/src/features/project-canvas/components/service-node.tsx`
 
-These are the simplest two nodes. Both render a small card with an icon + name + status. Volume is even simpler — just a hardware-disk icon and the source path.
+These are the simplest two nodes. Both render a small card with an icon + name + status. Volume is even simpler, just a hardware-disk icon and the source path.
 
 - [ ] **Step 1: Create `volume-node.tsx`**
 
@@ -477,7 +477,7 @@ git -c commit.gpgsign=false commit -m "feat(web): database and routing canvas no
 **Files:**
 - Create: `apps/web/src/features/project-canvas/components/group-node.tsx`
 
-The GroupNode is a titled container that lays out its children. We rely on React Flow's `parentNode` mechanism — children declare a `parentNode: <groupId>` and `extent: "parent"` so they live inside the group's bounding box. The group node itself is a styled rectangle with a header.
+The GroupNode is a titled container that lays out its children. We rely on React Flow's `parentNode` mechanism. Children declare a `parentNode: <groupId>` and `extent: "parent"` so they live inside the group's bounding box. The group node itself is a styled rectangle with a header.
 
 - [ ] **Step 1: Create `group-node.tsx`**
 
@@ -643,7 +643,7 @@ describe("useCanvasNodes", () => {
 });
 ```
 
-- [ ] **Step 2: Run — expect failure**
+- [ ] **Step 2: Run, expect failure**
 
 ```bash
 cd apps/web && bun run test src/features/project-canvas/hooks/use-canvas-nodes.test.ts
@@ -734,7 +734,7 @@ export function useCanvasNodes(input: Input): { nodes: CanvasNode[] } {
 }
 ```
 
-- [ ] **Step 4: Run tests — expect 4 passing**
+- [ ] **Step 4: Run tests, expect 4 passing**
 
 ```bash
 cd apps/web && bun run test src/features/project-canvas/hooks/use-canvas-nodes.test.ts
@@ -931,7 +931,7 @@ git -c commit.gpgsign=false commit -m "feat(web): canvas shell with registered n
 
 ---
 
-## Task 8: ResourceDrawer — `useResourceDrawer` hook + tests
+## Task 8: ResourceDrawer, `useResourceDrawer` hook + tests
 
 **Files:**
 - Create: `apps/web/src/features/resource-drawer/types.ts`
@@ -979,7 +979,7 @@ describe("useResourceDrawer", () => {
 });
 ```
 
-- [ ] **Step 3: Run — expect fail**
+- [ ] **Step 3: Run, expect fail**
 
 ```bash
 cd apps/web && bun run test src/features/resource-drawer
@@ -1004,7 +1004,7 @@ export function useResourceDrawer(): {
 }
 ```
 
-- [ ] **Step 5: Run — expect 3 passing**
+- [ ] **Step 5: Run, expect 3 passing**
 
 - [ ] **Step 6: Create the barrel `apps/web/src/features/resource-drawer/index.ts` with the exports we have so far**
 
@@ -1024,7 +1024,7 @@ git -c commit.gpgsign=false commit -m "feat(web): resource-drawer selection hook
 
 ---
 
-## Task 9: Drawer tabs — Overview, stub Deployments/Variables/Logs
+## Task 9: Drawer tabs, Overview, stub Deployments/Variables/Logs
 
 **Files:**
 - Create: `apps/web/src/features/resource-drawer/components/tabs/overview-tab.tsx`
@@ -1179,13 +1179,13 @@ git -c commit.gpgsign=false commit -m "feat(web): drawer overview tab + stub tab
 
 ---
 
-## Task 10: Drawer Settings tab — rename + delete via oRPC
+## Task 10: Drawer Settings tab, rename + delete via oRPC
 
 **Files:**
 - Create: `apps/web/src/features/resource-drawer/components/tabs/settings-tab.tsx`
 - Create: `apps/web/src/features/resource-drawer/components/tabs/settings-tab.test.tsx`
 
-For Plan 2, "Settings" is just **delete** (rename isn't in the API yet — `database.updatePostgres` doesn't exist). Show the resource name (read-only for now), a deletion-with-confirmation flow using coss `AlertDialog`. Test the delete-confirmation interaction.
+For Plan 2, "Settings" is just **delete** (rename isn't in the API yet, `database.updatePostgres` doesn't exist). Show the resource name (read-only for now), a deletion-with-confirmation flow using coss `AlertDialog`. Test the delete-confirmation interaction.
 
 - [ ] **Step 1: Failing test**
 
@@ -1321,7 +1321,7 @@ export function SettingsTab({ projectId, resourceId, name, onDeleted }: Props) {
 
 If the coss `AlertDialog` API uses different sub-component names, adapt while keeping the test's `getByRole("alertdialog")` and `getByRole("button", { name: /delete database/i })` queries working.
 
-- [ ] **Step 3: Run tests — expect 2 passing**
+- [ ] **Step 3: Run tests, expect 2 passing**
 
 ```bash
 cd apps/web && bun run test src/features/resource-drawer/components/tabs
@@ -1716,7 +1716,7 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
 }
 ```
 
-- [ ] **Step 3: Run tests — expect 3 passing**
+- [ ] **Step 3: Run tests, expect 3 passing**
 
 ```bash
 cd apps/web && bun run test src/features/project-canvas/components/mini-canvas-preview.test.tsx
@@ -1861,7 +1861,7 @@ function RouteComponent() {
 cd apps/web && bun run tsc --noEmit
 ```
 
-If type errors surface (e.g. coss `Sheet`'s `onOpenChange` shape doesn't match what `AddResourceSheet` exposes), fix in the relevant feature file — never weaken types in the route.
+If type errors surface (e.g. coss `Sheet`'s `onOpenChange` shape doesn't match what `AddResourceSheet` exposes), fix in the relevant feature file, never weaken types in the route.
 
 - [ ] **Step 3: Commit**
 
@@ -1928,6 +1928,6 @@ If the walk was clean, no commit needed.
 
 ---
 
-## Done — what's next
+## Done: what's next
 
 After Plan 2 lands, **Plan 3** redesigns the workspace project list using `MiniCanvasPreview`, plus implements Servers, Routing, Activity, Members, Settings (workspace-level). **Plan 4** adds the real backends behind the drawer's stubbed tabs (Logs/Ghostty, Deployments, Variables) and the project-level Networking screen. **Plan 5** wires the command palette to real actions, hardens performance (virtualization, lazy-loaded Ghostty), and adds smoke tests per route.

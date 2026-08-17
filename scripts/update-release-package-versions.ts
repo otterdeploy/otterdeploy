@@ -6,13 +6,13 @@
  * ghcr images the in-app updater consumes AND publishes `@otterdeploy/cli` to
  * npm, so both artifacts carry the same number and `otd -v` can be compared to
  * `otd platform version` by eye. Before this, the CLI had its own `cli-v*` train
- * and the two drifted to 0.1.3 vs v0.7.0 — a gap that told a bug reporter (and
+ * and the two drifted to 0.1.3 vs v0.7.0: a gap that told a bug reporter (and
  * us) nothing about which pair of halves was actually running.
  *
  * The list below is deliberately short. A package belongs here only if its
  * version has to travel INSIDE the artifact:
  *
- *   apps/cli   — npm reads package.json at publish time, and src/version.ts
+ *   apps/cli: npm reads package.json at publish time, and src/version.ts
  *                imports it so `otd -v` and the compat handshake agree.
  *
  * apps/server, apps/web and apps/builder are NOT here on purpose: they ship as
@@ -36,23 +36,28 @@ import { resolve } from "node:path";
 /** Every package.json whose version must match the release tag. */
 export const RELEASE_PACKAGE_FILES = ["apps/cli/package.json"] as const;
 
-/** `[v]MAJOR.MINOR.PATCH[-prerelease]` — the shape our release tags take. */
+/** `[v]MAJOR.MINOR.PATCH[-prerelease]`: the shape our release tags take. */
 const VERSION_RE = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 
 /** Strip a leading `v` and reject anything that isn't a release version. */
 export function normalizeVersion(input: string): string {
-  const match = VERSION_RE.exec(input.trim());
-  if (!match) {
+  const version = VERSION_RE.exec(input.trim())?.[1];
+  if (version === undefined) {
     throw new Error(
-      `Invalid release version ${JSON.stringify(input)} — expected [v]MAJOR.MINOR.PATCH[-prerelease].`,
+      `Invalid release version ${JSON.stringify(input)}, expected [v]MAJOR.MINOR.PATCH[-prerelease].`,
     );
   }
-  return match[1] as string;
+  return version;
 }
 
 interface StampResult {
   /** Files whose version actually moved. */
   updated: string[];
+}
+
+/** A parsed package.json must be a plain JSON object before we can stamp it. */
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function updateReleasePackageVersions(version: string, rootDir: string): StampResult {
@@ -61,7 +66,10 @@ export function updateReleasePackageVersions(version: string, rootDir: string): 
   for (const relativePath of RELEASE_PACKAGE_FILES) {
     const filePath = resolve(rootDir, relativePath);
     const source = readFileSync(filePath, "utf8");
-    const manifest = JSON.parse(source) as Record<string, unknown>;
+    const manifest: unknown = JSON.parse(source);
+    if (!isJsonObject(manifest)) {
+      throw new Error(`${relativePath} does not contain a JSON object.`);
+    }
     if (manifest.version === version) continue;
 
     // Spreading re-assigns `version` in place rather than appending it, so the
@@ -79,7 +87,8 @@ function main(argv: string[]): void {
   let githubOutput = false;
 
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] as string;
+    const arg = argv[i];
+    if (arg === undefined) continue;
     if (arg === "--github-output") {
       githubOutput = true;
     } else if (arg === "--root") {

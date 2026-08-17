@@ -21,13 +21,13 @@ export type PublicRequest = (
 ) => Promise<PublicFetchResponse>;
 
 function fixedLookup(address: LookupAddress): LookupFunction {
-  return ((_hostname, options, callback) => {
+  return (_hostname, options, callback) => {
     if (typeof options === "object" && options.all) {
-      Reflect.apply(callback, undefined, [null, [address]]);
+      callback(null, [address]);
       return;
     }
-    Reflect.apply(callback, undefined, [null, address.address, address.family]);
-  }) as LookupFunction;
+    callback(null, address.address, address.family);
+  };
 }
 
 export const requestPinnedPublicAddress: PublicRequest = (url, address, timeoutMs, maxBytes) =>

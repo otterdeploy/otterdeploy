@@ -1,6 +1,6 @@
 ---
 name: somnara-shared-utils
-description: somnara convention for reusing shared utilities. Use this skill BEFORE writing any helper, utility, or "small" function — id generation, stripping undefined from objects, duration/time math, or date/time handling. Reuse what already exists in `@somnara/shared`; if a generic helper is missing, add it there instead of inlining a local copy. Triggers when about to create a util/helper, normalize objects, build patch payloads, generate ids, or work with durations or dates.
+description: somnara convention for reusing shared utilities. Use this skill BEFORE writing any helper, utility, or "small" function, id generation, stripping undefined from objects, duration/time math, or date/time handling. Reuse what already exists in `@somnara/shared`; if a generic helper is missing, add it there instead of inlining a local copy. Triggers when about to create a util/helper, normalize objects, build patch payloads, generate ids, or work with durations or dates.
 ---
 
 # somnara Shared Utilities
@@ -23,7 +23,7 @@ Failure mode this skill prevents: an agent writes a one-off `stripUndefined`,
 
 ```
 packages/shared/
-  package.json          # ESM, no build step — raw .ts served source-to-source
+  package.json          # ESM, no build step, raw .ts served source-to-source
   src/
     index.ts            # barrel re-exports
     id.ts               # ID generation + branded types + prefix registry
@@ -33,7 +33,7 @@ packages/shared/
       duration.ts       # typed duration math (standalone sub-module)
 ```
 
-**Imports** — two styles, both valid:
+**Imports**: two styles, both valid:
 ```ts
 import { createId, DateTime } from "@somnara/shared";       // barrel
 import { createId } from "@somnara/shared/id";              // sub-path
@@ -76,7 +76,7 @@ For **seed scripts** (idempotent with `ON CONFLICT DO NOTHING`):
 import { createDeterministicId, ID_PREFIX } from "@somnara/shared";
 
 createDeterministicId(ID_PREFIX.assetTemplateItem, "atpl_xyz", 1);
-// "atpli_atpl_xyz-1"  — same input always produces same output
+// "atpli_atpl_xyz-1": same input always produces same output
 ```
 
 ### Parsing & narrowing
@@ -88,7 +88,7 @@ idPrefix("risk_clx1abc");          // "risk"
 hasPrefix(someId, "risk");         // type guard → someId is Id<"risk">
 ```
 
-### Zod validation — `zId(prefix)`
+### Zod validation: `zId(prefix)`
 
 Runtime validation that the string starts with the expected prefix,
 outputting `Id<P>`:
@@ -127,7 +127,7 @@ When creating a new DB table / entity, follow this exact checklist in
 - Type alias: `PascalCase` entity name + `Id` suffix
 - `ID_PREFIX` key: `camelCase` entity name
 
-## Objects — `omitUndefined`
+## Objects: `omitUndefined`
 
 ```ts
 import { omitUndefined } from "@somnara/shared";
@@ -138,7 +138,7 @@ Semantic: `null` = "clear the column", `undefined` = "no change".
 
 Use for partial-patch payloads (Drizzle update sets, oRPC inputs).
 
-## Durations — typed time quantities
+## Durations, typed time quantities
 
 Import via sub-path (not in barrel):
 ```ts
@@ -153,7 +153,7 @@ const ms  = millisecondsFrom(ttl);  // 900000
 
 Namespace API: `Duration.minutes.of(15)`, `Duration.milliseconds.from(ttl)`.
 
-## Dates and times — Luxon
+## Dates and times: Luxon
 
 **Luxon is owned by `@somnara/shared`.** Never add `luxon` to any other
 `package.json`. Never `import ... from "luxon"` in app code.

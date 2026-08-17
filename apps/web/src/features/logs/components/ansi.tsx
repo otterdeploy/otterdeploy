@@ -5,8 +5,8 @@
  * is invisible in HTML so untreated lines render as literal `[32m✓[39m`
  * garbage. Two surfaces:
  *
- *   - `stripAnsi` — plain text for search, severity classification, copy.
- *   - `AnsiLine`  — renders SGR color/emphasis as styled spans (the viewer is
+ *   - `stripAnsi`: plain text for search, severity classification, copy.
+ *   - `AnsiLine`: renders SGR color/emphasis as styled spans (the viewer is
  *     a terminal-style pane; the tool's own colors are signal, not noise).
  *
  * Only SGR (`ESC[…m`) is *rendered*; every other escape (cursor movement,
@@ -38,7 +38,7 @@ interface Segment extends SgrState {
 }
 
 // Standard + bright foreground palette, tuned for the viewer's near-black
-// background — desaturated enough to sit inside the app's quiet monochrome.
+// background, desaturated enough to sit inside the app's quiet monochrome.
 const FG: Record<number, string> = {
   30: "#71717a",
   31: "#f87171",
@@ -113,13 +113,13 @@ function parseAnsi(text: string): Segment[] {
 }
 
 /** One log line with its ANSI styling applied. Plain lines (no ESC byte) pass
- *  straight through as text — no per-line parse cost on clean output. */
+ *  straight through as text, no per-line parse cost on clean output. */
 export function AnsiLine({ text }: { text: string }) {
   if (!text.includes(ESC)) return text;
   return parseAnsi(text).map((seg, i) =>
     seg.color || seg.bold || seg.dim || seg.italic || seg.underline ? (
       <span
-        // Segments are positional within an immutable line — index keys are safe.
+        // Segments are positional within an immutable line. Index keys are safe.
         // eslint-disable-next-line react/no-array-index-key
         key={i}
         style={{

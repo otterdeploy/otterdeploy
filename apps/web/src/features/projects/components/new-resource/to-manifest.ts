@@ -1,8 +1,8 @@
 /**
  * Pure mappers: wizard form state → manifest service/database specs.
  *
- * The wizard collects far more than the old create path persisted — env
- * vars, resource sizing, replicas, the chosen builder — and silently
+ * The wizard collects far more than the old create path persisted. Env
+ * vars, resource sizing, replicas, the chosen builder, and silently
  * dropped all of it, so a freshly-created resource ignored everything the
  * operator configured. These helpers fold that state into the manifest
  * spec the reconciler actually reads, so "what you filled in" == "what
@@ -55,7 +55,7 @@ const HTTP_PROTOCOLS = new Set(["http", "http2", "grpc"]);
  * Wizard variable rows → manifest env map. A row flagged secret with no
  * typed value becomes the `${secret}` sentinel (value supplied later via
  * `otterdeploy env set`); a secret row WITH a value stores the value
- * (the operator typed it, so honor it — the manifest is plaintext at rest).
+ * (the operator typed it, so honor it, the manifest is plaintext at rest).
  * Keys that don't satisfy the UPPER_SNAKE rule are dropped rather than
  * failing the whole create.
  */
@@ -86,12 +86,12 @@ export function resourcesFromForm(
 /**
  * Wizard port rows → manifest `domains` (the create-time seed Apply feeds
  * through `seedServiceDomains`: route + expose on create). This is what the
- * Networking step's Public toggle actually becomes — before this mapper
+ * Networking step's Public toggle actually becomes. Before this mapper
  * existed the toggle and its hostname were silently dropped and every
  * "public" service came out internal-only.
  *
  * A public row with a typed hostname contributes it verbatim; public rows
- * with no hostname fall back (once) to `derivedHost` — the server-resolved
+ * with no hostname fall back (once) to `derivedHost`: the server-resolved
  * FQDN the wizard previews (`project.resource.publicHostPreview`). First
  * domain is primary, mirroring portsToManifest's first-is-primary rule.
  */
@@ -130,7 +130,7 @@ export function portsToManifest(ports: Port[]): ManifestPort[] {
 
 /**
  * Wizard health fields → manifest healthcheck. Empty path = no healthcheck
- * (opt-in — a probe most apps don't serve would block every rollout).
+ * (opt-in, a probe most apps don't serve would block every rollout).
  * Reuses the exact portable wget||curl `CMD-SHELL` probe the post-create
  * settings card writes (healthcheck-http.ts), aimed at the primary port,
  * so the wizard and the settings card describe one and the same check.
@@ -212,7 +212,7 @@ export interface ServiceSpecInput {
   /** Repo-relative root directory for git sources ("" = repo root). */
   root: string;
   /** Portable "owner/repo" of the bound repo (git sources). Emitted as the
-   *  manifest's `repo` so apply resolves the git_repo binding — without it the
+   *  manifest's `repo` so apply resolves the git_repo binding. Without it the
    *  service stages unbound and its build fails "no git repo binding". */
   repo?: string;
   /** Branch whose pushes deploy this git service. "" → repo default at apply. */
@@ -229,7 +229,7 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   const resources = resourcesFromForm(input.presetId, input.customCpu, input.customMem);
   const ports = input.kindId === "static" ? [STATIC_SITE_PORT] : portsToManifest(input.ports);
   // Static sites never saw the health card (the Caddy image serves "/"
-  // regardless) — skip rather than probing a path the operator never set.
+  // regardless): skip rather than probing a path the operator never set.
   const healthcheck =
     input.kindId === "static"
       ? undefined
@@ -242,8 +242,8 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
         });
   // The Networking step's Public toggle, honored: public rows become the
   // manifest's create-time `domains` seed (Apply wires the proxy route and
-  // exposes the service). Static kinds keep their existing route handling —
-  // the wizard shows them no per-port Public toggle to honor.
+  // exposes the service). Static kinds keep their existing route handling.
+  // The wizard shows them no per-port Public toggle to honor.
   const domains =
     input.kindId === "static" ? undefined : domainsFromPorts(input.ports, input.derivedPublicHost);
   const common = {
@@ -264,7 +264,7 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
     input.kindId === "static" ? staticSiteBuildConfig(input) : buildFromBuilderId(input.builderId);
   return {
     source: "git",
-    // Bind the repo so apply can resolve it — the whole point that was missing.
+    // Bind the repo so apply can resolve it. The whole point that was missing.
     ...(input.repo ? { repo: input.repo } : {}),
     ...(input.branch ? { branch: input.branch } : {}),
     ...(input.root ? { sourceSubdir: input.root } : {}),
@@ -289,7 +289,7 @@ export interface DatabaseSpecInput {
  * Deliberately carries NO storage/backup fields: the manifest `databaseSchema`
  * and the DB provisioner (`ProvisionSwarmDatabaseInput`) support none of
  * volume sizing, auto-grow, encryption-at-rest, backup policy, PITR, or HA
- * replicas — the storage step is informational-only for the same reason.
+ * replicas: the storage step is informational-only for the same reason.
  * Backups are live-managed schedules created after deploy on the Backups page.
  */
 export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
@@ -299,12 +299,20 @@ export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
     ...(resources ? { resources } : {}),
     ...(input.version ? { version: input.version } : {}),
   };
-  if (input.engine === "postgres") {
-    return {
-      engine: "postgres",
-      ...base,
-      ...(input.extensions.length > 0 ? { extensions: input.extensions } : {}),
-    } as DatabaseSpec;
+  // Exhaustive per-engine branches: each returns with a literal discriminant,
+  // which is what lets the union type check without a cast.
+  switch (input.engine) {
+    case "postgres":
+      return {
+        engine: "postgres",
+        ...base,
+        ...(input.extensions.length > 0 ? { extensions: input.extensions } : {}),
+      };
+    case "redis":
+      return { engine: "redis", ...base };
+    case "mariadb":
+      return { engine: "mariadb", ...base };
+    case "mongodb":
+      return { engine: "mongodb", ...base };
   }
-  return { engine: input.engine, ...base } as DatabaseSpec;
 }

@@ -14,7 +14,7 @@ import {
 /**
  * A managed IP blocklist the platform periodically imports into the CrowdSec
  * agent (via `cscli decisions import`). Lets operators turn on well-known free
- * public lists (FireHOL, Spamhaus, Tor, …) or add their own list URL — no
+ * public lists (FireHOL, Spamhaus, Tor, …) or add their own list URL, no
  * CrowdSec account required. CrowdSec is cluster-wide / identity-blind, so these
  * apply globally; we keep them in one table (org admins manage them). The
  * imported decisions carry `--reason blocklist:<id>` so a sync can refresh or a

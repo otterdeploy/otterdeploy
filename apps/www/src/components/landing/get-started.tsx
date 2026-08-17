@@ -16,7 +16,7 @@ import {
 
 /**
  * The close. One command, three requirements, and the pre-1.0 warning stated
- * here rather than buried — a self-hoster finding that out after installing is
+ * here rather than buried: a self-hoster finding that out after installing is
  * how you lose them permanently.
  */
 export function GetStarted() {
@@ -28,7 +28,7 @@ export function GetStarted() {
         </h2>
         <p className="mx-auto mt-5 max-w-[54ch] text-[1rem] leading-relaxed text-pretty text-muted-foreground">
           The installer provisions the host, pulls the published images, puts Docker into Swarm mode
-          and brings the stack up — with the host firewall and CrowdSec on by default.
+          and brings the stack up: with the host firewall and CrowdSec on by default.
         </p>
 
         <div className="mx-auto mt-9 max-w-[38rem]">
@@ -61,7 +61,7 @@ export function GetStarted() {
           <StateChip tone="warning">pre-1.0</StateChip>
           <p className="text-[0.8125rem] leading-relaxed text-pretty text-muted-foreground">
             otterdeploy is under active development. Interfaces and schemas still change without
-            migration paths, so it isn't recommended for production workloads yet — run it on
+            migration paths, so it isn't recommended for production workloads yet. Run it on
             something you'd be willing to rebuild.
           </p>
         </div>

@@ -1,8 +1,8 @@
-# Frontend pattern audit — TanStack DB migration & cleanup backlog
+# Frontend pattern audit: TanStack DB migration & cleanup backlog
 
 This document catalogs every place in `apps/web` that still uses the patterns we
 replaced while refactoring the **API keys** feature. It is a backlog, not a
-mandate — some entries are deliberate (one-shot mutations, read-only/streaming
+mandate: some entries are deliberate (one-shot mutations, read-only/streaming
 queries) and are flagged as such.
 
 ## The reference implementation (the "after")
@@ -22,7 +22,7 @@ Background on the collection pattern: `docs/guides/tanstack-db-rest-integration.
 
 ---
 
-## Pattern 1 — TanStack Query data hooks that should be TanStack DB collections
+## Pattern 1: TanStack Query data hooks that should be TanStack DB collections
 
 `useQuery`/`useMutation`/`useQueryClient` wrapping `orpc.*` or `authClient.*`
 for **list/CRUD** data. These are the migration targets: replace the read with a
@@ -52,12 +52,12 @@ These map cleanly onto a collection and are the best ROI:
 
 | Feature | Files (file:line) | Data | Notes |
 | --- | --- | --- | --- |
-| **registries** | `features/registries/registry-dialog.tsx:12`, `registry-card.tsx:10`, `routes/_app/$orgSlug/registries.tsx:4`, `features/projects/components/settings/registry-section.tsx:7`, `features/projects/components/new-resource/steps/image.tsx:14` | `orpc.registry.list/create/update/delete` | List is read in ≥4 places — strong case for one shared `registryCollection`. |
+| **registries** | `features/registries/registry-dialog.tsx:12`, `registry-card.tsx:10`, `routes/_app/$orgSlug/registries.tsx:4`, `features/projects/components/settings/registry-section.tsx:7`, `features/projects/components/new-resource/steps/image.tsx:14` | `orpc.registry.list/create/update/delete` | List is read in ≥4 places, strong case for one shared `registryCollection`. |
 | **notifications** | `features/notifications/notifications-page.tsx:9` | `orpc.notifications.channels.list/create/update/delete/pause`, `orpc.notifications.subscriptions.list` | Two related entities → two collections (channels + subscriptions). |
 | **team** | `features/team/data/use-team.ts:9`, `members-list.tsx:9`, `invite-member-form.tsx:8`, `pending-invitations.tsx:8` | `authClient.organization.listMembers/listInvitations/removeMember/inviteMember/cancelInvitation` | Members + invitations via `authClient` (like api-keys uses `authClient.apiKey.*`). |
 | **networking routes** | `features/projects/components/networking/route-access-controls.tsx:21`, `route-directives-dialog.tsx:12`, `routes/_app/$orgSlug/$projectSlug/networking.tsx:15` | `orpc.project.routes.list/create/update/delete` | Project-scoped subset collection (mirror `resourceCollection`). |
 | **project variables** | `routes/_app/$orgSlug/$projectSlug/variables.tsx:14`, `features/projects/components/variables/reference-picker.tsx:22` | `orpc.project.variables.*` | Variables read in multiple places; uses `useQueries`. |
-| ~~**backups**~~ | ~~`routes/_app/$orgSlug/backups.tsx:14`~~ | ~~backup CRUD~~ | ✅ **Done.** `features/backups/` — three collections (list + onInsert/onUpdate/onDelete for schedules & destinations; backups read-only with `runBackup`/`restoreBackup` actions). Route is a thin live-query consumer; dialogs use TanStack Form; types inferred from the contract (Pattern 5); sub-components split per the line budget (Pattern 2). |
+| ~~**backups**~~ | ~~`routes/_app/$orgSlug/backups.tsx:14`~~ | ~~backup CRUD~~ | ✅ **Done.** `features/backups/`: three collections (list + onInsert/onUpdate/onDelete for schedules & destinations; backups read-only with `runBackup`/`restoreBackup` actions). Route is a thin live-query consumer; dialogs use TanStack Form; types inferred from the contract (Pattern 5); sub-components split per the line budget (Pattern 2). |
 | **git providers** | `routes/_app/$orgSlug/git-providers.tsx:4`, `features/git-providers/provider-card.tsx:6`, `connect-dialog.tsx:23` | `orpc.git.*` providers/installations | See also Pattern 5 (its view types). |
 | **org settings / firewall / docker** | `routes/_app/$orgSlug/settings.tsx:11`, `firewall.tsx:3`, `docker.tsx:4` | `orpc.organization.*`, firewall, docker secrets | Org-scoped CRUD. |
 | **audit log** | `routes/_app/$orgSlug/audit.tsx:17` | `orpc.audit.list` (paginated, `keepPreviousData`) | On-demand/paginated collection, or leave as query (see below). |
@@ -75,11 +75,11 @@ reflex:
 
 ### Direct query that should consume an existing collection
 
-- `features/projects/components/new-resource/steps/resources.tsx:36` already uses `useLiveQuery` for servers but **also** queries `orpc.project.resource.list` directly — it should read `resourceCollection` instead.
+- `features/projects/components/new-resource/steps/resources.tsx:36` already uses `useLiveQuery` for servers but **also** queries `orpc.project.resource.list` directly. It should read `resourceCollection` instead.
 
 ---
 
-## Pattern 2 — Page component separate from its single route
+## Pattern 2: Page component separate from its single route
 
 A `*-page.tsx` in `features/**` rendered by exactly one route file. We inlined
 `api-keys-page.tsx` into its route and deleted the file. Same fix here (move the
@@ -97,7 +97,7 @@ component body into the route's `RouteComponent`):
 
 ---
 
-## Pattern 3 — Manual multi-field forms that should use TanStack Form
+## Pattern 3: Manual multi-field forms that should use TanStack Form
 
 Components managing form fields with multiple `useState` + a hand-rolled submit,
 instead of `@tanstack/react-form`. Migrate to `useForm` (see
@@ -116,7 +116,7 @@ auth `sign-in-form.tsx`, `sign-up-form.tsx`, `create-organization-form.tsx`.
 
 ---
 
-## Pattern 4 — `useEffect` that resets form/dialog state on open/close
+## Pattern 4: `useEffect` that resets form/dialog state on open/close
 
 We deleted a `useEffect(..., [open])` that reset fields. Do the reset in the
 `onOpenChange`/close handler (or `form.reset()`) instead. Where the effect also
@@ -134,18 +134,18 @@ We deleted a `useEffect(..., [open])` that reset fields. Do the reset in the
 
 ---
 
-## Pattern 5 — Hand-written view-model types duplicating a server contract
+## Pattern 5: Hand-written view-model types duplicating a server contract
 
 We deleted `interface ApiKeyView` and let the row type be **inferred** from the
 collection's `queryFn` projection. These hand-written types re-list fields that
-already exist in an oRPC contract schema — infer from the contract / collection
+already exist in an oRPC contract schema, infer from the contract / collection
 instead of re-declaring.
 
 | Type (file:line) | Duplicates |
 | --- | --- |
-| `RegistryView` — `features/registries/shared.ts:3` | `containerRegistryViewSchema` (`packages/api/src/routers/registry/contract.ts:30`) |
-| `InstallationView` — `features/git-providers/shared.ts:21` | `gitInstallationViewSchema` (`packages/api/src/routers/git/contract.ts:33`) |
-| `ProviderView` — `features/git-providers/shared.ts:34` | `gitProviderViewSchema` (`packages/api/src/routers/git/contract.ts:47`) |
+| `RegistryView`: `features/registries/shared.ts:3` | `containerRegistryViewSchema` (`packages/api/src/routers/registry/contract.ts:30`) |
+| `InstallationView`: `features/git-providers/shared.ts:21` | `gitInstallationViewSchema` (`packages/api/src/routers/git/contract.ts:33`) |
+| `ProviderView`: `features/git-providers/shared.ts:34` | `gitProviderViewSchema` (`packages/api/src/routers/git/contract.ts:47`) |
 
 > Prefer inferring from the contract (e.g. `z.infer<typeof ...>` re-exported from
 > the API package, or `(typeof collection.toArray)[number]` once migrated) over a
@@ -153,9 +153,9 @@ instead of re-declaring.
 
 ---
 
-## Pattern 6 — Manual pending/loading state alongside an optimistic mutation
+## Pattern 6: Manual pending/loading state alongside an optimistic mutation
 
-We removed `const [creating, setCreating] = useState(false)` — an optimistic
+We removed `const [creating, setCreating] = useState(false)`. An optimistic
 collection insert closes the dialog instantly and the transaction handles
 pending + rollback. Drop the manual flag where the mutation is a **collection**
 insert/update/delete.
@@ -164,13 +164,13 @@ insert/update/delete.
 | --- | --- | --- |
 | `features/shell/components/environment-create-dialog.tsx:37` | `submitting` | `envCollection.insert` |
 | `features/servers/components/server-create-dialog.tsx:51` | `submitting` | `serverCollection.insert` |
-| `features/api-keys/api-key-row.tsx:38` | `busy` | `apiKeysCollection.update/delete` — **our own**; kept to disable the switch/button mid-flight. Revisit if we want to lean entirely on transaction state. |
+| `features/api-keys/api-key-row.tsx:38` | `busy` | `apiKeysCollection.update/delete`: **our own**; kept to disable the switch/button mid-flight. Revisit if we want to lean entirely on transaction state. |
 
-Not this pattern: `features/projects/components/networking/route-access-controls.tsx:151` (`adding`) guards a **React Query** mutation, which has its own `isPending` — fix it by migrating the mutation (Pattern 1), not by deleting the flag.
+Not this pattern: `features/projects/components/networking/route-access-controls.tsx:151` (`adding`) guards a **React Query** mutation, which has its own `isPending`, fix it by migrating the mutation (Pattern 1), not by deleting the flag.
 
 ---
 
-## Pattern 7 — Redundant `= []` default on `useLiveQuery` destructuring
+## Pattern 7: Redundant `= []` default on `useLiveQuery` destructuring
 
 `useLiveQuery(...).data` is always an array; `= []` (or `= {}`) is dead code
 (`typescript-eslint(no-useless-default-assignment)`). Remove the default.
@@ -195,10 +195,10 @@ Already correct (no default): `routes/_app/$orgSlug/$projectSlug/layout.tsx:56,6
 
 ## Suggested order of attack
 
-1. **Pattern 7** — mechanical, safe, repo-wide; do it in one sweep.
-2. **registries** — touches Patterns 1, 3, 4, 5 in one cohesive, small feature; makes a second end-to-end reference next to api-keys.
-3. **team** and **notifications** — Pattern 1 (+2 for notifications) on `authClient`/`orpc` list+CRUD.
-4. **Pattern 2** page inlines (notifications, logs, metrics) — pairs naturally with their feature work.
+1. **Pattern 7**: mechanical, safe, repo-wide; do it in one sweep.
+2. **registries**: touches Patterns 1, 3, 4, 5 in one cohesive, small feature; makes a second end-to-end reference next to api-keys.
+3. **team** and **notifications**: Pattern 1 (+2 for notifications) on `authClient`/`orpc` list+CRUD.
+4. **Pattern 2** page inlines (notifications, logs, metrics): pairs naturally with their feature work.
 5. **git-providers** Pattern 5 type cleanup alongside its Pattern 1 migration.
 
 > Line numbers are starting points captured at audit time; confirm before

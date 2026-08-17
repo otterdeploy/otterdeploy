@@ -20,7 +20,7 @@ Connect a GitHub App installation to the organisation, then bind a service to a
 repository and branch. On each deploy the builder clones the repo, inspects it,
 and builds an image.
 
-The inspection detects a framework and a monorepo tool where it can — Next.js,
+The inspection detects a framework and a monorepo tool where it can, Next.js,
 Nuxt, Vite, Remix, Astro, SvelteKit, React, Vue, Express, Fastify, Hono, NestJS,
 Node, Bun, Go, Python, Rust, Ruby and plain static, across Turborepo, Nx, and
 pnpm / yarn / npm workspaces. Detection only picks the defaults; you can
@@ -28,8 +28,8 @@ override them.
 
 Two builders are available:
 
-- **Railpack** — works out how to build the project without a Dockerfile.
-- **Dockerfile** — uses yours. Auto-detected when a Dockerfile is present, and
+- **Railpack**: works out how to build the project without a Dockerfile.
+- **Dockerfile**: uses yours. Auto-detected when a Dockerfile is present, and
   selectable explicitly with an optional `dockerfilePath`.
 
 <Callout title="GitHub only, for now">
@@ -82,18 +82,18 @@ unstructured output.
 ### When a container keeps dying
 
 A container that exits or is OOM-killed doesn't just flap silently. The crash
-watcher writes real lines into the deployment log — `restarting, attempt 2 of 5`,
-then `gave up after 5 attempts` — and emits a `deploy.crashed` notification to
+watcher writes real lines into the deployment log: `restarting, attempt 2 of 5`,
+then `gave up after 5 attempts`, and emits a `deploy.crashed` notification to
 any channel subscribed to it.
 
 ## Ports and exposure
 
 A service declares container ports with a protocol (`tcp` / `udp`) and an
-application protocol (`http` / `tcp`). One port is the **primary** — that's what
+application protocol (`http` / `tcp`). One port is the **primary**. That's what
 a domain routes to by default, and what `${service:<name>.port}` resolves to.
 
 Public exposure is owned by the service's own settings. For a service inside a
-compose stack, that is still the child service's settings — the stack panel only
+compose stack, that is still the child service's settings, the stack panel only
 summarises it.
 
 ## Volumes
@@ -110,7 +110,7 @@ Removing a volume detaches it; the data is left intact. Mount types are
 
 <Callout title="Volumes survive a reconcile">
   Manifest apply never touches service mounts, so a volume you added by hand
-  isn't wiped by the next declarative sync — unlike environment variables,
+  isn't wiped by the next declarative sync, unlike environment variables,
   which the manifest does own.
 </Callout>
 

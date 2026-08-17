@@ -1,7 +1,7 @@
 /**
  * Package-manager pinning for railpack builds.
  *
- * Rewrites the repo's `packageManager` field before railpack reads it — the one
+ * Rewrites the repo's `packageManager` field before railpack reads it. The one
  * lever that works across every manager: bun resolves its version from
  * `packageManager` via mise, while pnpm/yarn/npm are installed by Corepack,
  * which reads the same field directly. An env override (RAILPACK_PACKAGES) only
@@ -10,8 +10,13 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import * as z from "zod";
 
 import type { LogSink } from "./log-stream";
+
+/** Only `packageManager` is read/rewritten; loose so every other key survives
+ *  the parse → mutate → re-serialize round-trip untouched. */
+const packageJsonSchema = z.looseObject({ packageManager: z.string().optional() });
 
 /** Lowest bun version we'll build with. bun 1.3.1 (and earlier 1.3.x) abort
  *  `bun install` on Linux ARM64 while building optional native deps
@@ -24,11 +29,11 @@ const MIN_BUN_VERSION = "1.3.13";
 /**
  * Rewrite the repo's `packageManager` field so railpack/Corepack install a
  * known-good toolchain instead of whatever the repo declared. Rewrites the
- * `package.json` in the build dir — the one railpack actually reads (the
+ * `package.json` in the build dir. The one railpack actually reads (the
  * service's subdir for a monorepo, else the clone root).
  *
  * Resolution (see `resolvePackageManager`):
- *   1. explicit `override` (UI / manifest) always wins — the escape hatch.
+ *   1. explicit `override` (UI / manifest) always wins: the escape hatch.
  *   2. else auto-bump a bun pin below MIN_BUN_VERSION to the floor.
  *   3. else leave the repo's field untouched.
  *
@@ -47,12 +52,12 @@ export async function applyPackageManager(
   } catch {
     const explicit = override?.trim();
     if (explicit) {
-      sink.system(`packageManager override "${explicit}" skipped — no root package.json`);
+      sink.system(`packageManager override "${explicit}" skipped: no root package.json`);
     }
     return;
   }
 
-  const pkg = JSON.parse(raw) as { packageManager?: string };
+  const pkg = packageJsonSchema.parse(JSON.parse(raw));
   const previous = pkg.packageManager;
   const pinned = resolvePackageManager(override, previous, sink);
   if (!pinned || pinned === previous) return;
@@ -84,13 +89,13 @@ function resolvePackageManager(
   if (compareVersions(version, MIN_BUN_VERSION) >= 0) return null;
 
   sink.system(
-    `repo pins bun@${version} — below the supported floor; building with bun@${MIN_BUN_VERSION}`,
+    `repo pins bun@${version}, below the supported floor; building with bun@${MIN_BUN_VERSION}`,
   );
   return `bun@${MIN_BUN_VERSION}`;
 }
 
 /** Compare dotted numeric versions (`1.3.1` vs `1.3.13`). Returns <0 / 0 / >0.
- *  Ignores any `+build` / `-prerelease` suffix — enough for the bun floor. */
+ *  Ignores any `+build` / `-prerelease` suffix, enough for the bun floor. */
 function compareVersions(a: string, b: string): number {
   const parts = (v: string) =>
     (v.split(/[+-]/)[0] ?? v).split(".").map((n) => Number.parseInt(n, 10) || 0);

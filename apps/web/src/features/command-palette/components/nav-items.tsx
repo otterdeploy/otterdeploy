@@ -4,8 +4,8 @@
  * that component under the file/function size limits.
  *
  * Org-level destinations derive from the typed nav manifest
- * (`features/shell/nav-manifest.ts`) — the same source the operational
- * sidebar and the settings-zone rail render from — so the palette can't
+ * (`features/shell/nav-manifest.ts`): the same source the operational
+ * sidebar and the settings-zone rail render from, so the palette can't
  * drift from the visible navigation. Project-scoped destinations mirror the
  * project tab row and stay local to this file.
  */
@@ -42,17 +42,17 @@ export interface NavEntry {
   label: string;
   icon: IconType;
   keywords?: readonly string[];
-  /** Second key in the `G <key>` jump sequence — see use-project-nav-hotkeys. */
+  /** Second key in the `G <key>` jump sequence: see use-project-nav-hotkeys. */
   chord?: string;
 }
 
-// Project-scoped destinations — mirror the project tab row. `to` values are the
+// Project-scoped destinations. Mirror the project tab row. `to` values are the
 // same typed RoutePaths the tabs use. `chord` is the displayed + bound `G <key>`
 // shortcut; keep it in sync with `useProjectNavHotkeys`.
 export const PROJECT_NAV: readonly NavEntry[] = [
   // No "Overview" entry: the project index route redirects to /graph (the
   // graph IS the project overview), so it never activated as its own
-  // destination — see project-tabs.tsx.
+  // destination: see project-tabs.tsx.
   {
     to: "/$orgSlug/$projectSlug/graph",
     label: "Graph",
@@ -72,7 +72,7 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     label: "Logs",
     icon: File01Icon,
     chord: "L",
-    // Edge logs folded in as a source toggle (od-u63.5) — keep its old
+    // Edge logs folded in as a source toggle (od-u63.5): keep its old
     // search terms so the palette still finds this from either name.
     keywords: ["edge", "access", "traffic"],
   },
@@ -91,7 +91,7 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     chord: "N",
     keywords: ["domains", "routes", "caddy"],
   },
-  // No "Edge logs" entry (od-u63.5) — merged into Logs (chord "L") as a
+  // No "Edge logs" entry (od-u63.5), merged into Logs (chord "L") as a
   // Runtime | Edge source toggle; "access"/"traffic" keywords moved onto the
   // Logs entry above so the palette still finds it from either name.
   { to: "/$orgSlug/$projectSlug/settings", label: "Settings", icon: Settings01Icon, chord: "S" },
@@ -99,7 +99,7 @@ export const PROJECT_NAV: readonly NavEntry[] = [
 
 // Org-scoped destinations, grouped + ordered to match the operational
 // sidebar. The unlabeled top group renders under "General" and also picks
-// up PALETTE_EXTRA_NAV — creation paths (Templates, od-u63.2) that aren't
+// up PALETTE_EXTRA_NAV: creation paths (Templates, od-u63.2) that aren't
 // sidebar slots but still need to be reachable from the palette. Folded into
 // the same group (rather than a second one) so `heading` stays a unique
 // React key across ORG_NAV_GROUPS.
@@ -108,7 +108,7 @@ export const PROJECT_NAV: readonly NavEntry[] = [
 // labelled "Workspace" (git providers / registries / SSH keys). Two groups
 // resolving to the same heading is a duplicate React key AND two identical
 // headings in the palette, so the fallback must not collide with any real
-// group label — keep it a name no manifest group uses.
+// group label: keep it a name no manifest group uses.
 //
 // Manifest items are carried through verbatim rather than projected into
 // `NavEntry`: the projection dropped `installAdminOnly`, and the palette needs
@@ -136,11 +136,11 @@ export function NavGroup({
   onGo: (to: RoutePath) => void;
 }) {
   // A search result that 403s on arrival is worse than no search result, so
-  // the palette applies the manifest's own filter — `isInstallAdmin` comes
+  // the palette applies the manifest's own filter. `isInstallAdmin` comes
   // from the `_app` beforeLoad, which is where the whole app reads it.
   const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
   // `visibleNav` drops the gated items and then the group itself if nothing
-  // survives — "Settings · Instance" is a single item, so it disappears whole
+  // survives: "Settings · Instance" is a single item, so it disappears whole
   // rather than leaving an empty heading behind.
   const [group] = visibleNav([{ heading, items }], isInstallAdmin);
   if (!group) return null;

@@ -1,5 +1,5 @@
 /**
- * In-process background services — the interval schedulers/sweepers the
+ * In-process background services: the interval schedulers/sweepers the
  * control plane runs alongside the HTTP server. Split out of index.ts (which
  * has a hard line cap) as the list grew; each entry logs its own readiness so
  * startup output is unchanged. Returns a single stop handle for shutdown.
@@ -23,7 +23,7 @@ import {
 import { reconcileInterruptedDeployments } from "@otterdeploy/jobs/reconcile";
 import { log } from "evlog";
 
-/** Periodic deploy reconcile — the builder runs the same pass at ITS boot, but
+/** Periodic deploy reconcile. The builder runs the same pass at ITS boot, but
  *  if the builder dies (or never comes up) nobody would ever fail its orphaned
  *  pending/building rows. Every 5m, with a 3m min-age so it can't race the
  *  insert-then-enqueue window of a deploy being created right now; the Redis
@@ -50,71 +50,71 @@ export function startBackgroundServices(): () => void {
     log.info({ startup: { step, status: "ready" } });
   };
 
-  // Backup schedule scanner — scans backup_schedule rows every minute and
+  // Backup schedule scanner: scans backup_schedule rows every minute and
   // runs due backups + retention (docs/designs/backups.md). DB is the source
   // of truth so cron/retention edits take effect immediately.
   start("backup-scheduler", startBackupScheduler);
 
-  // Metrics sampler — records CPU/memory/network for managed containers into
+  // Metrics sampler: records CPU/memory/network for managed containers into
   // resource_metric every 30s (feeds the service-node metrics charts).
   start("metrics-sampler", startMetricsSampler);
 
-  // Host-health monitor — samples server memory/disk/docker usage every 5m,
+  // Host-health monitor: samples server memory/disk/docker usage every 5m,
   // records the platform_metric series, and emits host.pressure notifications
   // when thresholds are crossed.
   start("host-health-monitor", startHostHealthMonitor);
 
   // Per-server health (docs/designs/server-health-agent.md): the local 60s
   // sampler upserts this machine's snapshot into server_health_sample (feeds
-  // the Servers page rows); the reconciler — swarm runtime only — keeps the
+  // the Servers page rows); the reconciler (swarm runtime only) keeps the
   // global health-agent service deployed so every node reports the same way.
   start("local-health-sampler", startLocalHealthSampler);
   start("health-agent-reconciler", startHealthAgentReconciler);
 
-  // Ephemeral DB credential sweeper — disposes expired short-lived database
+  // Ephemeral DB credential sweeper: disposes expired short-lived database
   // roles (terminate sessions + DROP ROLE) every minute. Postgres's own
   // VALID UNTIL already blocks new logins at expiry; this is the cleanup.
   start("ephemeral-db-sweeper", startEphemeralDbSweeper);
 
-  // Node-enrollment safety net — retries durable Swarm token rotations after
+  // Node-enrollment safety net: retries durable Swarm token rotations after
   // daemon outages/restarts and rotates any redeemed enrollment that expires
   // before its joining node can report completion.
   start("node-enrollment-reaper", startNodeEnrollmentReaper);
 
-  // Managed blocklists — re-import enabled public/custom lists into CrowdSec on
+  // Managed blocklists: re-import enabled public/custom lists into CrowdSec on
   // their interval so the imported decisions refresh before they expire.
   start("blocklist-scheduler", startBlocklistScheduler);
 
-  // Data-folder orphan sweep — reclaims artifact dirs (resources/projects/
+  // Data-folder orphan sweep: reclaims artifact dirs (resources/projects/
   // backups) whose owning DB row is gone, e.g. after a crashed teardown
   // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
   start("data-folder-sweep", startDataFolderSweep);
 
-  // Orphaned-resource GC — the Docker-object analogue of the data-folder sweep.
+  // Orphaned-resource GC: the Docker-object analogue of the data-folder sweep.
   // Retries teardown for runtime objects (swarm services/containers/volumes/
   // networks/images) whose delete couldn't reach the daemon, recorded in
   // orphaned_resource. Every 5m; idempotent, backs off per-row.
   start("orphan-resource-gc", startOrphanResourceGc);
 
-  // PR-preview idle GC — hourly, tears down active non-paused previews past
+  // PR-preview idle GC: hourly, tears down active non-paused previews past
   // their autoTeardownAt (keep-alive pins = NULL deadline, never reaped).
   start("preview-reaper", startPreviewReaper);
 
-  // Audit-anomaly scan — periodic, conservative rules over recent audit rows
+  // Audit-anomaly scan: periodic, conservative rules over recent audit rows
   // (denial bursts, mass deletions) that emit `audit.anomaly` notifications.
   start("audit-anomaly-scan", startAuditAnomalyScan);
 
-  // Deploy reconcile — fails orphaned pending/building deployment rows whose
+  // Deploy reconcile. Fails orphaned pending/building deployment rows whose
   // queue job is gone (builder crash, queue outage) so nothing sits in limbo
   // waiting for the next builder restart.
   start("deploy-reconcile", startDeployReconcile);
 
-  // Deploy crash watcher — container die/oom events become deployment-log
+  // Deploy crash watcher. Container die/oom events become deployment-log
   // lines ("restarting, attempt 2 of 5" / "gave up after 5 attempts"),
   // instant resource-changed pushes, and deploy.crashed notifications.
   start("deploy-crash-watcher", startDeployCrashWatcher);
 
-  // Edge-threat scan — flags client IPs hammering an org's domains with
+  // Edge-threat scan: flags client IPs hammering an org's domains with
   // scanner-style probes (/.env, /actuator, *.php, ?cmd=…) and emits
   // `edge.probe` so subscribed channels can alert.
   start("edge-threat-scan", startEdgeThreatScan);

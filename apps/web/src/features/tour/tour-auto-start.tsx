@@ -4,7 +4,7 @@
  * Deliberately narrow, because an unrequested overlay on a working dashboard
  * is an interruption, not help:
  *
- *   - Only on a first session (`useIsFirstSession` — the same heuristic that
+ *   - Only on a first session (`useIsFirstSession`, the same heuristic that
  *     suppresses the update banner: org younger than 30 minutes, or no
  *     projects yet).
  *   - Only if the tour has never been completed or dismissed on this device.
@@ -24,7 +24,7 @@ import { useProductTour } from "./tour-provider";
 
 /**
  * Let the shell paint and the sidebar's counts settle before the overlay
- * measures anything — driver.js positions against a live rect, so starting on
+ * measures anything: driver.js positions against a live rect, so starting on
  * the same frame as the first render anchors to a half-laid-out sidebar.
  */
 const SETTLE_MS = 1200;
@@ -41,7 +41,7 @@ export function TourAutoStart() {
     if (!isFirstSession) return;
     if (hasSeenTour()) return;
     // A dialog open on arrival (an invite acceptance, the setup wizard's
-    // handoff) owns the screen — the tour would highlight what's behind it.
+    // handoff) owns the screen. The tour would highlight what's behind it.
     if (document.querySelector('[role="dialog"]') !== null) return;
 
     offered.current = true;

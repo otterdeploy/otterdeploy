@@ -3,34 +3,34 @@
  *
  * What a clone deliberately does NOT copy, and why each one would be a bug:
  *
- *   domains — unique per install. Copying one would either collide on the
+ *   domains: unique per install. Copying one would either collide on the
  *     unique index or, worse, hand the copy the live domain and let two
  *     services fight over the same hostname at the edge. Clones start with no
  *     domain; the operator adds or generates one when they want traffic.
  *
- *   volume data — node-local, and not ours to duplicate. The copy gets its own
+ *   volume data: node-local, and not ours to duplicate. The copy gets its own
  *     empty volumes under its own names. Reusing the source's volume name
  *     would give two services the same mount and corrupt both.
  *
- *   database passwords — regenerated. A clone that shares its source's
+ *   database passwords, regenerated. A clone that shares its source's
  *     credentials means one leaked password is two compromised databases, and
  *     rotating either breaks the other.
  *
- *   deployment history, runtime state — belongs to the original. A copy that
+ *   deployment history, runtime state: belongs to the original. A copy that
  *     inherits "deployed 3 minutes ago" is lying about something that never
  *     happened to it.
  *
  * Clones land as DRAFTS. Creating a resource is not the same as deciding to
  * run it, and a set of services that starts itself the moment it's copied is a
- * surprise — especially since env refs pointing outside the set (reported by
+ * surprise: especially since env refs pointing outside the set (reported by
  * planClone) may still reach production.
  */
 
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
+import { hasPrefix, ID_PREFIX, type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
@@ -60,22 +60,26 @@ export async function executeClone(
 
   for (const item of plan.items) {
     try {
-      const service = await getServiceRecord(ctx.projectId, item.resourceId as ResourceId);
+      // Plan items carry plain-string ids; the runtime prefix check brands
+      // them. An id without the resource prefix can't match any row, so it
+      // reports the same "resource not found" the lookups below would.
+      if (!hasPrefix(item.resourceId, ID_PREFIX.resource)) {
+        failed.push({ sourceName: item.sourceName, reason: "resource not found" });
+        continue;
+      }
+      const service = await getServiceRecord(ctx.projectId, item.resourceId);
       if (service) {
         created.push(await cloneService(service, item.targetName, plan, ctx));
         continue;
       }
-      const database = await getDatabaseResourceRecord(
-        ctx.projectId,
-        item.resourceId as ResourceId,
-      );
+      const database = await getDatabaseResourceRecord(ctx.projectId, item.resourceId);
       if (database) {
         created.push(await cloneDatabase(database, item.targetName, ctx));
         continue;
       }
       failed.push({ sourceName: item.sourceName, reason: "resource not found" });
     } catch (cause) {
-      // One failure must not abandon the resources already created — they are
+      // One failure must not abandon the resources already created. They are
       // real rows the operator can see and delete. Record and continue.
       failed.push({
         sourceName: item.sourceName,
@@ -104,7 +108,7 @@ async function cloneService(
 ): Promise<CloneOutcome["created"][number]> {
   const projectSlug = sanitizeSlug(ctx.projectSlug);
   const resourceSlug = sanitizeSlug(targetName);
-  // Derived exactly as a fresh create derives them — the copy must be
+  // Derived exactly as a fresh create derives them. The copy must be
   // indistinguishable from a service created under this name by hand.
   const serviceName = `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(
     0,
@@ -191,7 +195,7 @@ async function cloneDatabase(
   // Identity is DERIVED from the new name, never copied: the database name,
   // user, and internal hostname all encode which resource they belong to, and
   // a copy carrying the source's identity would answer to the source's DNS
-  // alias on the project network — two engines, one hostname, requests split
+  // alias on the project network: two engines, one hostname, requests split
   // between them at random.
   const adapter = getEngineAdapter(record.database.engine);
   const creds = deriveInternalDbCredentials({
@@ -216,7 +220,7 @@ async function cloneDatabase(
     upstreamPort: adapter.port,
     caddyLayer4Snippet: "",
     // Public exposure is opt-in per resource. A copy that publishes itself
-    // because the original was public is a surprise with a hostname attached —
+    // because the original was public is a surprise with a hostname attached,
     // so the public fields exist but stay dark until the operator asks.
     publicEnabled: false,
     publicHostname: "",

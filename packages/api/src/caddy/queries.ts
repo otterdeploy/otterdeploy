@@ -24,7 +24,7 @@ export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
  * A LEFT join, not an inner one: routes exist whose resourceId is null (the
  * control-plane route is synthesized, compose-stack members can outlive a
  * resource row mid-reconcile). An inner join would silently drop those from
- * every node's config AND from the count the operator sees — the worst kind of
+ * every node's config AND from the count the operator sees. The worst kind of
  * missing route, because nothing anywhere reports it.
  */
 export async function listEnabledRoutePlacements(): Promise<
@@ -67,7 +67,7 @@ export async function getProxyRouteByResourceId(
 }
 
 /** All BASE routes attached to a resource (preview-scoped routes are
- *  excluded — they're lifecycle-managed by the PR webhook, not the
+ *  excluded: they're lifecycle-managed by the PR webhook, not the
  *  domains card). A service can publish on several hosts now, so callers
  *  that manage the domain set (list/expose/unexpose) read every route, not
  *  just the first. Primary route sorts first. */
@@ -193,16 +193,12 @@ export async function updateProxyRoute(
 }
 
 /** Announce removed rows. Unlike an upsert there is no row to carry, so each
- *  delete is announced by key — the client drops exactly those. */
+ *  delete is announced by key. The client drops exactly those. */
 function publishRemovedRows(
-  rows: Array<{ id: string; projectId: string; resourceId: string | null }>,
+  rows: Array<{ id: ProxyRouteId; projectId: ProjectId; resourceId: ResourceId | null }>,
 ): void {
   for (const row of rows) {
-    publishRouteRemoved(
-      row.projectId,
-      row.id as ProxyRouteId,
-      (row.resourceId as ResourceId | null) ?? null,
-    );
+    publishRouteRemoved(row.projectId, row.id, row.resourceId);
   }
 }
 
@@ -225,7 +221,7 @@ export async function clearPrimaryForResource(resourceId: ResourceId): Promise<v
 }
 
 /** Flip the live state of every route on a resource. expose enables them;
- *  unexpose disables them — without deleting the rows, so custom domains
+ *  unexpose disables them: without deleting the rows, so custom domains
  *  and their guests survive the round-trip. (Add-and-go: a custom host is
  *  live as soon as it's added; whether its cert is real vs self-signed is
  *  the separate `usesAcme`/`dnsState` axis, not `enabled`.) */

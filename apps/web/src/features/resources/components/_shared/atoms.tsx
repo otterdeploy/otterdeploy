@@ -65,7 +65,7 @@ const KIND_ICON: Record<ResourceKind, { icon: HugeIcon; tint: string }> = {
 };
 
 // Engines without a dedicated brand SVG (clickhouse, meilisearch, minio,
-// rabbitmq) fall through to the tinted kind icon — `PanelIcon` guards on the
+// rabbitmq) fall through to the tinted kind icon: `PanelIcon` guards on the
 // lookup, so a partial map is intentional here.
 const ENGINE_LOGO: Partial<Record<ResourceEngine, BrandSvg>> = {
   postgres: Postgresql,
@@ -79,7 +79,7 @@ const ENGINE_LOGO: Partial<Record<ResourceEngine, BrandSvg>> = {
 /**
  * Square brand tile rendered at the top-left of a resource panel.
  * Engine-branded resources show the brand SVG on a neutral background;
- * generic kinds fall back to a tinted hugeicon — matching the graph
+ * generic kinds fall back to a tinted hugeicon, matching the graph
  * node rendering for visual continuity between graph + detail panel.
  */
 /** Tile + glyph sizing. `md` is the panel-header tile; `sm` is the compact
@@ -92,7 +92,7 @@ const PANEL_ICON_SIZE = {
 export function PanelIcon({ node, size = "md" }: { node: ResourceNodeData; size?: "sm" | "md" }) {
   const s = PANEL_ICON_SIZE[size];
   const tile = cn("grid shrink-0 place-items-center rounded-lg border bg-background", s.tile);
-  // Detected framework wins for git-sourced services — same precedence as
+  // Detected framework wins for git-sourced services: same precedence as
   // the graph node header tile (framework > engine > kind), so the drawer
   // header matches the node the operator just clicked.
   if (node.framework) {
@@ -112,7 +112,7 @@ export function PanelIcon({ node, size = "md" }: { node: ResourceNodeData; size?
       );
     }
   }
-  // Template/compose brand mark (e.g. Authentik) — persisted as `logoBrand` on
+  // Template/compose brand mark (e.g. Authentik), persisted as `logoBrand` on
   // the stack. Same precedence + tile as the graph's compose group header, so a
   // template stack shows its logo in the detail header instead of the generic
   // blue container icon.

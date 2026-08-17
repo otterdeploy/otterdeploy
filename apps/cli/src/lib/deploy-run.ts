@@ -1,6 +1,6 @@
 /**
  * The one save→diff→confirm→apply→report pipeline shared by `deploy`,
- * `sync`, and `up` — single semantics so the three verbs can't drift.
+ * `sync`, and `up`. Single semantics so the three verbs can't drift.
  *
  *   save (expectedVersion from manifest.get) → diff →
  *   dry-run? print plan and stop →
@@ -49,7 +49,7 @@ export function parseTimeoutMinutes(raw: string | undefined): number {
 }
 
 export async function runDeploy(opts: RunDeployOptions): Promise<void> {
-  // Resolve the session even when a client is passed in — the raw source-upload
+  // Resolve the session even when a client is passed in. The raw source-upload
   // route (below) needs the url + token directly, not the oRPC client.
   const session = await ensureAuthenticated(opts.url);
   const client = opts.client ?? createCliClient(session);
@@ -98,11 +98,11 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       const proceed = await confirm(
         `${deletes} ${deletes === 1 ? "resource" : "resources"} will be deleted. Continue?`,
       );
-      if (!proceed) abort("Aborted — nothing was applied.");
+      if (!proceed) abort("Aborted. Nothing was applied.");
     }
   }
 
-  // Capture wait targets from the diff BEFORE apply — applyChange's
+  // Capture wait targets from the diff BEFORE apply. applyChange's
   // output doesn't identify which resources changed.
   const waitNames = opts.wait
     ? diff.changes
@@ -140,7 +140,7 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
 
   // Upload-sourced services build from the LOCAL tree, not a repo: apply just
   // created/updated the resource, so now tar the project and push it to the
-  // server, which builds it. Runs every deploy (there's no sha to diff against —
+  // server, which builds it. Runs every deploy (there's no sha to diff against,
   // shipping the current local code is the whole point).
   const uploadNames = Object.entries(manifest.services)
     .filter(([, svc]) => svc.source === "upload")
@@ -159,7 +159,7 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
 
   let waitOutcomes: WaitOutcome[] = [];
   if (opts.wait) {
-    // Include upload services explicitly — an unchanged one isn't in the diff,
+    // Include upload services explicitly: an unchanged one isn't in the diff,
     // but it was just rebuilt, so it should still be waited on.
     const targets = await resolveWaitTargets(client, project.id, [
       ...new Set([...waitNames, ...uploadNames]),
@@ -204,7 +204,7 @@ async function uploadServiceSources(args: {
   for (const name of args.names) {
     const resourceId = byName.get(name);
     if (!resourceId) {
-      warn(`Upload service \`${name}\` not found after apply — skipping source upload.`);
+      warn(`Upload service \`${name}\` not found after apply; skipping source upload.`);
       continue;
     }
     if (!args.json) note(`Uploading source for ${name}…`);

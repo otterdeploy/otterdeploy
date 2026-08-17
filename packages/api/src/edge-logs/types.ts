@@ -1,5 +1,5 @@
 /**
- * Edge access logs — the normalized shape the Caddy structured access log is
+ * Edge access logs: the normalized shape the Caddy structured access log is
  * parsed into, shared by the ingest sink, the ring buffer, and the oRPC
  * surface. One object per HTTP request that hit the Caddy edge proxy.
  *
@@ -78,7 +78,7 @@ export interface EdgeLogQueryResult {
 // ─── Operational log plane (Phase 3) ──────────────────────────────────────
 //
 // The *other* Caddy log stream: not per-request access logs, but the proxy's
-// own default logger — TLS/ACME lifecycle, reverse_proxy upstream errors, and
+// own default logger. TLS/ACME lifecycle, reverse_proxy upstream errors, and
 // config events. Shipped to the same sink via a global `log { output net }`
 // (see docs/designs/edge-logs.md §7). One object per operational log line we
 // keep (info-level noise that isn't cert/upstream is dropped at parse).
@@ -99,7 +99,7 @@ export interface EdgeEventLine {
   logger: string;
   msg: string;
   /** Public domain this event is attributable to, when resolvable (the
-   *  multi-tenant scope key — see the router). Null for batch/global events. */
+   *  multi-tenant scope key. See the router). Null for batch/global events. */
   host: string | null;
   /** Domains named in a cert-management batch; redacted by the router to the
    *  caller's owned subset. */

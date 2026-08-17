@@ -4,9 +4,13 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { isLiveTask, localHostRowIndex, unreachableNodeIds } from "./stats-attribution";
 
-const node = (id: string, state: string) => ({ ID: id, Status: { State: state } }) as Node;
-const task = (nodeId: string | undefined, state: string) =>
-  ({ NodeID: nodeId, Status: { State: state } }) as Task;
+// Every field on Node/Task is optional, so these fixtures are complete typed
+// values; the annotation checks them instead of asserting.
+const node = (id: string, state: string): Node => ({ ID: id, Status: { State: state } });
+const task = (nodeId: string | undefined, state: string): Task => ({
+  NodeID: nodeId,
+  Status: { State: state },
+});
 
 describe("unreachableNodeIds", () => {
   test("collects every node that isn't ready", () => {

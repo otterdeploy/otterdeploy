@@ -2,7 +2,7 @@
  * Raft quorum arithmetic, for warning an operator before they make their
  * cluster *less* available by promoting a second manager.
  *
- * A swarm needs a majority of managers alive. The majority of 2 is 2 — so a
+ * A swarm needs a majority of managers alive. The majority of 2 is 2, so a
  * two-manager cluster tolerates ZERO failures, exactly like a one-manager
  * cluster, except now there are two machines whose loss takes the control
  * plane down instead of one. Adding the second manager is strictly worse, and
@@ -31,7 +31,7 @@ export function managerPromotionWarning(currentManagerCount: number): string | n
   if (promotionAddsResilience(currentManagerCount)) return null;
   const next = currentManagerCount + 1;
   if (next === 2) {
-    return "A second manager makes this cluster less available, not more: a swarm needs a majority of managers, and the majority of two is two — so both machines would then have to stay up. Quorum needs three. Add this as a worker.";
+    return "A second manager makes this cluster less available, not more: a swarm needs a majority of managers, and the majority of two is two, so both machines would then have to stay up. Quorum needs three. Add this as a worker.";
   }
-  return `Going from ${currentManagerCount} to ${next} managers tolerates no extra failures — quorum needs an odd number. Add this as a worker, or add two managers.`;
+  return `Going from ${currentManagerCount} to ${next} managers tolerates no extra failures. Quorum needs an odd number. Add this as a worker, or add two managers.`;
 }

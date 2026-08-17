@@ -15,7 +15,7 @@ Use this guide when installing, previewing, or discovering coss components via t
 ### Recommended bootstrap paths
 
 ```bash
-# New projects (recommended — includes Inter + Geist Mono fonts + full theme)
+# New projects (recommended, includes Inter + Geist Mono fonts + full theme)
 npx shadcn@latest init @coss/style
 
 # Existing projects - all primitives

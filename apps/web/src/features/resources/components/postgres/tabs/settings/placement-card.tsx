@@ -8,7 +8,7 @@
  * nothing in the runtime treating it as an error.
  *
  * So this card leads with the recommendation rather than the control. Pinning
- * a database to the node it is already on is the safe, correct action — it
+ * a database to the node it is already on is the safe, correct action. It
  * converts an accident into a guarantee. Moving it is a different operation
  * entirely, and the confirm says what to do instead.
  */
@@ -38,7 +38,7 @@ import {
 } from "@/shared/components/ui/select";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-/** Sentinel for "no pin" — Select can't carry a null value. */
+/** Sentinel for "no pin": Select can't carry a null value. */
 const ANYWHERE = "__anywhere__";
 
 export function DatabasePlacementCard({
@@ -76,8 +76,8 @@ export function DatabasePlacementCard({
           setPendingMove(undefined);
           toast.success(
             result.restarted
-              ? "Placement applied — database restarting"
-              : "Placement saved — it applies on the first deploy",
+              ? "Placement applied. Database restarting."
+              : "Placement saved. It applies on the first deploy.",
           );
         },
         onError: (err: unknown) => {
@@ -106,8 +106,8 @@ export function DatabasePlacementCard({
             </div>
             <div className="mt-0.5 text-[11px] text-muted-foreground">
               {resource.placementServerId
-                ? "It will not fail over — if this machine goes down the database waits rather than starting elsewhere without its data."
-                : "The scheduler may start this database on any machine. If it ever moves, it starts with empty storage — pin it to the machine it runs on now."}
+                ? "It will not fail over. If this machine goes down the database waits rather than starting elsewhere without its data."
+                : "The scheduler may start this database on any machine. If it ever moves, it starts with empty storage. Pin it to the machine it runs on now."}
             </div>
           </div>
           <Select
@@ -145,8 +145,7 @@ export function DatabasePlacementCard({
             <AlertDialogTitle>This moves the database, not its data</AlertDialogTitle>
             <AlertDialogDescription>
               {resource.name} will restart on the new machine with empty storage. Its current data
-              stays on the old machine — nothing is deleted, but this database will no longer see
-              it.
+              stays on the old machine. Nothing is deleted, but this database will no longer see it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="text-[12px] text-muted-foreground">
@@ -172,6 +171,7 @@ function isDataLossRefusal(err: unknown): boolean {
   return (
     typeof err === "object" &&
     err !== null &&
-    (err as { code?: string }).code === "DATABASE_MOVE_DATA_LOSS"
+    "code" in err &&
+    err.code === "DATABASE_MOVE_DATA_LOSS"
   );
 }

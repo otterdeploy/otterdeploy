@@ -1,6 +1,6 @@
 /**
  * One-time reveal of a freshly created API key. The plaintext token only exists
- * in the `create` response — once this dialog is dismissed it's gone for good,
+ * in the `create` response. Once this dialog is dismissed it's gone for good,
  * so the copy action and the warning are the whole point of this screen. The
  * "stored securely" checkbox gates every way out (Done, backdrop, Esc): the
  * operator must actively acknowledge before the secret disappears forever.
@@ -62,7 +62,7 @@ export function RevealKeyDialog({
       open={apiKey !== null}
       onOpenChange={(v) => {
         // Block backdrop/Esc dismissal until the operator confirms they've
-        // stored the key — this is the last time it can ever be seen.
+        // stored the key. This is the last time it can ever be seen.
         if (!v && confirmed) close();
       }}
     >
@@ -71,7 +71,7 @@ export function RevealKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("apiKeys.created")}</DialogTitle>
           <DialogDescription>
-            Copy it now — this is the only time the full key is shown. Store it somewhere safe; you
+            Copy it now. This is the only time the full key is shown. Store it somewhere safe; you
             won't be able to see it again.
           </DialogDescription>
         </DialogHeader>

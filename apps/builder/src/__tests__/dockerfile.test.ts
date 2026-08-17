@@ -217,14 +217,14 @@ describe("dockerfileBuildArgs", () => {
     expect(args[nodeIdx - 1]).toBe("--build-arg");
   });
 
-  test("preserves values verbatim — equals signs, spaces, empty", () => {
+  test("preserves values verbatim: equals signs, spaces, empty", () => {
     const args = dockerfileBuildArgs({
       dockerfilePath: "/work/Dockerfile",
       contextDir: "/work",
       shaTag: "repo:sha",
       latestTag: "repo:latest",
       // Values are passed as a single argv entry (no shell), so `=`, spaces,
-      // and empty values are safe — they reach docker exactly as typed.
+      // and empty values are safe. They reach docker exactly as typed.
       buildArgs: { DSN: "a=b=c", FLAGS: "  --opt x  ", EMPTY: "" },
     });
     expect(args).toContain("DSN=a=b=c");
@@ -270,7 +270,7 @@ describe("dockerfileBuildArgs", () => {
   });
 
   test("emits NO cache/builder flags without a builder (default driver)", () => {
-    // The default docker driver rejects cache export — flags must be absent.
+    // The default docker driver rejects cache export. Flags must be absent.
     const noBuilder = dockerfileBuildArgs({
       ...cacheBase,
       cachePath: "/data/otterdeploy/cache/buildx/repo",
@@ -288,7 +288,7 @@ describe("dockerfileBuildArgs", () => {
 // railpack's node provider found no package.json there, and the Staticfile
 // provider matched `index.html` and shipped a Caddy image serving an unbuilt
 // `dist/`. Everything needed to warn was on disk before the build began.
-describe("resolveDockerfileBuild — subdir diagnostics", () => {
+describe("resolveDockerfileBuild: subdir diagnostics", () => {
   function wavesLayout(): string {
     const workDir = tempDir();
     writeFile(workDir, "Dockerfile");

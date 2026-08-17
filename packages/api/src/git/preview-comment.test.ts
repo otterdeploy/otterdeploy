@@ -58,7 +58,7 @@ describe("renderPreviewComment", () => {
     });
     expect(body).toContain("🔴 Failed");
     expect(body).not.toContain("Failed ([Inspect].*Visit Preview");
-    expect(body).toContain("| **api** | ⚪ Queued | — | — |");
+    expect(body).toContain("| **api** | ⚪ Queued | – | – |");
   });
 
   it("prefixes the project name only when the PR spans several projects", () => {

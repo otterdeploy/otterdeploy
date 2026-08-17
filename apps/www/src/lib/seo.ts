@@ -5,7 +5,7 @@ import { absoluteUrl, appName, siteDescription, siteUrl } from "./shared";
  *
  * One place decides what a page says to a crawler and to a link unfurler, so
  * a new route can't ship with a title and nothing else. Every URL emitted here
- * is absolute — `og:image` and `canonical` are resolved against the crawler's
+ * is absolute. `og:image` and `canonical` are resolved against the crawler's
  * own base, not the page's, and relative values there are a common silent
  * failure.
  */
@@ -35,12 +35,12 @@ export function seo({
   description = siteDescription,
   path,
   image = "/og.png",
-  imageAlt = "otterdeploy — calm, confident infrastructure. Self-hostable deployments: build, ship, and operate your services on your own servers.",
+  imageAlt = "otterdeploy: calm, confident infrastructure. Self-hostable deployments: build, ship, and operate your services on your own servers.",
   type = "website",
 }: SeoInput): MetaTag[] {
-  // "otterdeploy" alone on the home page; "Getting started — otterdeploy"
+  // "otterdeploy" alone on the home page, "Getting started · otterdeploy"
   // elsewhere. Repeating the site name in front of itself reads as a bug.
-  const fullTitle = title ? `${title} — otterdeploy` : `${appName} — deploy on your own servers`;
+  const fullTitle = title ? `${title} · otterdeploy` : `${appName} · deploy on your own servers`;
   const imageUrl = absoluteUrl(image);
 
   return [
@@ -58,7 +58,7 @@ export function seo({
     // before they'll render a card instead of dropping to a text-only preview:
     // WhatsApp reads `secure_url`, and several clients skip an image whose
     // type and dimensions they'd otherwise have to download the file to learn.
-    // Dimensions must match the real asset (1200×630) — a mismatch reads as a
+    // Dimensions must match the real asset (1200×630). A mismatch reads as a
     // broken image to the stricter ones.
     { property: "og:image", content: imageUrl },
     { property: "og:image:secure_url", content: imageUrl },

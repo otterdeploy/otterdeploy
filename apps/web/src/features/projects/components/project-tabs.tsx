@@ -10,7 +10,7 @@ import type { RoutePath } from "@/features/shell/components/sidebar";
 import { cn } from "@/shared/lib/utils";
 
 /**
- * Only the project-scoped routes — those carrying both `$orgSlug` and
+ * Only the project-scoped routes. Those carrying both `$orgSlug` and
  * `$projectSlug` path params. Narrowing `to` to this subset lets TanStack
  * statically resolve the `params` object below; the broad `RoutePath`
  * union can't tell which params a given `to` requires.
@@ -22,7 +22,7 @@ interface Tab {
   /** Anchor for the product tour, rendered as `data-tour`. */
   tourId?: string;
   to: ProjectRoutePath;
-  /** True only for the index route — TanStack's exact match opt-in. */
+  /** True only for the index route: TanStack's exact match opt-in. */
   exact?: boolean;
   /** Default label when the i18n key isn't defined yet. */
   fallback?: string;
@@ -31,7 +31,7 @@ interface Tab {
 const tabs: readonly Tab[] = [
   // No "Overview" tab: the project index route redirects straight to
   // /graph (the graph IS the project overview), so an Overview entry here
-  // would never actually activate — clicking it lands on Graph with the
+  // would never actually activate. Clicking it lands on Graph with the
   // Graph tab highlighted instead. See routes/.../$projectSlug/index.tsx.
   { titleKey: "nav.graph", to: "/$orgSlug/$projectSlug/graph" },
   {
@@ -45,6 +45,9 @@ const tabs: readonly Tab[] = [
     to: "/$orgSlug/$projectSlug/logs",
     tourId: "project-tab-logs",
   },
+  // No "Analytics" tab: traffic analytics is a TOP-LEVEL page (/analytics).
+  // Most edge traffic on an install belongs to no project (the control-plane
+  // dashboard above all), so a project-nested view could only show a slice.
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   {
     titleKey: "nav.variables",
@@ -56,14 +59,14 @@ const tabs: readonly Tab[] = [
     to: "/$orgSlug/$projectSlug/networking",
     tourId: "project-tab-networking",
   },
-  // No "Edge logs" tab (od-u63.5) — merged into Logs as a Runtime | Edge
+  // No "Edge logs" tab (od-u63.5), merged into Logs as a Runtime | Edge
   // source toggle (see $projectSlug/logs.tsx). The route still exists as a
   // redirect shim for old links.
   { titleKey: "nav.settings", to: "/$orgSlug/$projectSlug/settings" },
 ] as const;
 
 /**
- * Horizontal nav for the project shell — Graph / Deployments / Logs / etc.
+ * Horizontal nav for the project shell: Graph / Deployments / Logs / etc.
  * Renders below the top `SiteHeader`, above the page content.
  * Sliding underline tracks the active route via the same measure-active
  * pattern the shadcn `TabsList variant="line"` uses (ResizeObserver +
@@ -94,7 +97,7 @@ export function ProjectTabs() {
         const width = active.offsetWidth;
         setIndicator({ left, width });
         // Seven tabs don't fit a phone, so this row scrolls. Keep the active
-        // one visible — landing on Settings from the command palette otherwise
+        // one visible, landing on Settings from the command palette otherwise
         // shows a strip scrolled to Graph with no visible selection. Scoped to
         // this container's scrollLeft on purpose (not `scrollIntoView`, which
         // would drag every ancestor scroller along with it).

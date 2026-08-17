@@ -1,5 +1,5 @@
 /**
- * Self-healing runtime hydration for database resources — split from
+ * Self-healing runtime hydration for database resources: split from
  * ./views.ts (same shape as the ./view-helpers split) so the view mappers
  * stay focused on row → API-shape translation.
  */
@@ -55,7 +55,7 @@ async function withReconcileLock<T>(key: string, fn: () => Promise<T>): Promise<
  * "missing"? True for a fresh row (grace window) and for an in-flight
  * create/deploy: a large image pull keeps the container missing for minutes,
  * but stays inside the zero-task stale window or keeps writing deployment_log
- * lines the whole time — either signal means "alive, don't pile a competing
+ * lines the whole time: either signal means "alive, don't pile a competing
  * restart provision on top".
  */
 async function deployStillConverging(
@@ -78,7 +78,7 @@ export async function ensureSwarmRuntimeForRecord(
   record: DatabaseResourceRecord,
   projectSlug: string,
 ): Promise<{ record: DatabaseResourceRecord; runtime: SwarmDatabaseRuntime }> {
-  // Engine comes from the row, never from a hardcoded default — the
+  // Engine comes from the row, never from a hardcoded default. The
   // recovery path here used to call `provisionSwarmPostgres`, which
   // forced a postgres image regardless of what the user actually
   // created. That's how a "redis" resource ended up running
@@ -105,21 +105,21 @@ export async function ensureSwarmRuntimeForRecord(
     return { record, runtime: existingRuntime };
   }
 
-  // The swarm service looks gone. Recover it under a fresh `restart` deployment
-  // — but serialize per resource and re-check first, so the post-create
+  // The swarm service looks gone. Recover it under a fresh `restart` deployment,
+  // but serialize per resource and re-check first, so the post-create
   // convergence window (and the concurrent reads that hit it: the create
   // wizard's final map, the ~5s resource-list poll, the detail page) can't fan
   // out into several duplicate restarts.
   return withReconcileLock(record.resource.id, async () => {
-    // Re-inspect under the lock: an earlier queued reconcile — or the create
-    // that's still converging — may have brought the service up by now.
+    // Re-inspect under the lock: an earlier queued reconcile, or the create
+    // that's still converging. May have brought the service up by now.
     const runtimeNow = await inspectSwarmDatabaseRuntime({ serviceName, volumeName, projectSlug });
     if (runtimeNow.status !== "missing") {
       return { record, runtime: runtimeNow };
     }
 
     // Dedup + grace: don't pile a restart on top of a deployment that's still
-    // converging — a just-created DB, the restart a prior lock-holder just
+    // converging: a just-created DB, the restart a prior lock-holder just
     // inserted, or an in-flight create whose image is still pulling (see
     // deployStillConverging). This is what turns the "genuinely removed → one
     // restart" self-heal into exactly one restart even under concurrent reads,
@@ -131,7 +131,7 @@ export async function ensureSwarmRuntimeForRecord(
     }
 
     // Re-provision with the image that was actually running (extension-bundled
-    // images aren't derivable from the engine default) — the latest deployment
+    // images aren't derivable from the engine default). The latest deployment
     // row is the source of truth, same as restartDatabaseResource.
     const engineImage = latest?.image ?? defaultImageFor(engine);
 
@@ -160,7 +160,7 @@ export async function ensureSwarmRuntimeForRecord(
     // task ever carrying its deployment.id label.
     // A database's volume lives on one node, so an unresolvable pin THROWS
     // here rather than letting the engine start elsewhere against a fresh
-    // empty volume — which reads as total data loss to whoever looks at it.
+    // empty volume, which reads as total data loss to whoever looks at it.
     const placement = await resolvePlacementForProject({
       placementServerId: record.resource.placementServerId,
       projectId: record.resource.projectId,
@@ -196,14 +196,14 @@ export async function ensureSwarmRuntimeForRecord(
 
     // Race close-out: provisionSwarmDatabase's own inner inspect may have found
     // the service already up (wasCreated === false) and never scheduled a task
-    // carrying our restart deployment.id label — the row would stay BUILDING
+    // carrying our restart deployment.id label: the row would stay BUILDING
     // with 0 tasks forever. Drop it; the other caller's row is the truthful one.
     if (runtime.wasCreated === false) {
       await deleteDeploymentById(restartDeployment.id);
       return { record, runtime };
     }
 
-    // Provisioning waited for the container — flip the recovery deployment to
+    // Provisioning waited for the container: flip the recovery deployment to
     // running eagerly instead of sitting on BUILDING until the next list poll.
     if (runtime.status === "running") {
       await reconcileDeploySuccess([restartDeployment.id], record.resource.id);
@@ -226,7 +226,7 @@ export async function ensureSwarmRuntimeForRecord(
 
     await reconcile();
 
-    // Validity follows the CONTAINER's outcome, not the Caddy reconcile — the
+    // Validity follows the CONTAINER's outcome, not the Caddy reconcile. The
     // edge proxy failing (routine in dev, irrelevant for internal-only DBs)
     // must not stamp a healthy recovered database "invalid". Mirrors the
     // create stream's rule.

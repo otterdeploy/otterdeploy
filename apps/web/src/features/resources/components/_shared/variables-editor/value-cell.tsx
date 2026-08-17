@@ -1,5 +1,5 @@
 /**
- * The value half of an {@link EditorRow} — a masked-until-revealed input with
+ * The value half of an {@link EditorRow}: a masked-until-revealed input with
  * the `${{ … }}` reference picker anchored inside it.
  *
  * Split out of `editor-row.tsx` purely to keep that file under the 250-line
@@ -41,7 +41,7 @@ export function ValueCell({
         value={showValue ? row.value : row.value.replace(/./g, "•")}
         onChange={(e) => {
           const next = e.target.value;
-          // Typing the reference opener (`${{`) pops the picker right there —
+          // Typing the reference opener (`${{`) pops the picker right there:
           // the advertised trigger, not just the { } button. Only on the
           // TRANSITION into an open token so backspacing/editing around an
           // already-open fragment doesn't keep re-opening it.
@@ -78,7 +78,7 @@ export function ValueCell({
             </button>
           }
         />
-        {/* 26rem is wider than a 375px viewport — cap it to the screen so the
+        {/* 26rem is wider than a 375px viewport, cap it to the screen so the
             reference picker never forces the page to scroll sideways. */}
         <PopoverContent align="end" side="bottom" className="w-[min(26rem,calc(100vw-2rem))] p-0">
           <ReferencePicker

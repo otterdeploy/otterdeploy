@@ -4,7 +4,7 @@
  *
  * The incident behind these: a repo with a perfectly ordinary
  * `docker-compose.yml` reached the import wizard and detected nothing, because
- * the wizard never looked — its "auto-detect" was a placeholder string, and the
+ * the wizard never looked. Its "auto-detect" was a placeholder string, and the
  * real candidate list lived in two other packages. Precedence is pinned here so
  * the three call sites cannot disagree about which file wins.
  */
@@ -32,7 +32,7 @@ describe("detectComposeFilename", () => {
   });
 
   it("does not resolve on listing order", () => {
-    // Same set, both orders — the answer must not depend on readdir/tree order.
+    // Same set, both orders. The answer must not depend on readdir/tree order.
     const a = detectComposeFilename(["compose.yaml", "docker-compose.yml"]);
     const b = detectComposeFilename(["docker-compose.yml", "compose.yaml"]);
     expect(a).toBe(b);

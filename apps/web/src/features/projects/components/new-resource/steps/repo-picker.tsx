@@ -36,7 +36,7 @@ const repoName = (fullName: string) => fullName.slice(fullName.indexOf("/") + 1)
  * Deploy-wizard repo picker: an owner dropdown (one per connected GitHub App
  * installation) + a searchable repository combobox scoped to that owner.
  * Binds the chosen repo to the project (`project.update`) and hands the
- * gitRepoId back to the form via `onBound` — no detour to Settings.
+ * gitRepoId back to the form via `onBound`, no detour to Settings.
  */
 export function RepoPicker({
   installations,
@@ -65,7 +65,7 @@ export function RepoPicker({
     if (!repo || !projectId) return;
     setSelected(name);
     // Repo binds to the SERVICE now (via onBound → service create), not the
-    // project — no project.update here.
+    // project, no project.update here.
     onBound(repo.id, repo.fullName);
     toast.success(`Bound to ${repo.fullName}`);
   }
@@ -138,7 +138,7 @@ export function RepoPicker({
 }
 
 /**
- * Empty repo list for the selected owner — sync straight from the wizard
+ * Empty repo list for the selected owner: sync straight from the wizard
  * instead of sending the operator off to the GitHub App page. If GitHub
  * genuinely grants zero repos, syncing says so; fixing that (repo access)
  * is the one thing that truly lives on GitHub's side.
@@ -159,7 +159,7 @@ function SyncReposRow({ installationId }: { installationId: string }) {
       ]);
       toast.success(
         res.repoCount === 0
-          ? "Synced — this installation has no accessible repositories"
+          ? "Synced. This installation has no accessible repositories."
           : `Synced ${res.repoCount} repos`,
       );
     },

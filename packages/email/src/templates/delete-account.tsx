@@ -28,7 +28,7 @@ export function DeleteAccountEmail({
       <LinkFallback href={confirmUrl} />
       <Muted>This link expires in {expiresInMinutes} minutes.</Muted>
       <Footnote>
-        If you didn&apos;t request this, do not click the link — ignore this email and your account
+        If you didn&apos;t request this, do not click the link. Ignore this email and your account
         stays exactly as it is.
       </Footnote>
     </EmailLayout>

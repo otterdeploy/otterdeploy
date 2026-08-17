@@ -1,5 +1,5 @@
 /**
- * Ephemeral-credential schemas for the database contract — short-lived
+ * Ephemeral-credential schemas for the database contract: short-lived
  * connection URLs (real Postgres roles with VALID UNTIL) minted to hand to
  * agents/scripts and auto-disposed at expiry. The URL is returned exactly
  * once at create; list/revoke manage the lifecycle. Split out of contract.ts
@@ -25,7 +25,7 @@ export const ephemeralCreateResultSchema = z.object({
   roleName: z.string(),
   scope: ephemeralScopeSchema,
   expiresAt: z.string(),
-  // Shown ONCE — the password is never stored, so these can't be re-fetched.
+  // Shown ONCE: the password is never stored, so these can't be re-fetched.
   internalUrl: z.string(),
   publicUrl: z.string().nullable(),
 });

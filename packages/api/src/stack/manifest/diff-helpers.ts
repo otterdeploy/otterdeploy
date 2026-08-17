@@ -13,10 +13,10 @@ import { diffSourceFields, type FieldChanges } from "./diff-source";
 
 // Every field below follows the DECLARED-ONLY convention (established by
 // database publicEnabled/extraEnv and the git binding): a key the manifest
-// omits is live-managed — the diff skips it and apply leaves it alone. The
+// omits is live-managed. The diff skips it and apply leaves it alone. The
 // old `?? default` comparisons staged phantom updates for every live-managed
 // field, and because apply's patch builders already treated omitted fields as
-// "leave alone", those phantoms could never be applied away — a permanently
+// "leave alone", those phantoms could never be applied away, a permanently
 // stuck pending bar.
 
 function diffExecFields(desired: ServiceManifest, current: CurrentService, fc: FieldChanges): void {
@@ -116,7 +116,7 @@ export interface EnvChange {
  *
  * `resolveValue` (optional) resolves `${database:…}` / `${service:…}` refs the
  * way apply will (returns null when unresolvable). Without it, a declared ref
- * could NEVER match the stored row — apply writes the RESOLVED value into
+ * could NEVER match the stored row. Apply writes the RESOLVED value into
  * `service_env_var`, so a raw-text compare staged a phantom "update" on every
  * diff and re-rolled the container on every apply, forever.
  */
@@ -137,11 +137,11 @@ export function diffEnv(
           action: "create",
           details: {
             secret: true,
-            note: "declared as ${secret} — set via `otterdeploy env set` before apply succeeds",
+            note: "declared as ${secret}: set via `otterdeploy env set` before apply succeeds",
           },
         });
       }
-      // If it exists, do nothing — value is the server's, manifest stays out.
+      // If it exists, do nothing. Value is the server's, manifest stays out.
       continue;
     }
     // Compare what apply would actually write; fall back to the raw text when

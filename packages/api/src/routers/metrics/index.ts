@@ -25,7 +25,7 @@ export const metricsRouter = {
 
   // Project-wide CPU/memory series: per-container bucket averages (SQL)
   // summed per bucket (mergeAggregateBuckets). Buckets nobody sampled are
-  // omitted, not zero-filled — the chart shows a gap, not a fake dip.
+  // omitted, not zero-filled: the chart shows a gap, not a fake dip.
   projectAggregate: orgScopedProcedure.metrics.projectAggregate.handler(
     async ({ input, context }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });

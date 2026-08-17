@@ -2,12 +2,12 @@
  * Host canonicalization for edge-log scoping.
  *
  * Caddy's access log records `request.host` verbatim from the client's Host
- * header — which may differ in CASE (`Example.com`) or carry a PORT suffix
+ * header, which may differ in CASE (`Example.com`) or carry a PORT suffix
  * (`example.com:8443`) from the domain string we store on `proxy_route`. The
  * visibility filter matches a log row's host against the caller's owned domains
  * by exact string, so any such difference silently drops a captured request
- * from every query and tail. Canonicalizing both sides — stored host at ingest,
- * owned domains at scope resolution — makes the match hold. Caddy already routes
+ * from every query and tail. Canonicalizing both sides, stored host at ingest,
+ * owned domains at scope resolution. Makes the match hold. Caddy already routes
  * host-insensitively to case/port, so the log view matching the same way is the
  * correct, not a lax, behavior.
  */

@@ -39,8 +39,8 @@ export interface TerminalSessions {
  * the popout window) and keeps the URL in step with it.
  *
  * The URL is hydrated exactly once, on mount, and is a one-way reflection of
- * `sessions` afterwards. Later search-param changes from outside — a manual
- * edit, history back — are deliberately ignored: re-deriving sessions from
+ * `sessions` afterwards. Later search-param changes from outside. A manual
+ * edit, history back: are deliberately ignored: re-deriving sessions from
  * them would tear live WebSockets out from under the user for what is
  * cosmetically the same tab.
  */

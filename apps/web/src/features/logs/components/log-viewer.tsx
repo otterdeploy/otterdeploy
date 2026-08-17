@@ -1,5 +1,5 @@
 /**
- * LogViewer — the terminal-style scroller shared by the deployment Build Logs
+ * LogViewer: the terminal-style scroller shared by the deployment Build Logs
  * and Deploy Logs tabs (and any future single-stream tail).
  *
  * Owns the one fiddly bit every log pane repeated: auto-scroll that pins to the
@@ -68,7 +68,7 @@ export function LogLineRow({
 
 interface Classified {
   line: LogLine;
-  /** ANSI-stripped text — what search, severity and copy operate on. */
+  /** ANSI-stripped text: what search, severity and copy operate on. */
   text: string;
   severity: ReturnType<typeof classifyLogSeverity>;
 }
@@ -90,8 +90,8 @@ function resolveNav(
  * Windowing for the log rows.
  *
  * Only the rows on screen are mounted, so a 50k-line build log costs the same
- * to paint as a 50-line one. Heights vary — a long line wraps to several visual
- * rows — so each row measures itself and `estimateSize` is only the
+ * to paint as a 50-line one. Heights vary: a long line wraps to several visual
+ * rows, so each row measures itself and `estimateSize` is only the
  * single-line height used before the first measurement.
  *
  * Both scroll behaviours have to go through the virtualizer rather than the
@@ -121,7 +121,7 @@ function useLogRows({
     getItemKey: (index) => visible[index]?.line.id ?? index,
   });
 
-  // Stable ref callback — an inline arrow would hand every row a new ref on
+  // Stable ref callback: an inline arrow would hand every row a new ref on
   // each render, forcing a detach/re-measure cycle per commit while streaming.
   const measureRow = useCallback(
     (el: HTMLDivElement | null) => virtualizer.measureElement(el),
@@ -173,7 +173,7 @@ export function LogViewer({
   // every line visible (unlike a filter) and just jumps between matches.
   const [nav, setNav] = useState<{ level: NavLevel; index: number } | null>(null);
 
-  // ⌘F / Ctrl+F focuses the find box — but only while the pointer/focus is on
+  // ⌘F / Ctrl+F focuses the find box, but only while the pointer/focus is on
   // this log pane, so it never fights the browser's page find elsewhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -56,7 +56,7 @@ export function Hero() {
 
           <p className="mt-6 max-w-[44ch] text-[1.0625rem] leading-relaxed text-pretty text-muted-foreground">
             A deployment platform that runs on your hardware. Builds from a repo, managed databases,
-            automatic HTTPS, previews on every pull request — self-hosted, open source, no usage
+            automatic HTTPS, previews on every pull request. Self-hosted, open source, no usage
             bill.
           </p>
 

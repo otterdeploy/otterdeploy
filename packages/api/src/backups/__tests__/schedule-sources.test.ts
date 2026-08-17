@@ -5,19 +5,26 @@
  * orphaned-schedule warning in the UI and the 422 on manual "run now". These
  * cases pin the id/name matching and the deleted-source path.
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
-
+import { hasPrefix, ID_PREFIX, type ResourceId } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { partitionSources } from "../schedule-db";
 
+/** Brand a fixture id via the real prefix guard ("resource_" is the accepted
+ *  legacy spelling of "res_"), keeping the literal value untouched. */
+const resId = (id: string): ResourceId => {
+  if (!hasPrefix(id, ID_PREFIX.resource))
+    throw new Error(`fixture id lacks a resource prefix: ${id}`);
+  return id;
+};
+
 const db = (id: string, name: string) => ({
-  id: id as ResourceId,
+  id: resId(id),
   name,
   kind: "database" as const,
 });
 const stack = (id: string, name: string) => ({
-  id: id as ResourceId,
+  id: resId(id),
   name,
   kind: "stack" as const,
 });
@@ -40,9 +47,12 @@ describe("partitionSources", () => {
   });
 
   it("tags a compose-stack DB service as a `stack` source", () => {
-    const candidates = [db("resource_a", "postgres-main"), stack("svc_x", "authentik-postgres")];
-    const r = partitionSources(["svc_x"], candidates);
-    expect(r.resolved).toEqual([{ id: "svc_x", kind: "stack" }]);
+    const candidates = [
+      db("resource_a", "postgres-main"),
+      stack("resource_x", "authentik-postgres"),
+    ];
+    const r = partitionSources(["resource_x"], candidates);
+    expect(r.resolved).toEqual([{ id: "resource_x", kind: "stack" }]);
     expect(r.missing).toEqual([]);
   });
 

@@ -62,8 +62,8 @@ const eventsStreamInputSchema = z.object({
   projectId: projectIdField,
 });
 
-/** Org-wide surfaces that resync over the org stream. Payload-free by design
- *  — see @otterdeploy/shared/org-events for the bus side of this contract. */
+/** Org-wide surfaces that resync over the org stream. Payload-free by design.
+ *  See @otterdeploy/shared/org-events for the bus side of this contract. */
 const orgCollectionEventSchema = z.object({
   protocol: z.literal(1),
   collection: z.enum(["activity", "inbox", "servers"]),

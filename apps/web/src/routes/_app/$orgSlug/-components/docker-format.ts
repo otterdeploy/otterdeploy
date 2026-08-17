@@ -1,7 +1,7 @@
 /**
  * Daemon-panel display helpers. The reference/byte formatters live in
- * `@otterdeploy/shared` — every surface that names an image must shorten and
- * size it identically — so this file keeps only what is specific to reading
+ * `@otterdeploy/shared`: every surface that names an image must shorten and
+ * size it identically, so this file keeps only what is specific to reading
  * the Docker daemon: relative timestamps in its two timestamp dialects, and
  * the state→tone vocabulary for its badges.
  */
@@ -63,7 +63,7 @@ export type StateTone = "success" | "warning" | "info" | "destructive" | "muted"
  * Container state → tone, per the design target: running=success,
  * restarting=warning, paused=info, exited/dead=destructive (the status string
  * carries the exit code), everything transitional muted. A running-but-
- * unhealthy container downgrades to warning — the health probe is the truth.
+ * unhealthy container downgrades to warning: the health probe is the truth.
  */
 export function containerTone(state: string, status?: string): StateTone {
   const s = state.toLowerCase();

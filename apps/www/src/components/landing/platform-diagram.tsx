@@ -8,12 +8,12 @@
  * Two bits of geometry worth knowing before you move anything:
  *
  * 1. Everything sizes in `cqw` against `.od-iso`'s container, so the drawing
- *    scales with its column — no resize listener, no breakpoint table.
+ *    scales with its column, no resize listener, no breakpoint table.
  * 2. The connector endpoints below sit ON the slab's projected edge. In the
  *    160 × 110 viewBox the projection measures: left vertex (23.8, 62.9),
  *    right (136.2, 62.9), top (80, 30.5), bottom (80, 95.3). Every trace below
  *    lands on a point interpolated along one of those edges. If you change the
- *    tile size, the padding or the rotation, re-measure — a connector that
+ *    tile size, the padding or the rotation, re-measure: a connector that
  *    stops in mid-air is the tell that a diagram was drawn by eye.
  */
 
@@ -27,7 +27,7 @@ const FOUNDATION = ["docker swarm", "caddy", "postgres"];
 /**
  * Circuit-trace connectors in a 160 × 110 viewBox laid over the stage. Each
  * path leaves a chip, runs orthogonally, and lands exactly on a point of the
- * slab's projected edge — a connector that stops in mid-air is the tell that a
+ * slab's projected edge. A connector that stops in mid-air is the tell that a
  * diagram was drawn by eye.
  */
 const IN_TRACES = [
@@ -115,7 +115,7 @@ export function PlatformDiagram() {
                   >
                     {/* Counter-rotate the label out of the plane's Z spin, so
                         it reads left-to-right instead of running up the tile.
-                        The X tilt stays — that foreshortening is the look. */}
+                        The X tilt stays. That foreshortening is the look. */}
                     <span
                       className="font-mono font-medium text-[#141412]"
                       style={{

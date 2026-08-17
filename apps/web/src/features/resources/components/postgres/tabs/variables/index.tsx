@@ -2,8 +2,6 @@
 // sections so the eye/copy toggles work the same across both. The user
 // vars editor owns its own reveal/copy state internally.
 
-import type { ProjectId } from "@otterdeploy/shared/id";
-
 import { useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
@@ -126,7 +124,7 @@ function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resou
 /** Staged-create variables: the editable user bag (persisted to the manifest
  *  entry's `extraEnv`) PLUS the engine's REAL connection vars. The credentials
  *  are minted at stage time (deterministic identity + a stable random password)
- *  and reused verbatim at deploy — so what's shown here is exactly what the
+ *  and reused verbatim at deploy, so what's shown here is exactly what the
  *  deployed database uses, copyable right now. */
 function PendingVariables({
   resource,
@@ -135,15 +133,15 @@ function PendingVariables({
   resource: PostgresBodyProps["resource"];
   dbName?: string;
 }) {
-  const stage = useStageManifestChange(resource.projectId as ProjectId, {
-    successToast: "Variables staged — Deploy to apply",
+  const stage = useStageManifestChange(resource.projectId, {
+    successToast: "Variables staged. Deploy to apply.",
   });
   const [hintDismissed, setHintDismissed] = useState(false);
   const editorRef = useRef<VariablesEditorHandle>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Mint (or read) the staged credentials — real username/password/db/URL the
+  // Mint (or read) the staged credentials. Real username/password/db/URL the
   // deployed database will use. Server-side derivation, so it can't drift.
   const creds = useQuery(
     orpc.project.resource.database.postgres.draftCredentials.queryOptions({
@@ -211,7 +209,7 @@ function PendingVariables({
             name makes it wider than the panel. Allow a mid-token wrap. */}
         <p className="text-[12px] break-words text-muted-foreground">
           {resource.engine} exports these into the container. They&apos;re live now and stay the
-          same after deploy — reference them from other services with{" "}
+          same after deploy. Reference them from other services with{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] [overflow-wrap:anywhere]">
             ${"{{"}
             {dbName ?? resource.name}.DATABASE_URL{"}}"}

@@ -10,7 +10,7 @@ import { routeValidationError } from "../route-validation";
  * These tests exist because the guard once encoded its own idea of a service
  * name (`otterdeploy-…`) while the generators minted `od-…` and unprefixed
  * `${stack}-${service}`. Every fixture in the other caddy suites was
- * hand-written in the guard's shape, so nothing failed — meanwhile every real
+ * hand-written in the guard's shape, so nothing failed. Meanwhile every real
  * HTTP route 500'd on `caddyfile` and the boot reconcile skipped them all.
  *
  * So: build the upstreams from the *real* generators, never from a literal.

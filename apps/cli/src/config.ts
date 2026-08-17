@@ -7,19 +7,19 @@ import * as z from "zod";
 // token by the device-code exchange, orgId by `otterdeploy org use`.
 const ConfigSchema = z.object({
   url: z.url().optional(),
-  // Origin of the web app — used for `$schema` URLs in generated config
+  // Origin of the web app, used for `$schema` URLs in generated config
   // files. Captured from the device-code response's verification_uri
   // during login (no separate user input). In single-domain prod
   // deployments this matches `url`; in dev it diverges.
   webUrl: z.url().optional(),
   token: z.string().optional(),
   orgId: z.string().optional(),
-  // Slug of the active org — set by `org use`, read by `open` to build
+  // Slug of the active org: set by `org use`, read by `open` to build
   // dashboard URLs without an extra round-trip.
   orgSlug: z.string().optional(),
   // Control planes this machine has logged into before, most-recent first.
   // Login offers these as a pick-list instead of asking the operator to
-  // retype a domain from memory. Survives `logout` — the whole point is to
+  // retype a domain from memory. Survives `logout`: the whole point is to
   // still know your domains after signing out. Never contains credentials.
   hosts: z.array(z.url()).optional(),
 });
@@ -50,7 +50,7 @@ export function loadConfig(): Config {
 export function saveConfig(config: Config): void {
   mkdirSync(dirname(CONFIG_PATH), { recursive: true });
   writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-  // 0600 — token lives here, treat it like an SSH key.
+  // 0600: token lives here, treat it like an SSH key.
   chmodSync(CONFIG_PATH, 0o600);
 }
 
@@ -91,8 +91,8 @@ export function rememberHost(url: string): void {
  * URL, and any trailing slash is stripped so it composes cleanly with
  * `${url}/api/auth`. Returns null for empty/invalid input.
  *
- * Every URL source funnels through here — `--url` flag, positional arg,
- * OTTERDEPLOY_URL env, stored config, interactive prompt — so a scheme-less
+ * Every URL source funnels through here: `--url` flag, positional arg,
+ * OTTERDEPLOY_URL env, stored config, interactive prompt, so a scheme-less
  * host is accepted everywhere, not just at the prompt. Without this,
  * `login --url deploy.acme.com` reached better-auth as
  * `deploy.acme.com/api/auth` and died with "Invalid base URL".
@@ -117,7 +117,7 @@ export function resolveToken(): string | undefined {
   return env.OTTERDEPLOY_TOKEN ?? loadConfig().token;
 }
 
-// Where the active token came from — the error boundary only clears and
+// Where the active token came from. The error boundary only clears and
 // re-auths config-file tokens; env tokens belong to the caller (CI).
 export function tokenSource(): "env" | "config" | null {
   if (env.OTTERDEPLOY_TOKEN) return "env";
@@ -125,7 +125,7 @@ export function tokenSource(): "env" | "config" | null {
   return null;
 }
 
-// Drop only the token — URL, webUrl, and org selection survive re-login.
+// Drop only the token, URL, webUrl, and org selection survive re-login.
 export function clearToken(): void {
   const { token: _token, ...rest } = loadConfig();
   saveConfig(rest);

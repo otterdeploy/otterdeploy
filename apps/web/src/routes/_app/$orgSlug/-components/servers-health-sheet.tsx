@@ -1,9 +1,9 @@
 /**
- * Per-server health detail — the snapshot a Servers row opens, plus the
+ * Per-server health detail: the snapshot a Servers row opens, plus the
  * node's swarm-membership controls (promote/demote, down-only removal).
  * Health stays read-only: reclaim/grow actions deliberately live only on the
- * "Host health" card, which executes against the local docker socket —
- * offering those buttons for a remote node would claim an ability the
+ * "Host health" card, which executes against the local docker socket.
+ * Offering those buttons for a remote node would claim an ability the
  * control plane doesn't have yet (docs/designs/server-health-agent.md,
  * remote reclaim = phase 2).
  */
@@ -44,7 +44,7 @@ export function ServerHealthSheet({
 }: {
   server: Server | null;
   entry: ServerHealthEntry | null;
-  /** Live topology (null while loading) — drives the cluster-role section. */
+  /** Live topology (null while loading). Drives the cluster-role section. */
   swarm: SwarmNodesView | null;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -67,7 +67,7 @@ export function ServerHealthSheet({
           <SheetDescription>
             {entry
               ? `Reported ${relativeTime(entry.receivedAt)} by ${entry.hostname ?? "unknown host"}.`
-              : "No health report from this server yet — remote nodes report once the health agent reaches them."}
+              : "No health report from this server yet. Remote nodes report once the health agent reaches them."}
           </SheetDescription>
         </SheetHeader>
 
@@ -170,12 +170,12 @@ function ClusterMembership({
       {!swarm.swarm ? (
         // Honest plain-docker state: no roles, no membership to manage.
         <p className="text-[11.5px] text-muted-foreground">
-          Node roles and swarm membership require the Docker Swarm runtime — this instance
+          Node roles and swarm membership require the Docker Swarm runtime. This instance
           runs plain Docker.
         </p>
       ) : node === null ? (
         <p className="text-[11.5px] text-muted-foreground">
-          No swarm node matches this server&apos;s hostname — it may not have joined the
+          No swarm node matches this server&apos;s hostname. It may not have joined the
           swarm yet.
         </p>
       ) : (
@@ -196,7 +196,7 @@ function ClusterMembership({
               <div className="mt-0.5 text-[11.5px] text-muted-foreground">
                 {node.role === "manager"
                   ? "Participates in Raft consensus and can schedule services."
-                  : "Runs tasks only — promote to add it to the Raft manager set."}
+                  : "Runs tasks only. Promote it to join the Raft manager set."}
               </div>
             </div>
             <RoleChangeAction node={node} managerCount={managerCount} variant="outline" />

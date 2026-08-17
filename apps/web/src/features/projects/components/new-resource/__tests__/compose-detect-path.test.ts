@@ -2,8 +2,8 @@
  * Rules behind the Compose-file field's `onChangeAsync` validator.
  *
  * Auto-detection only ever helps the operator who leaves the field blank. The
- * one who types a path is the one most able to get it subtly wrong — the
- * `.yaml`/`.yml` near-miss above all — and that typo used to be silent until
+ * one who types a path is the one most able to get it subtly wrong. The
+ * `.yaml`/`.yml` near-miss above all, and that typo used to be silent until
  * the build went looking for a file that was never there.
  */
 
@@ -60,7 +60,7 @@ describe("joinRepoPath", () => {
 });
 
 describe("staticPathIssue", () => {
-  it("passes a blank field — blank is the auto-detect case", () => {
+  it("passes a blank field: blank is the auto-detect case", () => {
     expect(staticPathIssue("")).toBeUndefined();
     expect(staticPathIssue("   ")).toBeUndefined();
   });

@@ -22,7 +22,7 @@ function redis(): RedisClient {
 
 /** Atomically claim a handoff nonce. Returns true the first time it's seen,
  *  false on every replay within the TTL window. SET NX is the atomic
- *  test-and-set — no read-then-write race. */
+ *  test-and-set, no read-then-write race. */
 export async function claimHandoffNonce(nonce: string): Promise<boolean> {
   const r = redis();
   const res = await r.set(`handoff:nonce:${nonce}`, "1", "NX", "EX", String(NONCE_TTL_SECONDS));

@@ -4,7 +4,7 @@ import { createEnvInput } from "../contract";
 
 /**
  * The reserved-slug rule is only worth anything if it is enforced where
- * environments are actually created. These assert the wiring, not the helper —
+ * environments are actually created. These assert the wiring, not the helper.
  * `reserved-slugs.test.ts` covers the rule itself.
  */
 
@@ -34,12 +34,12 @@ describe("createEnv input", () => {
   });
 
   it("still enforces the pre-existing length bounds", () => {
-    // The refinement is additive — it must not have replaced min/max.
+    // The refinement is additive. It must not have replaced min/max.
     expect(createEnvInput.safeParse({ name: "x", slug: "a" }).success).toBe(false);
     expect(createEnvInput.safeParse({ name: "x", slug: "a".repeat(49) }).success).toBe(false);
   });
 
-  it("leaves names alone — only the slug is reserved", () => {
+  it("leaves names alone. Only the slug is reserved", () => {
     // An environment can be *called* "Preview"; it just cannot be slugged that.
     expect(createEnvInput.safeParse({ name: "Preview", slug: "review" }).success).toBe(true);
   });

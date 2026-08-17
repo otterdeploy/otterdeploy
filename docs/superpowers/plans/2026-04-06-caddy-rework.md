@@ -273,7 +273,7 @@ export * from "./project";
 export * from "./project-resource";
 ```
 
-This removes the `caddy` export. No proxy-route queries here — they live in the API package.
+This removes the `caddy` export. No proxy-route queries here. They live in the API package.
 
 - [ ] **Step 3: Commit**
 
@@ -397,7 +397,7 @@ describe("builder", () => {
 
 Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/__tests__/builder.test.ts`
 
-Expected: FAIL — module `../builder` not found.
+Expected: FAIL, module `../builder` not found.
 
 - [ ] **Step 3: Implement the builder**
 
@@ -706,7 +706,7 @@ describe("reconciler", () => {
 
 Run: `cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun test packages/api/src/caddy/__tests__/reconciler.test.ts`
 
-Expected: FAIL — module `../reconciler` not found.
+Expected: FAIL, module `../reconciler` not found.
 
 - [ ] **Step 3: Implement the reconciler**
 
@@ -1005,7 +1005,7 @@ import { reconcile } from "../../caddy";
 import { insertProxyRoute, getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
 ```
 
-Keep `sanitizeProjectSlug` — extract it inline since we're deleting `config.ts`:
+Keep `sanitizeProjectSlug`. Extract it inline since we're deleting `config.ts`:
 
 ```ts
 function sanitizeProjectSlug(projectId: string): string {
@@ -1018,7 +1018,7 @@ function sanitizeProjectSlug(projectId: string): string {
 }
 ```
 
-Update `createPostgresResource` — replace the caddy snippet + `attachDatabaseIngress` section (lines ~175-213) with:
+Update `createPostgresResource`, replace the caddy snippet + `attachDatabaseIngress` section (lines ~175-213) with:
 
 ```ts
   // After creating the database resource record and before the return:
@@ -1040,7 +1040,7 @@ Update `createPostgresResource` — replace the caddy snippet + `attachDatabaseI
   await updateDatabaseResourceStatus(created.resource.id, isApplied ? "valid" : "invalid");
 ```
 
-Remove the `caddyLayer4Snippet` from `createDatabaseResourceRecord` call — but keep it in the record for now since the DB column still exists. Pass an empty string:
+Remove the `caddyLayer4Snippet` from `createDatabaseResourceRecord` call, but keep it in the record for now since the DB column still exists. Pass an empty string:
 
 ```ts
 caddyLayer4Snippet: "",

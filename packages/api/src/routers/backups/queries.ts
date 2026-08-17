@@ -46,7 +46,7 @@ function toBackupRow(r: {
   destName: string | null;
   destType: "s3" | "local" | "sftp" | null;
 }): BackupRow {
-  // Volume runs have no resource — their display source is the volume name.
+  // Volume runs have no resource. Their display source is the volume name.
   const source = r.resourceName ?? r.backup.volumeName;
   return {
     backup: r.backup,
@@ -115,7 +115,7 @@ export interface ScheduleRow {
   schedule: typeof backupSchedule.$inferSelect;
   /** Names for `schedule.destinationIds`, order-preserved, missing ones dropped. */
   destinationNames: string[];
-  /** Source refs that no longer resolve to a live database resource — the
+  /** Source refs that no longer resolve to a live database resource. The
    *  schedule is orphaned. Empty when every source is healthy. */
   missingSources: string[];
 }
@@ -123,7 +123,7 @@ export interface ScheduleRow {
 export async function listSchedulesByOrg(organizationId: OrganizationId): Promise<ScheduleRow[]> {
   // `destinationIds` is a jsonb array, not an FK, so resolve names via a small
   // org-wide destination lookup rather than a join. `sources` is the same shape,
-  // so resolve its health the same way — one org-wide database-resource lookup,
+  // so resolve its health the same way. One org-wide database-resource lookup,
   // matched in memory per schedule (avoids an N+1 across schedules).
   const [schedules, dests, dbResources] = await Promise.all([
     db

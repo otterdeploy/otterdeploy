@@ -1,7 +1,7 @@
 /**
- * Docker Swarm service-spec payload shapes — the subset of the Engine API's
- * TaskTemplate this driver actually sets (https://docs.docker.com/engine/api/
- * — ServiceSpec.TaskTemplate). Written as type aliases, not interfaces, so
+ * Docker Swarm service-spec payload shapes: the subset of the Engine API's
+ * TaskTemplate this driver actually sets (https://docs.docker.com/engine/api/,
+ * ServiceSpec.TaskTemplate). Written as type aliases, not interfaces, so
  * they get implicit index signatures and stay assignable to the docker
  * client's wider string-keyed TaskTemplate slot.
  */

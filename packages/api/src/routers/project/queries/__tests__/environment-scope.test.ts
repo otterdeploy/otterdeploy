@@ -1,11 +1,10 @@
-import type { EnvironmentId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { resolveEnvironmentScope } from "../resource";
 
-const MAIN = "env_main" as EnvironmentId;
-const STAGING = "env_staging" as EnvironmentId;
+const MAIN = idSchema.environment.parse("env_main");
+const STAGING = idSchema.environment.parse("env_staging");
 
 describe("resolveEnvironmentScope", () => {
   it("defaults to the project's main environment when none is requested", () => {
@@ -23,8 +22,8 @@ describe("resolveEnvironmentScope", () => {
   });
 
   // The distinction that matters: only main inherits the unstamped (NULL) rows.
-  // Getting isMain wrong for staging would show it production's resources —
-  // the exact bug this scoping exists to prevent.
+  // Getting isMain wrong for staging would show it production's resources.
+  // The exact bug this scoping exists to prevent.
   it("marks a non-main environment as not-main", () => {
     expect(resolveEnvironmentScope({ environmentId: MAIN }, STAGING)).toEqual({
       environmentId: STAGING,

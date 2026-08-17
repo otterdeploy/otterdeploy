@@ -1,5 +1,5 @@
 /**
- * Public-FQDN resolver — single source of truth for "what hostname does
+ * Public-FQDN resolver: single source of truth for "what hostname does
  * this resource live at?" across services and databases.
  *
  * Resolution walks most-specific → least-specific and stops at the first
@@ -8,17 +8,17 @@
  * between ACME (Let's Encrypt for verified real domains) and
  * `tls internal` (self-signed for sslip and unverified fallbacks).
  *
- *   1. Resource override     — service.publicDomain (literal FQDN)
- *   2. Project custom domain — project.customDomain ➜ `<resource>.<customDomain>`
- *   3. Org base domain       — org.baseDomain ➜ `<resource>-<project>.<kindBase>.<baseDomain>`
- *   4. Local base domain     — `<resource>-<project>.<localBaseDomain>` (dev)
- *   5. sslip.io fallback     — `<resource>-<project>.<serverIp>.sslip.io`
+ *   1. Resource override: service.publicDomain (literal FQDN)
+ *   2. Project custom domain: project.customDomain ➜ `<resource>.<customDomain>`
+ *   3. Org base domain: org.baseDomain ➜ `<resource>-<project>.<kindBase>.<baseDomain>`
+ *   4. Local base domain: `<resource>-<project>.<localBaseDomain>` (dev)
+ *   5. sslip.io fallback: `<resource>-<project>.<serverIp>.sslip.io`
  *
  * The local-base level only carries a value in development (the loader
- * gates it on NODE_ENV) — it lets exposed services resolve to the dev
+ * gates it on NODE_ENV): it lets exposed services resolve to the dev
  * domain (`<name>.otterdeploy.localhost`, loopback → Caddy on :443) instead
  * of the `127.0.0.1.sslip.io` form. Unverified like sslip, so `tls
- * internal` — `.localhost` can't get a real cert anyway.
+ * internal`: `.localhost` can't get a real cert anyway.
  *
  * No "platform default" branch: the `*.otterdeploy.dev` constants are
  * only correct for the SaaS install that actually owns that domain.
@@ -28,14 +28,14 @@
  *
  * The "kindBase" subdomain (`apps` for services, `db` for databases)
  * keeps the two namespaces non-colliding under a shared org base.
- * Project-custom and resource-override paths skip kindBase — at that
+ * Project-custom and resource-override paths skip kindBase. At that
  * level the operator has already picked a name and we trust it.
  */
 
 export type ResourceKind = "service" | "database";
 
 export interface DomainContext {
-  /** sanitized — lowercase, hyphen-safe slug, ≤63 chars */
+  /** sanitized: lowercase, hyphen-safe slug, ≤63 chars */
   resourceSlug: string;
   /** sanitized project slug */
   projectSlug: string;
@@ -55,7 +55,7 @@ export interface DomainSources {
    *  sslip fallback so local installs publish a clean loopback-backed name
    *  instead of an IP literal. Null outside development. */
   localBaseDomain: string | null;
-  /** Platform settings — used for sslip.io fallback. */
+  /** Platform settings, used for sslip.io fallback. */
   serverIp: string | null;
 }
 
@@ -67,7 +67,7 @@ export interface ResolvedDomain {
    *  and the cert-issuance decision. */
   source: "resource-override" | "project-custom" | "org-base" | "local-base" | "sslip-fallback";
   /** True only when this domain was verified (TXT record check). Drives
-   *  ACME issuance — unverified domains fall back to self-signed certs
+   *  ACME issuance, unverified domains fall back to self-signed certs
    *  even when they pass through to a real-looking FQDN. */
   verified: boolean;
 }
@@ -75,7 +75,7 @@ export interface ResolvedDomain {
 const kindBase = (kind: ResourceKind): string => (kind === "service" ? "apps" : "db");
 
 export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources): ResolvedDomain {
-  // 1. Per-resource literal FQDN — verified-by-presence (the operator
+  // 1. Per-resource literal FQDN, verified-by-presence (the operator
   //    typed it themselves; we still expect their DNS to point here).
   if (sources.resourceOverride && sources.resourceOverride.trim().length > 0) {
     return {
@@ -85,7 +85,7 @@ export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources):
     };
   }
 
-  // 2. Project apex — `<resource>.<projectCustomDomain>`. The project's
+  // 2. Project apex: `<resource>.<projectCustomDomain>`. The project's
   //    custom domain IS the apex; we drop the project slug from the
   //    subdomain (no `web-myproj.myproj.acme.com`, just `web.myproj.acme.com`).
   if (sources.projectCustomDomain && sources.projectCustomDomain.trim().length > 0) {
@@ -96,7 +96,7 @@ export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources):
     };
   }
 
-  // 3. Org base — `<resource>-<project>.<kindBase>.<baseDomain>`. Mirrors
+  // 3. Org base: `<resource>-<project>.<kindBase>.<baseDomain>`. Mirrors
   //    the platform-default pattern (`*.apps.otterdeploy.dev` /
   //    `*.db.otterdeploy.dev`) so service and database namespaces don't
   //    collide under a shared org apex.
@@ -108,7 +108,7 @@ export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources):
     };
   }
 
-  // 4. Local base domain — dev only. A configured wildcard (`otterdeploy.
+  // 4. Local base domain: dev only. A configured wildcard (`otterdeploy.
   //    localhost`) that resolves to loopback, so exposed services reach the
   //    Caddy edge on :443 under a clean name. Resource slugs are unique per
   //    project across services + databases, so no kindBase split is needed.
@@ -121,7 +121,7 @@ export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources):
     };
   }
 
-  // 5. sslip.io fallback — works without any DNS setup at all. Uses the
+  // 5. sslip.io fallback: works without any DNS setup at all. Uses the
   //    server's public IP as the rightmost label of a free sslip.io
   //    subdomain. Cert is self-signed (sslip can't get Let's Encrypt and
   //    we don't try). Verified=false so the rest of the pipeline knows

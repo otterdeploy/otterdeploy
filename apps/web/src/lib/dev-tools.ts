@@ -8,7 +8,7 @@
  *
  * Now: dev-only (this whole call is dead-code-eliminated from prod builds
  * because `import.meta.env.DEV` is statically replaced by Vite) AND
- * opt-in — set `localStorage.setItem("otterdeploy:react-scan", "1")` or
+ * opt-in: set `localStorage.setItem("otterdeploy:react-scan", "1")` or
  * launch the dev server with `VITE_REACT_SCAN=1` to enable it.
  */
 export function installReactScanIfEnabled(): void {

@@ -12,11 +12,11 @@ const zOrgSlug = z.object({
 });
 
 /**
- * Org context only — no chrome. The two chromes live in the child layouts
+ * Org context only, no chrome. The two chromes live in the child layouts
  * and never coexist:
  *
- *   - `_shell/layout.tsx`    — the operational shell (header + org sidebar).
- *   - `settings/layout.tsx`  — the settings zone (own rail, no org sidebar).
+ *   - `_shell/layout.tsx`: the operational shell (header + org sidebar).
+ *   - `settings/layout.tsx`: the settings zone (own rail, no org sidebar).
  *
  * UpdateProvider lives HERE (not in `_shell`) because both chromes consume
  * it: the shell renders the banner, and the settings zone's Instance →
@@ -24,7 +24,7 @@ const zOrgSlug = z.object({
  */
 export const Route = createFileRoute("/_app/$orgSlug")({
   // The org name is true of every page under here, so it is breadcrumb context,
-  // not tab-title context — see useDocumentTitle.
+  // not tab-title context: see useDocumentTitle.
   staticData: { ambientCrumb: true },
   component: () => (
     <UpdateProvider>

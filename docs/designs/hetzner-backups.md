@@ -1,4 +1,4 @@
-# Hetzner Backups — Storage Boxes, DB/Volume Backups & VM Snapshots
+# Hetzner Backups: Storage Boxes, DB/Volume Backups & VM Snapshots
 
 **Status:** Research / design input (extends [`backups.md`](./backups.md))
 **Last verified:** 2026-07-14 (facts current to the 2025 Storage Box relaunch + April 2026 price changes)
@@ -6,20 +6,20 @@
 **TL;DR:** There are **three independent backup layers**, and they are not substitutes for
 each other:
 
-1. **DB-level** — logical dumps (`pg_dump`/`mysqldump`/`mongodump`/`redis` save) shipped to a
+1. **DB-level**: logical dumps (`pg_dump`/`mysqldump`/`mongodump`/`redis` save) shipped to a
    destination. *App-consistent, portable, granular.* **← otterdeploy already does this.**
-2. **Volume/file-level** — `tar`/`restic`/`borg` archives of Docker volumes shipped to a
+2. **Volume/file-level**: `tar`/`restic`/`borg` archives of Docker volumes shipped to a
    destination. *Filesystem-consistent, portable.* **← otterdeploy already does this (tar).**
-3. **VM snapshot** — a whole-disk image of the underlying **Hetzner Cloud** server via the
+3. **VM snapshot**: a whole-disk image of the underlying **Hetzner Cloud** server via the
    hcloud API. *Crash-consistent, whole-machine, fast rebuild, provider-locked, Cloud-VMs-only.*
    **← new capability, orthogonal to the Docker-level engine.**
 
 A **Hetzner Storage Box** is a *destination* for layers 1 & 2 (it speaks SFTP/Borg/restic/rclone).
 A **Hetzner Cloud snapshot** is layer 3 itself. A **Storage Box snapshot** ("server-side
-snapshot") is a cheap ZFS undo-layer *on top of* the backups you push — not a backup itself.
+snapshot") is a cheap ZFS undo-layer *on top of* the backups you push, not a backup itself.
 
 The single most useful fact for us: **our existing `sftp` destination already works against a
-Storage Box today** (port 22, SFTP) — no new code required to start using one. Everything past
+Storage Box today** (port 22, SFTP), no new code required to start using one. Everything past
 that (Borg/restic dedup, sub-account isolation, server-side snapshots, VM snapshots) is upside.
 
 ---
@@ -31,7 +31,7 @@ that (Borg/restic dedup, sub-account isolation, server-side snapshots, VM snapsh
 Hetzner moved Storage Boxes off the old **Robot** panel onto the new **Hetzner Console** in 2025:
 
 - Automatic migration of existing boxes into a "Storage Box Migrated" project began **25 Jun 2025**.
-- **Robot Web Service support for Storage Boxes ended 29 Jul 2025** — management is now the new
+- **Robot Web Service support for Storage Boxes ended 29 Jul 2025**: management is now the new
   **Hetzner API** (Bearer token), not the old Robot Basic-auth webservice.
 - Server-bound Storage Boxes are no longer sold; the current standalone line is **BX11/21/31/41**.
 - Confusing naming caveat: the **new** SKUs reuse the **same BX11–BX41 names** the old standalone
@@ -59,14 +59,14 @@ Hetzner moved Storage Boxes off the old **Robot** panel onto the new **Hetzner C
 | Protocol(s)                              | Port | Notes                                                        |
 |------------------------------------------|------|--------------------------------------------------------------|
 | FTP / FTPS                               | 21   | optional, enable in Console                                  |
-| **SFTP / SCP**                           | **22** | SFTP/SCP only — **no interactive shell**                   |
+| **SFTP / SCP**                           | **22** | SFTP/SCP only: **no interactive shell**                   |
 | **rsync / BorgBackup / restic / rclone / SFTP / SCP** | **23** | "extended SSH": file tools + a limited whitelisted shell |
 | SMB / CIFS                               | 445  | network-drive mount                                          |
 | HTTPS / WebDAV                           | 443  | enable in Console                                            |
 
 **The port answer: unchanged from legacy.** Port **22 = SFTP/SCP only** (no shell). Port **23 =
 the extended SSH service** required for rsync/Borg/restic/rclone and a whitelisted mini-shell
-(`ls, cp, mv, rm, cat, md5sum…` — **no pipes, no redirects, no running uploaded scripts**). Port 23
+(`ls, cp, mv, rm, cat, md5sum…`, **no pipes, no redirects, no running uploaded scripts**). Port 23
 is enabled via the **"SSH support"** toggle in Console. So:
 
 - Pure **SFTP put/get** (what our `ssh2-sftp-client` destination does) → **port 22**, works today.
@@ -76,11 +76,11 @@ is enabled via the **"SSH support"** toggle in Console. So:
 
 ### Sub-accounts (multi-tenant isolation)
 
-- **Up to 100 sub-accounts per box** (all tiers) — a big jump over the legacy line.
+- **Up to 100 sub-accounts per box** (all tiers): a big jump over the legacy line.
 - Each sub-account: **own username/password + own hostname** (`uXXXXX-subN.your-storagebox.de`),
   **confined to its assigned sub-directory**, optional **read-only** mode, per-protocol availability.
 - **External Reachability** must be enabled to reach the box/sub-account from outside Hetzner's net.
-- ⚠️ **Storage is pooled** — no per-sub-account capacity quota. Isolation is credential + directory +
+- ⚠️ **Storage is pooled**, no per-sub-account capacity quota. Isolation is credential + directory +
   read-only, *not* a hard byte quota. A noisy tenant can fill the shared box.
 - Fit for us: per-org (or per-resource) sub-account = own creds + directory jail + optional
   restore-only read-only account. Provision via the Hetzner API (below).
@@ -95,7 +95,7 @@ is enabled via the **"SSH support"** toggle in Console. So:
   - Want key auth on **both** ports → put **both formats** in `authorized_keys`.
 - No general login shell anywhere; the SSH service is a restricted file-transfer/backup subsystem.
 
-### Storage Box **snapshots** — the "server-side snapshots" you asked about
+### Storage Box **snapshots**: the "server-side snapshots" you asked about
 
 These are Hetzner-side **ZFS copy-on-write** snapshots of the files *on the box*. **Not a backup.**
 
@@ -109,7 +109,7 @@ These are Hetzner-side **ZFS copy-on-write** snapshots of the files *on the box*
   run. **Manual snapshots are never auto-deleted.**
 - **Restore two ways:** (a) browse/pull individual files read-only from the hidden
   **`/.zfs/snapshot/`** dir over SFTP; (b) full **rollback** of the whole box via Console or the
-  API's "Rollback Snapshot" action (reverts everything after the snapshot — including newer
+  API's "Rollback Snapshot" action (reverts everything after the snapshot, including newer
   snapshots).
 - **NOT DR:** they live on the *same* box; you **cannot create a new box from a snapshot**. If the
   box is lost, the snapshots go with it. Their value is **undo / anti-ransomware**: a leaked SFTP
@@ -120,11 +120,11 @@ These are Hetzner-side **ZFS copy-on-write** snapshots of the files *on the box*
 
 Two APIs; the next-gen line uses the **new one**, the legacy Robot API is being retired.
 
-**New Hetzner (Cloud) API** — base `https://api.hetzner.com/v1` (Cloud tooling also references
+**New Hetzner (Cloud) API**: base `https://api.hetzner.com/v1` (Cloud tooling also references
 `api.hetzner.cloud/v1`), **Bearer project token**, **3600 req/hr/project**, `429` on overflow with
 `RateLimit-*` headers. Storage Boxes are a first-class resource (launched 25 Jun 2025). Confirmed
 capabilities (via changelog + Terraform + Ansible + hcloud-python; exact REST path strings are in a
-JS-rendered SPA and not quoted verbatim — verify before hardcoding routes):
+JS-rendered SPA and not quoted verbatim, verify before hardcoding routes):
 
 - **Box lifecycle:** create / update / delete (+ delete-protection), labels, **change type** (resize).
 - **`reset_password`** action.
@@ -137,9 +137,9 @@ JS-rendered SPA and not quoted verbatim — verify before hardcoding routes):
 - **Tooling:** `hcloud storage-box` CLI group; Terraform `hcloud_storage_box` (+ separate subaccount
   & snapshot resources); Ansible `hetzner.hcloud.storage_box`; `hcloud-python`.
 
-**Legacy Robot API** — `https://robot-ws.your-server.de`, **Basic auth** (Robot user/pass). Same
+**Legacy Robot API**: `https://robot-ws.your-server.de`, **Basic auth** (Robot user/pass). Same
 conceptual ops under `/storagebox/{id}/…` (`snapshot`, `snapshotplan`, `subaccount`, `password`).
-Being retired for Storage Boxes (support ended 29 Jul 2025) — don't build new work on it.
+Being retired for Storage Boxes (support ended 29 Jul 2025). Don't build new work on it.
 
 ---
 
@@ -149,17 +149,17 @@ Being retired for Storage Boxes (support ended 29 Jul 2025) — don't build new 
 
 | Dimension            | **BorgBackup**                         | **restic**                          | **rclone (ship archives)**    | **Plain dump → SFTP**        |
 |----------------------|----------------------------------------|-------------------------------------|-------------------------------|------------------------------|
-| Hetzner support      | **Yes** — server-side `borg serve`, docs | **Yes** — official tutorial, SFTP backend | **Yes** — named SFTP target | Yes (any SFTP on port 22)   |
+| Hetzner support      | **Yes** (server-side `borg serve`, docs | **Yes**) official tutorial, SFTP backend | **Yes**, named SFTP target | Yes (any SFTP on port 22)   |
 | Dedup                | **Yes** (content-defined chunking)     | **Yes** (CDC ~1 MiB blobs)          | No (file-level)               | No                           |
 | Encryption           | client-side (repokey/keyfile)          | **always** AES-256 + Poly1305       | optional (crypt remote)       | none unless you add gpg/age  |
 | Append-only / anti-ransomware | **Yes**, Hetzner-documented (mark-deleted caveat) | via `rclone serve restic --append-only` (forum) | one-way key perms | none |
-| Incremental          | Yes                                    | Yes                                 | mirrors current state         | **No — full dump every run** |
+| Incremental          | Yes                                    | Yes                                 | mirrors current state         | **No: full dump every run** |
 | Locking gotcha       | repo lock, single-writer               | **prune locks repo → blocks backups**; SFTP idle disconnects | `--sftp-connections` can deadlock | none (independent files) |
 | Restore granularity  | per-file from any archive              | per-file from any snapshot          | whole-file                    | whole DB only                |
 | Complexity           | medium                                 | medium                              | low                           | **lowest**                   |
 
 - **Borg server-side versions:** `borg-1.1`, **`borg-1.2` (default)**, `borg-1.4`, selected via
-  `--remote-path`. **Borg 2.0 is NOT offered** — don't pin a 2.x client.
+  `--remote-path`. **Borg 2.0 is NOT offered**. Don't pin a 2.x client.
 - **Recommendation:** **Borg** for volume *directories* (best server-aware dedup + first-class
   append-only). **restic** if you want one tool across S3 *and* SFTP (always-encrypted, snapshot
   model). **rclone** to just ship + rotate already-compressed dump files. **Plain dump→SFTP** for
@@ -172,10 +172,10 @@ Being retired for Storage Boxes (support ended 29 Jul 2025) — don't build new 
 pg_dump -Fc mydb | ssh -p23 uXXX@uXXX.your-storagebox.de 'cat > db/mydb-$(date +%F).dump'
 mysqldump --single-transaction --routines mydb | gzip | ssh -p23 uXXX@uXXX.your-storagebox.de 'cat > db/mydb.sql.gz'
 
-# restic via stdin — PREFER --stdin-from-command (watches exit code; --stdin can't detect truncation)
+# restic via stdin: PREFER --stdin-from-command (watches exit code; --stdin can't detect truncation)
 restic -r sftp:restic:./backup backup --stdin-from-command --stdin-filename mydb.sql -- pg_dump mydb
 
-# borg via stdin — PREFER --content-from-command (fails the archive if pg_dump fails)
+# borg via stdin: PREFER --content-from-command (fails the archive if pg_dump fails)
 borg create --content-from-command --stdin-name mydb.sql --files-cache disabled \
   --remote-path=borg-1.4 ssh://uXXX@uXXX.your-storagebox.de:23/./repo::mydb-{now} -- pg_dump mydb
 ```
@@ -187,11 +187,11 @@ directory** (or an uncompressed dump), not a compressed stream.
 
 ### Retention / prune
 
-- **`borg prune`** (`--keep-daily/weekly/monthly/yearly`, `--keep-within`) — but **prune does NOT
+- **`borg prune`** (`--keep-daily/weekly/monthly/yearly`, `--keep-within`), but **prune does NOT
   free space; you must run `borg compact` after** (and under append-only it only *marks* deleted).
-- **`restic forget --prune`** (same keep-\* vocabulary) — **prune locks the repo, blocking backups;
+- **`restic forget --prune`** (same keep-\* vocabulary): **prune locks the repo, blocking backups;
   schedule off-peak**. Refuses an empty policy.
-- **Hand-rolled "keep-N + max-age + max-storage"** — the only model that can cap **absolute
+- **Hand-rolled "keep-N + max-age + max-storage"**: the only model that can cap **absolute
   storage** (borg/restic can't express that directly), works on plain independent files, trivial
   restore. Downside: no dedup, and max-storage eviction can silently drop your oldest recovery point.
   **This is exactly what our `retention.ts` does today, and what Coolify does.**
@@ -201,7 +201,7 @@ directory** (or an uncompressed dump), not a compressed stream.
 - **Coolify:** local disk by default, optional **S3-compatible only** (uploads with MinIO `mc`).
   Dumps via `docker exec` native tools. Retention = 3-axis (count/days/max-storage), tracked
   separately for local vs S3. **No native SFTP / Storage Box / Borg.**
-- **Dokploy:** **S3-only in the UI**, but the transport is **`rclone copyto`** — so a Storage Box is
+- **Dokploy:** **S3-only in the UI**, but the transport is **`rclone copyto`**, so a Storage Box is
   reachable via a custom rclone remote, just not first-class. Retention = keep-last-N only.
 - **Takeaway:** neither natively targets **Borg** or a **Hetzner Storage Box**. First-class
   **SFTP/Storage Box + Borg append-only + sub-account isolation** is a genuine gap we could own.
@@ -215,13 +215,13 @@ Robot bare-metal, **not** other providers.
 
 ### Snapshots (manual, on-demand disk image)
 
-- Captures a **full image of the server's root disk** — **excludes attached Volumes.** Persists
+- Captures a **full image of the server's root disk**: **excludes attached Volumes.** Persists
   until you delete it.
 - **Cost ≈ €0.0143/GB/mo** (post-1-Apr-2026; was €0.011), billed on **compressed, used** size (not
   provisioned disk). ⚠️ verify against the live pricing widget.
 - **Create:** `POST /servers/{id}/actions/create_image` `{ "type": "snapshot", "description", "labels" }`
   → returns an **action** to poll. CLI: `hcloud server create-image --type snapshot <server>`.
-- **Restore:** (a) **rebuild same server** `POST /servers/{id}/actions/rebuild { image }` —
+- **Restore:** (a) **rebuild same server** `POST /servers/{id}/actions/rebuild { image }`:
   **destroys the target disk**; or (b) **create a new server from the image**. Architecture must
   match (x86↔x86, Arm↔Arm); target disk must be ≥ source (standard, not quoted verbatim in docs).
 - **List/delete:** `GET /images?type=snapshot`, `DELETE /images/{id}`.
@@ -229,10 +229,10 @@ Robot bare-metal, **not** other providers.
 
 ### Automatic backups
 
-- **+20% of the server's monthly price** (flat, disk-usage-independent). **7 daily slots**, rolling —
-  oldest deleted when full (~last 7 days). **Deleted with the server.**
+- **+20% of the server's monthly price** (flat, disk-usage-independent). **7 daily slots**, rolling.
+  Oldest deleted when full (~last 7 days). **Deleted with the server.**
 - **Convert a backup → snapshot** to keep one permanently (then billed at the snapshot GB rate).
-- **Enable/disable:** `POST /servers/{id}/actions/enable_backup` / `disable_backup` — ⚠️ **disable
+- **Enable/disable:** `POST /servers/{id}/actions/enable_backup` / `disable_backup`: ⚠️ **disable
   deletes all existing backups.**
 
 |                         | Snapshot                        | Automatic Backup            |
@@ -246,7 +246,7 @@ Robot bare-metal, **not** other providers.
 
 ### Automation & consistency
 
-- **No native snapshot scheduler** — you cron the `create_image` call yourself and manage retention
+- **No native snapshot scheduler**: you cron the `create_image` call yourself and manage retention
   + the 30-snapshot cap. (Automatic *backups* are the only Hetzner-scheduled option.)
 - ⚠️ **A running-server snapshot is only crash-consistent.** Hetzner recommends **powering off**
   first; **no guest quiescing / fsfreeze** is performed. For app-consistency without downtime:
@@ -260,7 +260,7 @@ Robot bare-metal, **not** other providers.
 - Cloud snapshots/backups **do not exist** for Hetzner **dedicated/Robot** bare-metal or other
   providers. Options there: **file-level / DB-native backups to a Storage Box** (or object storage),
   or hypervisor-level (Proxmox/ZFS/LVM) if you run one. Also note Cloud snapshots **can't be
-  downloaded off-platform** (lock-in) — another reason portable file backups matter.
+  downloaded off-platform** (lock-in): another reason portable file backups matter.
 
 ---
 
@@ -270,8 +270,8 @@ Current state (`packages/api/src/backups/`): `local` / `s3` / **`sftp`** destina
 `pg_dump`/`mysqldump` DB dumps; `tar` volume archives; AES-256-GCM at rest; hand-rolled retention
 (`retention.ts`). Concrete recommendations:
 
-1. **Storage Box works *today* as an `sftp` destination — ship that first.** `storage.ts`'s SFTP
-   backend connects on **port 22** (its default) and does SFTP put/get — exactly what a Storage Box
+1. **Storage Box works *today* as an `sftp` destination: ship that first.** `storage.ts`'s SFTP
+   backend connects on **port 22** (its default) and does SFTP put/get, exactly what a Storage Box
    serves on 22. Point `host` at `uXXXXX.your-storagebox.de`, set `basePath`, use password or a
    **RFC4716-format** SSH key, and enable **External Reachability** on the box. Zero new engine code.
    Consider a thin "Hetzner Storage Box" preset over the `sftp` type (known host format, key-format
@@ -284,25 +284,25 @@ Current state (`packages/api/src/backups/`): `local` / `s3` / **`sftp`** destina
    a streamed `pg_dump → SFTP` (or `--stdin-from-command`/`--content-from-command`) path.
 
 3. **Sub-accounts = our multi-tenant isolation primitive.** 100 per box: provision one per org (or
-   per destination) via the Hetzner API — own creds + directory jail + optional **read-only**
+   per destination) via the Hetzner API: own creds + directory jail + optional **read-only**
    restore account. Remember storage is **pooled** (no per-sub quota), so pair with our
    `maxStorageGb` retention axis to stop one tenant filling the box.
 
 4. **Adopt Borg/restic only where dedup pays for itself.** Our current model = plain dump + tar +
    hand-rolled retention = fine for small resources and matches Coolify. For large/frequent volume
    backups, a **Borg (append-only) destination on port 23** would be a real differentiator vs
-   Coolify/Dokploy — but it means **shelling out from a helper container** (the pure-JS
+   Coolify/Dokploy, but it means **shelling out from a helper container** (the pure-JS
    `ssh2-sftp-client` path can't run borg). If we adopt borg/restic, **let the tool own encryption
    and retention** (don't double-encrypt with our AES-GCM; delegate to `borg prune`+`compact` /
    `restic forget --prune`).
 
 5. **Storage Box snapshots (or borg append-only) = a cheap immutability layer.** Enable **automatic
    Storage Box snapshots** via the snapshot-plan API so a compromised server's leaked SFTP creds
-   can't destroy our pushed archives. This is undo/anti-ransomware, *not* DR — keep it in addition
+   can't destroy our pushed archives. This is undo/anti-ransomware, *not* DR. Keep it in addition
    to, not instead of, the pushed backups.
 
 6. **VM snapshots are a new, separate backup `kind`, gated on Hetzner Cloud.** Add a `vm-snapshot`
-   path that calls the hcloud `create_image` API — but **only expose it when the resource's server
+   path that calls the hcloud `create_image` API, but **only expose it when the resource's server
    is a Hetzner Cloud VM** (we have a `server` table; gate on provider metadata + a stored hcloud
    token). Surface the **crash-consistency caveat** in the UI and, for DB-heavy servers, steer users
    to the DB-dump layer for app-consistency. This layer is orthogonal to the Docker-level engine and

@@ -11,14 +11,14 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
-const selectRow = vi.fn();
+const selectRow = vi.fn<() => unknown>();
 
 vi.mock("@otterdeploy/db", () => ({
   db: {
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: () => selectRow() as unknown,
+          limit: () => selectRow(),
         }),
       }),
     }),
@@ -176,7 +176,7 @@ describe("CrowdSec", () => {
 });
 
 describe("Twilio", () => {
-  test("mixes a stored SID with the env token — each field resolves on its own", async () => {
+  test("mixes a stored SID with the env token. Each field resolves on its own", async () => {
     withRow({ twilioAccountSid: "AC-stored" });
     expect(await twilioConfig()).toEqual({
       accountSid: "AC-stored",

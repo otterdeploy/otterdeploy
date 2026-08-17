@@ -96,7 +96,7 @@ function gitSignals(cwd) {
   const diffBase = base && branch && branch !== base ? base : null;
   const fromDiff = diffBase ? run(['diff', '--name-only', `${diffBase}...HEAD`]) : null;
   // porcelain lines are `XY PATH`: a 2-char status + a space, then the path.
-  // Don't trim the combined output — an unstaged-modified line starts with a
+  // Don't trim the combined output. An unstaged-modified line starts with a
   // leading space (` M path`), and a global trim would eat the first line's
   // status column and shift the slice. Renames render as `old -> new`.
   const fromStatus = run(['-c', 'core.quotepath=false', 'status', '--porcelain'], { trim: false });
@@ -160,7 +160,7 @@ const SCANNABLE_EXT = new Set([
 const SOURCE_DIRS = ['src', 'app', 'components', 'pages', 'public'];
 
 /**
- * Local paths the agent should point the bundled detector at — never a URL.
+ * Local paths the agent should point the bundled detector at, never a URL.
  * A URL means a costly Puppeteer browser render, and a probed dev-server port
  * may not even belong to this project. An HTML *file* or a source tree is
  * scanned by the cheap, jsdom-free static engine. This script does NOT run the

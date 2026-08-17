@@ -30,7 +30,7 @@ export function ProvisionFooter({
         // With no usable key the sshKeyId validator can never be satisfied, yet
         // canSubmit starts true (it only validates onChange, and the field is
         // never changed). Submit then failed validation with nothing rendered to
-        // explain it — that branch shows a hint, not a FieldError — so the click
+        // explain it (that branch shows a hint, not a FieldError) so the click
         // did nothing at all. Block it out loud instead.
         const blockedReason =
           authMode === "key" && usableKeys.length === 0

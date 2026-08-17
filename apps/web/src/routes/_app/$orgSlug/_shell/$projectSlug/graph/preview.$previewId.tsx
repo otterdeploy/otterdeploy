@@ -1,5 +1,5 @@
 /**
- * PR-preview detail panel — slides in from the right when a preview satellite
+ * PR-preview detail panel: slides in from the right when a preview satellite
  * is clicked. Tabbed: Overview (identity + URL + per-service status),
  * Deployments (preview-scoped history → the existing deployment detail panel
  * with build/deploy logs), Variables (effective env per service: inherited base
@@ -32,7 +32,7 @@ import { VariablesTab } from "./-components/preview-panel/variables-tab";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph/preview/$previewId")({
   staticData: { crumb: "Preview" },
   component: PreviewPanel,
-  // Open the drawer on click, not after this route's chunk loads — same
+  // Open the drawer on click, not after this route's chunk loads. Same
   // reasoning as the $resourceId route; see panel-shell.tsx.
   pendingMs: 0,
   pendingMinMs: 0,
@@ -44,17 +44,17 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph/p
  * the pull request itself.
  *
  * A number and a branch name identify a preview to the machine; they say
- * nothing about whose work is running or what it changes — which is what you
+ * nothing about whose work is running or what it changes, which is what you
  * need when several previews are open at once. Every PR field is optional:
  * previews created before that metadata was captured, and providers that omit
  * it, degrade to what they have rather than rendering blanks.
  */
-/** Spell the teardown clock out on hover — "temporary" alone doesn't say when,
+/** Spell the teardown clock out on hover: "temporary" alone doesn't say when,
  *  and a preview quietly disappearing is the surprise worth pre-empting. */
 function expiryTitle(autoTeardownAt: string | null): string {
   return autoTeardownAt
     ? `Torn down automatically after ${new Date(autoTeardownAt).toLocaleString()} unless there is new activity`
-    : "Pinned with keep-alive — never torn down automatically";
+    : "Pinned with keep-alive, never torn down automatically";
 }
 
 function PreviewIdentity({ preview }: { preview: Preview | undefined }) {
@@ -148,7 +148,7 @@ function PreviewPanel() {
             preview's attachment to its service, so "this is ephemeral, and it
             belongs to a PR rather than to production" is the same visual idea
             in both places. Restrained on purpose: a tint and a dashed rule,
-            not a coloured chrome — it has to read as the same instrument. */}
+            not a coloured chrome: it has to read as the same instrument. */}
         <header className="flex items-center gap-3 border-b border-dashed border-border bg-muted/20 px-6 py-4">
           <div className="min-w-0 flex-1">
             <PreviewIdentity preview={preview} />
@@ -171,7 +171,7 @@ function PreviewPanel() {
 
         {!preview && !previews.isLoading ? (
           <p className="px-6 py-5 text-sm text-muted-foreground">
-            This preview is gone — its PR was likely closed.
+            This preview is gone. Its PR was likely closed.
           </p>
         ) : preview ? (
           <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col gap-0">

@@ -6,7 +6,7 @@ import { ORPCError } from "@orpc/server";
  * `apiKey:create` on our org AC (owners pass automatically); `requirePermission`
  * gates the same action up front for a clean denial + audit trail.
  *
- * The plaintext `key` in the response is returned exactly once — the caller
+ * The plaintext `key` in the response is returned exactly once. The caller
  * shows it and discards it; it's never persisted in readable form.
  */
 import { auth } from "@otterdeploy/auth";
@@ -17,8 +17,8 @@ export const apiKeysRouter = {
   create: requirePermission({ apiKey: ["create"] }).apiKeys.create.handler(
     async ({ input, context }) => {
       // Minting requires a real user (the key is recorded against the caller).
-      // An API-key actor can never reach here — it lacks `apiKey:create` under
-      // the member role cap — but the guard also narrows `session` for TS.
+      // An API-key actor can never reach here. It lacks `apiKey:create` under
+      // the member role cap, but the guard also narrows `session` for TS.
       if (!context.session?.user) {
         throw new ORPCError("UNAUTHORIZED");
       }
@@ -32,7 +32,7 @@ export const apiKeysRouter = {
       // passed userId, so dropping headers doesn't weaken authorization.
       // Optional presets ride in key metadata (enableMetadata is on). Only the
       // explicitly-set ones are persisted, so an unscoped key keeps the current
-      // full behavior — createContext reads these back into the ApiKeyActor.
+      // full behavior: createContext reads these back into the ApiKeyActor.
       const metadata: {
         accessLevel?: typeof input.accessLevel;
         projectScope?: typeof input.projectScope;

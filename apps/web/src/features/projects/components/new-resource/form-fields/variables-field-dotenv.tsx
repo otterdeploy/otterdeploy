@@ -1,6 +1,6 @@
 /**
  * The bulk half of the VariablesField: dotenv parse/serialize plus the two
- * surfaces that use them — the empty-state dropzone and the paste-a-whole-file
+ * surfaces that use them. The empty-state dropzone and the paste-a-whole-file
  * editor. Split out of variables-field-parts.tsx (which kept growing past the
  * line cap) because this is one concern end to end: getting a `.env` block in
  * and out of the row list, as opposed to editing a single row.
@@ -96,7 +96,7 @@ export function EmptyDropzone({
   );
 }
 
-/** Textarea bulk editor — paste a whole .env block, parsed on Apply. */
+/** Textarea bulk editor: paste a whole .env block, parsed on Apply. */
 export function BulkEditor({
   initial,
   onApply,

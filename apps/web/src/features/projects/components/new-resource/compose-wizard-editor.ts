@@ -11,7 +11,7 @@ import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 
 // Make CodeMirror transparent so it inherits the dark wrapper (no white box),
-// with a muted line-number gutter — matches the Caddyfile editor's look.
+// with a muted line-number gutter: matches the Caddyfile editor's look.
 const editorTheme = EditorView.theme(
   {
     "&": { backgroundColor: "transparent" },
@@ -45,7 +45,7 @@ const highlightStyle = HighlightStyle.define([
   { tag: [t.string, t.special(t.string), t.content], color: "#7ee787" },
   { tag: [t.typeName, t.labelName], color: "#ffa657" }, // !Tag, &anchors
   {
-    // `--muted-foreground` is a hex token, so use it directly — `hsl(var(...))`
+    // `--muted-foreground` is a hex token, so use it directly. `hsl(var(...))`
     // would be invalid CSS and silently drop the color.
     tag: [t.comment, t.lineComment],
     color: "var(--muted-foreground)",

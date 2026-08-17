@@ -32,7 +32,7 @@ interface SnippetTreeProps {
   folders: SqlFolder[];
   snippets: SqlSnippet[];
   activeId: string;
-  /** Switch back to the table browser — mirrors the table view's "SQL console". */
+  /** Switch back to the table browser: mirrors the table view's "SQL console". */
   onBackToTable: () => void;
   onSelect: (id: string) => void;
   addFolder: (name: string) => SqlFolder;
@@ -126,10 +126,10 @@ export function SnippetTree({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {/* Back to the table browser — pinned above Playground */}
+        {/* Back to the table browser, pinned above Playground */}
         <Row icon={Table01Icon} label="Table" onClick={onBackToTable} />
 
-        {/* Playground — pinned, always available */}
+        {/* Playground, pinned, always available */}
         <Row
           icon={Bookmark01Icon}
           label="Playground"

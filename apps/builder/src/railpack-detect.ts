@@ -1,5 +1,5 @@
 /**
- * Source-tree inspection for railpack builds — read the build context to decide
+ * Source-tree inspection for railpack builds. Read the build context to decide
  * the package manager, whether the repo is a workspace, and whether a single-app
  * build needs its start command forced (TanStack Start misdetection). Split out
  * of railpack.ts so that file stays within the size + complexity budgets.
@@ -12,7 +12,7 @@ import type { LogSink } from "./log-stream";
 
 /** Deps that mark a TanStack Start SSR app (react / solid variants + the meta
  *  package). These build to `.output/` via Nitro, but railpack's Node provider
- *  sees `vite build` and mis-detects a static SPA — presence of one of these
+ *  sees `vite build` and mis-detects a static SPA. Presence of one of these
  *  plus a `start` script is the signal to force a server deploy instead. */
 const TANSTACK_START_PACKAGES = [
   "@tanstack/react-start",
@@ -20,10 +20,16 @@ const TANSTACK_START_PACKAGES = [
   "@tanstack/start",
 ];
 
-/** Read + JSON.parse a file, returning null on any error (missing/malformed). */
-export async function readJson<T>(path: string): Promise<T | null> {
+/** Read + JSON.parse a file, returning null on any error (missing/malformed).
+ *
+ * The generic overload keeps the existing call sites' annotated shapes; the
+ * implementation itself only ever produces the parsed JSON as `unknown`
+ * (callers optional-chain every field, exactly as before). */
+export async function readJson<T>(path: string): Promise<T | null>;
+export async function readJson(path: string): Promise<unknown> {
   try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
+    const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+    return parsed;
   } catch {
     return null;
   }
@@ -38,7 +44,7 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** True when the repo root declares a package workspace — npm/yarn/bun via the
+/** True when the repo root declares a package workspace: npm/yarn/bun via the
  *  `workspaces` field (string[] or bun's `{ packages: [] }`), pnpm via
  *  pnpm-workspace.yaml. This is the signal that a subdir service must build from
  *  the root so its lockfile, catalog, and sibling packages resolve. */
@@ -73,12 +79,12 @@ export async function detectPackageManagerRun(workDir: string): Promise<string> 
 }
 
 /** For a single-app (non-workspace) build, the start command to hand railpack
- *  when the app looks like TanStack Start — else null. TanStack Start is SSR
+ *  when the app looks like TanStack Start. Else null. TanStack Start is SSR
  *  (Nitro) and builds to `.output/`, but railpack's Node provider mis-detects it
  *  as a static "vite" site and bakes a `COPY /app/dist` that never exists, so the
  *  build dies. Handing railpack an explicit `--start-cmd` forces a server deploy
  *  instead. Returns null when the app is a declared SPA (genuinely static), isn't
- *  TanStack Start, or declares no `start` script — nothing to force. */
+ *  TanStack Start, or declares no `start` script, nothing to force. */
 export async function tanstackStartCommand(
   appDir: string,
   spaOutputDir: string | null,
@@ -94,6 +100,6 @@ export async function tanstackStartCommand(
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (!TANSTACK_START_PACKAGES.some((p) => p in deps)) return null;
   const cmd = `${await detectPackageManagerRun(appDir)} start`;
-  sink.system(`detected TanStack Start — deploying as a server (start="${cmd}")`);
+  sink.system(`detected TanStack Start; deploying as a server (start="${cmd}")`);
   return cmd;
 }

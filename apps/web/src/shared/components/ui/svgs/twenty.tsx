@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * Twenty mark (Simple Icons). Monochrome — inherits the tile’s `color` via `currentColor`, so it
+ * Twenty mark (Simple Icons). Monochrome: inherits the tile’s `color` via `currentColor`, so it
  * stays legible on both canvases (Twenty’s mark is black).
  */
 const Twenty = (props: SVGProps<SVGSVGElement>) => (

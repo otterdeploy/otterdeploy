@@ -1,5 +1,5 @@
 /**
- * Available variable references — drives the "Add Reference" picker
+ * Available variable references: drives the "Add Reference" picker
  * and the inline `${{` autocomplete in the env-var editor.
  *
  * One row per `${{Source.KEY}}` token that resolves in a given project.
@@ -17,7 +17,7 @@ import { projectIdField } from "./shared";
 
 const availableReferenceSchema = z.object({
   /** What produces this reference. Drives the icon/label in the
-   *  picker — UI keeps a small switch on this field. */
+   *  picker: UI keeps a small switch on this field. */
   sourceKind: z.enum(["database", "service", "project", "environment"]),
   /** Display label for the source. For resources it's the resource's
    *  `name`; for project/environment scopes it's a fixed label. */

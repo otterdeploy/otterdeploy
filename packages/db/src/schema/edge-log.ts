@@ -19,9 +19,9 @@ import {
  *
  * IMPORTANT: this table is NOT managed by drizzle-kit (it's removed from the
  * schema barrel). drizzle-kit can't express PARTITION BY, and a partitioned
- * table's PK must include the partition key — hence the composite (id, ts). The
- * real DDL — partitioned parent, daily partitions, BRIN index, DROP-based
- * retention — lives in packages/api/src/edge-logs/partition.ts and runs at
+ * table's PK must include the partition key, hence the composite (id, ts). The
+ * real DDL, partitioned parent, daily partitions, BRIN index, DROP-based
+ * retention: lives in packages/api/src/edge-logs/partition.ts and runs at
  * startup. This definition exists only for typed queries/inserts; keep it in
  * sync with that DDL.
  */

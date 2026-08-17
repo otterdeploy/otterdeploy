@@ -22,7 +22,7 @@ function msToNs(ms: number): number {
   return ms * 1_000_000;
 }
 
-// Docker healthcheck Test markers — when a stored cmd already leads with one,
+// Docker healthcheck Test markers: when a stored cmd already leads with one,
 // the array is a complete Test value and must pass through verbatim. Anything
 // else is treated as a bare exec-form command and gets the historical "CMD"
 // prefix, so pre-existing rows keep working unchanged.
@@ -31,7 +31,7 @@ const HEALTHCHECK_TEST_MARKERS = new Set(["CMD", "CMD-SHELL", "NONE"]);
 /**
  * Map a stored healthcheck cmd to Docker's `Healthcheck.Test` array. Shared by
  * the swarm driver and the plain-Docker driver (both previously hardcoded the
- * "CMD" prefix, which broke any `["CMD-SHELL", …]` shell one-liner — the form
+ * "CMD" prefix, which broke any `["CMD-SHELL", …]` shell one-liner: the form
  * the HTTP health-check UI writes).
  */
 export function toHealthcheckTest(cmd: string[]): string[] {
@@ -42,13 +42,13 @@ export function toHealthcheckTest(cmd: string[]): string[] {
 
 // A container that exits immediately on boot (e.g. a missing required env var)
 // would otherwise restart forever: with `MaxAttempts` unset, swarm's default is
-// UNLIMITED. Bound it so a crash-loop gives up instead of hammering the host —
-// after this many failures WITHIN the window, swarm stops restarting and the
+// UNLIMITED. Bound it so a crash-loop gives up instead of hammering the host.
+// After this many failures WITHIN the window, swarm stops restarting and the
 // deployment settles (surfaced as `crashing` by the deployments read). A user
 // who explicitly sets maxAttempts still wins. Mirrors the database driver's cap.
 const DEFAULT_MAX_RESTART_ATTEMPTS = 5;
 // Evaluate the cap over a rolling window, not the task's whole lifetime, so a
-// service that fails only occasionally keeps recovering — only a tight loop
+// service that fails only occasionally keeps recovering, only a tight loop
 // (5 failures inside 90s) trips it.
 const RESTART_WINDOW_MS = 90_000;
 
@@ -68,8 +68,8 @@ function buildContainerSpec(
     Image: spec.image,
     Env: Object.entries(spec.env).map(([k, v]) => `${k}=${v}`),
     // UTS hostname is `sethostname`-capped at 64 bytes; the internal FQDN can
-    // exceed that for long names and crash runc. Use the ≤63-char service name —
-    // discovery uses the network aliases (which keep the FQDN), not this.
+    // exceed that for long names and crash runc. Use the ≤63-char service name.
+    // Discovery uses the network aliases (which keep the FQDN), not this.
     Hostname: spec.serviceName,
     Labels: labels,
   };
@@ -92,7 +92,7 @@ function buildContainerSpec(
     };
   }
 
-  // Mounts come pre-materialized from the caller — file-type mounts had
+  // Mounts come pre-materialized from the caller. File-type mounts had
   // their content written to disk in materializeServiceMounts(), and the
   // SpecMount entries here all reference real paths or volume names.
   if (spec.mounts.length > 0) {
@@ -122,8 +122,8 @@ function buildTaskResources(resources: SwarmServiceResources): SwarmTaskResource
 
 export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
   // Identity labels mirror onto BOTH the service spec (so `docker service ls`
-  // filters work) AND the container spec (so they propagate to each live task —
-  // the deployments query buckets tasks back to their deployment via the
+  // filters work) AND the container spec (so they propagate to each live task.
+  // The deployments query buckets tasks back to their deployment via the
   // `otterdeploy.deployment.id` container label, and terminal targets find
   // running containers by label). The database spec does the same; services
   // previously set neither the container labels nor the deployment id, so every
@@ -265,7 +265,7 @@ function taskErr(task: TaskLike | undefined): string | null {
  * The newest task drives the live status. But swarm keeps spawning replacement
  * tasks when one can't start (its image isn't pullable, the container exits
  * immediately, …), so the newest task is frequently a fresh "preparing"/"pending"
- * retry even while every attempt fails — which `mapTaskStateToStatus` reads as
+ * retry even while every attempt fails, which `mapTaskStateToStatus` reads as
  * "starting". Unless a task is actually running, surface the most recent hard
  * failure's reason so a stuck rollout reports as "error" (and the deploy is
  * marked failed) instead of an eternal "starting" a caller mistakes for success.

@@ -1,14 +1,14 @@
 /**
- * Host health card — introspection of the machine this install runs on:
+ * Host health card. Introspects the machine this install runs on:
  * memory (with swap awareness), disk at the data root, Docker's disk
  * footprint, and the recommendations the host-health monitor derives from
  * them (same code path server-side, so card and notifications always agree).
- * The reclaim actions are the safe prunes only — unused images, idle build
+ * The reclaim actions are the safe prunes only: unused images, idle build
  * cache, stopped otterdeploy containers. Volumes are shown but never pruned
  * from here.
  *
  * Scope: the LOCAL host only (system.hostHealth reads /proc + docker df where
- * the control plane runs) — on a multi-node swarm the other nodes need the
+ * the control plane runs). On a multi-node swarm the other nodes need the
  * per-remote-node agent (follow-up) before this becomes a per-row concern.
  */
 
@@ -252,7 +252,7 @@ export function ServerHealthCard() {
     <SettingsSection
       icon={Activity01Icon}
       title="Host health"
-      description="Memory, disk and Docker usage on the machine running this install — with one-click cleanup when old deploy images or build caches pile up."
+      description="Memory, disk and Docker usage on the machine running this install, with one-click cleanup when old deploy images or build caches pile up."
     >
       <div className="flex flex-col gap-4 p-4">
         {query.isLoading && (
@@ -264,7 +264,7 @@ export function ServerHealthCard() {
         )}
         {query.isError && (
           <div className="text-[12.5px] text-muted-foreground">
-            Couldn't read host health{query.error?.message ? ` — ${query.error.message}` : ""}.
+            Couldn't read host health{query.error?.message ? `: ${query.error.message}` : ""}.
           </div>
         )}
 

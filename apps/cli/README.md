@@ -1,7 +1,7 @@
 # otterdeploy CLI
 
 Deploy and operate [otterdeploy](https://github.com/otterdeploy/otterdeploy)
-projects from the terminal — projects, services, databases, domains,
+projects from the terminal: projects, services, databases, domains,
 deployments, logs, backups, and more, over the same typed API as the dashboard.
 
 ## Install
@@ -15,7 +15,7 @@ Runs on Node ≥20 or Bun, on Windows, macOS, and Linux.
 
 **Bun-only machines (no Node installed):** `bun add -g` symlinks the binary and
 lets the OS run its `#!/usr/bin/env node` shebang, which needs Node. If you have
-only Bun, run it with `bunx` instead — it executes under Bun and needs no Node:
+only Bun, run it with `bunx` instead. It executes under Bun and needs no Node:
 
 ```bash
 bunx @otterdeploy/cli whoami
@@ -23,7 +23,7 @@ bunx @otterdeploy/cli whoami
 
 ### `otd`, the short alias
 
-Installing provides two commands for the same binary — `otterdeploy` and the
+Installing provides two commands for the same binary: `otterdeploy` and the
 three-letter `otd`. They are interchangeable:
 
 ```bash
@@ -36,7 +36,7 @@ CLI suggests can be copy-pasted as-is.
 
 There is deliberately no `od` alias: `od` is the POSIX octal-dump utility
 (`/usr/bin/od`) on every macOS and Linux machine, and a global npm bin directory
-usually comes before `/usr/bin` on `PATH` — so claiming it would shadow a
+usually comes before `/usr/bin` on `PATH`, so claiming it would shadow a
 standard tool for everything else running in that shell.
 
 ## Quick start
@@ -53,7 +53,7 @@ For CI, set `OTTERDEPLOY_URL` and `OTTERDEPLOY_TOKEN` (create a key with
 
 ## Output
 
-Commands are grouped by task — run `otd --help` to see the groups, and
+Commands are grouped by task. Run `otd --help` to see the groups, and
 `otd <command> --help` for one command's options and worked examples.
 
 State is reported with a consistent glyph plus colour, so it stays readable when
@@ -61,12 +61,12 @@ colour is unavailable:
 
 | Glyph | Meaning                                            |
 | ----- | -------------------------------------------------- |
-| `●`   | live — running, valid, succeeded, pointed, ready    |
-| `○`   | not yet — pending, queued, draft, unpointed         |
-| `◐`   | in flight — building, starting, obtaining, draining |
-| `△`   | impaired — degraded, proxied, denied                |
-| `✗`   | failed — crashed, invalid, down                     |
-| `·`   | retired — superseded, removed                       |
+| `●`   | live: running, valid, succeeded, pointed, ready    |
+| `○`   | not yet: pending, queued, draft, unpointed         |
+| `◐`   | in flight: building, starting, obtaining, draining |
+| `△`   | impaired: degraded, proxied, denied                |
+| `✗`   | failed: crashed, invalid, down                     |
+| `·`   | retired: superseded, removed                       |
 
 Conventions worth knowing:
 

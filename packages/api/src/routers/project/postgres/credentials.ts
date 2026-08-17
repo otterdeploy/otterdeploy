@@ -1,7 +1,7 @@
 /**
  * Deterministic derivation of a database's INTERNAL identity + connection
  * string from its name. Everything here is a pure function of
- * (engine, projectSlug, resourceName, password) — no DB, no docker — so it can
+ * (engine, projectSlug, resourceName, password) (no DB, no docker) so it can
  * run at stage time (to show the pending panel real credentials) and at deploy
  * time (to provision with those same credentials) and produce identical output.
  *
@@ -26,9 +26,9 @@ export interface InternalDbCredentials {
 
 export function deriveInternalDbCredentials(input: {
   engine: DatabaseEngine;
-  /** Raw project slug — sanitized here. */
+  /** Raw project slug, sanitized here. */
   projectSlug: string;
-  /** Raw resource (database) name — sanitized here. */
+  /** Raw resource (database) name, sanitized here. */
   resourceName: string;
   password: string;
 }): InternalDbCredentials {

@@ -4,8 +4,8 @@ description: From an empty project to a running, routed service.
 ---
 
 This walks from nothing to a service on a real URL using the
-[`otterdeploy` CLI](/docs/cli). It assumes you have a control plane already —
-if not, [install one](/docs/start/install) first.
+[`otterdeploy` CLI](/docs/cli). It assumes you have a control plane already.
+If not, [install one](/docs/start/install) first.
 
 ## 1. Install the CLI
 
@@ -19,7 +19,7 @@ Runs on Node ≥ 20 or Bun.
 otterdeploy login https://deploy.example.com
 ```
 
-This opens your browser to approve the device — the same flow `gh` and `vercel`
+This opens your browser to approve the device, the same flow `gh` and `vercel`
 use. The token is stored at `~/.config/otterdeploy/config.json` (mode `0600`).
 
 For CI, set `OTTERDEPLOY_URL` and `OTTERDEPLOY_TOKEN` instead of logging in, and
@@ -35,7 +35,7 @@ otterdeploy org use acme
 ## 3. Scaffold and deploy
 
 `up` links (or creates) the project, writes a config file, offers a first
-service, and deploys — all in one step:
+service, and deploys, all in one step:
 
 ```bash
 cd my-app
@@ -52,7 +52,7 @@ otterdeploy deploy                                      # reconcile
 
 To build from the repo instead of pulling an image, connect a GitHub App
 installation in the dashboard first, then bind the service to a repo and
-branch — see [services](/docs/guides/services).
+branch: see [services](/docs/guides/services).
 
 ## 4. Watch it converge
 
@@ -81,7 +81,7 @@ otterdeploy domains list --service web
 ```
 
 The Caddy edge picks it up and requests a certificate. Both the DNS and
-certificate states are reported honestly — see
+certificate states are reported honestly. See
 [domains and TLS](/docs/guides/domains) for what each state means and what to
 do about it.
 

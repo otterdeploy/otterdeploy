@@ -53,7 +53,7 @@ export const createEnvInput = z.object({
 const deleteEnvInput = z.object({
   id: environmentIdField,
   /** Delete the resources this environment owns along with it. Omitted or
-   *  false, a non-empty environment is refused — see EnvironmentNotEmptyError. */
+   *  false, a non-empty environment is refused. See EnvironmentNotEmptyError. */
   cascade: z.boolean().optional(),
 });
 
@@ -89,7 +89,7 @@ export const envContract = {
       // resolution, which is what a conflict means.
       CONFLICT: {
         status: 409,
-        message: "Environment still owns resources — confirm to delete them with it" as const,
+        message: "Environment still owns resources. Confirm to delete them with it" as const,
       },
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })

@@ -50,7 +50,7 @@ export function EncryptToggle({
   );
 }
 
-/** Submit button — disabled until a source and at least one destination are picked. */
+/** Submit button, disabled until a source and at least one destination are picked. */
 export function StartBackupButton({
   isSubmitting,
   hasSource,
@@ -89,7 +89,7 @@ export function NoDestinations({
         <div className="flex flex-1 flex-col">
           <span className="text-xs font-medium">No destinations yet</span>
           <span className="text-[11px] text-muted-foreground">
-            Backups need somewhere to land — local disk, an S3 bucket, or SFTP.
+            Backups need somewhere to land: local disk, an S3 bucket, or SFTP.
           </span>
         </div>
         {onAddDestination ? (

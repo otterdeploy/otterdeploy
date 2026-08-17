@@ -14,7 +14,7 @@ import { postgresResourceSchema } from "./resource";
 import { basePath, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
 
-// Env-key shape — Postgres-image friendly (libc convention). The derived
+// Env-key shape: Postgres-image friendly (libc convention). The derived
 // POSTGRES_USER / PASSWORD / DB keys are reserved: setting them via the editor
 // is rejected so the database identity stays a single source of truth.
 const POSTGRES_RESERVED_ENV_KEYS = new Set(["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"]);
@@ -24,7 +24,7 @@ const envKeyShape = z
   .regex(/^[A-Z_][A-Z0-9_]*$/, "must be UPPER_SNAKE_CASE")
   .refine((k) => !POSTGRES_RESERVED_ENV_KEYS.has(k), {
     message:
-      "POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are reserved — use the rotation flow to change credentials.",
+      "POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are reserved. Use the rotation flow to change credentials.",
   });
 
 const setPostgresExtraEnvInput = z.object({
@@ -56,7 +56,7 @@ const createPostgresDatabaseInput = z.object({
     .optional()
     .default("postgres"),
   /** Whether the DB should be reachable from the public internet via the
-   *  Caddy proxy. Defaults to false — internal-only is the safe default.
+   *  Caddy proxy. Defaults to false: internal-only is the safe default.
    *  Currently only honoured for postgres (other engines stay internal
    *  until their TCP proxy paths are wired). */
   publicEnabled: z.boolean().optional().default(false),
@@ -74,7 +74,7 @@ const createPostgresDatabaseInput = z.object({
 const createPostgresProgressSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("step"),
-    /** Step identifier — matches the log.info step names emitted by the
+    /** Step identifier: matches the log.info step names emitted by the
      *  underlying provisioner (`ensure-network`, `service-create`,
      *  `wait-ready`, …). */
     step: z.string(),
@@ -82,7 +82,7 @@ const createPostgresProgressSchema = z.discriminatedUnion("type", [
      *  `tick` for in-progress updates (e.g. wait-ready polling), `error`
      *  on failure. */
     status: z.enum(["start", "ok", "tick", "error"]),
-    /** Human-readable detail — surfaced verbatim in the wizard UI. */
+    /** Human-readable detail, surfaced verbatim in the wizard UI. */
     message: z.string().nullable(),
   }),
   z.object({
@@ -90,10 +90,10 @@ const createPostgresProgressSchema = z.discriminatedUnion("type", [
     /** Image being pulled (e.g. `postgres:18-alpine`). */
     image: z.string(),
     /** Docker layer id this event refers to. Some events (like the initial
-     *  `Pulling from library/postgres`) have no layer id — represented as
+     *  `Pulling from library/postgres`) have no layer id, represented as
      *  `null`. */
     id: z.string().nullable(),
-    /** Docker status string — `Pulling fs layer`, `Downloading`,
+    /** Docker status string: `Pulling fs layer`, `Downloading`,
      *  `Extracting`, `Pull complete`, `Already exists`, etc. */
     status: z.string(),
     /** Human-readable progress bar (`[==>  ]  12.3MB/45.6MB`) when docker
@@ -106,7 +106,7 @@ const createPostgresProgressSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("log"),
-    /** Container output captured during the wait-ready window — gives the
+    /** Container output captured during the wait-ready window: gives the
      *  operator visibility into postgres' own startup messages
      *  (`database system is ready to accept connections`). Ends when the
      *  service reports ready or the wait window expires. */
@@ -114,7 +114,7 @@ const createPostgresProgressSchema = z.discriminatedUnion("type", [
     line: z.string(),
   }),
   z.object({
-    /** Emitted as soon as the resource row is persisted — earlier than
+    /** Emitted as soon as the resource row is persisted. Earlier than
      *  `done`, which only fires after caddy reconcile + any post-create
      *  bookkeeping. The wizard uses this to close the modal immediately
      *  and hand the user off to the resource page; the stream continues
@@ -128,7 +128,7 @@ const createPostgresProgressSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    /** Terminal failure — the stream ends after this event and no `done`
+    /** Terminal failure: the stream ends after this event and no `done`
      *  follows. */
     code: z.string(),
     message: z.string(),
@@ -179,7 +179,7 @@ const draftCredentialsOutput = z.object({
 });
 
 export const postgresContractSlice = {
-  // Streaming create — yields per-step progress events as the
+  // Streaming create. Yields per-step progress events as the
   // provision walks. The final `done` event carries the mapped
   // resource; the wizard routes to the detail panel on receiving it.
   // Errors during provision yield a terminal `error` event rather
@@ -226,11 +226,11 @@ export const postgresContractSlice = {
     .input(setPostgresPublicInput)
     .output(postgresResourceSchema),
 
-  // Re-roll the running database with its current spec — same image, env, and
+  // Re-roll the running database with its current spec: same image, env, and
   // public flag. Forces swarm to schedule a fresh task (and re-applies the
   // container labels, so a DB created before a label change picks it up).
   // Pin the database to one machine (or release it). Restarts to apply the
-  // constraint — a pin that hasn't rolled is only a record of intent.
+  // constraint: a pin that hasn't rolled is only a record of intent.
   setPlacement: oc
     .errors({
       ...resourceNotFoundErrors,
@@ -255,7 +255,7 @@ export const postgresContractSlice = {
     .output(
       z.object({
         placementServerId: z.string().nullable(),
-        /** False when the database was a draft — the pin applies on first deploy. */
+        /** False when the database was a draft. The pin applies on first deploy. */
         restarted: z.boolean(),
       }),
     ),

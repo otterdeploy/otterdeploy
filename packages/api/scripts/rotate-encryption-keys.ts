@@ -13,7 +13,7 @@
  *
  * Nothing is ever decrypted-and-discarded: a row is only written back if
  * `rotateForDomain` reports `rotated: true`, and the write is the freshly
- * re-encrypted value for the SAME logical secret — never a delete, never a
+ * re-encrypted value for the SAME logical secret, never a delete, never a
  * blind overwrite.
  *
  * ── Tables covered ───────────────────────────────────────────────────────
@@ -27,12 +27,12 @@
  *   project_env_var.value  (sealed = true only)   -> domain "env-vars"
  *   service_env_var.value  (sealed = true only)   -> domain "env-vars"
  *
- * NOT covered (documented gaps — see od-5j8.12's closing report):
+ * NOT covered (documented gaps, see od-5j8.12's closing report):
  *   - backup archive encryption (encryptBytes/decryptBytes) stays on the
  *     shared legacy key in this pass; rotating BETTER_AUTH_SECRET itself
  *     (id "1") still re-keys it, same as before this feature existed.
  *   - database_resource.password is stored in PLAINTEXT today (pre-dates
- *     this rework entirely) — nothing to rotate, out of scope here.
+ *     this rework entirely), nothing to rotate, out of scope here.
  *   - the provision-runner "server-secrets" domain is BullMQ-job-payload
  *     lifetime only (consumed within one job run); nothing durable to walk.
  *
@@ -51,11 +51,11 @@
  *   bun --filter @otterdeploy/api rotate:encryption-keys
  *
  *   # 5. Once you're confident nothing depends on the old id anymore, you
- *      MAY drop it from DATA_ENCRYPTION_KEYS — but only after confirming
+ *      MAY drop it from DATA_ENCRYPTION_KEYS, but only after confirming
  *      step 4 reports zero remaining rows on it (run it again; a clean run
  *      after a rotation reports 0 rotated across every table).
  *
- * Safe to run repeatedly (idempotent — a second run against already-current
+ * Safe to run repeatedly (idempotent, a second run against already-current
  * ciphertext is a no-op) and safe to run with no rotation pending at all
  * (every table just reports 0 rotated).
  */
@@ -104,7 +104,7 @@ async function rotateColumn<TId>(input: {
       summary.errors++;
       const message = cause instanceof Error ? cause.message : String(cause);
       console.error(
-        `[rotate-encryption-keys] ${input.table}#${String(row.id)}: failed to rotate (${input.domain}) — ${message}`,
+        `[rotate-encryption-keys] ${input.table}#${String(row.id)}: failed to rotate (${input.domain}), ${message}`,
       );
     }
   }
@@ -115,7 +115,7 @@ async function rotateColumn<TId>(input: {
  * One walker per covered table, in the order the header comment lists them.
  * Each owns exactly the read + write-back pair for its own column(s), so
  * adding a newly-encrypted column is a new function plus one line in
- * {@link rotateEveryColumn} — never a surgical edit inside a 150-line `main`.
+ * {@link rotateEveryColumn}, never a surgical edit inside a 150-line `main`.
  */
 
 // ssh_key.private_key_ciphertext
@@ -166,7 +166,7 @@ async function rotateCustomCertificates(): Promise<RotateSummary> {
   });
 }
 
-// git_provider.{client_secret,webhook_secret,private_key_pem}_ciphertext — one
+// git_provider.{client_secret,webhook_secret,private_key_pem}_ciphertext: one
 // read, three column walks, so a provider row is fetched once no matter how
 // many of its secrets are populated.
 async function rotateGitProviders(): Promise<RotateSummary[]> {
@@ -216,7 +216,7 @@ async function rotateGitProviders(): Promise<RotateSummary[]> {
   ];
 }
 
-// project_env_var.value — sealed rows only (non-sealed rows are plaintext
+// project_env_var.value, sealed rows only (non-sealed rows are plaintext
 // by design, nothing to rotate).
 async function rotateProjectEnvVars(): Promise<RotateSummary> {
   const rows = await db
@@ -232,7 +232,7 @@ async function rotateProjectEnvVars(): Promise<RotateSummary> {
   });
 }
 
-// service_env_var.value — sealed rows only.
+// service_env_var.value, sealed rows only.
 async function rotateServiceEnvVars(): Promise<RotateSummary> {
   const rows = await db
     .select({ id: serviceEnvVar.id, value: serviceEnvVar.value })
@@ -265,7 +265,7 @@ async function rotateEveryColumn(): Promise<RotateSummary[]> {
 
 /**
  * Print the per-table table plus the run total, and set a non-zero exit code
- * when any row failed to rotate — the only thing that makes this script's exit
+ * when any row failed to rotate. The only thing that makes this script's exit
  * status meaningful to a CI/cron caller.
  */
 function reportRotations(summaries: RotateSummary[]): void {
@@ -300,7 +300,7 @@ function reportRotations(summaries: RotateSummary[]): void {
 
 async function main(): Promise<void> {
   console.log(
-    `[rotate-encryption-keys] current key id: "${currentKeyId()}"${DRY_RUN ? " (dry run — no writes)" : ""}`,
+    `[rotate-encryption-keys] current key id: "${currentKeyId()}"${DRY_RUN ? " (dry run, no writes)" : ""}`,
   );
   reportRotations(await rotateEveryColumn());
 }

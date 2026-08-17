@@ -5,7 +5,7 @@
  * distinct concerns in one file: what a service LOOKS like (here), what
  * callers may SEND (./contract-inputs.ts), and the procedure list itself.
  * Splitting on those seams keeps each readable on its own and makes the
- * dependency one-way — schemas know nothing about inputs or procedures.
+ * dependency one-way: schemas know nothing about inputs or procedures.
  */
 
 import * as z from "zod";
@@ -100,13 +100,13 @@ export const envVarSchema = z.object({
   value: z.string(),
 });
 
-// One published host for a service. `id` is the underlying proxy_route id —
-// the same id the deployment-protection / guest surfaces address.
+// One published host for a service. `id` is the underlying proxy_route id.
+// The same id the deployment-protection / guest surfaces address.
 export const serviceDomainSchema = z.object({
   id: z.string(),
   // Scoping ids, carried on every row so the web client's on-demand
   // `serviceDomainsCollection` can filter subsets by (project, resource) via
-  // `where` (loadSubset) — same reason `deploymentTaskSchema` extends its base.
+  // `where` (loadSubset): same reason `deploymentTaskSchema` extends its base.
   projectId: projectIdField,
   resourceId: resourceIdField,
   domain: z.string(),

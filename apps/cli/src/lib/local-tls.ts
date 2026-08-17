@@ -1,12 +1,12 @@
 /**
  * Bun's `fetch` bundles its own CA list and does NOT consult the macOS keychain
  * (or other system trust stores), so it rejects the locally-trusted certificate
- * the dev portless proxy serves on `*.localhost:1355` — even though curl and the
+ * the dev portless proxy serves on `*.localhost:1355`: even though curl and the
  * browser, which use the system store, accept it. The symptom is a bare
  * "Unable to connect" from better-fetch with no further detail.
  *
  * For LOCAL dev hosts only, hand back a fetch that skips TLS verification.
- * Every other host (staging, prod) keeps full verification — the relaxation is
+ * Every other host (staging, prod) keeps full verification. The relaxation is
  * scoped strictly to loopback / `.localhost` so it can never weaken a real
  * connection.
  */
@@ -26,18 +26,21 @@ function isLocalHost(url: string): boolean {
   }
 }
 
-const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+// The published CLI can run under Node, where the `Bun` global (typed by
+// bun-types as always present) does not actually exist: hence a runtime
+// `in` check rather than trusting the ambient declaration.
+const isBun = "Bun" in globalThis;
 
 /**
  * A `fetch` for the given base URL: the stock global fetch for remote hosts, or
- * — in dev only — a TLS-relaxed wrapper for the loopback portless proxy
+ * (in dev only) a TLS-relaxed wrapper for the loopback portless proxy
  * (self-signed cert on `*.localhost:1355`). Usable as both oRPC's `RPCLink`
  * fetch and better-auth's `customFetchImpl`.
  *
  * The dev relaxation is Bun-only and localhost-only. The publish build passes
  * `--define process.env.OTTERDEPLOY_BUNDLED="1"`, so the leading term below
  * folds to `"1" !== "1"` → `false` and the whole branch (the only place
- * `rejectUnauthorized` appears) is dead-code-eliminated — the shipped CLI
+ * `rejectUnauthorized` appears) is dead-code-eliminated. The shipped CLI
  * contains no certificate-verification bypass at all. Running from source
  * (`bun run start`) leaves the env var unset, keeping the relaxation for dev.
  */
@@ -48,12 +51,14 @@ export function fetchFor(baseUrl: string): typeof fetch {
     isBun &&
     isLocalHost(baseUrl)
   ) {
-    return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
-      fetch(input, {
-        ...init,
-        // `tls` is a Bun-specific fetch option (absent from RequestInit).
-        tls: { rejectUnauthorized: false },
-      } as RequestInit)) as typeof fetch;
+    // Bun's own fetch typing (`BunFetchRequestInit`) already includes `tls`,
+    // so the wrapper needs no cast; `preconnect` is delegated so the result
+    // genuinely satisfies `typeof fetch` (call signature + namespace).
+    const relaxed = (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ): Promise<Response> => fetch(input, { ...init, tls: { rejectUnauthorized: false } });
+    return Object.assign(relaxed, { preconnect: fetch.preconnect });
   }
   return fetch;
 }

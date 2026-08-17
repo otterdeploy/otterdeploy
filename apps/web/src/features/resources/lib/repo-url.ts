@@ -10,7 +10,7 @@
 
 export function repoWebUrl(kind: string | null | undefined, fullName: string): string | null {
   const repo = fullName.trim().replace(/\.git$/, "");
-  // owner/repo — anything else (empty, a bare name, a full URL someone pasted)
+  // owner/repo, anything else (empty, a bare name, a full URL someone pasted)
   // isn't something we can safely turn into a link.
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return null;
   switch (kind) {

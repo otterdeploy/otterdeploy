@@ -1,5 +1,5 @@
 /**
- * "Data" tab for a MongoDB resource — a read-only document browser.
+ * "Data" tab for a MongoDB resource: a read-only document browser.
  *
  * A collection list on the left, a paginated document view on the right (each
  * doc as pretty Extended JSON). The server issues only read ops (find / skip /

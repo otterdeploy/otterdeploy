@@ -8,8 +8,8 @@
  * costs one round trip per surface. The polls on these surfaces are
  * dead-stream backstops, not the freshness mechanism.
  *
- * The server derives the stream key from the session's active organization —
- * the input is empty. The effect re-keys on the URL's org slug because that
+ * The server derives the stream key from the session's active organization.
+ * The input is empty. The effect re-keys on the URL's org slug because that
  * is the client-visible mirror of an org switch.
  */
 
@@ -27,7 +27,7 @@ const RESYNC_BATCH_MS = 1_000;
 
 export function useOrgEvents(): void {
   const qc = useQueryClient();
-  const params = useParams({ strict: false }) as { orgSlug?: string };
+  const params = useParams({ strict: false });
   const orgSlug = params.orgSlug;
 
   useEffect(() => {

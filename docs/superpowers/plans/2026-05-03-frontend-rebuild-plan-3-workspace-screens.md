@@ -1,8 +1,8 @@
-# Frontend Rebuild — Plan 3: Workspace Screens
+# Frontend Rebuild: Plan 3: Workspace Screens
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the placeholder pages on the outer rail (Projects, Servers, Routing, Activity, Members, Settings) with real content where backends exist (Projects, Routing) and IA-faithful skeletons where they don't (Servers, Activity, Members, Settings) — so the workspace navigation feels like a real product, not a coming-soon mock-up.
+**Goal:** Replace the placeholder pages on the outer rail (Projects, Servers, Routing, Activity, Members, Settings) with real content where backends exist (Projects, Routing) and IA-faithful skeletons where they don't (Servers, Activity, Members, Settings), so the workspace navigation feels like a real product, not a coming-soon mock-up.
 
 **Architecture:** Each workspace screen becomes its own feature folder under `apps/web/src/features/workspace-<screen>/` with `components/`, `hooks/` (when needed), `types.ts`, `index.ts`. Routes (`apps/web/src/routes/_dashboard/<screen>.tsx`) stay thin: load data, hand to the feature component. The Project list reuses `MiniCanvasPreview` from Plan 2. Long-scroll Settings layout uses `IntersectionObserver`-driven sticky TOC.
 
@@ -13,11 +13,11 @@
 **Foundation in place:** Plan 1 + 2 shipped. Plan 1 created the placeholder routes; Plan 2 delivered `MiniCanvasPreview` for use here. HEAD: `94cb0b2`.
 
 **Out of scope for this plan:**
-- **Real Servers data** — no Swarm-nodes oRPC contract yet. Servers screen is a skeleton (table header + empty state + disabled "+ Add server" with a tooltip pointing at Plan 6).
-- **Real Activity audit log** — no audit endpoint. Activity is an empty state with the date-range filter UI in place.
-- **Real RBAC** — no members/invitations/PATs API. Members shows the current user (via better-auth session) and a disabled "Invite" button.
-- **Real workspace settings persistence** — no workspace-settings API. Settings renders the full long-scroll layout with sticky TOC and form fields, but Save buttons are disabled with "Settings API ships in Plan 6".
-- **Workspace switcher real wiring** — Plan 1's hardcoded placeholder workspace stays for now; real workspace data lands when there's a `workspace.list` endpoint.
+- **Real Servers data**, no Swarm-nodes oRPC contract yet. Servers screen is a skeleton (table header + empty state + disabled "+ Add server" with a tooltip pointing at Plan 6).
+- **Real Activity audit log**, no audit endpoint. Activity is an empty state with the date-range filter UI in place.
+- **Real RBAC**, no members/invitations/PATs API. Members shows the current user (via better-auth session) and a disabled "Invite" button.
+- **Real workspace settings persistence**, no workspace-settings API. Settings renders the full long-scroll layout with sticky TOC and form fields, but Save buttons are disabled with "Settings API ships in Plan 6".
+- **Workspace switcher real wiring**: Plan 1's hardcoded placeholder workspace stays for now; real workspace data lands when there's a `workspace.list` endpoint.
 
 ---
 
@@ -85,15 +85,15 @@ apps/web/src/
 
 - **TDD where the unit has logic** (hooks, derived data, IntersectionObserver-driven section detection). Pure presentation gets smoke tests at most.
 - **coss UI strictly.**
-- **No `Co-Authored-By` trailers**, plain `git commit -m "..."` with `-c commit.gpgsign=false`. Specific paths in `git add` — never `git add -A` or `git add .`.
+- **No `Co-Authored-By` trailers**, plain `git commit -m "..."` with `-c commit.gpgsign=false`. Specific paths in `git add`, never `git add -A` or `git add .`.
 - **No new deps.**
 - **All commits on `feat/v2-rebuild`.**
 - **`bun run tsc --noEmit` is the type-check signal** (filter pre-existing `packages/api/src/swarm/postgres.ts` errors).
-- **Skeletons must look real** — use coss `Table`, `Skeleton`, `Empty`, `Toolbar`, etc. with the actual shape the eventual feature will have. The "lands in Plan 6" message is one line at the bottom of the empty state, not a 50% screen takeover.
+- **Skeletons must look real**: use coss `Table`, `Skeleton`, `Empty`, `Toolbar`, etc. with the actual shape the eventual feature will have. The "lands in Plan 6" message is one line at the bottom of the empty state, not a 50% screen takeover.
 
 ---
 
-## Task 1: Project list — `useProjectSummaries` hook + tests
+## Task 1: Project list, `useProjectSummaries` hook + tests
 
 **Files:**
 - Create: `apps/web/src/features/workspace-projects/types.ts`
@@ -102,7 +102,7 @@ apps/web/src/
 
 The hook fans out per-project queries (databases + proxy routes) and returns a unified `ProjectSummary[]` with `databases.count` and `routes.count`. Pure derivation given the per-project query results.
 
-Approach: take an array of projects as input; for each, the route component runs `useQueries` to fetch `project.database.listPostgres({ projectId })` and `project.proxyRoute.list({ projectId })`. The hook itself is pure — it takes resolved counts and rolls them up into `ProjectSummary[]`.
+Approach: take an array of projects as input; for each, the route component runs `useQueries` to fetch `project.database.listPostgres({ projectId })` and `project.proxyRoute.list({ projectId })`. The hook itself is pure. It takes resolved counts and rolls them up into `ProjectSummary[]`.
 
 - [ ] **Step 1: Create `types.ts`**
 
@@ -175,7 +175,7 @@ describe("useProjectSummaries", () => {
 });
 ```
 
-- [ ] **Step 3: Run — expect failure**
+- [ ] **Step 3: Run, expect failure**
 
 ```bash
 cd apps/web && bun run test src/features/workspace-projects
@@ -195,7 +195,7 @@ export function useProjectSummaries(input: ProjectSummariesInput): ProjectSummar
 }
 ```
 
-- [ ] **Step 5: Run — expect 3 passing**
+- [ ] **Step 5: Run, expect 3 passing**
 
 - [ ] **Step 6: Create `apps/web/src/features/workspace-projects/index.ts`**
 
@@ -260,7 +260,7 @@ describe("ProjectCard", () => {
 });
 ```
 
-- [ ] **Step 2: Run — expect fail**
+- [ ] **Step 2: Run, expect fail**
 
 - [ ] **Step 3: Implement `project-card.tsx`**
 
@@ -302,7 +302,7 @@ export function ProjectCard({ summary }: Props) {
 }
 ```
 
-- [ ] **Step 4: Run — expect 2 passing**
+- [ ] **Step 4: Run, expect 2 passing**
 
 - [ ] **Step 5: Append to `apps/web/src/features/workspace-projects/index.ts`**
 
@@ -572,7 +572,7 @@ function RouteComponent() {
 }
 ```
 
-Note: this file replaces ALL existing UI in `routes/_dashboard/index.tsx`. The old gradient-card layout is gone — `ProjectList` is the new face of the workspace home.
+Note: this file replaces ALL existing UI in `routes/_dashboard/index.tsx`. The old gradient-card layout is gone, `ProjectList` is the new face of the workspace home.
 
 - [ ] **Step 5: Type-check + commit**
 
@@ -584,7 +584,7 @@ git -c commit.gpgsign=false commit -m "feat(web): redesign workspace project lis
 
 ---
 
-## Task 4: Workspace Routing — `useWorkspaceRoutes` hook + table
+## Task 4: Workspace Routing, `useWorkspaceRoutes` hook + table
 
 **Files:**
 - Create: `apps/web/src/features/workspace-routing/types.ts`
@@ -594,7 +594,7 @@ git -c commit.gpgsign=false commit -m "feat(web): redesign workspace project lis
 - Create: `apps/web/src/features/workspace-routing/index.ts`
 - Modify: `apps/web/src/routes/_dashboard/routing.tsx`
 
-The screen aggregates `proxyRoute.list` results across all projects into a single Table. Workspace-level Caddy global config (admin socket, ACME issuer, redirect rules) is **out of scope for Plan 3** — note in the page that those land in Plan 6.
+The screen aggregates `proxyRoute.list` results across all projects into a single Table. Workspace-level Caddy global config (admin socket, ACME issuer, redirect rules) is **out of scope for Plan 3**. Note in the page that those land in Plan 6.
 
 - [ ] **Step 1: Create `types.ts`**
 
@@ -675,7 +675,7 @@ describe("useWorkspaceRoutes", () => {
 });
 ```
 
-- [ ] **Step 3: Run — expect fail**
+- [ ] **Step 3: Run, expect fail**
 
 - [ ] **Step 4: Implement `use-workspace-routes.ts`**
 
@@ -695,7 +695,7 @@ export function useWorkspaceRoutes(input: WorkspaceRoutesInput): WorkspaceRouteR
 }
 ```
 
-- [ ] **Step 5: Run — expect 2 passing**
+- [ ] **Step 5: Run, expect 2 passing**
 
 - [ ] **Step 6: Implement `workspace-routes-table.tsx`**
 
@@ -831,7 +831,7 @@ git -c commit.gpgsign=false commit -m "feat(web): workspace routing aggregated t
 
 ---
 
-## Task 5: Workspace Servers — skeleton table
+## Task 5: Workspace Servers, skeleton table
 
 **Files:**
 - Create: `apps/web/src/features/workspace-servers/types.ts`
@@ -947,7 +947,7 @@ git -c commit.gpgsign=false commit -m "feat(web): workspace servers skeleton scr
 
 ---
 
-## Task 6: Workspace Activity — empty feed with filter UI
+## Task 6: Workspace Activity, empty feed with filter UI
 
 **Files:**
 - Create: `apps/web/src/features/workspace-activity/types.ts`
@@ -1043,7 +1043,7 @@ git -c commit.gpgsign=false commit -m "feat(web): workspace activity skeleton wi
 
 ---
 
-## Task 7: Workspace Members — current-user table via better-auth
+## Task 7: Workspace Members, current-user table via better-auth
 
 **Files:**
 - Create: `apps/web/src/features/workspace-members/types.ts`
@@ -1172,7 +1172,7 @@ git -c commit.gpgsign=false commit -m "feat(web): workspace members table with c
 
 ---
 
-## Task 8: Workspace Settings — `useActiveSection` hook + tests
+## Task 8: Workspace Settings, `useActiveSection` hook + tests
 
 **Files:**
 - Create: `apps/web/src/features/workspace-settings/hooks/use-active-section.ts`
@@ -1223,7 +1223,7 @@ describe("useActiveSection", () => {
 });
 ```
 
-- [ ] **Step 3: Run — expect fail**
+- [ ] **Step 3: Run, expect fail**
 
 - [ ] **Step 4: Implement `use-active-section.ts`**
 
@@ -1243,7 +1243,7 @@ export function useActiveSection(sections: ReadonlyArray<SettingsSection>) {
 }
 ```
 
-- [ ] **Step 5: Run — expect 3 passing**
+- [ ] **Step 5: Run, expect 3 passing**
 
 - [ ] **Step 6: Commit**
 
@@ -1255,7 +1255,7 @@ git -c commit.gpgsign=false commit -m "feat(web): workspace-settings active-sect
 
 ---
 
-## Task 9: Workspace Settings — TOC sidebar + page
+## Task 9: Workspace Settings, TOC sidebar + page
 
 **Files:**
 - Create: `apps/web/src/features/workspace-settings/components/toc-sidebar.tsx`
@@ -1369,7 +1369,7 @@ export function SettingsPage() {
           <p className="text-sm text-muted-foreground">SAML, OIDC, and SCIM provisioning configuration ships in Plan 6.</p>
         </Section>
         <Section id="integrations" title="Integrations">
-          <p className="text-sm text-muted-foreground">GitHub, Resend, Inngest, Polar — connection management ships in Plan 6.</p>
+          <p className="text-sm text-muted-foreground">GitHub, Resend, Inngest, Polar: connection management ships in Plan 6.</p>
         </Section>
         <Section id="billing" title="Billing">
           <p className="text-sm text-muted-foreground">Plan + invoices via Polar ships in Plan 6.</p>
@@ -1466,12 +1466,12 @@ cd apps/web && bun run tsc --noEmit 2>&1 | grep -v "packages/api/src/swarm/postg
 - [ ] **Step 3: Manual walk (optional)**
 
 Open `bun dev`, sign in, walk every workspace screen:
-- [ ] `/` — projects with mini-canvas previews; create-project dialog still works
-- [ ] `/servers` — table header + empty state + disabled "+ Add"
-- [ ] `/routing` — aggregated routes from all projects (or empty state)
-- [ ] `/activity` — disabled filter toolbar + empty state
-- [ ] `/members` — current user as owner + disabled invite
-- [ ] `/settings` — long scroll with TOC, scrolling updates the active TOC item; clicking TOC scrolls to section
+- [ ] `/`: projects with mini-canvas previews; create-project dialog still works
+- [ ] `/servers`: table header + empty state + disabled "+ Add"
+- [ ] `/routing`: aggregated routes from all projects (or empty state)
+- [ ] `/activity`: disabled filter toolbar + empty state
+- [ ] `/members`: current user as owner + disabled invite
+- [ ] `/settings`: long scroll with TOC, scrolling updates the active TOC item; clicking TOC scrolls to section
 
 - [ ] **Step 4: Push branch + open PR delta**
 
@@ -1483,17 +1483,17 @@ git push origin feat/v2-rebuild
 
 - [ ] **Step 5: Update PR description**
 
-Use `gh pr edit 5 --body "$(cat <<'EOF' ... EOF)"` to update the PR description to include Plan 3 in the summary. Or comment on the PR with the Plan 3 delta. Whichever the maintainer prefers — for now, default to commenting:
+Use `gh pr edit 5 --body "$(cat <<'EOF' ... EOF)"` to update the PR description to include Plan 3 in the summary. Or comment on the PR with the Plan 3 delta. Whichever the maintainer prefers, for now, default to commenting:
 
 ```bash
 gh pr comment 5 --repo artzkaizen/otterdeploy --body "$(cat <<'EOF'
-### Plan 3 — Workspace Screens (added to this PR)
+### Plan 3: Workspace Screens (added to this PR)
 
-- **Projects** — workspace home redesigned with `MiniCanvasPreview` cards, real database + route counts via per-project queries, polished create-project dialog.
-- **Routing** — aggregated proxy routes table across all projects (real data via `project.proxyRoute.list`).
-- **Servers / Activity / Members / Settings** — IA-faithful skeleton screens with the eventual shape (Tables, Toolbars, sticky TOC, sections), backend wiring deferred to Plan 6 with explicit "lands in Plan 6" tooltips.
-- **Members** — current user listed as owner via `authClient.useSession()`.
-- **Settings** — long-scroll page with sticky TOC sidebar, IntersectionObserver-driven active-section detection.
+- **Projects**: workspace home redesigned with `MiniCanvasPreview` cards, real database + route counts via per-project queries, polished create-project dialog.
+- **Routing**, aggregated proxy routes table across all projects (real data via `project.proxyRoute.list`).
+- **Servers / Activity / Members / Settings**: IA-faithful skeleton screens with the eventual shape (Tables, Toolbars, sticky TOC, sections), backend wiring deferred to Plan 6 with explicit "lands in Plan 6" tooltips.
+- **Members**: current user listed as owner via `authClient.useSession()`.
+- **Settings**: long-scroll page with sticky TOC sidebar, IntersectionObserver-driven active-section detection.
 
 Tests: 35 passing in 12 files. tsc clean for `apps/web/src/`.
 EOF
@@ -1502,6 +1502,6 @@ EOF
 
 ---
 
-## Done — what's next
+## Done: what's next
 
-After Plan 3 lands, **Plan 4** ships real Logs (Ghostty terminal), Deployments tab content, Variables tab content, project-level Networking screen. **Plan 5** wires the command palette to real actions, hardens performance, and adds smoke tests. **Plan 6** is everything currently labeled "ships in Plan 6" — Servers/Swarm-nodes API, Activity audit log, Members RBAC, workspace Settings persistence, global Caddy config.
+After Plan 3 lands, **Plan 4** ships real Logs (Ghostty terminal), Deployments tab content, Variables tab content, project-level Networking screen. **Plan 5** wires the command palette to real actions, hardens performance, and adds smoke tests. **Plan 6** is everything currently labeled "ships in Plan 6", Servers/Swarm-nodes API, Activity audit log, Members RBAC, workspace Settings persistence, global Caddy config.

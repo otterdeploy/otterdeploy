@@ -1,12 +1,12 @@
 /**
- * Project danger zone — delete the project, gated by typing the project slug.
+ * Project danger zone: delete the project, gated by typing the project slug.
  *
  * The server refuses while service/compose resources exist (their runtimes
  * are only reclaimed by the per-resource delete path), so the honest copy
  * here says exactly that: remove services first, databases go down with the
  * project. Transfer-to-another-org is deliberately absent: git providers,
  * registries, and env contexts are org-scoped, so a row-level org swap would
- * silently break every binding — not a safe single update.
+ * silently break every binding, not a safe single update.
  */
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
@@ -26,8 +26,10 @@ interface ProjectDangerZoneProps {
 
 /** Pull the staged-services count off a `project.delete` CONFLICT error. */
 function serviceCountOf(err: unknown): number | null {
-  const data = (err as { data?: { serviceCount?: unknown } } | null)?.data;
-  return typeof data?.serviceCount === "number" ? data.serviceCount : null;
+  if (err === null || typeof err !== "object" || !("data" in err)) return null;
+  const { data } = err;
+  if (data === null || typeof data !== "object" || !("serviceCount" in data)) return null;
+  return typeof data.serviceCount === "number" ? data.serviceCount : null;
 }
 
 export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) {
@@ -44,7 +46,7 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
       const n = serviceCountOf(err);
       toast.error(
         n !== null
-          ? `This project still has ${n} service${n === 1 ? "" : "s"} — delete them first. Databases are torn down with the project.`
+          ? `This project still has ${n} service${n === 1 ? "" : "s"}. Delete them first. Databases are torn down with the project.`
           : err instanceof Error
             ? err.message
             : "Failed to delete project",

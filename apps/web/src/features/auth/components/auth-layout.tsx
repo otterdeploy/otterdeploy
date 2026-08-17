@@ -48,7 +48,7 @@ const bandScrimStyle = {
  * beside it, and a full-width environment footer underneath both. Below `lg`
  * the panel becomes a brand band stacked above the form.
  *
- * The panel copy is deliberately two elements — a headline and one sentence.
+ * The panel copy is deliberately two elements. A headline and one sentence.
  * The earlier kicker / metric-pill / icon-bullet stack was the generic SaaS
  * scaffold PRODUCT.md lists as an anti-reference, and it competed with the
  * scene instead of framing it.

@@ -1,6 +1,6 @@
 /**
- * Turn a host-health snapshot into the actionable recommendation list —
- * shared by the UI card and the monitor's notification thresholds so both
+ * Turn a host-health snapshot into the actionable recommendation list.
+ * Shared by the UI card and the monitor's notification thresholds so both
  * always agree. Split out of host-health.ts (which keeps the reading side)
  * when the branching-pool block joined memory/disk/docker.
  */
@@ -20,7 +20,7 @@ function dockerRecommendations(docker: DockerUsage): HealthRecommendation[] {
       id: "images-reclaimable",
       severity: "warning",
       title: `${gb(docker.images.reclaimableBytes)} in unused images`,
-      detail: `${docker.images.count - docker.images.activeCount} images aren't used by any container (old deploy images accumulate here). Safe to remove — anything needed again is re-pulled.`,
+      detail: `${docker.images.count - docker.images.activeCount} images aren't used by any container (old deploy images accumulate here). Safe to remove. Anything needed again is re-pulled.`,
       action: "images",
     });
   }
@@ -44,7 +44,7 @@ function branchPoolRecommendations(branchPool: BranchPoolHealth): HealthRecommen
       id: "branch-pool-unhealthy",
       severity: "critical",
       title: `Branching pool is ${branchPool.health}`,
-      detail: `ZFS pool '${branchPool.pool}' is not healthy — branch databases on it may hang or lose writes. A SUSPENDED file-backed pool usually means the host disk ran out under it; free space, then \`zpool clear ${branchPool.pool}\`.`,
+      detail: `ZFS pool '${branchPool.pool}' is not healthy. Branch databases on it may hang or lose writes. A SUSPENDED file-backed pool usually means the host disk ran out under it; free space, then \`zpool clear ${branchPool.pool}\`.`,
       action: null,
     });
   }
@@ -62,7 +62,7 @@ function branchPoolRecommendations(branchPool: BranchPoolHealth): HealthRecommen
       id: "branch-pool-capacity",
       severity: "warning",
       title: "Branching pool is filling up",
-      detail: `Pool '${branchPool.pool}' is over 70% full. The host disk has headroom — grow the pool by ${gb(branchPool.suggestGrowBytes)} from the card below before branch databases run out of space.`,
+      detail: `Pool '${branchPool.pool}' is over 70% full. The host disk has headroom. Grow the pool by ${gb(branchPool.suggestGrowBytes)} from the card below before branch databases run out of space.`,
       action: null,
     });
   }

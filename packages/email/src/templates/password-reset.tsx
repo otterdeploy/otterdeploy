@@ -28,7 +28,7 @@ export function PasswordResetEmail({
       <LinkFallback href={resetUrl} />
       <Muted>This link expires in {expiresInMinutes} minutes and can be used once.</Muted>
       <Footnote>
-        If you didn&apos;t request a reset, you can safely ignore this email — your password
+        If you didn&apos;t request a reset, you can safely ignore this email. Your password
         won&apos;t change.
       </Footnote>
     </EmailLayout>

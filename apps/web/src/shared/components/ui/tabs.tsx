@@ -64,7 +64,7 @@ function TabsList({
         const width = active.offsetWidth;
         setIndicator({ left, width });
         // The strip scrolls horizontally on narrow viewports, so the active tab
-        // can sit off-screen — after a tab change, or on first paint when
+        // can sit off-screen. After a tab change, or on first paint when
         // deep-linking straight to a late tab like Settings. Nudge THIS
         // container's scrollLeft directly: `scrollIntoView` would also scroll
         // every ancestor scroller (and the page) to reveal the tab, which yanks
@@ -106,7 +106,7 @@ function TabsList({
   if (variant !== "line") return list;
 
   return (
-    // Scrolls horizontally rather than overflowing its panel — a service has
+    // Scrolls horizontally rather than overflowing its panel: a service has
     // seven tabs (Overview…Settings), which is ~460px of labels and cannot fit
     // a phone. `no-scrollbar` keeps a scrollbar gutter out of the 40px row;
     // the clipped next tab is the swipe affordance. The indicator is absolute
@@ -128,7 +128,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
       data-slot="tabs-trigger"
       className={cn(
         "relative inline-flex h-[calc(100%-1px)] items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        // Line variant: no background, no border on active — the sliding
+        // Line variant: no background, no border on active: the sliding
         // indicator owned by <TabsList> paints the active marker.
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
         // Default variant: equal-width segmented pills + a card-like active
@@ -165,7 +165,7 @@ const DEFAULT_HEIGHT_TRANSITION: Transition = {
  * children's layout.
  *
  * Why not Framer's `layout="size"`: that uses FLIP, which applies inverse
- * transforms to children during the parent's animation — the side-effect is
+ * transforms to children during the parent's animation. The side-effect is
  * that the new panel's items appear to "drop in" / slide as the container
  * resizes. We just want the container to grow/shrink underneath stable
  * children, so we measure the active panel ourselves and animate `height`
@@ -194,7 +194,7 @@ function TabsContents({
     const el = containerRef.current;
     if (!el) return;
 
-    // Measure the active panel — the one BaseUI leaves without `hidden`. Skip
+    // Measure the active panel: the one BaseUI leaves without `hidden`. Skip
     // zero-height reads so a panel caught mid-toggle (or an async body that
     // hasn't laid out yet) never animates the container to a collapsed frame.
     const measure = () => {
@@ -210,7 +210,7 @@ function TabsContents({
     // Coalesce measures onto the next frame. Switching tabs makes BaseUI toggle
     // `hidden` on BOTH the outgoing and incoming panel in the same tick, so a
     // synchronous measure can read the panel that's on its way out (first
-    // non-hidden child) before the DOM settles — the "flash then drop". By the
+    // non-hidden child) before the DOM settles: the "flash then drop". By the
     // next frame exactly one panel is non-hidden, so we measure the right one.
     let raf = 0;
     const scheduleMeasure = () => {

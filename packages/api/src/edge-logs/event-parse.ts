@@ -1,7 +1,7 @@
 /**
- * Parse Caddy's *default-logger* lines (the operational log plane — Phase 3)
+ * Parse Caddy's *default-logger* lines (the operational log plane, Phase 3)
  * into an EdgeEventLine. This is the stream a global `log { output net }`
- * ships: TLS/ACME lifecycle, reverse_proxy upstream errors, config reloads —
+ * ships: TLS/ACME lifecycle, reverse_proxy upstream errors, config reloads,
  * everything that is NOT a per-request access log.
  *
  * Access logs are routed away before this runs (see ingest.ts `isAccessLog`),
@@ -20,7 +20,7 @@ import { normalizeHost } from "./host";
 
 let counter = 0;
 
-/** Cap the stored raw line — a few operational lines (e.g. "New Config JSON")
+/** Cap the stored raw line. A few operational lines (e.g. "New Config JSON")
  *  are enormous; we drop those by category anyway, but guard regardless. */
 const MAX_RAW = 8_000;
 
@@ -78,7 +78,7 @@ function parseTs(ts: number | string | undefined): string {
 
 /** Canonicalize host + batch domains identically to the access plane so the
  *  per-tenant scope check (event-ring `inScope`/`redact`) matches the owned
- *  domains — see ./host. */
+ *  domains: see ./host. */
 function hostAndDomains(data: z.infer<typeof CaddyEventSchema>): {
   host: string | null;
   domains: string[];
@@ -107,7 +107,7 @@ function sanitizeRaw(raw: JsonObject): string {
 
 export function parseCaddyEvent(raw: unknown): EdgeEventLine | null {
   // Parse boundary: `raw` comes off `JSON.parse` in ingest.ts, so the guard
-  // is sound — and it lets sanitizeRaw keep the FULL line (the zod schema
+  // is sound, and it lets sanitizeRaw keep the FULL line (the zod schema
   // strips unknown keys, which the detail view wants to keep).
   if (!isJsonObject(raw)) return null;
   const result = CaddyEventSchema.safeParse(raw);

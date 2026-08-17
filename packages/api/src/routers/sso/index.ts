@@ -14,12 +14,13 @@
  * `context.activeOrganizationId` before responding. Same reasoning as the
  * members router: better-auth re-checks membership itself, but this router's
  * own scope guard has to hold on its own, and a workspace settings page should
- * never receive another workspace's identity-provider metadata — not because
+ * never receive another workspace's identity-provider metadata, not because
  * it is a leak (the caller administers both) but because filtering in the
  * browser is presentation, and presentation must never be load-bearing.
  */
 
 import { auth } from "@otterdeploy/auth";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import type { SsoProviderView } from "./contract";
@@ -40,7 +41,11 @@ function toProviderView(p: {
     providerId: p.providerId,
     issuer: p.issuer,
     domain: p.domain,
-    organizationId: p.organizationId as SsoProviderView["organizationId"],
+    // Brand at the boundary. The contract's output schema (`organizationIdField
+    // .nullable()`) enforces the same prefix on the way out, so parsing here
+    // fails no earlier than the response validation already would.
+    organizationId:
+      p.organizationId === null ? null : idSchema.organization.parse(p.organizationId),
     oidcConfig: p.oidcConfig
       ? {
           clientIdLastFour: p.oidcConfig.clientIdLastFour,
@@ -63,8 +68,8 @@ export const ssoRouter = {
     if (res.isErr()) throw res.error;
 
     const providers = (res.value.providers ?? [])
-      // The scope guard. Org-less (personal) providers fall out here too —
-      // they belong to no workspace, so they are not this page's business.
+      // The scope guard. Org-less (personal) providers fall out here too.
+      // They belong to no workspace, so they are not this page's business.
       .filter((p) => p.organizationId === context.activeOrganizationId)
       .map(toProviderView);
 

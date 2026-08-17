@@ -1,17 +1,15 @@
 /**
- * `pull_request` webhook — drives PR previews.
+ * `pull_request` webhook: drives PR previews.
  *
  * opened / reopened / synchronize → ensure the PR's `preview` row, insert
  * preview-scoped pending deployments for every opted-in git service, trigger a
  * build at the PR head, and report a pending status + sticky comment on the PR.
  * closed → mark the preview(s) closed and tear down their compute.
  *
- * A preview is a first-class entity bound to (project, repo, PR#) — NOT an
+ * A preview is a first-class entity bound to (project, repo, PR#), NOT an
  * environment. Databases are shared with the base by default; only databases
  * with `previewBranching` enabled get an isolated branch.
  */
-
-import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
@@ -58,12 +56,12 @@ export async function handlePullRequest(
   if (!repo) {
     log.info({
       github: { event: "pull_request", deliveryId, repo: ev.repository.full_name, action },
-      msg: "pull_request for unknown repo — not bound to any project",
+      msg: "pull_request for unknown repo, not bound to any project",
     });
     return ignored;
   }
 
-  // Repo binding lives on services now — find the projects that own at least
+  // Repo binding lives on services now. Find the projects that own at least
   // one git service bound to this repo (a PR on repo A only concerns services
   // built from repo A, even if the project also hosts repo-B services).
   const projectIdRows = await db
@@ -89,9 +87,9 @@ export async function handlePullRequest(
   if (action === "closed") return closePreviews(ev, repo, projects);
 
   // Deploy is OPT-IN per SERVICE (the preview unit is the resource, not the
-  // project — a project may host several git services and only some follow
+  // project: a project may host several git services and only some follow
   // PRs). A project spins up a preview env only when at least one of its
-  // services bound to this repo opted in; everything else is ignored — no
+  // services bound to this repo opted in; everything else is ignored, no
   // env, no build, no container.
   const optedInProjectIds = new Set(
     (
@@ -112,14 +110,14 @@ export async function handlePullRequest(
   if (optedIn.length === 0) {
     log.info({
       github: { event: "pull_request", deliveryId, repo: ev.repository.full_name, action },
-      msg: "no service bound to this repo has previews enabled — ignoring",
+      msg: "no service bound to this repo has previews enabled, ignoring",
     });
     return ignored;
   }
   return deployPreviews(ev, repo, optedIn);
 }
 
-/** Sanitized `owner-repo` slug — qualifies preview env slugs/DB branch names so
+/** Sanitized `owner-repo` slug: qualifies preview env slugs/DB branch names so
  *  two repos in one project never collide on the same PR number. */
 async function closePreviews(
   ev: PullRequestEvent,
@@ -129,13 +127,13 @@ async function closePreviews(
   const prNumber = ev.pull_request.number;
   let environmentsTouched = 0;
   for (const p of projects) {
-    const closed = await markPreviewsClosed(p.id as ProjectId, repo.id as GitRepoId, prNumber);
+    const closed = await markPreviewsClosed(p.id, repo.id, prNumber);
     environmentsTouched += closed.length;
     // Destroy each closed preview's containers + branched databases.
     for (const row of closed) {
       await teardownPreview({
         id: row.id,
-        projectId: p.id as ProjectId,
+        projectId: p.id,
         projectSlug: p.slug,
         gitRepoId: row.gitRepoId,
         slug: row.slug,
@@ -144,7 +142,7 @@ async function closePreviews(
     }
   }
   if (environmentsTouched > 0) {
-    await report({ gitRepoId: repo.id as GitRepoId, prNumber, phase: "closed" });
+    await report({ gitRepoId: repo.id, prNumber, phase: "closed" });
   }
   return {
     kind: "pull_request",
@@ -159,7 +157,7 @@ async function closePreviews(
 /**
  * Provision (or refresh) previews for one PR across every project that opted
  * in. Exported so the `issue_comment` trigger drives the SAME path rather than
- * reimplementing branch → build → route → comment — a second copy would drift,
+ * reimplementing branch → build → route → comment. A second copy would drift,
  * and the cap and teardown rules only hold if there is one path.
  */
 export async function deployPreviews(
@@ -188,7 +186,7 @@ export async function deployPreviews(
     }
   }
   if (environmentsTouched > 0) {
-    await report({ gitRepoId: repo.id as GitRepoId, prNumber: pr.number, phase: "building" });
+    await report({ gitRepoId: repo.id, prNumber: pr.number, phase: "building" });
   }
   return {
     kind: "pull_request",

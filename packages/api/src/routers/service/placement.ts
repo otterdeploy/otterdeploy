@@ -1,5 +1,5 @@
 /**
- * Pin a service to a server, or release it back to the scheduler — and move it
+ * Pin a service to a server, or release it back to the scheduler, and move it
  * there in the same call.
  *
  * There is exactly ONE writable surface for placement (this), the same rule
@@ -8,8 +8,8 @@
  * surfaces disagreeing means a service that says it lives on one machine and
  * runs on another.
  *
- * Setting the pin without redeploying would be a lie — the constraint only
- * takes effect on the next rollout — so this always rolls the service. That is
+ * Setting the pin without redeploying would be a lie. The constraint only
+ * takes effect on the next rollout, so this always rolls the service. That is
  * the "move" operation: swarm starts the task on the new node before stopping
  * the old one (start-first, from the shared UpdateConfig), so a stateless move
  * has no gap.
@@ -59,8 +59,8 @@ export async function setServicePlacement(
   // rollout every time the settings form is saved.
   if (current === input.serverId) return getService(input);
 
-  // Named volumes are node-local. Moving is still allowed — sometimes the old
-  // node is gone and an empty start is the only way forward — but never
+  // Named volumes are node-local. Moving is still allowed. Sometimes the old
+  // node is gone and an empty start is the only way forward, but never
   // silently.
   const volumeMounts = record.mounts.filter((m) => m.type === "volume").map((m) => m.target);
   if (volumeMounts.length > 0 && !input.acknowledgeVolumeLoss) {
@@ -80,8 +80,8 @@ export async function setServicePlacement(
   });
 
   // The constraint only exists in a spec, so nothing has actually moved until
-  // the service rolls. Failing here leaves the pin recorded — the next deploy
-  // will honour it — which is why the error is returned rather than reverting.
+  // the service rolls. Failing here leaves the pin recorded. The next deploy
+  // will honour it, which is why the error is returned rather than reverting.
   const rolled = await redeployOne(input.projectId, input.resourceId, project.slug, log);
   if (rolled.isErr()) return Result.err(rolled.error);
 

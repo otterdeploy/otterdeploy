@@ -7,7 +7,7 @@
 /* Grid / glow / grain / reveal for @otterdeploy/ui/error-screen, shared with
    apps/web so a 404 or 500 looks the same in both. */
 @import "@otterdeploy/ui/error-screen.css";
-/* ::selection — this app had none, so selecting text used the browser default
+/* ::selection: this app had none, so selecting text used the browser default
    blue. Shared so it matches the control panel. */
 @import "@otterdeploy/ui/selection.css";
 
@@ -16,7 +16,7 @@
 /* Smooth scrolling for the landing page's in-page nav (#platform, #deploy, …)
    and for docs heading anchors. Scoped to `no-preference` rather than disabled
    under `reduce`, so the default for anyone who has asked for less motion is
-   an instant jump — DESIGN.md requires honouring that. Sections already carry
+   an instant jump: DESIGN.md requires honouring that. Sections already carry
    `scroll-mt-14` to clear the sticky h-14 header. */
 @media (prefers-reduced-motion: no-preference) {
   html {
@@ -25,7 +25,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Fonts — Geist, matching apps/web.
+   Fonts: Geist, matching apps/web.
    ───────────────────────────────────────────────────────────────────────── */
 @theme {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
@@ -67,11 +67,11 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Brand tokens — from apps/web/src/index.css (warm-neutral mono palette) so
+   Brand tokens: from apps/web/src/index.css (warm-neutral mono palette) so
    the marketing site and dashboard read as one product.
 
    One deliberate divergence: `--muted-foreground`. The dashboard's #7a7a74
-   measures 4.17:1 on the light canvas and 4.11:1 on a dark card — under the
+   measures 4.17:1 on the light canvas and 4.11:1 on a dark card: under the
    4.5:1 floor DESIGN.md sets for body copy in BOTH themes. This site is mostly
    prose in that colour, so it ships a compliant pair (4.87:1 light, 5.75:1 on
    dark surfaces). The dashboard's own token is unchanged; fixing it there is a
@@ -106,7 +106,7 @@
   --warning-foreground: #8a6a00;
 }
 
-/* Explicit light scope — lets a subtree force the light palette even when the
+/* Explicit light scope. Lets a subtree force the light palette even when the
    Fumadocs theme toggle has put `.dark` on <html>. Mirrors :root so the
    marketing landing's light bands stay light regardless of system theme. */
 .light {
@@ -167,7 +167,7 @@
 
 /* ─────────────────────────────────────────────────────────────────────────
    Map Fumadocs UI (--color-fd-*) onto our brand tokens. Declared once at
-   :root referencing the brand vars — the inner var() resolves at use-site, so
+   :root referencing the brand vars: the inner var() resolves at use-site, so
    `.dark` scopes inherit the dark brand values automatically. Overrides the
    neutral/preset imports above by source order.
    ───────────────────────────────────────────────────────────────────────── */
@@ -191,7 +191,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Base — typography settings from apps/web.
+   Base: typography settings from apps/web.
    ───────────────────────────────────────────────────────────────────────── */
 @layer base {
   body {
@@ -222,8 +222,8 @@ html > body[data-scroll-locked] {
    "ink" band, and the mark's travelling arc.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* `--od-accent` — the brighter cut of Signal Blue used for links, marks and
-   the active nav item — is defined globally further down, with the docs
+/* `--od-accent`: the brighter cut of Signal Blue used for links, marks and
+   the active nav item: is defined globally further down, with the docs
    chrome. The inverted scopes below re-declare it because they change surface
    without changing theme, and `--muted-foreground` with them: an inverted band
    sits on a different surface than the theme it inherits. */
@@ -238,7 +238,7 @@ html > body[data-scroll-locked] {
    inverted values, so nothing inside needs to know where it is.
 
    In dark mode the page canvas is already near-black, so the band lifts one
-   tonal step instead of dropping one — the separation has to survive both. */
+   tonal step instead of dropping one: the separation has to survive both. */
 .od-ink {
   --background: #141412;
   --foreground: #f5f5f0;
@@ -268,7 +268,7 @@ html > body[data-scroll-locked] {
    This is a deliberate departure from DESIGN.md's ≤10%-accent rule, and it is
    scoped to the marketing surface only: the dashboard's One Voice Rule exists
    so a blue button means "do this", and there are no buttons in here. The
-   discipline that IS kept is the hue — one blue, no second accent, no gradient
+   discipline that IS kept is the hue, one blue, no second accent, no gradient
    text, nothing the product itself wouldn't recognise. */
 .od-field {
   position: relative;
@@ -278,8 +278,8 @@ html > body[data-scroll-locked] {
     radial-gradient(115% 100% at 12% -10%, oklch(0.5 0.22 264 / 0.85), transparent 62%),
     radial-gradient(90% 85% at 105% 108%, oklch(0.42 0.2 268 / 0.7), transparent 65%);
 
-  /* Re-scope the palette so anything dropped inside — a visual, a heading, a
-     state chip — inverts onto the field without knowing it's there. Panels
+  /* Re-scope the palette so anything dropped inside, a visual, a heading, a
+     state chip: inverts onto the field without knowing it's there. Panels
      land as dark glass on blue, which is what makes them read as screens. */
   --background: #0d1120;
   --foreground: #f6f7fb;
@@ -298,8 +298,8 @@ html > body[data-scroll-locked] {
   background-color: #070a18;
 }
 
-/* Film grain. An inline feTurbulence keeps the page self-contained — no image
-   request, no CDN — and the low opacity stops it from muddying the panel. */
+/* Film grain. An inline feTurbulence keeps the page self-contained, no image
+   request, no CDN, and the low opacity stops it from muddying the panel. */
 .od-field::before {
   content: "";
   position: absolute;
@@ -421,7 +421,7 @@ html > body[data-scroll-locked] {
     animation: none;
     opacity: 0.6;
   }
-  /* The ring stays — it's the state indicator — but the light stops moving. */
+  /* The ring stays (it's the state indicator) but the light stops moving. */
   .od-comet-border {
     animation: none;
     background: color-mix(in oklab, var(--comet-color) 55%, transparent);
@@ -436,7 +436,7 @@ html > body[data-scroll-locked] {
    with DESIGN.md. Each one is here because the default broke a named rule:
 
    - The sidebar shipped on `--color-fd-card`, a second panel tone. DESIGN.md:
-     "Sidebar: shares the canvas background — not a separate panel tone."
+     "Sidebar: shares the canvas background, not a separate panel tone."
    - Callouts and cards shipped with `shadow-md` at rest. DESIGN.md:
      flat by default; shadows mean "floating above the page".
    - `--color-fd-primary` resolved to the dark button cut of Signal Blue, so
@@ -549,7 +549,7 @@ html > body[data-scroll-locked] {
 
 /* ── Cards ───────────────────────────────────────────────────────────────
    Hairline ring, no decoration. The previous rule painted a dotted corner
-   grid into every card — a borrowed flourish, and the exact "identical icon
+   grid into every card: a borrowed flourish, and the exact "identical icon
    card grid" tell DESIGN.md names as an anti-reference. */
 #nd-page a[class*="bg-fd-card"] {
   border-radius: var(--radius);

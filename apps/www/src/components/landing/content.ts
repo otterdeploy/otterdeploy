@@ -1,7 +1,7 @@
 /**
  * Landing-page copy and data.
  *
- * Marketing surface, not documentation — the deep reference lives in /docs.
+ * Marketing surface, not documentation. The deep reference lives in /docs.
  * What stays true regardless: nothing here is invented. Counts, engine names
  * and state words are checked against the code, because a self-hoster who
  * reads a claim here and can't find it in the dashboard stops trusting the
@@ -10,7 +10,7 @@
 
 export const GITHUB_URL = "https://github.com/otterdeploy/otterdeploy";
 
-/** scripts/install.sh — the host installer, published at get.otterdeploy.com. */
+/** scripts/install.sh: the host installer, published at get.otterdeploy.com. */
 export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | bash";
 
 // ── Nav ────────────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ export const FOOTER_LINKS: { title: string; links: { label: string; href: string
     title: "Project",
     links: [
       { label: "GitHub", href: GITHUB_URL },
-      { label: "License — AGPL-3.0", href: `${GITHUB_URL}/blob/main/LICENSE` },
+      { label: "License: AGPL-3.0", href: `${GITHUB_URL}/blob/main/LICENSE` },
       { label: "Issues", href: `${GITHUB_URL}/issues` },
     ],
   },

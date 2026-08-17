@@ -4,8 +4,8 @@ description: Route a domain to a service, get a certificate, and read the states
 ---
 
 Every route is served by a Caddy edge that the platform configures. You never
-hand-edit a Caddyfile — the platform generates one for the whole install and
-reloads it — but you can read the rendered config in the dashboard, which is
+hand-edit a Caddyfile: the platform generates one for the whole install and
+reloads it, but you can read the rendered config in the dashboard, which is
 usually how you confirm what it actually did.
 
 ## Adding a domain
@@ -34,7 +34,7 @@ almost always in one of these states rather than simply "broken".
 | --- | --- |
 | `pointed` | Resolves to this edge |
 | `proxied` | Resolves to a CDN in front of this edge (Cloudflare and friends) |
-| `unpointed` | Doesn't resolve here — the record is missing, wrong, or hasn't propagated |
+| `unpointed` | Doesn't resolve here: the record is missing, wrong, or hasn't propagated |
 | `unknown` | Not yet checked |
 
 `otterdeploy domains recheck` forces a re-evaluation instead of waiting.
@@ -49,7 +49,7 @@ almost always in one of these states rather than simply "broken".
 | `unknown` | Not yet attempted |
 
 A domain sitting at `obtaining` with DNS `unpointed` is not a certificate
-problem — ACME can't validate a name that doesn't resolve to the box. Fix the
+problem: ACME can't validate a name that doesn't resolve to the box. Fix the
 record, then recheck.
 
 When issuance fails, the reason is in the edge's event plane: certificate and
@@ -59,7 +59,7 @@ access log.
 ## Custom certificates
 
 Upload your own certificate, or an internal CA, for the domains where ACME
-isn't an option — internal names, air-gapped environments, or a certificate you
+isn't an option, internal names, air-gapped environments, or a certificate you
 already pay for. Managed, custom and CA-issued certificates live side by side.
 
 ## Deployment protection
@@ -83,7 +83,7 @@ CrowdSec is identity-blind and blocks by IP reputation.
 
 ## Layer-4 routes
 
-Beyond HTTP, the edge routes raw TCP — that's how a
+Beyond HTTP, the edge routes raw TCP: that's how a
 [managed database](/docs/guides/databases#reaching-it-from-outside) gets
 exposed outside the cluster. Route type is `http` or `layer4`; protocol is
 `tcp` or `http`.
@@ -92,12 +92,12 @@ exposed outside the cluster. Route type is `http` or `layer4`; protocol is
 
 The edge keeps two planes, deliberately separate:
 
-- **Access logs** — one entry per request, with a live ring buffer in front of
+- **Access logs**: one entry per request, with a live ring buffer in front of
   the persisted history so you can watch traffic arrive.
-- **Events** — certificate lifecycle, ACME failures, upstream errors, and
+- **Events**: certificate lifecycle, ACME failures, upstream errors, and
   CrowdSec decisions.
 
 A scan also runs over recent traffic and flags client IPs probing an
-organisation's domains with scanner-style requests — `/.env`, `/actuator`,
-`*.php`, `?cmd=` — emitting `edge.probe` to any subscribed
+organisation's domains with scanner-style requests, `/.env`, `/actuator`,
+`*.php`, `?cmd=`, emitting `edge.probe` to any subscribed
 [notification channel](/docs/guides/servers#notifications).

@@ -1,4 +1,4 @@
-# React Doctor — Full Diagnosis (apps/web)
+# React Doctor: Full Diagnosis (apps/web)
 
 - **Tool**: react-doctor v0.7.6
 - **Score**: **20/100 (Critical)**

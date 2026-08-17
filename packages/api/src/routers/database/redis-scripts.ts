@@ -2,7 +2,7 @@
  * Lua scripts + EVAL-payload parsing for the Redis data-viewer engine. The
  * browse/scan/value reads are issued as small Lua scripts via EVAL that return
  * `cjson.encode(...)`, so we get one round-trip and structured JSON instead of
- * parsing redis-cli's human output. Pure reads only — read-only by construction.
+ * parsing redis-cli's human output. Pure reads only. Read-only by construction.
  */
 import { QueryError } from "./query";
 
@@ -65,6 +65,12 @@ local ok, enc = pcall(cjson.encode, p)
 if ok then return enc else return '${ENC_ERR}' end
 `.trim();
 
+/** `JSON.parse` re-declared with the caller-supplied shape. Sound here and
+ *  only here: parseEval's payload is our own Lua scripts' `cjson.encode`
+ *  output, so the shape each call site declares is authored a few lines
+ *  above the EVAL that produced it. */
+const parseTrustedJson: <T>(text: string) => T = JSON.parse;
+
 /** Run an EVAL whose script returns `cjson.encode(...)`, parse the JSON. */
 export function parseEval<T>(raw: string): T {
   const trimmed = raw.trim();
@@ -72,7 +78,7 @@ export function parseEval<T>(raw: string): T {
     throw new QueryError("value contains non-UTF-8 data that can't be previewed");
   }
   try {
-    return JSON.parse(trimmed) as T;
+    return parseTrustedJson(trimmed);
   } catch {
     throw new QueryError(trimmed || "empty response from redis");
   }

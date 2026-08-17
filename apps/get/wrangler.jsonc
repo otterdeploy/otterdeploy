@@ -20,7 +20,7 @@
     },
   ],
   // Release artifacts. Written only by the `publish-artifacts` job in
-  // .github/workflows/images.yml — the Worker never writes.
+  // .github/workflows/images.yml: the Worker never writes.
   "r2_buckets": [
     {
       "binding": "ARTIFACTS",
@@ -33,8 +33,8 @@
   // Engine" (API code 10089) even after the dashboard toggle. Analytics Engine
   // is available on the Workers Free plan (100k datapoints/day), so this is an
   // account enablement that hasn't taken effect, not a plan limit. Serving is
-  // unaffected — `Env.ANALYTICS` is optional and `record()` returns early when
-  // the binding is absent — but until this is restored there are NO install or
+  // unaffected: `Env.ANALYTICS` is optional and `record()` returns early when
+  // the binding is absent, but until this is restored there are NO install or
   // active-instance counts, which is the reason this Worker exists at all.
   // Re-enable by uncommenting; it is a redeploy with no code change.
   // "analytics_engine_datasets": [
@@ -45,7 +45,7 @@
   // ],
   "vars": {
     // Fallback source when an object isn't in R2 yet, so the install URL is
-    // never dead — including before the very first release is published.
+    // never dead, including before the very first release is published.
     "FALLBACK_REPO": "otterdeploy/otterdeploy",
     "DOCS_URL": "https://otterdeploy.com/docs/start/install",
   },

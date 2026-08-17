@@ -28,7 +28,7 @@ export async function upsertServiceMount(input: {
   content: string | null;
   readOnly?: boolean;
 }): Promise<ServiceMountRow> {
-  // Upsert keyed on (service, target) — there can only be one mount at a
+  // Upsert keyed on (service, target): there can only be one mount at a
   // given container path, so a re-insert is semantically a replace.
   const [row] = await db
     .insert(serviceMount)

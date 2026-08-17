@@ -84,8 +84,12 @@ export function DataGridColumnHeader<TData, TValue>({
     column.pin(false);
   };
 
-  const onTriggerPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    (onPointerDown as ((e: unknown) => void) | undefined)?.(event);
+  // Typed off the trigger's own prop so the forwarded event carries Base UI's
+  // extensions (preventBaseUIHandler & co), not just the React pointer event.
+  const onTriggerPointerDown: React.ComponentProps<typeof DropdownMenuTrigger>["onPointerDown"] = (
+    event,
+  ) => {
+    onPointerDown?.(event);
     if (event.defaultPrevented) return;
 
     if (event.button !== 0) {
@@ -213,20 +217,30 @@ const DataGridColumnResizer = React.memo(DataGridColumnResizerImpl, (prev, next)
   if (prev.label !== next.label) return false;
 
   return true;
-}) as typeof DataGridColumnResizerImpl;
+});
 
-interface DataGridColumnResizerProps<TData, TValue> extends DataGridColumnHeaderProps<
-  TData,
-  TValue
-> {
+/**
+ * The narrow structural slice of `Header`/`Table` the resizer actually reads.
+ * Deliberately free of the `TData`/`TValue` generics: `Header` is invariant in
+ * them, which is what forced the old `React.memo(...) as typeof Impl` cast.
+ * Any `Header<TData, TValue>` / `Table<TData>` satisfies this shape.
+ */
+interface DataGridColumnResizerProps {
+  header: {
+    column: {
+      getIsResizing: () => boolean;
+      getSize: () => number;
+      resetSize: () => void;
+    };
+    getResizeHandler: () => (event: unknown) => void;
+  };
+  table: {
+    _getDefaultColumnDef: () => { minSize?: number; maxSize?: number };
+  };
   label: string;
 }
 
-function DataGridColumnResizerImpl<TData, TValue>({
-  header,
-  table,
-  label,
-}: DataGridColumnResizerProps<TData, TValue>) {
+function DataGridColumnResizerImpl({ header, table, label }: DataGridColumnResizerProps) {
   const { t } = useTranslation();
   const defaultColumnDef = table._getDefaultColumnDef();
 

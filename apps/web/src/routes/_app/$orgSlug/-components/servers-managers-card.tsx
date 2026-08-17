@@ -1,5 +1,5 @@
 /**
- * Managers & quorum — the Raft pane from the design's cluster settings,
+ * Managers & quorum: the Raft pane from the design's cluster settings,
  * living where operators already look at nodes. Renders ONLY when the swarm
  * runtime is active: on plain docker there is no quorum to be honest about,
  * so the card stays away instead of showing an empty cluster (the health
@@ -93,10 +93,10 @@ export function ManagersQuorumCard({ view }: { view: SwarmNodesView | null }) {
                 {n.role}
               </TableCell>
               <TableCell className="font-mono text-[11.5px]">
-                {n.addr ?? <span className="text-muted-foreground/40">—</span>}
+                {n.addr ?? <span className="text-muted-foreground/40">–</span>}
               </TableCell>
               <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                {n.engineVersion ?? <span className="text-muted-foreground/40">—</span>}
+                {n.engineVersion ?? <span className="text-muted-foreground/40">–</span>}
               </TableCell>
               <TableCell>
                 <ReachabilityBadge node={n} />
@@ -113,7 +113,7 @@ export function ManagersQuorumCard({ view }: { view: SwarmNodesView | null }) {
 }
 
 function ReachabilityBadge({ node }: { node: SwarmNode }) {
-  // Reachability is a ManagerStatus concept — workers report only node state.
+  // Reachability is a ManagerStatus concept. Workers report only node state.
   if (node.role !== "manager") {
     return (
       <span className="font-mono text-[11px] text-muted-foreground/60">

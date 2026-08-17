@@ -1,8 +1,8 @@
 /**
- * od-5j8.12 — hostile-path coverage: `mapEnvVar` (the mapper `listEnv` /
+ * od-5j8.12: hostile-path coverage: `mapEnvVar` (the mapper `listEnv` /
  * `setEnv` / `bulkSetEnv` all funnel rows through before they reach an RPC
  * response) must mask a sealed row's value regardless of what's actually
- * stored in it — ciphertext, or a bug that left plaintext behind. Pure
+ * stored in it. Ciphertext, or a bug that left plaintext behind. Pure
  * function, no mocks needed.
  */
 import { describe, expect, test } from "vite-plus/test";

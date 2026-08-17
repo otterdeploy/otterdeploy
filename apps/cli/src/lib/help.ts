@@ -1,5 +1,5 @@
 /**
- * Help and usage rendering — a full replacement for citty's `renderUsage`.
+ * Help and usage rendering: a full replacement for citty's `renderUsage`.
  *
  * citty's default output has three problems at this CLI's size. It prints a
  * `USAGE` line listing all 34 commands pipe-separated, which wraps into an
@@ -34,7 +34,7 @@ export interface CommandGroup {
  *
  * citty's `CommandDef<T>` is invariant in `T` through its `setup`/`cleanup`
  * callbacks, so a `CommandDef<{url: StringArgDef}>` is not assignable to
- * `CommandDef<ArgsDef>` — which is why citty's own `SubCommandsDef` reaches for
+ * `CommandDef<ArgsDef>`, which is why citty's own `SubCommandsDef` reaches for
  * `any`. `no-explicit-any` is an error here, so instead of widening we narrow:
  * help only ever reads meta, args and subCommands, and this states exactly that.
  */
@@ -52,8 +52,17 @@ export function setCommandGroups(next: CommandGroup[]): void {
   groups = next;
 }
 
+/**
+ * citty's `Resolvable` treats any function value as a thunk to call, so a
+ * runtime `typeof` check is the faithful discriminator here (none of the
+ * resolved payloads -- meta, args, subcommand maps -- are themselves functions).
+ */
+function isThunk<T>(value: T | (() => T | Promise<T>) | Promise<T>): value is () => T | Promise<T> {
+  return typeof value === "function";
+}
+
 async function resolve<T>(value: T | (() => T | Promise<T>) | Promise<T>): Promise<T> {
-  return typeof value === "function" ? await (value as () => T | Promise<T>)() : await value;
+  return isThunk(value) ? await value() : await value;
 }
 
 /**
@@ -70,7 +79,7 @@ function commandPath(): string[] {
  * What a string flag's value looks like, inferred from the flag's name.
  *
  * citty reads this from a per-arg `valueHint`, which none of the 34 commands
- * set — so every string flag rendered as a useless `<value>`. Inferring from
+ * set, so every string flag rendered as a useless `<value>`. Inferring from
  * the name fixes all of them at once and keeps the hint from drifting out of
  * sync with a flag it was hand-written for.
  */
@@ -109,20 +118,16 @@ const VALUE_HINTS: Record<string, string> = {
   image: "image",
 };
 
-/** `--tail <n>`, `--no-follow`, `-h, --help` — one flag as the user types it. */
+/** `--tail <n>`, `--no-follow`, `-h, --help`: one flag as the user types it. */
 function formatFlag(name: string, def: ArgsDef[string]): string {
-  const arg = def as {
-    type?: string;
-    alias?: string | string[];
-    valueHint?: string;
-    default?: unknown;
-  };
-  const aliasList = Array.isArray(arg.alias) ? arg.alias : arg.alias ? [arg.alias] : [];
+  // `alias` exists on flag defs only; positional defs omit it, hence the `in`.
+  const aliasRaw = "alias" in def ? def.alias : undefined;
+  const aliasList = Array.isArray(aliasRaw) ? aliasRaw : aliasRaw ? [aliasRaw] : [];
   const aliases = aliasList.map((a) => `-${a}`);
   // A boolean defaulting to true is only ever *disabled*, so show the negation
   // the user would actually type.
-  const flag = arg.type === "boolean" && arg.default === true ? `--no-${name}` : `--${name}`;
-  const value = arg.type === "string" ? ` <${arg.valueHint ?? VALUE_HINTS[name] ?? "value"}>` : "";
+  const flag = def.type === "boolean" && def.default === true ? `--no-${name}` : `--${name}`;
+  const value = def.type === "string" ? ` <${def.valueHint ?? VALUE_HINTS[name] ?? "value"}>` : "";
   return [...aliases, flag].join(", ") + value;
 }
 
@@ -160,16 +165,15 @@ function argEntries(args: ArgsDef): {
   const flags: Array<[string, string]> = [];
   const usage: string[] = [];
   for (const [name, def] of Object.entries(args)) {
-    const arg = def as { type?: string; description?: string; required?: boolean };
-    if (arg.type === "positional") {
-      // Angle brackets for required, square for optional — and the ARGUMENTS
+    if (def.type === "positional") {
+      // Angle brackets for required, square for optional, and the ARGUMENTS
       // list uses the same notation as the usage line, so the two agree.
-      const token = arg.required !== false ? `<${name}>` : `[${name}]`;
-      positionals.push([token, arg.description ?? ""]);
+      const token = def.required !== false ? `<${name}>` : `[${name}]`;
+      positionals.push([token, def.description ?? ""]);
       usage.push(token);
       continue;
     }
-    flags.push([formatFlag(name, def), arg.description ?? ""]);
+    flags.push([formatFlag(name, def), def.description ?? ""]);
   }
   return { positionals, flags, usage };
 }
@@ -192,7 +196,7 @@ async function renderRootHelp(cmd: HelpCommand): Promise<void> {
   line(`${bold(bin)} <command> [options]`);
   line(dim(`${bin} <command> --help    options for one command`));
 
-  // Grouped commands — the whole reason this renderer exists.
+  // Grouped commands: the whole reason this renderer exists.
   const grouped: Array<{ title: string; entries: Array<[string, string]> }> = [];
   for (const group of groups) {
     const entries: Array<[string, string]> = [];
@@ -229,7 +233,7 @@ async function renderRootHelp(cmd: HelpCommand): Promise<void> {
 
 /**
  * The usage line(s) for one command. A group that also has its own `run` gets
- * both forms — `otd env <command>` and `otd env [options]` — because both are
+ * both forms (`otd env <command>` and `otd env [options]`) because both are
  * real ways to invoke it.
  */
 function renderUsageLines(
@@ -263,8 +267,8 @@ async function renderCommandHelp(cmd: HelpCommand, path: string[]): Promise<void
   line(dim(meta?.description ?? ""));
 
   const subs = await subcommandEntries(cmd);
-  const args = (await resolve(cmd.args)) ?? {};
-  const { positionals, flags, usage } = argEntries(args as ArgsDef);
+  const args: ArgsDef = (await resolve(cmd.args)) ?? {};
+  const { positionals, flags, usage } = argEntries(args);
   const hasSubs = subs.length > 0;
 
   renderUsageLines(full, {

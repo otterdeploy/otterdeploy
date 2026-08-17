@@ -2,8 +2,8 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { ServerDatabaseError } from "./errors";
 
-// SQLSTATE classification itself is covered in ../../lib/pg-error.test.ts —
-// this file only pins the error that carries a failure to the operator.
+// SQLSTATE classification itself is covered in ../../lib/pg-error.test.ts.
+// This file only pins the error that carries a failure to the operator.
 
 describe("ServerDatabaseError", () => {
   test("carries the underlying driver message so the 500 is diagnosable", () => {
@@ -16,8 +16,8 @@ describe("ServerDatabaseError", () => {
   });
 
   test("never degrades an object cause to [object Object]", () => {
-    // A driver error that isn't an Error instance still has to be readable —
-    // otherwise the message carries nothing and we're back to a blind 500.
+    // A driver error that isn't an Error instance still has to be readable.
+    // Otherwise the message carries nothing and we're back to a blind 500.
     const withMessage = new ServerDatabaseError({
       operation: "op",
       cause: { message: "duplicate key", code: "23505" },

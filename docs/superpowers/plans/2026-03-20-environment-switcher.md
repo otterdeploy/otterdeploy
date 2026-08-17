@@ -90,12 +90,12 @@ git commit -m "feat(web): add Environment type for environment switcher"
 
 This hook manages:
 - `isOpen` state (boolean)
-- `activeIndex` (number) — which card is currently focused in the carousel
-- `setActiveIndex` — direct setter for dot navigation
-- `open(currentEnvName)` — opens overlay, sets activeIndex to match the current env
-- `close()` — closes overlay without changing env
-- `select()` — returns the currently focused environment and closes
-- `next()` / `prev()` — move activeIndex within bounds (no wrapping)
+- `activeIndex` (number), which card is currently focused in the carousel
+- `setActiveIndex`: direct setter for dot navigation
+- `open(currentEnvName)`: opens overlay, sets activeIndex to match the current env
+- `close()`: closes overlay without changing env
+- `select()`: returns the currently focused environment and closes
+- `next()` / `prev()`: move activeIndex within bounds (no wrapping)
 
 ```ts
 import { useCallback, useState } from "react"
@@ -336,7 +336,7 @@ Inside `RouteComponent`, before the existing `useNodesState` call, add:
 const { env } = Route.useSearch()
 const navigate = Route.useNavigate()
 
-// Placeholder — will come from API later
+// Placeholder: will come from API later
 const environments: Environment[] = [
   { id: "env-dev", name: "development", label: "Development" },
   { id: "env-staging", name: "staging", label: "Staging" },
@@ -414,7 +414,7 @@ return (
 cd /Users/jeffersonchukwuka/Developer/playground/otterdeploy && bun dev
 ```
 
-Open the project page in the browser. Press `E` — overlay should appear. Arrow keys should move between cards. Enter should select. Escape should dismiss. Dots should be clickable.
+Open the project page in the browser. Press `E`. Overlay should appear. Arrow keys should move between cards. Enter should select. Escape should dismiss. Dots should be clickable.
 
 - [ ] **Step 6: Commit**
 

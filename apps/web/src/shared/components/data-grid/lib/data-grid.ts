@@ -179,7 +179,7 @@ export function getScrollDirection(
     direction === "home" ||
     direction === "end"
   ) {
-    return direction as "left" | "right" | "home" | "end";
+    return direction;
   }
   if (direction === "pageleft") return "left";
   if (direction === "pageright") return "right";
@@ -416,7 +416,7 @@ export function getUrlHref(urlString: string): string {
 }
 
 /**
- * Parse a date-ish string with Temporal — handles Postgres formats `new Date()`
+ * Parse a date-ish string with Temporal. Handles Postgres formats `new Date()`
  * chokes on: `2026-03-15`, `2026-03-15 20:06:33.313867` (space + microseconds),
  * `2026-03-15T20:06:33.587Z` (instant), and offset timestamps. Returns the
  * widest Temporal type that parses, or null.

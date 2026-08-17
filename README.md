@@ -8,7 +8,7 @@
 ### Push to git. Deploy to your own servers.
 
 A self-hostable deployment platform. Builds from a repo, managed databases, automatic HTTPS,
-previews on every pull request — running on your hardware, with no usage bill.
+previews on every pull request, running on your hardware, with no usage bill.
 
 <a href="https://otterdeploy.com">Website</a> ·
 <a href="https://otterdeploy.com/docs">Documentation</a> ·
@@ -38,12 +38,12 @@ proxy, a certificate renewal cron, and a backup script you wrote once and never 
 
 otterdeploy is the middle path: the control of running your own infrastructure with the ergonomics
 of a managed one. Point it at a Linux box, connect a repo, and you get builds, rollouts, routing,
-TLS, databases, backups, and logs — from a dashboard that stays calm, fast, and honest about what
+TLS, databases, backups, and logs: from a dashboard that stays calm, fast, and honest about what
 the system is actually doing.
 
 > [!WARNING]
 > **Pre-1.0, under active development.** Interfaces and schemas still change without migration
-> paths, so otterdeploy isn't recommended for production workloads yet — run it on something
+> paths, so otterdeploy isn't recommended for production workloads yet. Run it on something
 > you'd be willing to rebuild.
 
 ## Install
@@ -55,7 +55,7 @@ curl -fsSL https://get.otterdeploy.com/install.sh | bash
 ```
 
 The installer provisions the host, pulls the published images, puts Docker into Swarm mode, and
-brings the stack up — with the host firewall and CrowdSec on by default. It installs from prebuilt
+brings the stack up: with the host firewall and CrowdSec on by default. It installs from prebuilt
 images, so no source checkout or build toolchain is needed on the server.
 
 | Requirement | |
@@ -81,7 +81,7 @@ version pin, ZFS branching pool, firewall opt-out) are documented in the
 npm install -g @otterdeploy/cli
 ```
 
-Ships as `otterdeploy` with an `otd` alias — 34 commands for deploys, logs, environments, and CI.
+Ships as `otterdeploy` with an `otd` alias: 34 commands for deploys, logs, environments, and CI.
 See the [CLI reference](https://otterdeploy.com/docs/cli).
 
 ### Uninstall
@@ -91,7 +91,7 @@ curl -fsSL https://get.otterdeploy.com/uninstall.sh | sudo bash
 ```
 
 Shows what's on the host, asks item by item what to remove, then requires you to type `wipe`.
-Volumes, `/data/otterdeploy`, the ZFS pool, Swarm and Docker are each opt-out — but the defaults
+Volumes, `/data/otterdeploy`, the ZFS pool, Swarm and Docker are each opt-out, but the defaults
 **do delete your data**. Add `-s -- --dry-run` to preview. See the
 [uninstall reference](https://otterdeploy.com/docs/start/install#uninstalling).
 
@@ -148,7 +148,7 @@ Org RBAC · Scoped API keys · Audit log · Sealed variables · Host firewall ·
 
 Pull requests get their own preview deployment with database branching and idle garbage collection.
 Databases branch copy-on-write when ZFS is available, and fall back to logical snapshots when it
-isn't — the installer never blocks on it.
+isn't, the installer never blocks on it.
 
 ## How a deploy works
 
@@ -159,7 +159,7 @@ push → pending → building (railpack) → image pushed → rollout (swarm) �
 A commit lands, the API queues a build, and a BullMQ worker builds an image with
 [Railpack](https://railpack.com) and pushes it to your registry. Docker Swarm rolls the service out,
 Caddy picks up the route, and ACME issues the certificate. Each of those states is a real state in
-the schema, shown as-is in the dashboard — no spinner standing in for a failure.
+the schema, shown as-is in the dashboard, no spinner standing in for a failure.
 
 ## Contributing
 
@@ -194,7 +194,7 @@ The dashboard comes up at `https://web.otterdeploy.local`, the API at
 | `bun run db:studio` | Database UI |
 
 Before opening a pull request, run `bun run typecheck`, `bun run lint`, and `bun run test`. UI work
-should be read against [`PRODUCT.md`](./PRODUCT.md) and [`DESIGN.md`](./DESIGN.md) first — they are
+should be read against [`PRODUCT.md`](./PRODUCT.md) and [`DESIGN.md`](./DESIGN.md) first. They are
 the design system of record, and "Coming soon" is always preferred over seeded data.
 
 <details>
@@ -205,7 +205,7 @@ otterdeploy/
 ├── apps/
 │   ├── web/         # Dashboard (React, TanStack Router)
 │   ├── server/      # API server (Hono + oRPC)
-│   ├── builder/     # BullMQ build worker — builds git-sourced services
+│   ├── builder/     # BullMQ build worker. Builds git-sourced services
 │   ├── cli/         # End-user CLI (`otterdeploy` / `otd`)
 │   └── www/         # Marketing site & docs (otterdeploy.com)
 ├── packages/
@@ -213,9 +213,9 @@ otterdeploy/
 │   ├── auth/        # Authentication (Better Auth)
 │   ├── db/          # Postgres schema & migrations (Drizzle)
 │   ├── email/       # Email client & templates (Resend)
-│   ├── jobs/        # Job queue — workers, triggers, registry (BullMQ)
+│   ├── jobs/        # Job queue, workers, triggers, registry (BullMQ)
 │   └── shared/      # Shared types & utilities
-├── brand/           # Logo geometry + generated assets (build output — don't hand-edit)
+├── brand/           # Logo geometry + generated assets (build output. Don't hand-edit)
 └── scripts/         # install.sh, uninstall.sh, maintenance scripts
 ```
 
@@ -223,7 +223,7 @@ otterdeploy/
 
 ## Built with
 
-TypeScript end to end — [Bun](https://bun.sh), [Turborepo](https://turbo.build),
+TypeScript end to end: [Bun](https://bun.sh), [Turborepo](https://turbo.build),
 [Hono](https://hono.dev), [oRPC](https://orpc.unnoq.com), [Zod](https://zod.dev),
 [Drizzle](https://orm.drizzle.team), [PostgreSQL](https://www.postgresql.org),
 [TanStack](https://tanstack.com) Router/DB, [Tailwind](https://tailwindcss.com),

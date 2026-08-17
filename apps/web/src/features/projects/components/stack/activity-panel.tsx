@@ -1,5 +1,5 @@
 /**
- * Activity tab for the bottom stack drawer — a live, project-scoped audit
+ * Activity tab for the bottom stack drawer: a live, project-scoped audit
  * feed (audit.listForProject). Newest first, 50 at a time with load-more
  * (capped at the API's 200; the org Audit page owns full history), refreshed
  * every 15s. Row idioms follow the org audit table: action in mono with a
@@ -27,7 +27,7 @@ const MAX_LIMIT = 200;
 type ProjectAudit = Awaited<ReturnType<typeof orpc.audit.listForProject.call>>;
 type ProjectAuditEvent = ProjectAudit["items"][number];
 
-/** Verb-family dot colors — semantic vocabulary only (no new hues). */
+/** Verb-family dot colors: semantic vocabulary only (no new hues). */
 const TONE_DOT: Record<ActionTone, string> = {
   create: "bg-info",
   destroy: "bg-destructive",
@@ -47,7 +47,7 @@ export function ActivityPanel({ projectId }: { projectId: ProjectId }) {
 
   if (query.isLoading) return <ActivityPending />;
   if (query.isError) {
-    return <CenterMessage text="Couldn't load activity — retrying on the next refresh." />;
+    return <CenterMessage text="Couldn't load activity. Retrying on the next refresh." />;
   }
 
   const items = query.data?.items ?? [];
@@ -78,7 +78,7 @@ export function ActivityPanel({ projectId }: { projectId: ProjectId }) {
         </button>
       ) : truncated ? (
         <div className="py-2 text-center text-[11px] text-muted-foreground/70">
-          Showing the latest {MAX_LIMIT} events — the Audit page has full history.
+          Showing the latest {MAX_LIMIT} events. The Audit page has full history.
         </div>
       ) : null}
     </div>

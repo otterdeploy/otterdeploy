@@ -69,7 +69,7 @@ async function resolveEnvironment(
     );
   }
   if (rest.length > 0) {
-    // Print the candidates first — `abort` exits, so a list after it would
+    // Print the candidates first: `abort` exits, so a list after it would
     // never be seen (this was the bug the old code shipped).
     err();
     for (const m of [match, ...rest]) {
@@ -116,7 +116,7 @@ const listCommand = defineCommand({
       envs.map((e) => [
         e.name,
         paint("id", e.id),
-        // "standalone" is a real state, not a missing value — dim, not absent.
+        // "standalone" is a real state, not a missing value, dim, not absent.
         e.projectId ?? dim("standalone"),
         dim(relativeTime(e.createdAt.toISOString())),
       ]),
@@ -158,7 +158,7 @@ const createCommand = defineCommand({
       ["project", projectSlug ?? dim("standalone")],
     ]);
     if (!env.projectId) {
-      note("Standalone — hidden from `environments list` until a project claims it.");
+      note("Standalone. Hidden from `environments list` until a project claims it.");
     }
   },
 });
@@ -180,9 +180,9 @@ const deleteCommand = defineCommand({
     const { client, projectId } = await scopeFor(args);
     const env = await resolveEnvironment(client, args.environment, projectId);
     if (!args.yes) {
-      // Name the collateral damage in the prompt — shared env vars go with it.
+      // Name the collateral damage in the prompt, shared env vars go with it.
       const proceed = await confirm(`Delete environment ${env.name} and its shared env vars?`);
-      if (!proceed) abort("Aborted — nothing was deleted.");
+      if (!proceed) abort("Aborted. Nothing was deleted.");
     }
     await client.env.delete({ id: env.id });
     ok(`Deleted environment ${env.name}.`);

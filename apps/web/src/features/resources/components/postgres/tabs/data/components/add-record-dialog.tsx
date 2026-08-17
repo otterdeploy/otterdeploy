@@ -1,5 +1,5 @@
 /**
- * Add-record modal — a typed form generated from the table's structure. Per
+ * Add-record modal. A typed form generated from the table's structure. Per
  * column: auto (identity/serial) fields are shown read-only as "auto"; booleans
  * get a select (default / true / false / NULL); json a textarea; everything
  * else an input with the column DEFAULT as placeholder. Required = non-nullable
@@ -67,8 +67,11 @@ export function AddRecordDialog({
   const mutateRow = useMutateRow();
   const [showIssues, setShowIssues] = useState(false);
 
+  // Annotated (not cast) so useForm infers the open string-keyed draft shape
+  // rather than the empty literal. Same fresh object per render as before.
+  const defaultValues: InsertDraft = {};
   const form = useForm({
-    defaultValues: {} as InsertDraft,
+    defaultValues,
     onSubmit: ({ value }) => {
       const issues = validateInsertDraft(structure, value);
       if (issues.length > 0) return setShowIssues(true);
@@ -160,7 +163,7 @@ export function AddRecordDialog({
 }
 
 const ISSUE_TEXT: Record<string, string> = {
-  required: "Required — the column is NOT NULL with no default.",
+  required: "Required. The column is NOT NULL with no default.",
   "invalid-json": "Not valid JSON.",
   "invalid-number": "Not a number.",
 };
@@ -217,7 +220,7 @@ function FieldControl({
   value: string;
   onChange: (v: string) => void;
 }) {
-  // Identity / serial — the database generates the value.
+  // Identity / serial: the database generates the value.
   if (col.isAuto) {
     return (
       <div className="rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[12px] text-muted-foreground/70 ring-1 ring-foreground/10">

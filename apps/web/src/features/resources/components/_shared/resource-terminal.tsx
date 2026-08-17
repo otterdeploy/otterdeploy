@@ -4,7 +4,7 @@
  * Resolves the resource → its running container via the existing
  * `terminalContainersCollection` TanStack DB collection, then mounts
  * `<TerminalSession>` against that container's id. "Reconnect" /
- * "Clear" remount the session by bumping a generation key — clean way
+ * "Clear" remount the session by bumping a generation key: clean way
  * to recycle the underlying WebSocket + PTY.
  *
  * `projectSlug` arrives as a prop instead of being read off the route
@@ -30,11 +30,12 @@ export type ResourceTerminalMatch =
   | { kind: "service"; resourceId: string }
   | {
       kind: "database";
-      /** Engine label expected on the container — terminal-targets
+      /** Engine label expected on the container. Terminal-targets
        *  stamps this from `otterdeploy.resource.type`. Drives whether the
        *  shell can attach (only running containers with the matching
-       *  engine label show up). */
-      engine: "postgres" | "redis" | "mariadb" | "mongodb";
+       *  engine label show up; engines the terminal backend doesn't list,
+       *  e.g. clickhouse, simply never match and render the fallback). */
+      engine: "postgres" | "redis" | "mariadb" | "mongodb" | "clickhouse";
       serviceName: string;
     };
 
@@ -67,7 +68,7 @@ export function ResourceTerminal({ match, fallbackLabel, projectSlug }: Resource
   // this object is the shell connection's dependency, and `containers` comes
   // from a live collection that hands back fresh rows on every refresh. Built
   // inline, a new identity per render tore the WebSocket down and reopened it,
-  // which the UI rendered as a permanent "connection lost — reconnecting".
+  // which the UI rendered as a permanent "connection lost, reconnecting".
   const containerId = target?.containerId;
   const serviceName = target ? (target.serviceName ?? target.name) : undefined;
   const replicaSlot = target?.replicaSlot ?? "1";
@@ -86,14 +87,14 @@ export function ResourceTerminal({ match, fallbackLabel, projectSlug }: Resource
   );
 
   // Reconnect / Clear both recycle the underlying WebSocket + PTY by bumping
-  // the generation key — mirrors the original behaviour.
+  // the generation key: mirrors the original behaviour.
   const recycle = () => setGeneration((g) => g + 1);
 
   return (
     <>
       {/* Inline shell. The panel mounts us as a flex child of an
           `absolute inset-0` flex column with a real height, so `flex-1` fills
-          it — no viewport math, no leftover gap. `flex-1` (not `h-full`)
+          it, no viewport math, no leftover gap. `flex-1` (not `h-full`)
           because a percentage height won't resolve against a flex/absolute
           parent, which leaves xterm unable to measure and stuck at its
           default ~24-row size. */}
@@ -107,7 +108,7 @@ export function ResourceTerminal({ match, fallbackLabel, projectSlug }: Resource
         boxClassName="min-h-0 flex-1"
       />
 
-      {/* Fullscreen — a portal overlay, same mechanism the Data tab uses. */}
+      {/* Fullscreen: a portal overlay, same mechanism the Data tab uses. */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
         {/* 100svh, not 100vh: on mobile browsers vh includes the collapsible URL
             bar, so a vh-sized fullscreen terminal runs off the bottom of the
@@ -140,7 +141,7 @@ interface TerminalShellProps {
   onReconnect: () => void;
   expanded: boolean;
   onToggleExpand: () => void;
-  /** Sizing for the outer box — the height chain lives here, not inside. */
+  /** Sizing for the outer box: the height chain lives here, not inside. */
   boxClassName?: string;
 }
 
@@ -167,7 +168,7 @@ function TerminalShell({
       )}
     >
       <div className="flex items-center justify-between gap-2 border-b border-border/40 bg-muted/10 px-3 py-2 sm:gap-3">
-        {/* The label is a container id / service path — long enough to push the
+        {/* The label is a container id / service path. Long enough to push the
             controls off a phone, so it truncates and they stay pinned. */}
         <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
           {headerLabel}

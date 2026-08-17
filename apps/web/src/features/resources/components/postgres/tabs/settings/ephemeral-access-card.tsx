@@ -1,5 +1,5 @@
 /**
- * Ephemeral access — mint short-lived connection URLs (real Postgres roles
+ * Ephemeral access: mint short-lived connection URLs (real Postgres roles
  * with a TTL) to hand to agents and scripts. The URL is shown exactly once at
  * mint time (see ephemeral-mint-dialog); this card is the lifecycle/audit view
  * with one-click revoke. Expired credentials are auto-disposed by the server's
@@ -50,7 +50,7 @@ export function EphemeralAccessCard({ resource }: { resource: PostgresBodyProps[
   return (
     <SettingsCard
       title="Ephemeral access"
-      description="Short-lived connection URLs to hand to agents and scripts. Postgres refuses logins past the TTL and the platform disposes the role — nothing to clean up."
+      description="Short-lived connection URLs to hand to agents and scripts. Postgres refuses logins past the TTL and the platform disposes the role, so there's nothing to clean up."
     >
       <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0">
         <span className="text-[11px] text-muted-foreground">

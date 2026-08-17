@@ -4,7 +4,7 @@ import { env } from "@otterdeploy/env/server";
 
 /**
  * BullMQ connection options derived from REDIS_URL. BullMQ instantiates its
- * own ioredis client per Queue/Worker — we only hand it the connection
+ * own ioredis client per Queue/Worker, we only hand it the connection
  * details, so we never import ioredis directly.
  *
  * `maxRetriesPerRequest: null` is required by BullMQ so blocking pops

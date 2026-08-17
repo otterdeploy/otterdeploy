@@ -1,4 +1,4 @@
-# Wave B — Agent bucket 1
+# Wave B: Agent bucket 1
 
 
 ## src/routes/_app/$orgSlug/-components/settings-email-fields.tsx

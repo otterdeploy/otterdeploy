@@ -14,7 +14,7 @@ const REF = /\$(\$)?\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g;
  * Resolve compose `${VAR}` / `${VAR:-default}` refs in a single string against
  * the project variables. `$$` escapes a literal `$`. Unknown refs (no default)
  * collapse to empty and are collected in `missing`. Compose applies this to
- * EVERY string field — image, command, ports, env — not just env values.
+ * EVERY string field (image, command, ports, env) not just env values.
  */
 export function interpolate(
   value: string,
@@ -55,7 +55,7 @@ export interface ComposeVarRef {
 
 /**
  * Every `${VAR}` ref across a parsed compose file's string fields (image,
- * command, entrypoint, env values) — unique by name, preferring a default if
+ * command, entrypoint, env values): unique by name, preferring a default if
  * any occurrence supplies one. Drives the wizard's "fill in these variables"
  * step. `$$`-escaped refs are ignored.
  */
@@ -71,7 +71,7 @@ export function collectVarRefs(parsed: {
   const scan = (value: string | null | undefined) => {
     if (!value) return;
     for (const m of value.matchAll(REF)) {
-      if (m[1]) continue; // `$$` escape — not a real ref
+      if (m[1]) continue; // `$$` escape, not a real ref
       const name = m[2];
       if (!name) continue;
       const def = m[3] ?? null;

@@ -7,23 +7,23 @@ import type {
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
- * Notification channels — the routing config that fans platform events
+ * Notification channels: the routing config that fans platform events
  * (deploy / build / health / cert / backup / ssh / audit) out to Slack,
  * Discord, email, webhooks, Telegram, and PagerDuty. Distinct from the
  * `notification` table (./notification.ts), which is the per-user in-app feed.
  *
- *   notification_channel — one row per configured destination. `config` holds
+ *   notification_channel: one row per configured destination. `config` holds
  *     non-secret params (webhook URL, recipient address, SMTP host, telegram
  *     chat id, pagerduty routing details); `encryptedSecret` is the AES-GCM
- *     ciphertext for the sensitive half (bot token, HMAC signing secret) —
+ *     ciphertext for the sensitive half (bot token, HMAC signing secret):
  *     base64url, never logged (see packages/api/src/lib/crypto.ts).
  *
- *   notification_subscription — the event→channel routing grid. One row per
+ *   notification_subscription: the event→channel routing grid. One row per
  *     (channel, eventId) the channel is subscribed to. Toggling a matrix cell
  *     inserts/deletes a row. `eventId` is a stable catalog string (e.g.
  *     "deploy.failed") owned by the API, not an FK.
  *
- *   notification_delivery — append-only delivery log. Powers the per-channel
+ *   notification_delivery: append-only delivery log. Powers the per-channel
  *     stats on the card (events in 7d, last delivery, recent failures → the
  *     "degraded" pill). The effective display status is derived from this, not
  *     stored on the channel.
@@ -48,7 +48,7 @@ export const notificationChannelKindEnum = pgEnum("notification_channel_kind", [
 ]);
 
 /**
- * Operator-controlled lifecycle state. `degraded` is NOT stored here — it's
+ * Operator-controlled lifecycle state. `degraded` is NOT stored here. It's
  * derived from recent delivery failures in the presenter. `disconnected` means
  * the channel was created but never confirmed (e.g. a Telegram bot that hasn't
  * been linked).
@@ -65,11 +65,11 @@ export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_stat
 ]);
 
 // ---------------------------------------------------------------------------
-// notification_channel — one configured destination
+// notification_channel: one configured destination
 // ---------------------------------------------------------------------------
 
 // NB: the physical table is `notification_channel_config`, not
-// `notification_channel` — the latter name is already taken by the in-app
+// `notification_channel`: the latter name is already taken by the in-app
 // delivery-method enum (pgEnum "notification_channel" in ./notification.ts),
 // and Postgres won't let a table and a type share a name.
 export const notificationChannel = pgTable(
@@ -86,7 +86,7 @@ export const notificationChannel = pgTable(
     kind: notificationChannelKindEnum("kind").notNull(),
     name: text("name").notNull(),
     // Primary destination string (webhook URL, recipient email, telegram chat
-    // id). Non-secret — masked for display in the presenter, stored whole.
+    // id). Non-secret, masked for display in the presenter, stored whole.
     target: text("target").notNull(),
     // Human-readable transport descriptor shown on the card
     // (e.g. "incoming-webhook", "POST · HMAC-SHA256", "SMTP via Resend").
@@ -106,7 +106,7 @@ export const notificationChannel = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// notification_subscription — event→channel routing grid
+// notification_subscription: event→channel routing grid
 // ---------------------------------------------------------------------------
 
 export const notificationSubscription = pgTable(
@@ -137,7 +137,7 @@ export const notificationSubscription = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// notification_delivery — append-only delivery log (powers card stats)
+// notification_delivery: append-only delivery log (powers card stats)
 // ---------------------------------------------------------------------------
 
 export const notificationDelivery = pgTable(

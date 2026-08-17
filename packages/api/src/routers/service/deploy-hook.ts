@@ -2,8 +2,8 @@
  * Deploy-hook context resolution.
  *
  * Pre/post-deploy hooks run as throwaway containers off the freshly-built
- * image. To behave like the service itself — reach the project's database by
- * its network alias, see the same resolved env — a hook must run on the same
+ * image. To behave like the service itself: reach the project's database by
+ * its network alias, see the same resolved env. A hook must run on the same
  * project network with the same env the running container gets. This resolves
  * both, reusing `resolveServiceEnv` (so `${{db.DATABASE_URL}}`-style refs are
  * expanded identically) and the driver's network-naming rule.
@@ -23,7 +23,7 @@ import { resolveServiceEnv } from "../../lib/variables";
 import { sanitizeSlug } from "./views";
 
 export interface DeployHookContext {
-  /** Resolved env the hook container runs with — identical to the service's. */
+  /** Resolved env the hook container runs with. Identical to the service's. */
   env: Record<string, string>;
   /** Project network the hook joins, so service/DB aliases resolve. Matches
    *  the name both runtime drivers use (`<prefix><sanitized-slug>`). */
@@ -34,7 +34,7 @@ export async function resolveDeployHookContext(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
-  // Preview scoping — hooks (db migrations!) must resolve refs exactly like
+  // Preview scoping: hooks (db migrations!) must resolve refs exactly like
   // the container they precede: a preview's opt-in DB branch, never prod.
   previewId: PreviewId | null = null,
 ): Promise<Result<DeployHookContext, ResolveError | RefMissingResourceError>> {

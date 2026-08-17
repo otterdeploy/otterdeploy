@@ -4,13 +4,13 @@
  * Only offered for resources that have never been created. A deployed one has
  * its container, swarm service and volume names derived from its name, so
  * renaming the manifest key would repoint the project at infrastructure that
- * doesn't exist — the server refuses it, and the menu doesn't offer it.
+ * doesn't exist. The server refuses it, and the menu doesn't offer it.
  *
  * The rename itself is a manifest edit: the key moves and every
  * `${service:old.…}` / `${database:old.…}` ref that addressed it is rewritten
  * in the same write (see routers/project/manifest-rename.ts). Nothing deploys.
  *
- * Rendered by GraphCanvas as a SIBLING of the menu — the DropdownMenu unmounts
+ * Rendered by GraphCanvas as a SIBLING of the menu. The DropdownMenu unmounts
  * the moment the item is clicked, so a dialog nested inside would go with it.
  * Same target-driven shape as graph-node-delete.tsx.
  */
@@ -38,7 +38,7 @@ import { Input } from "@/shared/components/ui/input";
 import { toastMessage } from "@/shared/lib/errors";
 import { orpc } from "@/shared/server/orpc";
 
-/** The manifest's key grammar, minus the trailing hyphen it wrongly allows —
+/** The manifest's key grammar, minus the trailing hyphen it wrongly allows.
  *  `mariadb-` sanitizes to `mariadb` when Docker names are derived, which
  *  collides with a real `mariadb` and fails the create forever. */
 function nameIssue(value: string): string | null {
@@ -64,19 +64,27 @@ export function GraphRenameDialog({
   const from = target?.data.name ?? "";
   const [value, setValue] = useState("");
   const kind = target?.data.kind;
+  // The menu only offers this for the three named kinds; anything else (or a
+  // closed dialog's null target/project) can never reach a submit.
+  const renameable =
+    kind === "service" || kind === "database" || kind === "compose" ? kind : null;
 
   const rename = useMutation({
-    mutationFn: (to: string) =>
-      orpc.project.manifest.rename.call({
-        projectId: projectId as ProjectId,
-        // The menu only offers this for the three named kinds.
-        resource: kind as "service" | "database" | "compose",
+    mutationFn: (to: string) => {
+      if (projectId === null || renameable === null) {
+        return Promise.reject(new Error("Rename unavailable for this resource"));
+      }
+      return orpc.project.manifest.rename.call({
+        projectId,
+        resource: renameable,
         from,
         to,
-      }),
+      });
+    },
     onSuccess: async (_res, to) => {
       toast.success(`Renamed to ${to}`);
-      await invalidateManifestConsumers(projectId as ProjectId);
+      // mutationFn rejected above when projectId was null, so it is set here.
+      if (projectId !== null) await invalidateManifestConsumers(projectId);
       onClose();
     },
     onError: (err) => toast.error(toastMessage(err, "Rename failed")),

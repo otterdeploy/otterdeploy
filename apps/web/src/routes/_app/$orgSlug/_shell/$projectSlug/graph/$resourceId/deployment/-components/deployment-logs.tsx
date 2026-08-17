@@ -7,7 +7,7 @@ import { useLogStream } from "@/features/logs/data/use-log-stream";
 import { orpc } from "@/shared/server/orpc";
 
 /** True once the build has stopped producing output. Anything that isn't
- *  actively building has a build log that can no longer change — including a
+ *  actively building has a build log that can no longer change. Including a
  *  running deployment, whose build completed to get there. Unknown/absent
  *  status is treated as still-building: re-streaming is merely wasteful, while
  *  caching a live log shows a stalled one. */
@@ -15,7 +15,7 @@ function isBuildFinished(status: string | null | undefined): boolean {
   return status != null && status !== "pending" && status !== "building";
 }
 
-/** True once this deployment's container can no longer emit anything — it has
+/** True once this deployment's container can no longer emit anything. It has
  *  been replaced, removed, or never ran. A "running" deployment is excluded on
  *  purpose: its tail is live. */
 function isSupersededDeployment(status: string | null | undefined): boolean {
@@ -38,7 +38,7 @@ export function DeploymentLogsBody({
   projectId: string;
   resourceId: string;
   deploymentId: string;
-  /** Deployment status — decides whether this tail is replayable. */
+  /** Deployment status: decides whether this tail is replayable. */
   deploymentStatus?: string | null;
 }) {
   const { lines, status } = useLogStream({
@@ -68,7 +68,7 @@ export function DeploymentLogsBody({
     key: `${projectId}|${resourceId}|${deploymentId}`,
     // Replay from memory ONLY once this deployment can no longer produce
     // output. A running container's tail ends whenever the container stops,
-    // and it must re-attach when it comes back — caching that would pin the
+    // and it must re-attach when it comes back. Caching that would pin the
     // view to the last thing it happened to print.
     cacheCompleted: isSupersededDeployment(deploymentStatus),
   });
@@ -107,7 +107,7 @@ export function BuildLogsBody({
   deploymentStatus,
 }: {
   deploymentId: string;
-  /** Deployment status — the build log is only replayable once the build is
+  /** Deployment status: the build log is only replayable once the build is
    *  over. */
   deploymentStatus?: string | null;
 }) {
@@ -191,7 +191,7 @@ function EmptyTab({ title, hint }: { title: string; hint: string }) {
   );
 }
 
-// Centered empty/loading state rendered inside a LogViewer's scroller — a muted
+// Centered empty/loading state rendered inside a LogViewer's scroller. A muted
 // icon over a title + hint, so an empty pane reads as a deliberate state rather
 // than a stray line of text.
 function LogEmpty({ icon, title, hint }: { icon: IconSvgElement; title: string; hint: string }) {

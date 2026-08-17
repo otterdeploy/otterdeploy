@@ -74,7 +74,7 @@ describe("shortUserAgent", () => {
   });
 
   it("returns a dash for empty input", () => {
-    expect(shortUserAgent("")).toBe("—");
-    expect(shortUserAgent("   ")).toBe("—");
+    expect(shortUserAgent("")).toBe("–");
+    expect(shortUserAgent("   ")).toBe("–");
   });
 });

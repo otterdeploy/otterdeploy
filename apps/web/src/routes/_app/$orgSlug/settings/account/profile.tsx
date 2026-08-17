@@ -1,5 +1,5 @@
 /**
- * Account → Profile — the signed-in user's identity (name, avatar, email).
+ * Account → Profile: the signed-in user's identity (name, avatar, email).
  * Self-scoped (better-auth client APIs), so there's no RBAC gating. Password,
  * 2FA and device sessions live on the sibling Security / Sessions pages.
  */
@@ -23,7 +23,7 @@ function ProfileRoute() {
         title="Profile"
         description={
           <>
-            Your own identity on this install —{" "}
+            Your own identity on this install:{" "}
             <span className="font-medium text-foreground">{user.email}</span>.
           </>
         }

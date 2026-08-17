@@ -61,7 +61,7 @@ function AuditMobileList({
           <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
             <TargetKindIcon targetType={e.targetType} />
             <span className="truncate" title={e.targetId ?? undefined}>
-              {e.targetId ?? e.targetType ?? "—"}
+              {e.targetId ?? e.targetType ?? "–"}
             </span>
           </span>
 
@@ -175,7 +175,7 @@ export function AuditTableSection({
                 <span className="flex items-center gap-1.5">
                   <TargetKindIcon targetType={e.targetType} />
                   <span className="truncate" title={e.targetId ?? undefined}>
-                    {e.targetId ?? e.targetType ?? "—"}
+                    {e.targetId ?? e.targetType ?? "–"}
                   </span>
                 </span>
               </TableCell>
@@ -183,7 +183,7 @@ export function AuditTableSection({
                 <OutcomeBadge outcome={e.outcome} />
               </TableCell>
               <TableCell className="font-mono text-[11px] text-muted-foreground">
-                {e.ip ?? "—"}
+                {e.ip ?? "–"}
               </TableCell>
               <TableCell className="pr-4 text-right">
                 <HugeiconsIcon

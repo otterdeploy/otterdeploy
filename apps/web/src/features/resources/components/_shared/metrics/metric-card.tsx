@@ -1,7 +1,7 @@
 /**
  * Card shell for a single metric: an icon + title on the left, the current
  * value and a couple of window-level stats on the right, and the time-series
- * chart below. Presentational — the metrics tab feeds it the headline string,
+ * chart below. Presentational: the metrics tab feeds it the headline string,
  * stat chips, and chart element.
  */
 
@@ -24,7 +24,7 @@ interface MetricCardProps {
   value: ReactNode;
   /** Muted secondary readings shown under the headline (peak / avg / limit). */
   stats?: MetricStat[];
-  /** Caption over the headline, e.g. "current" — disambiguates the big number
+  /** Caption over the headline, e.g. "current": disambiguates the big number
    *  from the peak/avg stats below it (both live in the same units, so
    *  without a label "0%" next to "peak 2%" reads like a bug rather than a
    *  point-in-time reading). Omit when the headline is self-explanatory. */

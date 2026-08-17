@@ -1,14 +1,14 @@
 /**
  * The two auth paths the wall can offer: the PIN form (for routes with a PIN
  * configured) and the org/email pair (for routes without). Split from wall.tsx
- * purely to keep that file under the line cap — these are markup only; the
+ * purely to keep that file under the line cap. These are markup only; the
  * submit handlers live in the wall's inline script.
  */
 
 import type { FC } from "hono/jsx";
 
 /** PIN-only card body: the route has a PIN configured, so the PIN is the ONE
- *  way in — no auth alternatives are offered beside it. */
+ *  way in, no auth alternatives are offered beside it. */
 export const PinAuth: FC = () => (
   <form id="pinForm">
     <label class="field-label" for="pin">

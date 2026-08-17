@@ -14,14 +14,14 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * Outbound rides the collection for create/update/delete (optimistic rows,
  * post-create refetch replaces the temp id). Inbound is a READ collection
  * only: `create` returns the one-time plaintext secret (a metadata side
- * channel would hide that contract), and pause/edit flip server-shaped rows —
+ * channel would hide that contract), and pause/edit flip server-shaped rows,
  * so all inbound writes are direct `client.webhooks.inbound.*` calls followed
  * by `invalidateInbound()`. Deliveries are a plain polling query on the page
  * (append-only server data, nothing to mutate).
  */
 
 const outboundQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip (see
+  // Stable id, required for SQLite persistence to round-trip (see
   // projectCollection in features/projects/data/project.ts).
   id: "webhooks-outbound",
   ...orpc.webhooks.outbound.list.queryOptions(),
@@ -34,7 +34,7 @@ const outboundQueryOptions = queryCollectionOptions({
           url: m.modified.url,
           events: m.modified.events,
         });
-        // The optimistic row carries a temp id and empty stats — refetch so
+        // The optimistic row carries a temp id and empty stats. Refetch so
         // the persisted row (server id, minted secret) replaces it.
         void queryClient.invalidateQueries({
           queryKey: orpc.webhooks.outbound.list.queryKey(),
@@ -64,7 +64,7 @@ const outboundQueryOptions = queryCollectionOptions({
 
 type OutboundRow = Awaited<ReturnType<typeof orpc.webhooks.outbound.list.call>>[number];
 
-// Two-branch createCollection + pinned generics — same type gymnastics as
+// Two-branch createCollection + pinned generics: same type gymnastics as
 // projectCollection (features/projects/data/project.ts).
 export const outboundCollection = persistence
   ? createCollection(
@@ -77,7 +77,7 @@ export const outboundCollection = persistence
   : createCollection(outboundQueryOptions);
 
 const inboundQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip.
+  // Stable id, required for SQLite persistence to round-trip.
   id: "webhooks-inbound",
   ...orpc.webhooks.inbound.list.queryOptions(),
   queryKey: orpc.webhooks.inbound.list.queryKey(),
@@ -103,7 +103,7 @@ export const inboundCollection = persistence
     )
   : createCollection(inboundQueryOptions);
 
-/** Refetch outbound webhooks (after pause — server-derived status). */
+/** Refetch outbound webhooks (after pause, server-derived status). */
 export function invalidateOutbound() {
   return queryClient.invalidateQueries({
     queryKey: orpc.webhooks.outbound.list.queryKey(),

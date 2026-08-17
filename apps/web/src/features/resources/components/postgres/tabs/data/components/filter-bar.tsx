@@ -2,7 +2,7 @@
  * Filter rows for the "Filter Data" popover. One row per filter:
  * [✓ enable] [Column ▾] [Operator ▾] [Value] [×]. Operator is disabled until a
  * column is chosen; Value until a value-taking operator is chosen. Nothing is
- * hidden — controls disable in place. Add Filter / Cancel / Apply live in the
+ * hidden: controls disable in place. Add Filter / Cancel / Apply live in the
  * popover footer (./filter-popover).
  */
 
@@ -23,7 +23,6 @@ import {
 import {
   type Filter,
   FILTER_OPS,
-  type FilterOp,
   isNumericOp,
   isValidNumericValue,
   opNeedsValue,
@@ -66,7 +65,9 @@ export function FilterBar({
           <Select
             value={f.op}
             disabled={!f.column}
-            onValueChange={(v) => patch(f.id, { op: (v ?? "") as FilterOp | "" })}
+            onValueChange={(v) =>
+              patch(f.id, { op: FILTER_OPS.find((o) => o.value === v)?.value ?? "" })
+            }
           >
             <SelectTrigger size="sm" className="w-40 text-[12px]">
               <SelectValue placeholder="Operator..." />
@@ -87,7 +88,7 @@ export function FilterBar({
             placeholder={isNumericOp(f.op) ? "Number..." : "Value..."}
             disabled={!f.column || !opNeedsValue(f.op)}
             inputMode={isNumericOp(f.op) ? "decimal" : undefined}
-            // Numeric ops only compile with a numeric value — flag anything else.
+            // Numeric ops only compile with a numeric value: flag anything else.
             aria-invalid={
               isNumericOp(f.op) && f.value !== "" && !isValidNumericValue(f.value)
                 ? true

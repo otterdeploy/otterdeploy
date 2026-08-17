@@ -108,7 +108,7 @@ export function ReplicasSection() {
         </div>
         {/* Not a toggle: start-first + auto-rollback is hardcoded in the
             swarm driver's UpdateConfig for every service. (There is no
-            autoscaler — the old "enable autoscaling" switch wrote to
+            autoscaler: the old "enable autoscaling" switch wrote to
             nothing and was removed.) */}
         <p className="mt-3.5 border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
           Deploys are zero-downtime by default: new replicas start first and traffic drains only

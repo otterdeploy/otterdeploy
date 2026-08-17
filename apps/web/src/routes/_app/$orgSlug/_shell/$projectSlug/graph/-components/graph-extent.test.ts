@@ -63,7 +63,7 @@ describe("applyBounds", () => {
 
   it("keeps object identity when nothing changed", () => {
     // The graph leans on reference stability to keep re-renders to the dragged
-    // card alone — a fresh object every frame would defeat the memoized nodes.
+    // card alone: a fresh object every frame would defeat the memoized nodes.
     const nodes = [node("a", 10, 10)];
     expect(applyBounds(nodes, extent, new Map())).toBe(nodes);
     expect(applyBounds(nodes, extent, new Map())[0]).toBe(nodes[0]);

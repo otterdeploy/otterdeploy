@@ -5,7 +5,7 @@
  * per-type value reader.
  *
  * Everything runs inside the database's own task container via the same Docker
- * exec channel the backup engine uses — we never connect over the overlay
+ * exec channel the backup engine uses. We never connect over the overlay
  * network, so creds stay off the wire (see backups/exec.ts). Commands go
  * through `redis-cli`. The browse/scan/value reads are issued as a small Lua
  * script via EVAL that returns `cjson.encode(...)` (see redis-scripts.ts), so we
@@ -72,7 +72,7 @@ async function withRedisContainer<T>(
 
 // ── public API ──────────────────────────────────────────────────────────────
 
-/** Raw `INFO` payload (all sections) — the org catalog parses memory/clients/
+/** Raw `INFO` payload (all sections): the org catalog parses memory/clients/
  *  version stats out of it. Read-only single round-trip. */
 export async function redisInfoRaw(conn: DbConnInfo): Promise<string> {
   return withRedisContainer(conn, (run) => run(["INFO"]));

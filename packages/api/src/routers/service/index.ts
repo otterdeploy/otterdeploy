@@ -1,5 +1,4 @@
-import type { DeploymentId } from "@otterdeploy/shared/id";
-
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import { projectScopedProcedure, requirePermission } from "../..";
@@ -94,7 +93,7 @@ export const serviceRouter = {
       // Snapshot first: `service.update` covers replicas, health checks, ports,
       // build config and source, and a row saying only "the service was
       // updated" answers none of the questions asked of it afterwards. Read
-      // failures are ignored — an update the caller is entitled to must not
+      // failures are ignored. An update the caller is entitled to must not
       // fail because the audit diff could not be built.
       const before = await getService({
         projectId: input.projectId,
@@ -186,12 +185,15 @@ export const serviceRouter = {
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
         rollbackToDeploymentId: input.deploymentId,
       });
+      // The contract accepts a plain string; the prefix check is the boundary
+      // that brands it. A malformed id can't name any deployment: NOT_FOUND.
+      if (!hasPrefix(input.deploymentId, ID_PREFIX.deployment)) throw errors.NOT_FOUND();
       const result = await rollbackService(
         {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          deploymentId: input.deploymentId as DeploymentId,
+          deploymentId: input.deploymentId,
         },
         context.log,
       );

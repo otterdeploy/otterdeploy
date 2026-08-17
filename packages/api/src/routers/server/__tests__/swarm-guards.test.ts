@@ -17,7 +17,7 @@ const node = (over: Partial<Node> = {}): Node => ({
 describe("quorumRequired", () => {
   test("is the raft majority: floor(m/2)+1", () => {
     expect(quorumRequired(1)).toBe(1);
-    // 2 managers need BOTH reachable — worse fault tolerance than 1.
+    // 2 managers need BOTH reachable, worse fault tolerance than 1.
     expect(quorumRequired(2)).toBe(2);
     expect(quorumRequired(3)).toBe(2);
     expect(quorumRequired(4)).toBe(3);

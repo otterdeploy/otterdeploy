@@ -1,10 +1,10 @@
 /**
- * "Data" tab for a Redis resource — a native key-value browser (read-only).
+ * "Data" tab for a Redis resource: a native key-value browser (read-only).
  *
  * Redis has no tables or SQL, so this is deliberately *not* the relational
  * studio: a logical-db picker + a SCAN-paged key list (type + TTL per key) on
  * the left, and a per-type value inspector on the right (string → text;
- * list/set/hash/zset/stream → a normalized grid). Nothing here can write — the
+ * list/set/hash/zset/stream → a normalized grid). Nothing here can write. The
  * server only ever issues read commands and there is no free-text command
  * input. "Open editor" expands the same studio to fullscreen.
  */
@@ -147,7 +147,7 @@ function RedisStudio({
 
   return (
     <div className={cn("flex overflow-hidden rounded-lg border bg-card", boxClassName)}>
-      {/* ── Left rail — db picker + key browser ──────────────────────────── */}
+      {/* ── Left rail, db picker + key browser ──────────────────────────── */}
       <KeyBrowser
         db={db}
         dbCounts={dbCounts}
@@ -167,7 +167,7 @@ function RedisStudio({
         onLoadMore={loadMore}
       />
 
-      {/* ── Main — value inspector ───────────────────────────────────────── */}
+      {/* ── Main: value inspector ───────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
         {!selectedKey ? (
           <EmptyState title="Select a key" body="Pick a key from the left to inspect its value." />

@@ -3,18 +3,18 @@
  *
  * A daemon volume belongs to a platform resource through one of four links:
  *
- *   1. container label — a container mounting the volume carries the
+ *   1. container label: a container mounting the volume carries the
  *      provisioner's `otterdeploy.resource.id` label (databases + git-sourced
  *      services stamp it on every task container).
- *   2. stack namespace — a container mounting the volume carries
+ *   2. stack namespace: a container mounting the volume carries
  *      `com.docker.stack.namespace=<stackName>`, which maps to a compose
  *      resource's unique `stack_name`.
- *   3. name-convention claim — database volumes are named
+ *   3. name-convention claim: database volumes are named
  *      `otterdeploy-<enginePrefix>data-<projectSlug>-<resourceName>` by
  *      `buildVolumeName` (plus `legacy_volume_name` for pre-migration rows),
  *      and compose stack volumes are prefixed `<stackName>_`. These claims
  *      hold even when the owning container is currently gone.
- *   4. mount row claim — `service_mount` rows with `type=volume` record the
+ *   4. mount row claim. `service_mount` rows with `type=volume` record the
  *      exact volume name a service mounts.
  *
  * Orphan = zero containers reference the volume AND no resource claims it.

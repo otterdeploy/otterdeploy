@@ -1,5 +1,5 @@
 /**
- * od-5j8.9 — mint the single-use ticket that authenticates a /pty WebSocket
+ * od-5j8.9: mint the single-use ticket that authenticates a /pty WebSocket
  * upgrade, and the step-up re-authentication that gates it. The WS upgrade no
  * longer trusts ambient cookies at all; `TerminalSession` calls `getTicket`
  * right before opening (or re-opening, after a drop) each connection.
@@ -14,7 +14,7 @@ export type ShellTarget = { kind: "container"; containerId: string } | { kind: "
 
 /** Map a terminal session's source to the target the server can mint a
  *  ticket for. `null` for sources with no server-side backend yet (remote
- *  ssh, database consoles) — same set `TerminalSession`'s old `buildWsUrl`
+ *  ssh, database consoles): same set `TerminalSession`'s old `buildWsUrl`
  *  already treated as not-implemented. */
 export function shellTargetFor(source: SessionSource): ShellTarget | null {
   switch (source.kind) {
@@ -35,7 +35,7 @@ export class StepUpRequiredError extends Error {
 }
 
 /** Mint a ticket for `target`. Throws `StepUpRequiredError` when the caller
- *  needs to complete step-up first (see `submitStepUp` below) — the caller
+ *  needs to complete step-up first (see `submitStepUp` below). The caller
  *  is expected to prompt, call `submitStepUp`, then retry. */
 export async function mintShellTicket(target: ShellTarget): Promise<{ ticket: string }> {
   try {
@@ -73,5 +73,5 @@ export function stepUpErrorMessage(err: unknown): string {
         break;
     }
   }
-  return err instanceof Error ? err.message : "Couldn't verify — try again.";
+  return err instanceof Error ? err.message : "Couldn't verify. Try again.";
 }

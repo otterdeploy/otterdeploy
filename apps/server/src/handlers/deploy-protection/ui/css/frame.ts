@@ -1,6 +1,6 @@
 /**
  * Console-frame styling for the wall's full-screen status pages (ErrorPage +
- * Interstitial). The web `ErrorScreen` aesthetic ported to server HTML — dark,
+ * Interstitial). The web `ErrorScreen` aesthetic ported to server HTML: dark,
  * masked grid, accent glow, grain, corner-tick frame. Caller passes the
  * accent/glow; the static rules live in a module const so the builder stays a
  * short function. Extracted verbatim from deploy-protection.tsx.

@@ -2,7 +2,7 @@
  * Resolve a collision-free compose stack name for the create wizard.
  *
  * Deploying a template that's already in the project used to overwrite the
- * existing `composes[name]` entry with an identical one — a no-op diff, so the
+ * existing `composes[name]` entry with an identical one: a no-op diff, so the
  * wizard reported success and nothing happened. Instead of failing, we detect
  * the collision live and hand back a unique name (`plausible`, `plausible-2`,
  * …). The name field shows an "already exists" note with the resolved name;
@@ -21,7 +21,7 @@ import { toResourceName } from "./compose-wizard-shared";
 export interface UniqueStackName {
   /** The normalized name the operator asked for (input or derived default). */
   base: string;
-  /** `base` when free, else `base-2` / `base-3` / … — what stageStack writes. */
+  /** `base` when free, else `base-2` / `base-3` / …: what stageStack writes. */
   name: string;
   /** True when `base` was already taken and `name` was bumped. */
   collides: boolean;
@@ -41,7 +41,7 @@ export function useUniqueStackName(
   rawName: string,
   derivedName: string,
 ): UniqueStackName {
-  // The staged manifest is the source of truth for what names are taken — the
+  // The staged manifest is the source of truth for what names are taken. The
   // graph's pending ghosts come from it too. queryKey/refetch mirror the
   // pending-changes bar so this shares one cache entry, not a second poller.
   const manifest = useQuery(orpc.project.manifest.get.queryOptions({ input: { id: projectId } }));

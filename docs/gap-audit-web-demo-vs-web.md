@@ -1,4 +1,4 @@
-# Gap Audit — `apps/web-demo` (design target) vs `apps/web` (implementation)
+# Gap Audit: `apps/web-demo` (design target) vs `apps/web` (implementation)
 
 Date: 2026-07-09. Method: six parallel deep-read audits, every demo screen read in full and
 compared file-by-file against its real-app counterpart. Tags: **[MISSING]** designed in the demo,
@@ -8,7 +8,7 @@ absent in the app · **[DIVERGENT]** exists but differs · **[EXTRA]** app excee
 **Orientation.** The demo contains two generations: (A) the canonical styled prototype under
 `apps/web-demo/src/features/otterdeploy/` (mock `data.ts`, ~30 full screens), and (B) an earlier
 plan-based scaffold (`project-canvas/`, `resource-drawer/`, `workspace-*/`). The real app
-superseded (B) almost entirely and implemented much of (A) — often deeper — but whole surfaces
+superseded (B) almost entirely and implemented much of (A) (often deeper) but whole surfaces
 from (A) never landed. Where the real app deviates it is frequently *better* (honest states, real
 data, richer flows); the gap is concentrated in **breadth** (missing pages) and **brand/visual
 affordances** (logos, color signals, safety patterns).
@@ -32,9 +32,9 @@ affordances** (logos, color signals, safety patterns).
 | **Scaling controls for existing services** (replicas, cpu/mem, autoscale post-create) | `service-detail.tsx` Scaling tab | high |
 | Project-wide **deployments list** | `screens/deployments.tsx` | med |
 | **Monitoring** dashboard & **Swarm** page | `workspace-ops/overview-pages.tsx` | med |
-| Project **Overview** page (deliberately deleted — graph is the overview) | `screens/overview.tsx` | med, deliberate |
+| Project **Overview** page (deliberately deleted: graph is the overview) | `screens/overview.tsx` | med, deliberate |
 
-### The user-flagged logo problem — confirmed
+### The user-flagged logo problem, confirmed
 
 The **registries** feature never uses brand logos even though the SVGs already exist:
 - Cards show a generic `Database02Icon` (`apps/web/src/features/registries/registry-card.tsx:58-64`).
@@ -42,28 +42,28 @@ The **registries** feature never uses brand logos even though the SVGs already e
   4-column logo grid of 8 registry kinds with per-kind URL/auth defaults
   (`web-demo .../screens/registries.tsx:313-517`).
 - Docker/GitHub/AWS/Google Cloud/Azure marks are all present in
-  `apps/web/src/shared/components/ui/svgs/` and resolvable via `SvglLogo` — **low-effort,
+  `apps/web/src/shared/components/ui/svgs/` and resolvable via `SvglLogo`: **low-effort,
   high-visibility fix**.
 
 Related brand debt:
 - Real `SvglLogo`/`DatabaseLogo` dropped the demo's **theme-aware light/dark pairs**; concretely
-  broken: `github.tsx` hardcodes `fill="#1b1f23"` and `mongodb.tsx` `fill="#001E2B"` — near-invisible
+  broken: `github.tsx` hardcodes `fill="#1b1f23"` and `mongodb.tsx` `fill="#001E2B"`, near-invisible
   on the `#0c0c0b` dark canvas.
-- No wordmark SVGs (9 variants in demo, unused there too — staged assets).
+- No wordmark SVGs (9 variants in demo, unused there too: staged assets).
 - No PagerDuty/Firebase/Gitea/Bitbucket marks anywhere (letter monograms in both apps).
 
 ### Honesty violations in the real app (fake data / dead controls)
 
 These contradict PRODUCT.md's "honest-about-system-state" and DESIGN.md's no-fake-data rule:
 
-1. **Header search input is dead** — looks live, has a "K" kbd hint, no handler
+1. **Header search input is dead**: looks live, has a "K" kbd hint, no handler
    (`features/shell/components/site-header.tsx:46-61`). Palette opens only via ⌘K / user menu.
-2. **Variables Sync tab shows fake connected providers** — hardcoded "connected · 17 secrets · 2m
+2. **Variables Sync tab shows fake connected providers**: hardcoded "connected · 17 secrets · 2m
    ago"; connect/disconnect mutate local state only (`$projectSlug/variables.tsx`, header comment
    admits Plan 7 follow-up).
 3. **Sidebar footer hardcodes "sf-bay / rack-2", `v1.4.2-rc.1`**
    (`sidebar/project-sidebar.tsx:111-115,188-199`).
-4. **New-resource StepStorage toggles are decorative** — "Auto-grow volume", "Encrypt at rest",
+4. **New-resource StepStorage toggles are decorative**: "Auto-grow volume", "Encrypt at rest",
    backup-window select are local `useState`, never written to the form
    (`new-resource/steps/storage.tsx:100-118`, `form-primitives.tsx:55-74`).
 5. **Servers availability select is a no-op** ("wire to `server.setAvailability` once it lands",
@@ -75,14 +75,14 @@ These contradict PRODUCT.md's "honest-about-system-state" and DESIGN.md's no-fak
 1. Wire SiteHeader search → `setCommandPaletteOpen(true)` (or swap to a button like the demo's).
 2. Registries: brand logos on cards + a kind picker in the dialog (assets already exist).
 3. Theme-aware GitHub/AWS/MySQL/MongoDB icons (port the demo's dark/light pairs or use currentColor).
-4. Env-picker **status dots** (prod/staging color signal) in `HeaderNav` — demo designs it twice.
+4. Env-picker **status dots** (prod/staging color signal) in `HeaderNav`: demo designs it twice.
 5. Real region/version in the sidebar footer; remove or wire the dead controls above.
 6. API keys: "I have stored this token securely" gate on the reveal dialog; rotate action.
 7. Edge-logs latency mini-bar + cache HIT/MISS tinting (tiny row polish).
 
 ---
 
-## 2. Integrations — registries, git providers, webhooks, notifications, certificates
+## 2. Integrations: registries, git providers, webhooks, notifications, certificates
 
 ### Registries (`screens/registries.tsx` → `features/registries/`)
 Demo: logo cards with status/auth badges, image counts, last-pulled, Test connection, Refresh tags;
@@ -110,7 +110,7 @@ Logos ARE used here (only integration surface that does).
   (unique URL, HMAC, IP allowlist, redeploy/script/notify actions, curl-snippet success screen).
   Only overlap: the notifications "webhook" channel (event routing, not management).
 
-### Notifications (`screens/notifications.tsx` → `features/notifications/`) — **shipped to design**
+### Notifications (`screens/notifications.tsx` → `features/notifications/`): **shipped to design**
 Real matches or exceeds: live collections, 14 events (demo 12), Resend/SMTP choice, push/FCM kind,
 edit-locking, validation, empty states.
 - [MISSING low] PagerDuty + Firebase logos (monogram fallback); in-dialog "Send test"
@@ -127,11 +127,11 @@ Real is a per-project read-only live-probe table (good honesty, small surface).
 ## 3. Workspace settings & security
 
 The demo designs a **unified settings page** (14 anchored sections, grouped sticky rail, scroll-spy
-TOC — `workspace-settings/`) and an OS-style tabbed variant. The real app scatters equivalents
+TOC: `workspace-settings/`) and an OS-style tabbed variant. The real app scatters equivalents
 across flat routes (Settings/Instance/Platform/Team/…) with no rail, no TOC, no anchors.
 - [DIVERGENT high] settings IA (unified rail vs scattered flat routes)
 - [MISSING high] user security surface: sessions list + revoke, 2FA/passkey management UI, personal
-  token (copy/rotate + CLI hint), profile — none exist (nav-user only signs out)
+  token (copy/rotate + CLI hint), profile: none exist (nav-user only signs out)
 - [MISSING high] danger zones everywhere: workspace delete/rotate-credentials/pause-ingress; project
   transfer + type-to-confirm delete (real project settings is domain-only); the **type-the-phrase
   confirm modal pattern is entirely absent** (real uses plain AlertDialog / `window.confirm`)
@@ -155,7 +155,7 @@ across flat routes (Settings/Instance/Platform/Team/…) with no rail, no TOC, n
   (sidebar) vs "API keys" (page)
 - [EXTRA] role gating, optimistic mutations, skeleton/empty states
 
-### SSH keys — **near 1:1 parity** (closest match in the audit)
+### SSH keys: **near 1:1 parity** (closest match in the audit)
 - [MISSING low] "Add to GitHub" post-generate action; in-modal public-key reveal (real closes dialog)
 - [EXTRA] confirm dialogs, imported-keys-can't-rotate rule, role gating
 
@@ -169,33 +169,33 @@ duration column) but filter-poorer and visually flatter.
 
 ---
 
-## 4. Data plane — databases, data viewer, backups, volumes
+## 4. Data plane: databases, data viewer, backups, volumes
 
 ### Databases catalog (`screens/databases.tsx` → **no page**)
 DBs are reachable only as graph nodes → resource panel (which covers console/browse/settings well).
 - [MISSING high] org-wide catalog (cards, project filter, "Add database")
-- [MISSING med] DB health stats: storage used/total bar, connections, QPS, backup freshness — no
+- [MISSING med] DB health stats: storage used/total bar, connections, QPS, backup freshness, no
   storage or engine-level stats exist anywhere (metrics are container cpu/mem/net only)
 - [MISSING med] backups affordance on the DB itself (panel's "Take backup / Snapshot now" is
   intentionally disabled and doesn't link to the Backups page)
 - [MISSING low] one-click connection-string copy on a card surface
 
-### Data viewer (`screens/data-viewer.tsx` → postgres data studio) — substantial in both, different shapes
+### Data viewer (`screens/data-viewer.tsx` → postgres data studio): substantial in both, different shapes
 Real exceeds demo on: FK jump popovers, ⌘K spotlight, snippet folders, resizable panes, capability
 envelope, native Redis/Mongo/MariaDB browsers, honest unsupported-engine fallback.
 - [MISSING med] Structure view (PK/FK/UQ + defaults detail); Add-record modal; **staged-writes
   pending bar** (real cell edits commit immediately); audit/timeout header badges + brand logo in
   the connection header
 - [DIVERGENT med] destructive confirm: demo typed-name modal vs real `window.confirm`
-  (`use-data-studio.ts:158`) — weakest safety divergence
+  (`use-data-studio.ts:158`), weakest safety divergence
 - [MISSING low] column show/hide, JSON/XLSX + export-selected, multi-select bulk delete, row detail
   panel, query history, settings popover, per-table row counts, numeric filter ops
 
-### Backups (`screens/backups.tsx` → `features/backups/`) — **closest full-page match**
+### Backups (`screens/backups.tsx` → `features/backups/`): **closest full-page match**
 Page composition mirrors demo 1:1 on live data; real adds destination editor + credential Test,
 schedule delete, multi-destination, max-age/max-storage caps.
 - [MISSING med] restore-as-new (explicitly deferred); volume+stack backup **sources** (contract enum
-  has them; filter chips can never match — dead UI)
+  has them; filter chips can never match, dead UI)
 - [MISSING low] restore Verify step (checksum diff), schedule notification channel, PITR editor
   field (card renders a badge the editor can't set)
 - [DIVERGENT low] stat tiles less informative (glyphs vs relative-time + error excerpt); no per-row
@@ -203,20 +203,20 @@ schedule delete, multi-destination, max-age/max-storage caps.
 
 ### Volumes (`screens/volumes.tsx` → **nothing**)
 - [MISSING high] entire page (inventory, usage bars, drivers, attach state) and all lifecycle
-  (create standalone, snapshot, resize, detach, delete) — volumes exist only implicitly with a DB
+  (create standalone, snapshot, resize, detach, delete). Volumes exist only implicitly with a DB
 - [MISSING med] snapshot schedules; per-volume usage measurement anywhere
 - [DIVERGENT med] StepStorage's decorative toggles (see honesty list)
 
 ---
 
-## 5. Observability — logs, edge logs, metrics, deployments, docker
+## 5. Observability: logs, edge logs, metrics, deployments, docker
 
 **Real app largely surpasses the demo here** (virtualized log table, histogram drag-filter, URL
 state, edge-logs threat flagging + Block IP + Country, the entire Firewall + Events planes,
 deployment phase timeline + rollback + live log streams).
 
 Remaining gaps:
-- **Docker raw** — biggest interaction gap in the domain:
+- **Docker raw**: biggest interaction gap in the domain:
   - [MISSING high] per-row actions: container Logs/Inspect/Exec; image Pull/Inspect/Remove;
     volume/network Inspect/Remove (real tables fully read-only)
   - [MISSING med] node selector + node column (demo scopes every tab by swarm node)
@@ -235,14 +235,14 @@ Remaining gaps:
 
 ## 6. Project & service surfaces
 
-**Real app is deepest here** — pending-changes manifest model (ghost/comet nodes, staged panels,
+**Real app is deepest here**. Pending-changes manifest model (ghost/comet nodes, staged panels,
 diff bar), dagre layout persistence, compose group nodes, PR-preview satellites, custom domains +
 DNS verify, deployment protection, deploy hooks, repo inspection + monorepo picker, live cert
 probing. Gaps:
 
-- [MISSING high] **templates** (whole surface — gallery, filters, detail modal with architecture
+- [MISSING high] **templates** (whole surface: gallery, filters, detail modal with architecture
   diagram, deploy flow; wizard card is honestly "soon")
-- [MISSING high] **scaling for existing services** — no replicas/cpu/mem/autoscale controls
+- [MISSING high] **scaling for existing services**, no replicas/cpu/mem/autoscale controls
   post-create (wizard Resources step is create-time only; Identity card read-only); demo's
   node-placement viz + autoscaling form have no counterpart
 - [MISSING med] graph **traffic visualization** (animated particles, edge width ∝ RPS, hover labels,
@@ -256,7 +256,7 @@ probing. Gaps:
   available-tags browser + watch-tag/cosign update strategy
 - [MISSING med] networking: per-route editor modal (hostnames, rate limit, per-route toggles);
   demo's editable Caddyfile + snippet buttons became a read-only viewer + custom-config escape
-  hatch (deliberate — reconciler-owned)
+  hatch (deliberate, reconciler-owned)
 - [MISSING/STUB med] servers: availability select no-op; no reboot/promote/remove or SSH tab in the
   health sheet; no region column, project pinning, or label editing
 - [MISSING low] health-check config, pause service, rename/description, "degraded"/"rolled-back"
@@ -276,12 +276,12 @@ probing. Gaps:
 - [MISSING med] notifications bell in header; per-settings-page anchor rail; env status dots;
   Monitoring/Swarm destinations (renamed/absorbed: Requests→Edge logs, Routing→Networking,
   Activity→Audit, Members→Team, Swarm→Servers, Monitoring→Platform)
-- [MISSING med] theme-aware brand icon pairs (GitHub/MongoDB invisible in dark — see §1)
+- [MISSING med] theme-aware brand icon pairs (GitHub/MongoDB invisible in dark: see §1)
 - [MISSING low] command palette per-service "Tail logs" + Rollback actions; org-switcher role badges
   + "New workspace"; terminal kind-glyph tabs (sh/pg/rd chips), connection dot, project-tag dots;
   user-menu "Invite team"/"Docs" shortcuts
 - [DIVERGENT low] auth: real far exceeds demo (split-screen AuthLayout, 2FA challenge, social,
-  device pairing) — but headline uses `clamp()` (DESIGN.md Fixed-Scale Rule violation), and
+  device pairing), but headline uses `clamp()` (DESIGN.md Fixed-Scale Rule violation), and
   `/device` + `/accept-invite` render bare cards without the AuthLayout treatment
 - **Tokens verdict:** real `index.css` is **closer to DESIGN.md than either demo stylesheet**
   (correct OKLCH accent, greyscale chart ramp, self-hosted Geist, font features). Demo's own
@@ -310,10 +310,10 @@ DESIGN.md-correct tokens.
 
 1. **Quick wins** (§1): header search, registry logos + kind picker, theme-aware icons, env dots,
    real sidebar footer, kill/wire dead controls.
-2. **Webhooks page** — largest missing surface with clear demo blueprint.
+2. **Webhooks page**: largest missing surface with clear demo blueprint.
 3. **Safety patterns**: type-to-confirm destructive modal component; replace `window.confirm`
    (data-studio writes, rollback); danger zones for project/workspace.
-4. **Account/security settings** (sessions, 2FA UI, personal tokens) — backend (better-auth)
+4. **Account/security settings** (sessions, 2FA UI, personal tokens): backend (better-auth)
    already supports most of it.
 5. **Scaling controls** for existing services.
 6. **Templates gallery**; **volumes page**; **databases catalog** (or fold health stats into graph

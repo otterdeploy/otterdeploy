@@ -1,5 +1,5 @@
 /**
- * Pure filter/sort helpers for the templates gallery — kept out of the
+ * Pure filter/sort helpers for the templates gallery: kept out of the
  * component so they're unit-testable (see filter.test.ts).
  */
 import type { StackTemplate, TemplateCategoryId } from "./types";

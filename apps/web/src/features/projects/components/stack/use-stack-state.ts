@@ -43,7 +43,7 @@ export function useStackState({ projectId }: UseStackStateInput) {
   // Re-seed on baseline CHANGE, not just first load: applying a manifest
   // (wizard create, pending-bar Deploy) re-renders the stack yaml, and the
   // old seed-once guard kept the drawer pinned to the day-0 `services: {}`
-  // until a hard reload. The user's in-progress edits still win — we only
+  // until a hard reload. The user's in-progress edits still win. We only
   // follow the baseline while the buffer is untouched (not editing, and the
   // buffer still equals the previously seeded baseline).
   const [seededBaseline, setSeededBaseline] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export function useStackState({ projectId }: UseStackStateInput) {
         void queryClient.invalidateQueries({
           queryKey: orpc.project.stack.diff.queryKey({ input: { projectId } }),
         });
-        // Stack apply creates/updates real resources — refresh the manifest
+        // Stack apply creates/updates real resources. Refresh the manifest
         // diff/get and the prefix-keyed graph collections too, so new nodes
         // appear without a reload.
         void invalidateManifestConsumers(projectId);

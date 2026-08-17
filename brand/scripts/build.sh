@@ -3,7 +3,7 @@
 # Rebuilds every otterdeploy brand asset from source.
 #
 # One command, four steps: outline the wordmark, compose the SVGs, rasterise the
-# PNGs through Chromium, pack the .ico. Everything downstream is generated —
+# PNGs through Chromium, pack the .ico. Everything downstream is generated,
 # edit brand/scripts/build_svgs.py (geometry) or the mark colours, never the
 # output files.
 #

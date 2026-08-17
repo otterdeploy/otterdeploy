@@ -4,7 +4,7 @@
 
 **Goal:** Replace raw Docker container provisioning with Docker Swarm services, establishing the orchestration foundation for the entire PaaS platform.
 
-**Architecture:** The Hono server initializes Swarm on startup (`docker swarm init` if not already active). Provisioned databases become Swarm services instead of raw containers. An overlay network replaces the current bridge network for inter-service communication. The existing Caddy reconciliation pipeline, proxy routes, and API contracts remain unchanged — only the container management layer swaps out.
+**Architecture:** The Hono server initializes Swarm on startup (`docker swarm init` if not already active). Provisioned databases become Swarm services instead of raw containers. An overlay network replaces the current bridge network for inter-service communication. The existing Caddy reconciliation pipeline, proxy routes, and API contracts remain unchanged, only the container management layer swaps out.
 
 **Tech Stack:** @otterdeploy/docker (Swarm service APIs), Docker Swarm, Caddy (unchanged), Drizzle ORM, Bun test
 
@@ -13,22 +13,22 @@
 ## File Structure
 
 ### New files
-- `packages/api/src/swarm/client.ts` — Swarm client wrapper: init, ensure overlay network, ensure service, inspect service, remove service
-- `packages/api/src/swarm/postgres.ts` — Postgres-specific Swarm provisioning: create service, inspect runtime, destroy service
-- `packages/api/src/swarm/__tests__/postgres.test.ts` — Unit tests for Swarm Postgres provisioning (mocked Docker API)
+- `packages/api/src/swarm/client.ts`: Swarm client wrapper: init, ensure overlay network, ensure service, inspect service, remove service
+- `packages/api/src/swarm/postgres.ts`: Postgres-specific Swarm provisioning: create service, inspect runtime, destroy service
+- `packages/api/src/swarm/__tests__/postgres.test.ts`: Unit tests for Swarm Postgres provisioning (mocked Docker API)
 
 ### Modified files
-- `packages/api/src/constants.ts` — Add Swarm overlay network name, update docker config section
-- `packages/api/src/routers/project/service.ts` — Replace Docker container calls with Swarm service calls
-- `packages/api/src/docker/postgres.ts` — Deprecated (kept for reference, imports removed)
+- `packages/api/src/constants.ts`: Add Swarm overlay network name, update docker config section
+- `packages/api/src/routers/project/service.ts`: Replace Docker container calls with Swarm service calls
+- `packages/api/src/docker/postgres.ts`: Deprecated (kept for reference, imports removed)
 
 ### Unchanged files (verify still work)
-- `packages/api/src/caddy/builder.ts` — No changes needed
-- `packages/api/src/caddy/reconciler.ts` — No changes needed
-- `packages/api/src/caddy/queries.ts` — No changes needed
-- `packages/api/src/caddy/__tests__/builder.test.ts` — Should still pass
-- `packages/api/src/caddy/__tests__/reconciler.test.ts` — Should still pass
-- `packages/db/src/schema/project.ts` — No schema changes in this phase
+- `packages/api/src/caddy/builder.ts`, No changes needed
+- `packages/api/src/caddy/reconciler.ts`, No changes needed
+- `packages/api/src/caddy/queries.ts`, No changes needed
+- `packages/api/src/caddy/__tests__/builder.test.ts`: Should still pass
+- `packages/api/src/caddy/__tests__/reconciler.test.ts`: Should still pass
+- `packages/db/src/schema/project.ts`, No schema changes in this phase
 
 ---
 
@@ -159,7 +159,7 @@ export const PLATFORM = {
 } as const;
 ```
 
-Note: `swarm.resourceNetwork` uses the same name as `docker.resourceNetwork` so we don't break Caddy's existing network membership. The difference is the network driver changes from `bridge` to `overlay` (handled in Task 1). The old `docker` key is kept for now since other code may reference it — we'll remove it once migration is complete.
+Note: `swarm.resourceNetwork` uses the same name as `docker.resourceNetwork` so we don't break Caddy's existing network membership. The difference is the network driver changes from `bridge` to `overlay` (handled in Task 1). The old `docker` key is kept for now since other code may reference it. We'll remove it once migration is complete.
 
 - [ ] **Step 2: Commit**
 
@@ -453,7 +453,7 @@ async function waitForServiceReady(
     await sleep(1000);
   }
 
-  // Timeout — return whatever state we have
+  // Timeout: return whatever state we have
   const runtime = await inspectSwarmService(docker, serviceName);
   return runtime ?? {
     serviceId: null,
@@ -623,7 +623,7 @@ export type PostgresResourceView = {
 
 - [ ] **Step 3: Update `createPostgresResource()`**
 
-Replace the `provisionDockerPostgres` call and remove the `hostPort` check. Swarm services don't expose host ports the same way — they use overlay network routing.
+Replace the `provisionDockerPostgres` call and remove the `hostPort` check. Swarm services don't expose host ports the same way. They use overlay network routing.
 
 Find the provisioning section (around line 192) and replace:
 
@@ -811,7 +811,7 @@ The exact changes depend on what the component currently renders. The field mapp
 | `health: ...` | `health: ...` (same values) |
 
 New field:
-| — | `serviceId: string \| null` |
+|: | `serviceId: string \| null` |
 
 - [ ] **Step 2: Update the component to use `serviceName` instead of `containerName`**
 
@@ -882,7 +882,7 @@ networks:
     name: ${DOCKER_RESOURCE_NETWORK:-otterdeploy-resources}
 ```
 
-Actually, keep this as-is. The overlay network with `Attachable: true` (set in Task 1) allows non-Swarm containers to join it. Caddy, running via docker-compose, will attach to this overlay network. The only change needed is ensuring the network is created before `docker compose up` — which `initializeSwarm()` handles.
+Actually, keep this as-is. The overlay network with `Attachable: true` (set in Task 1) allows non-Swarm containers to join it. Caddy, running via docker-compose, will attach to this overlay network. The only change needed is ensuring the network is created before `docker compose up`, which `initializeSwarm()` handles.
 
 **Important**: The dev startup sequence becomes:
 1. Start Swarm: platform server runs `initializeSwarm()` (or manually: `docker swarm init && docker network create --driver overlay --attachable otterdeploy-resources`)
@@ -922,11 +922,11 @@ git commit -m "docs: add Swarm prerequisite notes to docker-compose.yml"
 cd packages/api && bun test
 ```
 
-Expected: All Caddy builder, reconciler, and Swarm postgres tests pass. The Caddy layer is completely unchanged — it reads from `proxy_route` records and builds Caddyfile config regardless of whether the upstream is a container or Swarm service.
+Expected: All Caddy builder, reconciler, and Swarm postgres tests pass. The Caddy layer is completely unchanged. It reads from `proxy_route` records and builds Caddyfile config regardless of whether the upstream is a container or Swarm service.
 
 - [ ] **Step 2: If any test fails, fix it**
 
-The only likely failure is if a test imports from `../../docker/postgres` — those imports were replaced in Task 5.
+The only likely failure is if a test imports from `../../docker/postgres`. Those imports were replaced in Task 5.
 
 - [ ] **Step 3: Commit any fixes**
 
@@ -999,14 +999,14 @@ git add -A && git commit -m "fix: integration test fixes for Swarm migration"
 
 ### Breaking changes
 - **Local connection strings**: No more random host ports. Local development access now goes through Caddy's Layer4 proxy on port 5432 (same as public access). The `localConnectionString` now uses `127.0.0.1:5432` with SSL.
-- **Existing databases**: Any databases provisioned as raw containers will show as "missing" since the platform now looks for Swarm services. They need to be deleted and re-created. For dev this is fine — for any persistent data, back up first.
+- **Existing databases**: Any databases provisioned as raw containers will show as "missing" since the platform now looks for Swarm services. They need to be deleted and re-created. For dev this is fine, for any persistent data, back up first.
 
 ### What stays the same
-- All API contracts (request/response shapes) — the `runtime` field changes type name but keeps the same structure
-- Caddy reconciliation — completely untouched
-- Proxy routes — completely untouched
-- Database schema — no migrations needed
-- Frontend canvas — only field rename (`containerName` → `serviceName`)
+- All API contracts (request/response shapes): the `runtime` field changes type name but keeps the same structure
+- Caddy reconciliation: completely untouched
+- Proxy routes: completely untouched
+- Database schema, no migrations needed
+- Frontend canvas: only field rename (`containerName` → `serviceName`)
 
 ### What's now possible (after this phase)
 - Swarm rolling updates for database version upgrades

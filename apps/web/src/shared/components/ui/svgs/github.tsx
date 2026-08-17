@@ -2,7 +2,7 @@ import type { SVGProps } from "react";
 
 /**
  * GitHub mark. Monochrome brand, so it renders with `currentColor` and
- * adapts to light/dark from the surrounding text color — no themed pair
+ * adapts to light/dark from the surrounding text color, no themed pair
  * needed (fixes the hardcoded #1b1f23 fill that vanished on the dark canvas).
  */
 export const Github = (props: SVGProps<SVGSVGElement>) => (

@@ -43,8 +43,8 @@ function distance(a: string, b: string): number {
 /**
  * Closest matches to `input`, nearest first, at most `limit`.
  *
- * The threshold scales with the input's length — one edit for a short word like
- * `up`, up to three for `environments` — so long names tolerate a real typo
+ * The threshold scales with the input's length. One edit for a short word like
+ * `up`, up to three for `environments`, so long names tolerate a real typo
  * while short ones don't match half the command set.
  */
 export function suggestions(input: string, candidates: string[], limit = 3): string[] {

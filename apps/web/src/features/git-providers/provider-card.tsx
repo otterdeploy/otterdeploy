@@ -62,7 +62,7 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
         </Button>
       </div>
 
-      {/* One row per installation — every account the App is installed on is
+      {/* One row per installation: every account the App is installed on is
           visible with its own status + actions, never a "+N more" mystery. */}
       <ul className="mt-3 divide-y border-t">
         {provider.installations.map((installation) => (
@@ -95,15 +95,15 @@ function InstallationRow({
           <StatusBadge installation={installation} />
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {/* null = count never fetched (or install revoked) — "—" is honest;
+          {/* null = count never fetched (or install revoked). "–" is honest;
               a rendered 0 would claim GitHub granted no repos. */}
-          {installation.repoCount ?? "—"} repos
+          {installation.repoCount ?? "–"} repos
           {installation.repoSelection === "selected" ? " (selected)" : ""}
           {" · connected "}
           {formatRelative(installation.createdAt)}
         </div>
       </div>
-      {/* Syncing a revoked installation can only fail — hide it and leave the
+      {/* Syncing a revoked installation can only fail. Hide it and leave the
           menu (Manage on GitHub / Disconnect) as the cleanup path. */}
       {!installation.revokedAt && (
         <RefreshButton installationId={installation.id} onReinstall={onReinstall} />
@@ -189,7 +189,7 @@ function InstallationActions({ installation }: { installation: InstallationView 
 }
 
 /**
- * Kicks off a GitHub App (re)install — `startConnect` returns a fresh install
+ * Kicks off a GitHub App (re)install: `startConnect` returns a fresh install
  * URL for the org's App and we hand the browser to GitHub. The install page is
  * where the user picks the target account/org + repos; the callback then
  * re-syncs a valid installation. This is the standard recovery when GitHub no

@@ -1,12 +1,12 @@
 /**
- * Overview tab for a deployed service — the panel's landing surface.
+ * Overview tab for a deployed service. The panel's landing surface.
  *
  * Four stat tiles (runtime state, replicas, last deploy, public reach), nav
  * cards that jump to the other panel tabs, and the three most recent
  * deployments (see {@link OverviewStatTiles} & friends in ./overview-parts).
  * Everything shown is real data the panel already loads: the live
  * `service.get` view, the resource row, and the shared deployments
- * collection — no invented numbers.
+ * collection, no invented numbers.
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
@@ -38,13 +38,13 @@ export interface OverviewResource {
 }
 
 /** The slice of the live `service.get` view the overview reads. Undefined
- *  while loading — tiles show an honest "—" instead of a guess. */
+ *  while loading: tiles show an honest "–" instead of a guess. */
 export interface OverviewLiveService {
   pausedReplicas: number | null;
   runtime: { status: ServiceRuntimeStatus };
 }
 
-/** The three most recent deployments — each links straight to that
+/** The three most recent deployments: each links straight to that
  *  deployment's detail (not just the Deployments tab). */
 function RecentDeployments({
   recent,
@@ -66,7 +66,7 @@ function RecentDeployments({
       </div>
       {recent.length === 0 ? (
         <p className="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-[12px] text-muted-foreground">
-          Nothing has been deployed yet — deployments will appear here.
+          Nothing has been deployed yet. Deployments will appear here.
         </p>
       ) : (
         <div className="mt-2 overflow-hidden rounded-md border bg-card">
@@ -120,8 +120,8 @@ export function ServiceOverviewTab({
     [resource.projectId, resource.resourceId],
   );
 
-  const latest = (deployments.at(0) ?? null) as DeploymentInfo | null;
-  const recent = deployments.slice(0, 3) as DeploymentInfo[];
+  const latest: DeploymentInfo | null = deployments.at(0) ?? null;
+  const recent: DeploymentInfo[] = deployments.slice(0, 3);
 
   const state = deriveServicePanelState({
     pausedReplicas: service?.pausedReplicas ?? null,

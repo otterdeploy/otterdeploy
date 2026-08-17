@@ -69,9 +69,9 @@ export function EdgeRow({
             "font-semibold",
             row.status === 0 ? "text-muted-foreground/70" : BUCKET_TEXT[b],
           )}
-          title={row.status === 0 ? "No response — the client aborted the request" : undefined}
+          title={row.status === 0 ? "No response. The client aborted the request." : undefined}
         >
-          {row.status === 0 ? "—" : row.status}
+          {row.status === 0 ? "–" : row.status}
         </TableCell>
         <TableCell className="text-foreground/80">{row.host}</TableCell>
         <TableCell
@@ -83,7 +83,7 @@ export function EdgeRow({
           {threat ? (
             <span
               className="mr-1.5 inline-block rounded-sm bg-destructive/15 px-1 py-px align-middle text-[9px] font-semibold tracking-[0.04em] text-destructive uppercase"
-              title={`Suspicious request — ${threat.replace(/-/g, " ")}. Likely a vulnerability scanner.`}
+              title={`Suspicious request: ${threat.replace(/-/g, " ")}. Likely a vulnerability scanner.`}
             >
               {threat}
             </span>
@@ -93,7 +93,7 @@ export function EdgeRow({
         <TableCell className="whitespace-nowrap text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             {row.latencyMs}ms
-            {/* 22px proportional mini-bar (1s full scale) — reads the row's
+            {/* 22px proportional mini-bar (1s full scale): reads the row's
                 latency at a glance without scanning digits. */}
             <span
               aria-hidden
@@ -124,7 +124,7 @@ export function EdgeRow({
               {row.country}
             </span>
           ) : (
-            <span className="text-muted-foreground/40">—</span>
+            <span className="text-muted-foreground/40">–</span>
           )}
         </TableCell>
         <TableCell
@@ -167,7 +167,7 @@ function EdgeRowDetail({
     <TableRow className="bg-muted/30 hover:bg-muted/30">
       <TableCell colSpan={10} className="py-3">
         {/* w-0 min-w-full: this colSpan cell is in an auto-layout table, so its
-            content's intrinsic width drives column sizing — a single long value
+            content's intrinsic width drives column sizing, a single long value
             (next-router-state-tree, user-agent) blows the whole table past the
             viewport and makes truncate impossible. width:0 stops the content
             from contributing that width; min-width:100% then re-expands the
@@ -191,15 +191,15 @@ function EdgeRowDetail({
             ) : null}
           </div>
           <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">
-            <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />
-            <Detail k="cache" v={row.cache ?? "—"} wrap={wrap} vClass={cacheTextClass(row.cache)} />
+            <Detail k="request_id" v={row.requestId ?? "–"} wrap={wrap} />
+            <Detail k="cache" v={row.cache ?? "–"} wrap={wrap} vClass={cacheTextClass(row.cache)} />
             {/* The demo also showed the upstream's own latency "(Xms)" here,
-                but the edge log payload only carries total latencyMs — no
+                but the edge log payload only carries total latencyMs, no
                 per-upstream timing is stored, so we don't invent one. */}
-            <Detail k="upstream" v={row.upstream ?? "—"} wrap={wrap} />
+            <Detail k="upstream" v={row.upstream ?? "–"} wrap={wrap} />
             <Detail
               k="tls"
-              v={[row.tlsVersion, row.tlsCipher].filter(Boolean).join(" · ") || "—"}
+              v={[row.tlsVersion, row.tlsCipher].filter(Boolean).join(" · ") || "–"}
               wrap={wrap}
             />
             <Detail k="req bytes" v={String(row.reqBytes)} wrap={wrap} />

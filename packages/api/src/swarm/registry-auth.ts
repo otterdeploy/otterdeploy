@@ -2,7 +2,7 @@
  * Registry credentials resolver.
  *
  * Given an image reference like `ghcr.io/acme/api:latest`, returns the
- * credentials the daemon should use to pull it — or `null` for anonymous
+ * credentials the daemon should use to pull it, or `null` for anonymous
  * (Docker Hub public images, etc.). The lookup runs at deploy time so
  * users can change a token without redeploying every service that
  * references the affected registry.
@@ -44,7 +44,7 @@ function imageRegistry(image: string): string {
  * the org hasn't added a credential for that host yet).
  *
  * If multiple credentials exist for the same host (e.g. a personal account
- * and a CI bot account), the most recently updated one wins — a credential
+ * and a CI bot account), the most recently updated one wins. A credential
  * rotation is the strongest "use this one now" signal we have without
  * giving the user a per-image override surface.
  */

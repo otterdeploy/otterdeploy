@@ -55,7 +55,7 @@ describe("volumeRestoreBlockReason", () => {
   it("refuses with the mounting container names", () => {
     const reason = volumeRestoreBlockReason(["shop-db", "shop-db-sidecar"]);
     expect(reason).toContain("shop-db, shop-db-sidecar");
-    expect(reason).toContain("stop and remove");
+    expect(reason).toContain("Stop and remove");
   });
 
   it("truncates long mounter lists with a count", () => {

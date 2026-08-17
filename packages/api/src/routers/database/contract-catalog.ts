@@ -1,5 +1,5 @@
 /**
- * Org-wide database catalog schemas — the /$org/databases page's single read.
+ * Org-wide database catalog schemas: the /$org/databases page's single read.
  * One item per database-kind resource across every project in the active org,
  * carrying identity (project, engine, endpoints), runtime status, last-backup
  * freshness, and a small per-engine live-stats block. Every stat is nullable:
@@ -23,10 +23,10 @@ const catalogEngineSchema = z.enum([
 
 /**
  * Live stats, best-effort per engine:
- *   postgres — pg_database_size / pg_stat_activity count / max_connections
- *   redis    — INFO used_memory / connected_clients / maxclients
- *   mariadb  — information_schema size / Threads_connected / @@max_connections
- *   mongodb  — db.stats() dataSize / serverStatus().connections
+ *   postgres: pg_database_size / pg_stat_activity count / max_connections
+ *   redis: INFO used_memory / connected_clients / maxclients
+ *   mariadb: information_schema size / Threads_connected / @@max_connections
+ *   mongodb: db.stats() dataSize / serverStatus().connections
  * Engines without a cheap probe (clickhouse, rabbitmq, minio, meilisearch)
  * always report null fields.
  */
@@ -46,7 +46,7 @@ const catalogRuntimeStatusSchema = z.enum([
   "missing",
   "error",
   // The runtime couldn't be interrogated at all (docker down / inspect timed
-  // out) — distinct from "missing", which is a confirmed absence.
+  // out): distinct from "missing", which is a confirmed absence.
   "unreachable",
 ]);
 

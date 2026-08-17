@@ -1,9 +1,9 @@
 /**
- * Profile — display name + avatar, saved via better-auth's `updateUser`.
+ * Profile: display name + avatar, saved via better-auth's `updateUser`.
  * Email is shown read-only: this install doesn't enable better-auth's
  * `user.changeEmail` flow (packages/auth/src/index.ts has no `user` block),
  * so an editable field would be a lie. Avatar is a URL (the user model's
- * `image` column) — there's no upload pipeline, and the hint says so.
+ * `image` column): there's no upload pipeline, and the hint says so.
  */
 
 import { UserCircleIcon } from "@hugeicons/core-free-icons";
@@ -20,7 +20,7 @@ import { Button } from "@/shared/components/ui/button";
 import { authKeys, useCurrentSession } from "./data/use-account";
 import { ProfileFields, ProfileIdentity } from "./profile-form-fields";
 
-/** The `updateUser` mutation — `onSaved` resets the form on success. */
+/** The `updateUser` mutation: `onSaved` resets the form on success. */
 function useSaveProfile({ onSaved }: { onSaved: () => void }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -52,7 +52,7 @@ export function ProfileCard() {
   const currentName = user?.name ?? "";
   const currentImage = user?.image ?? "";
 
-  // Defaults follow the session only while the form is untouched — once the
+  // Defaults follow the session only while the form is untouched. Once the
   // user types, useForm stops re-applying them, so a background session
   // refetch doesn't clobber typing. Saving resets the form back to untouched.
   const form = useForm({

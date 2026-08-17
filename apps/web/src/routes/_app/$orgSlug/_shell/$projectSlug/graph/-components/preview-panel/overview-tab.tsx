@@ -16,7 +16,7 @@ import {
  * What this service is serving, in words.
  *
  * The status pill answers "is a container up". This answers "is the commit I
- * pushed the one I'd be reviewing" — the question someone opening a preview
+ * pushed the one I'd be reviewing". The question someone opening a preview
  * from a pull request is actually asking, and the one a green pill can silently
  * get wrong.
  */

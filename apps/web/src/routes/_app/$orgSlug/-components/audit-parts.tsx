@@ -26,7 +26,7 @@ import { formatNumber } from "@otterdeploy/shared/format";
 
 import { type ActionTone, actionTone } from "./audit-helpers";
 
-/** Dot color per action family — the demo's ACTION_COLORS, translated to the
+/** Dot color per action family: the demo's ACTION_COLORS, translated to the
  *  app's tokens: create=info, destroy=danger, auth/caution=amber, edits and
  *  everything unclassified stay quiet neutrals. */
 const TONE_DOT: Record<ActionTone, string> = {
@@ -38,7 +38,7 @@ const TONE_DOT: Record<ActionTone, string> = {
   neutral: "bg-muted-foreground/40",
 };
 
-/** Leading color dot for an action — used by the table's action cell and the
+/** Leading color dot for an action, used by the table's action cell and the
  *  drawer header. */
 export function ActionDot({ action, className }: { action: string; className?: string }) {
   return (

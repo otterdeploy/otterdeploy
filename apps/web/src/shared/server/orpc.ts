@@ -11,14 +11,14 @@ import { toast } from "sonner";
 
 /**
  * Client call-context for the retry plugin. Per-call `context.retry` opts a
- * single call into reconnect-on-error — that's how our live streams
+ * single call into reconnect-on-error. That's how our live streams
  * (event-iterators) get EventSource-style auto-reconnect without affecting
  * ordinary queries/mutations, which keep the plugin default of `retry: 0`.
  */
 export type ClientContext = ClientRetryPluginContext;
 
 export const queryClient = new QueryClient({
-  // Without defaults, TanStack Query uses staleTime: 0 — so every component
+  // Without defaults, TanStack Query uses staleTime: 0, so every component
   // remount / back-navigation refetches from the server and shows a spinner,
   // even for data it just had. A modest staleTime serves cached data instantly
   // on navigation while a background refetch keeps it fresh. Live collections

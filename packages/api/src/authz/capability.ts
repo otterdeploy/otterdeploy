@@ -41,11 +41,17 @@ async function defaultHasSessionPermission(
   actor: SessionActor,
   permission: PermissionCheck,
 ): Promise<boolean> {
+  // Better-auth takes a plain `{ resource: actions[] }` record; rebuild the
+  // check in that shape (dropping the keys a partial check leaves undefined).
+  const permissions: Record<string, string[]> = {};
+  for (const [resource, actions] of Object.entries(permission)) {
+    if (actions) permissions[resource] = [...actions];
+  }
   const { success } = await auth.api.hasPermission({
     headers: actor.headers,
     body: {
       organizationId: actor.session.activeOrganizationId ?? undefined,
-      permissions: permission as Record<string, string[]>,
+      permissions,
     },
   });
   return success;

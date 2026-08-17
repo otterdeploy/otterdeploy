@@ -20,26 +20,23 @@
  */
 
 import { ORPCError, os as orpc } from "@orpc/server";
+import { TimeoutError, withTimeout } from "@otterdeploy/shared/promise";
 
 import type { Context } from "../context";
 
-import { TimeoutError, withTimeout } from "@otterdeploy/shared/promise";
-
 const PROCEDURE_TIMEOUT_MS = 120_000;
 
-export const procedureTimeout = orpc
-  .$context<Context>()
-  .middleware(async ({ path, next }) => {
-    try {
-      // Promise.resolve: oRPC's next() returns a thenable MiddlewareResult,
-      // not a real Promise.
-      return await withTimeout(Promise.resolve(next()), PROCEDURE_TIMEOUT_MS, path.join("."));
-    } catch (error) {
-      if (error instanceof TimeoutError) {
-        throw new ORPCError("TIMEOUT", {
-          message: `${path.join(".")} did not complete within ${PROCEDURE_TIMEOUT_MS / 1000}s.`,
-        });
-      }
-      throw error;
+export const procedureTimeout = orpc.$context<Context>().middleware(async ({ path, next }) => {
+  try {
+    // Promise.resolve: oRPC's next() returns a thenable MiddlewareResult,
+    // not a real Promise.
+    return await withTimeout(Promise.resolve(next()), PROCEDURE_TIMEOUT_MS, path.join("."));
+  } catch (error) {
+    if (error instanceof TimeoutError) {
+      throw new ORPCError("TIMEOUT", {
+        message: `${path.join(".")} did not complete within ${PROCEDURE_TIMEOUT_MS / 1000}s.`,
+      });
     }
-  });
+    throw error;
+  }
+});

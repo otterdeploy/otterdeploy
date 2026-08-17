@@ -1,12 +1,12 @@
 /**
- * `docker node rm` for a registered server — down-only by design. The force
+ * `docker node rm` for a registered server: down-only by design. The force
  * flag is deliberately not exposed: removing a live node orphans its tasks,
  * so the supported path is drain → (demote if manager) → stop the daemon on
  * the host → remove once the swarm reports the node `down`.
  *
  * This procedure only detaches the node from the swarm. The server ROW is
- * deleted by the caller through the normal server.delete flow afterwards —
- * keeping the two mutations separate means a failed row delete never leaves
+ * deleted by the caller through the normal server.delete flow afterwards.
+ * Keeping the two mutations separate means a failed row delete never leaves
  * the swarm claiming a node that was actually removed, and vice versa.
  */
 

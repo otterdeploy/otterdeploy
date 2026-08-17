@@ -1,6 +1,6 @@
 import { TaggedError } from "better-result";
 
-// PTY backend errors — host shell + container exec.
+// PTY backend errors: host shell + container exec.
 
 export class PtySpawnError extends TaggedError("PtySpawnError")<{
   message: string;

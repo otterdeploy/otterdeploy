@@ -26,7 +26,7 @@ describe("routesForNode", () => {
 
   test("a worker never inherits unplaced routes", () => {
     // Serving a route whose backend is on another machine yields a 502 from an
-    // edge that looks healthy — worse than not answering at all.
+    // edge that looks healthy, worse than not answering at all.
     const { routes } = routesForNode(ALL, "server_b", false);
     expect(routes.some((r) => r.domain === "free.example.com")).toBe(false);
   });

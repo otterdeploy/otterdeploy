@@ -9,7 +9,7 @@ import { cn } from "@/shared/lib/utils";
  * provision-runner.ts + provision.ts) narrates each step as a `── … ──` marker
  * line; we template the expected stages, light each one up from the markers
  * seen so far, and fall back to the persisted `provisionStatus` for the
- * terminal verdict — so a run whose live log was missed (see the
+ * terminal verdict, so a run whose live log was missed (see the
  * provision-stream race note) still resolves to ready/failed instead of an
  * eternal spinner. Raw log stays available under the stepper for detail.
  */
@@ -111,7 +111,7 @@ interface StageView {
 }
 
 /** Derive the tailored stage list and each stage's state from the marker lines
- *  seen so far plus the terminal verdict. Pure — unit-testable in isolation. */
+ *  seen so far plus the terminal verdict. Pure: unit-testable in isolation. */
 export function computeStages(lines: string[], row: ProvisionStageRow | undefined): StageView[] {
   const markers = lines.filter((l) => l.startsWith("──"));
   const streamFailed = lines.some((l) => l.startsWith("✗"));
@@ -128,7 +128,7 @@ export function computeStages(lines: string[], row: ProvisionStageRow | undefine
   shown.forEach((s, i) => {
     if (markers.some(s.match)) activeIdx = i;
   });
-  // No markers yet but the row says it's running — surface the first stage as
+  // No markers yet but the row says it's running. Surface the first stage as
   // active so the view reads as "working", not frozen.
   if (activeIdx === -1 && !ready && !failed && inFlight) activeIdx = 0;
 

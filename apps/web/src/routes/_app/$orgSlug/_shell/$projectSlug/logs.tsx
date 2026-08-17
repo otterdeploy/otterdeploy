@@ -13,7 +13,7 @@
  */
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
-import { createFileRoute, useLoaderData, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
@@ -181,7 +181,9 @@ function RouteComponent() {
     // (--header-height) and the sticky ProjectTabs bar (h-10 = 2.5rem).
     <Tabs
       value={source}
-      onValueChange={(v) => setSource(v as LogsSource)}
+      // Radix hands the trigger's value back as a plain string; re-brand it
+      // through the same schema the route's search params use.
+      onValueChange={(v) => setSource(zLogsSearch.shape.source.parse(v))}
       className="flex h-[calc(100svh-var(--header-height)-2.5rem)] flex-col gap-0 overflow-hidden"
     >
       <div className="flex items-center border-b px-4 pt-2">

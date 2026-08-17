@@ -36,23 +36,23 @@ New `proxy_route` table replaces the `caddy_config` table:
 | createdAt | timestamp | |
 | updatedAt | timestamp | |
 
-Unique constraint on `domain` — no two routes can claim the same domain.
+Unique constraint on `domain`, no two routes can claim the same domain.
 
 ### Components
 
-**`packages/api/src/caddy/builder.ts`** — Pure functions. Takes `proxy_route` rows, returns a Caddyfile string. No I/O.
+**`packages/api/src/caddy/builder.ts`**: Pure functions. Takes `proxy_route` rows, returns a Caddyfile string. No I/O.
 
 - `buildCaddyfile(routes, adminBind)` -> full Caddyfile string
 - `buildHttpBlock(route)` -> single site block
 - `buildLayer4Route(route)` -> single Layer4 matcher + route
 - `buildGlobalBlock(layer4Routes, adminBind)` -> global options with listener_wrappers
 
-**`packages/api/src/caddy/client.ts`** — Thin HTTP client for Caddy admin API.
+**`packages/api/src/caddy/client.ts`**: Thin HTTP client for Caddy admin API.
 
 - `adaptCaddyfile(caddyfile, adminUrl)` -> adapted JSON or error
 - `loadCaddyfile(caddyfile, adminUrl)` -> void or error
 
-**`packages/api/src/caddy/reconciler.ts`** — The controller.
+**`packages/api/src/caddy/reconciler.ts`**: The controller.
 
 - `reconcile()` -> `ReconcileResult`
   1. Query all enabled `proxy_route` rows grouped by projectId
@@ -61,15 +61,15 @@ Unique constraint on `domain` — no two routes can claim the same domain.
   4. POST to `/load`
   5. Return which projects were applied vs skipped
 
-**`packages/db/src/schema/caddy.ts`** — Replaced with `proxy_route` table definition.
+**`packages/db/src/schema/caddy.ts`**, Replaced with `proxy_route` table definition.
 
-**`packages/db/src/proxy-route.ts`** — CRUD queries for proxy_route table.
+**`packages/db/src/proxy-route.ts`**: CRUD queries for proxy_route table.
 
 ### Flow: Creating a Postgres Resource
 
-1. Docker container provisioned (existing `docker/postgres.ts` — unchanged)
+1. Docker container provisioned (existing `docker/postgres.ts`: unchanged)
 2. Insert `proxy_route` row: type=layer4, domain=publicHostname, upstream=internalHostname:5432, protocol=tcp, layer4Alpn=postgresql
-3. Call `reconcile()` — builds Caddyfile, validates, loads into Caddy
+3. Call `reconcile()`: builds Caddyfile, validates, loads into Caddy
 4. If reconcile skips this project, mark resource status as `invalid`
 
 ### Flow: Creating an HTTP Service Resource (future)
@@ -121,39 +121,39 @@ Uncomment the Caddy service. Key changes:
 
 ### What Gets Deleted
 
-- `packages/api/src/caddy/config.ts` — entire file (500 lines)
-- `packages/api/src/caddy/service.ts` — entire file (300 lines)
-- `packages/db/src/schema/caddy.ts` — old `caddy_config` table
-- `packages/db/src/caddy.ts` — old CRUD queries
+- `packages/api/src/caddy/config.ts`: entire file (500 lines)
+- `packages/api/src/caddy/service.ts`: entire file (300 lines)
+- `packages/db/src/schema/caddy.ts`: old `caddy_config` table
+- `packages/db/src/caddy.ts`: old CRUD queries
 - All references to `caddy_config` table, claim extraction, file sync, temp dirs
 
 ### What Gets Modified
 
-- `packages/api/src/routers/project/service.ts` — `createPostgresResource` and `ensureDockerRuntimeForRecord` switch from raw Caddyfile snippet management to inserting/updating `proxy_route` rows + calling `reconcile()`
-- `packages/api/src/routers/project/contract.ts` — update caddy-related schemas to match new reconciler result
-- `packages/api/src/routers/project/index.ts` — update caddy route handlers
-- `packages/db/src/schema/index.ts` — export new schema, remove old
-- `packages/db/src/index.ts` — export new queries, remove old
-- `packages/shared/src/id.ts` — add `proxyRoute` prefix
-- `packages/env/src/server.ts` — keep existing Caddy env vars, remove unused ones
-- `docker-compose.yml` — uncomment Caddy service
-- `infra/caddy/config/Caddyfile` — seed file for initial Caddy startup
+- `packages/api/src/routers/project/service.ts`: `createPostgresResource` and `ensureDockerRuntimeForRecord` switch from raw Caddyfile snippet management to inserting/updating `proxy_route` rows + calling `reconcile()`
+- `packages/api/src/routers/project/contract.ts`: update caddy-related schemas to match new reconciler result
+- `packages/api/src/routers/project/index.ts`: update caddy route handlers
+- `packages/db/src/schema/index.ts`: export new schema, remove old
+- `packages/db/src/index.ts`: export new queries, remove old
+- `packages/shared/src/id.ts`: add `proxyRoute` prefix
+- `packages/env/src/server.ts`: keep existing Caddy env vars, remove unused ones
+- `docker-compose.yml`: uncomment Caddy service
+- `infra/caddy/config/Caddyfile`: seed file for initial Caddy startup
 
 ### Env Vars
 
 Keep:
-- `CADDY_ADMIN_URL` — for API calls
-- `CADDY_ADMIN_BIND` — for the Caddyfile global block
+- `CADDY_ADMIN_URL`: for API calls
+- `CADDY_ADMIN_BIND`: for the Caddyfile global block
 
 Remove:
-- `CADDY_CONFIG_DIR` — no longer writing files from the API
-- `CADDY_RUNTIME_CONFIG_DIR` — same
-- `CADDY_RESERVED_HOSTS` — validation is now per-project via `/adapt`, not claim-based
-- `CADDY_RESERVED_LAYER4_PORTS` — same
+- `CADDY_CONFIG_DIR`, no longer writing files from the API
+- `CADDY_RUNTIME_CONFIG_DIR`: same
+- `CADDY_RESERVED_HOSTS`: validation is now per-project via `/adapt`, not claim-based
+- `CADDY_RESERVED_LAYER4_PORTS`: same
 
 ### Testing
 
-- `builder.ts` — unit tests for each build function (pure functions, easy to test)
-- `client.ts` — no unit tests (thin HTTP wrapper), tested via integration
-- `reconciler.ts` — unit test with mocked client, verify per-project skip behavior
-- Existing `config.test.ts` — deleted and replaced
+- `builder.ts`: unit tests for each build function (pure functions, easy to test)
+- `client.ts`, no unit tests (thin HTTP wrapper), tested via integration
+- `reconciler.ts`: unit test with mocked client, verify per-project skip behavior
+- Existing `config.test.ts`: deleted and replaced

@@ -47,7 +47,7 @@ describe("desiredReplicas / initialScalingForm", () => {
   });
 });
 
-describe("buildScalingPatch — pause guard", () => {
+describe("buildScalingPatch: pause guard", () => {
   test("no changes → null (nothing to save)", () => {
     const stored = running({ cpuLimit: 0.5, memoryLimitMb: 512 });
     expect(
@@ -55,13 +55,13 @@ describe("buildScalingPatch — pause guard", () => {
     ).toBeNull();
   });
 
-  test("limits-only edit while paused omits replicas — the pause survives", () => {
+  test("limits-only edit while paused omits replicas, so the pause survives", () => {
     const patch = buildScalingPatch(paused(), { replicas: 3, cpuLimit: 1, memoryLimitMb: null });
     expect(patch).toEqual({ resources: { cpuLimit: 1, memoryLimitMb: null } });
     expect(patch?.replicas).toBeUndefined();
   });
 
-  test("explicit replica edit while paused sends replicas — resume with new count", () => {
+  test("explicit replica edit while paused sends replicas, resuming with the new count", () => {
     const patch = buildScalingPatch(paused(), { replicas: 5, cpuLimit: null, memoryLimitMb: null });
     expect(patch).toEqual({ replicas: 5 });
   });
@@ -207,8 +207,8 @@ describe("groupRunningTasksByNode", () => {
       { serviceId: "svc", nodeId: "n1", state: "running" },
       { serviceId: "svc", nodeId: "n1", state: "running" },
       { serviceId: "svc", nodeId: "n2", state: "running" },
-      { serviceId: "svc", nodeId: "n2", state: "shutdown" }, // old task — ignored
-      { serviceId: "other", nodeId: "n1", state: "running" }, // other service — ignored
+      { serviceId: "svc", nodeId: "n2", state: "shutdown" }, // old task, ignored
+      { serviceId: "other", nodeId: "n1", state: "running" }, // other service, ignored
     ];
     expect(groupRunningTasksByNode(tasks, nodes, "svc")).toEqual([
       { hostname: "alpha", running: 2 },

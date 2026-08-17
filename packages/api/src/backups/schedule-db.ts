@@ -40,7 +40,7 @@ export interface DueSchedule {
   retentionDays: number | null;
   maxStorageGb: number | null;
   preHook: string | null;
-  // Null = freshly created, never scheduled — initialize without backfilling.
+  // Null = freshly created, never scheduled, initialize without backfilling.
   nextRunAt: Date | null;
 }
 
@@ -71,7 +71,7 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
         or(isNull(backupSchedule.nextRunAt), lte(backupSchedule.nextRunAt, now)),
       ),
     );
-  return rows as DueSchedule[];
+  return rows;
 }
 
 /** A schedule's run inputs (sources + destination) for a manual "run now". */
@@ -101,16 +101,16 @@ export async function getScheduleRunTarget(input: {
       and(eq(backupSchedule.id, input.id), eq(backupSchedule.organizationId, input.organizationId)),
     )
     .limit(1);
-  return (row as ScheduleRunTarget | undefined) ?? null;
+  return row ?? null;
 }
 
 /**
  * Which of a schedule's `destinationIds` should a run actually write to?
  *
  * Pure so the rule is testable without a database. Two ids get dropped:
- *   - `disabled` — operator intent; the destination keeps its restorable
+ *   - `disabled`: operator intent; the destination keeps its restorable
  *     snapshots but takes no new backups.
- *   - ids with no matching row — `destinationIds` is a plain jsonb array with no
+ *   - ids with no matching row: `destinationIds` is a plain jsonb array with no
  *     foreign key, so a deleted destination leaves a dangling id that would
  *     otherwise fail deep inside the engine instead of being skipped here.
  * `degraded` is deliberately kept: it's a health signal, not intent, and
@@ -163,7 +163,7 @@ export interface ResolvedSource {
 export interface ScheduleSourceResolution {
   /** Resources the schedule can actually back up right now, with their kind. */
   resolved: ResolvedSource[];
-  /** Source refs that no longer match any live database — the schedule was
+  /** Source refs that no longer match any live database. The schedule was
    *  orphaned (its DB/volume/stack service was deleted out from under it). */
   missing: string[];
 }
@@ -192,8 +192,8 @@ export function partitionSources(
   return { resolved, missing: sources.filter((s) => !matchedRefs.has(s)) };
 }
 
-/** Match a schedule's source refs against the org's live databases — both
- *  managed database resources and compose-stack DB services — partitioning them
+/** Match a schedule's source refs against the org's live databases. Both
+ *  managed database resources and compose-stack DB services, partitioning them
  *  into what still resolves (with its kind) and what has gone missing. */
 export async function classifyScheduleSources(
   organizationId: OrganizationId,
@@ -225,7 +225,7 @@ export async function resolveScheduleSources(
   return (await classifyScheduleSources(organizationId, sources)).resolved;
 }
 
-/** Succeeded backups for a schedule, newest first — drives retention. */
+/** Succeeded backups for a schedule, newest first: drives retention. */
 export async function listScheduleBackups(scheduleId: BackupScheduleId): Promise<
   Array<{
     id: BackupId;

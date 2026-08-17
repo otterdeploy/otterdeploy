@@ -3,7 +3,7 @@
  *
  * Detection (who runs this zone) is deliberately independent of capability
  * (can we write to it). Knowing a domain is on Cloudflare while holding no
- * token is exactly the case worth surfacing — it is what lets the UI offer
+ * token is exactly the case worth surfacing. It is what lets the UI offer
  * "connect your account" instead of dropping the operator into manual records
  * with no explanation of why the easy path wasn't offered.
  */
@@ -22,8 +22,8 @@ import { getOrganizationById } from "../organization/queries";
 /** The zone on this token that covers `domain`, or null. Longest match wins so
  *  a delegated `dev.acme.com` zone beats `acme.com` when both are present. */
 async function matchingCloudflareZoneId(token: string, domain: string): Promise<string | null> {
-  // A failed listing degrades to "no matching zone", same as an empty one —
-  // the caller's next step is to ask the operator to pick a zone by hand.
+  // A failed listing degrades to "no matching zone", same as an empty one.
+  // The caller's next step is to ask the operator to pick a zone by hand.
   const zones = (await listCloudflareZones(token)).unwrapOr<CloudflareZone[]>([]);
   const name = domain.toLowerCase().replace(/\.$/, "");
   const matches = zones
@@ -53,7 +53,7 @@ export const dnsRouter = {
 
     const token = org?.cloudflareApiToken ?? null;
     // Only ask Cloudflare which zones exist when the nameservers already say
-    // it's Cloudflare — otherwise this is a pointless round trip on every
+    // it's Cloudflare. Otherwise this is a pointless round trip on every
     // keystroke-triggered inspect for a domain hosted elsewhere.
     const zoneId =
       token && detected.provider === "cloudflare"

@@ -3,7 +3,7 @@ import type { ErrorComponentProps } from "@tanstack/react-router";
 import { ErrorScreen, errorBackClass, errorBtnClass } from "@otterdeploy/ui/error-screen";
 
 /**
- * 500 — wired into the router as `defaultErrorComponent` (see router.tsx).
+ * 500, wired into the router as `defaultErrorComponent` (see router.tsx).
  *
  * Without this the app fell back to TanStack Start's unstyled boundary: a bare
  * "Something went wrong!" heading and a *Show Error* button on a white page,

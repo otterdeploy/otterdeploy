@@ -1,8 +1,8 @@
 /**
- * AccessWall CSS — base half (root vars, body, full-page grid/glow backdrop,
+ * AccessWall CSS: base half (root vars, body, full-page grid/glow backdrop,
  * topbar wordmark, domain pill). Concatenated with `accessWallFormCss` to form
  * the full stylesheet; split only to keep each module under the line cap.
- * NOTE: no trailing newline — the closing backtick hugs the last rule so the
+ * NOTE: no trailing newline: the closing backtick hugs the last rule so the
  * join is byte-exact.
  */
 
@@ -18,7 +18,7 @@ export const accessWallBaseCss = `
         --border: rgba(255, 255, 250, 0.08);
         --border-mid: rgba(255, 255, 250, 0.13);
         /* The brand accent, matching --sidebar-primary in apps/web/src/index.css.
-           This used to be hue 300 — a violet found nowhere else in the product,
+           This used to be hue 300. A violet found nowhere else in the product,
            on the most public screen we ship. DESIGN.md mandates one accent. */
         --primary: oklch(0.623 0.214 259.815);
         --primary-dim: oklch(0.623 0.214 259.815 / 0.15);

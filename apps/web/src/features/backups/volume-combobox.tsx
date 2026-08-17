@@ -1,7 +1,7 @@
 /**
  * Searchable Docker-volume picker for the backup-now dialog. Mirrors the
  * DatabaseCombobox interaction; rows show the owning resource (or an "orphan"
- * tag — unclaimed volumes are still backupable) and the measured size.
+ * tag, unclaimed volumes are still backupable) and the measured size.
  */
 import { useState } from "react";
 
@@ -83,7 +83,7 @@ export function VolumeCombobox({
             {volumes.map((v) => (
               <CommandItem
                 key={v.name}
-                // cmdk filters on this string — fold in the owner + project so
+                // cmdk filters on this string: fold in the owner + project so
                 // a user can narrow by any of them.
                 value={`${v.name} ${v.attachedTo.map((a) => `${a.resourceName} ${a.projectSlug}`).join(" ")} ${v.orphan ? "orphan" : ""}`}
                 data-checked={v.name === value ? "true" : undefined}

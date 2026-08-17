@@ -1,6 +1,6 @@
 /**
- * Every mutation a single domain row can fire — recheck, set-primary,
- * update, remove, and the Cloudflare auto-configure — plus the toasts they
+ * Every mutation a single domain row can fire. Recheck, set-primary,
+ * update, remove, and the Cloudflare auto-configure. Plus the toasts they
  * report through.
  *
  * Split out of ./domain-row so that component stays about layout: the row
@@ -10,8 +10,9 @@
  * never written.
  */
 
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -23,7 +24,7 @@ export interface DomainRowActionsApi {
   remove: { run: () => void };
   update: { run: (value: { domain: string; port: number }) => void; pending: boolean };
   autoConfigure: { run: () => void; pending: boolean };
-  /** Any write in flight — the row disables its actions on this. */
+  /** Any write in flight, the row disables its actions on this. */
   busy: boolean;
 }
 
@@ -36,13 +37,15 @@ export function useDomainRow({
 }: {
   input: { projectId: ProjectId; resourceId: ResourceId };
   routeId: string;
-  /** Current hostname — only used to word the toasts. */
+  /** Current hostname: only used to word the toasts. */
   domain: string;
   onSettled: () => Promise<void>;
   /** Called after a successful rename so the row can leave edit mode. */
   onUpdated: () => void;
 }): DomainRowActionsApi {
-  const route = { ...input, routeId: routeId as ProxyRouteId };
+  // The row hands us the route id as a plain string; brand it at this
+  // boundary with the real validator instead of a cast.
+  const route = { ...input, routeId: idSchema.proxyRoute.parse(routeId) };
 
   const recheck = useMutation({
     ...orpc.service.domains.recheck.mutationOptions(),
@@ -50,7 +53,7 @@ export function useDomainRow({
       if (!res.ownershipVerified) {
         toast.warning(`TXT ownership proof for ${res.domain} was not found yet`);
       } else if (res.dnsState === "pointed") {
-        toast.success(`${res.domain} points here — certificate will issue`);
+        toast.success(`${res.domain} points here. Certificate will issue`);
       } else if (res.dnsState === "proxied") {
         toast.success(`${res.domain} is proxied via Cloudflare`);
       } else {
@@ -65,7 +68,7 @@ export function useDomainRow({
     ...orpc.service.domains.autoConfigureDns.mutationOptions(),
     onSuccess: () => {
       toast.success(`DNS records created for ${domain}`);
-      // Records exist now, so the ownership check can actually pass — run it
+      // Records exist now, so the ownership check can actually pass. Run it
       // rather than making the operator find Recheck themselves.
       recheck.mutate(route);
     },

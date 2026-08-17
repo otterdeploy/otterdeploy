@@ -20,7 +20,7 @@ const script = () => runOnHost.mock.calls.map((c) => String(c[0])).join("\n---\n
 // env validation out of the deploy import graph), so the test has to set it the
 // same way. Scoped to this file.
 // oxlint-disable-next-line node/no-process-env -- the driver reads this var raw by design; the test must set it the same way
-const env = process.env as Record<string, string | undefined>;
+const env: Record<string, string | undefined> = process.env;
 
 beforeEach(() => {
   runOnHost.mockReset();
@@ -55,7 +55,7 @@ describe("zfs branch", () => {
     expect(script()).toContain("zfs destroy otterdeploy/pg/a@b 2>/dev/null || true");
   });
 
-  it("never recurses — -r would reach datasets we did not create", async () => {
+  it("never recurses: -r would reach datasets we did not create", async () => {
     await zfsDriver.branch({ sourceVolume: "a", targetVolume: "b", engine: "postgres" });
     expect(script()).not.toMatch(/zfs destroy\s+-r/);
   });

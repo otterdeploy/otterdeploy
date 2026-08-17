@@ -1,5 +1,5 @@
 /**
- * Private-networking handlers — connect / verify / disconnect the org's own
+ * Private-networking handlers: connect / verify / disconnect the org's own
  * VPN account, and read back the facts the UI and the data plane need.
  *
  * Two rules run through all of this:
@@ -47,7 +47,7 @@ export type { MeshStatusView } from "./status-view";
 export async function getMeshStatus(organizationId: OrganizationId): Promise<MeshStatusView> {
   const row = await getMeshNetwork(organizationId);
   if (!row) return DISCONNECTED_STATUS;
-  // A live status read stays cheap and offline — we don't call the provider on
+  // A live status read stays cheap and offline. We don't call the provider on
   // every page load. `verify` is the explicit round-trip.
   return toStatusView(row, {
     strandedPrivateRoutes:
@@ -178,7 +178,7 @@ export async function verifyMesh(
 }
 
 /**
- * Disconnect. Peers keep running and private routes stay private — this is
+ * Disconnect. Peers keep running and private routes stay private. This is
  * deliberately not a teardown. See the design's "optional, opt-out, never
  * load-bearing" section: the one thing disconnect must never do is quietly
  * put an internal-only app back on the public internet.
@@ -208,7 +208,7 @@ export async function listMeshGroups(
 /**
  * Choose which provider groups may reach private services, and push the
  * matching access policy. Persisting first means a provider hiccup doesn't
- * lose the operator's choice — the policy is re-pushed on the next change or
+ * lose the operator's choice. The policy is re-pushed on the next change or
  * reconcile.
  */
 export async function setMeshAccessGroupsHandler(input: {
@@ -247,7 +247,7 @@ export interface MeshPeerView extends MeshPeer {
 
 /**
  * Peers as the provider sees them, matched to our server rows by mesh address.
- * Drift is REPORTED, never auto-corrected — deleting a peer we merely failed
+ * Drift is REPORTED, never auto-corrected. Deleting a peer we merely failed
  * to recognise would be destructive on a mesh the org also uses for its own
  * machines.
  */

@@ -1,13 +1,14 @@
 /**
- * Certificates router — org-wide TLS: live inventory probes, custom cert
+ * Certificates router: org-wide TLS: live inventory probes, custom cert
  * upload/replace/delete (installed through the shared Caddy reconcile pass),
  * and the trusted-CA store. All procedures are RBAC-gated on the
  * `certificate` resource (members: read-only). Private keys never appear in
- * any output — the contract has no field for them.
+ * any output: the contract has no field for them.
  */
 import type { UserId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import type { customCertificateSchema, trustedCaSchema } from "./contract";
@@ -28,6 +29,13 @@ import {
 
 type CustomCertPublic = z.infer<typeof customCertificateSchema>;
 type TrustedCaPublic = z.infer<typeof trustedCaSchema>;
+
+/** Session user id branded through the real prefix guard; null for key actors
+ *  (no session) or an id that isn't a user id. */
+function sessionUserId(session: { user: { id: string } } | null): UserId | null {
+  const id = session?.user.id;
+  return id !== undefined && hasPrefix(id, ID_PREFIX.user) ? id : null;
+}
 
 /** DB row → wire shape. Drops `certPem` + `keyCiphertext` (the chain is
  *  large and the key must never leave the server) and the raw user id. */
@@ -86,7 +94,7 @@ export const certificatesRouter = {
       const result = await uploadCustomCertificate({
         ...input,
         organizationId: context.activeOrganizationId,
-        uploadedByUserId: (context.session?.user.id as UserId | undefined) ?? null,
+        uploadedByUserId: sessionUserId(context.session),
         rlog: context.log,
       });
       if (result.isErr()) {
@@ -110,7 +118,7 @@ export const certificatesRouter = {
       const result = await replaceCustomCertificate({
         ...input,
         organizationId: context.activeOrganizationId,
-        uploadedByUserId: (context.session?.user.id as UserId | undefined) ?? null,
+        uploadedByUserId: sessionUserId(context.session),
         rlog: context.log,
       });
       if (result.isErr()) {

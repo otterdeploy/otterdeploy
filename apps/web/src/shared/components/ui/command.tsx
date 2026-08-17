@@ -55,7 +55,7 @@ function CommandDialog({
         </DialogHeader>
         {/* The dialog owns the cmdk root, as upstream does. Leaving it to each
             caller meant a caller that forgot one rendered CommandInput/List/
-            Item against an undefined store context — a hard crash, not a
+            Item against an undefined store context, a hard crash, not a
             degraded list. */}
         <Command>{children}</Command>
       </DialogContent>

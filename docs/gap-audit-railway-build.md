@@ -2,7 +2,7 @@
 
 **Source:** Build logs and the Deployments UI from the same real "waves" deployment (see
 `gap-audit-railway-vs-otterdeploy.md` and `gap-audit-railway-networking.md`). This doc is
-specifically about the **build stage** — validation, lifecycle visibility, logs, caching, and
+specifically about the **build stage**, validation, lifecycle visibility, logs, caching, and
 config-as-code.
 
 Important framing: **otterdeploy's build *engine* is fine.** It uses `docker buildx` on cache
@@ -21,9 +21,9 @@ $ docker buildx build --builder otterdeploy-cache -f …/Dockerfile --load --pro
 #13 [deps 4/4] RUN bun install --frozen-lockfile --production …   CACHED
 #16 [client 7/7] RUN bun run build   # → /app/dist       CACHED
 #18 exporting to oci image format … DONE
-Deploying stack waves-waves-stack — 1 service(s), reason: redeploy
-Service waves: failed — Failed query: insert into "service_resource" (…) values (…)
-Stack deploy failed — 0 rolled out, failed: waves
+Deploying stack waves-waves-stack: 1 service(s), reason: redeploy
+Service waves: failed: Failed query: insert into "service_resource" (…) values (…)
+Stack deploy failed: 0 rolled out, failed: waves
 ```
 → The **build succeeded**; the **deploy** failed with a raw SQL error (a name collision). The
 two phases blur together in one opaque log.
@@ -56,7 +56,7 @@ FAILED  railway up
 
 ### 1. Fail-fast Dockerfile validation with actionable errors
 - **Railway:** rejected `VOLUME` **before** the build, in 4s, with `dockerfile invalid: docker
-  VOLUME at Line 61 is not supported, use Railway Volumes` — line number + reason + fix.
+  VOLUME at Line 61 is not supported, use Railway Volumes`, line number + reason + fix.
 - **otterdeploy:** **silently accepted the same `VOLUME`** and built the image. Worse than a
   hard error: the resulting volume wasn't truly persistent, so the failure mode is invisible
   until data disappears.
@@ -71,7 +71,7 @@ FAILED  railway up
   *deploy* (the `service_resource` insert) looks like one undifferentiated failure.
 - **Recommendation:** model deployments as explicit phases (`fetch → validate → build →
   push → deploy → health/post-deploy`) with per-phase status, timings, and the phase that
-  failed highlighted — in both CLI (`otterdeploy deployments <resource>`) and dashboard.
+  failed highlighted, in both CLI (`otterdeploy deployments <resource>`) and dashboard.
 
 ### 3. Build logs always retrievable, per resource and per deployment
 - **Railway:** every deployment has **View logs** and `railway logs --build`; we got the exact
@@ -83,7 +83,7 @@ FAILED  railway up
 
 ### 4. Clear build↔deploy boundary (don't leak internals)
 - **otterdeploy:** a deploy-phase failure surfaced as a **raw Postgres error**
-  (`Failed query: insert into "service_resource" …`) inside the build log — mixing an internal
+  (`Failed query: insert into "service_resource" …`) inside the build log, mixing an internal
   control-plane error into what should be a user-facing build/deploy result.
 - **Recommendation:** never surface raw SQL/control-plane errors. Map them to actionable
   messages ("a service named 'waves' already exists in this project") and attribute them to the
@@ -118,7 +118,7 @@ FAILED  railway up
 
 ### 8. Fast feedback (fail early, don't build the whole thing)
 - **Railway:** caught the fatal `VOLUME` at 4s, before any layers ran.
-- **otterdeploy:** built all stages (cache-hit, ~fast) and only failed later at deploy — fine
+- **otterdeploy:** built all stages (cache-hit, ~fast) and only failed later at deploy, fine
   here because of caching, but validation-before-build is still the right default so real
   errors don't wait for a full build.
 - **Recommendation:** run cheap static validation (Dockerfile parse, unsupported instructions,
@@ -129,7 +129,7 @@ FAILED  railway up
 ## What otterdeploy already does well (keep)
 
 - **`docker buildx` on dedicated cache builders** with local layer cache (`--cache-from/--cache-to
-  type=local`) — real caching, fast rebuilds on cache hits.
+  type=local`): real caching, fast rebuilds on cache hits.
 - **OCI image export + registry-less local images** for self-hosted flow.
 - Multi-stage Dockerfiles build correctly end-to-end (the engine is not the problem).
 
@@ -137,11 +137,11 @@ FAILED  railway up
 
 ## Priority order (build)
 
-1. **Validate before building, fail fast with `file:line + reason + fix`** (#1, #8) — the
+1. **Validate before building, fail fast with `file:line + reason + fix`** (#1, #8), the
    `VOLUME` moment is the template: turn silent-wrong-builds into loud-clear errors.
-2. **Build logs retrievable for every resource, incl. composes** (#3) — you cannot fix what you
+2. **Build logs retrievable for every resource, incl. composes** (#3): you cannot fix what you
    cannot see.
-3. **Explicit staged lifecycle** (#2) + **clean build↔deploy boundary with no raw SQL** (#4) —
+3. **Explicit staged lifecycle** (#2) + **clean build↔deploy boundary with no raw SQL** (#4),
    so a deploy-phase failure never masquerades as a build failure.
 4. **Config-as-code for builder/deploy** (#5) + **surfaced builder choice + `build` for composes**
    (#6).
@@ -150,6 +150,6 @@ FAILED  railway up
 ---
 
 *Same through-line as the other two audits: otterdeploy's capability is there (the image builds),
-but the **experience** isn't legible — validation is silent, logs are unreachable for composes,
+but the **experience** isn't legible. Validation is silent, logs are unreachable for composes,
 and a control-plane SQL error leaks into the build output. Railway wins by validating early,
 naming the exact fix, and showing every phase.*

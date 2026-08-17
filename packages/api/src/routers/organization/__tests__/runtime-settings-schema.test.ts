@@ -1,7 +1,7 @@
 /**
  * The Runtime settings card runs this schema inline as the operator types, and
  * the server runs it again on save. These cover the messages the operator
- * actually reads — a wrong-but-passing message is a real defect here, because
+ * actually reads. A wrong-but-passing message is a real defect here, because
  * the whole point of moving validation forward was that "Input validation
  * failed" named neither the field nor the offending entry.
  */
@@ -43,14 +43,14 @@ describe("egressAllowlistField", () => {
     }
   });
 
-  it("rejects a hostname — it could be rebound to a private address after validation", () => {
+  it("rejects a hostname. It could be rebound to a private address after validation", () => {
     expect(egressAllowlistField.safeParse("internal.acme.com").success).toBe(false);
   });
 
   it("rejects addresses that are the right SHAPE but out of range", () => {
     // The hand-rolled regex this replaced matched on shape alone and let all
-    // of these through to a parser that silently drops what it can't parse —
-    // an allowlist that looks like it grants something it doesn't.
+    // of these through to a parser that silently drops what it can't parse.
+    // An allowlist that looks like it grants something it doesn't.
     for (const bad of ["999.999.999.999", "1.2.3.4/99", "10.0.0.0/-1", "1.2.3", "1.2.3.4.5"]) {
       expect(egressAllowlistField.safeParse(bad).success).toBe(false);
     }
@@ -60,7 +60,7 @@ describe("egressAllowlistField", () => {
     // The reported screenshot case: one junk token, seven fields, a toast that
     // said only "Input validation failed".
     expect(messageFor({ ...VALID_DRAFT, egressAllowlist: "asssad" }, "egressAllowlist")).toBe(
-      '"asssad" is not a bare IP or CIDR — hostnames are not accepted here',
+      '"asssad" is not a bare IP or CIDR. Hostnames are not accepted here',
     );
   });
 
@@ -70,7 +70,7 @@ describe("egressAllowlistField", () => {
         { ...VALID_DRAFT, egressAllowlist: "10.0.0.1, nope, 10.0.0.2" },
         "egressAllowlist",
       ),
-    ).toBe('"nope" is not a bare IP or CIDR — hostnames are not accepted here');
+    ).toBe('"nope" is not a bare IP or CIDR. Hostnames are not accepted here');
   });
 
   it("ignores blank entries from trailing commas", () => {

@@ -1,23 +1,23 @@
 /**
- * Certificates oRPC contract — the org-wide TLS surface.
+ * Certificates oRPC contract: the org-wide TLS surface.
  *
  * Three planes, with different levels of enforcement (stated honestly):
  *
- *   - `inventory` — GROUND TRUTH. Live TLS probes of every enabled public
+ *   - `inventory`: GROUND TRUTH. Live TLS probes of every enabled public
  *     domain across the org's projects (same probe as the per-project
  *     Networking tab): what the edge is actually serving right now. Never
  *     cached, never synthesized.
- *   - custom certificates — operator-uploaded PEM chain + key. Validated and
+ *   - custom certificates: operator-uploaded PEM chain + key. Validated and
  *     stored server-side, materialized to the edge's `/etc/caddy` mount and
  *     emitted as `tls` directives by the reconciler. `installState` +
  *     `applied` report the real outcome; the private key is NEVER part of
  *     any output schema.
- *   - trusted CAs — inventory only today. The generated edge config proxies
+ *   - trusted CAs. Inventory only today. The generated edge config proxies
  *     upstreams over plain HTTP on the internal network, so no generated
  *     directive consumes a CA pool; rows are stored for download/reference.
  *
  * There is deliberately NO "renew" procedure: Caddy renews ACME certs on its
- * own schedule and its admin API exposes no force-renew endpoint — a renew
+ * own schedule and its admin API exposes no force-renew endpoint. A renew
  * button here would be fiction. Recheck (re-probe) is the honest verb.
  */
 import { oc } from "@orpc/contract";
@@ -32,7 +32,7 @@ const trustedCaIdField = zId(ID_PREFIX.trustedCa);
 
 // ─── org-wide inventory (live edge probe) ───────────────────────────
 
-/** One probed domain — mirrors lib/cert-probe's CertProbe, plus which
+/** One probed domain: mirrors lib/cert-probe's CertProbe, plus which
  *  projects publish the domain and (when the served leaf's fingerprint
  *  matches a stored custom cert) which upload is live. */
 const probedCertificateSchema = z.object({
@@ -58,7 +58,7 @@ const probedCertificateSchema = z.object({
     }),
   ),
   /** Set when the SERVED leaf is one of this org's uploaded custom certs
-   *  (SHA-256 fingerprint match against the live probe) — ground truth that
+   *  (SHA-256 fingerprint match against the live probe). Ground truth that
    *  the upload is what the edge presents. */
   customCertificateId: customCertificateIdField.nullable(),
 });
@@ -66,7 +66,7 @@ const probedCertificateSchema = z.object({
 const inventorySchema = z.object({
   /** The edge address probed (server IP, or loopback on a single node). */
   edgeHost: z.string(),
-  /** ISO-8601 — when the probe ran (results are live, not cached). */
+  /** ISO-8601: when the probe ran (results are live, not cached). */
   probedAt: z.string(),
   certificates: z.array(probedCertificateSchema),
 });
@@ -75,7 +75,7 @@ const inventorySchema = z.object({
 
 const customCertificateInstallStateSchema = z.enum(["pending", "installed", "error"]);
 
-/** Public row — extracted leaf metadata only, never key material. */
+/** Public row, extracted leaf metadata only, never key material. */
 export const customCertificateSchema = z.object({
   id: customCertificateIdField,
   hostname: z.string(),
@@ -85,7 +85,7 @@ export const customCertificateSchema = z.object({
   sans: z.array(z.string()),
   notBefore: z.date(),
   notAfter: z.date(),
-  /** SHA-256 leaf fingerprint — comparable to the inventory probe's. */
+  /** SHA-256 leaf fingerprint: comparable to the inventory probe's. */
   fingerprint256: z.string(),
   keyAlg: z.string().nullable(),
   /** Real install outcome: "installed" = a reconcile including this cert
@@ -95,8 +95,8 @@ export const customCertificateSchema = z.object({
   installError: z.string().nullable(),
   /** Display name of the uploader (null for API-key actors / deleted users). */
   uploadedBy: z.string().nullable(),
-  /** Enabled public domains (across the org's projects) this cert covers —
-   *  empty means nothing routes to it yet, so it cannot be served. */
+  /** Enabled public domains (across the org's projects) this cert covers.
+   *  Empty means nothing routes to it yet, so it cannot be served. */
   matchingDomains: z.array(z.string()),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -106,12 +106,12 @@ const PEM_CERT_MAX = 64_000;
 const PEM_KEY_MAX = 16_000;
 
 const uploadCustomInput = z.object({
-  /** Optional — must be covered by the cert's CN/SANs when given; derived
+  /** Optional: must be covered by the cert's CN/SANs when given; derived
    *  from the leaf (CN, else first SAN) when omitted. */
   hostname: z.string().trim().min(1).max(255).optional(),
   /** PEM chain, leaf first. */
   certPem: z.string().min(1).max(PEM_CERT_MAX),
-  /** Unencrypted PEM private key. Write-only — never echoed back. */
+  /** Unencrypted PEM private key. Write-only, never echoed back. */
   keyPem: z.string().min(1).max(PEM_KEY_MAX),
 });
 
@@ -139,7 +139,7 @@ export const trustedCaSchema = z.object({
   subject: z.string().nullable(),
   fingerprint256: z.string(),
   notAfter: z.date(),
-  /** Public material — included so the UI can view/download the PEM. */
+  /** Public material, included so the UI can view/download the PEM. */
   pem: z.string(),
   createdAt: z.date(),
 });

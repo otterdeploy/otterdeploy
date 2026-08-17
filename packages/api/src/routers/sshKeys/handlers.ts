@@ -1,10 +1,10 @@
 /**
  * SSH key lifecycle. Per-org scoped (filtered on `organization_id`, like the
- * server registry — keys don't transitively belong to a project).
+ * server registry: keys don't transitively belong to a project).
  *
  * Generated keys: `ssh-keygen` produces the pair; we encrypt the private half
  * at rest (`encryptForDomain(..., "ssh-keys")`, domain-separated from every
- * other secret category — see packages/api/src/lib/crypto.ts) and store the
+ * other secret category: see packages/api/src/lib/crypto.ts) and store the
  * public half in the clear. Imported keys hold only the pasted public half
  * (`privateKeyCiphertext = null`).
  */
@@ -141,7 +141,7 @@ export async function rotateSshKey(
     organizationId: input.organizationId,
     eventId: "ssh.rotated",
     title: "SSH key rotated",
-    message: `${updated.value.name} — new fingerprint ${updated.value.fingerprint}`,
+    message: `${updated.value.name}. New fingerprint ${updated.value.fingerprint}`,
     data: {
       sshKeyId: input.id,
       name: updated.value.name,

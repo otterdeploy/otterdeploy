@@ -9,7 +9,7 @@
  *     the materialized path, and
  *   - the build worker can `docker build` a `build:` context from it.
  *
- * Paths are sanitized to stay inside `dir` — a stack can't write outside its
+ * Paths are sanitized to stay inside `dir`. A stack can't write outside its
  * own tree via `..` traversal or absolute paths.
  */
 import type { ComposeFile } from "@otterdeploy/shared/compose";

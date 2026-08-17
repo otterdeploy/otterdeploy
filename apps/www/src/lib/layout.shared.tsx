@@ -6,8 +6,8 @@ import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
  * own copy of each at the foot of the sidebar, which is why the docs page used
  * to show two GitHub icons and two theme toggles at once.
  *
- * So: no nav title (the wordmark is already up there), and no `githubUrl` —
- * passing one is what makes Fumadocs draw the sidebar's GitHub button. The
+ * So: no nav title (the wordmark is already up there), and no `githubUrl`.
+ * Passing one is what makes Fumadocs draw the sidebar's GitHub button. The
  * theme toggle is switched off where the layout is rendered, in routes/docs.
  */
 export function baseOptions(): BaseLayoutProps {

@@ -24,7 +24,7 @@ describe("formatBytes", () => {
   test("honours the decimals argument", () => {
     expect(formatBytes(1536, 0)).toBe("2 KB");
     expect(formatBytes(1536, 2)).toBe("1.50 KB");
-    // `B` stays integral regardless — a fraction of a byte says nothing.
+    // `B` stays integral regardless. A fraction of a byte says nothing.
     expect(formatBytes(512, 2)).toBe("512 B");
   });
 

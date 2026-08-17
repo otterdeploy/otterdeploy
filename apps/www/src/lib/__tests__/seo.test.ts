@@ -4,7 +4,7 @@
  * These exist because of a silent, total failure: `siteUrl` kept a fallback
  * pointing at the pre-Workers Vercel host, `.env` is gitignored so CI always
  * built with `VITE_SITE_URL` unset, and every absolute URL on the site shipped
- * pointing at a dead origin. Nothing broke loudly — the pages rendered, the
+ * pointing at a dead origin. Nothing broke loudly: the pages rendered, the
  * build passed, and only a link preview with a missing image gave it away.
  *
  * So the assertions below are about ORIGIN and ABSOLUTENESS, not formatting.
@@ -24,7 +24,7 @@ const content = (tags: ReturnType<typeof seo>, key: string): string | undefined 
 
 describe("siteUrl", () => {
   test("defaults to the production origin, with no trailing slash", () => {
-    // The fallback IS the production value — CI builds with no VITE_SITE_URL.
+    // The fallback IS the production value. CI builds with no VITE_SITE_URL.
     expect(siteUrl).toBe("https://otterdeploy.com");
   });
 
@@ -79,7 +79,7 @@ describe("seo", () => {
 
   test("titles a sub-page without repeating the site name twice", () => {
     const sub = seo({ title: "Getting started", path: "/docs" });
-    expect(content(sub, "og:title")).toBe("Getting started — otterdeploy");
+    expect(content(sub, "og:title")).toBe("Getting started · otterdeploy");
     expect(content(sub, "og:url")).toBe("https://otterdeploy.com/docs");
   });
 
@@ -92,7 +92,7 @@ describe("seo", () => {
 describe("canonical", () => {
   test("points at the production origin, not the deployment's own host", () => {
     // Pointing this at a preview or a stale host tells Google to index that
-    // host instead — the reason the real domain can be absent from results.
+    // host instead: the reason the real domain can be absent from results.
     expect(canonical("/docs").href).toBe("https://otterdeploy.com/docs");
   });
 });

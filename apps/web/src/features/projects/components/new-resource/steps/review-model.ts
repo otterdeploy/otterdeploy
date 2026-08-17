@@ -1,7 +1,7 @@
 /**
  * Everything the Review step *computes*: the generated compose.yml and the
  * model the summary card reads. Split out of review.tsx so that file is just
- * the rendered story — this half is pure, has no JSX, and is where the
+ * the rendered story. This half is pure, has no JSX, and is where the
  * "preview == staged" promise is actually kept (image resolution, public
  * hostnames and sizing all go through the same mappers the create payload
  * uses).
@@ -29,7 +29,7 @@ export interface ComposeArgs {
   publicEnabled: boolean;
   /** Pre-built image ref for docker-kind services ("" for git builds). */
   serviceImage: string;
-  /** Public hostnames this service's manifest will seed (services only —
+  /** Public hostnames this service's manifest will seed (services only,
    *  same mapper as the create payload, so preview == staged). */
   serviceDomains: string[];
   healthPath: string;
@@ -37,7 +37,7 @@ export interface ComposeArgs {
 }
 
 // Preview mirrors what actually deploys: a plain named volume (the
-// provisioner applies no size/driver_opts — see the Storage step) and the
+// provisioner applies no size/driver_opts. See the Storage step) and the
 // hardcoded start-first/rollback update strategy from the swarm driver.
 function generateComposeYaml(args: ComposeArgs): string {
   const { isDb, kindId, name, dbImage, isPg, extensions, cpu, mem, replicas } = args;
@@ -86,7 +86,7 @@ volumes:
 }
 
 /** vCPU + memory per replica: a chosen preset wins, otherwise the custom
- *  sliders. Split out of buildReviewModel — the fallback pair is one decision,
+ *  sliders. Split out of buildReviewModel: the fallback pair is one decision,
  *  not two independent ones. */
 function resolveSize(values: ResourceFormState): { cpu: number; mem: number } {
   const preset = RESOURCE_PRESETS.find((p) => p.id === values.presetId);
@@ -146,7 +146,7 @@ export function buildReviewModel(
   const isDb = kind.group === "database";
 
   // Selected postgres extensions (names), with their display labels.
-  const extensions = (values.extensions as string[] | undefined) ?? [];
+  const extensions = values.extensions ?? [];
   const isPg = kind.id === "postgres";
   const extensionLabels = extensions
     .map((n) => POSTGRES_EXTENSIONS.find((e) => e.name === n)?.label ?? n)

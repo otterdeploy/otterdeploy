@@ -50,7 +50,7 @@ export function DomainRow({
   input: { projectId: ProjectId; resourceId: ResourceId };
   onSettled: () => Promise<void>;
   baseDomainStatus: BaseDomainStatus | undefined;
-  /** Container ports this service publishes — the edit row's port options. */
+  /** Container ports this service publishes: the edit row's port options. */
   ports: PortChoice[];
 }) {
   const [editing, setEditing] = useState(false);
@@ -157,7 +157,7 @@ export function DomainRow({
           but can't hold a public certificate, so browsers will warn. */}
       {domain.source === "generated" && domain.domain.endsWith(".sslip.io") && (
         <p className="text-[11.5px] text-muted-foreground">
-          Temporary address with a self-signed certificate — browsers will warn. Add a domain of
+          Temporary address with a self-signed certificate, so browsers will warn. Add a domain of
           your own for a trusted URL.
         </p>
       )}

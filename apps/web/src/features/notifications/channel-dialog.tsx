@@ -1,7 +1,7 @@
 /**
  * Add / edit a notification channel. Channel type is picked from a pill row
  * (locked in edit mode); the field set below adapts to the selected kind.
- * Submits raw form values — the page maps them onto the create/update
+ * Submits raw form values: the page maps them onto the create/update
  * collection mutation. In edit mode the destination + secret start blank: leave
  * them empty to keep the stored values (the list only ever exposes a masked
  * target, never the secret).
@@ -49,7 +49,7 @@ function editingDefaults(editing: Channel | null): ChannelFormValues {
     if (typeof v === "string") config[k] = v;
     else if (typeof v === "number" || typeof v === "boolean") config[k] = String(v);
   }
-  // target + secret stay blank in edit mode — the list only exposes a masked
+  // target + secret stay blank in edit mode, the list only exposes a masked
   // target and never the secret.
   return {
     kind: editing?.kind ?? "slack",
@@ -86,7 +86,7 @@ export function ChannelDialog({
   });
 
   // Re-seed the form when the dialog opens (edit hydrates name/kind/config;
-  // create resets to slack). No useEffect — reset runs in the open handler.
+  // create resets to slack). No useEffect. Reset runs in the open handler.
   const handleOpenChange = (next: boolean) => {
     if (next) form.reset(editingDefaults(editing));
     onOpenChange(next);
@@ -127,10 +127,7 @@ export function ChannelDialog({
             })}
           >
             {({ values, error }) => {
-              const errors = (error && typeof error === "object" ? error : {}) as Record<
-                string,
-                string
-              >;
+              const errors = toFieldErrors(error);
               return (
                 <>
                   <KindPicker
@@ -183,7 +180,12 @@ export function ChannelDialog({
   );
 }
 
-/** Kind pill picker — locked in edit mode (a channel can't change type). */
+/** `KIND_META` is keyed by exactly `ChannelKind`, so membership is the proof. */
+function isChannelKind(k: string): k is ChannelKind {
+  return k in KIND_META;
+}
+
+/** Kind pill picker, locked in edit mode (a channel can't change type). */
 function KindPicker({
   value,
   isEdit,
@@ -198,28 +200,44 @@ function KindPicker({
     <div className="flex flex-col gap-2">
       <Label className="text-[11px] text-muted-foreground">{t("notifications.channelType")}</Label>
       <div className="flex flex-wrap gap-2">
-        {(Object.keys(KIND_META) as ChannelKind[]).map((k) => {
-          const active = value === k;
-          return (
-            <button
-              key={k}
-              type="button"
-              disabled={isEdit}
-              onClick={() => onChange(k)}
-              className={cn(
-                "flex items-center gap-2 rounded-md border px-2.5 py-2 text-[12px] transition-colors",
-                active ? "border-foreground bg-muted" : "border-border hover:bg-muted/50",
-                isEdit && "cursor-not-allowed opacity-60",
-              )}
-            >
-              <SvglLogo search={KIND_META[k].search} fallback={KIND_META[k].label} size={20} />
-              <span>{KIND_META[k].label}</span>
-            </button>
-          );
-        })}
+        {Object.keys(KIND_META)
+          .filter(isChannelKind)
+          .map((k) => {
+            const active = value === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                disabled={isEdit}
+                onClick={() => onChange(k)}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border px-2.5 py-2 text-[12px] transition-colors",
+                  active ? "border-foreground bg-muted" : "border-border hover:bg-muted/50",
+                  isEdit && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <SvglLogo search={KIND_META[k].search} fallback={KIND_META[k].label} size={20} />
+                <span>{KIND_META[k].label}</span>
+              </button>
+            );
+          })}
       </div>
     </div>
   );
+}
+
+/**
+ * The form-level onSubmit validator stashes `validateChannel`'s field → message
+ * map on `errorMap.onSubmit`; recover it by checking the shape for real
+ * instead of asserting it.
+ */
+function toFieldErrors(error: unknown): Record<string, string> {
+  if (typeof error !== "object" || error === null) return {};
+  const out: Record<string, string> = {};
+  for (const [key, message] of Object.entries(error)) {
+    if (typeof message === "string") out[key] = message;
+  }
+  return out;
 }
 
 const URL_RE = /^https?:\/\/.+/i;
@@ -238,7 +256,7 @@ function targetFormatError(kind: ChannelKind, target: string): string | null {
   return null;
 }
 
-/** SMTP host/port checks — only relevant for the email + SMTP combo. */
+/** SMTP host/port checks, only relevant for the email + SMTP combo. */
 function smtpErrors(config: Record<string, string>, isEdit: boolean): Record<string, string> {
   const errs: Record<string, string> = {};
   if (!isEdit && !(config.host ?? "").trim()) errs.host = "SMTP host is required";

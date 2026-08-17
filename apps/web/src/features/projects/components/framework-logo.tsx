@@ -89,7 +89,7 @@ export function frameworkLabel(framework: FrameworkKind): string {
   return FRAMEWORK_LABELS[framework];
 }
 
-// Brand marks whose SVG is solid black (#000000) — invisible on the dark
+// Brand marks whose SVG is solid black (#000000). Invisible on the dark
 // header tile. Invert them in dark mode so the mark reads as white; the
 // color-branded logos (Go, Ruby, Node, …) are left untouched.
 const DARK_INVERT: ReadonlySet<FrameworkKind> = new Set([

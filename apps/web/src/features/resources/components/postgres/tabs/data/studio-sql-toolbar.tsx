@@ -1,5 +1,5 @@
 /**
- * The SQL-playground editor toolbar — run (with a statement/selection/all
+ * The SQL-playground editor toolbar: run (with a statement/selection/all
  * dropdown), prettify, the audited write-mode switch, and the snippets / schema
  * rail toggles. Split out of {@link SqlPlaygroundView} to keep both small.
  */
@@ -44,7 +44,7 @@ export function SqlToolbar({
   const editorEmpty = editor.editorValue.trim().length === 0;
   return (
     <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b px-2">
-      {/* Left — run + edit actions */}
+      {/* Left. Run + edit actions */}
       <div className="flex items-center gap-1">
         <div className="flex items-center">
           <Button
@@ -152,7 +152,7 @@ export function SqlToolbar({
         </Tooltip>
       </div>
 
-      {/* Right — schema explorer toggle (labeled, far right) */}
+      {/* Right: schema explorer toggle (labeled, far right) */}
       <div className="flex items-center gap-2">
         <span className="hidden items-center gap-1 text-[11px] text-muted-foreground sm:flex">
           <Kbd>⌘</Kbd>

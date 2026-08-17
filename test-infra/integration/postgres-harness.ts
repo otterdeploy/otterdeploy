@@ -4,13 +4,13 @@
  *
  *  - CI: `INTEGRATION_POSTGRES_URL` points at a `postgres:17` GitHub Actions
  *    service container (see .github/workflows/ci.yml, job `integration`).
- *  - Local dev: no env var set — we spin up a throwaway `postgres:17-alpine`
+ *  - Local dev: no env var set. We spin up a throwaway `postgres:17-alpine`
  *    container via the Docker CLI on a random high port and remove it when
  *    the suite finishes (`docker run --rm`).
  *
  * Either way, every test file gets its OWN uniquely-named database via
  * `createDatabase()`, dropped in `afterAll`, so the suite is hermetic and
- * never touches the developer's real `otterdeploy-postgres` dev container —
+ * never touches the developer's real `otterdeploy-postgres` dev container,
  * it only ever talks to the instance selected above.
  */
 import { SQL } from "bun";
@@ -26,7 +26,7 @@ export interface PostgresInstance {
   adminUrl: string;
   createDatabase: (prefix: string) => Promise<PostgresDatabase>;
   /** Tears down the instance itself. No-op for an externally managed
-   *  (CI service container) instance — only the ephemeral local container
+   *  (CI service container) instance: only the ephemeral local container
    *  is actually stopped. */
   stop: () => Promise<void>;
 }
@@ -41,7 +41,7 @@ export interface PostgresInstance {
 const externalPostgresUrl = (): string | undefined => process.env.INTEGRATION_POSTGRES_URL;
 
 /** Cheap, synchronous check so test files can `describe.skipIf` before ever
- *  touching the network — used both for the "is Docker present" gate and to
+ *  touching the network, used both for the "is Docker present" gate and to
  *  decide whether we need to spin up a container at all. */
 function dockerAvailable(): boolean {
   try {
@@ -52,10 +52,10 @@ function dockerAvailable(): boolean {
   }
 }
 
-/** Whether this suite has *some* way to reach a real Postgres 17 — either an
+/** Whether this suite has *some* way to reach a real Postgres 17. Either an
  *  externally provided instance (CI) or a local Docker daemon we can use to
  *  start one ourselves. Test files gate on this, not on `dockerAvailable()`
- *  directly, so CI (no local `docker run` needed — the service container is
+ *  directly, so CI (no local `docker run` needed, the service container is
  *  already running) and local dev (Docker required) both work. */
 export function integrationRunnable(): boolean {
   return Boolean(externalPostgresUrl()) || dockerAvailable();
@@ -110,7 +110,7 @@ async function createDatabaseOn(adminUrl: string, prefix: string): Promise<Postg
 }
 
 /** Uses `INTEGRATION_POSTGRES_URL` as-is when set (CI's postgres:17 service
- *  container — already running, nothing for us to start or stop). */
+ *  container: already running, nothing for us to start or stop). */
 async function openExternalInstance(url: string): Promise<PostgresInstance> {
   await waitForPostgres(url);
   return {
@@ -166,7 +166,7 @@ async function startEphemeralContainer(): Promise<PostgresInstance> {
     }
 
     lastError = run.stderr.toString();
-    // Most likely a port collision — retry with a different random port.
+    // Most likely a port collision: retry with a different random port.
   }
 
   throw new Error(
@@ -179,7 +179,7 @@ export async function startPostgresInstance(): Promise<PostgresInstance> {
   if (external) return openExternalInstance(external);
   if (!dockerAvailable()) {
     throw new Error(
-      "No INTEGRATION_POSTGRES_URL and Docker is unavailable — call integrationRunnable() first and skip instead of calling startPostgresInstance().",
+      "No INTEGRATION_POSTGRES_URL and Docker is unavailable. Call integrationRunnable() first and skip instead of calling startPostgresInstance().",
     );
   }
   return startEphemeralContainer();

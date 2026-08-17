@@ -82,7 +82,7 @@ export function SectionHeader({ title, hint }: { title: string; hint: string }) 
   );
 }
 
-/** Shared duration picker — "Expires in <select>" — keeps the link/token rows
+/** Shared duration picker ("Expires in <select>") keeps the link/token rows
  *  identical and makes the lifetime explicit before generating. */
 export function DurationSelect({
   items,

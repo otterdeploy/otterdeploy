@@ -1,7 +1,7 @@
 /**
  * Dagre auto-layout for the resource graph. Pure function: takes the nodes +
  * edges, returns nodes with absolute positions. Top-to-bottom rank so routes
- * (later) sit above services, services above databases — same visual as the
+ * (later) sit above services, services above databases, same visual as the
  * old hand-positioned mock.
  */
 
@@ -9,68 +9,25 @@ import type { Edge, Node } from "@xyflow/react";
 
 import dagre from "dagre";
 
-// Match the rendered ResourceNode card so dagre's overlap detection is
-// accurate. Width matches `w-92` (368px) plus the implicit padding; height is
-// a rough average since cards grow with replicas/mounts trays.
-// Exported so the collision/extent code and the tests measure the same card
-// instead of each carrying their own copy of the number.
-export const NODE_WIDTH = 388;
-const NODE_HEIGHT = 220;
+import type { Rect, SizeLookup, XY } from "./layout-collision";
+
+import {
+  boundingBoxOf,
+  nodeHeight,
+  NODE_WIDTH,
+  rectFor,
+  resolveNewCollisions,
+} from "./layout-collision";
+
+// Dagre's own spacing knobs. Card dimensions and the collision gap live with
+// the geometry in ./layout-collision.
 const RANK_SEP = 140;
 const NODE_SEP = 80;
 
-// Breathing room enforced by the collision pass when it nudges a newly-placed
-// node off a pinned one. Tighter than dagre's nodesep so a nudge lands the card
-// adjacent rather than a full rank away, but wide enough to read as separate.
-const NODE_GAP = 56;
-
-// A compose stack renders as a group: a header plus one card per service, so
-// it's far taller than a single resource card. Estimate its height from the
-// service count so dagre doesn't overlap it with the node below. Keep roughly
-// in sync with ComposeGroupNode's card metrics.
-const GROUP_HEADER_H = 96;
-const GROUP_CARD_H = 104;
-
-function nodeHeight(node: Node): number {
-  const data = node.data as { kind?: unknown; services?: unknown };
-  if (data?.kind === "compose") {
-    const count = Array.isArray(data.services) ? data.services.length : 0;
-    return GROUP_HEADER_H + Math.max(count, 1) * GROUP_CARD_H;
-  }
-  return NODE_HEIGHT;
-}
-
-export interface XY {
-  x: number;
-  y: number;
-}
-
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-function rectFor(node: Node, pos: XY): Rect {
-  return { x: pos.x, y: pos.y, w: NODE_WIDTH, h: nodeHeight(node) };
-}
-
-/** Smallest rect enclosing every rect in the list, or null for an empty list. */
-function boundingBoxOf(rects: Rect[]): Rect | null {
-  if (rects.length === 0) return null;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const r of rects) {
-    minX = Math.min(minX, r.x);
-    minY = Math.min(minY, r.y);
-    maxX = Math.max(maxX, r.x + r.w);
-    maxY = Math.max(maxY, r.y + r.h);
-  }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}
+// Re-exported so callers keep one import for "the layout", and the tests keep
+// measuring the same card the layout does.
+export { NODE_WIDTH, resolveAllOverlaps, resolveNewCollisions } from "./layout-collision";
+export type { NodeSize, SizeLookup, XY } from "./layout-collision";
 
 function addAdjacency(map: Map<string, string[]>, from: string, to: string): void {
   const arr = map.get(from);
@@ -79,8 +36,8 @@ function addAdjacency(map: Map<string, string[]>, from: string, to: string): voi
 }
 
 /**
- * For every node reachable from a pinned node by a chain of edges (undirected
- * — a dependency edge connects two cards regardless of its source/target
+ * For every node reachable from a pinned node by a chain of edges (undirected,
+ * a dependency edge connects two cards regardless of its source/target
  * direction), the id of the NEAREST pinned node it's reachable from (fewest
  * hops; ties broken by `pinnedIds` order, so the result is deterministic).
  * Pinned nodes own themselves. A multi-source BFS from every pinned node at
@@ -89,7 +46,7 @@ function addAdjacency(map: Map<string, string[]>, from: string, to: string): voi
  *
  * Lets a genuinely new node that's wired into the existing graph anchor on
  * the pinned neighbour it's actually connected to, rather than one arbitrary
- * pinned node picked for the whole graph — see {@link incrementalLayout}.
+ * pinned node picked for the whole graph. See {@link incrementalLayout}.
  */
 function nearestPinnedOwner(edges: Edge[], pinnedIds: string[]): Map<string, string> {
   const adjacency = new Map<string, string[]>();
@@ -117,106 +74,14 @@ function nearestPinnedOwner(edges: Edge[], pinnedIds: string[]): Map<string, str
 }
 
 /**
- * Minimum-translation vector that pushes `a` clear of `b` (both inflated by
- * `gap`), or null when they don't overlap. Only `a` is ever moved — the caller
- * treats `b` as an immovable obstacle. Resolves along the axis of least
- * penetration so the nudge is as small as possible.
- */
-function separationVector(a: Rect, b: Rect, gap: number): XY | null {
-  // How far to move `a` in each direction to just clear `b` plus the gap.
-  const penLeft = a.x + a.w + gap - b.x; // move left by this
-  const penRight = b.x + b.w + gap - a.x; // move right by this
-  const penUp = a.y + a.h + gap - b.y; // move up by this
-  const penDown = b.y + b.h + gap - a.y; // move down by this
-  // Any non-positive penetration ⇒ already clear on that side ⇒ no overlap.
-  if (penLeft <= 0 || penRight <= 0 || penUp <= 0 || penDown <= 0) return null;
-
-  const minX = Math.min(penLeft, penRight);
-  const minY = Math.min(penUp, penDown);
-  if (minX < minY) {
-    return { x: penLeft < penRight ? -penLeft : penRight, y: 0 };
-  }
-  return { x: 0, y: penUp < penDown ? -penUp : penDown };
-}
-
-/**
- * Nudge newly-placed nodes so none overlaps a pinned node (or an earlier new
- * node). Pinned nodes are NEVER moved — that's the whole point of the
- * incremental layout, so collision is resolved by moving only the newcomers.
- *
- * Greedy insertion in reading order (top-to-bottom, then left-to-right): each
- * new node is separated against every already-committed rect, then itself
- * becomes an obstacle for the ones after it. This keeps dagre's relative
- * arrangement of the new cluster intact while guaranteeing no card lands on top
- * of another. Mutates `positions` in place.
- */
-export function resolveNewCollisions(
-  positions: Map<string, XY>,
-  nodes: Node[],
-  isNew: (id: string) => boolean,
-): void {
-  // Every pinned node is a fixed obstacle from the start. New nodes are the
-  // movable set — resolved greedily in reading order (top-to-bottom, then
-  // left-to-right) so dagre's relative arrangement is disturbed as little as
-  // possible. Snapshot each node's rect up front so the loop below never has to
-  // re-read (and re-narrow) the positions map.
-  const obstacles: Rect[] = [];
-  const movable: { id: string; rect: Rect }[] = [];
-  for (const n of nodes) {
-    const p = positions.get(n.id);
-    if (!p) continue;
-    if (isNew(n.id)) movable.push({ id: n.id, rect: rectFor(n, p) });
-    else obstacles.push(rectFor(n, p));
-  }
-  movable.sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
-
-  for (const m of movable) {
-    let rect = m.rect;
-
-    // Phase 1 — minimal least-penetration nudges. Keeps the card near dagre's
-    // spot (and in its rank band) while sliding it off its neighbours. Resolves
-    // essentially every real case in a couple of passes.
-    for (let iter = 0; iter < 32; iter++) {
-      let moved = false;
-      for (const o of obstacles) {
-        const sep = separationVector(rect, o, NODE_GAP);
-        if (sep) {
-          rect = { x: rect.x + sep.x, y: rect.y + sep.y, w: rect.w, h: rect.h };
-          moved = true;
-        }
-      }
-      if (!moved) break;
-    }
-
-    // Phase 2 — guarantee. If a card is boxed in on opposing sides, phase 1 can
-    // oscillate without ever clearing. Drop it straight below the lowest card it
-    // still conflicts with; `y` increases every pass so this terminates, and the
-    // card lands in guaranteed-free space beneath the pile.
-    for (let iter = 0; iter <= obstacles.length; iter++) {
-      let lowestBottom = -Infinity;
-      for (const o of obstacles) {
-        if (separationVector(rect, o, NODE_GAP)) {
-          lowestBottom = Math.max(lowestBottom, o.y + o.h);
-        }
-      }
-      if (lowestBottom === -Infinity) break;
-      rect = { ...rect, y: lowestBottom + NODE_GAP };
-    }
-
-    positions.set(m.id, { x: rect.x, y: rect.y });
-    obstacles.push(rect);
-  }
-}
-
-/**
  * Lay out the graph while keeping already-placed nodes pinned, so adding a
  * node (e.g. a staged-create ghost) or removing one never reshuffles the
- * rest — the operator's mental map (and any open detail panel anchored on a
+ * rest: the operator's mental map (and any open detail panel anchored on a
  * node) stays put. Genuinely-new nodes are placed by a fresh dagre pass:
  * a new node wired (even transitively) to a pinned one rides that pass
  * translated onto the cached layout using ITS nearest pinned neighbour's own
  * delta, so it lands next to what it's actually connected to; a new node
- * with no edges at all — the common case right after the create wizard — is
+ * with no edges at all (the common case right after the create wizard) is
  * anchored to the pinned cluster's own bounding box instead, in a fresh row
  * beneath it, so it always lands next to the existing cards rather than
  * wherever dagre racked up its own disconnected component (which, on an
@@ -229,12 +94,13 @@ export function incrementalLayout(
   nodes: Node[],
   edges: Edge[],
   cached: Map<string, XY>,
+  sizes?: SizeLookup,
 ): Map<string, XY> {
   if (nodes.length === 0) return new Map();
 
   const fresh = new Map(layoutGraph(nodes, edges).map((n) => [n.id, n.position] as const));
 
-  // First layout (nothing cached yet) — adopt dagre's result wholesale.
+  // First layout (nothing cached yet). Adopt dagre's result wholesale.
   if (cached.size === 0) return fresh;
 
   const isNew = (id: string) => !cached.has(id);
@@ -248,59 +114,105 @@ export function incrementalLayout(
 
   // Additions present. Two placement strategies, chosen per new node:
   //
-  //   - "wired" — reachable (via a chain of edges) from a pinned node. Placed
+  //   - "wired": reachable (via a chain of edges) from a pinned node. Placed
   //     using THAT pinned neighbour's own fresh-vs-cached delta (not one
   //     arbitrary node picked for the whole graph), so it lands next to what
   //     it's actually connected to even when the graph has several separate
   //     clusters far apart.
-  //   - "orphan" — no edges at all yet, the normal state for a resource
+  //   - "orphan", no edges at all yet, the normal state for a resource
   //     fresh off the create wizard (dependency edges only appear once an
   //     env var references another resource). dagre treats these as their
   //     own disconnected component and racks them up left-to-right, so on a
   //     graph with a handful of stacks that dagre-invented column can
-  //     already be thousands of px past the last one — the far-right-edge
+  //     already be thousands of px past the last one. The far-right-edge
   //     bug. Placed instead relative to the pinned cluster's own bounding
   //     box, in a fresh row directly beneath it.
   const pinnedIds = nodes.filter((n) => !isNew(n.id)).map((n) => n.id);
   const owner = nearestPinnedOwner(edges, pinnedIds);
   const isOrphan = (id: string) => isNew(id) && !owner.has(id);
 
-  // Per-pinned-node offset between where it sits now and where the fresh
-  // dagre pass just put it — wired new nodes borrow their owner's offset.
+  const wiredDelta = pinnedDeltas(pinnedIds, cached, fresh);
+  const orphanOffset = orphanBlockOffset(nodes, isNew, isOrphan, cached, fresh, sizes);
+  const next = placeNodes(nodes, cached, fresh, isOrphan, owner, wiredDelta, orphanOffset);
+
+  // Translating orphans as one rigid block only keeps THEM apart from each
+  // other; it says nothing about the pinned cluster's actual shape (an
+  // operator-dragged layout is never a tidy rectangle). Nudge every new node
+  // clear, pinned ones stay put.
+  resolveNewCollisions(next, nodes, isNew, sizes);
+  return next;
+}
+
+/**
+ * Per-pinned-node offset between where it sits now and where the fresh
+ * dagre pass just put it. Wired new nodes borrow their owner's offset.
+ */
+function pinnedDeltas(
+  pinnedIds: string[],
+  cached: Map<string, XY>,
+  fresh: Map<string, XY>,
+): Map<string, XY> {
   const wiredDelta = new Map<string, XY>();
   for (const p of pinnedIds) {
     const c = cached.get(p);
     const f = fresh.get(p);
     if (c && f) wiredDelta.set(p, { x: c.x - f.x, y: c.y - f.y });
   }
+  return wiredDelta;
+}
 
+/**
+ * Translation that re-anchors the orphan block onto the row below the pinned
+ * cluster. Orphans keep their position RELATIVE TO EACH OTHER from the fresh
+ * pass (so several added in the same render still read as one group). Only
+ * the block as a whole is re-anchored, from dagre's origin onto the row
+ * below the pinned cluster. Zero when either bounding box is empty.
+ */
+function orphanBlockOffset(
+  nodes: Node[],
+  isNew: (id: string) => boolean,
+  isOrphan: (id: string) => boolean,
+  cached: Map<string, XY>,
+  fresh: Map<string, XY>,
+  sizes?: SizeLookup,
+): XY {
   const pinnedRects: Rect[] = [];
   for (const n of nodes) {
     const pos = !isNew(n.id) ? cached.get(n.id) : undefined;
-    if (pos) pinnedRects.push(rectFor(n, pos));
+    if (pos) pinnedRects.push(rectFor(n, pos, sizes));
   }
   const pinnedBox = boundingBoxOf(pinnedRects);
+  if (!pinnedBox) return { x: 0, y: 0 };
 
-  // Orphans keep their position RELATIVE TO EACH OTHER from the fresh pass
-  // (so several added in the same render still read as one group) — only the
-  // block as a whole is re-anchored, from dagre's origin onto the row below
-  // the pinned cluster.
-  let odx = 0;
-  let ody = 0;
-  if (pinnedBox) {
-    const orphanRects: Rect[] = [];
-    for (const n of nodes) {
-      if (!isOrphan(n.id)) continue;
-      const f = fresh.get(n.id);
-      if (f) orphanRects.push(rectFor(n, f));
-    }
-    const orphanBox = boundingBoxOf(orphanRects);
-    if (orphanBox) {
-      odx = pinnedBox.x - orphanBox.x;
-      ody = pinnedBox.y + pinnedBox.h + RANK_SEP - orphanBox.y;
-    }
+  const orphanRects: Rect[] = [];
+  for (const n of nodes) {
+    if (!isOrphan(n.id)) continue;
+    const f = fresh.get(n.id);
+    if (f) orphanRects.push(rectFor(n, f, sizes));
   }
+  const orphanBox = boundingBoxOf(orphanRects);
+  if (!orphanBox) return { x: 0, y: 0 };
 
+  return {
+    x: pinnedBox.x - orphanBox.x,
+    y: pinnedBox.y + pinnedBox.h + RANK_SEP - orphanBox.y,
+  };
+}
+
+/**
+ * Final placement pass: pinned nodes keep their cached spot, orphans ride the
+ * block offset, wired new nodes borrow their owner's delta, and anything the
+ * fresh pass somehow missed lands at the origin.
+ */
+function placeNodes(
+  nodes: Node[],
+  cached: Map<string, XY>,
+  fresh: Map<string, XY>,
+  isOrphan: (id: string) => boolean,
+  owner: Map<string, string>,
+  wiredDelta: Map<string, XY>,
+  orphanOffset: XY,
+): Map<string, XY> {
   const next = new Map<string, XY>();
   for (const n of nodes) {
     const pinned = cached.get(n.id);
@@ -314,23 +226,17 @@ export function incrementalLayout(
       continue;
     }
     if (isOrphan(n.id)) {
-      next.set(n.id, { x: f.x + odx, y: f.y + ody });
+      next.set(n.id, { x: f.x + orphanOffset.x, y: f.y + orphanOffset.y });
       continue;
     }
     const delta = wiredDelta.get(owner.get(n.id) ?? "");
     next.set(n.id, { x: f.x + (delta?.x ?? 0), y: f.y + (delta?.y ?? 0) });
   }
-
-  // Translating orphans as one rigid block only keeps THEM apart from each
-  // other; it says nothing about the pinned cluster's actual shape (an
-  // operator-dragged layout is never a tidy rectangle). Nudge every new node
-  // clear — pinned ones stay put.
-  resolveNewCollisions(next, nodes, isNew);
   return next;
 }
 
 /**
- * Stable fingerprint of the graph's *topology* — the set of node ids and the
+ * Stable fingerprint of the graph's *topology*. The set of node ids and the
  * source→target edge pairs, both sorted so order doesn't matter. Dagre only
  * reads ids + fixed dimensions, so two graphs with the same signature lay out
  * identically. The canvas memoizes layout on this: live status/replica ticks
@@ -383,7 +289,7 @@ function layoutGraph<TNode extends Node>(nodes: TNode[], edges: Edge[]): TNode[]
       ...node,
       position: {
         x: laid.x - NODE_WIDTH / 2,
-        y: laid.y - (heights.get(node.id) ?? NODE_HEIGHT) / 2,
+        y: laid.y - (heights.get(node.id) ?? nodeHeight(node)) / 2,
       },
     };
   });

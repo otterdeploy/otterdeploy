@@ -52,11 +52,11 @@ export function ServiceSettingsBody({
     <div className="flex flex-col gap-6">
       {/* Rename stays read-only on purpose: the name derives the runtime
           container/service name, the internal DNS hostname, and the target of
-          `${{name.VAR}}` variable references — a rename would rotate all
+          `${{name.VAR}}` variable references: a rename would rotate all
           three. Honest note over a broken affordance. */}
       <SettingsCard
         title="Identity"
-        description="Renaming is not yet supported — once it lands the change will rotate the derived service name + internal hostname."
+        description="Renaming is not yet supported. Once it lands, the change will rotate the derived service name and internal hostname."
       >
         <SettingsRowReadOnly label="Name" value={resource.name} />
         <SettingsRowReadOnly label="Image" value={resource.image} />
@@ -74,7 +74,7 @@ export function ServiceSettingsBody({
       {pending ? (
         // Manifest-backed ports + domains; the live scaling / public-access /
         // protection cards need a running resource, so they're omitted until
-        // after Deploy. Ports come first — a public URL needs an http+primary
+        // after Deploy. Ports come first. A public URL needs an http+primary
         // port, which the domains card below then attaches to.
         <>
           <ManifestPortsCard projectId={resource.projectId} serviceName={resource.name} />

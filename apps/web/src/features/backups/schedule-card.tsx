@@ -63,7 +63,7 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
 
   const encryption = encLabel(s.encryption);
   const missing = s.missingSources ?? [];
-  // Every configured source has lost its backing database — the schedule can't
+  // Every configured source has lost its backing database. The schedule can't
   // produce a backup until it's repaired (source re-pointed) or deleted.
   const orphaned = missing.length > 0 && missing.length >= s.sources.length;
 
@@ -108,7 +108,7 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           <span className="flex items-center gap-1 text-xs text-foreground/80">
             <HugeiconsIcon icon={CloudServerIcon} className="size-3 text-muted-foreground" />
             <span className="truncate font-mono">
-              {s.destinationNames.length ? s.destinationNames.join(", ") : "—"}
+              {s.destinationNames.length ? s.destinationNames.join(", ") : "–"}
             </span>
           </span>
         </div>
@@ -191,7 +191,7 @@ function SourceHealthBadge({ orphaned }: { orphaned: boolean }) {
   );
 }
 
-/** Explains the orphaned state and names the dead refs — the honest "something
+/** Explains the orphaned state and names the dead refs: the honest "something
  *  is wrong here" the card was missing when a backed-up database is deleted. */
 function MissingSourceBanner({ missing }: { missing: string[] }) {
   const many = missing.length > 1;

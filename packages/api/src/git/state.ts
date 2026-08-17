@@ -14,18 +14,30 @@
 
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
+import * as z from "zod";
 
 const TTL_SECONDS = 15 * 60;
+
+/** Wire shape of the signed state payload: {@link InstallState} plus `exp`.
+ *  Parsed (not cast) on verify; the HMAC already vouches for provenance, the
+ *  schema vouches for shape. */
+const installStatePayloadSchema = z.object({
+  orgId: z.string(),
+  userId: z.string(),
+  host: z.string().optional(),
+  returnTo: z.string().optional(),
+  exp: z.number(),
+});
 
 export interface InstallState {
   orgId: string;
   userId: string;
-  /** GitHub host the App is being created on — "github.com" (default) or a
+  /** GitHub host the App is being created on. "github.com" (default) or a
    *  GHE hostname. Carried through so the manifest callback exchanges the code
    *  against the right API and stores the host on the provider row. */
   host?: string;
   /** Dashboard-relative path (+ optional query) to send the operator back to
-   *  after the install completes — e.g. the deploy wizard they started from.
+   *  after the install completes: e.g. the deploy wizard they started from.
    *  Absent → the default landing (Git providers page). */
   returnTo?: string;
 }
@@ -33,7 +45,7 @@ export interface InstallState {
 /**
  * Only accept an app-relative path as a post-install return target. Anything
  * else (absolute URL, protocol-relative `//`, oversized junk) would turn the
- * callback into an open redirect — drop it and fall back to the default.
+ * callback into an open redirect. Drop it and fall back to the default.
  */
 export function sanitizeReturnTo(raw: string | undefined | null): string | undefined {
   if (!raw) return undefined;
@@ -62,18 +74,20 @@ export async function verifyInstallState(token: string): Promise<InstallState | 
   let payload: InstallState & { exp: number };
   try {
     const json = new TextDecoder().decode(base64UrlDecode(body));
-    payload = JSON.parse(json) as InstallState & { exp: number };
+    const parsed = installStatePayloadSchema.safeParse(JSON.parse(json));
+    if (!parsed.success) return null;
+    payload = parsed.data;
   } catch {
     return null;
   }
-  if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
+  if (payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
   return {
     orgId: payload.orgId,
     userId: payload.userId,
     host: payload.host,
-    // Re-sanitize on the way out — the token is signed, but defense-in-depth
+    // Re-sanitize on the way out: the token is signed, but defense-in-depth
     // keeps a future signing bug from becoming an open redirect.
     returnTo: sanitizeReturnTo(payload.returnTo),
   };

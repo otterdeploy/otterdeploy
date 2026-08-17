@@ -1,7 +1,7 @@
 /**
  * Hostile-archive corpus for `extractArchiveSafely` (od-5j8.16). Every
  * malicious tarball is built programmatically with `tar-stream`'s `pack()`
- * — no binary fixtures — so the exact bytes an attacker would need to craft
+ * (no binary fixtures) so the exact bytes an attacker would need to craft
  * (a `..` path segment, a symlink pointing outside the root, a device node,
  * a highly-compressible multi-megabyte entry, …) are visible right here.
  */
@@ -32,7 +32,7 @@ function tmpDir(prefix: string): string {
   return dir;
 }
 
-/** Build a `.tar.gz` in memory from raw headers — bypasses any path/type
+/** Build a `.tar.gz` in memory from raw headers. Bypasses any path/type
  *  sanitization a higher-level tool might apply, mirroring exactly what an
  *  attacker controls when they hand-craft a hostile tarball. */
 async function buildTarGz(entries: Array<{ header: TarHeaders; content?: string | Buffer }>) {
@@ -54,12 +54,12 @@ async function writeArchive(entries: Array<{ header: TarHeaders; content?: strin
 }
 
 function freshDest(): string {
-  // Don't pre-create it — extractArchiveSafely creates it, and a stray
+  // Don't pre-create it. extractArchiveSafely creates it, and a stray
   // sibling lets traversal tests assert nothing landed outside root.
   return join(tmpDir("otter-archive-parent-"), "workdir");
 }
 
-describe("extractArchiveSafely — hostile archives are rejected", () => {
+describe("extractArchiveSafely: hostile archives are rejected", () => {
   test("rejects a relative path-traversal entry (Zip Slip)", async () => {
     const archivePath = await writeArchive([
       { header: { name: "../../etc/passwd", type: "file" }, content: "pwned" },
@@ -121,7 +121,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
     // points at the parent directory, then a second entry "link/pwned.txt"
     // that would write *through* the symlink onto the host if it were ever
     // created. Since symlinks are rejected outright, the archive is thrown
-    // out on the first entry — the second entry is never even considered.
+    // out on the first entry: the second entry is never even considered.
     const archivePath = await writeArchive([
       { header: { name: "link", type: "symlink", linkname: ".." } },
       { header: { name: "link/pwned.txt", type: "file" }, content: "pwned" },
@@ -227,7 +227,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
   });
 
   test("rejects a highly-compressible entry as a decompression bomb by ratio", async () => {
-    // 4MB of zeros gzips down to well under a kilobyte — a >1000:1 ratio —
+    // 4MB of zeros gzips down to well under a kilobyte (a >1000:1 ratio)
     // long before it would ever hit an absolute size cap sized for real
     // source trees.
     const zeros = Buffer.alloc(4 * 1024 * 1024, 0);
@@ -299,7 +299,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
 
   test("rejects entries that collide only by Unicode normalization form", async () => {
     // "café.txt" as precomposed NFC (é = U+00E9) vs decomposed NFD (e +
-    // U+0301 combining acute) — visually identical, different bytes, same
+    // U+0301 combining acute): visually identical, different bytes, same
     // file once normalized (as macOS's filesystem effectively does).
     const nfc = "cafeé.txt";
     const decomposed = "cafeé.txt";
@@ -315,7 +315,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
   });
 
   // tar's name field is a fixed-width NUL-terminated C string, so `pack()`
-  // silently truncates "ok\0evil" to "ok" — a NUL cannot round-trip through a
+  // silently truncates "ok\0evil" to "ok": a NUL cannot round-trip through a
   // well-formed archive. The guard still matters for hand-crafted tars and PAX
   // extended headers, so assert it against the validator directly rather than
   // through an archive that can't carry the input.
@@ -326,7 +326,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
   });
 });
 
-describe("extractArchiveSafely — legitimate archives still extract", () => {
+describe("extractArchiveSafely: legitimate archives still extract", () => {
   test("extracts a normal project tree with nested directories and files", async () => {
     const archivePath = await writeArchive([
       { header: { name: "src/", type: "directory" } },

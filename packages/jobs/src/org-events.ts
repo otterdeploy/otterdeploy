@@ -5,7 +5,7 @@
  * @otterdeploy/api, so it carries its own thin Redis publisher.
  *
  * Best-effort, like every event publish in this codebase: a Redis outage
- * must never fail the job that did the durable write — consumers repair via
+ * must never fail the job that did the durable write, consumers repair via
  * their slow poll backstops.
  */
 import type { OrgStreamCollection } from "@otterdeploy/shared/org-events";
@@ -15,7 +15,7 @@ import { RedisClient } from "bun";
 
 let publisher: RedisClient | null = null;
 // env/server validates the whole environment the moment it's imported, which
-// breaks test files that merely import a job module — defer it to the first
+// breaks test files that merely import a job module: defer it to the first
 // actual publish (which the best-effort catch already covers in tests).
 async function getPublisher(): Promise<RedisClient> {
   if (!publisher) {

@@ -60,8 +60,8 @@ export function EditorRow({
 }: EditorRowProps) {
   return (
     <div className="flex flex-col gap-1.5 border-b border-border/30 px-3 py-2 last:border-b-0">
-      {/* Side-by-side needs ~380px at minimum — a 14rem key field, the value
-          field, and four icon buttons — so below `sm` the row stacks into
+      {/* Side-by-side needs ~380px at minimum, a 14rem key field, the value
+          field, and four icon buttons, so below `sm` the row stacks into
           key / value / actions. `sm:contents` dissolves the two mobile-only
           wrappers at `sm`, restoring the original single flex row exactly. */}
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-2">

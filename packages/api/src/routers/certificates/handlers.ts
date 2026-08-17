@@ -1,17 +1,17 @@
 /**
- * Certificates business logic — the custom-certificate write path.
+ * Certificates business logic: the custom-certificate write path.
  *
  * Custom certs are validated with node:crypto (chain parses, key pairs with
- * the leaf, hostname covered — see validate.ts), the key is AES-GCM-encrypted
+ * the leaf, hostname covered. See validate.ts), the key is AES-GCM-encrypted
  * at rest (same helper as registry passwords / SSH private keys), and
  * installation goes through the SAME reconcile pass every route change uses:
  * files are materialized under the edge's /etc/caddy mount and `tls`
  * directives emitted per matching route. The reported `applied` /
- * `installState` is the real outcome of that pass — a cert that couldn't be
+ * `installState` is the real outcome of that pass. A cert that couldn't be
  * written or that the edge rejected says so, it is never shown as live.
  *
  * Live inventory probes live in inventory.ts; the trusted-CA store in
- * trusted-cas.ts — both re-exported here so the router's import seam is
+ * trusted-cas.ts. Both re-exported here so the router's import seam is
  * unchanged.
  */
 import type { CustomCertificateId, OrganizationId, UserId } from "@otterdeploy/shared/id";
@@ -66,7 +66,7 @@ export interface CustomCertWriteOutcome {
  * Run the shared reconcile pass and record the REAL edge outcome on the row.
  * materializeCustomCerts (inside reconcile) flips the row to "error" itself
  * when the files can't be written; a global load failure is attributed to
- * this cert conservatively — it's excluded and the edge re-reconciled so a
+ * this cert conservatively: it's excluded and the edge re-reconciled so a
  * bad upload can never leave other routes down.
  */
 async function installAndReport(
@@ -211,7 +211,7 @@ export async function deleteCustomCertificate(
   });
   if (!deleted) return Result.err(new CertificateNotFoundError({ id: input.id }));
   await removeCustomCertFiles(input.id);
-  // Re-render the edge without this cert's tls directives — the covered
+  // Re-render the edge without this cert's tls directives. The covered
   // domains fall back to ACME / tls internal per their route flags.
   await reconcile(input.rlog);
   return Result.ok({ ok: true });

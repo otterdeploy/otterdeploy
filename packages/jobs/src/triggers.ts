@@ -32,9 +32,13 @@ export type {
  * Each trigger validates with the job's schema, then adds to its queue with
  * the job's default opts (callers can override via the second arg).
  */
-function enqueue<P>(jobName: string, payload: P, opts?: JobsOptions): Promise<unknown> {
+function enqueue<P extends object>(
+  jobName: string,
+  payload: P,
+  opts?: JobsOptions,
+): Promise<unknown> {
   const queue = getQueue(jobName);
-  return queue.add(jobName, payload as unknown as object, opts);
+  return queue.add(jobName, payload, opts);
 }
 
 export async function triggerEmail(payload: EmailPayload, opts?: JobsOptions) {
@@ -60,7 +64,7 @@ export async function triggerPlatformEvent(payload: PlatformEventPayload, opts?:
   // Webhook fan-out hooks the SAME chokepoint every emitter funnels through
   // (emitPlatformEvent in packages/api, boot reconcile here, …): each real
   // platform event also enqueues a webhook.event fan-out. Single-channel
-  // test deliveries (`channelId` set — the notification channel "Test"
+  // test deliveries (`channelId` set, the notification channel "Test"
   // button) stay notification-only; webhooks have their own test path
   // (triggerWebhookDelivery).
   if (!parsed.channelId) {
@@ -81,7 +85,7 @@ export async function triggerPlatformEvent(payload: PlatformEventPayload, opts?:
 
 /**
  * Fan a platform event out to every ACTIVE outbound webhook subscribed to it.
- * Normally called from `triggerPlatformEvent` above — call directly only when
+ * Normally called from `triggerPlatformEvent` above. Call directly only when
  * an event should reach webhooks without notification channels.
  */
 export async function triggerWebhookEvent(payload: WebhookEventPayload, opts?: JobsOptions) {
@@ -91,7 +95,7 @@ export async function triggerWebhookEvent(payload: WebhookEventPayload, opts?: J
 
 /**
  * Enqueue a single signed delivery to a single webhook, bypassing the
- * subscription fan-out — the webhook card's "Test" button.
+ * subscription fan-out: the webhook card's "Test" button.
  */
 export async function triggerWebhookDelivery(payload: WebhookDeliveryPayload, opts?: JobsOptions) {
   const parsed = webhookDeliverJob.schema.parse(payload);
@@ -105,13 +109,16 @@ export async function triggerDataProcessing(payload: DataProcessingPayload, opts
 
 /**
  * Cancel any pending/queued processData runs for the given dataId.
- * Replaces Inngest's `cancelOn` matcher — BullMQ doesn't have that primitive,
+ * Replaces Inngest's `cancelOn` matcher. BullMQ doesn't have that primitive,
  * so we walk the queue and remove matching jobs.
  */
 export async function cancelDataProcessing(dataId: string) {
   const queue = getQueue(processDataJob.name);
   const queued = await queue.getJobs(["waiting", "delayed", "active"]);
-  const toRemove = queued.filter((j) => (j.data as DataProcessingPayload)?.dataId === dataId);
+  const toRemove = queued.filter((j) => {
+    const data: unknown = j.data;
+    return typeof data === "object" && data !== null && "dataId" in data && data.dataId === dataId;
+  });
   await Promise.all(toRemove.map((j) => j.remove()));
   return { cancelled: toRemove.length };
 }

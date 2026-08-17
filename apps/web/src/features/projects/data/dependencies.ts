@@ -16,13 +16,13 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * filter as `loadSubsetOptions`, from which `queryKey` / `queryFn` recover the
  * `projectId` to fetch (and cache) the right subset.
  */
-/** Namespace prefix for the dependency-edges collection — the single source of
+/** Namespace prefix for the dependency-edges collection: the single source of
  *  truth manifest apply + the project event stream invalidate to redraw graph
  *  edges. See [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPENDENCIES_COLLECTION_KEY = ["dependencies"] as const;
 
 const dependenciesQueryOptions = queryCollectionOptions({
-  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // Stable id so the OPFS-backed SQLite table survives page loads. See
   // projectCollection for why persistence never round-trips without one.
   id: "dependencies",
   syncMode: "on-demand",
@@ -50,7 +50,7 @@ const dependenciesQueryOptions = queryCollectionOptions({
 
 type DependencyRow = Awaited<ReturnType<typeof orpc.project.dependencies.call>>[number];
 
-// Two-branch createCollection + pinned generics — see projectCollection for why.
+// Two-branch createCollection + pinned generics: see projectCollection for why.
 export const dependenciesCollection = persistence
   ? createCollection(
       persistedCollectionOptions<DependencyRow, string | number>({

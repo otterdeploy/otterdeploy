@@ -18,7 +18,7 @@ export const postgresAdapter: DatabaseEngineAdapter = {
   // convention) makes the entrypoint see "data in .../data" that isn't the
   // configured PGDATA and refuse to boot ("unused mount/volume" fatal).
   // Fix: mount the *parent* dir for 18+ so the image manages its own
-  // versioned subdir underneath — matches upstream's documented migration
+  // versioned subdir underneath: matches upstream's documented migration
   // path. 17 and earlier keep the original mountTarget untouched.
   resolveMount: (image) => {
     const tag = image.split(":").pop() ?? "";

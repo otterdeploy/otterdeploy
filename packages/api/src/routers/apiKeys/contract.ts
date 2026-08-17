@@ -21,7 +21,7 @@ const createApiKeyInput = z.object({
    * Optional access-level preset. `"read"` blocks every non-read action
    * regardless of the key's permission map; `"write"` (the default) imposes no
    * extra restriction. Stored in key metadata; enforced by the oRPC permission
-   * middleware. Additive — omit for the current full behavior.
+   * middleware. Additive: omit for the current full behavior.
    */
   accessLevel: z.enum(["read", "write"]).optional(),
   /**
@@ -33,7 +33,7 @@ const createApiKeyInput = z.object({
   projectIds: z.array(z.string()).optional(),
 });
 
-/** The created key — the only time the plaintext `key` is ever returned. */
+/** The created key. The only time the plaintext `key` is ever returned. */
 const createdApiKeySchema = z.object({
   id: z.string(),
   /** Full plaintext token. Shown once, never persisted in readable form. */

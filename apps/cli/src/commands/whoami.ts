@@ -53,7 +53,7 @@ export const whoamiCommand = defineCommand({
 
     const { user } = session.data;
     // The active org lives on the SESSION row (set by `org use`), not in the
-    // local config file — resolve it server-side so the answer is never stale.
+    // local config file: resolve it server-side so the answer is never stale.
     const activeOrgId = session.data.session.activeOrganizationId;
     const orgs = activeOrgId ? await auth.organization.list({ fetchOptions: { headers } }) : null;
     const activeOrg = orgs?.data?.find((o) => o.id === activeOrgId) ?? null;

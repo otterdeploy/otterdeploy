@@ -6,12 +6,13 @@
  * docs/designs/deployment-protection.md.
  */
 
-import type { DeploymentGuestId, ProxyRouteId } from "@otterdeploy/shared/id";
+import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
@@ -46,7 +47,7 @@ export async function listProjectProxyRoutes(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  // Base routes only — preview-scoped hosts are lifecycle-managed by the PR
+  // Base routes only: preview-scoped hosts are lifecycle-managed by the PR
   // webhook and must not surface as project domains.
   const records = (await listProxyRoutesByProject(input.projectId)).filter(
     (r) => r.previewId == null,
@@ -80,7 +81,7 @@ export interface GlobalCaddyOptions {
 }
 
 /** Read the instance-wide global Caddy options (the `platform_settings`
- *  singleton). Org-agnostic — there's one edge proxy per install. */
+ *  singleton). Org-agnostic: there's one edge proxy per install. */
 export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
   const [s] = await db
     .select({
@@ -98,7 +99,7 @@ export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
 
 /** Persist the global Caddy options, then reconcile so they take effect. These
  *  options (an email + a redirect toggle) can't produce invalid global syntax,
- *  and reconcile only swaps the live config in after a successful adapt — so a
+ *  and reconcile only swaps the live config in after a successful adapt, so a
  *  bad value can't take routes offline. */
 export async function saveGlobalCaddyOptions(
   input: GlobalCaddyOptions,
@@ -231,6 +232,11 @@ export async function removeDeploymentGuest(
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
   }
-  await removeGuest(input.routeId, input.guestId as DeploymentGuestId);
+  // The contract sends guestId as a plain string. An id we never minted (wrong
+  // prefix) can't match a row, so skipping the delete is the same no-op the
+  // unmatched DELETE would have been.
+  if (hasPrefix(input.guestId, ID_PREFIX.deploymentGuest)) {
+    await removeGuest(input.routeId, input.guestId);
+  }
   return Result.ok({ ok: true });
 }

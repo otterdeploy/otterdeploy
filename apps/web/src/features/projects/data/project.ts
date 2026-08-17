@@ -12,14 +12,14 @@ import { envCollection, newPersistentEnvRow } from "./env";
 // SPIKE: `queryCollectionOptions` produces a `CollectionConfig` (with `sync` +
 // mutation handlers). When client-side SQLite persistence is available we spread
 // that config into `persistedCollectionOptions`, which layers an OPFS-backed
-// wa-sqlite store underneath the same oRPC sync path — instant hydration on
+// wa-sqlite store underneath the same oRPC sync path. Instant hydration on
 // reload, no change to how mutations reach the server. Where OPFS is
 // unavailable (tests, unsupported browsers) `persistence` is null and we use the
 // plain in-memory query collection, so this is a safe, non-breaking wrapper.
 const projectQueryOptions = queryCollectionOptions({
   // A STABLE id is what makes the SQLite persistence actually persist.
   // Without one, persistedCollectionOptions falls back to
-  // `persisted-collection:${randomUUID()}` — a fresh identity every page
+  // `persisted-collection:${randomUUID()}`: a fresh identity every page
   // load, which registers a fresh (empty) table, hydrates zero rows, and
   // refetches from the network while the previous load's table sits
   // orphaned in OPFS. Every session wrote to SQLite; none ever read back.
@@ -31,10 +31,10 @@ const projectQueryOptions = queryCollectionOptions({
    * Creating a project also seeds a default environment. We do that as two
    * sequenced API calls from the client:
    *
-   *   1. `envCollection.insert(...)` — optimistic env row + fires
+   *   1. `envCollection.insert(...)`: optimistic env row + fires
    *      `env.create` on the server (standalone, projectId=null).
    *   2. Wait for the env to be persisted.
-   *   3. `project.create({ environmentId, ... })` — server claims the
+   *   3. `project.create({ environmentId, ... })`, server claims the
    *      standalone env by id and links it (`env.projectId = projectId`).
    *
    * The env shows up in `envCollection` immediately with `projectId` set
@@ -47,7 +47,7 @@ const projectQueryOptions = queryCollectionOptions({
         const projectSlug = m.modified.slug;
         const environmentId = m.modified.environmentId ?? createId(ID_PREFIX.environment);
 
-        // Env MUST be inserted standalone (projectId=null) — the project
+        // Env MUST be inserted standalone (projectId=null). The project
         // row doesn't exist yet, so passing projectId here would violate
         // the environment.project_id FK. project.create below claims the
         // env by id and sets project_id server-side. We pass projectId:
@@ -73,7 +73,7 @@ const projectQueryOptions = queryCollectionOptions({
         });
 
         // Refetch envs so the just-claimed environment shows projectId
-        // set in the local store. Fire-and-forget — the project.create
+        // set in the local store. Fire-and-forget. The project.create
         // resolution already unblocks the caller.
         void queryClient.invalidateQueries({
           queryKey: orpc.env.list.queryKey(),
@@ -107,7 +107,7 @@ type ProjectRow = Awaited<ReturnType<typeof orpc.project.list.call>>[number];
 // Call `createCollection` inside each branch: the persisted and plain option
 // objects are different types, so a single call over a ternary matches no
 // `createCollection` overload. We also pin `persistedCollectionOptions`'s
-// generics to `<ProjectRow, string>` — spreading the query options otherwise
+// generics to `<ProjectRow, string>`, spreading the query options otherwise
 // makes it re-infer `TSchema` as `StandardSchemaV1` (we pass no schema), which
 // then fails `createCollection`'s `schema?: never` overload.
 export const projectCollection = persistence
@@ -120,12 +120,12 @@ export const projectCollection = persistence
         // v2: added serviceCount / routeCount / runningServiceCount (#13). Without
         // this bump, persisted v1 rows lack those fields and the card renders a
         // stale "2/0 services · 0 routes".
-        // v3: dropped previewsEnabled — the PR-preview opt-in moved to the
+        // v3: dropped previewsEnabled. The PR-preview opt-in moved to the
         // service (serviceResource.previewsEnabled, Source card).
         // v4: serviceCount now counts individual services (compose members +
         // standalone) and excludes the compose group parent, so running/total
         // is consistent with the graph. Persisted v3 rows hold the old inflated
-        // count (the "5/0"-style skew) — bump to rebuild them from the server.
+        // count (the "5/0"-style skew). Bump to rebuild them from the server.
         schemaVersion: 4,
       }),
     )
@@ -136,7 +136,7 @@ export const projectCollection = persistence
  * For use in child route loaders (intent-preload) that need the id to warm a
  * project-scoped query: the parent `$projectSlug` layout loader awaits
  * `projectCollection.preload()` before any child loader runs, so the row is
- * present by then. Returns undefined if not found — the caller then no-ops and
+ * present by then. Returns undefined if not found. The caller then no-ops and
  * the component fetches on mount as before.
  */
 export function projectIdBySlug(slug: string): string | undefined {

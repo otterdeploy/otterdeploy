@@ -28,7 +28,7 @@ export interface ServiceView {
   /** Non-null = paused; the replica count `service.resume` restores. */
   pausedReplicas: number | null;
   /** Server this service is pinned to, or null when the scheduler places it.
-   *  Pinned means no failover — the UI has to say so wherever it's shown. */
+   *  Pinned means no failover. The UI has to say so wherever it's shown. */
   placementServerId: string | null;
 
   restart: {
@@ -74,7 +74,7 @@ export interface EnvVarView {
   id: string;
   serviceResourceId: string;
   key: string;
-  /** Empty string when `sealed` — see `mapEnvVar`. */
+  /** Empty string when `sealed`: see `mapEnvVar`. */
   value: string;
   sealed: boolean;
 }
@@ -91,7 +91,7 @@ export interface PortInput {
 }
 
 /**
- * Ensure exactly one primary HTTP port — if the user didn't flag one,
+ * Ensure exactly one primary HTTP port. If the user didn't flag one,
  * promote the first HTTP port. No-op if there are no HTTP ports.
  */
 export function normalizePorts(ports: PortInput[]) {
@@ -181,7 +181,7 @@ export async function mapServiceView(
 
 /**
  * Sealed rows are write-only: the value is masked here, at the single mapper
- * every read path funnels through, rather than at each call site — so a new
+ * every read path funnels through, rather than at each call site, so a new
  * endpoint cannot forget to mask. Masking is unconditional on `sealed` and
  * never inspects the stored value, so a row that somehow holds plaintext
  * still cannot be read back.
@@ -221,7 +221,7 @@ export function sanitizeSlug(value: string): string {
  *
  * This module used to carry its own copy that checked only the TOP-LEVEL
  * `error.code`. Drizzle wraps the driver error, so the Postgres `23505` sits on
- * `.cause` — the copy therefore missed every real collision and misclassified
+ * `.cause`: the copy therefore missed every real collision and misclassified
  * it as an unexpected failure. One implementation, one behaviour.
  */
 export { isUniqueViolation } from "../project/view-helpers";

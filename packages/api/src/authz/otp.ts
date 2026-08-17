@@ -2,7 +2,7 @@
  * Email OTP store for guest deployment access (Cloudflare-Access one-time
  * PIN). Codes live in Redis with a short TTL, are single-use, and requests
  * are rate-limited per (domain, email). The wall never reveals whether an
- * email is on the allow-list — callers always respond the same.
+ * email is on the allow-list, callers always respond the same.
  */
 
 import type { RedisClient } from "bun";

@@ -1,4 +1,4 @@
-# Wave B — Agent bucket 2
+# Wave B: Agent bucket 2
 
 
 ## src/shared/components/data-grid/hooks/use-data-grid.ts

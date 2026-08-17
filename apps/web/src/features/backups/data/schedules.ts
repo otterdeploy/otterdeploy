@@ -24,7 +24,7 @@ export type Schedule = z.infer<typeof scheduleSchema>;
 const schedulesListKey = orpc.backups.schedules.list.queryKey();
 
 const schedulesQueryOptions = queryCollectionOptions({
-  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // Stable id: persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "backup-schedules",
   ...orpc.backups.schedules.list.queryOptions(),
@@ -39,7 +39,7 @@ const schedulesQueryOptions = queryCollectionOptions({
           sources: row.sources,
           cron: row.cron,
           destinationIds: row.destinationIds,
-          // Null/empty projectId means org-wide — collapse to undefined so
+          // Null/empty projectId means org-wide. Collapse to undefined so
           // omitUndefined drops the key entirely (input has no null form).
           ...omitUndefined({ projectId: row.projectId || undefined }),
           keepDaily: row.keepDaily,
@@ -91,7 +91,7 @@ const schedulesQueryOptions = queryCollectionOptions({
 
 type ScheduleRow = Awaited<ReturnType<typeof orpc.backups.schedules.list.call>>[number];
 
-// Call `createCollection` inside each branch — the persisted and plain option
+// Call `createCollection` inside each branch. The persisted and plain option
 // objects are different types (see project.ts for the full type note).
 export const schedulesCollection = persistence
   ? createCollection(

@@ -1,5 +1,5 @@
 /**
- * Presentational rows for the scaling card — the replica stepper and the
+ * Presentational rows for the scaling card: the replica stepper and the
  * per-replica limit fields (+ cluster-fit hint). Split out of
  * `scaling-card.tsx` so the form component stays within the size + complexity
  * budgets. The placement readout lives in `scaling-placement.tsx`.
@@ -46,7 +46,7 @@ function LimitField({
       <div className="flex items-center gap-1.5">
         <Input
           type="number"
-          // Empty input = "no limit" — an honest unset, not zero.
+          // Empty input = "no limit": an honest unset, not zero.
           value={value ?? ""}
           min={min}
           max={max}
@@ -65,7 +65,7 @@ function LimitField({
   );
 }
 
-/** Replica stepper row — count, ± buttons, and the plain-docker caveat. */
+/** Replica stepper row: count, ± buttons, and the plain-docker caveat. */
 export function ReplicasRow({
   replicas,
   paused,
@@ -88,7 +88,7 @@ export function ReplicasRow({
           <span className="text-[13px] font-medium">Replicas</span>
           <span className="text-[11px] text-muted-foreground">
             {paused
-              ? "Paused — this is the count Resume restores. Changing it resumes the service with the new count."
+              ? "Paused. This is the count Resume restores. Changing it resumes the service with the new count."
               : "Running copies of this service. Use Pause to stop it without losing config."}
           </span>
         </div>
@@ -126,7 +126,7 @@ export function ReplicasRow({
       </div>
       {plainDocker && (
         <div className="mt-1.5 text-[11px] text-muted-foreground">
-          Plain Docker runs a single container per service — scaling out needs the Swarm runtime.
+          Plain Docker runs a single container per service. Scaling out needs the Swarm runtime.
         </div>
       )}
     </div>
@@ -173,10 +173,10 @@ export function LimitsRow({
       </div>
       <div className="mt-1.5 text-[11px] text-muted-foreground">
         {form.cpuLimit === null && form.memoryLimitMb === null
-          ? "No limits set — replicas may use whatever the host has free."
+          ? "No limits set. Replicas may use whatever the host has free."
           : fitLine
             ? `${fitLine} (${form.replicas} × per-replica limits vs registered servers).`
-            : "Server capacity unknown — can't check fit."}
+            : "Server capacity unknown, so fit can't be checked."}
       </div>
     </div>
   );

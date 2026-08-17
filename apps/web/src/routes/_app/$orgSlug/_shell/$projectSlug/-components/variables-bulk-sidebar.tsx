@@ -82,7 +82,7 @@ export function BulkEditSidebar({
 }
 
 function EnvDot({ slug }: { slug: string }) {
-  // Slug-based tone — production/main → emerald, staging → amber,
+  // Slug-based tone: production/main → emerald, staging → amber,
   // anything else (preview / feature branches) → blue.
   const tone =
     slug === "production" || slug === "main" || slug === "prod"

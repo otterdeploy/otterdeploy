@@ -13,7 +13,7 @@ import { welcomeSequenceJob } from "./jobs/welcome-sequence";
 
 /**
  * Single source of truth for every job. Queues, workers, and the dashboard
- * all derive from this list — add a new job by appending it here and
+ * all derive from this list. Add a new job by appending it here and
  * everything else picks it up automatically.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

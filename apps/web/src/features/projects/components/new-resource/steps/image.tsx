@@ -1,5 +1,5 @@
 /**
- * Image step — choose a pre-built docker image. Used by the "Custom
+ * Image step: choose a pre-built docker image. Used by the "Custom
  * docker image" flow (DOCKER_STEPS in flows.ts) and submitted via
  * orpc.service.create with source="image".
  *
@@ -7,7 +7,7 @@
  * (orpc.registry.list), rendered with the same host→brand mapping the
  * Registries settings page uses. Honesty note: at DEPLOY time pull
  * credentials are matched by the image's host (resolveRegistryAuth), not
- * by this pick — the pick drives the tag browser's auth and documents
+ * by this pick. The pick drives the tag browser's auth and documents
  * intent. "Anonymous pull" works for public images.
  *
  * The tag browser (image-tags.tsx) lists real tags via registry.listTags;
@@ -31,12 +31,20 @@ import { I } from "../icons";
 import { imageBasename, knownImagePort } from "../image-defaults";
 import { ImageTagBrowser } from "./image-tags";
 
-const ANONYMOUS = {
+interface RegistryOption {
+  id: string;
+  displayName: string;
+  host: string;
+  sub: string;
+  brand: string | null;
+}
+
+const ANONYMOUS: RegistryOption = {
   id: "",
   displayName: "Anonymous pull",
   host: "any public registry",
   sub: "Public images (Docker Hub, GHCR public, …)",
-  brand: null as string | null,
+  brand: null,
 };
 
 type WizardForm = ReturnType<typeof useFormContext>;
@@ -48,7 +56,7 @@ type WizardForm = ReturnType<typeof useFormContext>;
  *
  * Runs from the image field's own `onChange` listener rather than an effect
  * watching the value, so it fires once the operator stops typing instead of
- * on every keystroke — "n" → "ng" → "ngi" has no useful basename or port
+ * on every keystroke: "n" → "ng" → "ngi" has no useful basename or port
  * between them. `AUTO_WRITE` is what lets it ask `isDirty` whether a value
  * is still the wizard's to fill, instead of keeping a ref of its own last
  * write to tell that apart from a real edit.
@@ -77,19 +85,13 @@ function applyImageDefaults(form: WizardForm, image: string): void {
 
 export function StepImage() {
   const form = useFormContext();
-  const registryId = useStore(form.store, (s) => s.values.registry as string);
-  const image = useStore(form.store, (s) => s.values.image as string);
-  const tag = useStore(form.store, (s) => s.values.tag as string);
+  const registryId = useStore(form.store, (s) => s.values.registry);
+  const image = useStore(form.store, (s) => s.values.image);
+  const tag = useStore(form.store, (s) => s.values.tag);
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 
-  const options: Array<{
-    id: string;
-    displayName: string;
-    host: string;
-    sub: string;
-    brand: string | null;
-  }> = [
+  const options: RegistryOption[] = [
     ANONYMOUS,
     ...registries.map((r) => ({
       id: r.id,
@@ -137,7 +139,7 @@ export function StepImage() {
       </div>
       {registries.length === 0 && (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          No private registries configured. Public images work without one — add a credential under{" "}
+          No private registries configured. Public images work without one. Add a credential under{" "}
           <span className="font-mono">Settings → Registries</span> to pull from a private host.
         </p>
       )}

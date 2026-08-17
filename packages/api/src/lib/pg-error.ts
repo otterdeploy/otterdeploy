@@ -2,27 +2,28 @@
  * Postgres error classification.
  *
  * One place that knows how to get from "something threw" to "which integrity
- * rule did we break, on which constraint" — so handlers can answer with a 409
+ * rule did we break, on which constraint", so handlers can answer with a 409
  * that names the field instead of a 500 that names nothing.
  *
  * Two things make this less trivial than the snippets you'll find online:
  *
  * 1. **drizzle doesn't classify.** drizzle-orm 1.x exports only DrizzleError /
- *    DrizzleQueryError / TransactionRollbackError. The driver's error — the one
- *    carrying the SQLSTATE — is on `DrizzleQueryError.cause`.
+ *    DrizzleQueryError / TransactionRollbackError. The driver's error. The one
+ *    carrying the SQLSTATE: is on `DrizzleQueryError.cause`.
  *
  * 2. **drivers disagree on the field.** node-postgres and postgres.js put the
  *    SQLSTATE on `code`; bun-sql (what we run) puts it on **`errno`** and sets
  *    `code` to the constant "ERR_POSTGRES_SERVER_ERROR". Every community
- *    example checks `code === "23505"`, which is silently always-false here —
- *    that's why unique violations used to surface as unexpected 500s. Both
+ *    example checks `code === "23505"`, which is silently always-false here.
+ *    That's why unique violations used to surface as unexpected 500s. Both
  *    fields are accepted; Bun's `code` can never collide with a 5-digit state.
  *
- * Typed against Bun's own `SQL.PostgresError`, but narrowed structurally rather
- * than with `instanceof`: a runtime `import { SQL } from "bun"` would make this
- * module unloadable under the Node-based test runner (it is exactly why the
- * suites reaching db/client.ts fail to load). Keeping it type-only leaves this
- * a leaf that anything — including a unit test — can import.
+ * Field names follow Bun's own `SQL.PostgresError`, but the error is narrowed
+ * structurally (field by field) rather than with `instanceof`: a runtime
+ * `import { SQL } from "bun"` would make this module unloadable under the
+ * Node-based test runner (it is exactly why the suites reaching db/client.ts
+ * fail to load). Keeping it type-only leaves this a leaf that anything
+ * (including a unit test) can import.
  *
  * @see https://www.postgresql.org/docs/current/errcodes-appendix.html
  */
@@ -52,7 +53,7 @@ export const PgErrorCode = {
 
 export type PgErrorCode = (typeof PgErrorCode)[keyof typeof PgErrorCode];
 
-/** The parts of a Postgres failure worth surfacing. All optional — Postgres
+/** The parts of a Postgres failure worth surfacing. All optional: Postgres
  *  populates them per error class (a not-null violation has no `constraint`). */
 export interface PgErrorInfo {
   code: string;
@@ -64,17 +65,48 @@ export interface PgErrorInfo {
 }
 
 /**
+ * The driver-error fields this module reads, verified at runtime by
+ * {@link asPgError}. A structural subset of Bun's `SQL.PostgresError` (every
+ * field there is `string | undefined`), kept in lockstep via `Pick` so a
+ * bun-types rename fails the build here rather than silently mis-narrowing.
+ */
+export interface PgDriverError extends Partial<
+  Pick<SQL.PostgresError, "code" | "errno" | "constraint" | "table" | "column" | "detail">
+> {
+  message: string;
+}
+
+/**
  * The driver's error, unwrapped from drizzle's query wrapper.
  *
  * Returns null for anything that isn't a database failure, so callers can
  * rethrow untouched rather than mislabelling an application bug as a DB error.
+ * Each field is read only when it is actually a string: Bun's `Error` carries
+ * numeric own `line`/`column` properties which must not leak into diagnostics.
  */
-export function asPgError(error: unknown): SQL.PostgresError | null {
+export function asPgError(error: unknown): PgDriverError | null {
   const driver = error instanceof DrizzleQueryError ? error.cause : error;
   if (!driver || typeof driver !== "object") return null;
-  const candidate = driver as Partial<SQL.PostgresError>;
-  const hasState = typeof candidate.errno === "string" || typeof candidate.code === "string";
-  return hasState ? (candidate as SQL.PostgresError) : null;
+  const errno = "errno" in driver && typeof driver.errno === "string" ? driver.errno : undefined;
+  const code = "code" in driver && typeof driver.code === "string" ? driver.code : undefined;
+  if (errno === undefined && code === undefined) return null;
+  return { errno, code, ...pgDiagnostics(driver) };
+}
+
+/** The per-class diagnostic fields, each read only when actually a string. */
+function pgDiagnostics(
+  driver: object,
+): Pick<PgDriverError, "constraint" | "table" | "column" | "detail" | "message"> {
+  return {
+    constraint:
+      "constraint" in driver && typeof driver.constraint === "string"
+        ? driver.constraint
+        : undefined,
+    table: "table" in driver && typeof driver.table === "string" ? driver.table : undefined,
+    column: "column" in driver && typeof driver.column === "string" ? driver.column : undefined,
+    detail: "detail" in driver && typeof driver.detail === "string" ? driver.detail : undefined,
+    message: "message" in driver && typeof driver.message === "string" ? driver.message : "",
+  };
 }
 
 /** The SQLSTATE, from whichever field this driver uses, or null. */
@@ -82,7 +114,7 @@ export function pgErrorCode(error: unknown): string | null {
   const pg = asPgError(error);
   if (!pg) return null;
   // `errno` first: on bun-sql `code` is a non-SQLSTATE constant.
-  return pg.errno ?? (pg.code as string | undefined) ?? null;
+  return pg.errno ?? pg.code ?? null;
 }
 
 /** Everything worth reporting about a database failure, or null if it isn't one. */

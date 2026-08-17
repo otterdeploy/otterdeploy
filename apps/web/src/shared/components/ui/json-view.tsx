@@ -1,6 +1,6 @@
 /**
  * Read-only JSON view with lightweight syntax coloring (keys, strings,
- * numbers, booleans, null, punctuation). Dependency-free — mirrors the token
+ * numbers, booleans, null, punctuation). Dependency-free: mirrors the token
  * palette of the stack's YamlView so highlighted JSON and YAML look of a
  * piece. Pretty-prints `data` with two-space indent and preserves the
  * caller's container styling via `className`.
@@ -35,7 +35,7 @@ interface JsonToken {
 
 // One quoted string (a key when followed by `:`), a literal, or a number.
 // Whatever sits between matches (braces, commas, colons, whitespace, newlines)
-// is emitted as a `punct` span — harmless for whitespace, muted for structure.
+// is emitted as a `punct` span, harmless for whitespace, muted for structure.
 const TOKEN_RE =
   /("(?:\\.|[^"\\])*")(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
 

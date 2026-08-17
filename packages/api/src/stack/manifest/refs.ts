@@ -1,12 +1,12 @@
 /**
  * Reference grammar for manifest env-var values.
  *
- *   ${secret}                       — value lives server-side; manifest declares presence only
- *   ${database:<name>.<field>}      — another database resource's URL/host/port/etc.
- *   ${service:<name>.<KEY>}         — another service's env var
- *   ${service:<name>.host}          — that service's internal hostname
- *   ${service:<name>.port}          — primary published port
- *   ${service:<name>.port.<name>}   — named published port
+ *   ${secret}: value lives server-side; manifest declares presence only
+ *   ${database:<name>.<field>}: another database resource's URL/host/port/etc.
+ *   ${service:<name>.<KEY>}: another service's env var
+ *   ${service:<name>.host}: that service's internal hostname
+ *   ${service:<name>.port}: primary published port
+ *   ${service:<name>.port.<name>}, named published port
  *
  * Strings may interpolate refs in the middle of a value, e.g.
  *   "postgres://acme:${database:primary.password}@${database:primary.host}:5432/acme"
@@ -29,7 +29,22 @@ export type Ref =
 
 const REF_PATTERN = /\$\{([^}]+)\}/g;
 
-const DATABASE_FIELDS = new Set(["url", "host", "port", "username", "password", "database"]);
+type DatabaseField = Extract<Ref, { kind: "database" }>["field"];
+
+const DATABASE_FIELDS: ReadonlySet<string> = new Set([
+  "url",
+  "host",
+  "port",
+  "username",
+  "password",
+  "database",
+] satisfies DatabaseField[]);
+
+/** True when `value` names a database ref field. The set is built from the
+ *  `DatabaseField` list (checked by `satisfies`), so the guard is honest. */
+function isDatabaseField(value: string): value is DatabaseField {
+  return DATABASE_FIELDS.has(value);
+}
 
 export function isSecretSentinel(value: string): boolean {
   return value.trim() === "${secret}";
@@ -68,16 +83,12 @@ function parseToken(body: string): Ref {
   const tail = rest.slice(dotIdx + 1);
 
   if (namespace === "database") {
-    if (!DATABASE_FIELDS.has(tail)) {
+    if (!isDatabaseField(tail)) {
       throw new ManifestRefError(
         `Unknown database field "${tail}" in \${${body}}. Expected one of ${[...DATABASE_FIELDS].join(", ")}.`,
       );
     }
-    return {
-      kind: "database",
-      name,
-      field: tail as Ref extends { kind: "database" } ? Ref["field"] : never,
-    };
+    return { kind: "database", name, field: tail };
   }
 
   if (namespace === "service") {
@@ -86,7 +97,7 @@ function parseToken(body: string): Ref {
     if (tail.startsWith("port.")) {
       return { kind: "service", name, field: "port", portName: tail.slice("port.".length) };
     }
-    // Anything else is treated as an env-var key — by convention upper-snake.
+    // Anything else is treated as an env-var key, by convention upper-snake.
     return { kind: "service-env", name, key: tail };
   }
 

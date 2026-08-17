@@ -1,6 +1,6 @@
 /**
- * Workspace → Domains (od-u63.7 label-only rename; path unchanged — this file
- * still lives at `/settings/workspace/general`) — the workspace-scoped
+ * Workspace → Domains (od-u63.7 label-only rename; path unchanged, this file
+ * still lives at `/settings/workspace/general`). The workspace-scoped
  * configuration: base domain + Cloudflare hookup. Install-wide settings
  * (control-plane domain, public IP, edge defaults, email transport) live
  * under Instance.

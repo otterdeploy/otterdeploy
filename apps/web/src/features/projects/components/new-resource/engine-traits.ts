@@ -3,7 +3,7 @@
 // (and silently rendering postgres copy when the operator picked redis).
 //
 // Mirrors what `packages/api/src/swarm/database-engines/*` already knows
-// server-side — we re-state the small subset the wizard needs because the
+// server-side: we re-state the small subset the wizard needs because the
 // adapter type isn't shipped to the browser bundle.
 
 export type EngineId =
@@ -22,10 +22,10 @@ export interface EngineTraits {
   mountTarget: string;
   /** Whether "Database name" is a meaningful concept (postgres/mariadb/mongodb yes, redis no). */
   hasNamedDatabase: boolean;
-  /** Word used for the writable unit — "Database name" vs "Instance name". Used
+  /** Word used for the writable unit. "Database name" vs "Instance name". Used
    *  for BOTH the section heading and the name field's own label (they used to
    *  disagree: a "Database name" heading over an input hardcoded to "Service
-   *  name" — one field, two competing labels for the same value, which also
+   *  name": one field, two competing labels for the same value, which also
    *  becomes the internal hostname, see the field's description). */
   nameLabel: string;
   /** Supports continuous backups / PITR-style recovery. */
@@ -50,7 +50,7 @@ const TRAITS: Record<string, EngineTraits> = {
     supportsHaReplica: true,
     publicExposureRecommended: true,
     accessSub:
-      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default.",
+      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only, which is the safer default.",
     poolerName: "PgBouncer",
   },
   mariadb: {
@@ -62,7 +62,7 @@ const TRAITS: Record<string, EngineTraits> = {
     supportsHaReplica: true,
     publicExposureRecommended: true,
     accessSub:
-      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default.",
+      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only, which is the safer default.",
     poolerName: "ProxySQL",
   },
   mysql: {
@@ -74,7 +74,7 @@ const TRAITS: Record<string, EngineTraits> = {
     supportsHaReplica: true,
     publicExposureRecommended: true,
     accessSub:
-      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default.",
+      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only, which is the safer default.",
     poolerName: "ProxySQL",
   },
   redis: {
@@ -86,7 +86,7 @@ const TRAITS: Record<string, EngineTraits> = {
     supportsHaReplica: false,
     publicExposureRecommended: false,
     accessSub:
-      "Exposing a cache to the public internet is rarely a good idea — keep it on the internal network unless you really mean it.",
+      "Exposing a cache to the public internet is rarely a good idea. Keep it on the internal network unless you really mean it.",
     poolerName: null,
   },
   mongodb: {
@@ -98,7 +98,7 @@ const TRAITS: Record<string, EngineTraits> = {
     supportsHaReplica: true,
     publicExposureRecommended: false,
     accessSub:
-      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default.",
+      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only, which is the safer default.",
     poolerName: null,
   },
   clickhouse: {
@@ -110,7 +110,7 @@ const TRAITS: Record<string, EngineTraits> = {
     supportsHaReplica: true,
     publicExposureRecommended: false,
     accessSub:
-      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only — safer default.",
+      "Public access wires the Caddy proxy at the public hostname. Off keeps the DB on the internal network only, which is the safer default.",
     poolerName: null,
   },
 };

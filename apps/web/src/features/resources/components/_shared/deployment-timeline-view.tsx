@@ -1,5 +1,5 @@
 /**
- * Shared staged-deployment timeline — the Railway-style phase stepper the
+ * Shared staged-deployment timeline: the Railway-style phase stepper the
  * mockup shows inside the resource Deployments tab. Renders the summary line
  * (title + total clock), each phase row (Initialization / Build / Deploy /
  * Post-deploy) with its state icon and inline failure detail + a jump to the
@@ -173,8 +173,8 @@ function DiagnoseRow({ link }: { link: LinkCtx }) {
 
 function ToneIcon({ tone }: { tone: Tone }) {
   if (tone === "active") return <Spinner className="size-4 text-warning" />;
-  // Not a spinner: nothing is still in progress. Not a green check either —
-  // the replicas are down. A static warning glyph is the honest middle.
+  // Not a spinner: nothing is still in progress. Not a green check either.
+  // The replicas are down. A static warning glyph is the honest middle.
   if (tone === "degraded")
     return <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4 text-warning" />;
   if (tone === "failed")

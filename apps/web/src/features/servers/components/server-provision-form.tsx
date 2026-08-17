@@ -1,5 +1,6 @@
-import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
+import type { ServerId } from "@otterdeploy/shared/id";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +28,7 @@ import { ProvisionFooter } from "./server-provision-footer";
  * Non-secret fields carried over when re-adding a failed server.
  *
  * One-time passwords and mesh auth keys are deliberately never stored, so a
- * failed run using either can't be retried in place — this lets the operator
+ * failed run using either can't be retried in place. This lets the operator
  * re-add it without retyping everything except the secret itself.
  */
 export interface ProvisionInitialValues {
@@ -40,23 +41,35 @@ export interface ProvisionInitialValues {
   meshProvider?: "none" | "tailscale" | "netbird";
 }
 
+/** Field shape of the provision form: the annotation (not casts) keeps the
+ *  literal-union fields from narrowing to their default literal. */
+type ProvisionFormValues = Required<ProvisionInitialValues> & {
+  authMode: AuthMode;
+  sshKeyId: string;
+  password: string;
+  meshAuthKey: string;
+  meshManagementUrl: string;
+  cloudflareToken: string;
+};
+
 function useProvisionForm(onStarted: (id: ServerId) => void, initial?: ProvisionInitialValues) {
+  const defaultValues: ProvisionFormValues = {
+    name: initial?.name ?? "",
+    host: initial?.host ?? "",
+    sshUser: initial?.sshUser ?? "root",
+    sshPort: initial?.sshPort ?? "22",
+    role: initial?.role ?? "worker",
+    authMode: "key",
+    sshKeyId: "",
+    password: "",
+    buildServer: initial?.buildServer ?? false,
+    meshProvider: initial?.meshProvider ?? "none",
+    meshAuthKey: "",
+    meshManagementUrl: "",
+    cloudflareToken: "",
+  };
   return useForm({
-    defaultValues: {
-      name: initial?.name ?? "",
-      host: initial?.host ?? "",
-      sshUser: initial?.sshUser ?? "root",
-      sshPort: initial?.sshPort ?? "22",
-      role: (initial?.role ?? "worker") as "worker" | "manager",
-      authMode: "key" as AuthMode,
-      sshKeyId: "",
-      password: "",
-      buildServer: initial?.buildServer ?? false,
-      meshProvider: (initial?.meshProvider ?? "none") as "none" | "tailscale" | "netbird",
-      meshAuthKey: "",
-      meshManagementUrl: "",
-      cloudflareToken: "",
-    },
+    defaultValues,
     onSubmit: async ({ value }) => {
       const usingKey = value.authMode === "key";
       const usingMesh = value.meshProvider !== "none";
@@ -67,7 +80,9 @@ function useProvisionForm(onStarted: (id: ServerId) => void, initial?: Provision
           sshUser: value.sshUser.trim() || "root",
           sshPort: Number(value.sshPort) || 22,
           role: value.role,
-          sshKeyId: usingKey ? (value.sshKeyId as SshKeyId) : undefined,
+          // The picker only offers real key rows; a parse failure lands in
+          // the same catch/toast as a server rejection.
+          sshKeyId: usingKey ? idSchema.sshKey.parse(value.sshKeyId) : undefined,
           password: usingKey ? undefined : value.password,
           buildServer: value.buildServer,
           meshProvider: value.meshProvider,
@@ -135,7 +150,7 @@ export function ProvisionForm({
 
 /**
  * Promoting a second machine to manager is the intuitive move and the wrong
- * one — see ../quorum. Warn at the point of choosing, with the count this
+ * one: see ../quorum. Warn at the point of choosing, with the count this
  * install actually has.
  */
 function ManagerQuorumWarning() {

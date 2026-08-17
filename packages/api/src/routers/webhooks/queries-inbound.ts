@@ -1,5 +1,5 @@
 /**
- * Inbound-endpoint queries + presenters for the webhooks router — endpoint
+ * Inbound-endpoint queries + presenters for the webhooks router: endpoint
  * CRUD, the public token lookup, and the redeploy-target service picker.
  * Split out of queries.ts (which keeps the outbound webhook + delivery
  * queries and re-exports this module).
@@ -159,7 +159,7 @@ export async function deleteInboundEndpoint(input: {
 }
 
 /**
- * The full inbound-invocation context, resolved by public token — endpoint +
+ * The full inbound-invocation context, resolved by public token. Endpoint +
  * the bound service's project coordinates (needed by redeployAndFanOut).
  * Public-path lookup: no org scoping (the token IS the identifier).
  */

@@ -31,7 +31,7 @@ const MESH_ITEMS: PickerOption<string>[] = [
  *  installs a connector for NAT/ingress. */
 export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
   const { t } = useTranslation();
-  // Local disclosure only — the field value stays the source of truth, so a
+  // Local disclosure only: the field value stays the source of truth, so a
   // prefilled token (re-add of a failed server) opens the card on mount.
   const [cfOpen, setCfOpen] = useState(false);
   return (
@@ -81,7 +81,7 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
                       onChange={(e) => field.handleChange(e.target.value)}
                     />
                     <p className="text-[12px] text-muted-foreground">
-                      Used once to join the mesh, then discarded — never stored.
+                      Used once to join the mesh, then discarded. Never stored.
                     </p>
                   </Field>
                 )}

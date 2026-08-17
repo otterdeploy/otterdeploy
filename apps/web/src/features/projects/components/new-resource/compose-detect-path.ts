@@ -2,8 +2,8 @@
  * Pure path checks behind the Compose-file field's `onChangeAsync` validator.
  *
  * Auto-detection only ever helps the operator who leaves the field blank. The
- * one who *types* a path is the one most able to get it subtly wrong —
- * `docker-compose.yaml` when the repo has `docker-compose.yml` — and until this
+ * one who *types* a path is the one most able to get it subtly wrong.
+ * `docker-compose.yaml` when the repo has `docker-compose.yml`, and until this
  * existed, that typo was indistinguishable from a correct entry right up until
  * the build failed looking for it. Same class of bug as the placeholder that
  * promised a detection it never ran; a different half of the field.

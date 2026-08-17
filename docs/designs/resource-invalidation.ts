@@ -79,7 +79,7 @@ interface MiddlewareOptions<TContext extends BroadcastContext> {
  * an oRPC middleware reads the procedure's meta.invalidates and
  * broadcasts automatically after a successful mutation.
  *
- * This means handlers stay clean — no broadcast calls needed.
+ * This means handlers stay clean, no broadcast calls needed.
  */
 export const autoBroadcastMiddleware = /* o.middleware */ async <
   TContext extends BroadcastContext,
@@ -140,11 +140,11 @@ export type UseResourceInvalidation = (resources: Resource[]) => void;
 /**
  * What this gives you:
  *
- * 1. DECLARATIVE — mutation metadata says what it affects, no manual broadcast
- * 2. CROSS-ENTITY — deleteProject invalidates envs, deployments automatically
- * 3. EFFICIENT — clients only get notified for resources they're viewing
- * 4. DISCOVERABLE — look at any procedure's meta to see its blast radius
- * 5. MIDDLEWARE-DRIVEN — broadcast happens automatically, handlers stay clean
+ * 1. DECLARATIVE: mutation metadata says what it affects, no manual broadcast
+ * 2. CROSS-ENTITY: deleteProject invalidates envs, deployments automatically
+ * 3. EFFICIENT: clients only get notified for resources they're viewing
+ * 4. DISCOVERABLE: look at any procedure's meta to see its blast radius
+ * 5. MIDDLEWARE-DRIVEN: broadcast happens automatically, handlers stay clean
  *
  * What's needed to implement:
  *

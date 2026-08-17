@@ -6,8 +6,14 @@ export * from "./build";
 export * from "./certificates";
 export * from "./database-ephemeral";
 export * from "./deployment-guest";
-// edge_event (operational-log events) IS drizzle-managed — sparse, plain table.
+// edge_event (operational-log events) IS drizzle-managed, sparse, plain table.
 export * from "./edge-event";
+// edge_stat_minute / edge_stat_day (traffic-analytics rollups, written at
+// ingest) are drizzle-managed: bounded row counts, no partitioning needed.
+export * from "./edge-stat";
+// edge_threat_ip (all-time scanner-probe rollup) likewise: small, plain, and
+// deliberately NOT swept with the raw log's retention.
+export * from "./edge-threat";
 // edge_log is intentionally NOT re-exported: it's a RANGE-partitioned table
 // (drizzle-kit can't express PARTITION BY), owned by the runtime bootstrap in
 // packages/api/src/edge-logs/partition.ts. Import its typed object directly

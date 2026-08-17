@@ -157,7 +157,8 @@ async function resolvePublicAddresses(
   const remaining = deadline - Date.now();
   if (remaining <= 0) throw new UnsafeOutboundUrlError("Outbound request timed out.");
   const addresses = await bounded(resolveHost(normalizedHostname(url)), remaining);
-  if (addresses.length === 0) {
+  const [first, ...rest] = addresses;
+  if (first === undefined) {
     throw new UnsafeOutboundUrlError("The hostname resolved to no addresses.");
   }
   if (
@@ -165,7 +166,7 @@ async function resolvePublicAddresses(
   ) {
     throw new UnsafeOutboundUrlError("The hostname resolves to a non-public address.");
   }
-  return addresses as [LookupAddress, ...LookupAddress[]];
+  return [first, ...rest];
 }
 
 function redirectTarget(

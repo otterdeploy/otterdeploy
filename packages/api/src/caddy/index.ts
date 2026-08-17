@@ -67,7 +67,7 @@ interface CaddyBuildOptions {
   authzUpstream: string;
   edgeLogSink?: string;
   crowdsec?: CrowdsecConfig;
-  /** platform_settings.controlPlaneFqdn, when set — reconcile turns it into
+  /** platform_settings.controlPlaneFqdn, when set. Reconcile turns it into
    *  a synthetic site block fronting the dashboard/API itself. Only
    *  consumed by reconcile(); the per-project renders ignore it. */
   controlPlane?: { domain: string; usesAcme: boolean };
@@ -101,7 +101,7 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
     controlPlane: settings?.controlPlaneFqdn
       ? {
           domain: settings.controlPlaneFqdn,
-          // ACME only after TXT verification — an unproven name stays on
+          // ACME only after TXT verification: an unproven name stays on
           // tls internal, same gate every proxy route obeys.
           usesAcme: settings.controlPlaneFqdnVerifiedAt != null,
         }
@@ -115,7 +115,7 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
 export const CONTROL_PLANE_PROJECT_ID = "control-plane";
 
 /** Synthetic route serving the dashboard/API on its operator-chosen domain.
- *  Upstream reuses DEPLOY_AUTHZ_UPSTREAM — the address Caddy already uses to
+ *  Upstream reuses DEPLOY_AUTHZ_UPSTREAM: the address Caddy already uses to
  *  reach the control plane for forward_auth (dev: host.docker.internal:3000,
  *  prod: the server service DNS). */
 function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRouteInput {
@@ -138,7 +138,7 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
 
 export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> {
   const log = asStepLogger(rlog);
-  // Plain docker: re-attach the edge to every project bridge network first — a
+  // Plain docker: re-attach the edge to every project bridge network first: a
   // recreated Caddy container drops those dynamic attachments, which 502s every
   // deployed service until reconnected. No-op under swarm (shared overlay) and
   // when already attached.
@@ -155,9 +155,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     materializeCustomCerts(rlog),
   ]);
   if (customCerts.length > 0) {
-    const projectOrg = await mapProjectOrganizations([
-      ...new Set(records.map((r) => r.projectId)),
-    ] as ProjectId[]);
+    const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {
@@ -176,7 +174,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
   // Then every OTHER node's edge, over SSH. Deliberately after the control
   // plane: it serves every unplaced route, so getting it right first means a
   // node that can't be reached degrades instead of going dark. Failures ride
-  // back on the result rather than throwing — one unreachable machine must not
+  // back on the result rather than throwing: one unreachable machine must not
   // fail the reconcile for the rest.
   const nodeEdges = await reconcileNodeEdgesForInstall(routes, options, rlog);
 
@@ -199,7 +197,7 @@ async function reconcileNodeEdgesForInstall(
   const placements = await listEnabledRoutePlacements();
   const placementByDomain = new Map(placements.map((p) => [p.domain, p.placementServerId]));
 
-  // Index by domain because that's the one key both sides share — the built
+  // Index by domain because that's the one key both sides share. The built
   // route inputs have already lost their row ids by this point.
   const placed: PlacedRoute[] = routes.map((route) => ({
     domain: route.domain,
@@ -211,7 +209,7 @@ async function reconcileNodeEdgesForInstall(
     placed,
     // The control plane's own edge was just reconciled in-process above, and it
     // keeps every unplaced route. Identified by the bootstrap row's loopback
-    // host — the machine running otterdeploy registers itself as 127.0.0.1.
+    // host: the machine running otterdeploy registers itself as 127.0.0.1.
     controlPlaneServerId: await resolveControlPlaneServerId(),
     buildOptions: options,
     adminBind: env.CADDY_ADMIN_BIND,
@@ -220,7 +218,7 @@ async function reconcileNodeEdgesForInstall(
 }
 
 /** The bootstrap row for the machine running otterdeploy itself, which owns the
- *  in-process edge. Null when no such row exists yet — every node then gets
+ *  in-process edge. Null when no such row exists yet. Every node then gets
  *  only its own routes, and unplaced ones stay on the control-plane edge that
  *  was just reconciled regardless. */
 async function resolveControlPlaneServerId(): Promise<ServerId | null> {
@@ -238,14 +236,14 @@ export interface ProjectCaddyfile {
  *  are rendered, mirroring the reconciler (disabled routes never reach
  *  Caddy). The install-wide global block is stripped from the display text
  *  (it is not project state and carries edge credentials); `revision` is
- *  still computed over the FULL fragment — the same short SHA the reconciler
- *  stamps — so the UI can detect drift. */
+ *  still computed over the FULL fragment. The same short SHA the reconciler
+ *  stamps, so the UI can detect drift. */
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
   let routes = records.filter((r) => r.enabled).map(toRouteInput);
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
-    // DB-only read (no file writes) — shows the same `tls` lines reconcile
+    // DB-only read (no file writes). Shows the same `tls` lines reconcile
     // emits for uploaded certs, so the viewer stays byte-faithful.
     listServableCustomCerts(),
   ]);
@@ -258,8 +256,8 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
   return { caddyfile: maskCaddySecrets(stripGlobalBlock(fragment)), revision };
 }
 
-/** Render the full install-wide Caddyfile — global block plus every
- *  project's site blocks plus custom config — exactly as the reconciler
+/** Render the full install-wide Caddyfile. Global block plus every
+ *  project's site blocks plus custom config. Exactly as the reconciler
  *  assembles it, for the admin-gated org Networking view. DB-only (no cert
  *  files are written); CrowdSec credentials are masked for display. */
 export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
@@ -267,9 +265,7 @@ export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   let routes = records.map(toRouteInput);
   const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
   if (customCerts.length > 0) {
-    const projectOrg = await mapProjectOrganizations([
-      ...new Set(records.map((r) => r.projectId)),
-    ] as ProjectId[]);
+    const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {

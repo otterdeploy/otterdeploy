@@ -1,11 +1,11 @@
 /**
  * Project-scoped env var contract. One row per
- * (projectId, environmentId, key) — the storage shape on the
+ * (projectId, environmentId, key): the storage shape on the
  * `projectEnvVar` table. The frontend Variables page (overview matrix
  * + per-env table + bulk-edit dialog) reads/writes through this slice.
  *
  * Values are returned in plaintext; masking happens client-side
- * (see `isSecret`) — EXCEPT for `sealed` rows, which the server masks to
+ * (see `isSecret`). EXCEPT for `sealed` rows, which the server masks to
  * `""` unconditionally (write-only: set, replace or delete, never read
  * back). See packages/api/src/routers/project/env-var.ts's `maskSealed`.
  */
@@ -21,7 +21,7 @@ const projectEnvVarSchema = z.object({
   key: z.string(),
   value: z.string(),
   isSecret: z.boolean(),
-  // Write-only. True once a value has ever been sealed for this key — sticky,
+  // Write-only. True once a value has ever been sealed for this key. Sticky,
   // never flips back to false. `value` is always `""` on a sealed row.
   sealed: z.boolean(),
   createdAt: z.date(),
@@ -40,7 +40,7 @@ const upsertProjectEnvVarInput = z.object({
   value: z.string(),
   isSecret: z.boolean().optional(),
   // Seal this variable: the value can never be read back through the API
-  // after this write. Sticky — omitting it on a later upsert of the same
+  // after this write. Sticky. Omitting it on a later upsert of the same
   // key does NOT unseal an already-sealed row.
   sealed: z.boolean().optional(),
 });

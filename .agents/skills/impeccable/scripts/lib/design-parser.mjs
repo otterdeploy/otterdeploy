@@ -38,7 +38,7 @@ function parseFrontmatter(md) {
 
 // Minimal YAML reader for the Stitch frontmatter subset: scalar maps with
 // one level of nested objects (typography roles, components). Indent-based,
-// 2-space convention. No arrays, no anchors, no multi-line scalars — Stitch's
+// 2-space convention. No arrays, no anchors, no multi-line scalars: Stitch's
 // schema doesn't need them and accepting them would require a real YAML
 // dependency we don't want to vendor.
 function parseYamlSubset(yaml) {
@@ -153,7 +153,7 @@ function splitSections(md) {
         sections[canonical] = current;
         continue;
       }
-      // non-canonical H2 — ignore but stop feeding into current
+      // non-canonical H2: ignore but stop feeding into current
       current = null;
       continue;
     }
@@ -260,7 +260,7 @@ function extractNamedRules(lines) {
   const rules = [];
   const seen = new Set();
 
-  // Style A (Impeccable): "**The X Rule.** body body body" — can span lines.
+  // Style A (Impeccable): "**The X Rule.** body body body", can span lines.
   const joined = lines.join('\n');
   const inlineStart = /\*\*(The [^*]+?Rule)\.\*\*/g;
   const inlineMatches = [];
@@ -418,7 +418,7 @@ function parseColorBullet(bullet) {
     }
   }
 
-  // Case 2 (Stitch): **Name (values):** description   — value embedded in bold.
+  // Case 2 (Stitch): **Name (values):** description, value embedded in bold.
   const stitch = text.match(/^\*\*([^*]+?)\s*\(([^)]+)\):\*\*\s*(.*)$/);
   if (stitch) {
     return buildColor(stitch[1].trim(), stitch[2], stitch[3]);
@@ -540,7 +540,7 @@ function extractTypography(section) {
     }
   }
 
-  // Character paragraph — either a **Character:** label, or fall back to the
+  // Character paragraph: either a **Character:** label, or fall back to the
   // first free paragraph under the section header (Stitch style).
   const characterMatch = text.match(/\*\*Character:\*\*\s*([^\n]+(?:\n[^\n]+)*?)(?=\n\n|\n###|\n##|$)/);
   let character = characterMatch ? characterMatch[1].replace(/\n/g, ' ').trim() : null;
@@ -571,8 +571,8 @@ function extractTypography(section) {
 
 function normalizeFontRole(raw) {
   // Canonical roles the panel cares about: display, body, label, mono.
-  // Stitch often writes compound roles like "display-&-headlines" or "ui-&-body"
-  // — collapse them to the first canonical role present.
+  // Stitch often writes compound roles like "display-&-headlines" or "ui-&-body",
+  // collapse them to the first canonical role present.
   const tokens = raw.split(/[-/&\s]+/).filter(Boolean);
   const priority = ['display', 'headline', 'body', 'ui', 'label', 'mono'];
   const canonical = { headline: 'display', ui: 'body' };

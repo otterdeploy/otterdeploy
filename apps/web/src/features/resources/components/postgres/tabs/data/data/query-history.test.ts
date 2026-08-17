@@ -16,7 +16,7 @@ const entry = (n: number, p: Partial<QueryHistoryEntry> = {}): QueryHistoryEntry
 });
 
 describe("pushHistory", () => {
-  it("prepends — newest first", () => {
+  it("prepends, newest first", () => {
     const ring = pushHistory(pushHistory([], entry(1)), entry(2));
     expect(ring.map((e) => e.id)).toEqual(["id-2", "id-1"]);
   });

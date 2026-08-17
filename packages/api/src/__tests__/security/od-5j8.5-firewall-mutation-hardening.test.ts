@@ -1,11 +1,11 @@
 /**
- * od-5j8.5 — firewall mutations are authorized and blocklist ingestion is
+ * od-5j8.5: firewall mutations are authorized and blocklist ingestion is
  * hardened against SSRF / shell injection / malformed content.
  *
  * Invariant under test:
  *   1. Every firewall mutation (block/unblock/blockMany/console.enroll and
  *      every `blocklists.*` write) requires BOTH install-admin AND the
- *      organization's `firewall:update` permission — a plain install-admin
+ *      organization's `firewall:update` permission. A plain install-admin
  *      read gate is not enough for a write.
  *   2. Blocklist ingestion never fetches a URL that resolves to a
  *      loopback/private/link-local/cloud-metadata address (SSRF corpus
@@ -57,7 +57,7 @@ describe("[od-5j8.5] every firewall mutation requires install-admin AND firewall
     }
   });
 
-  test("blocklists.list (a read) uses the read-only gate, not the write gate — least privilege", () => {
+  test("blocklists.list (a read) uses the read-only gate, not the write gate, least privilege", () => {
     const router = source("packages/api/src/routers/firewall/index.ts");
     const listIdx = router.indexOf("list: globalFirewallRead.firewall.blocklists.list");
     expect(listIdx).toBeGreaterThan(-1);
@@ -102,7 +102,7 @@ describe("[od-5j8.5] blocklist ingestion SSRF corpus", () => {
     expect(() => validatePublicHttpUrl("https://user:pass@list.example/ips.txt")).toThrow();
   });
 
-  test("non-http(s) schemes (file/gopher/ftp) are rejected outright — classic SSRF scheme-confusion vectors", () => {
+  test("non-http(s) schemes (file/gopher/ftp) are rejected outright, classic SSRF scheme-confusion vectors", () => {
     for (const url of [
       "file:///etc/passwd",
       "gopher://127.0.0.1:6379/_FLUSHALL",

@@ -59,13 +59,13 @@ export function EventDrawer({
               <Section label="Target">
                 <div className="flex items-center gap-1.5 py-1 text-[12px]">
                   <TargetKindIcon targetType={event.targetType} />
-                  <span>{event.targetType ?? "—"}</span>
+                  <span>{event.targetType ?? "–"}</span>
                 </div>
-                <KV k="ID" v={event.targetId ?? "—"} mono />
+                <KV k="ID" v={event.targetId ?? "–"} mono />
               </Section>
 
               {/* The demo also showed a geo lookup, a session id, and an HTTP
-                  response code here — none of those are stored on audit_log
+                  response code here. None of those are stored on audit_log
                   (only outcome/reason/durationMs + ip/ua), so we don't render
                   them rather than invent data. */}
               <Section label="When · where">
@@ -74,13 +74,13 @@ export function EventDrawer({
                   v={new Date(event.timestamp).toLocaleString()}
                   mono
                 />
-                <KV k="IP" v={event.ip ?? "—"} mono />
+                <KV k="IP" v={event.ip ?? "–"} mono />
                 <KV
                   k="Duration"
-                  v={event.durationMs != null ? `${event.durationMs} ms` : "—"}
+                  v={event.durationMs != null ? `${event.durationMs} ms` : "–"}
                   mono
                 />
-                <KV k="User-Agent" v={event.userAgent ?? "—"} mono />
+                <KV k="User-Agent" v={event.userAgent ?? "–"} mono />
               </Section>
 
               {(event.correlationId || event.causationId) && (
@@ -136,8 +136,8 @@ function Section({
 }
 
 /**
- * Sibling events of the open one — everything sharing its correlationId plus
- * the causing event — rendered as clickable mini-rows that swap the drawer.
+ * Sibling events of the open one: everything sharing its correlationId plus
+ * the causing event, rendered as clickable mini-rows that swap the drawer.
  * Server-resolved (`audit.byCorrelation`): siblings usually fall outside the
  * loaded page, so the client-side rows can't answer this.
  */

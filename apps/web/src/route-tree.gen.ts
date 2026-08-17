@@ -45,6 +45,7 @@ import { Route as AppOrgSlugShellDockerRouteImport } from "./routes/_app/$orgSlu
 import { Route as AppOrgSlugShellDatabasesRouteImport } from "./routes/_app/$orgSlug/_shell/databases"
 import { Route as AppOrgSlugShellBackupsRouteImport } from "./routes/_app/$orgSlug/_shell/backups"
 import { Route as AppOrgSlugShellAuditRouteImport } from "./routes/_app/$orgSlug/_shell/audit"
+import { Route as AppOrgSlugShellAnalyticsRouteImport } from "./routes/_app/$orgSlug/_shell/analytics"
 import { Route as AppOrgSlugSettingsInstanceLayoutRouteImport } from "./routes/_app/$orgSlug/settings/instance/layout"
 import { Route as AppOrgSlugShellProjectSlugLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/layout"
 import { Route as AppOrgSlugShellProjectSlugIndexRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/index"
@@ -264,6 +265,12 @@ const AppOrgSlugShellAuditRoute = AppOrgSlugShellAuditRouteImport.update({
   path: "/audit",
   getParentRoute: () => AppOrgSlugShellLayoutRoute,
 } as any)
+const AppOrgSlugShellAnalyticsRoute =
+  AppOrgSlugShellAnalyticsRouteImport.update({
+    id: "/analytics",
+    path: "/analytics",
+    getParentRoute: () => AppOrgSlugShellLayoutRoute,
+  } as any)
 const AppOrgSlugSettingsInstanceLayoutRoute =
   AppOrgSlugSettingsInstanceLayoutRouteImport.update({
     id: "/instance",
@@ -453,7 +460,7 @@ export interface FileRoutesByFullPath {
   "/device": typeof DeviceRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
-  "/$orgSlug": typeof AppOrgSlugShellLayoutRouteWithChildren
+  "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsLayoutRouteWithChildren
@@ -466,6 +473,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/webhooks": typeof AppOrgSlugWebhooksRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugShellProjectSlugLayoutRouteWithChildren
   "/$orgSlug/settings/instance": typeof AppOrgSlugSettingsInstanceLayoutRouteWithChildren
+  "/$orgSlug/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
@@ -530,6 +538,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug/webhooks": typeof AppOrgSlugWebhooksRoute
   "/$orgSlug/settings/instance": typeof AppOrgSlugSettingsInstanceLayoutRouteWithChildren
+  "/$orgSlug/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
@@ -598,6 +607,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/webhooks": typeof AppOrgSlugWebhooksRoute
   "/_app/$orgSlug/_shell/$projectSlug": typeof AppOrgSlugShellProjectSlugLayoutRouteWithChildren
   "/_app/$orgSlug/settings/instance": typeof AppOrgSlugSettingsInstanceLayoutRouteWithChildren
+  "/_app/$orgSlug/_shell/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/_app/$orgSlug/_shell/audit": typeof AppOrgSlugShellAuditRoute
   "/_app/$orgSlug/_shell/backups": typeof AppOrgSlugShellBackupsRoute
   "/_app/$orgSlug/_shell/databases": typeof AppOrgSlugShellDatabasesRoute
@@ -666,6 +676,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/webhooks"
     | "/$orgSlug/$projectSlug"
     | "/$orgSlug/settings/instance"
+    | "/$orgSlug/analytics"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
     | "/$orgSlug/databases"
@@ -730,6 +741,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/team"
     | "/$orgSlug/webhooks"
     | "/$orgSlug/settings/instance"
+    | "/$orgSlug/analytics"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
     | "/$orgSlug/databases"
@@ -797,6 +809,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/webhooks"
     | "/_app/$orgSlug/_shell/$projectSlug"
     | "/_app/$orgSlug/settings/instance"
+    | "/_app/$orgSlug/_shell/analytics"
     | "/_app/$orgSlug/_shell/audit"
     | "/_app/$orgSlug/_shell/backups"
     | "/_app/$orgSlug/_shell/databases"
@@ -1109,6 +1122,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugShellAuditRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
+    "/_app/$orgSlug/_shell/analytics": {
+      id: "/_app/$orgSlug/_shell/analytics"
+      path: "/analytics"
+      fullPath: "/$orgSlug/analytics"
+      preLoaderRoute: typeof AppOrgSlugShellAnalyticsRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
     "/_app/$orgSlug/settings/instance": {
       id: "/_app/$orgSlug/settings/instance"
       path: "/instance"
@@ -1394,6 +1414,7 @@ const AppOrgSlugShellProjectSlugLayoutRouteWithChildren =
 
 interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellProjectSlugLayoutRoute: typeof AppOrgSlugShellProjectSlugLayoutRouteWithChildren
+  AppOrgSlugShellAnalyticsRoute: typeof AppOrgSlugShellAnalyticsRoute
   AppOrgSlugShellAuditRoute: typeof AppOrgSlugShellAuditRoute
   AppOrgSlugShellBackupsRoute: typeof AppOrgSlugShellBackupsRoute
   AppOrgSlugShellDatabasesRoute: typeof AppOrgSlugShellDatabasesRoute
@@ -1417,6 +1438,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
 const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellProjectSlugLayoutRoute:
     AppOrgSlugShellProjectSlugLayoutRouteWithChildren,
+  AppOrgSlugShellAnalyticsRoute: AppOrgSlugShellAnalyticsRoute,
   AppOrgSlugShellAuditRoute: AppOrgSlugShellAuditRoute,
   AppOrgSlugShellBackupsRoute: AppOrgSlugShellBackupsRoute,
   AppOrgSlugShellDatabasesRoute: AppOrgSlugShellDatabasesRoute,

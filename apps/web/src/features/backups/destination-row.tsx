@@ -5,7 +5,7 @@
  *
  * The platform-managed local destination is deliberately narrower: it always
  * exists so a fresh install can schedule a backup without inventing a host path,
- * so it offers no Delete — only Disable, and the server refuses even that while
+ * so it offers no Delete. Only Disable, and the server refuses even that while
  * it's the last active destination. See packages/api/src/backups/managed-destination.ts.
  */
 import { useState } from "react";
@@ -16,8 +16,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
-
-import type { JsonObject } from "@otterdeploy/shared/json";
 
 import type { Destination } from "./data/destinations";
 
@@ -58,7 +56,7 @@ function DestinationIdentity({ dest }: { dest: Destination }) {
         {dest.managed
           ? // Honesty over reassurance (PRODUCT.md): this copy exists so nobody
             // reads an always-present local destination as "I have backups".
-            "On this host — fast restores, not disaster recovery. Add off-host storage for that."
+            "On this host: fast restores, not disaster recovery. Add off-host storage for that."
           : destSub(dest)}
       </div>
     </div>
@@ -79,7 +77,7 @@ export function DestinationRow({
 
   // `usedBytes` is computed; `maxStorageGb` (if set) lives in config.
   const usedGB = dest.usedBytes / 1e9;
-  const maxRaw = (dest.config as JsonObject | undefined)?.maxStorageGb;
+  const maxRaw = dest.config.maxStorageGb;
   const totalGB = typeof maxRaw === "number" ? maxRaw : undefined;
   const pct = totalGB ? (usedGB / totalGB) * 100 : null;
 
@@ -107,7 +105,7 @@ export function DestinationRow({
     setDestinationEnabled(dest.id, disabled)
       .then(() => toast.success(disabled ? "Destination enabled" : "Destination disabled"))
       .catch((err: unknown) =>
-        // The server refuses to disable the last active destination — surfacing
+        // The server refuses to disable the last active destination, surfacing
         // its message verbatim explains why better than a generic failure.
         toast.error(err instanceof Error ? err.message : "Couldn't change destination"),
       )
@@ -118,7 +116,7 @@ export function DestinationRow({
     <div
       className={cn(
         // One line from `md`; below it the identity, the usage read-out and
-        // the four controls each take their own row — six items on one line is
+        // the four controls each take their own row. Six items on one line is
         // ~700px of content in a 358px card.
         "flex flex-col gap-3 px-4 py-3.5 md:flex-row md:items-center",
         !first && "border-t",
@@ -196,7 +194,7 @@ export function DestinationRow({
         >
           <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
         </Button>
-        {/* No delete for the managed destination — it must always exist, or the
+        {/* No delete for the managed destination. It must always exist, or the
             org is back to "configure storage before you can back anything up".
             Disable is the escape hatch. */}
         {!dest.managed && (

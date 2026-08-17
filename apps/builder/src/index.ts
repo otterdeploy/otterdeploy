@@ -4,7 +4,7 @@
  * Single-purpose process: pulls `deploy.triggered` jobs off the queue and
  * spawns a throwaway helper container per deployment to run the build (see
  * handler.ts + build-one.ts). The worker itself only needs the docker CLI and
- * a socket to launch those containers — the railpack toolchain and the
+ * a socket to launch those containers: the railpack toolchain and the
  * pipeline run inside them. Lives apart from apps/server, which shouldn't
  * depend on docker at all.
  *
@@ -21,7 +21,7 @@ import { makeBuildJob } from "./handler";
 let stop: (() => Promise<void>) | null = null;
 let reconcileTimer: ReturnType<typeof setInterval> | null = null;
 
-// Sweep orphaned pending/building deployments — at boot AND on a cadence. A row
+// Sweep orphaned pending/building deployments: at boot AND on a cadence. A row
 // can be stranded any time (a build container that dies mid-run, a job that
 // never starts), not only across a restart, so a boot-only sweep left post-boot
 // orphans stuck forever. Redis-lock-guarded + idempotent, so running it
@@ -43,7 +43,7 @@ async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
 
 async function bootstrap() {
   // Settings-backed (seeded from BUILDER_CONCURRENCY). BullMQ fixes a worker's
-  // concurrency when it's constructed, so this is read exactly once, here —
+  // concurrency when it's constructed, so this is read exactly once, here,
   // which is why the settings card says a change needs the builder restarted
   // rather than implying it takes effect live.
   const concurrency = await builderConcurrency();

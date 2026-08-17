@@ -1,4 +1,4 @@
-# React Doctor — locations by rule
+# React Doctor: locations by rule
 
 
 ## Bugs · complexity (31)

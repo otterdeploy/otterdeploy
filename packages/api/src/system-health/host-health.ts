@@ -1,5 +1,5 @@
 /**
- * Host introspection — what the server the user deployed on actually looks
+ * Host introspection: what the server the user deployed on actually looks
  * like right now: memory (+swap), disk at the data root, and Docker's disk
  * footprint (images/containers/volumes/build cache) with how much of it is
  * reclaimable. Feeds the Instance page "Server health" card, the monitor's
@@ -23,7 +23,7 @@ import { deriveRecommendations } from "./recommendations";
 export interface HostMemory {
   totalBytes: number;
   /** MemAvailable when /proc/meminfo exists (containers see the host's), else
-   *  os.freemem() — the number that predicts whether a build will OOM. */
+   *  os.freemem(): the number that predicts whether a build will OOM. */
   availableBytes: number;
   usedPct: number;
   /** Null when the platform exposes no swap counters (e.g. macOS dev). */
@@ -57,7 +57,7 @@ export type ReclaimTarget = "images" | "build-cache" | "containers" | "branch-po
 /** Generous for a healthy daemon (`docker system df` is normally <1s even
  *  with a few dozen objects); small enough that a wedged/overloaded daemon
  *  degrades this section to "unavailable" instead of hanging the whole
- *  card — and the RPC call behind it — forever (od-1kc.6: the Docker
+ *  card (and the RPC call behind it) forever (od-1kc.6: the Docker
  *  client has no default request timeout, so a stalled daemon left the
  *  Servers page's Host health card on its loading skeleton indefinitely).
  *  Same pattern as `firewall/cscli.ts`'s `EXEC_TIMEOUT_MS`. */
@@ -123,8 +123,8 @@ async function readMemory(): Promise<HostMemory> {
 }
 
 async function readDisk(): Promise<HostDisk | null> {
-  // Raw process.env (like BRANCH_ZFS_POOL) so the health agent — which runs
-  // this module with no validated env — can point disk sampling at a
+  // Raw process.env (like BRANCH_ZFS_POOL) so the health agent, which runs
+  // this module with no validated env. Can point disk sampling at a
   // bind-mounted host path. Unset ⇒ data root, or "/" where that's absent
   // (agent containers: overlay-root statfs still reflects the host disk).
   // oxlint-disable-next-line node/no-process-env -- intentional raw read (see comment above)
@@ -147,6 +147,16 @@ async function readDisk(): Promise<HostDisk | null> {
 interface BuildCacheItem {
   Size?: number;
   InUse?: boolean;
+}
+
+/** The docker SDK types `BuildCache` entries as `unknown`; pull out the two
+ *  fields this section reads with real runtime checks. */
+function toBuildCacheItem(value: unknown): BuildCacheItem {
+  if (typeof value !== "object" || value === null) return {};
+  return {
+    Size: "Size" in value && typeof value.Size === "number" ? value.Size : undefined,
+    InUse: "InUse" in value && typeof value.InUse === "boolean" ? value.InUse : undefined,
+  };
 }
 
 async function readDockerUsage(): Promise<DockerUsage | null> {
@@ -190,7 +200,7 @@ async function readDockerUsage(): Promise<DockerUsage | null> {
       ),
     };
 
-    const cacheItems = (BuildCache ?? []) as BuildCacheItem[];
+    const cacheItems = (BuildCache ?? []).map(toBuildCacheItem);
     const idleCache = cacheItems.filter((c) => !c.InUse);
     const buildCache: DockerUsageSection = {
       count: cacheItems.length,

@@ -2,12 +2,12 @@ import type { SVGProps } from "react";
 
 /**
  * NetBird mark. Monochrome, so it inherits the text color and stays legible on
- * both canvases — the brand orange would read as an accent here, and the accent
+ * both canvases: the brand orange would read as an accent here, and the accent
  * is spoken for (see DESIGN.md).
  *
  * The source art is two-tone (a lighter body over a darker inner wing). Flattening
  * both to one colour loses the fold entirely, so the inner shape keeps a reduced
- * opacity instead — that preserves the silhouette's depth at 16px.
+ * opacity instead: that preserves the silhouette's depth at 16px.
  */
 const NetBird = (props: SVGProps<SVGSVGElement>) => (
   <svg

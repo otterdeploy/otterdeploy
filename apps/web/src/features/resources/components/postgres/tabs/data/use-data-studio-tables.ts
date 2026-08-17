@@ -1,7 +1,7 @@
 /**
  * The table-browse half of {@link useTableData}: the database's table list (and
  * the sidebar's search filter over it), plus everything the studio needs to know
- * about the currently open table — cell variants, FK targets, display types,
+ * about the currently open table. Cell variants, FK targets, display types,
  * the actor's write capability, and the primary key that makes a row targetable.
  *
  * Split out of use-data-studio.ts for size: each of these was a multi-line query
@@ -37,7 +37,7 @@ export function useTableList(resourceId: string, search: string) {
  * All of it is table-browse only: authored console SQL renders its own result
  * shape, so the column meta stays gated on `mode === "table"`. Inline edit /
  * delete are offered only when the actor has the write capability AND the open
- * table has a primary key to target the row by — hence `editable`.
+ * table has a primary key to target the row by, hence `editable`.
  */
 export function useOpenTableAccess({
   resourceId,

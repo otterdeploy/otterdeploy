@@ -4,8 +4,8 @@
  * The selection starts as whatever the operator right-clicked, but the useful
  * unit is usually a set: an app and its database cloned together stay wired to
  * each other, while cloning the app alone leaves it pointing at the original's
- * database. That is a real, silent data hazard — the copy connects, works, and
- * writes to production — so the preview names every reference that will still
+ * database. That is a real, silent data hazard. The copy connects, works, and
+ * writes to production, so the preview names every reference that will still
  * reach outside the selection, and ticking the referenced resource makes the
  * warning disappear because the problem actually went away.
  *
@@ -46,19 +46,19 @@ export function CloneDialog({
   projectId: string;
   /** Every resource in the project that can be cloned. */
   candidates: CloneCandidate[];
-  /** Pre-ticked ids — normally the node the menu was opened on. */
+  /** Pre-ticked ids: normally the node the menu was opened on. */
   initialSelection: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  // The operator's ticks, or null while they haven't touched anything — in
+  // The operator's ticks, or null while they haven't touched anything. In
   // which case the right-clicked node *is* the selection. Nothing watches
   // `initialSelection` for changes: the caller rebuilds it inline
   // (`[target.data.resourceId]`) inside a graph that polls every 5s, so
   // anything keyed to that prop would re-seed mid-decision and silently drop
   // ticks the operator had added. Tick the database, wait five seconds,
-  // clone, and you get the app alone still wired to the original's database —
-  // the exact hazard this dialog exists to catch.
+  // clone, and you get the app alone still wired to the original's database.
+  // The exact hazard this dialog exists to catch.
   const [picked, setPicked] = useState<string[] | null>(null);
   const selected = picked ?? initialSelection;
 
@@ -92,7 +92,7 @@ export function CloneDialog({
       }
       toast.success(
         `Cloned ${result.created.length} resource${result.created.length === 1 ? "" : "s"}`,
-        { description: "The copies are drafts — deploy them when you're ready." },
+        { description: "The copies are drafts. Deploy them when you're ready." },
       );
     },
     onError: (err) => toast.error(toastMessage(err, "Clone failed")),

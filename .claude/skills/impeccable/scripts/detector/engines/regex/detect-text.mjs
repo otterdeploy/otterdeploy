@@ -12,7 +12,7 @@ const hasRounded = (line) => /\brounded(?:-\w+)?\b/.test(line);
 const hasBorderRadius = (line) => /border-radius/i.test(line);
 const isSafeElement = (line) => /<(?:blockquote|nav[\s>]|pre[\s>]|code[\s>]|a\s|input[\s>]|span[\s>])/i.test(line);
 
-/** Strip HTML to plain text — drops script/style/comments/tags so
+/** Strip HTML to plain text: drops script/style/comments/tags so
  *  content-text analyzers don't false-positive on code or CSS. */
 function stripHtmlToText(html) {
   return html
@@ -422,7 +422,7 @@ function runRegexMatchers(lines, filePath, lineOffset = 0, blockContext = null, 
 
 /** Page-level analyzers that scan rendered text content (em-dash use,
  *  buzzword phrases, numbered section markers, aphoristic cadence).
- *  These are detector-agnostic — they work on any HTML/text source
+ *  These are detector-agnostic. They work on any HTML/text source
  *  and don't need a parsed DOM. Exported so detectHtml can call them
  *  for `.html` files (which otherwise skip the regex engine). */
 const TEXT_CONTENT_ANALYZER_IDS = [

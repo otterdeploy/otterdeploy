@@ -6,7 +6,7 @@
  * line plus whatever recovery steps we know, and exits non-zero. Raw stacks only
  * under DEBUG=1. UNAUTHORIZED gets special treatment: when the stale token came
  * from the config file and we're interactive, clear it and re-run the command
- * once — `ensureAuthenticated` inside the command walks the device-code flow
+ * once: `ensureAuthenticated` inside the command walks the device-code flow
  * again.
  *
  * Every hint is built with `cmd()` so it names the bin the user actually typed.
@@ -39,7 +39,7 @@ function formatOrpcError(error: ORPCError<string, unknown>): FriendlyError {
         message: "Not authenticated, or the session expired.",
         hints:
           tokenSource() === "env"
-            ? ["OTTERDEPLOY_TOKEN was rejected — check the key is valid and not expired"]
+            ? ["OTTERDEPLOY_TOKEN was rejected. Check the key is valid and not expired"]
             : [`run \`${cmd("login <url>")}\` to sign in again`],
       };
     case "NO_ACTIVE_ORGANIZATION":
@@ -71,7 +71,7 @@ function isNetworkError(error: unknown): boolean {
     "ConnectionClosed",
     "FailedToOpenSocket",
   ];
-  const code = (error as { code?: string }).code;
+  const code = "code" in error && typeof error.code === "string" ? error.code : undefined;
   if (code && codes.includes(code)) return true;
   if (error.message.includes("Unable to connect") || error.message === "fetch failed") return true;
   return error.cause !== undefined && isNetworkError(error.cause);
@@ -101,7 +101,7 @@ export function formatCliError(error: unknown): FriendlyError {
 function printAndExit(error: unknown): never {
   // Before the failure, not after: a CLI/server version gap is frequently the
   // CAUSE of the error below (a procedure the old server never had reads as a
-  // bare NOT_FOUND), so it belongs as context above it — and `abort` exits the
+  // bare NOT_FOUND), so it belongs as context above it, and `abort` exits the
   // process, so anything printed afterwards would never run.
   reportCompatWarning();
 
@@ -126,7 +126,7 @@ function withBoundary(run: RunFn): RunFn {
       await run(ctx);
     } catch (error) {
       // Session token from the config file went stale: clear it and retry
-      // once — ensureAuthenticated inside the command re-runs the device
+      // once, ensureAuthenticated inside the command re-runs the device
       // flow. Env-provided tokens are the caller's to fix; non-TTY can't
       // complete a browser login, so both fall through to the printer.
       const canReauth =
@@ -135,7 +135,7 @@ function withBoundary(run: RunFn): RunFn {
         tokenSource() === "config" &&
         process.stdin.isTTY;
       if (!canReauth) printAndExit(error);
-      warn("Session expired — signing in again.");
+      warn("Session expired. Signing in again.");
       clearToken();
       try {
         await run(ctx);
@@ -155,12 +155,19 @@ function withBoundary(run: RunFn): RunFn {
  */
 export function wrapCommand(cmd_: CommandDef): CommandDef {
   const wrapped: CommandDef = { ...cmd_ };
-  if (typeof cmd_.run === "function") wrapped.run = withBoundary(cmd_.run as RunFn);
-  if (cmd_.subCommands && typeof cmd_.subCommands === "object") {
+  if (typeof cmd_.run === "function") wrapped.run = withBoundary(cmd_.run);
+  // A `Resolvable` subCommands map can also be a Promise / factory; only a
+  // plain object of definitions can be walked and wrapped here. Lazy entries
+  // (functions) pass through unwrapped, exactly as before.
+  if (
+    cmd_.subCommands &&
+    typeof cmd_.subCommands === "object" &&
+    !(cmd_.subCommands instanceof Promise)
+  ) {
     wrapped.subCommands = Object.fromEntries(
       Object.entries(cmd_.subCommands).map(([name, sub]) => [
         name,
-        typeof sub === "function" ? sub : wrapCommand(sub as CommandDef),
+        typeof sub === "function" || sub instanceof Promise ? sub : wrapCommand(sub),
       ]),
     );
   }

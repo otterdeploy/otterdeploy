@@ -12,11 +12,11 @@ export const DATA_TEMPLATES: StackTemplate[] = [
     requiredEnv: [
       {
         key: "MINIO_ROOT_USER",
-        description: "Root access key (username) — at least 3 characters.",
+        description: "Root access key (username). At least 3 characters.",
       },
       {
         key: "MINIO_ROOT_PASSWORD",
-        description: "Root secret key — at least 8 characters.",
+        description: "Root secret key. At least 8 characters.",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -32,7 +32,7 @@ services:
       MINIO_ROOT_PASSWORD: \${MINIO_ROOT_PASSWORD}
     ports:
       # Console FIRST: the primary port is what the generated domain routes to,
-      # and a person clicking Visit wants the UI. Port 9000 is the S3 API — a
+      # and a person clicking Visit wants the UI. Port 9000 is the S3 API, and a
       # browser GET on it correctly answers AccessDenied, which reads as a
       # broken deploy. SDKs reach the API with an explicit endpoint + creds and
       # do not depend on which port the platform made primary.
@@ -108,7 +108,7 @@ volumes:
     id: "rustfs",
     name: "RustFS",
     description:
-      "High-performance, S3-compatible object storage written in Rust — a MinIO alternative. S3 API on 9000; the web console is on 9001 at /rustfs/console. Objects persist to a named volume.",
+      "High-performance, S3-compatible object storage written in Rust: a MinIO alternative. S3 API on 9000; the web console is on 9001 at /rustfs/console. Objects persist to a named volume.",
     category: "data",
     includes: ["rustfs"],
     requiredEnv: [
@@ -137,7 +137,7 @@ services:
       RUSTFS_CONSOLE_ENABLE: "true"
     ports:
       # Console FIRST: the primary port is what the generated domain routes to,
-      # and a person clicking Visit wants the UI. Port 9000 is the S3 API — a
+      # and a person clicking Visit wants the UI. Port 9000 is the S3 API, and a
       # browser GET on it correctly answers AccessDenied, which reads as a
       # broken deploy. SDKs reach the API with an explicit endpoint + creds and
       # do not depend on which port the platform made primary.
@@ -202,7 +202,7 @@ volumes:
     requiredEnv: [
       {
         key: "MEILI_MASTER_KEY",
-        description: "Master key protecting the API — at least 16 bytes.",
+        description: "Master key protecting the API. At least 16 bytes.",
         generateHint: "openssl rand -base64 32",
       },
     ],

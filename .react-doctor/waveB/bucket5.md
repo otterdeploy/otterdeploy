@@ -1,4 +1,4 @@
-# Wave B — Agent bucket 5
+# Wave B: Agent bucket 5
 
 
 ## src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx

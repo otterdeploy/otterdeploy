@@ -1,12 +1,13 @@
 /**
  * Notification emitters for the deployment lifecycle. Each fans a `deploy.*`
- * event out to subscribed notification channels and is best-effort — never
+ * event out to subscribed notification channels and is best-effort, never
  * throws into the deploy path (emitPlatformEvent swallows its own errors).
  */
 import type { DeploymentId, OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project, resource } from "@otterdeploy/db/schema/project";
+import { idSchema } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
@@ -27,12 +28,17 @@ async function resolveDeployContext(resourceId: ResourceId): Promise<{
     .from(resource)
     .innerJoin(project, eq(project.id, resource.projectId))
     .where(eq(resource.id, resourceId));
-  return info ? { ...info, organizationId: info.organizationId as OrganizationId } : null;
+  if (!info) return null;
+  // project.organization_id is a plain text column: brand it at this boundary.
+  // An unparseable id can't be routed to an org, so treat it like a gone row.
+  const orgId = idSchema.organization.safeParse(info.organizationId);
+  if (!orgId.success) return null;
+  return { ...info, organizationId: orgId.data };
 }
 
 /**
  * Fan a `deploy.started` event out to subscribed notification channels.
- * Best-effort — never throws into the deploy path. Call this right after a
+ * Best-effort, never throws into the deploy path. Call this right after a
  * deployment row is created, from EVERY path that inserts one: insertDeployment
  * (databases), manifest-apply (service create/deploy), and handle-push (git
  * push).
@@ -48,7 +54,7 @@ export async function emitDeployStarted(input: {
     organizationId: info.organizationId,
     eventId: "deploy.started",
     title: "Deploy started",
-    message: `${info.resourceName} — ${input.reason}`,
+    message: `${info.resourceName}: ${input.reason}`,
     data: {
       deploymentId: input.deploymentId,
       resource: info.resourceName,

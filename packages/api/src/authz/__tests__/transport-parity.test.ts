@@ -7,11 +7,11 @@ const repositoryRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..
 
 // od-5j8.9: the /pty WebSocket upgrade no longer authorizes anything itself.
 // It validates Origin and consumes a single-use ticket minted by the ordinary
-// `terminal.mintTicket` oRPC procedure — which goes through the SAME
+// `terminal.mintTicket` oRPC procedure, which goes through the SAME
 // createContext → resolveRequestActor → authorizeCapability pipeline every
 // other procedure does (see packages/api/src/routers/terminal/authorize.ts).
 // That's a stronger invariant than "this transport re-implements the check
-// but calls the same function" — there is no longer a second transport to
+// but calls the same function". There is no longer a second transport to
 // keep in parity at all.
 const transportSources = {
   orpc: "packages/api/src/index.ts",
@@ -39,7 +39,7 @@ describe("authorization transport parity", () => {
     expect(text).not.toContain("auth.api.verifyApiKey");
   });
 
-  test("the /pty WebSocket upgrade performs no authorization of its own — only Origin + ticket", () => {
+  test("the /pty WebSocket upgrade performs no authorization of its own, only Origin + ticket", () => {
     const text = source(websocketUpgrade);
     expect(text).not.toContain("authorizeCapability(");
     expect(text).not.toContain("resolveRequestActor(");

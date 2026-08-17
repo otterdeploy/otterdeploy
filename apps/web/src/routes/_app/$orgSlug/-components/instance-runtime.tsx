@@ -3,7 +3,7 @@
  * outbound egress allowlist, PR-preview idle teardown, edge-log persistence and
  * retention, the GeoIP mirrors, and builder concurrency.
  *
- * Two of these genuinely cannot hot-reload — edge-log persistence decides
+ * Two of these genuinely cannot hot-reload. Edge-log persistence decides
  * whether the writer loop is constructed at server start, and BullMQ fixes a
  * worker's concurrency when it's created. Their rows say so rather than
  * implying the change is live, which is the honest-about-system-state rule in
@@ -37,7 +37,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
     orpc.organization.getRuntimeSettings.queryOptions({ input: { organizationId } }),
   );
 
-  // One draft object, null until the operator touches something — so a
+  // One draft object, null until the operator touches something, so a
   // background refetch never overwrites a half-finished edit.
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -55,7 +55,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
 
   const server = query.data;
   // Fall back to the schema defaults until the first fetch lands, so every row
-  // below reads a plain value — no `?.`/`??` threaded through the markup, and
+  // below reads a plain value: no `?.`/`??` threaded through the markup, and
   // the inputs are never uncontrolled.
   const value: Draft = draft ?? { ...EMPTY_DRAFT, ...server };
   const busy = save.isPending || query.isLoading;
@@ -64,8 +64,8 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
 
   const patch = (next: Partial<Draft>) => setDraft({ ...value, ...next });
 
-  // Only surface errors once the operator has actually edited something —
-  // an untouched card must not open covered in red because the server's
+  // Only surface errors once the operator has actually edited something.
+  // An untouched card must not open covered in red because the server's
   // stored value predates a rule.
   const errors: FieldErrors = draft === null ? {} : validate(draft);
   const hasErrors = Object.keys(errors).length > 0;
@@ -82,7 +82,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         description={
           <>
             Bare IPs or CIDRs (comma-separated) that tenant-supplied destinations
-            — webhooks, notification channels, registry probes — are allowed to
+            (webhooks, notification channels, registry probes) are allowed to
             reach. Empty means nothing private is reachable, which is the
             default. Hostnames are rejected: one could be rebound to a private
             address after validation. This can never re-permit the control
@@ -123,7 +123,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         description={
           sinkConfigured
             ? "Write access logs to Postgres behind the live tail, enabling the 24h/7d ranges and percentiles. Takes effect when the server restarts."
-            : "Edge logging is off — no log sink is configured, so this has no effect."
+            : "Edge logging is off. No log sink is configured, so this has no effect."
         }
         control={
           <Switch
@@ -136,7 +136,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
 
       <NumberRow
         title="Edge log retention"
-        description="Days of access logs to keep. Expired days are dropped whole, hourly — shortening this reclaims disk on the next sweep."
+        description="Days of access logs to keep. Expired days are dropped whole, hourly, so shortening this reclaims disk on the next sweep."
         unit="days"
         value={value.edgeLogRetentionDays}
         min={1}

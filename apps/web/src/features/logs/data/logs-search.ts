@@ -18,7 +18,7 @@ export const zLogsSearch = z.object({
   from: z.number().optional(),
   to: z.number().optional(),
   /**
-   * Runtime | Edge source toggle (od-u63.5 — the project Edge logs tab
+   * Runtime | Edge source toggle (od-u63.5, the project Edge logs tab
    * merged into Logs). `.catch` covers both a missing param and a bad value
    * → default to Runtime, so the page always has a valid controlled source.
    */

@@ -1,11 +1,14 @@
 import * as React from "react";
 
 function useLazyRef<T>(fn: () => T): React.RefObject<T> {
-  const ref = React.useRef<T | null>(null);
-  if (ref.current === null) {
-    ref.current = fn();
+  // Holds a fully-initialized RefObject<T> rather than `T | null`, so the
+  // returned ref needs no assertion: the inner object is created (once) with
+  // its value already present.
+  const holder = React.useRef<React.RefObject<T> | null>(null);
+  if (holder.current === null) {
+    holder.current = { current: fn() };
   }
-  return ref as React.RefObject<T>;
+  return holder.current;
 }
 
 export { useLazyRef };

@@ -8,7 +8,7 @@ import type { Node } from "@otterdeploy/docker";
 
 /**
  * Raft majority: how many managers must be reachable for the cluster to
- * accept writes. floor(m/2)+1 — 1 of 1, 2 of 2 (a 2-manager cluster
+ * accept writes. floor(m/2)+1, 1 of 1, 2 of 2 (a 2-manager cluster
  * tolerates zero failures), 2 of 3, 3 of 5.
  */
 export function quorumRequired(managerCount: number): number {
@@ -24,7 +24,7 @@ export type DemotionBlock = "last-manager" | "leader";
 /**
  * Why demoting `target` must be refused, or null when it's safe.
  *
- * - `last-manager`: a swarm with zero managers is bricked — no node can
+ * - `last-manager`: a swarm with zero managers is bricked, no node can
  *   accept management commands to ever promote one back.
  * - `leader`: docker refuses to demote the current Raft leader anyway;
  *   catching it here gives the operator a clear 409 instead of a raw
@@ -43,7 +43,7 @@ export function assessDemotion(nodes: Node[], target: Node): DemotionBlock | nul
 
 /**
  * Only nodes the swarm already reports as `down` may be removed. Removing a
- * live node requires `--force` and orphans its tasks — deliberately not
+ * live node requires `--force` and orphans its tasks. Deliberately not
  * exposed; the honest path is drain → demote (if manager) → stop the daemon
  * on the host → remove once the swarm marks it down.
  */

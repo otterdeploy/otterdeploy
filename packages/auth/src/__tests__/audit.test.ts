@@ -24,7 +24,7 @@ describe("auditEntryForPath", () => {
 
   // The reason this is an allowlist. `/get-session` fires on every page load and
   // every RPC context build; auditing it would outnumber real events by orders
-  // of magnitude and bury them — the same failure the oRPC read gate hit once
+  // of magnitude and bury them: the same failure the oRPC read gate hit once
   // (packages/api/src/__tests__/audit-read-gate.test.ts).
   test("does not audit reads or session polling", () => {
     for (const path of [

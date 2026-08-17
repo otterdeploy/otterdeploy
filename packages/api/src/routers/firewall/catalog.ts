@@ -19,7 +19,7 @@ export const BLOCKLIST_CATALOG: readonly CatalogList[] = [
     slug: "firehol-level1",
     name: "FireHOL Level 1",
     description:
-      "Conservative aggregate of the most reputable attack/abuse lists. Very low false-positive risk — a safe default.",
+      "Conservative aggregate of the most reputable attack/abuse lists. Very low false-positive risk: a safe default.",
     url: "https://iplists.firehol.org/files/firehol_level1.netset",
     durationHours: 24,
     intervalMinutes: 360,
@@ -28,7 +28,7 @@ export const BLOCKLIST_CATALOG: readonly CatalogList[] = [
     slug: "spamhaus-drop",
     name: "Spamhaus DROP",
     description:
-      "Networks Spamhaus recommends dropping entirely — hijacked ranges and dedicated spam/abuse operations.",
+      "Networks Spamhaus recommends dropping entirely, hijacked ranges and dedicated spam/abuse operations.",
     url: "https://www.spamhaus.org/drop/drop.txt",
     durationHours: 24,
     intervalMinutes: 720,
@@ -46,7 +46,7 @@ export const BLOCKLIST_CATALOG: readonly CatalogList[] = [
     slug: "tor-exit-nodes",
     name: "Tor exit nodes",
     description:
-      "Current Tor exit relays. Block only if you don't want anonymous traffic — legitimate users do use Tor.",
+      "Current Tor exit relays. Block only if you don't want anonymous traffic. Legitimate users do use Tor.",
     url: "https://check.torproject.org/torbulkexitlist",
     durationHours: 6,
     intervalMinutes: 120,

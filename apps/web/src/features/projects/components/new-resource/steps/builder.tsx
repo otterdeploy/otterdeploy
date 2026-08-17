@@ -28,7 +28,7 @@ const BUILDERS: Builder[] = [
   {
     id: "railpack",
     name: "Railpack",
-    sub: "Auto-detect — Node, Python, Go, Rust, Ruby…",
+    sub: "Auto-detect: Node, Python, Go, Rust, Ruby…",
     popular: true,
     langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"],
   },
@@ -58,8 +58,8 @@ const BUILDERS: Builder[] = [
 // Real auto-detect, straight from `git.inspectRepo` for the bound repo + root.
 function DetectionBanner() {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo as string);
-  const root = useStore(form.store, (s) => s.values.root as string);
+  const repo = useStore(form.store, (s) => s.values.repo);
+  const root = useStore(form.store, (s) => s.values.root);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
@@ -123,13 +123,13 @@ function DetectionBanner() {
 // ────── StepBuilder ──────
 export function StepBuilder() {
   const form = useFormContext();
-  const builderId = useStore(form.store, (s) => s.values.builderId as string);
+  const builderId = useStore(form.store, (s) => s.values.builderId);
 
   return (
     <>
       <SectionHeader
         title="How should we build it?"
-        sub="Auto-detected from your repo — change it if you need to"
+        sub="Auto-detected from your repo. Change it if you need to."
       />
 
       <DetectionBanner />

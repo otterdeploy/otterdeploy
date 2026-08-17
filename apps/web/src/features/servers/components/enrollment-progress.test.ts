@@ -52,7 +52,7 @@ describe("submitBlocker", () => {
 
   test("manager role is blocked until the confirmation matches exactly", () => {
     expect(submitBlocker({ ...base, role: "manager" })).toContain(MANAGER_CONFIRMATION);
-    // Near-misses must stay blocked — this is the case that read as a hung button.
+    // Near-misses must stay blocked. This is the case that read as a hung button.
     expect(
       submitBlocker({ ...base, role: "manager", managerConfirmation: "enroll manager" }),
     ).toContain(MANAGER_CONFIRMATION);
@@ -85,7 +85,7 @@ describe("computeEnrollmentStages", () => {
     expect(stateOf(stages, "redeem")).toBe("active");
     expect(stateOf(stages, "install")).toBe("pending");
     expect(stateOf(stages, "joined")).toBe("pending");
-    expect(detailOf(stages, "redeem")).toContain("expires in 9m");
+    expect(detailOf(stages, "redeem")).toContain("Expires in 9m");
   });
 
   test("redeemed: install is active and admits we cannot see inside the host", () => {

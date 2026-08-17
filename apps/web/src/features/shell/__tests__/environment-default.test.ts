@@ -38,7 +38,7 @@ describe("resolveDefaultEnvironment", () => {
 
   it("adding an environment never changes the answer", () => {
     const before = resolveDefaultEnvironment([PROD, STAGING], "env_1");
-    // The new row arrives at the FRONT — the position that used to win.
+    // The new row arrives at the FRONT: the position that used to win.
     const after = resolveDefaultEnvironment([DEV, PROD, STAGING], "env_1");
     expect(after).toBe(before);
   });

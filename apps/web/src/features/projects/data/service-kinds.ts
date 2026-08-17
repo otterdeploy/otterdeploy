@@ -1,12 +1,12 @@
 // Mock constants ported verbatim from apps/web-demo/src/features/otterdeploy/data.ts.
-// Pass A — no oRPC wiring. These are the source of truth for the engine picker UI.
+// Pass A, no oRPC wiring. These are the source of truth for the engine picker UI.
 
 export interface ServiceKind {
   id: string;
   name: string;
   sub: string;
   icon: string;
-  /** Tab the card lives under — keyed to *where the artifact comes from*,
+  /** Tab the card lives under. Keyed to *where the artifact comes from*,
    *  which is exactly what the create wizard branches on:
    *   - source   → build from a Git repo (apps, workers, jobs, static)
    *   - image    → pull a prebuilt OCI image / compose file
@@ -14,13 +14,13 @@ export interface ServiceKind {
   group: "source" | "image" | "database";
   examples?: string;
   versions?: string[];
-  /** Card is shown but not selectable — the provisioner isn't wired yet.
+  /** Card is shown but not selectable. The provisioner isn't wired yet.
    *  Gates roadmap kinds behind a "Coming soon" chip instead of letting
    *  the operator click through to a dead-end Review step. */
   comingSoon?: boolean;
   /** A long-running compute service with no HTTP port (a background worker).
    *  Skips the Networking step and is created with no published port / no
-   *  public route — the swarm spec omits the EndpointSpec entirely. */
+   *  public route: the swarm spec omits the EndpointSpec entirely. */
   portless?: boolean;
 }
 
@@ -44,7 +44,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
   },
   {
     // Needs a scheduler the platform doesn't have yet (swarm has no native
-    // cron) — gated until that lands rather than creating a job nothing fires.
+    // cron), gated until that lands rather than creating a job nothing fires.
     id: "cron",
     name: "Scheduled job",
     sub: "Run a command on a cron schedule",
@@ -63,7 +63,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
   },
   {
     // "Auto-shuts down" needs RestartPolicy:none + run-to-completion tracking
-    // the runtime driver doesn't model yet — gated until that lands.
+    // the runtime driver doesn't model yet. Gated until that lands.
     id: "function",
     name: "One-off function",
     sub: "Triggered manually or via webhook · auto-shuts down",
@@ -130,7 +130,7 @@ export const SERVICE_KINDS: ServiceKind[] = [
 
 /**
  * Top-level "what do you want to launch" cards on the wizard's first step.
- * Source-first: each card is a *source/category*, not a workload role — the
+ * Source-first: each card is a *source/category*, not a workload role. The
  * role (web app vs static vs worker) is a downstream field, since the same
  * role can come from git, an image, or compose. `git`/`image` are terminal
  * (they set `kindId` directly); `database` drills into an engine sub-picker.
@@ -142,7 +142,7 @@ export interface LaunchCategory {
   /** kindId selected when the card is terminal. Omitted for `database`
    *  (engine chosen in the sub-picker) and coming-soon cards. */
   kindId?: string;
-  /** Shown but not selectable — provisioner isn't wired yet. */
+  /** Shown but not selectable: provisioner isn't wired yet. */
   comingSoon?: boolean;
 }
 

@@ -30,7 +30,7 @@ type RedeployFailure = NotFound | ResolveError;
 
 /**
  * Roll a service back to a prior deployment's image. Image-only: it re-points
- * `serviceResource.image` at the target deployment's tag and re-rolls — the
+ * `serviceResource.image` at the target deployment's tag and re-rolls. The
  * service's current env/config/secrets are kept (you want the old code with
  * today's config, not an old env that may reference deleted resources). The
  * roll is recorded as a new `reason:"rollback"` deployment so it shows in
@@ -82,7 +82,7 @@ export async function rollbackService(
       previousImage,
     },
     // Inherit the target's commit: this deploy re-launches the image that was
-    // built from it, so that commit is what the service is now running — and
+    // built from it, so that commit is what the service is now running, and
     // it's what the deployment card should name.
     git: {
       sha: target.gitSha,

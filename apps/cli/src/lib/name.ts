@@ -1,7 +1,7 @@
 /**
  * The name this process was invoked as.
  *
- * The CLI ships two bins pointing at the same bundle — `otterdeploy` and the
+ * The CLI ships two bins pointing at the same bundle: `otterdeploy` and the
  * short `otd` (see package.json). Every hint, usage line and completion script
  * echoes back whichever one the user actually typed, so `otd whoami` never
  * answers with "run `otterdeploy login`". A hint you cannot copy-paste is worse
@@ -9,7 +9,7 @@
  *
  * `od` is deliberately NOT a bin: it is POSIX octal-dump (`/usr/bin/od`) on
  * every macOS and Linux box, and a global npm bin directory usually precedes
- * `/usr/bin` on PATH — claiming it would shadow a standard tool for anything
+ * `/usr/bin` on PATH, claiming it would shadow a standard tool for anything
  * else running in that shell.
  */
 
@@ -32,7 +32,7 @@ function resolve(): string {
 
 let cached: string | null = null;
 
-/** e.g. `otd` or `otterdeploy`. Resolved once — argv never changes mid-run. */
+/** e.g. `otd` or `otterdeploy`. Resolved once. Argv never changes mid-run. */
 export function invokedName(): string {
   cached ??= resolve();
   return cached;

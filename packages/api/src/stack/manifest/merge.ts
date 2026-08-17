@@ -7,7 +7,7 @@
  *   `null` value   → deletes the key from the base
  *   Missing key    → inherits base unchanged
  *   Discriminator  → if `source` (services) or `engine` (databases) differs,
- *                    the override fully replaces the base block — no
+ *                    the override fully replaces the base block, no
  *                    cross-discriminator deep merge.
  *
  * Returns a new manifest object with environment overrides resolved.
@@ -15,28 +15,44 @@
 
 import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 
-import type { Manifest } from "./schema";
+import { manifestSchema, type Manifest } from "./schema";
 
 const SERVICE_DISCRIMINATOR = "source";
 const DATABASE_DISCRIMINATOR = "engine";
+
+// Guards, not transforms: `safeParse(...).success` narrows the merged map to
+// the manifest's own type while returning the ORIGINAL object untouched (no
+// key stripping, no defaults applied). This is where the schema's promise
+// that "the merged result is what the server validates strictly" is kept.
+const servicesMapSchema = manifestSchema.shape.services;
+const databasesMapSchema = manifestSchema.shape.databases;
+
+function isServicesMap(value: JsonObject): value is JsonObject & Manifest["services"] {
+  return servicesMapSchema.safeParse(value).success;
+}
+
+function isDatabasesMap(value: JsonObject): value is JsonObject & Manifest["databases"] {
+  return databasesMapSchema.safeParse(value).success;
+}
 
 export function resolveEnvironment(manifest: Manifest, environment?: string): Manifest {
   if (!environment) return manifest;
   const overrides = manifest.environments?.[environment];
   if (!overrides) return manifest;
 
+  const services = mergeResources(manifest.services, overrides.services, SERVICE_DISCRIMINATOR);
+  const databases = mergeResources(manifest.databases, overrides.databases, DATABASE_DISCRIMINATOR);
+  if (!isServicesMap(services)) {
+    throw new Error(`environment "${environment}" overrides merge into invalid services`);
+  }
+  if (!isDatabasesMap(databases)) {
+    throw new Error(`environment "${environment}" overrides merge into invalid databases`);
+  }
+
   return {
     ...manifest,
-    services: mergeResources(
-      manifest.services,
-      overrides.services,
-      SERVICE_DISCRIMINATOR,
-    ) as Manifest["services"],
-    databases: mergeResources(
-      manifest.databases,
-      overrides.databases,
-      DATABASE_DISCRIMINATOR,
-    ) as Manifest["databases"],
+    services,
+    databases,
   };
 }
 
@@ -83,7 +99,7 @@ function deepMerge(base: JsonObject, override: JsonObject): JsonObject {
       result[key] = deepMerge(existing, value);
       continue;
     }
-    // Scalars + arrays + new keys all hit this branch — override replaces base.
+    // Scalars + arrays + new keys all hit this branch: override replaces base.
     result[key] = value;
   }
   return result;

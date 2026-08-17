@@ -1,6 +1,6 @@
 /**
  * Control-plane-identity denylist for outbound egress from job workers
- * (webhook delivery, notification channels) — mirrors
+ * (webhook delivery, notification channels): mirrors
  * packages/api/src/lib/egress-denylist.ts. Duplicated rather than imported
  * because packages/api depends on packages/jobs (not the other way), so
  * jobs can't reach into api's lib; both packages already depend on
@@ -24,7 +24,7 @@ function hostnameOf(raw: string | undefined): string | null {
  * Public identities of this control plane. Outbound webhook/notification
  * deliveries deny both their hostnames and the detected public IP so a
  * tenant-supplied target cannot call back into administrative endpoints,
- * even when the install sits behind NAT. Unconditional — never overridden
+ * even when the install sits behind NAT. Unconditional, never overridden
  * by `OTTERDEPLOY_EGRESS_ALLOWLIST`.
  */
 export async function controlPlaneEgressDenylist(): Promise<{
@@ -59,7 +59,7 @@ export async function controlPlaneEgressDenylist(): Promise<{
 
 /**
  * The operator-configured egress allowlist (bare IPs/CIDRs). Editable in
- * Settings → Instance and seeded from OTTERDEPLOY_EGRESS_ALLOWLIST — the
+ * Settings → Instance and seeded from OTTERDEPLOY_EGRESS_ALLOWLIST: the
  * column is authoritative once set, and an EMPTY string there is a deliberate
  * "allow nothing" that overrides a non-empty env, so only NULL falls back.
  *

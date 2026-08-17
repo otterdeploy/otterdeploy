@@ -3,7 +3,7 @@ name: Build Images
 on:
   push:
     branches: [main]
-    # Release tags publish PINNED images (`server:v0.4.2`) + a GitHub Release —
+    # Release tags publish PINNED images (`server:v0.4.2`) + a GitHub Release:
     # the pair the in-app updater consumes (releases/latest → compose pull of
     # the matching tag). Path filters are not evaluated for tag pushes, so a
     # release always builds even when the tagged commit touched nothing listed.
@@ -19,13 +19,13 @@ on:
   workflow_dispatch:
 
 # Serialize builds per ref. Two pushes to main in quick succession would
-# otherwise race on the SHARED `:latest` / `:latest-<arch>` tags — whichever run
+# otherwise race on the SHARED `:latest` / `:latest-<arch>` tags: whichever run
 # finishes its manifest-merge last wins, so an OLDER build finishing last
 # silently clobbers `:latest` with stale images.
 #
 # cancel-in-progress is FALSE, not true: cancelling an in-flight build mid
 # `cache-to: type=gha,mode=max` export leaves a partial/corrupt buildkit cache
-# that the next run imports and mis-matches — which once shipped a STALE web SPA
+# that the next run imports and mis-matches, which once shipped a STALE web SPA
 # (the `RUN turbo build` layer was reused across a source change). With `false`,
 # a running build is never interrupted, so its cache export always completes
 # cleanly; queued builds run sequentially in trigger order, so the newest commit
@@ -43,12 +43,12 @@ env:
   REGISTRY: ghcr.io
   # The image tag this run publishes: the moving `latest` for main pushes, the
   # immutable semver tag itself for release tags. `latest` is intentionally NOT
-  # updated by release builds — it tracks main; releases live on their own tags.
+  # updated by release builds. It tracks main; releases live on their own tags.
   TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
 
 jobs:
   # Per-image change detection. The workflow-level `paths` filter only gates
-  # whether the workflow RUNS — without this, any matching push rebuilt BOTH
+  # whether the workflow RUNS. Without this, any matching push rebuilt BOTH
   # images, so every server/web change also recompiled caddy and churned the
   # `caddy:latest` digest (making later `compose pull`s recreate the edge proxy
   # for nothing). Tags and manual dispatches always build everything (paths
@@ -77,7 +77,7 @@ jobs:
           changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
           images=""
           # server: full-repo context (COPY . . + bun install, builds the web
-          # SPA into itself) — same scope as the workflow `paths` filter.
+          # SPA into itself): same scope as the workflow `paths` filter.
           if grep -qE '^(apps/(server|web|builder)/|packages/|bun\.lock$|\.github/workflows/images\.yml$)' <<<"$changed"; then
             images='"server"'
           fi
@@ -100,11 +100,11 @@ jobs:
       fail-fast: false
       matrix:
         # `server` is now ONE image for both the control-plane server AND the
-        # builder worker (roles picked by command in docker-compose.prod.yml) —
-        # apps/builder/Dockerfile was retired. caddy is separate. Only images
+        # builder worker (roles picked by command in docker-compose.prod.yml).
+        # Apps/builder/Dockerfile was retired. caddy is separate. Only images
         # whose inputs changed are built (see `changes` above); context and
         # dockerfile are picked per-image in the build step, NOT via matrix
-        # `include` — an image-keyed include with no matching combination would
+        # `include`: an image-keyed include with no matching combination would
         # spawn a stray arch-less job when that image is filtered out.
         image: ${{ fromJSON(needs.changes.outputs.images) }}
         arch: [amd64, arm64]
@@ -140,7 +140,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.arch }}
 
-  # Only re-merges the images built this run — a skipped image's `:latest`
+  # Only re-merges the images built this run. A skipped image's `:latest`
   # manifest (and its per-arch tags) stays at the previous, still-valid digest.
   merge-manifest:
     name: Merge manifest (${{ matrix.image }})
@@ -171,7 +171,7 @@ jobs:
   # exist, so the moment the updater sees a new `releases/latest` the pinned
   # `:vX.Y.Z` tags it will `compose pull` are already in the registry. A tag
   # containing a prerelease suffix (v0.5.0-rc.1) is marked prerelease, which
-  # keeps it out of `releases/latest` — the stable channel never sees it.
+  # keeps it out of `releases/latest`. The stable channel never sees it.
   release:
     name: Publish GitHub Release
     if: github.ref_type == 'tag'
@@ -186,7 +186,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists — skipping (re-run of a published tag)."
+            echo "Release $TAG already exists. Skipping (re-run of a published tag)."
             exit 0
           fi
           prerelease=""
@@ -229,7 +229,7 @@ jobs:
 
       # A tag with a suffix (v0.5.0-rc.1) is a prerelease: it gets its pinned
       # `<tag>/` copy so testers can install it explicitly, but it must NOT move
-      # `latest/` or `versions.json`. Mirrors the --prerelease logic above —
+      # `latest/` or `versions.json`. Mirrors the --prerelease logic above:
       # the stable channel never sees it.
       - name: Classify release
         id: channel
@@ -250,10 +250,10 @@ jobs:
           cp docker-compose.prod.yml   dist/docker-compose.yml
 
           # Fail loudly rather than shipping a compose file that builds from
-          # source — the failure mode is silent and only shows up on a user's
+          # source: the failure mode is silent and only shows up on a user's
           # first install.
           if grep -qE '^\s*build:' dist/docker-compose.yml; then
-            echo "::error::docker-compose.prod.yml contains a build: stanza — published hosts have no source tree."
+            echo "::error::docker-compose.prod.yml contains a build: stanza. Published hosts have no source tree."
             exit 1
           fi
           if ! grep -q 'ghcr.io/' dist/docker-compose.yml; then
@@ -269,7 +269,7 @@ jobs:
           done
 
       # Shaped like GitHub's `releases/latest` payload (tag_name/html_url/body)
-      # so the control-plane updater reads it unchanged — an operator only sets
+      # so the control-plane updater reads it unchanged. An operator only sets
       # OTTERDEPLOY_UPDATE_MANIFEST_URL. See
       # packages/api/src/routers/system/release-source.ts.
       - name: Build versions.json
@@ -348,7 +348,7 @@ jobs:
           sleep 10
           served="$(curl -fsSL https://get.otterdeploy.com/versions.json | jq -r .tag_name)"
           if [ "$served" != "$TAG" ]; then
-            echo "::warning::get.otterdeploy.com/versions.json still reports '$served' (expected '$TAG') — edge cache is 60s, re-check shortly."
+            echo "::warning::get.otterdeploy.com/versions.json still reports '$served' (expected '$TAG'). Edge cache is 60s, re-check shortly."
           fi
           curl -fsSL "https://get.otterdeploy.com/$TAG/docker-compose.yml" -o served-compose.yml
           diff -q served-compose.yml dist/docker-compose.yml

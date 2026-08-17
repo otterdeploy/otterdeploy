@@ -8,8 +8,8 @@ argued with rather than obeyed.
 
 Companion documents:
 
-- `docs/audit/PLAN.md` — how the sweep is sequenced and tracked
-- `.audit/WORKLIST.md` — generated per-file evidence (`bun scripts/audit/triage.ts`)
+- `docs/audit/PLAN.md`: how the sweep is sequenced and tracked
+- `.audit/WORKLIST.md`: generated per-file evidence (`bun scripts/audit/triage.ts`)
 
 ---
 
@@ -18,7 +18,7 @@ Companion documents:
 For each file: read it top to bottom, walk the eight axes, record a verdict per axis.
 
 A file **passes** when every axis is `OK` or `EXEMPT (reason recorded)`. Anything else
-is `FIX` (do it now) or `ISSUE` (file a bead, move on — use this when the fix crosses
+is `FIX` (do it now) or `ISSUE` (file a bead, move on, use this when the fix crosses
 file boundaries and would balloon the diff).
 
 Two rules about the rubric itself:
@@ -32,22 +32,22 @@ Two rules about the rubric itself:
 
 ---
 
-## Axis 1 — Error model
+## Axis 1: Error model
 
 **Rule.** A module is either Result-returning or throwing. Never both. Failures that
 are expected in normal operation (network, DNS, a rotated credential, a missing record)
-return `Result`. Exceptions are reserved for programmer error and violated invariants —
-conditions where continuing is worse than crashing.
+return `Result`. Exceptions are reserved for programmer error and violated invariants.
+Conditions where continuing is worse than crashing.
 
 **Why.** `packages/api/src/lib/cloudflare.ts` converted `CloudflareError` from its
 envelope but let `fetch()` and `res.json()` throw. Callers had no way to know the module
 could throw at all, so five of them wrapped it in `try`/`catch` or `Result.tryPromise`
-purely to convert — adapters that existed only because the module was undecided.
+purely to convert: adapters that existed only because the module was undecided.
 
 **The worse failure.** `packages/api/src/lib/dns-resolver.ts` threw raw node errors, so
 four callers each re-derived "authoritatively absent vs couldn't ask" by sniffing
 `err.code` against their own copy of the `ENODATA`/`ENOTFOUND`/`NXDOMAIN` list. Those
-copies **had already drifted** — `dns-verify.ts` was missing `NXDOMAIN`, so a
+copies **had already drifted**: `dns-verify.ts` was missing `NXDOMAIN`, so a
 nonexistent domain reported "retry in a minute" there and "not pointed here" elsewhere.
 Throwing did not just lose type information; it duplicated a decision and let the copies
 diverge.
@@ -68,7 +68,7 @@ report. Genuinely unrecoverable invariant violations (`panic`).
 
 ---
 
-## Axis 2 — Type provenance
+## Axis 2: Type provenance
 
 **The single largest finding in the baseline, and it is not a frontend problem.**
 `packages/api` hand-writes **979** type declarations; `apps/web` writes 804. Three
@@ -82,7 +82,7 @@ derivation sources sit unused at three different layers:
 
 Against that: 246 hand-written `Row`/`Record`/`Input`/`Output` types in the API alone.
 
-**Rule.** If a shape is already defined somewhere — a table, a schema, a contract — the
+**Rule.** If a shape is already defined somewhere (a table, a schema, a contract) the
 TypeScript type is **derived** from it. Never a parallel declaration that happens to
 match today.
 
@@ -103,7 +103,7 @@ export interface DeploymentRow {
 }
 ```
 
-Both unions are **already** `pgEnum`s — `deploymentStatusEnum` and `deploymentReasonEnum`
+Both unions are **already** `pgEnum`s, `deploymentStatusEnum` and `deploymentReasonEnum`
 in `packages/db/src/schema/project.ts:677,687`. This should be
 `typeof deployment.$inferSelect`. As written, adding an enum value in a migration leaves
 this interface silently disagreeing with the database, and the compiler cannot tell,
@@ -111,14 +111,14 @@ because it has no idea these are supposed to be the same fact.
 
 **Why it matters more than it looks.** A hand-written type beside its source is two
 descriptions of one thing. They agree the day they are written. Nothing makes them agree
-afterwards — so drift is silent and surfaces in production as a shape mismatch the types
+afterwards, so drift is silent and surfaces in production as a shape mismatch the types
 swore was impossible. It is the same failure as the duplicated DNS error-code list
 (axis 5), except the compiler is actively reassuring you.
 
 **Check.**
 
 - [ ] Row/record types come from `$inferSelect` / `$inferInsert`, not hand-written
-- [ ] No string-literal union restating a `pgEnum` — derive it from the enum
+- [ ] No string-literal union restating a `pgEnum`: derive it from the enum
 - [ ] No `interface`/`type` restating a shape a zod schema already describes
 - [ ] Handler input/output types come from the contract schema, not re-declared beside it
 - [ ] Frontend types for API data come from `InferRouterOutputs`, not re-declaration
@@ -130,7 +130,7 @@ swore was impossible. It is the same failure as the duplicated DNS error-code li
 
 **Exempt.** Shapes with no upstream definition: internal function signatures,
 discriminated unions used purely for control flow, component props over local state, and
-view-models that correspond to no wire or table data — name those so they read as
+view-models that correspond to no wire or table data: name those so they read as
 deliberate.
 
 **Detector.** `row-type-not-inferred`, `restated-enum?`, `schema-and-handwritten-types`,
@@ -138,7 +138,7 @@ deliberate.
 
 ---
 
-## Axis 3 — Type honesty at boundaries
+## Axis 3: Type honesty at boundaries
 
 **Rule.** A type at an IO boundary describes what the runtime **actually returns**, not
 what would be convenient. Where the two differ, the boundary validates (zod) or the type
@@ -147,7 +147,7 @@ carries a comment explaining what is unverified and why.
 **Why.** `packages/api/src/lib/cert-probe.ts` declares `RawCert` with every field
 optional. Node's `PeerCertificate` marks those same fields required. The optionality
 looked defensive, but the empty-certificate case it appears to guard is *already*
-collapsed to `null` one line earlier — so past that point the type promises less than
+collapsed to `null` one line earlier, so past that point the type promises less than
 node guarantees, and every downstream guard reads as dead code. There may be a real
 reason (Bun's TLS shim demonstrably diverges from node's in that exact call, documented
 in that same file), but the code does not say so. **An unexplained hedge is
@@ -165,21 +165,21 @@ indistinguishable from a mistake.**
 
 ---
 
-## Axis 4 — Escape hatches
+## Axis 4: Escape hatches
 
 **Rule.** Every `as`, `as unknown as`, `!`, and `@ts-expect-error` is an unchecked claim.
 It needs either removal or a comment naming what the compiler cannot see.
 
-**Priority order** — prefer the highest option that works:
+**Priority order**: prefer the highest option that works:
 
-1. Fix the type at its source (derive it — see axis 2; this deletes casts for free)
+1. Fix the type at its source (derive it: see axis 2; this deletes casts for free)
 2. Parse with a schema and get a validated type
 3. A type guard / predicate function
 4. `as` with a comment explaining why 1–3 do not apply
 5. `as unknown as` with a comment naming the specific incompatibility
 
 **Why `as unknown as` is its own category.** The double cast means the two types are
-*provably* incompatible — TypeScript rejected the single cast. That is information. In
+*provably* incompatible: TypeScript rejected the single cast. That is information. In
 `cert-probe.ts:81` the double cast exists because node's `Certificate` interface has six
 required fields and the code needs an index signature; that is a real, explainable
 mismatch, and the comment should say so rather than leaving a reader to rediscover it.
@@ -195,31 +195,31 @@ mismatch, and the comment should say so rather than leaving a reader to rediscov
 
 **Careful.** Removing a cast can silently widen an inferred type rather than erroring.
 Removing `as DeploymentRow[]` from a drizzle `.select()` leaves the row type inferred
-from the query — usually right, occasionally not. Re-run typecheck **and** look at what
+from the query: usually right, occasionally not. Re-run typecheck **and** look at what
 the inferred type became.
 
 **Detector.** `double-cast`, `cast-heavy`, `suppressions`
 
 ---
 
-## Axis 5 — Single source of truth
+## Axis 5: Single source of truth
 
 **Rule.** A fact lives in exactly one place. A *fact* is a code list, an encoding, a
-threshold, a guard condition, a format — anything where two copies disagreeing is a bug.
+threshold, a guard condition, a format. Anything where two copies disagreeing is a bug.
 
 **Why line-counting misleads.** The most dangerous duplication found so far was
 `base64UrlEncode`/`base64UrlDecode`: **8 byte-identical copies** across four packages,
 about 13 lines each. By line count it was trivial. By risk it was the worst thing in the
-codebase — it is the wire encoding for every secret in the database, and eight copies
+codebase: it is the wire encoding for every secret in the database, and eight copies
 that must never diverge had nothing keeping them aligned.
 
-Meanwhile the four-way DNS error-code list — three lines — **had already drifted**, and
+Meanwhile the four-way DNS error-code list (three lines) **had already drifted**, and
 `listCloudflareZones`'s duplicated envelope handling had drifted too (different fallback
 message, missing header).
 
 > **Ask "what happens if these two copies disagree?"** If the answer is "a bug nobody
 > would find", it is a single-source-of-truth violation regardless of how few lines it is.
-> If the answer is "nothing", the similarity is coincidental — leave it alone.
+> If the answer is "nothing", the similarity is coincidental. Leave it alone.
 
 **Check.**
 
@@ -230,7 +230,7 @@ message, missing header).
       one), the comment says so and names the file it mirrors
 - [ ] Clone groups from fallow are triaged: consolidate, or record why not
 
-**Exempt.** Structural similarity with no shared meaning — two routers that look alike
+**Exempt.** Structural similarity with no shared meaning: two routers that look alike
 because they are both routers. Consolidating those couples things that should move
 independently.
 
@@ -238,14 +238,14 @@ independently.
 
 ---
 
-## Axis 6 — Module graph
+## Axis 6: Module graph
 
 **Rule.** No import cycles. No re-export facade whose only purpose is to preserve an old
 import path.
 
 **Why.** Seven of the eighteen remaining cycles came from one habit: `deployments.ts` was
 split into siblings to stay under a file-size cap, then kept re-exporting them so call
-sites would not have to change. `deployments-list.ts` states it outright — *"re-exported
+sites would not have to change. `deployments-list.ts` states it outright, *"re-exported
 so call sites keep importing from the list module."* Those facades were the back-edges.
 Three layers deep in places. The fix was deleting the tail and pointing consumers at the
 module that actually defines each symbol.
@@ -253,7 +253,7 @@ module that actually defines each symbol.
 **The tell**: a file that re-exports from a sibling it was split out of. That is a facade,
 and it will close a loop the moment anything in the group imports back.
 
-**Also.** A dynamic `await import()` used to dodge a cycle is a smell, not a fix — it
+**Also.** A dynamic `await import()` used to dodge a cycle is a smell, not a fix, it
 hides the cycle from the type system while keeping it at runtime. Break the graph instead.
 
 **Check.**
@@ -267,7 +267,7 @@ hides the cycle from the type system while keeping it at runtime. Break the grap
 
 ---
 
-## Axis 7 — Dead code
+## Axis 7: Dead code
 
 **Rule.** Unreachable code is deleted, not commented out or left exported "just in case".
 
@@ -275,7 +275,7 @@ hides the cycle from the type system while keeping it at runtime. Break the grap
 
 1. **`fallow fix` unexports; it does not delete.** A symbol that was only used via its
    export becomes an unused local, and `noUnusedLocals` fails the build. Run typecheck
-   after any sweep and resolve each one deliberately — delete it, or restore the export
+   after any sweep and resolve each one deliberately. Delete it, or restore the export
    with an `ignoreExports` entry saying why.
 2. **Dependency findings are false-positive-prone.** `maxmind` and `ssh2-sftp-client`
    were both reported unused; both are reached through runtime-resolved dynamic imports
@@ -292,12 +292,12 @@ hides the cycle from the type system while keeping it at runtime. Break the grap
 
 ---
 
-## Axis 8 — Comment integrity
+## Axis 8: Comment integrity
 
 **Rule.** Doc comments describe what the code does now.
 
 **Why.** `crypto-envelope.ts`'s header advertised that it owned "the base64url codec both
-are spelled in" — after the codec had moved to a shared package. This codebase's comments
+are spelled in". After the codec had moved to a shared package. This codebase's comments
 are unusually good and carry real reasoning, which makes a stale one *more* dangerous
 than in a codebase nobody trusts: readers believe it.
 
@@ -344,7 +344,7 @@ change to compile is a bug being introduced.
 Refactors sometimes reveal that the old code was wrong. That is a *result*, not a
 licence. When it happens:
 
-1. Say so explicitly in the commit message — do not bury it under "refactor"
+1. Say so explicitly in the commit message: do not bury it under "refactor"
 2. Check whether a test covers the behaviour. If not, **say that too.** Two behaviour
    changes shipped in this sweep so far (`detectDnsProvider`'s `lookupFailed`,
    `verifyCloudflareToken`'s return shape) are uncovered by tests, and the commits say so

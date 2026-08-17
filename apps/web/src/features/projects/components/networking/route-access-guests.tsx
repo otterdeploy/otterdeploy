@@ -1,5 +1,5 @@
 /**
- * Guests section for the route access controls — email invites with a
+ * Guests section for the route access controls: email invites with a
  * one-time code + per-guest session length. Split out of
  * route-access-controls.tsx to keep that file under the max-lines cap.
  */
@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { createId, ID_PREFIX, type ProxyRouteId } from "@otterdeploy/shared/id";
+import { createId, ID_PREFIX, idSchema } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -75,13 +75,15 @@ function GuestList({
 export function GuestsSection({ routeId }: { routeId: string }) {
   const [adding, setAdding] = useState(false);
 
+  // The panel hands over a plain string; brand it at this boundary once.
+  const guestRouteId = idSchema.proxyRoute.parse(routeId);
+
   const { data: rows } = useLiveQuery(
-    (q) =>
-      q.from({ g: routeGuestsCollection }).where(({ g }) => eq(g.routeId, routeId as ProxyRouteId)),
-    [routeId],
+    (q) => q.from({ g: routeGuestsCollection }).where(({ g }) => eq(g.routeId, guestRouteId)),
+    [guestRouteId],
   );
 
-  // Optimistic invite — the form closes the instant the row lands in the
+  // Optimistic invite: the form closes the instant the row lands in the
   // collection; tanstack/db rolls it back (with a toast) if the server rejects.
   // No per-invite pending flag: `adding` is purely the form's open/closed state.
   const form = useForm({
@@ -91,7 +93,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
       if (!EMAIL_RE.test(trimmedEmail)) return;
       const tx = routeGuestsCollection.insert({
         id: createId(ID_PREFIX.deploymentGuest),
-        routeId: routeId as ProxyRouteId,
+        routeId: guestRouteId,
         email: trimmedEmail.toLowerCase(),
         sessionHours: Number(value.hours),
         createdAt: new Date().toISOString(),
@@ -113,7 +115,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
     <section className="flex flex-col gap-3">
       <SectionHeader
         title="Guests"
-        hint="Invite people by email — they get a one-time code to sign in, no account, for the session length you pick."
+        hint="Invite people by email. They get a one-time code to sign in, no account, for the session length you pick."
       />
 
       <div className="overflow-hidden rounded-md border">

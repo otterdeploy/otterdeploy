@@ -1,4 +1,4 @@
-import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
@@ -11,14 +11,14 @@ import { COMPOSE_FILENAMES } from "@otterdeploy/shared/compose";
  *
  * Clones the repo once, reads the compose file, and builds each `build:`
  * context to its own image (reusing dockerfileBuild/railpackBuild per
- * subdirectory — they already support `sourceSubdir` + distinct tags). The
+ * subdirectory: they already support `sourceSubdir` + distinct tags). The
  * built tags + the fetched file + the parse summary are written back onto the
  * compose_resource, then the api deploy applies the whole stack against THIS
  * build's deployment row. Image-only stacks never reach here (they deploy
  * straight from `compose.create`). See docs/designs/compose.md.
  *
  * The DB context load + build-tree acquisition (clone vs. inline materialize)
- * live in ./compose-source.ts — this file is the pipeline only.
+ * live in ./compose-source.ts. This file is the pipeline only.
  */
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
@@ -68,7 +68,7 @@ export async function runComposeBuild(
       return Result.err(new InvalidDeploymentError(opts.deploymentId));
     }
 
-    // Source the build tree (inline materialize vs. git clone — see
+    // Source the build tree (inline materialize vs. git clone, see
     // acquireComposeSource). Everything downstream is source-agnostic.
     const { workDir, subdir } = yield* await acquireComposeSource({
       ctx,
@@ -141,7 +141,7 @@ export async function runComposeBuild(
             services: summarizeCompose(parsed.value),
             builtImages,
           })
-          .where(eq(composeResource.resourceId, ctx.resource.id as ResourceId)),
+          .where(eq(composeResource.resourceId, ctx.resource.id)),
       catch: (cause) => new BuildStepError({ step: "set-compose", cause }),
     });
 
@@ -159,8 +159,8 @@ export async function runComposeBuild(
       try: async () => {
         const r = await deployCompose(
           {
-            projectId: ctx.project.id as ProjectId,
-            resourceId: ctx.resource.id as ResourceId,
+            projectId: ctx.project.id,
+            resourceId: ctx.resource.id,
             deploymentId: opts.deploymentId,
           },
           "redeploy",
@@ -174,7 +174,7 @@ export async function runComposeBuild(
     // A service whose image never becomes runnable (e.g. a registry-less local
     // build that swarm can't pull on the scheduling node) leaves its swarm
     // service with 0 running tasks. deployCompose reports that as `partial` or
-    // `failed`, but with ownsDeployment=false it can't settle THIS row — so the
+    // `failed`, but with ownsDeployment=false it can't settle THIS row, so the
     // worker must fail it here. Without this the deployment is marked "running"
     // over an empty shell (the pull error is swallowed as a false success).
     if (outcome.status !== "running") {
@@ -184,7 +184,7 @@ export async function runComposeBuild(
       return Result.err(
         new BuildStepError({
           step: "deploy",
-          cause: new Error(`stack deploy ${outcome.status} — ${detail}`),
+          cause: new Error(`stack deploy ${outcome.status}: ${detail}`),
         }),
       );
     }
