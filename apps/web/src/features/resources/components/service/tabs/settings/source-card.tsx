@@ -1,5 +1,5 @@
 import { useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Result } from "better-result";
 import { useTranslation } from "react-i18next";
@@ -183,7 +183,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
     formApi.reset();
   });
 
-  const values = useStore(form.store, (s) => s.values);
+  const values = useSelector(form.store, (s) => s.values);
   const { repo, branch, image } = values;
   const dirty = sourceDirty(values, seeded);
 

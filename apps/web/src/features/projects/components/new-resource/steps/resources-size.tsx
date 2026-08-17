@@ -3,7 +3,7 @@
  * resources.tsx so that file + its main component stay under the line caps.
  */
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
@@ -22,7 +22,7 @@ import { I } from "../icons";
 
 export function SizePresets() {
   const form = useFormContext();
-  const presetId = useStore(form.store, (s) => s.values.presetId);
+  const presetId = useSelector(form.store, (s) => s.values.presetId);
 
   return (
     <>
@@ -72,7 +72,7 @@ export function SizePresets() {
 
 export function ReplicasSection() {
   const form = useFormContext();
-  const replicas = useStore(form.store, (s) => s.values.replicas);
+  const replicas = useSelector(form.store, (s) => s.values.replicas);
 
   return (
     <>

@@ -17,8 +17,6 @@
  * created or to fix it by hand when it goes wrong.
  */
 
-import { useState } from "react";
-
 import { Alert02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -111,9 +109,11 @@ function OneClickRow({
           {autoConfiguring ? t("dns.oneClick.configuring") : t("dns.oneClick.configure")}
         </Button>
       ) : connectHref ? (
-        <Button size="sm" variant="outline" render={<a href={connectHref} />}>
-          {t("dns.oneClick.connect")}
-        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          render={<a href={connectHref}>{t("dns.oneClick.connect")}</a>}
+        />
       ) : null}
     </div>
   );

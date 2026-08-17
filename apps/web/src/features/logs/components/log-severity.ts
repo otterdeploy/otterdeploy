@@ -21,7 +21,7 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
     [
       /(^|[^a-z])(error|fatal|panic|failed|failure|exception|traceback)([^a-z]|$)/i,
       /\b[A-Z]\w*Error\b/, // TypeError, ReferenceError, …
-      /[✖✗⨯❌🛑⛔]/, // cross/stop marks tools & apps prefix errors with (U+2716/2717/2A2F/274C/1F6D1/26D4)
+      /[✖✗⨯❌🛑⛔]/u, // cross/stop marks tools & apps prefix errors with (U+2716/2717/2A2F/274C/1F6D1/26D4)
       /^at\s+\S/, // stack frame; keeps a whole trace one contiguous red block
       /^\.\.\.\s*\d+\s*lines? matching/i,
       /^cause:/i,

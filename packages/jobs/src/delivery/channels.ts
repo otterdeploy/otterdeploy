@@ -234,7 +234,7 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
 
   try {
     if (client === "smtp") {
-      const host = String(c.config.host ?? "");
+      const host = typeof c.config.host === "string" ? c.config.host : "";
       const port = Number(c.config.port ?? 587);
       const user = typeof c.config.username === "string" ? c.config.username : undefined;
       if (!host) return { ok: false, error: "SMTP host not configured" };

@@ -25,7 +25,16 @@ import { and, eq, inArray } from "drizzle-orm";
 // progress bars, the captured container stderr). Strip them at the storage
 // boundary so the stored errorMessage is clean everywhere the UI reads it,
 // the deployment timeline, history rows, toasts: instead of literal `[2m…`.
-const ANSI = /\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[@-Z\\-_])/g;
+// Assembled from escape-sequence strings (the `ansi-regex` approach) so the
+// pattern carries no control characters, literal or escaped, in a regex
+// literal: CSI sequences, OSC strings (BEL- or ST-terminated), and the
+// single-character Fe escapes.
+const ESC = "\\x1b";
+const BEL = "\\x07";
+const ANSI = new RegExp(
+  `${ESC}(?:\\[[0-9;?]*[ -/]*[@-~]|\\][^${BEL}${ESC}]*(?:${BEL}|${ESC}\\\\)?|[@-Z\\\\-_])`,
+  "g",
+);
 const stripAnsi = (s: string): string => (s.includes("\x1b") ? s.replace(ANSI, "") : s);
 
 /** Every status write pushes a resource-changed event to the project stream.

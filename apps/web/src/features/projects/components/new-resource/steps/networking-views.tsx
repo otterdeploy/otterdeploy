@@ -20,7 +20,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
 
@@ -78,8 +78,8 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
   // Resolved by the server (org base domain → local dev base → sslip), shown
   // as the host input's placeholder and echoed below so "Public, no
   // hostname" is never a silent unknown.
-  const name = useStore(form.store, (s) => s.values.name);
-  const ports = useStore(form.store, (s) => s.values.ports);
+  const name = useSelector(form.store, (s) => s.values.name);
+  const ports = useSelector(form.store, (s) => s.values.ports);
   const derivedHost = usePublicHostPreview(projectId, name);
   const publicWithoutHost = ports.some((p) => p.public && p.host.trim() === "");
 

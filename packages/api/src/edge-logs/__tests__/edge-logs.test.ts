@@ -160,7 +160,7 @@ describe("ring buffer", () => {
       Date.now(),
     );
     expect(res.total).toBe(2);
-    expect(res.rows.map((r) => r.status).sort()).toEqual([404, 500]);
+    expect(res.rows.map((r) => r.status).sort((a, b) => a - b)).toEqual([404, 500]);
   });
 
   test("subscribe delivers live lines and unsubscribes", () => {

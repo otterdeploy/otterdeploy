@@ -7,7 +7,7 @@ import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/sh
 
 import { useState } from "react";
 
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -100,7 +100,7 @@ export function RailpackBuildCard({
     },
     onSubmit: ({ value }) => save.mutate(toRailpackBuild(config, value)),
   });
-  const values = useStore(form.store, (s) => s.values);
+  const values = useSelector(form.store, (s) => s.values);
 
   return (
     <SettingsCard

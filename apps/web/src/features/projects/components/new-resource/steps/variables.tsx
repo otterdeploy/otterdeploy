@@ -1,6 +1,6 @@
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
@@ -23,8 +23,8 @@ interface StepVariablesProps {
  */
 export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo);
-  const root = useStore(form.store, (s) => s.values.root);
+  const repo = useSelector(form.store, (s) => s.values.repo);
+  const root = useSelector(form.store, (s) => s.values.root);
 
   const env = useQuery({
     ...orpc.git.inspectEnv.queryOptions({

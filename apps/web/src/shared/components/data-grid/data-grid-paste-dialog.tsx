@@ -88,8 +88,14 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 py-1">
-          <label className="flex cursor-pointer items-start gap-3">
-            <RadioItem ref={expandRadioRef} name="expand-option" value="expand" defaultChecked />
+          <label htmlFor="paste-expand" className="flex cursor-pointer items-start gap-3">
+            <RadioItem
+              ref={expandRadioRef}
+              id="paste-expand"
+              name="expand-option"
+              value="expand"
+              defaultChecked
+            />
             <div className="flex flex-col gap-1">
               <span className="text-sm leading-none font-medium">
                 {t("dataGrid.paste.createRows")}
@@ -100,8 +106,8 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
               </span>
             </div>
           </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <RadioItem name="expand-option" value="no-expand" />
+          <label htmlFor="paste-no-expand" className="flex cursor-pointer items-start gap-3">
+            <RadioItem id="paste-no-expand" name="expand-option" value="no-expand" />
             <div className="flex flex-col gap-1">
               <span className="text-sm leading-none font-medium">
                 {t("dataGrid.paste.keepRows")}

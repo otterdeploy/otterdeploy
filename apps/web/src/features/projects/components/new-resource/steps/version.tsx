@@ -2,7 +2,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { type ServiceKind } from "@/features/projects/data/service-kinds";
@@ -31,8 +31,8 @@ interface StepVersionProps {
 export function StepVersion({ kind, projectId }: StepVersionProps) {
   const form = useFormContext();
   const activeEnv = useActiveEnvironment(projectId);
-  const version = useStore(form.store, (s) => s.values.version);
-  const name = useStore(form.store, (s) => s.values.name);
+  const version = useSelector(form.store, (s) => s.values.version);
+  const name = useSelector(form.store, (s) => s.values.name);
 
   const existingName = useMutation({
     ...orpc.project.resource.checkName.mutationOptions(),

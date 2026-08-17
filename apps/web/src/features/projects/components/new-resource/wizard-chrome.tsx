@@ -177,8 +177,15 @@ export function WizardFooter({
         Cancel
       </Button>
       {showAdvancedToggle && (
-        <label className="ml-1 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground select-none">
-          <Switch checked={advancedSetup} onCheckedChange={onAdvancedChange} />
+        <label
+          htmlFor="wizard-advanced-setup"
+          className="ml-1 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground select-none"
+        >
+          <Switch
+            id="wizard-advanced-setup"
+            checked={advancedSetup}
+            onCheckedChange={onAdvancedChange}
+          />
           Advanced setup
         </label>
       )}

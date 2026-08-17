@@ -98,6 +98,31 @@ interface DataGridStore {
   batch: (fn: () => void) => void;
 }
 
+/** Value-equality for the `--col-*` CSS-var maps: same keys, same numbers.
+ *  Used to keep the previous map's identity when a render recomputes the same
+ *  sizes, so consumers memoized on the object don't re-render. */
+function sameSizeVars(a: { [key: string]: number }, b: { [key: string]: number }): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  return aKeys.length === bKeys.length && aKeys.every((key) => a[key] === b[key]);
+}
+
+/** Serialize a primitive-or-array cell value (callers handle Dates and plain
+ *  objects first). Explicit narrowing so an object smuggled inside an array
+ *  serializes as JSON instead of the `[object Object]` default toString. */
+function serializeScalarCellValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    // Keep Array#toString's comma join, but render object elements as JSON.
+    return value.map((item) => serializeScalarCellValue(item)).join(",");
+  }
+  return JSON.stringify(value) ?? "";
+}
+
 function useStore<T>(store: DataGridStore, selector: (state: DataGridState) => T): T {
   const getSnapshot = () => selector(store.getState());
 
@@ -580,7 +605,7 @@ function useDataGrid<TData>({
           } else if (value != null && typeof value === "object" && !Array.isArray(value)) {
             serializedValue = JSON.stringify(value);
           } else {
-            serializedValue = String(value ?? "");
+            serializedValue = serializeScalarCellValue(value);
           }
 
           cellData.set(cellKey, serializedValue);
@@ -1450,7 +1475,7 @@ function useDataGrid<TData>({
           const stringValue = (
             value != null && typeof value === "object" && !Array.isArray(value)
               ? JSON.stringify(value)
-              : String(value ?? "")
+              : serializeScalarCellValue(value)
           ).toLowerCase();
 
           if (stringValue.includes(lowerQuery)) {
@@ -2068,22 +2093,22 @@ function useDataGrid<TData>({
     tableRef.current = table;
   }
 
-  // columnSizingInfo + columnSizing drive the sizes; read into locals so the
-  // dep array holds plain identifiers rather than call expressions.
-  const { columnSizingInfo, columnSizing } = table.getState();
-  // `columns` reads as redundant to exhaustive-deps but is not: it re-runs this
-  // when the column SET itself changes (switching tables, applying column
-  // types), and without it the size vars go stale/empty and cells collapse to
-  // content width.
-  const columnSizeVars = React.useMemo(() => {
-    const headers = table.getFlatHeaders();
-    const colSizes: { [key: string]: number } = {};
-    for (const header of headers) {
-      colSizes[`--header-${header.id}-size`] = header.getSize();
-      colSizes[`--col-${header.column.id}-size`] = header.column.getSize();
-    }
-    return colSizes;
-  }, [columns, columnSizingInfo, columnSizing, table]);
+  // Computed every render, NOT useMemo: the sizes live inside the stable
+  // `table` instance (columnSizing / columnSizingInfo / the column set), so an
+  // honest dep array can't express when they change; the old memo leaned on
+  // extra cache-key deps to approximate it. The pass is O(columns), and the
+  // previous object is kept while the values are unchanged so style consumers
+  // memoized on identity don't re-render.
+  const nextColumnSizeVars: { [key: string]: number } = {};
+  for (const header of table.getFlatHeaders()) {
+    nextColumnSizeVars[`--header-${header.id}-size`] = header.getSize();
+    nextColumnSizeVars[`--col-${header.column.id}-size`] = header.column.getSize();
+  }
+  const columnSizeVarsRef = React.useRef(nextColumnSizeVars);
+  if (!sameSizeVars(columnSizeVarsRef.current, nextColumnSizeVars)) {
+    columnSizeVarsRef.current = nextColumnSizeVars;
+  }
+  const columnSizeVars = columnSizeVarsRef.current;
 
   const isFirefox = React.useSyncExternalStore(
     React.useCallback(() => () => {}, []),

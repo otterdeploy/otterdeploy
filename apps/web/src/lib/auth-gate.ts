@@ -34,7 +34,7 @@ export type AuthGateDecision =
 
 export function decideAuthGate(input: {
   /** Resolved session, or null when the server answered "no session". */
-  session: unknown | null;
+  session: unknown;
   /** Resolved org list, or null when the org endpoint answered 401. */
   organizations: OrganizationList;
 }): AuthGateDecision {

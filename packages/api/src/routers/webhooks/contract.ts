@@ -116,13 +116,13 @@ const endpointNotFound = {
 };
 
 const createWebhookInput = z.object({
-  url: z.string().url().max(2048),
+  url: z.url().max(2048),
   events: z.array(eventId).min(1),
 });
 
 const updateWebhookInput = z.object({
   id: webhookIdField,
-  url: z.string().url().max(2048).optional(),
+  url: z.url().max(2048).optional(),
   events: z.array(eventId).min(1).optional(),
 });
 

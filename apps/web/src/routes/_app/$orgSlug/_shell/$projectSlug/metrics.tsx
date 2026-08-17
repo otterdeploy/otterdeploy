@@ -2,7 +2,7 @@ import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Activity03Icon } from "@hugeicons/core-free-icons";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
-import { createFileRoute, useLoaderData, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { ProjectMetricsSection } from "@/features/resources/components/_shared/metrics/project-metrics-section";
 import { ResourceMetricsCard } from "@/features/resources/components/_shared/metrics/resource-metrics-card";

@@ -41,12 +41,11 @@ async function bootstrap() {
   // schema (every query 500s with `relation "…" does not exist`). On failure we
   // exit non-zero and let `restart: unless-stopped` crash-loop until Postgres is
   // reachable and migrated, rather than come up broken.
-  await (
-    await Result.tryPromise({
-      try: () => runMigrations(),
-      catch: (cause) => new BootstrapError({ step: "migrate", cause }),
-    })
-  ).match({
+  const migrated = await Result.tryPromise({
+    try: () => runMigrations(),
+    catch: (cause) => new BootstrapError({ step: "migrate", cause }),
+  });
+  migrated.match({
     ok: () => log.info({ startup: { step: "migrate", status: "ready" } }),
     err: (err) => {
       log.error({ startup: { step: "migrate", status: "failed" }, error: err.message });

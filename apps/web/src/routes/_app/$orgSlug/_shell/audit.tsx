@@ -13,7 +13,7 @@ import { useDebouncedValue } from "@otterdeploy/ui/hooks/use-debounced-value";
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -46,7 +46,7 @@ function AuditRoute() {
   const [openEvent, setOpenEvent] = useState<AuditEvent | null>(null);
 
   const form = useAuditFilterForm();
-  const filter = useStore(form.store, (s) => s.values);
+  const filter = useSelector(form.store, (s) => s.values);
 
   // Each distinct filter is its own on-demand collection subset, so typing in
   // the search box would refetch on every keystroke. Debounce the term that

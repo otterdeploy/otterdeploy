@@ -59,6 +59,25 @@ function freshDest(): string {
   return join(tmpDir("otter-archive-parent-"), "workdir");
 }
 
+/**
+ * bun:test types `.rejects`' matchers as `void` even though they return a
+ * promise at runtime, so awaiting `expect(p).rejects.toThrow(...)` trips
+ * `await-thenable`. Await the rejection here and hand `toThrow` a synchronous
+ * re-thrower instead: identical matcher semantics (substring / RegExp / class),
+ * and a promise that unexpectedly resolves yields a non-throwing function so
+ * `toThrow(...)` fails with its normal "didn't throw" message.
+ */
+async function rejectionOf(promise: Promise<unknown>): Promise<() => void> {
+  try {
+    await promise;
+  } catch (err) {
+    return () => {
+      throw err;
+    };
+  }
+  return () => undefined;
+}
+
 describe("extractArchiveSafely: hostile archives are rejected", () => {
   test("rejects a relative path-traversal entry (Zip Slip)", async () => {
     const archivePath = await writeArchive([
@@ -66,7 +85,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /traversal/i,
     );
     expect(existsSync(join(dest, "..", "..", "etc", "passwd"))).toBe(false);
@@ -78,7 +97,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /traversal/i,
     );
   });
@@ -89,7 +108,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /absolute path/i,
     );
     expect(existsSync("/tmp/passwd")).toBe(false);
@@ -101,7 +120,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /absolute path/i,
     );
   });
@@ -112,7 +131,9 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(/symlink/i);
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
+      /symlink/i,
+    );
     expect(existsSync(join(dest, "evil-link"))).toBe(false);
   });
 
@@ -128,7 +149,9 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(/symlink/i);
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
+      /symlink/i,
+    );
     expect(existsSync(join(dest, "..", "pwned.txt"))).toBe(false);
   });
 
@@ -138,7 +161,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /hard link/i,
     );
   });
@@ -149,7 +172,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /device|special/i,
     );
   });
@@ -160,7 +183,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /device|special/i,
     );
   });
@@ -169,7 +192,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     const archivePath = await writeArchive([{ header: { name: "pipe", type: "fifo" } }]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /device|special/i,
     );
   });
@@ -182,9 +205,11 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     const archivePath = await writeArchive(entries);
     const dest = freshDest();
 
-    await expect(
-      extractArchiveSafely({ archivePath, destDir: dest, limits: { maxEntries: 3 } }),
-    ).rejects.toThrow(/more than 3 entries/);
+    expect(
+      await rejectionOf(
+        extractArchiveSafely({ archivePath, destDir: dest, limits: { maxEntries: 3 } }),
+      ),
+    ).toThrow(/more than 3 entries/);
   });
 
   test("rejects a single entry over the per-file byte cap", async () => {
@@ -194,13 +219,15 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(
-      extractArchiveSafely({
-        archivePath,
-        destDir: dest,
-        limits: { maxEntryBytes: 100 * 1024 },
-      }),
-    ).rejects.toThrow(/per-file/);
+    expect(
+      await rejectionOf(
+        extractArchiveSafely({
+          archivePath,
+          destDir: dest,
+          limits: { maxEntryBytes: 100 * 1024 },
+        }),
+      ),
+    ).toThrow(/per-file/);
   });
 
   test("rejects an archive whose total decompressed bytes exceed the cap", async () => {
@@ -217,13 +244,15 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(
-      extractArchiveSafely({
-        archivePath,
-        destDir: dest,
-        limits: { maxUncompressedBytes: 1024 * 1024, maxEntryBytes: 1024 * 1024 },
-      }),
-    ).rejects.toThrow(/total uncompressed size/);
+    expect(
+      await rejectionOf(
+        extractArchiveSafely({
+          archivePath,
+          destDir: dest,
+          limits: { maxUncompressedBytes: 1024 * 1024, maxEntryBytes: 1024 * 1024 },
+        }),
+      ),
+    ).toThrow(/total uncompressed size/);
   });
 
   test("rejects a highly-compressible entry as a decompression bomb by ratio", async () => {
@@ -236,17 +265,19 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(
-      extractArchiveSafely({
-        archivePath,
-        destDir: dest,
-        limits: {
-          maxUncompressedBytes: 1024 * 1024 * 1024, // absolute cap deliberately not the trigger
-          maxCompressionRatio: 100,
-          ratioCheckFloorBytes: 64 * 1024,
-        },
-      }),
-    ).rejects.toThrow(/compression ratio/);
+    expect(
+      await rejectionOf(
+        extractArchiveSafely({
+          archivePath,
+          destDir: dest,
+          limits: {
+            maxUncompressedBytes: 1024 * 1024 * 1024, // absolute cap deliberately not the trigger
+            maxCompressionRatio: 100,
+            ratioCheckFloorBytes: 64 * 1024,
+          },
+        }),
+      ),
+    ).toThrow(/compression ratio/);
   });
 
   test("rejects a path longer than the configured cap", async () => {
@@ -256,9 +287,11 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(
-      extractArchiveSafely({ archivePath, destDir: dest, limits: { maxPathLength: 50 } }),
-    ).rejects.toThrow(/exceeds 50 characters/);
+    expect(
+      await rejectionOf(
+        extractArchiveSafely({ archivePath, destDir: dest, limits: { maxPathLength: 50 } }),
+      ),
+    ).toThrow(/exceeds 50 characters/);
   });
 
   test("rejects a path nested deeper than the configured segment cap", async () => {
@@ -268,9 +301,11 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(
-      extractArchiveSafely({ archivePath, destDir: dest, limits: { maxPathSegments: 3 } }),
-    ).rejects.toThrow(/nested deeper/);
+    expect(
+      await rejectionOf(
+        extractArchiveSafely({ archivePath, destDir: dest, limits: { maxPathSegments: 3 } }),
+      ),
+    ).toThrow(/nested deeper/);
   });
 
   test("rejects an exact duplicate path", async () => {
@@ -280,7 +315,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /duplicate entry/,
     );
   });
@@ -292,7 +327,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /colliding entries/,
     );
   });
@@ -309,7 +344,7 @@ describe("extractArchiveSafely: hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
+    expect(await rejectionOf(extractArchiveSafely({ archivePath, destDir: dest }))).toThrow(
       /colliding entries/,
     );
   });

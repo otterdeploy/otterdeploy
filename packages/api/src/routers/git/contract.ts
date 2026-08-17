@@ -71,7 +71,7 @@ const startConnectInput = z.object({
 
 const startConnectOutput = z.object({
   /** Absolute URL the operator should be redirected to. */
-  redirectUrl: z.string().url(),
+  redirectUrl: z.url(),
 });
 
 const startManifestInput = z.object({
@@ -90,7 +90,7 @@ const startManifestInput = z.object({
 
 const startManifestOutput = z.object({
   /** Where the UI's auto-submitted form should POST. */
-  formActionUrl: z.string().url(),
+  formActionUrl: z.url(),
   /** JSON string: the value of the form's "manifest" field. */
   manifestJson: z.string(),
 });

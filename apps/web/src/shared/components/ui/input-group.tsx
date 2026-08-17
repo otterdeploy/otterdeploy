@@ -54,10 +54,16 @@ function InputGroupAddon({
       data-slot="input-group-addon"
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
-      onClick={(e) => {
+      // Mouse-only focus forwarding: pressing on the addon's blank space acts
+      // like pressing the input's own padding. `onMouseDown` (not `onClick`)
+      // with preventDefault stops the browser from first blurring the input,
+      // and keeps this a pointer affordance rather than a click target:
+      // keyboard users reach the input directly via Tab.
+      onMouseDown={(e) => {
         if (e.target instanceof Element && e.target.closest("button")) {
           return;
         }
+        e.preventDefault();
         e.currentTarget.parentElement?.querySelector("input")?.focus();
       }}
       {...props}

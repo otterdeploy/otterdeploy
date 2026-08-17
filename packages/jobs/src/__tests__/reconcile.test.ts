@@ -79,13 +79,14 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
       )
       .map((r) => ({ id: r.id, resourceId: r.resourceId }));
 
-  // A value that is both awaitable (thenable) and exposes .orderBy(), so the
-  // same where() works for the orphan/join selects (awaited directly) and the
-  // running select (chains .orderBy()).
-  const chain = (value: unknown[]) => ({
-    then: (resolve: (v: unknown[]) => unknown) => resolve(value),
-    orderBy: () => Promise.resolve(value),
-  });
+  // A value that is both awaitable and exposes .orderBy(), so the same
+  // where() works for the orphan/join selects (awaited directly) and the
+  // running select (chains .orderBy()). A real Promise (not a hand-rolled
+  // thenable) so awaiting it behaves exactly like production drizzle.
+  const chain = (value: unknown[]) =>
+    Object.assign(Promise.resolve(value), {
+      orderBy: () => Promise.resolve(value),
+    });
 
   // We infer query intent from the predicate shape produced by the stubbed
   // drizzle-orm: { __allowed } = inArray (orphans), { __eq } = eq status
@@ -222,16 +223,22 @@ void mock.module("drizzle-orm", () => ({
 
 // Real schema (pure table defs, no env) spread through, but override
 // `deployment` so its `id` column carries a marker the stubbed eq() recognises.
+// The table is a class instance, so the copy goes through Object.assign onto
+// an object sharing its prototype (a spread would silently drop the prototype).
 const realSchema = await import("@otterdeploy/db/schema");
-void mock.module("@otterdeploy/db/schema", () => ({
-  ...realSchema,
-  deployment: {
-    ...realSchema.deployment,
+const mockDeployment: UnknownRecord = Object.assign(
+  Object.create(Object.getPrototypeOf(realSchema.deployment)),
+  realSchema.deployment,
+  {
     id: { __col: "id" },
     resourceId: { __col: "resourceId" },
     status: { __col: "status" },
     createdAt: { __col: "createdAt" },
   },
+);
+void mock.module("@otterdeploy/db/schema", () => ({
+  ...realSchema,
+  deployment: mockDeployment,
 }));
 
 // ─── queue mock ──────────────────────────────────────────────────────────

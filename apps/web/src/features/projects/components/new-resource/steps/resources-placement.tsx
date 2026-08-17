@@ -5,7 +5,7 @@
  */
 
 import { useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 
@@ -71,9 +71,9 @@ function replicasOnNode(
 export function PlacementSection() {
   const form = useFormContext();
   const { orgSlug } = useParams({ strict: false });
-  const placement = useStore(form.store, (s) => s.values.placement);
-  const replicas = useStore(form.store, (s) => s.values.replicas);
-  const pinnedNodeId = useStore(form.store, (s) => s.values.pinnedNodeId);
+  const placement = useSelector(form.store, (s) => s.values.placement);
+  const replicas = useSelector(form.store, (s) => s.values.replicas);
+  const pinnedNodeId = useSelector(form.store, (s) => s.values.pinnedNodeId);
   const { nodes, loading: nodesLoading } = useSwarmNodes();
 
   return (

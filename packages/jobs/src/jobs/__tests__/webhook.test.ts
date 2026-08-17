@@ -17,15 +17,15 @@ import { beforeAll, describe, expect, mock, test } from "bun:test";
 let deliverWebhookHttp: typeof import("../webhook").deliverWebhookHttp;
 
 beforeAll(async () => {
-  mock.module("@otterdeploy/db", () => ({ db: {} }));
+  await mock.module("@otterdeploy/db", () => ({ db: {} }));
   const realSchema = await import("@otterdeploy/db/schema");
-  mock.module("@otterdeploy/db/schema", () => ({ ...realSchema }));
+  await mock.module("@otterdeploy/db/schema", () => ({ ...realSchema }));
   // `../delivery/egress-denylist` (imported statically by webhook.ts) reads
   // @otterdeploy/env/server, which validates process.env eagerly at import
   // time: stub it out rather than provide real DATABASE_URL/REDIS_URL/etc.
   // None of these tests call controlPlaneEgressDenylist()/egressAllowlist(),
   // so an empty stub is enough.
-  mock.module("@otterdeploy/env/server", () => ({ env: {} }));
+  await mock.module("@otterdeploy/env/server", () => ({ env: {} }));
   ({ deliverWebhookHttp } = await import("../webhook"));
 });
 
