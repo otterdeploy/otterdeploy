@@ -27,13 +27,7 @@ function useDbConnections(resourceId: ResourceId, enabled: boolean) {
 type ConnectionsQuery = ReturnType<typeof useDbConnections>;
 
 /** Popover body: header with the ceiling, then one row per session group. */
-function ConnectionsPopoverBody({
-  query,
-  total,
-}: {
-  query: ConnectionsQuery;
-  total: number;
-}) {
+function ConnectionsPopoverBody({ query, total }: { query: ConnectionsQuery; total: number }) {
   return (
     <>
       <div className="border-b px-3 py-2 text-xs font-medium">
