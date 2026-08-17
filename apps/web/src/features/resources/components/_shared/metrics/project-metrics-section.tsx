@@ -27,7 +27,7 @@ interface ProjectMetricsSectionProps {
 }
 
 export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetricsSectionProps) {
-  const { orgSlug, projectSlug } = useParams({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+  const { orgSlug } = useParams({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const agg = useProjectAggregateMetrics(projectId, windowMinutes);
 
   const aggHasData = agg.rows.length > 0;
@@ -92,14 +92,14 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Traffic, latency, and visitors moved to the{" "}
+        Traffic, latency, and visitors live on the{" "}
         <Link
-          to="/$orgSlug/$projectSlug/analytics"
-          params={{ orgSlug, projectSlug }}
+          to="/$orgSlug/analytics"
+          params={{ orgSlug }}
           search={{ range: "24h" }}
           className="text-foreground underline-offset-2 hover:underline"
         >
-          Analytics tab
+          Analytics page
         </Link>
         .
       </p>

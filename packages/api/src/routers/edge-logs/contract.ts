@@ -148,8 +148,20 @@ const analyticsRange = z.enum(["24h", "7d", "30d", "90d"]);
 const analyticsInput = z.object({
   /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
   projectId: zId("prj").optional(),
+  /** Install-wide: EVERY host in the rollups, including the control-plane
+   *  dashboard domain (which no org's domain list contains — the dominant
+   *  traffic on a small install would otherwise be invisible everywhere).
+   *  Install-admin only; overrides projectId. */
+  installWide: z.boolean().optional(),
   range: analyticsRange.default("24h"),
 });
+
+const analyticsErrors = {
+  FORBIDDEN: {
+    status: 403,
+    message: "Installation administrator access is required for install-wide analytics.",
+  },
+} as const;
 
 /** One series bucket. Percentiles come from merged latency histograms; null
  *  when the bucket saw no requests (a p95 of nothing doesn't exist). */
@@ -295,11 +307,13 @@ export const edgeLogsContract = {
   // no raw-row scans. Same org host-scope guard as everything above.
   analytics: {
     overview: oc
+      .errors(analyticsErrors)
       .meta({ path: "/edge-logs/analytics/overview", tag, method: "GET" })
       .input(analyticsInput)
       .output(analyticsOverviewResultSchema),
 
     breakdowns: oc
+      .errors(analyticsErrors)
       .meta({ path: "/edge-logs/analytics/breakdowns", tag, method: "GET" })
       .input(analyticsInput)
       .output(analyticsBreakdownsResultSchema),

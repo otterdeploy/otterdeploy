@@ -33,6 +33,9 @@ const POLL_MS = 30_000;
 interface AnalyticsViewProps {
   /** Scope to one project's domains; omitted ⇒ all the org's domains. */
   projectId?: string;
+  /** Every host on the install, control plane included. Install-admin only:
+   *  the server verifies; pass it only when the route context says admin. */
+  installWide?: boolean;
   range: AnalyticsRangeKey;
   onRangeChange: (range: AnalyticsRangeKey) => void;
 }
@@ -41,8 +44,12 @@ function isRange(value: string): value is AnalyticsRangeKey {
   return ANALYTICS_RANGES.some((range) => range === value);
 }
 
-export function AnalyticsView({ projectId, range, onRangeChange }: AnalyticsViewProps) {
-  const input = projectId === undefined ? { range } : { projectId, range };
+export function AnalyticsView({ projectId, installWide, range, onRangeChange }: AnalyticsViewProps) {
+  const input = installWide
+    ? { installWide: true, range }
+    : projectId === undefined
+      ? { range }
+      : { projectId, range };
   const overview = useQuery({
     ...orpc.edgeLogs.analytics.overview.queryOptions({ input }),
     refetchInterval: POLL_MS,
@@ -90,7 +97,13 @@ export function AnalyticsView({ projectId, range, onRangeChange }: AnalyticsView
         if (overview.isError && !data) return <Note>Couldn&apos;t load analytics. Retrying.</Note>;
         if (!data) return null;
         if (data.summary.hostCount === 0) {
-          return <Note>No public domains yet. Analytics starts once a service is exposed.</Note>;
+          // Install scope has no domain list to be empty: a zero there just
+          // means no requests have reached the edge in this window.
+          return installWide ? (
+            <Note>No traffic recorded in this window.</Note>
+          ) : (
+            <Note>No public domains yet. Analytics starts once a service is exposed.</Note>
+          );
         }
         return (
           <>

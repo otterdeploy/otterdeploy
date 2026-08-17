@@ -96,27 +96,32 @@ export function coveringDayKeys(fromMs: number, nowMs: number): string[] {
 
 /** Day rows for the window with today's (and any matching) live accumulators
  *  REPLACING their DB counterparts — day accs are running totals seeded from
- *  the DB, so adding would roughly double today. The returned rows may be
- *  live acc objects: treat as read-only. */
+ *  the DB, so adding would roughly double today. `hosts: null` means
+ *  install-wide: no host filter at all (the caller has already authorized
+ *  install scope). The returned rows may be live acc objects: read-only. */
 export async function mergedDayRows(
-  hosts: string[],
+  hosts: string[] | null,
   dayKeys: string[],
   live: DayAcc[],
 ): Promise<{ rows: DayAcc[]; usedLive: boolean }> {
   const dbRows =
-    hosts.length === 0
+    hosts !== null && hosts.length === 0
       ? []
       : await db
           .select()
           .from(edgeStatDay)
-          .where(and(inArray(edgeStatDay.host, hosts), inArray(edgeStatDay.day, dayKeys)));
-  const hostSet = new Set(hosts);
+          .where(
+            hosts === null
+              ? inArray(edgeStatDay.day, dayKeys)
+              : and(inArray(edgeStatDay.host, hosts), inArray(edgeStatDay.day, dayKeys)),
+          );
+  const hostSet = hosts === null ? null : new Set(hosts);
   const daySet = new Set(dayKeys);
   const byKey = new Map<string, DayAcc>();
   for (const row of dbRows) byKey.set(`${row.host}|${row.day}`, row);
   let usedLive = false;
   for (const acc of live) {
-    if (!hostSet.has(acc.host) || !daySet.has(acc.day)) continue;
+    if ((hostSet !== null && !hostSet.has(acc.host)) || !daySet.has(acc.day)) continue;
     byKey.set(`${acc.host}|${acc.day}`, acc);
     usedLive = true;
   }

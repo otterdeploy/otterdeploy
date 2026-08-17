@@ -7,6 +7,7 @@ import { Result } from "better-result";
 import { log } from "evlog";
 
 import { orgScopedProcedure } from "../..";
+import { authorizeCapability } from "../../authz/capability";
 import {
   eventPersistenceEnabled,
   persistenceEnabled,
@@ -181,15 +182,38 @@ export const edgeLogsRouter = {
   // applies — never log the live `hosts` array.
   analytics: {
     overview: orgScopedProcedure.edgeLogs.analytics.overview.handler(
-      async ({ input, context }) => {
-        const hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+      async ({ input, context, errors }) => {
+        // installWide = null host scope (every host, control plane included).
+        // Server-owned install-admin attribute, same check the install-admin
+        // middleware runs; org RBAC alone never grants it.
+        let hosts: string[] | null;
+        if (input.installWide) {
+          const decision = await authorizeCapability(context.actor, {
+            scope: "install",
+            mode: "read",
+          });
+          if (!decision.allowed) throw errors.FORBIDDEN({ message: decision.reason });
+          hosts = null;
+        } else {
+          hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+        }
         return queryAnalyticsOverview(hosts, input.range, geoAvailable());
       },
     ),
 
     breakdowns: orgScopedProcedure.edgeLogs.analytics.breakdowns.handler(
-      async ({ input, context }) => {
-        const hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+      async ({ input, context, errors }) => {
+        let hosts: string[] | null;
+        if (input.installWide) {
+          const decision = await authorizeCapability(context.actor, {
+            scope: "install",
+            mode: "read",
+          });
+          if (!decision.allowed) throw errors.FORBIDDEN({ message: decision.reason });
+          hosts = null;
+        } else {
+          hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+        }
         const { breakdowns, flags } = await queryAnalyticsBreakdowns(
           hosts,
           input.range,

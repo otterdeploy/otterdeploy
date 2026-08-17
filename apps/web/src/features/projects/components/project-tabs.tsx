@@ -45,11 +45,9 @@ const tabs: readonly Tab[] = [
     to: "/$orgSlug/$projectSlug/logs",
     tourId: "project-tab-logs",
   },
-  {
-    titleKey: "nav.analytics",
-    to: "/$orgSlug/$projectSlug/analytics",
-    fallback: "Analytics",
-  },
+  // No "Analytics" tab: traffic analytics is a TOP-LEVEL page (/analytics).
+  // Most edge traffic on an install belongs to no project (the control-plane
+  // dashboard above all), so a project-nested view could only show a slice.
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   {
     titleKey: "nav.variables",

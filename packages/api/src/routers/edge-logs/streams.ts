@@ -19,11 +19,11 @@ import { listOrgDomains, listProjectDomains } from "./queries";
  *  given (org-verified), otherwise all the org's domains. */
 export async function resolveHosts(
   organizationId: Parameters<typeof listOrgDomains>[0],
-  projectId: string | undefined,
+  // Branded at the parameter instead of cast at the call: every caller passes
+  // a contract-validated zId("prj") input, which already carries the brand.
+  projectId: ProjectId | undefined,
 ): Promise<string[]> {
-  return projectId
-    ? listProjectDomains(organizationId, projectId as ProjectId)
-    : listOrgDomains(organizationId);
+  return projectId ? listProjectDomains(organizationId, projectId) : listOrgDomains(organizationId);
 }
 
 /** Bridge the ring's pub/sub into an abortable async generator with a small

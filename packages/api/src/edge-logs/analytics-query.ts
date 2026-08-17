@@ -78,7 +78,8 @@ function buildSeries(
 }
 
 export async function queryAnalyticsOverview(
-  hosts: string[],
+  /** null = install-wide (caller has authorized install scope). */
+  hosts: string[] | null,
   range: AnalyticsRange,
   geoConfigured: boolean,
   nowMs = Date.now(),
@@ -104,7 +105,7 @@ export async function queryAnalyticsOverview(
     usedLiveMinute = foldLiveMinutesIntoBuckets(
       buckets,
       live.minutes,
-      new Set(hosts),
+      hosts === null ? null : new Set(hosts),
       fromMs,
       spec.bucketMinutes * 60_000,
     );
@@ -140,7 +141,9 @@ export async function queryAnalyticsOverview(
       p95: percentileFromBuckets(overall.histogram, 0.95),
       p99: percentileFromBuckets(overall.histogram, 0.99),
       errorRate: overall.requests > 0 ? errors / overall.requests : 0,
-      hostCount: hosts.length,
+      // Install-wide has no scope list: count the hosts actually seen in the
+      // window instead, so the "no public domains" empty state never fires.
+      hostCount: hosts === null ? new Set(dayRows.map((r) => r.host)).size : hosts.length,
     },
     flags: {
       approximate,
@@ -173,7 +176,8 @@ const DIM_NAMES = [
 type DimName = (typeof DIM_NAMES)[number];
 
 export async function queryAnalyticsBreakdowns(
-  hosts: string[],
+  /** null = install-wide (caller has authorized install scope). */
+  hosts: string[] | null,
   range: AnalyticsRange,
   geoConfigured: boolean,
   nowMs = Date.now(),

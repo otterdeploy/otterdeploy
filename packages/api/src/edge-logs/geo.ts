@@ -2,6 +2,7 @@ import { env } from "@otterdeploy/env/server";
 import { asnDbPath, geoDbPath } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { log } from "evlog";
+import { open as openMaxmind } from "maxmind";
 /**
  * GeoIP country lookup (edge-logs Phase 2).
  *
@@ -17,12 +18,11 @@ import { log } from "evlog";
  * `initGeo()` resolves + opens the reader once at startup (async); the hot-path
  * `lookupCountry()` the ingest loop calls per access log is a sync map lookup.
  *
- * The `maxmind` package is an OPTIONAL dep loaded by name to keep it out of
- * the static import graph, so its module and record shapes are narrowed with
- * real runtime guards at the boundary — never asserted. Two record layouts
- * exist in the wild: MaxMind GeoLite2 / DB-IP official nest the code under
- * `country.iso_code`; the free ip-location-db rebuilds put a flat
- * `country_code` (and `as_number`/`as_organization` for ASN). Both are read.
+ * Record shapes are narrowed with real runtime guards at the read boundary —
+ * never asserted: the DB's layout is whatever file the operator pointed us
+ * at. Two layouts exist in the wild: MaxMind GeoLite2 / DB-IP official nest
+ * the code under `country.iso_code`; the free ip-location-db rebuilds put a
+ * flat `country_code` (and `as_number`/`as_organization` for ASN). Both read.
  */
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -83,52 +83,17 @@ declare global {
 }
 const g = globalThis;
 
-/** Narrow an arbitrary value to the reader surface we use. */
-function isMmdbReader(value: unknown): value is MmdbReader {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    "get" in value &&
-    typeof value.get === "function"
-  );
-}
-
-/** Pull `open` off the dynamically imported module, wherever it lives
- *  (`default.open` for the CJS interop shape, bare `open` for ESM). */
-function extractOpen(mod: unknown): ((p: string) => Promise<unknown>) | null {
-  if (mod === null || typeof mod !== "object") return null;
-  if ("default" in mod) {
-    const dflt = mod.default;
-    if (
-      dflt !== null &&
-      typeof dflt === "object" &&
-      "open" in dflt &&
-      typeof dflt.open === "function"
-    ) {
-      const open = dflt.open;
-      return (p: string) => Promise.resolve(open(p));
-    }
-  }
-  if ("open" in mod && typeof mod.open === "function") {
-    const open = mod.open;
-    return (p: string) => Promise.resolve(open(p));
-  }
-  return null;
-}
-
-/** Runtime-resolved `maxmind` open(). Keeps the optional dep out of the
- *  static import graph; an absent package or a wrong shape is an err. */
+/**
+ * Open one .mmdb. Static import: `maxmind` is a declared dependency and the
+ * previous load-by-variable dynamic import was a trap — the bundler couldn't
+ * wire it to the chunk it had ALREADY inlined, so the bundled server's
+ * runtime resolution failed (`Cannot find package 'maxmind'`: bun's isolated
+ * install links it only under packages/api/node_modules) and geo silently
+ * died in production while working in dev.
+ */
 async function openMmdb(dbPath: string): Promise<Result<MmdbReader, Error>> {
-  const moduleName: string = "maxmind";
   return Result.tryPromise({
-    try: async () => {
-      const mod: unknown = await import(moduleName);
-      const open = extractOpen(mod);
-      if (!open) throw new Error("maxmind: no open() export");
-      const reader = await open(dbPath);
-      if (!isMmdbReader(reader)) throw new Error("maxmind: open() returned no reader");
-      return reader;
-    },
+    try: async (): Promise<MmdbReader> => openMaxmind(dbPath),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
   });
 }

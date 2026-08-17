@@ -144,19 +144,23 @@ const histogramAggRow = z.object({
  * the range table, so `sql.raw` is parameter-injection-safe here.
  */
 export async function loadMinuteBuckets(
-  hosts: string[],
+  hosts: string[] | null,
   fromMinute: number,
   stepMinutes: number,
 ): Promise<Map<number, InternalBucket>> {
   const buckets = new Map<number, InternalBucket>();
-  if (hosts.length === 0) return buckets;
+  if (hosts !== null && hosts.length === 0) return buckets;
   const step = sql.raw(String(stepMinutes));
   // A bare JS array in a sql`` template renders as `(($1, $2, …))` — a record,
   // not an array — and Postgres rejects `= ANY(record)`. Join into an IN list.
-  const hostList = sql.join(
-    hosts.map((h) => sql`${h}`),
-    sql`, `,
-  );
+  // `hosts: null` = install-wide: no host predicate.
+  const hostPredicate =
+    hosts === null
+      ? sql`true`
+      : sql`host IN (${sql.join(
+          hosts.map((h) => sql`${h}`),
+          sql`, `,
+        )})`;
 
   const scalarRes = await db.execute(sql`
     SELECT (floor(minute / ${step})::int * ${step}) AS bucket,
@@ -168,7 +172,7 @@ export async function loadMinuteBuckets(
       sum(res_bytes)::float8 AS res_bytes,
       sum(latency_sum_ms)::float8 AS latency_sum_ms
     FROM edge_stat_minute
-    WHERE host IN (${hostList}) AND minute >= ${fromMinute}
+    WHERE ${hostPredicate} AND minute >= ${fromMinute}
     GROUP BY 1
   `);
   for (const raw of executeRows(scalarRes)) {
@@ -193,7 +197,7 @@ export async function loadMinuteBuckets(
     SELECT (floor(minute / ${step})::int * ${step}) AS bucket,
       u.ord::int AS idx, sum(u.v)::float8 AS c
     FROM edge_stat_minute, unnest(latency_buckets) WITH ORDINALITY AS u(v, ord)
-    WHERE host IN (${hostList}) AND minute >= ${fromMinute}
+    WHERE ${hostPredicate} AND minute >= ${fromMinute}
     GROUP BY 1, 2
   `);
   for (const raw of executeRows(histRes)) {
@@ -234,13 +238,14 @@ export function foldDayRowsIntoBuckets(
 export function foldLiveMinutesIntoBuckets(
   buckets: Map<number, InternalBucket>,
   live: readonly MinuteAcc[],
-  hostSet: ReadonlySet<string>,
+  /** null = install-wide: every host passes. */
+  hostSet: ReadonlySet<string> | null,
   fromMs: number,
   bucketMs: number,
 ): boolean {
   let used = false;
   for (const acc of live) {
-    if (!hostSet.has(acc.host)) continue;
+    if (hostSet !== null && !hostSet.has(acc.host)) continue;
     const accMs = acc.minute * 60_000;
     if (accMs < fromMs) continue;
     const startMs = Math.floor(accMs / bucketMs) * bucketMs;
