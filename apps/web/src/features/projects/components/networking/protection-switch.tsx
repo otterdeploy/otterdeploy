@@ -5,25 +5,27 @@
  * back (with a toast) if the server rejects.
  */
 
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
-
+import { zId } from "@otterdeploy/shared/id";
 import { toast } from "sonner";
 
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import { Switch } from "@/shared/components/ui/switch";
 
 /**
- * The word beside the switch, in a box sized to the longer of the two states.
+ * The status beside the switch, in a box sized to the longer of the two
+ * states so toggling never moves the switch out from under the pointer (the
+ * column is shared, so an intrinsic width re-flowed every other row too).
  *
- * "public" and "login required" differ by eight monospace characters, so an
- * intrinsically-sized label moved the switch out from under the pointer on
- * every toggle — and in the Routes table it resized the shared column with it.
- * Both call sites get the fixed box from here rather than repeating the width.
+ * Sentence-case UI text with a status dot — not mono: mono is for machine
+ * text (IDs, hashes, logs); "Login required" is product vocabulary.
  */
 export function ProtectionStateLabel({ isProtected }: { isProtected: boolean }) {
   return (
-    <span className="w-[14ch] shrink-0 font-mono text-[11px] text-muted-foreground">
-      {isProtected ? "login required" : "public"}
+    <span className="flex w-[15ch] shrink-0 items-center gap-1.5 text-[11.5px] text-muted-foreground">
+      <span
+        className={`size-1.5 shrink-0 rounded-full ${isProtected ? "bg-info" : "bg-muted-foreground/50"}`}
+      />
+      {isProtected ? "Login required" : "Public"}
     </span>
   );
 }
@@ -35,7 +37,9 @@ export function ProtectionSwitch({
   projectId: string;
 }) {
   const onToggle = (checked: boolean) => {
-    const tx = proxyRoutesCollection.update(route.id as ProxyRouteId, (draft) => {
+    // Parse, don't cast: the row's id travels as a plain string through the
+    // table's view types — validate the brand at the mutation boundary.
+    const tx = proxyRoutesCollection.update(zId("rt").parse(route.id), (draft) => {
       draft.protected = checked;
     });
     tx.isPersisted.promise

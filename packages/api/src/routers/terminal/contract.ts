@@ -4,6 +4,7 @@ import { oc } from "@orpc/contract";
  * targets the operator can attach a shell to right now — exec containers
  * + database consoles. SSH targets live on `server.list` (org-wide nodes).
  */
+import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
@@ -26,6 +27,10 @@ const terminalContainerSchema = z.object({
   state: z.string(),
   /** otterdeploy.resource.type label value (drives picker grouping). */
   resourceType: z.enum(["service", "postgres", "redis", "mariadb", "mongodb"]),
+  /** Detected framework for source-built services — the picker's icon
+   *  fallback when the image ref resolves no brand mark. Null for databases
+   *  and for services never built / not detected. */
+  framework: z.enum(FRAMEWORK_KINDS).nullable(),
   /** Project slug (otterdeploy.project label). May be null on legacy rows. */
   projectSlug: zSlug(ID_PREFIX.project).nullable(),
   /** Friendly project name resolved from the DB. Null if the project slug

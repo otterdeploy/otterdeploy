@@ -1,3 +1,7 @@
+import type { Framework } from "@otterdeploy/shared/framework";
+
+import { serviceDisplayName } from "@/shared/lib/service-display-name";
+
 import type { SessionSource } from "../types";
 
 /**
@@ -25,6 +29,12 @@ export interface PickerTarget {
   detail: string;
   /** Everything else worth matching a search against. */
   keywords: string[];
+  /** Image ref (or engine name) driving the row's brand mark; null renders
+   *  the group's neutral glyph. */
+  image: string | null;
+  /** Detected framework — icon fallback when the image resolves no brand
+   *  (source-built services carry build images no resolver recognises). */
+  framework: Framework | null;
   source: SessionSource;
   /** Why this row can't be opened, or null when it can. */
   unavailable: string | null;
@@ -38,6 +48,7 @@ export interface TargetContainer {
   image: string;
   state: string;
   resourceType: "service" | "postgres" | "redis" | "mariadb" | "mongodb";
+  framework: Framework | null;
   projectSlug: string | null;
   projectName: string | null;
   serviceResourceId: string | null;
@@ -74,23 +85,27 @@ function serviceTargets(containers: TargetContainer[]): PickerTarget[] {
   }
 
   return services.map((c) => {
-    const name = c.serviceName ?? c.name;
-    const key = `${c.projectSlug ?? ""}/${name}`;
+    // Raw machine name for anything that ADDRESSES the container (source,
+    // dedupe key, search); the stripped form only for the visible row.
+    const rawName = c.serviceName ?? c.name;
+    const key = `${c.projectSlug ?? ""}/${rawName}`;
     const scaled = (perService.get(key) ?? 1) > 1;
     const short = c.containerId.slice(0, SHORT_ID);
     return {
       id: c.containerId,
       group: "service",
-      name,
+      name: serviceDisplayName(rawName, c.projectSlug),
       qualifier: scaled ? `replica ${c.replicaSlot ?? "?"}` : null,
       project: c.projectSlug,
       tag: null,
       detail: short,
-      keywords: [c.image, c.containerId, c.projectName ?? "", "shell", "exec", "container"],
+      keywords: [rawName, c.image, c.containerId, c.projectName ?? "", "shell", "exec", "container"],
+      image: c.image,
+      framework: c.framework,
       source: {
         kind: "container",
         project: c.projectSlug ?? "",
-        service: name,
+        service: rawName,
         replica: c.replicaSlot ?? short,
         containerId: c.containerId,
       },
@@ -132,6 +147,10 @@ function databaseTargets(
       tag: db.engine,
       detail: short || "—",
       keywords: [db.engine, db.projectName, container?.image ?? "", "database", "console", "shell"],
+      // The engine name alone resolves to its brand mark (postgres / redis /
+      // …) — the same resolver services use, matching on the bare name.
+      image: container?.image ?? db.engine,
+      framework: null,
       source: container
         ? {
             kind: "container",
@@ -152,19 +171,22 @@ function databaseTargets(
     .filter((c) => !claimed.has(c.containerId))
     .map((c) => {
       const short = c.containerId.slice(0, SHORT_ID);
+      const rawName = c.serviceName ?? c.name;
       return {
         id: c.containerId,
         group: "database",
-        name: c.serviceName ?? c.name,
+        name: serviceDisplayName(rawName, c.projectSlug),
         qualifier: null,
         project: c.projectSlug,
         tag: c.resourceType,
         detail: short,
-        keywords: [c.resourceType, c.image, c.containerId, "database", "shell"],
+        keywords: [rawName, c.resourceType, c.image, c.containerId, "database", "shell"],
+        image: c.image,
+        framework: null,
         source: {
           kind: "container",
           project: c.projectSlug ?? "",
-          service: c.serviceName ?? c.name,
+          service: rawName,
           replica: short,
           containerId: c.containerId,
         },
@@ -190,6 +212,8 @@ function serverTargets(servers: TargetServer[]): PickerTarget[] {
       tag: isLocal ? "host" : "node",
       detail: s.host,
       keywords: [s.host, ...s.labels, "ssh", "server", "node", "machine"],
+      image: null,
+      framework: null,
       source: {
         kind: "ssh",
         mode: isLocal ? "local" : "remote",

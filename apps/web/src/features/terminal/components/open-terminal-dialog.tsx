@@ -41,7 +41,10 @@ const GROUP_HEADING: Record<TargetGroup, string> = {
   server: "Servers",
 };
 
-const GROUP_ORDER: TargetGroup[] = ["service", "database", "server"];
+// Servers first: the machines are the anchor an operator orients by, and the
+// list is shortest — services (the longest group) go last so they never bury
+// the hosts.
+const GROUP_ORDER: TargetGroup[] = ["server", "database", "service"];
 
 /**
  * Destination picker for a new terminal session.

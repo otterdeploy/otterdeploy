@@ -91,12 +91,19 @@ export function auditWindow(filter: AuditFilter): { from?: string; to?: string }
   return { from: !r || r.ms === 0 ? undefined : new Date(Date.now() - r.ms).toISOString() };
 }
 
+/** Narrow the filter's free-string outcome to the contract's enum — the tuple
+ *  lookup is the type guard (unknown values fall back to "no filter"). */
+const OUTCOMES = ["success", "failure", "denied"] as const satisfies readonly Outcome[];
+function toOutcome(value: string): Outcome | undefined {
+  return OUTCOMES.find((o) => o === value);
+}
+
 /** Resolve a filter selection into the `audit.list` input. */
 export function toAuditInput(filter: AuditFilter) {
   const { from, to } = auditWindow(filter);
   return {
     q: filter.q.trim() || undefined,
-    outcome: filter.outcome === "any" ? undefined : (filter.outcome as Outcome),
+    outcome: filter.outcome === "any" ? undefined : toOutcome(filter.outcome),
     actorId: filter.actor === "any" ? undefined : filter.actor,
     action: filter.action === "any" ? undefined : filter.action,
     targetType: filter.targetType === "any" ? undefined : filter.targetType,
@@ -129,13 +136,60 @@ export function auditSubsetKey(filter: AuditFilter): string {
 
 const subsetKeySchema = z.string().min(1);
 
+/** Round-trip schema for a serialized subset key — `auditSubsetKey` stringifies
+ *  exactly these fields, so parsing recovers a full `AuditFilter` without a
+ *  cast. */
+const auditFilterSchema = z.object({
+  range: z.string(),
+  from: z.string(),
+  to: z.string(),
+  outcome: z.string(),
+  actor: z.string(),
+  action: z.string(),
+  targetType: z.string(),
+  q: z.string(),
+  limit: z.number(),
+});
+
+/** Cache-key prefix for the rows collection — shared by the collection's
+ *  `queryKey` and the loader prefetch below so they cannot drift. */
+const AUDIT_COLLECTION_KEY = ["audit"] as const;
+
+/**
+ * Fetch one filter subset's rows and stamp the subset key back onto each row so
+ * the live-query `eq(a.key, …)` matches client-side (rows are already
+ * server-filtered). `counts`/`total` are dropped here — they're aggregates, not
+ * row data; the route reads them from its companion query. Shared by the
+ * collection's `queryFn` and `prefetchAuditSubset` (same cache entry).
+ */
+async function fetchAuditRows(key: string): Promise<AuditRow[]> {
+  const filter: AuditFilter = auditFilterSchema.parse(JSON.parse(key));
+  const data = await client.audit.list(toAuditInput(filter));
+  return data.items.map((it) => ({ ...it, key }));
+}
+
+/**
+ * Warm one filter subset's rows cache entry (route-loader intent-preload).
+ * Non-blocking and best-effort: the collection's own subset query uses the
+ * same key, so a warm entry makes the page's first load instant.
+ */
+export function prefetchAuditSubset(filter: AuditFilter): void {
+  const key = auditSubsetKey(filter);
+  void queryClient
+    .prefetchQuery({
+      queryKey: [...AUDIT_COLLECTION_KEY, key],
+      queryFn: () => fetchAuditRows(key),
+    })
+    .catch(() => undefined);
+}
+
 const auditQueryOptions = queryCollectionOptions({
   // Stable id — persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "audit",
   syncMode: "on-demand",
   queryKey: (opts) => {
-    const base = ["audit"];
+    const base = [...AUDIT_COLLECTION_KEY];
     const { filters } = parseLoadSubsetOptions(opts);
     // Startup base-key call — query-db-collection calls `queryKey({})` once to
     // compute the prefix every subset key extends. No filters yet.
@@ -146,13 +200,7 @@ const auditQueryOptions = queryCollectionOptions({
     const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
     if (!filters.at(0)) return [];
     const key = parseCol(subsetKeySchema, filters, "key");
-    const filter = JSON.parse(key) as AuditFilter;
-    const data = await client.audit.list(toAuditInput(filter));
-    // Stamp the subset key onto each row so the live-query `eq(a.key, …)`
-    // matches client-side (rows are already server-filtered). `counts`/`total`
-    // are dropped here — they're aggregates, not row data; the route reads
-    // them from its companion query.
-    return data.items.map((it) => ({ ...it, key }));
+    return fetchAuditRows(key);
   },
   queryClient,
   getKey: (item) => item.id,

@@ -1,17 +1,30 @@
-import { CubeIcon, Database02Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
+import { ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { FrameworkLogo } from "@/features/projects/components/framework-logo";
+import { resolveImageBrand, ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
 import { Badge } from "@/shared/components/ui/badge";
 import { CommandItem, CommandShortcut } from "@/shared/components/ui/command";
 import { cn } from "@/shared/lib/utils";
 
-import type { PickerTarget, TargetGroup } from "../data/pick-targets";
+import type { PickerTarget } from "../data/pick-targets";
 
-const GROUP_ICON: Record<TargetGroup, typeof ServerStack01Icon> = {
-  service: CubeIcon,
-  database: Database02Icon,
-  server: ServerStack01Icon,
-};
+/** Each row leads with what it IS: the service/database's brand mark (same
+ *  resolver as the graph tiles), then the DETECTED FRAMEWORK's mark when the
+ *  image resolves nothing (source-built services carry build images no
+ *  resolver recognises, but we know they're Next.js / Vite / …), then the
+ *  neutral container glyph. Servers keep the host glyph. */
+function TargetIcon({ target }: { target: PickerTarget }) {
+  if (target.group === "server") {
+    return (
+      <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={1.8} className="text-muted-foreground" />
+    );
+  }
+  if (resolveImageBrand(target.image) === null && target.framework) {
+    return <FrameworkLogo framework={target.framework} className="size-4 shrink-0" />;
+  }
+  return <ServiceImageIcon image={target.image} className="size-4 shrink-0" />;
+}
 
 /**
  * cmdk scores a single `value` string, so everything searchable is flattened
@@ -53,11 +66,7 @@ export function TargetRow({
       }}
       className="gap-2"
     >
-      <HugeiconsIcon
-        icon={GROUP_ICON[target.group]}
-        strokeWidth={1.8}
-        className="text-muted-foreground"
-      />
+      <TargetIcon target={target} />
       <span className="truncate font-mono text-[13px]">{target.name}</span>
 
       {target.qualifier && (

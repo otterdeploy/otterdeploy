@@ -6,7 +6,6 @@ import {
   useLoaderData,
   useNavigate,
   useRouter,
-  useSearch,
 } from "@tanstack/react-router";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { AnimatePresence } from "motion/react";
@@ -22,9 +21,11 @@ import {
   useStackPanelState,
   type StackPanelState,
 } from "@/features/projects/components/stack";
+import { prefetchDependencySubset } from "@/features/projects/data/dependencies";
+import { projectIdBySlug } from "@/features/projects/data/project";
 import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
-import { resourceCollection } from "@/features/resources/data/resource";
+import { prefetchResourceSubset, resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
 import {
@@ -48,6 +49,20 @@ import { GraphPanelShell } from "./-components/panel-shell";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")({
   component: RouteComponent,
   staticData: { crumb: "Graph" },
+  // Warm the graph's two on-demand collections (resources + dependency edges)
+  // on hover (intent-preload). The prefetch helpers write under the exact
+  // subset keys the collections read, so the canvas's first load renders from
+  // cache. Prefetched for the default/main environment (environmentId
+  // undefined) — resolving the active `?env=` in a loader isn't worth the
+  // complexity; a non-main view just fetches on mount as before. Non-blocking
+  // + best-effort; `projectIdBySlug` is populated because the parent
+  // `$projectSlug` layout loader awaits `projectCollection.preload()`.
+  loader: ({ params }) => {
+    const projectId = projectIdBySlug(params.projectSlug);
+    if (!projectId) return;
+    prefetchResourceSubset(projectId);
+    prefetchDependencySubset(projectId);
+  },
 });
 
 function RouteComponent() {
@@ -266,7 +281,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   const openNode = (node: ResourceFlowNode) => {
     if (node.data.pending === "delete") return;
     if (node.data.kind === "preview") {
-      const preview = node.data.preview as { id?: string } | undefined;
+      const preview = node.data.preview;
       if (typeof preview?.id === "string" && preview.id.length > 0) {
         focusNodeInView(node, setCenter);
         void navigate({
@@ -355,9 +370,10 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
         // reopen the panel.
         if (didDragRef.current) return;
         // React Flow's generic handler types the node as the untyped base
-        // `Node` — this canvas only ever renders `ResourceNode`, which always
-        // gets `ResourceNodeData` (see nodeTypes in graph-flow.tsx).
-        openNode(node as ResourceFlowNode);
+        // `Node` — resolve the click back through OUR typed node list by id
+        // instead of asserting (this canvas only ever renders ResourceNodes).
+        const target = laidOutNodes.find((n) => n.id === node.id);
+        if (target) openNode(target);
       }}
       onNodeContextMenu={contextMenu.onNodeContextMenu}
       onPaneContextMenu={contextMenu.onPaneContextMenu}

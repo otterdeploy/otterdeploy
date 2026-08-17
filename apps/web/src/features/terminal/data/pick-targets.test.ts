@@ -11,6 +11,7 @@ function container(over: Partial<TargetContainer> = {}): TargetContainer {
     image: "registry/store-web:latest",
     state: "running",
     resourceType: "service",
+    framework: null,
     projectSlug: "store",
     projectName: "Store",
     serviceResourceId: "res_svc1",

@@ -29,6 +29,11 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/_app/$orgSlug/_shell/git-providers")({
   staticData: { crumb: "Git providers" },
   validateSearch: searchSchema,
+  // Warm the providers collection on hover (intent-preload) so the cards
+  // render from cache instead of spinning — cheap after the first hit.
+  loader: async () => {
+    await gitProvidersCollection.preload();
+  },
   component: GitProvidersRoute,
 });
 

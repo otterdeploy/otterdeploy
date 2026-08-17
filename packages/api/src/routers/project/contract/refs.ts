@@ -26,6 +26,9 @@ const availableReferenceSchema = z.object({
   /** Engine for database sources (drives the brand icon). Null for
    *  non-database sources. */
   engine: z.enum(["postgres", "redis", "mariadb", "mongodb"]).nullable(),
+  /** Provider kind for vault sources (drives the brand icon, same role as
+   *  `engine` for databases). Null for non-vault sources. */
+  vaultKind: z.enum(["hashicorp", "infisical", "doppler"]).nullable(),
   /** The exported key name (e.g. `DATABASE_URL`, `PGHOST`). */
   key: z.string(),
   /** The full reference token to insert into a value field. */

@@ -1,21 +1,23 @@
 /**
  * Variables — Infisical-style overview matrix + per-env table + bulk-edit
- * modal (with cross-env apply + drag-drop .env import + .env download) +
- * sync integrations. Data wired to
- * `orpc.project.envVar.{list,upsert,delete,bulkReplace}`.
+ * modal (with cross-env apply + drag-drop .env import + .env download).
+ * Data wired to `orpc.project.envVar.{list,upsert,delete,bulkReplace}`.
  *
  * Tabs are dynamic — one per project environment (whatever slugs the org has
- * set up). The Sync tab is an honest coming-soon provider list — the
- * sync-source backend is a separate Plan 7 follow-up, so nothing there
- * pretends to be connected. The matrix / per-env table / bulk editor / sync
- * UI each live in `-components/`.
+ * set up). External secret managers deliberately have NO surface here: they
+ * are connected on the workspace Secrets page and consumed through
+ * `${{vault.<provider>.<ref>}}` references, which the Add-Reference picker
+ * already lists — a provider gallery on this page would duplicate that with
+ * state it doesn't own. The matrix / per-env table / bulk editor each live
+ * in `-components/`.
  */
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 
-import { BalanceScaleIcon, Refresh01Icon } from "@hugeicons/core-free-icons";
+import { BalanceScaleIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { envCollection } from "@/features/projects/data/env";
@@ -30,7 +32,6 @@ import {
 
 import { OverviewMatrix } from "./-components/variables-overview";
 import { PerEnvTable } from "./-components/variables-table";
-import { SyncIntegrations } from "./-components/variables-sync";
 import type { EnvironmentRef, EnvVarRow } from "./-components/variables-types";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/variables")({
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/variabl
 });
 
 function VariablesRoute() {
+  const { t } = useTranslation();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const projectId = project.id;
 
@@ -97,7 +99,7 @@ function VariablesRoute() {
         >
           <TabsTrigger value="overview" className="gap-1.5">
             <HugeiconsIcon icon={BalanceScaleIcon} className="size-3.5" />
-            Overview
+            {t("nav.overview")}
           </TabsTrigger>
           {envRefs.map((env) => {
             const count = byEnv.get(env.id)?.length ?? 0;
@@ -112,10 +114,6 @@ function VariablesRoute() {
               </TabsTrigger>
             );
           })}
-          <TabsTrigger value="sync" className="gap-1.5">
-            <HugeiconsIcon icon={Refresh01Icon} className="size-3.5" />
-            Sync
-          </TabsTrigger>
         </TabsList>
 
         {/* One subscriber per env keeps `byEnv` in sync with the
@@ -144,9 +142,6 @@ function VariablesRoute() {
             />
           </TabsContent>
         ))}
-        <TabsContent value="sync" className="flex-1 overflow-auto">
-          <SyncIntegrations />
-        </TabsContent>
       </Tabs>
     </div>
   );

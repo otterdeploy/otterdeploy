@@ -38,6 +38,9 @@ export interface AvailableReference {
   sourceKind: "database" | "service" | "project" | "environment" | "vault";
   sourceName: string;
   engine: DatabaseEngine | null;
+  /** Provider kind for vault sources — the picker's brand icon, same role
+   *  as `engine` for databases. */
+  vaultKind: "hashicorp" | "infisical" | "doppler" | null;
   key: string;
   token: string;
   isSecret: boolean;
@@ -114,6 +117,7 @@ export async function listAvailableRefs(
         sourceKind: "database",
         sourceName: row.resource.name,
         engine,
+        vaultKind: null,
         key,
         token: `\${{${row.resource.name}.${key}}}`,
         isSecret: isSecretKey(key),
@@ -148,6 +152,7 @@ export async function listAvailableRefs(
         sourceKind: "service",
         sourceName: row.resource.name,
         engine: null,
+        vaultKind: null,
         key,
         token: `\${{${row.resource.name}.${key}}}`,
         isSecret: isSecretKey(key),
@@ -174,6 +179,7 @@ export async function listAvailableRefs(
         sourceKind: "project",
         sourceName: "Shared variables",
         engine: null,
+        vaultKind: null,
         key,
         token: `\${{project.${key}}}`,
         isSecret: isSecretKey(key),
@@ -213,6 +219,7 @@ async function listVaultRefs(organizationId: OrgId): Promise<AvailableReference[
         sourceKind: "vault",
         sourceName: provider.name,
         engine: null,
+        vaultKind: provider.kind,
         key,
         token: `\${{vault.${provider.name}.${key}}}`,
         // Externally-managed secret material, always masked.

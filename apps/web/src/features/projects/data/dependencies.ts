@@ -21,6 +21,23 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  *  edges. See [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPENDENCIES_COLLECTION_KEY = ["dependencies"] as const;
 
+/**
+ * Warm one project subset's cache entry (route-loader intent-preload). Mirrors
+ * the collection's own subset `queryKey`/`queryFn` below, so a warm entry makes
+ * the collection's first load instant. Non-blocking + best-effort.
+ */
+export function prefetchDependencySubset(projectId: string): void {
+  void queryClient
+    .prefetchQuery({
+      queryKey: [
+        ...DEPENDENCIES_COLLECTION_KEY,
+        ...orpc.project.dependencies.queryKey({ input: { projectId } }),
+      ],
+      queryFn: () => orpc.project.dependencies.call({ projectId }),
+    })
+    .catch(() => undefined);
+}
+
 const dependenciesQueryOptions = queryCollectionOptions({
   // Stable id so the OPFS-backed SQLite table survives page loads — see
   // projectCollection for why persistence never round-trips without one.

@@ -16,10 +16,11 @@
 import type { OrganizationId, ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
+import { databaseResource, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { type ContainerSummary, Docker } from "@otterdeploy/docker";
-import { canonicalId } from "@otterdeploy/shared/id";
-import { and, eq, isNull } from "drizzle-orm";
+import { FRAMEWORK_KINDS, type Framework } from "@otterdeploy/shared/framework";
+import { canonicalId, ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 type OrgId = OrganizationId;
 
 export interface TerminalContainer {
@@ -29,6 +30,8 @@ export interface TerminalContainer {
   image: string;
   state: string;
   resourceType: "service" | "postgres" | "redis" | "mariadb" | "mongodb";
+  /** Detected framework for source-built services (picker icon fallback). */
+  framework: Framework | null;
   projectSlug: ProjectSlug | null;
   projectName: string | null;
   serviceResourceId: ResourceId | null;
@@ -49,19 +52,26 @@ export interface TerminalTargets {
   databases: TerminalDatabase[];
 }
 
-const TERMINAL_RESOURCE_TYPES = new Set<TerminalContainer["resourceType"]>([
+const TERMINAL_RESOURCE_TYPE_LIST = [
   "service",
   "postgres",
   "redis",
   "mariadb",
   "mongodb",
-]);
+] satisfies TerminalContainer["resourceType"][];
+const TERMINAL_RESOURCE_TYPES: ReadonlySet<string> = new Set(TERMINAL_RESOURCE_TYPE_LIST);
 
 function isTerminalResourceType(
   value: string | undefined,
 ): value is TerminalContainer["resourceType"] {
-  return TERMINAL_RESOURCE_TYPES.has(value as TerminalContainer["resourceType"]);
+  return value !== undefined && TERMINAL_RESOURCE_TYPES.has(value);
 }
+
+// Docker labels and DB slug/id columns travel as plain strings — parse (not
+// cast) to the branded types at this boundary.
+const projectIdSchema = zId("prj");
+const resourceIdSchema = zId("res");
+const projectSlugSchema = zSlug(ID_PREFIX.project);
 
 /**
  * Parse "myservice.3.abc123" → ("myservice", "3"). Falls back to (full, null)
@@ -104,19 +114,26 @@ function toTerminalContainer(
   // Old prefix on pre-rename containers; callers match this against DB ids.
   const labelResourceId = rawLabelResourceId ? canonicalId(rawLabelResourceId) : rawLabelResourceId;
 
+  // The slug came off a docker label and the id off our own project row —
+  // parse both rather than cast; a malformed label drops the container the
+  // same way an unknown project slug does.
+  const parsedSlug = projectSlugSchema.safeParse(labelProjectSlug);
+  const parsedProjectId = projectIdSchema.safeParse(terminalProject.id);
+  if (!parsedSlug.success || !parsedProjectId.success) return null;
+  const parsedResourceId = resourceIdSchema.safeParse(labelResourceId);
+
   return {
     containerId: c.Id,
-    projectId: terminalProject.id as ProjectId,
+    projectId: parsedProjectId.data,
     name: serviceName,
     image: c.Image,
     state: c.State,
     resourceType,
-    // Cast: the slug came off a docker label as a raw string. We've
-    // already verified above (slugToProject.has) that it matches an
-    // org-owned project, so it's safe to brand here.
-    projectSlug: labelProjectSlug as ProjectSlug,
+    // Stamped in a batch after assembly (one query for all service rows).
+    framework: null,
+    projectSlug: parsedSlug.data,
     projectName: terminalProject.name,
-    serviceResourceId: (labelResourceId as ResourceId | undefined) ?? null,
+    serviceResourceId: parsedResourceId.success ? parsedResourceId.data : null,
     serviceName,
     replicaSlot: slot,
   };
@@ -158,6 +175,26 @@ export async function listTerminalTargets(input: {
       if (mapped) containers.push(mapped);
     }
   }
+  // Framework enrichment: the picker's icon fallback when the image ref
+  // resolves no brand mark (source-built services have a build image no
+  // resolver recognises, but a detected framework we can render instead).
+  const frameworkIds = containers.flatMap((c) =>
+    c.resourceType === "service" && c.serviceResourceId ? [c.serviceResourceId] : [],
+  );
+  if (frameworkIds.length > 0) {
+    const rows = await db
+      .select({ resourceId: serviceResource.resourceId, framework: serviceResource.framework })
+      .from(serviceResource)
+      .where(inArray(serviceResource.resourceId, frameworkIds));
+    const frameworkByResource = new Map(rows.map((r) => [r.resourceId, r.framework]));
+    const isFramework = (value: string | null | undefined): value is Framework =>
+      value != null && FRAMEWORK_KINDS.some((kind) => kind === value);
+    for (const c of containers) {
+      const detected = c.serviceResourceId ? frameworkByResource.get(c.serviceResourceId) : null;
+      if (isFramework(detected)) c.framework = detected;
+    }
+  }
+
   // Sort: project then service then replica slot for stable rendering.
   containers.sort((a, b) => {
     if (a.projectSlug !== b.projectSlug) {
@@ -193,7 +230,8 @@ export async function listTerminalTargets(input: {
       resourceId: r.resourceId,
       name: r.name,
       engine: r.engine,
-      projectSlug: r.projectSlug as ProjectSlug,
+      // Our own project row — parse the plain-text column to the brand.
+      projectSlug: projectSlugSchema.parse(r.projectSlug),
       projectName: r.projectName,
     }));
 
