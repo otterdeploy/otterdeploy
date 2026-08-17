@@ -7,6 +7,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { useImperativeHandle, useState, type Ref } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
@@ -59,6 +60,7 @@ function suggestKeyFromToken(token: string): string {
 }
 
 export function VariablesEditor({ resource, ref, onSave, countLabel }: VariablesEditorProps) {
+  const { t } = useTranslation();
   const [bulkOpen, setBulkOpen] = useState(false);
 
   // Tolerate undefined here — the resource list cache predates the
@@ -111,9 +113,12 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
         editor.commit();
         // Saving persists only (redeploy: false) — the values take effect the
         // next time the resource deploys (e.g. the panel's Redeploy action).
-        toast.success("Variables saved — they take effect on the next redeploy");
+        // This is the FALLBACK path: services declared on the manifest save
+        // via `onSave` staging instead, and their feedback is the pending-
+        // changes bar plus the staged toast.
+        toast.success(t("resources.variablesSavedRedeploy"));
       },
-      onError: (err) => toast.error(err.message ?? "Failed to save"),
+      onError: (err) => toast.error(err.message ?? t("resources.variablesSaveFailed")),
     }),
   );
 

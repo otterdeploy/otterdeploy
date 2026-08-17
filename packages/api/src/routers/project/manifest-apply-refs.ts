@@ -138,12 +138,33 @@ function resolveDatabaseRef(
     unresolved.push(`\${database:${name}.${tail}} (database not found)`);
     return whole;
   }
-  const value = (dbRef as unknown as Record<string, string | number>)[tail];
+  const value = databaseFieldValue(dbRef, tail);
   if (value === undefined) {
     unresolved.push(whole);
     return whole;
   }
-  return typeof value === "string" ? value : String(value);
+  return value;
+}
+
+/** Explicit field lookup — the view's fields are string|number scalars, so
+ *  coerce to string here rather than indexing through a widened record. */
+function databaseFieldValue(dbRef: DatabaseRefView, tail: string): string | undefined {
+  switch (tail) {
+    case "url":
+      return dbRef.url;
+    case "host":
+      return dbRef.host;
+    case "port":
+      return String(dbRef.port);
+    case "username":
+      return dbRef.username;
+    case "password":
+      return dbRef.password;
+    case "database":
+      return dbRef.database;
+    default:
+      return undefined;
+  }
 }
 
 function resolveServiceRef(
@@ -171,6 +192,9 @@ function interpolate(raw: string, refs: RefTable): { value: string; unresolved: 
   if (tokens.length === 0) return { value: raw, unresolved };
 
   const out = raw.replace(/\$\{([^}]+)\}/g, (whole, body: string) => {
+    // Platform `${{…}}` tokens pass through verbatim — they resolve at deploy
+    // time, so apply writes them raw exactly like the live env editor does.
+    if (body.startsWith("{")) return whole;
     if (body === "secret") return whole; // handled upstream
     const colonIdx = body.indexOf(":");
     if (colonIdx === -1) {

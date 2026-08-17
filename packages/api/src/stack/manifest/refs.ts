@@ -29,7 +29,11 @@ export type Ref =
 
 const REF_PATTERN = /\$\{([^}]+)\}/g;
 
-const DATABASE_FIELDS = new Set(["url", "host", "port", "username", "password", "database"]);
+const DATABASE_FIELDS = ["url", "host", "port", "username", "password", "database"] as const;
+type DatabaseField = (typeof DATABASE_FIELDS)[number];
+
+const isDatabaseField = (value: string): value is DatabaseField =>
+  DATABASE_FIELDS.some((field) => field === value);
 
 export function isSecretSentinel(value: string): boolean {
   return value.trim() === "${secret}";
@@ -46,6 +50,13 @@ export function parseRefs(value: string): Ref[] {
   for (const match of value.matchAll(REF_PATTERN)) {
     const body = match[1];
     if (body === undefined) continue;
+    // `${{…}}` is the PLATFORM reference grammar (`${{postgres.DATABASE_URL}}`,
+    // `${{vault.<provider>.<key>}}`), resolved at deploy time by the variable
+    // resolver — not a manifest ref. The single-brace regex captures it as
+    // `{…` (stopping at the first `}`), which used to throw "Unknown
+    // reference" and reject any staged env row that carried a reference
+    // token. Treat it as opaque text instead.
+    if (body.startsWith("{")) continue;
     refs.push(parseToken(body));
   }
   return refs;
@@ -68,16 +79,12 @@ function parseToken(body: string): Ref {
   const tail = rest.slice(dotIdx + 1);
 
   if (namespace === "database") {
-    if (!DATABASE_FIELDS.has(tail)) {
+    if (!isDatabaseField(tail)) {
       throw new ManifestRefError(
-        `Unknown database field "${tail}" in \${${body}}. Expected one of ${[...DATABASE_FIELDS].join(", ")}.`,
+        `Unknown database field "${tail}" in \${${body}}. Expected one of ${DATABASE_FIELDS.join(", ")}.`,
       );
     }
-    return {
-      kind: "database",
-      name,
-      field: tail as Ref extends { kind: "database" } ? Ref["field"] : never,
-    };
+    return { kind: "database", name, field: tail };
   }
 
   if (namespace === "service") {
