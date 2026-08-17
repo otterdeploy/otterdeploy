@@ -23,31 +23,17 @@ export interface WireSeriesBucket {
   p99: number | null;
 }
 
-export interface RequestRow {
-  ts: number;
-  requests: number;
-  errors: number;
+export interface SeriesPoint {
+  date: Date;
+  value: number | null;
 }
 
-export interface LatencyRow {
-  ts: number;
-  p50: number | null;
-  p95: number | null;
-  p99: number | null;
-}
-
-/** Requests + errors per bucket. Errors overlay the total (4xx+5xx ⊆ all),
- *  which reads as a shaded floor under the traffic line: one axis, one unit. */
-export function requestRows(series: readonly WireSeriesBucket[]): RequestRow[] {
-  return series.map((b) => ({
-    ts: Date.parse(b.t),
-    requests: b.requests,
-    errors: b.s4xx + b.s5xx,
-  }));
-}
-
-export function latencyRows(series: readonly WireSeriesBucket[]): LatencyRow[] {
-  return series.map((b) => ({ ts: Date.parse(b.t), p50: b.p50, p95: b.p95, p99: b.p99 }));
+/** One named series of chart points, picked off the wire buckets. */
+export function seriesPoints(
+  series: readonly WireSeriesBucket[],
+  pick: (bucket: WireSeriesBucket) => number | null,
+): SeriesPoint[] {
+  return series.map((b) => ({ date: new Date(b.t), value: pick(b) }));
 }
 
 export interface TopEntry {

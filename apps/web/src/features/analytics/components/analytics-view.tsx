@@ -1,23 +1,26 @@
 /**
- * The one traffic-analytics surface: project-scoped on the project's
- * Analytics tab, install-wide on the org Edge page. Rollup-backed
- * (`edgeLogs.analytics.*`), so every range costs the same and the numbers
- * outlive the raw log's retention.
+ * The one traffic-analytics surface: install-wide on the top-level Analytics
+ * page (admins), org-scoped otherwise. Rollup-backed (`edgeLogs.analytics.*`),
+ * so every range costs the same and the numbers outlive the raw log's
+ * retention.
  *
  * Honesty over polish, same house rules as the metrics cards: approximate
  * visitor windows say so, breakdowns admit their UTC-day granularity, and a
  * missing GeoIP database reads as "geo isn't set up", never as "no visitors".
  */
 
+import { useMemo } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 
-import { MetricAreaChart } from "@/features/resources/components/_shared/metrics/metric-area-chart";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 import { orpc } from "@/shared/server/orpc";
 
 import type { AnalyticsRangeKey } from "../analytics-model";
+import type { ChartSeriesDef } from "./analytics-chart";
 
-import { ANALYTICS_RANGES, formatCount, latencyRows, requestRows } from "../analytics-model";
+import { ANALYTICS_RANGES, formatCount, seriesPoints } from "../analytics-model";
+import { AnalyticsChart } from "./analytics-chart";
 import {
   BreakdownPanels,
   ChartCard,
@@ -63,10 +66,47 @@ export function AnalyticsView({ projectId, installWide, range, onRangeChange }: 
 
   const data = overview.data;
   const dims = breakdowns.data;
+  const wireSeries = data?.series;
+
+  const requestSeries: ChartSeriesDef[] = useMemo(
+    () =>
+      wireSeries
+        ? [
+            {
+              label: "Requests",
+              color: "var(--primary)",
+              data: seriesPoints(wireSeries, (b) => b.requests),
+            },
+            {
+              label: "4xx + 5xx",
+              color: "var(--destructive)",
+              data: seriesPoints(wireSeries, (b) => b.s4xx + b.s5xx),
+            },
+          ]
+        : [],
+    [wireSeries],
+  );
+  const latencySeries: ChartSeriesDef[] = useMemo(
+    () =>
+      wireSeries
+        ? [
+            { label: "p99", color: "var(--chart-1)", data: seriesPoints(wireSeries, (b) => b.p99) },
+            {
+              label: "p95",
+              color: "var(--primary)",
+              data: seriesPoints(wireSeries, (b) => b.p95),
+            },
+            { label: "p50", color: "var(--chart-5)", data: seriesPoints(wireSeries, (b) => b.p50) },
+          ]
+        : [],
+    [wireSeries],
+  );
+
+  const tickFace = (data?.bucketSeconds ?? 0) >= 86_400 ? "date" : "time";
 
   return (
     <div className="flex flex-col gap-3">
-      {/* The surrounding page/tab owns the title + description; this row owns
+      {/* The surrounding page owns the title + description; this row owns
           only the window choice, so embedding the view never doubles copy. */}
       <div className="flex flex-wrap items-center justify-end gap-2">
         <ToggleGroup
@@ -97,8 +137,6 @@ export function AnalyticsView({ projectId, installWide, range, onRangeChange }: 
         if (overview.isError && !data) return <Note>Couldn&apos;t load analytics. Retrying.</Note>;
         if (!data) return null;
         if (data.summary.hostCount === 0) {
-          // Install scope has no domain list to be empty: a zero there just
-          // means no requests have reached the edge in this window.
           return installWide ? (
             <Note>No traffic recorded in this window.</Note>
           ) : (
@@ -107,20 +145,18 @@ export function AnalyticsView({ projectId, installWide, range, onRangeChange }: 
         }
         return (
           <>
-            <StatStrip stats={headlineStats(data.summary)} />
+            <StatStrip stats={headlineStats(data.summary, data.series)} />
 
             <div className="grid gap-3 md:grid-cols-2">
               <ChartCard title="Requests">
                 {data.summary.requests === 0 ? (
                   <Note>No requests in this window.</Note>
                 ) : (
-                  <MetricAreaChart
-                    data={requestRows(data.series)}
+                  <AnalyticsChart
+                    series={requestSeries}
+                    kind="area"
                     format={formatCount}
-                    series={[
-                      { dataKey: "requests", label: "Requests", color: "var(--chart-3)" },
-                      { dataKey: "errors", label: "4xx+5xx", color: "var(--destructive)" },
-                    ]}
+                    tickFace={tickFace}
                   />
                 )}
               </ChartCard>
@@ -128,20 +164,17 @@ export function AnalyticsView({ projectId, installWide, range, onRangeChange }: 
                 {data.summary.p95 === null ? (
                   <Note>No requests in this window.</Note>
                 ) : (
-                  <MetricAreaChart
-                    data={latencyRows(data.series)}
+                  <AnalyticsChart
+                    series={latencySeries}
+                    kind="line"
                     format={(v) => `${Math.round(v)} ms`}
-                    series={[
-                      { dataKey: "p99", label: "p99", color: "var(--chart-1)" },
-                      { dataKey: "p95", label: "p95", color: "var(--chart-3)" },
-                      { dataKey: "p50", label: "p50", color: "var(--chart-5)" },
-                    ]}
+                    tickFace={tickFace}
                   />
                 )}
               </ChartCard>
             </div>
 
-            {dims ? <BreakdownPanels dims={dims} /> : null}
+            {dims ? <BreakdownPanels dims={dims} visitorDays={data.summary.visitorDays} /> : null}
 
             <HonestyNotes
               approximate={data.flags.approximate}

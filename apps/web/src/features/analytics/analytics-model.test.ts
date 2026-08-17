@@ -5,11 +5,10 @@ import {
   formatCount,
   formatShare,
   groupStatuses,
-  latencyRows,
-  requestRows,
+  seriesPoints,
 } from "./analytics-model";
 
-describe("requestRows / latencyRows", () => {
+describe("seriesPoints", () => {
   const bucket = {
     t: "2026-08-16T12:00:00.000Z",
     requests: 100,
@@ -25,14 +24,14 @@ describe("requestRows / latencyRows", () => {
     p99: 200,
   };
 
-  test("errors = 4xx + 5xx, timestamps parse to epoch ms", () => {
-    const rows = requestRows([bucket]);
-    expect(rows).toEqual([{ ts: Date.parse(bucket.t), requests: 100, errors: 8 }]);
+  test("picks values with real Date objects", () => {
+    const points = seriesPoints([bucket], (b) => b.s4xx + b.s5xx);
+    expect(points).toEqual([{ date: new Date(bucket.t), value: 8 }]);
   });
 
-  test("latency rows keep nulls (empty bucket = gap, not zero)", () => {
-    const rows = latencyRows([{ ...bucket, p50: null, p95: null, p99: null }]);
-    expect(rows[0]?.p95).toBeNull();
+  test("keeps nulls (empty bucket = gap, not zero)", () => {
+    const points = seriesPoints([{ ...bucket, p95: null }], (b) => b.p95);
+    expect(points[0]?.value).toBeNull();
   });
 });
 

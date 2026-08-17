@@ -17,9 +17,10 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 import type { AnalyticsRangeKey, TopEntry } from "../analytics-model";
 import type { Stat } from "./stat-strip";
 
-import { countryName, formatCount, formatShare } from "../analytics-model";
+import { formatCount, formatShare } from "../analytics-model";
 import { StatusMix } from "./status-mix";
 import { TopList } from "./top-list";
+import { VisitorMap } from "./visitor-map";
 
 export interface OverviewSummary {
   requests: number;
@@ -33,7 +34,15 @@ export interface OverviewSummary {
   hostCount: number;
 }
 
-export function headlineStats(summary: OverviewSummary): Stat[] {
+interface SparkBucket {
+  requests: number;
+  s4xx: number;
+  s5xx: number;
+  resBytes: number;
+  p95: number | null;
+}
+
+export function headlineStats(summary: OverviewSummary, series: readonly SparkBucket[]): Stat[] {
   return [
     {
       label: "Requests",
@@ -42,6 +51,7 @@ export function headlineStats(summary: OverviewSummary): Stat[] {
         summary.requests > 0
           ? `${formatShare(summary.botRequests, summary.requests)} bots`
           : undefined,
+      spark: series.map((b) => b.requests),
     },
     {
       label: "Visitor-days",
@@ -53,17 +63,23 @@ export function headlineStats(summary: OverviewSummary): Stat[] {
       title:
         "Distinct visitors summed per UTC day (bots excluded). Per-day counts can't be merged into unique visitors for the whole window.",
     },
-    { label: "Bandwidth out", value: formatBytes(summary.bytesOut) },
+    {
+      label: "Bandwidth out",
+      value: formatBytes(summary.bytesOut),
+      spark: series.map((b) => b.resBytes),
+    },
     {
       label: "Latency",
       value: summary.p95 === null ? "–" : `${summary.p95} ms`,
       sub: summary.avgLatencyMs === null ? undefined : `avg ${summary.avgLatencyMs} ms`,
       title: "p95 over the window, from merged latency histograms.",
+      spark: series.map((b) => b.p95 ?? 0),
     },
     {
       label: "Error rate",
       value: `${(summary.errorRate * 100).toFixed(summary.errorRate < 0.01 ? 2 : 1)}%`,
       sub: "4xx + 5xx",
+      spark: series.map((b) => b.s4xx + b.s5xx),
     },
   ];
 }
@@ -83,38 +99,37 @@ export interface BreakdownDims {
   flags: { geoAvailable: boolean };
 }
 
-export function BreakdownPanels({ dims }: { dims: BreakdownDims }) {
+export function BreakdownPanels({
+  dims,
+  visitorDays,
+}: {
+  dims: BreakdownDims;
+  visitorDays: number;
+}) {
   return (
     <>
+      <VisitorMap
+        countries={dims.countries}
+        visitorDays={visitorDays}
+        geoAvailable={dims.flags.geoAvailable}
+      />
       <div className="grid gap-3 md:grid-cols-2">
         <StatusMix entries={dims.statuses} />
-        <TopList
-          title="Countries"
-          entries={dims.countries}
-          total={sumCounts(dims.countries)}
-          renderKey={(code) => (code === "other" ? "Other" : `${code} · ${countryName(code)}`)}
-          emptyNote={
-            dims.flags.geoAvailable
-              ? "No visitor countries in this window."
-              : "GeoIP isn't configured on this install, so countries can't be resolved."
-          }
-        />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
         <TopList
           title="Top paths"
           entries={dims.paths}
           total={sumCounts(dims.paths)}
           emptyNote="No paths recorded in this window."
         />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <TopList
           title="Referrers"
           entries={dims.referrers}
           total={sumCounts(dims.referrers)}
+          visibleRows={5}
           emptyNote="No external referrers in this window."
         />
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
         <TopList
           title="Browsers"
           entries={dims.browsers}

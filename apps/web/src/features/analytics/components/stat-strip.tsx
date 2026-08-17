@@ -8,6 +8,8 @@ import type { ReactNode } from "react";
 
 import { Card } from "@/shared/components/ui/card";
 
+import { Sparkline } from "./sparkline";
+
 export interface Stat {
   label: string;
   value: string;
@@ -15,11 +17,13 @@ export interface Stat {
   sub?: ReactNode;
   /** Hover explanation for labels that carry semantics ("visitor-days"). */
   title?: string;
+  /** Per-bucket shape of this figure over the window; omitted = no spark. */
+  spark?: readonly number[];
 }
 
 export function StatStrip({ stats }: { stats: readonly Stat[] }) {
   return (
-    <Card className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 sm:grid-cols-3 lg:grid-cols-5">
+    <Card className="grid grid-cols-2 gap-x-6 gap-y-4 p-4 sm:grid-cols-3 lg:grid-cols-5">
       {stats.map((stat) => (
         <div key={stat.label} className="flex min-w-0 flex-col gap-1" title={stat.title}>
           <span className="truncate text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
@@ -33,6 +37,7 @@ export function StatStrip({ stats }: { stats: readonly Stat[] }) {
               {stat.sub}
             </span>
           ) : null}
+          {stat.spark ? <Sparkline values={stat.spark} /> : null}
         </div>
       ))}
     </Card>
