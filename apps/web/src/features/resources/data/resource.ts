@@ -1,10 +1,8 @@
 import { zId } from "@otterdeploy/shared/id";
-import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection, type SimpleComparison } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import * as z from "zod";
 
-import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -47,6 +45,19 @@ const projectIdSchema = zId("prj");
 const environmentIdSchema = zId("env");
 
 /**
+ * The environment filter as live queries push it down. `""` is the
+ * unresolved-switcher sentinel (`inActiveEnvironment` renders `eq(env, "")`
+ * while the active environment is still loading) — treat it as "no
+ * environment filter" rather than failing the id parse.
+ */
+function parseEnvironmentFilter(
+  filters: SimpleComparison[],
+): z.infer<typeof environmentIdSchema> | undefined {
+  const raw = parseOptionalCol(z.union([environmentIdSchema, z.literal("")]), filters, "environmentId");
+  return raw === "" ? undefined : raw;
+}
+
+/**
  * Namespace prefix for the on-demand resource collection's react-query cache
  * entries. Deliberately distinct from the `orpc.project.resource.list` key so
  * the collection's polled subset queries don't collide with direct one-shot
@@ -55,6 +66,52 @@ const environmentIdSchema = zId("env");
  * the `["resource"]` literal (which drifts silently if the prefix ever changes).
  */
 export const RESOURCE_COLLECTION_KEY = ["resource"] as const;
+
+type ResourceRow = Awaited<ReturnType<typeof orpc.project.resource.list.call>>[number];
+
+/**
+ * Fetch one project's resource rows, applying the client-side twin of the
+ * server's NULL-means-main rule (inEnvironmentScope): stamp NULL
+ * environmentId rows with the environment they were fetched under, so live
+ * queries scope with a plain eq() — the or(isNull) expression this replaces
+ * was unparseable by the on-demand subset extractor, which silently broke ALL
+ * network sync for this collection (2026-08-17 incident). Shared by the
+ * collection's queryFn and `prefetchResourceSubset` so the normalization
+ * cannot drift between the two.
+ */
+async function fetchResourceRows(
+  projectId: string,
+  environmentId: z.infer<typeof environmentIdSchema> | undefined,
+): Promise<ResourceRow[]> {
+  const rows = await orpc.project.resource.list.call({ projectId, environmentId });
+  if (environmentId === undefined) return rows;
+  return rows.map((r): ResourceRow => {
+    if (r.environmentId !== null) return r;
+    const stamped: ResourceRow = { ...r };
+    stamped.environmentId = environmentId;
+    return stamped;
+  });
+}
+
+/**
+ * Warm one project subset's cache entry (route-loader intent-preload). The
+ * on-demand collection's own subset query uses the same key, so a warm entry
+ * makes the collection's first load instant. Non-blocking + best-effort.
+ */
+export function prefetchResourceSubset(projectId: string, environmentId?: string): void {
+  // Parse (not cast) to the branded env id the row-stamping fetch expects —
+  // callers hand loaders plain strings.
+  const envId = environmentId === undefined ? undefined : environmentIdSchema.parse(environmentId);
+  void queryClient
+    .prefetchQuery({
+      queryKey: [
+        ...RESOURCE_COLLECTION_KEY,
+        ...orpc.project.resource.list.queryKey({ input: { projectId, environmentId: envId } }),
+      ],
+      queryFn: () => fetchResourceRows(projectId, envId),
+    })
+    .catch(() => undefined);
+}
 
 const resourceQueryOptions = queryCollectionOptions({
   // Stable id — required for SQLite persistence to round-trip (see
@@ -73,7 +130,7 @@ const resourceQueryOptions = queryCollectionOptions({
     // shares one cache entry, so switching the switcher re-renders the
     // previous environment's rows and never refetches — the switcher looked
     // broken when in fact nothing had asked the server a new question.
-    const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
+    const environmentId = parseEnvironmentFilter(filters);
     const subsetKey = orpc.project.resource.list.queryKey({
       input: { projectId, environmentId },
     });
@@ -84,8 +141,10 @@ const resourceQueryOptions = queryCollectionOptions({
     const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
     if (!filters.at(0)) return [];
     const projectId = parseCol(projectIdSchema, filters, "projectId");
-    const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
-    return orpc.project.resource.list.call({ projectId, environmentId });
+    const environmentId = parseEnvironmentFilter(filters);
+    // NULL-environmentId stamping happens inside the shared fetch — see
+    // fetchResourceRows above.
+    return fetchResourceRows(projectId, environmentId);
   },
   onDelete: async ({ transaction }) => {
     await Promise.all(
@@ -109,16 +168,14 @@ const resourceQueryOptions = queryCollectionOptions({
   getKey: (item) => item.resourceId,
 });
 
-type ResourceRow = Awaited<ReturnType<typeof orpc.project.resource.list.call>>[number];
-
-// Two-branch createCollection + pinned generics — same type gymnastics as
-// projectCollection (features/projects/data/project.ts).
-export const resourceCollection = persistence
-  ? createCollection(
-      persistedCollectionOptions<ResourceRow, string | number>({
-        ...resourceQueryOptions,
-        persistence,
-        schemaVersion: 1,
-      }),
-    )
-  : createCollection(resourceQueryOptions);
+// PERSISTENCE DISABLED for this collection (2026-08-17 incident): with the
+// OPFS SQLite wrapper active, this collection served days-stale rows and
+// REGISTERED NO NETWORK QUERIES AT ALL — the edge logs showed zero
+// `project.resource.list` requests across hard refreshes while sibling
+// persisted collections (dependencies, serviceTasks) synced normally. Every
+// resource surface (graph, panels, the postgres public-access toggle)
+// rendered a frozen snapshot; mutations succeeded server-side and the UI
+// never caught up. Until the persistence spike explains and covers that
+// failure mode with a test, resources — the platform's core truth surface —
+// stay network-synced only.
+export const resourceCollection = createCollection(resourceQueryOptions);
