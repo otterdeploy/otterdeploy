@@ -44,7 +44,7 @@ export function createVaultState(organizationId: string | null | undefined): Vau
   };
 }
 
-export function vaultValueKey(provider: string, ref: string): string {
+function vaultValueKey(provider: string, ref: string): string {
   // \0 can't appear in either segment (parser grammar), so the key is
   // collision-free without escaping.
   return `${provider}\0${ref}`;

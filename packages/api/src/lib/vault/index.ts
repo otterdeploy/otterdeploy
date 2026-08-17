@@ -13,7 +13,7 @@
  * each dispatch below.
  */
 
-import type { VaultProviderKind, VaultProviderRuntime } from "./types";
+import type { VaultProviderRuntime } from "./types";
 
 import { dopplerGetSecrets, dopplerListSecretNames, dopplerTest } from "./doppler";
 import { hashicorpGetSecrets, hashicorpListSecretNames, hashicorpTest } from "./hashicorp";
@@ -66,8 +66,4 @@ export async function listSecretNames(provider: VaultProviderRuntime): Promise<s
     case "doppler":
       return dopplerListSecretNames(provider);
   }
-}
-
-export function isVaultProviderKind(value: string): value is VaultProviderKind {
-  return value === "hashicorp" || value === "infisical" || value === "doppler";
 }

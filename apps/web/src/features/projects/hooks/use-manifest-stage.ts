@@ -38,7 +38,7 @@ type ProjectId = Id<typeof ID_PREFIX.project>;
 type ManifestDraft = Omit<Manifest, "project"> & { project: string };
 
 /** A pure transform producing the next manifest from the current one. */
-export type ManifestMutator = (current: ManifestDraft) => ManifestDraft;
+type ManifestMutator = (current: ManifestDraft) => ManifestDraft;
 
 /** Seed an empty manifest so a mutator never has to special-case the
  *  first-ever change on a fresh project. */
@@ -125,7 +125,7 @@ interface SkippedChange {
   reason: string;
 }
 
-export interface ApplyManifestResult {
+interface ApplyManifestResult {
   appliedCount: number;
   skipped: SkippedChange[];
   /** True when at least one change reconciled. The caller can treat this

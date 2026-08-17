@@ -68,7 +68,7 @@ const networkInspectSchema = z.object({
 
 /** Docker network-name constraint, kept intentionally tighter than the
  *  daemon's (lowercase only) so names read like the platform's own. */
-export const networkNameField = z
+const networkNameField = z
   .string()
   .regex(
     /^[a-z0-9][a-z0-9_-]{0,62}$/,

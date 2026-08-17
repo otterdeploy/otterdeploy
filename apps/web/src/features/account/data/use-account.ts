@@ -19,7 +19,7 @@ export const authKeys = {
   passkeys: ["auth", "passkeys"] as const,
 };
 
-export interface SessionRow {
+interface SessionRow {
   id: string;
   token: string;
   createdAt: string | Date;
@@ -66,7 +66,7 @@ export function useSessions() {
   });
 }
 
-export interface PasskeyRow {
+interface PasskeyRow {
   id: string;
   name?: string | null;
   deviceType: string;
