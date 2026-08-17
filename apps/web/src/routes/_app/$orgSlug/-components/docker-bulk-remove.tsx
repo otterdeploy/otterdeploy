@@ -3,7 +3,7 @@
  *
  * Generic over the row type: each table supplies how to label a row and how to
  * remove one. The run is a client-side fan-out over the existing single-item
- * endpoint — see the note in `shared/components/table-selection` for why that
+ * endpoint: see the note in `shared/components/table-selection` for why that
  * beats a bulk API here.
  */
 
@@ -44,11 +44,11 @@ export function DockerBulkRemoveDialog<T>({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selection: TableSelection<T>;
-  /** Pluralisable i18n key for the noun — e.g. `docker.noun.image`. */
+  /** Pluralisable i18n key for the noun: e.g. `docker.noun.image`. */
   nounKey: TranslationKey;
   labelOf: (row: T) => string;
   removeOne: (row: T) => Promise<unknown>;
-  /** Consequence copy — say what breaks, not just "are you sure". */
+  /** Consequence copy: say what breaks, not just "are you sure". */
   consequence: string;
   onDone: () => void;
 }) {
@@ -106,7 +106,7 @@ export function DockerBulkRemoveDialog<T>({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        {/* Named list — a bare count is not enough for an irreversible action. */}
+        {/* Named list: a bare count is not enough for an irreversible action. */}
         <ul className="max-h-48 overflow-y-auto rounded-md border bg-muted/30 p-2">
           {listed.map((row) => {
             const label = labelOf(row);
@@ -114,7 +114,7 @@ export function DockerBulkRemoveDialog<T>({
             return (
               <li key={label} className="py-0.5 text-[12px] [overflow-wrap:anywhere]">
                 <span className="font-mono">{label}</span>
-                {reason ? <span className="text-muted-foreground"> — {reason}</span> : null}
+                {reason ? <span className="text-muted-foreground"> ({reason})</span> : null}
               </li>
             );
           })}

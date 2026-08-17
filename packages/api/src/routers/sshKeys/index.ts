@@ -11,7 +11,7 @@ import { deleteSshKey, generateSshKey, importSshKey, listSshKeys, rotateSshKey }
 type SshKeyPublic = z.infer<typeof sshKeySchema>;
 
 /**
- * Map a DB row to the public wire shape — drops `privateKeyCiphertext`
+ * Map a DB row to the public wire shape. Drops `privateKeyCiphertext`
  * entirely and surfaces `hasPrivateKey` instead. `usedBy` is empty for now:
  * the Git-provider / node / service subsystems don't yet reference keys, so
  * reporting usage would be fiction. Wired in when those consumers land.

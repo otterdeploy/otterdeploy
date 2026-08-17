@@ -7,7 +7,7 @@
  * arbitrary chunk boundary).
  *
  * Resolves with the exit code on completion; never rejects on a
- * non-zero exit — callers decide how to handle build vs push failures.
+ * non-zero exit: callers decide how to handle build vs push failures.
  *
  * `secrets` are values to mask before writing to logs (e.g. an
  * installation token in a git remote URL). Each occurrence is

@@ -1,8 +1,8 @@
 /**
- * od-5j8.9 — step-up prompt before opening a shell. Shown only when a fresh
+ * od-5j8.9: step-up prompt before opening a shell. Shown only when a fresh
  * `terminal.mintTicket` call comes back `STEP_UP_REQUIRED` (no live re-auth
  * grant, or it expired). Asks for whichever credential the account actually
- * uses — a TOTP code if 2FA is enabled, the account password otherwise —
+ * uses (a TOTP code if 2FA is enabled, the account password otherwise)
  * mirroring the account's own two-factor/password forms
  * (features/account/two-factor-card.tsx, password-card.tsx) rather than
  * inventing new copy/validation for the same check.
@@ -39,8 +39,14 @@ interface Props {
 export function StepUpDialog({ open, targetLabel, onVerified, onCancel }: Props) {
   const { t } = useTranslation();
   const sessionQ = useCurrentSession();
+  // `twoFactorEnabled` is a plugin field the base session user type doesn't
+  // declare, so it's read off the object structurally rather than asserted.
+  const sessionUser: unknown = sessionQ.data?.user;
   const twoFactorEnabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
+    typeof sessionUser === "object" &&
+    sessionUser !== null &&
+    "twoFactorEnabled" in sessionUser &&
+    sessionUser.twoFactorEnabled,
   );
 
   const [value, setValue] = useState("");

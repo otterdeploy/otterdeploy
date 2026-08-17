@@ -6,8 +6,8 @@
  *   - Compose     → the exact file being deployed (editable for inline stacks).
  *   - Settings    → redeploy the whole stack / delete it.
  *
- * Build progress reuses the same ResourceTasksTab as services/databases —
- * compose deployments are stored under the compose resourceId, so the
+ * Build progress reuses the same ResourceTasksTab as services/databases.
+ * Compose deployments are stored under the compose resourceId, so the
  * deployment cards + per-deployment build logs work unchanged.
  */
 
@@ -58,12 +58,12 @@ interface ComposeResourcePanelProps {
   orgSlug: string;
   projectSlug: ProjectSlug;
   onClose: () => void;
-  /** Staged create — no resource row exists yet (resourceId is the empty
+  /** Staged create, no resource row exists yet (resourceId is the empty
    *  sentinel). Disables tabs/actions that need a real resourceId and skips
    *  the resource-scoped fetches, mirroring the service/database draft
    *  panels' `pending` mode. */
   pending?: boolean;
-  /** The active tab, straight off the route's `?tab=` search param — the URL
+  /** The active tab, straight off the route's `?tab=` search param. The URL
    *  owns this, not the panel. Unrecognized/absent values fall back to the
    *  usual pending-aware default. */
   tab?: string;
@@ -99,13 +99,13 @@ export function ComposeResourcePanel({
     pending ? "services" : "deployments",
   );
 
-  // Per-service status — see use-compose-service-status.ts. Reads the EXACT
+  // Per-service status: see use-compose-service-status.ts. Reads the EXACT
   // same source the graph node does, so the node and this panel can never
   // disagree about what's running.
   const serviceStatus = useComposeServiceStatus(resource);
 
   // The raw compose file (inline source) for the read-only viewer. Skipped
-  // while pending — there's no resourceId yet to fetch it by.
+  // while pending: there's no resourceId yet to fetch it by.
   const fileQuery = useQuery(
     orpc.compose.get.queryOptions({
       input: {

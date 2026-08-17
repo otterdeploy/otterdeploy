@@ -3,7 +3,7 @@
  * deploys/builds/backups next). The pattern mirrors branch-pool's
  * `checkBranchHeadroom`: read free bytes on the data-root filesystem, and refuse
  * to start an operation that could fill the disk mid-flight. The self-update is
- * the motivating case — a full-disk `compose pull`/`up` can corrupt redis's AOF
+ * the motivating case: a full-disk `compose pull`/`up` can corrupt redis's AOF
  * and leave a half-recreated stack with no control plane (see the disk-safe
  * update work). So the guard: check → optionally reclaim unused images/cache →
  * re-check → let the caller ABORT before touching anything destructive.
@@ -19,7 +19,7 @@ const GB = 1024 ** 3;
 
 /**
  * Free bytes on the data-root filesystem (where docker images + volumes live),
- * or null if it can't be read — callers treat null as "don't block on a guess".
+ * or null if it can't be read. Callers treat null as "don't block on a guess".
  */
 async function freeDiskBytes(): Promise<number | null> {
   const path = existsSync(DATA_ROOT) ? DATA_ROOT : "/";
@@ -30,7 +30,7 @@ async function freeDiskBytes(): Promise<number | null> {
 
 /**
  * Pure decision: is there headroom? A null free reading (couldn't statfs) never
- * blocks — we refuse to abort a real operation on an unreadable guess. Exported
+ * blocks: we refuse to abort a real operation on an unreadable guess. Exported
  * so the threshold logic is unit-testable without a filesystem.
  */
 export function hasHeadroom(freeBytes: number | null, neededBytes: number): boolean {
@@ -51,7 +51,7 @@ const gb = (bytes: number): string => `${(bytes / GB).toFixed(1)} GB`;
 
 /**
  * Guard a disk-consuming operation: require `neededBytes` free. When short and
- * `reclaim` is set, prune unused images + build cache first (never volumes —
+ * `reclaim` is set, prune unused images + build cache first (never volumes,
  * those can hold detached DB data) and re-check. Returns `ok:false` with the
  * numbers when still short, so the caller aborts BEFORE doing anything.
  */

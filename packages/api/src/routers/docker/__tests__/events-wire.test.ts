@@ -75,7 +75,10 @@ describe("toWireEvent", () => {
     const event = wire({
       Type: "network",
       Action: "connect",
-      Actor: { ID: "net1", Attributes: { name: "acme-mesh", container: "abc123", type: "overlay" } },
+      Actor: {
+        ID: "net1",
+        Attributes: { name: "acme-mesh", container: "abc123", type: "overlay" },
+      },
       timeNano: 1_000_000_000,
     });
     expect(event.type).toBe("network");

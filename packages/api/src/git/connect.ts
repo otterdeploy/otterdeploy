@@ -42,7 +42,7 @@ export interface CompleteConnectResult {
 export async function completeGithubConnect(
   args: CompleteConnectArgs,
 ): Promise<CompleteConnectResult> {
-  // The provider row must already exist for this org — the manifest flow
+  // The provider row must already exist for this org. The manifest flow
   // creates it before the operator hits "Install" on GitHub. If we got
   // here without one, the operator skipped the create-app step (or the
   // manifest callback failed and we still got redirected to install).
@@ -53,7 +53,7 @@ export async function completeGithubConnect(
 
   const installation = await lookupInstallation(args.installationId, appConfig);
 
-  // Provider — upserted by the manifest flow already. Refresh the display
+  // Provider, upserted by the manifest flow already. Refresh the display
   // name so it tracks the connected account.
   const provider = await db
     .update(gitProvider)
@@ -65,7 +65,7 @@ export async function completeGithubConnect(
     throw new Error("Provider row vanished between manifest callback and install");
   }
 
-  // Installation — upsert by GitHub installation id (unique).
+  // Installation: upsert by GitHub installation id (unique).
   const inst = await db
     .insert(gitInstallation)
     .values({
@@ -99,8 +99,8 @@ export async function completeGithubConnect(
   }
 
   // Sync repos via a fresh installation token. If this leg fails, the
-  // installation row above still exists — with repoCount null, so the UI
-  // shows "—" (unknown) rather than a wrong 0 until a sync succeeds.
+  // installation row above still exists. With repoCount null, so the UI
+  // shows "–" (unknown) rather than a wrong 0 until a sync succeeds.
   const tokenResp = await getInstallationToken(args.installationId);
   const { repositories, totalCount } = await listInstallationRepos(tokenResp.token, appConfig);
   await syncRepos(
@@ -116,8 +116,8 @@ export async function completeGithubConnect(
     })),
     { prune: true },
   );
-  // Persist GitHub's total_count — the truthful count even if the page walk
-  // was cut short — never the length of what we happened to mirror.
+  // Persist GitHub's total_count. The truthful count even if the page walk
+  // was cut short, never the length of what we happened to mirror.
   await db
     .update(gitInstallation)
     .set({ repoCount: totalCount })
@@ -133,7 +133,7 @@ export async function completeGithubConnect(
 
 /**
  * Soft-revoke: clear the installation's link to its repos but keep the
- * row for audit. Phase 3 needs this too — historic deployments can still
+ * row for audit. Phase 3 needs this too. Historic deployments can still
  * resolve their source repo by id even after disconnect.
  */
 export async function disconnectGithubInstallation(args: {
@@ -141,7 +141,7 @@ export async function disconnectGithubInstallation(args: {
   installationDbId: GitInstallationId;
 }): Promise<void> {
   // Verify the installation belongs to a provider in this org. Done in
-  // a single join — RQB v2's `with` is unnecessary here because we
+  // a single join: RQB v2's `with` is unnecessary here because we
   // never read the joined provider columns, just need the existence
   // check.
   const [match] = await db
@@ -162,7 +162,7 @@ export async function disconnectGithubInstallation(args: {
   await db
     .update(gitInstallation)
     // repoCount → null: we can no longer mint tokens to verify it, so the UI
-    // shows "—" for the revoked row instead of a stale number.
+    // shows "–" for the revoked row instead of a stale number.
     .set({ revokedAt: new Date(), repoCount: null })
     .where(eq(gitInstallation.id, args.installationDbId));
 }

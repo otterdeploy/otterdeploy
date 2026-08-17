@@ -4,7 +4,7 @@
  *
  * It used to die halfway. The diff surfaced the change and the pending bar
  * showed it, but `buildUpdateServiceInput` never passed `sourceSubdir` and
- * `updateServiceRecord` stripped it anyway — so Apply reported success, wrote
+ * `updateServiceRecord` stripped it anyway, so Apply reported success, wrote
  * nothing, and the next diff staged the identical change again. Forever.
  *
  * Each leg is asserted separately so a regression names the leg that broke.
@@ -13,6 +13,7 @@
 import type { JsonObject } from "@otterdeploy/shared/json";
 import type { RequestLogger } from "evlog";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { CurrentState } from "../../../stack/manifest/diff";
@@ -61,7 +62,7 @@ function liveGitService(over: Partial<CurrentState["services"][string]> = {}): C
   };
 }
 
-// Pre-parse manifest JSON — the fixture feeds `manifestSchema.parse`.
+// Pre-parse manifest JSON. The fixture feeds `manifestSchema.parse`.
 const gitService = (over: JsonObject = {}) => ({
   source: "git",
   repo: "acme/api",
@@ -70,14 +71,31 @@ const gitService = (over: JsonObject = {}) => ({
   ...over,
 });
 
+// Branded ids minted through the real boundary validators, not cast fixtures.
+const PROJECT_ID = idSchema.project.parse("prj_1");
+const ORGANIZATION_ID = idSchema.organization.parse("org_1");
+const RESOURCE_ID = idSchema.resource.parse("res_1");
+const GIT_REPO_ID = idSchema.gitRepo.parse("gitr_1");
+
+// Complete no-op logger: the builders under test thread `log` but never call
+// it, so an inert full implementation is the honest fixture.
+const noopLog: RequestLogger = {
+  set: () => undefined,
+  error: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  emit: () => null,
+  getContext: () => ({}),
+};
+
 const updateArgs = (spec: ServiceManifest) => ({
-  projectId: "proj_1" as never,
-  organizationId: "org_1" as never,
+  projectId: PROJECT_ID,
+  organizationId: ORGANIZATION_ID,
   name: "web",
-  resourceId: "res_1" as never,
+  resourceId: RESOURCE_ID,
   spec,
   env: [],
-  log: {} as RequestLogger,
+  log: noopLog,
 });
 
 /** The declared git source block out of a parsed manifest. */
@@ -125,7 +143,7 @@ describe("root directory: diff → apply", () => {
       project: "acme-api",
       services: { web: gitService({ sourceSubdir: "apps/api" }) },
     });
-    const input = buildUpdateServiceInput(updateArgs(specOf(m)), "gitrepo_1" as never);
+    const input = buildUpdateServiceInput(updateArgs(specOf(m)), GIT_REPO_ID);
     expect(input.sourceSubdir).toBe("apps/api");
   });
 
@@ -134,7 +152,7 @@ describe("root directory: diff → apply", () => {
       project: "acme-api",
       services: { web: gitService({ sourceSubdir: null }) },
     });
-    const input = buildUpdateServiceInput(updateArgs(specOf(m)), "gitrepo_1" as never);
+    const input = buildUpdateServiceInput(updateArgs(specOf(m)), GIT_REPO_ID);
     expect(input.sourceSubdir).toBeNull();
   });
 
@@ -143,7 +161,7 @@ describe("root directory: diff → apply", () => {
     // live value is user-managed. Defaulting it to null here would clear a
     // folder binding on every apply of a manifest that never mentions it.
     const m = manifest({ project: "acme-api", services: { web: gitService() } });
-    const input = buildUpdateServiceInput(updateArgs(specOf(m)), "gitrepo_1" as never);
+    const input = buildUpdateServiceInput(updateArgs(specOf(m)), GIT_REPO_ID);
     expect("sourceSubdir" in input).toBe(false);
   });
 
@@ -173,9 +191,9 @@ describe("root directory: diff → apply", () => {
 describe("root directory: apply → column patch", () => {
   const patch = (over: { sourceSubdir?: string | null } = {}) =>
     toUpdateRecordPatch({
-      projectId: "proj_1" as never,
-      organizationId: "org_1" as never,
-      resourceId: "res_1" as never,
+      projectId: PROJECT_ID,
+      organizationId: ORGANIZATION_ID,
+      resourceId: RESOURCE_ID,
       ...over,
     });
 

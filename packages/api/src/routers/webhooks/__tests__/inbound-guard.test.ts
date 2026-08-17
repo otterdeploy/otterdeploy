@@ -75,7 +75,7 @@ describe("createRateLimiter", () => {
     expect(limiter.allow("tok")).toBe(false);
   });
 
-  test("window slides — old hits expire and free capacity", () => {
+  test("window slides: old hits expire and free capacity", () => {
     let t = 0;
     const limiter = createRateLimiter({ limit: 2, windowMs: 1_000, now: () => t });
     expect(limiter.allow("tok")).toBe(true);

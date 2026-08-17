@@ -1,7 +1,7 @@
 /**
- * Inline-source compose create — split out of create.ts to keep that file
+ * Inline-source compose create. Split out of create.ts to keep that file
  * under the line cap. Handles single-file (pasted content) and multi-file
- * (files[] tree) stacks: parse, persist, then deploy directly — or, when the
+ * (files[] tree) stacks: parse, persist, then deploy directly, or, when the
  * file has `build:` services, enqueue the build worker (which materializes the
  * tree, builds each context, and deploys). See docs/designs/compose.md.
  */
@@ -80,7 +80,7 @@ export async function createInlineCompose(
         projectId: input.projectId,
         // Stamp the environment like every other create path. Unstamped rows
         // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope) — a non-main environment would
+        // allowance in inEnvironmentScope): a non-main environment would
         // never see this stack.
         environmentId: project.environmentId,
         name,
@@ -108,7 +108,7 @@ export async function createInlineCompose(
     },
   });
 
-  const deploy = input.deploy
+  const deploy: ComposeCreateOutput["deploy"] = input.deploy
     ? await deployOrEnqueueInline({
         projectId: input.projectId,
         resourceId: created.value.resource.id,
@@ -116,7 +116,7 @@ export async function createInlineCompose(
         composeContent,
         log,
       })
-    : { ok: false, error: null as string | null, status: "created" };
+    : { ok: false, error: null, status: "created" };
 
   return Result.ok({
     resourceId: created.value.resource.id,
@@ -126,8 +126,8 @@ export async function createInlineCompose(
   });
 }
 
-/** Deploy an inline stack now, or — when it has `build:` services (no image
- *  yet) — route through the build worker, which materializes the file tree,
+/** Deploy an inline stack now, or. When it has `build:` services (no image
+ *  yet): route through the build worker, which materializes the file tree,
  *  builds each context, then deploys. */
 async function deployOrEnqueueInline(args: {
   projectId: ProjectId;

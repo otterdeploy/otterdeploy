@@ -28,28 +28,44 @@ const DEAD_CODE_KEYS = [
 /** Run one fallow analysis, warning rather than aborting when it cannot run. */
 function analysis(command: string, cwd: string): Record<string, unknown> | null {
   const parsed = fallowJson([command], cwd);
-  if (!parsed) console.warn(`  ! fallow ${command} unavailable — cross-file signals skipped`);
+  if (!parsed) console.warn(`  ! fallow ${command} unavailable. Cross-file signals skipped`);
   return parsed;
 }
 
+// fallow's JSON is external input; narrow it with real checks instead of
+// casting its untyped `Record<string, unknown>` fields into shapes.
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function objectArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
 function parseDeadCode(dc: Record<string, unknown>, out: CrossFileEvidence): void {
-  for (const cycle of (dc.circular_dependencies as { files?: string[] }[]) ?? []) {
-    for (const f of cycle.files ?? []) out.cycles.add(f);
+  for (const cycle of objectArray(dc.circular_dependencies)) {
+    for (const f of stringArray(cycle.files)) out.cycles.add(f);
   }
   for (const key of DEAD_CODE_KEYS) {
-    for (const item of (dc[key] as { path?: string }[]) ?? []) {
-      if (item.path) out.dead.set(item.path, (out.dead.get(item.path) ?? 0) + 1);
+    for (const item of objectArray(dc[key])) {
+      const path = item.path;
+      if (typeof path === "string" && path) out.dead.set(path, (out.dead.get(path) ?? 0) + 1);
     }
   }
 }
 
 function parseDupes(dup: Record<string, unknown>, out: CrossFileEvidence): void {
-  for (const group of (dup.clone_groups as { instances?: { file?: string }[] }[]) ?? []) {
-    // Count each group once per file, not once per instance — a file with one
+  for (const group of objectArray(dup.clone_groups)) {
+    // Count each group once per file, not once per instance. A file with one
     // block cloned five times has ONE consolidation decision to make.
     const seen = new Set<string>();
-    for (const inst of group.instances ?? []) {
-      if (inst.file) seen.add(inst.file);
+    for (const inst of objectArray(group.instances)) {
+      const file = inst.file;
+      if (typeof file === "string" && file) seen.add(file);
     }
     for (const f of seen) out.clones.set(f, (out.clones.get(f) ?? 0) + 1);
   }

@@ -1,4 +1,4 @@
-# Wave B — Agent bucket 4
+# Wave B: Agent bucket 4
 
 
 ## src/shared/components/ui/chart.tsx

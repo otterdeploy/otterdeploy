@@ -1,25 +1,25 @@
 /**
  * Notification-channel transports. Given a resolved channel (secret already
  * decrypted) and a platform event, push the message to the destination. Pure
- * delivery — the caller (notification.event job) owns DB reads, the delivery
+ * delivery: the caller (notification.event job) owns DB reads, the delivery
  * log, and retry. Each transport returns a {@link DeliveryResult}; it never
  * throws for an expected provider error (bad webhook, 4xx) so one dead channel
  * can't fail the whole fan-out.
  *
- *   slack/discord — incoming-webhook POST (provider-shaped JSON body)
- *   webhook       — generic POST + optional HMAC-SHA256 signature header
- *   email         — Resend (packages/email)
- *   telegram      — Bot API sendMessage (bot token = secret, chat id = target)
- *   pagerduty     — Events API v2 enqueue (routing key = secret || target)
+ *   slack/discord, incoming-webhook POST (provider-shaped JSON body)
+ *   webhook: generic POST + optional HMAC-SHA256 signature header
+ *   email: Resend (packages/email)
+ *   telegram: Bot API sendMessage (bot token = secret, chat id = target)
+ *   pagerduty: Events API v2 enqueue (routing key = secret || target)
  *
  * `channel.target` is tenant-supplied for slack/discord/webhook (a URL the
- * org pasted in) — every transport POSTs through `post()`, which routes
+ * org pasted in): every transport POSTs through `post()`, which routes
  * through the shared egress policy: resolves and validates every address
  * (loopback/private/link-local/metadata ranges and the control plane's own
  * identity denied by default), pins the connection to the validated
  * address, and re-validates every redirect hop. See
  * packages/shared/src/egress-policy.ts. Fixed-URL transports (FCM,
- * PagerDuty) go through the same helper for consistency — harmless, since
+ * PagerDuty) go through the same helper for consistency. Harmless, since
  * they always resolve to a public address.
  */
 import type { JsonObject } from "@otterdeploy/shared/json";
@@ -99,7 +99,7 @@ export async function deliverToChannel(
 const CHANNEL_DELIVERY_TIMEOUT_MS = 10_000;
 const CHANNEL_MAX_RESPONSE_BYTES = 1024 * 1024;
 
-/** Guarded POST — resolves+validates the destination via the shared egress
+/** Guarded POST. Resolves+validates the destination via the shared egress
  *  policy, pins the connection, and turns a thrown/network/policy error
  *  into a {@link DeliveryResult} rather than a throw (so one dead/blocked
  *  channel can't fail the whole fan-out). */
@@ -116,7 +116,7 @@ async function post(
       { method: "POST", headers: init.headers, body: init.body },
       {
         // Channel receivers (self-hosted webhook sinks, internal relays)
-        // are commonly plain http — the address checks are the actual SSRF
+        // are commonly plain http. The address checks are the actual SSRF
         // defense, not the scheme.
         allowHttp: true,
         timeoutMs: CHANNEL_DELIVERY_TIMEOUT_MS,
@@ -219,7 +219,7 @@ async function deliverWebhook(c: ResolvedChannel, e: ChannelEvent): Promise<Deli
 async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const from = typeof c.config.from === "string" ? c.config.from : undefined;
   const subject = `[otterdeploy] ${e.title}`;
-  // Every channel email is the same React Email component — never a raw HTML
+  // Every channel email is the same React Email component, never a raw HTML
   // string. The SMTP branch renders it here (it uses the channel's own server,
   // so it can't go through sendEmail); the Resend branch hands the element off.
   const notification = NotificationEmail({
@@ -234,7 +234,7 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
 
   try {
     if (client === "smtp") {
-      const host = String(c.config.host ?? "");
+      const host = typeof c.config.host === "string" ? c.config.host : "";
       const port = Number(c.config.port ?? 587);
       const user = typeof c.config.username === "string" ? c.config.username : undefined;
       if (!host) return { ok: false, error: "SMTP host not configured" };
@@ -261,7 +261,7 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
   }
 }
 
-/** FCM push to a device token (or topic) — reuses the install-wide FCM key
+/** FCM push to a device token (or topic). Reuses the install-wide FCM key
  * (Settings → Instance, seeded from FCM_SERVER_KEY), mirroring the per-user
  * push path in ./notify.ts. `target` is the registration token. */
 async function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
@@ -301,7 +301,7 @@ function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<Delivery
       routing_key: routingKey,
       event_action: "trigger",
       payload: {
-        summary: `${e.title} — ${e.message}`,
+        summary: `${e.title}: ${e.message}`,
         source: "otterdeploy",
         severity: pdSeverity,
         custom_details: e.data ?? {},

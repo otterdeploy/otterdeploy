@@ -47,7 +47,7 @@ function buildConditions(filter: EdgeLogFilter, now: number): SQL[] {
   const since = new Date(now - RANGE_MS[filter.range]);
   // Compare on lower(host): scope hosts are canonicalized (edge-logs/host) and
   // new rows store a canonical host, but rows written before that change may
-  // carry mixed-case hosts — lower() lets them match without a backfill.
+  // carry mixed-case hosts. Lower() lets them match without a backfill.
   const scopeHost = sql`lower(${edgeLog.host})`;
   const conds: SQL[] = [inArray(scopeHost, filter.hosts), gte(edgeLog.ts, since)];
   if (filter.selectedHosts?.length) conds.push(inArray(scopeHost, filter.selectedHosts));

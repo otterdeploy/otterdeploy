@@ -6,8 +6,8 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_DEPLOY_LANE, deployQueueName, isDeployLaneName } from "../lanes";
 import { deployTriggeredJob } from "../jobs/deploy";
+import { DEFAULT_DEPLOY_LANE, deployQueueName, isDeployLaneName } from "../lanes";
 
 describe("deployQueueName", () => {
   test("the default lane maps to the bare historical queue name", () => {

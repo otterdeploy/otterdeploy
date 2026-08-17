@@ -2,7 +2,7 @@
  * One-click DNS for a service's custom domain.
  *
  * The control-plane FQDN and the workspace base domain already had this; a
- * service's own custom domain — the one people actually add most often — did
+ * service's own custom domain (the one people actually add most often) did
  * not, so it was the single surface still demanding hand-copied records. Same
  * primitive, applied to the remaining caller.
  *
@@ -70,7 +70,7 @@ export async function autoConfigureServiceDomainDns(input: {
   }
 
   // The zone the token must cover. Detection gives the apex that actually
-  // answers NS, which is also how Cloudflare keys a zone — so a delegated
+  // answers NS, which is also how Cloudflare keys a zone, so a delegated
   // subzone resolves to itself rather than its parent.
   const detected = await detectDnsProvider(route.domain);
   const zoneId = org?.cloudflareZoneId ?? null;
@@ -104,7 +104,7 @@ export async function autoConfigureServiceDomainDns(input: {
       content: record.value,
       // DNS-only. An orange-clouded A record terminates TLS at Cloudflare
       // and breaks the ACME HTTP-01 challenge we are about to run, which
-      // is the exact failure detectProxied exists to warn about — so the
+      // is the exact failure detectProxied exists to warn about, so the
       // one-click path must not create it.
       proxied: false,
     });

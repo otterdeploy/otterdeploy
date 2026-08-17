@@ -19,7 +19,7 @@ import { Toolbar } from "./toolbar";
 import { useEditorState } from "./use-editor-state";
 
 // Minimal shape the editor needs from any resource. Database + service
-// rows both project into this — keeps the editor reusable across panels
+// rows both project into this: keeps the editor reusable across panels
 // without dragging in the engine/databaseName/etc. fields the database
 // view carries.
 export interface VariablesEditorResource {
@@ -30,9 +30,9 @@ export interface VariablesEditorResource {
 }
 
 export interface VariablesEditorHandle {
-  /** Append a blank row — driven by an external "New Variable" button. */
+  /** Append a blank row: driven by an external "New Variable" button. */
   addRow: () => void;
-  /** Append a row pre-filled with a `${{Source.KEY}}` reference token —
+  /** Append a row pre-filled with a `${{Source.KEY}}` reference token:
    *  driven by the "Add a Variable Reference" hint banner. */
   insertReference: (token: string) => void;
 }
@@ -47,12 +47,12 @@ interface VariablesEditorProps {
   // forwarded but the manifest path ignores them (manifest env is plaintext).
   onSave?: (env: Array<{ key: string; value: string }>, secretKeys: string[]) => Promise<void>;
   // Toolbar count label ("N User Variables"). Pass null when the surrounding
-  // tab already renders its own count header — otherwise the same rows get
+  // tab already renders its own count header. Otherwise the same rows get
   // counted twice under two different names (od-zh2.10).
   countLabel?: string | null;
 }
 
-/** Suggest an env-var key from a picked `${{Source.KEY}}` token — the KEY
+/** Suggest an env-var key from a picked `${{Source.KEY}}` token. The KEY
  *  segment when it looks like an env name, otherwise blank for the user. */
 function suggestKeyFromToken(token: string): string {
   const match = /^\$\{\{[^.}]+\.([A-Z][A-Z0-9_]*)\}\}$/.exec(token);
@@ -63,7 +63,7 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
   const { t } = useTranslation();
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  // Tolerate undefined here — the resource list cache predates the
+  // Tolerate undefined here: the resource list cache predates the
   // schema gaining extraEnv/secretKeys for services; without these
   // defaults `Object.entries(undefined)` in rowsFromServer throws and
   // takes out the whole panel.
@@ -82,7 +82,7 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
     }),
   );
 
-  // Imperative handle for the header's "New Variable" button — replaces the old
+  // Imperative handle for the header's "New Variable" button. Replaces the old
   // useRef+useEffect signal counter (an anti-pattern: it bumped a monotonic
   // prop through an effect purely to fire a local action). addRow is local
   // editor state, so this exposes it directly rather than round-tripping a prop.
@@ -101,17 +101,17 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
     orpc.project.resource.env.bulkSet.mutationOptions({
       onSuccess: async () => {
         // The panel reads env from the react-db `resourceCollection`, whose
-        // cache key is prefixed by RESOURCE_COLLECTION_KEY — invalidating the
+        // cache key is prefixed by RESOURCE_COLLECTION_KEY. Invalidating the
         // bare orpc list key (as before) never matched it, so the edit only
         // surfaced on the collection's 5s poll. Invalidate the collection so the
         // just-saved var appears at once.
         await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
         // Stamp the draft as saved so the ADDED/EDITED chips and Save/Discard
-        // clear immediately — the refetch above returns the same values, so the
+        // clear immediately: the refetch above returns the same values, so the
         // effect-driven re-baseline would otherwise skip (rows still "pending"
         // vs the OLD baseline) and the dirty state never cleared.
         editor.commit();
-        // Saving persists only (redeploy: false) — the values take effect the
+        // Saving persists only (redeploy: false): the values take effect the
         // next time the resource deploys (e.g. the panel's Redeploy action).
         // This is the FALLBACK path: services declared on the manifest save
         // via `onSave` staging instead, and their feedback is the pending-
@@ -150,7 +150,7 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
       resourceId: resource.resourceId,
       env,
       secretKeys,
-      // Persist only — a container's env is fixed at creation, so applying it
+      // Persist only: a container's env is fixed at creation, so applying it
       // means recreating the task. Saving no longer forces that; the operator
       // hits Deploy when ready (the redeploy re-resolves env from these rows).
       redeploy: false,

@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * Umami mark (Simple Icons). Monochrome — inherits the tile's `color`
+ * Umami mark (Simple Icons). Monochrome: inherits the tile's `color`
  * via `currentColor`, so it stays legible on both canvases.
  */
 const Umami = (props: SVGProps<SVGSVGElement>) => (

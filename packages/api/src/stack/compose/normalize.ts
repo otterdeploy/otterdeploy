@@ -1,6 +1,6 @@
 /**
  * Field normalizers for the Compose parser (see `./parse.ts`). Compose is
- * permissive — every field has 2-3 accepted spellings — so each helper here
+ * permissive (every field has 2-3 accepted spellings) so each helper here
  * collapses the accepted real-world shapes into one normal form (see
  * `./types`). Unsupported constructs push non-fatal entries onto `warnings`.
  */
@@ -105,7 +105,11 @@ function normalizeKeyVals(v: unknown): Record<string, string> {
   const out: Record<string, string> = {};
   if (isObj(v)) {
     for (const [k, val] of Object.entries(v)) {
-      out[k] = val == null ? "" : String(val);
+      // Compose values are scalars; a nested map/list is author error, kept
+      // visible as JSON rather than an opaque "[object Object]".
+      if (val == null) out[k] = "";
+      else if (typeof val === "object") out[k] = JSON.stringify(val);
+      else out[k] = String(val);
     }
   } else if (Array.isArray(v)) {
     for (const entry of v) {
@@ -170,7 +174,7 @@ function parsePortString(raw: string, service: string, warnings: string[]): Pars
  * A denied bind used to disappear in silence: the stack applied "successfully"
  * and the container then failed for a reason that pointed at the image rather
  * than at us (Dozzle: "Could not connect to any Docker Engine"). The mount is
- * still dropped — this only makes the drop say so, at parse time, where the
+ * still dropped. This only makes the drop say so, at parse time, where the
  * wizard already renders warnings.
  */
 function warnUnmountableBind(mount: ParsedMount, service: string, warnings: string[]): void {
@@ -178,7 +182,7 @@ function warnUnmountableBind(mount: ParsedMount, service: string, warnings: stri
   if (!mount.source.startsWith("/")) return;
   if (allowedHostBind(mount.source)) return;
   warnings.push(
-    `service "${service}": host path "${mount.source}" is not mounted — compose stacks are ` +
+    `service "${service}": host path "${mount.source}" is not mounted. Compose stacks are ` +
       `confined to their own files. Permitted host paths: ${allowedHostBindPaths().join(", ")}`,
   );
 }

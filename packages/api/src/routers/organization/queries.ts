@@ -1,7 +1,7 @@
 /**
  * Organization-row queries for the otterdeploy-specific columns we layered
  * onto better-auth's `organization` table. The auth flow continues to own
- * id/name/slug/logo/metadata/createdAt — these helpers only touch the
+ * id/name/slug/logo/metadata/createdAt: these helpers only touch the
  * columns we added (baseDomain + verification + Cloudflare).
  */
 
@@ -20,7 +20,7 @@ export async function getOrganizationById(orgId: OrgId) {
 
 /**
  * Set (or clear) the org-level base domain. Setting a NEW value resets
- * verification state and rotates the verify token — the prior token
+ * verification state and rotates the verify token: the prior token
  * shouldn't be honored for a different domain. Clearing (empty string)
  * wipes verification and the token.
  */
@@ -28,7 +28,7 @@ export async function setOrganizationBaseDomain(orgId: OrgId, baseDomain: string
   const trimmed = baseDomain.trim().toLowerCase();
   const isClear = trimmed.length === 0;
   const existing = await getOrganizationById(orgId);
-  // Skip the rotation when the value is unchanged — keeps a verified
+  // Skip the rotation when the value is unchanged. Keeps a verified
   // domain verified across no-op saves from the UI.
   const unchanged =
     !isClear && existing?.baseDomain != null && existing.baseDomain.toLowerCase() === trimmed;

@@ -1,12 +1,12 @@
 /**
  * The access wall: a single centered card over the full-page grid.
  *
- * PIN-protected routes ask for the PIN and NOTHING else — the PIN takes
+ * PIN-protected routes ask for the PIN and NOTHING else: the PIN takes
  * priority, so the card never offers org/email auth beside it. Routes without
  * a PIN offer org sign-in OR email one-time-code entry (Cloudflare-style,
  * two-step form handled inline). Posts to the OTP/PIN endpoints on this same
  * domain and navigates to `returnPath` on success. Icons are inline SVG (no
- * external icon CDN) — these pages are server-rendered strings with no bundler,
+ * external icon CDN): these pages are server-rendered strings with no bundler,
  * so the app's React brand component can't be imported; the mark's geometry is
  * copied from `mark-geometry.ts` instead of redrawn. Subcomponents exist purely
  * to keep each function under the line cap.
@@ -22,7 +22,7 @@ import { OrgEmailAuth, PinAuth } from "./wall-forms";
 
 const Wordmark: FC = () => (
   <div class="wordmark">
-    {/* Slashed zero — MARK_RING + MARK_GLYPHS.idle from
+    {/* Slashed zero, MARK_RING + MARK_GLYPHS.idle from
         apps/web/src/shared/components/brand/mark-geometry.ts, which is generated
         by brand/scripts/build.sh. Ring rides currentColor; only the counter is
         chromatic, exactly as OtterdeployMark composes it. */}
@@ -74,7 +74,7 @@ const AccessWallCard: FC<{ domain: string; orgAuthorizeUrl: string; hasPin: bool
   hasPin,
 }) => (
   <div class="card">
-    {/* Head settles WHERE you are before the eye reaches anything actionable —
+    {/* Head settles WHERE you are before the eye reaches anything actionable:
         the host is what a visitor has to verify before typing a credential. */}
     <div class="card-head">
       <div class="card-eyebrow">Access request</div>
@@ -109,14 +109,14 @@ export const AccessWall: FC<{
   hasPin?: boolean;
 }> = ({ domain, returnPath, orgAuthorizeUrl, hasPin = false }) => (
   <Page
-    title="Otterdeploy — Sign in"
+    title="Otterdeploy: Sign in"
     hideFoot
     css={accessWallBaseCss + accessWallFormCss + fieldCss}
   >
     <div class="bg-grid" aria-hidden="true" />
     <div class="bg-glow" aria-hidden="true" />
     {/* Drawn over the static grid, which stays as the floor if canvas is
-        unavailable — the page must never depend on the script to look finished. */}
+        unavailable: the page must never depend on the script to look finished. */}
     <canvas id="field" class="bg-field" aria-hidden="true" />
     <div class="bg-veil" aria-hidden="true" />
 

@@ -22,7 +22,7 @@ import { shortId, timeAgoSeconds } from "./docker-format";
 import { Panel, type QueryLike } from "./docker-panel";
 import { RowActionButton } from "./docker-tables";
 
-/** Local row type — mirrors the docker contract output shape. */
+/** Local row type: mirrors the docker contract output shape. */
 interface Network {
   id: string;
   name: string;
@@ -69,8 +69,8 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
   const [removeFor, setRemoveFor] = useState<Network | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  // Built-in networks can never be removed — that's a Docker invariant, not a
-  // racy ref-count — so select-all skips them rather than queueing guaranteed
+  // Built-in networks can never be removed. That's a Docker invariant, not a
+  // racy ref-count, so select-all skips them rather than queueing guaranteed
   // failures. They stay individually selectable.
   const selection = useTableSelection(query.data ?? [], (n) => n.id, {
     bulkEligible: (n) => !isBuiltin(n),
@@ -122,9 +122,9 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{n.scope}</TableCell>
-                <TableCell className="font-mono text-xs">{n.subnet ?? "—"}</TableCell>
+                <TableCell className="font-mono text-xs">{n.subnet ?? "–"}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {n.gateway ?? "—"}
+                  {n.gateway ?? "–"}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{n.containers}</TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
@@ -187,7 +187,7 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
         nounKey="docker.noun.network"
         labelOf={(n) => n.name}
         removeOne={(n) => orpc.docker.networks.remove.call({ id: n.id })}
-        consequence="They'll be deleted from this daemon. Anything still referencing one by name will fail to start. Networks with containers still attached — and Docker's built-in networks — will be refused."
+        consequence="They'll be deleted from this daemon. Anything still referencing one by name will fail to start. Networks with containers still attached (and Docker's built-in networks) will be refused."
         onDone={() => query.refetch()}
       />
     </>

@@ -3,7 +3,7 @@
  *
  * Each hook command runs in its own throwaway `docker run --rm` container off
  * the freshly-built image, joined to the project network and carrying the same
- * resolved env the service runs with — so a migration reaches the database by
+ * resolved env the service runs with, so a migration reaches the database by
  * its alias exactly as the app would.
  *
  *   - `--entrypoint sh … -c <command>` so the command runs regardless of the
@@ -12,8 +12,8 @@
  *     don't land on the command line the LogSink echoes. Values are also
  *     registered as `secrets` for masking, belt-and-braces.
  *   - commands run in order; the first non-zero exit stops the batch and
- *     yields a `DeployHookError`. Each command is an independent container —
- *     chain with `&&` inside one entry if you need shared shell state.
+ *     yields a `DeployHookError`. Each command is an independent container.
+ *     Chain with `&&` inside one entry if you need shared shell state.
  *
  * Output streams to the same deployment-log sink as the build, so operators
  * see migration output inline in the deployment log.
@@ -35,7 +35,7 @@ import { runProcess } from "./run-process";
 export type HookPhase = "pre-deploy" | "post-deploy";
 
 interface RunHooksOpts {
-  /** Preview scoping — forwarded into env resolution so hook refs hit the
+  /** Preview scoping, forwarded into env resolution so hook refs hit the
    *  preview's DB branch (when opted in), never production. */
   previewId?: PreviewId | null;
   phase: HookPhase;
@@ -72,7 +72,7 @@ export async function runDeployHooks(opts: RunHooksOpts): Promise<Result<void, D
     (v): v is string => typeof v === "string" && v.length > 0,
   );
 
-  // Stage env to a temp file (off the logged argv). Result-wrapped — no raw
+  // Stage env to a temp file (off the logged argv). Result-wrapped, no raw
   // try/catch in this Result-returning flow.
   const staged = await Result.tryPromise({
     try: async () => {

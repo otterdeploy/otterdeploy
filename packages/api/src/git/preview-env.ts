@@ -1,5 +1,5 @@
 /**
- * PR-preview lifecycle — the `preview` rows a PR spins up. A preview is a
+ * PR-preview lifecycle: the `preview` rows a PR spins up. A preview is a
  * first-class entity bound to (project, repo, PR#), NOT an environment: it
  * scopes its deployments/routes/branches via `previewId` columns and can never
  * surface in environment UI. Find-or-create on open/synchronize (keyed by the
@@ -27,7 +27,7 @@ export async function defaultTeardownAt(): Promise<Date | null> {
 /**
  * The on-conflict `auto_teardown_at` bump: keep a keep-alive pin (NULL) NULL,
  * otherwise set the fresh teardown instant. Must be a raw `sql` fragment because
- * it reads the existing column value — which means drizzle does NOT map the
+ * it reads the existing column value, which means drizzle does NOT map the
  * value for us, so we bind an ISO string and cast it to `timestamp` explicitly.
  * A bare Date binds as `Date.toString()` (invalid syntax) and a bare string
  * binds as `text` (type mismatch); both fail. See __tests__/preview-env.test.ts.
@@ -41,7 +41,7 @@ export type PreviewRow = typeof preview.$inferSelect;
 export interface EnsurePreviewInput {
   projectId: ProjectId;
   gitRepoId: GitRepoId;
-  /** Sanitized repo slug (`owner-repo`) — qualifies the preview slug so two
+  /** Sanitized repo slug (`owner-repo`): qualifies the preview slug so two
    *  repos in one project don't collide on the same PR number. */
   repoSlug: string;
   prNumber: number;
@@ -95,14 +95,14 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
         ...(input.prAuthorLogin != null ? { prAuthorLogin: input.prAuthorLogin } : {}),
         ...(input.prAuthorAvatarUrl != null ? { prAuthorAvatarUrl: input.prAuthorAvatarUrl } : {}),
         ...(input.prUrl != null ? { prUrl: input.prUrl } : {}),
-        // A push is an implicit resume — clear a stale pause so the rebuilt
+        // A push is an implicit resume. Clear a stale pause so the rebuilt
         // containers aren't left flagged paused (and reaper-exempt) forever.
         paused: false,
-        // A push is activity — extend the idle clock, but PRESERVE a keep-alive
+        // A push is activity. Extend the idle clock, but PRESERVE a keep-alive
         // pin: if the existing row was pinned (auto_teardown_at IS NULL) keep it
         // NULL; otherwise bump to a fresh default. Skip when idle teardown is
         // globally disabled. NOTE: inside a raw `sql` template drizzle does NOT
-        // apply the column's timestamp mapper — a bare Date binds as
+        // apply the column's timestamp mapper. A bare Date binds as
         // `Date.toString()` (rejected as invalid timestamp), and a bare ISO
         // string binds as `text` (rejected: "column is timestamp but expression
         // is text", since Postgres type-checks this CASE even on a fresh insert).
@@ -118,7 +118,7 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
 
 /**
  * Mark a PR's preview(s) closed and return the affected rows so the caller can
- * tear down their compute + branched databases. Scoped by repo — closing a PR
+ * tear down their compute + branched databases. Scoped by repo. Closing a PR
  * on repo A must not close repo B's same-numbered preview.
  */
 export async function markPreviewsClosed(

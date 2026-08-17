@@ -7,6 +7,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { databaseResource, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
+import * as z from "zod";
 
 import { type Change } from "../../stack/manifest";
 
@@ -49,7 +50,7 @@ export function groupChanges(changes: Change[]): GroupedChanges {
   // Env changes ride their OWNING resource's update phase (resolveEnv →
   // bulkSetEnv / applyPostgresExtraEnv). A resource whose diff is env-ONLY
   // emits no service/database change of its own, so synthesize an update for
-  // it — without this, an env-only plan applied ZERO of its N changes and the
+  // it: without this, an env-only plan applied ZERO of its N changes and the
   // pending bar never cleared. `envOnly` lets the service phase skip the
   // field-patch call and go straight to the env reconcile.
   synthesizeEnvOnlyUpdates(
@@ -68,6 +69,12 @@ export function groupChanges(changes: Change[]): GroupedChanges {
   );
   return out;
 }
+/** The slice of an env change's `details` the synthesis below reads: which
+ *  resource kind owns the env row, and that owner's manifest name. */
+const envOwnerSchema = z.object({
+  parent: z.string().optional(),
+  owner: z.string().optional(),
+});
 
 function synthesizeEnvOnlyUpdates(
   changes: Change[],
@@ -79,9 +86,9 @@ function synthesizeEnvOnlyUpdates(
   const covered = new Set([...creates, ...updates, ...deletes].map((c) => c.name));
   for (const c of changes) {
     if (c.resource !== "env" || c.kind === "no-op") continue;
-    const details = c.details as { parent?: string; owner?: string } | undefined;
-    if (details?.parent !== parent) continue;
-    const owner = details.owner;
+    const details = envOwnerSchema.safeParse(c.details);
+    if (!details.success || details.data.parent !== parent) continue;
+    const owner = details.data.owner;
     if (!owner || covered.has(owner)) continue;
     covered.add(owner);
     updates.push({

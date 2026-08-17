@@ -3,7 +3,7 @@
  * control-plane container.
  *
  * Split out of pty.ts, which had grown past the file-length cap. The seam is
- * real rather than arbitrary — everything here exists to answer one question
+ * real rather than arbitrary, everything here exists to answer one question
  * ("are we containerized, and if so how do we get out?"), and pty.ts keeps the
  * backend surface, the container-exec path, and the message codecs.
  */
@@ -32,7 +32,7 @@ function killShell(proc: Subprocess): void {
   }, 250).unref?.();
 }
 
-/** True when this process is itself inside a container — in production the
+/** True when this process is itself inside a container. In production the
  *  control plane runs as `otterdeploy-server-1`, so spawning a shell here would
  *  land in the CONTAINER (Alpine, no bash, none of the operator's files), not on
  *  the machine the UI promises. Docker writes /.dockerenv into every container;
@@ -46,12 +46,12 @@ function runningInContainer(): boolean {
 
 /** Shell script run once inside the host's namespaces. Resolves root's real
  *  login shell from /etc/passwd (bash on a normal box) rather than trusting
- *  $SHELL, which nsenter does NOT inherit — the helper container's environment
+ *  $SHELL, which nsenter does NOT inherit. The helper container's environment
  *  is what survives, and there $SHELL is unset.
  *
  *  Deliberately NOT `exec login -f root`: once exec replaces this process any
- *  `|| fallback` after it is dead code, so when login fails — which it does
- *  here, exit 1, having no utmp/PAM context in this namespace — the session
+ *  `|| fallback` after it is dead code, so when login fails, which it does
+ *  here, exit 1, having no utmp/PAM context in this namespace. The session
  *  dies with a bare "process exited with code 1" and no way to recover. Errors
  *  are left on stderr so a future failure is visible in the terminal instead of
  *  silent. */
@@ -68,7 +68,7 @@ const HOST_LOGIN_SCRIPT = [
  *  container rather than in-process (the control plane itself is deliberately
  *  unprivileged). This grants no access the caller didn't already have: the
  *  server mounts docker.sock, which is root-equivalent on the host by
- *  definition — it only makes the advertised behaviour real. Still gated behind
+ *  definition: it only makes the advertised behaviour real. Still gated behind
  *  the same step-up auth as before. `-w` inherits PID 1's cwd. */
 function hostShellArgv(): string[] {
   return [
@@ -78,7 +78,7 @@ function hostShellArgv(): string[] {
     "-i",
     "-t",
     // nsenter carries no environment across, so the helper's env is all the
-    // shell gets — without this the host shell comes up as a dumb terminal.
+    // shell gets. Without this the host shell comes up as a dumb terminal.
     "-e",
     "TERM=xterm-256color",
     "--privileged",

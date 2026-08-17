@@ -5,19 +5,19 @@
  * header nav, because the thing that went wrong here is not visible by reading
  * the call site: the default was `find(slug === "production") ?? environments[0]`
  * over a TanStack DB live query with no `orderBy`. A collection is not
- * intrinsically ordered, so `[0]` is whatever the collection happened to yield —
+ * intrinsically ordered, so `[0]` is whatever the collection happened to yield,
  * which is why adding an environment could appear to make it the main one.
  * `variables.tsx` already sorts its copy of this query and says so in a comment;
  * the header was the one place that didn't.
  *
  * The order below is authority-first, not convention-first:
  *
- *   1. `project.environmentId` — the project's own pointer, set at create. This
+ *   1. `project.environmentId`: the project's own pointer, set at create. This
  *      is the only authoritative answer and it is what "main" means. Nothing
  *      about adding, renaming or reordering environments changes it.
- *   2. slug `production` — a convention fallback for projects created before
+ *   2. slug `production`: a convention fallback for projects created before
  *      the pointer existed, or whose pointer references a deleted row.
- *   3. Oldest by `createdAt`, ties broken by slug — deterministic, and the
+ *   3. Oldest by `createdAt`, ties broken by slug: deterministic, and the
  *      first environment a project ever had is the best guess at its main one.
  *
  * Step 3 is a fallback, never the primary path: if it is answering, either the
@@ -34,7 +34,7 @@ export interface EnvironmentLike {
 
 const createdMs = (env: EnvironmentLike): number => {
   const ms = new Date(env.createdAt).getTime();
-  // A malformed timestamp must not make the sort non-deterministic — park it
+  // A malformed timestamp must not make the sort non-deterministic. Park it
   // last and let the slug tiebreak decide.
   return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
 };
@@ -50,8 +50,8 @@ export function sortEnvironments<T extends EnvironmentLike>(environments: readon
  * The project's main environment, or `undefined` when it has none.
  *
  * `mainEnvironmentId` is `project.environmentId`. A pointer that references an
- * environment this project can't see is treated as absent rather than fatal —
- * a deleted main environment should degrade to the convention, not blank the
+ * environment this project can't see is treated as absent rather than fatal.
+ * A deleted main environment should degrade to the convention, not blank the
  * switcher.
  */
 export function resolveDefaultEnvironment<T extends EnvironmentLike>(
@@ -81,7 +81,7 @@ export function resolveDefaultEnvironment<T extends EnvironmentLike>(
  */
 export function isMainEnvironment(
   // Only the id is read, so this takes the narrowest shape rather than
-  // `EnvironmentLike` — the nav's list rows carry no `createdAt` and should not
+  // `EnvironmentLike`: the nav's list rows carry no `createdAt` and should not
   // have to grow one just to render a badge.
   env: { id: string },
   mainEnvironmentId: string | null | undefined,

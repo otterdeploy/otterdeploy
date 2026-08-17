@@ -1,13 +1,13 @@
 /**
- * "Data" tab — the built-in database console (read-only v1).
+ * "Data" tab: the built-in database console (read-only v1).
  *
  * A studio-style layout: a left rail of browser-stored SQL snippets, a center
  * pane with a CodeMirror editor (per-statement run gutter, ⌘↵, Prettify) over a
  * results panel (grid / JSON / CSV export), and a right rail listing the
  * database's tables. Clicking a table browses it (server-side ORDER BY +
  * filters + LIMIT/OFFSET pagination); the editor runs arbitrary read-only SQL.
- * Nothing auto-runs — execution is always an explicit ▶, ⌘↵, or Run. ⌘K opens a
- * scoped spotlight. Writes are a later phase — see docs/designs/data-viewer.md.
+ * Nothing auto-runs. Execution is always an explicit ▶, ⌘↵, or Run. ⌘K opens a
+ * scoped spotlight. Writes are a later phase. See docs/designs/data-viewer.md.
  *
  * The studio's state + actions live in {@link useDataStudio}; the three layout
  * views live in the sibling `studio-*` modules.
@@ -109,9 +109,9 @@ function DataStudio({
 }) {
   const studio = useDataStudio(resource, shortcuts);
   // The editor handle is held here (not on the controller) so the shared
-  // `studio` object never carries a ref — see use-data-studio.ts.
+  // `studio` object never carries a ref. See use-data-studio.ts.
   const editorRef = useRef<SqlEditorHandle>(null);
-  // The results pane is identical in both modes — built once and rendered in
+  // The results pane is identical in both modes. Built once and rendered in
   // whichever layout `mode` selects.
   const results = <StudioResults studio={studio} />;
 

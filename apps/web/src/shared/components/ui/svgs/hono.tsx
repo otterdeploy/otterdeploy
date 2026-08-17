@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * Hono's official brand mark — a flame ("hono" = flame in Japanese). simple-icons
+ * Hono's official brand mark. A flame ("hono" = flame in Japanese). simple-icons
  * ships no Hono SVG, so this is the logo straight from hono.dev: the two-tone
  * orange flame with its gradient, rather than a `currentColor` silhouette. Its
  * fills are self-contained (gradient + solid), so it renders correct brand

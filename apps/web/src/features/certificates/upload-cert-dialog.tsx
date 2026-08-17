@@ -3,7 +3,7 @@
  * and the unencrypted private key; the server validates that the chain
  * parses, the key pairs with the leaf and the hostname is covered BEFORE
  * anything is stored. The success toast reports the REAL edge outcome
- * (`applied`) — "stored but not installed" is shown as exactly that.
+ * (`applied`). "stored but not installed" is shown as exactly that.
  */
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
@@ -81,7 +81,7 @@ function reportOutcome(result: { applied: boolean; applyError: string | null }, 
   if (result.applied) {
     toast.success(`Certificate for ${hostname} installed at the edge`);
   } else {
-    toast.warning(`Certificate for ${hostname} stored — but not installed`, {
+    toast.warning(`Certificate for ${hostname} stored, but not installed`, {
       description: result.applyError ?? "Installation did not complete.",
       duration: 10_000,
     });
@@ -222,7 +222,7 @@ export function UploadCertDialog({
           </form.Field>
 
           <p className="text-xs text-muted-foreground">
-            Custom certificates are not auto-renewed — replace the material here before it expires.
+            Custom certificates are not auto-renewed. Replace the material here before it expires.
           </p>
 
           <DialogFooter className="mt-1">

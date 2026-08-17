@@ -1,5 +1,5 @@
 /**
- * Change password — better-auth's `changePassword` (email/password is enabled
+ * Change password. Better-auth's `changePassword` (email/password is enabled
  * in packages/auth). Shown only when the user actually has a credential
  * account; a social-only sign-in gets an honest hint instead of a form that
  * would 400. Optionally revokes every other session on change.
@@ -23,7 +23,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 
 import { authKeys, useLinkedAccounts } from "./data/use-account";
 
-// better-auth server default (minPasswordLength) — mirrored for instant
+// better-auth server default (minPasswordLength), mirrored for instant
 // client-side feedback; the server still enforces it.
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -74,8 +74,8 @@ export function PasswordCard() {
         </div>
       ) : !hasCredential ? (
         <div className="p-4 text-[12.5px] leading-relaxed text-muted-foreground">
-          Your account signs in through a linked provider — no password is set, so there's nothing
-          to change here.
+          Your account signs in through a linked provider. No password is set, so there's nothing to
+          change here.
         </div>
       ) : (
         <ChangePasswordForm />
@@ -178,8 +178,12 @@ function ChangePasswordForm() {
         </div>
         <form.Field name="revokeOthers">
           {(field) => (
-            <label className="flex w-fit cursor-pointer items-center gap-2 text-[12.5px] text-muted-foreground">
+            <label
+              htmlFor="pw-revoke-others"
+              className="flex w-fit cursor-pointer items-center gap-2 text-[12.5px] text-muted-foreground"
+            >
               <Checkbox
+                id="pw-revoke-others"
                 checked={field.state.value}
                 disabled={change.isPending}
                 onCheckedChange={(v) => field.handleChange(v === true)}
@@ -209,7 +213,7 @@ function ChangePasswordForm() {
   );
 }
 
-/** One password input — label, value binding, and inline field errors. */
+/** One password input: label, value binding, and inline field errors. */
 function PasswordField({
   id,
   label,

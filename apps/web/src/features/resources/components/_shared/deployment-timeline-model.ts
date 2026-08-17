@@ -1,5 +1,5 @@
 /**
- * Pure model for the deployment detail view — the row shape and the lifecycle →
+ * Pure model for the deployment detail view: the row shape and the lifecycle →
  * phase-stepper mapping. Split out of deployment-detail.tsx (which renders it)
  * to keep that file under the line cap; nothing here touches React.
  */
@@ -49,7 +49,7 @@ export interface Phase {
  *  the deployment is genuinely live, but calling it a success would be a lie. */
 export type Tone = "success" | "failed" | "active" | "neutral" | "degraded";
 
-/** The subset of a deployment the timeline actually reads — so both the fuller
+/** The subset of a deployment the timeline actually reads, so both the fuller
  *  `DeploymentRow` (detail page) and the leaner deployments-collection row
  *  (drawer card) can drive the stepper without a shared shape. */
 export type TimelineInput = Pick<
@@ -76,7 +76,7 @@ const p = (key: string, label: string, state: PhaseState, detail?: string): Phas
 
 /**
  * The two shapes a `failed` deployment takes. Split out of {@link buildTimeline}
- * so its status switch stays inside the complexity budget — this one branch
+ * so its status switch stays inside the complexity budget. This one branch
  * carries a nested ternary plus two error-message fallbacks, which is a third of
  * the whole function's branching.
  *
@@ -114,13 +114,13 @@ function failedTimeline(taskCount: number, err: string | null, totalMs: number |
  * A `running` deployment is not automatically a successful one.
  *
  * The incident: a service whose container came up, failed its healthcheck, and
- * sat at `Up 14 minutes (unhealthy)` returning 404 to every request — while the
+ * sat at `Up 14 minutes (unhealthy)` returning 404 to every request, while the
  * dashboard displayed "Deployed successfully" with four green checks. The
  * rollup that would have contradicted it (`runningTaskCount` vs `taskCount`)
  * was already on the row; the timeline just never read it.
  *
  * `running` means the rollout finished, not that the replicas are up. When they
- * aren't, say so — PRODUCT.md's honest-about-system-state principle is not
+ * aren't, say so. PRODUCT.md's honest-about-system-state principle is not
  * satisfied by a green check that happens to be wrong.
  */
 function runningTimeline(
@@ -158,7 +158,7 @@ function runningTimeline(
         "run",
         "Post-deploy",
         "failed",
-        `${runningTaskCount}/${taskCount} replicas running — check the container logs and healthcheck.`,
+        `${runningTaskCount}/${taskCount} replicas running. Check the container logs and healthcheck.`,
       ),
     ],
   };
@@ -167,7 +167,7 @@ function runningTimeline(
 /**
  * Map our coarse deployment lifecycle (pending → building → running/failed,
  * plus swarm task rollup) onto a Railway-style phase stepper. We only track
- * four honest checkpoints — Initialize → Build → Deploy → Running — and can't
+ * four honest checkpoints (Initialize → Build → Deploy → Running) and can't
  * fabricate per-phase timings, so each phase shows state only; the header
  * carries the one real duration we have (created → completed).
  */
@@ -187,7 +187,7 @@ export function buildTimeline(d: TimelineInput): Timeline {
     case "running":
       return runningTimeline(d.taskCount, d.runningTaskCount, totalMs);
     case "starting":
-      // Image built; containers are coming up (pre-running) — the deploy phase
+      // Image built; containers are coming up (pre-running). The deploy phase
       // is active, the build one is done.
       return {
         title: "Starting up…",
@@ -228,7 +228,7 @@ export function buildTimeline(d: TimelineInput): Timeline {
       return failedTimeline(d.taskCount, err, totalMs);
     case "crashed":
       // Built + deployed fine, but the container keeps exiting and restarting
-      // (e.g. a bad env var) — the run phase is the one that's failing.
+      // (e.g. a bad env var): the run phase is the one that's failing.
       return {
         title: "Crash-looping after deploy",
         tone: "failed",
@@ -241,11 +241,11 @@ export function buildTimeline(d: TimelineInput): Timeline {
         ],
       };
     case "paused":
-      // Deployed cleanly, then scaled to zero on purpose — every phase ran, it
+      // Deployed cleanly, then scaled to zero on purpose. Every phase ran, it
       // just isn't serving right now.
-      return { title: "Paused — scaled to zero", tone: "neutral", totalMs, phases: allDone };
+      return { title: "Paused. Scaled to zero", tone: "neutral", totalMs, phases: allDone };
     case "superseded":
-      // A benign replacement — this deploy was live/building when a newer one
+      // A benign replacement: this deploy was live/building when a newer one
       // took over (a FAILED deploy keeps its `failed` status, never lands here).
       return { title: "Replaced by a newer deployment", tone: "neutral", totalMs, phases: allDone };
     default:

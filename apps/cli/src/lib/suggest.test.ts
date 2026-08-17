@@ -24,7 +24,7 @@ describe("suggestions", () => {
   });
 
   it("offers a prefix match however far the edit distance", () => {
-    // `environments` is 4 edits from `environment`, past any sane threshold —
+    // `environments` is 4 edits from `environment`, past any sane threshold,
     // but a user typing a prefix clearly means the longer name.
     expect(suggestions("environment", COMMANDS)).toContain("environments");
   });

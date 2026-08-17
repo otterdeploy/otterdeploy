@@ -4,7 +4,7 @@ import { Tick02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 // Shared building blocks for the landing page. Everything reads from the
-// tokens in styles/app.css — flat surfaces, hairline rings, one blue.
+// tokens in styles/app.css: flat surfaces, hairline rings, one blue.
 
 export const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
@@ -88,7 +88,7 @@ export function Band({
 
 // ── Machine-readable atoms ─────────────────────────────────────────────────
 
-/** A mono taxonomy label — the dashboard's voice for anything machine-made. */
+/** A mono taxonomy label: the dashboard's voice for anything machine-made. */
 export function Mono({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span className={cx("font-mono text-[0.75rem] tracking-tight", className)}>{children}</span>
@@ -125,7 +125,7 @@ export function StateChip({
 /**
  * The blue, grained panel a showcase visual floats on. It re-scopes the colour
  * tokens (see `.od-field` in styles/app.css), so the visual inside needs no
- * knowledge of where it landed — it keeps using `bg-card` and `text-foreground`
+ * knowledge of where it landed. It keeps using `bg-card` and `text-foreground`
  * and comes out as dark glass on blue.
  */
 export function Field({ children, className }: { children: ReactNode; className?: string }) {
@@ -177,9 +177,9 @@ export function VisualFrame({
 // ── Copy-to-clipboard command ──────────────────────────────────────────────
 
 /**
- * A shell command with a copy button. The button reports what happened —
- * copied, or "select it" when the clipboard API is unavailable (http origins,
- * locked-down browsers) — rather than pretending it worked.
+ * A shell command with a copy button. The button reports what happened.
+ * Copied, or "select it" when the clipboard API is unavailable (http origins,
+ * locked-down browsers): rather than pretending it worked.
  */
 export function CommandLine({
   command,

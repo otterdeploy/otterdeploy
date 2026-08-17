@@ -1,5 +1,5 @@
 /**
- * Custom tab — operator-uploaded PEM certificates. Status is never
+ * Custom tab: operator-uploaded PEM certificates. Status is never
  * optimistic: "Serving at edge" only appears when the live probe's leaf
  * fingerprint matches the stored one; install failures surface their real
  * error; a cert no enabled domain points at says so.
@@ -145,7 +145,7 @@ function CustomRow({
     <TableRow className="text-[13px]">
       <TableCell className="font-mono text-foreground/90">{cert.hostname}</TableCell>
       <TableCell className="max-w-40 truncate text-muted-foreground" title={cert.issuer ?? ""}>
-        {cert.issuer ?? "—"}
+        {cert.issuer ?? "–"}
       </TableCell>
       <TableCell>
         <span className="flex max-w-56 flex-wrap gap-1">
@@ -174,7 +174,7 @@ function CustomRow({
             {cert.keyAlg}
           </span>
         ) : (
-          "—"
+          "–"
         )}
       </TableCell>
       <TableCell>

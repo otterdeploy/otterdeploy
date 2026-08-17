@@ -55,7 +55,7 @@ function nodePgError(code: string, extra: PgFixtureFields = {}): Error {
 
 const wrapped = (cause: Error) => new DrizzleQueryError("insert into ...", [], cause);
 
-describe("pgErrorCode — driver field differences", () => {
+describe("pgErrorCode: driver field differences", () => {
   test("reads bun-sql's errno, not its non-SQLSTATE code", () => {
     expect(pgErrorCode(bunPgError("23505"))).toBe("23505");
   });
@@ -86,7 +86,7 @@ describe("classification", () => {
   });
 
   test("does not fire on a neighbouring integrity code", () => {
-    // 23502 (not-null) shares the class prefix — the exact state has to match.
+    // 23502 (not-null) shares the class prefix: the exact state has to match.
     expect(isUniqueViolation(bunPgError("23502"))).toBe(false);
     expect(isNotNullViolation(bunPgError("23502"))).toBe(true);
     expect(isForeignKeyViolation(bunPgError("23503"))).toBe(true);
@@ -119,7 +119,7 @@ describe("pgErrorInfo", () => {
   });
 
   test("absent fields come back null rather than undefined", () => {
-    // A not-null violation names no constraint — callers branch on null.
+    // A not-null violation names no constraint: callers branch on null.
     const info = pgErrorInfo(bunPgError("23502", { table: "server" }));
     expect(info?.constraint).toBeNull();
     expect(info?.column).toBeNull();

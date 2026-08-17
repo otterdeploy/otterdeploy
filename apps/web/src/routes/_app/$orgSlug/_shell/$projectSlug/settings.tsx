@@ -2,11 +2,11 @@
  * Project settings. Git source + image target now live on each SERVICE (a
  * project can hold services that build from different repos), so this page is
  * project-level only: the custom domain its services land on. Per-service
- * source/build/image config — including the PR-previews opt-in — is edited in
+ * source/build/image config (including the PR-previews opt-in) is edited in
  * the service's Settings → Source card.
  */
 
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ interface ProjectSettingsFields {
 
 function SettingsRoute() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  return <SettingsForm project={project as unknown as ProjectSettingsFields} />;
+  return <SettingsForm project={project} />;
 }
 
 function SettingsForm({ project }: { project: ProjectSettingsFields }) {
@@ -58,7 +58,7 @@ function SettingsForm({ project }: { project: ProjectSettingsFields }) {
       });
     },
   });
-  const customDomain = useStore(form.store, (s) => s.values.customDomain);
+  const customDomain = useSelector(form.store, (s) => s.values.customDomain);
   const dirty = customDomain.trim() !== (project.customDomain ?? "");
 
   return (

@@ -1,14 +1,14 @@
 /**
  * Terminal target discovery. One read covers everything the picker needs to
  * show under Container + Database tabs. SSH targets piggyback on the existing
- * org-scoped server.list — no need to re-source them here.
+ * org-scoped server.list, no need to re-source them here.
  *
  * Org scoping:
  *   - Containers: filtered to docker labels { otterdeploy.managed=true,
  *     otterdeploy.project=<projectSlug> } for projects in this org.
  *   - Databases: SQL join `resource → project` filtered by organizationId.
  *
- * Container labels are the source of truth for the project mapping — we DO
+ * Container labels are the source of truth for the project mapping. We DO
  * NOT trust labels to identify the org (a different deployment in the same
  * Docker daemon could spoof them). Instead we pre-load the org's project
  * slugs and only emit containers whose `otterdeploy.project` label matches.
@@ -16,11 +16,19 @@
 import type { OrganizationId, ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { databaseResource, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
+import {
+  databaseResource,
+  project,
+  resource,
+  serviceResource,
+} from "@otterdeploy/db/schema/project";
 import { type ContainerSummary, Docker } from "@otterdeploy/docker";
 import { FRAMEWORK_KINDS, type Framework } from "@otterdeploy/shared/framework";
-import { canonicalId, ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
+import { canonicalId, hasPrefix, ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+
+/** Brands raw slugs (docker labels, unbranded DB columns) at the boundary. */
+const projectSlugSchema = zSlug(ID_PREFIX.project);
 type OrgId = OrganizationId;
 
 export interface TerminalContainer {
@@ -30,7 +38,8 @@ export interface TerminalContainer {
   image: string;
   state: string;
   resourceType: "service" | "postgres" | "redis" | "mariadb" | "mongodb";
-  /** Detected framework for source-built services (picker icon fallback). */
+  /** Detected framework for source-built services (picker icon fallback
+   *  when the image ref resolves no brand mark). */
   framework: Framework | null;
   projectSlug: ProjectSlug | null;
   projectName: string | null;
@@ -52,26 +61,20 @@ export interface TerminalTargets {
   databases: TerminalDatabase[];
 }
 
-const TERMINAL_RESOURCE_TYPE_LIST = [
+const TERMINAL_RESOURCE_TYPES = new Set<TerminalContainer["resourceType"]>([
   "service",
   "postgres",
   "redis",
   "mariadb",
   "mongodb",
-] satisfies TerminalContainer["resourceType"][];
-const TERMINAL_RESOURCE_TYPES: ReadonlySet<string> = new Set(TERMINAL_RESOURCE_TYPE_LIST);
+]);
 
 function isTerminalResourceType(
   value: string | undefined,
 ): value is TerminalContainer["resourceType"] {
-  return value !== undefined && TERMINAL_RESOURCE_TYPES.has(value);
+  const widened: ReadonlySet<string> = TERMINAL_RESOURCE_TYPES;
+  return value !== undefined && widened.has(value);
 }
-
-// Docker labels and DB slug/id columns travel as plain strings — parse (not
-// cast) to the branded types at this boundary.
-const projectIdSchema = zId("prj");
-const resourceIdSchema = zId("res");
-const projectSlugSchema = zSlug(ID_PREFIX.project);
 
 /**
  * Parse "myservice.3.abc123" → ("myservice", "3"). Falls back to (full, null)
@@ -83,7 +86,7 @@ function splitTaskName(name: string): {
 } {
   // Stripping a leading slash that docker prepends to Names entries.
   const clean = name.replace(/^\//, "");
-  // Swarm task naming: `<service>.<slot>.<taskId>` — slot is numeric.
+  // Swarm task naming: `<service>.<slot>.<taskId>`: slot is numeric.
   const match = /^(.*)\.(\d+)\.[a-z0-9]+$/.exec(clean);
   if (match && match[1]) return { serviceName: match[1], slot: match[2] ?? null };
   return { serviceName: clean, slot: null };
@@ -95,7 +98,7 @@ function splitTaskName(name: string): {
  */
 function toTerminalContainer(
   c: ContainerSummary,
-  slugToProject: Map<string, { id: string; name: string }>,
+  slugToProject: Map<string, { id: ProjectId; name: string }>,
 ): TerminalContainer | null {
   const labels = c.Labels ?? {};
   const labelProjectSlug = labels["otterdeploy.project"] ?? null;
@@ -114,26 +117,26 @@ function toTerminalContainer(
   // Old prefix on pre-rename containers; callers match this against DB ids.
   const labelResourceId = rawLabelResourceId ? canonicalId(rawLabelResourceId) : rawLabelResourceId;
 
-  // The slug came off a docker label and the id off our own project row —
-  // parse both rather than cast; a malformed label drops the container the
-  // same way an unknown project slug does.
+  // The slug came off a docker label as a raw string. We've already verified
+  // above (slugToProject.has) that it matches an org-owned project, so the
+  // schema parse is just the brand-at-the-boundary formality.
   const parsedSlug = projectSlugSchema.safeParse(labelProjectSlug);
-  const parsedProjectId = projectIdSchema.safeParse(terminalProject.id);
-  if (!parsedSlug.success || !parsedProjectId.success) return null;
-  const parsedResourceId = resourceIdSchema.safeParse(labelResourceId);
 
   return {
     containerId: c.Id,
-    projectId: parsedProjectId.data,
+    projectId: terminalProject.id,
     name: serviceName,
     image: c.Image,
     state: c.State,
     resourceType,
     // Stamped in a batch after assembly (one query for all service rows).
     framework: null,
-    projectSlug: parsedSlug.data,
+    projectSlug: parsedSlug.success ? parsedSlug.data : null,
     projectName: terminalProject.name,
-    serviceResourceId: parsedResourceId.success ? parsedResourceId.data : null,
+    serviceResourceId:
+      labelResourceId !== undefined && hasPrefix(labelResourceId, ID_PREFIX.resource)
+        ? labelResourceId
+        : null,
     serviceName,
     replicaSlot: slot,
   };
@@ -144,13 +147,13 @@ export async function listTerminalTargets(input: {
   /** Optional project allow-list, used by project-restricted API keys. */
   projectIds?: string[];
 }): Promise<TerminalTargets> {
-  // Org projects — slugs let us scope label-filtered containers safely.
+  // Org projects: slugs let us scope label-filtered containers safely.
   const projects = await db
     .select({ id: project.id, slug: project.slug, name: project.name })
     .from(project)
     .where(eq(project.organizationId, input.organizationId));
 
-  const slugToProject = new Map<string, { id: string; name: string }>();
+  const slugToProject = new Map<string, { id: ProjectId; name: string }>();
   const allowedProjectIds = input.projectIds ? new Set(input.projectIds) : null;
   for (const p of projects) {
     if (!allowedProjectIds || allowedProjectIds.has(p.id)) {
@@ -164,7 +167,7 @@ export async function listTerminalTargets(input: {
   // an org-owned slug before emitting.
   const docker = Docker.fromEnv();
   const listed = await docker.containers.list({
-    all: false, // running only — exec is meaningless against stopped
+    all: false, // running only: exec is meaningless against stopped
     filters: { label: ["otterdeploy.managed=true"] },
   });
 
@@ -175,6 +178,7 @@ export async function listTerminalTargets(input: {
       if (mapped) containers.push(mapped);
     }
   }
+
   // Framework enrichment: the picker's icon fallback when the image ref
   // resolves no brand mark (source-built services have a build image no
   // resolver recognises, but a detected framework we can render instead).
@@ -221,7 +225,7 @@ export async function listTerminalTargets(input: {
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    // Base databases only — a PR preview's branch DB is not a terminal target.
+    // Base databases only: a PR preview's branch DB is not a terminal target.
     .where(and(eq(project.organizationId, input.organizationId), isNull(resource.previewId)));
 
   const databases: TerminalDatabase[] = dbRows
@@ -230,7 +234,6 @@ export async function listTerminalTargets(input: {
       resourceId: r.resourceId,
       name: r.name,
       engine: r.engine,
-      // Our own project row — parse the plain-text column to the brand.
       projectSlug: projectSlugSchema.parse(r.projectSlug),
       projectName: r.projectName,
     }));

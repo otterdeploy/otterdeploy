@@ -8,9 +8,9 @@ import { defineJob } from "../define";
  * by manual rebuilds, manifest applies, and compose deploys).
  *
  * The real work lives in `apps/builder/src/handler.ts` (`makeBuildJob`), which
- * registers the `deploy.triggered` worker that OWNS the full pipeline — git
- * clone @ sha → build (railpack/Dockerfile/compose) → push → swarm rollout —
- * running each deployment in a throwaway docker container for isolation.
+ * registers the `deploy.triggered` worker that OWNS the full pipeline. Git
+ * clone @ sha → build (railpack/Dockerfile/compose) → push → swarm rollout.
+ * Running each deployment in a throwaway docker container for isolation.
  * `apps/server` deliberately excludes `deploy.triggered` from its in-process
  * workers (it needs the railpack/docker toolchain), so the builder host runs it.
  * The inline `handler` below is only a fallback acknowledgement for environments
@@ -20,14 +20,14 @@ import { defineJob } from "../define";
  */
 export const DeployTriggeredPayload = z.object({
   projectId: z.string().min(1),
-  /** Where the build source comes from. Absent ⇒ "git" — keeps jobs enqueued
+  /** Where the build source comes from. Absent ⇒ "git". Keeps jobs enqueued
    *  before this field existed (in-flight at deploy time) valid. For "tarball"
    *  the builder extracts the source the CLI uploaded at
    *  sourceTarballPath(projectId, deploymentId) instead of cloning; the git
    *  fields below are then omitted. The worker also reads it to decide whether
    *  to bind-mount the staged tarball into the helper container. */
   sourceKind: z.enum(["git", "tarball"]).optional(),
-  // Git identity — present for git builds, omitted for tarball. Optional so a
+  // Git identity: present for git builds, omitted for tarball. Optional so a
   // tarball trigger validates without a repo/ref/sha. The builder never reads
   // these off the payload (it resolves everything from the deployment row via
   // load.ts); they remain for the worker's log line + the webhook path.

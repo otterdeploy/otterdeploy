@@ -1,7 +1,7 @@
 FROM caddy:2-builder-alpine AS builder
 
-# caddy-l4         — layer-4 (TLS-SNI) proxying for database routes
-# caddy-crowdsec-bouncer — IP-reputation gate (deployment-protection.md §10);
+# caddy-l4: layer-4 (TLS-SNI) proxying for database routes
+# caddy-crowdsec-bouncer: IP-reputation gate (deployment-protection.md §10);
 #   provides the global `crowdsec { … }` app + the per-site `crowdsec` handler
 RUN xcaddy build \
   --with github.com/mholt/caddy-l4 \

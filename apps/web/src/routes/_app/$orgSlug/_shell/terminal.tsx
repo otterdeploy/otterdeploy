@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/terminal")({
   validateSearch: terminalSearchSchema,
   // The schema's `session` transform always outputs an array (`[]` when
   // absent), so a fresh visit's sync-to-URL effect would otherwise write a
-  // literal `?session=%5B%5D` — strip it back off when it's the empty default.
+  // literal `?session=%5B%5D`: strip it back off when it's the empty default.
   search: { middlewares: [stripSearchParams({ session: [] })] },
   // Warm the "New session" picker's data on hover (intent-preload): the two
   // target collections share one terminal.targets RPC (deduped in targets.ts),

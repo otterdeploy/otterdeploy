@@ -15,7 +15,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * ride the collection's own handlers; the page reads via a live query and
  * mutates the collection. The row type is inferred from the contract.
  *
- * Secrets are write-only — they never appear on a row — so create/update carry
+ * Secrets are write-only (they never appear on a row) so create/update carry
  * them through the mutation's `metadata.secret` rather than a draft field.
  * `test` is a one-shot validation action (no row change), exported separately.
  */
@@ -25,14 +25,14 @@ export type Destination = z.infer<typeof destinationSchema>;
  * Cast-free read of the write-only credential bag threaded through a
  * mutation's metadata. The shared `metadataSecret` reader covers single-string
  * secrets; destinations carry a whole record (access key + secret key, SFTP
- * password, …), so narrow that shape here with runtime checks — wrong or
+ * password, …), so narrow that shape here with runtime checks, wrong or
  * missing metadata degrades to `undefined`.
  */
 
 const destinationsListKey = orpc.backups.destinations.list.queryKey();
 
 const destinationsQueryOptions = queryCollectionOptions({
-  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // Stable id: persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "backup-destinations",
   ...orpc.backups.destinations.list.queryOptions(),
@@ -81,7 +81,7 @@ const destinationsQueryOptions = queryCollectionOptions({
 
 type DestinationRow = Awaited<ReturnType<typeof orpc.backups.destinations.list.call>>[number];
 
-// Call `createCollection` inside each branch — the persisted and plain option
+// Call `createCollection` inside each branch. The persisted and plain option
 // objects are different types (see project.ts for the full type note).
 export const destinationsCollection = persistence
   ? createCollection(
@@ -100,7 +100,7 @@ export function testDestination(id: Destination["id"]) {
 
 /**
  * Enable or disable a destination. Separate from the collection's `onUpdate`
- * because `status` isn't part of the update input — and because this is the only
+ * because `status` isn't part of the update input, and because this is the only
  * mutation the platform-managed destination accepts, so it must not be coupled
  * to the config edit path that managed rows reject.
  *

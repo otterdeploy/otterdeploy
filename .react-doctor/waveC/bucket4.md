@@ -1,4 +1,4 @@
-# Wave C (effects & state) — bucket 4
+# Wave C (effects & state): bucket 4
 
 
 ## src/features/projects/components/new-resource/overlay-provider.tsx

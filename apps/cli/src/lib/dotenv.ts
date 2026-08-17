@@ -3,7 +3,7 @@
  *   - `parsePairs` reads `KEY=VAL` tokens from raw argv (flags skipped).
  *   - `parseDotenv` reads a dotenv file body (comments/blanks skipped,
  *     surrounding single/double quotes stripped).
- * Both keep the last occurrence's value out of the loop — callers dedupe.
+ * Both keep the last occurrence's value out of the loop, callers dedupe.
  */
 
 export interface EnvPair {

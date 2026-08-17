@@ -1,4 +1,4 @@
-/** "Block IP" action for the expanded edge-log row — bans the client IP at the
+/** "Block IP" action for the expanded edge-log row: bans the client IP at the
  *  CrowdSec edge (reversible from the Firewall view) behind a confirm, since
  *  it's an outward-facing enforcement action. */
 
@@ -18,7 +18,7 @@ import {
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 
-/** Mass-block confirm — bans every listed offender IP in one CrowdSec batch.
+/** Mass-block confirm: bans every listed offender IP in one CrowdSec batch.
  *  Same confirm-first posture as the single-IP action; used by the suspicious
  *  filter here and the Flagged IPs panel in the Firewall view. */
 export function BlockAllButton({
@@ -103,8 +103,8 @@ export function BlockIpButton({
           </AlertDialogTitle>
           <AlertDialogDescription>
             Every request from this IP will be rejected at the Caddy edge (403) for 30 days, before
-            it reaches any of your services. CrowdSec enforces it cluster-wide — no deploy or reload
-            needed. You can undo this from the Firewall view.
+            it reaches any of your services. CrowdSec enforces it cluster-wide, with no deploy or
+            reload needed. You can undo this from the Firewall view.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -9,7 +9,9 @@ import type { RedisValue } from "./redis-types";
 function chunkPairs(flat: string[]): string[][] {
   const out: string[][] = [];
   for (let i = 0; i + 1 < flat.length; i += 2) {
-    out.push([flat[i] as string, flat[i + 1] as string]);
+    const a = flat[i];
+    const b = flat[i + 1];
+    if (a !== undefined && b !== undefined) out.push([a, b]);
   }
   return out;
 }
@@ -19,17 +21,17 @@ export function shapeValue(
   key: string,
   p: { type: RedisValue["type"]; ttl: number; length: number; value?: unknown },
 ): RedisValue {
-  const base = {
+  const base: Omit<RedisValue, "truncated"> = {
     key,
     type: p.type,
     ttl: p.ttl,
     length: p.length,
     binary: false,
-    string: null as string | null,
-    rows: null as RedisValue["rows"],
+    string: null,
+    rows: null,
   };
 
-  const arr = Array.isArray(p.value) ? (p.value as unknown[]).map(String) : [];
+  const arr: string[] = Array.isArray(p.value) ? p.value.map(String) : [];
 
   switch (p.type) {
     case "string": {
@@ -69,13 +71,15 @@ export function shapeValue(
       };
     case "stream": {
       // Each entry is [id, [field, value, …]].
-      const entries = Array.isArray(p.value) ? (p.value as unknown[]) : [];
+      const entries: unknown[] = Array.isArray(p.value) ? p.value : [];
       const cells = entries.map((e) => {
         const [id, fields] = Array.isArray(e) ? e : [String(e), []];
         const fieldArr = Array.isArray(fields) ? fields.map(String) : [];
         const pairs: Record<string, string> = {};
         for (let i = 0; i + 1 < fieldArr.length; i += 2) {
-          pairs[fieldArr[i] as string] = fieldArr[i + 1] as string;
+          const field = fieldArr[i];
+          const value = fieldArr[i + 1];
+          if (field !== undefined && value !== undefined) pairs[field] = value;
         }
         return [String(id), JSON.stringify(pairs)];
       });
@@ -86,7 +90,7 @@ export function shapeValue(
       };
     }
     default:
-      // "none" — key missing or expired between list and read.
+      // "none": key missing or expired between list and read.
       return { ...base, truncated: false };
   }
 }

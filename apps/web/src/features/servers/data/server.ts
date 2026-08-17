@@ -12,15 +12,15 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 export type Server = z.infer<typeof serverSchema>;
 
 const serverQueryOptions = queryCollectionOptions({
-  // Stable id — keys the persisted SQLite table (see projectCollection).
+  // Stable id: keys the persisted SQLite table (see projectCollection).
   id: "servers",
   ...orpc.server.list.queryOptions(),
   queryKey: orpc.server.list.queryKey(),
   queryFn: async () => orpc.server.list.call(),
-  // This collection carries `status` and `provisionStatus` — the badge in
+  // This collection carries `status` and `provisionStatus`. The badge in
   // the servers table. Every server-row write publishes a `servers` resync
   // over the org event stream (use-org-events refetches this collection),
-  // so the poll is only a dead-stream backstop — and the sidebar mounts
+  // so the poll is only a dead-stream backstop, and the sidebar mounts
   // this app-wide, so its cadence is ambient traffic on every page. An
   // active provision has its own fast poller (server-provision-progress).
   refetchInterval: 300_000,
@@ -54,7 +54,7 @@ const serverQueryOptions = queryCollectionOptions({
 
 type ServerRow = Awaited<ReturnType<typeof orpc.server.list.call>>[number];
 
-// Two-branch createCollection with pinned generics — see projectCollection
+// Two-branch createCollection with pinned generics: see projectCollection
 // (features/projects/data/project.ts) for why the ternary can't be inlined.
 export const serverCollection = persistence
   ? createCollection(

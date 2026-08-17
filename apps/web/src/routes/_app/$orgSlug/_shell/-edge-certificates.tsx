@@ -3,18 +3,18 @@
  * Certificates), split out of edge.tsx purely for size: edge.tsx hosts five
  * planes and this is the only one with its own permission check, its own
  * sub-tabs and its own header actions, so it's the cohesive piece to lift out.
- * Content is unchanged — the route still owns the tab chrome and the two upload
+ * Content is unchanged. The route still owns the tab chrome and the two upload
  * dialogs, and passes the "open upload" callbacks down.
  *
- *   - Managed  — every enabled public domain across the org's projects with
- *     the cert the Caddy edge ACTUALLY serves (live TLS probe — ground
+ *   - Managed: every enabled public domain across the org's projects with
+ *     the cert the Caddy edge ACTUALLY serves (live TLS probe, ground
  *     truth, never cached). "Recheck all" re-probes.
- *   - Custom   — uploaded PEM chain + key, validated server-side, installed
+ *   - Custom, uploaded PEM chain + key, validated server-side, installed
  *     through the same reconcile pass routes use.
- *   - Trusted CAs — PEM inventory (view/download/remove).
+ *   - Trusted CAs: PEM inventory (view/download/remove).
  *
  * No "Renew" button: Caddy auto-renews ACME certs and exposes no
- * force-renew via its admin API — a renew action would be fake.
+ * force-renew via its admin API: a renew action would be fake.
  */
 
 import { RefreshIcon, UploadCircle01Icon } from "@hugeicons/core-free-icons";
@@ -98,7 +98,7 @@ export function CertificatesTab({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-muted-foreground">
-        TLS at the Caddy edge — what each public domain actually serves, probed live. ACME
+        TLS at the Caddy edge: what each public domain actually serves, probed live. ACME
         certificates renew automatically; custom uploads are rotated by you.
       </p>
 

@@ -6,7 +6,7 @@
  * don't enforce tenancy.
  *
  * Sealed variables: `listProjectEnvVarsForOrg` is the API/UI-facing read
- * path, so it masks `value` to `""` for any row with `sealed: true` — the
+ * path, so it masks `value` to `""` for any row with `sealed: true`: the
  * ciphertext-or-plaintext behind a sealed var must never reach an RPC
  * response. The query layer (`./queries/project-env`) still returns the raw
  * stored value because the deploy-time resolver needs it to decrypt.
@@ -45,7 +45,7 @@ async function verifyProjectOwnership(
   return Result.ok(true);
 }
 
-/** Never returns a sealed row's real value — masked to "" here so no caller
+/** Never returns a sealed row's real value. Masked to "" here so no caller
  *  of this handler can accidentally leak it by forgetting to mask. */
 function maskSealed(row: ProjectEnvVarRow): ProjectEnvVarRow {
   return row.sealed ? { ...row, value: "" } : row;
@@ -76,7 +76,7 @@ export async function upsertProjectEnvVarForOrg(
     sealed: input.sealed,
   });
   // The just-written row's `value` is the caller's own plaintext echoed
-  // back on a normal write — but once sealed, the RETURNED row must mask
+  // back on a normal write, but once sealed, the RETURNED row must mask
   // it too (the caller already knows what they just set; the response
   // shouldn't become a "reveal" oracle for a value that was previously
   // sealed and this call merely REPLACED, or for the ciphertext itself).

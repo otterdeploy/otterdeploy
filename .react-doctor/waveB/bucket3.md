@@ -1,4 +1,4 @@
-# Wave B — Agent bucket 3
+# Wave B: Agent bucket 3
 
 
 ## src/features/logs/components/log-viewer.tsx

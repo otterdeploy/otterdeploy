@@ -1,7 +1,7 @@
 /**
  * Add / edit an outbound webhook: target URL + the subscribed-event chip grid.
  * The event catalog is the SAME list notifications renders (one vocabulary).
- * Submits raw values — the page maps them onto the collection mutation. The
+ * Submits raw values: the page maps them onto the collection mutation. The
  * HMAC secret is minted server-side on create and revealed from the card.
  */
 import { useState } from "react";

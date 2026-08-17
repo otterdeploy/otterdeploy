@@ -3,9 +3,10 @@ import { afterEach, describe, expect, test } from "vite-plus/test";
 import { lookupCountry } from "../geo";
 
 /** lookupCountry reads the opened reader off globalThis (shared across --hot
- *  reloads). We swap in a fake to exercise both record layouts + the disabled
- *  and error paths without a real .mmdb. */
-const g = globalThis as typeof globalThis & { __edgeGeoReader?: unknown };
+ *  reloads; `../geo` declares the `__edgeGeoReader` global). We swap in a fake
+ *  to exercise both record layouts + the disabled and error paths without a
+ *  real .mmdb. */
+const g = globalThis;
 
 afterEach(() => {
   g.__edgeGeoReader = undefined;

@@ -1,5 +1,5 @@
 /**
- * "Sources" view of the Firewall tab — manage the IP blocklists imported into
+ * "Sources" view of the Firewall tab: manage the IP blocklists imported into
  * CrowdSec. Three parts: optional CrowdSec console enrollment, your active lists
  * (curated + custom, with sync status), and a catalog of one-click public lists.
  * No CrowdSec account required for any of the public/custom lists.
@@ -53,7 +53,7 @@ export function BlocklistsPanel() {
           />
           {lists.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              No lists yet — add a public one below, or your own URL.
+              No lists yet. Add a public one below, or your own URL.
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border">

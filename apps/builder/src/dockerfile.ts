@@ -4,26 +4,26 @@
  * Unlike railpack (which analyses the source and runs through a BuildKit
  * frontend), the Dockerfile builder hands a user-authored Dockerfile straight
  * to `docker buildx build --load` and `--load`s the result into the host
- * daemon, so the existing `dockerPush` step pushes it unchanged — same flow as
+ * daemon, so the existing `dockerPush` step pushes it unchanged. Same flow as
  * railpack.ts. We deliberately use host-daemon `buildx --load`, NOT a remote
  * buildkit container, to stay consistent with railpack.ts.
  *
- * Resolution lives in `resolveDockerfileBuild` — a pure, read-only probe of the
+ * Resolution lives in `resolveDockerfileBuild`. A pure, read-only probe of the
  * checked-out work tree (no docker, no side effects) so the pipeline can decide
  * between dockerfile and railpack and surface warnings BEFORE building:
  *
  *   - builder "dockerfile": a missing/absolute/escaping path is a HARD error
- *     (thrown — the pipeline's `step()` wrapper tags it a BuildStepError).
+ *     (thrown, the pipeline's `step()` wrapper tags it a BuildStepError).
  *   - builder "auto": a Dockerfile present → dockerfile; absent → railpack; a
  *     bad custom path → warn + fall back to railpack.
  *   - builder "railpack": always railpack, but warn when a Dockerfile is
  *     present (or a custom path is set) so the pin isn't a silent surprise.
  *
- * Path resolution + the build context are both anchored at `appDir` — the
+ * Path resolution + the build context are both anchored at `appDir`. The
  * service's subdir if `sourceSubdir` is set, else the repo root.
  *
  * Two tags are produced for every successful build: the immutable `:<sha>` tag
- * (what the deployment row points at) and the moving `:latest` tag — exactly
+ * (what the deployment row points at) and the moving `:latest` tag: exactly
  * like railpack.ts.
  *
  * Path-safety guards ported from research/aeroplane/src/server/dockerfile-build.ts;
@@ -69,8 +69,8 @@ function isFile(path: string): boolean {
 
 /**
  * Decide whether to build with the repo's Dockerfile or fall through to
- * railpack. PURE + read-only (node:fs existsSync/statSync only) — no docker,
- * no writes — so the pipeline can resolve + warn before invoking docker.
+ * railpack. PURE + read-only (node:fs existsSync/statSync only), no docker,
+ * no writes, so the pipeline can resolve + warn before invoking docker.
  *
  * `appDir` is the build context AND the base for path resolution: the service's
  * subdir if `sourceSubdir` is set, else the repo root.
@@ -97,7 +97,7 @@ function resolveRailpackPin(appDir: string, customPath: string): DockerfileResol
 
 /**
  * Files that mark a directory as the root of something buildable. Not a
- * detection list — railpack owns that — just "a human put a project here".
+ * detection list (railpack owns that) just "a human put a project here".
  */
 const PROJECT_MANIFESTS = [
   "package.json",
@@ -118,7 +118,7 @@ const PROJECT_MANIFESTS = [
  * Warn about a `sourceSubdir` that is probably not what the operator meant.
  *
  * Both checks come from one incident. A service was configured with root
- * directory `client` — a folder holding `index.html` and `src/`, but no
+ * directory `client`: a folder holding `index.html` and `src/`, but no
  * `package.json` (it sits at the repo root) and no Dockerfile (also at the
  * repo root). Auto-resolution looked only inside `client`, found no Dockerfile,
  * and handed off to railpack; railpack's node provider needs a `package.json`,
@@ -127,7 +127,7 @@ const PROJECT_MANIFESTS = [
  * request 404'd, and the deployment was reported as successful.
  *
  * Every fact needed to catch that was on disk before the build started. The
- * mirror case — railpack pinned while a Dockerfile is present — has warned all
+ * mirror case (railpack pinned while a Dockerfile is present) has warned all
  * along (see resolveRailpackPin); a subdir *hiding* the Dockerfile was the gap.
  */
 function diagnoseSubdir(workDir: string, subdir: string, appDir: string): string[] {
@@ -136,7 +136,7 @@ function diagnoseSubdir(workDir: string, subdir: string, appDir: string): string
   if (isFile(join(workDir, DEFAULT_DOCKERFILE))) {
     warnings.push(
       `Found a Dockerfile at the repository root, but the root directory is set to "${subdir}", ` +
-        `which has none — building with Railpack instead. Clear the root directory to use it.`,
+        `which has none; building with Railpack instead. Clear the root directory to use it.`,
     );
   }
 
@@ -197,7 +197,7 @@ export function resolveDockerfileBuild(opts: {
       );
     }
     // A subdir can hide the very Dockerfile that would have been chosen, so
-    // diagnose it on every fall-through to railpack — including the custom-path
+    // diagnose it on every fall-through to railpack, including the custom-path
     // miss, where the wrong root directory is a likely cause of the miss.
     const subdirWarnings = subdir ? diagnoseSubdir(opts.workDir, subdir, appDir) : [];
     if (customPath) {
@@ -219,7 +219,7 @@ export function resolveDockerfileBuild(opts: {
 }
 
 /**
- * Build the `docker` argv for a Dockerfile build. PURE — no side effects — so
+ * Build the `docker` argv for a Dockerfile build. PURE (no side effects) so
  * it's testable without invoking docker. `buildArgs` is the service's
  * configured Dockerfile build-args (`BuildDockerfileConfig.buildArgs`), emitted
  * as `--build-arg key=value`; defaults to {} when none are set.
@@ -263,7 +263,7 @@ export function dockerfileBuildArgs(opts: {
 /**
  * Build an image from a Dockerfile and `--load` it into the host daemon.
  * Mirrors `railpackBuild`'s signature/return so the pipeline branches yield the
- * same shape. Throws a plain Error on a non-zero exit — the pipeline's `step()`
+ * same shape. Throws a plain Error on a non-zero exit: the pipeline's `step()`
  * wrapper converts it to a tagged BuildStepError (same idiom as railpack.ts).
  */
 export async function dockerfileBuild(opts: {

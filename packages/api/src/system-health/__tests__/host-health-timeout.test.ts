@@ -10,7 +10,7 @@ describe("withTimeout (od-1kc.6)", () => {
 
   test("resolves to null (not a hang) when the promise never settles before the deadline", async () => {
     const never = new Promise<string>(() => {
-      // Deliberately never resolves/rejects — simulates a wedged Docker
+      // Deliberately never resolves/rejects. Simulates a wedged Docker
       // daemon call. Before od-1kc.6's fix, `getHostHealth` awaited this
       // directly, so the whole RPC (and the Servers page's Host health
       // card) hung forever instead of degrading to "unavailable".

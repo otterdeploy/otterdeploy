@@ -1,21 +1,22 @@
 /**
  * Step helpers for the build pipeline (`pipeline.ts`).
  *
- * Each export is a cohesive slice of the build sequence — token minting, image
- * build, registry push, deploy hooks — plus the shared `step()` wrapper, the
+ * Each export is a cohesive slice of the build sequence. Token minting, image
+ * build, registry push, deploy hooks. Plus the shared `step()` wrapper, the
  * tagged-error union, and the failure handler. They live here so the pipeline's
  * `Result.gen` flow reads as a short, linear list of `yield*`ed steps. Every
  * helper preserves the exact behavior it had inline.
  */
 
 import type { Builder, BuildConfig } from "@otterdeploy/shared/build-config";
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
 import { db } from "@otterdeploy/db";
 import { containerRegistry, deployment, project, resource } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
@@ -69,7 +70,7 @@ export function resolveBindingKind(
 }
 
 /** Pick the builder from the service's build config. `compose` isn't supported
- *  yet — we say so out loud and fall back to railpack rather than silently. */
+ *  yet: we say so out loud and fall back to railpack rather than silently. */
 export function resolveBuilder(buildConfig: BuildConfig | null, sink: LogSink): Builder {
   const builder = buildConfig?.builder ?? "auto";
   if (builder === "compose") {
@@ -80,7 +81,7 @@ export function resolveBuilder(buildConfig: BuildConfig | null, sink: LogSink): 
 
 /** Mint a short-lived installation token, or "" when the bind carries no
  *  installation (public clone). A fully revoked/suspended install fails the
- *  mint — reframe that to the same "reconnect GitHub" remedy the clone step
+ *  mint: reframe that to the same "reconnect GitHub" remedy the clone step
  *  gives, so both paths read the same. */
 export async function mintInstallationToken(
   installationId: string | null,
@@ -92,11 +93,11 @@ export async function mintInstallationToken(
       (err) =>
         new BuildStepError({
           step: "token",
-          // Use the underlying cause, not err.message — the latter already
+          // Use the underlying cause, not err.message. The latter already
           // carries the `build step "token" failed:` prefix step() added, so
           // reusing it would double the prefix.
           cause: new Error(
-            `couldn't mint a GitHub token for this installation — it may have been removed or suspended; reconnect GitHub in Settings → Git (${
+            `couldn't mint a GitHub token for this installation. It may have been removed or suspended; reconnect GitHub in Settings → Git (${
               err.cause instanceof Error ? err.cause.message : String(err.cause)
             })`,
           ),
@@ -136,7 +137,7 @@ export function runImageBuild(args: {
   for (const warning of resolution.warnings) sink.system(warning);
 
   if (resolution.kind === "dockerfile") {
-    // Fail fast on unsupported instructions BEFORE invoking docker — a clear
+    // Fail fast on unsupported instructions BEFORE invoking docker. A clear
     // `file:line + reason + fix` beats a silent-wrong build (the VOLUME case).
     assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) => sink.system(m));
     return dockerfileBuild({
@@ -171,7 +172,7 @@ export function runImageBuild(args: {
 /**
  * Push the built image when the project binds an external registry (remote or
  * multi-node swarm needs to pull it); the default path keeps the image local.
- * Returns the pushed content digest (`repo@sha256:…`) — or null when there's no
+ * Returns the pushed content digest (`repo@sha256:…`), or null when there's no
  * registry (the local path has none).
  */
 export function pushImageIfRegistry(args: {
@@ -182,7 +183,7 @@ export function pushImageIfRegistry(args: {
   return Result.gen(async function* () {
     const { registry, image, sink } = args;
     if (!registry) {
-      sink.system(`local build — skipping registry push for ${image.shaTag}`);
+      sink.system(`local build; skipping registry push for ${image.shaTag}`);
       return Result.ok(null);
     }
     const password = yield* await step("decrypt-registry", () =>
@@ -203,7 +204,7 @@ export function pushImageIfRegistry(args: {
   });
 }
 
-/** Pre-deploy hooks run off the new image BEFORE the rollout — the slot for db
+/** Pre-deploy hooks run off the new image BEFORE the rollout. The slot for db
  *  migrations. A non-zero exit short-circuits the flow so the old replicas keep
  *  serving and the bad version never rolls. No-op when none are configured. */
 export function runPreDeploy(args: {
@@ -219,8 +220,8 @@ export function runPreDeploy(args: {
     phase: "pre-deploy",
     commands,
     image,
-    projectId: ctx.project.id as ProjectId,
-    resourceId: ctx.resource.id as ResourceId,
+    projectId: ctx.project.id,
+    resourceId: ctx.resource.id,
     projectSlug: ctx.project.slug,
     // Preview builds resolve hook env (migrations!) against the preview's
     // branch DBs, byte-identical to the container's own resolution.
@@ -232,7 +233,7 @@ export function runPreDeploy(args: {
 
 /** Post-deploy hooks run AFTER the new replicas are live + healthy. The rollout
  *  already succeeded, so a hook failure is surfaced loudly but does NOT flip a
- *  live, healthy deployment to "failed" — that would contradict reality. */
+ *  live, healthy deployment to "failed". That would contradict reality. */
 export async function runPostDeploy(args: {
   ctx: PipelineContext;
   image: string;
@@ -247,8 +248,8 @@ export async function runPostDeploy(args: {
     commands,
     image,
     previewId: ctx.deployment.previewId ?? null,
-    projectId: ctx.project.id as ProjectId,
-    resourceId: ctx.resource.id as ResourceId,
+    projectId: ctx.project.id,
+    resourceId: ctx.resource.id,
     projectSlug: ctx.project.slug,
     deploymentId,
     sink,
@@ -259,7 +260,7 @@ export async function runPostDeploy(args: {
 }
 
 /** Mark the deployment row failed + emit logs for a build failure. Never
- *  throws — a failed `markFailed` is logged, not surfaced. The caller derives
+ *  throws: a failed `markFailed` is logged, not surfaced. The caller derives
  *  the surfaced message from the Result's error channel. */
 export async function handleFailure(
   deploymentId: DeploymentId,
@@ -274,7 +275,7 @@ export async function handleFailure(
       error: stateErr instanceof Error ? stateErr.message : String(stateErr),
     });
   });
-  // Best-effort: fan a `build.failed` event out to subscribed channels — the
+  // Best-effort: fan a `build.failed` event out to subscribed channels. The
   // only failure notification the builder produces (the row is marked failed
   // here, not via the API's deploy.failed path). Never blocks the failure flow.
   await emitBuildFailed(deploymentId, message).catch(() => undefined);
@@ -310,7 +311,9 @@ async function emitBuildFailed(deploymentId: DeploymentId, message: string): Pro
     .limit(1);
   if (!ctx) return;
   await emitPlatformEvent({
-    organizationId: ctx.organizationId as OrganizationId,
+    // Plain string off the select (project.organizationId isn't a branded
+    // column): branded via the boundary validator, same as caddy/certs.ts.
+    organizationId: idSchema.organization.parse(ctx.organizationId),
     eventId: "build.failed",
     title: "Build failed",
     message: `${ctx.resourceName}: ${message}`.slice(0, 500),

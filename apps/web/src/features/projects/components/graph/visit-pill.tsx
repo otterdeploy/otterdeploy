@@ -1,5 +1,5 @@
 /**
- * "Visit" — the one-click way from a graph node to the thing it is serving.
+ * "Visit": the one-click way from a graph node to the thing it is serving.
  *
  * Extracted from the PR-preview card, which had it first and had it right:
  * opening the deployed thing is what people come to the graph to do, and it
@@ -9,7 +9,7 @@
  *
  * `nodrag`/`nopan` keep React Flow from reading the click as a canvas gesture,
  * and stopPropagation on both click and mousedown keeps it from also selecting
- * the node — which would slide the detail panel over the tab just opened.
+ * the node, which would slide the detail panel over the tab just opened.
  * PublicHostLink is the non-canvas equivalent; it cannot be reused here
  * because those two React Flow concerns are specific to this surface.
  */
@@ -27,7 +27,7 @@ export function VisitPill({
   /** Bare host or full URL. `https://` is added when absent. */
   url: string;
   className?: string;
-  /** Icon only — for dense rows (a stack's member list) where the word does
+  /** Icon only: for dense rows (a stack's member list) where the word does
    *  not fit without pushing the status pill off the card. */
   compact?: boolean;
 }) {

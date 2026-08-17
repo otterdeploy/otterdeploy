@@ -40,7 +40,7 @@ export function frameworkLabel(kind: string | null | undefined): string | null {
 
 // Frameworks that build to a static bundle (an SPA or pre-rendered site) served
 // from the edge by default, rather than a long-running HTTP server. Used to
-// pre-select the service type from what we detected — the operator can still
+// pre-select the service type from what we detected: the operator can still
 // override it (e.g. a Vite SSR app, or an Astro site with a server adapter).
 const STATIC_FRAMEWORKS = new Set(["vite", "react", "vue", "astro", "static"]);
 
@@ -49,7 +49,7 @@ export function frameworkDefaultServiceType(kind: string | null | undefined): "a
   return kind && STATIC_FRAMEWORKS.has(kind) ? "static" : "app";
 }
 
-// Conventional deployable-app folder names, best first — used to rank a
+// Conventional deployable-app folder names, best first, used to rank a
 // monorepo's packages when guessing which one to deploy.
 const APP_NAME_RANK = ["web", "app", "www", "frontend", "site", "server", "api", "backend"];
 
@@ -61,8 +61,8 @@ function appRank(pkgPath: string): number {
 
 /**
  * Best-guess deployable app in a monorepo, from the detected workspace packages
- * (`inspectRepo.monorepoPackages`). Prefers an `apps/*` folder — that's where
- * deployables live in Turborepo/Nx layouts — then a conventional app name, so
+ * (`inspectRepo.monorepoPackages`). Prefers an `apps/*` folder: that's where
+ * deployables live in Turborepo/Nx layouts, then a conventional app name, so
  * the wizard can point the root at the app instead of the empty workspace root.
  * Returns null when there's nothing to pick.
  */

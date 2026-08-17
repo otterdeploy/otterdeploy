@@ -1,5 +1,5 @@
 /**
- * Control-plane domain card — the address of this dashboard itself, as
+ * Control-plane domain card: the address of this dashboard itself, as
  * opposed to the DomainCard above it (where deployed resources publish).
  * Platform-wide (one control plane per install), surfaced here so both
  * domain settings live on the same page.
@@ -33,7 +33,7 @@ export function ControlPlaneCard({ organizationId }: { organizationId: Organizat
     onSuccess: async () => {
       await invalidateControlPlane(organizationId);
       toast.success("Control-plane domain saved", {
-        description: "Edge proxy reconciled — the dashboard now answers on this domain.",
+        description: "Edge proxy reconciled. The dashboard now answers on this domain.",
       });
     },
     onError: (err) => toast.error(err.message ?? "Failed to save domain"),
@@ -54,7 +54,7 @@ export function ControlPlaneCard({ organizationId }: { organizationId: Organizat
       title="Control plane"
       description={
         <>
-          The domain this dashboard itself is served on — where you and your team sign in.
+          The domain this dashboard itself is served on, where you and your team sign in.
           Point an A record at your server, save it here, and the edge proxy answers on{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">
             https://&lt;domain&gt;

@@ -1,5 +1,5 @@
 /**
- * Scanner-probe classification for edge access logs — client mirror of
+ * Scanner-probe classification for edge access logs: client mirror of
  * `packages/api/src/edge-logs/threat.ts`. Powers the per-row "suspicious" badge
  * and the "Suspicious" toolbar filter. Keep the rule bodies in lockstep with the
  * server copy (same convention as the notifications event catalog). The SQL

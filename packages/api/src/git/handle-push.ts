@@ -1,5 +1,5 @@
 /**
- * `push` webhook — the load-bearing event. Looks up projects bound to the
+ * `push` webhook. The load-bearing event. Looks up projects bound to the
  * repo whose productionBranch matches the pushed ref, inserts pending
  * Deployment rows for every service resource in each matched project,
  * then enqueues a `deploy.triggered` job per project.
@@ -49,7 +49,7 @@ export async function handlePush(ev: PushEvent, deliveryId: string): Promise<Git
         repo: ev.repository.full_name,
         ref: ev.ref,
       },
-      msg: "push for unknown repo — not bound to any project",
+      msg: "push for unknown repo, not bound to any project",
     });
     return {
       kind: "push",
@@ -64,7 +64,7 @@ export async function handlePush(ev: PushEvent, deliveryId: string): Promise<Git
   const branch = ev.ref.startsWith("refs/heads/") ? ev.ref.slice("refs/heads/".length) : ev.ref;
 
   // Repo binding lives on the SERVICE now: a push fans out to exactly the git
-  // services bound to THIS (repo, branch) — possibly across several projects,
+  // services bound to THIS (repo, branch). Possibly across several projects,
   // and NOT every service in a project. A service with a null branch tracks the
   // repo's default branch. Compose member services (stackId set) reconcile via
   // their stack, not here.
@@ -92,8 +92,8 @@ export async function handlePush(ev: PushEvent, deliveryId: string): Promise<Git
     return { kind: "push", ref: ev.ref, sha: ev.after, deploymentsCreated: 0, projectsTouched: 0 };
   }
 
-  // Globs are matched against the paths this push touched. Computed once —
-  // it's the same set for every candidate service.
+  // Globs are matched against the paths this push touched. Computed once.
+  // It's the same set for every candidate service.
   const changedPaths = changedPathsFromPush(ev);
 
   // Watch-pattern filter (unset patterns / unknown change set → rebuild), then
@@ -157,8 +157,8 @@ async function fanOutDeploys(
       const resourceId = resourceIds[i];
       if (dep && resourceId) {
         await emitDeployStarted({ deploymentId: dep.id, resourceId, reason: "git-push" });
-        // Refresh the framework brand mark on push too (best-effort, non-blocking)
-        // — matches the UI Deploy path so a push updates the icon without waiting
+        // Refresh the framework brand mark on push too (best-effort, non-blocking).
+        // Matches the UI Deploy path so a push updates the icon without waiting
         // for a successful build.
         void detectAndPersistFramework(gitRepoId, resourceId).catch(() => undefined);
       }

@@ -46,7 +46,7 @@ export function ServerRow({
   server: Server;
   stats: ServerRowStats | null;
   health: ServerHealthEntry | null;
-  /** Matching swarm node (null when plain docker / not joined) — the role
+  /** Matching swarm node (null when plain docker / not joined): the role
    *  column prefers swarm truth and marks the Raft leader. */
   node: SwarmNode | null;
   onOpen: () => void;
@@ -54,7 +54,7 @@ export function ServerRow({
   onReAdd: (initial: ProvisionInitialValues) => void;
 }) {
   // When stats haven't arrived yet (first paint, swarm unreachable, …) we
-  // render zeros against capacity rather than fake values — honest about
+  // render zeros against capacity rather than fake values. Honest about
   // missing live data without crashing the layout.
   const cpuUsed = stats?.cpuAllocatedVcpu ?? 0;
   const memUsed = stats?.memoryAllocatedGb ?? 0;
@@ -92,7 +92,7 @@ export function ServerRow({
 
       <TableCell className="text-right font-mono text-[12px] tabular-nums">
         {taskCount === null ? (
-          <span className="text-muted-foreground/40">—</span>
+          <span className="text-muted-foreground/40">–</span>
         ) : (
           taskCount
         )}
@@ -122,7 +122,7 @@ export function AvailabilitySelect({
   className,
 }: {
   server: Server;
-  /** Sizing override — the phone list uses a taller, full-width trigger. */
+  /** Sizing override: the phone list uses a taller, full-width trigger. */
   className?: string;
 }) {
   // Optimistic local override: shows the picked value immediately, then either
@@ -137,7 +137,7 @@ export function AvailabilitySelect({
     orpc.server.setAvailability
       .call({ id: server.id, availability: next })
       .then((updated) => {
-        // Write the confirmed row straight into the synced store — no refetch
+        // Write the confirmed row straight into the synced store, no refetch
         // round-trip, so clearing `pending` can't flash the stale value.
         serverCollection.utils.writeUpdate(updated);
         toast.success(`${server.name}: availability set to ${next}`);

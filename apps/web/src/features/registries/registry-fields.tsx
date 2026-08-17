@@ -29,7 +29,7 @@ export function FieldShell({
 
 /**
  * Logo-tile grid of registry kinds. Picking one pre-fills the host and
- * adapts the field hints below — it's a shortcut, not a stored field.
+ * adapts the field hints below: it's a shortcut, not a stored field.
  */
 export function KindPicker({
   value,

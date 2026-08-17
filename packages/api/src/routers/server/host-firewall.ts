@@ -1,35 +1,35 @@
 /**
- * Host-level nftables firewall — layer 1 of the VPS defense described in
+ * Host-level nftables firewall: layer 1 of the VPS defense described in
  * docs/designs/vps-firewall-layering.md. Closes every inbound port except
- * what the platform needs: SSH, the Caddy edge (80/443), and — scoped to a
- * peer allowlist, never the world — the Docker Swarm control-plane ports
+ * what the platform needs: SSH, the Caddy edge (80/443), and. Scoped to a
+ * peer allowlist, never the world: the Docker Swarm control-plane ports
  * (2377 raft/mgmt, 7946 gossip, 4789 VXLAN overlay). Layer 2 (CrowdSec's
- * native nftables bouncer — see cscli.ts / provision-firewall.ts) adds
+ * native nftables bouncer. See cscli.ts / provision-firewall.ts) adds
  * dynamic IP-reputation bans on top of this static baseline, in the SAME
  * table so `nft list ruleset` shows one coherent policy.
  *
  * Docker gotcha this exists to close: dockerd manipulates iptables/nftables
  * DIRECTLY for published container ports (DNAT into the FORWARD chain via
- * its own `DOCKER-USER` chain) — a naive INPUT-only ruleset (the classic
+ * its own `DOCKER-USER` chain). A naive INPUT-only ruleset (the classic
  * ufw+Docker footgun, documented by both Docker and CrowdSec) never sees
  * that traffic. Swarm's own control-plane ports, by contrast, ARE plain host
  * listeners (dockerd binds them itself on the host network namespace), so
- * INPUT-chain rules correctly gate them — no DOCKER-USER involvement needed
+ * INPUT-chain rules correctly gate them, no DOCKER-USER involvement needed
  * there. We additionally install one defense-in-depth rule in Docker's own
  * `DOCKER-USER` chain (created by dockerd, evaluated before Docker's
- * permissive forwarding rules — see Docker's own docs on DOCKER-USER) that
+ * permissive forwarding rules: see Docker's own docs on DOCKER-USER) that
  * drops new forwarded connections to anything but 80/443, so an operator's
- * accidental `-p hostport:containerport` publish can't bypass this policy —
- * this platform's ingress contract is "everything public goes through
+ * accidental `-p hostport:containerport` publish can't bypass this policy.
+ * This platform's ingress contract is "everything public goes through
  * Caddy."
  *
  * Lockout safety: `ct state established,related accept` is evaluated before
  * any port rule, so the SSH session the installer/provisioner is already
- * running over survives even if the rendered ruleset is wrong — only NEW
+ * running over survives even if the rendered ruleset is wrong. Only NEW
  * connections would be refused. The current sshd port is ALWAYS included
  * from the caller-supplied probe (never hardcoded to 22), and the whole
  * ruleset lives in one named table (`inet otterdeploy`) that a single
- * `nft delete table inet otterdeploy` atomically removes — the documented
+ * `nft delete table inet otterdeploy` atomically removes. The documented
  * rollback (see docs/designs/vps-firewall-layering.md §Recovery and
  * scripts/install.sh's `firewall-rollback` subcommand).
  */
@@ -44,12 +44,12 @@ export const SWARM_UDP_PORTS = [7946, 4789] as const;
 export const EDGE_TCP_PORTS = [80, 443] as const;
 
 export interface HostFirewallOptions {
-  /** Current sshd port — ALWAYS included in the allow-list; never omitted
+  /** Current sshd port: ALWAYS included in the allow-list; never omitted
    *  even when it's the conventional 22 (an explicit rule beats an assumed
    *  default). */
   sshPort: number;
   /** Other swarm member addresses (bare IPv4, no CIDR/port) allowed to reach
-   *  the swarm control-plane ports. Empty on a single-node install — the set
+   *  the swarm control-plane ports. Empty on a single-node install: the set
    *  is declared but starts empty, which is the safe default (nothing but
    *  this host can reach ports it doesn't need yet). */
   peerIpsV4: string[];
@@ -62,11 +62,11 @@ function dedupe(values: readonly (string | number)[]): string[] {
 /**
  * The swarm control-plane peer set only takes bare IPv4 literals (an
  * nftables `ipv4_addr` set can't hold a hostname). Given a list of
- * candidate addresses (server rows' `host`/`meshAddress` fields — which may
+ * candidate addresses (server rows' `host`/`meshAddress` fields, which may
  * be domain names, IPv6, or "<ip>:port"), keep only the ones that are
  * literal IPv4 addresses, stripping an optional port. Fail-closed-on-typo:
  * anything that doesn't parse is silently dropped rather than guessed at
- * (same posture as trusted-proxy.ts's parseTrustedProxies) — a dropped peer
+ * (same posture as trusted-proxy.ts's parseTrustedProxies). A dropped peer
  * just means that node won't reach this one's swarm ports until remediation
  * re-resolves it, never a broadened allowlist.
  */
@@ -82,7 +82,7 @@ export function filterIpv4Peers(candidates: readonly (string | null | undefined)
 
 /**
  * The declarative nftables ruleset (a `table inet otterdeploy { … }` block),
- * suitable for `nft -f`. Pure and exactly assertable — see
+ * suitable for `nft -f`. Pure and exactly assertable: see
  * packages/api/src/__tests__/security/od-5j8.11-*.test.ts.
  */
 export function renderNftablesRuleset(opts: HostFirewallOptions): string {
@@ -116,14 +116,14 @@ export function renderNftablesRuleset(opts: HostFirewallOptions): string {
   ].join("\n");
 }
 
-/** Comment tag on the DOCKER-USER guard rule — how we find-and-replace it on
+/** Comment tag on the DOCKER-USER guard rule. How we find-and-replace it on
  *  a re-run instead of stacking duplicate rules. */
 export const DOCKER_USER_GUARD_COMMENT = "otterdeploy-guard";
 
 /**
  * Defense-in-depth: drop any NEW forwarded (i.e. Docker-published-port)
  * connection to a port other than 80/443, in Docker's own `DOCKER-USER`
- * chain — the one place rules are guaranteed to run before Docker's own
+ * chain: the one place rules are guaranteed to run before Docker's own
  * permissive ACCEPT. Scoped to `ip filter` (Docker only ever creates
  * DOCKER-USER in the IPv4 `filter` table), so it does NOT reference the
  * `inet otterdeploy` peer set (cross-table set references aren't valid
@@ -132,14 +132,14 @@ export const DOCKER_USER_GUARD_COMMENT = "otterdeploy-guard";
  * `ct status dnat` is load-bearing. DOCKER-USER hangs off the *forward* hook,
  * which carries container EGRESS as well as inbound published-port traffic, so
  * an unqualified match dropped every outbound connection a container made to
- * anything but 80/443/3000 — including the control plane's own `ssh` to a host
+ * anything but 80/443/3000, including the control plane's own `ssh` to a host
  * it was provisioning. That surfaced as "SSH connection timed out" on a box
  * whose port 22 was wide open, because the drop happened on the way out, not
  * on the way in. Inbound published-port traffic is DNAT'd and matches; egress
  * is SNAT'd and does not.
  *
- * Note the port compared here is the POST-DNAT one — the container's own port,
- * not the published host port — since DNAT runs in prerouting, before forward.
+ * Note the port compared here is the POST-DNAT one. The container's own port,
+ * not the published host port, since DNAT runs in prerouting, before forward.
  */
 export function dockerUserGuardScript(sudo = ""): string {
   const S = sudo ? `${sudo} ` : "";
@@ -149,7 +149,7 @@ export function dockerUserGuardScript(sudo = ""): string {
     `  ${S}nft insert rule ip filter DOCKER-USER ct status dnat tcp dport != { ${dedupe(EDGE_TCP_PORTS).join(", ")} } ct state new counter drop comment "${DOCKER_USER_GUARD_COMMENT}"`,
     '  echo "DOCKER-USER guard installed"',
     "else",
-    '  echo "DOCKER-USER chain not present yet (Docker not started?) — guard skipped, re-run after Docker is up"',
+    '  echo "DOCKER-USER chain not present yet (Docker not started?). Guard skipped, re-run after Docker is up"',
     "fi",
   ].join("\n");
 }
@@ -162,11 +162,11 @@ const MARKER_PATH = "/etc/otterdeploy/firewall-applied";
  * validate + load the ruleset, persist it across reboots (an `include` line
  * in /etc/nftables.conf), install the DOCKER-USER guard, and drop a marker
  * file the status probe reads. Best-effort by design (mirrors
- * firewallBouncerInstallScript in cscli.ts) — a failure here must never fail
+ * firewallBouncerInstallScript in cscli.ts): a failure here must never fail
  * an otherwise-successful provision; the caller narrates and continues.
  *
  * Skips cleanly (exit 0, narrated) when another firewall manager (ufw/
- * firewalld) is already active — we never fight an operator's existing
+ * firewalld) is already active. We never fight an operator's existing
  * choice; see docs/designs/vps-firewall-layering.md §Coexistence.
  */
 export function hostFirewallInstallScript(opts: HostFirewallOptions, sudo: string): string {
@@ -177,12 +177,12 @@ export function hostFirewallInstallScript(opts: HostFirewallOptions, sudo: strin
     // Coexistence: don't fight an already-active operator firewall.
     "if command -v ufw >/dev/null 2>&1 && " +
       `${S}ufw status 2>/dev/null | grep -qi 'Status: active'; then`,
-    '  echo "ufw is active — leaving it in place; otterdeploy will not install nftables alongside it. Allow 80/443 (and this SSH port) manually: sudo ufw allow 80,443/tcp"',
+    '  echo "ufw is active. Leaving it in place; otterdeploy will not install nftables alongside it. Allow 80/443 (and this SSH port) manually: sudo ufw allow 80,443/tcp"',
     "  exit 0",
     "fi",
     "if command -v firewall-cmd >/dev/null 2>&1 && " +
       `${S}firewall-cmd --state 2>/dev/null | grep -q running; then`,
-    '  echo "firewalld is active — leaving it in place; otterdeploy will not install nftables alongside it."',
+    '  echo "firewalld is active. Leaving it in place; otterdeploy will not install nftables alongside it."',
     "  exit 0",
     "fi",
     "if ! command -v nft >/dev/null 2>&1; then",
@@ -193,22 +193,22 @@ export function hostFirewallInstallScript(opts: HostFirewallOptions, sudo: strin
     `  elif command -v pacman >/dev/null 2>&1; then ${S}pacman -Sy --noconfirm nftables;`,
     `  elif command -v zypper >/dev/null 2>&1; then ${S}zypper install -y nftables;`,
     "  else",
-    '    echo "no supported package manager found to install nftables — install it manually and re-run"',
+    '    echo "no supported package manager found to install nftables. Install it manually and re-run"',
     "    exit 90",
     "  fi",
     "fi",
     "if ! command -v nft >/dev/null 2>&1; then",
-    '  echo "nftables install failed — host firewall not applied"',
+    '  echo "nftables install failed. Host firewall not applied"',
     "  exit 91",
     "fi",
     `${S}mkdir -p /etc/otterdeploy`,
     `${S}tee ${RULESET_PATH} >/dev/null <<'OTTERDEPLOY_NFT_EOF'`,
     ruleset,
     "OTTERDEPLOY_NFT_EOF",
-    // Syntax-check before touching the live ruleset — a bad file must never
+    // Syntax-check before touching the live ruleset. A bad file must never
     // half-apply and risk an inconsistent policy.
     `if ! ${S}nft -c -f ${RULESET_PATH}; then`,
-    '  echo "generated nftables ruleset failed validation — NOT applied (see output above)"',
+    '  echo "generated nftables ruleset failed validation, NOT applied (see output above)"',
     "  exit 92",
     "fi",
     // Persist across reboots via an include, without clobbering any existing
@@ -258,10 +258,10 @@ export function parseHostFirewallStatus(output: string): HostFirewallStatus {
   };
 }
 
-/** Persisted classification of a server row's firewall provisioning state —
- *  see the `server_firewall_status` enum (packages/db/src/schema/server.ts).
+/** Persisted classification of a server row's firewall provisioning state.
+ *  See the `server_firewall_status` enum (packages/db/src/schema/server.ts).
  *  `unknown` covers both legacy rows created before this feature shipped AND
- *  rows where the step never ran (e.g. an older provision run) — both are
+ *  rows where the step never ran (e.g. an older provision run). Both are
  *  drift: the node isn't known to be protected. */
 export type FirewallStatusValue = "unknown" | "applied" | "failed" | "unsupported";
 
@@ -272,9 +272,9 @@ export interface FirewallDriftInput {
 
 /**
  * True when a server row is NOT known to be running the platform's firewall
- * baseline — i.e. it should be flagged for remediation. `unsupported` (no
+ * baseline: i.e. it should be flagged for remediation. `unsupported` (no
  * nftables support / an operator's own ufw/firewalld already active) is NOT
- * drift by itself — it's an explicit, narrated decision — but still counts
+ * drift by itself (it's an explicit, narrated decision) but still counts
  * as drift if the bouncer is also inactive, since that means NEITHER layer
  * is protecting the node.
  */

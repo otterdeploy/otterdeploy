@@ -1,5 +1,5 @@
 /**
- * Compose `create` orchestration — extracted from index.ts so the oRPC handler
+ * Compose `create` orchestration. Extracted from index.ts so the oRPC handler
  * stays a thin Result→error translation. The one-shot twin of the staged
  * manifest path in manifest-reconcile.ts. See docs/designs/compose.md.
  */
@@ -7,6 +7,7 @@ import type { ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/com
 import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { fetchBranchHead } from "../../git/github-app";
@@ -49,7 +50,7 @@ export interface ComposeCreateOutput {
   deploy: { ok: boolean; error: string | null; status: string };
 }
 
-/** Translation targets for the oRPC handler — kept structural so the handler
+/** Translation targets for the oRPC handler: kept structural so the handler
  *  owns the wire-level error codes (NOT_FOUND / CONFLICT / INVALID_INPUT). */
 export type ComposeCreateFailure =
   | { reason: "not_found" }
@@ -57,6 +58,10 @@ export type ComposeCreateFailure =
   | { reason: "invalid"; message: string };
 
 const invalid = (message: string): ComposeCreateFailure => ({ reason: "invalid", message });
+
+/** The contract carries `gitRepoId` as a plain string; parse it to the branded
+ *  id at this boundary (also canonicalizing a legacy "gitrepo_" spelling). */
+const gitRepoIdSchema = zId(ID_PREFIX.gitRepo);
 
 /**
  * Persist the filled-in `${VAR}` values as project variables so the compose
@@ -86,18 +91,22 @@ async function createGitCompose(
   project: ComposeProject,
   exposed: ExposedSeed[],
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
-  // Prefer the bound repo (repo picker) — resolves owner/repo + installation so
+  // Prefer the bound repo (repo picker). Resolves owner/repo + installation so
   // private repos clone with a token. Fall back to a pasted public URL.
   let owner: string;
   let repoName: string;
   let cloneUrl: string;
-  let gitRepoId: string | null = null;
+  let gitRepoId: GitRepoId | null = null;
   let installationId: string | null = null;
 
   const boundRepoId = input.gitRepoId?.trim();
   if (boundRepoId) {
+    const parsedRepoId = gitRepoIdSchema.safeParse(boundRepoId);
+    if (!parsedRepoId.success) {
+      return Result.err(invalid(`"${boundRepoId}" is not a repository id`));
+    }
     const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(boundRepoId as GitRepoId),
+      try: () => resolveRepoCloneBinding(parsedRepoId.data),
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (bound.isErr()) return Result.err(invalid(bound.error));
@@ -141,13 +150,13 @@ async function createGitCompose(
         projectId: input.projectId,
         // Stamp the environment like every other create path. Unstamped rows
         // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope) — a non-main environment would
+        // allowance in inEnvironmentScope): a non-main environment would
         // never see this stack.
         environmentId: project.environmentId,
         name,
         source: "git",
         composeContent: null,
-        gitRepoId: gitRepoId as GitRepoId | null,
+        gitRepoId,
         gitRepoUrl: cloneUrl,
         gitRef: ref,
         // null → the build worker auto-detects common compose file names.
@@ -171,7 +180,7 @@ async function createGitCompose(
     gitRef: ref,
     // Real binding id when picked (drives the private clone in the builder);
     // null for a legacy public-URL stack.
-    gitRepoId: gitRepoId as GitRepoId | null,
+    gitRepoId,
     reason: "create",
     head: headRes.value,
   });

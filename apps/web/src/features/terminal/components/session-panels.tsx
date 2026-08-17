@@ -23,7 +23,7 @@ export function SessionPanels({
       {sessions.map((s) => {
         const isActive = s.id === activeId;
         // <Activity> keeps every session's React tree mounted across tab
-        // switches — state (useState/useRef) is preserved, effects re-attach
+        // switches: state (useState/useRef) is preserved, effects re-attach
         // cleanly on visibility flip, and we never tear down the wterm
         // <Terminal> instance. The panel is absolutely positioned rather than
         // hidden with `display: none` so an inactive terminal stays measured

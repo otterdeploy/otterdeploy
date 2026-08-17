@@ -1,14 +1,22 @@
 import * as z from "zod";
 
+/** C0 controls (U+0000-U+001F) and DEL (U+007F): never legal in a header
+ *  value. Checked by code point rather than a regex character class so the
+ *  intent stays explicit without control characters in a pattern. */
+const hasControlChar = (value: string): boolean => {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+};
+
 const headerValue = z
   .string()
   .trim()
   .min(1)
   .max(4_096)
-  .refine(
-    (value) => !/[\u0000-\u001f\u007f]/.test(value),
-    "Header values cannot contain controls.",
-  );
+  .refine((value) => !hasControlChar(value), "Header values cannot contain controls.");
 
 /**
  * Safe, declarative subset of per-route edge behavior. Every value is rendered

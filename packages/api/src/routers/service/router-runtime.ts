@@ -1,6 +1,6 @@
 /**
  * `service.build` / `service.pause` / `service.resume` / `service.expose` /
- * `service.unexpose` oRPC procedures — split out of index.ts to keep the
+ * `service.unexpose` oRPC procedures: split out of index.ts to keep the
  * router module under the line cap. Spread back in as top-level keys of
  * `serviceRouter`.
  */
@@ -42,7 +42,7 @@ export const serviceRuntimeRouter = {
       if (enqueued.isErr()) {
         // enqueueGitBuild yields a human-readable reason (no git binding, a
         // SHA-lookup 404 for an inaccessible repo, …). Surface it as a typed
-        // oRPC error so the client gets a 422 with that reason — a plain
+        // oRPC error so the client gets a 422 with that reason. A plain
         // thrown error (e.g. evlog's createError) is serialized as a generic
         // 500 regardless of any status field on it.
         throw errors.BUILD_NOT_READY({ message: enqueued.error });
@@ -65,7 +65,7 @@ export const serviceRuntimeRouter = {
         context.log,
       );
       if (result.isErr()) {
-        // Resolve errors can propagate from the redeploy — the contract doesn't
+        // Resolve errors can propagate from the redeploy. The contract doesn't
         // enumerate REF_*, so they surface as generic 500s (same as restart).
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),

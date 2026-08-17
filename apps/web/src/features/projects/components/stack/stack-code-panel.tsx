@@ -1,6 +1,6 @@
 /**
  * Bottom slide-up drawer for the project graph view: Stack code (editable
- * YAML via `project.stack.diff` / `.save` / `.apply` — the ⌘S flow), a live
+ * YAML via `project.stack.diff` / `.save` / `.apply`. The ⌘S flow), a live
  * project Activity feed, and a per-host Traffic table. Open/tab/height are
  * persisted per project (see use-panel-state); the top edge drag-resizes
  * between 160px and 70vh. The state hook is owned by the graph layout so the
@@ -47,7 +47,7 @@ export function StackCodePanel({ projectId, projectSlug, panel }: StackCodePanel
         !panel.dragging && "transition-[height] duration-200 ease-out",
       )}
     >
-      {/* Drag handle — a slim strip along the top edge. */}
+      {/* Drag handle: a slim strip along the top edge. */}
       {panel.open && (
         <div
           role="separator"
@@ -90,7 +90,7 @@ export function StackCodePanel({ projectId, projectSlug, panel }: StackCodePanel
             )}
           </div>
           {/* Footer (filename / edit / diff / ⌘S Apply) belongs to the stack
-              file — the feed tabs stand on their own. */}
+              file: the feed tabs stand on their own. */}
           {panel.tab === "stack" && (
             <PanelFooter
               filename={filename}
@@ -137,7 +137,7 @@ function StackBody({
   if (isLoading) return <ViewMessage text="# loading stack file…" />;
   if (isError) return <ViewMessage text="# failed to load stack file" />;
   if (view === "diff") {
-    return <YamlView source={diff || "# no diff — rendered matches saved"} />;
+    return <YamlView source={diff || "# no diff, rendered matches saved"} />;
   }
   if (editing) {
     return (

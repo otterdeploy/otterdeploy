@@ -3,7 +3,7 @@
  * provider row on the Add-server dialog.
  *
  * Replaces two `Select`s. A native select showed nothing at all when its value
- * was the empty string — no placeholder, no hint that a choice was required —
+ * was the empty string (no placeholder, no hint that a choice was required)
  * so the SSH key field rendered blank even with a usable key on file, and the
  * form submitted with no credential. Options you can see are options you can
  * pick.
@@ -22,7 +22,7 @@ import { cn } from "@/shared/lib/utils";
 export interface PickerOption<T extends string> {
   value: T;
   label: string;
-  /** Secondary line — a fingerprint, a one-line explanation. */
+  /** Secondary line: a fingerprint, a one-line explanation. */
   hint?: string;
   /** Brand mark or glyph. Monochrome; inherits color from the card. */
   icon?: ReactNode;
@@ -32,7 +32,7 @@ export interface PickerOption<T extends string> {
  * A single opt-in block, for a capability that isn't one-of-a-set.
  *
  * Cloudflare Tunnel used to be a bare password input sitting under the mesh
- * choice, which read as a fourth connectivity option — it isn't. A tunnel is
+ * choice, which read as a fourth connectivity option. It isn't. A tunnel is
  * ingress; the mesh is how the swarm join happens. This gives it the same
  * visual weight as the cards without implying they're alternatives, and hides
  * the token field until it's actually wanted.
@@ -102,8 +102,8 @@ export function PickerGroup({
   options: readonly PickerOption<string>[];
   value: string;
   onChange: (value: string) => void;
-  /** `auto` fits as many equal blocks per row as the options need, capped at 3 —
-   *  keys and connectivity then read as the same kind of choice. */
+  /** `auto` fits as many equal blocks per row as the options need, capped at 3.
+   *  Keys and connectivity then read as the same kind of choice. */
   columns?: 1 | 3 | "auto";
 }) {
   const cols =

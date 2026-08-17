@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { environmentSlugConflict, isEnvironmentSlugAllowed } from "./reserved-slugs";
 
 /**
- * The thing being protected is not tidiness — it is that two workloads would
+ * The thing being protected is not tidiness. It is that two workloads would
  * otherwise share one container name, one volume and one host, and a preview
  * teardown could destroy an environment's resources because nothing can tell
  * them apart.

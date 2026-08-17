@@ -25,13 +25,13 @@ interface ProtectionRoute {
   isHttp: boolean;
 }
 
-/** Matches ProtectionStateLabel's box, so the "—" row sits at the same width. */
+/** Matches ProtectionStateLabel's box, so the "–" row sits at the same width. */
 const LABEL_WIDTH = "w-[14ch]";
 
 /**
  * Per-route deployment-protection control for the Routes table: a toggle for
  * the auth wall plus a shortcut dialog to manage guest access, a shareable
- * link, and a CI bypass token. Only meaningful for HTTP routes — layer-4
+ * link, and a CI bypass token. Only meaningful for HTTP routes: layer-4
  * (database) routes can't carry a forward_auth gate. The same controls live,
  * always-visible, on the Networking → Access tab.
  *
@@ -47,7 +47,7 @@ export function DeploymentProtectionCell({
   projectId: string;
 }) {
   if (!route.isHttp) {
-    return <span className={`${LABEL_WIDTH} inline-block text-muted-foreground`}>—</span>;
+    return <span className={`${LABEL_WIDTH} inline-block text-muted-foreground`}>–</span>;
   }
 
   return (

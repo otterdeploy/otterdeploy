@@ -1,5 +1,5 @@
 /**
- * Settings-zone navigation — the Linear-style takeover under
+ * Settings-zone navigation: the Linear-style takeover under
  * `/$orgSlug/settings/*`: Account / Workspace / Instance.
  *
  * Split from `nav-manifest.ts` on the seam that module's own header already
@@ -7,7 +7,7 @@
  * settings zone are edited independently and have no items in common, so a
  * change to one shouldn't make the other's file longer.
  *
- * Re-exported from `nav-manifest` so existing imports keep working — that
+ * Re-exported from `nav-manifest` so existing imports keep working. That
  * module stays the single entry point for navigation.
  */
 
@@ -26,7 +26,7 @@ import {
 
 import type { NavManifestItem } from "./nav-manifest";
 
-/** Settings-zone groups. `label` is required — the rail always shows it. */
+/** Settings-zone groups. `label` is required. The rail always shows it. */
 export interface SettingsNavGroup {
   label: string;
   /** Optional i18n key for `label`; render with `t(labelI18nKey, label)`. */
@@ -67,7 +67,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     labelI18nKey: "nav.groups.workspace",
     items: [
       {
-        // Label-only rename (od-u63.7) — path is unchanged. "General" was
+        // Label-only rename (od-u63.7): path is unchanged. "General" was
         // ambiguous with Instance → General; this page is base domain +
         // Cloudflare, so "Domains" says what it actually does.
         title: "Domains",
@@ -84,7 +84,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         keywords: ["members", "invite"],
       },
       // Git providers, Registries and SSH keys moved to the operational
-      // sidebar's Workspace group — see OPERATIONAL_NAV above. The settings
+      // sidebar's Workspace group. See OPERATIONAL_NAV above. The settings
       // paths remain as redirect shims, so old bookmarks still land.
       {
         title: "Single sign-on",
@@ -111,7 +111,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
       // the old settings path redirects there.
       // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
       // path now redirects there. Its transport cards (email provider, Twilio,
-      // FCM) were removed outright — per-channel delivery credentials are
+      // FCM) were removed outright. Per-channel delivery credentials are
       // captured by the channel dialog itself.
     ],
   },
@@ -120,7 +120,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     labelI18nKey: "nav.groups.instance",
     items: [
       {
-        // Label-only rename (od-u63.7) — path is unchanged. No page should be
+        // Label-only rename (od-u63.7): path is unchanged. No page should be
         // named "General" twice in the same rail; "Instance" says whose
         // config this is (install-wide, not workspace-scoped).
         title: "Instance",

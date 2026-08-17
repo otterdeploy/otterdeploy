@@ -3,8 +3,8 @@
  *
  * The incident these pin: a project's manifest carried a database entry named
  * `mariadb-` with no matching resource, sitting next to the real `mariadb`.
- * Apply died with "Resource 'mariadb-' was created concurrently" — the
- * sanitized name collides with the existing row — and Discard returned 200
+ * Apply died with "Resource 'mariadb-' was created concurrently". The
+ * sanitized name collides with the existing row, and Discard returned 200
  * while changing nothing. The change could be neither applied nor discarded,
  * and the pending-changes bar never cleared.
  *
@@ -14,9 +14,10 @@
  * create became permanent.
  */
 
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Manifest } from "../../../stack/manifest";
+import type { DatabaseManifest, Manifest, ServiceManifest } from "../../../stack/manifest";
 
 import {
   manifestAfterDiscard,
@@ -24,18 +25,20 @@ import {
   snapshotAfterApply,
 } from "../manifest-applied-snapshot";
 
-const db = (version: string) => ({ engine: "mariadb", version }) as never;
-const svc = (repo: string) => ({ source: "git", repo }) as never;
+const db = (version: string): DatabaseManifest => ({ engine: "mariadb", version });
+const svc = (repo: string): ServiceManifest => ({ source: "git", repo });
+
+const projectSlug = zSlug(ID_PREFIX.project).parse("store");
 
 function manifest(parts: Partial<Manifest> = {}): Manifest {
   return {
     version: 1,
-    project: "store",
+    project: projectSlug,
     services: {},
     databases: {},
     composes: {},
     ...parts,
-  } as Manifest;
+  };
 }
 
 describe("snapshotAfterApply", () => {
@@ -74,7 +77,7 @@ describe("snapshotAfterApply", () => {
   });
 
   it("drops a skipped create when there is no previous snapshot at all", () => {
-    // First apply a project ever runs — `previous` is null, not an empty one.
+    // First apply a project ever runs. `previous` is null, not an empty one.
     const out = snapshotAfterApply({
       submitted: manifest({ services: { api: svc("me/api") } }),
       previous: null,
@@ -95,7 +98,7 @@ describe("snapshotAfterApply", () => {
   });
 
   it("restores the entry when a delete was skipped", () => {
-    // Submitted omits it — that omission IS the delete. The delete failed, so
+    // Submitted omits it: that omission IS the delete. The delete failed, so
     // the resource is still running and the snapshot has to say so, or the
     // next diff compares against a snapshot that already forgot it.
     const out = snapshotAfterApply({
@@ -121,10 +124,10 @@ describe("snapshotAfterApply", () => {
   });
 
   it("reverts the owning resource when an env change was skipped", () => {
-    // `env` is not its own section — the failure belongs to the service.
+    // `env` is not its own section. The failure belongs to the service.
     const out = snapshotAfterApply({
-      submitted: manifest({ services: { api: { source: "git", env: { A: "2" } } as never } }),
-      previous: manifest({ services: { api: { source: "git", env: { A: "1" } } as never } }),
+      submitted: manifest({ services: { api: { source: "git", env: { A: "2" } } } }),
+      previous: manifest({ services: { api: { source: "git", env: { A: "1" } } } }),
       skipped: [{ resource: "env", name: "api" }],
     });
     expect(out.services?.api).toEqual({ source: "git", env: { A: "1" } });
@@ -132,7 +135,7 @@ describe("snapshotAfterApply", () => {
 
   it("handles a compose skip", () => {
     const out = snapshotAfterApply({
-      submitted: manifest({ composes: { stack: { file: "x" } as never } }),
+      submitted: manifest({ composes: { stack: { source: "inline", content: "x" } } }),
       previous: manifest(),
       skipped: [{ resource: "compose", name: "stack" }],
     });
@@ -172,7 +175,7 @@ describe("snapshotAfterApply", () => {
 // Same primitive, the pending-changes bar's other half: drop ONE unwanted
 // change without throwing away the operator's remaining staged edits. `target`
 // is the working manifest, `source` the applied snapshot (deployed truth).
-describe("revertEntries — selective discard", () => {
+describe("revertEntries: selective discard", () => {
   it("drops a pending create and leaves the other edits staged", () => {
     const out = revertEntries({
       target: manifest({ databases: { redis: db("7"), cache: db("7") } }),
@@ -259,7 +262,7 @@ describe("manifestAfterDiscard", () => {
   });
 
   it("falls back to the applied snapshot when there is no working manifest", () => {
-    // manifest column null but changes staged elsewhere — must not throw.
+    // manifest column null but changes staged elsewhere. Must not throw.
     const out = manifestAfterDiscard({
       manifest: null,
       applied: manifest({ databases: { mariadb: db("11.4") } }),

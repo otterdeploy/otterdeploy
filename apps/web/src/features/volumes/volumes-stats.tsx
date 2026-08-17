@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 /**
  * Summary tiles above the volumes table. Only measured numbers: the `local`
- * driver has no provisioned/quota size, so there is no "provisioned" tile —
+ * driver has no provisioned/quota size, so there is no "provisioned" tile.
  * "On disk" sums what `docker system df` actually reports and says how many
  * volumes went unmeasured instead of pretending they're zero bytes.
  */
@@ -25,7 +25,7 @@ export function VolumesStats({ volumes }: { volumes: VolumeRow[] }) {
       <Stat label={t("volumes.stats.total")} value={String(volumes.length)} sub="on this daemon" />
       <Stat
         label={t("volumes.stats.onDisk")}
-        value={measured.length > 0 ? fmtBytes(onDisk) : "—"}
+        value={measured.length > 0 ? fmtBytes(onDisk) : "–"}
         sub={
           unmeasured > 0
             ? `${unmeasured} volume${unmeasured === 1 ? "" : "s"} not measured`

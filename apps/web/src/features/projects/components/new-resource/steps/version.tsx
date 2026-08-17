@@ -2,7 +2,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { type ServiceKind } from "@/features/projects/data/service-kinds";
@@ -31,8 +31,8 @@ interface StepVersionProps {
 export function StepVersion({ kind, projectId }: StepVersionProps) {
   const form = useFormContext();
   const activeEnv = useActiveEnvironment(projectId);
-  const version = useStore(form.store, (s) => s.values.version);
-  const name = useStore(form.store, (s) => s.values.name);
+  const version = useSelector(form.store, (s) => s.values.version);
+  const name = useSelector(form.store, (s) => s.values.name);
 
   const existingName = useMutation({
     ...orpc.project.resource.checkName.mutationOptions(),
@@ -50,7 +50,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
     <>
       <SectionHeader
         title={`${kind.name} version`}
-        sub="Pick a major version — minor versions are auto-upgraded during maintenance windows"
+        sub="Pick a major version. Minor versions are auto-upgraded during maintenance windows."
       />
       <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {(kind.versions ?? []).map((v, i) => (
@@ -103,20 +103,20 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
                 const res = await existingName.mutateAsync({
                   projectId,
                   name: trimmed,
-                  // Names collide per (project, environment) — without this the
+                  // Names collide per (project, environment): without this the
                   // wizard renames `postgres` to `postgres-2` in staging just
                   // because production has one.
                   environmentId: activeEnv.id,
                 });
                 if (res.available) return undefined;
                 return res.suggestion
-                  ? `'${trimmed}' is already taken in this project — try '${res.suggestion}'`
+                  ? `'${trimmed}' is already taken in this project. Try '${res.suggestion}'`
                   : `'${trimmed}' is already taken in this project`;
               },
             }}
           >
             {(f) => (
-              // Match the section heading above (`traits.nameLabel`) — this is
+              // Match the section heading above (`traits.nameLabel`): this is
               // the same field under two labels otherwise ("Database name"
               // heading, "Service name" input), and the description already
               // names what it really controls: the internal hostname.
@@ -141,7 +141,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
                 description={
                   traits.publicExposureRecommended
                     ? "When on, the service is reachable from the internet at the deterministic public hostname. When off, only services in this project can connect."
-                    : "Not recommended for this engine. Leave off unless you have a specific reason — this service is exposed to the public internet when on."
+                    : "Not recommended for this engine. Leave off unless you have a specific reason: this service is exposed to the public internet when on."
                 }
               />
             )}

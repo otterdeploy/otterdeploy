@@ -8,7 +8,7 @@ import { relations } from "./relations";
 // Own the underlying pool explicitly. Bun's SQL driver defaults to an
 // uncapped-feeling pool with no idle reaping, so under `bun --hot` every
 // reload re-evaluates this module, builds a fresh pool, and orphans the
-// previous one's sockets — they pile up until Postgres hits
+// previous one's sockets. They pile up until Postgres hits
 // `max_connections` and starts returning `53300 too many clients`. Capping
 // `max` and reaping idle/aged connections keeps a single process bounded
 // and lets any leaked pool drain itself.
@@ -20,7 +20,7 @@ const client = new SQL({
 });
 
 // `relations` (from defineRelations()) powers the RQB v2 query builder
-// (`db.query.<table>.findMany({ with: { … } })`). It's additive — plain
+// (`db.query.<table>.findMany({ with: { … } })`). It's additive. Plain
 // `db.select()` / `.leftJoin()` call sites are unaffected. better-auth's
 // drizzle adapter still issues plain selects unless `experimental.joins`
 // is enabled, so passing relations here doesn't change its behaviour.

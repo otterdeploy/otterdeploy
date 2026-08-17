@@ -11,7 +11,7 @@ interface MessageEmailProps {
 /**
  * The generic branded shell for transactional/queue emails that carry a plain
  * message (welcome sequence, daily report, ad-hoc sends via the email.send
- * job). Callers pass plain text — this renders it, so no sender ever ships raw
+ * job). Callers pass plain text. This renders it, so no sender ever ships raw
  * HTML. Blank lines become paragraph breaks.
  */
 export function MessageEmail({ heading, body }: MessageEmailProps) {

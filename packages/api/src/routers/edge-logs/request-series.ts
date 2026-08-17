@@ -8,7 +8,7 @@
  * chart and the edge-logs histogram never disagree about the same traffic.
  *
  * The window is expressed in minutes (the metrics page's selector), not the
- * store's range enum — `coveringRange` picks the smallest enum range that
+ * store's range enum. `coveringRange` picks the smallest enum range that
  * covers the window for the fetch, and the bucketer drops lines older than
  * the exact window. Counts zero-fill (0 requests is a real measurement);
  * p95 is null for an empty bucket (a percentile of nothing isn't 0 ms).
@@ -46,7 +46,7 @@ export function coveringRange(windowMinutes: number): EdgeTimeRange {
   return "7d";
 }
 
-/** Nearest-rank percentile over an ascending-sorted array — identical to the
+/** Nearest-rank percentile over an ascending-sorted array: identical to the
  *  (unexported) helper in edge-logs/ring.ts. */
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;

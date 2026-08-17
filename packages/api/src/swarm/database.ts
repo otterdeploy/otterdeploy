@@ -7,9 +7,10 @@
  * task state mapping) is engine-agnostic.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { Docker } from "@otterdeploy/docker";
 import { type DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import type { JsonObject } from "@otterdeploy/shared/json";
 import { log, type RequestLogger } from "evlog";
 
 import { PLATFORM } from "../constants";
@@ -28,7 +29,7 @@ export interface SwarmDatabaseRuntime {
    *  when this call actually issued `docker services create`, false when
    *  the existing-service guard short-circuited and we returned the
    *  pre-existing runtime. Lets callers tell "I provisioned a new
-   *  deployment" from "I found one already there" — when false, no task
+   *  deployment" from "I found one already there". When false, no task
    *  will inherit the new deployment.id label, so any deployment row the
    *  caller inserted would otherwise hang at BUILDING with 0 tasks
    *  forever. Read-side helpers (inspect*) leave it undefined. */
@@ -54,11 +55,11 @@ export interface ProvisionSwarmDatabaseInput {
   deploymentId: string;
   /** Swarm node id to pin this database to, from the resource's
    *  `placementServerId`. Undefined leaves the scheduler free. Pinning a
-   *  database is usually right — its volume is local — but it also means no
+   *  database is usually right (its volume is local) but it also means no
    *  failover: see ./placement. */
   placementNodeId?: string | null;
   /** Optional `<repo>:<tag>` override. Defaults to the adapter's pinned
-   *  image. Drives the wizard's version picker — pass the chosen tag here
+   *  image. Drives the wizard's version picker. Pass the chosen tag here
    *  and swarm pulls that exact build. */
   image?: string;
   /** User-added envs merged before the engine's identity envs are
@@ -69,7 +70,7 @@ export interface ProvisionSwarmDatabaseInput {
    *  only way to make swarm roll a task when the spec is byte-identical. */
   forceUpdateCounter?: number;
   /** When true, publish the engine's port on the swarm node's host
-   *  interface (PublishMode=host). Off by default — services in the same
+   *  interface (PublishMode=host). Off by default: services in the same
    *  project reach the DB via overlay DNS at `<serviceName>:<port>`, no
    *  host binding required. Flip on only when the operator explicitly
    *  enables "public access" so we don't compete for ephemeral host ports
@@ -182,8 +183,9 @@ export async function updateSwarmDatabase(
   }
 
   const existingForceUpdate = (() => {
-    const value = (inspectResult.value.Spec?.TaskTemplate as { ForceUpdate?: number } | undefined)
-      ?.ForceUpdate;
+    // TaskTemplate is typed Record<string, unknown>, so the read needs no
+    // assertion; the typeof check does the narrowing.
+    const value = inspectResult.value.Spec?.TaskTemplate?.ForceUpdate;
     return typeof value === "number" ? value : 0;
   })();
   const bumpedInput: ProvisionSwarmDatabaseInput = {

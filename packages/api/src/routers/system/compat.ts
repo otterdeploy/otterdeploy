@@ -1,8 +1,8 @@
 /**
  * CLI ↔ control-plane compatibility, decided at CALL time.
  *
- * Releases are lockstepped — one `v*.*.*` tag stamps the CLI and builds the
- * platform images (scripts/update-release-package-versions.ts) — but that only
+ * Releases are lockstepped. One `v*.*.*` tag stamps the CLI and builds the
+ * platform images (scripts/update-release-package-versions.ts), but that only
  * makes the two halves comparable, not compatible. The CLI lands on a
  * developer's laptop through npm and is upgraded whenever they feel like it;
  * the control plane sits on an operator's VPS and is upgraded through the
@@ -14,7 +14,7 @@
  * The exchange rides on headers rather than a dedicated endpoint. The verdict
  * comes back on the call the CLI was already making, so it costs no extra round
  * trip, needs no auth (the headers are set before the router runs), and a server
- * older than this code simply sends neither header — which classifies as `ok`
+ * older than this code simply sends neither header, which classifies as `ok`
  * and stays silent instead of guessing.
  */
 
@@ -32,8 +32,8 @@ export const MIN_CLI_VERSION_HEADER = "x-otterdeploy-min-cli-version";
 /**
  * The oldest CLI generation this control plane will serve without complaint.
  *
- * Bump this ONLY when a contract change genuinely breaks older clients —
- * a removed or renamed procedure, a required input field, a changed output
+ * Bump this ONLY when a contract change genuinely breaks older clients.
+ * A removed or renamed procedure, a required input field, a changed output
  * shape a CLI parses. Do NOT bump it just because a release went out: a floor
  * that tracks the current version turns the warning into noise, and a warning
  * users learn to ignore is worse than none.
@@ -47,7 +47,7 @@ export type CliCompat =
   | { kind: "ok" }
   /** The CLI predates what this control plane supports. */
   | { kind: "cli-too-old"; cliVersion: string; serverVersion: string | null; minCliVersion: string }
-  /** The control plane trails the CLI's generation — newer commands may be absent. */
+  /** The control plane trails the CLI's generation. Newer commands may be absent. */
   | { kind: "server-behind"; cliVersion: string; serverVersion: string };
 
 export interface CliCompatInput {
@@ -69,38 +69,42 @@ export function classifyCliCompat({
   serverVersion,
   minCliVersion,
 }: CliCompatInput): CliCompat {
+  // `parseVersion(null | undefined)` is always null, so narrowing the raw
+  // string first changes nothing at runtime and lets the returns below carry
+  // the strings without a cast.
+  if (cliVersion == null) return { kind: "ok" };
   const cli = parseVersion(cliVersion);
   if (!cli) return { kind: "ok" };
 
   // A CLI below the floor is the actionable case, and the floor alone is enough
-  // to decide it — report even when the server's own version is a sentinel.
+  // to decide it: report even when the server's own version is a sentinel.
   const min = parseVersion(minCliVersion);
-  if (min && isOlderCore(cli, min)) {
+  if (min && minCliVersion != null && isOlderCore(cli, min)) {
     return {
       kind: "cli-too-old",
-      cliVersion: cliVersion as string,
-      serverVersion: parseVersion(serverVersion) ? (serverVersion as string) : null,
-      minCliVersion: minCliVersion as string,
+      cliVersion,
+      serverVersion: serverVersion != null && parseVersion(serverVersion) ? serverVersion : null,
+      minCliVersion,
     };
   }
 
   const server = parseVersion(serverVersion);
-  if (!server) return { kind: "ok" };
+  if (!server || serverVersion == null) return { kind: "ok" };
 
   // Compared at MINOR granularity: a patch gap is a bugfix on one side, never a
   // contract change, and flagging it would fire on nearly every pair.
   if (server.major < cli.major || (server.major === cli.major && server.minor < cli.minor)) {
     return {
       kind: "server-behind",
-      cliVersion: cliVersion as string,
-      serverVersion: serverVersion as string,
+      cliVersion,
+      serverVersion,
     };
   }
 
   return { kind: "ok" };
 }
 
-/** Full `major.minor.patch` ordering — the floor is exact, not minor-rounded. */
+/** Full `major.minor.patch` ordering: the floor is exact, not minor-rounded. */
 function isOlderCore(
   a: NonNullable<ReturnType<typeof parseVersion>>,
   b: NonNullable<ReturnType<typeof parseVersion>>,

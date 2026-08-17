@@ -22,7 +22,7 @@
  * A deployment still sitting in the queue has no container yet; removing the
  * BullMQ job is what stops it. One job can carry several deploymentIds (a
  * compose stack, a multi-service apply), so the job is only removed when this
- * deployment is the only thing it owns — otherwise cancelling one service would
+ * deployment is the only thing it owns. Otherwise cancelling one service would
  * silently cancel its siblings.
  */
 
@@ -37,7 +37,7 @@ import { and, eq } from "drizzle-orm";
 import { docker } from "../docker/client";
 import { publishResourceChanged } from "../project/project-event-bus";
 
-/** Not found, or not in this org — indistinguishable to the caller by design,
+/** Not found, or not in this org. Indistinguishable to the caller by design,
  *  so a cancel probe can never confirm a foreign deployment exists. */
 class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
   message: string;
@@ -51,7 +51,7 @@ class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
   }
 }
 
-/** The deployment already reached a terminal state — nothing to stop. */
+/** The deployment already reached a terminal state. Nothing to stop. */
 class DeploymentNotCancellableError extends TaggedError("DeploymentNotCancellableError")<{
   message: string;
   deploymentId: DeploymentId;
@@ -72,7 +72,7 @@ const CANCELLABLE: ReadonlySet<string> = new Set(["pending", "building"]);
 
 /** Mirrors the helper container name in apps/builder/src/handler.ts. Changing
  *  one without the other silently turns cancel into a no-op that still marks
- *  the row — the build would keep running with nothing left watching it. */
+ *  the row: the build would keep running with nothing left watching it. */
 function helperContainerName(deploymentId: DeploymentId): string {
   return `otterbuild-${deploymentId}`;
 }
@@ -81,7 +81,7 @@ function helperContainerName(deploymentId: DeploymentId): string {
  * Removes the queue entry for a deployment that has not started yet.
  *
  * Best-effort by nature: the job may be mid-transition to `active` as we look.
- * That is fine — the row is already `cancelled`, so the builder will read it and
+ * That is fine. The row is already `cancelled`, so the builder will read it and
  * stop on its own. Returns whether a job was actually removed, for logging.
  */
 async function dequeue(deploymentId: DeploymentId): Promise<boolean> {
@@ -176,7 +176,7 @@ export async function cancelDeployment(input: {
     );
   }
 
-  // Row first, teardown second — see the module comment. Both are best-effort:
+  // Row first, teardown second: see the module comment. Both are best-effort:
   // whichever one applies, the row is already terminal.
   const [killedHelper, dequeued] = await Promise.all([
     killHelper(input.deploymentId),
@@ -184,7 +184,7 @@ export async function cancelDeployment(input: {
   ]);
 
   // Push to the project stream so the card flips immediately instead of on the
-  // next poll — cancelling and then watching a spinner for 5s reads as a no-op.
+  // next poll, cancelling and then watching a spinner for 5s reads as a no-op.
   void publishResourceChanged(row.resourceId);
 
   return Result.ok({ id: input.deploymentId, status: "cancelled", killedHelper, dequeued });

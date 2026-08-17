@@ -54,7 +54,10 @@ export function DeploymentsToolbar({
   ];
   const statusItems: { label: string; value: DeployStatusFilter | "any" }[] = [
     { label: t("deployments.allStatuses"), value: "any" },
-    ...DEPLOY_STATUS_FILTERS.map((s) => ({ label: t(`deployments.statuses.${s.id}`), value: s.id })),
+    ...DEPLOY_STATUS_FILTERS.map((s) => ({
+      label: t(`deployments.statuses.${s.id}`),
+      value: s.id,
+    })),
   ];
   const windowItems = DEPLOY_WINDOWS.map((w) => ({
     label: t(`deployments.windows.${w.id}`),

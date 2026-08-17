@@ -1,5 +1,5 @@
 /**
- * Add / remove a single manual CrowdSec decision — the "Block this IP" action
+ * Add / remove a single manual CrowdSec decision. The "Block this IP" action
  * from the Edge Logs and Firewall views. Enforcement needs NO Caddy reload: the
  * `crowdsec` gate is already in every site block, and the in-Caddy bouncer polls
  * the decision store. The IP/reason are passed to `cscli` as positional args
@@ -15,7 +15,7 @@ export interface BlockResult {
   error?: string;
 }
 
-const AGENT_DOWN = "CrowdSec firewall profile isn't running — start it to enforce blocks.";
+const AGENT_DOWN = "CrowdSec firewall profile isn't running. Start it to enforce blocks.";
 
 /** cscli prints result messages to stdout/stderr (merged by the Tty exec); a
  *  failure mentions one of these. Mirrors the console-enroll check in index.ts. */
@@ -49,7 +49,7 @@ export async function blockIp(
 }
 
 /**
- * Ban a batch of IPs in one container exec — one `cscli decisions add` per IP
+ * Ban a batch of IPs in one container exec: one `cscli decisions add` per IP
  * inside a single shell loop, so 100 IPs cost one exec, not 100. Each add is a
  * proper `cscli`-origin decision (NOT a `decisions import`, whose
  * `cscli-import` origin would hide the bans from the Decisions view). ~100 to

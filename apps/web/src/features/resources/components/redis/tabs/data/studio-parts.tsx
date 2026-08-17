@@ -1,5 +1,5 @@
 /**
- * The Redis studio's two panes — the left-rail key browser and the per-type
+ * The Redis studio's two panes. The left-rail key browser and the per-type
  * value inspector. Atoms (badge / empty / skeleton) and pure helpers live in
  * {@link ./studio-atoms}.
  */
@@ -191,7 +191,7 @@ export function ValueView({
 
   return (
     <>
-      {/* Header — key identity + metadata */}
+      {/* Header: key identity + metadata */}
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <TypeBadge type={value.type} />
         <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={value.key}>
@@ -204,7 +204,7 @@ export function ValueView({
         </span>
       </div>
 
-      {/* Body — string text or normalized grid */}
+      {/* Body, string text or normalized grid */}
       <div className="min-h-0 flex-1 overflow-auto">
         {value.string !== null ? (
           <pre className="p-3 font-mono text-[12px] leading-relaxed break-words whitespace-pre-wrap">
@@ -243,7 +243,7 @@ export function ValueView({
       {value.truncated ? (
         <div className="border-t px-3 py-1.5 text-[11px] text-amber-500">
           Showing the first {value.string !== null ? VALUE_LIMIT : value.rows?.cells.length} of{" "}
-          {value.length} — value is capped in the viewer.
+          {value.length}, value is capped in the viewer.
         </div>
       ) : null}
     </>

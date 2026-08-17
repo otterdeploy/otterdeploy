@@ -5,7 +5,7 @@
  * plus the swarm adapter under packages/api/src/swarm/database-engines/.
  *
  * The runtime-side env / healthcheck / spec helpers live alongside the
- * adapter — anything that's UI-facing or fixed metadata lives here.
+ * adapter, anything that's UI-facing or fixed metadata lives here.
  */
 
 export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb" | "clickhouse";
@@ -32,12 +32,12 @@ export interface DatabaseEngineMeta {
    *  detail's Connection strings card. */
   scheme: string;
   /** Whether the engine has the concept of "a database name" inside the
-   *  server (postgres / mariadb / mongo do; redis doesn't — its `db` is
+   *  server (postgres / mariadb / mongo do; redis doesn't, its `db` is
    *  a numeric index 0–15 and we don't model that as a "name"). */
   hasDatabaseName: boolean;
   /** Auth model used in the swarm spec:
-   *   - `env`         — user/password set via env vars (most engines)
-   *   - `requirepass` — redis-style, command-line `--requirepass`
+   *   - `env`: user/password set via env vars (most engines)
+   *   - `requirepass`: redis-style, command-line `--requirepass`
    */
   authStyle: "env" | "requirepass";
 }
@@ -104,12 +104,20 @@ export function getDatabaseEngine(engine: DatabaseEngine): DatabaseEngineMeta {
   return DATABASE_ENGINES[engine];
 }
 
+/** Real membership check against the catalog: what re-brands an `Object.keys`
+ *  string (or any untrusted string) back into the `DatabaseEngine` union. */
+export function isDatabaseEngine(value: string): value is DatabaseEngine {
+  return value in DATABASE_ENGINES;
+}
+
 export function listDatabaseEngines(): ReadonlyArray<{
   id: DatabaseEngine;
   meta: DatabaseEngineMeta;
 }> {
-  return (Object.keys(DATABASE_ENGINES) as DatabaseEngine[]).map((id) => ({
-    id,
-    meta: DATABASE_ENGINES[id],
-  }));
+  return Object.keys(DATABASE_ENGINES)
+    .filter(isDatabaseEngine)
+    .map((id) => ({
+      id,
+      meta: DATABASE_ENGINES[id],
+    }));
 }

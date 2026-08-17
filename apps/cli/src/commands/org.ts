@@ -80,7 +80,7 @@ const useOrg = defineCommand({
         `run \`${cmd("org list")}\` to see them`,
       );
     }
-    // setActive rewrites activeOrganizationId on the existing session row —
+    // setActive rewrites activeOrganizationId on the existing session row:
     // the stored token stays valid, only the local selection is recorded.
     saveConfig({ ...loadConfig(), orgId: data.id, orgSlug: data.slug });
     ok(`Active organization is now ${data.slug} ${dim(`(${data.name})`)}.`);

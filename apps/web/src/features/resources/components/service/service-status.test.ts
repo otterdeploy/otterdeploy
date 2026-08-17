@@ -13,7 +13,7 @@ describe("deriveServicePanelState", () => {
   test("pause marker overrides any runtime status", () => {
     expect(deriveServicePanelState({ pausedReplicas: 1, runtimeStatus: "missing" })).toBe("paused");
     expect(deriveServicePanelState({ pausedReplicas: 3, runtimeStatus: "stopped" })).toBe("paused");
-    // Transitional: the container hasn't been torn down yet — still paused,
+    // Transitional: the container hasn't been torn down yet. Still paused,
     // the operator's intent is what the panel reports.
     expect(deriveServicePanelState({ pausedReplicas: 1, runtimeStatus: "running" })).toBe("paused");
   });
@@ -39,7 +39,7 @@ describe("deriveServicePanelState", () => {
     expect(deriveServicePanelState({ pausedReplicas: null, runtimeStatus: "error" })).toBe("error");
   });
 
-  test("unknown while the live view is loading — never a guess", () => {
+  test("unknown while the live view is loading, never a guess", () => {
     expect(deriveServicePanelState({ pausedReplicas: null, runtimeStatus: undefined })).toBe(
       "unknown",
     );
@@ -50,10 +50,10 @@ describe("deriveServicePanelState", () => {
 describe("replicaSummary", () => {
   test("paused summary names the restored count", () => {
     expect(replicaSummary({ replicas: 0, pausedReplicas: 1 })).toBe(
-      "Paused — 1 replica restored on resume",
+      "Paused. 1 replica restored on resume",
     );
     expect(replicaSummary({ replicas: 0, pausedReplicas: 3 })).toBe(
-      "Paused — 3 replicas restored on resume",
+      "Paused. 3 replicas restored on resume",
     );
   });
 

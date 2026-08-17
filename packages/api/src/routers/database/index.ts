@@ -16,7 +16,7 @@ import {
   runWriteQuery,
 } from "./query";
 
-// User tables plus the planner's row estimate (pg_class.reltuples — kept fresh
+// User tables plus the planner's row estimate (pg_class.reltuples, kept fresh
 // by autovacuum/ANALYZE, free to read). Never count(*): a big table would turn
 // the navigator's load into a full scan. reltuples is -1 when never analyzed.
 const TABLES_SQL = `
@@ -37,7 +37,7 @@ function parseEstimatedRows(cell: string | null | undefined): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-// Client backends only, minus this probe's own session — the same filter the
+// Client backends only, minus this probe's own session. The same filter the
 // catalog count uses, so the breakdown always sums to the number on the card.
 // `max_connections` rides along in the same round trip.
 const CONNECTIONS_SQL = `
@@ -172,7 +172,7 @@ export const databaseRouter = {
     },
   ),
 
-  // Whether the actor may mutate data — drives the read-only vs editable UI.
+  // Whether the actor may mutate data. Drives the read-only vs editable UI.
   // Read-gated (anyone who can open the viewer can ask); the write handlers
   // enforce `database:write` themselves regardless of what this returns.
   capabilities: requirePermission({ database: ["read"] }).database.capabilities.handler(

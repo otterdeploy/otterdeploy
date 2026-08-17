@@ -55,7 +55,7 @@ export function DomainCard({ organizationId }: { organizationId: OrganizationId 
   const verifyToken = settingsQuery.data?.baseDomainVerifyToken ?? null;
   const status = domainStatus(current, verifiedAt);
 
-  // Every mutation here — save, verify, auto-configure — is
+  // Every mutation here (save, verify, auto-configure) is
   // `organization:update`. Members may read the domain and its status; the
   // controls that would only 403 are omitted rather than offered.
   const { user } = useRouteContext({ from: "/_app" });
@@ -147,7 +147,7 @@ function PendingVerification({
   const [dnsOpen, setDnsOpen] = useState(false);
 
   // Hoisted from the old CloudflareAutoConfigureButton so the shared dialog
-  // drives it — detection decides whether one-click is offered at all.
+  // drives it. Detection decides whether one-click is offered at all.
   const auto = useMutation({
     ...orpc.organization.autoConfigureBaseDomain.mutationOptions(),
     onSuccess: async () => {
@@ -178,7 +178,7 @@ function PendingVerification({
       </div>
       <div className="flex items-center justify-end gap-2">
         {/* Records, Cloudflare detection, one-click setup and the proxy
-            warning live in the shared dialog — the same one the service and
+            warning live in the shared dialog, the same one the service and
             control-plane surfaces open. */}
         <Button type="button" size="sm" variant="outline" onClick={() => setDnsOpen(true)}>
           Configure DNS
@@ -221,7 +221,7 @@ function verifyReasonMessage(result: {
 }): string {
   switch (result.reason) {
     case "no-record":
-      return "No TXT record yet. DNS can take a few minutes to propagate — try again shortly.";
+      return "No TXT record yet. DNS can take a few minutes to propagate, so try again shortly.";
     case "value-mismatch":
       return `TXT record found but value didn't match. Expected ${result.expected}, saw ${result.found.join(", ") || "(empty)"}`;
     case "lookup-failed":

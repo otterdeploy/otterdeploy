@@ -174,7 +174,11 @@ export async function listVolumeDir(
 
   const listing = parseVolumeDirListing(stdout.toString("utf8"), resolved.containerPath);
   if (!listing.self) {
-    return { ok: false, kind: "not-found", reason: `no such path in volume: /${resolved.relative}` };
+    return {
+      ok: false,
+      kind: "not-found",
+      reason: `no such path in volume: /${resolved.relative}`,
+    };
   }
   if (listing.self.kind !== "dir") {
     return { ok: false, kind: "invalid-path", reason: `/${resolved.relative} is not a directory` };
@@ -237,7 +241,11 @@ export async function readVolumeFile(
   const resolved = resolveVolumeExplorePath(path);
   if (!resolved.ok) return { ok: false, kind: "invalid-path", reason: resolved.reason };
   if (resolved.relative === "") {
-    return { ok: false, kind: "invalid-path", reason: "path must name a file, not the volume root" };
+    return {
+      ok: false,
+      kind: "invalid-path",
+      reason: "path must name a file, not the volume root",
+    };
   }
 
   const missing = await assertVolume(volumeName);

@@ -1,5 +1,5 @@
 /**
- * Settings tab body for a postgres resource — composes the per-section
+ * Settings tab body for a postgres resource: composes the per-section
  * cards (identity, storage, public access, maintenance, danger zone).
  * Each card lives in its own file so this orchestrator stays scannable.
  */
@@ -65,7 +65,7 @@ export function PostgresSettingsBody({
     <div className="flex flex-col gap-6">
       <SettingsCard
         title="Identity"
-        description="Renaming is not yet supported — once it lands the change will rotate the derived service name + hostname."
+        description="Renaming is not yet supported. Once it lands, the change will rotate the derived service name and hostname."
       >
         <SettingsRowReadOnly label="Name" value={resource.name} />
         <SettingsRowReadOnly label="Engine" value={resource.engine} />
@@ -108,11 +108,11 @@ export function PostgresSettingsBody({
         <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
           <div className="flex flex-col">
             <span className="text-[13px] font-medium">Rotate password</span>
-            {/* Still genuinely unimplemented — there is no rotate endpoint in
+            {/* Still genuinely unimplemented: there is no rotate endpoint in
                 the API. Says so specifically, rather than the old shared blurb
                 that also claimed backups weren't wired (they are). */}
             <span className="text-[11px] text-muted-foreground">
-              Not available yet — rotating a password means rolling every connection string that
+              Not available yet. Rotating a password means rolling every connection string that
               embeds it.
             </span>
           </div>
@@ -134,11 +134,11 @@ export function PostgresSettingsBody({
             className="gap-1.5"
             // `backups.run` has existed the whole time, and the dialog it
             // needs already accepts `initialResourceId` for exactly this
-            // entry point — the button was disabled by a description written
+            // entry point: the button was disabled by a description written
             // for the rotate row next to it.
             onClick={() => {
               // Warm the destinations on the click that needs them, not from a
-              // mount effect — this page has no other reason to load them.
+              // mount effect. This page has no other reason to load them.
               void destinationsCollection.preload();
               setBackupOpen(true);
             }}

@@ -3,7 +3,7 @@
  * + pause/restart/deploy actions; the body renders the tab set (Overview /
  * Deployments / Metrics / Logs / Variables / Terminal / Settings) backed by
  * the per-tab panel modules. Terminal stays mounted via Activity so its PTY +
- * scrollback survive tab switches — same pattern as RealResourcePanel for
+ * scrollback survive tab switches: same pattern as RealResourcePanel for
  * databases.
  */
 
@@ -48,7 +48,7 @@ interface ServiceResourcePanelProps {
     // discriminated union; the Settings tab's build card switches on `builder`.
     buildConfig?: BuildConfig | null;
   };
-  /** Detected framework for git-sourced services — drives the header tile's
+  /** Detected framework for git-sourced services: drives the header tile's
    *  brand mark so the drawer matches the graph node. Null when undetected
    *  or for image-sourced services. */
   framework?: FrameworkKind | null;
@@ -59,7 +59,7 @@ interface ServiceResourcePanelProps {
   // header actions (restart / build) are disabled, edits target the manifest,
   // and the panel opens on Variables (the first thing to set up pre-deploy).
   pending?: boolean;
-  /** The active tab, straight off the route's `?tab=` search param — the URL
+  /** The active tab, straight off the route's `?tab=` search param. The URL
    *  owns this, not the panel. Unrecognized/absent values fall back to the
    *  usual pending-aware default. */
   tab?: string;
@@ -83,7 +83,7 @@ const SERVICE_TABS: readonly ServiceTab[] = [
 const SERVICE_PENDING_TABS: readonly ServiceTab[] = ["variables", "settings"];
 
 /** The panel's tab strip. Runtime tabs are disabled until the service is
- *  deployed — there are no tasks, metrics, logs, or container to attach to
+ *  deployed. There are no tasks, metrics, logs, or container to attach to
  *  yet. */
 function ServicePanelTabsList({ pending }: { pending: boolean }) {
   return (
@@ -132,7 +132,7 @@ export function ServiceResourcePanel({
   );
   // Latches true the first time Logs is the active tab. From then on the Logs
   // panel stays mounted (hidden when inactive) so its SSE stream survives tab
-  // switches — see the Logs block below. Seeded from the resolved tab so a
+  // switches: see the Logs block below. Seeded from the resolved tab so a
   // reload or shared link landing straight on `?tab=logs` mounts it too, with
   // no click to latch on.
   const [logsVisited, setLogsVisited] = useState(tab === "logs");
@@ -142,7 +142,7 @@ export function ServiceResourcePanel({
     projectSlug,
   });
 
-  // Live service view (runtime status, pause marker, ports) — richer than the
+  // Live service view (runtime status, pause marker, ports). Richer than the
   // resource-list row the panel receives. Undefined while loading or pending.
   const service = useLiveService({
     projectId: resource.projectId,

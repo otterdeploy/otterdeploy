@@ -2,8 +2,8 @@
  * Fill in commit provenance for deployment rows that don't have it.
  *
  * `gitCommitMessage`/`gitCommitAuthor` are captured when a deployment is
- * created, so any row written before that capture existed on its code path —
- * every preview build until recently — reads "Git deployment" with a bare ref
+ * created, so any row written before that capture existed on its code path.
+ * Every preview build until recently. Reads "Git deployment" with a bare ref
  * and a short sha. That names nothing: not what changed, not who changed it.
  *
  * The information was never lost, only unrecorded: the row holds the SHA and
@@ -15,7 +15,7 @@
  *  - only rows that are missing it AND have a SHA
  *  - deduped by SHA, so ten deployments of one commit are one lookup
  *  - capped per call, so a long history doesn't fan out into a burst
- *  - failures are silent and non-fatal — provenance is presentation, and a
+ *  - failures are silent and non-fatal. Provenance is presentation, and a
  *    rate-limited GitHub must never turn a deployment list into an error
  */
 
@@ -41,7 +41,7 @@ export interface CommitMeta {
 }
 
 interface BackfillRow {
-  id: string;
+  id: DeploymentId;
   gitSha: string | null;
   gitCommitMessage: string | null;
 }
@@ -57,10 +57,12 @@ export async function backfillCommitMeta(
   rows: BackfillRow[],
 ): Promise<Map<string, CommitMeta>> {
   const filled = new Map<string, CommitMeta>();
-  const missing = rows.filter((r) => r.gitSha && !r.gitCommitMessage);
+  const missing = rows.filter(
+    (r): r is BackfillRow & { gitSha: string } => Boolean(r.gitSha) && !r.gitCommitMessage,
+  );
   if (missing.length === 0) return filled;
 
-  // Which repo this service builds from — no repo, nothing to ask.
+  // Which repo this service builds from, no repo, nothing to ask.
   const [svc] = await db
     .select({ gitRepoId: serviceResource.gitRepoId })
     .from(serviceResource)
@@ -79,7 +81,7 @@ export async function backfillCommitMeta(
   const installationId = await resolveInstallationId(repo.installationId);
 
   // One lookup per distinct commit, not per deployment.
-  const shas = [...new Set(missing.map((r) => r.gitSha as string))].slice(0, MAX_LOOKUPS);
+  const shas = [...new Set(missing.map((r) => r.gitSha))].slice(0, MAX_LOOKUPS);
   for (const sha of shas) {
     const head = await Result.tryPromise({
       try: () => fetchBranchHead(installationId, owner, name, sha),
@@ -91,13 +93,13 @@ export async function backfillCommitMeta(
       gitCommitAuthor: head.value.authorName,
       gitCommitAuthorAvatar: head.value.authorAvatar,
     };
-    // Nothing to record if GitHub had no message either — don't rewrite the
+    // Nothing to record if GitHub had no message either. Don't rewrite the
     // row just to store the same nulls and re-ask on every future read.
     if (meta.gitCommitMessage == null && meta.gitCommitAuthor == null) continue;
 
     // Persist for every row on this commit, but only where it is still absent:
     // a concurrent write must not be clobbered.
-    const ids = missing.filter((r) => r.gitSha === sha).map((r) => r.id as DeploymentId);
+    const ids = missing.filter((r) => r.gitSha === sha).map((r) => r.id);
     await db
       .update(deployment)
       .set(meta)

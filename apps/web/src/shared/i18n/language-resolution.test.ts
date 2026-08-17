@@ -1,8 +1,8 @@
 /**
- * Language resolution — which bundle a given browser language tag actually
+ * Language resolution, which bundle a given browser language tag actually
  * gets.
  *
- * Nearly no German browser reports plain `de` — it sends `de-DE`, `de-AT`,
+ * Nearly no German browser reports plain `de`. It sends `de-DE`, `de-AT`,
  * `de-CH`. If those don't land on the German bundle then German exists and
  * effectively nobody sees it, a failure that reads as "translation didn't
  * work" and is invisible to anyone testing with a hand-picked language.
@@ -10,7 +10,7 @@
  * They do land, via i18next's fallback chain (`de-DE` → `de` → `en`) stopping
  * at `de` because `de` is in `supportedLngs`. This suite exists to keep that
  * true: it pins the behaviour, not the mechanism, so it survives a config
- * refactor and fails on one that breaks resolution. (Verified non-vacuous —
+ * refactor and fails on one that breaks resolution. (Verified non-vacuous,
  * dropping `supportedLngs` while setting `load: "currentOnly"` makes `de-DE`
  * resolve to English and these tests go red.)
  *
@@ -55,7 +55,7 @@ describe("regional tags resolve to their base language", () => {
 
 describe("unsupported languages fall back to English", () => {
   // English is the source of truth for which keys exist, so it's the only
-  // sound fallback — a partially-translated locale would be worse.
+  // sound fallback: a partially-translated locale would be worse.
   it.each(["fr", "fr-FR", "ja", "pt-BR", "zz"])("%s → en", async (tag) => {
     expect(await resolve(tag)).toBe("en");
   });
@@ -79,7 +79,7 @@ describe("the resolved bundle is genuinely the right one", () => {
   });
 
   it("pluralises in the resolved language", async () => {
-    // German and English share a two-form rule, but the strings differ — this
+    // German and English share a two-form rule, but the strings differ: this
     // catches a bundle that resolved but whose plural keys didn't.
     await i18n.changeLanguage("de-DE");
     expect(i18n.t("projects.database", { count: 1 })).toBe("Datenbank");

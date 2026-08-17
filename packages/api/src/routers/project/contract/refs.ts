@@ -1,5 +1,5 @@
 /**
- * Available variable references — drives the "Add Reference" picker
+ * Available variable references: drives the "Add Reference" picker
  * and the inline `${{` autocomplete in the env-var editor.
  *
  * One row per `${{Source.KEY}}` token that resolves in a given project.

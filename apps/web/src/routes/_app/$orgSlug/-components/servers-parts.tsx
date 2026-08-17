@@ -24,7 +24,7 @@ function StatTile({
   value: string;
   sub: string;
 }) {
-  const isPlaceholder = value === "—";
+  const isPlaceholder = value === "–";
   return (
     // min-w-0 on the Card itself, not just the text block: as a grid item its
     // default min-width:auto lets a long label ("Containers running") set the
@@ -47,7 +47,7 @@ function StatTile({
               className="size-3.5 shrink-0 sm:hidden"
             />
             {/* Single long tokens ("otterdeploy-managed") must be allowed to
-                break mid-word — a tile is ~150px of text width at 390px. */}
+                break mid-word: a tile is ~150px of text width at 390px. */}
             <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
           </div>
           <div
@@ -68,7 +68,7 @@ function StatTile({
 }
 
 /** The four cluster-capacity tiles above the node table. Extracted from
- *  ServersRoute for the lint complexity budget — the placeholder ternaries
+ *  ServersRoute for the lint complexity budget: the placeholder ternaries
  *  live here with the tiles they feed. */
 export function ClusterStatTiles({
   servers,
@@ -78,12 +78,12 @@ export function ClusterStatTiles({
   servers: Array<{ cpuTotal: number; memTotalGb: number; role: string }>;
   tasksRunning: number | null;
   /** Whether this install is running the Swarm runtime. The plain-Docker
-   *  runtime (the default) has no swarm tasks — `server.stats` counts
+   *  runtime (the default) has no swarm tasks. `server.stats` counts
    *  running otterdeploy-managed CONTAINERS instead and reports them through
    *  the same field, so the tile must say so: labelling a container count
    *  "Tasks running" reads as a live contradiction next to the Docker page's
    *  Tasks tab, which is genuinely swarm-only and always empty here
-   *  (od-1kc.4 — "TASKS RUNNING 3" here vs "Tasks 0" there, same install). */
+   *  (od-1kc.4, "TASKS RUNNING 3" here vs "Tasks 0" there, same install). */
   isSwarm: boolean;
 }) {
   const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
@@ -94,19 +94,19 @@ export function ClusterStatTiles({
       <StatTile
         icon={CpuIcon}
         label="Cluster CPU"
-        value={totalCpu > 0 ? `${totalCpu} vCPU` : "—"}
+        value={totalCpu > 0 ? `${totalCpu} vCPU` : "–"}
         sub="cluster capacity"
       />
       <StatTile
         icon={RamMemoryIcon}
         label="Cluster memory"
-        value={totalMem > 0 ? `${totalMem} GB` : "—"}
+        value={totalMem > 0 ? `${totalMem} GB` : "–"}
         sub="cluster capacity"
       />
       <StatTile
         icon={Task01Icon}
         label={isSwarm ? "Tasks running" : "Containers running"}
-        value={tasksRunning != null ? String(tasksRunning) : "—"}
+        value={tasksRunning != null ? String(tasksRunning) : "–"}
         sub={isSwarm ? "across all replicas" : "otterdeploy-managed"}
       />
       <StatTile

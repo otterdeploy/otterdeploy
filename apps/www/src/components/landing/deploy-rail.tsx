@@ -6,14 +6,14 @@ import { RAIL_STATIONS } from "./content";
 import { cx, Mono, StateChip } from "./primitives";
 
 /**
- * The deploy rail — the hero's instrument.
+ * The deploy rail. The hero's instrument.
  *
  * One deployment, drawn as the stations it passes through, in the platform's
  * own words (`pending` → `building` → `running` are `deployment_status`
  * members; `tls` resolves a `proxy_route_cert_state`).
  *
  * The default render is the FINISHED state: every station lit, the URL live.
- * That matters — SSR, a headless renderer, a background tab and a reader with
+ * That matters. SSR, a headless renderer, a background tab and a reader with
  * `prefers-reduced-motion` all get a complete, legible diagram instead of an
  * empty rail waiting on a transition that never fires. Motion is layered on
  * top for readers who can take it.

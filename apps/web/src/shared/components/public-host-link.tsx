@@ -3,8 +3,8 @@
  *
  * Every surface that shows a domain is somewhere an operator wants to open it:
  * the graph panel, the routes table, the edge-log host footer, the traffic tab.
- * The anchor was hand-rolled in each of them — same href, same target, same
- * hover-revealed icon — so this is that shape once.
+ * The anchor was hand-rolled in each of them. Same href, same target, same
+ * hover-revealed icon, so this is that shape once.
  *
  * The icon is always laid out and only fades in on hover, so a row of hosts
  * stays aligned instead of shifting by the icon's width when the pointer moves
@@ -22,7 +22,7 @@ export function PublicHostLink({
   iconClassName,
   title,
 }: {
-  /** Bare hostname — no scheme. `https://` is added here so no caller has to
+  /** Bare hostname, no scheme. `https://` is added here so no caller has to
    *  remember, and so a host that arrives with one can't produce
    *  `https://https://…`. */
   host: string;

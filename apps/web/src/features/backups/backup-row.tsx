@@ -67,7 +67,7 @@ export function BackupRow({
       {/* Below `md` the nine columns stack into four labelled lines; from `md`
           the wrappers go `display:contents` so the SAME cells become the grid's
           own items and the column track lines up with the header. One markup,
-          two layouts — the alternative (a second mobile row component) drifts
+          two layouts: the alternative (a second mobile row component) drifts
           the moment a column is added. */}
       <button
         type="button"
@@ -82,14 +82,14 @@ export function BackupRow({
           <span className="flex min-w-0 items-center gap-2">
             <HugeiconsIcon icon={KIcon} className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="truncate font-mono text-xs font-medium">
-              {b.source ?? b.volumeName ?? b.resourceId ?? "—"}
+              {b.source ?? b.volumeName ?? b.resourceId ?? "–"}
             </span>
             <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               {kindLabel(b.kind)}
             </span>
           </span>
           <span className="shrink-0">
-            <ProjectTagBadge id={b.project ?? "—"} />
+            <ProjectTagBadge id={b.project ?? "–"} />
           </span>
         </span>
 
@@ -109,7 +109,7 @@ export function BackupRow({
           <span className="flex min-w-0 items-center gap-1.5">
             <HugeiconsIcon icon={DIcon} className="size-3 shrink-0 text-muted-foreground" />
             <span className="truncate font-mono text-[11px] text-foreground/80">
-              {b.destinationName ?? "—"}
+              {b.destinationName ?? "–"}
             </span>
           </span>
         </span>
@@ -118,7 +118,7 @@ export function BackupRow({
           {/* `md:contents` here too, not just on the parent. Without it this
               grouping span stays ONE grid item, so the encryption badge and the
               status badge shared the 120px Encryption column while the actions
-              sat under Status — every cell from here on was a column to the
+              sat under Status. Every cell from here on was a column to the
               left of its header, and the squeeze wrapped "AES-256 GCM" onto
               three lines. Below `md` the flex grouping is still what keeps the
               two badges together on the left. */}
@@ -129,21 +129,23 @@ export function BackupRow({
                 {encLabel(b.encryption)}
               </span>
             ) : (
-              <span className="font-mono text-[11px] text-muted-foreground">—</span>
+              <span className="font-mono text-[11px] text-muted-foreground">–</span>
             )}
             <StatusBadge status={b.status} />
           </span>
-          <span
-            className="flex items-center justify-end gap-0.5"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <span className="flex items-center justify-end gap-0.5">
+            {/* Each action stops propagation itself so activating it (mouse or
+                keyboard) doesn't also toggle the surrounding row button. */}
             <Button
               variant="ghost"
               size="icon"
               className="size-6"
               title="Restore"
               disabled={!succeeded}
-              onClick={() => onRestore(b)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestore(b);
+              }}
             >
               <HugeiconsIcon icon={Refresh01Icon} className="size-3" />
             </Button>
@@ -153,7 +155,10 @@ export function BackupRow({
               className="size-6"
               title="Download"
               disabled={!succeeded || downloading}
-              onClick={download}
+              onClick={(e) => {
+                e.stopPropagation();
+                download();
+              }}
             >
               <HugeiconsIcon icon={Download01Icon} className="size-3" />
             </Button>

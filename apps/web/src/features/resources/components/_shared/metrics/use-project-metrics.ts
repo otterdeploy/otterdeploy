@@ -12,7 +12,7 @@
  * - Request counts zero-fill (0 requests is a real measurement); p95 is null
  *   in an empty bucket.
  *
- * `projectId` is typed `string` and cast at the oRPC call boundary — same
+ * `projectId` is typed `string` and cast at the oRPC call boundary. Same
  * convention as `use-resource-metrics`.
  */
 
@@ -22,8 +22,8 @@ import { orpc } from "@/shared/server/orpc";
 
 import { METRIC_WINDOWS } from "./use-resource-metrics";
 
-/** Metrics-page look-back windows. Extends the per-resource list with 7d —
- *  the real retention bound (`resource_metric` and the edge-log partitions
+/** Metrics-page look-back windows. Extends the per-resource list with 7d.
+ *  The real retention bound (`resource_metric` and the edge-log partitions
  *  are both pruned after 7 days). */
 export const PROJECT_METRIC_WINDOWS = [...METRIC_WINDOWS, { label: "7d", minutes: 10080 }] as const;
 
@@ -93,7 +93,8 @@ export function useProjectAggregateMetrics(
 
   const { rows, summary } = (() => {
     if (!points || points.length === 0 || !bucketSeconds) {
-      return { rows: [] as AggregateRow[], summary: EMPTY_AGGREGATE };
+      const empty: AggregateRow[] = [];
+      return { rows: empty, summary: EMPTY_AGGREGATE };
     }
 
     // Server buckets are sorted ascending and omit unsampled slots; re-insert
@@ -128,106 +129,6 @@ export function useProjectAggregateMetrics(
   return {
     rows,
     summary,
-    isLoading: query.isLoading,
-    isError: query.isError,
-    updatedAt: query.dataUpdatedAt,
-  };
-}
-
-// ─── Request rate / p95 from the edge logs ─────────────────────────────────
-
-export interface RequestRow {
-  ts: number;
-  /** Requests per second over the bucket (0 is a real measurement). */
-  rps: number;
-  /** Per-bucket p95 latency in ms; null when the bucket saw no requests. */
-  p95: number | null;
-}
-
-export interface RequestSummary {
-  /** Total requests in the window. */
-  total: number;
-  /** Window-average rps. */
-  avgRps: number;
-  peakRps: number;
-  /** p95 of the most recent bucket that saw traffic. */
-  latestP95: number | null;
-  maxP95: number;
-  /** Errors (status >= 400) / total; 0 when no traffic. */
-  errorRate: number;
-}
-
-const EMPTY_REQUESTS: RequestSummary = {
-  total: 0,
-  avgRps: 0,
-  peakRps: 0,
-  latestP95: null,
-  maxP95: 0,
-  errorRate: 0,
-};
-
-export interface ProjectRequestMetrics {
-  rows: RequestRow[];
-  summary: RequestSummary;
-  /** 0 ⇒ the project routes no public HTTP hosts — nothing can chart here. */
-  hostCount: number;
-  /** "ring" ⇒ served from the in-memory buffer (persistence off) — history
-   *  is much shorter than the selected window may suggest. */
-  source: "db" | "ring" | null;
-  /** True when the fetch cap truncated the window (old buckets undercount). */
-  sampled: boolean;
-  isLoading: boolean;
-  isError: boolean;
-  updatedAt: number;
-}
-
-export function useProjectRequestSeries(
-  projectId: string,
-  windowMinutes: number,
-): ProjectRequestMetrics {
-  const query = useQuery({
-    ...orpc.edgeLogs.requestSeries.queryOptions({
-      input: { projectId, windowMinutes },
-    }),
-    refetchInterval: SAMPLE_INTERVAL_MS,
-    placeholderData: (prev) => prev,
-  });
-
-  const data = query.data;
-
-  const { rows, summary } = (() => {
-    const buckets = data?.buckets;
-    if (!buckets || buckets.length === 0 || !data.bucketSeconds) {
-      return { rows: [] as RequestRow[], summary: EMPTY_REQUESTS };
-    }
-
-    const rows: RequestRow[] = buckets.map((b) => ({
-      ts: new Date(b.t).getTime(),
-      rps: b.count / data.bucketSeconds,
-      p95: b.p95,
-    }));
-
-    const total = buckets.reduce((s, b) => s + b.count, 0);
-    const errors = buckets.reduce((s, b) => s + b.errCount, 0);
-    const p95Values = buckets.map((b) => b.p95).filter((v): v is number => v !== null);
-    const lastTraffic = [...buckets].reverse().find((b) => b.p95 !== null);
-    const summary: RequestSummary = {
-      total,
-      avgRps: total / (buckets.length * data.bucketSeconds),
-      peakRps: Math.max(...rows.map((r) => r.rps)),
-      latestP95: lastTraffic?.p95 ?? null,
-      maxP95: p95Values.length > 0 ? Math.max(...p95Values) : 0,
-      errorRate: total > 0 ? errors / total : 0,
-    };
-    return { rows, summary };
-  })();
-
-  return {
-    rows,
-    summary,
-    hostCount: data?.hostCount ?? 0,
-    source: data?.source ?? null,
-    sampled: data?.sampled ?? false,
     isLoading: query.isLoading,
     isError: query.isError,
     updatedAt: query.dataUpdatedAt,

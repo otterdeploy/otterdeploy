@@ -3,7 +3,7 @@
  *
  * A stack and its main service almost always share a name (51 of the 54
  * catalog templates), names are unique per project, so the child row lands as
- * `<stack>-service` — and that suffix used to leak into the URL. These pin the
+ * `<stack>-service`, and that suffix used to leak into the URL. These pin the
  * rule that fixes it and, more importantly, the boundary that keeps it safe.
  */
 
@@ -32,8 +32,8 @@ describe("generated host label", () => {
   });
 
   it("leaves a non-namesake sibling on its own label", () => {
-    // Two stacks each containing a `db` must not both resolve to `db-<project>`
-    // — that is one domain and the unique index would reject the second.
+    // Two stacks each containing a `db` must not both resolve to `db-<project>`.
+    // That is one domain and the unique index would reject the second.
     expect(hostLabel({ resourceName: "db", stackName: "ghost", internalHostname: "db" })).toBe(
       "db",
     );

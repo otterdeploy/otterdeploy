@@ -26,7 +26,7 @@ export const mongodbAdapter: DatabaseEngineAdapter = {
     `mongosh --quiet --eval "db.adminCommand({ ping: 1 }).ok" | grep -q 1`,
   buildConnectionString: ({ username, password, host, port, databaseName }) => {
     // authSource=admin because MONGO_INITDB_ROOT_* creates the root user
-    // in the `admin` db regardless of MONGO_INITDB_DATABASE — connecting
+    // in the `admin` db regardless of MONGO_INITDB_DATABASE, connecting
     // to the app db with that user requires this override.
     const hostPort = port == null ? host : `${host}:${port}`;
     return `${meta.scheme}://${username}:${password}@${hostPort}/${databaseName}?authSource=admin`;

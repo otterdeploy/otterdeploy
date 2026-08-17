@@ -23,7 +23,7 @@ import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
- * Stored statuses a cancel can act on — mirrors `CANCELLABLE` in
+ * Stored statuses a cancel can act on. Mirrors `CANCELLABLE` in
  * packages/api/src/routers/deployment/cancel.ts. `starting` is excluded on
  * purpose: by then the image is built and swarm is rolling it out, and there is
  * no build left to stop.
@@ -56,15 +56,15 @@ export function CancelDeploymentButton({
         // screen, so refresh broadly rather than patching one cache entry.
         void queryClient.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
         // And the header pill, or a cancelled build keeps being counted as
-        // queued until the next poll — the one place the staleness is obvious,
+        // queued until the next poll. The one place the staleness is obvious,
         // because you are looking straight at it when you click.
         void queryClient.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
       },
       onError: (error) => {
-        // The common "failure" is a benign race — it finished while the dialog
+        // The common "failure" is a benign race. It finished while the dialog
         // was open. Say that, rather than showing a raw 409.
         const message =
-          (error as { status?: number })?.status === 409
+          "status" in error && error.status === 409
             ? "That build already finished."
             : (error.message ?? "Could not cancel the build.");
         toast.error(message);
@@ -95,7 +95,7 @@ export function CancelDeploymentButton({
             <AlertDialogTitle>{t("deployments.stopBuild")}</AlertDialogTitle>
             <AlertDialogDescription>
               The build container is killed immediately and this deployment is recorded as
-              cancelled. Work already done is discarded — starting again means a fresh deploy.
+              cancelled. Work already done is discarded, so starting again means a fresh deploy.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

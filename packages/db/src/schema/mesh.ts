@@ -1,10 +1,10 @@
 import type { MeshNetworkId, OrganizationId } from "@otterdeploy/shared/id";
 
-// Private networking — the org's OWN connected VPN account (NetBird first,
+// Private networking: the org's OWN connected VPN account (NetBird first,
 // Tailscale behind the same provider interface). One row per org, exactly like
 // `gitProvider`: bring-your-own credentials, encrypted at rest, never env vars.
 //
-// We deliberately do NOT run a shared platform mesh — cross-org isolation would
+// We deliberately do NOT run a shared platform mesh. Cross-org isolation would
 // then rest entirely on our own ACL correctness. Peers, policies and billing
 // live on the org's side, which is also the only model under which "reachable
 // from my own devices only" can actually be true.
@@ -21,8 +21,8 @@ export const meshProviderKindEnum = pgEnum("mesh_provider_kind", ["netbird", "ta
 
 // Connection lifecycle. "connected" = the last verify() call succeeded.
 // "error" = credentials were accepted once but the most recent verify failed
-// (revoked token, unreachable self-hosted management server, scope drift) —
-// the row is kept so the operator can re-authenticate without re-entering
+// (revoked token, unreachable self-hosted management server, scope drift).
+// The row is kept so the operator can re-authenticate without re-entering
 // everything and, critically, so private routes are reported as DRIFT rather
 // than silently re-exposed publicly. "disconnected" = the operator
 // deliberately unlinked; existing peers keep running untouched.
@@ -56,11 +56,11 @@ export const meshNetwork = pgTable(
     // no public half).
     oauthClientId: text("oauth_client_id"),
     // Provider-side account (NetBird) / tailnet (Tailscale) identifier, read
-    // back from verify() — never operator input.
+    // back from verify(), never operator input.
     accountId: text("account_id"),
     // The peer DNS zone this account resolves names under. Usually
     // "netbird.cloud", but accounts CAN change it, so it is read from the API
-    // at connect rather than assumed — getting this wrong silently breaks
+    // at connect rather than assumed, getting this wrong silently breaks
     // every private hostname.
     peerDomain: text("peer_domain"),
     // The wildcard DNS label our nodes register (`--extra-dns-labels "*.od"`),
@@ -86,7 +86,7 @@ export const meshNetwork = pgTable(
       .notNull(),
   },
   (table) => [
-    // One mesh per org — the connect flow upserts on this.
+    // One mesh per org: the connect flow upserts on this.
     uniqueIndex("mesh_network_org_unique").on(table.organizationId),
     index("mesh_network_status_idx").on(table.status),
   ],

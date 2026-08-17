@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { GhosttyCore } from "@wterm/ghostty";
-// @ts-expect-error — CSS-only side-effect import; @wterm/react ships a
+// @ts-expect-error, CSS-only side-effect import; @wterm/react ships a
 // `/css` entry that Vite injects. No type declarations.
 import "@wterm/react/css";
 import { Terminal, useTerminal, type WTerm } from "@wterm/react";
@@ -19,13 +19,13 @@ import { StepUpDialog } from "./step-up-dialog";
 
 export type { ConnState } from "../data/use-shell-connection";
 
-// Load the Ghostty WASM core once for the whole module — expensive (network
+// Load the Ghostty WASM core once for the whole module. Expensive (network
 // + compile) and the same instance can drive any number of <Terminal>s.
 const core = await GhosttyCore.load();
 
 interface Props {
   source: SessionSource;
-  /** Whether this session is the visible tab — inactive sessions stay mounted
+  /** Whether this session is the visible tab. Inactive sessions stay mounted
    *  with `display: none` so their WebSocket + terminal state survives tab
    *  switches. */
   active: boolean;
@@ -59,7 +59,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
   // (`.wterm.has-scrollback`). In our embedding the wheel event was bubbling
   // past that scroll container and scrolling the page instead of the buffer,
   // so history was effectively unreachable. Capture the wheel on the terminal
-  // element and drive `scrollTop` ourselves — and only swallow the event when
+  // element and drive `scrollTop` ourselves, and only swallow the event when
   // there's actually scrollback to move through, so a terminal that fits its
   // viewport still lets the page scroll normally.
   const detachWheelRef = useRef<(() => void) | null>(null);
@@ -81,12 +81,12 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
   useEffect(() => () => detachWheelRef.current?.(), []);
 
   // Visibility is handled by the parent (absolute-positioned overlay so the
-  // terminal stays measured at the parent's real size when inactive — the
+  // terminal stays measured at the parent's real size when inactive. The
   // old `display: none` toggle made Ghostty's autoResize see 0×0 and then
   // jump-resize on switch, which wrecked the scrollback).
   void active;
   // Before the shell's first prompt lands, the xterm surface is just an empty
-  // black rect — indistinguishable from "broken". Cover it until the first
+  // black rect: indistinguishable from "broken". Cover it until the first
   // byte of real content (success or error) actually lands.
   const showConnecting = !hasOutput;
   return (

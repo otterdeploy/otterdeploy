@@ -49,7 +49,7 @@ export interface ResourceContext extends ProjectContext {
   resourceType: string;
   /** Engine for databases (`postgres`, `redis`, …); undefined for every other
    *  kind. Carried here because "which database engine" decides which endpoint
-   *  a verb can call — `restart` has one for postgres and none for the rest. */
+   *  a verb can call. `restart` has one for postgres and none for the rest. */
   resourceEngine?: string;
 }
 
@@ -61,7 +61,7 @@ interface ResourceRow {
 
 /**
  * Print the project's inventory to stderr so a failed lookup shows what *is*
- * there. Listing them as real rows — glyph, name, kind — means the reader can
+ * there. Listing them as real rows (glyph, name, kind) means the reader can
  * copy a name straight out of the error.
  */
 function printInventory(resources: ResourceRow[]): void {

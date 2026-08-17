@@ -12,7 +12,7 @@ already-decomposed guided flows:
 - `apps/web/src/features/guided/components/simple-asset-flow/`
 - `apps/web/src/features/guided/components/simple-audit-flow/`
 
-Read the actual on-disk files before mirroring them — they are the source of
+Read the actual on-disk files before mirroring them. They are the source of
 truth (see Process lessons; the reference can change mid-task).
 
 ## When to apply
@@ -26,8 +26,8 @@ truth (see Process lessons; the reference can change mid-task).
 Use this for guided flows and multi-step wizards.
 
 - **`<name>.tsx` = thin BARREL.** Re-export the public surface so existing
-  import paths never change. Re-export EVERY symbol the old file exported —
-  including cross-feature shared ones. Real example: `simple-asset-flow.tsx`
+  import paths never change. Re-export EVERY symbol the old file exported.
+  Including cross-feature shared ones. Real example: `simple-asset-flow.tsx`
   keeps `export { SimpleBottomNav }` because `simple-audit-flow`,
   `simple-contracts-flow`, and `simple-risks-flow` import it from that path.
 - **`<name>/index.tsx` = composition root.** `export function X()` wraps
@@ -41,7 +41,7 @@ Use this for guided flows and multi-step wizards.
   object. Export shared constants (e.g. `STEP_KEYS`) and
   `export type XState = ReturnType<typeof useXState>`.
 - **Presentational children** (header, tip, each step) call `useX()` to read
-  what they need — NO prop-drilling.
+  what they need, NO prop-drilling.
 - **Genuinely reusable LEAF components stay prop-driven.** Real examples:
   `InlineDependencyEditor`, `InlinePersonSelect` take explicit props rather
   than reading context.
@@ -53,7 +53,7 @@ Use this for guided flows and multi-step wizards.
   `template-helpers.ts` holding `findBestTemplate` / `templateToAssets` /
   `mergeAssetsWithDeps`).
 
-## Not everything is flow-shaped — pick by component type
+## Not everything is flow-shaped. Pick by component type
 
 - **ReactFlow graph / visualization** (e.g. `asset-dependency-map.tsx`):
   extract node components, custom edge components, and a connection picker into
@@ -64,12 +64,12 @@ Use this for guided flows and multi-step wizards.
   filters (`FilterPill` / `ScopeTab`), column definitions, the inline add-form,
   and the table wrapper. A small context for add/filter state is fine.
 - **Data modules** (e.g. `data/assets.ts`, `data/collection.ts`): these are
-  type / constant / collection definitions — leave them. Only extract helpers
+  type / constant / collection definitions: leave them. Only extract helpers
   if a UI file inlined logic that belongs in the data layer.
 
 ## Non-negotiable correctness rules
 
-- **Behavior must be IDENTICAL — a pure structural move.** Preserve JSX output,
+- **Behavior must be IDENTICAL: a pure structural move.** Preserve JSX output,
   i18n keys, classNames, and logic verbatim.
 - **Move tricky bits intact into the state hook**: render-time init blocks
   (`if (!initializedRef.current && !isLoading) { … }`) and draft-persisting
@@ -79,18 +79,18 @@ Use this for guided flows and multi-step wizards.
   resolves.
 - **Verify before declaring done.** Run `cd apps/web && bun run typecheck` and
   confirm zero NEW errors mentioning the touched files (the WIP branch has
-  unrelated pre-existing errors — diff against a clean tree / stash to be
+  unrelated pre-existing errors: diff against a clean tree / stash to be
   sure), then run oxlint.
 
 ## Fold in these somnara quick-wins while refactoring
 
-- **IDs**: use `createId(ID_PREFIX.x)` from `@somnara/shared` — never
+- **IDs**: use `createId(ID_PREFIX.x)` from `@somnara/shared`, never
   `Date.now()` or template-literal ids like `` `asset-${Date.now()}` `` (real
   offenders existed in `steps/asset-list.tsx` and `asset-dependency-map.tsx`).
   See the `somnara-shared-utils` skill.
 - **Reuse `@somnara/shared` helpers**; dedupe inline helpers that already
   exist elsewhere. Real example: `InlinePersonSelect` was copy-pasted across
-  `steps/asset-list.tsx` and `asset-overview-table.tsx` — extract one shared
+  `steps/asset-list.tsx` and `asset-overview-table.tsx`: extract one shared
   `components/inline-person-select.tsx`.
 - **Prefer shadcn/ui controls over native inputs** (existing repo preference).
 
@@ -98,7 +98,7 @@ Use this for guided flows and multi-step wizards.
 
 - The reference implementation can change under you mid-task (the audit flow was
   itself being restructured into `steps/` subfolders during the asset split).
-  Treat the ACTUAL on-disk reference files as the source of truth — not a stale
+  Treat the ACTUAL on-disk reference files as the source of truth, not a stale
   `ls` / `find` snapshot or a prior assumption.
 - After a big multi-file move, independently re-verify the final tree, the
   barrel re-exports, importer resolution, and typecheck. Don't trust the move

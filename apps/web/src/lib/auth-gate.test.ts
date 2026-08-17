@@ -1,9 +1,14 @@
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
+
+import type { OrganizationSummary } from "@/lib/auth-queries";
 
 import { decideAuthGate } from "./auth-gate";
 
 const session = { user: { id: "user_1" }, session: { activeOrganizationId: "org_1" } };
-const orgs = [{ id: "org_1", name: "Acme", slug: "acme", createdAt: "2026-01-01" }] as never;
+const orgs: OrganizationSummary[] = [
+  { id: idSchema.organization.parse("org_1"), name: "Acme", slug: "acme", createdAt: "2026-01-01" },
+];
 
 describe("decideAuthGate", () => {
   it("allows a signed-in user who has a workspace", () => {

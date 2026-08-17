@@ -43,8 +43,8 @@ export class NoHttpPortError extends TaggedError("NoHttpPortError")<{
 }
 
 /**
- * Raised when enabling public exposure on a service that has no real domain —
- * the only host we could resolve is the throwaway `<slug>.<ip>.sslip.io`
+ * Raised when enabling public exposure on a service that has no real domain.
+ * The only host we could resolve is the throwaway `<slug>.<ip>.sslip.io`
  * fallback. Rather than silently publish the service on that URL, expose
  * refuses and hands back the host it *would* have minted so the UI can ask the
  * operator to explicitly opt in (re-calling with `allowGeneratedDomain`).
@@ -78,7 +78,7 @@ export class ServiceInUseError extends TaggedError("ServiceInUseError")<{
 }
 
 /**
- * The deployment a rollback targets can't be rolled back to — it's still
+ * The deployment a rollback targets can't be rolled back to. It's still
  * building/failed (no live image), or its image is a `pending:` placeholder
  * from a build that never produced an artifact.
  */
@@ -151,7 +151,7 @@ export class UnknownPortError extends TaggedError("UnknownPortError")<{
 }
 
 /** The route the caller named doesn't exist (or belongs to another
- *  resource/org). Surfaced as 404 — never leaks cross-tenant existence. */
+ *  resource/org). Surfaced as 404, never leaks cross-tenant existence. */
 export class DomainNotFoundError extends TaggedError("DomainNotFoundError")<{
   message: string;
   routeId: ProxyRouteId;
@@ -243,7 +243,7 @@ export type ResolveError =
 
 /**
  * A move was refused because the service has node-local volumes that will not
- * follow it. Not a failure so much as a question — the caller can retry with
+ * follow it. Not a failure so much as a question: the caller can retry with
  * `acknowledgeVolumeLoss` once the operator has seen which mounts are at stake.
  */
 export class PlacementVolumeLossError extends TaggedError("PlacementVolumeLossError")<{

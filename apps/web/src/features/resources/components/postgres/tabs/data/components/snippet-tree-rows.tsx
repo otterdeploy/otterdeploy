@@ -1,5 +1,5 @@
 /**
- * Row primitives for the snippet tree — the generic {@link Row} (icon +
+ * Row primitives for the snippet tree: the generic {@link Row} (icon +
  * inline-rename input + hover menu), the per-item {@link ItemMenu}, and the
  * {@link FolderNode} that renders a folder header over its child snippets.
  * Pulled into a sibling module so {@link SnippetTree} stays small.
@@ -68,7 +68,7 @@ export function Row({
           defaultValue={label}
           onBlur={(e) => onRename(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") onRename((e.target as HTMLInputElement).value);
+            if (e.key === "Enter") onRename(e.currentTarget.value);
             if (e.key === "Escape") onRename(label);
           }}
           className="min-w-0 flex-1 bg-transparent text-foreground outline-none"

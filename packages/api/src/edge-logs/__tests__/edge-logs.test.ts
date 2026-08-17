@@ -12,7 +12,7 @@ import {
 import { parseCaddyAccessLog } from "../parse";
 import { __resetEdgeLogs, bucketOf, pushEdgeLog, queryEdgeLogs, subscribeEdgeLogs } from "../ring";
 
-/** Narrow `arr[0]` to its element type with a throwing guard — keeps the tests
+/** Narrow `arr[0]` to its element type with a throwing guard. Keeps the tests
  *  free of `!` non-null assertions while preserving `arr[0]!`'s runtime intent. */
 function first<T>(arr: readonly T[]): T {
   const row = arr[0];
@@ -160,7 +160,7 @@ describe("ring buffer", () => {
       Date.now(),
     );
     expect(res.total).toBe(2);
-    expect(res.rows.map((r) => r.status).sort()).toEqual([404, 500]);
+    expect(res.rows.map((r) => r.status).sort((a, b) => a - b)).toEqual([404, 500]);
   });
 
   test("subscribe delivers live lines and unsubscribes", () => {

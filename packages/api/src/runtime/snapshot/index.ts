@@ -23,7 +23,7 @@ import { dbBranchStrategySettingSchema } from "./types";
 import { datasetExists, zfsDriver } from "./zfs";
 
 // Read straight off process.env (not the validated `@otterdeploy/env` object)
-// so importing the branching layer — which the deploy path does — never drags
+// so importing the branching layer (which the deploy path does) never drags
 // full env validation into the import graph. Same idiom as runtime/index.ts.
 function setting(): "auto" | "zfs" | "copy" {
   // oxlint-disable-next-line node/no-process-env -- intentional raw read (see note above): importing @otterdeploy/env here would pull full env validation into the deploy import graph.
@@ -45,8 +45,8 @@ export async function resolveSnapshotDriver(): Promise<SnapshotDriver> {
 /**
  * The driver to branch ONE database with.
  *
- * `copy` when the host has no pool, when the operator forced it, or — the case
- * that matters — when this particular database's PGDATA is not on a dataset.
+ * `copy` when the host has no pool, when the operator forced it, or. The case
+ * that matters. When this particular database's PGDATA is not on a dataset.
  * The last check is what lets a ZFS-capable host keep branching pre-existing
  * databases instead of failing them.
  */

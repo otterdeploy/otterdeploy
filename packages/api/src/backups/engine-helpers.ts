@@ -6,15 +6,19 @@
 import type { Docker } from "@otterdeploy/docker";
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
+import * as z from "zod";
+
 import type { ExecutionContext } from "./db";
 
 import { decryptSecret } from "../lib/crypto";
 import { execCapture } from "./exec";
 
+const secretSchema = z.record(z.string(), z.string());
+
 export async function resolveSecret(ctx: ExecutionContext): Promise<Record<string, string>> {
   if (!ctx.destination.encryptedSecret) return {};
   const json = await decryptSecret(ctx.destination.encryptedSecret);
-  return JSON.parse(json) as Record<string, string>;
+  return secretSchema.parse(JSON.parse(json));
 }
 
 /** The minimal engine + credential surface `dumpCommand` needs. `ExecutionContext`

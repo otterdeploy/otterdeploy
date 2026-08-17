@@ -8,7 +8,7 @@ import { ResourceCard } from "./resource-card";
  * The project canvas: the dashboard's own resource nodes on the dashboard's
  * own dot grid.
  *
- * Two cards at near-full fidelity beat four shrunk into thumbnails — the point
+ * Two cards at near-full fidelity beat four shrunk into thumbnails: the point
  * of this panel is that a node carries real information (framework, deployed
  * commit, mounts, live status), and that only lands if you can read it. The
  * postgres card wears the comet border so the page shows the product's
@@ -17,7 +17,7 @@ import { ResourceCard } from "./resource-card";
 
 /**
  * The card's real width in the product. The whole group scales by one factor
- * so the 44px brand tiles and the 18px names keep their true proportions —
+ * so the 44px brand tiles and the 18px names keep their true proportions.
  * `--s` steps down on narrow columns rather than letting a card run off the
  * canvas, and `--x` moves the second card in with it so the diagonal holds.
  */

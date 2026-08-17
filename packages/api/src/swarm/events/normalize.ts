@@ -1,6 +1,6 @@
 /**
  * Project a raw docker `EventMessage` into a `DockerEvent`. The mapping is
- * intentionally narrow — we only call out the fields that map to TS-typed
+ * intentionally narrow: we only call out the fields that map to TS-typed
  * accessors on the consumer side. Anything else stays accessible via
  * `.raw` for one-off needs without bloating the shared type.
  */

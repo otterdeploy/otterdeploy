@@ -3,7 +3,7 @@
  *
  * Every node terminates traffic for the services it runs, instead of one proxy
  * on the control-plane host fronting the whole cluster. With a single edge, a
- * manager outage takes every site down — the workers' containers keep running
+ * manager outage takes every site down. The workers' containers keep running
  * and become unreachable, because nothing anywhere else is listening on :443.
  * Hence a proxy container per managed server, with traffic going straight
  * to the server running the app rather than through the control plane.
@@ -12,7 +12,7 @@
  * moving a service between nodes also moves its DNS. That is the cost of not
  * having one host in the path of every request.
  *
- * Best-effort, exactly like the CrowdSec bouncer alongside it — a node that
+ * Best-effort, exactly like the CrowdSec bouncer alongside it: a node that
  * joined successfully must never be failed by an edge that didn't install. The
  * caller narrates and continues.
  */
@@ -25,11 +25,11 @@ import { PLATFORM } from "../../constants";
  *  `otterdeploy-caddy-1` so the two can never be confused by name matching. */
 export const NODE_PROXY_CONTAINER = `${PLATFORM.swarm.caddyContainer}-node`;
 
-/** Exit code the script uses when docker isn't usable — narrated by the script. */
+/** Exit code the script uses when docker isn't usable, narrated by the script. */
 export const PROXY_UNSUPPORTED_EXIT = 78;
 
 export interface NodeProxyTarget {
-  /** "none" means we have no way to run privileged commands — skip entirely. */
+  /** "none" means we have no way to run privileged commands. Skip entirely. */
   privilege: "root" | "sudo" | "none";
   /** Image reference, matching the control plane's own caddy build. */
   image: string;
@@ -38,7 +38,7 @@ export interface NodeProxyTarget {
 }
 
 /**
- * Idempotent install script. Pure so it can be asserted directly — see
+ * Idempotent install script. Pure so it can be asserted directly. See
  * provision-node-proxy.test.ts.
  *
  * Starts the proxy with a bootstrap config that answers 503 rather than
@@ -51,7 +51,7 @@ export function nodeProxyInstallScript(target: NodeProxyTarget, sudo = ""): stri
   const networkFlags = (target.networks ?? []).map((n) => `--network ${n}`).join(" ");
   return [
     `if ! command -v docker >/dev/null 2>&1; then`,
-    `  echo "docker not available on this node — skipping edge proxy"`,
+    `  echo "docker not available on this node, skipping edge proxy"`,
     `  exit ${PROXY_UNSUPPORTED_EXIT}`,
     "fi",
     // Re-provisioning must converge, not stack a second listener on :443.
@@ -85,9 +85,9 @@ export async function installNodeProxy(
   if (res.exitCode === PROXY_UNSUPPORTED_EXIT) return; // narrated by the script
   if (res.exitCode !== 0) {
     onLine(
-      "⚠ edge proxy install failed — the node joined fine, but it cannot serve traffic on its own. Services placed here will only be reachable while the control-plane edge is up.",
+      "⚠ edge proxy install failed. The node joined fine, but it cannot serve traffic on its own. Services placed here will only be reachable while the control-plane edge is up.",
     );
     return;
   }
-  onLine(`✓ edge proxy running (${NODE_PROXY_CONTAINER}) — this node can serve its own traffic`);
+  onLine(`✓ edge proxy running (${NODE_PROXY_CONTAINER}): this node can serve its own traffic`);
 }

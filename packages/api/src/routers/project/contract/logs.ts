@@ -1,5 +1,5 @@
 /**
- * Streaming log endpoints — both resource-wide and per-task.
+ * Streaming log endpoints: both resource-wide and per-task.
  *
  * Both use eventIterator(resourceLogEventSchema) so the client gets the same
  * shape regardless of which endpoint it subscribes to. `system`-stream events
@@ -40,7 +40,7 @@ const resourceTaskLogsTailInput = z.object({
 
 export const logsContractSlice = {
   logs: {
-    // Streaming endpoint — yields one event per demuxed log line as docker
+    // Streaming endpoint: yields one event per demuxed log line as docker
     // emits them. Generic across postgres + service resources via the
     // resource → swarm-service → running container resolver in the handler.
     tail: oc
@@ -58,7 +58,7 @@ export const logsContractSlice = {
     // Streaming endpoint scoped to ONE swarm task. Powers the
     // deployment-detail expander: click a row in Recent deployments to see
     // its swarm-state progression + that specific container's stdout/stderr
-    // (exited tasks included — docker keeps the logs on disk).
+    // (exited tasks included, docker keeps the logs on disk).
     tail: oc
       .errors(resourceNotFoundErrors)
       .meta({

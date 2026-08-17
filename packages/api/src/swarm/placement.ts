@@ -6,14 +6,14 @@
  * which is correct for stateless work and wrong for anything holding a local
  * volume.
  *
- * Constrain on node ID, never hostname. Hostnames are not unique in practice —
- * re-provisioning a machine leaves the old node registered under the same
+ * Constrain on node ID, never hostname. Hostnames are not unique in practice.
+ * Re-provisioning a machine leaves the old node registered under the same
  * hostname alongside the new one, and a hostname constraint would then match
  * both, including the dead one.
  *
  * What pinning costs, spelled out because the UI has to say it: a pinned
  * service does NOT fail over. If its node dies, swarm leaves the task pending
- * rather than moving it — which is the only safe behaviour when the service's
+ * rather than moving it, which is the only safe behaviour when the service's
  * data lives on that node's disk, and the wrong one for a stateless replica.
  */
 
@@ -24,7 +24,7 @@ export type SwarmNodeId = string;
  * Swarm rejects a malformed constraint outright, taking the whole deploy with
  * it. Node ids are opaque alphanumerics, so anything else is a bug upstream
  * (a hostname, a server row id, an empty string) and is dropped rather than
- * emitted — an unplaced service beats a service that can't be created at all.
+ * emitted. An unplaced service beats a service that can't be created at all.
  */
 export function isSwarmNodeId(value: unknown): value is SwarmNodeId {
   return typeof value === "string" && /^[a-z0-9]{5,}$/i.test(value);
@@ -32,7 +32,7 @@ export function isSwarmNodeId(value: unknown): value is SwarmNodeId {
 
 /**
  * The `Placement` fragment for a service spec, or null when the service is
- * unpinned. Null means "omit the key entirely" — an empty Constraints array is
+ * unpinned. Null means "omit the key entirely". An empty Constraints array is
  * not the same thing to swarm.
  */
 export function placementFor(nodeId: unknown): { Constraints: string[] } | null {

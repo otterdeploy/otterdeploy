@@ -1,6 +1,6 @@
 /**
  * Clipboard writing that works outside secure contexts. `navigator.clipboard`
- * only exists on HTTPS or localhost — a self-hosted dashboard reached over
+ * only exists on HTTPS or localhost. A self-hosted dashboard reached over
  * plain `http://<ip-or-host>:<port>` has no async Clipboard API at all, so
  * every `navigator.clipboard?.writeText(...)` call site silently no-oped
  * while still flashing its "Copied" state (same secure-context trap as
@@ -9,7 +9,7 @@
  * Strategy: prefer the async API, fall back to the hidden-textarea +
  * `document.execCommand("copy")` trick (deprecated but universally
  * supported, and the only write path in insecure contexts). Resolves to
- * whether the text actually reached the clipboard — call sites must gate
+ * whether the text actually reached the clipboard. Call sites must gate
  * their "Copied" feedback on it instead of assuming success.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
@@ -17,7 +17,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     const ok = await navigator.clipboard.writeText(text).then(
       () => true,
       // Rejects on secure origins too (e.g. "Document is not focused" while
-      // devtools has focus) — fall through to the legacy path.
+      // devtools has focus), fall through to the legacy path.
       () => false,
     );
     if (ok) return true;

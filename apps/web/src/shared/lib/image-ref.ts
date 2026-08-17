@@ -1,4 +1,4 @@
-/** Platform-generated service name prefix — mirrors
+/** Platform-generated service name prefix: mirrors
  *  `config.service.serviceNamePrefix` in packages/api/src/constants.ts.
  *  EVERY image built on the control plane is named
  *  `otterdeploy-local/od-<project>-<service>:<sha>`, so the whole name portion
@@ -9,7 +9,7 @@ const LEGACY_PLATFORM_SVC_PREFIX = "otterdeploy-svc-";
 
 /**
  * Shorten an image ref for display. Platform-built refs collapse to their
- * only informative token — `build <sha7>` — since the name is generated
+ * only informative token (`build <sha7>`) since the name is generated
  * (see PLATFORM_SVC_PREFIX). User-supplied refs keep their name and drop the
  * registry path + digest, with content-hash tags clipped to 7 chars:
  * `ghcr.io/acme/api:1.2.0` → `api:1.2.0`, `nginx:latest` → `nginx:latest`.

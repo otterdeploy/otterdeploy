@@ -18,7 +18,7 @@ type OrgId = OrganizationId;
 export type CustomCertificateRecord = InferSelectModel<typeof customCertificate>;
 export type TrustedCaRecord = InferSelectModel<typeof trustedCa>;
 
-/** Custom cert row + resolved uploader display name (left join — null when
+/** Custom cert row + resolved uploader display name (left join, null when
  *  uploaded by an API key or the user is gone). */
 export type CustomCertificateWithUploader = CustomCertificateRecord & {
   uploadedBy: string | null;
@@ -34,7 +34,7 @@ export interface OrgDomainRow {
 }
 
 /** Every enabled public (http) domain across the org's projects, with the
- *  publishing project. Preview-scoped routes are excluded — same filter the
+ *  publishing project. Preview-scoped routes are excluded. Same filter the
  *  per-project certificates tab applies. A domain may appear once per
  *  project; callers group. Deliberately NOT filtered on `disabledByUser`:
  *  user-paused routes keep their certs warm so re-enable is instant. */

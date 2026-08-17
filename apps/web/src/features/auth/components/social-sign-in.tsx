@@ -7,7 +7,7 @@ import { Button } from "@/shared/components/ui/button";
  * Social (SSO) sign-in buttons, one per provider the server reports as live on
  * the current auth instance (`/api/auth/public-config`, fetched by the sign-in
  * route). Renders nothing when none are enabled, so the email form stands alone
- * on a vanilla install. All flows go through better-auth's `signIn.social` — no
+ * on a vanilla install. All flows go through better-auth's `signIn.social`, no
  * hand-rolled OAuth.
  *
  * The list arrives as a prop rather than being read from env: it used to come

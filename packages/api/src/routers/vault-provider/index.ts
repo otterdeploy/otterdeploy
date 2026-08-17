@@ -5,7 +5,6 @@
  */
 
 import { requirePermission } from "../..";
-import { listVaultProvidersByOrg } from "./queries";
 import {
   createVaultProviderHandler,
   listVaultSecretNamesHandler,
@@ -15,6 +14,7 @@ import {
   updateVaultProviderHandler,
   VaultProviderNameTakenError,
 } from "./handlers";
+import { listVaultProvidersByOrg } from "./queries";
 
 export const vaultProviderRouter = {
   list: requirePermission({ vaultProvider: ["read"] }).vaultProvider.list.handler(

@@ -1,5 +1,5 @@
 /**
- * Create a named docker volume. Drivers come from the daemon's plugin list —
+ * Create a named docker volume. Drivers come from the daemon's plugin list,
  * no invented tiers. The `local` driver has no size quota and no encryption
  * at rest, so those controls don't exist here; the footer says so instead of
  * rendering decorative toggles.
@@ -76,13 +76,14 @@ interface CreateVolumeFormValues {
 
 function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: () => void }) {
   const { t } = useTranslation();
-  const defaultValues: CreateVolumeFormValues = {
-    name: "",
-    driver: drivers.includes("local") ? "local" : (drivers[0] ?? "local"),
-    labels: [],
-  };
+  // Annotated so the form's `labels` field infers LabelRow[] rather than never[].
+  const noLabels: LabelRow[] = [];
   const form = useForm({
-    defaultValues,
+    defaultValues: {
+      name: "",
+      driver: drivers.includes("local") ? "local" : (drivers[0] ?? "local"),
+      labels: noLabels,
+    },
     onSubmit: async ({ value }) => {
       if (!NAME_RE.test(value.name)) return;
       const labelRecord: Record<string, string> = {};
@@ -134,7 +135,6 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
                     className="font-mono"
                     placeholder="app-uploads"
                     value={field.state.value}
-                    autoFocus
                     aria-invalid={nameTouchedInvalid || undefined}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -182,7 +182,7 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
             {(driver) => (
               <span className="max-w-[55%] text-[11px] text-muted-foreground">
                 {driver === "local"
-                  ? "The local driver has no size quota or encryption — capacity is bounded by the host filesystem."
+                  ? "The local driver has no size quota or encryption. Capacity is bounded by the host filesystem."
                   : "Driver options beyond labels aren't configurable here yet."}
               </span>
             )}

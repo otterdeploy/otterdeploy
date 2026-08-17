@@ -16,7 +16,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 export interface ServiceBuildResource {
   projectId: string;
   name: string;
-  /** Stored build config, straight off the resource-list contract — already
+  /** Stored build config, straight off the resource-list contract. Already
    *  the discriminated union, so read `builder` and narrow on it. */
   buildConfig?: BuildConfig | null;
 }
@@ -32,7 +32,7 @@ export async function stageBuildConfig(
   });
   const base = current.manifest;
   if (!base) {
-    throw new Error("No manifest saved yet — can't update build settings.");
+    throw new Error("No manifest saved yet, so build settings can't be updated.");
   }
   const svc = base.services[resource.name];
   if (!svc || svc.source !== "git") {
@@ -53,7 +53,7 @@ export async function stageBuildConfig(
 }
 
 /** Stage the git `source` block (repo / branch / subdir / image target) for a
- *  service into the manifest — same pending-changes → Deploy path as the build
+ *  service into the manifest: same pending-changes → Deploy path as the build
  *  card. Throws (surfaced via the caller's toast) if there's no saved manifest
  *  or the service isn't git-sourced. */
 export async function stageSource(
@@ -72,7 +72,7 @@ export async function stageSource(
   });
   const base = current.manifest;
   if (!base) {
-    throw new Error("No manifest saved yet — can't update the source.");
+    throw new Error("No manifest saved yet, so the source can't be updated.");
   }
   const svc = base.services[resource.name];
   if (!svc || svc.source !== "git") {
@@ -84,7 +84,7 @@ export async function stageSource(
       ...base.services,
       [resource.name]: {
         ...svc,
-        // Schema types `repo` as string|undefined (never null) — omit when cleared.
+        // Schema types `repo` as string|undefined (never null): omit when cleared.
         repo: next.repo ?? undefined,
         branch: next.branch,
         sourceSubdir: next.sourceSubdir,

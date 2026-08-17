@@ -7,7 +7,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { orpc } from "@/shared/server/orpc";
 
 /**
- * Named Docker volumes for the backup-now source picker — a plain query (not a
+ * Named Docker volumes for the backup-now source picker: a plain query (not a
  * collection): the daemon list is read-only here and only needed while the
  * dialog is open. Orphans are deliberately included: an unclaimed volume is
  * exactly the kind of data someone wants archived before cleaning up.
@@ -16,7 +16,7 @@ export type VolumeItem = z.infer<typeof volumeSchema>;
 
 export function useVolumesList(enabled: boolean) {
   // `volumes.list` is install-admin in its entirety, but /backups is an
-  // org-level page any member can open — so the request is gated on the
+  // org-level page any member can open, so the request is gated on the
   // installation authority the /_app gate already resolved rather than fired
   // and 403'd. `available` is the caller's cue to drop the Volume source
   // instead of rendering a picker that would always read "No volumes found",

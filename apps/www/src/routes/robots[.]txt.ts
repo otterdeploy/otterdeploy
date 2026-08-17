@@ -6,7 +6,7 @@ import { absoluteUrl, isCanonicalHost } from "@/lib/shared";
  * robots.txt.
  *
  * A route rather than a static file for one reason: preview deployments must
- * not be indexed. Each gets its own public URL — left open, they compete with
+ * not be indexed. Each gets its own public URL. Left open, they compete with
  * production for the same queries and leak unreleased copy into search
  * results. Production serves the permissive version; everything else is
  * closed.

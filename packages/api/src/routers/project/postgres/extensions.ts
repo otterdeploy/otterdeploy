@@ -3,7 +3,7 @@
  *
  * `setPostgresExtensions` is the single write path. It:
  *   1. validates the requested set against the shared catalog,
- *   2. resolves the image the service must run — contrib-only extensions
+ *   2. resolves the image the service must run. Contrib-only extensions
  *      keep the default image; a non-contrib extension (pgvector / postgis /
  *      timescaledb) forces the bundled image. Two extensions that demand
  *      different images are an INVALID_INPUT conflict.
@@ -13,7 +13,7 @@
  *
  * Step 4 needs a network path from the control plane to the target DB. It
  * works when the DB is public or the control plane shares the project
- * overlay; otherwise it's logged and skipped — the persisted list + image
+ * overlay; otherwise it's logged and skipped. The persisted list + image
  * are still correct, and a later toggle (or a reachable apply) converges.
  * The swap to a docker-exec transport (psql inside the container) would
  * remove that reachability caveat; the SQL itself is unchanged.
@@ -54,7 +54,7 @@ export async function setPostgresExtensions(
     ProjectNotFoundError | PostgresResourceNotFoundError | IncompatibleExtensionsError
   >
 > {
-  // Drop anything the catalog doesn't know — a stale/forged name must never
+  // Drop anything the catalog doesn't know. A stale/forged name must never
   // reach CREATE EXTENSION. De-dupe so the diff below is clean.
   const desired = [...new Set(knownPostgresExtensions(input.extensions))];
 
@@ -89,7 +89,7 @@ export async function setPostgresExtensions(
 
   // Redeploy ONLY when the toggle changes the image the container must run
   // (pgvector / postgis / timescaledb). Contrib extensions ship in every
-  // image — for those, CREATE EXTENSION below is the whole change, and the
+  // image: for those, CREATE EXTENSION below is the whole change, and the
   // "~0 downtime" promise in the UI holds because nothing restarts.
   const previousResolved = resolvePostgresImage(previous, defaultImage);
   const previousImage = previousResolved.ok ? previousResolved.image : defaultImage;
@@ -103,7 +103,7 @@ export async function setPostgresExtensions(
 
   // Diff old → new and apply the delta to the running database. Best-effort:
   // the persisted state is already correct, so a failure here is logged, not
-  // fatal — the operator sees the toggle stick and can re-trigger once the DB
+  // fatal: the operator sees the toggle stick and can re-trigger once the DB
   // is reachable.
   const toEnable = desired.filter((e) => !previous.includes(e));
   const toDisable = previous.filter((e) => !desired.includes(e));
@@ -135,7 +135,7 @@ function dedupe(values: Array<string | null | undefined>): string[] {
  * Run CREATE EXTENSION for every extension already persisted on the record.
  * The manifest create path bakes extensions into the container image + row
  * up-front (one deploy, no post-create image swap), which leaves no delta
- * for `setPostgresExtensions` to apply — this covers the SQL half. Idempotent
+ * for `setPostgresExtensions` to apply. This covers the SQL half. Idempotent
  * (IF NOT EXISTS) and best-effort, like the live path.
  */
 export async function ensurePersistedExtensionsLive(
@@ -158,7 +158,7 @@ export async function ensurePersistedExtensionsLive(
  * Connects to the live database and applies the extension delta. Tries each
  * connection string in turn (internal overlay first, public second) and
  * stops at the first that connects. Names are catalog-validated upstream so
- * the quoted interpolation is safe. Never throws — returns whether it
+ * the quoted interpolation is safe. Never throws. Returns whether it
  * applied so the caller can log it.
  */
 async function applyExtensionsLive(

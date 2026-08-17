@@ -30,7 +30,7 @@ import {
 } from "./shared";
 import { AccessWall } from "./ui/wall";
 
-/** On the deployment domain: the wall page — PIN-only when the route has a
+/** On the deployment domain: the wall page: PIN-only when the route has a
  *  PIN configured, otherwise org login OR email-code entry. */
 export const deployAccessHandler: Handler = guard(async (c) => {
   const host = hostOf(c.req.header("host"));
@@ -62,7 +62,7 @@ export const deployAccessHandler: Handler = guard(async (c) => {
   );
 }, serverError);
 
-/** Request an OTP. Always responds 200 — never reveal whether the email is on
+/** Request an OTP. Always responds 200, never reveal whether the email is on
  *  the allow-list (anti-enumeration). Sends a code only to invited guests. */
 export const deployOtpRequestHandler: Handler = guard(
   async (c) => {
@@ -73,7 +73,7 @@ export const deployOtpRequestHandler: Handler = guard(
 
     // Rate-limit per (domain, email) regardless of allow-list membership.
     if (!(await underRateLimit(host, email))) {
-      return c.json({ ok: true }); // same shape — don't leak the limit either
+      return c.json({ ok: true }); // same shape. Don't leak the limit either
     }
 
     const hours = await guestSessionHoursFor(host, email);

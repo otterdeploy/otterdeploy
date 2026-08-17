@@ -3,10 +3,10 @@
  *
  * WHY THESE ARE CACHED
  * The `_app` beforeLoad used to call `authClient.getSession()` and
- * `authClient.organization.list()` directly on EVERY navigation — two HTTP
+ * `authClient.organization.list()` directly on EVERY navigation: two HTTP
  * round-trips to `/api/auth/*` per route entry. Auth endpoints are rate limited
  * (100 requests / 60s, packages/auth/src/index.ts), and that bucket is keyed by
- * IP — which resolves to nothing when the caller isn't behind a trusted proxy,
+ * IP, which resolves to nothing when the caller isn't behind a trusted proxy,
  * putting every tab and every user in ONE shared bucket. Clicking around the app
  * exhausted it in well under a minute.
  *
@@ -22,11 +22,11 @@
  * 5 minutes, deliberately matched to better-auth's own `session.cookieCache`
  * maxAge. The server already serves a cached session for up to that long, so
  * caching the client read for the same window introduces no staleness that
- * didn't already exist — a revoked session is honored for ≤5min either way.
+ * didn't already exist. A revoked session is honored for ≤5min either way.
  *
  * INVALIDATION
  * Anything that changes who is signed in, or which org is active, must call
- * {@link invalidateAuth} — sign-out, sign-in, org switch, org create. The
+ * {@link invalidateAuth}: sign-out, sign-in, org switch, org create. The
  * session payload carries `activeOrganizationId`, so an org switch is a session
  * change, not just an org-list change.
  */
@@ -52,7 +52,7 @@ export const sessionQuery = queryOptions({
     if (res.error) {
       throw new Error(res.error.message ?? "Couldn't verify your session");
     }
-    // 200 with a null body — genuinely not signed in.
+    // 200 with a null body: genuinely not signed in.
     return res.data ?? null;
   },
   staleTime: FIVE_MINUTES,
@@ -67,7 +67,7 @@ export interface OrganizationSummary {
 }
 
 /**
- * `null` means UNAUTHENTICATED — the org list is unknowable because nobody is
+ * `null` means UNAUTHENTICATED. The org list is unknowable because nobody is
  * signed in. Distinct from `[]`, which means "signed in, genuinely no orgs" and
  * sends the user to onboarding. Collapsing the two would route a signed-out
  * visitor into org creation instead of the sign-in page.
@@ -81,20 +81,20 @@ export const organizationsQuery = queryOptions({
     if (res.error) {
       // 401 is not a failure, it is an ANSWER: this endpoint requires a session
       // and there isn't one. It has to resolve rather than throw, because the
-      // gate reads this concurrently with `sessionQuery` — a throw here rejects
+      // gate reads this concurrently with `sessionQuery`. A throw here rejects
       // the whole `Promise.all` before the `!session` redirect can run, turning
       // an ordinary signed-out visit into a 500 error screen.
       //
       // Deliberately ONLY 401. Every other status still throws, which is what
       // keeps a 429 or a briefly-unreachable server from masquerading as a
-      // logout (the bug this file's header describes) — those are failures to
+      // logout (the bug this file's header describes). Those are failures to
       // surface, not evidence about who is signed in.
       if (res.error.status === 401) return null;
       throw new Error(res.error.message ?? "Failed to load organizations");
     }
     // Brand every org id at this single entry point (better-auth types them as
     // plain `string`). Downstream `organization.id` is `OrganizationId` for
-    // free — no per-callsite laundering. Safe at runtime: auth's `generateId`
+    // free, no per-callsite laundering. Safe at runtime: auth's `generateId`
     // override always prefixes org ids with `org_` (packages/auth/src/index.ts).
     return (res.data ?? []).map((o) => ({
       ...o,
@@ -112,8 +112,8 @@ export const organizationsQuery = queryOptions({
  * into a silent no-op without it:
  *
  *   1. `invalidateQueries` only refetches queries with a live observer
- *      (`type: "active"`). Nothing subscribes to these two — they exist purely
- *      to be read by `_app`'s `beforeLoad` — so plain invalidation marks them
+ *      (`type: "active"`). Nothing subscribes to these two: they exist purely
+ *      to be read by `_app`'s `beforeLoad`, so plain invalidation marks them
  *      stale and refetches nothing.
  *   2. `ensureQueryData` returns cached data whenever it is defined, stale or
  *      not; it only fetches when there is no data at all.
@@ -132,7 +132,7 @@ export async function invalidateAuth(): Promise<void> {
 }
 
 /**
- * Remove rather than invalidate — used on sign-out, where the cached user must
+ * Remove rather than invalidate. Used on sign-out, where the cached user must
  * not linger in memory and there is no point refetching it.
  */
 export function clearAuthCache(): void {

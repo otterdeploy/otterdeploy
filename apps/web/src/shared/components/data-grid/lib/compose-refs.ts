@@ -55,14 +55,15 @@ function composeRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
 }
 
 /**
- * A custom hook that composes multiple refs
+ * A custom hook that composes two refs (every grid call site composes exactly
+ * two: a forwarded ref plus a local observer). The fixed arity keeps the
+ * useCallback dep list a statically-checkable literal; the composed callback
+ * is rebuilt exactly when one of the refs changes, not when `composeRefs`'
+ * identity does.
  * Accepts callback refs and RefObject(s)
  */
-function useComposedRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
-  // The dep list is the rest-arg itself, which no dep-checker can analyse — and
-  // the point is precisely that the composed callback is rebuilt when the refs
-  // array changes, not when `composeRefs`' identity does.
-  return React.useCallback(composeRefs(...refs), refs);
+function useComposedRefs<T>(a: PossibleRef<T>, b: PossibleRef<T>): React.RefCallback<T> {
+  return React.useCallback((node: T | null) => composeRefs(a, b)(node), [a, b]);
 }
 
 export { useComposedRefs };

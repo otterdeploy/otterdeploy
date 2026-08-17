@@ -72,14 +72,14 @@ const tailCommand = defineCommand({
       host: args.host,
     });
     if (!args.json) {
-      note(`Tailing edge access logs (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`);
+      note(`Tailing edge access logs (${scopeLabel(projectId, args.host)}). Ctrl-C to stop.`);
     }
 
-    // Graceful SIGINT — leave the stream's `for await` early so the
+    // Graceful SIGINT: leave the stream's `for await` early so the
     // server-side generator's finally block unsubscribes from the ring.
     // Exit on Ctrl-C: installing a SIGINT listener suppresses the default
     // terminate, and a blocked `for await` on an idle stream can't observe a
-    // mere flag — so terminate here. Dropping the socket runs the server
+    // mere flag, so terminate here. Dropping the socket runs the server
     // generator's finally (ring unsubscribe).
     let stopping = false;
     process.on("SIGINT", () => {
@@ -94,7 +94,7 @@ const tailCommand = defineCommand({
           process.stdout.write(`${JSON.stringify(line)}\n`);
           continue;
         }
-        // Kept as one greppable line — only the status and the trailing
+        // Kept as one greppable line. Only the status and the trailing
         // latency are styled, so `| grep ' 500 '` still works.
         process.stdout.write(
           `${dim(String(line.ts))}  ${statusCell(line.status)}  ${padEnd(line.method, 7)} ${line.host}${line.path}  ${dim(`${Math.round(line.latencyMs)}ms`)}\n`,
@@ -122,12 +122,12 @@ const eventsCommand = defineCommand({
       host: args.host,
     });
     if (!args.json) {
-      note(`Tailing edge events (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`);
+      note(`Tailing edge events (${scopeLabel(projectId, args.host)}). Ctrl-C to stop.`);
     }
 
     // Exit on Ctrl-C: installing a SIGINT listener suppresses the default
     // terminate, and a blocked `for await` on an idle stream can't observe a
-    // mere flag — so terminate here. Dropping the socket runs the server
+    // mere flag, so terminate here. Dropping the socket runs the server
     // generator's finally (ring unsubscribe).
     let stopping = false;
     process.on("SIGINT", () => {
@@ -142,7 +142,7 @@ const eventsCommand = defineCommand({
           process.stdout.write(`${JSON.stringify(event)}\n`);
           continue;
         }
-        const suffix = event.error ? paint("danger", ` — ${event.error}`) : "";
+        const suffix = event.error ? paint("danger", `: ${event.error}`) : "";
         process.stdout.write(
           `${dim(String(event.ts))}  ${levelCell(event.level)}  ${dim(padEnd(event.category, 8))} ${event.host ?? dim("-")}  ${event.msg}${suffix}\n`,
         );

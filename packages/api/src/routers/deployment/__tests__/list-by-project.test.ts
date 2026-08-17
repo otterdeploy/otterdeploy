@@ -1,5 +1,4 @@
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 // ── Mocks ────────────────────────────────────────────────────────────────
@@ -47,8 +46,10 @@ import {
   matchesStatusFilter,
 } from "../list-by-project";
 
-const projectId = "project_test" as ProjectId;
-const organizationId = "org_test" as OrganizationId;
+// Branded at the boundary the same way production code does: through the id
+// schema, using the canonical short prefixes so no legacy rewrite kicks in.
+const projectId = idSchema.project.parse("prj_test");
+const organizationId = idSchema.organization.parse("org_test");
 
 let seq = 0;
 function row(over: {
@@ -62,7 +63,7 @@ function row(over: {
   return {
     id: `deployment_${seq}`,
     resourceId: over.resourceId,
-    resourceName: over.resourceId.replace("resource_", ""),
+    resourceName: over.resourceId.replace("res_", ""),
     resourceKind: "service",
     image: over.image ?? "registry.local/app:abc",
     reason: over.reason ?? "git-push",
@@ -85,8 +86,104 @@ function givenRows(rows: ReturnType<typeof row>[]) {
   selectChain.orderBy.mockResolvedValue(sorted);
 }
 
+// Complete rows, typed straight off the queries' own return types, so the
+// mocks feed the subject exactly what the real queries would.
+type ProjectRow = NonNullable<Awaited<ReturnType<typeof queries.getProjectInOrg>>>;
+type ResourceLookup = NonNullable<Awaited<ReturnType<typeof resourceQueries.getResourceById>>>;
+
+const projectRow: ProjectRow = {
+  id: projectId,
+  organizationId,
+  name: "test",
+  slug: "test",
+  environmentId: null,
+  stackFile: null,
+  stackFileVersion: 0,
+  lastAppliedFile: null,
+  lastAppliedAt: null,
+  manifest: null,
+  manifestVersion: 0,
+  lastAppliedManifest: null,
+  lastManifestAppliedAt: null,
+  customDomain: null,
+  customDomainVerifiedAt: null,
+  customDomainVerifyToken: null,
+  nixpacksConfig: null,
+  graphLayout: {},
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
+};
+
+/** A full service-resource join for one resource id; only `kind` and
+ *  `pausedReplicas` steer the subject, everything else is honest filler. */
+function serviceLookup(resourceId: ReturnType<typeof idSchema.resource.parse>): ResourceLookup {
+  return {
+    kind: "service",
+    record: {
+      resource: {
+        id: resourceId,
+        projectId,
+        name: resourceId.replace("res_", ""),
+        type: "service",
+        status: "valid",
+        environmentId: null,
+        previewId: null,
+        branchedFromResourceId: null,
+        placementServerId: null,
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
+      },
+      service: {
+        resourceId,
+        image: "registry.local/app:abc",
+        imageDigest: null,
+        command: null,
+        entrypoint: null,
+        extraNetworks: [],
+        source: "image",
+        sourceSubdir: null,
+        framework: null,
+        replicas: 1,
+        pausedReplicas: null,
+        restartCondition: "on-failure",
+        restartMaxAttempts: null,
+        restartDelayMs: 5000,
+        restartWindowMs: null,
+        healthcheckCmd: null,
+        healthcheckIntervalMs: null,
+        healthcheckTimeoutMs: null,
+        healthcheckRetries: null,
+        healthcheckStartMs: null,
+        cpuLimit: null,
+        memoryLimitMb: null,
+        cpuReservation: null,
+        memoryReservationMb: null,
+        diskLimitMb: null,
+        swapLimitMb: null,
+        pidsLimit: null,
+        preDeploy: null,
+        postDeploy: null,
+        buildConfig: null,
+        gitRepoId: null,
+        branch: null,
+        imageRepository: null,
+        previewsEnabled: false,
+        internalHostname: "app.internal",
+        serviceName: "svc",
+        networkName: "net",
+        publicEnabled: false,
+        publicDomain: null,
+        stackId: null,
+        forceUpdateCounter: 0,
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
+      },
+    },
+  };
+}
+
 function givenProjectExists() {
-  vi.mocked(queries.getProjectInOrg).mockResolvedValue({ id: projectId } as never);
+  vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
   // Refinement candidates resolve no resource → statuses stay stored.
   vi.mocked(resourceQueries.getResourceById).mockResolvedValue(null);
 }
@@ -104,8 +201,8 @@ describe("effectiveListedStatus", () => {
     expect(effectiveListedStatus("failed", false)).toBe("failed");
     expect(effectiveListedStatus("removed", false)).toBe("removed");
     expect(effectiveListedStatus("superseded", false)).toBe("superseded");
-    // A cancel is an outcome, not an in-flight row a newer deploy replaced —
-    // it must not be rewritten to `superseded` once something newer lands.
+    // A cancel is an outcome, not an in-flight row a newer deploy replaced.
+    // It must not be rewritten to `superseded` once something newer lands.
     expect(effectiveListedStatus("cancelled", false)).toBe("cancelled");
   });
 
@@ -161,8 +258,8 @@ describe("listProjectDeployments", () => {
 
   test("marks each resource's newest row as latest and supersedes older live rows", async () => {
     givenProjectExists();
-    const a = "resource_a" as ResourceId;
-    const b = "resource_b" as ResourceId;
+    const a = idSchema.resource.parse("res_a");
+    const b = idSchema.resource.parse("res_b");
     givenRows([
       row({ resourceId: a, status: "running", createdAt: new Date("2026-07-09T10:00:00Z") }),
       row({ resourceId: a, status: "running", createdAt: new Date("2026-07-08T10:00:00Z") }),
@@ -175,16 +272,16 @@ describe("listProjectDeployments", () => {
     const { items, total } = result.unwrap();
     expect(total).toBe(4);
     expect(items.map((i) => [i.resourceId, i.status, i.isLatest])).toEqual([
-      ["resource_a", "running", true],
-      ["resource_b", "building", true],
-      ["resource_a", "superseded", false], // older stored-running → replaced
-      ["resource_a", "failed", false], // terminal history stays failed
+      ["res_a", "running", true],
+      ["res_b", "building", true],
+      ["res_a", "superseded", false], // older stored-running → replaced
+      ["res_a", "failed", false], // terminal history stays failed
     ]);
   });
 
   test("status filter applies to effective status; total counts the filtered set", async () => {
     givenProjectExists();
-    const a = "resource_a" as ResourceId;
+    const a = idSchema.resource.parse("res_a");
     givenRows([
       row({ resourceId: a, status: "running", createdAt: new Date("2026-07-09T10:00:00Z") }),
       row({ resourceId: a, status: "running", createdAt: new Date("2026-07-08T10:00:00Z") }),
@@ -206,7 +303,7 @@ describe("listProjectDeployments", () => {
 
   test("limit slices the page but total reports the full match count", async () => {
     givenProjectExists();
-    const a = "resource_a" as ResourceId;
+    const a = idSchema.resource.parse("res_a");
     givenRows(
       Array.from({ length: 5 }, (_, i) =>
         row({
@@ -231,14 +328,11 @@ describe("listProjectDeployments", () => {
 
   test("refines the latest in-flight row via live derivation and reconciles success", async () => {
     givenProjectExists();
-    const a = "resource_a" as ResourceId;
+    const a = idSchema.resource.parse("res_a");
     givenRows([
       row({ resourceId: a, status: "building", createdAt: new Date("2026-07-09T10:00:00Z") }),
     ]);
-    vi.mocked(resourceQueries.getResourceById).mockResolvedValue({
-      kind: "service",
-      record: { service: { pausedReplicas: null } },
-    } as never);
+    vi.mocked(resourceQueries.getResourceById).mockResolvedValue(serviceLookup(a));
     vi.mocked(derivation.resolveDeploymentServiceName).mockResolvedValue("svc");
     vi.mocked(derivation.loadTaskStatesByDeployment).mockResolvedValue(new Map());
     vi.mocked(derivation.isBuildStillLogging).mockResolvedValue(false);
@@ -254,7 +348,7 @@ describe("listProjectDeployments", () => {
   });
 });
 
-describe("matchesStatusFilter — cancelled", () => {
+describe("matchesStatusFilter, cancelled", () => {
   test("is filterable on its own so stopped builds are findable in history", () => {
     expect(matchesStatusFilter("cancelled", "cancelled", true)).toBe(true);
     expect(matchesStatusFilter("cancelled", "cancelled", false)).toBe(true);

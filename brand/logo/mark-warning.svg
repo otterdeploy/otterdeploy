@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none" role="img" aria-label="otterdeploy — warning">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none" role="img" aria-label="otterdeploy: warning">
   <style>@media(prefers-color-scheme:dark){.ink{stroke:#f5f5f0;fill:#f5f5f0}.state{stroke:#fbbf24;fill:#fbbf24}}</style>
   <rect x="4.6" y="4.6" width="22.8" height="22.8" rx="7.1" fill="none" stroke="#141412" stroke-width="2.6" class="ink"/>
   <path d="M16 10.2 16 17" fill="none" stroke="#8a6a00" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" class="state"/>

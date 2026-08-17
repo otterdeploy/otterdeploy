@@ -9,17 +9,17 @@ import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-/** Namespace prefix for the live service-tasks collection — the single source
+/** Namespace prefix for the live service-tasks collection. The single source
  *  of truth manifest apply + the project event stream invalidate to refresh
  *  per-service task rollups. See [[RESOURCE_COLLECTION_KEY]]. */
 export const SERVICE_TASKS_COLLECTION_KEY = ["service-tasks"] as const;
 
 const serviceTasksQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip (see
+  // Stable id, required for SQLite persistence to round-trip (see
   // projectCollection in features/projects/data/project.ts).
   id: "service-tasks",
   syncMode: "on-demand",
-  // Repair backstop — task transitions push through the project-events
+  // Repair backstop: task transitions push through the project-events
   // stream and invalidate this collection (see useProjectEvents), so the
   // poll only covers a missed event. Keep in step with the resource
   // collection's interval ([[RESOURCE_COLLECTION_KEY]]).
@@ -42,8 +42,8 @@ const serviceTasksQueryOptions = queryCollectionOptions({
     const projectId = parseCol(projectIdSchema, filters, "projectId");
 
     // The endpoint returns { resourceId, tasks } with no projectId (it took
-    // projectId as a path param and doesn't echo it). Stamp it back on here —
-    // we already have it from the where-filter above — so the field is a real
+    // projectId as a path param and doesn't echo it). Stamp it back on here.
+    // We already have it from the where-filter above, so the field is a real
     // column the live query can filter / join on with eq(d.projectId, …).
     const rows = await orpc.project.serviceTasks.call({ projectId });
     return rows.map((row) => ({ ...row, projectId }));
@@ -58,7 +58,7 @@ type ServiceTaskRow = Awaited<ReturnType<typeof orpc.project.serviceTasks.call>>
   projectId: z.infer<typeof projectIdSchema>;
 };
 
-// Two-branch createCollection + pinned generics — same type gymnastics as
+// Two-branch createCollection + pinned generics: same type gymnastics as
 // projectCollection (features/projects/data/project.ts).
 export const serviceTasksCollection = persistence
   ? createCollection(

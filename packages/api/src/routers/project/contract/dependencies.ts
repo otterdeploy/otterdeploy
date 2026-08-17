@@ -1,5 +1,5 @@
 /**
- * Resource dependency graph — derived from `${{<Resource>.<VAR>}}` references
+ * Resource dependency graph, derived from `${{<Resource>.<VAR>}}` references
  * inside service env vars. Service A consuming POSTGRES.URL emits the edge
  * `{ source: A, target: POSTGRES }`.
  */

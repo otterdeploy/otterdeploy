@@ -16,8 +16,8 @@ const PAGE = 20;
 
 /** Tight while work is in flight, lazy when the workspace is quiet. Deploy
  *  lifecycle transitions push an `activity` resync over the org event stream
- *  (use-org-events), and apply/cancel paths invalidate this query directly —
- *  the idle tick is only a dead-stream backstop. */
+ *  (use-org-events), and apply/cancel paths invalidate this query directly.
+ *  The idle tick is only a dead-stream backstop. */
 const POLL_ACTIVE_MS = 5_000;
 const POLL_IDLE_MS = 180_000;
 
@@ -55,7 +55,7 @@ export function useDeployActivity() {
      *  notification inbox polls. */
     busy: building + queued > 0,
     /**
-     * The instant this snapshot was fetched — what row durations measure from.
+     * The instant this snapshot was fetched. What row durations measure from.
      *
      * NOT `Date.now()` at render: reading the clock during render is impure, and
      * it would also make two renders of the same data disagree. This value is

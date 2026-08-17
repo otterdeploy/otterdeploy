@@ -2,21 +2,21 @@ name: CLI npm publish
 
 # Publishes @otterdeploy/cli to npm from the SAME `v<major>.<minor>.<patch>` tag
 # that builds the platform images (images.yml). One tag, one version, both
-# halves — so `otd -v` and `otd platform version` are directly comparable and a
+# halves, so `otd -v` and `otd platform version` are directly comparable and a
 # bug report names one generation instead of two unrelated numbers.
 #
 # The old `cli-v*` train is gone. It let the CLI drift to 0.1.3 while the
 # platform was on v0.7.0, which told nobody anything. Version numbers matching at
 # RELEASE time still does not make a laptop CLI and a VPS control plane
-# compatible at CALL time — that is what the runtime handshake in
+# compatible at CALL time. That is what the runtime handshake in
 # packages/api/src/routers/system/compat.ts is for.
 #
 # The version is stamped into apps/cli/package.json from the tag rather than
 # verified against it: the tag is the single source of truth, so a forgotten
 # local bump cannot block a release or publish the wrong number.
 #
-# DO NOT RENAME THIS FILE. Auth is npm Trusted Publishing (OIDC) — no NPM_TOKEN
-# secret — and the trusted publisher is bound to the workflow FILENAME. Configure
+# DO NOT RENAME THIS FILE. Auth is npm Trusted Publishing (OIDC), no NPM_TOKEN
+# secret, and the trusted publisher is bound to the workflow FILENAME. Configure
 # it once at npmjs.com → the package → Settings → Trusted Publisher: GitHub
 # Actions, repo `otterdeploy/otterdeploy`, workflow `cli-publish.yml`. The
 # `id-token` permission below is what lets npm exchange the OIDC token for
@@ -52,7 +52,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       # Writes the tag's version into every releasable package.json (today just
-      # apps/cli — the server/web/builder images read theirs from the image tag
+      # apps/cli: the server/web/builder images read theirs from the image tag
       # via OTTERDEPLOY_VERSION). Exports `version` for the steps below.
       - name: Stamp release version
         id: stamp
@@ -64,7 +64,7 @@ jobs:
       # Also decides whether to publish at all. Now that EVERY platform release
       # tag reaches this workflow, re-pushing a tag (the usual way a botched
       # release gets fixed) would otherwise re-run the publish and die on npm's
-      # immutable-version error — a red X on a release that was actually fine.
+      # immutable-version error: a red X on a release that was actually fine.
       # An already-published version is success, not failure.
       - name: Resolve npm dist-tag
         id: dist_tag
@@ -82,7 +82,7 @@ jobs:
           # unpublished version as "already there" and silently skip the release.
           published="$(npm view "@otterdeploy/cli@$VERSION" version 2>/dev/null || true)"
           if [[ -n "$published" ]]; then
-            echo "@otterdeploy/cli@$VERSION is already on npm — nothing to publish."
+            echo "@otterdeploy/cli@$VERSION is already on npm, nothing to publish."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else
             echo "Publishing @otterdeploy/cli@$VERSION"
@@ -90,7 +90,7 @@ jobs:
           fi
 
       # Build the self-contained bundle, then drop the build-time devDependencies
-      # (workspace:/catalog: specifiers npm can't resolve) — everything is bundled
+      # (workspace:/catalog: specifiers npm can't resolve). Everything is bundled
       # into dist/index.js, so the published package needs no dependencies. The
       # stamped version is inlined here (src/version.ts imports package.json), so
       # this must run after the stamp and before the strip.

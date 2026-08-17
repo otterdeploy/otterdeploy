@@ -3,7 +3,7 @@
  *
  * The incident these pin: a generated route is born `dnsState: "pointed"`
  * (expose.ts), earns a real Let's Encrypt certificate, and serves happily.
- * The operator then puts Cloudflare's proxy in front of it — supported, and
+ * The operator then puts Cloudflare's proxy in front of it. Supported, and
  * usually what you want. The next `service.domains.recheck` resolves the
  * Cloudflare anycast addresses, classifies the host as `proxied`, and the old
  * `acmeFor` returned false. `usesAcme` flipped true → false, the Caddyfile was
@@ -50,7 +50,7 @@ describe("acmeForExistingRoute", () => {
   });
 
   it("does NOT prop up a route whose cert never worked", () => {
-    // No certificate to protect — the normal rule applies, so the route stays
+    // No certificate to protect: the normal rule applies, so the route stays
     // on `tls internal` rather than retrying ACME behind a proxy forever.
     for (const certState of ["unknown", "obtaining", "failed"] as const) {
       expect(acmeForExistingRoute({ ...base, certState, dnsState: "proxied" })).toBe(false);

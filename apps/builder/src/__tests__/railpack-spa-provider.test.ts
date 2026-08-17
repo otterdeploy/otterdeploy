@@ -6,8 +6,8 @@
  *   SPA mode: serving "dist" via Caddy with history fallback
  * and then, further down,
  *   ↳ Detected Staticfile
- * The Staticfile provider's whole build was `caddy fmt --overwrite Caddyfile` —
- * no bundler runs — so the image served a `dist/` nothing had created and every
+ * The Staticfile provider's whole build was `caddy fmt --overwrite Caddyfile`,
+ * no bundler runs, so the image served a `dist/` nothing had created and every
  * request 404'd. Both facts were on screen, in order, and the build continued.
  */
 

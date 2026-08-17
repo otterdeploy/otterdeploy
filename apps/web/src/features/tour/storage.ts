@@ -1,9 +1,11 @@
 /**
- * Seen-state for the product tour — an `otterdeploy:`-prefixed localStorage
+ * Seen-state for the product tour: an `otterdeploy:`-prefixed localStorage
  * record (the same convention as `lib/dev-tools.ts`). No server round-trip:
  * whether someone has watched a walkthrough is device-level UI state, like
  * theme or sidebar width, not account data.
  */
+
+import * as z from "zod";
 
 const STORAGE_KEY = "otterdeploy:tour:v1";
 
@@ -12,15 +14,23 @@ interface TourRecord {
   completedAt?: string;
   /** Set when the user closed the tour early (Esc, ×, overlay). */
   dismissedAt?: string;
-  /** Step index the user was on when they dismissed — for a future resume. */
+  /** Step index the user was on when they dismissed, for a future resume. */
   lastStep?: number;
 }
+
+/** localStorage is an untrusted boundary: parsed, not cast. A record that no
+ *  longer matches the shape falls into the existing catch and reads as {}. */
+const tourRecordSchema: z.ZodType<TourRecord> = z.object({
+  completedAt: z.string().optional(),
+  dismissedAt: z.string().optional(),
+  lastStep: z.number().optional(),
+});
 
 function read(): TourRecord {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as TourRecord;
+    return tourRecordSchema.parse(JSON.parse(raw));
   } catch {
     return {};
   }
@@ -30,7 +40,7 @@ function write(record: TourRecord): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
   } catch {
-    // Storage full or blocked — the tour will simply offer itself again.
+    // Storage full or blocked: the tour will simply offer itself again.
   }
 }
 
@@ -46,7 +56,7 @@ export function markTourCompleted(): void {
 
 export function markTourDismissed(lastStep: number): void {
   const record = read();
-  // A completed tour stays completed — a later replay closed early
+  // A completed tour stays completed. A later replay closed early
   // shouldn't downgrade the record.
   if (record.completedAt !== undefined) return;
   write({ ...record, dismissedAt: new Date().toISOString(), lastStep });

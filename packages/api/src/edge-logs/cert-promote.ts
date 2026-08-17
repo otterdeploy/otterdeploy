@@ -3,6 +3,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 /**
  * Promote Caddy cert/ACME events (the operational log plane) onto the matching
@@ -13,7 +14,7 @@ import { Result } from "better-result";
  * a Result so a DB hiccup can never break ingest. Cert events are sparse
  * (issuance + ~60-day renewals), so a per-event DB write is cheap.
  *
- * Note: `cert.expiring` is NOT emitted here — Caddy logs obtain/renew/fail, not
+ * Note: `cert.expiring` is NOT emitted here. Caddy logs obtain/renew/fail, not
  * "expiring". A pre-expiry warning needs a separate periodic scan of cert Not
  * After dates (deferred).
  */
@@ -73,8 +74,10 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
       const orgByProject = new Map(projRows.map((p) => [p.id, p.organizationId]));
       const domainsByOrg = new Map<OrganizationId, string[]>();
       for (const r of updated) {
-        const org = orgByProject.get(r.projectId) as OrganizationId | undefined;
-        if (!org) continue;
+        // `project.organization_id` is an unbranded text column; the prefix
+        // check is the read-boundary narrowing to OrganizationId.
+        const org = orgByProject.get(r.projectId);
+        if (!org || !hasPrefix(org, ID_PREFIX.organization)) continue;
         domainsByOrg.set(org, [...(domainsByOrg.get(org) ?? []), r.domain]);
       }
       for (const [organizationId, doms] of domainsByOrg) {

@@ -27,7 +27,7 @@ export async function buildSwarmSpec(
 ): Promise<SwarmServiceSpec> {
   const serviceName = runtimeServiceName(record.service.serviceName, preview);
   // Previews must not share the base container's DNS aliases on the project
-  // network — Docker round-robins same-alias containers, so production
+  // network: Docker round-robins same-alias containers, so production
   // traffic could land on the preview. Every alias-feeding field
   // (serviceName, internalHostname, resourceName) gets the preview scope;
   // base deploys pass through byte-identical.
@@ -42,8 +42,8 @@ export async function buildSwarmSpec(
     record.service.resourceId,
     previewIdOf(preview),
   );
-  // Materialize file-type mounts to disk before we ship the spec to swarm —
-  // a bind-mount with no source on disk causes the container to fail to
+  // Materialize file-type mounts to disk before we ship the spec to swarm.
+  // A bind-mount with no source on disk causes the container to fail to
   // start with no useful error. Volume + bind types pass through verbatim.
   const mounts: SpecMount[] = await materializeServiceMounts(
     serviceName,
@@ -57,7 +57,7 @@ export async function buildSwarmSpec(
   );
 
   // Resolve the pin to a live swarm node id. Stateless: an unresolvable pin
-  // degrades to "schedule anywhere" rather than blocking the deploy — a
+  // degrades to "schedule anywhere" rather than blocking the deploy. A
   // service that runs somewhere beats one that runs nowhere. Costs nothing
   // when unpinned, which is the default.
   const placement = await resolvePlacementForProject({

@@ -5,7 +5,7 @@ import { useLiveQuery } from "@tanstack/react-db";
  * both: databases from real `terminal.targets` data, volumes from the live
  * daemon inventory (orphans included). Submits via `runBackup` → `backups.run`.
  */
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
@@ -57,12 +57,18 @@ export function BackupNowDialog({
 }
 
 /** A blank run, optionally pre-scoped to the database it was opened from. */
-function emptyRun(resourceId: string | undefined) {
+function emptyRun(resourceId: string | undefined): {
+  sourceKind: "database" | "volume";
+  resourceId: string;
+  volumeName: string;
+  destinationIds: string[];
+  encrypted: boolean;
+} {
   return {
-    sourceKind: "database" as "database" | "volume",
+    sourceKind: "database",
     resourceId: resourceId ?? "",
     volumeName: "",
-    destinationIds: [] as string[],
+    destinationIds: [],
     encrypted: true,
   };
 }
@@ -104,7 +110,7 @@ function BackupNowBody({
   });
 
   // Only hit the daemon inventory once the Volume source is selected.
-  const sourceKind = useStore(form.store, (s) => s.values.sourceKind);
+  const sourceKind = useSelector(form.store, (s) => s.values.sourceKind);
   const volumeList = useVolumesList(sourceKind === "volume");
 
   const destOptions = toDestOptions(destinations);
@@ -127,7 +133,7 @@ function BackupNowBody({
         noValidate
       >
         <div className="flex flex-col gap-4 p-5">
-          {/* Omitted, not disabled, when `volumes.list` is out of reach — see
+          {/* Omitted, not disabled, when `volumes.list` is out of reach. See
               useVolumesList. The form stays on its "database" default. */}
           {volumeList.available ? (
             <form.Field name="sourceKind">

@@ -1,14 +1,14 @@
 /**
  * Database provision-or-recreate path for the plain-Docker runtime driver
  * (see `./docker-driver.ts`). Stateful single-replica, so we always recreate
- * (stop-first) — no risk of two processes holding the same volume. Shares the
+ * (stop-first), no risk of two processes holding the same volume. Shares the
  * container/network helpers in `./docker-driver-helpers`.
  */
 
 import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
-import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { DatabaseSpec, DatabaseStatus } from "./types";
 
@@ -38,7 +38,7 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     password: input.password,
     databaseName: input.databaseName,
   });
-  // buildCommand belongs in CMD (the image's entrypoint script runs it) — the
+  // buildCommand belongs in CMD (the image's entrypoint script runs it). The
   // plain-docker-correct slot, unlike swarm's ContainerSpec.Command.
   const cmd = adapter.buildCommand?.({ password: input.password });
   const labels = otterLabels(
@@ -55,7 +55,7 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   // port and dials the container over the project bridge Caddy is attached
   // to). A host binding here would also collide with Caddy's own published
   // engine port. `input.public` only gates that route; the container spec is
-  // identical either way — which is what makes the public toggle roll-free.
+  // identical either way, which is what makes the public toggle roll-free.
   const hostConfig: Partial<HostConfig> = {
     RestartPolicy: { Name: "on-failure", MaximumRetryCount: 5 },
     Mounts: [{ Type: "volume", Source: input.volumeName, Target: mount.target }],
@@ -71,7 +71,7 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     // whole string at 64 bytes. The internal FQDN alias can exceed that for long
     // branch/resource names (a preview DB hit 72 bytes), crashing runc with
     // "sethostname: invalid argument" so the container never starts. A UTS
-    // hostname is conventionally a short single label anyway — nothing resolves
+    // hostname is conventionally a short single label anyway. Nothing resolves
     // it (in-cluster DNS uses the network aliases below, which keep the full
     // FQDN). Use the sanitized, ≤63-char service name unconditionally.
     Hostname: input.serviceName,
@@ -97,13 +97,16 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   };
 
   await removeContainerByName(docker, input.serviceName);
-  // Mirror pull progress into the deployment's log channel — a multi-minute
+  // Mirror pull progress into the deployment's log channel. A multi-minute
   // image download otherwise looks like a hung deploy (container missing, no
   // output anywhere), and recent log lines keep the zero-task stale check
   // from flipping a slow pull to "failed".
-  const deployLog = input.deploymentId
-    ? createStackDeployLog(input.deploymentId as DeploymentId)
-    : nullStackDeployLog;
+  // `DatabaseSpec.deploymentId` is a plain string; recover the brand with a
+  // real prefix check instead of a cast.
+  const deployLog =
+    input.deploymentId && hasPrefix(input.deploymentId, ID_PREFIX.deployment)
+      ? createStackDeployLog(input.deploymentId)
+      : nullStackDeployLog;
   try {
     await pullImage(docker, options.Image, (line) => deployLog.line(line));
   } finally {

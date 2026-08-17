@@ -4,29 +4,40 @@
  * A name is an address: other resources reach this one through
  * `${database:primary.url}` / `${service:api.host}`. Moving the manifest key
  * without rewriting those refs leaves a document that still validates and
- * breaks at deploy time on an unresolvable ref — the worst place to find out.
+ * breaks at deploy time on an unresolvable ref. The worst place to find out.
  */
 
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Manifest } from "../../../stack/manifest";
+import type {
+  ComposeManifest,
+  DatabaseManifest,
+  Manifest,
+  ServiceManifest,
+} from "../../../stack/manifest";
 
+import { manifestSchema } from "../../../stack/manifest";
 import { renameInManifest, rewriteRefsInValue } from "../manifest-rename";
 
 function manifest(parts: Partial<Manifest> = {}): Manifest {
+  // Parse the base (the branded `project` slug can only be minted by the
+  // schema); the parts are already typed fixtures.
   return {
-    version: 1,
-    project: "store",
-    services: {},
-    databases: {},
-    composes: {},
+    ...manifestSchema.parse({ version: 1, project: "store" }),
     ...parts,
-  } as Manifest;
+  };
 }
 
-const svc = (env: Record<string, string> = {}) => ({ source: "git", repo: "me/api", env }) as never;
-const database = (extraEnv: Record<string, string> = {}) =>
-  ({ engine: "postgres", version: "18", extraEnv }) as never;
+const svc = (env: Record<string, string> = {}): ServiceManifest => ({
+  source: "git",
+  repo: "me/api",
+  env,
+});
+const database = (extraEnv: Record<string, string> = {}): DatabaseManifest => ({
+  engine: "postgres",
+  version: "18",
+  extraEnv,
+});
 
 describe("rewriteRefsInValue", () => {
   it("rewrites a plain database ref", () => {
@@ -56,7 +67,7 @@ describe("rewriteRefsInValue", () => {
 
   it("does not rewrite the same name under a different kind", () => {
     // A service and a database may not share a name, but the rewrite must not
-    // rely on that — it targets one kind.
+    // rely on that: it targets one kind.
     expect(rewriteRefsInValue("${service:api.host}", "database", "api", "core")).toBe(
       "${service:api.host}",
     );
@@ -141,7 +152,7 @@ describe("renameInManifest", () => {
     expect(out).toEqual({ ok: false, error: { code: "name-taken" } });
   });
 
-  it("refuses a name used by a DIFFERENT kind — one DNS namespace", () => {
+  it("refuses a name used by a DIFFERENT kind, one DNS namespace", () => {
     // `${service:x.host}` and a database called `x` would be two answers to
     // the same question.
     const out = renameInManifest({
@@ -185,9 +196,10 @@ describe("renameInManifest", () => {
 
   it("renames a compose stack without touching env refs", () => {
     // Compose stacks aren't ref-addressable; only the key moves.
+    const composeStack: ComposeManifest = { source: "inline", content: "services: {}" };
     const out = renameInManifest({
       manifest: manifest({
-        composes: { stack: { file: "x" } as never },
+        composes: { stack: composeStack },
         services: { api: svc({ K: "${service:stack.host}" }) },
       }),
       kind: "compose",

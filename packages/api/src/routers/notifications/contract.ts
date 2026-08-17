@@ -27,15 +27,15 @@ const channelKind = z.enum([
   "push",
 ]);
 
-// Effective display status — `warn` (degraded) is derived from recent
+// Effective display status: `warn` (degraded) is derived from recent
 // delivery failures, not stored.
 const channelStatus = z.enum(["active", "paused", "disconnected", "warn"]);
 
-const eventId = z.enum(EVENT_IDS as [string, ...string[]]);
+const eventId = z.enum(EVENT_IDS);
 
 // ─── Output schemas ──────────────────────────────────────────────────────
 
-/** A channel as the UI sees it — masked target, computed stats, no secret. */
+/** A channel as the UI sees it. Masked target, computed stats, no secret. */
 const channelSchema = z.object({
   id: channelIdField,
   kind: channelKind,
@@ -62,7 +62,7 @@ export const subscriptionSchema = z.object({
 const deliveryIdField = zId(ID_PREFIX.notificationDelivery);
 
 /** One row of a channel's append-only delivery log. `eventId` is a plain
- * string (not the catalog enum) — test sends log as "test.ping", which is
+ * string (not the catalog enum): test sends log as "test.ping", which is
  * deliberately outside the subscribable catalog. */
 const deliveryItemSchema = z.object({
   id: deliveryIdField,
@@ -80,13 +80,13 @@ const deliveryBreakdownSchema = z.object({
   failed: z.number(),
 });
 
-/** One in-app inbox entry — the caller's own `notification` row. */
+/** One in-app inbox entry: the caller's own `notification` row. */
 const inboxItemSchema = z.object({
   id: notificationIdField,
   title: z.string(),
   message: z.string(),
   /**
-   * Structured context written by the platform-event fan-out — `eventId` plus
+   * Structured context written by the platform-event fan-out: `eventId` plus
    * display strings (resource, project, deploymentId, …). Drives the severity
    * dot and the expandable detail rows in the header-bell popover. Null for
    * plain `notification.send` rows that carried no payload.
@@ -172,7 +172,7 @@ export const notificationsContract = {
       .errors(channelNotFound),
   },
 
-  // Per-channel delivery history — powers the "View deliveries" dialog on a
+  // Per-channel delivery history: powers the "View deliveries" dialog on a
   // channel card. One call returns the 7d per-event breakdown plus a keyset-
   // paginated page of recent deliveries (cursor = last item's id).
   deliveries: oc
@@ -206,8 +206,8 @@ export const notificationsContract = {
       .errors(channelNotFound),
   },
 
-  // The caller's own in-app feed (the header bell's popover). User-scoped —
-  // rows belong to the session user, filtered to the active org + account-
+  // The caller's own in-app feed (the header bell's popover). User-scoped.
+  // Rows belong to the session user, filtered to the active org + account-
   // level rows. One list call carries the unread count so the badge and the
   // popover share a single poll.
   inbox: {

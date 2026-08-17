@@ -12,7 +12,7 @@
  *   - service-tasks.ts swarm task schemas + serviceTasks query
  *   - shared.ts        tag / basePath / common error maps
  *
- * Importers should always go through this barrel — the file layout can
+ * Importers should always go through this barrel. The file layout can
  * keep evolving without touching call sites.
  */
 
@@ -56,7 +56,7 @@ export const projectContract = {
 
 // ─── Re-exports of every schema / input ────────────────────────────────
 // Callers across the codebase still import named schemas from the contract
-// module — keep that surface stable here so the split is transparent.
+// module: keep that surface stable here so the split is transparent.
 
 export { projectListItemSchema, projectSchema } from "./project";
 

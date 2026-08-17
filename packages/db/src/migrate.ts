@@ -17,7 +17,7 @@ function migrationsFolder(): string {
 }
 
 /**
- * Apply any pending migrations programmatically (drizzle-orm's migrator — no
+ * Apply any pending migrations programmatically (drizzle-orm's migrator, no
  * drizzle-kit CLI at runtime). Tracked in `drizzle.__drizzle_migrations`, so it
  * is idempotent: a no-op when the DB is already up to date. Throws on failure
  * so the caller (server boot) can refuse to start against a half-migrated

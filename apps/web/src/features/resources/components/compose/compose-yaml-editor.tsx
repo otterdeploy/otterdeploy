@@ -3,7 +3,7 @@
  * read-only viewer a git-sourced stack gets, and the editable one an inline
  * stack gets.
  *
- * Split out of ./panel-tabs so the tab components stay about tab layout — this
+ * Split out of ./panel-tabs so the tab components stay about tab layout. This
  * module owns everything CodeMirror, and is the only place the editor theme and
  * highlight style are defined.
  */
@@ -22,7 +22,7 @@ import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-// Read-only YAML viewer — transparent so it inherits the panel surface.
+// Read-only YAML viewer. Transparent so it inherits the panel surface.
 const editorTheme = EditorView.theme(
   {
     "&": { backgroundColor: "transparent" },
@@ -63,7 +63,7 @@ const basicSetup = {
   highlightActiveLineGutter: false,
 } as const;
 
-/** Read-only YAML viewer — transparent so it inherits the panel surface. */
+/** Read-only YAML viewer. Transparent so it inherits the panel surface. */
 export function ComposeViewer({ content }: { content: string }) {
   return (
     <div className="overflow-hidden rounded-lg border bg-background/40">
@@ -92,7 +92,7 @@ export function ComposeFileEditor({
   initialContent: string;
 }) {
   const [draft, setDraft] = useState(initialContent);
-  // Baseline the Save button dirties against — updated on a successful save so
+  // Baseline the Save button dirties against. Updated on a successful save so
   // the button settles without waiting for the invalidated query to refetch.
   const [baseline, setBaseline] = useState(initialContent);
   const dirty = draft !== baseline && draft.trim().length > 0;

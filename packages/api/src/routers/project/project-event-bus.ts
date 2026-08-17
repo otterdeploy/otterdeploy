@@ -2,33 +2,107 @@
  * Cross-process project event bus (Redis pub/sub).
  *
  * The project events stream (`events-stream.ts`) is fed by the *docker* event
- * bus — great for runtime (container/task) transitions, but build-phase status
+ * bus: great for runtime (container/task) transitions, but build-phase status
  * changes (pending → building → running/failed) happen in the **builder
  * process** and produce no docker event, so the stream was silent during a
  * build and the UI fell back to slow polling.
  *
  * This bridges that gap: the builder (and any API-side status write) publishes
  * a resource-changed event to a per-project Redis channel; the stream in the
- * API process subscribes to it and pushes it to connected clients — real-time,
+ * API process subscribes to it and pushes it to connected clients. Real-time,
  * no polling. Same Bun `RedisClient` pub/sub the deployment log tail already
  * uses (`deployment/log-stream.ts`), so both processes just share Redis.
  *
  * Best-effort by design: publishing must never throw into the deploy path.
  */
 
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { OrgBusEvent, OrgStreamCollection } from "@otterdeploy/shared/org-events";
 import type { RedisClient } from "bun";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema";
-import { orgEventsChannel } from "@otterdeploy/shared/org-events";
+import {
+  ID_PREFIX,
+  zId,
+  type ProjectId,
+  type ProxyRouteId,
+  type ResourceId,
+} from "@otterdeploy/shared/id";
+import { ORG_STREAM_COLLECTIONS, orgEventsChannel } from "@otterdeploy/shared/org-events";
 import { eq } from "drizzle-orm";
+import * as z from "zod";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { ProjectStreamEvent } from "./events-stream";
 
 import { createRedis } from "../../lib/redis";
+import { proxyRouteSchema } from "./contract/proxy";
+import { proxyRouteIdField, resourceIdField } from "./contract/shared";
+
+// ── Wire schemas ─────────────────────────────────────────────────────────
+//
+// Everything on the bus crossed a JSON.stringify/parse boundary, so payloads
+// are PARSED back into the typed event shapes, never cast. Dates on route
+// rows arrive as ISO strings and are coerced back (the events contract does
+// the same on its own output for the identical reason).
+
+const orgBusEventSchema = z.object({ kind: z.enum(ORG_STREAM_COLLECTIONS) });
+
+const busRouteSchema = proxyRouteSchema.extend({
+  // The route row's previewId carries the PreviewId brand; re-apply it after
+  // the JSON round-trip or the parsed event won't satisfy PublishableRoute.
+  previewId: zId(ID_PREFIX.preview).nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  dnsCheckedAt: z.coerce.date().nullable(),
+  certCheckedAt: z.coerce.date().nullable(),
+  domainVerifiedAt: z.coerce.date().nullable(),
+});
+
+const projectBusEventSchema = z.union([
+  z.object({
+    kind: z.literal("resource"),
+    action: z.enum(["created", "updated", "removed"]),
+    resourceId: resourceIdField,
+  }),
+  z.object({
+    kind: z.literal("route"),
+    action: z.enum(["created", "updated"]),
+    route: busRouteSchema,
+  }),
+  z.object({
+    kind: z.literal("route"),
+    action: z.literal("removed"),
+    routeId: proxyRouteIdField,
+    resourceId: resourceIdField.nullable(),
+  }),
+  z.object({
+    kind: z.literal("task"),
+    action: z.string(),
+    resourceId: resourceIdField,
+    taskId: z.string(),
+    state: z.string().nullable(),
+  }),
+  z.object({ kind: z.literal("manifest"), action: z.literal("changed") }),
+  z.object({ kind: z.literal("previews"), action: z.literal("changed") }),
+  z.object({
+    kind: z.literal("container"),
+    action: z.string(),
+    resourceId: resourceIdField,
+    containerId: z.string(),
+  }),
+]);
+
+/** JSON-decode + schema-validate one bus payload; null for malformed ones. */
+function parseBusPayload<T>(payload: string, schema: z.ZodType<T>): T | null {
+  try {
+    const decoded: unknown = JSON.parse(payload);
+    const result = schema.safeParse(decoded);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
 
 const channel = (projectId: ProjectId | string) => `project:${projectId}:events`;
 
@@ -48,7 +122,7 @@ function publishProjectEvent(projectId: ProjectId | string, event: ProjectStream
 }
 
 /**
- * Resolve the resource's project and publish a "resource updated" event — the
+ * Resolve the resource's project and publish a "resource updated" event. The
  * frontend's `useProjectEvents` reacts by invalidating that resource's
  * deployment list + status, so a build-status change lands instantly. One
  * cheap indexed lookup per transition; swallows all errors.
@@ -63,13 +137,13 @@ export async function publishResourceChanged(resourceId: ResourceId): Promise<vo
     if (!row) return;
     publishProjectEvent(row.projectId, { kind: "resource", action: "updated", resourceId });
   } catch {
-    // best-effort — never break the caller's deploy path
+    // best-effort, never break the caller's deploy path
   }
 }
 
 /**
  * Announce that the project's staged manifest changed (save / apply /
- * discard / git apply). Carries no payload — the collection stream turns it
+ * discard / git apply). Carries no payload. The collection stream turns it
  * into a `manifest` resync and consumers refetch diff/manifest/stack reads,
  * which lets those queries idle at a slow backstop instead of polling.
  */
@@ -86,7 +160,7 @@ export function publishPreviewsChanged(projectId: ProjectId | string): void {
 /**
  * Publish a route row to its project's channel.
  *
- * Carries the ROW, not an id — the client applies it directly instead of
+ * Carries the ROW, not an id. The client applies it directly instead of
  * refetching. That is only sound because a proxy route is a plain select:
  * `proxyRoute.list` returns the stored row, so the writer already holds
  * exactly what every reader would compute. (Deployments deliberately do NOT
@@ -103,7 +177,7 @@ export function publishRouteUpserted(action: "created" | "updated", route: Proxy
   // NEVER put these on the bus. Every route output schema omits the access-PIN
   // hash and the domain-verification token so no endpoint can leak them; a
   // pub/sub channel is a wider audience than an authorized HTTP response, not a
-  // narrower one, so the same rule has to hold here — and it has to hold at the
+  // narrower one, so the same rule has to hold here, and it has to hold at the
   // PUBLISHER, because output validation downstream would strip them from the
   // response while they sat in Redis regardless.
   const { accessPinHash: _pin, domainVerifyToken: _token, ...safe } = route;
@@ -122,7 +196,7 @@ export function publishRouteRemoved(
 /**
  * Publish an org-scoped, payload-free change announcement (activity counts,
  * inbox, servers). Same best-effort rules as the project channel. The jobs
- * workers publish to the same channel with their own client — the wire shape
+ * workers publish to the same channel with their own client. The wire shape
  * lives in @otterdeploy/shared/org-events so the two can't drift.
  */
 export function publishOrgEvent(organizationId: string, kind: OrgStreamCollection): void {
@@ -142,9 +216,10 @@ export function subscribeOrgEvents(
   const ch = orgEventsChannel(organizationId);
   void sub.subscribe(ch, (payload) => {
     try {
-      onEvent(JSON.parse(payload) as OrgBusEvent);
+      const event = parseBusPayload(payload, orgBusEventSchema);
+      if (event) onEvent(event);
     } catch {
-      // ignore malformed payloads
+      // best-effort: a listener error must not kill the subscriber
     }
   });
   return {
@@ -165,9 +240,10 @@ export function subscribeProjectEvents(
   const ch = channel(projectId);
   void sub.subscribe(ch, (payload) => {
     try {
-      onEvent(JSON.parse(payload) as ProjectStreamEvent);
+      const event = parseBusPayload(payload, projectBusEventSchema);
+      if (event) onEvent(event);
     } catch {
-      // ignore malformed payloads
+      // best-effort: a listener error must not kill the subscriber
     }
   });
   return {

@@ -1,5 +1,5 @@
 /**
- * Outbound egress policy for tenant-controlled URLs — webhook delivery,
+ * Outbound egress policy for tenant-controlled URLs: webhook delivery,
  * notification channels (Slack/Discord/generic webhook), registry probes,
  * self-hosted git provider calls, and anything else where a tenant supplies
  * a destination the control plane then makes a real HTTP request to.
@@ -11,12 +11,12 @@
  *   - denies loopback, link-local (incl. the 169.254.169.254 cloud metadata
  *     address), RFC1918 + CGNAT private ranges, IPv6 unique-local (fc00::/7),
  *     IPv4-mapped IPv6, multicast, and other reserved ranges by default
- *   - resolves the hostname and checks EVERY answer, not just the first —
- *     a mixed public/private DNS answer fails closed
+ *   - resolves the hostname and checks EVERY answer, not just the first.
+ *     A mixed public/private DNS answer fails closed
  *   - pins the validated address for the actual TCP connection (a fixed
  *     `lookup` wired into node's http/https `request`) so the record can't
- *     change between the check and the connect (DNS rebinding / TOCTOU) —
- *     the socket always dials the address this module validated, while the
+ *     change between the check and the connect (DNS rebinding / TOCTOU).
+ *     The socket always dials the address this module validated, while the
  *     Host header / TLS SNI still carry the original hostname
  *   - every redirect hop is re-validated against the same policy (scheme,
  *     host, resolved address), up to a redirect cap; a downgrade from https
@@ -26,14 +26,14 @@
  *     worker
  *
  * Operators can carve out specific private targets (homelab/LAN services)
- * via `allowAddresses` (IPs or CIDRs) — callers thread this through from
+ * via `allowAddresses` (IPs or CIDRs): callers thread this through from
  * `OTTERDEPLOY_EGRESS_ALLOWLIST` (packages/env). Nothing is allowed by
  * default: the policy is safe-by-default, opt-in only, and the operator
  * allowlist can never override `denyAddresses` (the control plane's own
- * identity — see each caller's `denyAddresses` wiring).
+ * identity: see each caller's `denyAddresses` wiring).
  *
- * Node-only (uses `node:dns` / `node:http` / `node:https` / `node:net`) —
- * import this module only from server code (packages/api, packages/jobs).
+ * Node-only (uses `node:dns` / `node:http` / `node:https` / `node:net`).
+ * Import this module only from server code (packages/api, packages/jobs).
  * It is published as its own subpath export so bundling
  * `@otterdeploy/shared/*` elsewhere (e.g. the web app) never pulls it in.
  */
@@ -61,7 +61,7 @@ const DENY_V4: ReadonlyArray<readonly [string, number]> = [
   ["100.64.0.0", 10], // CGNAT / shared address space
   ["127.0.0.0", 8], // loopback
   ["169.254.0.0", 16], // link-local, incl. cloud metadata 169.254.169.254
-  ["172.16.0.0", 12], // RFC1918 — covers docker's default bridge (172.17/16) and most custom docker networks
+  ["172.16.0.0", 12], // RFC1918: covers docker's default bridge (172.17/16) and most custom docker networks
   ["192.0.0.0", 24], // IETF protocol assignments
   ["192.0.2.0", 24], // TEST-NET-1 (documentation)
   ["192.88.99.0", 24], // 6to4 relay anycast
@@ -84,7 +84,7 @@ const DENY_V6: ReadonlyArray<readonly [string, number]> = [
   ["2001:db8::", 32], // documentation
   ["2002::", 16], // 6to4
   ["3fff::", 20], // documentation (RFC 9637)
-  ["fc00::", 7], // unique local (ULA) — the docker/swarm overlay network range
+  ["fc00::", 7], // unique local (ULA): the docker/swarm overlay network range
   ["fe80::", 10], // link-local
   ["ff00::", 8], // multicast
 ];
@@ -103,7 +103,7 @@ const DENY_LIST_V6 = buildDenyList(DENY_V6, "ipv6");
 
 /** Parses an operator-supplied allowlist (`OTTERDEPLOY_EGRESS_ALLOWLIST`) of
  *  bare IPs and/or CIDRs into a BlockList. Garbage entries (hostnames,
- *  malformed CIDRs) are silently skipped — an allowlist typo must never turn
+ *  malformed CIDRs) are silently skipped. An allowlist typo must never turn
  *  into an implicit deny-all or a parse-time crash of an outbound call. */
 function parseAllowlist(entries: Iterable<string>): BlockList {
   const list = new BlockList();
@@ -127,7 +127,7 @@ function parseAllowlist(entries: Iterable<string>): BlockList {
 }
 
 export interface AddressPolicy {
-  /** Addresses that are ALWAYS denied, regardless of `allowAddresses` — the
+  /** Addresses that are ALWAYS denied, regardless of `allowAddresses`. The
    *  control plane's own identity (its configured origins' resolved IP,
    *  its detected public IP, ...). */
   denyAddresses?: Iterable<string>;
@@ -137,7 +137,7 @@ export interface AddressPolicy {
   allowAddresses?: Iterable<string>;
 }
 
-/** True when `address` (a literal IPv4/IPv6 string — never a hostname) must
+/** True when `address` (a literal IPv4/IPv6 string, never a hostname) must
  *  not be connected to. Fails closed: anything that isn't a parseable IP
  *  literal is forbidden. */
 export function isForbiddenEgressAddress(address: string, policy: AddressPolicy = {}): boolean {
@@ -145,7 +145,7 @@ export function isForbiddenEgressAddress(address: string, policy: AddressPolicy 
   if (family === 0) return true;
   const type = family === 4 ? "ipv4" : "ipv6";
 
-  // The control plane's own identity always wins — an operator allowlist
+  // The control plane's own identity always wins. An operator allowlist
   // carve-out can open a LAN target, never the control plane's own admin
   // surface.
   if (policy.denyAddresses) {
@@ -161,7 +161,7 @@ export function isForbiddenEgressAddress(address: string, policy: AddressPolicy 
   }
 
   // IPv4-mapped IPv6 (`::ffff:a.b.c.d`, in either dotted or hex-group form)
-  // is always denied outright rather than unwrapped-and-rechecked — it's a
+  // is always denied outright rather than unwrapped-and-rechecked. It's a
   // classic filter-bypass encoding and no legitimate outbound target needs
   // it, mapped-public addresses included.
   if (type === "ipv6" && address.toLowerCase().startsWith("::ffff:")) return true;
@@ -177,11 +177,11 @@ export function isForbiddenEgressAddress(address: string, policy: AddressPolicy 
 // ─── URL / scheme validation ────────────────────────────────────────────────
 
 export interface UrlPolicy {
-  /** Allow `http:` in addition to `https:`. Default false — a call site
+  /** Allow `http:` in addition to `https:`. Default false. A call site
    *  opts in explicitly; tenants never choose the scheme policy. */
   allowHttp?: boolean;
   /** Hostnames (compared case-insensitively, trailing dot ignored) that are
-   *  always denied — the control plane's own configured origins/FQDN. */
+   *  always denied: the control plane's own configured origins/FQDN. */
   denyHosts?: Iterable<string>;
 }
 
@@ -193,7 +193,7 @@ function normalizedHostname(url: URL): string {
 }
 
 /** Parses + validates scheme/credentials/host. Throws {@link EgressPolicyError}
- *  on any violation. Does NOT resolve or check the address — call
+ *  on any violation. Does NOT resolve or check the address. Call
  *  {@link resolveEgressAddresses} next. */
 export function assertAllowedEgressUrl(raw: string | URL, policy: UrlPolicy = {}): URL {
   let url: URL;
@@ -234,7 +234,7 @@ async function defaultResolveHost(hostname: string): Promise<LookupAddress[]> {
 }
 
 /** Resolves every address for `url`'s hostname and rejects the whole lookup
- *  if ANY resolved address is forbidden — a mixed public/private DNS answer
+ *  if ANY resolved address is forbidden. A mixed public/private DNS answer
  *  (classic rebinding setup) never gets a "first address is fine" pass. */
 export async function resolveEgressAddresses(
   url: URL,
@@ -243,13 +243,14 @@ export async function resolveEgressAddresses(
 ): Promise<[LookupAddress, ...LookupAddress[]]> {
   const hostname = normalizedHostname(url);
   const addresses = await resolveHost(hostname);
-  if (addresses.length === 0) {
+  const [first, ...rest] = addresses;
+  if (first === undefined) {
     throw new EgressPolicyError("The hostname resolved to no addresses.");
   }
   if (addresses.some((resolved) => isForbiddenEgressAddress(resolved.address, addressPolicy))) {
     throw new EgressPolicyError("The hostname resolves to a non-public address.");
   }
-  return addresses as [LookupAddress, ...LookupAddress[]];
+  return [first, ...rest];
 }
 
 // ─── Pinned-address request (defeats DNS rebinding / TOCTOU) ──────────────
@@ -278,17 +279,17 @@ export type PinnedRequest = (
 ) => Promise<RawEgressResponse>;
 
 /** A `net.LookupFunction` that always answers with the pre-validated
- *  address, no matter what node's own resolver would say right now — this
+ *  address, no matter what node's own resolver would say right now. This
  *  is the pin that makes the connection immune to the record changing
  *  between validation and connect. */
 function fixedLookup(address: LookupAddress): LookupFunction {
-  return ((_hostname, options, callback) => {
+  return (_hostname, options, callback) => {
     if (typeof options === "object" && options.all) {
-      Reflect.apply(callback, undefined, [null, [address]]);
+      callback(null, [address]);
       return;
     }
-    Reflect.apply(callback, undefined, [null, address.address, address.family]);
-  }) as LookupFunction;
+    callback(null, address.address, address.family);
+  };
 }
 
 function toBuffer(body: EgressRequestInit["body"]): Buffer | undefined {
@@ -298,7 +299,7 @@ function toBuffer(body: EgressRequestInit["body"]): Buffer | undefined {
   return Buffer.from(body);
 }
 
-/** Opens the actual socket — dials `address` directly (via a fixed `lookup`)
+/** Opens the actual socket. Dials `address` directly (via a fixed `lookup`)
  *  while the request line / Host header / TLS SNI still use `url`'s
  *  hostname, exactly like a normal request to that host would. */
 function requestPinnedAddress(
@@ -310,31 +311,31 @@ function requestPinnedAddress(
 ): Promise<RawEgressResponse> {
   return new Promise((resolve, reject) => {
     // A request destroyed mid-connect (the timeout path, below) doesn't
-    // reliably re-emit through `error` on every runtime this code targets —
-    // observed on Bun, a `destroy(err)` during the TCP-connect phase (e.g.
+    // reliably re-emit through `error` on every runtime this code targets.
+    // Observed on Bun, a `destroy(err)` during the TCP-connect phase (e.g.
     // dialing a routable-but-unreachable private address) fires `close`
     // without ever firing `error`. Track settlement explicitly and treat
-    // `close` as a fallback failure rather than trusting `error` alone —
-    // otherwise a single unreachable target can wedge the caller (a BullMQ
+    // `close` as a fallback failure rather than trusting `error` alone.
+    // Otherwise a single unreachable target can wedge the caller (a BullMQ
     // worker slot, a request handler) indefinitely instead of failing
     // within `timeoutMs` as documented.
     //
     // That fallback MUST be gated on never having seen a response: Bun emits
     // the request's `close` BEFORE the response's `end` (node emits it after),
     // so an ungated `close` handler rejects perfectly good 200s and takes down
-    // every outbound call on Bun — GitHub App auth and repo inspect, registry
+    // every outbound call on Bun, GitHub App auth and repo inspect, registry
     // probes, webhook and notification delivery.
     let settled = false;
     let responseStarted = false;
     // Why we destroyed the request, when we destroyed it deliberately. Bun can
     // swallow a `destroy(err)` during connect (firing `close` with no `error`),
-    // so the close handler below reports this instead of a generic failure —
-    // otherwise a genuine timeout surfaces as an unexplained connect abort.
+    // so the close handler below reports this instead of a generic failure.
+    // Otherwise a genuine timeout surfaces as an unexplained connect abort.
     let abortReason: Error | undefined;
     // Deliberately our own timer rather than `req.setTimeout`: this is the
     // documented hard wall-clock deadline for the hop (not an idle-socket
     // timeout), and on Bun the socket-timeout path emits `close` BEFORE it runs
-    // the `setTimeout` callback — so only a timer we control is guaranteed to
+    // the `setTimeout` callback, so only a timer we control is guaranteed to
     // have set `abortReason` before the close handler reads it.
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
     const settleResolve = (value: RawEgressResponse) => {
@@ -442,9 +443,9 @@ export interface EgressFetchOptions extends AddressPolicy, UrlPolicy {
   maxBytes?: number;
   /** Redirect hop cap. Default 5. */
   maxRedirects?: number;
-  /** Injectable resolver — tests pin DNS answers without a network call. */
+  /** Injectable resolver: tests pin DNS answers without a network call. */
   resolveHost?: ResolveHost;
-  /** Injectable pinned-socket request — tests drive the redirect loop
+  /** Injectable pinned-socket request: tests drive the redirect loop
    *  without opening a real socket. Defaults to the real node http/https
    *  implementation. */
   request?: PinnedRequest;
@@ -479,14 +480,16 @@ function toEgressResponse(raw: RawEgressResponse, finalUrl: string): EgressRespo
     async text() {
       return raw.body.toString("utf8");
     },
-    async json() {
-      return JSON.parse(raw.body.toString("utf8")) as unknown;
+    async json(): Promise<unknown> {
+      return JSON.parse(raw.body.toString("utf8"));
     },
-    async arrayBuffer() {
-      return raw.body.buffer.slice(
-        raw.body.byteOffset,
-        raw.body.byteOffset + raw.body.byteLength,
-      ) as ArrayBuffer;
+    async arrayBuffer(): Promise<ArrayBuffer> {
+      // Copy the body bytes into a fresh ArrayBuffer (what `buffer.slice`
+      // did), which also guarantees a plain ArrayBuffer even if the Buffer
+      // were ever backed by a SharedArrayBuffer.
+      const copy = new ArrayBuffer(raw.body.byteLength);
+      new Uint8Array(copy).set(raw.body);
+      return copy;
     },
   };
 }
@@ -522,7 +525,7 @@ function resolveRedirectTarget(input: {
   }
   // 303 always demotes to GET; 301/302 demote a non-GET to GET (the
   // universally-implemented legacy behavior); 307/308 preserve method +
-  // body. A demoted redirect drops the body — never silently replay a
+  // body. A demoted redirect drops the body, never silently replay a
   // signed/authenticated payload to a hop the tenant's original target
   // chose.
   const demote =
@@ -543,7 +546,7 @@ function remainingBudget(deadline: number): number {
 /**
  * SSRF-safe replacement for `fetch()` on tenant-supplied URLs. Validates
  * scheme + host, resolves and checks every address, pins the connection to
- * the validated address, and re-validates every redirect hop — see the
+ * the validated address, and re-validates every redirect hop. See the
  * module doc comment for the full threat model.
  *
  * Returns a small `fetch`-`Response`-compatible object (`status`, `ok`,

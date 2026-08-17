@@ -3,7 +3,7 @@
  *
  * Sits directly above the read-only "Currently running on" readout, which is
  * the pairing that makes it legible: intent on top, reality underneath. When
- * they disagree — pinned to a node the task isn't on — that gap IS the useful
+ * they disagree (pinned to a node the task isn't on) that gap IS the useful
  * signal, so the two are deliberately not merged into one line.
  *
  * The cost of pinning is stated before the control, not after: a pinned
@@ -13,7 +13,7 @@
  * operator discovering it during an outage.
  *
  * Plain docker has one machine, so the control is hidden rather than shown
- * disabled — an inert picker implies a choice exists somewhere.
+ * disabled: an inert picker implies a choice exists somewhere.
  */
 
 import { useState } from "react";
@@ -45,7 +45,7 @@ import { rowClass } from "./scaling-parts";
 
 type ServiceView = Awaited<ReturnType<typeof orpc.service.get.call>>;
 
-/** Sentinel for "no pin" — Select can't carry a null value. */
+/** Sentinel for "no pin": Select can't carry a null value. */
 const ANYWHERE = "__anywhere__";
 
 export function PlacementPin({
@@ -95,8 +95,8 @@ export function PlacementPin({
           setPendingMove(undefined);
           toast.success(
             serverId
-              ? `Pinned — redeploying on ${servers.find((s) => s.id === serverId)?.name ?? "the selected server"}`
-              : "Unpinned — the scheduler will place this service",
+              ? `Pinned. Redeploying on ${servers.find((s) => s.id === serverId)?.name ?? "the selected server"}`
+              : "Unpinned. The scheduler will place this service.",
           );
         },
         onError: (err: unknown) => {
@@ -121,7 +121,7 @@ export function PlacementPin({
             <div className="text-[11px] text-muted-foreground">Pinned to</div>
             <div className="mt-0.5 text-[11px] text-muted-foreground/80">
               {service.placementServerId
-                ? "This service will not fail over — if this machine goes down its task waits rather than moving."
+                ? "This service will not fail over. If this machine goes down its task waits rather than moving."
                 : "The scheduler places this service on any healthy machine."}
             </div>
           </div>
@@ -144,7 +144,7 @@ export function PlacementPin({
           </Select>
         </div>
         {/* A pin naming a server that no longer exists would otherwise show as
-            a blank select — say it instead. */}
+            a blank select: say it instead. */}
         {service.placementServerId && !pinnedServer && !serversQuery.isLoading && (
           <div className="mt-1.5 text-[11px] text-destructive">
             Pinned to a server that is no longer registered. This service will deploy unpinned until
@@ -174,7 +174,7 @@ export function PlacementPin({
               ))}
             </ul>
             <p>
-              The old data stays on the old machine — nothing is deleted, but this service will no
+              The old data stays on the old machine. Nothing is deleted, but this service will no
               longer see it. Restore from a backup afterwards if you need it.
             </p>
           </div>
@@ -197,8 +197,9 @@ export function PlacementPin({
  *  other failure. */
 function volumeLossMounts(err: unknown): string[] | undefined {
   if (typeof err !== "object" || err === null) return undefined;
-  const e = err as { code?: string; data?: { mounts?: unknown } };
-  if (e.code !== "PLACEMENT_VOLUME_LOSS") return undefined;
-  const mounts = e.data?.mounts;
+  if (!("code" in err) || err.code !== "PLACEMENT_VOLUME_LOSS") return undefined;
+  const data = "data" in err ? err.data : undefined;
+  const mounts =
+    typeof data === "object" && data !== null && "mounts" in data ? data.mounts : undefined;
   return Array.isArray(mounts) ? mounts.filter((m): m is string => typeof m === "string") : [];
 }

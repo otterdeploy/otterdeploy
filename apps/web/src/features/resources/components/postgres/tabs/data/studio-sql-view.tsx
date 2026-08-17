@@ -1,5 +1,5 @@
 /**
- * The SQL-playground layout for the Data studio — a resizable three-pane shell
+ * The SQL-playground layout for the Data studio: a resizable three-pane shell
  * (snippets rail · editor-over-results center · schema-explorer rail). The
  * toolbar lives in {@link ./studio-sql-toolbar}. Driven by the
  * {@link DataStudioController}; the editor handle is passed in separately.
@@ -35,7 +35,7 @@ export function SqlPlaygroundView({
   const { table: t, editor } = studio;
   return (
     <ResizablePanelGroup orientation="horizontal">
-      {/* Left rail — snippets */}
+      {/* Left rail, snippets */}
       {studio.showLeft ? (
         <>
           <ResizablePanel id="left" defaultSize={20} minSize={12}>
@@ -59,7 +59,7 @@ export function SqlPlaygroundView({
         </>
       ) : null}
 
-      {/* Center — toolbar + editor / results */}
+      {/* Center: toolbar + editor / results */}
       <ResizablePanel id="center" defaultSize={58} minSize={30}>
         <div className="flex h-full min-w-0 flex-col">
           <SqlToolbar studio={studio} editorRef={editorRef} />
@@ -83,7 +83,7 @@ export function SqlPlaygroundView({
         </div>
       </ResizablePanel>
 
-      {/* Right rail — schema explorer (collapsible tables → columns) */}
+      {/* Right rail: schema explorer (collapsible tables → columns) */}
       {studio.showRight ? (
         <>
           <ResizableHandle withHandle />

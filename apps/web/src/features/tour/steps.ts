@@ -7,13 +7,13 @@
  * surface that exists today; nothing here demos a "Coming soon" feature, so
  * the tour can't promise something the app won't do (PRODUCT.md, honest state).
  *
- * Steps are declarative so the engine can do the awkward parts — cross-route
+ * Steps are declarative so the engine can do the awkward parts. Cross-route
  * navigation, waiting for an element to mount, skipping a chapter whose
  * subject the org doesn't have yet.
  *
  * Selector policy: prefer a `data-tour` anchor (added at the call site), then
  * a semantic landmark (`nav[aria-label="Project"]`), then a component's
- * `data-slot`. Never a Tailwind class — those change with styling.
+ * `data-slot`. Never a Tailwind class: those change with styling.
  */
 
 import type { Translation } from "@otterdeploy/i18n";
@@ -43,11 +43,11 @@ export interface TourStepRoute {
 }
 
 export interface TourStep {
-  /** Stable id — also the i18n key suffix (`tour.steps.<id>.title`). */
+  /** Stable id: also the i18n key suffix (`tour.steps.<id>.title`). */
   id: TourStepId;
   /**
    * Element to highlight. Omitted for a centered step, which driver.js renders
-   * as a modal with no cutout — used for the opening and closing beats.
+   * as a modal with no cutout, used for the opening and closing beats.
    */
   element?: string;
   /** Navigate here before the step is shown. */
@@ -61,7 +61,7 @@ export interface TourStep {
 const inProject = (ctx: TourContext): boolean => ctx.projectSlug !== null;
 
 /**
- * Chapter 1 — the shell. Where things live and how to get anywhere fast.
+ * Chapter 1: the shell. Where things live and how to get anywhere fast.
  */
 const ORIENTATION: readonly TourStep[] = [
   {
@@ -107,7 +107,7 @@ const ORIENTATION: readonly TourStep[] = [
 ];
 
 /**
- * Chapter 2 — servers. Nothing deploys until a machine has joined the swarm,
+ * Chapter 2: servers. Nothing deploys until a machine has joined the swarm,
  * so this comes before anything project-shaped.
  */
 const SERVERS: readonly TourStep[] = [
@@ -133,7 +133,7 @@ const SERVERS: readonly TourStep[] = [
 ];
 
 /**
- * Chapter 3 — a project. Skipped wholesale when the org has none: a tour that
+ * Chapter 3: a project. Skipped wholesale when the org has none: a tour that
  * highlights an empty canvas teaches nothing.
  */
 const PROJECT: readonly TourStep[] = [
@@ -193,7 +193,7 @@ const PROJECT: readonly TourStep[] = [
   },
 ];
 
-/** Chapter 4 — where to go next, and how to get this tour back. */
+/** Chapter 4: where to go next, and how to get this tour back. */
 const CLOSING: readonly TourStep[] = [
   {
     id: "help",

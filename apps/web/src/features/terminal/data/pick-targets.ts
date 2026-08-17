@@ -7,7 +7,7 @@ import type { SessionSource } from "../types";
 /**
  * The picker's data model: one flat list of *destinations*, not a taxonomy of
  * transports. An operator thinks "I want a shell in store-web replica 2" or "on
- * the db box" — never "I want a docker exec as opposed to an SSH". So how we
+ * the db box", never "I want a docker exec as opposed to an SSH". So how we
  * reach a target (exec vs. host PTY vs. ssh) is demoted to a trailing hint,
  * and the grouping is what the thing IS.
  */
@@ -19,13 +19,13 @@ export interface PickerTarget {
   group: TargetGroup;
   /** What the operator names the thing. Rendered mono. */
   name: string;
-  /** Disambiguator when a name repeats — "replica 2". */
+  /** Disambiguator when a name repeats: "replica 2". */
   qualifier: string | null;
   /** Owning project slug, when it has one. */
   project: string | null;
   /** Kind tag: engine, node role, "host". */
   tag: string | null;
-  /** Right-aligned machine detail — short container id, host address. */
+  /** Right-aligned machine detail: short container id, host address. */
   detail: string;
   /** Everything else worth matching a search against. */
   keywords: string[];
@@ -99,7 +99,15 @@ function serviceTargets(containers: TargetContainer[]): PickerTarget[] {
       project: c.projectSlug,
       tag: null,
       detail: short,
-      keywords: [rawName, c.image, c.containerId, c.projectName ?? "", "shell", "exec", "container"],
+      keywords: [
+        rawName,
+        c.image,
+        c.containerId,
+        c.projectName ?? "",
+        "shell",
+        "exec",
+        "container",
+      ],
       image: c.image,
       framework: c.framework,
       source: {
@@ -110,7 +118,7 @@ function serviceTargets(containers: TargetContainer[]): PickerTarget[] {
         containerId: c.containerId,
       },
       // The discovery RPC lists running containers only, but a container can
-      // stop between the fetch and the click — say so rather than opening a
+      // stop between the fetch and the click. Say so rather than opening a
       // session that dies on connect.
       unavailable: c.state === "running" ? null : `container is ${c.state}`,
       pending: false,
@@ -120,7 +128,7 @@ function serviceTargets(containers: TargetContainer[]): PickerTarget[] {
 
 /**
  * Databases are one row per resource, and that row opens a shell *inside the
- * database container* — which works today. The engine console (psql, redis-cli)
+ * database container*, which works today. The engine console (psql, redis-cli)
  * has no backend yet, so it isn't offered as a separate destination; that would
  * be a second axis for the same box, which is exactly what this list removes.
  */
@@ -145,7 +153,7 @@ function databaseTargets(
       qualifier: null,
       project: db.projectSlug,
       tag: db.engine,
-      detail: short || "—",
+      detail: short || "–",
       keywords: [db.engine, db.projectName, container?.image ?? "", "database", "console", "shell"],
       // The engine name alone resolves to its brand mark (postgres / redis /
       // …) — the same resolver services use, matching on the bare name.
@@ -166,7 +174,7 @@ function databaseTargets(
   });
 
   // Database containers we couldn't tie back to a resource row still deserve a
-  // shell — better an honest container name than a silently missing target.
+  // shell: better an honest container name than a silently missing target.
   const orphans: PickerTarget[] = dbContainers
     .filter((c) => !claimed.has(c.containerId))
     .map((c) => {
@@ -200,7 +208,7 @@ function databaseTargets(
 
 function serverTargets(servers: TargetServer[]): PickerTarget[] {
   return servers.map((s) => {
-    // The bootstrap node is the otterdeploy-server host itself — a local PTY,
+    // The bootstrap node is the otterdeploy-server host itself. A local PTY,
     // no SSH hop. Every other node needs the SSH exec path, which isn't built.
     const isLocal = s.labels.includes("bootstrap");
     return {
@@ -226,7 +234,7 @@ function serverTargets(servers: TargetServer[]): PickerTarget[] {
   });
 }
 
-/** Project, then name, then replica — so the list never reshuffles between opens. */
+/** Project, then name, then replica, so the list never reshuffles between opens. */
 function ordered(targets: PickerTarget[]): PickerTarget[] {
   return [...targets].sort((a, b) => {
     const byProject = (a.project ?? "").localeCompare(b.project ?? "");
@@ -239,7 +247,7 @@ function ordered(targets: PickerTarget[]): PickerTarget[] {
 
 /**
  * Flatten every reachable shell into one list, sorted inside each group and
- * concatenated in group order — sorting the whole array at once would need a
+ * concatenated in group order, sorting the whole array at once would need a
  * comparator that ranks groups against each other, which is a display concern.
  */
 export function buildPickerTargets(input: {

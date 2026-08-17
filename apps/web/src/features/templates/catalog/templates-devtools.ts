@@ -1,4 +1,4 @@
-// Developer-tooling templates — the things you run alongside your own app.
+// Developer-tooling templates: the things you run alongside your own app.
 // See ./types.ts for the honesty contract.
 import type { StackTemplate } from "./types";
 
@@ -7,7 +7,7 @@ export const DEVTOOLS_TEMPLATES: StackTemplate[] = [
     id: "pocketbase",
     name: "PocketBase",
     description:
-      "Backend in a single file — SQLite database, auth, file storage and a realtime API, with an admin UI. Everything persists to one named volume; no external database to run.",
+      "Backend in a single file: SQLite database, auth, file storage and a realtime API, with an admin UI. Everything persists to one named volume; no external database to run.",
     category: "devtools",
     includes: ["pocketbase"],
     requiredEnv: [],
@@ -62,13 +62,13 @@ volumes:
     id: "forgejo",
     name: "Forgejo",
     description:
-      "Self-hosted Git forge with issues, pull requests and a package registry — the community fork of Gitea. Repositories live on a named volume, metadata in a bundled Postgres.",
+      "The community fork of Gitea: a self-hosted Git forge with issues, pull requests and a package registry. Repositories live on a named volume, metadata in a bundled Postgres.",
     category: "devtools",
     includes: ["forgejo", "db"],
     requiredEnv: [
       {
         key: "FORGEJO_URL",
-        description: "Public base URL — used for clone URLs and webhook callbacks.",
+        description: "Public base URL. Used for clone URLs and webhook callbacks.",
       },
       {
         key: "POSTGRES_PASSWORD",

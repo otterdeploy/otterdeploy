@@ -31,7 +31,7 @@ export const authClient = createAuthClient({
     // Enterprise SSO. Provides `signIn.sso({ email })` for the sign-in page and
     // the `sso.*` provider-management calls the workspace settings page uses.
     // The list endpoint returns an already-redacted view (no client secret), so
-    // the UI can read it directly — see db/schema/auth.ts `ssoProvider`.
+    // the UI can read it directly. See db/schema/auth.ts `ssoProvider`.
     ssoClient(),
   ],
 });

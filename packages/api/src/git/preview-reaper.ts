@@ -1,10 +1,10 @@
 /**
- * Idle-GC for PR previews — the enforcement behind the keep-alive/TTL control.
+ * Idle-GC for PR previews: the enforcement behind the keep-alive/TTL control.
  * Every tick, tear down any ACTIVE, non-paused preview whose autoTeardownAt has
  * passed. A NULL autoTeardownAt = pinned (keep-alive) and is never reaped;
  * paused previews are already stopped, so they're skipped too. Runs as an
  * in-process interval in apps/server (like the other sweepers), not a BullMQ
- * job — packages/jobs can't import teardownPreview without a dependency cycle.
+ * job: packages/jobs can't import teardownPreview without a dependency cycle.
  */
 import { db } from "@otterdeploy/db";
 import { deployment, preview, project } from "@otterdeploy/db/schema/project";
@@ -18,7 +18,7 @@ import { teardownPreview } from "./preview-teardown";
 
 /** Tear down previews past their idle deadline. Returns how many were reaped. */
 async function reapIdlePreviews(now: Date = new Date()): Promise<number> {
-  // Idle teardown disabled globally — never reap, even previously-seeded
+  // Idle teardown disabled globally, never reap, even previously-seeded
   // deadlines (matches the documented "0 disables it" contract, whether that
   // 0 comes from the settings row or PREVIEW_IDLE_TEARDOWN_HOURS).
   if ((await previewIdleTeardownHours()) === 0) return 0;
@@ -39,7 +39,7 @@ async function reapIdlePreviews(now: Date = new Date()): Promise<number> {
         eq(preview.paused, false),
         isNotNull(preview.autoTeardownAt),
         lt(preview.autoTeardownAt, now),
-        // Don't reap a preview mid-build — the builder would recreate its
+        // Don't reap a preview mid-build. The builder would recreate its
         // containers for a now-closed row (orphans with no routes).
         sql`not ${exists(
           db

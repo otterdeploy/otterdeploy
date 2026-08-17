@@ -1,8 +1,8 @@
-# Borg vs restic vs rustic — Full Feature Matrix
+# Borg vs restic vs rustic: Full Feature Matrix
 
 **Status:** Reference · **Last verified:** 2026-07-14 · **Companion to:** [`backup-engine-comparison.md`](./backup-engine-comparison.md)
 
-Side-by-side of the three **backup engines**. (Borgmatic is a *wrapper over Borg*, not a peer — where
+Side-by-side of the three **backup engines**. (Borgmatic is a *wrapper over Borg*, not a peer, where
 it adds capability Borg lacks natively, it's noted as "via borgmatic".)
 
 **Legend:** ✅ yes / native · ⚠️ partial / with caveats / via add-on · ❌ no
@@ -147,7 +147,7 @@ it adds capability Borg lacks natively, it's noted as "via borgmatic".)
 | Windows | ⚠️ (WSL/Cygwin) | ✅ native | ⚠️ CLI yes; mount/sftp limited |
 | Memory footprint | Efficient | Heavier (index in RAM) | Lower than restic |
 | Prune cost on cloud | n/a (local/SSH) | ⚠️ historically slow (improved 0.12+) | ⚠️ mitigated by lock-free parallel prune |
-| Async vs blocking (library) | — | — | Blocking core + internal rayon parallelism |
+| Async vs blocking (library) | – | – | Blocking core + internal rayon parallelism |
 
 ---
 
@@ -155,7 +155,7 @@ it adds capability Borg lacks natively, it's noted as "via borgmatic".)
 - **Borg 2.0** GA timing/adoption and its new format should be verified before pinning; Hetzner
   Storage Boxes only serve borg **≤ 1.4** (so you'd run a 1.4 client against them).
 - **restic ↔ rustic interop** is a design goal confirmed by both projects (tested pairing restic 0.19
-  ↔ rustic 0.11.3), but there is **no formal conformance suite** — test restores if you rely on it.
+  ↔ rustic 0.11.3), but there is **no formal conformance suite**, test restores if you rely on it.
   Don't run `prune` from both tools on one repo concurrently.
 - **rustic** `check` deep-verify sub-flag names, and a few `KeepOptions` edge fields, were not
   verbatim-confirmed. rustic lacks `recover`, `--sparse`, and native Windows mount/sftp.

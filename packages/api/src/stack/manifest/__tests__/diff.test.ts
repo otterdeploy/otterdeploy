@@ -322,7 +322,7 @@ describe("diffManifest", () => {
 });
 
 // Fields the manifest manages only when it DECLARES them. An omitted key
-// means "the live editor owns this" — the diff must never manufacture a
+// means "the live editor owns this". The diff must never manufacture a
 // change from an absent key. Regression suite for the phantom-revert bug:
 // a live public-toggle (or live env edit) used to be staged as an update /
 // delete seconds later and REVERTED by the next Apply.
@@ -400,7 +400,7 @@ describe("diffDatabase declared-only fields", () => {
 
 // ── Declared-only convention: live-managed service fields/env ──────────────
 //
-// A field or env map the manifest OMITS is live-managed — the panels/env
+// A field or env map the manifest OMITS is live-managed. The panels/env
 // editor own it and the diff must not stage phantom changes for it. These
 // are regressions from the "un-appliable diff" class: the diff staged
 // changes apply's patch builders never carried, so the pending bar showed
@@ -519,7 +519,7 @@ describe("declared-only service fields and env", () => {
         extraEnv: {},
       },
     };
-    // Apply stores the RESOLVED value — the resolver makes the diff compare
+    // Apply stores the RESOLVED value. The resolver makes the diff compare
     // what apply would write, so a satisfied ref is a no-op…
     const resolveEnvValue = (raw: string) =>
       raw === "${database:primary.url}" ? "postgres://real-url" : null;

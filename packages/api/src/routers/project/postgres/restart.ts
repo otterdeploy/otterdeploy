@@ -2,7 +2,7 @@
  * Restart (re-roll) a database resource.
  *
  * Inserts a `restart` deployment and forces swarm to schedule a fresh task
- * with the *current* spec — same image, env, and public flag — rather than the
+ * with the *current* spec (same image, env, and public flag) rather than the
  * engine default. Preserving the running image matters: extension-bundled
  * images (pgvector / postgis / timescaledb) aren't derivable from
  * `defaultImageFor`, so we read the image off the latest deployment row.
@@ -54,7 +54,7 @@ export async function restartDatabaseResource(
   }
 
   const engine = record.database.engine;
-  // Preserve the image that's actually running — the latest deployment row is
+  // Preserve the image that's actually running. The latest deployment row is
   // the source of truth (a pgvector/postgis image can't be re-derived from the
   // engine default). Fall back to the default for a DB with no history.
   const latest = await getLatestDeploymentForResource(input.resourceId);

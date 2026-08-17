@@ -7,7 +7,7 @@ import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/sh
 
 import { useState } from "react";
 
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -25,7 +25,7 @@ import {
   trimToNull,
 } from "./build-card-shared";
 
-/** Shared save mutation — stages the next build config into the manifest and
+/** Shared save mutation. Stages the next build config into the manifest and
  *  refreshes the pending-changes surfaces. Used by both builder cards. */
 function useSaveBuild(resource: ServiceBuildResource) {
   return useMutation({
@@ -57,7 +57,7 @@ const RAILPACK_TEXT_FIELDS = [
     "packageManager",
     "Package manager",
     "Override the repo's pin, e.g. bun@1.3.13 or pnpm@9.12.0.",
-    "auto — repo's packageManager",
+    "auto (repo's packageManager)",
   ],
   ["buildCommand", "Build command", "Overrides the detected build step.", "auto"],
   ["staticRoot", "Static root", "Built-assets dir for static sites (default: dist).", "dist"],
@@ -100,12 +100,12 @@ export function RailpackBuildCard({
     },
     onSubmit: ({ value }) => save.mutate(toRailpackBuild(config, value)),
   });
-  const values = useStore(form.store, (s) => s.values);
+  const values = useSelector(form.store, (s) => s.values);
 
   return (
     <SettingsCard
       title="Build"
-      description="Railpack reads these before building — empty fields auto-detect from the repo. Saved changes apply on the next Deploy."
+      description="Railpack reads these before building. Empty fields auto-detect from the repo. Saved changes apply on the next Deploy."
     >
       {RAILPACK_TEXT_FIELDS.map(([name, label, hint, placeholder]) => (
         <BuildFieldRow key={name} label={label} hint={hint}>
@@ -153,7 +153,7 @@ export function RailpackBuildCard({
 // ────────────────────────────── Dockerfile ──────────────────────────────
 
 interface ArgRow {
-  /** Stable identity for React keys — rows are added/removed by position, so
+  /** Stable identity for React keys: rows are added/removed by position, so
    *  the index is not a safe key. */
   id: string;
   key: string;
@@ -169,8 +169,8 @@ const newArgRow = (key = "", value = ""): ArgRow => ({
 
 /** Fold the editor rows into the `Record<string,string>` the build config
  *  stores. Empty keys are dropped; an empty set persists as null. Keys are
- *  trimmed (clean docker arg names) but values are preserved verbatim —
- *  leading/trailing whitespace can be intentional in a value. */
+ *  trimmed (clean docker arg names) but values are preserved verbatim.
+ *  Leading/trailing whitespace can be intentional in a value. */
 function rowsToRecord(rows: ArgRow[]): Record<string, string> | null {
   const out: Record<string, string> = {};
   for (const { key, value } of rows) {
@@ -233,7 +233,7 @@ export function DockerfileBuildCard({
         <div className="flex flex-col">
           <span className="text-[12px] text-foreground">Build args</span>
           <span className="text-[11px] text-muted-foreground">
-            Passed as <code className="font-mono">--build-arg</code>. Not secret — they land in the
+            Passed as <code className="font-mono">--build-arg</code>. Not secret: they land in the
             image history; use runtime env for secrets.
           </span>
         </div>

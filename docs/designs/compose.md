@@ -1,6 +1,6 @@
 # Docker Compose stacks
 
-Status: **shipped** — all six phases below are built. Owner: platform.
+Status: **shipped**: all six phases below are built. Owner: platform.
 Last verified: 2026-07-26.
 
 Evidence, phase by phase: `resource_type` carries `compose` and `compose_resource` exists
@@ -19,7 +19,7 @@ exposure surface on the stack panel.
 
 Read the sections below as design background.
 
-Deploy a user-supplied `compose.yml` as a first-class resource — a **stack** of
+Deploy a user-supplied `compose.yml` as a first-class resource, a **stack** of
 N services managed as one unit. Chosen over "explode into N independent service
 resources" because a compose file is an atomic mini-application (shared network,
 `depends_on`, volumes) and users expect one deploy/stop/remove action.
@@ -28,17 +28,17 @@ resources" because a compose file is an atomic mini-application (shared network,
 
 The platform is **already** a stack engine:
 
-- **Internal model** — `packages/api/src/stack/schema.ts` (`StackFile`/`StackService`)
+- **Internal model**: `packages/api/src/stack/schema.ts` (`StackFile`/`StackService`)
   is a compose-compatible Zod model (image, command, env, ports, volumes,
   healthcheck, deploy, depends_on). We parse *into* this, not a new shape.
-- **YAML** — `Bun.YAML.parse`/`stringify` is already used (`render/to-compose.ts`).
+- **YAML**: `Bun.YAML.parse`/`stringify` is already used (`render/to-compose.ts`).
   No new dependency; parsing happens **server-side** (web just ships raw text).
-- **Deploy primitive** — `swarm/service.ts#provisionSwarmService` + `ensureProjectNetwork`
+- **Deploy primitive**: `swarm/service.ts#provisionSwarmService` + `ensureProjectNetwork`
   already deploy ONE service (env/ports/mounts/healthcheck) on a per-project
   overlay network with DNS-by-service-name. A compose stack = call this **per
   compose service**, all on the same project overlay net, tagged with one stack
   namespace label so we can list/remove them as a unit.
-- **Builder** — `apps/builder` already builds git/Dockerfile/railpack → image →
+- **Builder**: `apps/builder` already builds git/Dockerfile/railpack → image →
   registry. A compose service with `build:` reuses that per service.
 
 So "native stack deploy" is **not** `docker stack deploy -c` (CLI, manager-only,
@@ -50,7 +50,7 @@ list/remove services by that label.
 
 New resource `type: 'compose'` (alongside `service`/`database`). One compose
 resource = one stack = one `deployment` per deploy (reuses the deployment table).
-Sub-services are **not** separate `resource` rows — they're swarm services owned
+Sub-services are **not** separate `resource` rows. They're swarm services owned
 by the compose resource, surfaced in the graph as a group node that expands.
 
 New `compose_resource` table (parallel to `service_resource`):
@@ -63,8 +63,8 @@ New `compose_resource` table (parallel to `service_resource`):
 | composePath | text, nullable | git source: path to compose file (default `./compose.yml`) |
 | gitRepoUrl/gitRef/sourceSubdir | text | git source |
 | stackName | text unique | swarm namespace (`<projectSlug>-<resourceSlug>`) |
-| services | jsonb | **derived** parse summary for UI (name, image, hasBuild, ports) — refreshed on save/deploy, never authoritative |
-| exposed | jsonb | wizard/manifest SEED of which `service:port` start out public — applied once, the first time each service is created (`reconcileStackServices`), via the same `exposeService` primitive a standalone service's Settings toggle calls. Not read again after that: each child `service_resource`'s own `publicEnabled`/`publicDomain` is the single source of truth from then on (od-80d) — there is no stack-level "edit exposures" write path. |
+| services | jsonb | **derived** parse summary for UI (name, image, hasBuild, ports). Refreshed on save/deploy, never authoritative |
+| exposed | jsonb | wizard/manifest SEED of which `service:port` start out public. Applied once, the first time each service is created (`reconcileStackServices`), via the same `exposeService` primitive a standalone service's Settings toggle calls. Not read again after that: each child `service_resource`'s own `publicEnabled`/`publicDomain` is the single source of truth from then on (od-80d). There is no stack-level "edit exposures" write path. |
 | forceUpdateCounter | int | force swarm task diff |
 
 `${VAR}` interpolation: compose `${FOO}` refs resolve against the project/env
@@ -73,33 +73,33 @@ surfaced as "promote to project variable" in the UI (Phase 5).
 
 ## Phases
 
-1. **Foundation (this PR)** — `resource_type` enum `compose`; `compose_resource`
+1. **Foundation (this PR)**: `resource_type` enum `compose`; `compose_resource`
    table + relations; id prefix; manifest `compose` source variant. Needs `db:push`.
-2. **Parse + normalize** — `stack/compose/parse.ts`: `Bun.YAML.parse` → validate →
+2. **Parse + normalize**: `stack/compose/parse.ts`: `Bun.YAML.parse` → validate →
    normalize each service into `StackService`-ish + classify `image:` vs `build:`.
    Pure, unit-tested. Reused by builder + deploy + UI preview.
-3. **Builder** — `composeBuild()` in `apps/builder`: for each `build:` service run
+3. **Builder**: `composeBuild()` in `apps/builder`: for each `build:` service run
    the existing dockerfile/railpack path → push → rewrite to the built image tag;
    `image:` services pass through. Replaces the railpack-fallback stub in
    `pipeline.ts:176`. Output = resolved compose (all `image:`).
-4. **Deploy + lifecycle** — `swarm/compose.ts`: resolved compose → per-service
+4. **Deploy + lifecycle**: `swarm/compose.ts`: resolved compose → per-service
    `SwarmServiceSpec` → `provisionSwarmService` on the project overlay net, labelled
    `otterdeploy.stack=<resourceId>`. Redeploy = reconcile the label set (create new,
    update changed, remove gone). Stop/remove = remove all by label. Runtime status =
    aggregate of the N services' tasks.
-5. **Frontend** — wizard compose step (paste/upload → server-parse preview of
+5. **Frontend**: wizard compose step (paste/upload → server-parse preview of
    detected services) ; `${VAR}` promotion; expose-which-service mapping; graph
    group node; remove `comingSoon`.
-6. **Networking/domains** — exposed `service:port` → Caddy route, minted by
+6. **Networking/domains**: exposed `service:port` → Caddy route, minted by
    seeding the CHILD service's own `publicEnabled`/`publicDomain` (reuses the
    per-service `proxy_route` path standalone services already use) the first
    time it's created. Public exposure afterwards is owned exclusively by that
-   child's own Settings tab — the stack panel only shows a read-only summary
+   child's own Settings tab. The stack panel only shows a read-only summary
    with a "Manage" link into it (od-80d).
 
 ## Deferred / non-goals (v1)
 
-- Compose `secrets`/`configs` top-level (swarm secrets) — Phase 6+.
-- `extends`, multiple compose files / overrides, `profiles` — later.
+- Compose `secrets`/`configs` top-level (swarm secrets): Phase 6+.
+- `extends`, multiple compose files / overrides, `profiles`: later.
 - `depends_on` strict ordering beyond best-effort (swarm has no native wait).
-- Bind mounts to host paths (security) — volumes only.
+- Bind mounts to host paths (security): volumes only.

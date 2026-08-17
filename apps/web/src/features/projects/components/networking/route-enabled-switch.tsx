@@ -8,7 +8,6 @@
  */
 
 import { zId } from "@otterdeploy/shared/id";
-
 import { toast } from "sonner";
 
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";

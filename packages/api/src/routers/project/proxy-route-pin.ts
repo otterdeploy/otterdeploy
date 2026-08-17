@@ -29,10 +29,10 @@ export async function getRouteAccessPin(
 }
 
 /** Set / rotate / clear the route's access PIN. Stores only the argon2 hash.
- *  No reconcile — the Caddyfile gate is the same forward_auth either way; the
+ *  No reconcile: the Caddyfile gate is the same forward_auth either way; the
  *  wall and the authz endpoint read the hash live. Rotating or clearing also
  *  revokes every outstanding pin cookie (they're bound to a fingerprint of
- *  the hash they were minted against — see authz/pin.ts). */
+ *  the hash they were minted against. See authz/pin.ts). */
 export async function setRouteAccessPin(
   input: OrgRef & { routeId: ProxyRouteId; pin: string | null },
 ): Promise<Result<{ enabled: boolean }, ProxyRouteNotFoundError>> {

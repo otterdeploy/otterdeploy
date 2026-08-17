@@ -17,7 +17,7 @@ describe("nodePushScript", () => {
   test("validates before the live file is replaced", () => {
     // The whole point of the module. If the swap ever precedes validation, a
     // rejected config sits on disk and breaks the edge on next container
-    // restart — hours after the change that caused it.
+    // restart: hours after the change that caused it.
     const validateAt = script.indexOf("caddy validate");
     const swapAt = script.indexOf(`mv ${NODE_EDGE_DIR}/Caddyfile.next`);
     expect(validateAt).toBeGreaterThan(-1);

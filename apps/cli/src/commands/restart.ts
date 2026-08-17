@@ -39,7 +39,7 @@ export const restartCommand = defineCommand({
     json: { type: "boolean", description: "Output as JSON" },
   },
   async run({ args }) {
-    // No kind filter — resolve first, then dispatch on the resource type, the
+    // No kind filter: resolve first, then dispatch on the resource type, the
     // same shape `redeploy` uses. A database has a perfectly good restart
     // endpoint, and filtering to "service" here made it unreachable from the
     // CLI entirely even though the dashboard could do it.

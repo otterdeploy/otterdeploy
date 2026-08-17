@@ -1,4 +1,4 @@
-/** The backups runs table — header, rows, and a footer summary. */
+/** The backups runs table, header, rows, and a footer summary. */
 import { Folder01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -23,7 +23,7 @@ export function BackupsTable({
   return (
     <div className="mb-8 overflow-hidden rounded-md border bg-card">
       {/* The column header only means something next to the column layout it
-          labels — below `md` the rows stack and each value carries its own
+          labels: below `md` the rows stack and each value carries its own
           shape, so the header goes rather than clipping nine titles into a
           390px strip. */}
       <div

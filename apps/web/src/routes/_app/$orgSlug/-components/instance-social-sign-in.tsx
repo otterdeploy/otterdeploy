@@ -1,5 +1,5 @@
 /**
- * Social sign-in card — GitHub / Google / GitLab OAuth credentials for the
+ * Social sign-in card: GitHub / Google / GitLab OAuth credentials for the
  * sign-in page. Saving hot-reloads the auth instance, so a provider goes live
  * on the next request with no restart and no SPA rebuild.
  *
@@ -41,7 +41,7 @@ export function SocialSignInCard({ organizationId }: { organizationId: Organizat
     <SettingsSection
       icon={Login03Icon}
       title="Social sign-in"
-      description="OAuth providers offered on the sign-in page. Changes apply immediately — no restart. Register the callback URL shown under each provider with the OAuth app."
+      description="OAuth providers offered on the sign-in page. Changes apply immediately, with no restart. Register the callback URL shown under each provider with the OAuth app."
     >
       {PROVIDERS.map((provider) => (
         <ProviderRow
@@ -79,11 +79,11 @@ function providerStatus(input: {
   if (input.live) return "Offered on the sign-in page.";
   if (!input.configured) return "Not configured. Add a client ID and secret to offer it.";
   if (!input.enabled) return "Configured but switched off.";
-  return "Configured but not currently registered — check the server logs for a credential that failed to load.";
+  return "Configured but not currently registered. Check the server logs for a credential that failed to load.";
 }
 
-/** What a provider looks like before the server has said anything about it —
- *  same shape as a stored one so the view below has a single code path. */
+/** What a provider looks like before the server has said anything about it.
+ *  Same shape as a stored one so the view below has a single code path. */
 const UNCONFIGURED: Omit<ProviderState, "id"> = {
   enabled: null,
   clientId: null,
@@ -154,7 +154,7 @@ function ProviderRow({
       await queryClient.invalidateQueries({
         queryKey: orpc.organization.listSocialProviders.queryKey({ input: { organizationId } }),
       });
-      // Clear the secret field on success — it's write-only, so keeping the
+      // Clear the secret field on success: it's write-only, so keeping the
       // typed value around would imply it can be read back.
       setClientSecret("");
       setClientId(null);

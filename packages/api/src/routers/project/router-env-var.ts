@@ -13,7 +13,7 @@ import {
  * The env-var key set before a write, for the audit diff.
  *
  * Only the NAMES are kept: `recordSecretMapChanges` is handed a key→marker map,
- * so no value — plaintext, decrypted or masked — is ever in a position to reach
+ * so no value (plaintext, decrypted or masked) is ever in a position to reach
  * the audit row. An unreadable project yields an empty set, which degrades the
  * diff rather than failing the write the caller is entitled to.
  */
@@ -71,8 +71,8 @@ export const envVarRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
       }
-      // A key that already existed reads as `replace` (its value was rewritten
-      // — the rotation an auditor cares about) and a new one as `add`. The
+      // A key that already existed reads as `replace` (its value was rewritten,
+      // the rotation an auditor cares about) and a new one as `add`. The
       // marker differs from "set" precisely so an existing key produces a
       // `replace` op rather than being diffed away as unchanged.
       recordSecretMapChanges(context, {
@@ -136,7 +136,7 @@ export const envVarRouter = {
       }
       // Every surviving key is marked `written`, so the patch shows which keys
       // this replace added, dropped, and rewrote. It cannot distinguish "rewrote
-      // to the same value" from a real rotation — that would need the old and
+      // to the same value" from a real rotation: that would need the old and
       // new values side by side, and neither belongs in the audit row.
       const after: Record<string, string> = {};
       for (const v of input.vars) after[v.key] = "written";

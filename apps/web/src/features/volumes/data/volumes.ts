@@ -1,5 +1,5 @@
 /**
- * Volumes data access — one polled list query plus one-shot actions that
+ * Volumes data access: one polled list query plus one-shot actions that
  * refetch it. The inventory is daemon-level and cheap to re-read, so actions
  * invalidate rather than patch a cache.
  */

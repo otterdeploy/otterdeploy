@@ -138,9 +138,7 @@ function ExtraNetworksForm({
           "this service is on no network", but with no remove affordance. */}
       <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
         <span className="font-mono text-[12.5px]">{service.runtime.networkName}</span>
-        <span className="text-[11px] text-muted-foreground">
-          Project network — always attached
-        </span>
+        <span className="text-[11px] text-muted-foreground">Project network — always attached</span>
       </div>
 
       {staged.map((name) => (

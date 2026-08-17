@@ -4,7 +4,7 @@ import { cn } from "@/shared/lib/utils";
 
 /**
  * Standard shell for org-scoped route pages. One gutter, one vertical rhythm,
- * two width variants — so every page stops picking its own p-4/p-5/p-6 and
+ * two width variants, so every page stops picking its own p-4/p-5/p-6 and
  * its own max-width.
  *
  *   - `width="full"`   (default) fills the content area. Use for tables,

@@ -12,6 +12,25 @@ import {
   resolveEgressAddresses,
 } from "../egress-policy";
 
+/**
+ * bun:test types `.rejects`' matchers as `void` even though they return a
+ * promise at runtime, so awaiting `expect(p).rejects.toThrow(...)` trips
+ * `await-thenable`. Await the rejection here and hand `toThrow` a synchronous
+ * re-thrower instead: identical matcher semantics (substring / RegExp / class),
+ * and a promise that unexpectedly resolves yields a non-throwing function so
+ * `toThrow(...)` fails with its normal "didn't throw" message.
+ */
+async function rejectionOf(promise: Promise<unknown>): Promise<() => void> {
+  try {
+    await promise;
+  } catch (err) {
+    return () => {
+      throw err;
+    };
+  }
+  return () => undefined;
+}
+
 describe("isForbiddenEgressAddress", () => {
   test.each([
     // loopback, in every notation a tenant could type or a DNS answer could carry
@@ -52,7 +71,7 @@ describe("isForbiddenEgressAddress", () => {
     "ff02::1",
     // "127.1" / "0x7f.1" / "2130706433" aren't valid `net.isIP` literals on
     // their own (that encoding is a URL-host-parser normalization, exercised
-    // in the assertAllowedEgressUrl tests below) — here they hit the
+    // in the assertAllowedEgressUrl tests below): here they hit the
     // fail-closed "not a recognized IP literal" branch, which is exactly the
     // safe outcome for an unrecognized address form.
   ])("denies %s", (address) => {
@@ -83,7 +102,7 @@ describe("isForbiddenEgressAddress", () => {
     expect(isForbiddenEgressAddress("192.168.1.99", { allowAddresses: ["192.168.1.0/24"] })).toBe(
       false,
     );
-    // A CIDR carve-out is scoped — a sibling address outside it stays denied.
+    // A CIDR carve-out is scoped. A sibling address outside it stays denied.
     expect(isForbiddenEgressAddress("192.168.2.1", { allowAddresses: ["192.168.1.0/24"] })).toBe(
       true,
     );
@@ -160,30 +179,30 @@ describe("resolveEgressAddresses", () => {
 
   test("resolves a DNS name to a private address and rejects it", async () => {
     const url = assertAllowedEgressUrl("https://private.internal/");
-    await expect(resolveEgressAddresses(url, {}, resolveHost)).rejects.toThrow("non-public");
+    expect(await rejectionOf(resolveEgressAddresses(url, {}, resolveHost))).toThrow("non-public");
   });
 
   test("rejects a DNS name resolving to the cloud metadata address", async () => {
     const url = assertAllowedEgressUrl("https://metadata.internal/");
-    await expect(resolveEgressAddresses(url, {}, resolveHost)).rejects.toThrow("non-public");
+    expect(await rejectionOf(resolveEgressAddresses(url, {}, resolveHost))).toThrow("non-public");
     expect(forbidden.has("metadata.internal")).toBe(true);
   });
 
   test("rejects a mixed public/private DNS answer (rebinding setup) before any address is used", async () => {
     const url = assertAllowedEgressUrl("https://rebind.example/");
-    await expect(resolveEgressAddresses(url, {}, resolveHost)).rejects.toThrow("non-public");
+    expect(await rejectionOf(resolveEgressAddresses(url, {}, resolveHost))).toThrow("non-public");
   });
 
   test("allows a hostname that resolves only to public addresses", async () => {
     const url = assertAllowedEgressUrl("https://public.example/");
-    await expect(resolveEgressAddresses(url, {}, resolveHost)).resolves.toEqual([
+    expect(await resolveEgressAddresses(url, {}, resolveHost)).toEqual([
       { address: "93.184.216.34", family: 4 },
     ]);
   });
 
   test("rejects a hostname with no DNS answers", async () => {
     const url = assertAllowedEgressUrl("https://empty.example/");
-    await expect(resolveEgressAddresses(url, {}, resolveHost)).rejects.toThrow("no addresses");
+    expect(await rejectionOf(resolveEgressAddresses(url, {}, resolveHost))).toThrow("no addresses");
   });
 });
 
@@ -200,14 +219,16 @@ describe("egressFetch", () => {
       body: Buffer.alloc(0),
     });
 
-    await expect(
-      egressFetch("http://public.example/hook", {}, { allowHttp: true, resolveHost, request }),
-    ).rejects.toThrow("non-public");
+    expect(
+      await rejectionOf(
+        egressFetch("http://public.example/hook", {}, { allowHttp: true, resolveHost, request }),
+      ),
+    ).toThrow("non-public");
     // The first (and only) socket dial used the DNS-resolved, policy-checked
-    // address — never the raw hostname — proving the connection is pinned.
+    // address (never the raw hostname) proving the connection is pinned.
     expect(request).toHaveBeenCalledTimes(1);
     expect(request.mock.calls[0]?.[1]).toEqual(publicAddress);
-    // The redirect target was never dialed — it was rejected before a
+    // The redirect target was never dialed. It was rejected before a
     // second `request()` call, i.e. before a second socket would open.
   });
 
@@ -234,35 +255,39 @@ describe("egressFetch", () => {
 
   test("rejects a target whose hostname is on the control-plane deny list without any DNS lookup", async () => {
     const resolveHost = mock(() => Promise.resolve([publicAddress]));
-    await expect(
-      egressFetch(
-        "https://deploy.example/hook",
-        {},
-        { denyHosts: ["deploy.example"], resolveHost },
+    expect(
+      await rejectionOf(
+        egressFetch(
+          "https://deploy.example/hook",
+          {},
+          { denyHosts: ["deploy.example"], resolveHost },
+        ),
       ),
-    ).rejects.toThrow("control plane");
+    ).toThrow("control plane");
     expect(resolveHost).not.toHaveBeenCalled();
   });
 
   test("bounds DNS resolution by the total request deadline", async () => {
     const resolveHost = mock(() => new Promise<LookupAddress[]>(() => undefined));
-    await expect(
-      egressFetch("https://slow.example/hook", {}, { timeoutMs: 10, resolveHost }),
-    ).rejects.toThrow("timed out");
+    expect(
+      await rejectionOf(
+        egressFetch("https://slow.example/hook", {}, { timeoutMs: 10, resolveHost }),
+      ),
+    ).toThrow("timed out");
   });
 
   test("denies a plain-http target unless allowHttp is set", async () => {
     const resolveHost = mock(() => Promise.resolve([publicAddress]));
-    await expect(egressFetch("http://public.example/hook", {}, { resolveHost })).rejects.toThrow(
-      "Only HTTPS",
-    );
+    expect(
+      await rejectionOf(egressFetch("http://public.example/hook", {}, { resolveHost })),
+    ).toThrow("Only HTTPS");
     expect(resolveHost).not.toHaveBeenCalled();
   });
 });
 
 /**
  * The tests above all inject a fake `request`, so none of them touch
- * `requestPinnedAddress` — the function that actually opens the socket. That
+ * `requestPinnedAddress`: the function that actually opens the socket. That
  * gap let a release ship in which EVERY outbound call failed on Bun: the
  * request's `close` fires before the response's `end` there (node emits it
  * after), so an ungated close-as-failure fallback rejected successful 200s and
@@ -370,9 +395,11 @@ describe("egressFetch over a real socket", () => {
       res.end("x".repeat(400));
     });
     try {
-      await expect(
-        egressFetch(`${url}/big`, {}, { ...loopbackCarveOut, timeoutMs: 5000, maxBytes: 128 }),
-      ).rejects.toThrow("exceeds 128 bytes");
+      expect(
+        await rejectionOf(
+          egressFetch(`${url}/big`, {}, { ...loopbackCarveOut, timeoutMs: 5000, maxBytes: 128 }),
+        ),
+      ).toThrow("exceeds 128 bytes");
     } finally {
       await stop();
     }
@@ -385,9 +412,9 @@ describe("egressFetch over a real socket", () => {
       // A socket reset surfaces as the runtime's own connection Error (not an
       // EgressPolicyError); what the close fallback guarantees is that the call
       // settles at all, well inside the budget, instead of wedging the caller.
-      await expect(
-        egressFetch(`${url}/dead`, {}, { ...loopbackCarveOut, timeoutMs: 5000 }),
-      ).rejects.toThrow(Error);
+      expect(
+        await rejectionOf(egressFetch(`${url}/dead`, {}, { ...loopbackCarveOut, timeoutMs: 5000 })),
+      ).toThrow(Error);
       expect(Date.now() - started).toBeLessThan(5000);
     } finally {
       await stop();
@@ -399,9 +426,9 @@ describe("egressFetch over a real socket", () => {
       /* deliberately never respond */
     });
     try {
-      await expect(
-        egressFetch(`${url}/hang`, {}, { ...loopbackCarveOut, timeoutMs: 300 }),
-      ).rejects.toThrow("timed out");
+      expect(
+        await rejectionOf(egressFetch(`${url}/hang`, {}, { ...loopbackCarveOut, timeoutMs: 300 })),
+      ).toThrow("timed out");
     } finally {
       await stop();
     }

@@ -2,7 +2,7 @@
  * Confirm + run a bulk volume removal.
  *
  * Every selected volume is attempted, including ones the client currently
- * believes are in use — the daemon is the authority, and a ref-count read a few
+ * believes are in use. The daemon is the authority, and a ref-count read a few
  * seconds ago is not. Outcomes are reported per volume afterwards rather than
  * pre-emptively blocking the selection.
  */
@@ -64,7 +64,7 @@ export function BulkRemoveVolumesDialog({
       try {
         await removeVolume(v.name);
       } catch (err) {
-        // Already gone — a prune or another operator raced us. The caller's
+        // Already gone: a prune or another operator raced us. The caller's
         // intent (this volume should not exist) is satisfied, so it counts as
         // removed rather than as a failure the operator has to reason about.
         if (err instanceof ORPCError && err.code === "NOT_FOUND") return;
@@ -80,7 +80,7 @@ export function BulkRemoveVolumesDialog({
     else toast.error(message);
 
     if (result.failed.length === 0) {
-      // Clean run — nothing left to explain, so close and drop the selection.
+      // Clean run. Nothing left to explain, so close and drop the selection.
       selection.clear();
       onOpenChange(false);
       return;
@@ -118,14 +118,14 @@ export function BulkRemoveVolumesDialog({
         </AlertDialogHeader>
 
         {/* Named list so the operator can see exactly what they're about to
-            destroy — a bare count is not enough for an irreversible action. */}
+            destroy: a bare count is not enough for an irreversible action. */}
         <ul className="max-h-48 overflow-y-auto rounded-md border bg-muted/30 p-2">
           {(outcome ? outcome.failed.map((f) => f.row) : rows).map((v) => {
             const reason = outcome?.failed.find((f) => f.row.name === v.name)?.reason;
             return (
               <li key={v.name} className="py-0.5 text-[12px] [overflow-wrap:anywhere]">
                 <span className="font-mono">{v.name}</span>
-                {reason ? <span className="text-muted-foreground"> — {reason}</span> : null}
+                {reason ? <span className="text-muted-foreground"> ({reason})</span> : null}
               </li>
             );
           })}

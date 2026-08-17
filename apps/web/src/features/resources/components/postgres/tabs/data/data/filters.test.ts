@@ -17,7 +17,7 @@ const filter = (p: Partial<Filter>): Filter => ({
   ...p,
 });
 
-describe("buildWhere — existing ops", () => {
+describe("buildWhere: existing ops", () => {
   it("compiles equals with quoting and escaping", () => {
     expect(buildWhere([filter({ column: "name", op: "eq", value: "o'tter" })])).toBe(
       ` WHERE "name" = 'o''tter'`,
@@ -40,7 +40,7 @@ describe("buildWhere — existing ops", () => {
   });
 });
 
-describe("buildWhere — numeric ops", () => {
+describe("buildWhere: numeric ops", () => {
   it("compiles >, <, >=, <= with unquoted numeric literals", () => {
     expect(buildWhere([filter({ column: "n", op: "gt", value: "10" })])).toBe(` WHERE "n" > 10`);
     expect(buildWhere([filter({ column: "n", op: "lt", value: "-1.5" })])).toBe(

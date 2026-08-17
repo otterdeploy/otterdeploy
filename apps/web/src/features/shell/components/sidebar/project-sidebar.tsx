@@ -34,11 +34,11 @@ import { orpc } from "@/shared/server/orpc";
 import { NavUser, type User } from "../nav/nav-user";
 
 /**
- * Operational sidebar — the org shell's only navigation column. Groups and
+ * Operational sidebar: the org shell's only navigation column. Groups and
  * items derive from the typed nav manifest (`features/shell/nav-manifest.ts`),
  * the same source the command palette reads, so the two can't drift.
  * A pinned Settings entry at the bottom of the content enters the settings
- * zone (`/$orgSlug/settings/*`), which renders its own chrome — this sidebar
+ * zone (`/$orgSlug/settings/*`), which renders its own chrome. This sidebar
  * is never mounted there.
  */
 export function ProjectSidebar({
@@ -53,16 +53,16 @@ export function ProjectSidebar({
   const { t } = useTranslation();
   // Org-scoped links use `useParams({ strict: false })` so they resolve
   // their `{ orgSlug }` regardless of which route is currently matched.
-  const params = useParams({ strict: false }) as { orgSlug?: string };
+  const params: { orgSlug?: string } = useParams({ strict: false });
   // Server-owned installation authority, resolved once in the `_app`
   // beforeLoad. Install-admin-only destinations are OMITTED for everyone else
-  // rather than rendered into a 403 — see the manifest's `installAdminOnly`.
+  // rather than rendered into a 403. See the manifest's `installAdminOnly`.
   const { isInstallAdmin } = useRouteContext({ from: "/_app" });
   const navGroups = visibleNav(OPERATIONAL_NAV, isInstallAdmin);
 
   // Live counts shown as menu badges next to Projects / Servers. Both
   // collections are already loaded by the outer `_app` layout's loader,
-  // so this hook is a cheap subscription — no extra fetch.
+  // so this hook is a cheap subscription, no extra fetch.
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
   const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }), []);
   const counts: Record<string, number> = {
@@ -72,7 +72,7 @@ export function ProjectSidebar({
 
   // Running platform version (the compose image tag the server booted with).
   // `system.version` is install-admin-only, so it isn't even asked for by
-  // anyone else — otherwise every page in the shell fired a request that could
+  // anyone else: otherwise every page in the shell fired a request that could
   // only 403. `retry: false` covers the admin case where it still fails; the
   // footer simply omits the version instead of showing a fake one.
   const version = useQuery({
@@ -98,7 +98,7 @@ export function ProjectSidebar({
           // Collapsed to the icon rail, the label is clipped and each item is
           // just a glyph. SidebarMenuButton only renders this tooltip while
           // `state === "collapsed"` (and never on mobile), so the expanded
-          // sidebar is unaffected — it exists purely to name the icons.
+          // sidebar is unaffected. It exists purely to name the icons.
           tooltip={label}
           render={
             params.orgSlug ? (
@@ -134,7 +134,7 @@ export function ProjectSidebar({
         ))}
 
         {/* Pinned at the bottom of the CONTENT (above the footer): the single
-            entry into the settings zone — account, workspace and instance
+            entry into the settings zone: account, workspace and instance
             configuration all live behind it. */}
         <SidebarGroup className="mt-auto">
           <SidebarMenu>{renderItem(SETTINGS_ENTRY)}</SidebarMenu>
@@ -146,7 +146,7 @@ export function ProjectSidebar({
 
         <NavUser user={user} />
 
-        {/* Instance summary — real server count + running platform version.
+        {/* Instance summary: real server count + running platform version.
             Pinned below the user, and hidden when the rail is collapsed to icon
             width so its text can't overflow the 3rem column. */}
         <div className="flex items-center gap-2 px-2 pb-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
@@ -157,7 +157,7 @@ export function ProjectSidebar({
         </div>
       </SidebarFooter>
 
-      {/* The hairline strip along the sidebar's outer edge — click anywhere on
+      {/* The hairline strip along the sidebar's outer edge, click anywhere on
           it to expand/collapse. Without it the only desktop affordance was the
           Cmd/Ctrl+B shortcut, since the header's toggle is `md:hidden`. */}
       <SidebarRail />

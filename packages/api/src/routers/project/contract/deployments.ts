@@ -42,7 +42,7 @@ export const deploymentSchema = z.object({
     "rollback",
   ]),
   // `crashed`/`starting`/`paused` are derived-only (computed live from task
-  // states / the service's pause marker) — never stored DB values; see
+  // states / the service's pause marker), never stored DB values; see
   // DerivedDeploymentStatus.
   status: z.enum([
     "pending",
@@ -65,7 +65,7 @@ export const deploymentSchema = z.object({
   // restartMaxAttempts null = unlimited.
   restartCount: z.number().int().nullable(),
   restartMaxAttempts: z.number().int().nullable(),
-  // Git provenance — populated when the deploy was built from a repo
+  // Git provenance, populated when the deploy was built from a repo
   // (reason="git-push" or a git-sourced service). Null for image-only /
   // database deployments. Surfaced in the "Deployed from" block of the
   // deployment Details tab.
@@ -73,9 +73,9 @@ export const deploymentSchema = z.object({
   gitRef: z.string().nullable(),
   gitCommitMessage: z.string().nullable(),
   gitCommitAuthor: z.string().nullable(),
-  /** Avatar URL of the GitHub user who pushed — the card shows their face. */
+  /** Avatar URL of the GitHub user who pushed. The card shows their face. */
   gitCommitAuthorAvatar: z.string().nullable(),
-  // Content hash of an uploaded source tarball (source:"upload") — the upload
+  // Content hash of an uploaded source tarball (source:"upload"): the upload
   // analog of gitSha. Null for git / image-only deploys.
   sourceSha: z.string().nullable(),
   completedAt: z.string().nullable(),
@@ -163,7 +163,7 @@ export const deploymentsContractSlice = {
 
   // Streaming logs from the BUILD pipeline (git clone → build → push) the
   // builder publishes via Redis + persists in `deployment_log`. Powers the
-  // Build Logs tab. Keyed by deploymentId alone — org ownership is derived
+  // Build Logs tab. Keyed by deploymentId alone. Org ownership is derived
   // from the deployment row. Supports `lastEventId` resume via the line seq.
   buildLogs: {
     stream: oc

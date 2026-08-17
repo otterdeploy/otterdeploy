@@ -1,6 +1,6 @@
 /**
  * Materialize the diff's `CurrentState` view from DB rows for a project.
- * Adapter only — pure diff logic lives in stack/manifest/diff.ts.
+ * Adapter only: pure diff logic lives in stack/manifest/diff.ts.
  */
 
 import type { ProjectId } from "@otterdeploy/shared/id";
@@ -29,7 +29,7 @@ interface ServiceStateRow {
   resource: typeof resource.$inferSelect;
   service: typeof serviceResource.$inferSelect;
   // The bound repo's fullName (owner/repo), left-joined via serviceResource
-  // .gitRepoId — the portable form the manifest diff compares against. Null for
+  // .gitRepoId: the portable form the manifest diff compares against. Null for
   // image services or an unbound git service.
   repoFullName: string | null;
 }
@@ -72,12 +72,12 @@ function toCurrentService(
  *
  * Scoping is a safety property, not a nicety: an apply resolved for staging
  * that diffed against production's rows would see production's resources as
- * "current" for the staging manifest, and plan updates — or deletes — against
+ * "current" for the staging manifest, and plan updates (or deletes) against
  * them.
  *
  * The scope is REQUIRED rather than an optional environment id. This used to
  * take `environmentId?` and fall back to `IS NULL`, so a caller that forgot to
- * pass one still got a plausible-looking diff — against the wrong rows. There
+ * pass one still got a plausible-looking diff. Against the wrong rows. There
  * is no safe default here, so there isn't one.
  */
 import type { EnvironmentScopeInput } from "./queries/resource";
@@ -95,11 +95,11 @@ export async function loadCurrentState(
       .from(resource)
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
       // Resolve the bound repo's fullName for the diff's portable `repo` compare.
-      // Left join — an image service or unbound git service has no gitRepoId.
+      // Left join. An image service or unbound git service has no gitRepoId.
       .leftJoin(gitRepo, eq(gitRepo.id, serviceResource.gitRepoId))
       // Compose member services are real service_resource rows owned by a
       // stack (stackId set). They reconcile through the stack, not the
-      // top-level manifest, so exclude them here — otherwise every deployed
+      // top-level manifest, so exclude them here: otherwise every deployed
       // stack's children would read back as unmanaged "delete me" services.
       .where(
         and(

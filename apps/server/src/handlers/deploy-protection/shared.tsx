@@ -22,7 +22,7 @@ export const SHARE_COOKIE = "__otter_share";
 export const PIN_COOKIE = "__otter_pin";
 export const BYPASS_HEADER = "x-otter-bypass";
 
-export const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1h — matches the session token TTL
+export const SESSION_COOKIE_MAX_AGE = 60 * 60; // 1h: matches the session token TTL
 export const GUEST_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // bounded; real expiry is the token's own exp
 export const SHARE_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // bounded; real expiry is the token's own exp
 // A day per correct PIN entry; rotating/removing the PIN revokes sooner (the
@@ -30,8 +30,8 @@ export const SHARE_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // bounded; real expiry is
 export const PIN_COOKIE_MAX_AGE = 24 * 60 * 60;
 
 /** Client IP for rate limiting: the X-Forwarded-For first hop, but ONLY when
- *  the immediate peer is a configured trusted proxy (env.TRUSTED_PROXIES) —
- *  otherwise the header is ignored and the raw connection address is used,
+ *  the immediate peer is a configured trusted proxy (env.TRUSTED_PROXIES).
+ *  Otherwise the header is ignored and the raw connection address is used,
  *  so a direct caller can't spoof its way past the PIN rate limit. "unknown"
  *  when neither is available so direct hits still share one limiter bucket
  *  rather than bypassing it. See packages/api/src/security/trusted-proxy.ts. */
@@ -51,7 +51,7 @@ export const webBase = (): Promise<string> =>
  *  into `/.well-known/otterdeploy/authorize`.
  *
  *  Not cosmetic. The master session cookie belongs to the origin the operator
- *  signed in on — the control-plane domain once one is verified. Building this
+ *  signed in on: the control-plane domain once one is verified. Building this
  *  hop from BETTER_AUTH_URL sent the browser to `http://<server-ip>:3000`,
  *  a different origin, which carries no session: the visitor arrives
  *  unauthenticated at the endpoint whose entire job is to read that session.
@@ -60,7 +60,7 @@ export const authorizeBase = (): Promise<string> =>
   resolveCanonicalWebOrigin(env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL);
 
 /** Render a branded error page for a known, browser-facing failure (bad/expired
- *  link, unknown deployment). Never leaks internals — title/detail are fixed
+ *  link, unknown deployment). Never leaks internals: title/detail are fixed
  *  copy. Used in place of the old raw `c.text("…")` returns. */
 export const errorPage = (
   c: Context,
@@ -68,7 +68,7 @@ export const errorPage = (
   title: string,
   detail: string,
   /** Host to offer as a way back. Pass it only where retrying can actually
-   *  succeed — an expired link, not a deployment that doesn't exist. */
+   *  succeed: an expired link, not a deployment that doesn't exist. */
   retryHost?: string,
 ): Response | Promise<Response> =>
   c.html(<ErrorPage status={status} title={title} detail={detail} retryHost={retryHost} />, status);
@@ -82,7 +82,12 @@ export const guard =
   async (c, next) =>
     (
       await Result.tryPromise({
-        try: async (): Promise<Response | void> => handler(c, next) as Response | void,
+        // hono types a Handler's return as `any`; the wall routes only ever
+        // produce a Response (or nothing), so narrow for real at the boundary.
+        try: async (): Promise<Response | void> => {
+          const res: unknown = await handler(c, next);
+          return res instanceof Response ? res : undefined;
+        },
         catch: (e) => e,
       })
     ).match<Response | void | Promise<Response>>({
@@ -93,7 +98,7 @@ export const guard =
       },
     });
 
-/** The 500 fallback for HTML wall routes — a branded "something went wrong". */
+/** The 500 fallback for HTML wall routes: a branded "something went wrong". */
 export const serverError = (c: Context): Response | Promise<Response> =>
   errorPage(
     c,
@@ -105,8 +110,8 @@ export const serverError = (c: Context): Response | Promise<Response> =>
 /** The protected deployment a request is trying to authenticate access to. Both
  *  wall routes that gate a deployment carry it in `?domain=` (the authorize
  *  route from its sign-in link, the forward_auth gate from Caddy). Its presence
- *  is the signal that this is a *protected-domain auth request* — as opposed to
- *  an ordinary call — which is exactly the context where a failed session lookup
+ *  is the signal that this is a *protected-domain auth request*. As opposed to
+ *  an ordinary call, which is exactly the context where a failed session lookup
  *  should send the visitor to sign in rather than surface an error. Returns null
  *  when absent (not a valid auth request). */
 export const authTargetDomain = (c: Context): string | null => c.req.query("domain") ?? null;
@@ -126,8 +131,8 @@ export function cookieOptions(maxAge: number) {
 
 /** Allow a request through the forward_auth gate, ALWAYS pinning both identity
  *  headers. Caddy's copy_headers only overwrites what we set here; emitting
- *  both on every allow path (blank when anonymous) — paired with the inbound
- *  `request_header -Remote-*` strip in the Caddyfile — guarantees a
+ *  both on every allow path (blank when anonymous). Paired with the inbound
+ *  `request_header -Remote-*` strip in the Caddyfile: guarantees a
  *  client-supplied header can never reach the backend and spoof identity. */
 export function allow(c: Context, userId: string, email: string): Response {
   c.header("Remote-User", userId);
@@ -135,13 +140,13 @@ export function allow(c: Context, userId: string, email: string): Response {
   return c.body(null, 200);
 }
 
-/** Strip a port and lowercase — the cookie must be scoped to the bare host. */
+/** Strip a port and lowercase: the cookie must be scoped to the bare host. */
 export function hostOf(header: string | undefined): string | null {
   if (!header) return null;
   return header.split(":")[0]?.toLowerCase() || null;
 }
 
-/** Only allow same-origin absolute paths — reject schemes and protocol-
+/** Only allow same-origin absolute paths. Reject schemes and protocol-
  *  relative `//evil.com` to prevent open redirects. The second-char `\\`
  *  check matters too: browsers fold `\` to `/`, so `/\evil.com` would
  *  resolve as protocol-relative `//evil.com`. */

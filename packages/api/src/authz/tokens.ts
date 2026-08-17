@@ -1,22 +1,22 @@
 /**
- * Deployment-protection token signing — the cross-domain auth handoff.
+ * Deployment-protection token signing: the cross-domain auth handoff.
  *
  * Two signed artifacts, both HMAC-SHA256 over BETTER_AUTH_SECRET (same
  * no-extra-secret-to-provision contract as git/state.ts and lib/crypto.ts):
  *
- *  1. Handoff token — minted by /authorize on the central auth authority
+ *  1. Handoff token, minted by /authorize on the central auth authority
  *     after a successful master-session + org-membership check. Rides in
  *     the redirect URL to the deployment domain's callback. Very short TTL
  *     + a nonce so URL exposure (history/referer/logs) and replay are
  *     bounded. Domain-bound so it can't be replayed to another deployment.
  *
- *  2. Session cookie (`__otter_auth`) — set host-only on the deployment
+ *  2. Session cookie (`__otter_auth`): set host-only on the deployment
  *     domain by the callback. Self-attesting, so the forward_auth endpoint
  *     validates it with a pure HMAC check (no DB hit). Longer TTL bounds
  *     revocation lag: removing a member locks them out within ≤TTL, when
  *     the next request re-runs the handoff against live membership.
  *
- * Token shape (both): base64url(JSON(payload)).hmac  — payload carries a
+ * Token shape (both): base64url(JSON(payload)).hmac: payload carries a
  * `p` (purpose) tag so a handoff token can never be used as a session
  * cookie or vice-versa. Timing-safe compare on verify; invalid/expired
  * verifies to null (never throws), matching git/state.ts.
@@ -28,11 +28,12 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
+import { isJsonObject } from "@otterdeploy/shared/json";
 
-/** Handoff token lifetime — long enough for one redirect, short enough
+/** Handoff token lifetime: long enough for one redirect, short enough
  *  that a leaked URL is near-useless. */
 const HANDOFF_TTL_SECONDS = 60;
-/** Per-domain session cookie lifetime — also the upper bound on revocation
+/** Per-domain session cookie lifetime: also the upper bound on revocation
  *  lag (next request after expiry re-checks live org membership). */
 const SESSION_TTL_SECONDS = 60 * 60;
 
@@ -63,7 +64,7 @@ interface SignedPayload {
 /**
  * A decoded token payload: the envelope fields plus the purpose-specific
  * claims. Claims are JSON by construction (they round-trip through
- * `JSON.stringify`/`JSON.parse`), so the open side is `JsonObject` — each
+ * `JSON.stringify`/`JSON.parse`), so the open side is `JsonObject`. Each
  * verify* helper runtime-narrows the fields it needs.
  */
 type TokenClaims = SignedPayload & JsonObject;
@@ -101,7 +102,7 @@ export async function signSessionCookie(claims: SessionClaims): Promise<string> 
   return sign("session", { ...claims }, SESSION_TTL_SECONDS);
 }
 
-/** Grant tokens — domain-bound, identity-free access proofs that bypass
+/** Grant tokens: domain-bound, identity-free access proofs that bypass
  *  org membership:
  *   - "share"  → a shareable link an org admin hands out; the /share
  *                endpoint exchanges it for a __otter_share cookie.
@@ -125,7 +126,7 @@ export async function verifyGrantToken(
   return (await verify(token, purpose, expectedDomain)) !== null;
 }
 
-/** Guest session cookie — issued after a successful email OTP for an invited
+/** Guest session cookie, issued after a successful email OTP for an invited
  *  external. Deployment-scoped, time-boxed to the guest's configured session
  *  length. No org account; carries only the email + domain. */
 export interface GuestClaims {
@@ -150,7 +151,7 @@ export async function verifyGuestCookie(
   return { email: payload.email, domain: expectedDomain };
 }
 
-/** Access-PIN cookie — minted after a correct PIN entry on the wall. Carries
+/** Access-PIN cookie, minted after a correct PIN entry on the wall. Carries
  *  no identity, only the domain plus `k`, a fingerprint of the pin hash that
  *  was current when it was minted. The authz gate re-derives the fingerprint
  *  from the route's live hash, so rotating/removing the PIN revokes every
@@ -219,22 +220,28 @@ async function verify(
   const expected = await hmac(body);
   if (!timingSafeEqual(sig, expected)) return null;
 
-  let payload: TokenClaims;
+  let decoded: unknown;
   try {
-    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as TokenClaims;
+    decoded = JSON.parse(new TextDecoder().decode(base64UrlDecode(body)));
   } catch {
     return null;
   }
+  // Claims are JSON by construction (see TokenClaims); a non-object body is
+  // not a token we minted.
+  if (!isJsonObject(decoded)) return null;
 
-  if (payload.p !== purpose) return null;
-  if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
+  const { p, exp } = decoded;
+  if (p !== purpose) return null;
+  if (typeof exp !== "number" || exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
-  // Domain binding — a token only validates against the domain it was
+  // Domain binding: a token only validates against the domain it was
   // minted for. Mismatch (or missing) ⇒ reject.
-  if (payload.domain !== expectedDomain) return null;
+  if (decoded.domain !== expectedDomain) return null;
 
-  return payload;
+  // `p === purpose` held above, so re-attaching the checked envelope fields
+  // yields the narrowed TokenClaims without asserting.
+  return { ...decoded, p: purpose, exp };
 }
 
 async function hmac(input: string): Promise<string> {

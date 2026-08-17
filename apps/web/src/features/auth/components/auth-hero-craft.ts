@@ -2,7 +2,7 @@
  * The hero's subject: a swept delta craft built from a halftone dot lattice,
  * climbing on a diagonal and dissolving into its own trail at the tail.
  *
- * It is deliberately a *form with a gesture*, not an abstract solid — the panel
+ * It is deliberately a *form with a gesture*, not an abstract solid. The panel
  * needs a subject that reads instantly as "ship it" from across the room, and a
  * centred object with no direction reads as decoration. Geometry only; the
  * renderer lives in `auth-hero-scene.ts`.
@@ -23,7 +23,7 @@ const FOLD_R = { x: 0.3, y: 0.42, z: -0.84 };
 const CRAFT_YAW = 0.56;
 const CRAFT_PITCH = 0.42;
 export const CRAFT_BANK = 0.1;
-/** Perspective for the craft's own projection — shallow, so it foreshortens
+/** Perspective for the craft's own projection. Shallow, so it foreshortens
  *  without the wide-angle distortion a low focal length would add. */
 export const CRAFT_FOCAL = 5;
 
@@ -67,8 +67,8 @@ function normalOf(p0: Vec, p1: Vec, p2: Vec) {
  *
  * `p0` is the keel-forward corner: density and dot size fall off along the
  * `p0 → p1` axis, so the surface is solid at the nose and thins to nothing at
- * the tail, where the trail takes over. That dissolve is the whole effect —
- * a uniformly dense triangle reads as a cut-out, not as something moving.
+ * the tail, where the trail takes over. That dissolve is the whole effect.
+ * A uniformly dense triangle reads as a cut-out, not as something moving.
  */
 function sampleTriangle(
   out: CraftDot[],
@@ -104,7 +104,7 @@ function sampleTriangle(
   }
 }
 
-/** Dense dot run along an edge — this is what gives the craft a hard silhouette
+/** Dense dot run along an edge. This is what gives the craft a hard silhouette
  *  instead of a fuzzy cloud, the same way the plate rings did on the stack. */
 function sampleEdge(
   out: CraftDot[],

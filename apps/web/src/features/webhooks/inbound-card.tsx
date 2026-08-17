@@ -25,7 +25,7 @@ import { STATUS_META, inboundUrl, type InboundEndpoint } from "./shared";
 
 function actionDescription(e: InboundEndpoint): string {
   if (e.action !== "redeploy") return "Records invocations only";
-  if (!e.resourceName) return "Redeploy — no service bound";
+  if (!e.resourceName) return "Redeploy (no service bound)";
   return `Triggers redeploy of ${e.resourceName}${e.projectSlug ? ` · ${e.projectSlug}` : ""}`;
 }
 

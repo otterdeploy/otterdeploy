@@ -1,6 +1,6 @@
 /**
  * Unit tests for the in-app inbox fan-out gate + row mapping. Pure functions
- * only — the db module is mocked out so `bun test` runs without Postgres
+ * only: the db module is mocked out so `bun test` runs without Postgres
  * (same pattern as reconcile.test.ts: dynamic import after mock.module so
  * @otterdeploy/db and its env validation never load).
  */
@@ -10,13 +10,13 @@ let shouldFanOutInApp: typeof import("../jobs/notification-inbox").shouldFanOutI
 let inboxRowsFor: typeof import("../jobs/notification-inbox").inboxRowsFor;
 
 beforeAll(async () => {
-  mock.module("@otterdeploy/db", () => ({ db: {} }));
-  // Spread the REAL schema (pure table defs — no env) instead of a two-key
+  await mock.module("@otterdeploy/db", () => ({ db: {} }));
+  // Spread the REAL schema (pure table defs, no env) instead of a two-key
   // stub: bun's mock.module registrations leak across test files in one
   // `bun test` process, and a partial schema mock breaks reconcile.test.ts'
   // static `deployment` import under bun 1.3.10.
   const realSchema = await import("@otterdeploy/db/schema");
-  mock.module("@otterdeploy/db/schema", () => ({ ...realSchema }));
+  await mock.module("@otterdeploy/db/schema", () => ({ ...realSchema }));
   ({ shouldFanOutInApp, inboxRowsFor } = await import("../jobs/notification-inbox"));
 });
 
@@ -50,7 +50,7 @@ describe("shouldFanOutInApp", () => {
 
   // od-1kc.5 regression: a fresh org with zero external channels configured
   // (the common day-one case) must still get deploy/build/backup events in
-  // its bell — in-app is a default channel, not an opt-in row in the
+  // its bell: in-app is a default channel, not an opt-in row in the
   // Slack/email/webhook subscription matrix. This used to `return
   // input.subscribedChannelCount > 0`, which made the inbox permanently
   // empty for exactly this org shape.

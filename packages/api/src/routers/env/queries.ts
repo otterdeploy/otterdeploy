@@ -64,7 +64,7 @@ export async function createEnvRecord(input: {
 }
 
 /** Resources still owned by an environment. The caller needs these BEFORE the
- *  row is deleted — afterwards there is no way to find them, because the id
+ *  row is deleted. Afterwards there is no way to find them, because the id
  *  they carry no longer resolves to anything. */
 async function listResourcesInEnvironment(
   environmentId: EnvironmentId,
@@ -85,7 +85,7 @@ async function listResourcesInEnvironment(
  * not base (its column is non-null) and its environment no longer exists, so it
  * vanishes from every list and graph while its container keeps running. The
  * delete therefore refuses unless the caller has explicitly accepted what
- * happens to them — `cascade` deletes the rows, and the caller is responsible
+ * happens to them. `cascade` deletes the rows, and the caller is responsible
  * for having torn down their runtime first.
  */
 export async function deleteEnvRecord(input: {

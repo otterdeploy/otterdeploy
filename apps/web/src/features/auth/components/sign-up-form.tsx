@@ -17,7 +17,7 @@ export function SignUpForm({
   onSwitchToSignIn,
 }: {
   bootstrap: boolean;
-  /** Provider ids live on the server right now — see /api/auth/public-config. */
+  /** Provider ids live on the server right now. See /api/auth/public-config. */
   socialProviders: string[];
   onSwitchToSignIn: () => void;
 }) {
@@ -42,10 +42,10 @@ export function SignUpForm({
       return result.data;
     },
     onSuccess: async () => {
-      // A new session exists now — anything cached under ["auth", …] describes
+      // A new session exists now. Anything cached under ["auth", …] describes
       // the pre-sign-up (or previous) session.
       await queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
-      void navigate({ to: (redirect ?? "/") as "/", replace: true });
+      void navigate({ to: redirect ?? "/", replace: true });
       toast.success(t("auth.signUp.accountCreated"));
     },
     onError: (error) => {

@@ -17,8 +17,8 @@ import { Result } from "better-result";
 import type { VaultProviderRecord } from "../../routers/vault-provider/queries";
 import type { Token, VaultToken } from "./parser";
 
-import { listVaultProvidersByOrg } from "../../routers/vault-provider/queries";
 import { VaultResolveError } from "../../routers/service/errors";
+import { listVaultProvidersByOrg } from "../../routers/vault-provider/queries";
 import { decryptForDomain } from "../crypto";
 import { getSecrets } from "../vault";
 

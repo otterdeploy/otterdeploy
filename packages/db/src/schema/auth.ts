@@ -102,7 +102,7 @@ export const account = pgTable(
 );
 
 // Device Authorization Grant (RFC 8628). One row per outstanding device-code
-// pairing — created when a CLI calls /device/code, claimed by the user from
+// pairing, created when a CLI calls /device/code, claimed by the user from
 // a browser at /device, then exchanged for an access_token via /device/token.
 // Rows expire (default 30m) and are cleaned up by better-auth.
 export const deviceCode = pgTable(
@@ -132,7 +132,7 @@ export const deviceCode = pgTable(
 
 // better-auth `twoFactor` plugin store. One row per user with 2FA configured:
 // the TOTP `secret` (encrypted at rest with BETTER_AUTH_SECRET) and the
-// single-use `backupCodes` (encrypted). The plugin owns every column — property
+// single-use `backupCodes` (encrypted). The plugin owns every column. Property
 // keys stay camelCase to match its model field names. Like `device_code`, the
 // id is minted by better-auth's `generateId`, so no `$defaultFn` here.
 export const twoFactor = pgTable(
@@ -216,7 +216,7 @@ export const organization = pgTable("organization", {
   // a service `web` in project `myproj` lands at `web-myproj.apps.<baseDomain>`
   // and a database lands at `redis-myproj.db.<baseDomain>`. Falls back to
   // PLATFORM.publicBaseDomain when null, or sslip.io for localhost dev. The
-  // verified flag gates ACME issuance — Caddy only tries Let's Encrypt for
+  // verified flag gates ACME issuance: Caddy only tries Let's Encrypt for
   // domains the operator has proven control of.
   baseDomain: text("base_domain"),
   baseDomainVerifiedAt: timestamp("base_domain_verified_at"),
@@ -278,7 +278,7 @@ export const invitation = pgTable(
 );
 
 // API keys (better-auth `apiKey` plugin, configured with
-// `references: "organization"` in packages/auth/src/index.ts — so `referenceId`
+// `references: "organization"` in packages/auth/src/index.ts, so `referenceId`
 // holds an organization id, not a user id). The plugin owns every column here;
 // property keys MUST stay camelCase to match the plugin's model field names
 // (the drizzle adapter maps field name → table property), while DB columns are
@@ -291,7 +291,7 @@ export const apikey = pgTable(
       .primaryKey()
       .$defaultFn(() => createId(ID_PREFIX.apiKey)),
     // The configuration this key belongs to (the plugin's `configId`). Plain
-    // text, set by the plugin; not a foreign key — configs live in code.
+    // text, set by the plugin; not a foreign key. Configs live in code.
     configId: text("config_id").notNull(),
     name: text("name"),
     // First few characters of the key (incl. prefix) for display in the UI.
@@ -299,7 +299,7 @@ export const apikey = pgTable(
     prefix: text("prefix"),
     // Organization id that owns the key (because `references: "organization"`).
     referenceId: text("reference_id").notNull(),
-    // Hashed key value — never the plaintext.
+    // Hashed key value, never the plaintext.
     key: text("key").notNull(),
     refillInterval: integer("refill_interval"),
     refillAmount: integer("refill_amount"),
@@ -329,15 +329,15 @@ export const apikey = pgTable(
 
 // better-auth `sso` plugin store (@better-auth/sso). One row per registered
 // identity provider. Like `device_code` and `apikey` above, the plugin owns
-// every column — property keys MUST stay camelCase to match its model field
+// every column: property keys MUST stay camelCase to match its model field
 // names (the drizzle adapter maps field name → table property) while DB columns
 // stay snake_case with the rest of the schema.
 //
 // `oidcConfig` is the plugin's own JSON blob, stored as text because that is the
-// type the plugin declares (`type: "string"`). It CONTAINS THE CLIENT SECRET —
+// type the plugin declares (`type: "string"`). It CONTAINS THE CLIENT SECRET,
 // never select this column into anything user-facing. The UI never needs to:
 // the plugin's own `/sso/providers` endpoint already projects a redacted view
-// (`clientIdLastFour`, endpoints, scopes — no secret, no full client id), which
+// (`clientIdLastFour`, endpoints, scopes, no secret, no full client id), which
 // is why the settings page reads through `authClient.sso.*` rather than a
 // hand-rolled query over this table.
 //
@@ -348,8 +348,8 @@ export const apikey = pgTable(
 export const ssoProvider = pgTable(
   "sso_provider",
   {
-    // Minted by better-auth's `generateId`, like `device_code` and `two_factor`
-    // — so no `$defaultFn` here.
+    // Minted by better-auth's `generateId`, like `device_code` and `two_factor`,
+    // so no `$defaultFn` here.
     id: text("id").primaryKey(),
     // The IdP's issuer URL. Doubles as a login hint: `signIn.sso({ issuer })`
     // resolves a provider by this value when no email domain is supplied.
@@ -366,8 +366,8 @@ export const ssoProvider = pgTable(
     // install-wide provider; every provider registered through our UI is
     // org-scoped, which is what makes per-workspace SSO possible.
     organizationId: text("organization_id").$type<OrganizationId>(),
-    // Email domain that routes to this provider ("acme.com"). Stored lowercase
-    // — see `normalizeDomain` in packages/api/src/routers/sso/queries.ts; the
+    // Email domain that routes to this provider ("acme.com"). Stored lowercase.
+    // See `normalizeDomain` in packages/api/src/routers/sso/queries.ts; the
     // sign-in lookup compares against an already-lowercased address, so a
     // mixed-case row here would simply never match.
     domain: text("domain").notNull(),
@@ -378,7 +378,7 @@ export const ssoProvider = pgTable(
       .notNull(),
   },
   (table) => [
-    // The sign-in path is "given an email domain, find the provider" — the one
+    // The sign-in path is "given an email domain, find the provider". The one
     // lookup that happens before every SSO login.
     index("sso_provider_domain_idx").on(table.domain),
     index("sso_provider_organization_id_idx").on(table.organizationId),

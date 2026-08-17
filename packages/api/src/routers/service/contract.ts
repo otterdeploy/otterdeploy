@@ -47,7 +47,7 @@ const sharedErrors = {
   MISSING_BUILD_BINDING: {
     status: 412,
     message:
-      "Project has no git/registry/image binding — configure it in Settings before creating a source-built service" as const,
+      "Project has no git/registry/image binding. Configure it in Settings before creating a source-built service" as const,
   },
 };
 
@@ -109,7 +109,7 @@ export const serviceContract = {
     .input(getServiceInput)
     .output(serviceSchema),
 
-  // Roll a service back to a prior deployment's image (image-only — current
+  // Roll a service back to a prior deployment's image (image-only, current
   // env/config is kept). Records a new reason="rollback" deployment.
   rollback: oc
     .errors({
@@ -139,7 +139,7 @@ export const serviceContract = {
         status: 400,
         message: "Only git-sourced services can be built.",
       },
-      // The service is git-sourced but the build can't be enqueued yet — no
+      // The service is git-sourced but the build can't be enqueued yet, no
       // git repo bound, an inaccessible repo, a failed SHA lookup, … The
       // handler overrides `message` with the specific human-readable reason.
       BUILD_NOT_READY: {
@@ -151,7 +151,7 @@ export const serviceContract = {
     .input(getServiceInput)
     .output(buildServiceOutput),
 
-  // Pause — scale the service to zero replicas while remembering the desired
+  // Pause: scale the service to zero replicas while remembering the desired
   // count, so Resume restores exactly what the operator had. Config, env,
   // routes, and volumes are all preserved; only the running containers stop.
   // Idempotent: pausing a paused service (or resuming a non-paused one) is a
@@ -200,7 +200,7 @@ export const serviceContract = {
     .output(serviceSchema),
 
   // Pin the service to one server (or clear the pin) and move it there. Always
-  // rolls the service — a placement constraint that hasn't been applied is not
+  // rolls the service: a placement constraint that hasn't been applied is not
   // a placement, it's an intention.
   setPlacement: oc
     .errors({
@@ -285,7 +285,7 @@ export const serviceContract = {
     /**
      * Pre-flight availability for the add-domain field. Read-only: it never
      * reserves the name, so a `true` here can still lose a race with another
-     * operator — `add` remains the authority and still answers 409.
+     * operator: `add` remains the authority and still answers 409.
      */
     check: oc
       .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
@@ -302,8 +302,8 @@ export const serviceContract = {
     /**
      * Mint the platform-generated host for this service (org base domain, or
      * the sslip.io fallback) and publish on it. Unlike `expose`, this always
-     * produces a generated host — it is the "Generate Domain" button, not a
-     * toggle — and needs no sslip opt-in prompt because asking for it IS the
+     * produces a generated host: it is the "Generate Domain" button, not a
+     * toggle, and needs no sslip opt-in prompt because asking for it IS the
      * opt-in.
      */
     generate: oc
@@ -349,7 +349,7 @@ export const serviceContract = {
 
     /**
      * Write this domain's required DNS through the workspace's Cloudflare
-     * token. The record set is derived server-side from the route — there is no
+     * token. The record set is derived server-side from the route. There is no
      * caller-supplied record input, so a connected token cannot be used to
      * write arbitrary records into the operator's zone.
      */

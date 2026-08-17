@@ -3,7 +3,7 @@
  *
  * Every line the build pipeline produces is fanned out to two places:
  *   1. The `deployment_log` table (persistent scrollback). Writes are
- *      batched — both by line count and by a short timeout — so a noisy
+ *      batched (both by line count and by a short timeout) so a noisy
  *      build (e.g. `npm install` chatter) doesn't generate one INSERT per
  *      stdout chunk.
  *   2. A Redis pub/sub channel `deployment:{deploymentId}:logs` carrying
@@ -26,7 +26,7 @@ import { deploymentLog } from "@otterdeploy/db/schema";
 import { log as globalLog } from "evlog";
 
 type Stream = "stdout" | "stderr" | "system";
-/** Which half of the pipeline a line belongs to — drives which log tab shows
+/** Which half of the pipeline a line belongs to. Drives which log tab shows
  *  it. The sink starts in `build`; the pipeline flips it to `deploy` once the
  *  image is ready and the rollout begins (see `setPhase`). */
 type Phase = "build" | "deploy";
@@ -78,7 +78,7 @@ export function createLogSink(opts: {
         })),
       );
     } catch (err) {
-      // Don't crash the build because the log DB is unavailable — but do
+      // Don't crash the build because the log DB is unavailable, but do
       // surface it. The pub/sub fan-out already happened (live viewers
       // see the line); we just lose scrollback for these rows.
       globalLog.error({
@@ -103,7 +103,7 @@ export function createLogSink(opts: {
     const clean = line.endsWith("\n") ? line.slice(0, -1) : line;
     const phase = currentPhase;
     buffer.push({ stream, phase, line: clean, ts });
-    // Fire-and-forget pub/sub — the subscriber side is allowed to be
+    // Fire-and-forget pub/sub. The subscriber side is allowed to be
     // absent (no live tail viewer), and a publish failure here is
     // never worth failing the build over.
     opts.publisher

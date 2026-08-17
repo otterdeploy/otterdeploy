@@ -1,7 +1,7 @@
 /**
- * The writes behind {@link ServiceNetworkingCard} — add a custom host,
+ * The writes behind {@link ServiceNetworkingCard}. Add a custom host,
  * generate the platform one, re-publish an already-populated but unexposed
- * service — plus the one invalidation set they all share.
+ * service: plus the one invalidation set they all share.
  *
  * Split out of ./networking-card so that component stays about layout. The
  * invalidations matter more than they look: adding the first host and
@@ -58,7 +58,7 @@ export function useServiceNetworking({
       toast.success(
         domain.status === "live"
           ? `${domain.domain} is live`
-          : `${domain.domain} added — publish its DNS records to take it live`,
+          : `${domain.domain} added. Publish its DNS records to take it live`,
       );
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to add domain"),
@@ -73,7 +73,7 @@ export function useServiceNetworking({
   });
 
   // Re-publishing hosts that already exist. Nothing in the card can reach that
-  // state — removing the last host is the only way out of public — but a
+  // state (removing the last host is the only way out of public) but a
   // service unexposed by the old toggle (or through the API) still has its
   // rows, and without this they'd sit disabled with no way back.
   const republish = useMutation({

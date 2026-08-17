@@ -37,7 +37,7 @@ export function EmailChangeEmail({
       <LinkFallback href={confirmUrl} />
       <Muted>This link expires in {expiresInMinutes} minutes.</Muted>
       <Footnote>
-        If you didn&apos;t request this, ignore this email — your address stays the same. You may
+        If you didn&apos;t request this, ignore this email. Your address stays the same. You may
         want to review your account security.
       </Footnote>
     </EmailLayout>

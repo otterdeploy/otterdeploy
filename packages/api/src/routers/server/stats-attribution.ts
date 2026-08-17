@@ -13,7 +13,7 @@ import type { Node, Task } from "@otterdeploy/docker";
  * Swarm nodes the manager cannot currently reach.
  *
  * A task's `Status.State` is the manager's LAST OBSERVED state. Once a node
- * stops reporting, its tasks keep claiming `running` indefinitely — so a node
+ * stops reporting, its tasks keep claiming `running` indefinitely, so a node
  * displayed as "down" sat there advertising live tasks it could not possibly
  * still be running.
  */
@@ -36,7 +36,7 @@ export function isLiveTask(task: Task, unreachable: ReadonlySet<string>): boolea
  *
  * Plain docker is single-node: every managed container runs on the machine the
  * control plane is on. The count used to go to `servers[0]`, which assumed that
- * row WAS the local host — true only while an org had exactly one server. Add a
+ * row WAS the local host. True only while an org had exactly one server. Add a
  * second and the total landed on whichever row the query returned first, so a
  * remote worker running nothing displayed the manager's containers.
  *

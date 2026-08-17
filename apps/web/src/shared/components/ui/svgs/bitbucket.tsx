@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * Bitbucket bucket (Simple Icons path). Atlassian blue — the brighter
+ * Bitbucket bucket (Simple Icons path). Atlassian blue: the brighter
  * #2684FF from the official gradient so the mark reads on the dark canvas
  * (flat #0052CC sinks into it).
  */

@@ -1,5 +1,5 @@
 // 30 buckets x 1 minute, anchored at "now". Counts come from whatever's
-// currently in the live buffer — anything older than 30min has scrolled off
+// currently in the live buffer. Anything older than 30min has scrolled off
 // and isn't represented.
 
 import type { LogLevel, LogLine } from "./use-project-log-stream";
@@ -23,7 +23,7 @@ export function bucketize(lines: LogLine[], now = Date.now()): HistogramBucket[]
   }));
   const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
   for (const l of lines) {
-    // tsMs is parsed once at ingest — this loop runs over the whole buffer
+    // tsMs is parsed once at ingest. This loop runs over the whole buffer
     // on every appended frame, so it must not allocate Dates.
     const ms = l.tsMs ?? NaN;
     if (Number.isNaN(ms) || ms < earliest || ms > now) continue;

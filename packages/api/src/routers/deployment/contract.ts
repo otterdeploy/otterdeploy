@@ -1,12 +1,12 @@
 /**
- * Project-wide deployment feed — the cross-resource complement to
+ * Project-wide deployment feed: the cross-resource complement to
  * `project.resource.deployments.list` (which is scoped to one resource).
  * One row per deploy across every base resource in the project, newest
  * first, with the resource's name/kind joined in so the table can render
  * without N follow-up reads.
  *
  * Reuses `deploymentSchema` field-for-field (same status/reason vocabulary);
- * only the live task-derived counts are dropped — task counts and restart
+ * only the live task-derived counts are dropped. Task counts and restart
  * counts would require a docker round-trip per resource on every poll and the
  * per-resource tab already surfaces them.
  */
@@ -46,7 +46,7 @@ const projectDeploymentListItemSchema = deploymentSchema
  * stored row: `building` also matches stored `pending` (both render as
  * in-flight), and `superseded` additionally matches any non-latest row whose
  * stored status never settled past running/building/pending (the list shows
- * those as replaced — see `effectiveListedStatus`). The derived-only
+ * those as replaced: see `effectiveListedStatus`). The derived-only
  * `crashed`/`starting` states aren't filterable; they refine `running`/
  * `building` rows at render time.
  */
@@ -71,13 +71,13 @@ const listDeploymentsByProjectInput = z.object({
 
 const listDeploymentsByProjectOutput = z.object({
   items: z.array(projectDeploymentListItemSchema),
-  /** Total rows matching the filters (ignores `limit`) — powers "N of M". */
+  /** Total rows matching the filters (ignores `limit`): powers "N of M". */
   total: z.number().int().nonnegative(),
 });
 
 /**
  * Org-wide in-flight work. Counts are over ALL matching rows, `items` is capped
- * by `limit` — so a header pill can say "23 queued" while the popover lists the
+ * by `limit`, so a header pill can say "23 queued" while the popover lists the
  * first page, rather than under-reporting to whatever fits on screen.
  */
 const deployActivityOutput = z.object({
@@ -87,7 +87,7 @@ const deployActivityOutput = z.object({
       resourceId: resourceIdField,
       resourceName: z.string(),
       projectId: projectIdField,
-      // Branded, not bare `string` — this feeds route params, and the brand is
+      // Branded, not bare `string`: this feeds route params, and the brand is
       // what stops an org slug being passed where a project slug belongs.
       projectSlug: zSlug(ID_PREFIX.project),
       projectName: z.string(),
@@ -136,8 +136,8 @@ export const deploymentContract = {
 
   /**
    * Stop an in-flight build. 404 covers "no such deployment" and "not your
-   * org" alike; 409 is the honest answer for a deploy that already settled —
-   * including one that settled in the moment between the click and the write.
+   * org" alike; 409 is the honest answer for a deploy that already settled.
+   * Including one that settled in the moment between the click and the write.
    */
   cancel: oc
     .errors({

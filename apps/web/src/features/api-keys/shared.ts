@@ -11,7 +11,7 @@
  * Permission scopes a key can be granted. Mirrors the org RBAC resources
  * (packages/auth/src/permissions.ts). An empty selection means "full access"
  * (better-auth stores no permission restrictions). Enforcement of these scopes
- * on incoming key-authenticated requests is future work — for now they capture
+ * on incoming key-authenticated requests is future work. For now they capture
  * the operator's intent and are shown on the key.
  */
 export interface ApiScope {
@@ -73,7 +73,7 @@ export const EXPIRY_OPTIONS: ExpiryOption[] = [
 export const DEFAULT_EXPIRY_INDEX = 1;
 
 /** Format a date-ish value as a short, human date, or a fallback. */
-export function formatDate(value: string | Date | null | undefined, fallback = "—"): string {
+export function formatDate(value: string | Date | null | undefined, fallback = "–"): string {
   if (!value) return fallback;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return fallback;

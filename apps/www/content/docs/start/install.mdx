@@ -35,13 +35,13 @@ In order, narrating each step:
 4. Optionally adds a swapfile, so a heavy build doesn't get OOM-killed.
 5. Optionally provisions a ZFS pool for future copy-on-write database
    branching. If ZFS isn't available it says so and falls back to the logical
-   branching tier — it never blocks the install.
+   branching tier: it never blocks the install.
 6. Applies the host firewall and starts CrowdSec.
 7. Pulls the pinned release and brings the stack up.
 
 <Callout title="Pinned by default">
   With no `OTTERDEPLOY_VERSION` set, the installer resolves the newest published
-  release tag and pins to it — e.g. `v0.4.2`. That pin is what lets the in-app
+  release tag and pins to it: e.g. `v0.4.2`. That pin is what lets the in-app
   updater tell you an update exists. Set `OTTERDEPLOY_VERSION=latest` to ride
   `main` instead.
 </Callout>
@@ -55,8 +55,8 @@ output rather than applied silently:
   generated for you and the `firewall` compose profile is started, so the edge
   is enforcing community and custom IP blocklists from the first boot. Opt out
   with `OTTERDEPLOY_FIREWALL=false` or `--no-firewall`.
-- **A host firewall baseline** — default-deny `INPUT` plus a `DOCKER-USER`
-  guard — is applied with nftables. If ufw or firewalld is already managing the
+- **A host firewall baseline**: default-deny `INPUT` plus a `DOCKER-USER`
+  guard. Is applied with nftables. If ufw or firewalld is already managing the
   host, that takes precedence and the installer says so; it does not fight
   another firewall manager.
 
@@ -66,7 +66,7 @@ Every tunable is an environment variable. The ones you're most likely to touch:
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `OTTERDEPLOY_DATA_DIR` | `/data/otterdeploy` | Host data folder — all platform state |
+| `OTTERDEPLOY_DATA_DIR` | `/data/otterdeploy` | Host data folder: all platform state |
 | `OTTERDEPLOY_VERSION` | newest release | Image tag to pull; `latest` rides `main` |
 | `OTTERDEPLOY_CONTROL_PLANE_PORT` | `3000` | Dashboard port |
 | `OTTERDEPLOY_ADVERTISE_ADDR` | primary source IP | Swarm advertise address |
@@ -78,7 +78,7 @@ Every tunable is an environment variable. The ones you're most likely to touch:
 
 Docker's overlay address pool is configurable too, via
 `DOCKER_ADDRESS_POOL_BASE` (default `10.0.0.0/8`) and
-`DOCKER_ADDRESS_POOL_SIZE` (default `24`) — worth setting if `10/8` collides
+`DOCKER_ADDRESS_POOL_SIZE` (default `24`): worth setting if `10/8` collides
 with your own network.
 
 Preview the whole run before committing to it:
@@ -93,7 +93,7 @@ curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 /data/otterdeploy/platform/source/install.sh update
 ```
 
-`update` skips host setup entirely — it pulls the new image tag and restarts,
+`update` skips host setup entirely. It pulls the new image tag and restarts,
 preserving every generated secret.
 
 ## Uninstalling
@@ -106,11 +106,11 @@ The uninstaller prints what it found on the host, then asks item by item what
 to remove before requiring you to type `wipe`. The stack, every container it
 provisioned, its networks and its images always go. Volumes, `/data/otterdeploy`,
 the ZFS branching pool, Swarm membership and Docker itself are each a separate
-choice — so "remove otterdeploy" doesn't have to mean "remove Docker".
+choice, so "remove otterdeploy" doesn't have to mean "remove Docker".
 
 <Callout type="warn" title="Deleting data is the default">
   Left at the defaults, this removes your database volumes and
-  `/data/otterdeploy` — including backups. Take a copy off the box first.
+  `/data/otterdeploy`, including backups. Take a copy off the box first.
   Preview the whole run and change nothing with
   `curl -fsSL https://get.otterdeploy.com/uninstall.sh | sudo bash -s -- --dry-run`.
 </Callout>

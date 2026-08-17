@@ -1,7 +1,7 @@
 /**
  * Tiny semver comparison for platform version tags (e.g. "v0.5.0"). We ship a
- * handful of `vX.Y.Z` release tags, so a full `semver` dependency is overkill —
- * this parses `[v]major.minor.patch[-prerelease]` and orders numerically, with
+ * handful of `vX.Y.Z` release tags, so a full `semver` dependency is overkill.
+ * This parses `[v]major.minor.patch[-prerelease]` and orders numerically, with
  * a prerelease sorting BEFORE its release (0.5.0-rc.1 < 0.5.0), which is all the
  * updater needs for the "is latest strictly newer than current?" question.
  */

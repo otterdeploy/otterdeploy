@@ -4,11 +4,11 @@
  * A resource's name is not just a label: other resources address it by that
  * name in their env values (`${database:primary.url}`, `${service:api.host}`).
  * Renaming the key alone would leave every one of those refs pointing at a
- * resource that no longer exists — the manifest would still validate, and the
+ * resource that no longer exists. The manifest would still validate, and the
  * breakage would surface at deploy time as an unresolvable ref.
  *
  * So a rename is one atomic transform: move the entry, then rewrite every ref
- * that named it. Pure and manifest-only — callers decide whether the rename is
+ * that named it. Pure and manifest-only: callers decide whether the rename is
  * ALLOWED (see `renamableState`), which is a question about deployed
  * infrastructure, not about the document.
  *
@@ -50,7 +50,7 @@ export function rewriteRefsInValue(
   from: string,
   to: string,
 ): string {
-  // compose stacks aren't addressable by ref — nothing to rewrite.
+  // compose stacks aren't addressable by ref, nothing to rewrite.
   if (kind === "compose") return value;
   const escaped = from.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // `${kind:name}` followed by `.` (a field/key) or the closing brace.
@@ -73,21 +73,35 @@ function renameRefsInEnv(
   return out;
 }
 
+/** Rename a map key in place, preserving iteration order for every other key. */
+function moveKey<V>(section: Record<string, V>, from: string, to: string): Record<string, V> {
+  const moved: Record<string, V> = {};
+  for (const [name, spec] of Object.entries(section)) {
+    moved[name === from ? to : name] = spec;
+  }
+  return moved;
+}
+
+/** Object.fromEntries with the section's own value type kept intact. */
+function mapSection<V>(section: Record<string, V>, transform: (spec: V) => V): Record<string, V> {
+  const out: Record<string, V> = {};
+  for (const [name, spec] of Object.entries(section)) {
+    out[name] = transform(spec);
+  }
+  return out;
+}
+
 /** Rewrite refs across every service and database env map in the manifest. */
 function rewriteAllRefs(manifest: Manifest, kind: RenameKind, from: string, to: string): Manifest {
-  const services = Object.fromEntries(
-    Object.entries(manifest.services ?? {}).map(([name, spec]) => [
-      name,
-      { ...spec, env: renameRefsInEnv(spec.env, kind, from, to) },
-    ]),
-  );
-  const databases = Object.fromEntries(
-    Object.entries(manifest.databases ?? {}).map(([name, spec]) => [
-      name,
-      { ...spec, extraEnv: renameRefsInEnv(spec.extraEnv, kind, from, to) },
-    ]),
-  );
-  return { ...manifest, services, databases } as Manifest;
+  const services = mapSection(manifest.services ?? {}, (spec) => ({
+    ...spec,
+    env: renameRefsInEnv(spec.env, kind, from, to),
+  }));
+  const databases = mapSection(manifest.databases ?? {}, (spec) => ({
+    ...spec,
+    extraEnv: renameRefsInEnv(spec.extraEnv, kind, from, to),
+  }));
+  return { ...manifest, services, databases };
 }
 
 export type RenameError = { code: "not-found" } | { code: "name-taken" } | { code: "same-name" };
@@ -97,7 +111,7 @@ export type RenameError = { code: "not-found" } | { code: "name-taken" } | { cod
  *
  * `name-taken` checks EVERY section, not just the one being renamed: a service
  * and a database cannot share a name because they share the project's internal
- * DNS namespace — `${service:x.host}` and a database called `x` would be two
+ * DNS namespace: `${service:x.host}` and a database called `x` would be two
  * different answers to the same question.
  */
 export function renameInManifest(args: {
@@ -119,12 +133,13 @@ export function renameInManifest(args: {
   if (taken) return { ok: false, error: { code: "name-taken" } };
 
   // Move the entry, preserving key order so the rename doesn't reshuffle the
-  // manifest (and produce a noisy diff in the stack editor).
-  const moved: Record<string, SectionEntry> = {};
-  for (const [name, spec] of Object.entries(entries)) {
-    moved[name === from ? to : name] = spec;
-  }
-
-  const withMove = { ...manifest, [section]: moved } as Manifest;
+  // manifest (and produce a noisy diff in the stack editor). Each section is
+  // spread under its own literal key so the manifest keeps its exact map types.
+  const withMove: Manifest =
+    section === "services"
+      ? { ...manifest, services: moveKey(manifest.services ?? {}, from, to) }
+      : section === "databases"
+        ? { ...manifest, databases: moveKey(manifest.databases ?? {}, from, to) }
+        : { ...manifest, composes: moveKey(manifest.composes ?? {}, from, to) };
   return { ok: true, manifest: rewriteAllRefs(withMove, kind, from, to) };
 }

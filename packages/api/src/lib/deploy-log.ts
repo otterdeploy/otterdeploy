@@ -1,5 +1,5 @@
 /**
- * Lightweight writer for a deployment's log channel — used by deploy paths
+ * Lightweight writer for a deployment's log channel. Used by deploy paths
  * that run in-process (no builder): direct compose rollouts and database
  * provisioning (image pulls). The builder writes `deployment_log` scrollback
  * + Redis live-tail for git/build stacks; without this, those in-process
@@ -9,7 +9,7 @@
  * to `deployment:{id}:logs` immediately (live tail) and appended to
  * `deployment_log` (scrollback). Volume is a handful of system lines per
  * deploy, so writes go through a simple ordered chain instead of batching.
- * Best-effort throughout — a log failure must never fail a deploy.
+ * Best-effort throughout: a log failure must never fail a deploy.
  */
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
@@ -40,7 +40,7 @@ export function createStackDeployLog(deploymentId: DeploymentId): StackDeployLog
   return {
     line(line: string) {
       const ts = new Date();
-      // Fire-and-forget pub/sub — a missing live viewer or a publish failure
+      // Fire-and-forget pub/sub. A missing live viewer or a publish failure
       // is never worth failing the deploy over.
       publisher
         .publish(channel, JSON.stringify({ stream: "system", line, ts: ts.toISOString() }))

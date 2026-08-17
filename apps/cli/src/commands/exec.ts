@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/client";
 import { defineCommand } from "citty";
+import * as z from "zod";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
@@ -15,10 +16,19 @@ type ServerMessage =
   | { type: "session:exit"; exitCode: number | null; signal: string | null }
   | { type: "error"; code: string; message: string };
 
+const serverMessageSchema: z.ZodType<ServerMessage> = z.union([
+  z.object({
+    type: z.literal("session:exit"),
+    exitCode: z.number().nullable(),
+    signal: z.string().nullable(),
+  }),
+  z.object({ type: z.literal("error"), code: z.string(), message: z.string() }),
+]);
+
 function parseServerMessage(raw: string): ServerMessage | null {
   try {
-    const msg = JSON.parse(raw) as ServerMessage;
-    return msg.type === "session:exit" || msg.type === "error" ? msg : null;
+    const parsed = serverMessageSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -55,24 +65,24 @@ function pickContainer(
       .join(", ");
     // Attaching to an arbitrary replica silently would hide which one you are
     // looking at, so name the choice and how to override it.
-    note(`${matches.length} replicas running — attaching to slot ${picked.replicaSlot ?? "?"}.`);
+    note(`${matches.length} replicas running. Attaching to slot ${picked.replicaSlot ?? "?"}.`);
     note(dim(`Others: ${others}. Pick one with --replica <slot>.`));
   }
   return picked;
 }
 
-// od-5j8.9: /pty no longer accepts a bearer token in the query string — the
+// od-5j8.9: /pty no longer accepts a bearer token in the query string. The
 // WS upgrade authenticates from a single-use, target-bound ticket instead
 // (see packages/api/src/routers/terminal/{contract,index,tickets}.ts). The
 // CLI mints one through the same authenticated RPC the web app uses, which
-// requires a recent step-up (password or TOTP, whichever the account uses) —
+// requires a recent step-up (password or TOTP, whichever the account uses).
 // `performStepUp` probes which one via the server's own error code rather
 // than guessing.
 type ShellTarget = { kind: "container"; containerId: string } | { kind: "host" };
 
 async function performStepUp(client: CliClient): Promise<void> {
   try {
-    // Deliberately empty — the server rejects with exactly the field it
+    // Deliberately empty: the server rejects with exactly the field it
     // needs (TWO_FACTOR_CODE_REQUIRED or PASSWORD_REQUIRED), so this probes
     // the account's auth method instead of guessing it client-side.
     await client.terminal.stepUp({});
@@ -80,7 +90,7 @@ async function performStepUp(client: CliClient): Promise<void> {
     if (!(err instanceof ORPCError)) throw err;
     if (err.code === "TWO_FACTOR_CODE_REQUIRED") {
       const code = await secret("Authenticator code");
-      if (code === null) abort("Step-up cancelled — no shell was opened.");
+      if (code === null) abort("Step-up cancelled. No shell was opened.");
       await client.terminal.stepUp({ totpCode: code.trim() });
       return;
     }
@@ -88,7 +98,7 @@ async function performStepUp(client: CliClient): Promise<void> {
       // `secret` reads raw bytes and echoes nothing, so the password never
       // reaches the terminal or its scrollback.
       const password = await secret("Password");
-      if (password === null) abort("Step-up cancelled — no shell was opened.");
+      if (password === null) abort("Step-up cancelled. No shell was opened.");
       await client.terminal.stepUp({ password });
       return;
     }
@@ -110,7 +120,7 @@ async function mintTicket(client: CliClient, target: ShellTarget): Promise<strin
 
 // Attach the local TTY to the /pty WebSocket. Wire protocol: binary frames
 // are raw PTY bytes both ways; text frames are JSON control messages. Never
-// resolves — every exit path goes through restoreTty + process.exit.
+// resolves. Every exit path goes through restoreTty + process.exit.
 function attach(wsUrl: string): Promise<never> {
   return new Promise<never>(() => {
     const ws = new WebSocket(wsUrl);

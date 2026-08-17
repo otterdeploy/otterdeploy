@@ -4,7 +4,7 @@
  * Scoped resources are named `<base><suffix>`, and the suffixes come from two
  * independent sources: an environment contributes `-<slug>`, a preview
  * contributes `-pr-<n>` (see ./scoping). Nothing stops those producing the same
- * string — an environment slugged `pr-7` names its container `web-pr-7`, which
+ * string: an environment slugged `pr-7` names its container `web-pr-7`, which
  * is byte-identical to what PR #7's preview names its own.
  *
  * The consequence is not a confusing label, it is two different workloads
@@ -17,7 +17,7 @@
  * containers and volumes.
  */
 
-/** `pr-<digits>`, the shape `previewSlug` generates. Anchored and case-folded —
+/** `pr-<digits>`, the shape `previewSlug` generates. Anchored and case-folded:
  *  `PR-7` slugifies to `pr-7` and must be caught too. */
 const PREVIEW_SUFFIX = /^pr-\d+$/i;
 
@@ -36,7 +36,7 @@ export function environmentSlugConflict(slug: string): string | null {
     return `"${slug}" collides with the name generated for pull-request previews. Pick a slug that isn't pr-<number>.`;
   }
   if (RESERVED.has(normalized)) {
-    return `"${slug}" is reserved — previews are not environments, and an environment by that name would be ambiguous.`;
+    return `"${slug}" is reserved. Previews are not environments, and an environment by that name would be ambiguous.`;
   }
   return null;
 }

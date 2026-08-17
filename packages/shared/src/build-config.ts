@@ -2,7 +2,7 @@
  * Build configuration for git-sourced services. Discriminated by `builder`;
  * each variant carries only the fields that builder honors.
  *
- * Single source of truth — imported by:
+ * Single source of truth, imported by:
  *   - the zod manifest schema (packages/api/.../manifest/schema.ts)
  *   - the DB column type ($type<>() on service_resource.buildConfig)
  *   - the service handler input/update payloads
@@ -10,11 +10,11 @@
  * Keep this file zod-free so it can be consumed from layers that don't
  * (and shouldn't) depend on `@otterdeploy/api`.
  *
- * `watchPatterns` is shared across every variant — globs against changed
+ * `watchPatterns` is shared across every variant. Globs against changed
  * paths in a push event; a push only triggers a redeploy when at least
  * one path matches. Unset = redeploy on every push.
  *
- * Variants are type aliases, not interfaces — aliases keep the implicit
+ * Variants are type aliases, not interfaces. Aliases keep the implicit
  * index signature that lets a `BuildConfig` assign into `JsonObject`-typed
  * jsonb columns and diff payloads.
  */
@@ -39,7 +39,7 @@ export type BuildAutoConfig = BuildCommon & {
 /** Build from a Dockerfile. `dockerfilePath` defaults to `./Dockerfile`
  *  (relative to `sourceSubdir` if set).
  *
- *  `buildArgs` are passed to `docker build` as `--build-arg key=value` — plain
+ *  `buildArgs` are passed to `docker build` as `--build-arg key=value`. Plain
  *  build-time variables (NOT secrets: they land in the image history, same as
  *  any `--build-arg`). Use them for non-sensitive build toggles; for secrets,
  *  prefer runtime env on the service. Unset = no build-args. */
@@ -55,14 +55,14 @@ export type BuildDockerfileConfig = BuildCommon & {
  *  Railpack's static-site provider builds an image that runs Caddy to serve
  *  static assets. `spa` enables single-page-app routing (Caddy falls back to
  *  index.html for unmatched routes) by passing `RAILPACK_SPA_OUTPUT_DIR` to
- *  `railpack prepare` — the env var railpack reads to switch to its static
+ *  `railpack prepare`: the env var railpack reads to switch to its static
  *  provider. `staticRoot` sets that directory (defaults to `dist`, the Vite
- *  output) — override it for frameworks that emit elsewhere (e.g. CRA's
+ *  output): override it for frameworks that emit elsewhere (e.g. CRA's
  *  `build`). Both are honored only when the build is detected/configured as
  *  static.
  *
  *  `packageManager` overrides the repo's `packageManager` field (e.g.
- *  "bun@1.3.13", "pnpm@9.12.0") — the builder rewrites the workspace-root
+ *  "bun@1.3.13", "pnpm@9.12.0"): the builder rewrites the workspace-root
  *  `package.json` before building, so the pin applies to every manager: bun
  *  resolves its version from that field via mise, while pnpm/yarn/npm are
  *  installed by Corepack, which reads the same field. Use it to escape a repo

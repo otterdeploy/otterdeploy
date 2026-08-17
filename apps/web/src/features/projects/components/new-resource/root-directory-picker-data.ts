@@ -92,11 +92,9 @@ export function isHiddenDir(name: string): boolean {
  */
 export function isRateLimitedError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
-  const code = (err as { code?: unknown }).code;
-  if (code === "RATE_LIMITED") return true;
-  const msg = (err as { message?: unknown }).message;
-  if (typeof msg !== "string") return false;
-  return /api rate limit exceeded/i.test(msg);
+  if ("code" in err && err.code === "RATE_LIMITED") return true;
+  if (!("message" in err) || typeof err.message !== "string") return false;
+  return /api rate limit exceeded/i.test(err.message);
 }
 
 /**

@@ -1,17 +1,17 @@
 /**
  * Hardened extraction for tenant-uploaded `.tar.gz` source archives
- * (`source: "upload"` deploys — see `extract.ts`). Replaces a bare
+ * (`source: "upload"` deploys, see `extract.ts`). Replaces a bare
  * `tar -xzf` shell-out, which trusts every entry in the archive: a
  * hostile tarball could write outside the work dir (Zip Slip), plant a
  * symlink and then write through it, drop a device/fifo node, or expand
  * into gigabytes of disk from a tiny upload (a decompression bomb).
  *
  * This module parses the tar stream itself (via `tar-stream`, a pure-JS
- * parser — no shelling out, so every entry is inspected before a single
+ * parser, no shelling out, so every entry is inspected before a single
  * byte reaches the filesystem) and enforces, per entry and in aggregate:
  *
  *   - no absolute paths, no `..` traversal segments (Zip Slip)
- *   - no symlink or hard-link entries at all — the archive can't create a
+ *   - no symlink or hard-link entries at all: the archive can't create a
  *     link to walk through later, so "symlink-then-write" is structurally
  *     impossible, not just discouraged
  *   - no device/character/block/FIFO entries
@@ -20,7 +20,7 @@
  *     highly-compressible bomb aborts long before the absolute cap
  *   - a cap on path length and path depth
  *   - duplicate-entry rejection, including entries that only differ by
- *     Unicode normalization form or case — both collide to the same file
+ *     Unicode normalization form or case: both collide to the same file
  *     on the case-insensitive, normalization-sensitive default macOS
  *     volume format, so the second entry would silently shadow the first
  *   - modes are normalized on write (this process's own umask/uid/gid;
@@ -29,7 +29,7 @@
  * Nested archives (a tar/zip entry inside the tar) are not a distinct
  * amplification vector here: this is a single non-recursive pass, so a
  * nested archive just counts as one more regular file against the same
- * per-entry and total-byte caps — it is never itself unpacked.
+ * per-entry and total-byte caps: it is never itself unpacked.
  */
 
 import { createReadStream } from "node:fs";
@@ -51,13 +51,13 @@ export interface ArchiveExtractLimits {
   /** Max decompressed bytes for any single entry. */
   maxEntryBytes: number;
   /** Abort once decompressed:compressed exceeds this ratio (past the
-   *  floor below) — catches bombs well before the absolute byte cap. */
+   *  floor below): catches bombs well before the absolute byte cap. */
   maxCompressionRatio: number;
   /** Max byte length of an entry's path. */
   maxPathLength: number;
   /** Max number of `/`-separated segments in an entry's path. */
   maxPathSegments: number;
-  /** Below this many decompressed bytes, skip the ratio check — a small
+  /** Below this many decompressed bytes, skip the ratio check. A small
    *  legitimate file with a tiny compressed size (e.g. a few KB of gzip
    *  framing overhead around a few bytes of payload) can transiently look
    *  like a huge ratio without being any kind of threat. Configurable so
@@ -79,8 +79,8 @@ export const DEFAULT_ARCHIVE_LIMITS: ArchiveExtractLimits = {
 };
 
 const ALLOWED_TYPES = new Set(["file", "directory", "contiguous-file"]);
-/** Types that carry no body and are safe to skip once acknowledged —
- *  tar-stream folds pax/gnu-longname records into the following header
+/** Types that carry no body and are safe to skip once acknowledged.
+ *  Tar-stream folds pax/gnu-longname records into the following header
  *  itself, so these should not normally surface as their own entries,
  *  but skip them defensively rather than fail a legitimate archive. */
 const BENIGN_METADATA_TYPES = new Set(["pax-header", "pax-global-header"]);
@@ -118,7 +118,7 @@ export function resolveEntryPath(
 
   // Archives here are only ever produced by `tar` on macOS/Linux (see
   // cli/src/lib/tar-source.ts), so a literal backslash is never a
-  // legitimate separator — but reject it as one anyway so a crafted
+  // legitimate separator, but reject it as one anyway so a crafted
   // archive can't smuggle a traversal past the forward-slash check below.
   const normalized = rawName.replace(/\\/g, "/");
   if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:/.test(normalized)) {
@@ -143,7 +143,7 @@ export function resolveEntryPath(
   // Unicode-normalization / case-folding collision guard. macOS's default
   // volume format (APFS/HFS+) is case-insensitive and treats differently
   // normalized (NFC vs NFD) but visually identical names as the same
-  // file — two archive entries that collide under that folding would
+  // file: two archive entries that collide under that folding would
   // have the second silently clobber (or shadow) the first on extract.
   // Fail closed instead of guessing which entry the attacker intended to
   // win.
@@ -164,7 +164,7 @@ export function resolveEntryPath(
 /**
  * Why an entry's *type* disqualifies it, or null when the type is permitted.
  * Split out of the extraction loop so the rejection rules read as one list
- * rather than a stack of branches — the loop stays about streaming.
+ * rather than a stack of branches: the loop stays about streaming.
  */
 function entryTypeViolation(
   name: string,
@@ -172,11 +172,11 @@ function entryTypeViolation(
   linkname: string | null | undefined,
 ): string | null {
   if (type === "symlink")
-    return `entry "${name}" is a symlink (→ "${linkname}") — symlinks are not permitted in uploaded source archives`;
+    return `entry "${name}" is a symlink (→ "${linkname}"): symlinks are not permitted in uploaded source archives`;
   if (type === "link")
-    return `entry "${name}" is a hard link (→ "${linkname}") — hard links are not permitted in uploaded source archives`;
+    return `entry "${name}" is a hard link (→ "${linkname}"): hard links are not permitted in uploaded source archives`;
   if (type === "character-device" || type === "block-device" || type === "fifo")
-    return `entry "${name}" is a device/special file (${type}) — not permitted in uploaded source archives`;
+    return `entry "${name}" is a device/special file (${type}): not permitted in uploaded source archives`;
   if (!ALLOWED_TYPES.has(type)) return `entry "${name}" has unsupported type "${type}"`;
   return null;
 }
@@ -202,14 +202,14 @@ function byteLimitViolation(args: {
     decompressedBytes > limits.ratioCheckFloorBytes &&
     decompressedBytes > ratioDenominator * limits.maxCompressionRatio
   )
-    return `archive compression ratio exceeds ${limits.maxCompressionRatio}:1 — rejected as a likely decompression bomb`;
+    return `archive compression ratio exceeds ${limits.maxCompressionRatio}:1, rejected as a likely decompression bomb`;
   return null;
 }
 
 /**
  * Stream one regular file entry to disk, enforcing the byte limits as it
  * goes, and return how many bytes it contributed. Opened "wx": fail if the
- * path already exists rather than silently overwrite — belt-and-suspenders
+ * path already exists rather than silently overwrite. Belt-and-suspenders
  * alongside the duplicate-entry check, and it means we never write through
  * anything we didn't just create ourselves in this same extraction.
  */
@@ -353,6 +353,6 @@ export async function extractArchiveSafely(opts: {
   if (pipelineError) throw pipelineError;
 
   opts.sink?.system(
-    `extracted ${entryCount} ${entryCount === 1 ? "entry" : "entries"}, ${fmtBytes(decompressedBytes)} — within limits`,
+    `extracted ${entryCount} ${entryCount === 1 ? "entry" : "entries"}, ${fmtBytes(decompressedBytes)}, within limits`,
   );
 }

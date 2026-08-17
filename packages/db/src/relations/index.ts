@@ -3,7 +3,7 @@
  *
  * drizzle-orm 1.0 replaced the old `relations()` helper with
  * `defineRelations(schema, (r) => …)`. This object is what powers
- * `db.query.<table>.findMany({ with: { … } })` — it does NOT affect
+ * `db.query.<table>.findMany({ with: { … } })`: it does NOT affect
  * `db.select()` / `.leftJoin()` (those work straight off the table objects),
  * so wiring it in is purely additive.
  *
@@ -20,8 +20,8 @@
  *     modelled here too.
  *   - `project` ↔ `environment` has two distinct paths, so each is given an
  *     explicit `alias` to disambiguate:
- *       · "projectEnvironments"      — environments owned by a project
- *       · "projectActiveEnvironment" — a project's selected/default environment
+ *       · "projectEnvironments": environments owned by a project
+ *       · "projectActiveEnvironment": a project's selected/default environment
  */
 import { defineRelations } from "drizzle-orm";
 

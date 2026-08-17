@@ -26,18 +26,18 @@ import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useRef, useState } from "react";
 
 import { omitUndefined } from "@otterdeploy/shared/object";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
-import {
-  type ComposeFileValues,
-  type ComposeStep,
-  stackNamePlaceholder,
-} from "./compose-schema";
+import { type ComposeFileValues, type ComposeStep, stackNamePlaceholder } from "./compose-schema";
 import { ComposeWizardBody } from "./compose-wizard-body";
 import { useComposeParse } from "./compose-wizard-parse";
-import { type ComposeFormValues, type ComposePrefill, useComposeForm } from "./compose-wizard-shared";
+import {
+  type ComposeFormValues,
+  type ComposePrefill,
+  useComposeForm,
+} from "./compose-wizard-shared";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values: split from the
@@ -144,13 +144,15 @@ export function ComposeWizard({
   // View facts read straight off the form store, no hand-rolled flags. `source`
   // and `gitRepoUrl`/`name` drive the derived name; `hasVars` decides whether
   // the file step routes through the vars step or (with no vars) straight to it.
-  const source = useStore(form.store, (s) => s.values.file.source);
-  const gitRepoUrl = useStore(form.store, (s) => s.values.file.gitRepoUrl);
-  const name = useStore(form.store, (s) => s.values.file.name);
+  const source = useSelector(form.store, (s) => s.values.file.source);
+  const gitRepoUrl = useSelector(form.store, (s) => s.values.file.gitRepoUrl);
+  const name = useSelector(form.store, (s) => s.values.file.name);
   // On the inline file step the button also waits out the async content parse
   // (the deployability verdict lands as a field error the group folds into its
   // own validity). While that parse is in flight the content field validates.
-  const parsing = useStore(form.store, (s) => Boolean(s.fieldMeta["file.content"]?.isValidating));
+  const parsing = useSelector(form.store, (s) =>
+    Boolean(s.fieldMeta["file.content"]?.isValidating),
+  );
   const hasVars = source === "inline" && (preview?.vars.length ?? 0) > 0;
 
   // What the name will be if left blank. The field placeholder and the base

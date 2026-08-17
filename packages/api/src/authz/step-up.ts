@@ -1,9 +1,9 @@
 /**
- * Step-up re-authentication — a short-lived "recent auth" grant, checked
+ * Step-up re-authentication: a short-lived "recent auth" grant, checked
  * before the highest-value actions in the product (opening an interactive
  * shell; see ./step-up usage in routers/terminal). Mirrors the existing
  * node-enrollment step-up (routers/server/enrollment-router.ts), which
- * verifies a fresh TOTP code inline on every sensitive call — this module
+ * verifies a fresh TOTP code inline on every sensitive call. This module
  * extracts that verification into a shared primitive and adds a short Redis
  * grant so a user who just stepped up doesn't have to re-enter a code/password
  * on every reconnect within the window (od-5j8.9).
@@ -22,7 +22,7 @@ import { Result, TaggedError } from "better-result";
 
 import { createRedis } from "../lib/redis";
 
-/** Grant lifetime — "recent" re-authentication. Long enough that a dropped
+/** Grant lifetime: "recent" re-authentication. Long enough that a dropped
  *  WebSocket can reconnect without re-prompting; short enough that a stolen
  *  session (without the password/authenticator) can't ride a stale grant
  *  indefinitely. */
@@ -47,7 +47,7 @@ export async function hasRecentStepUp(userId: string): Promise<boolean> {
   return (await redis().get(grantKey(userId))) !== null;
 }
 
-/** Revoke any outstanding grant — used when we want to force a fresh
+/** Revoke any outstanding grant, used when we want to force a fresh
  *  re-auth (e.g. after a failed verification, so a caller can't retry the
  *  RPC and quietly fall back on a still-live grant from earlier). */
 export async function clearStepUp(userId: string): Promise<void> {
@@ -60,7 +60,7 @@ class StepUpVerificationError extends TaggedError("StepUpVerificationError")<{
 }>() {}
 
 /** Verify a fresh TOTP code against the CURRENT session (no side effects on
- *  the session itself — `trustDevice: false`). Shared by node-enrollment
+ *  the session itself: `trustDevice: false`). Shared by node-enrollment
  *  step-up and terminal step-up so both go through the exact same
  *  authenticator verification, never a hand-rolled parallel check. */
 async function verifyTotpCode(
@@ -84,7 +84,7 @@ async function verifyTotpCode(
 }
 
 /** Verify the CURRENT session's password via better-auth's dedicated
- *  `/verify-password` endpoint (`auth.api.verifyPassword`) — a pure check
+ *  `/verify-password` endpoint (`auth.api.verifyPassword`): a pure check
  *  against the signed-in user, no new session/cookie side effect at all
  *  (unlike sign-in), which is exactly the "confirm it's still you" primitive
  *  step-up needs. */
@@ -105,8 +105,8 @@ async function verifyPassword(
 }
 
 /**
- * Resolve which credential the caller must present — TOTP for accounts with
- * 2FA enabled, password otherwise — and verify it. `input` fields are both
+ * Resolve which credential the caller must present: TOTP for accounts with
+ * 2FA enabled, password otherwise, and verify it. `input` fields are both
  * optional so the caller can distinguish "you forgot to send anything" from
  * "what you sent was wrong".
  */

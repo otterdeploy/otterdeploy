@@ -7,7 +7,7 @@ import { cmd } from "../lib/name";
 import { resolveProject, resolveResource } from "../lib/resolve";
 import { abort, dim, interactive, note, out } from "../lib/ui";
 
-// Slug of the org that owns the project — dashboard paths are org-scoped.
+// Slug of the org that owns the project. Dashboard paths are org-scoped.
 // Cached in the user config; on a miss, derived the same way the web shell
 // does (session's activeOrganizationId, else first org) and persisted so
 // subsequent opens skip the two auth round-trips.

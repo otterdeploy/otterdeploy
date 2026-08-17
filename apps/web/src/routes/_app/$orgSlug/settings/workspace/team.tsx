@@ -16,7 +16,7 @@ function RouteComponent() {
   const { user } = Route.useRouteContext();
   const orgId = organization.id;
 
-  // Reuse the members query (cached) to resolve the viewer's own role — only
+  // Reuse the members query (cached) to resolve the viewer's own role. Only
   // owners/admins get the invite + remove controls.
   const members = useMembers(orgId);
   const myRole = members.data?.find((m) => m.userId === user.id)?.role;

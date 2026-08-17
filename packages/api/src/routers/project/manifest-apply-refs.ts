@@ -69,7 +69,7 @@ export async function loadRefTable(projectId: ProjectId): Promise<RefTable> {
  * Diff-time companion to {@link resolveEnv}: resolve one declared env value
  * the way the write path will, or null when it can't be (missing resource,
  * unsupported ref, `${secret}`). The diff compares this against the stored
- * row — apply writes RESOLVED values, so comparing raw ref text guaranteed a
+ * row: apply writes RESOLVED values, so comparing raw ref text guaranteed a
  * permanent phantom "update".
  */
 export function makeEnvRefResolver(refs: RefTable): (raw: string) => string | null {
@@ -98,7 +98,7 @@ export function resolveEnv(
             resource: "env",
             name: `${serviceName}.${key}`,
             reason:
-              "declared as ${secret} but no value set — run `otterdeploy env set` before applying",
+              "declared as ${secret} but no value set. Run `otterdeploy env set` before applying",
           }),
         );
         continue;
@@ -124,6 +124,28 @@ export function resolveEnv(
   return { values, skipped };
 }
 
+/** Field lookup on the ref view for a manifest-supplied tail. An exhaustive
+ *  switch instead of a string index so an unknown tail (or a prototype name
+ *  like "toString") stays unresolved rather than leaking. */
+function databaseRefField(dbRef: DatabaseRefView, tail: string): string | number | undefined {
+  switch (tail) {
+    case "host":
+      return dbRef.host;
+    case "port":
+      return dbRef.port;
+    case "username":
+      return dbRef.username;
+    case "password":
+      return dbRef.password;
+    case "database":
+      return dbRef.database;
+    case "url":
+      return dbRef.url;
+    default:
+      return undefined;
+  }
+}
+
 // Resolve a `${database:<name>.<field>}` ref against the DB-backed view. The
 // view's fields are all string|number scalars, so coerce to string explicitly.
 function resolveDatabaseRef(
@@ -138,33 +160,12 @@ function resolveDatabaseRef(
     unresolved.push(`\${database:${name}.${tail}} (database not found)`);
     return whole;
   }
-  const value = databaseFieldValue(dbRef, tail);
+  const value = databaseRefField(dbRef, tail);
   if (value === undefined) {
     unresolved.push(whole);
     return whole;
   }
-  return value;
-}
-
-/** Explicit field lookup — the view's fields are string|number scalars, so
- *  coerce to string here rather than indexing through a widened record. */
-function databaseFieldValue(dbRef: DatabaseRefView, tail: string): string | undefined {
-  switch (tail) {
-    case "url":
-      return dbRef.url;
-    case "host":
-      return dbRef.host;
-    case "port":
-      return String(dbRef.port);
-    case "username":
-      return dbRef.username;
-    case "password":
-      return dbRef.password;
-    case "database":
-      return dbRef.database;
-    default:
-      return undefined;
-  }
+  return String(value);
 }
 
 function resolveServiceRef(
@@ -180,7 +181,7 @@ function resolveServiceRef(
     return whole;
   }
   if (tail === "host") return svcRef.host;
-  // service-env and port refs land here — Phase 5 will extend the ref table;
+  // service-env and port refs land here. Phase 5 will extend the ref table;
   // for now they remain unresolved.
   unresolved.push(whole);
   return whole;

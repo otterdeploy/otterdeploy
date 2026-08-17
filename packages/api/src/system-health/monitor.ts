@@ -1,5 +1,8 @@
+import { db } from "@otterdeploy/db";
+import { platformMetric } from "@otterdeploy/db/schema";
+import { organization } from "@otterdeploy/db/schema/auth";
 /**
- * Host-health monitor — the background tick that turns introspection into
+ * Host-health monitor: the background tick that turns introspection into
  * warnings the operator actually sees. Every interval it snapshots host
  * health, records memory/disk series onto `platform_metric` (history for the
  * UI), and pushes warning/critical recommendations through the platform
@@ -8,16 +11,12 @@
  *
  * Cooldown: each recommendation id re-notifies at most once per window, so a
  * server sitting at 92% memory pings once, not every five minutes. In-memory
- * (mirrors notifications/audit-anomaly.ts) — a restart re-arming alerts is
+ * (mirrors notifications/audit-anomaly.ts): a restart re-arming alerts is
  * acceptable, losing alerts is not.
  *
  * Started from apps/server alongside startMetricsSampler; same lifecycle.
  */
-import type { OrganizationId } from "@otterdeploy/shared/id";
-
-import { db } from "@otterdeploy/db";
-import { platformMetric } from "@otterdeploy/db/schema";
-import { organization } from "@otterdeploy/db/schema/auth";
+import { hasPrefix, ID_PREFIX, type OrganizationId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -30,12 +29,12 @@ const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const NOTIFY_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 // Self-heal: when the data root crosses this, auto-reclaim the SAFE targets
-// (unused images + idle build cache) instead of only alerting — a full disk
+// (unused images + idle build cache) instead of only alerting. A full disk
 // stalls every build/deploy, so waiting for an operator to click "reclaim" is
 // too late. Only fires when there's a meaningful amount to reclaim, and at most
 // once per window so it never churns.
 const AUTO_RECLAIM_DISK_PCT = 88;
-const AUTO_RECLAIM_MIN_BYTES = 1024 ** 3; // 1 GiB — don't churn for scraps
+const AUTO_RECLAIM_MIN_BYTES = 1024 ** 3; // 1 GiB: don't churn for scraps
 const AUTO_RECLAIM_COOLDOWN_MS = 30 * 60 * 1000;
 
 const lastNotified = new Map<string, number>();
@@ -63,6 +62,15 @@ async function recordSeries(health: HostHealth): Promise<void> {
   await db.insert(platformMetric).values(values);
 }
 
+/** Every org on this install, branded. The auth table stores plain text ids,
+ *  so the brand comes from the runtime prefix check rather than an assertion. */
+async function listOrganizationIds(): Promise<OrganizationId[]> {
+  const rows = await db.select({ id: organization.id }).from(organization);
+  return rows
+    .map((row) => row.id)
+    .filter((id): id is OrganizationId => hasPrefix(id, ID_PREFIX.organization));
+}
+
 async function notifyPressure(health: HostHealth): Promise<void> {
   const now = Date.now();
   // Only warning/critical interrupt people; info-level stays UI-only.
@@ -76,12 +84,12 @@ async function notifyPressure(health: HostHealth): Promise<void> {
 
   // Instance-wide condition → every org on this install gets it; their
   // channel subscriptions decide where it lands.
-  const orgs = await db.select({ id: organization.id }).from(organization);
+  const orgIds = await listOrganizationIds();
   for (const rec of urgent) {
     lastNotified.set(rec.id, now);
-    for (const org of orgs) {
+    for (const organizationId of orgIds) {
       await emitPlatformEvent({
-        organizationId: org.id as OrganizationId,
+        organizationId,
         eventId: "host.pressure",
         title: rec.title,
         message: rec.detail,
@@ -95,7 +103,7 @@ let lastAutoReclaimAt = 0;
 
 /** Reclaim disk automatically when the data root is critically full, so a build
  *  host can't wedge itself at 100% (which stalls every build/deploy). Prunes
- *  only the SAFE targets the manual "reclaim" button uses — unused images and
+ *  only the SAFE targets the manual "reclaim" button uses. Unused images and
  *  idle BuildKit cache, both re-created on demand. Best-effort; emits an
  *  info-level event so the operator sees the box healed itself. */
 async function autoReclaim(health: HostHealth): Promise<void> {
@@ -114,13 +122,13 @@ async function autoReclaim(health: HostHealth): Promise<void> {
   if (reclaimedBytes <= 0) return;
 
   const gb = (b: number) => `${(b / 1024 ** 3).toFixed(1)} GB`;
-  const orgs = await db.select({ id: organization.id }).from(organization);
-  for (const org of orgs) {
+  const orgIds = await listOrganizationIds();
+  for (const organizationId of orgIds) {
     await emitPlatformEvent({
-      organizationId: org.id as OrganizationId,
+      organizationId,
       eventId: "host.pressure",
       title: `Auto-reclaimed ${gb(reclaimedBytes)} of disk`,
-      message: `The data root was at ${disk.usedPct}% — otterdeploy pruned unused images and idle build cache so builds don't stall.`,
+      message: `The data root was at ${disk.usedPct}%. Otterdeploy pruned unused images and idle build cache so builds don't stall.`,
       data: { recommendation: "auto-reclaim", severity: "info", action: "images" },
     });
   }

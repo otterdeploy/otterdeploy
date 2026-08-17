@@ -136,7 +136,11 @@ export function ProviderDialog({
                   <SelectContent>
                     {KINDS.map((k) => (
                       <SelectItem key={k} value={k}>
-                        <ProviderMark kind={k} className="size-6 rounded" logoClassName="size-3.5" />
+                        <ProviderMark
+                          kind={k}
+                          className="size-6 rounded"
+                          logoClassName="size-3.5"
+                        />
                         {KIND_LABELS[k]}
                       </SelectItem>
                     ))}

@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 /**
  * Event → channel routing grid. Rows are events (with a severity dot),
  * columns are channels; each cell is a Switch that toggles whether that event
- * delivers to that channel. Column headers carry the channel's identity —
- * name, kind mark, and a short destination hint — so the grid reads as
+ * delivers to that channel. Column headers carry the channel's identity.
+ * Name, kind mark, and a short destination hint, so the grid reads as
  * "which events → which destination", not just "which kind". Backed by the
  * server subscription matrix; paused / disconnected channels render disabled.
  */
@@ -36,7 +36,7 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
       </div>
 
       {/* overflow-x-auto, not overflow-hidden: this is a genuine 2-D matrix
-          (events × channels) — it is the one shape on the page that cannot
+          (events × channels): it is the one shape on the page that cannot
           stack into a list without losing the relationship it exists to show,
           so on a phone it scrolls sideways instead of silently clipping the
           right-hand channels. The min-width keeps the columns legible rather

@@ -1,7 +1,7 @@
 /**
  * Builds the TanStack Table + virtualizer for the logs route from the live tail
  * and the URL-driven filters. This is pure view wiring (filtering, sorting,
- * windowing, follow-the-tail) on top of `useProjectLogStream` — the stream read
+ * windowing, follow-the-tail) on top of `useProjectLogStream`: the stream read
  * itself is untouched and still owned by that hook.
  */
 
@@ -55,11 +55,11 @@ export function useLogsTable({
     paused,
   });
 
-  // Everything except the time window — drives the histogram so all buckets
+  // Everything except the time window: drives the histogram so all buckets
   // stay visible (and clickable) even when one is selected.
   const filteredByMeta = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    // msgLower is precomputed at ingest — no per-pass string allocation.
+    // msgLower is precomputed at ingest, no per-pass string allocation.
     return lines.filter((l) => lvlFilter.has(l.level) && (!needle || l.msgLower.includes(needle)));
   }, [lines, lvlFilter, query]);
 
@@ -87,7 +87,7 @@ export function useLogsTable({
   const isDefaultSort = sorting.length === 0;
 
   // Key virtual rows by row id, NOT index (the default). The live tail is a
-  // capped ring — once the buffer trims, every append shifts all indices, so
+  // capped ring: once the buffer trims, every append shifts all indices, so
   // index keys would remap React's DOM nodes across rows on every append;
   // stable ids keep each rendered row glued to its line. Read the live rows
   // through a ref so the callback keeps ONE identity across renders (a fresh
@@ -102,7 +102,7 @@ export function useLogsTable({
   // container that mounts AFTER the virtualizer hook runs (ours renders
   // inside a Tabs panel): a plain useRef populates without re-rendering, so
   // whether the virtualizer ever re-observed the element depended on an
-  // unrelated render happening at the right moment — when it lost that race
+  // unrelated render happening at the right moment. When it lost that race
   // its scroll listener stayed dead and it rendered the range for offset 0
   // forever (the "blank table, everything at the top" wedge). A state setter
   // forces the re-render, and the null→element transition makes the
@@ -113,13 +113,13 @@ export function useLogsTable({
     getScrollElement: () => scrollEl,
     // Real row height: py-1 (8px) + text-xs line height (16px) + border-b
     // (1px) = 25px. The old 28px estimate left ~3px of phantom height per
-    // unmeasured row — a visible blank band at a few hundred rows.
+    // unmeasured row: a visible blank band at a few hundred rows.
     estimateSize: () => 25,
     overscan: 24,
     getItemKey,
   });
 
-  // Sorting fights live tailing — pause follow while a sort is active. Adjust
+  // Sorting fights live tailing. Pause follow while a sort is active. Adjust
   // in render (prev-value compare) rather than an effect so it doesn't trigger
   // an extra render pass each time a sort turns on.
   if (prevIsDefaultSort !== isDefaultSort) {
@@ -133,7 +133,7 @@ export function useLogsTable({
   // Deliberately NOT virtualizer.scrollToIndex: that writes the element's
   // scrollTop through the virtualizer's own model, and on first mount (or a
   // Tabs remount of the scroll div under a surviving virtualizer instance)
-  // the model can lag the element — it kept rendering the range for offset 0
+  // the model can lag the element. It kept rendering the range for offset 0
   // while its own scroll write parked the viewport at the bottom, leaving the
   // whole viewport row-free ("blank space above the rows"). Setting scrollTop
   // from the element's real scrollHeight is self-healing: the resulting
@@ -152,7 +152,7 @@ export function useLogsTable({
     table,
     rows,
     virtualizer,
-    // Callback ref — the view attaches it to the scroll div (see scrollEl).
+    // Callback ref: the view attaches it to the scroll div (see scrollEl).
     scrollRef: setScrollEl,
     status,
     lines,

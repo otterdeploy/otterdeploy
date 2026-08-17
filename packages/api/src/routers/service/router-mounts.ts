@@ -1,5 +1,5 @@
 /**
- * `service.mounts.*` oRPC procedures — persistent-volume management for a plain
+ * `service.mounts.*` oRPC procedures. Persistent-volume management for a plain
  * service. Split out of index.ts to keep the router module under the line cap;
  * spread back in as `serviceRouter.mounts`.
  */
@@ -47,7 +47,7 @@ export const serviceMountsRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           // Env-resolution failures can't occur on a mount add (no vars change),
-          // but the RedeployFailure union carries them — map to NOT_FOUND's
+          // but the RedeployFailure union carries them. Map to NOT_FOUND's
           // sibling generic path defensively.
           RefMissingResourceError: (e) => new Error(e.message),
           RefCycleError: (e) => new Error(e.message),

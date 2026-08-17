@@ -56,11 +56,11 @@ Always apply before returning coss code:
 
 Rule references (read on demand when the task touches these areas):
 
-- `./references/rules/styling.md` — Tailwind tokens, icon conventions, data-slot selectors
-- `./references/rules/forms.md` — Field composition, validation, input patterns
-- `./references/rules/composition.md` — Trigger/popup hierarchies, grouped controls
-- `./references/rules/migration.md` — shadcn/Radix to coss/Base UI migration patterns
-- `./references/portal-props.md` — optional `portalProps` on composed popups and toast providers (`keepMounted`, `container`, which surfaces support it)
+- `./references/rules/styling.md`: Tailwind tokens, icon conventions, data-slot selectors
+- `./references/rules/forms.md`: Field composition, validation, input patterns
+- `./references/rules/composition.md`: Trigger/popup hierarchies, grouped controls
+- `./references/rules/migration.md`: shadcn/Radix to coss/Base UI migration patterns
+- `./references/portal-props.md`: optional `portalProps` on composed popups and toast providers (`keepMounted`, `container`, which surfaces support it)
 
 ## Component discovery
 
@@ -99,12 +99,12 @@ Every primitive has a reference guide at `./references/primitives/<name>.md` wit
 
 High-risk primitives (read these guides first -- they have the most composition gotchas):
 
-- `./references/primitives/dialog.md` — modal overlays, form-in-dialog, responsive dialog/drawer
-- `./references/primitives/menu.md` — dropdown actions, checkbox/radio items, submenus
-- `./references/primitives/select.md` — items-first pattern, multiple, object values, groups
-- `./references/primitives/form.md` — Field composition, validation, submission
-- `./references/primitives/input-group.md` — addons, DOM order invariant, textarea layouts
-- `./references/primitives/toast.md` — toastManager (not Sonner), anchored toasts, providers
+- `./references/primitives/dialog.md`: modal overlays, form-in-dialog, responsive dialog/drawer
+- `./references/primitives/menu.md`: dropdown actions, checkbox/radio items, submenus
+- `./references/primitives/select.md`: items-first pattern, multiple, object values, groups
+- `./references/primitives/form.md`: Field composition, validation, submission
+- `./references/primitives/input-group.md`: addons, DOM order invariant, textarea layouts
+- `./references/primitives/toast.md`: toastManager (not Sonner), anchored toasts, providers
 
 ## Output Checklist
 

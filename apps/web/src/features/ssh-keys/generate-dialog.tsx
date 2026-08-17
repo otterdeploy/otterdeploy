@@ -1,7 +1,7 @@
 /**
  * Generate-an-SSH-key dialog. Collects a name, key type, optional comment and
  * passphrase, then asks the server to run `ssh-keygen`. The private half never
- * leaves the cluster — on success we just close and the new key appears in the
+ * leaves the cluster. On success we just close and the new key appears in the
  * list (operators copy the PUBLIC key from its card to their Git host).
  */
 
@@ -34,6 +34,25 @@ const KEY_TYPES: { value: SshKeyType; label: string; sub: string }[] = [
   { value: "rsa", label: "rsa-4096", sub: "Legacy · maximum compatibility" },
 ];
 
+/** The radio group can only emit values from KEY_TYPES; check for real. */
+function isSshKeyType(v: unknown): v is SshKeyType {
+  return KEY_TYPES.some((k) => k.value === v);
+}
+
+interface GenerateKeyFormValues {
+  name: string;
+  type: SshKeyType;
+  comment: string;
+  passphrase: string;
+}
+
+const DEFAULT_VALUES: GenerateKeyFormValues = {
+  name: "",
+  type: "ed25519",
+  comment: "",
+  passphrase: "",
+};
+
 export function GenerateKeyDialog({
   open,
   onOpenChange,
@@ -53,12 +72,7 @@ export function GenerateKeyDialog({
   );
 
   const form = useForm({
-    defaultValues: {
-      name: "",
-      type: "ed25519" as SshKeyType,
-      comment: "",
-      passphrase: "",
-    },
+    defaultValues: DEFAULT_VALUES,
     onSubmit: async ({ value }) => {
       try {
         await generate.mutateAsync({
@@ -87,7 +101,7 @@ export function GenerateKeyDialog({
           <DialogTitle>{t("sshKeys.generateTitle")}</DialogTitle>
           <DialogDescription>
             We run <code className="font-mono text-xs">ssh-keygen</code> on the cluster. The private
-            key is encrypted at rest and never shown — copy the public key to your Git host or
+            key is encrypted at rest and never shown. Copy the public key to your Git host or
             server.
           </DialogDescription>
         </DialogHeader>
@@ -116,7 +130,6 @@ export function GenerateKeyDialog({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder="otterdeploy-prod"
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={String(err)}>{String(err)}</FieldError>
@@ -194,7 +207,7 @@ function KeyTypeOptions({
       <Label>{t("sshKeys.keyType")}</Label>
       <RadioGroup
         value={value}
-        onValueChange={(v) => typeof v === "string" && onChange(v as SshKeyType)}
+        onValueChange={(v) => isSshKeyType(v) && onChange(v)}
         className="gap-2"
       >
         {KEY_TYPES.map((t) => (

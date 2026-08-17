@@ -1,5 +1,5 @@
 /**
- * Custom-certificate material validation + domain matching — pure helpers
+ * Custom-certificate material validation + domain matching: pure helpers
  * over lib/x509, shared by the upload and replace paths in handlers.ts.
  */
 import { Result } from "better-result";
@@ -50,8 +50,8 @@ function resolveCoveredHostname(
   if (!certCoversDomain({ subjectCN: leaf.subjectCN, sans: leaf.sans }, hostname)) {
     return Result.err(
       new CertificateInvalidError({
-        message: `certificate does not cover ${hostname} (subject ${leaf.subjectCN ?? "—"}, SANs ${
-          leaf.sans.join(", ") || "—"
+        message: `certificate does not cover ${hostname} (subject ${leaf.subjectCN ?? "–"}, SANs ${
+          leaf.sans.join(", ") || "–"
         })`,
       }),
     );
@@ -76,7 +76,7 @@ export function validateCustomCertMaterial(input: {
     return Result.err(
       new CertificateInvalidError({
         message:
-          "this looks like a CA certificate, not a server certificate — add it under Trusted CAs instead",
+          "this looks like a CA certificate, not a server certificate. Add it under Trusted CAs instead",
       }),
     );
   }

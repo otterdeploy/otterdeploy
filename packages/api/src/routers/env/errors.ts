@@ -18,7 +18,7 @@ export class EnvironmentNotFoundError extends TaggedError("EnvironmentNotFoundEr
 /**
  * The environment still owns resources and the caller did not ask to take them
  * with it. Deleting anyway would leave rows whose `environment_id` resolves to
- * nothing — invisible to every scope query while their containers keep running.
+ * nothing: invisible to every scope query while their containers keep running.
  */
 export class EnvironmentNotEmptyError extends TaggedError("EnvironmentNotEmptyError")<{
   message: string;
@@ -27,7 +27,7 @@ export class EnvironmentNotEmptyError extends TaggedError("EnvironmentNotEmptyEr
   constructor(args: { environmentId: EnvironmentId }) {
     super({
       environmentId: args.environmentId,
-      message: `environment ${args.environmentId} still owns resources — confirm to delete them with it`,
+      message: `environment ${args.environmentId} still owns resources. Confirm to delete them with it`,
     });
   }
 }
@@ -81,6 +81,12 @@ export class EnvironmentDatabaseError extends TaggedError("EnvironmentDatabaseEr
  * We surface all of these so the operator log line spells out exactly what
  * postgres rejected and why.
  */
+/** Every non-null object is soundly readable as a string-keyed bag of
+ *  `unknown` values, which is all the dynamic `pick` reads below need. */
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
 function describePgError(err: unknown): {
   cause: string;
   pgCode: string | null;
@@ -90,9 +96,8 @@ function describePgError(err: unknown): {
 } {
   const outerMessage =
     err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
-  const pg =
-    err && typeof err === "object" && "cause" in err ? (err as { cause?: unknown }).cause : null;
-  if (!pg || typeof pg !== "object") {
+  const pg = err && typeof err === "object" && "cause" in err ? err.cause : null;
+  if (!isUnknownRecord(pg)) {
     return {
       cause: outerMessage,
       pgCode: null,
@@ -101,10 +106,12 @@ function describePgError(err: unknown): {
       pgTable: null,
     };
   }
-  // A PostgresError instance, not parsed JSON — dynamic string-keyed reads
+  // A PostgresError instance, not parsed JSON. Dynamic string-keyed reads
   // over a runtime error object, so UnknownRecord is the honest type here.
-  const p = pg as UnknownRecord;
-  const pick = (k: string): string | null => (typeof p[k] === "string" ? (p[k] as string) : null);
+  const pick = (k: string): string | null => {
+    const v = pg[k];
+    return typeof v === "string" ? v : null;
+  };
   const code = pick("code");
   const detail = pick("detail");
   const constraint = pick("constraint_name") ?? pick("constraint");
@@ -118,7 +125,7 @@ function describePgError(err: unknown): {
     table ? `table=${table}` : null,
   ]
     .filter((s): s is string => Boolean(s))
-    .join(" — ");
+    .join(": ");
   return {
     cause: cause || outerMessage,
     pgCode: code,

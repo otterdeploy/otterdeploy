@@ -6,7 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 /**
  * Install command with a package-manager switcher.
  *
- * Four managers, one command, and the choice is remembered — a reader who
+ * Four managers, one command, and the choice is remembered. A reader who
  * picked pnpm on the install page shouldn't have to pick it again on the CLI
  * page. Labels are text, not logos: the four marks are different shapes at
  * different optical weights, and lining them up in a 20px row looks like a
@@ -21,7 +21,11 @@ type Manager = (typeof MANAGERS)[number];
 
 const STORAGE_KEY = "otterdeploy-docs-pm";
 
-/** Real install syntax per manager — these differ more than people remember. */
+function isManager(value: string): value is Manager {
+  return MANAGERS.some((m) => m === value);
+}
+
+/** Real install syntax per manager: these differ more than people remember. */
 function command(pm: Manager, pkg: string, global: boolean, dev: boolean): string {
   if (global) {
     if (pm === "npm") return `npm install -g ${pkg}`;
@@ -52,9 +56,9 @@ export function PackageManager({
     const frame = requestAnimationFrame(() => {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved && (MANAGERS as readonly string[]).includes(saved)) setPm(saved as Manager);
+        if (saved && isManager(saved)) setPm(saved);
       } catch {
-        // Storage disabled — the default is fine.
+        // Storage disabled: the default is fine.
       }
     });
     return () => cancelAnimationFrame(frame);
@@ -67,7 +71,7 @@ export function PackageManager({
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
-      // Storage disabled — the choice still applies to this page.
+      // Storage disabled: the choice still applies to this page.
     }
   }, []);
 
@@ -80,7 +84,7 @@ export function PackageManager({
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard unavailable (http origin, locked-down browser) — the text is
+      // Clipboard unavailable (http origin, locked-down browser): the text is
       // selectable, so say nothing rather than claim a copy that didn't happen.
     }
   }, [cmd]);
@@ -139,7 +143,7 @@ export function PackageManager({
 
       {/* `bg-transparent p-0 border-0` on the <code>: the docs prose styles
           give inline code a chip background, and inheriting it here draws a
-          box inside the panel's own box — a card in a card. */}
+          box inside the panel's own box, a card in a card. */}
       <pre className="od-noscroll overflow-x-auto bg-transparent px-4 py-3">
         <code className="border-0 bg-transparent p-0 font-mono text-[0.8125rem] whitespace-nowrap text-foreground">
           {cmd}

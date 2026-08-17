@@ -8,7 +8,7 @@ import {
 } from "../../../runtime/db";
 
 export interface ProvisionInput {
-  /** Resource row id — stamped on the swarm spec as `otterdeploy.resource.id`
+  /** Resource row id, stamped on the swarm spec as `otterdeploy.resource.id`
    *  so the metrics sampler can attribute samples to this resource. */
   resourceId: string;
   serviceName: string;
@@ -18,7 +18,7 @@ export interface ProvisionInput {
   username: string;
   password: string;
   projectSlug: string;
-  /** Deployment row id — stamped on the swarm spec so tasks group under
+  /** Deployment row id, stamped on the swarm spec so tasks group under
    *  the right deployment in the Deployments tab. */
   deploymentId: string;
   /** Optional image override (`<repo>:<tag>`). Defaults to the engine's
@@ -27,10 +27,10 @@ export interface ProvisionInput {
   /** User-added envs merged with the engine's identity envs. */
   extraEnv?: Record<string, string>;
   /** When true, publish the engine's port on the swarm node's host
-   *  interface. Off by default — in-cluster apps use overlay DNS. */
+   *  interface. Off by default: in-cluster apps use overlay DNS. */
   public?: boolean;
   /** Resolved swarm node id to pin to (see swarm/resolve-placement). A
-   *  database's volume is local to its node, so this is normally set —
+   *  database's volume is local to its node, so this is normally set,
    *  and an unresolvable pin fails the deploy rather than starting the
    *  engine on a different node with an empty volume. */
   placementNodeId?: string | null;
@@ -56,7 +56,7 @@ export interface DatabaseProvisioner {
   }): Promise<ProvisionRuntime>;
 }
 
-// Single generic provisioner — all engines share the same swarm orchestration
+// Single generic provisioner: all engines share the same swarm orchestration
 // (network ensure, service create, wait-ready, etc.). Engine-specific knobs
 // (image, env, healthcheck, mount path, optional --requirepass command) live
 // in the adapters under packages/api/src/swarm/database-engines/.

@@ -2,7 +2,7 @@
  * File-mount materialization.
  *
  * The `service_mount` table can store mounts of three types: volume, bind,
- * and file. Volume and bind are stateless from our perspective — we just
+ * and file. Volume and bind are stateless from our perspective. We just
  * emit the right ServiceSpec entries and swarm/docker handle the rest.
  * `file` is different: the file content lives in our DB, so we have to
  * write it to disk BEFORE the swarm spec lands at the daemon, otherwise
@@ -15,7 +15,7 @@
  *       <relativePath.dir>/...   ← parent dirs created as needed
  *
  * Idempotency: writing always replaces. We don't track checksums or "did
- * anything change" — the redeploy that follows would no-op via swarm's
+ * anything change". The redeploy that follows would no-op via swarm's
  * own diffing if the spec is byte-identical, but the file itself is
  * always rewritten so the on-disk content matches what the row says.
  *
@@ -51,7 +51,7 @@ export interface SpecMount {
  * Resolve a service's file-mount `source` (a relative path the user
  * controls) into the absolute on-disk path the container will bind to.
  * Refuses anything that escapes the service's own directory via `..` or
- * an absolute path — a malicious or careless source value can't mount
+ * an absolute path: a malicious or careless source value can't mount
  * /etc/shadow into a container.
  */
 function resolveFileMountPath(serviceName: string, source: string): string {
@@ -114,8 +114,8 @@ export async function materializeServiceMounts(
         if (mount.content == null) {
           throw new Error(`file mount at ${mount.target} has no content`);
         }
-        // Default the source to the target's basename when not provided —
-        // the most common case is "I want config.json mounted at
+        // Default the source to the target's basename when not provided.
+        // The most common case is "I want config.json mounted at
         // /etc/myapp/config.json" without thinking about an on-disk name.
         const source = mount.source ?? mount.target.split("/").pop() ?? "file";
         const diskPath = resolveFileMountPath(serviceName, source);

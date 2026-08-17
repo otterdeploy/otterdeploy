@@ -17,7 +17,7 @@ describe("rollupDeployStatus", () => {
   });
 
   it("reports deploying for each in-flight status", () => {
-    // These three are the whole reason the hook exists — a build sitting in
+    // These three are the whole reason the hook exists. A build sitting in
     // `building` has no swarm task, so nothing else in the app reports it.
     for (const status of ["pending", "building", "starting"]) {
       expect(rollupDeployStatus([row(status)], NOW)).toBe("deploying");
@@ -49,7 +49,7 @@ describe("rollupDeployStatus", () => {
     expect(rollupDeployStatus([row("failed", "not-a-date", "also-not")], NOW)).toBe("idle");
   });
 
-  it("prefers in-flight over a recent failure — the retry is the headline", () => {
+  it("prefers in-flight over a recent failure: the retry is the headline", () => {
     expect(rollupDeployStatus([row("failed", ago(10_000)), row("building")], NOW)).toBe(
       "deploying",
     );

@@ -4,7 +4,7 @@ dist
 .nitro
 .tanstack
 
-# cloudflare — .wrangler holds the local dev state and the generated
+# cloudflare: .wrangler holds the local dev state and the generated
 # deploy/config.json that points wrangler at .output/server/wrangler.json
 .wrangler
 

@@ -19,7 +19,7 @@ import { TwoFactorChallenge } from "./two-factor-challenge";
 
 /** The only legitimate absolute post-login redirect is the deployment-
  *  protection authorize endpoint, which lives on the server origin. Anything
- *  else is an open-redirect attempt — return null so the caller drops it. */
+ *  else is an open-redirect attempt. Return null so the caller drops it. */
 function safeServerRedirect(target: string): string | null {
   try {
     const url = new URL(target);
@@ -36,7 +36,7 @@ export function SignInForm({
   onSwitchToSignUp,
 }: {
   allowSignUp: boolean;
-  /** Provider ids live on the server right now — see /api/auth/public-config. */
+  /** Provider ids live on the server right now. See /api/auth/public-config. */
   socialProviders: string[];
   onSwitchToSignUp: () => void;
 }) {
@@ -44,7 +44,7 @@ export function SignInForm({
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
 
-  // Set once email+password succeed for a 2FA-enabled account — swaps the form
+  // Set once email+password succeed for a 2FA-enabled account. Swaps the form
   // for the TOTP/backup-code challenge before a session is granted.
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
 
@@ -52,7 +52,7 @@ export function SignInForm({
    *  absolute deployment-protection redirect, else land on the internal path. */
   const completeLogin = () => {
     // A session exists now, but the gate's cache may still hold the `null` that
-    // sent us to /sign-in in the first place — drop it before navigating or the
+    // sent us to /sign-in in the first place. Drop it before navigating or the
     // redirect bounces straight back here. See lib/auth-queries.ts.
     clearAuthCache();
     toast.success(t("auth.signIn.welcomeBack"));
@@ -61,7 +61,7 @@ export function SignInForm({
       void (safe ? (window.location.href = safe) : navigate({ to: "/", replace: true }));
       return;
     }
-    void navigate({ to: (redirect ?? "/") as "/", replace: true });
+    void navigate({ to: redirect ?? "/", replace: true });
   };
 
   const signIn = useMutation({
@@ -72,9 +72,9 @@ export function SignInForm({
       return result.data;
     },
     onSuccess: (data) => {
-      // 2FA-enabled accounts get no session yet — the server signals a pending
+      // 2FA-enabled accounts get no session yet. The server signals a pending
       // challenge instead. Show the code step rather than navigating.
-      if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
         setTwoFactorRequired(true);
         return;
       }

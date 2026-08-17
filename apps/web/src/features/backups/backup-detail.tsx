@@ -1,6 +1,6 @@
 /**
  * Expanded detail drawer for one backup run. Reads its own log lines on demand
- * (real `backups.logs` query — no fake preview).
+ * (real `backups.logs` query, no fake preview).
  */
 import { Alert02Icon, DatabaseRestoreIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -26,11 +26,11 @@ export function BackupDetail({
   const ratio =
     sourceBytes > 0 && compressedBytes > 0
       ? `${((1 - compressedBytes / sourceBytes) * 100).toFixed(0)}%`
-      : "—";
+      : "–";
 
   return (
     <div className="border-t bg-muted/30 px-4 py-3.5">
-      {/* The row's restore control is a 24px ghost icon with only a tooltip —
+      {/* The row's restore control is a 24px ghost icon with only a tooltip,
           effectively invisible, and a refresh glyph reads as "retry" rather
           than "restore". Restoring a database is the whole point of having
           backups, so it gets a named button where there's room for one. */}
@@ -41,21 +41,21 @@ export function BackupDetail({
             Restore from this backup
           </Button>
           <span className="text-[11px] text-muted-foreground">
-            Opens the restore wizard — you choose the target before anything is written.
+            Opens the restore wizard. You choose the target before anything is written.
           </span>
         </div>
       ) : null}
 
       <div className="mb-3 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <DetailField label="Backup ID" value={backup.id} mono />
-        <DetailField label="Method" value={backup.method ?? "—"} mono />
+        <DetailField label="Method" value={backup.method ?? "–"} mono />
         <DetailField label="Retention class" value={backup.retention} />
         {backup.kind === "volume" ? (
-          <DetailField label="Source volume" value={backup.volumeName ?? "—"} mono />
+          <DetailField label="Source volume" value={backup.volumeName ?? "–"} mono />
         ) : (
           <DetailField
             label="Source service"
-            value={`${backup.sourceService ?? "—"} @ ${backup.sourceHost ?? "—"}`}
+            value={`${backup.sourceService ?? "–"} @ ${backup.sourceHost ?? "–"}`}
             mono
           />
         )}
@@ -71,7 +71,7 @@ export function BackupDetail({
           Checksum
         </span>
         <code className="rounded border bg-background px-2 py-1.5 font-mono text-[11px] break-all text-foreground/80">
-          {backup.checksum ?? "—"}
+          {backup.checksum ?? "–"}
         </code>
       </div>
 
@@ -87,7 +87,7 @@ export function BackupDetail({
   );
 }
 
-/** Log lines for one run — owns the on-demand `backups.logs` query. */
+/** Log lines for one run. Owns the on-demand `backups.logs` query. */
 function BackupLog({ backupId }: { backupId: string }) {
   const { data: logs = [], isLoading } = useQuery({
     ...orpc.backups.logs.queryOptions({ input: { id: backupId } }),

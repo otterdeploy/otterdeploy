@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/shared/lib/utils";
 
-/** Summary tiles above the certificate tables — computed from LIVE probe data
+/** Summary tiles above the certificate tables, computed from LIVE probe data
  *  plus the stored custom-cert rows; nothing here is synthesized. */
 import type { CertificateInventory, CustomCertificate } from "./data/certificates";
 
@@ -17,7 +17,7 @@ export function CertificateStats({
   const probes = inventory?.certificates ?? [];
   const total = probes.length;
   // ACME-managed = the edge serves a real (non-self-signed) cert that isn't
-  // one of our uploads — Caddy obtained and auto-renews it.
+  // one of our uploads: Caddy obtained and auto-renews it.
   const acme = probes.filter((p) => p.ok && !p.selfSigned && p.customCertificateId === null).length;
   const expiring = probes.filter((p) => p.status === "expiring" || p.status === "expired").length;
   const custom = customs?.length ?? 0;
@@ -26,23 +26,23 @@ export function CertificateStats({
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Stat
         label={t("certificates.stats.publicDomains")}
-        value={inventory ? String(total) : "—"}
+        value={inventory ? String(total) : "–"}
         sub={inventory ? `probed via ${inventory.edgeHost}` : "probing…"}
       />
       <Stat
         label={t("certificates.stats.acmeManaged")}
-        value={inventory ? String(acme) : "—"}
+        value={inventory ? String(acme) : "–"}
         sub="auto-renewed by Caddy"
       />
       <Stat
         label={t("certificates.stats.expiringSoon")}
-        value={inventory ? String(expiring) : "—"}
+        value={inventory ? String(expiring) : "–"}
         sub={expiring > 0 ? "includes expired" : "nothing due"}
         tone={expiring > 0 ? "warn" : undefined}
       />
       <Stat
         label={t("certificates.stats.customUploads")}
-        value={customs ? String(custom) : "—"}
+        value={customs ? String(custom) : "–"}
         sub={custom > 0 ? "manual rotation required" : "none uploaded"}
       />
     </div>

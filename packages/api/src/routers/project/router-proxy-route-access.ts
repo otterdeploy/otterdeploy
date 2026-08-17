@@ -101,7 +101,7 @@ export const proxyRouteAccessRouter = {
 
   inviteGuest: requirePermission({ route: ["update"] }).project.proxyRoute.inviteGuest.handler(
     async ({ input, context, errors }) => {
-      // Guest invites are attributed to the inviting user — a session-only
+      // Guest invites are attributed to the inviting user. A session-only
       // operation; reject API-key actors (which have no user identity).
       if (!context.session?.user) {
         throw new ORPCError("UNAUTHORIZED");

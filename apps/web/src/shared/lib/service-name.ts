@@ -1,5 +1,5 @@
 /**
- * Platform-generated service-name prefixes — mirror
+ * Platform-generated service-name prefixes: mirror
  * `config.service.serviceNamePrefix` / `networkPrefix` in
  * packages/api/src/constants.ts. The control plane namespaces every swarm
  * service under `od-…` (databases under `otterdeploy-…`), but that prefix is
@@ -19,7 +19,7 @@ const PLATFORM_PREFIX = "otterdeploy-";
  * Names without the prefix (e.g. `system`) pass through untouched.
  */
 export function displayServiceName(name: string): string {
-  // Legacy service prefix before the generic db prefix — `otterdeploy-svc-`
+  // Legacy service prefix before the generic db prefix: `otterdeploy-svc-`
   // also starts with `otterdeploy-`, so the more specific one must win.
   if (name.startsWith(LEGACY_SVC_PREFIX)) return name.slice(LEGACY_SVC_PREFIX.length);
   if (name.startsWith(PLATFORM_SVC_PREFIX)) return name.slice(PLATFORM_SVC_PREFIX.length);

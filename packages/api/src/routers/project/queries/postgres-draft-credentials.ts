@@ -3,7 +3,7 @@
  *
  * The password for a staged database is minted once and reused at deploy, so
  * the connection details shown in the pending panel keep working afterward.
- * Keyed by (projectId, name) — the manifest's identity for the entry.
+ * Keyed by (projectId, name): the manifest's identity for the entry.
  * Split out of postgres-resource.ts, which keeps the database_resource CRUD.
  */
 import type { ProjectId } from "@otterdeploy/shared/id";

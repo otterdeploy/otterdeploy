@@ -8,12 +8,12 @@ import { resource } from "./project";
 export type EphemeralDbScope = "read-only" | "read-write";
 
 /**
- * Short-lived database credentials — a real Postgres role minted on demand
+ * Short-lived database credentials. A real Postgres role minted on demand
  * (e.g. to hand an AI agent a connection URL) that auto-expires. The role is
  * created with `VALID UNTIL <expiresAt>` so Postgres itself refuses new logins
  * after expiry even if the control plane is down; the sweeper then terminates
- * any lingering sessions and drops the role. The password is NEVER stored —
- * the connection URL is shown exactly once at mint time. Rows are kept after
+ * any lingering sessions and drops the role. The password is NEVER stored.
+ * The connection URL is shown exactly once at mint time. Rows are kept after
  * revocation as an audit trail of who minted access when.
  */
 export const databaseEphemeralCredential = pgTable(
@@ -27,7 +27,7 @@ export const databaseEphemeralCredential = pgTable(
       .notNull()
       .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
-    /** The Postgres role name (`otter_eph_…`) — needed to drop it later. */
+    /** The Postgres role name (`otter_eph_…`), needed to drop it later. */
     roleName: text("role_name").notNull(),
     scope: text("scope").$type<EphemeralDbScope>().notNull().default("read-only"),
     /** Optional operator note ("claude data-analysis agent"). */

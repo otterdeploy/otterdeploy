@@ -31,7 +31,7 @@ Review and improve logging patterns in TypeScript/JavaScript codebases. Transfor
 
 ## Audit logs
 
-For security-sensitive actions (auth, billing, admin, data export), use evlog's audit layer — a typed `audit` field on wide events, not a parallel logger. See the **`build-audit-logs`** skill for end-to-end setup (`log.audit`, `withAudit`, denials, `auditEnricher`, `auditOnly`, `signed`, `mockAudit`).
+For security-sensitive actions (auth, billing, admin, data export), use evlog's audit layer. A typed `audit` field on wide events, not a parallel logger. See the **`build-audit-logs`** skill for end-to-end setup (`log.audit`, `withAudit`, denials, `auditEnricher`, `auditOnly`, `signed`, `mockAudit`).
 
 ```typescript
 log.audit({
@@ -67,10 +67,10 @@ export default defineNuxtConfig({
 })
 ```
 
-All evlog functions (`useLogger`, `createError`, `parseError`, `log`) are **auto-imported** — no import statements needed.
+All evlog functions (`useLogger`, `createError`, `parseError`, `log`) are **auto-imported**, no import statements needed.
 
 ```typescript
-// server/api/checkout.post.ts — no imports needed
+// server/api/checkout.post.ts, no imports needed
 export default defineEventHandler(async (event) => {
   const log = useLogger(event)
   log.set({ user: { id: user.id, plan: user.plan } })
@@ -102,7 +102,7 @@ Client-side: `log`, `setIdentity`, `clearIdentity` are auto-imported in componen
 
 ### Next.js
 
-**Step 1: Create central config** — all exports come from here:
+**Step 1: Create central config**. All exports come from here:
 
 ```typescript
 // lib/evlog.ts
@@ -143,14 +143,14 @@ export const { withEvlog, useLogger, log, createError } = createEvlog({
 import { withEvlog, useLogger } from '@/lib/evlog'
 
 export const POST = withEvlog(async (request: Request) => {
-  const log = useLogger()  // Zero arguments — uses AsyncLocalStorage
+  const log = useLogger()  // Zero arguments: uses AsyncLocalStorage
   log.set({ user: { id: 'user_123', plan: 'enterprise' } })
   log.set({ cart: { items: 3, total: 14999 } })
   return Response.json({ success: true })
 })
 ```
 
-**Step 3: Server Actions** — same `withEvlog()` wrapper:
+**Step 3: Server Actions**, same `withEvlog()` wrapper:
 
 ```typescript
 // app/actions.ts
@@ -164,7 +164,7 @@ export const checkout = withEvlog(async (formData: FormData) => {
 })
 ```
 
-**Step 4: Middleware** (optional — sets `x-request-id` + timing headers):
+**Step 4: Middleware** (optional, sets `x-request-id` + timing headers):
 
 ```typescript
 // proxy.ts
@@ -173,7 +173,7 @@ export const proxy = evlogMiddleware()
 export const config = { matcher: ['/api/:path*'] }
 ```
 
-**Step 5: Client Provider** — wrap root layout:
+**Step 5: Client Provider**, wrap root layout:
 
 ```tsx
 // app/layout.tsx
@@ -192,7 +192,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 ```
 
-**Step 6: Client logging** — in any client component:
+**Step 6: Client logging**, in any client component:
 
 ```tsx
 'use client'
@@ -203,11 +203,11 @@ log.info({ action: 'checkout_click' })
 clearIdentity()
 ```
 
-**Step 7 (optional): Instrumentation** — startup + global `onRequestError` (SSR/RSC errors outside `withEvlog`). Use `defineNodeInstrumentation(() => import('./lib/evlog'))` in root `instrumentation.ts` to gate Node + cache the import, **or** write `register`/`onRequestError` manually — both are valid. For custom logic, wrap evlog’s `register`/`onRequestError` inside `lib/evlog.ts` (compose with your own init or metrics), then re-export.
+**Step 7 (optional): Instrumentation**, startup + global `onRequestError` (SSR/RSC errors outside `withEvlog`). Use `defineNodeInstrumentation(() => import('./lib/evlog'))` in root `instrumentation.ts` to gate Node + cache the import, **or** write `register`/`onRequestError` manually. Both are valid. For custom logic, wrap evlog’s `register`/`onRequestError` inside `lib/evlog.ts` (compose with your own init or metrics), then re-export.
 
 Export `createInstrumentation()` from `lib/evlog.ts` alongside `createEvlog()`. See framework docs for coexistence with `lockLogger`.
 
-**Step 8: Client ingest endpoint** — receives client logs:
+**Step 8: Client ingest endpoint**, receives client logs:
 
 ```typescript
 // app/api/evlog/ingest/route.ts
@@ -471,7 +471,7 @@ app.get('/api/users', (c) => {
 })
 ```
 
-Access the logger via `c.get('log')` in handlers. No `useLogger()` — use `c.get('log')` and pass it down explicitly, or use Express/Fastify/Elysia if you need `useLogger()` across async boundaries.
+Access the logger via `c.get('log')` in handlers. No `useLogger()`. Use `c.get('log')` and pass it down explicitly, or use Express/Fastify/Elysia if you need `useLogger()` across async boundaries.
 
 Structured errors: throw `createError()`, then in `app.onError` use `parseError()` and pass `parsed.status as ContentfulStatusCode` to `c.json()` (Hono types the status argument as `ContentfulStatusCode`, not `number`).
 
@@ -864,7 +864,7 @@ See [references/drain-pipeline.md](references/drain-pipeline.md) for batching, r
 
 ## Enrichers
 
-Built-in: `createUserAgentEnricher()`, `createGeoEnricher()`, `createRequestSizeEnricher()`, `createTraceContextEnricher()` — all from `evlog/enrichers`.
+Built-in: `createUserAgentEnricher()`, `createGeoEnricher()`, `createRequestSizeEnricher()`, `createTraceContextEnricher()`, all from `evlog/enrichers`.
 
 ```typescript
 // Nuxt/Nitro: server/plugins/evlog-enrich.ts
@@ -889,7 +889,7 @@ createEvlog({
 
 ## Auto-Redaction (PII Protection)
 
-Built-in redaction scrubs sensitive data from wide events **before** console output and **before** any drain sees the data. **Enabled by default in production** (`NODE_ENV === 'production'`), disabled in development. Uses **smart partial masking** — preserving enough context for debugging.
+Built-in redaction scrubs sensitive data from wide events **before** console output and **before** any drain sees the data. **Enabled by default in production** (`NODE_ENV === 'production'`), disabled in development. Uses **smart partial masking**, preserving enough context for debugging.
 
 ```typescript
 // Disable in production (opt-out)
@@ -1011,8 +1011,8 @@ Anti-patterns to detect:
 
 | Anti-Pattern | Fix |
 |--------------|-----|
-| Manual token tracking in `onFinish` | `ai.wrap()` — middleware captures automatically |
-| `console.log('tokens:', result.usage)` | `ai.wrap()` — structured `ai.*` fields in wide event |
+| Manual token tracking in `onFinish` | `ai.wrap()`: middleware captures automatically |
+| `console.log('tokens:', result.usage)` | `ai.wrap()`: structured `ai.*` fields in wide event |
 | No AI observability | Add `createAILogger(log)` + `ai.wrap()` |
 | No tool execution timing | Add `createEvlogIntegration(ai)` to `experimental_telemetry.integrations` |
 | Manual cost calculation | Use `cost` option in `createAILogger()` |
@@ -1040,7 +1040,7 @@ throw createError({
   cause: originalError,
 })
 
-// Backend-only context (wide events / drains — never HTTP body or parseError())
+// Backend-only context (wide events / drains, never HTTP body or parseError())
 throw createError({
   message: 'Not allowed',
   status: 403,
@@ -1049,7 +1049,7 @@ throw createError({
 })
 ```
 
-Frontend — extract user-facing fields with `parseError()` (`internal` is never returned to clients):
+Frontend: extract user-facing fields with `parseError()` (`internal` is never returned to clients):
 
 ```typescript
 import { parseError } from 'evlog'
@@ -1080,7 +1080,7 @@ See [references/code-review.md](references/code-review.md) for the full checklis
 
 ## Loading Reference Files
 
-Load based on what you're working on — **do not load all at once**:
+Load based on what you're working on: **do not load all at once**:
 
 - Designing wide events → [references/wide-events.md](references/wide-events.md)
 - Improving errors → [references/structured-errors.md](references/structured-errors.md)

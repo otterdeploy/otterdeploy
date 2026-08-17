@@ -1,15 +1,17 @@
 /**
- * od-5j8.8 — end-to-end hostile-path coverage for the git router's
+ * od-5j8.8: end-to-end hostile-path coverage for the git router's
  * gitRepoId-scoped endpoints (getRepo, inspectRepo, listBranches, inspectEnv).
  *
  * Drives the real oRPC procedures (via `createProcedureClient`) with an org-A
- * actor and org-B's `gitRepoId`, asserting NOT_FOUND — never a data leak,
- * never a 500 — and that the expensive/network-calling inspect functions are
+ * actor and org-B's `gitRepoId`, asserting NOT_FOUND, never a data leak,
+ * never a 500, and that the expensive/network-calling inspect functions are
  * never even reached once the tenant guard rejects the id.
  */
-import type { GitRepoId, OrganizationId } from "@otterdeploy/shared/id";
+import type { OrganizationId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { createProcedureClient, ORPCError } from "@orpc/server";
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 import type { Context } from "../../../context";
@@ -27,15 +29,15 @@ process.env.CORS_ORIGIN ??= "http://localhost:3000";
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.RESEND_API_KEY ??= "test-resend-key";
 
-const orgA = "org_a" as OrganizationId;
-const orgB = "org_b" as OrganizationId;
-const victimRepoId = "gitr_victim" as GitRepoId;
+const orgA = idSchema.organization.parse("org_a");
+const orgB = idSchema.organization.parse("org_b");
+const victimRepoId = idSchema.gitRepo.parse("gitr_victim");
 
 // getRepoForOrg is exercised directly (with real db-shaped mocks) in
 // repo-scope.test.ts; here we only need it to behave like "org B's private
 // repo" so the router-level test proves the HANDLERS call it and honor a
-// miss — not re-prove the query's own join logic.
-const getRepoForOrg = vi.fn(async () => undefined);
+// miss, not re-prove the query's own join logic.
+const getRepoForOrg = vi.fn<typeof import("../queries").getRepoForOrg>(async () => undefined);
 
 vi.mock("../queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../queries")>();
@@ -49,10 +51,23 @@ vi.mock("../inspect", () => ({ inspectRepoTree, listRepoBranches, inspectEnvFile
 
 const { gitRouter } = await import("../index");
 
-function sessionContext(activeOrganizationId: string) {
+// Full RequestLogger surface as inert spies: these tests only exercise the
+// tenant-scope guard, which at most calls `log.set`.
+function stubLogger(): RequestLogger {
+  return {
+    set: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    emit: vi.fn(() => null),
+    getContext: vi.fn(() => ({})),
+  };
+}
+
+function sessionContext(activeOrganizationId: OrganizationId): Context {
   return {
     actor: {
-      kind: "session" as const,
+      kind: "session",
       headers: new Headers(),
       user: {
         id: "user_1",
@@ -66,11 +81,9 @@ function sessionContext(activeOrganizationId: string) {
     apiKey: null,
     activeOrganizationId,
     headers: new Headers(),
-    log: { set: vi.fn(), audit: undefined },
+    log: stubLogger(),
     broadcast: vi.fn(),
-    // Deliberately partial: these tests only exercise the tenant-scope guard,
-    // so the context carries just the fields those code paths read.
-  } as unknown as Context;
+  };
 }
 
 describe("git router tenant scope (od-5j8.8)", () => {
@@ -116,8 +129,13 @@ describe("git router tenant scope (od-5j8.8)", () => {
       id: victimRepoId,
       fullName: "acme/private-app",
       defaultBranch: "main",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+      isPrivate: true,
+      cloneUrl: "https://github.com/acme/private-app.git",
+      // Public-repo shape (no installation): getRepoForOrg is mocked, so the
+      // handler only reads fullName/defaultBranch off this row.
+      installationId: null,
+      providerOrganizationId: null,
+    });
     const client = createProcedureClient(gitRouter.getRepo, { context: sessionContext(orgB) });
 
     const result = await client({ gitRepoId: victimRepoId });

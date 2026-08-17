@@ -7,16 +7,16 @@
  * reachability check on add classifies where the host currently resolves,
  * which drives both the cert decision and whether it serves immediately:
  *
- *   pointed   — resolves to our server IP ⇒ live now, real Let's Encrypt
+ *   pointed: resolves to our server IP ⇒ live now, real Let's Encrypt
  *               cert. Publishing that record is itself proof of control.
- *   proxied   — resolves into a Cloudflare edge range ⇒ that address is
+ *   proxied: resolves into a Cloudflare edge range ⇒ that address is
  *               shared, so it proves nothing: the TXT gate still applies.
  *               Once verified, Cloudflare terminates TLS and the origin
  *               serves `tls internal`.
- *   unpointed — not pointed here yet ⇒ inert until the TXT proof or the A
+ *   unpointed, not pointed here yet ⇒ inert until the TXT proof or the A
  *               record lands (the UI shows both records to publish).
  *
- * Domains ARE the exposure — there is no separate public-access switch.
+ * Domains ARE the exposure. There is no separate public-access switch.
  * Adding the first host turns exposure on; removing the last turns it off.
  * Exactly one route per resource is flagged `isPrimary`; its domain is
  * mirrored into serviceResource.publicDomain so panel/graph/views keep
@@ -93,7 +93,7 @@ export async function addServiceDomain(
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain, serverIp });
   // DNS that already resolves to this server is proof of control (see
-  // `provenByDns`) — those hosts serve immediately. Anything else stays inert
+  // `provenByDns`): those hosts serve immediately. Anything else stays inert
   // behind the per-route TXT challenge until Recheck observes it.
   const live = provenByDns(reachability.state);
   const existing = await listProxyRoutesByResourceId(input.resourceId);
@@ -123,7 +123,7 @@ export async function addServiceDomain(
     throw error;
   }
 
-  // A service with a domain IS a public service — there is no second switch
+  // A service with a domain IS a public service. There is no second switch
   // to find. Adding the first host turns exposure on; the route itself still
   // waits on its own DNS/ownership before it serves anything.
   if (route.isPrimary || !record.service.publicEnabled) {
@@ -170,7 +170,7 @@ export async function recheckServiceDomain(
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain: route.domain, serverIp });
   // Generated hosts are ours by construction, and a host that now resolves to
-  // this server has proven itself the same way ACME would — either way there
+  // this server has proven itself the same way ACME would. Either way there
   // is nothing left for the TXT challenge to establish.
   const ownership =
     route.source === "generated" || provenByDns(reachability.state)
@@ -232,7 +232,7 @@ export async function updateServiceDomain(
     return Result.err(new DomainConflictError({ domain: input.domain }));
   }
 
-  // An omitted port keeps the one this host already routes to — editing the
+  // An omitted port keeps the one this host already routes to. Editing the
   // hostname alone must not silently re-point the route at the primary. (So
   // this path can't hit "service has no HTTP port": there's always the port
   // the route is already using to fall back on.)

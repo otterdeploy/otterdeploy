@@ -1,5 +1,5 @@
 /**
- * Templates gallery — org-level catalog of curated, deployable compose
+ * Templates gallery: org-level catalog of curated, deployable compose
  * stacks. Counts, chips, and every card fact derive from the typed catalog
  * (which is itself parser-verified); there are no install counts, stars, or
  * trending lists because we don't measure those.
@@ -55,7 +55,7 @@ export function TemplatesGallery({
     <Page>
       <PageHeader
         title={t("nav.templates")}
-        description={`${TEMPLATES.length} curated stacks — pick one, choose a project, review its variables, deploy.`}
+        description={`${TEMPLATES.length} curated stacks. Pick one, choose a project, review its variables, deploy.`}
       />
 
       <div className="flex flex-wrap items-center gap-2">

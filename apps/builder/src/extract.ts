@@ -1,15 +1,15 @@
 /**
  * Extract the CLI-uploaded source tarball for a `source: "upload"` build into a
- * fresh work dir — the tarball analogue of `cloneRepoAtSha`. The server stages
+ * fresh work dir. The tarball analogue of `cloneRepoAtSha`. The server stages
  * the tarball at `sourceTarballPath(projectId, deploymentId)` on the shared data
  * dir; the worker bind-mounts that file into this helper container at the same
  * path (see handler.ts), so it resolves here. Everything downstream
  * (railpack/Dockerfile, cache, push, rollout) is identical to the git path once
- * the work dir is populated — only source acquisition differs.
+ * the work dir is populated. Only source acquisition differs.
  *
  * Extraction itself goes through `archive-extract.ts`, not a bare `tar -xzf`:
  * a tenant-supplied tarball is untrusted input (path traversal, symlink
- * escapes, device files, decompression bombs — see od-5j8.16), so every entry
+ * escapes, device files, decompression bombs: see od-5j8.16), so every entry
  * is validated before any bytes hit the filesystem.
  */
 
@@ -38,7 +38,7 @@ export async function extractTarballToWorkDir(opts: {
     // under DATA_ROOT but this helper never got it bind-mounted (no data folder
     // on the host), so an upload build can't run without a real data dir.
     throw new Error(
-      `uploaded source not found at ${tarball} — is OTTERDEPLOY_DATA_DIR a real host dir shared with the builder?`,
+      `uploaded source not found at ${tarball}. Is OTTERDEPLOY_DATA_DIR a real host dir shared with the builder?`,
     );
   }
 

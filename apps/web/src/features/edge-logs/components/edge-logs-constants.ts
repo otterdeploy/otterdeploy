@@ -35,7 +35,7 @@ export function statusBucket(s: number): Bucket {
   return "2xx";
 }
 
-/** Fill class for the inline latency mini-bar — demo thresholds: >800ms is a
+/** Fill class for the inline latency mini-bar: demo thresholds: >800ms is a
  *  problem, >300ms is worth a glance, anything faster reads as healthy. */
 export function latencyBarClass(ms: number): string {
   if (ms > 800) return "bg-destructive";
@@ -57,7 +57,7 @@ export function cacheTextClass(cache: string | null): string | undefined {
   return undefined;
 }
 
-/** Footer err% tint — two tiers per the demo: ≥2% red, ≥0.5% amber.
+/** Footer err% tint: two tiers per the demo: ≥2% red, ≥0.5% amber.
  *  `rate` is a fraction (0.02 = 2%). */
 export function errRateClass(rate: number): string | undefined {
   if (rate >= 0.02) return "text-destructive";

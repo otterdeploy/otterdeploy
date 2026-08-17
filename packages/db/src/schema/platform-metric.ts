@@ -1,5 +1,5 @@
 /**
- * Install-wide platform metrics — a lightweight time series sampled on the same
+ * Install-wide platform metrics: a lightweight time series sampled on the same
  * control-plane tick as `resource_metric` (packages/api/src/metrics). Generic
  * `metric` name + numeric `value` so new platform signals (queue backlog, …)
  * can be added without a schema change. Today: aggregate BullMQ queue depth

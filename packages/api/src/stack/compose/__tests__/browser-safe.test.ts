@@ -6,7 +6,7 @@
  * the detail view, so every module the parser reaches is bundled for the SPA.
  * A `node:` import anywhere in that graph resolves to a shim whose exports the
  * bundler cannot fill in, and the failure is a runtime TypeError in minified
- * code — `Ur.normalize is not a function` — not a build error. It took out the
+ * code (`Ur.normalize is not a function`) not a build error. It took out the
  * entire template catalog dialog, not merely the feature that added the import.
  *
  * Nothing else catches this: `apps/web`'s vitest runs in `environment: "node"`,
@@ -42,7 +42,7 @@ function nodeImportsReachableFrom(entry: string): string[] {
     try {
       src = readFileSync(file, "utf8");
     } catch {
-      return; // .js/.json resolution misses — not what this test is about
+      return; // .js/.json resolution misses, not what this test is about
     }
     for (const { spec, typeOnly } of imports(src)) {
       if (typeOnly) continue;

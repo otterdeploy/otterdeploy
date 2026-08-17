@@ -48,7 +48,7 @@ describe("parseHttpHealthcheckCmd", () => {
     expect(parseHttpHealthcheckCmd([])).toBeNull();
     expect(parseHttpHealthcheckCmd(["curl", "-f", "http://127.0.0.1:3000/health"])).toBeNull();
     expect(parseHttpHealthcheckCmd(["CMD-SHELL", "pg_isready -U postgres"])).toBeNull();
-    // Our marker but an edited script with mismatched URLs — not invertible.
+    // Our marker but an edited script with mismatched URLs, not invertible.
     expect(
       parseHttpHealthcheckCmd([
         "CMD-SHELL",

@@ -5,12 +5,12 @@
  * This is the bug that made the terminal unusable: `resource-terminal.tsx`
  * built its `session` object inline, so every render produced a new identity.
  * That object was the connection effect's only dependency, so React tore the
- * WebSocket down and reopened it on each render — and the UI rendered the
- * resulting churn as an endless "connection lost — reconnecting". The server
+ * WebSocket down and reopened it on each render, and the UI rendered the
+ * resulting churn as an endless "connection lost, reconnecting". The server
  * was healthy the whole time: its log showed the socket accepted (200), the
  * shell spawned, then immediately closed and killed.
  *
- * Types cannot catch this — both objects are the same type — so it is pinned
+ * Types cannot catch this (both objects are the same type) so it is pinned
  * here instead.
  */
 
@@ -38,7 +38,7 @@ describe("source keying", () => {
   });
 
   test("a different container is a different key", () => {
-    // Switching replica or container MUST reconnect — the fix must not go so
+    // Switching replica or container MUST reconnect. The fix must not go so
     // far that a genuine target change is ignored.
     expect(keyOf(container())).not.toBe(keyOf(container({ containerId: "def456" })));
     expect(keyOf(container())).not.toBe(keyOf(container({ replica: "2" })));

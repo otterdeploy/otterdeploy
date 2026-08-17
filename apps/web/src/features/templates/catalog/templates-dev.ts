@@ -6,13 +6,13 @@ export const DEV_TEMPLATES: StackTemplate[] = [
     id: "authentik",
     name: "Authentik",
     description:
-      "Self-hosted identity provider — SSO, OAuth2/OIDC, SAML, and LDAP with a policy engine. Server and worker share a bundled Postgres and Redis; both persist to named volumes.",
+      "Self-hosted identity provider: SSO, OAuth2/OIDC, SAML, and LDAP with a policy engine. Server and worker share a bundled Postgres and Redis; both persist to named volumes.",
     category: "security",
     includes: ["server", "worker", "db", "redis"],
     requiredEnv: [
       {
         key: "SECRET_KEY",
-        description: "Signing key for sessions and tokens — keep stable across restarts.",
+        description: "Signing key for sessions and tokens. Keep it stable across restarts.",
         generateHint: "openssl rand -base64 60",
       },
       {
@@ -94,7 +94,7 @@ volumes:
     requiredEnv: [
       {
         key: "DOMAIN",
-        description: "Public URL the vault is served from — required for WebAuthn and the apps.",
+        description: "Public URL the vault is served from. Required for WebAuthn and the apps.",
       },
       {
         key: "ADMIN_TOKEN",
@@ -129,7 +129,7 @@ volumes:
     id: "gitea",
     name: "Gitea",
     description:
-      "Self-hosted Git service — repos, issues, pull requests, and CI runners. Backed by Postgres; repositories persist to a named volume.",
+      "Self-hosted Git service: repos, issues, pull requests, and CI runners. Backed by Postgres; repositories persist to a named volume.",
     category: "devtools",
     includes: ["gitea", "db"],
     requiredEnv: [
@@ -186,7 +186,7 @@ volumes:
     id: "excalidraw",
     name: "Excalidraw",
     description:
-      "Virtual whiteboard with a hand-drawn feel. A single stateless container serving the editor — boards live in the browser unless exported.",
+      "Virtual whiteboard with a hand-drawn feel. A single stateless container serving the editor. Boards live in the browser unless exported.",
     category: "devtools",
     includes: ["excalidraw"],
     requiredEnv: [],

@@ -1,13 +1,17 @@
 /**
- * od-5j8.12 — query-layer coverage for sealed SERVICE env vars, mirroring
+ * od-5j8.12: query-layer coverage for sealed SERVICE env vars, mirroring
  * `routers/project/queries/__tests__/project-env-sealed.test.ts`:
  * `upsertServiceEnvVar` encrypts on write whenever the FINAL state is sealed
  * (sticky, one-way), and `bulkReplaceServiceEnvVars` never deletes or
  * overwrites an existing sealed row. Real AES-GCM (already unit-tested in
  * `lib/__tests__/crypto.test.ts`) against a hand-rolled fluent mock of
- * `@otterdeploy/db` — no real database needed.
+ * `@otterdeploy/db`, no real database needed.
  */
+import type { ResourceId } from "@otterdeploy/shared/id";
+
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { describe, expect, test, vi } from "vite-plus/test";
+import * as z from "zod";
 
 function selectChain(rows: unknown[]) {
   // `where()` serves two shapes used by the subject:
@@ -70,9 +74,20 @@ vi.mock("@otterdeploy/db", () => ({
 import { decryptForDomain } from "../../../../lib/crypto";
 import { bulkReplaceServiceEnvVars, upsertServiceEnvVar } from "../env";
 
-const serviceResourceId = "resource_svc" as never;
+/** Brand a fixture id through the real prefix guard (accepts the legacy `resource_` spelling). */
+function resourceIdFixture(value: string): ResourceId {
+  if (!hasPrefix(value, ID_PREFIX.resource)) throw new Error(`not a resource id: ${value}`);
+  return value;
+}
 
-describe("upsertServiceEnvVar — sealed write path", () => {
+const serviceResourceId = resourceIdFixture("resource_svc");
+
+/** Read the captured insert payload through a schema instead of casting it. */
+const capturedValue = () => z.object({ value: z.string() }).parse(lastInsertCapture.values).value;
+const capturedSealed = () =>
+  z.object({ sealed: z.boolean() }).parse(lastInsertCapture.values).sealed;
+
+describe("upsertServiceEnvVar, sealed write path", () => {
   test("encrypts with the env-vars domain key when sealed: true", async () => {
     nextSelectRows = [];
     lastInsertReturn = [
@@ -83,7 +98,7 @@ describe("upsertServiceEnvVar — sealed write path", () => {
         previewId: null,
         key: "TOKEN",
         get value() {
-          return (lastInsertCapture.values as { value: string }).value;
+          return capturedValue();
         },
         isSecret: false,
         sealed: true,
@@ -105,7 +120,7 @@ describe("upsertServiceEnvVar — sealed write path", () => {
     expect(await decryptForDomain(row.value, "env-vars")).toBe("plaintext-token");
   });
 
-  test("sealing is sticky across writes — omitting `sealed` on a later call doesn't unseal", async () => {
+  test("sealing is sticky across writes. Omitting `sealed` on a later call doesn't unseal", async () => {
     nextSelectRows = [{ sealed: true }];
     lastInsertReturn = [
       {
@@ -115,11 +130,11 @@ describe("upsertServiceEnvVar — sealed write path", () => {
         previewId: null,
         key: "TOKEN",
         get value() {
-          return (lastInsertCapture.values as { value: string }).value;
+          return capturedValue();
         },
         isSecret: false,
         get sealed() {
-          return (lastInsertCapture.values as { sealed: boolean }).sealed;
+          return capturedSealed();
         },
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -137,7 +152,7 @@ describe("upsertServiceEnvVar — sealed write path", () => {
   });
 });
 
-describe("bulkReplaceServiceEnvVars — sealed rows survive wholesale replace", () => {
+describe("bulkReplaceServiceEnvVars, sealed rows survive wholesale replace", () => {
   test("an existing sealed row is preserved verbatim; a smuggled overwrite for its key is dropped", async () => {
     const existingSealed = {
       id: "sev_sealed",

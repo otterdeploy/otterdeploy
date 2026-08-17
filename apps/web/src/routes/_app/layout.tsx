@@ -50,7 +50,7 @@ export const Route = createFileRoute("/_app")({
     // ensureQueryData, NOT a direct authClient call: this gate runs on every
     // navigation, and hitting `/api/auth/*` twice each time exhausted the auth
     // rate limit (100/60s, shared across callers when no trusted-proxy IP is
-    // available) — after which a 429 read as "signed out" and bounced the
+    // available): after which a 429 read as "signed out" and bounced the
     // operator to /sign-in mid-session. Within the 5min staleTime this is now a
     // cache read and makes no request at all. See lib/auth-queries.ts.
     //
@@ -98,7 +98,7 @@ export const Route = createFileRoute("/_app")({
       // them and let each one 403 on its own: `system.*`, `docker.*`,
       // `volumes.*`, server enrollment and the platform-settings router are
       // install-admin in their entirety, and their pages fire queries on mount.
-      // This is presentation only — every one of those procedures still checks
+      // This is presentation only. Every one of those procedures still checks
       // the same flag server-side in authz/capability.ts, which is the boundary.
       isInstallAdmin: u.isInstallAdmin === true,
     };
@@ -108,14 +108,14 @@ export const Route = createFileRoute("/_app")({
 
 function RouteComponent() {
   // GitHub install-callback lands with ?git_install=… on whatever page the
-  // connect was started from — handle the toast at the layout so every
+  // connect was started from. Handle the toast at the layout so every
   // landing page gets it.
   useInstallCallbackToast();
   // One favicon controller for the whole signed-in app. Mounted here rather
   // than at the root so the sign-in and device-approval pages keep the plain
-  // static icon — they have no system state to report.
+  // static icon: they have no system state to report.
   useFaviconStatus();
-  // One org-stream subscription for the whole signed-in app — resyncs the
+  // One org-stream subscription for the whole signed-in app: resyncs the
   // activity pill, inbox, and servers collection on push instead of polls.
   useOrgEvents();
   return (

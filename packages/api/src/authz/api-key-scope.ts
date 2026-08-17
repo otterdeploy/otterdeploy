@@ -6,13 +6,13 @@
  * metadata presets (read-only access level + project scoping). The oRPC
  * permission middleware combines three independent gates for a key actor:
  *
- *   1. authorizeKeyScope  — the key's own minted permission map covers the
+ *   1. authorizeKeyScope: the key's own minted permission map covers the
  *      required {resource: actions[]}.
- *   2. authorizeRoleScope — DECISION A: every key is additionally capped at the
+ *   2. authorizeRoleScope: DECISION A: every key is additionally capped at the
  *      least-privileged org role (`member`). Effective permission is therefore
  *      `min(key scope, member role)`. See the Decision B seam below for the
  *      future "intersect against the creator's live role" refinement.
- *   3. isReadAllowed      — optional read-only preset blocks non-read actions.
+ *   3. isReadAllowed: optional read-only preset blocks non-read actions.
  *
  * Project scope (requireProjectScope) is enforced separately on procedures that
  * carry a `projectId` in their validated input.
@@ -24,7 +24,7 @@ import { roles, type PermissionCheck } from "@otterdeploy/auth/permissions";
 
 // `isReadAction` is deliberately imported, not redefined. Read-only API keys
 // (isReadAllowed below) and the audit read-gate (../index.ts) must classify a
-// procedure identically — a divergence would either let a read-only key through
+// procedure identically: a divergence would either let a read-only key through
 // a mutation or drop a mutation from the audit trail. One definition, in
 // ./procedure-mode, is what keeps them honest.
 import { isReadAction } from "./procedure-mode";
@@ -41,7 +41,7 @@ export function authorizeKeyScope(
   keyPermissions: Record<string, string[]> | null,
   required: PermissionCheck,
 ): boolean {
-  // Full-access key — no per-key narrowing.
+  // Full-access key, no per-key narrowing.
   if (keyPermissions === null) return true;
 
   for (const [resource, actions] of Object.entries(required)) {
@@ -59,14 +59,41 @@ export function authorizeKeyScope(
  *
  * DECISION B SEAM (future): record the minting user on the key and intersect
  * `required` against that creator's *live* org role instead of the static
- * `member` cap — i.e. an owner's key could do owner things, but it would
+ * `member` cap: i.e. an owner's key could do owner things, but it would
  * downgrade automatically if the creator is demoted. That needs a creator
  * column on the `apikey` row (none today: `references: "organization"` →
  * `referenceId` is the org id, not a user) plus a role lookup at verify time.
  * When that lands, swap `roles.member` here for the resolved creator role.
  */
+type MemberAuthorizeRequest = Parameters<typeof roles.member.authorize>[0];
+
+/**
+ * Genuine narrowing from the full-catalog `PermissionCheck` to the subset the
+ * `member` role's `authorize` accepts: every requested resource must exist in
+ * the member statements and every requested action must be one the member
+ * statements list. When this returns false, `authorize` would have returned
+ * `success: false` anyway (unknown resource / uncovered action), so callers
+ * can short-circuit to `false` without changing behavior.
+ */
+function fitsMemberStatements(
+  required: PermissionCheck,
+): required is MemberAuthorizeRequest & PermissionCheck {
+  const memberStatements = new Map<string, readonly string[]>(
+    Object.entries(roles.member.statements),
+  );
+  for (const [resource, actions] of Object.entries(required)) {
+    const allowed = memberStatements.get(resource);
+    if (!allowed) return false;
+    // `undefined` actions pass through to `authorize` unchanged (same crash
+    // semantics as before this guard existed); arrays must be fully covered.
+    if (actions && !actions.every((action) => allowed.includes(action))) return false;
+  }
+  return true;
+}
+
 export function authorizeRoleScope(required: PermissionCheck): boolean {
-  return roles.member.authorize(required as Parameters<typeof roles.member.authorize>[0]).success;
+  if (!fitsMemberStatements(required)) return false;
+  return roles.member.authorize(required).success;
 }
 
 /**

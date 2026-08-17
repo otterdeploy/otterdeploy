@@ -37,7 +37,7 @@ interface LogsRef {
   tail?: number;
   /** false = one attach, end at docker EOF instead of reconnecting forever. */
   follow?: boolean;
-  /** ISO instant — docker wants unix seconds, see sinceToUnixSeconds. */
+  /** ISO instant: docker wants unix seconds, see sinceToUnixSeconds. */
   since?: string;
 }
 
@@ -226,7 +226,7 @@ async function* tailSwarmServiceLogs(
         // as docker emits them, so we react immediately instead of burning
         // a 2s poll cycle. The timeout falls back to polling on the off
         // chance the service was created in the window between our list
-        // call above and the subscribe — extremely tight, but cheap to
+        // call above and the subscribe. Extremely tight, but cheap to
         // cover. There's no replay across reconnects (events are
         // best-effort), so a polled re-check after the wait is the safety
         // net for that case too.
@@ -236,7 +236,7 @@ async function* tailSwarmServiceLogs(
         if (matched) {
           yield {
             stream: "system",
-            line: `Service ${resolved.serviceName} just created — attaching…`,
+            line: `Service ${resolved.serviceName} just created, attaching…`,
             ts: nowIso(),
           };
         }
@@ -250,7 +250,7 @@ async function* tailSwarmServiceLogs(
         waitingMessageShown = false;
         yield {
           stream: "system",
-          line: `Attached to service ${resolved.serviceName} (${resolved.serviceId.slice(0, 12)}) — multiplexed across all replicas`,
+          line: `Attached to service ${resolved.serviceName} (${resolved.serviceId.slice(0, 12)}), multiplexed across all replicas`,
           ts: nowIso(),
         };
       }

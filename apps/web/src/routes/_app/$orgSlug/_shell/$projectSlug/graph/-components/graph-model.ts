@@ -74,6 +74,12 @@ function composeGhostServices(details: JsonObject | undefined): ComposeServiceIn
 type PendingCreate = PendingByName["creates"][number];
 type NodeResourceKind = PendingCreate["resource"];
 
+const NODE_RESOURCE_KINDS: readonly NodeResourceKind[] = ["service", "database", "compose"];
+
+function isNodeResourceKind(value: string): value is NodeResourceKind {
+  return NODE_RESOURCE_KINDS.some((kind) => kind === value);
+}
+
 /**
  * Build the ghost card for one staged `create`. Split out of
  * {@link computePendingByName} so the per-kind enrichment — compose member
@@ -122,7 +128,8 @@ function bridgeAppliedCreates(
   for (const key of appliedCreates) {
     if (createKeys.has(key) || idByName.has(key)) continue;
     const sep = key.indexOf(":");
-    const resource = key.slice(0, sep) as NodeResourceKind;
+    const resource = key.slice(0, sep);
+    if (!isNodeResourceKind(resource)) continue;
     bridged.push({
       resource,
       name: key.slice(sep + 1),

@@ -3,7 +3,7 @@ import { Fragment, useState } from "react";
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 /**
- * Managed tab — every enabled public domain across the org's projects with
+ * Managed tab: every enabled public domain across the org's projects with
  * the certificate the edge ACTUALLY serves for it (live probe; same
  * vocabulary as the per-project Networking → Certificates tab). Rows expand
  * to the full leaf details. Domains served by an uploaded custom cert are
@@ -72,7 +72,7 @@ export function ManagedCertsTable({
           </EmptyMedia>
           <EmptyTitle>{t("certificates.noDomains")}</EmptyTitle>
           <EmptyDescription>
-            Publish a domain to a service and Caddy will issue a certificate — every enabled domain
+            Publish a domain to a service and Caddy will issue a certificate. Every enabled domain
             across the workspace shows up here.
           </EmptyDescription>
         </EmptyHeader>
@@ -114,7 +114,7 @@ export function ManagedCertsTable({
 }
 
 function expiryText(c: ProbedCertificate): string {
-  if (!c.notAfter) return "—";
+  if (!c.notAfter) return "–";
   const date = new Date(c.notAfter).toLocaleDateString();
   if (c.daysRemaining === null) return date;
   if (c.daysRemaining < 0) return `${date} · expired ${-c.daysRemaining}d ago`;
@@ -151,7 +151,7 @@ function ManagedRow({
           </span>
         </TableCell>
         <TableCell className="text-muted-foreground">
-          <span className="flex flex-wrap gap-x-2 gap-y-0.5" onClick={(e) => e.stopPropagation()}>
+          <span className="flex flex-wrap gap-x-2 gap-y-0.5">
             {cert.projects.map((p) => (
               <Link
                 key={p.id}
@@ -160,6 +160,8 @@ function ManagedRow({
                 // plain string (same pragmatic cast as git-providers/app-detail).
                 params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(p.slug) }}
                 className="hover:text-foreground hover:underline"
+                // Following a project link must not also toggle the row open.
+                onClick={(e) => e.stopPropagation()}
               >
                 {p.name}
               </Link>
@@ -172,7 +174,7 @@ function ManagedRow({
             {s.label}
           </span>
         </TableCell>
-        <TableCell className="text-muted-foreground">{cert.issuer ?? "—"}</TableCell>
+        <TableCell className="text-muted-foreground">{cert.issuer ?? "–"}</TableCell>
         <TableCell
           className={cn(
             "font-mono text-[12px] whitespace-nowrap text-muted-foreground",
@@ -190,15 +192,15 @@ function ManagedRow({
                 <Detail k="error" v={cert.error} wide />
               ) : (
                 <>
-                  <Detail k="subject" v={cert.subject ?? "—"} />
+                  <Detail k="subject" v={cert.subject ?? "–"} />
                   <Detail
                     k="valid from"
-                    v={cert.notBefore ? new Date(cert.notBefore).toLocaleString() : "—"}
+                    v={cert.notBefore ? new Date(cert.notBefore).toLocaleString() : "–"}
                   />
                   <Detail k="self-signed" v={cert.selfSigned ? "yes" : "no"} />
-                  <Detail k="serial" v={cert.serial ?? "—"} />
-                  <Detail k="fingerprint" v={cert.fingerprint ?? "—"} wide />
-                  <Detail k="SANs" v={cert.sans.length ? cert.sans.join(", ") : "—"} wide />
+                  <Detail k="serial" v={cert.serial ?? "–"} />
+                  <Detail k="fingerprint" v={cert.fingerprint ?? "–"} wide />
+                  <Detail k="SANs" v={cert.sans.length ? cert.sans.join(", ") : "–"} wide />
                 </>
               )}
             </div>

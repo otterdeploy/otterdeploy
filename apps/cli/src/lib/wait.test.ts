@@ -1,16 +1,57 @@
+import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { evaluateDeployment, evaluateTasks } from "./wait";
 
-// Minimal structural stand-ins for the client's row types.
+// The client's row types, complete: fixtures are built whole (typed factories
+// with defaults for every field) rather than partial objects cast into shape.
 type Deployment = Parameters<typeof evaluateDeployment>[0];
 type Task = Parameters<typeof evaluateTasks>[0][number];
 
-function deployment(status: string, over: Partial<Deployment> = {}): Deployment {
-  return { id: "deployment_x", status, errorMessage: null, ...over } as Deployment;
+function deployment(status: Deployment["status"], over: Partial<Deployment> = {}): Deployment {
+  return {
+    id: createId(ID_PREFIX.deployment),
+    projectId: createId(ID_PREFIX.project),
+    resourceId: createId(ID_PREFIX.resource),
+    image: "registry.example.com/app:latest",
+    reason: "create",
+    status,
+    errorMessage: null,
+    taskCount: 1,
+    failedTaskCount: 0,
+    runningTaskCount: 0,
+    restartCount: null,
+    restartMaxAttempts: null,
+    gitSha: null,
+    gitRef: null,
+    gitCommitMessage: null,
+    gitCommitAuthor: null,
+    gitCommitAuthorAvatar: null,
+    sourceSha: null,
+    completedAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...over,
+  };
 }
-function task(state: "running" | "building" | "error", over: Partial<Task> = {}): Task {
-  return { state, error: null, message: null, ...over } as Task;
+function task(state: Task["state"], over: Partial<Task> = {}): Task {
+  return {
+    id: "task-1",
+    slot: 1,
+    label: "app.1",
+    service: null,
+    state,
+    rawState: null,
+    desiredState: null,
+    nodeId: null,
+    message: null,
+    error: null,
+    containerId: null,
+    exitCode: null,
+    timestamp: null,
+    restarts: 0,
+    ...over,
+  };
 }
 
 describe("evaluateDeployment (git builds / redeploys)", () => {

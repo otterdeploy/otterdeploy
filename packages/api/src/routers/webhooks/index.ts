@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
 /**
- * Webhooks router — outbound webhook CRUD + delivery log + inbound trigger
+ * Webhooks router: outbound webhook CRUD + delivery log + inbound trigger
  * endpoints. Mutations are RBAC-gated on the `notificationChannel` resource
  * (webhooks are the machine half of the same event fan-out surface; a
  * dedicated `webhook` RBAC resource can split them later without touching

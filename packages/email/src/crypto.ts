@@ -1,6 +1,6 @@
 /**
  * Decrypt at-rest secrets (Resend key / SMTP password) configured in platform
- * settings. This is the read side of `packages/api/src/lib/crypto.ts` — the
+ * settings. This is the read side of `packages/api/src/lib/crypto.ts`. The
  * key derivation MUST match byte-for-byte so blobs encrypted by the API
  * decrypt here. Duplicated (like `packages/jobs/.../secret-crypto.ts`) because
  * the email package is a leaf shared by auth/jobs/api and can't import the API
@@ -19,13 +19,7 @@ let cachedKey: CryptoKey | null = null;
 async function getKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
   const ikm = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
-  const baseKey = await crypto.subtle.importKey(
-    "raw",
-    ikm as unknown as ArrayBuffer,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
+  const baseKey = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveKey"]);
   cachedKey = await crypto.subtle.deriveKey(
     {
       name: "HKDF",
@@ -46,17 +40,19 @@ export async function decryptSecret(blob: string): Promise<string> {
   if (parts.length !== 3) {
     throw new Error("decryptSecret: malformed ciphertext (expected v.n.c)");
   }
-  const [version, nonceB64, cipherB64] = parts as [string, string, string];
+  const [version, nonceB64, cipherB64] = parts;
+  if (nonceB64 === undefined || cipherB64 === undefined) {
+    throw new Error("decryptSecret: malformed ciphertext (expected v.n.c)");
+  }
   if (version !== FORMAT_VERSION) {
     throw new Error(`decryptSecret: unsupported version ${version}`);
   }
-  const nonce = base64UrlDecode(nonceB64);
-  const ciphertext = base64UrlDecode(cipherB64);
+  // Copy the decoded views into fresh (ArrayBuffer-backed) arrays: the lib
+  // types for BufferSource reject Uint8Array<ArrayBufferLike>, and these are
+  // a handful of bytes, so the copy is free.
+  const nonce = Uint8Array.from(base64UrlDecode(nonceB64));
+  const ciphertext = Uint8Array.from(base64UrlDecode(cipherB64));
   const key = await getKey();
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
-    key,
-    ciphertext.buffer as ArrayBuffer,
-  );
+  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, key, ciphertext);
   return new TextDecoder().decode(plaintext);
 }

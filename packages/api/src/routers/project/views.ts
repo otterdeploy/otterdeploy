@@ -4,6 +4,7 @@
  * single source of truth.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import type { ServiceEnvVarRow } from "../service/queries";
@@ -58,17 +59,15 @@ function latestDeploymentFields(latest: DeploymentRow | null) {
  *  fetch the single indexed row (single-resource callers). `undefined` = not
  *  supplied → fetch; `null` = supplied, resource has no deployment. */
 async function resolveLatest(
-  resourceId: string,
+  resourceId: ResourceId,
   provided: DeploymentRow | null | undefined,
 ): Promise<DeploymentRow | null> {
   if (provided !== undefined) return provided;
-  return getLatestDeploymentForResource(
-    resourceId as Parameters<typeof getLatestDeploymentForResource>[0],
-  );
+  return getLatestDeploymentForResource(resourceId);
 }
 
 /** The manifest-tracked extras block (Phase 2 build config + lifecycle
- *  work) — pulled out of mapServiceResource so that function's branch count
+ *  work). Pulled out of mapServiceResource so that function's branch count
  *  stays under the complexity cap. Every field defaults to null so a
  *  pre-migration row still validates against the contract. */
 function serviceManifestExtras(service: ServiceResourceJoined["service"]) {
@@ -86,18 +85,14 @@ function serviceManifestExtras(service: ServiceResourceJoined["service"]) {
 /**
  * Service-resource view mapper. Joins the user-authored env bag into the
  * response so the resource panel's Variables tab can render without a
- * second fetch — same shape as the database mapper. Live task state and
+ * second fetch. Same shape as the database mapper. Live task state and
  * ports still come from their dedicated procedures.
  */
 export async function mapServiceResource(
   record: ServiceResourceJoined,
   opts?: { latest?: DeploymentRow | null; envRows?: ServiceEnvVarRow[] },
 ): Promise<ServiceResourceView> {
-  const envRows =
-    opts?.envRows ??
-    (await listServiceEnvVars(
-      record.resource.id as unknown as Parameters<typeof listServiceEnvVars>[0],
-    ));
+  const envRows = opts?.envRows ?? (await listServiceEnvVars(record.resource.id));
   const extraEnv: Record<string, string> = {};
   const secretKeys: string[] = [];
   for (const row of envRows) {
@@ -112,7 +107,7 @@ export async function mapServiceResource(
     type: "service" as const,
     status: record.resource.status,
     ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
-    // A paused service is scaled to zero on purpose — surface "paused" on the
+    // A paused service is scaled to zero on purpose. Surface "paused" on the
     // graph node instead of the stale last-known "running" the deployment row
     // still carries (0 tasks can't be corrected by the live-task rollup, so the
     // base status is what shows). Only services carry a pause marker.
@@ -177,15 +172,15 @@ export async function mapDatabaseResource(
     type: "database" as const,
     status: record.resource.status,
     // Which machine this database is pinned to, or null. Surfaced on the list
-    // view because the Settings card that edits it renders from this record —
+    // view because the Settings card that edits it renders from this record,
     // and because a pin is a fact about the resource, not about a rollout.
     placementServerId: record.resource.placementServerId ?? null,
     // A database mid-deploy legitimately has NO container (image still
     // pulling), which the live runtime reads as `missing`. The latest
     // deployment row is what lets the graph card show "building" for that
-    // window instead of a phantom error — same signal services use.
+    // window instead of a phantom error: same signal services use.
     ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
-    // Read the engine off the row, not a hardcoded literal — the row IS
+    // Read the engine off the row, not a hardcoded literal. The row IS
     // the source of truth, the wizard's selection landed here when the
     // resource was created. Every UI surface (icon, copy, connection
     // string template) reads this field; hardcoding it made redis /
@@ -214,7 +209,7 @@ export async function mapDatabaseResource(
     internalPort: databaseRecord.internalPort,
     internalConnectionString: databaseRecord.internalConnectionString,
     // Public-side connection strings never include the port. Everything
-    // public goes through Caddy on 443 — implicit for HTTPS-style URLs and
+    // public goes through Caddy on 443. Implicit for HTTPS-style URLs and
     // the operator should never see :443 in copyable text.
     localConnectionString: buildConnectionString({
       username: databaseRecord.username,
@@ -234,7 +229,7 @@ export async function mapDatabaseResource(
 }
 
 // ---------------------------------------------------------------------------
-// Small helpers — re-exported from the leaf ./view-helpers module so the
+// Small helpers: re-exported from the leaf ./view-helpers module so the
 // project handler split keeps importing them from "./views".
 // ---------------------------------------------------------------------------
 

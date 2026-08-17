@@ -33,7 +33,7 @@ export const { useAppForm } = formHook;
 
 /**
  * `setFieldValue` options for a value the wizard fills in on the operator's
- * behalf — a derived default, not an answer they gave.
+ * behalf: a derived default, not an answer they gave.
  *
  * `dontUpdateMeta` leaves the field pristine, which is the whole point: it
  * makes `getFieldMeta(f).isDirty` mean "a human edited this" and nothing
@@ -46,9 +46,10 @@ export const { useAppForm } = formHook;
  */
 export const AUTO_WRITE = { dontUpdateMeta: true, dontRunListeners: true } as const;
 
-// Typed context hook — step files call this to get a fully-typed form.
+// Typed context hook. Step files call this to get a fully-typed form.
 // useTypedAppFormContext takes the same props as useAppForm to infer TFormData,
-// but at runtime it just reads from the context (the _props are only for inference).
+// but at runtime it just reads from the context (the _props are only for
+// inference, and TFormData is given explicitly, so the options stay empty).
 export function useFormContext() {
   return formHook.useTypedAppFormContext<
     ResourceFormState,
@@ -63,5 +64,5 @@ export function useFormContext() {
     undefined,
     undefined,
     undefined
-  >({ defaultValues: {} as ResourceFormState });
+  >({});
 }

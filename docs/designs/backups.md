@@ -1,7 +1,7 @@
 # Backups, Schedules & Restore
 
-**Status:** Implemented. Read the sections below as design background, not as a plan —
-the shape that shipped diverges from this document in one significant respect (see
+**Status:** Implemented. Read the sections below as design background, not as a plan.
+The shape that shipped diverges from this document in one significant respect (see
 "What actually shipped").
 
 **Last verified:** 2026-07-26
@@ -9,27 +9,27 @@ the shape that shipped diverges from this document in one significant respect (s
 **TL;DR (original):** The Backups page is a 2,289-line fully-mocked UI. Landing real APIs is
 greenfield: add four Drizzle tables, an org-scoped `backups` oRPC router, a
 `cron.backup-scheduler` + `backup.run` BullMQ job split (stub in `packages/jobs`, real engine
-builder-style), and a destination/storage layer. Architecturally this is "deployments again" —
-every primitive we need already exists. The one genuine unknown is how the execution worker
+builder-style), and a destination/storage layer. Architecturally this is "deployments again".
+Every primitive we need already exists. The one genuine unknown is how the execution worker
 reaches DB containers across Swarm nodes.
 
 ## What actually shipped
 
-- **Engine** — `packages/api/src/backups/`: `engine.ts`, `rustic.ts`, `backends.ts`,
+- **Engine**: `packages/api/src/backups/`: `engine.ts`, `rustic.ts`, `backends.ts`,
   `restore.ts`, `retention.ts`, `copy.ts`, plus `db.ts` / `volume.ts` / `stack.ts` sources.
   Snapshots go through [rustic](https://rustic.cli.rs/), not a hand-rolled dump pipeline.
-- **Destinations** — `s3` (OpenDAL), `local`, `sftp`. SFTP is **key-auth only**; rustic's
+- **Destinations**: `s3` (OpenDAL), `local`, `sftp`. SFTP is **key-auth only**; rustic's
   OpenDAL SFTP backend cannot authenticate with a password, and a password-configured
   destination is rejected up front with that reason.
-- **Scheduling** — `scheduler.ts`, started from the server bootstrap as
+- **Scheduling**: `scheduler.ts`, started from the server bootstrap as
   `backup-scheduler` (see `apps/server/src/background-services.ts`), **not** as a BullMQ
   repeatable. It scans `backup_schedule` every 60s so an edited cron expression or retention
   rule takes effect immediately, with the DB as the source of truth. This is the main
   divergence from §6 of this document.
-- **Schema** — `packages/db/src/schema/backup.ts`: destination type/status, backup kind
+- **Schema**: `packages/db/src/schema/backup.ts`: destination type/status, backup kind
   (`database` | `volume` | `stack`), status, encryption, retention class, and a per-run log
   stream (`stdout` | `stderr` | `system`).
-- **Surfaces** — `packages/api/src/routers/backups/` (runs, schedules, destinations),
+- **Surfaces**: `packages/api/src/routers/backups/` (runs, schedules, destinations),
   the `otterdeploy backups` CLI command group, and the dashboard Backups page reading real
   data.
 
@@ -56,7 +56,7 @@ reaches DB containers across Swarm nodes.
 *"All data is currently mocked… Wiring to a real backup / schedule / destination API is a
 follow-up."* That follow-up is this doc.
 
-There is **zero backend** for backups today — a repo-wide search found no `backup`, `restic`,
+There is **zero backend** for backups today. A repo-wide search found no `backup`, `restic`,
 `pg_dump`, `snapshot`, or `s3` code outside `research/`. So "landing real APIs" means: DB tables →
 oRPC router → BullMQ jobs → an execution engine → wire the UI off mocks.
 
@@ -69,13 +69,13 @@ The good news: every load-bearing pattern already exists for **deployments**, an
 Three layers, kept separate (same discipline as
 [Networking & Domains](./cloudflare-domain-connect-relay.md)):
 
-- **Control plane (otterdeploy)** — Postgres rows describing *desired* and *historical* state:
+- **Control plane (otterdeploy)**: Postgres rows describing *desired* and *historical* state:
   destinations (where backups go), schedules (when/what + retention policy), and one `backup` row
   per run. Managed via oRPC, edited in the dashboard.
-- **Scheduler** — a single repeatable BullMQ cron job that scans `backup_schedule` for rows due now
+- **Scheduler**: a single repeatable BullMQ cron job that scans `backup_schedule` for rows due now
   and enqueues execution jobs. The DB stays the source of truth for cron + retention, so user edits
   take effect without reconfiguring BullMQ schedulers.
-- **Execution plane** — a worker (builder-style) that resolves credentials at run time, dumps the
+- **Execution plane**: a worker (builder-style) that resolves credentials at run time, dumps the
   source via the Docker client, compresses + checksums, uploads to the destination, streams logs to
   Redis, writes the result row, and prunes per the forget-policy.
 
@@ -90,24 +90,24 @@ The mock fixes the output shapes. Three entities + three flows.
 
 ### 3.1 Entities
 
-**Backup** (one run) — `id, source, kind (database|volume|stack), project, when/whenAbs, duration,
+**Backup** (one run), `id, source, kind (database|volume|stack), project, when/whenAbs, duration,
 sizeMB, sourceSizeMB, compressedSizeMB, destination, encryption, status
 (succeeded|failed|running|queued), method, checksum, retention class, sourceService, sourceHost,
 log: string[], error?`.
 
-**Schedule** — `id, name, sources[], cron + cronHuman, retention (keep daily/weekly/monthly/yearly),
+**Schedule**: `id, name, sources[], cron + cronHuman, retention (keep daily/weekly/monthly/yearly),
 destination, encryption, pitr, enabled, lastRun/lastRunStatus, nextRun`.
 
-**Destination** — `id, name, uri, kind (s3|local|sftp), usedGB/totalGB, encryption,
+**Destination**: `id, name, uri, kind (s3|local|sftp), usedGB/totalGB, encryption,
 status (active|degraded)`.
 
 ### 3.2 Flows
 
-- **Backup now** — kind, source, destination, encrypt toggle → enqueue one run.
-- **Schedule editor** — cron presets (hourly/daily/weekly/monthly/custom) + retention counts +
+- **Backup now**: kind, source, destination, encrypt toggle → enqueue one run.
+- **Schedule editor**: cron presets (hourly/daily/weekly/monthly/custom) + retention counts +
   pre-backup hook + notification channel.
-- **Restore wizard** — three modes: `download` (presigned URL), `as-new` (provision into a project),
-  `in-place` (destructive, typed-name confirm) — with a checksum/integrity verify step.
+- **Restore wizard**: three modes: `download` (presigned URL), `as-new` (provision into a project),
+  `in-place` (destructive, typed-name confirm): with a checksum/integrity verify step.
 
 Row actions (restore, download, delete) are all disabled unless `status === "succeeded"`.
 
@@ -119,7 +119,7 @@ These give us the `.output()` zod shapes almost for free.
 
 All three converge on the same architecture; we steal the best of each.
 
-**Dokploy** (closest — TS + Drizzle, `research/dokploy/packages/server/src/db/schema/`):
+**Dokploy** (closest, TS + Drizzle, `research/dokploy/packages/server/src/db/schema/`):
 - `backups` + `volume-backups` tables, both FK → a `destinations` table (S3-compatible:
   bucket/region/encrypted creds, with a per-backup `prefix`).
 - `schedule: string` cron; a **separate schedule service** (`Dockerfile.schedule`) fires crons and
@@ -129,7 +129,7 @@ All three converge on the same architecture; we steal the best of each.
   use** (Docker label filter) before extracting.
 - Retention: simple `keepLatestCount`.
 
-**Coolify** (richest retention — copy this, `research/coolify/app/`):
+**Coolify** (richest retention, copy this, `research/coolify/app/`):
 - `ScheduledDatabaseBackup` + separate `ScheduledDatabaseBackupExecution` (status/message/size/
   filename/finished_at + `s3_uploaded`, `local_storage_deleted`, `s3_storage_deleted` flags).
 - Retention is **count + days + max-storage-GB**, tracked separately for local vs S3
@@ -139,7 +139,7 @@ All three converge on the same architecture; we steal the best of each.
   at run time via `docker exec <container> env | grep POSTGRES_|MYSQL_`. Emits `BackupCreated` then
   `BackupSuccess`/`BackupFailed`.
 
-**Slipway** (`research/slipway/`): minimal — one `Backup` model, quest job every 1 min with
+**Slipway** (`research/slipway/`): minimal, one `Backup` model, quest job every 1 min with
 `withoutOverlapping`, `retentionCount` default 10.
 
 **Adopted decisions:** separate *schedule config* from *execution rows*; retention as
@@ -157,7 +157,7 @@ to `packages/shared/src/id.ts`.
 
 ### `backup_destination`
 `id`, `organizationId` (FK org, cascade), `name`, `type` enum `s3|local|sftp`, `config` jsonb
-(bucket / region / endpoint / prefix), `encryptedSecret` (AES-GCM at rest — copy the
+(bucket / region / endpoint / prefix), `encryptedSecret` (AES-GCM at rest, copy the
 `containerRegistry` crypto; **do not** store plaintext like Dokploy), `status` enum `active|degraded`,
 timestamps. Index on `organizationId`.
 
@@ -180,17 +180,17 @@ Clone of `deploymentLog` (`packages/db/src/schema/build.ts`): `seq bigserial PK`
 paginated scrollback.
 
 The `databaseResource` table (`schema/project.ts`) already holds the engine enum
-(`postgres/redis/mariadb/mongodb`), creds, and internal/upstream host:port — that row **is** the
+(`postgres/redis/mariadb/mongodb`), creds, and internal/upstream host:port: that row **is** the
 backup source; we already know how to reach each DB.
 
 ---
 
 ## 6. API surface
 
-`packages/api/src/routers/backups/` — `contract.ts` + `index.ts` + `service.ts` + `errors.ts`,
+`packages/api/src/routers/backups/`: `contract.ts` + `index.ts` + `service.ts` + `errors.ts`,
 mirroring the `env` router. Handlers use `orgScopedProcedure`, call `context.log.set({ target })`
 first, return `Result<T,E>` from the service, and dispatch typed errors with `matchError`. **No raw
-try/catch** — `Result.tryPromise` with a non-throwing catch.
+try/catch**: `Result.tryPromise` with a non-throwing catch.
 
 - `backups.list` (filters: projectId, kind, destinationId, search) · `backups.get` · `backups.delete`
 - `backups.run` (backup-now) · `backups.logs` (async-generator stream, reuse deployment log-stream)
@@ -210,16 +210,16 @@ Register `backups: backupsRouter` in `packages/api/src/routers/index.ts`.
 `packages/jobs/src/jobs/backup.ts` + `registry.ts` + `triggers.ts`, following the deploy pattern
 (stub in `packages/jobs`, real pipeline in a builder-style worker via `apps/builder/src/handler.ts`).
 
-- **`backup.run`** — payload `{ backupId, resourceId, destinationId, kind }`. opts: `attempts` +
+- **`backup.run`**: payload `{ backupId, resourceId, destinationId, kind }`. opts: `attempts` +
   exponential backoff + retention windows. Real handler: resolve creds at run time → dump via the
   `@otterdeploy/docker` client (`docker exec` into the source container) → compress → sha256 →
   upload to destination → update `backup` row + emit logs to Redis → enforce forget-policy pruning.
   No-overlap guard per `resourceId` (Coolify's `WithoutOverlapping`), via a Redis lock or a BullMQ
   job id keyed on the resource.
-- **`cron.backup-scheduler`** — repeatable (`cron` field → `queue.upsertJobScheduler` in
+- **`cron.backup-scheduler`**: repeatable (`cron` field → `queue.upsertJobScheduler` in
   `workers.ts`, as `hourly-cleanup` already does). Scans `backup_schedule` for `nextRunAt <= now`,
   enqueues `backup.run`, advances `nextRunAt`. One scanning cron (not per-schedule schedulers) so the
-  DB stays the source of truth — Dokploy's split.
+  DB stays the source of truth: Dokploy's split.
 
 Live "running now" rows and the detail-panel log come free from
 `packages/api/src/routers/deployment/log-stream.ts` (Redis pub/sub + DB scrollback as an async
@@ -229,17 +229,17 @@ generator).
 
 ## 8. Hard parts / open decisions
 
-1. **Execution transport on Swarm** *(biggest unknown — decide before building the engine).* The
+1. **Execution transport on Swarm** *(biggest unknown: decide before building the engine).* The
    `server` table is Swarm (manager/worker, `host`); DB containers run as services on a *specific
-   node*. The worker must reach the node running the source container — either node-addressed Docker
+   node*. The worker must reach the node running the source container, either node-addressed Docker
    access or a per-server agent. Coolify/Dokploy assume SSH/agent access per server.
 2. **Volume & stack backups are harder than DB dumps.** DB dumps are a clean `docker exec`. Volumes
    need `tar`/`restic` against a possibly-running volume. "Stack" backups can be cheap **DB-side**
-   snapshots — we already store `project.manifest` + `stackFile` (`schema/project.ts`) — rather than
+   snapshots: we already store `project.manifest` + `stackFile` (`schema/project.ts`), rather than
    shelling out.
 3. **Encryption modes & PITR.** The mock offers `AES-256 GCM`, `KMS-managed`, `customer-key`, and a
    PITR toggle. v1: AES-256-GCM only (reuse registry crypto); treat KMS / customer-key / PITR as later.
-4. **Presigned download** needs the destination's S3 client to mint URLs — trivial once a destination
+4. **Presigned download** needs the destination's S3 client to mint URLs: trivial once a destination
    client exists.
 5. **Restore safety.** The in-place path is destructive; the typed-name confirm is UI-only today and
    **must be enforced server-side**, plus an in-use guard before overwrite (`RestoreTargetBusyError`).
@@ -251,7 +251,7 @@ generator).
 | Phase | Scope | Risk |
 | --- | --- | --- |
 | 1 | Schema + migration (`backup`, `backup_schedule`, `backup_destination`, `backup_log`) + id prefixes | low |
-| 2 | Read-only API (`list`/`get` for all three) + wire UI table/cards/stats off real data — kills the mocks | low |
+| 2 | Read-only API (`list`/`get` for all three) + wire UI table/cards/stats off real data, kills the mocks | low |
 | 3 | Destinations CRUD + `test` (encrypted S3 creds) | medium |
 | 4 | Backup-now + real engine for `database/postgres` only, end to end with live logs; then redis/mysql/mongo | high (§8.1) |
 | 5 | Schedules + scheduler cron + retention/forget-policy + no-overlap | medium |
@@ -261,7 +261,7 @@ generator).
 
 ## 10. Where this lives in code
 
-Nothing below exists yet — it is the planned layout, mirroring the `env`/`project`/`docker` routers
+Nothing below exists yet. It is the planned layout, mirroring the `env`/`project`/`docker` routers
 and the `deployment` job split.
 
 | Concern | Package / file (planned) | Mirrors |
@@ -273,7 +273,7 @@ and the `deployment` job split.
 | Service / queries | `packages/api/src/routers/backups/service.ts` | `routers/env/handlers.ts` |
 | Errors | `packages/api/src/routers/backups/errors.ts` | `routers/project/errors.ts` |
 | Router registration | `packages/api/src/routers/index.ts` (`backups: backupsRouter`) | existing barrel |
-| Log streaming | reuse `packages/api/src/routers/deployment/log-stream.ts` | — |
+| Log streaming | reuse `packages/api/src/routers/deployment/log-stream.ts` |: |
 | Job stubs + triggers | `packages/jobs/src/jobs/backup.ts`, `registry.ts`, `triggers.ts` | `jobs/deploy.ts`, `jobs/hourly-cleanup.ts` |
 | Real engine | a worker (in `apps/builder` or a sibling) that overrides the stub | `apps/builder/src/handler.ts` |
 | Frontend (de-mock) | `apps/web/src/routes/_app/$orgSlug/backups.tsx` | `routes/_app/$orgSlug/$projectSlug/variables.tsx` (recent real-API port) |

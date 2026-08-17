@@ -5,7 +5,7 @@
  * fast `test` leg. Kept as its own config rather than a runtime skip so the
  * split is declared in one place and a file cannot quietly opt itself out.
  *
- * What lives here is anything asserting behaviour Redis itself provides — TTL
+ * What lives here is anything asserting behaviour Redis itself provides. TTL
  * eviction, `GETDEL` atomicity under a race, `SET NX` refusing to clobber. An
  * in-memory double can imitate those, but a double that imitates them is only
  * testing the double: the ticket suite exists to prove a replayed terminal

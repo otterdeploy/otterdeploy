@@ -1,6 +1,6 @@
 /**
- * Org-scoped SSH keys page. Lists the workspace's keys — generated (we hold the
- * encrypted private half) and imported (public-only) — and, for owners/admins,
+ * Org-scoped SSH keys page. Lists the workspace's keys. Generated (we hold the
+ * encrypted private half) and imported (public-only), and, for owners/admins,
  * lets you generate, import, rotate and delete them. Private key material is
  * never sent to the browser; cards only ever reveal the public half.
  */
@@ -55,7 +55,7 @@ function RouteComponent() {
     <Page>
       <PageHeader
         title="SSH keys"
-        description="Authenticate Git pulls and manage swarm nodes. Private keys are encrypted at rest — only the public half is ever shown."
+        description="Authenticate Git pulls and manage swarm nodes. Private keys are encrypted at rest, and only the public half is ever shown."
         actions={
           canManage ? (
             <div className="flex items-center gap-2">

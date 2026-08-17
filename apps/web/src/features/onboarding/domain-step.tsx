@@ -10,7 +10,7 @@ import { orpc } from "@/shared/server/orpc";
 import { messages } from "./shared";
 import { StepFrame, WizardActions, WizardField } from "./wizard-parts";
 
-// A permissive hostname check — the server is the source of truth and enforces
+// A permissive hostname check. The server is the source of truth and enforces
 // the canonical FQDN rule, so this just catches obvious mistakes (scheme, path,
 // whitespace) before a roundtrip.
 const HOSTNAME_RE = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/i;
@@ -21,7 +21,7 @@ const domainSchema = z.object({
     .trim()
     .refine(
       (v) => HOSTNAME_RE.test(v),
-      "Enter a hostname like apps.acme.com — no http://, no path",
+      "Enter a hostname like apps.acme.com, with no http:// and no path",
     ),
 });
 

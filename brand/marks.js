@@ -4,7 +4,7 @@
  * Every mark is authored on a 32x32 grid so it can be dropped straight into a
  * favicon without re-fitting. Ink is `currentColor` (so the mark inherits the
  * surface's foreground and stays theme-symmetric); the single Signal Blue is
- * `var(--brand-accent)` per DESIGN.md's One Voice Rule — one accent, nothing
+ * `var(--brand-accent)` per DESIGN.md's One Voice Rule, one accent, nothing
  * else chromatic.
  */
 
@@ -16,7 +16,7 @@ export const marks = {
     name: "Slashed Zero",
     tagline: "The mono glyph that names the craft",
     rationale:
-      "DESIGN.md calls out the slashed zero by name — `0` and `O` must never blur. This mark is that glyph: the rounded-square ring is otterdeploy's own `rounded-lg` node shape, the slash is Signal Blue. It reads simultaneously as the 'o' of otterdeploy, a zero, and a card/node.",
+      "DESIGN.md calls out the slashed zero by name: `0` and `O` must never blur. This mark is that glyph: the rounded-square ring is otterdeploy's own `rounded-lg` node shape, the slash is Signal Blue. It reads simultaneously as the 'o' of otterdeploy, a zero, and a card/node.",
     svg: `
       <rect ${RING} fill="none" stroke="currentColor" stroke-width="2.6"/>
       <path d="M11.6 20.4 20.4 11.6" fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round"/>`,
@@ -26,7 +26,7 @@ export const marks = {
     name: "Comet Ring",
     tagline: "The pending state, frozen",
     rationale:
-      "Lifted from the signature component: the comet border that travels a node's ring while a deploy is pending. The mark is that instant held still — a quiet ink ring with one bright segment of light on it. It is literally the product's most distinctive moment.",
+      "Lifted from the signature component: the comet border that travels a node's ring while a deploy is pending. The mark is that instant held still. A quiet ink ring with one bright segment of light on it. It is literally the product's most distinctive moment.",
     svg: `
       <rect ${RING} fill="none" stroke="currentColor" stroke-opacity="0.22" stroke-width="2.6"/>
       <rect ${RING} fill="none" stroke="var(--brand-accent)" stroke-width="2.6" stroke-linecap="round"
@@ -37,7 +37,7 @@ export const marks = {
     name: "Node & Edge",
     tagline: "The project graph, reduced to two",
     rationale:
-      "The React Flow project graph is otterdeploy's signature surface. Two nodes and the orthogonal edge between them are the smallest true statement of it: source builds, target runs. The target node carries the blue — the thing that just came up.",
+      "The React Flow project graph is otterdeploy's signature surface. Two nodes and the orthogonal edge between them are the smallest true statement of it: source builds, target runs. The target node carries the blue. The thing that just came up.",
     svg: `
       <rect x="4.2" y="4.2" width="10" height="10" rx="3.2" fill="none" stroke="currentColor" stroke-width="2.2"/>
       <path d="M9.2 15.6v5.2a2.4 2.4 0 0 0 2.4 2.4h4.4" fill="none" stroke="currentColor"
@@ -61,7 +61,7 @@ export const marks = {
     name: "Otter",
     tagline: "Say the name out loud",
     rationale:
-      "The only mark with recall value at a glance — a reduced otter head, ears set wide and high, flat muzzle, blue nose. Warmer than the rest of the set, which is the risk: the brand register is 'calm, confident infrastructure', not consumer-playful. Works if the product wants a face.",
+      "The only mark with recall value at a glance: a reduced otter head, ears set wide and high, flat muzzle, blue nose. Warmer than the rest of the set, which is the risk: the brand register is 'calm, confident infrastructure', not consumer-playful. Works if the product wants a face.",
     svg: `
       <circle cx="8.3" cy="9.7" r="3.05" fill="currentColor"/>
       <circle cx="23.7" cy="9.7" r="3.05" fill="currentColor"/>

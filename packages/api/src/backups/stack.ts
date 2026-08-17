@@ -23,7 +23,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { resolveServiceEnv } from "../lib/variables/resolver";
 
 /** Engines an image can map to. Matches the backup engine's own set; `redis`
- *  is recognised only to reject it (no logical dump — use a volume backup). */
+ *  is recognised only to reject it (no logical dump, use a volume backup). */
 type DumpEngine = "postgres" | "mariadb" | "mongodb" | "redis";
 /** The engines that actually produce a logical dump. */
 type DumpableEngine = Exclude<DumpEngine, "redis">;
@@ -61,7 +61,7 @@ function baseImageName(image: string): string {
   const noDigest = image.split("@")[0] ?? image;
   const lastSlash = noDigest.lastIndexOf("/");
   const lastColon = noDigest.lastIndexOf(":");
-  // A ':' before the last '/' is a registry port, not a tag — keep it.
+  // A ':' before the last '/' is a registry port, not a tag. Keep it.
   const repo = lastColon > lastSlash ? noDigest.slice(0, lastColon) : noDigest;
   return (repo.split("/").pop() ?? repo).toLowerCase();
 }
@@ -72,7 +72,7 @@ export function engineFromImage(image: string): DumpEngine | null {
   return IMAGE_ENGINE[baseImageName(image)] ?? null;
 }
 
-/** Whether an image is a dumpable database (recognised AND not redis — redis has
+/** Whether an image is a dumpable database (recognised AND not redis, redis has
  *  no logical dump, same as managed redis; those want a volume backup). */
 function isDumpableDatabaseImage(image: string): boolean {
   const engine = engineFromImage(image);
@@ -149,7 +149,7 @@ export async function resolveStackDumpTarget(
   const engine = engineFromImage(row.image);
   if (!engine || engine === "redis") return null;
 
-  // Resolve the service's env (refs → final values) — the same env the running
+  // Resolve the service's env (refs → final values). The same env the running
   // container sees, so credentials are read from the source of truth.
   const resolved = await resolveServiceEnv(row.projectId, resourceId);
   if (resolved.isErr()) return null;
@@ -168,7 +168,7 @@ export async function resolveStackDumpTarget(
 }
 
 /** Compose-stack services in the org whose image is a recognised (dumpable)
- *  database — the candidate set the schedule source classifier matches against. */
+ *  database: the candidate set the schedule source classifier matches against. */
 export async function listStackDatabaseResources(
   organizationId: OrganizationId,
 ): Promise<Array<{ id: ResourceId; name: string }>> {

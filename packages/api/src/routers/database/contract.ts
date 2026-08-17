@@ -52,7 +52,7 @@ const queryInput = z.object({
   resourceId: resourceIdField,
   sql: z.string().min(1).max(100_000),
   // Hard cap on returned rows (UI grid). The engine still streams the full
-  // result from psql, then truncates — fine for a console, not for exports.
+  // result from psql, then truncates: fine for a console, not for exports.
   limit: z.number().int().positive().max(5000).default(200),
 });
 
@@ -67,7 +67,7 @@ const queryResultSchema = z.object({
 const tablesInput = z.object({ resourceId: resourceIdField });
 
 /** One group of live client sessions sharing an origin. `clientAddr` is the
- *  raw address postgres sees — a container/overlay IP for in-cluster
+ *  raw address postgres sees. A container/overlay IP for in-cluster
  *  clients, so `applicationName` (when the client sets it) is often the more
  *  human column. */
 const connectionGroupSchema = z.object({
@@ -97,7 +97,7 @@ const tablesResultSchema = z.object({
 });
 
 // ── Write path (Phase 2) ────────────────────────────────────────────────────
-// Structured row mutations that back inline grid editing — the SERVER builds
+// Structured row mutations that back inline grid editing: the SERVER builds
 // the SQL from this shape (never trusting a client-sent statement) so writes
 // stay primary-key-guarded and gated by the `database:write` capability.
 
@@ -120,7 +120,7 @@ const mutateRowInput = z.object({
 });
 
 const mutateRowResultSchema = z.object({
-  // The affected row(s), from `RETURNING *` — shaped like a query grid so the
+  // The affected row(s), from `RETURNING *`, shaped like a query grid so the
   // client can reconcile its in-memory row. 0 rows = the predicate matched none.
   columns: z.array(z.string()),
   rows: z.array(z.array(z.string().nullable())),
@@ -138,7 +138,7 @@ const capabilitiesResultSchema = z.object({
 // ── Redis (key-value) ──────────────────────────────────────────────────────
 // Redis has no tables/SQL, so it gets its own native browse contract: a
 // keyspace overview, a cursor-paged key list, and a per-type value read. All
-// read-only — there is no arbitrary-command input.
+// read-only. There is no arbitrary-command input.
 
 const redisKeyspaceInput = z.object({ resourceId: resourceIdField });
 
@@ -157,7 +157,7 @@ const redisKeysInput = z.object({
   db: z.number().int().min(0).max(63).default(0),
   // SCAN MATCH glob (e.g. `user:*`). Defaults to all keys.
   match: z.string().min(1).max(200).default("*"),
-  // SCAN cursor — "0" starts a fresh sweep; the result's cursor continues it.
+  // SCAN cursor: "0" starts a fresh sweep; the result's cursor continues it.
   cursor: z.string().default("0"),
   count: z.number().int().positive().max(1000).default(200),
 });
@@ -259,7 +259,7 @@ export const databaseContract = {
     .input(tablesInput)
     .output(tablesResultSchema),
 
-  // Live client sessions from pg_stat_activity, grouped by origin — who is
+  // Live client sessions from pg_stat_activity, grouped by origin. Who is
   // connected, from where, in what state. Background workers and the probe's
   // own session are excluded, matching the catalog card's honest count.
   connections: oc
@@ -277,7 +277,7 @@ export const databaseContract = {
 
   // Run ARBITRARY SQL (DML/DDL) without the read-only envelope. Requires the
   // `database:write` capability; every call is audited. Same grid shape as
-  // `query` — rowCount doubles as rows-affected for INSERT/UPDATE/DELETE.
+  // `query`: rowCount doubles as rows-affected for INSERT/UPDATE/DELETE.
   execute: oc
     .errors(notDatabase)
     .meta({ path: `${basePath}/{resourceId}/execute`, tag, method: "POST" })
@@ -307,7 +307,7 @@ export const databaseContract = {
     .input(ephemeralCreateInput)
     .output(ephemeralCreateResultSchema),
 
-  // Active + past credentials for the resource (no secrets — audit view).
+  // Active + past credentials for the resource (no secrets, audit view).
   ephemeralList: oc
     .errors(notDatabase)
     .meta({ path: `${basePath}/{resourceId}/ephemeral`, tag, method: "GET" })

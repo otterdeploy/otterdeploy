@@ -159,9 +159,7 @@ export function ComposeSettingsTab({
         <div className="text-[13px] font-semibold text-destructive">
           {t("resources.deleteStack")}
         </div>
-        <p className="mt-1 text-[12px] text-muted-foreground">
-          {t("resources.deleteStackBlurb")}
-        </p>
+        <p className="mt-1 text-[12px] text-muted-foreground">{t("resources.deleteStackBlurb")}</p>
         <TypedConfirmDialog
           trigger={
             <Button

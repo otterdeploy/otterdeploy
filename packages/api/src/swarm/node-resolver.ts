@@ -4,8 +4,8 @@
  * The existing `matchSwarmNode` takes the FIRST hostname match, which is fine
  * for the topology table but wrong here. Hostnames are not unique: re-provision
  * a machine and the swarm keeps the old node registered under the same
- * hostname, Down, alongside the new one. This cluster is in exactly that state
- * — two nodes named `ubuntu-4gb-nbg1-1`, one Ready and one Down. First-match
+ * hostname, Down, alongside the new one. This cluster is in exactly that state.
+ * Two nodes named `ubuntu-4gb-nbg1-1`, one Ready and one Down. First-match
  * would happily pin a service to the dead one, and swarm would accept the
  * constraint and leave the task pending forever with no error worth reading.
  *
@@ -23,7 +23,7 @@ export interface ServerIdentity {
 
 export type NodeResolution =
   | { kind: "resolved"; nodeId: string }
-  /** Hostname matched, but every match is Down/drained — pinning would hang. */
+  /** Hostname matched, but every match is Down/drained. Pinning would hang. */
   | { kind: "unschedulable"; reason: string }
   /** No node carries this row's hostname at all. */
   | { kind: "unknown"; reason: string };
@@ -36,7 +36,7 @@ function isSchedulable(node: Node): boolean {
 /**
  * Every node whose hostname matches this row, most-preferred first. Hostname
  * is checked before the friendly name because the bootstrap row is called
- * "localhost" while its real OS hostname lives in `hostname` — same candidate
+ * "localhost" while its real OS hostname lives in `hostname`. Same candidate
  * order as the stats aggregation, so the two agree on which node is which.
  */
 function matchingNodes(nodes: readonly Node[], server: ServerIdentity): Node[] {

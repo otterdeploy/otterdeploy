@@ -23,6 +23,7 @@ import type { TranslationKey } from "@otterdeploy/i18n";
 
 import {
   Alert01Icon,
+  Analytics01Icon,
   BellDotIcon,
   Database02Icon,
   DatabaseIcon,
@@ -169,6 +170,22 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["restore", "snapshot", "database", "databases", "connections"],
       },
       {
+        title: "Analytics",
+        i18nKey: "nav.analytics",
+        to: "/$orgSlug/analytics",
+        icon: Analytics01Icon,
+        keywords: [
+          "traffic",
+          "visitors",
+          "pageviews",
+          "requests",
+          "referrers",
+          "countries",
+          "bandwidth",
+          "latency",
+        ],
+      },
+      {
         title: "Edge",
         i18nKey: "nav.edge",
         to: "/$orgSlug/edge",
@@ -247,7 +264,15 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         i18nKey: "nav.secrets",
         to: "/$orgSlug/secrets",
         icon: LockKeyIcon,
-        keywords: ["vault", "hashicorp", "openbao", "infisical", "doppler", "secret manager", "secret providers"],
+        keywords: [
+          "vault",
+          "hashicorp",
+          "openbao",
+          "infisical",
+          "doppler",
+          "secret manager",
+          "secret providers",
+        ],
       },
       {
         // Same reasoning as its neighbours: routing an event to a channel is

@@ -37,7 +37,7 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
   });
 
   // Both the handoff's openness and its prefill are DERIVED from the address
-  // bar — no effect mirrors one into state. The params are consumed on close
+  // bar, no effect mirrors one into state. The params are consumed on close
   // (below) rather than on open, which is what makes that possible: strip them
   // the moment the dialog opens and the derived `open` would flip straight back
   // to false. Unknown template ids read as no handoff (nothing invented).

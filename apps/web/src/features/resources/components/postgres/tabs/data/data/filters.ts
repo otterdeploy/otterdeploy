@@ -3,7 +3,7 @@
  * Postgres WHERE clause appended to the SELECT. Values are quoted as text and
  * rely on Postgres' implicit cast of unknown literals to the column type, with
  * single quotes escaped. Read-only query path, but we still quote identifiers +
- * escape values. A filter starts with NO column/operator selected — the user
+ * escape values. A filter starts with NO column/operator selected. The user
  * picks both before it does anything.
  */
 
@@ -27,7 +27,7 @@ export interface Filter {
   column: string;
   op: FilterOp | "";
   value: string;
-  /** Checkbox toggle — an unchecked filter stays in the list but isn't applied. */
+  /** Checkbox toggle: an unchecked filter stays in the list but isn't applied. */
   enabled: boolean;
 }
 
@@ -52,11 +52,11 @@ export function opNeedsValue(op: FilterOp | ""): boolean {
 }
 
 /** Ordering comparisons take a NUMBER (validated, emitted unquoted). */
-export function isNumericOp(op: FilterOp | ""): boolean {
+export function isNumericOp(op: FilterOp | ""): op is "gt" | "lt" | "gte" | "lte" {
   return op === "gt" || op === "lt" || op === "gte" || op === "lte";
 }
 
-/** Strict numeric literal — what the numeric ops accept. Emitted verbatim into
+/** Strict numeric literal: what the numeric ops accept. Emitted verbatim into
  *  the SQL (regex-validated, so it can't carry an injection), which also keeps
  *  big integers exact where Number() would round. */
 const NUMERIC_LITERAL = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
@@ -89,7 +89,7 @@ function clause(f: Filter): string {
   if (isNumericOp(f.op)) {
     // Guarded by isFilterActive → isValidNumericValue; the trimmed literal is
     // digits/sign/dot/exponent only.
-    return `${col} ${NUMERIC_SQL_OP[f.op as "gt" | "lt" | "gte" | "lte"]} ${f.value.trim()}`;
+    return `${col} ${NUMERIC_SQL_OP[f.op]} ${f.value.trim()}`;
   }
   switch (f.op) {
     case "isnull":
@@ -117,7 +117,7 @@ export function buildWhere(filters: Filter[]): string {
   return parts.length ? ` WHERE ${parts.join(" AND ")}` : "";
 }
 
-/** A new, unconfigured filter row — no column or operator chosen yet. */
+/** A new, unconfigured filter row, no column or operator chosen yet. */
 export function newFilter(): Filter {
   return { id: crypto.randomUUID(), column: "", op: "", value: "", enabled: true };
 }

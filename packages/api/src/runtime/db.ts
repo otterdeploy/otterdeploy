@@ -2,7 +2,7 @@
  * Runtime-backed database functions, drop-in for the old `swarm/*` database
  * exports. Call sites import these instead of the swarm originals so a database
  * provisions through the active runtime (plain Docker by default, Swarm when
- * scaling) without any call-site logic change — only the import path moves.
+ * scaling) without any call-site logic change. Only the import path moves.
  * See docs/designs/runtime.md.
  */
 import type { RequestLogger } from "evlog";

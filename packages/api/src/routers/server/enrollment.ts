@@ -13,7 +13,7 @@ import { rotateSwarmJoinCredential } from "./enrollment-rotation";
 import { getSwarmJoinTokens } from "./join-tokens";
 
 const TOKEN_BYTES = 32;
-const UNKNOWN = "—";
+const UNKNOWN = "–";
 
 export { parseEnrollmentCredential } from "./enrollment-credential";
 export { rotateSwarmJoinCredential, startNodeEnrollmentReaper } from "./enrollment-rotation";

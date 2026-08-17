@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 /**
- * od-5j8.10 — TLS-only control-plane ingress, trusted proxies, body limits.
+ * od-5j8.10: TLS-only control-plane ingress, trusted proxies, body limits.
  *
  * Invariant under test:
  *   1. Forwarding headers (X-Forwarded-For / X-Forwarded-Proto) are honored
  *      ONLY when the immediate TCP peer matches the configured trusted-proxy
- *      list — a spoofed header from an untrusted peer never wins, so it can't
+ *      list: a spoofed header from an untrusted peer never wins, so it can't
  *      defeat rate limits, IP allowlists, the firewall/blocklist, or
  *      audit-log attribution.
  *   2. A request body over the configured cap is rejected with 413 before
- *      being fully buffered — from Content-Length alone when present, with
+ *      being fully buffered, from Content-Length alone when present, with
  *      route-specific overrides for legitimate bulk endpoints (source
  *      tarball uploads).
  *   3. The control plane's own dashboard/API route gets HSTS + hardening
@@ -140,7 +140,7 @@ describe("[od-5j8.10] isTrustedProxyPeer / trusted-proxy list parsing", () => {
     expect(isTrustedProxyPeer("203.0.113.9", defaultList)).toBe(false);
   });
 
-  test("a hostname (not a literal IP) in the peer position never matches — fails closed", () => {
+  test("a hostname (not a literal IP) in the peer position never matches: fails closed", () => {
     expect(isTrustedProxyPeer("caddy", "127.0.0.1/32")).toBe(false);
     expect(isTrustedProxyPeer("evil.example.com", "127.0.0.1/32")).toBe(false);
   });
@@ -153,7 +153,7 @@ describe("[od-5j8.10] isTrustedProxyPeer / trusted-proxy list parsing", () => {
   });
 
   test("an out-of-range CIDR prefix is skipped rather than silently widened", () => {
-    // /99 isn't valid for IPv4 — must not be interpreted as "trust everything".
+    // /99 isn't valid for IPv4. Must not be interpreted as "trust everything".
     expect(isTrustedProxyPeer("203.0.113.9", "10.0.0.0/99")).toBe(false);
   });
 
@@ -177,12 +177,12 @@ describe("[od-5j8.10] resolveBodyLimitBytes: per-route overrides", () => {
     );
   });
 
-  test("the default is a real, bounded cap — not effectively unlimited", () => {
+  test("the default is a real, bounded cap, not effectively unlimited", () => {
     expect(DEFAULT_BODY_LIMIT_BYTES).toBeLessThan(MAX_SOURCE_UPLOAD_BYTES);
     expect(DEFAULT_BODY_LIMIT_BYTES).toBeGreaterThan(0);
   });
 
-  test("rule prefixes are matched in order — first match wins", () => {
+  test("rule prefixes are matched in order, first match wins", () => {
     const rules = [
       { prefix: "/api/services/special", maxBytes: 1 },
       { prefix: "/api/services/", maxBytes: 2 },
@@ -214,7 +214,7 @@ describe("[od-5j8.10] bodyLimitMiddleware: oversized bodies are rejected with 41
     expect(await res.text()).toBe("received:100");
   });
 
-  test("a body over the default cap is rejected with 413 (Content-Length fast path — declared, never read)", async () => {
+  test("a body over the default cap is rejected with 413 (Content-Length fast path. Declared, never read)", async () => {
     const app = appWithLimit();
     // A real body larger than the 1 KiB test default; the runtime sets
     // Content-Length from its length, so the middleware's fast path fires
@@ -241,7 +241,7 @@ describe("[od-5j8.10] bodyLimitMiddleware: oversized bodies are rejected with 41
     expect(res.status).toBe(200);
   });
 
-  test("the Content-Length fast path returns before any stream read — structural proof of no full buffering", () => {
+  test("the Content-Length fast path returns before any stream read, structural proof of no full buffering", () => {
     const mw = source("packages/api/src/security/body-limit.ts");
     // The Content-Length branch must `throw`/`return` before the
     // `getReader()` call that starts consuming the stream.
@@ -289,10 +289,10 @@ describe("[od-5j8.10] the control plane's own dashboard route carries HSTS + har
     expect(CONTROL_PLANE_ROUTE_POLICY.maxRequestBodyMb).toBeNull();
   });
 
-  test("HTTP→HTTPS redirect stays ON by default — the control-plane route doesn't disable it", () => {
+  test("HTTP→HTTPS redirect stays ON by default, the control-plane route doesn't disable it", () => {
     // buildCaddyfile only emits `auto_https disable_redirects` when the
     // caller explicitly opts out (httpsAutoRedirect === false); leaving it
-    // unset/undefined — the default for every install — keeps Caddy's
+    // unset/undefined (the default for every install) keeps Caddy's
     // automatic HTTP→HTTPS redirect for every site block, including this one.
     const caddyfile = buildCaddyfile([controlPlaneRoute], "unix//tmp/admin.sock|0600");
     expect(caddyfile).not.toContain("auto_https disable_redirects");
@@ -304,7 +304,7 @@ describe("[od-5j8.10] the control plane's own dashboard route carries HSTS + har
 describe("[od-cse] the dashboard's publish address is an operator choice, and the loopback posture still exists", () => {
   // od-5j8.10 hardcoded 127.0.0.1 here. That made a fresh install end in
   // SSH-tunnel instructions rather than a URL, so od-cse parameterized it.
-  // What matters now is that BOTH postures are reachable from config — never
+  // What matters now is that BOTH postures are reachable from config, never
   // that one of them is compiled in.
   test("the bind is parameterized, with the loopback posture still selectable", () => {
     const compose = source("docker-compose.prod.yml");
@@ -312,7 +312,7 @@ describe("[od-cse] the dashboard's publish address is an operator choice, and th
       /\$\{CONTROL_PLANE_BIND:-0\.0\.0\.0\}:\$\{CONTROL_PLANE_PORT:-3000\}:3000/,
     );
     // A bare "${CONTROL_PLANE_PORT:-3000}:3000" would publish on every
-    // interface with no way to pin it back — that's what must not return.
+    // interface with no way to pin it back: that's what must not return.
     expect(compose).not.toMatch(/[^.\d}]"\$\{CONTROL_PLANE_PORT:-3000\}:3000"/);
     expect(compose).toContain("CONTROL_PLANE_BIND=127.0.0.1");
   });
@@ -320,14 +320,14 @@ describe("[od-cse] the dashboard's publish address is an operator choice, and th
   test("the installer writes the bind and keeps the SSH-tunnel path for the loopback case", () => {
     const install = source("scripts/install.sh");
     expect(install).toContain("CONTROL_PLANE_BIND=$control_plane_bind");
-    // The tunnel instructions must survive as the loopback branch — pinning
+    // The tunnel instructions must survive as the loopback branch. Pinning
     // the bind back must not leave the operator with no way in.
     expect(install).toContain("ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT");
   });
 
   test("the firewall opens the control-plane port only when it is actually published", () => {
-    // A published port is DNAT'd into FORWARD, so the DOCKER-USER guard — not
-    // the input chain — is what decides whether the dashboard is reachable.
+    // A published port is DNAT'd into FORWARD, so the DOCKER-USER guard, not
+    // the input chain: is what decides whether the dashboard is reachable.
     // Both read edge_tcp_ports so the two can't drift apart.
     const install = source("scripts/install.sh");
     expect(install).toContain("edge_tcp_ports()");
@@ -355,7 +355,7 @@ describe("[od-5j8.10] trusted-proxy configuration exists and is safe by default"
 
   test("TRUSTED_PROXIES stays narrow even though the dashboard is published again", () => {
     // od-5j8.10's original assertion here was "the installer no longer
-    // advertises the dashboard at a public/LAN address" — od-cse deliberately
+    // advertises the dashboard at a public/LAN address": od-cse deliberately
     // reversed that. What still has to hold is the reason that hardening
     // existed: forwarded headers are honored ONLY from loopback and the edge
     // network, so a direct caller on :3000 can't spoof its IP past rate

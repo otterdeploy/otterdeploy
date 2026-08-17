@@ -7,7 +7,7 @@
  * into emails. Server-side twin of the client precedent in
  * `connect-cli-dialog.tsx` (orpc.organization.controlPlaneDomain).
  *
- * Pure on purpose — no env/db imports — so it unit-tests without booting the
+ * Pure on purpose (no env/db imports) so it unit-tests without booting the
  * env schema or a database. The DB-backed resolver lives in `web-origin.ts`.
  */
 
@@ -20,7 +20,7 @@ export interface ControlPlaneDomainSettings {
 
 /**
  * Resolve the canonical origin (no trailing slash):
- * - verified control-plane domain → `https://<domain>` — verification implies
+ * - verified control-plane domain → `https://<domain>`: verification implies
  *   the edge serves it with a real ACME cert, so https is always right;
  * - unverified or absent domain → the env fallback verbatim (scheme included),
  *   since an unverified FQDN may not even resolve to this box yet.

@@ -56,7 +56,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DESIGN sidecar is project-local at .impeccable/design.json, with legacy
 // DESIGN.json fallback for existing projects.
 const CONTEXT_DIR = resolveContextDir(process.cwd());
-const DEFAULT_POLL_TIMEOUT = 600_000;   // 10 min — agent re-polls on timeout anyway
+const DEFAULT_POLL_TIMEOUT = 600_000;   // 10 min: agent re-polls on timeout anyway
 const SSE_HEARTBEAT_INTERVAL = 30_000;  // keepalive ping every 30s
 
 // ---------------------------------------------------------------------------
@@ -341,7 +341,7 @@ function getManualEditStatus() {
 function loadBrowserScripts() {
   // Detection script: prefer the skill-bundled detector, then fall back to
   // source/npm package locations for local development and older installs.
-  // This one IS cached — detect.js rarely changes during a session.
+  // This one IS cached. Detect.js rarely changes during a session.
   const detectPaths = [
     path.join(__dirname, 'detector', 'detect-antipatterns-browser.js'),
     path.join(__dirname, '..', '..', 'cli', 'engine', 'detect-antipatterns-browser.js'),
@@ -368,7 +368,7 @@ function loadBrowserScripts() {
 }
 
 function hasProjectContext() {
-  // PRODUCT.md carries brand voice / anti-references — that's what determines
+  // PRODUCT.md carries brand voice / anti-references. That's what determines
   // whether variants are brand-aware. DESIGN.md (visual tokens) is a separate
   // concern, surfaced by the design panel's own empty state.
   try {
@@ -398,7 +398,7 @@ function createRequestHandler({ detectScript, liveScriptParts }) {
     if (p === '/live.js') {
       // Re-read from disk each request so edits to live-browser.js land on
       // the next tab reload. No-store headers prevent browser caching across
-      // sessions — during iteration, a cached old script silently breaks
+      // sessions, during iteration, a cached old script silently breaks
       // every subsequent session.
       let parts;
       try {

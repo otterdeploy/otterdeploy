@@ -54,7 +54,7 @@ export function HistoryRowMenu({
 }) {
   const navigate = useNavigate();
   const deploymentId = deployment.id;
-  // Styled confirm (not typed — rollback is recoverable: roll forward again
+  // Styled confirm (not typed, rollback is recoverable: roll forward again
   // from this same history). Controlled state because selecting the menu item
   // closes the dropdown, so the dialog must outlive it.
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -82,7 +82,7 @@ export function HistoryRowMenu({
               variant="ghost"
               size="icon-sm"
               aria-label="Deployment actions"
-              // Recessed rather than hidden — same reason as the Roll back
+              // Recessed rather than hidden: same reason as the Roll back
               // button in features/deployments/components/deployment-row.tsx:
               // `opacity-0` has no reveal on a touch device, leaving the only
               // route to rollback invisible while still tappable.

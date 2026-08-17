@@ -1,7 +1,7 @@
 /**
  * Durable audit trail for shell open/close (od-5j8.9 acceptance: "creates a
- * durable session audit record"). Written directly to the audit_log table —
- * same shape `./system.ts` uses for background/system actions — rather than
+ * durable session audit record"). Written directly to the audit_log table:
+ * same shape `./system.ts` uses for background/system actions. Rather than
  * through the oRPC `context.log.audit` pipeline, because the WebSocket
  * open/close events fire from `hono/ws` lifecycle callbacks that run after
  * the originating HTTP upgrade request's wide event has already flushed (see

@@ -13,7 +13,7 @@ describe("nav manifest", () => {
   // The palette headings the unlabelled top group with a hard-coded fallback
   // string and uses `heading` as a React key. Adding an OPERATIONAL_NAV group
   // whose label equals that fallback silently produces a duplicate key and two
-  // identically-headed palette sections — which is exactly what happened when
+  // identically-headed palette sections, which is exactly what happened when
   // the "Workspace" group was added (the fallback was "Workspace" too).
   it("palette group headings are unique", () => {
     const headings = ORG_NAV_GROUPS.map((g) => g.heading);
@@ -32,15 +32,15 @@ describe("nav manifest", () => {
   // two nav entries pointing at the same page (one of them through a redirect
   // shim) is how a "moved" page keeps appearing in its old home.
   it("no settings entry points at a page the operational shell owns", () => {
-    const operational = new Set(OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => i.to)));
+    const operational = new Set<string>(
+      OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => String(i.to))),
+    );
     for (const group of SETTINGS_NAV) {
       for (const item of group.items) {
         const asOperational = String(item.to)
           .replace("/settings/workspace", "")
           .replace("/settings", "");
-        expect(operational.has(asOperational as typeof item.to), `${item.title} → ${item.to}`).toBe(
-          false,
-        );
+        expect(operational.has(asOperational), `${item.title} → ${item.to}`).toBe(false);
       }
     }
   });
@@ -57,7 +57,7 @@ describe("nav manifest", () => {
   });
 
   // All three chromes filter through `visibleNav`, so an install admin must
-  // still see the manifest verbatim — the gate may only ever subtract.
+  // still see the manifest verbatim. The gate may only ever subtract.
   it("an install admin sees the manifest unchanged", () => {
     expect(visibleNav(SETTINGS_NAV, true)).toEqual(SETTINGS_NAV);
     expect(visibleNav(OPERATIONAL_NAV, true)).toEqual(OPERATIONAL_NAV);
@@ -68,13 +68,13 @@ describe("nav manifest", () => {
     expect(visible.flatMap((g) => g.items.map((i) => i.to))).not.toContain(
       "/$orgSlug/settings/instance/general",
     );
-    // Instance is that one item, so the heading goes with it — a group label
+    // Instance is that one item, so the heading goes with it. A group label
     // with nothing under it is worse than no label.
     expect(visible.map((g) => g.label)).not.toContain("Instance");
   });
 
   // The palette used to project manifest items into its own `NavEntry` shape,
-  // which silently dropped `installAdminOnly` — a gated destination stayed
+  // which silently dropped `installAdminOnly`. A gated destination stayed
   // searchable and 403'd on arrival. Guard the flag's survival end to end.
   it("the palette carries the gate flag through to its groups", () => {
     const gated = ORG_NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.installAdminOnly === true);

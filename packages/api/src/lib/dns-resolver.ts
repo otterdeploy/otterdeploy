@@ -11,7 +11,7 @@
  * definitive "not there" from a public resolver (ENODATA/ENOTFOUND/NXDOMAIN)
  * is trusted as-is and not masked by the fallback.
  *
- * That distinction — "authoritatively absent" vs "couldn't ask" — is the whole
+ * That distinction ("authoritatively absent" vs "couldn't ask") is the whole
  * point of this module, and it's what the two error types below encode. Every
  * caller has to branch on it (an absent record means "not pointed at us"; an
  * unreachable resolver means "we don't know"), and when this module threw raw
@@ -28,7 +28,7 @@ const PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8"];
 const DEFINITIVE_MISS = new Set(["ENODATA", "ENOTFOUND", "NXDOMAIN"]);
 
 /**
- * The name resolves, but has no record of the requested type — an
+ * The name resolves, but has no record of the requested type. An
  * authoritative answer, not a failure to ask. Trustworthy: callers may render
  * this as "not configured" / "not pointed here".
  */
@@ -40,8 +40,8 @@ export class DnsRecordMissing extends TaggedError("DnsRecordMissing")<{
 }>() {}
 
 /**
- * Neither the public resolvers nor the system resolver could answer —
- * timeout, refused, no egress on port 53. Says nothing about whether the
+ * Neither the public resolvers nor the system resolver could answer.
+ * Timeout, refused, no egress on port 53. Says nothing about whether the
  * record exists, so callers must degrade to "unknown" rather than "missing".
  */
 export class DnsLookupFailed extends TaggedError("DnsLookupFailed")<{
@@ -53,7 +53,10 @@ export type DnsError = DnsRecordMissing | DnsLookupFailed;
 
 /** The single place `err.code` is interpreted. */
 function classify(name: string, cause: unknown): DnsError {
-  const code = (cause as { code?: string }).code;
+  const code =
+    cause && typeof cause === "object" && "code" in cause && typeof cause.code === "string"
+      ? cause.code
+      : undefined;
   return code !== undefined && DEFINITIVE_MISS.has(code)
     ? new DnsRecordMissing({ name, code, cause })
     : new DnsLookupFailed({ name, cause });
@@ -70,7 +73,7 @@ async function withPublicResolver<T>(
   query: (resolver: ResolverLike) => Promise<T>,
 ): Promise<Result<T, DnsError>> {
   // dns.Resolver here is the promise-based resolver (node:dns `promises`
-  // namespace) — its methods return Promises, unlike the top-level
+  // namespace): its methods return Promises, unlike the top-level
   // callback Resolver.
   const resolver = new dns.Resolver();
   resolver.setServers(PUBLIC_RESOLVERS);
@@ -80,7 +83,7 @@ async function withPublicResolver<T>(
     catch: (cause) => classify(name, cause),
   });
   if (viaPublic.isOk()) return viaPublic;
-  // A definitive miss from a public resolver IS the answer — falling back to
+  // A definitive miss from a public resolver IS the answer. Falling back to
   // the system resolver here is what would let a split-horizon box overwrite
   // the public truth with its own stale view.
   if (DnsRecordMissing.is(viaPublic.error)) return viaPublic;
@@ -101,7 +104,7 @@ export async function resolveTxtRobust(name: string): Promise<Result<string[], D
  * NS lookup, lowercased and trailing-dot-stripped.
  *
  * Only a zone apex answers NS, so callers asking about `waves.acme.com` have
- * to walk up to `acme.com` — see `detectDnsProvider` in ./dns-detect.ts, which
+ * to walk up to `acme.com`: see `detectDnsProvider` in ./dns-detect.ts, which
  * owns that walk. A level below the apex yields `DnsRecordMissing`, which that
  * walk treats as "keep climbing" rather than as a failure.
  */
@@ -113,7 +116,7 @@ export async function resolveNsRobust(name: string): Promise<Result<string[], Dn
 /**
  * A + AAAA lookup, merged. Each family's miss collapses to "no address of that
  * family" rather than failing the whole lookup, so an A-only domain still
- * returns its IPv4 — only a both-families failure is an error.
+ * returns its IPv4. Only a both-families failure is an error.
  *
  * When both fail, a transport failure wins over a definitive miss: if we
  * couldn't reach a resolver for either family, "no addresses" is not something

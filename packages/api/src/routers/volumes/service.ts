@@ -1,5 +1,5 @@
 /**
- * Volumes service — daemon reads/writes + the org-scoped enrichment pass.
+ * Volumes service: daemon reads/writes + the org-scoped enrichment pass.
  * Follows the docker router's `Listed<T>` convention: handlers get either the
  * items or a plain failure reason to surface as a typed oRPC error.
  */
@@ -50,13 +50,13 @@ async function listVolumeContainerRefs(): Promise<VolumeContainerRef[]> {
     id: c.Id,
     name: (c.Names?.[0] ?? c.Id).replace(/^\//, ""),
     labels: c.Labels ?? {},
-    volumeNames: (c.Mounts ?? [])
-      .filter((m) => m.Type === "volume" && typeof m.Name === "string" && m.Name.length > 0)
-      .map((m) => m.Name as string),
+    volumeNames: (c.Mounts ?? []).flatMap((m) =>
+      m.Type === "volume" && typeof m.Name === "string" && m.Name.length > 0 ? [m.Name] : [],
+    ),
   }));
 }
 
-/** Measured bytes per volume from `system df` (empty map when unavailable —
+/** Measured bytes per volume from `system df` (empty map when unavailable,
  *  the endpoint can be slow/unsupported; sizes then render as unknown). */
 async function volumeSizesFromDf(): Promise<Map<string, number>> {
   const result = await docker.system.df();
@@ -69,6 +69,19 @@ async function volumeSizesFromDf(): Promise<Map<string, number>> {
   return sizes;
 }
 
+/** Installed volume drivers off `info.Plugins` (an untyped bag upstream).
+ *  Anything that is not a non-empty array of strings falls back to
+ *  ["local"], the driver every daemon ships. */
+function volumeDriversOf(plugins: unknown): string[] {
+  if (!plugins || typeof plugins !== "object" || !("Volume" in plugins)) return ["local"];
+  const volume = plugins.Volume;
+  return Array.isArray(volume) &&
+    volume.length > 0 &&
+    volume.every((driver): driver is string => typeof driver === "string")
+    ? volume
+    : ["local"];
+}
+
 /** Daemon identity + installed volume drivers, best-effort. */
 async function daemonInfo(): Promise<{
   node: { name: string; serverVersion: string } | null;
@@ -77,9 +90,7 @@ async function daemonInfo(): Promise<{
   const result = await docker.system.info();
   if (result.isErr()) return { node: null, drivers: ["local"] };
   const info = result.value;
-  const plugins = info.Plugins as { Volume?: string[] } | undefined;
-  const drivers =
-    Array.isArray(plugins?.Volume) && plugins.Volume.length > 0 ? plugins.Volume : ["local"];
+  const drivers = volumeDriversOf(info.Plugins);
   return {
     node: { name: info.Name, serverVersion: info.ServerVersion },
     drivers,
@@ -118,7 +129,7 @@ export async function listEnrichedVolumes(
     };
   });
 
-  // Stable order: attached first, then by name — keeps polling refreshes calm.
+  // Stable order: attached first, then by name: keeps polling refreshes calm.
   volumes.sort(
     (a, b) => Number(b.refCount > 0) - Number(a.refCount > 0) || a.name.localeCompare(b.name),
   );
@@ -158,7 +169,7 @@ export async function createVolume(input: {
   | { ok: false; kind: VolumeMutationError; reason: string }
 > {
   // `docker volume create` is idempotent for an existing name+driver, which
-  // would silently "succeed" without creating anything — pre-check so the
+  // would silently "succeed" without creating anything. Pre-check so the
   // operator gets an honest 409 instead.
   const existing = await docker.volumes.inspect(input.name);
   if (existing.isOk()) {
@@ -197,7 +208,7 @@ export async function removeVolume(
 
   // In-use / claimed guard. The daemon only rejects removal while a container
   // references the volume; a platform-claimed volume with its container
-  // temporarily gone would delete cleanly and lose data — refuse both.
+  // temporarily gone would delete cleanly and lose data, refuse both.
   const [containers, orgClaims] = await Promise.all([
     listVolumeContainerRefs(),
     loadOrgVolumeClaims(organizationId),
@@ -223,7 +234,7 @@ export async function removeVolume(
     return {
       ok: false,
       kind: "conflict",
-      reason: `Volume belongs to ${owner.resourceType} "${owner.resourceName}" (${owner.projectSlug}) — delete the resource instead`,
+      reason: `Volume belongs to ${owner.resourceType} "${owner.resourceName}" (${owner.projectSlug}). Delete the resource instead`,
     };
   }
 

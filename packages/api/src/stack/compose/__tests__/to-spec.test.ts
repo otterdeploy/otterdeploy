@@ -54,7 +54,7 @@ services:
       maxAttempts: null,
       delayMs: 5_000,
     });
-    // CMD directive stripped — buildServiceSpec re-prepends "CMD".
+    // CMD directive stripped: buildServiceSpec re-prepends "CMD".
     expect(spec.healthcheck).toEqual({
       cmd: ["pg_isready"],
       intervalMs: 10_000,

@@ -1,7 +1,7 @@
 /**
  * The world the sign-in hero renders: a lattice of nodes running to a horizon,
  * and the deploy wave that rolls outward through it. Geometry and constants
- * only — see `auth-hero-scene.ts` for the renderer and `auth-hero.tsx` for the
+ * only: see `auth-hero-scene.ts` for the renderer and `auth-hero.tsx` for the
  * React wiring.
  */
 
@@ -17,16 +17,16 @@ export const TILT = 0.3;
  *  to reach the panel edges at its own depth, and rows open up as they recede,
  *  so node count tracks what is visible instead of the world box. */
 const X_CENTER = 0;
-/** Only the depths that actually land on the canvas are generated — nearer rows
+/** Only the depths that actually land on the canvas are generated. Nearer rows
  *  project below the bottom edge and would be pure cull cost. */
 const Z_NEAR = -0.9;
 export const Z_FAR = 11;
 const rowStep = (z: number) => 0.06 + (z + 1.6) * 0.016;
 
-/** Resting swell — barely there, so the field reads as calm, not as water. */
+/** Resting swell: barely there, so the field reads as calm, not as water. */
 export const SWELL = 0.05;
 
-/** Ground point the deploy ripple radiates from — under the craft, so the
+/** Ground point the deploy ripple radiates from, under the craft, so the
  *  horizon reacts to the thing flying over it. */
 export const RIPPLE_X = 0.4;
 export const RIPPLE_Z = 3.4;
@@ -41,12 +41,12 @@ export const WAVE_WIDTH = 0.62;
 const WAVE_FROM = 0.5;
 const WAVE_TO = 9;
 
-/** The craft's trail. Blue lands here and on the ripple crest only — DESIGN.md
+/** The craft's trail. Blue lands here and on the ripple crest only. DESIGN.md
  *  caps the accent near 10% of a surface. */
 export const MAX_SPARKS = 150;
 export const SPARK_RATE = 72;
 
-/** Direction *to* the key light — upper left, front. Matches the panel glow. */
+/** Direction *to* the key light: upper left, front. Matches the panel glow. */
 export const LIGHT = { x: -0.46, y: -0.76, z: -0.46 };
 
 export interface FieldNode {
@@ -82,7 +82,7 @@ export function mulberry32(seed: number) {
 
 /**
  * Builds the ground lattice for the current framing. Each row is generated only
- * as wide as the canvas actually needs at its own depth — the camera is zoomed
+ * as wide as the canvas actually needs at its own depth. The camera is zoomed
  * in far enough that a fixed world box would spend most of its nodes off-screen.
  */
 export function buildField(canvasWidth: number, scale: number): FieldNode[] {
@@ -130,7 +130,7 @@ export function waveAmplitude(radius: number) {
   return WAVE_HEIGHT * Math.exp(-radius * 0.17);
 }
 
-/** Pre-rendered soft glow, blitted per spark — far cheaper than shadowBlur.
+/** Pre-rendered soft glow, blitted per spark. Far cheaper than shadowBlur.
  *  `strength` is pulled down in light mode, where a soft halo on an off-white
  *  panel reads as a smudge rather than as light. */
 export function makeGlowSprite(size: number, color: string, strength: number) {

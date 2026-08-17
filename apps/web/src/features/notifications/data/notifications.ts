@@ -10,7 +10,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 /**
  * Notification channels + the event/channel subscription matrix for the viewed
  * organization. Both are org-scoped via the session (the procedures take no org
- * input), so each is a single eager collection — the page reads via a live
+ * input), so each is a single eager collection. The page reads via a live
  * query and mutates the collection; no separate hooks.
  *
  * Pause and test are NOT collection mutations: `pause` flips a server-computed
@@ -20,7 +20,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  */
 
 const channelsQueryOptions = queryCollectionOptions({
-  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // Stable id so the OPFS-backed SQLite table survives page loads. See
   // projectCollection for why persistence never round-trips without one.
   id: "notifications-channels",
   ...orpc.notifications.channels.list.queryOptions(),
@@ -35,7 +35,7 @@ const channelsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const row = m.modified;
-        // `secret` lives only in the insert metadata — it's never stored
+        // `secret` lives only in the insert metadata. It's never stored
         // on the row (the list never returns it). Truthiness gate: an
         // untouched form field is "", which is omitted, not sent.
         const secret = metadataSecret(m.metadata);
@@ -56,7 +56,7 @@ const channelsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map((m) => {
         const c = m.changes;
-        // Secret is write-only — passed through the update metadata, never
+        // Secret is write-only. Passed through the update metadata, never
         // held on the row. Truthiness gate: an untouched form field is "",
         // which is omitted, not sent.
         const secret = metadataSecret(m.metadata);
@@ -81,7 +81,7 @@ const channelsQueryOptions = queryCollectionOptions({
 
 type ChannelRow = Awaited<ReturnType<typeof orpc.notifications.channels.list.call>>[number];
 
-// Two-branch createCollection + pinned generics — see projectCollection for why.
+// Two-branch createCollection + pinned generics: see projectCollection for why.
 export const channelsCollection = persistence
   ? createCollection(
       persistedCollectionOptions<ChannelRow, string | number>({
@@ -92,13 +92,13 @@ export const channelsCollection = persistence
     )
   : createCollection(channelsQueryOptions);
 
-/** Composite key for a subscription cell — one channel × one event. */
+/** Composite key for a subscription cell: one channel × one event. */
 function subscriptionKey(s: { channelId: string; eventId: string }) {
   return `${s.channelId}:${s.eventId}`;
 }
 
 /**
- * The subscription matrix as a flat list of (channelId, eventId) rows — one row
+ * The subscription matrix as a flat list of (channelId, eventId) rows: one row
  * per enabled cell. Toggling a cell on inserts a row (fires `toggle`
  * enabled:true); toggling off deletes it (fires `toggle` enabled:false).
  */

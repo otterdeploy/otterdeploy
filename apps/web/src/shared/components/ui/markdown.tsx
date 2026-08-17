@@ -4,7 +4,7 @@
  * paragraphs, bullet / numbered lists, blockquotes, fenced + inline code,
  * links, bold / italic / strikethrough, and horizontal rules.
  *
- * It builds React elements directly — it NEVER touches dangerouslySetInnerHTML —
+ * It builds React elements directly (it NEVER touches dangerouslySetInnerHTML)
  * so untrusted release bodies can't inject markup, and link hrefs are limited to
  * http(s)/mailto. It's deliberately not a full CommonMark implementation: no
  * tables, no nested lists, no reference links. Reach for `react-markdown` if a
@@ -22,7 +22,7 @@ import { cn } from "@/shared/lib/utils";
 const INLINE =
   /(`[^`]+`)|(\[[^\]]*\]\([^)\s]+\))|(\*\*[^*]+\*\*|__[^_]+__)|(~~[^~]+~~)|(\*[^*\s][^*]*\*|_[^_\s][^_]*_)|(https?:\/\/[^\s)]+)/;
 
-/** Only allow safe link schemes — a release body is untrusted input. */
+/** Only allow safe link schemes. A release body is untrusted input. */
 function safeHref(href: string): string | undefined {
   const h = href.trim();
   return /^(https?:\/\/|mailto:)/i.test(h) ? h : undefined;
@@ -101,6 +101,17 @@ function parseInline(text: string, keyPrefix = ""): ReactNode[] {
 
 // ── Block ─────────────────────────────────────────────────────────────────
 
+// Keyed by heading depth (1-6, guaranteed by the `#{1,6}` regex below), so the
+// element name comes from a typed table instead of a template-string assertion.
+const HEADING_TAG: Record<number, "h1" | "h2" | "h3" | "h4" | "h5" | "h6"> = {
+  1: "h1",
+  2: "h2",
+  3: "h3",
+  4: "h4",
+  5: "h5",
+  6: "h6",
+};
+
 const HEADING_CLASS: Record<number, string> = {
   1: "mt-4 mb-2 text-base font-semibold text-foreground first:mt-0",
   2: "mt-4 mb-2 text-sm font-semibold text-foreground first:mt-0",
@@ -133,7 +144,7 @@ function parseBlocks(src: string): ReactNode[] {
       continue;
     }
 
-    // Fenced code block — collect verbatim until the closing fence.
+    // Fenced code block: collect verbatim until the closing fence.
     if (fence.test(line)) {
       const body: string[] = [];
       i++;
@@ -153,7 +164,7 @@ function parseBlocks(src: string): ReactNode[] {
     const h = heading.exec(line);
     if (h) {
       const level = h[1].length;
-      const Tag = `h${level}` as "h1";
+      const Tag = HEADING_TAG[level] ?? "h6";
       blocks.push(
         <Tag key={k()} className={HEADING_CLASS[level]}>
           {parseInline(h[2])}
@@ -169,7 +180,7 @@ function parseBlocks(src: string): ReactNode[] {
       continue;
     }
 
-    // Blockquote — consecutive `>` lines.
+    // Blockquote: consecutive `>` lines.
     if (/^\s*>/.test(line)) {
       const quote: string[] = [];
       while (i < lines.length && /^\s*>/.test(lines[i])) {
@@ -184,7 +195,7 @@ function parseBlocks(src: string): ReactNode[] {
       continue;
     }
 
-    // Lists — a run of consecutive bullet or numbered items.
+    // Lists: a run of consecutive bullet or numbered items.
     if (ulItem.test(line) || olItem.test(line)) {
       const ordered = olItem.test(line);
       const items: ReactNode[] = [];
@@ -213,7 +224,7 @@ function parseBlocks(src: string): ReactNode[] {
       continue;
     }
 
-    // Paragraph — gather consecutive plain lines until a blank or a block start.
+    // Paragraph: gather consecutive plain lines until a blank or a block start.
     const para: string[] = [];
     while (
       i < lines.length &&
@@ -239,7 +250,7 @@ function parseBlocks(src: string): ReactNode[] {
 }
 
 /** GitHub release bodies (release-drafter, `gh release create --generate-notes`,
- *  etc.) commonly carry HTML comments — tool markers, not content. Strip them
+ *  etc.) commonly carry HTML comments. Tool markers, not content. Strip them
  *  before block parsing so they never surface as literal paragraph text. */
 function stripHtmlComments(src: string): string {
   return src.replace(/<!--[\s\S]*?-->/g, "");

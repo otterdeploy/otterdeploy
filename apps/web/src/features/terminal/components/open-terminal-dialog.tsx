@@ -52,7 +52,7 @@ const GROUP_ORDER: TargetGroup[] = ["server", "database", "service"];
  * Deliberately *not* organised by transport. The previous version split
  * targets across Container / SSH / Database tabs, which asked the operator to
  * know how otterdeploy reaches a box before they could say which box they
- * meant — and made the thing they wanted unsearchable behind a tab they
+ * meant, and made the thing they wanted unsearchable behind a tab they
  * weren't on. Here every shell in the org is one list, one search field, one
  * Enter away; the grouping is what the target *is*, and the transport is a
  * quiet trailing detail on the row.

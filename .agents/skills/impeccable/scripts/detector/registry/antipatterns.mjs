@@ -5,7 +5,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Side-tab accent border',
     description:
-      'Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.',
+      'Thick colored border on one side of a card: the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.',
     skillSection: 'Visual Details',
     skillGuideline: 'colored accent stripe',
   },
@@ -14,7 +14,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Border accent on rounded element',
     description:
-      'Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.',
+      'Thick accent border on a rounded card: the border clashes with the rounded corners. Remove the border or the border-radius.',
     skillSection: 'Visual Details',
     skillGuideline: 'colored accent stripe',
   },
@@ -41,7 +41,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Flat type hierarchy',
     description:
-      'Font sizes are too close together — no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).',
+      'Font sizes are too close together, no clear visual hierarchy. Use fewer sizes with more contrast (aim for at least a 1.25 ratio between steps).',
     skillSection: 'Typography',
     skillGuideline: 'flat type hierarchy',
   },
@@ -50,7 +50,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Gradient text',
     description:
-      'Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.',
+      'Gradient text is decorative rather than meaningful. A common AI tell, especially on headings and metrics. Use solid colors for text.',
     skillSection: 'Color & Contrast',
     skillGuideline: 'gradient text for',
   },
@@ -77,7 +77,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Nested cards',
     description:
-      'Cards inside cards create visual noise and excessive depth. Flatten the hierarchy — use spacing, typography, and dividers instead of nesting containers.',
+      'Cards inside cards create visual noise and excessive depth. Flatten the hierarchy. Use spacing, typography, and dividers instead of nesting containers.',
     skillSection: 'Layout & Space',
     skillGuideline: 'Nest cards inside cards',
   },
@@ -86,7 +86,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Monotonous spacing',
     description:
-      'The same spacing value used everywhere — no rhythm, no variation. Use tight groupings for related items and generous separations between sections.',
+      'The same spacing value used everywhere, no rhythm, no variation. Use tight groupings for related items and generous separations between sections.',
     skillSection: 'Layout & Space',
     skillGuideline: 'same spacing everywhere',
   },
@@ -95,7 +95,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Bounce or elastic easing',
     description:
-      'Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.',
+      'Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly: use exponential easing (ease-out-quart/quint/expo) instead.',
     skillSection: 'Motion',
     skillGuideline: 'bounce or elastic easing',
   },
@@ -104,7 +104,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Dark mode with glowing accents',
     description:
-      'Dark backgrounds with colored box-shadow glows are the default "cool" look of AI-generated UIs. Use subtle, purposeful lighting instead — or skip the dark theme entirely.',
+      'Dark backgrounds with colored box-shadow glows are the default "cool" look of AI-generated UIs. Use subtle, purposeful lighting instead, or skip the dark theme entirely.',
     skillSection: 'Color & Contrast',
     skillGuideline: 'dark mode with glowing accents',
   },
@@ -113,7 +113,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Icon tile stacked above heading',
     description:
-      'A small rounded-square icon container above a heading is the universal AI feature-card template — every generator outputs this exact shape. Try a side-by-side icon and heading, or let the icon sit in flow without its own container.',
+      'A small rounded-square icon container above a heading is the universal AI feature-card template. Every generator outputs this exact shape. Try a side-by-side icon and heading, or let the icon sit in flow without its own container.',
     skillSection: 'Typography',
     skillGuideline: 'large icons with rounded corners above every heading',
   },
@@ -122,7 +122,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Italic serif display headline',
     description:
-      'Oversized italic serif (Fraunces, Recoleta, Playfair, Newsreader-italic) as the primary hero headline reads as taste in isolation but has become the universal AI-startup landing page hero. Set roman, or move to a non-serif display face. Editorial / magazine register may legitimately want this — judge by context.',
+      'Oversized italic serif (Fraunces, Recoleta, Playfair, Newsreader-italic) as the primary hero headline reads as taste in isolation but has become the universal AI-startup landing page hero. Set roman, or move to a non-serif display face. Editorial / magazine register may legitimately want this, judge by context.',
     skillSection: 'Typography',
     skillGuideline: 'oversized italic serif as the hero headline',
   },
@@ -131,7 +131,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Hero eyebrow / pill chip',
     description:
-      'A tiny uppercase letter-spaced label sitting immediately above an oversized hero headline — or the same shape rendered as a pill chip — is now the default AI SaaS hero. Drop the eyebrow, integrate the kicker into the headline, or run it as a navigation breadcrumb instead.',
+      'A tiny uppercase letter-spaced label sitting immediately above an oversized hero headline (or the same shape rendered as a pill chip) is now the default AI SaaS hero. Drop the eyebrow, integrate the kicker into the headline, or run it as a navigation breadcrumb instead.',
     skillSection: 'Typography',
     skillGuideline: 'tiny uppercase tracked label above the hero headline',
   },
@@ -187,7 +187,7 @@ const ANTIPATTERNS = [
     category: 'slop',
     name: 'Oversized hero headline',
     description:
-      'A full-sentence headline set at display size ends up dominating the viewport, leaving no room for anything else above the fold. A punchy one- or two-word headline at that size is fine — the problem is a long headline blown up too large. Set long headlines smaller, or tighten the copy.',
+      'A full-sentence headline set at display size ends up dominating the viewport, leaving no room for anything else above the fold. A punchy one- or two-word headline at that size is fine. The problem is a long headline blown up too large. Set long headlines smaller, or tighten the copy.',
     skillSection: 'Typography',
     skillGuideline: 'long headline set at display size',
   },
@@ -250,7 +250,7 @@ const ANTIPATTERNS = [
     category: 'quality',
     name: 'Cramped padding',
     description:
-      'Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background) — children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.',
+      'Text is too close to the edge of its container. Two shapes: (1) an element with its own text where the padding is too low for the font size, and (2) a wrapper with text-bearing children and near-zero padding against a visible boundary (border, outline, or non-transparent background), children land flush against the boundary line. Add at least 8px (ideally 12–16px) of padding inside bordered, outlined, or colored containers.',
     skillSection: 'Layout & Space',
     skillGuideline: 'inside bordered or colored containers',
   },
@@ -332,7 +332,7 @@ const ANTIPATTERNS = [
     gated: 'gpt',
     name: 'Hairline border with wide shadow',
     description:
-      'A hairline border paired with a wide, diffuse shadow is a recurring generated-UI signature. Commit to one — a defined edge or a soft elevation — rather than both at once.',
+      'A hairline border paired with a wide, diffuse shadow is a recurring generated-UI signature. Commit to one (a defined edge or a soft elevation) rather than both at once.',
     skillSection: 'Visual Details',
     skillGuideline: 'hairline border plus wide diffuse shadow',
   },

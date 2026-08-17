@@ -1,5 +1,5 @@
 /**
- * Org-settings handlers. Compose against the contract — same input/output
+ * Org-settings handlers. Compose against the contract: same input/output
  * shapes, plus the org-scope guard that asserts the caller is acting on
  * the org they're authenticated to.
  */
@@ -97,7 +97,7 @@ class CloudflareConfigError extends TaggedError("CloudflareConfigError")<{
 export async function listZonesForToken(
   token: string,
 ): Promise<Result<CloudflareZone[], CloudflareConfigError>> {
-  // Validate the token's scope before listing — fast-fails with a clear
+  // Validate the token's scope before listing. Fast-fails with a clear
   // error instead of "0 zones returned" if the operator pasted something
   // wrong (expired, wrong account, wrong scope).
   const verify = await verifyCloudflareToken(token);
@@ -124,7 +124,7 @@ export async function saveOrganizationCloudflareConfig(input: {
 }): Promise<Result<OrgSettingsView, OrganizationNotFoundError | CloudflareConfigError>> {
   const isClear = input.token.trim().length === 0;
   if (!isClear) {
-    // Re-validate the token at save time — UI flows may have selected a
+    // Re-validate the token at save time. UI flows may have selected a
     // zone from a list rendered minutes ago, and the token could have
     // been rotated since. Cheap (one HTTP call), prevents storing
     // already-dead credentials.
@@ -172,7 +172,7 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     return Result.err(
       new CloudflareConfigError(
         "domain",
-        "Save a base domain on this org first — there's nothing for us to point Cloudflare at.",
+        "Save a base domain on this org first. There's nothing for us to point Cloudflare at.",
       ),
     );
   }
@@ -186,7 +186,7 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
   }
 
   // Look up the platform's serverIp so the A record points at the right
-  // host. sslip fallback wouldn't help here — auto-configure is only
+  // host. sslip fallback wouldn't help here. Auto-configure is only
   // meaningful when the operator has a real IP to publish under their
   // own domain.
   const [settings] = await db
@@ -198,13 +198,13 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     return Result.err(
       new CloudflareConfigError(
         "domain",
-        "Platform serverIp not configured — set it in platform settings before auto-configuring DNS.",
+        "Platform serverIp not configured: set it in platform settings before auto-configuring DNS.",
       ),
     );
   }
 
   // TXT for verification + A for the apex itself. We don't create the
-  // `apps.<domain>` / `db.<domain>` records here — those are wildcards
+  // `apps.<domain>` / `db.<domain>` records here: those are wildcards
   // the operator can add manually for now (each resource lives at a
   // unique subdomain so we'd otherwise be creating one A record per
   // resource on every deploy, which gets noisy fast). A follow-up could
@@ -276,7 +276,7 @@ export async function verifyOrganizationBaseDomain(
     return Result.ok({ ...outcome, settings: toView(row) });
   }
 
-  // Stamp verified — the next read of org.settings will show
+  // Stamp verified: the next read of org.settings will show
   // baseDomainVerifiedAt, and the resolver / Caddy paths gate ACME on it.
   const updated = await markOrganizationBaseDomainVerified(orgId);
   return Result.ok({

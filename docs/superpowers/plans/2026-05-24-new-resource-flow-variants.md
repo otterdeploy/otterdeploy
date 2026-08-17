@@ -1,12 +1,12 @@
-# New Resource Flow — Dialog & Overlay Variants Implementation Plan
+# New Resource Flow: Dialog & Overlay Variants Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add two alternative UX surfaces for creating a new resource — variant A (kind-picker dialog → page wizard) and variant B (full overlay wizard) — alongside the existing page-route flow, so all three can be compared on the project page.
+**Goal:** Add two alternative UX surfaces for creating a new resource. Variant A (kind-picker dialog → page wizard) and variant B (full overlay wizard). Alongside the existing page-route flow, so all three can be compared on the project page.
 
 **Architecture:** Extract the wizard logic from the existing route into a reusable `<NewResourceWizard>` component, then build two thin Dialog-based wrappers that compose it. Existing `/new-resource` route keeps working but gains a `?kind=` search param so variant A can deep-link past step-kind.
 
-**Tech Stack:** React 19, TanStack Router (file-based), TanStack Form + Zod, shadcn Dialog (Base UI under the hood), Tailwind v4. No automated tests added per spec — verification is `bunx tsc --noEmit` plus manual browser checks.
+**Tech Stack:** React 19, TanStack Router (file-based), TanStack Form + Zod, shadcn Dialog (Base UI under the hood), Tailwind v4. No automated tests added per spec. Verification is `bunx tsc --noEmit` plus manual browser checks.
 
 **Spec:** `docs/superpowers/specs/2026-05-24-new-resource-flow-variants-design.md`
 
@@ -15,12 +15,12 @@
 ## File Structure
 
 **New files:**
-- `apps/web/src/features/projects/components/new-resource/new-resource-wizard.tsx` — extracted wizard component (form state + stepper + step rendering + footer). Renders identically in `layout="page"` and `layout="dialog"` aside from chrome.
-- `apps/web/src/features/projects/components/new-resource/new-resource-dialogs.tsx` — exports `<NewResourceKindDialog>` (variant A) and `<NewResourceOverlayDialog>` (variant B).
+- `apps/web/src/features/projects/components/new-resource/new-resource-wizard.tsx`, extracted wizard component (form state + stepper + step rendering + footer). Renders identically in `layout="page"` and `layout="dialog"` aside from chrome.
+- `apps/web/src/features/projects/components/new-resource/new-resource-dialogs.tsx`: exports `<NewResourceKindDialog>` (variant A) and `<NewResourceOverlayDialog>` (variant B).
 
 **Modified files:**
-- `apps/web/src/routes/_app/$orgSlug/$projectSlug/new-resource.tsx` — shrinks to a thin route wrapper; adds `validateSearch` for `?kind=`.
-- `apps/web/src/routes/_app/$orgSlug/$projectSlug/index.tsx` — adds two new trigger buttons alongside the existing `+ Add resource` Link.
+- `apps/web/src/routes/_app/$orgSlug/$projectSlug/new-resource.tsx`: shrinks to a thin route wrapper; adds `validateSearch` for `?kind=`.
+- `apps/web/src/routes/_app/$orgSlug/$projectSlug/index.tsx`: adds two new trigger buttons alongside the existing `+ Add resource` Link.
 
 **Untouched:**
 - All `apps/web/src/features/projects/components/new-resource/step-*.tsx` files.
@@ -36,19 +36,19 @@
 
 ### Context
 
-The current route file is 379 lines. Lines 38–379 are the `RouteComponent` function — form state, step nav, step rendering, header chrome, stepper, body, footer buttons. Move everything inside `RouteComponent` (the part that does wizard work, not the loader plumbing) into a new component. The route then becomes a thin wrapper that reads loaders and passes props to the wizard.
+The current route file is 379 lines. Lines 38–379 are the `RouteComponent` function. Form state, step nav, step rendering, header chrome, stepper, body, footer buttons. Move everything inside `RouteComponent` (the part that does wizard work, not the loader plumbing) into a new component. The route then becomes a thin wrapper that reads loaders and passes props to the wizard.
 
-The wizard component must accept a `layout` prop (`"page" | "dialog"`) for Task 4 to use it inside a Dialog. In Task 1 we only need the `"page"` branch — but define the prop now so Task 4 can fill in the `"dialog"` branch without rewriting the API.
+The wizard component must accept a `layout` prop (`"page" | "dialog"`) for Task 4 to use it inside a Dialog. In Task 1 we only need the `"page"` branch, but define the prop now so Task 4 can fill in the `"dialog"` branch without rewriting the API.
 
 - [ ] **Step 1: Create the new wizard component file**
 
 Create `apps/web/src/features/projects/components/new-resource/new-resource-wizard.tsx` with the following content. The body of `WizardContent` is the existing `RouteComponent` body from `new-resource.tsx:46–376` with three changes:
-1. Loader hooks (`useLoaderData`) are removed — `orgSlug`, `projectSlug`, `project.name` come from props.
+1. Loader hooks (`useLoaderData`) are removed: `orgSlug`, `projectSlug`, `project.name` come from props.
 2. The initial `step` state uses `initialStep` prop with a default of `"kind"`.
 3. The form's `defaultValues` merges `initialKind` into `resourceDefaults` when provided.
 
 ```tsx
-// Wizard component — extracted from routes/_app/$orgSlug/$projectSlug/new-resource.tsx
+// Wizard component, extracted from routes/_app/$orgSlug/$projectSlug/new-resource.tsx
 // so the same wizard can render inside a Dialog (variant B) and the route page.
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -453,9 +453,9 @@ bunx --cwd apps/web tsc --noEmit 2>&1 | grep -E "new-resource-wizard|new-resourc
 
 Expected: `OK: no errors in touched files`. Pre-existing errors in unrelated files (sidebar routes, swarm/postgres) are fine and out of scope.
 
-- [ ] **Step 4: Manual verification — original page wizard still works**
+- [ ] **Step 4: Manual verification, original page wizard still works**
 
-Open `https://otterdeploy-demo-1.pages.dev/project/proj_acme` (or local dev equivalent), click `+ Add resource`. The page should look and behave identically to before this task — header chrome with project name and "Step 1 of N", the kind picker with 4 tabs, Continue button disabled until a kind is picked, full multi-step flow for postgres.
+Open `https://otterdeploy-demo-1.pages.dev/project/proj_acme` (or local dev equivalent), click `+ Add resource`. The page should look and behave identically to before this task. Header chrome with project name and "Step 1 of N", the kind picker with 4 tabs, Continue button disabled until a kind is picked, full multi-step flow for postgres.
 
 If anything looks different, stop and reconcile against the original `new-resource.tsx:38–379` you replaced.
 
@@ -531,11 +531,11 @@ bunx --cwd apps/web tsc --noEmit 2>&1 | grep -E "new-resource\.tsx" || echo "OK"
 
 Expected: `OK`.
 
-- [ ] **Step 3: Manual verification — deep link works**
+- [ ] **Step 3: Manual verification, deep link works**
 
 In the running app, visit `/.../new-resource?kind=postgres` directly. The wizard should mount on step-version with the postgres kind pre-selected (the version cards should be `postgres 16.4`, `postgres 16.3`, etc., not the 4-tab kind picker).
 
-Visit `/.../new-resource` with no query string — wizard should mount on step-kind as before.
+Visit `/.../new-resource` with no query string: wizard should mount on step-kind as before.
 
 - [ ] **Step 4: Commit**
 
@@ -560,7 +560,7 @@ EOF
 
 ### Context
 
-Variant A is a dialog that shows the existing `<StepKind>` picker, then on confirm navigates to `/new-resource?kind=<id>` and closes itself. Reuses `StepKind` as-is per spec. The `Dialog` primitive is `apps/web/src/shared/components/ui/dialog.tsx` (Base UI under the hood). `DialogContent` defaults to `sm:max-w-sm` — we override with a wider class for the picker, which has 4 tabs and 3-column kind grid.
+Variant A is a dialog that shows the existing `<StepKind>` picker, then on confirm navigates to `/new-resource?kind=<id>` and closes itself. Reuses `StepKind` as-is per spec. The `Dialog` primitive is `apps/web/src/shared/components/ui/dialog.tsx` (Base UI under the hood). `DialogContent` defaults to `sm:max-w-sm`. We override with a wider class for the picker, which has 4 tabs and 3-column kind grid.
 
 - [ ] **Step 1: Create the dialogs file with variant A only**
 
@@ -672,7 +672,7 @@ EOF
 
 ### Context
 
-Variant B renders the whole `<NewResourceWizard layout="dialog">` inside a large Dialog. The wizard already handles `layout="dialog"` (Task 1). The Dialog needs an explicit height so the internal scroll area works — without it, the wizard's `flex: 1; overflowY: auto` body has nothing to fill against.
+Variant B renders the whole `<NewResourceWizard layout="dialog">` inside a large Dialog. The wizard already handles `layout="dialog"` (Task 1). The Dialog needs an explicit height so the internal scroll area works. Without it, the wizard's `flex: 1; overflowY: auto` body has nothing to fill against.
 
 - [ ] **Step 1: Add the overlay dialog component**
 
@@ -851,7 +851,7 @@ bunx --cwd apps/web tsc --noEmit 2>&1 | grep -E "projectSlug/index\.tsx" || echo
 
 Expected: `OK`.
 
-- [ ] **Step 3: Manual verification — all three flows work**
+- [ ] **Step 3: Manual verification: all three flows work**
 
 In a running dev server (or the deployed demo), navigate to a project page and exercise each trigger:
 
@@ -895,9 +895,9 @@ EOF
 - Variant B flow (full overlay wizard) → Task 4 ✓
 - "Existing `+ Add resource` untouched" → Task 5 preserves the Link verbatim with the same className ✓
 - "All existing step components reused unchanged" → No step-*.tsx in any modify list ✓
-- Out-of-scope items (no Create wiring, no confirm-on-close, no mobile work) → respected — `onComplete` defaults to navigate-on-page and dialog-close-on-overlay; no confirmation prompt added ✓
+- Out-of-scope items (no Create wiring, no confirm-on-close, no mobile work) → respected: `onComplete` defaults to navigate-on-page and dialog-close-on-overlay; no confirmation prompt added ✓
 
-**Placeholder scan:** No TBD/TODO/"similar to" — every step has concrete code and exact commands.
+**Placeholder scan:** No TBD/TODO/"similar to": every step has concrete code and exact commands.
 
 **Type consistency:**
 - `NewResourceWizardProps.projectName: string` defined in Task 1, passed by route (Task 1), variant B dialog (Task 4), and project page (Task 5). Variant A doesn't render the wizard so doesn't need it. ✓
@@ -911,7 +911,7 @@ No issues found.
 
 Plan complete and saved to `docs/superpowers/plans/2026-05-24-new-resource-flow-variants.md`. Two execution options:
 
-1. **Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration.
-2. **Inline Execution** — execute tasks in this session, batch with checkpoints for review.
+1. **Subagent-Driven (recommended)**: I dispatch a fresh subagent per task, review between tasks, fast iteration.
+2. **Inline Execution**: execute tasks in this session, batch with checkpoints for review.
 
 Which approach?

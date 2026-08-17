@@ -1,20 +1,28 @@
 /**
  * POST a source tarball to the control plane's raw upload route
  * (`/api/services/:resourceId/source`) for a `source: "upload"` deploy. Not an
- * oRPC call — the body is a binary stream — so it goes over plain fetch, reusing
+ * oRPC call (the body is a binary stream) so it goes over plain fetch, reusing
  * the CLI's local-cert-trusting fetch for dev proxies.
  */
 
 import { readFileSync } from "node:fs";
+import * as z from "zod";
 
 import { fetchFor } from "./local-tls";
 
 export interface UploadResult {
   deploymentId: string;
-  /** sha256 (hex) content hash of the uploaded tarball — the upload analog of
+  /** sha256 (hex) content hash of the uploaded tarball: the upload analog of
    *  a commit sha. Absent from older control planes. */
   sourceSha?: string;
 }
+
+const uploadResultSchema: z.ZodType<UploadResult> = z.object({
+  deploymentId: z.string(),
+  sourceSha: z.string().optional(),
+});
+
+const errorBodySchema = z.object({ error: z.string().optional() });
 
 export async function uploadSource(opts: {
   url: string;
@@ -38,7 +46,7 @@ export async function uploadSource(opts: {
   if (!res.ok) {
     let detail = "";
     try {
-      const parsed = (await res.json()) as { error?: string };
+      const parsed = errorBodySchema.parse(await res.json());
       detail = parsed.error ?? "";
     } catch {
       detail = await res.text().catch(() => "");
@@ -46,5 +54,5 @@ export async function uploadSource(opts: {
     throw new Error(`source upload failed (${res.status})${detail ? `: ${detail}` : ""}`);
   }
 
-  return (await res.json()) as UploadResult;
+  return uploadResultSchema.parse(await res.json());
 }

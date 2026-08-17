@@ -14,7 +14,7 @@ scoped to it by id; the `environment` table holds only the contexts you create
 by hand and carries no preview provenance.
 
 In the dashboard, previews render as satellite cards attached to the service
-node on the project graph — not in any environment surface.
+node on the project graph, not in any environment surface.
 
 State is `active` or `closed`.
 
@@ -27,7 +27,7 @@ service doesn't clone your data by accident.
 ## Database branching
 
 Opt in per database. When enabled, a preview gets its own copy of the data and
-the service's `${database:<name>.…}` reference resolves to the copy — with no
+the service's `${database:<name>.…}` reference resolves to the copy, with no
 change to the manifest, because the reference is late-bound by name.
 
 Two tiers exist in the schema:
@@ -47,8 +47,8 @@ Two tiers exist in the schema:
 
 Two ways a preview goes away:
 
-- **The pull request closes** — everything scoped to the preview is torn down.
-- **It goes idle** — an hourly reaper removes active previews past their
+- **The pull request closes**: everything scoped to the preview is torn down.
+- **It goes idle**: an hourly reaper removes active previews past their
   teardown deadline.
 
 Pinning a preview with a keep-alive clears the deadline entirely, so it is never
@@ -64,5 +64,5 @@ for reviewers outside the org and bypass tokens for CI.
 ## Requirements
 
 Previews need a connected GitHub App installation on the organisation and a
-service bound to a repository. `git_provider_kind` has one member — GitHub —
+service bound to a repository. `git_provider_kind` has one member (GitHub)
 so this does not work with GitLab or other providers today.

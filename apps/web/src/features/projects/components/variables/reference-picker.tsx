@@ -21,12 +21,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
-import {
-  buildRefGroups,
-  buildRefSources,
-  SourceChip,
-  SourceIcon,
-} from "./reference-picker-parts";
+import { buildRefGroups, buildRefSources, SourceChip, SourceIcon } from "./reference-picker-parts";
 
 export interface ReferencePickerProps {
   /** Accepts either a branded project id or the plain string the
@@ -104,7 +99,7 @@ export function ReferencePicker({
       {/* Tap-to-filter source chips — horizontally scrollable, one per
           source, so narrowing to one resource is a tap instead of typing. */}
       {sources.length > 1 && (
-        <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5 [scrollbar-width:none]">
+        <div className="flex [scrollbar-width:none] items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
           <SourceChip
             active={sourceFilter === null}
             onClick={() => setSourceFilter(null)}

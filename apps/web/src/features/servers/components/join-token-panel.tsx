@@ -27,6 +27,64 @@ interface JoinTokenPanelProps {
 /** Mirrors the `server.enrollments` row; the progress view needs its timestamps. */
 type EnrollmentSummary = EnrollmentProgressRow;
 
+interface CreatedEnrollment {
+  id: string;
+  credential: string;
+  expiresAt: string;
+}
+
+/** `twoFactorEnabled` is a plugin field the base session user type doesn't
+ *  declare, so it's read off the object structurally rather than asserted. */
+function readTwoFactorEnabled(sessionUser: unknown): boolean {
+  return Boolean(
+    typeof sessionUser === "object" &&
+    sessionUser !== null &&
+    "twoFactorEnabled" in sessionUser &&
+    sessionUser.twoFactorEnabled,
+  );
+}
+
+/** The enrollment command is pasted into a shell on a DIFFERENT machine, so
+ *  it must not carry this browser's incidental address. */
+function buildJoinCommand(baseUrl: string, created: CreatedEnrollment | null): string | null {
+  if (!created) return null;
+  const url = `${baseUrl}/api/node-enrollments/${created.id}/redeem`;
+  return `( set -e; script="$(curl -fsS -X POST '${url}' -H 'Authorization: Bearer ${created.credential}')"; printf '%s\\n' "$script" | sudo sh )`;
+}
+
+function buildStepUpInput(args: {
+  role: JoinRole;
+  twoFactorEnabled: boolean;
+  totpCode: string;
+  password: string;
+  managerConfirmation: string;
+}) {
+  return {
+    role: args.role,
+    totpCode: args.twoFactorEnabled ? args.totpCode : undefined,
+    password: args.twoFactorEnabled ? undefined : args.password,
+    managerConfirmation: args.role === "manager" ? args.managerConfirmation : undefined,
+  };
+}
+
+function isCredentialReady(twoFactorEnabled: boolean, totpCode: string, password: string): boolean {
+  return twoFactorEnabled ? /^\d{6}(\d{2})?$/.test(totpCode) : password.length > 0;
+}
+
+/** Track whatever enrollment is still in flight. Preferring the one this
+ *  session just created, so progress survives a reload or a reopened dialog
+ *  instead of living only in `created`. */
+function findTrackedEnrollment(
+  rows: EnrollmentSummary[],
+  createdId: string | undefined,
+): EnrollmentSummary | undefined {
+  return (
+    rows.find((row) => row.id === createdId) ??
+    rows.find((row) => row.status === "redeemed") ??
+    rows.find((row) => row.status === "active")
+  );
+}
+
 function EnrollmentHistory({
   enrollments,
   revoking,
@@ -73,18 +131,12 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
   const [totpCode, setTotpCode] = useState("");
   const [password, setPassword] = useState("");
   // Which credential this account can present. The server accepts either
-  // (verifyStepUpCredential) — asking for a code from someone who never set up
+  // (verifyStepUpCredential), asking for a code from someone who never set up
   // an authenticator is a form that can't be filled in.
   const sessionQ = useQuery(sessionQuery);
-  const twoFactorEnabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
-  );
+  const twoFactorEnabled = readTwoFactorEnabled(sessionQ.data?.user);
   const [managerConfirmation, setManagerConfirmation] = useState("");
-  const [created, setCreated] = useState<{
-    id: string;
-    credential: string;
-    expiresAt: string;
-  } | null>(null);
+  const [created, setCreated] = useState<CreatedEnrollment | null>(null);
 
   const enrollments = useQuery({
     ...orpc.server.enrollments.queryOptions(),
@@ -124,33 +176,21 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
     }),
   );
 
-  // The enrollment command is pasted into a shell on a DIFFERENT machine, so
-  // it must not carry this browser's incidental address.
   const baseUrl = useControlPlaneBaseUrl();
+  const command = useMemo(() => buildJoinCommand(baseUrl, created), [created, baseUrl]);
 
-  const command = useMemo(() => {
-    if (!created) return null;
-    const url = `${baseUrl}/api/node-enrollments/${created.id}/redeem`;
-    return `( set -e; script="$(curl -fsS -X POST '${url}' -H 'Authorization: Bearer ${created.credential}')"; printf '%s\\n' "$script" | sudo sh )`;
-  }, [created, baseUrl]);
-
-  const stepUpInput = {
+  const stepUpInput = buildStepUpInput({
     role,
-    totpCode: twoFactorEnabled ? totpCode : undefined,
-    password: twoFactorEnabled ? undefined : password,
-    managerConfirmation: role === "manager" ? managerConfirmation : undefined,
-  };
-  const credentialReady = twoFactorEnabled ? /^\d{6}(\d{2})?$/.test(totpCode) : password.length > 0;
-  // Track whatever enrollment is still in flight — preferring the one this
-  // session just created — so progress survives a reload or a reopened dialog
-  // instead of living only in `created`.
+    twoFactorEnabled,
+    totpCode,
+    password,
+    managerConfirmation,
+  });
+  const credentialReady = isCredentialReady(twoFactorEnabled, totpCode, password);
   const rows: EnrollmentSummary[] = enrollments.data ?? [];
-  const tracked =
-    rows.find((row) => row.id === created?.id) ??
-    rows.find((row) => row.status === "redeemed") ??
-    rows.find((row) => row.status === "active");
+  const tracked = findTrackedEnrollment(rows, created?.id);
 
-  // Gate and explanation are one value — see submitBlocker. While the session is
+  // Gate and explanation are one value. See submitBlocker. While the session is
   // still loading we hold submission rather than guess at twoFactorEnabled, which
   // would render the wrong credential field and reject on the server.
   const blockedReason = submitBlocker({

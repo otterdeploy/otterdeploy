@@ -1,8 +1,8 @@
 /**
- * Plain-Docker runtime driver — the DEFAULT, single-node backend. Runs each
+ * Plain-Docker runtime driver: the DEFAULT, single-node backend. Runs each
  * service/database as an ordinary container on a per-project user-defined
  * BRIDGE network, with container-name DNS (exactly what Docker Compose gives
- * you — no Swarm overlay/VIP/manager required).
+ * you, no Swarm overlay/VIP/manager required).
  *
  * Mapping vs Swarm:
  *   - service     → one `docker create` + `start` container; `update` recreates.
@@ -17,7 +17,7 @@
  */
 
 import { Docker } from "@otterdeploy/docker";
-import { idSchema } from "@otterdeploy/shared/id";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { Summary } from "./docker-driver-helpers";
 import type { ContainerSpec, RuntimeDriver, RuntimeStatus } from "./types";
@@ -28,7 +28,6 @@ import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-
 import { runDatabase } from "./docker-driver-db";
 import {
   buildContainerOptions,
-  containerSummarySchema,
   createAndStart,
   ensureBridgeNetwork,
   findContainer,
@@ -48,12 +47,12 @@ import {
  * row → the null log swallows the lines and the pull still runs.
  */
 async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<void> {
-  // The spec carries deploymentId as a plain string; parse the brand at this
-  // boundary instead of asserting it. A malformed id degrades to the null log.
-  const deploymentId = idSchema.deployment.safeParse(spec.deploymentId);
-  const deployLog = deploymentId.success
-    ? createStackDeployLog(deploymentId.data)
-    : nullStackDeployLog;
+  // `ContainerSpec.deploymentId` is a plain string; recover the brand with a
+  // real prefix check instead of a cast (mirrors docker-driver-db).
+  const deployLog =
+    spec.deploymentId && hasPrefix(spec.deploymentId, ID_PREFIX.deployment)
+      ? createStackDeployLog(spec.deploymentId)
+      : nullStackDeployLog;
   try {
     await pullImage(docker, spec.image, (line) => deployLog.line(line));
   } finally {
@@ -67,7 +66,7 @@ export const dockerDriver: RuntimeDriver = {
   async provision(spec, log) {
     const docker = Docker.fromEnv();
     const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
-    // replicas:0 = scaled to zero (stopped) — plain Docker has no replica count,
+    // replicas:0 = scaled to zero (stopped). Plain Docker has no replica count,
     // so honor it by ensuring no container runs.
     if (spec.replicas === 0) {
       await removeContainerByName(docker, spec.serviceName);
@@ -115,7 +114,7 @@ export const dockerDriver: RuntimeDriver = {
         health: null,
       };
     }
-    // Recreate — plain Docker has no in-place rolling update. Stop the old
+    // Recreate: plain Docker has no in-place rolling update. Stop the old
     // container, start the new one (brief blip).
     await removeContainerByName(docker, spec.serviceName);
     await pullWithDeployLog(docker, spec);
@@ -158,7 +157,7 @@ export const dockerDriver: RuntimeDriver = {
     if (inputs.length === 0) return result;
     const docker = Docker.fromEnv();
     // ONE list over all managed containers, then match each requested service
-    // to its container by exact name — replaces the per-service `inspect` that
+    // to its container by exact name: replaces the per-service `inspect` that
     // opened a fresh Docker connection + lookup for every item in the list.
     const list = await docker.containers.list({
       all: true,
@@ -169,11 +168,7 @@ export const dockerDriver: RuntimeDriver = {
 
     const byName = new Map<string, Summary>();
     for (const container of list.value) {
-      // The SDK's list type doesn't declare Health; parse the fields we read
-      // instead of casting. Id is always present, so this can't drop rows.
-      const parsed = containerSummarySchema.safeParse(container);
-      if (!parsed.success) continue;
-      const summary: Summary = parsed.data;
+      const summary: Summary = container;
       // Name filter would be a substring match; index by the exact `/name` the
       // way findContainer pins it, stripping docker's leading slash.
       for (const name of summary.Names) byName.set(name.replace(/^\//, ""), summary);

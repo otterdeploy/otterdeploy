@@ -16,7 +16,7 @@ export interface ConnectionStringInput {
   /** Omit to render the URL without a port so the client falls back to
    *  the scheme's default (5432 for postgres, 6379 for redis, etc.).
    *  Use this for public/Caddy-fronted URLs that live on the engine's
-   *  standard port — `host:5432` reads as noise to operators. Internal
+   *  standard port: `host:5432` reads as noise to operators. Internal
    *  URLs always pass a port. */
   port?: number;
   databaseName: string;
@@ -33,22 +33,22 @@ export interface DatabaseEngineAdapter {
    *  64-char limit on long project + resource names. */
   readonly nameShort: string;
   /** Default `<repo>:<tag>` for fresh deployments. Honours the catalog's
-   *  defaultTag — change the tag in `shared/database-engines.ts` to repin. */
+   *  defaultTag: change the tag in `shared/database-engines.ts` to repin. */
   readonly defaultImage: string;
   /** Port the container listens on inside the swarm overlay network. */
   readonly port: number;
   /** Volume mount target inside the container. Used as-is for engines whose
    *  layout is stable across versions. Engines whose data-dir layout can
    *  change by major version (postgres 18's pg_ctlcluster-style dirs) should
-   *  also implement `resolveMount` — callers must prefer that when present. */
+   *  also implement `resolveMount`: callers must prefer that when present. */
   readonly mountTarget: string;
   /** Version-aware mount resolution. When present, callers MUST use this
-   *  instead of the static `mountTarget` — it inspects the resolved
+   *  instead of the static `mountTarget`: it inspects the resolved
    *  `<repo>:<tag>` image and returns the mount target (and any extra env
    *  needed to match, e.g. PGDATA) for that specific version. Falls back to
    *  `mountTarget` for engines that don't define it. */
   resolveMount?(image: string): { target: string; env?: string[] };
-  /** Env keys this engine reserves for identity — anything user-set with one
+  /** Env keys this engine reserves for identity, anything user-set with one
    *  of these names gets filtered out of `extraEnv` so the operator can't
    *  accidentally break the boot by overriding e.g. POSTGRES_PASSWORD. */
   readonly reservedEnvKeys: ReadonlySet<string>;
@@ -60,7 +60,7 @@ export interface DatabaseEngineAdapter {
    *  auth via command-line flags rather than env (e.g. redis-server
    *  --requirepass). Undefined means "use the image's CMD". */
   buildCommand?(input: { password: string }): string[] | undefined;
-  /** Docker healthcheck command — exec'd as a single shell string via
+  /** Docker healthcheck command: exec'd as a single shell string via
    *  CMD-SHELL. Must exit 0 when the engine is ready to serve queries. */
   buildHealthcheck(input: { username: string; password: string; databaseName: string }): string;
   /** Build a client connection string for display + DATABASE_URL. */

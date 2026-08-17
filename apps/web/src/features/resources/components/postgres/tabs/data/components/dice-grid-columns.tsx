@@ -1,5 +1,5 @@
 /**
- * Column definitions for {@link DiceResultGrid} — the optional select-checkbox
+ * Column definitions for {@link DiceResultGrid}: the optional select-checkbox
  * and row-detail-chevron columns plus one editable short-text column per
  * result column. Split out so the grid component stays within the
  * per-function line budget.
@@ -80,7 +80,7 @@ export function useDiceColumnDefs({
   for (const name of columns) {
     if (hidden.has(name)) continue;
     const v = columnVariants?.[name];
-    // "boolean" renders as text (showing true/false words) — DiceUI's
+    // "boolean" renders as text (showing true/false words). DiceUI's
     // checkbox variant would replace the words with a checkbox.
     const variant = v == null || v === "boolean" ? "short-text" : v;
     defs.push({

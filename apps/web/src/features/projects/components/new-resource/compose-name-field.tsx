@@ -11,7 +11,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { Input } from "@/shared/components/ui/input";
 
@@ -28,7 +28,7 @@ export function ComposeNameField({
   projectId: ProjectId;
   derivedName: string;
 }) {
-  const name = useStore(form.store, (s) => s.values.file.name);
+  const name = useSelector(form.store, (s) => s.values.file.name);
   const unique = useUniqueStackName(projectId, name, derivedName);
   return (
     <form.Field name="file.name">

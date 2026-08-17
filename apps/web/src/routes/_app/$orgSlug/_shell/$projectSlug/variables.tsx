@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/variabl
   component: VariablesRoute,
   // Warm the eager env collection on hover (intent-preload) so the tab renders
   // from cache instead of fetching on mount. Non-blocking + best-effort.
-  // `variablesCollection` is syncMode "on-demand" — preload() is a no-op there
+  // `variablesCollection` is syncMode "on-demand". Preload() is a no-op there
   // (it loads when a live query subscribes with its filters), so don't call it.
   loader: () => {
     void envCollection.preload();
@@ -62,7 +62,7 @@ function VariablesRoute() {
     [projectId],
   );
 
-  // Map<envId, EnvVarRow[]> — what each tab + the overview matrix render.
+  // Map<envId, EnvVarRow[]>. What each tab + the overview matrix render.
   // Populated by the per-env subscribers below; the on-demand
   // `variablesCollection` loads one (projectId, environmentId) subset each.
   const [byEnv, setByEnv] = useState<Map<string, EnvVarRow[]>>(new Map());
@@ -74,7 +74,7 @@ function VariablesRoute() {
     });
   };
 
-  // Union of every key seen in any env — the rows of the overview
+  // Union of every key seen in any env: the rows of the overview
   // matrix. Sorted alphabetically so the order matches the demo.
   const allKeys = (() => {
     const set = new Set<string>();
@@ -117,7 +117,7 @@ function VariablesRoute() {
         </TabsList>
 
         {/* One subscriber per env keeps `byEnv` in sync with the
-            on-demand collection — each loads its own (projectId,
+            on-demand collection: each loads its own (projectId,
             environmentId) subset. Headless: renders nothing. */}
         {envRefs.map((env) => (
           <EnvVarsSubscriber

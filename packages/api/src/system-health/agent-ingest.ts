@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 
 /**
- * Health-report ingest — the control-plane side of the per-node health agent
+ * Health-report ingest. The control-plane side of the per-node health agent
  * (docs/designs/server-health-agent.md). Remote agents (and the local 60s
  * sampler, which calls recordHealthSample directly) land here; the latest
  * snapshot per server is UPSERTED into server_health_sample.
@@ -9,11 +9,11 @@ import type { Context } from "hono";
  * Attribution reuses the stats.ts convention: the claimed hostname matches a
  * server row's `hostname` OR `name`, across ALL orgs (the same machine has
  * one bootstrap row per org). Unknown hostname ⇒ accepted-but-unmatched (202
- * semantics): registration stays an explicit UI act, no ghost rows — but the
+ * semantics): registration stays an explicit UI act, no ghost rows, but the
  * agent shouldn't retry-loop on it.
  *
  * Reports also backfill capacity (cpuTotal/memTotalGb) onto matched rows that
- * still carry the zero placeholder from the join flow — the self-registration
+ * still carry the zero placeholder from the join flow, the self-registration
  * the server contract reserved.
  */
 import { db } from "@otterdeploy/db";
@@ -41,7 +41,7 @@ const reportSchema = z.looseObject({
 
 export type AgentHealthReport = z.infer<typeof reportSchema>;
 
-/** Structural write shape — what recordHealthSample actually needs. Both the
+/** Structural write shape. What recordHealthSample actually needs. Both the
  *  parsed ingest payload and a locally-sampled HostHealth satisfy it. */
 export interface HealthSampleWrite {
   hostname: string;
@@ -81,8 +81,8 @@ export async function recordHealthSample(
         },
       });
 
-    // Self-registration: fill capacity only where the join flow left zeros —
-    // an operator-entered value is never overwritten by an agent.
+    // Self-registration: fill capacity only where the join flow left zeros.
+    // An operator-entered value is never overwritten by an agent.
     const capacity = report.capacity;
     if (capacity && (row.cpuTotal === 0 || row.memTotalGb === 0)) {
       await db
@@ -109,7 +109,7 @@ async function matchServersByHostname(hostname: string) {
     .where(or(eq(server.hostname, hostname), eq(server.name, hostname)));
 }
 
-/** POST /api/agent/health — Bearer agent-token, body = AgentHealthReport. */
+/** POST /api/agent/health: Bearer agent-token, body = AgentHealthReport. */
 export async function agentHealthIngestHandler(c: Context): Promise<Response> {
   const auth = c.req.header("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";

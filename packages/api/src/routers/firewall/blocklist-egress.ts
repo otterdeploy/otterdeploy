@@ -1,5 +1,5 @@
 /**
- * Re-exported from ../../lib/egress-denylist — the control-plane-identity
+ * Re-exported from ../../lib/egress-denylist: the control-plane-identity
  * denylist is shared by every outbound-egress caller (blocklist sync,
  * webhook delivery, notification channels, registry probes, git provider
  * calls), not just the firewall blocklist sync that originally owned it.

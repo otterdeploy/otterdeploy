@@ -10,7 +10,7 @@
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useLoaderData, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { DeploymentsTableSection } from "@/features/deployments/components/deployments-table";
@@ -93,7 +93,7 @@ function RouteComponent() {
     [project.id, activeEnv.id, activeEnv.isMain],
   );
   const resourceOptions = resources.map((r) => ({
-    id: r.resourceId as string,
+    id: r.resourceId,
     name: r.name,
     kind: r.type,
   }));

@@ -1,5 +1,5 @@
 /**
- * Shared internals for ephemeral database credentials — target resolution and
+ * Shared internals for ephemeral database credentials: target resolution and
  * the docker-exec psql transport (same path as the data viewer / backups).
  * Split out of index.ts to keep both halves under the file-length cap.
  */
@@ -22,7 +22,7 @@ export class EphemeralDbError extends Error {
 export interface EphemeralTarget {
   resourceId: ResourceId;
   engine: string;
-  /** The owning app role — psql runs as it, and read-write grants membership in it. */
+  /** The owning app role: psql runs as it, and read-write grants membership in it. */
   ownerUsername: string;
   ownerPassword: string;
   databaseName: string;
@@ -107,7 +107,7 @@ export async function runAsOwner(target: EphemeralTarget, sql: string): Promise<
  *  gone is a no-op, so retries and sweeper/manual races are safe. */
 export async function dropRole(target: EphemeralTarget, roleName: string): Promise<void> {
   // DO block so the whole sequence no-ops when the role doesn't exist.
-  // REASSIGN first — a read-write credential may own objects it created.
+  // REASSIGN first: a read-write credential may own objects it created.
   await runAsOwner(
     target,
     `DO $$ BEGIN

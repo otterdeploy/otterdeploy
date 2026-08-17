@@ -19,7 +19,7 @@ export async function syncRepos(
      * Treat `repos` as the COMPLETE list for this installation and soft-unlink
      * (installationId → null, same as the webhook `removed` path) any row that
      * isn't in it. Only the full-list callers (install callback, "Sync now")
-     * set this — webhook deltas must not, they carry partial lists.
+     * set this. Webhook deltas must not, they carry partial lists.
      */
     prune?: boolean;
   },
@@ -58,7 +58,7 @@ export async function syncRepos(
       .where(
         and(
           eq(gitRepo.installationId, installationDbId),
-          // notInArray rejects empty lists — an empty `repos` means GitHub
+          // notInArray rejects empty lists. An empty `repos` means GitHub
           // grants nothing, so every row of this installation unlinks.
           keep.length > 0 ? notInArray(gitRepo.providerRepoId, keep) : undefined,
         ),

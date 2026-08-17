@@ -1,7 +1,7 @@
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
 /**
- * Declarative manifest — JSON-native source of truth for a project's
+ * Declarative manifest: JSON-native source of truth for a project's
  * resources. Lives in `project.manifest` (jsonb) and on disk as
  * `otterdeploy.json`. The CLI sends/receives this shape directly via the
  * `manifest.*` oRPC contract.
@@ -14,7 +14,7 @@ import type { BuildConfig } from "@otterdeploy/shared/build-config";
  *     and merge deeply onto the base; the compose `StackFile` carries one
  *     rendered environment at a time.
  *
- * Compose YAML is still produced — as a one-way output of the renderer —
+ * Compose YAML is still produced (as a one-way output of the renderer)
  * for docker-stack escape hatch + local-dev use cases.
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
@@ -28,7 +28,7 @@ export const MANIFEST_SCHEMA_VERSION = 1;
 
 /**
  * Env values are plain strings. Refs (`${secret}`, `${database:…}`,
- * `${service:…}`) are valid contents — validated up-front so a typo in the
+ * `${service:…}`) are valid contents. Validated up-front so a typo in the
  * grammar fails fast at manifest validation, not at deploy time.
  */
 const envValue = z.string().superRefine((value, ctx) => {
@@ -88,12 +88,12 @@ const restartSchema = z.object({
   windowMs: z.number().int().nonnegative().optional(),
 });
 
-// Build config — only meaningful for git-sourced services. Discriminated
+// Build config. Only meaningful for git-sourced services. Discriminated
 // by `builder`; each variant carries only the fields that builder
 // honors. All path fields are repo-relative; they're applied relative
 // to `sourceSubdir` if that's set.
 //
-// `watchPatterns` is shared across all builders — globs against changed
+// `watchPatterns` is shared across all builders. Globs against changed
 // paths in a push event; a push only triggers a redeploy if at least
 // one path matches. When unset, every push redeploys.
 const watchPatterns = z.array(z.string()).optional();
@@ -110,7 +110,7 @@ const buildAutoSchema = z.object({
 const buildDockerfileSchema = z.object({
   builder: z.literal("dockerfile"),
   dockerfilePath: z.string().nullable().optional(),
-  // Plain `--build-arg key=value` pairs (not secrets — they land in image
+  // Plain `--build-arg key=value` pairs (not secrets, they land in image
   // history). Keys are validated to Docker's arg-name rule so a bad name fails
   // at save time, not opaquely at `docker build`.
   buildArgs: z
@@ -131,8 +131,8 @@ const buildDockerfileSchema = z.object({
 // Railpack: zero-config builder. buildCommand overrides the detected build
 // step. For static sites, `spa` enables index.html fallback routing and
 // `staticRoot` overrides the served dir (default dist). `packageManager`
-// (e.g. "bun@1.3.13", "pnpm@9.12.0") overrides the repo's packageManager field
-// — the builder rewrites the workspace-root package.json before building.
+// (e.g. "bun@1.3.13", "pnpm@9.12.0") overrides the repo's packageManager field,
+// the builder rewrites the workspace-root package.json before building.
 const buildRailpackSchema = z.object({
   builder: z.literal("railpack"),
   buildCommand: z.string().nullable().optional(),
@@ -150,7 +150,7 @@ const buildComposeSchema = z.object({
   watchPatterns,
 });
 
-// Constrained to match the shared `BuildConfig` discriminated union —
+// Constrained to match the shared `BuildConfig` discriminated union:
 // the `satisfies` ensures the zod inferred type stays in lockstep with
 // the canonical TS type defined in `@otterdeploy/shared/build-config`.
 export const buildSchema = z.discriminatedUnion("builder", [
@@ -166,7 +166,7 @@ const serviceCommonSchema = z.object({
   replicas: z.number().int().nonnegative().optional(),
   ports: z.array(portSchema).optional(),
   env: envMap.optional(),
-  // Exec-form start command. Array, not string — `["bun", "run", "start"]`
+  // Exec-form start command. Array, not string. `["bun", "run", "start"]`
   // not `"bun run start"`. Wrap shell expressions yourself if you need them:
   // `["sh", "-c", "x && y"]`.
   startCommand: z.array(z.string()).nullable().optional(),
@@ -174,14 +174,14 @@ const serviceCommonSchema = z.object({
   healthcheck: healthcheckSchema.nullable().optional(),
   resources: resourcesSchema.optional(),
   restart: restartSchema.optional(),
-  // Lifecycle hooks — exec-form, run in order, each in a throwaway
+  // Lifecycle hooks. Exec-form, run in order, each in a throwaway
   // container off the new image. preDeploy runs after the build but
   // before the new replicas take traffic (db migrations); postDeploy
   // runs after they're live + healthy (cache warmup, smoke checks).
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
-  // Public domains to attach when the service is first created by Apply —
-  // a create-time seed so an operator can set a domain *before* deploy.
+  // Public domains to attach when the service is first created by Apply.
+  // A create-time seed so an operator can set a domain *before* deploy.
   // The reconciler creates the proxy routes (and exposes the service) on
   // create; thereafter domains are managed via the resource's domains UI,
   // so this field is intentionally not diffed for drift. Requires the
@@ -203,12 +203,12 @@ const imageServiceSchema = serviceCommonSchema.extend({
 
 const gitServiceSchema = serviceCommonSchema.extend({
   source: z.literal("git"),
-  // Portable repo reference — "owner/repo". Resolved to the internal git_repo
+  // Portable repo reference: "owner/repo". Resolved to the internal git_repo
   // row by fullName within the org's installations on apply, so no opaque id
   // lands on disk (mirrors compose's portable `gitRepoUrl`). A public repo
   // connected by URL also has a fullName and resolves the same way. Optional:
   // a git service may stage unbound and only its build fails, clearly, until
-  // bound. Each git service owns its own repo — two services in one project can
+  // bound. Each git service owns its own repo. Two services in one project can
   // build from two different repos.
   repo: z
     .string()
@@ -217,7 +217,7 @@ const gitServiceSchema = serviceCommonSchema.extend({
       message: 'repo must be "owner/name"',
     })
     .optional(),
-  // Branch whose pushes deploy this service. Optional — falls back to the
+  // Branch whose pushes deploy this service. Optional. Falls back to the
   // repo's default branch at resolve time.
   branch: z.string().min(1).nullable().optional(),
   sourceSubdir: z.string().nullable().optional(),
@@ -237,7 +237,7 @@ const gitServiceSchema = serviceCommonSchema.extend({
 
 // Source the build from a tarball uploaded at deploy time (`otterdeploy deploy`
 // tars the local project and streams it to the control plane), then build it on
-// the server with the same railpack/Dockerfile pipeline as a git service — no
+// the server with the same railpack/Dockerfile pipeline as a git service, no
 // GitHub binding. The manifest only marks the service as upload-sourced; the
 // bytes are supplied per-deploy, not declared here (an upload service with no
 // tarball yet simply has no build until one is pushed). Reuses the git service's
@@ -265,7 +265,7 @@ const databaseCommonSchema = z.object({
   resources: resourcesSchema.optional(),
   publicEnabled: z.boolean().optional(),
   // Opt this database into PR-preview branching (an isolated per-PR copy).
-  // Declared-only: omitted leaves the live toggle alone. Default off — an
+  // Declared-only: omitted leaves the live toggle alone. Default off. An
   // unbranched database is shared with the base by preview services.
   previews: z.boolean().optional(),
   // Extra container env injected alongside the derived POSTGRES_* / etc.
@@ -320,7 +320,7 @@ export type DatabaseManifest = z.infer<typeof databaseSchema>;
 // services on the project overlay net). `source` is the discriminator:
 // `inline` carries the raw YAML; `git` points at a public repo whose
 // compose file the builder resolves. `env` seeds the project variables the
-// file's `${VAR}` refs resolve against — a create-time seed (like service
+// file's `${VAR}` refs resolve against. A create-time seed (like service
 // `domains`), intentionally not diffed for drift. `exposed` maps a
 // `service:port` to a public domain. See docs/designs/compose.md.
 
@@ -377,7 +377,7 @@ export type ComposeManifest = z.infer<typeof composeSchema>;
 // ── Named resource maps ────────────────────────────────────────────────
 //
 // Identity is the map key (the user-chosen name). Resource names share the
-// `resource.name` slug shape — lowercase letters, digits, dashes; starts
+// `resource.name` slug shape: lowercase letters, digits, dashes; starts
 // with a letter; <= 63 chars (matches docker service name limits).
 
 const resourceName = z.string().regex(/^[a-z][a-z0-9-]{0,62}$/, {
@@ -392,7 +392,7 @@ const composesMap = z.record(resourceName, composeSchema);
 //
 // An environment block can redeclare any service/database with the same
 // discriminator. The CLI deep-merges these onto the base before sending.
-// Validation is intentionally permissive here — the *merged* result is
+// Validation is intentionally permissive here. The *merged* result is
 // what the server validates strictly. This block validates only that
 // keys/types are well-formed, not that they're complete.
 
@@ -428,7 +428,7 @@ export const manifestSchema = z.object({
   databases: databasesMap.default({}),
   // Compose stacks. Optional + defaulted so manifests written before compose
   // joined the manifest still parse. Environment overrides intentionally don't
-  // apply to compose (no `composes` on environmentBlockSchema) — a stack is an
+  // apply to compose (no `composes` on environmentBlockSchema). A stack is an
   // atomic unit, not a per-env-tunable resource, in v1.
   composes: composesMap.default({}),
   environments: z.record(z.string().min(1), environmentBlockSchema).optional(),

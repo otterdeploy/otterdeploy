@@ -2,23 +2,23 @@
  * Container registry RPC contract.
  *
  * Surface:
- *   list   — registries for the active org (no passwords ever leave the
+ *   list: registries for the active org (no passwords ever leave the
  *            server; only the masked username / host / displayName)
- *   create — add a new credential. Plaintext password is sent over the
+ *   create. Add a new credential. Plaintext password is sent over the
  *            wire (TLS-only) and immediately encrypted at rest via
  *            encryptSecret. Returns the new view row.
- *   update — change displayName / username / optional password. Empty
+ *   update. Change displayName / username / optional password. Empty
  *            password means "leave existing one in place" so the UI
  *            can offer field-by-field edits without re-prompting.
- *   delete — remove the credential. Projects that point at it lose
+ *   delete. Remove the credential. Projects that point at it lose
  *            their build target; the FK on project.containerRegistryId
  *            is application-managed so the row is set NULL by hand.
- *   testConnection — Docker Registry v2 handshake against a stored
+ *   testConnection: Docker Registry v2 handshake against a stored
  *            credential (by id) or inline host/username/password (for
  *            pre-save "Test & save" in the dialog). Returns an honest
- *            {ok, status, message} rather than throwing — a failed
+ *            {ok, status, message} rather than throwing: a failed
  *            probe is a result, not an RPC error.
- *   listTags — Docker Registry v2 tag listing for an image reference
+ *   listTags: Docker Registry v2 tag listing for an image reference
  *            (wizard tag browser). Same probe-style honesty contract:
  *            {ok, tags, truncated, message}.
  *
@@ -62,7 +62,7 @@ const updateRegistryInput = z.object({
   id: containerRegistryIdField,
   displayName: z.string().min(1).max(120).optional(),
   username: z.string().min(1).max(255).optional(),
-  /** Empty string is treated the same as omitted — leave password alone. */
+  /** Empty string is treated the same as omitted. Leave password alone. */
   password: z.string().max(4096).optional(),
   authType: registryAuthTypeSchema.optional(),
 });
@@ -75,7 +75,7 @@ const testConnectionInput = z
   .object({
     /** Test a stored credential. Inline username/password act as overrides. */
     id: containerRegistryIdField.optional(),
-    /** Inline pre-save test — required when no id is given. */
+    /** Inline pre-save test. Required when no id is given. */
     host: z.string().min(1).max(255).optional(),
     username: z.string().max(255).optional(),
     password: z.string().max(4096).optional(),
@@ -92,7 +92,7 @@ const testConnectionOutput = z.object({
 });
 
 const listTagsInput = z.object({
-  /** Image reference — "nginx", "acme/api:1.2", "ghcr.io/acme/api". Tag/digest suffixes are ignored. */
+  /** Image reference: "nginx", "acme/api:1.2", "ghcr.io/acme/api". Tag/digest suffixes are ignored. */
   image: z.string().min(1).max(512),
   /** Browse with a stored credential (private repos). Its host must match the
    *  image's registry. Omitted → a stored credential matching the image's host

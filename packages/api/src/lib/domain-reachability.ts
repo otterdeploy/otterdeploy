@@ -3,12 +3,12 @@
  * pointed at us yet?" pre-flight). Resolves the domain's A/AAAA via public
  * resolvers and classifies where it lands:
  *
- *   pointed   — resolves to our server IP ⇒ earns a real Let's Encrypt cert
- *   proxied   — resolves into a Cloudflare edge range ⇒ Cloudflare
+ *   pointed: resolves to our server IP ⇒ earns a real Let's Encrypt cert
+ *   proxied: resolves into a Cloudflare edge range ⇒ Cloudflare
  *               terminates TLS; origin serves `tls internal` (Full mode)
- *   unpointed — resolves elsewhere / not at all ⇒ self-signed until the
+ *   unpointed: resolves elsewhere / not at all ⇒ self-signed until the
  *               operator points DNS here (non-blocking)
- *   unknown   — lookup failed at the transport level (can't classify)
+ *   unknown: lookup failed at the transport level (can't classify)
  *
  * This is intentionally a *reachability* check, not an ownership proof:
  * Let's Encrypt's own HTTP-01 challenge is the proof of control (Caddy
@@ -53,6 +53,6 @@ export async function checkDomainReachability(input: {
     return { state: "proxied", addresses };
   }
   // Resolves somewhere, but not at us and not Cloudflare. If we don't know
-  // our own IP we can't be sure it's wrong — call it unknown.
+  // our own IP we can't be sure it's wrong. Call it unknown.
   return { state: input.serverIp ? "unpointed" : "unknown", addresses };
 }

@@ -1,6 +1,6 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
@@ -17,9 +17,9 @@ interface StepReviewProps {
 
 export function StepReview({ kind, projectId }: StepReviewProps) {
   const form = useFormContext();
-  // Hostname a public port with no typed host will publish at — resolved
+  // Hostname a public port with no typed host will publish at. Resolved
   // server-side so Review shows the same FQDN the create will stage.
-  const formName = useStore(form.store, (s) => s.values.name);
+  const formName = useSelector(form.store, (s) => s.values.name);
   const derivedHost = usePublicHostPreview(projectId, formName);
   return (
     <form.Subscribe selector={(s) => s.values}>
@@ -30,7 +30,7 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
           <>
             <SectionHeader
               title="Review"
-              sub="Add this resource, then apply it from the pending-changes bar — you can change all of this later"
+              sub="Add this resource, then apply it from the pending-changes bar. You can change all of this later"
             />
 
             <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">

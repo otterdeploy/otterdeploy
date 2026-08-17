@@ -119,17 +119,20 @@ function SidebarProvider({
     toggleSidebar,
   };
 
+  const wrapperStyle: React.CSSProperties & {
+    "--sidebar-width": string;
+    "--sidebar-width-icon": string;
+  } = {
+    "--sidebar-width": SIDEBAR_WIDTH,
+    "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+    ...style,
+  };
+
   return (
     <SidebarContext.Provider value={contextValue}>
       <div
         data-slot="sidebar-wrapper"
-        style={
-          {
-            "--sidebar-width": SIDEBAR_WIDTH,
-            "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-            ...style,
-          } as React.CSSProperties
-        }
+        style={wrapperStyle}
         className={cn(
           "group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar",
           className,
@@ -158,6 +161,10 @@ function Sidebar({
   const { t } = useTranslation();
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 
+  const mobileSheetStyle: React.CSSProperties & { "--sidebar-width": string } = {
+    "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+  };
+
   if (collapsible === "none") {
     return (
       <div
@@ -182,11 +189,7 @@ function Sidebar({
           data-slot="sidebar"
           data-mobile="true"
           className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
+          style={mobileSheetStyle}
           side={side}
         >
           <SheetHeader className="sr-only">
@@ -281,7 +284,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
       onClick={toggleSidebar}
       title={t("shell.toggleSidebar")}
       className={cn(
-        // md:flex, not shadcn's sm:flex — the persistent sidebar itself only
+        // md:flex, not shadcn's sm:flex. The persistent sidebar itself only
         // exists from `md` (below that it's the off-canvas Sheet, and
         // useIsMobile's breakpoint is 768px too). At sm:flex the rail also
         // rendered inside the mobile Sheet, as a stray 4px strip hanging off
@@ -597,6 +600,10 @@ function SidebarMenuSkeleton({
     return `${Math.floor(Math.random() * 40) + 50}%`;
   });
 
+  const skeletonStyle: React.CSSProperties & { "--skeleton-width": string } = {
+    "--skeleton-width": width,
+  };
+
   return (
     <div
       data-slot="sidebar-menu-skeleton"
@@ -608,11 +615,7 @@ function SidebarMenuSkeleton({
       <Skeleton
         className="h-4 max-w-(--skeleton-width) flex-1"
         data-sidebar="menu-skeleton-text"
-        style={
-          {
-            "--skeleton-width": width,
-          } as React.CSSProperties
-        }
+        style={skeletonStyle}
       />
     </div>
   );

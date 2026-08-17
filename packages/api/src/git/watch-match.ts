@@ -1,7 +1,7 @@
 /**
  * `watchPatterns` enforcement for git-push builds.
  *
- * A git-sourced service may carry `buildConfig.watchPatterns` — repo-root-
+ * A git-sourced service may carry `buildConfig.watchPatterns`. Repo-root-
  * relative globs. A push only rebuilds that service when at least one changed
  * path matches a pattern. Unset/empty patterns = rebuild on every push.
  *

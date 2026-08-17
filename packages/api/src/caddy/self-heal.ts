@@ -22,16 +22,19 @@ import { loadCaddyfile, type LoadResult } from "./client";
  * stream goroutines while HOLDING the config mutex (captured live via
  * /debug/pprof/goroutine, od-664). From then on every /load and /config read
  * hangs; the data plane keeps serving, so nothing else notices. It wedged prod
- * twice in 36 hours — this is the standing recovery until the plugin is fixed
+ * twice in 36 hours: this is the standing recovery until the plugin is fixed
  * or replaced: restart the edge container (frees the lock; it boots from the
  * stub Caddyfile in seconds), re-attach the project bridge networks a
  * recreated edge loses, and push the config again.
  *
- * Restarting the edge briefly drops traffic — acceptable only because this
+ * Restarting the edge briefly drops traffic. Acceptable only because this
  * path is reached when the admin socket is already dead, i.e. the alternative
  * is an edge that can never receive another route again.
  */
-export async function loadWithEdgeSelfHeal(caddyfile: string, rlog?: RequestLogger): Promise<LoadResult> {
+export async function loadWithEdgeSelfHeal(
+  caddyfile: string,
+  rlog?: RequestLogger,
+): Promise<LoadResult> {
   const log = asStepLogger(rlog);
   const first = await loadCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog);
   if (first.ok || !first.error.includes("timed out")) return first;

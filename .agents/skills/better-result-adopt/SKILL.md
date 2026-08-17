@@ -128,7 +128,7 @@ Always use `matchError` (exhaustive) or `matchErrorPartial` (subset + fallback).
 The compiler then refuses to build until every variant has a handler.
 
 ```ts
-// Bad — exhaustiveness is invisible to TS; new variants slip through silently.
+// Bad: exhaustiveness is invisible to TS; new variants slip through silently.
 if (result.isErr()) {
   switch (result.error._tag) {
     case "ProjectNotFoundError":
@@ -137,7 +137,7 @@ if (result.isErr()) {
   }
 }
 
-// Good — compiler errors if a variant is missing.
+// Good: compiler errors if a variant is missing.
 import { matchError } from "better-result";
 
 if (result.isErr()) {
@@ -201,7 +201,7 @@ A migration is complete when:
 - Mixing `throw`-based and `Result`-based APIs deep in the same flow
 - Catching `Panic` instead of fixing the underlying defect
 - Using `if (result.isErr()) switch (result.error._tag) { ... }` instead of
-  `matchError` / `matchErrorPartial` — the switch can't be checked for
+  `matchError` / `matchErrorPartial`: the switch can't be checked for
   exhaustiveness, so adding a new error variant compiles silently with no
   warning at the existing switch
 

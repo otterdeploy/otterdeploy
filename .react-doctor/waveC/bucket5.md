@@ -1,4 +1,4 @@
-# Wave C (effects & state) — bucket 5
+# Wave C (effects & state): bucket 5
 
 
 ## src/features/logs/data/use-log-stream.ts

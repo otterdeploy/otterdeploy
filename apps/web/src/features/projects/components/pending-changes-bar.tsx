@@ -1,5 +1,5 @@
 /**
- * Floating "Apply N change(s)" pill — sits below the top nav whenever
+ * Floating "Apply N change(s)" pill. Sits below the top nav whenever
  * the saved manifest diverges from current resources.
  *
  * Reads from manifest.diff (same diff CLI `status` uses), so the UI
@@ -53,13 +53,13 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   const morph: Transition = reduce ? { duration: 0 } : { duration: 0.28, ease: [0.2, 0.7, 0.2, 1] };
 
   // Manifest writes push a `manifest` resync over the event stream, and local
-  // staging invalidates via invalidateManifestConsumers — the interval is only
+  // staging invalidates via invalidateManifestConsumers: the interval is only
   // a dead-stream backstop. Input + interval MUST stay in sync with the
-  // graph's diff query (graph-model.ts) — same input means one shared cache
+  // graph's diff query (graph-model.ts). Same input means one shared cache
   // entry instead of two parallel pollers.
   // 60s is the dead-stream backstop; while an apply is in flight we poll
   // hard so the bar observes "manifest applied" (empty diff) within a couple
-  // of seconds of the rows landing — that empty diff is the close signal.
+  // of seconds of the rows landing: that empty diff is the close signal.
   const [applying, setApplying] = useState(false);
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
@@ -72,7 +72,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   // prefix-keyed resource, dependency and task collections the graph and
   // detail panels read). The previous local version invalidated the bare
   // `orpc.project.resource.list` key, which NEVER matches the resource
-  // collection's ["resource", …] prefix key — so a freshly applied resource
+  // collection's ["resource", …] prefix key, so a freshly applied resource
   // stayed missing from the graph/panel until a hard reload.
   const refreshAll = () => invalidateManifestConsumers(projectId);
 
@@ -80,7 +80,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     mutationFn: () => orpc.project.manifest.apply.call({ projectId, environment }),
     // Bridge the graph's ghost nodes BEFORE kicking off apply, not after.
     // apply() drains each resource's create stream, so the call runs for
-    // seconds — and manifest.diff keeps polling on its 5s cadence the whole
+    // seconds, and manifest.diff keeps polling on its 5s cadence the whole
     // time. The instant a create's DB row inserts (mid-stream), the next diff
     // poll stops reporting it as a create; if the resource-list poll hasn't
     // landed the row yet, the node belongs to neither source and blinks out,
@@ -98,16 +98,18 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       setApplying(false);
       await refreshAll();
       // The reconciler reports per-resource failures in `skipped[]` rather
-      // than throwing — a create that hits a missing build binding or an
+      // than throwing: a create that hits a missing build binding or an
       // unresolved ${secret} lands here, not in the catch. Whatever was
       // skipped is still in the diff, so the bar re-surfaces by itself.
       if (result.skipped.length > 0) {
         const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
         if (result.appliedCount === 0) {
-          toast.error(`Nothing applied — ${detail}`);
+          toast.error(`Nothing applied: ${detail}`);
           return;
         }
-        toast.warning(`Applied ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`);
+        toast.warning(
+          `Applied ${result.appliedCount}, skipped ${result.skipped.length}: ${detail}`,
+        );
       } else {
         toast.success(`Applied ${result.appliedCount} change(s)`);
       }
@@ -123,7 +125,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       orpc.project.manifest.discard.call({ projectId, only }),
     // Clear the graph's ghost-bridge stores up front so a create-ghost recorded
     // by a prior Apply (whose resource never landed) vanishes THE INSTANT the
-    // operator discards — otherwise `computePendingByName` keeps re-synthesizing
+    // operator discards: otherwise `computePendingByName` keeps re-synthesizing
     // it from applied-creates until the 30s TTL, the "ghost that won't die". The
     // diff (the other ghost source) is refreshed in onSuccess. Safe optimistic:
     // Discard is disabled while an Apply is in flight, and if discard itself
@@ -138,7 +140,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       );
       await refreshAll();
       // A single-change discard leaves the others staged, so keep the list
-      // open — collapsing it would hide the work still waiting to be applied.
+      // open. Collapsing it would hide the work still waiting to be applied.
       if (!only?.length) setExpanded(false);
     },
     onError: (err) => toast.error(toastMessage(err, "Discard failed")),
@@ -146,7 +148,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
   const busy = applyMut.isPending || discardMut.isPending;
   const meaningful = (diff.data?.changes ?? []).filter((c): c is DiffChange => c.kind !== "no-op");
-  // The bar's lifetime is the MANIFEST's divergence — nothing else. apply()
+  // The bar's lifetime is the MANIFEST's divergence. Nothing else. apply()
   // keeps running while services provision and build, so gating on isPending
   // held the spinner hostage to the BUILD, long after the manifest itself was
   // applied. Instead the fast diff poll above is the close signal: the moment
@@ -163,16 +165,16 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
   return (
     // Own layer below the site header AND the project tab row (h-10), never
-    // on top of either — the pill used to sit at a fixed `top-20` that fell
+    // on top of either: the pill used to sit at a fixed `top-20` that fell
     // inside the tab row's band and covered Deployments/Logs/Metrics.
     <div
-      // px-3 so the pill can never touch (or overrun) the screen edges — the
+      // px-3 so the pill can never touch (or overrun) the screen edges. The
       // collapsed bar is ~290px of content and a phone is 375px.
       className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3"
       style={{ top: "calc(var(--header-height) + 2.5rem + 0.75rem)" }}
     >
       {/* `layout` morphs the pill↔panel width; the body handles its own height
-          reveal below. No backdrop-blur — it flickers while the box resizes and
+          reveal below. No backdrop-blur: it flickers while the box resizes and
           is invisible at bg-card/95 anyway. */}
       <m.div
         layout
@@ -218,7 +220,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
             disabled={busy}
             aria-label={applyMut.isPending ? "Applying" : undefined}
           >
-            {/* Header already reads "Applying…" — the button is spinner-only. */}
+            {/* Header already reads "Applying…". The button is spinner-only. */}
             {applyMut.isPending ? <Spinner className="size-3.5" /> : "Apply"}
           </Button>
         </div>

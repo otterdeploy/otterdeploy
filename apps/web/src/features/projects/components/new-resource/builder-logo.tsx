@@ -1,7 +1,7 @@
 /**
  * Real brand marks for the builders in the New-resource wizard's Builder
  * step. Each tile renders the project's actual SVG logo (or, where the
- * project doesn't publish one — Railpack uses 📦 — we substitute the
+ * project doesn't publish one (Railpack uses 📦) we substitute the
  * Railway brand mark, since Railpack is by Railway). Same pattern as
  * the Postgres / Redis / Docker SVGs already in svgs/.
  *

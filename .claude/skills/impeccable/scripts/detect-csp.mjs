@@ -2,7 +2,7 @@
  * Scan a project tree for Content-Security-Policy signals and classify the
  * shape so the agent knows which patch template to propose.
  *
- * Used at first-time `live.mjs` setup. Mechanical (grep-based) — no network,
+ * Used at first-time `live.mjs` setup. Mechanical (grep-based), no network,
  * no dev server, no JS evaluation. The classification drives a user-facing
  * consent prompt; the agent does the actual patch writing.
  *

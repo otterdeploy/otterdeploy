@@ -1,9 +1,9 @@
 /**
- * CLI access — surfaces the existing Connect-CLI flow (device-authorization
+ * CLI access: surfaces the existing Connect-CLI flow (device-authorization
  * grant; dialog imported from the shell). Personal access tokens are
  * deliberately absent: this install's api-key plugin is configured with
  * `references: "organization"` (packages/auth/src/index.ts), so every key is
- * workspace-owned — the card links to the workspace API keys page instead of
+ * workspace-owned. The card links to the workspace API keys page instead of
  * pretending user-scoped tokens exist.
  */
 
@@ -34,7 +34,7 @@ export function CliCard({ orgSlug }: { orgSlug: string }) {
           </span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
             Sign the <span className="font-mono">otterdeploy</span> CLI in to this control plane
-            with a one-time device code — no token to copy around.
+            with a one-time device code, so there's no token to copy around.
           </span>
         </div>
         <Button
@@ -51,7 +51,7 @@ export function CliCard({ orgSlug }: { orgSlug: string }) {
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-[13px] font-medium text-foreground">{t("nav.apiKeys")}</span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
-            Keys on this install are workspace-scoped, not personal — create and manage them on the
+            Keys on this install are workspace-scoped, not personal. Create and manage them on the
             workspace's API keys page.
           </span>
         </div>

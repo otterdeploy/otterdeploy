@@ -4,7 +4,7 @@ import { env } from "@otterdeploy/env/server";
 import { type UnknownRecord, isJsonObject } from "@otterdeploy/shared/json";
 import { withTimeout } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
-import { Table, getTableName } from "drizzle-orm";
+import { getTableName, type Table } from "drizzle-orm";
 import { Cache, type MutationOption } from "drizzle-orm/cache/core";
 import { entityKind } from "drizzle-orm/entity";
 import { log as globalLog } from "evlog";
@@ -20,7 +20,7 @@ export function apiCacheTableSetKey(tableName: string): string {
 }
 
 // JSON can't represent every value the driver hands back, so we tag the
-// problem types on the way out and rebuild them on the way in — keeping the
+// problem types on the way out and rebuild them on the way in, keeping the
 // cached shape byte-for-byte identical to a fresh query. Without this a cache
 // hit would differ from a cache miss (or, for BigInt, the put would throw and
 // take the whole query down). The tag keys are deliberately obscure to avoid
@@ -28,7 +28,7 @@ export function apiCacheTableSetKey(tableName: string): string {
 //
 //   - Date: a naive round-trip turns every `timestamp` column into a bare ISO
 //     string, but downstream code calls `.toISOString()` / `.getTime()` on a
-//     real Date — a cache hit would throw where a cache miss works.
+//     real Date: a cache hit would throw where a cache miss works.
 //   - BigInt: `JSON.stringify` throws outright on a BigInt. Bun's SQL driver
 //     returns `bigint`/`bigserial` columns as native BigInt (drizzle's
 //     `mode:"number"` mapping runs AFTER the cache serializes the raw row), so
@@ -40,7 +40,7 @@ const BIGINT_TAG = "__otterCacheBigInt__";
 
 // Hard ceiling on every Redis round-trip the cache makes. `enableOfflineQueue:
 // false` rejects commands while DISCONNECTED, but a command already in flight
-// when the connection wedges can leave a promise that never settles — and
+// when the connection wedges can leave a promise that never settles, and
 // because the cache sits in front of every query (global: true), one such
 // promise silently hangs the query, the request, and the page awaiting it
 // (od-664). A cache that answers slower than this is worse than no cache;
@@ -48,11 +48,11 @@ const BIGINT_TAG = "__otterCacheBigInt__";
 const REDIS_OP_TIMEOUT_MS = 2_000;
 
 // `this` is the replacer's holder object: raw pre-serialization driver rows
-// whose values include Dates and BigInts — runtime values, not JSON — so
+// whose values include Dates and BigInts (runtime values, not JSON) so
 // `JsonObject` would be dishonest here and `UnknownRecord` is the fit.
 export function tagRichValues(this: UnknownRecord, key: string, value: unknown): unknown {
   // Date has a `toJSON`, so by the time the replacer sees `value` it's already
-  // an ISO string — reach for the untouched original on `this`. BigInt has no
+  // an ISO string: reach for the untouched original on `this`. BigInt has no
   // `toJSON`, so `value` is still the raw BigInt here.
   const original = this[key];
   if (original instanceof Date) {
@@ -138,7 +138,10 @@ export class RedisCache extends Cache {
     const raw = result.value;
     if (raw == null) return undefined;
     try {
-      return JSON.parse(raw, reviveRichValues) as unknown[];
+      const parsed: unknown = JSON.parse(raw, reviveRichValues);
+      // Only query-result arrays are ever cached (put() serializes driver
+      // rows); anything else is a corrupt/foreign key, so degrade to a miss.
+      return Array.isArray(parsed) ? parsed : undefined;
     } catch (error) {
       globalLog.warn({
         message: "[cache] Cached value failed to parse; treating as cache miss",
@@ -204,7 +207,9 @@ export class RedisCache extends Cache {
         : [];
 
     const tableNames = tableInputs.map((tableInput) =>
-      typeof tableInput === "string" ? tableInput : getTableName(tableInput as Table),
+      // Explicit <Table> pins the return to `string`; drizzle's MutationOption
+      // carries `Table<any>`, which would otherwise infer an `any` name.
+      typeof tableInput === "string" ? tableInput : getTableName<Table>(tableInput),
     );
 
     // Endpoint-level API caches register themselves under the same dependency

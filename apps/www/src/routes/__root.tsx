@@ -7,8 +7,8 @@ import appCss from "@/styles/app.css?url";
 /**
  * Document shell.
  *
- * The icon, manifest and theme-color tags live here rather than per route —
- * they're properties of the site, not of a page. Titles, descriptions and
+ * The icon, manifest and theme-color tags live here rather than per route.
+ * They're properties of the site, not of a page. Titles, descriptions and
  * canonical links are per route (see lib/seo.ts); a route that sets none of
  * them inherits the defaults below, which are the home page's.
  */

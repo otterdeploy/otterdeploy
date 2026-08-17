@@ -1,6 +1,6 @@
 /**
  * The rotate / delete confirm dialogs for one API-key row, each with its own
- * icon-button trigger. Pure confirmation UI — the mutations stay in
+ * icon-button trigger. Pure confirmation UI: the mutations stay in
  * `ApiKeyRow` (see its header for the create-then-delete rotation caveat) and
  * arrive here as `onConfirm`.
  */
@@ -54,8 +54,8 @@ export function RotateKeyDialog({
           <AlertDialogTitle>Rotate “{name ?? "this key"}”?</AlertDialogTitle>
           <AlertDialogDescription>
             A replacement key is created with the same name, scopes and expiry, and this key is
-            revoked once it succeeds. Clients using the current key will lose access — you'll see
-            the new key once, right after.
+            revoked once it succeeds. Clients using the current key will lose access. You'll see the
+            new key once, right after.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

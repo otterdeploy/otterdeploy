@@ -36,7 +36,7 @@ export async function loadOrgVolumeClaims(
   organizationId: OrganizationId,
 ): Promise<OrgVolumeClaims> {
   const [databases, mounts, stacks, allResources] = await Promise.all([
-    // Databases (incl. preview branches — their resource rows are named
+    // Databases (incl. preview branches, their resource rows are named
     // `<base>-<previewSlug>`, so the same convention resolves them).
     db
       .select({

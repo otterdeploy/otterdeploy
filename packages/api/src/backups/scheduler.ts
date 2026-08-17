@@ -1,7 +1,7 @@
 /**
  * Backup schedule scanner + retention. Runs on a fixed control-plane tick
  * (started from the server bootstrap) rather than a BullMQ repeatable so user
- * edits to cron/retention take effect immediately — the DB is the source of
+ * edits to cron/retention take effect immediately. The DB is the source of
  * truth (see backup.ts schema notes). Each tick:
  *   1. finds enabled schedules due now (nextRunAt null or past)
  *   2. for each source DB, creates + executes a backup run
@@ -59,7 +59,7 @@ export async function runDueBackupSchedules(now = new Date()): Promise<void> {
 }
 
 async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
-  // A null nextRunAt means the schedule was just created — only initialize its
+  // A null nextRunAt means the schedule was just created. Only initialize its
   // fire time, don't backfill a run. Otherwise it's genuinely due.
   if (schedule.nextRunAt == null) {
     await updateScheduleAfterRun(schedule.id, {
@@ -77,14 +77,14 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
   const destinationIds = await activeDestinationIdsFor(schedule.destinationIds);
 
   // A due schedule that resolves to no runnable (source × destination) pair is
-  // orphaned or misconfigured — record `failed`, not the benign `queued`
+  // orphaned or misconfigured: record `failed`, not the benign `queued`
   // placeholder that made a broken schedule look perpetually about-to-run. A
   // schedule whose every destination is disabled lands here too, which is
   // correct: it is configured but not backing anything up, and the operator
   // should see that rather than a reassuring green row.
   let lastStatus: "succeeded" | "failed" = "failed";
   if (resolved.length > 0 && destinationIds.length > 0) {
-    // One dump per (source × destination) — each is its own single-destination
+    // One dump per (source × destination): each is its own single-destination
     // backup record, so the engine, restore, and retention stay unchanged.
     for (const { id: resourceId, kind } of resolved) {
       for (const destinationId of destinationIds) {
@@ -114,7 +114,7 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
  *  rustic repo, so we group the schedule's snapshots by repo and run one
  *  `forget --prune` per repo with the GFS keep flags + max-age (keep-within).
  *  rustic owns which snapshots survive; we then reconcile the DB rows to that
- *  outcome — dropping any succeeded row whose snapshot `forget` pruned — so
+ *  outcome (dropping any succeeded row whose snapshot `forget` pruned) so
  *  usage totals + history stay honest.
  *
  *  Note: `maxStorageGb` has no native rustic flag and can't be enforced at the

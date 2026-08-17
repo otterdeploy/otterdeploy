@@ -1,7 +1,7 @@
 /**
- * Columns popover — per-table show/hide checkboxes (type-colored labels, per
- * the reference viewer). Hidden columns are excluded from the grid only —
- * exports always include every column. Persistence (localStorage, per table)
+ * Columns popover: per-table show/hide checkboxes (type-colored labels, per
+ * the reference viewer). Hidden columns are excluded from the grid only.
+ * Exports always include every column. Persistence (localStorage, per table)
  * is handled by the controller via ../data/column-prefs.
  */
 

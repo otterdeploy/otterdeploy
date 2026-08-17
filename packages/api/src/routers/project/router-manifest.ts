@@ -16,7 +16,7 @@ import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 /**
  * Attach a parsed service summary to each compose `create` change so the graph
- * can render the staged stack as a ghost group node WITH its service cards —
+ * can render the staged stack as a ghost group node WITH its service cards,
  * not an empty "No services parsed yet" box. Parsing lives here (the handler),
  * not in the pure `diffManifest`, so the diff stays YAML-free and testable.
  * Git stacks have no inline file to parse; their cards appear after the build.
@@ -95,14 +95,14 @@ export const manifestRouter = {
     // previews is scoped identically to the one that executes.
     const environmentId = await environmentIdForSlug(input.projectId, input.environment);
     const scope = await resolveProjectEnvironmentScope(input.projectId, environmentId);
-    // No environment pointer means nothing to diff against — an empty preview
+    // No environment pointer means nothing to diff against. An empty preview
     // beats a plan that claims every resource is new.
     if (!scope) return { resolved: resolved.value, changes: [] };
     const [current, refTable] = await Promise.all([
       loadCurrentState(input.projectId, scope),
       loadRefTable(input.projectId),
     ]);
-    // Resolve ${database:…}/${service:…} refs before comparing — apply stores
+    // Resolve ${database:…}/${service:…} refs before comparing. Apply stores
     // the RESOLVED value in the env rows, so a raw-text compare surfaced a
     // permanent phantom "update" for every ref-valued declaration.
     const changes = enrichComposeCreates(
@@ -178,8 +178,8 @@ export const manifestRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
       }
-      // Drop draft credentials for any staged database the discard removed —
-      // keep only the ones the reverted manifest still declares.
+      // Drop draft credentials for any staged database the discard removed.
+      // Keep only the ones the reverted manifest still declares.
       const reverted = await loadManifest({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
@@ -208,7 +208,7 @@ export const manifestRouter = {
   ),
 
   // One-shot save+apply. The common path for both CLI sync and UI
-  // Deploy — no daylight between the two code routes. The discrete
+  // Deploy, no daylight between the two code routes. The discrete
   // save/diff/apply endpoints stay for the stack-code editor's
   // "preview before deploy" flow where the user wants to inspect
   // the diff between save and apply.

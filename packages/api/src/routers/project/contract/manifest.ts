@@ -1,10 +1,10 @@
 /**
- * Manifest contract slice — JSON-native declarative source of truth.
+ * Manifest contract slice: JSON-native declarative source of truth.
  *
- *   get     — read the project's current manifest + version
- *   save    — replace the manifest (optimistic lock on expectedVersion)
- *   diff    — preview the merge result vs current server-side state
- *   apply   — reconcile resources to match the saved manifest
+ *   get. Read the project's current manifest + version
+ *   save. Replace the manifest (optimistic lock on expectedVersion)
+ *   diff: preview the merge result vs current server-side state
+ *   apply. Reconcile resources to match the saved manifest
  *
  * `diff` runs the pure `diffManifest` against `loadCurrentState`; `apply`
  * runs the full `applyManifest` reconciler (creates/updates/deletes services,
@@ -76,7 +76,7 @@ const manifestApplyOutput = z.object({
   lastAppliedAt: z.string(),
 });
 
-// discard — undo pending changes. Resets the saved manifest to the
+// discard: undo pending changes. Resets the saved manifest to the
 // most recent successfully-applied snapshot (the `lastAppliedManifest`
 // column on the project row). After discard, manifest == current state
 // and the pending-changes bar disappears.
@@ -127,7 +127,7 @@ const manifestRenameOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
-// applyChange — atomic save + apply. Single round-trip for the common
+// applyChange: atomic save + apply. Single round-trip for the common
 // "I edited the manifest, deploy it now" flow. The CLI's `sync` and
 // the UI's "Deploy" both call this; no daylight between the two paths.
 // `save` + `apply` remain for the stack editor's "preview then deploy"
@@ -163,7 +163,7 @@ const manifestExportOutput = z.object({
 const conflict = {
   CONFLICT: {
     status: 409,
-    message: "Manifest was modified concurrently — refresh and retry." as const,
+    message: "Manifest was modified concurrently. Refresh and retry." as const,
   },
 };
 
@@ -198,7 +198,7 @@ export const manifestContractSlice = {
     .meta({ path: `${basePath}/{projectId}/manifest/discard`, tag, method: "POST" })
     .input(manifestDiscardInput)
     .output(manifestDiscardOutput),
-  // rename — move a resource's manifest key and rewrite every ref that
+  // rename: move a resource's manifest key and rewrite every ref that
   // addressed it (`${database:old.url}` → `${database:new.url}`). Only for
   // resources that are still PENDING: once deployed, the container, swarm
   // service and volume names are derived from the resource name, so a rename
@@ -216,7 +216,7 @@ export const manifestContractSlice = {
     .output(manifestRenameOutput),
   // One-way render of the current resource graph as a deployable
   // docker-compose stack file. Disaster-recovery / local-dev / audit
-  // escape hatch; not a roundtrip — secret values are resolved in the
+  // escape hatch; not a roundtrip: secret values are resolved in the
   // output and ${database:…} / ${service:…} refs are inlined.
   export: oc
     .errors(projectNotFoundErrors)

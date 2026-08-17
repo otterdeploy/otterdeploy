@@ -21,8 +21,8 @@ import { decryptForDomain } from "../../../lib/crypto";
 
 // The org-wide GROUP BY tallies behind the project-list cards now live in
 // ./project-tallies.ts (this file stays row-level project/environment CRUD).
-// Re-exported here so `./queries`' barrel — and anything importing this module
-// directly — keeps the exact same surface as before the split.
+// Re-exported here so `./queries`' barrel, and anything importing this module
+// directly: keeps the exact same surface as before the split.
 export {
   countEnabledRoutesByProject,
   countResourcesByProject,
@@ -85,7 +85,7 @@ export async function getProjectById(projectId: ProjectId) {
   return record;
 }
 
-/** Alias for getProjectById — kept so existing call sites continue to read naturally. */
+/** Alias for getProjectById: kept so existing call sites continue to read naturally. */
 export const getProjectRecord = getProjectById;
 
 /** Load a single environment row by id. Used by the variable resolver to read
@@ -130,8 +130,8 @@ export async function updateProjectRecord(input: {
   if (input.slug !== undefined) patch.slug = input.slug;
   if (input.customDomain !== undefined) {
     patch.customDomain = input.customDomain;
-    // Changing the bound domain invalidates any previous verification —
-    // operator has to re-prove ownership of the new one. `null` clears
+    // Changing the bound domain invalidates any previous verification.
+    // Operator has to re-prove ownership of the new one. `null` clears
     // back to org fallback, also no verification needed.
     patch.customDomainVerifiedAt = null;
     patch.customDomainVerifyToken = null;
@@ -234,13 +234,13 @@ export async function createProjectRecord(input: {
           name: "production",
           // NOT `<projectSlug>-production`. Environment slugs are unique per
           // PROJECT (`environment_project_slug_unique`), so a project prefix
-          // buys no uniqueness — it only leaks the project name into the
+          // buys no uniqueness: it only leaks the project name into the
           // operator's URL (`?env=store-production`) for the one environment
           // every project has. It also disagreed with the other two creation
           // paths, which both write a bare `production`: the web onboarding
           // pre-allocates the row via `env.create`, and the create dialog
           // slugifies whatever the operator typed. Same concept, three code
-          // paths, two different slugs — and the `slug === "production"`
+          // paths, two different slugs, and the `slug === "production"`
           // lookups downstream silently missed the prefixed ones.
           slug: "production",
         })
@@ -266,16 +266,16 @@ export async function createProjectRecord(input: {
 /**
  * Load all project-level env vars for the given (project, environment)
  * pair, flattened to a plain `Record<string,string>`. Used by the variable
- * resolver to back `${{project.X}}` and `${{environment.X}}` references —
+ * resolver to back `${{project.X}}` and `${{environment.X}}` references:
  * both magic names resolve from this same bag today (a project carries
  * exactly one environment row), keeping the door open for per-environment
  * specialization when multi-env projects ship.
  *
  * Returns an empty record when nothing is configured. Secrets are not
- * specially masked here — values are emitted verbatim into the container
+ * specially masked here: values are emitted verbatim into the container
  * env, which is the only way a workload can actually consume them. This IS
  * the deploy/injection boundary, so sealed rows are decrypted here (and
- * only here / the equivalent service-env path) — see packages/api/src/
+ * only here / the equivalent service-env path): see packages/api/src/
  * lib/crypto.ts's "env-vars" domain.
  */
 export async function loadProjectEnvBag(input: {

@@ -4,6 +4,7 @@ import {
   notificationDelivery,
   notificationSubscription,
 } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 /**
  * Platform-event fan-out. A single deploy/build/backup/etc. outcome enqueues
  * one of these; the handler resolves every channel subscribed to that event in
@@ -14,13 +15,13 @@ import {
  *   - fan-out (default): deliver to all `active` channels subscribed to
  *     (organizationId, eventId) via the subscription matrix.
  *   - test (`channelId` set): deliver to that one channel regardless of its
- *     subscriptions — the "Test" / "Send test" button. Still logged.
+ *     subscriptions: the "Test" / "Send test" button. Still logged.
  */
 import { and, eq } from "drizzle-orm";
 import * as z from "zod";
 
 import { defineJob } from "../define";
-import { type ChannelKind, type ResolvedChannel, deliverToChannel } from "../delivery/channels";
+import { type ResolvedChannel, deliverToChannel } from "../delivery/channels";
 import { decryptSecret } from "../delivery/secret-crypto";
 import { shouldFanOutInApp, writeInboxRows } from "./notification-inbox";
 
@@ -37,20 +38,22 @@ export const PlatformEventPayload = z.object({
 export type PlatformEventPayload = z.infer<typeof PlatformEventPayload>;
 
 type ChannelRow = typeof notificationChannel.$inferSelect;
+
 // The job payload carries IDs as plain strings (BullMQ JSON); the schema's
-// columns are branded. Re-brand at the column boundary via the inferred types.
-type OrgId = ChannelRow["organizationId"];
-type ChannelId = ChannelRow["id"];
+// columns are branded. Re-brand at the column boundary by re-parsing through
+// the shared id schema (prefix-checked, legacy spellings canonicalized).
+const orgIdOf = (payload: PlatformEventPayload) =>
+  idSchema.organization.parse(payload.organizationId);
 
 async function resolveChannels(payload: PlatformEventPayload): Promise<ChannelRow[]> {
-  const orgId = payload.organizationId as OrgId;
+  const orgId = orgIdOf(payload);
   if (payload.channelId) {
     return db
       .select()
       .from(notificationChannel)
       .where(
         and(
-          eq(notificationChannel.id, payload.channelId as ChannelId),
+          eq(notificationChannel.id, idSchema.notificationChannel.parse(payload.channelId)),
           eq(notificationChannel.organizationId, orgId),
         ),
       );
@@ -72,7 +75,7 @@ async function resolveChannels(payload: PlatformEventPayload): Promise<ChannelRo
 async function toResolved(row: ChannelRow): Promise<ResolvedChannel> {
   return {
     id: row.id,
-    kind: row.kind as ChannelKind,
+    kind: row.kind,
     name: row.name,
     target: row.target,
     config: row.config ?? {},
@@ -100,7 +103,7 @@ export const notificationEventJob = defineJob({
       },
     });
 
-    // In-app inbox fan-out (the header bell) — same subscription gate as the
+    // In-app inbox fan-out (the header bell): same subscription gate as the
     // channels, one row per org member. Runs BEFORE channel delivery and is
     // deduped on the job id, so a retried job never double-writes the inbox.
     if (
@@ -110,7 +113,7 @@ export const notificationEventJob = defineJob({
         subscribedChannelCount: channels.length,
       })
     ) {
-      // The BullMQ job id is stable across retries — the dedupe key. The
+      // The BullMQ job id is stable across retries. The dedupe key. The
       // fallback (id-less jobs shouldn't happen for queued work) is unique
       // per call so it can never suppress a later, different occurrence.
       const occurrence = job.id ? `job:${job.id}` : `evt:${payload.eventId}:${Date.now()}`;
@@ -139,7 +142,7 @@ export const notificationEventJob = defineJob({
         });
 
       await db.insert(notificationDelivery).values({
-        organizationId: payload.organizationId as OrgId,
+        organizationId: orgIdOf(payload),
         channelId: row.id,
         eventId: payload.eventId,
         status: result.ok ? "delivered" : "failed",

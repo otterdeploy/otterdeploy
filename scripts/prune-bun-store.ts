@@ -150,7 +150,7 @@ function findNodeModules(dir: string, acc: string[]): string[] {
 }
 
 // Seed the reachable set from every real symlink outside the store, then close
-// over the full intra-store resolution graph — EXCEPT denied packages, whose
+// over the full intra-store resolution graph. EXCEPT denied packages, whose
 // exclusive subtrees fall out of the closure and get deleted.
 const reachable = new Set<string>();
 const queue: string[] = [];

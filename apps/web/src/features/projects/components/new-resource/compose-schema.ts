@@ -137,7 +137,11 @@ export const fileStepSchema = z
         });
       }
     } else if (!v.content.trim()) {
-      ctx.addIssue({ code: "custom", message: "Paste or upload a compose file", path: ["content"] });
+      ctx.addIssue({
+        code: "custom",
+        message: "Paste or upload a compose file",
+        path: ["content"],
+      });
     }
   });
 

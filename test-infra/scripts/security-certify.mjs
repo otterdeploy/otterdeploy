@@ -9,7 +9,7 @@
  * a human reading test output.
  *
  * Each test file in that directory is named `<issue-id>-<slug>.test.ts`
- * (e.g. `od-5j8.2-capability-authz-matrix.test.ts`) — the issue id prefix is
+ * (e.g. `od-5j8.2-capability-authz-matrix.test.ts`): the issue id prefix is
  * the source of truth this script uses to attribute pass/fail to an
  * invariant. Adding a new hostile-path file for another sibling issue is
  * enough to extend certification; no registry to keep in sync by hand.
@@ -18,7 +18,7 @@
  *   bun test-infra/scripts/security-certify.mjs [--out <path>] [--json]
  *
  * Exit code: 0 when every invariant passes, 1 otherwise (or on a harness
- * error) — CI can gate on this directly.
+ * error): CI can gate on this directly.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -65,9 +65,13 @@ async function runSuite() {
   try {
     parsed = JSON.parse(stdout);
   } catch (cause) {
+    // JSON.parse only ever throws SyntaxError; the fallback covers a
+    // hypothetical non-Error throw without printing `[object Object]`.
+    const parseError =
+      cause instanceof Error ? cause.message : (JSON.stringify(cause) ?? "unknown");
     throw new Error(
       `security-certify: could not parse vitest JSON output (exit ${exitCode}).\n` +
-        `--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n--- parse error ---\n${cause}`,
+        `--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n--- parse error ---\n${parseError}`,
     );
   }
   return parsed;
@@ -168,7 +172,7 @@ async function main() {
     process.stderr.write(`\nsecurity certification: ${icon(overallStatus)}\n`);
     for (const invariant of invariants) {
       process.stderr.write(
-        `  [${icon(invariant.status)}] ${invariant.issueId} — ${invariant.slug} ` +
+        `  [${icon(invariant.status)}] ${invariant.issueId}: ${invariant.slug} ` +
           `(${invariant.tests.passed}/${invariant.tests.total})\n`,
       );
     }

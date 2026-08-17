@@ -1,5 +1,5 @@
 /**
- * Container image reference helpers — parsing and display shortening for
+ * Container image reference helpers, parsing and display shortening for
  * `[registry/]repo[:tag][@sha256:…]` strings and the digests registries hand
  * back. Pure string work, no platform deps: the API layer, the builder, the
  * CLI and the web app all speak this vocabulary and must shorten it the same

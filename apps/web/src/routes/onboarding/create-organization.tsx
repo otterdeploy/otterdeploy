@@ -13,7 +13,7 @@ export const Route = createFileRoute("/onboarding/create-organization")({
       throw redirect({ to: "/sign-in" });
     }
   },
-  // Resume past the organization step if one already exists — e.g. a refresh
+  // Resume past the organization step if one already exists. E.g. a refresh
   // after the org was created mid-wizard. Fresh signups get `null` and start
   // at step 1.
   loader: async (): Promise<{ initialOrg: CreatedOrg | null }> => {

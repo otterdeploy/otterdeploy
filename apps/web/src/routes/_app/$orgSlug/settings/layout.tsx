@@ -8,10 +8,10 @@ import { SETTINGS_NAV } from "@/features/shell/nav-manifest";
 import { visibleNav } from "@/features/shell/nav-visibility";
 
 /**
- * Settings zone — a Linear-style takeover for everything that is
+ * Settings zone: a Linear-style takeover for everything that is
  * configuration rather than operation. Own left rail, NO org sidebar,
  * NO SidebarProvider (the shadcn provider registers ⌘B and writes the
- * `sidebar_state` cookie unconditionally — a second instance would corrupt
+ * `sidebar_state` cookie unconditionally: a second instance would corrupt
  * both). The rail is a plain styled column driven by the nav manifest.
  *
  * Exits: the "Back to app" affordance in the header, or Esc anywhere
@@ -25,13 +25,13 @@ export const Route = createFileRoute("/_app/$orgSlug/settings")({
 /**
  * True when Esc should be left to whatever else is on screen.
  *
- * Editable elements are NOT checked here — the hotkey's `ignoreInputs` covers
+ * Editable elements are NOT checked here. The hotkey's `ignoreInputs` covers
  * them, and covers more than a `closest()` on the event target could: it also
  * consults `document.activeElement` and the composed path, so a field inside
  * shadow DOM still suppresses the key.
  *
  * What's left is the part the library can't see: an already-handled event, and
- * any open popup layer. `useIsOverlayOpen` isn't reused for that — it only
+ * any open popup layer. `useIsOverlayOpen` isn't reused for that. It only
  * matches dialog/alertdialog, and a dropdown menu or combobox listbox owns Esc
  * just as much.
  */
@@ -48,7 +48,7 @@ function SettingsZoneLayout() {
   const { t } = useTranslation();
   const { orgSlug } = Route.useParams();
   // Inherited from the `_app` beforeLoad. Install-admin-only entries (and any
-  // group left empty by dropping them — "Instance" is one item) are omitted
+  // group left empty by dropping them. "Instance" is one item) are omitted
   // rather than rendered into a page that can only 403.
   const { isInstallAdmin } = Route.useRouteContext();
   const navigate = useNavigate();
@@ -89,7 +89,7 @@ function SettingsZoneLayout() {
       </header>
 
       <div className="flex flex-1">
-        {/* Rail: a plain styled column — deliberately NOT the shadcn Sidebar. */}
+        {/* Rail: a plain styled column: deliberately NOT the shadcn Sidebar. */}
         <nav
           aria-label={t("nav.settings", "Settings")}
           className="sticky top-12 hidden h-[calc(100svh-3rem)] w-52 shrink-0 flex-col gap-5 overflow-y-auto border-r px-3 py-4 md:flex"

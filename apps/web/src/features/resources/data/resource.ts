@@ -53,7 +53,11 @@ const environmentIdSchema = zId("env");
 function parseEnvironmentFilter(
   filters: SimpleComparison[],
 ): z.infer<typeof environmentIdSchema> | undefined {
-  const raw = parseOptionalCol(z.union([environmentIdSchema, z.literal("")]), filters, "environmentId");
+  const raw = parseOptionalCol(
+    z.union([environmentIdSchema, z.literal("")]),
+    filters,
+    "environmentId",
+  );
   return raw === "" ? undefined : raw;
 }
 

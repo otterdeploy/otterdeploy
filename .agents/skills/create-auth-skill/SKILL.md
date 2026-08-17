@@ -18,10 +18,10 @@ Before writing any code, gather requirements by scanning the project and asking 
 ### Step 1: Scan the project
 
 Analyze the codebase to auto-detect:
-- **Framework** — Look for `next.config`, `svelte.config`, `nuxt.config`, `astro.config`, `vite.config`, or Express/Hono entry files.
-- **Database/ORM** — Look for `prisma/schema.prisma`, `drizzle.config`, `package.json` deps (`pg`, `mysql2`, `better-sqlite3`, `mongoose`, `mongodb`).
-- **Existing auth** — Look for existing auth libraries (`next-auth`, `lucia`, `clerk`, `supabase/auth`, `firebase/auth`) in `package.json` or imports.
-- **Package manager** — Check for `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, or `package-lock.json`.
+- **Framework**: Look for `next.config`, `svelte.config`, `nuxt.config`, `astro.config`, `vite.config`, or Express/Hono entry files.
+- **Database/ORM**: Look for `prisma/schema.prisma`, `drizzle.config`, `package.json` deps (`pg`, `mysql2`, `better-sqlite3`, `mongoose`, `mongodb`).
+- **Existing auth**: Look for existing auth libraries (`next-auth`, `lucia`, `clerk`, `supabase/auth`, `firebase/auth`) in `package.json` or imports.
+- **Package manager**: Check for `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, or `package-lock.json`.
 
 Use what you find to pre-fill defaults and skip questions you can already answer.
 
@@ -48,16 +48,16 @@ Use the `AskQuestion` tool to ask the user **all applicable questions in a singl
    - Options: Email & password | Social OAuth (Google, GitHub, etc.) | Magic link (passwordless email) | Passkey (WebAuthn) | Phone number
    - `allow_multiple: true`
 
-5. **Social providers** (only if they selected Social OAuth above — ask in a follow-up call)
+5. **Social providers** (only if they selected Social OAuth above: ask in a follow-up call)
    - Prompt: "Which social providers do you need?"
    - Options: Google | GitHub | Apple | Microsoft | Discord | Twitter/X
    - `allow_multiple: true`
 
-6. **Email verification** (only if Email & password was selected above — ask in a follow-up call)
+6. **Email verification** (only if Email & password was selected above: ask in a follow-up call)
    - Prompt: "Do you want to require email verification?"
    - Options: Yes | No
 
-7. **Email provider** (only if email verification is Yes, or if Password reset is selected in features — ask in a follow-up call)
+7. **Email provider** (only if email verification is Yes, or if Password reset is selected in features, ask in a follow-up call)
    - Prompt: "How do you want to send emails?"
    - Options: Resend | Mock it for now (console.log)
 
@@ -66,7 +66,7 @@ Use the `AskQuestion` tool to ask the user **all applicable questions in a singl
    - Options: Two-factor authentication (2FA) | Organizations / teams | Admin dashboard | API bearer tokens | Password reset | None of these
    - `allow_multiple: true`
 
-9. **Auth pages** (always ask, allow multiple — pre-select based on earlier answers)
+9. **Auth pages** (always ask, allow multiple: pre-select based on earlier answers)
    - Prompt: "Which auth pages do you need?"
    - Options vary based on previous answers:
      - Always available: Sign in | Sign up

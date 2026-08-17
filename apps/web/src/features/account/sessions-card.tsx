@@ -1,5 +1,5 @@
 /**
- * Active sessions — inline list of every device signed in to this account
+ * Active sessions: inline list of every device signed in to this account
  * (better-auth `listSessions`), with per-row revoke and a revoke-all-others
  * footer. Same data source and cache keys as the shell's sessions dialog.
  */

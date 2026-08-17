@@ -3,7 +3,7 @@
  * resources.tsx so that file + its main component stay under the line caps.
  */
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
@@ -22,7 +22,7 @@ import { I } from "../icons";
 
 export function SizePresets() {
   const form = useFormContext();
-  const presetId = useStore(form.store, (s) => s.values.presetId);
+  const presetId = useSelector(form.store, (s) => s.values.presetId);
 
   return (
     <>
@@ -72,7 +72,7 @@ export function SizePresets() {
 
 export function ReplicasSection() {
   const form = useFormContext();
-  const replicas = useStore(form.store, (s) => s.values.replicas);
+  const replicas = useSelector(form.store, (s) => s.values.replicas);
 
   return (
     <>
@@ -108,7 +108,7 @@ export function ReplicasSection() {
         </div>
         {/* Not a toggle: start-first + auto-rollback is hardcoded in the
             swarm driver's UpdateConfig for every service. (There is no
-            autoscaler — the old "enable autoscaling" switch wrote to
+            autoscaler: the old "enable autoscaling" switch wrote to
             nothing and was removed.) */}
         <p className="mt-3.5 border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
           Deploys are zero-downtime by default: new replicas start first and traffic drains only

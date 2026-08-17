@@ -58,7 +58,7 @@ describe("isAuthorizedCommenter", () => {
   });
 
   it("refuses everyone else, including past contributors", () => {
-    // CONTRIBUTOR means "has had a PR merged", not "has write access" — a low
+    // CONTRIBUTOR means "has had a PR merged", not "has write access". A low
     // bar for spending someone else's disk and CPU.
     for (const association of [
       "CONTRIBUTOR",

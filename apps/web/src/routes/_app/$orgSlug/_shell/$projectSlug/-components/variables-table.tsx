@@ -32,7 +32,7 @@ export function PerEnvTable({
   const [bulkOpen, setBulkOpen] = useState(false);
   // Text a dropped .env file seeds the bulk-edit dialog with.
   const [importText, setImportText] = useState<string | null>(null);
-  // Depth counter — dragenter/dragleave fire per child, so a plain
+  // Depth counter: dragenter/dragleave fire per child, so a plain
   // boolean flickers while dragging across the table.
   const [dragDepth, setDragDepth] = useState(0);
   const dragging = dragDepth > 0;

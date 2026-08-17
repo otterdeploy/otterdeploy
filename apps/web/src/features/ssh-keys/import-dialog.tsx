@@ -80,7 +80,7 @@ export function ImportKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("sshKeys.importTitle")}</DialogTitle>
           <DialogDescription>
-            Paste a public key. Only the public half is stored — keep the private key on your own
+            Paste a public key. Only the public half is stored. Keep the private key on your own
             machine.
           </DialogDescription>
         </DialogHeader>
@@ -109,7 +109,6 @@ export function ImportKeyDialog({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder="alice-laptop"
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={String(err)}>{String(err)}</FieldError>

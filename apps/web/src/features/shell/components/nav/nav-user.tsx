@@ -66,7 +66,7 @@ export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
+  const { orgSlug } = useParams({ strict: false });
   const [cliOpen, setCliOpen] = useState(false);
   const tour = useProductTour();
 
@@ -171,7 +171,7 @@ export function NavUser({ user }: { user: User }) {
                   <HugeiconsIcon icon={CommandLineIcon} strokeWidth={2} />
                   {t("user.connectCli")}
                 </DropdownMenuItem>
-                {/* Links, not dialogs (od-u63.7) — the settings pages already own
+                {/* Links, not dialogs (od-u63.7): the settings pages already own
                     this UI (SessionsCard / TwoFactorCard), so the menu just
                     navigates there instead of duplicating it in a popover. */}
                 <DropdownMenuItem
@@ -217,9 +217,7 @@ export function NavUser({ user }: { user: User }) {
 function EnvironmentMenu() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const currentLng = (i18n.resolvedLanguage ?? i18n.language ?? "en").split(
-    "-",
-  )[0] as (typeof supportedLngs)[number];
+  const currentLng = (i18n.resolvedLanguage ?? i18n.language ?? "en").split("-")[0] ?? "en";
 
   return (
     <DropdownMenuGroup>

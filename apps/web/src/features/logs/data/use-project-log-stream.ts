@@ -2,7 +2,7 @@
 // the page stays responsive even on chatty stacks; filtering / search runs
 // against this buffer, so anything dropped here is gone from the UI too.
 //
-// `paused` keeps the existing buffer but suspends new pushes — flips back to
+// `paused` keeps the existing buffer but suspends new pushes. Flips back to
 // live without dropping rows, so the operator can scroll back to read.
 //
 // Transport + buffering are the shared `useLogStream`; this hook only adds the
@@ -39,7 +39,7 @@ export interface LogLine {
   id: string;
   ts: string;
   tsIso: string | null;
-  /** Epoch ms of `tsIso`, parsed ONCE at ingest — the time-range filter and
+  /** Epoch ms of `tsIso`, parsed ONCE at ingest. The time-range filter and
    *  histogram bucketing run over the whole buffer per frame while tailing,
    *  and re-parsing ISO strings there dominated the profile. */
   tsMs: number | null;
@@ -55,14 +55,14 @@ export interface LogLine {
 
 interface UseProjectLogStreamArgs {
   projectId: string;
-  // Optional whitelist — when undefined, follows every service in the project.
+  // Optional whitelist: when undefined, follows every service in the project.
   resourceIds?: string[];
   paused: boolean;
   bufferSize?: number;
 }
 
 /** Level from the line's CONTENT first (shared heuristic with the build-log
- *  viewer — catches `TypeError`, `Failed …`, `⨯`, stack frames), falling back
+ *  viewer: catches `TypeError`, `Failed …`, `⨯`, stack frames), falling back
  *  to the stream only when the content says nothing. A bare `\bERROR\b` check
  *  here used to miss `TypeError: …`/`Failed to …` lines entirely, painting
  *  real exceptions as stderr-warnings. */
@@ -76,7 +76,7 @@ function inferLevel(stream: "stdout" | "stderr" | "system", line: string): LogLe
 }
 
 // Multi-line log output (stack traces, pretty-printed error objects) reaches us
-// as one docker event *per physical line* — `timestamps=true` stamps each one.
+// as one docker event *per physical line*: `timestamps=true` stamps each one.
 // Indented lines and lone closing brackets are continuations of the entry above
 // them, not new events, so fold them in rather than spawning a row each.
 function isContinuationLine(msg: string): boolean {
@@ -104,7 +104,7 @@ function coalesceMultiline(lines: LogLine[]): LogLine[] {
 }
 
 function shortTs(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "–";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(11, 23);
   const hh = String(d.getHours()).padStart(2, "0");
@@ -127,7 +127,7 @@ export function useProjectLogStream({
   const key = resourceIds ? resourceIds.toSorted().join(",") : "";
 
   const { lines: rawLines, status } = useLogStream({
-    // No client retry plugin here — useLogStream owns reconnects so a reopen
+    // No client retry plugin here. useLogStream owns reconnects so a reopen
     // keeps the buffer intact and requests NO backfill (tail: 0), instead of
     // the plugin's transparent re-invoke duplicating 50 lines per service.
     open: (signal, initial) =>
@@ -175,7 +175,7 @@ export function useProjectLogStream({
     key: `${projectId}|${key}|${bufferSize}`,
   });
 
-  // Memoized on the buffer snapshot — without this, every render (frame,
+  // Memoized on the buffer snapshot: without this, every render (frame,
   // during tail) allocated a fresh array + fresh folded objects, which broke
   // referential identity for EVERY downstream useMemo (filters, react-table
   // row models, histogram buckets) and re-processed the whole 5k buffer 4-5

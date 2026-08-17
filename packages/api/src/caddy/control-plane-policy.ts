@@ -8,10 +8,10 @@ import { DEFAULT_ROUTE_POLICY } from "@otterdeploy/shared/route-policy";
  * (DEFAULT_ROUTE_POLICY) until the operator opts in via the Networking
  * panel, this is otterdeploy's own admin surface: HSTS + baseline hardening
  * headers apply unconditionally the moment a control-plane domain is
- * configured and Caddy fronts it — no per-route panel needed, and nothing a
+ * configured and Caddy fronts it, no per-route panel needed, and nothing a
  * tenant ever controls.
  *
- * `maxRequestBodyMb` is left null (unbounded at the edge) — the app's own
+ * `maxRequestBodyMb` is left null (unbounded at the edge). The app's own
  * per-route body-limit gate is the enforcement point
  * (packages/api/src/security/body-limit.ts), so this doesn't double-cap
  * uploads (e.g. source tarballs) at a size Caddy can't tell apart from an

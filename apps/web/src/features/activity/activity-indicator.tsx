@@ -1,10 +1,10 @@
 /**
- * The header activity indicator — "is anything queued or building, anywhere?"
+ * The header activity indicator: "is anything queued or building, anywhere?"
  *
  * The complement to the notification bell beside it, and deliberately a separate
  * control: the bell is HISTORY (things that happened, which you may not have
  * read), this is PRESENT STATE (work the platform still owes you). Folding both
- * into one dot is what made the old pulsing bell ring unreadable — it could not
+ * into one dot is what made the old pulsing bell ring unreadable. It could not
  * say whether it meant "unread" or "building", and it was project-scoped so it
  * lied about every build outside the project you were looking at.
  *
@@ -29,7 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/
 import { cn } from "@/shared/lib/utils";
 
 /**
- * How long this row has been waiting or building — a DURATION, not a timestamp.
+ * How long this row has been waiting or building. A DURATION, not a timestamp.
  * "queued 4m" is the number an operator acts on; "queued at 14:02" makes them do
  * the subtraction themselves.
  */
@@ -43,7 +43,7 @@ function elapsedSince(iso: string, now: number): string {
   return `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`;
 }
 
-/** The pill's own text. Both numbers when both apply — "5" alone would leave you
+/** The pill's own text. Both numbers when both apply. "5" alone would leave you
  *  unable to tell five parallel builds from a five-deep backlog. */
 function summary(building: number, queued: number): string {
   const parts: string[] = [];
@@ -129,7 +129,7 @@ export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
   // Idle workspace → no control at all. See the module comment.
   if (!busy) return null;
 
-  const label = `${t("activity.title")} — ${summary(building, queued)}${
+  const label = `${t("activity.title")}: ${summary(building, queued)}${
     builderStalled ? t("activity.builderStalledSuffix") : ""
   }`;
 
@@ -144,7 +144,7 @@ export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
             className={cn(
               "h-8 gap-1.5 px-2 font-normal",
               // A stalled builder is the one state here that is not just
-              // progress — queued work with nothing consuming it needs to look
+              // progress, queued work with nothing consuming it needs to look
               // different from queued work that is draining.
               builderStalled && "border-warning/40 text-warning",
             )}
@@ -161,7 +161,7 @@ export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
                 building > 0 && !builderStalled && "motion-safe:animate-spin",
               )}
             />
-            {/* Below `sm` the header is already fighting for room — the count
+            {/* Below `sm` the header is already fighting for room. The count
                 alone still answers "is anything happening?", which is the
                 question the pill exists for. */}
             <span className="hidden font-mono text-xs tabular-nums lg:inline">
@@ -189,7 +189,7 @@ export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
           // behind an active build and a broken builder behind nothing.
           <p className="border-b bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground">
             {queued} {queued === 1 ? "build is" : "builds are"} waiting and nothing is picking them
-            up — the build worker may be down.
+            up. The build worker may be down.
           </p>
         ) : null}
 

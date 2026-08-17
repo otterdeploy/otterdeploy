@@ -5,13 +5,19 @@
  * source left). These cases pin the id/name pruning and the disable-on-empty
  * rule that closes the orphaned-schedule bug (FK-less jsonb `sources`).
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
-
+import { hasPrefix, ID_PREFIX, type ResourceId } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { planSchedulePrune } from "../schedule-cleanup";
 
-const db = (id: string, name: string) => ({ id: id as ResourceId, name });
+/** Brand a fixture id through the real prefix guard (the legacy `resource_`
+ *  spelling these fixtures use is accepted) rather than asserting the brand. */
+function db(id: string, name: string): { id: ResourceId; name: string } {
+  if (!hasPrefix(id, ID_PREFIX.resource)) {
+    throw new Error(`fixture id must carry the resource prefix: ${id}`);
+  }
+  return { id, name };
+}
 
 describe("planSchedulePrune", () => {
   it("is a no-op when every source still resolves", () => {

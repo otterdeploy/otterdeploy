@@ -5,7 +5,7 @@
  * logs in turn, so the operator sees the full retry history in chronological
  * order under the deployment's Deploy Logs tab.
  *
- * The last task still attached is followed live (follow=true) — earlier
+ * The last task still attached is followed live (follow=true). Earlier
  * exited tasks replay what docker has on disk and then close, advancing to
  * the next.
  */
@@ -27,12 +27,12 @@ interface DeploymentLogsRef {
   projectId: ProjectId;
   organizationId: OrganizationId;
   resourceId: ResourceId;
-  deploymentId: string;
+  deploymentId: DeploymentId;
   tail?: number;
 }
 
-// Stream a single deployment instance: its header + any error/exit lines, then —
-// when a container exists — the container's logs (followed live only for the
+// Stream a single deployment instance: its header + any error/exit lines, then,
+// when a container exists. The container's logs (followed live only for the
 // most recent instance).
 async function* streamDeploymentInstance(
   docker: Docker,
@@ -44,7 +44,7 @@ async function* streamDeploymentInstance(
 
   yield {
     stream: "system",
-    line: `── ${(instance.id || "?").slice(0, 12)} · state: ${instance.state ?? "?"}${instance.message ? ` — ${instance.message}` : ""} ──`,
+    line: `── ${(instance.id || "?").slice(0, 12)} · state: ${instance.state ?? "?"}${instance.message ? `: ${instance.message}` : ""} ──`,
     ts: nowIso(),
   };
   if (instance.err) {
@@ -61,7 +61,7 @@ async function* streamDeploymentInstance(
   if (!containerId) return;
 
   // Only follow=true for the last (most recent) task. Earlier tasks are
-  // terminal — replay what docker still has and move on.
+  // terminal: replay what docker still has and move on.
   const logsResult = await docker.containers.getContainer(containerId).logs({
     follow: isLast,
     stdout: true,
@@ -95,11 +95,11 @@ export async function* tailDeploymentLogs(
     return;
   }
 
-  // Deploy-phase platform log first — the rollout + restart/health lines the
+  // Deploy-phase platform log first. The rollout + restart/health lines the
   // builder ("updating swarm service", "deployment running") and crash-watcher
-  // ("container exited — restarting…") recorded. These belong with Deploy, not
+  // ("container exited, restarting…") recorded. These belong with Deploy, not
   // Build. The containers' own stdout/stderr streams underneath.
-  for (const line of await fetchLogsAfter(input.deploymentId as DeploymentId, 0, "deploy")) {
+  for (const line of await fetchLogsAfter(input.deploymentId, 0, "deploy")) {
     yield { stream: line.stream, line: line.line, ts: line.ts };
   }
 
@@ -136,7 +136,7 @@ export async function* tailDeploymentLogs(
     const instances = tagged.length > 0 ? tagged : all;
 
     // No container ran for this deployment. Emit nothing and let the stream end
-    // cleanly — the client renders a proper empty state (icon + "check Build
+    // cleanly: the client renders a proper empty state (icon + "check Build
     // Logs" hint) for a deploy-logs stream that ends with zero lines. A stream
     // where a container DID run always carries at least the trailing "End of
     // deployment logs." line below, so ended-with-zero-lines unambiguously

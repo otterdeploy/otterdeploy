@@ -6,7 +6,7 @@
  *     last path segment of the reference, tag/digest stripped, slug-safe.
  *   - `knownImagePort` → the conventional listen port for a short list of
  *     official images whose EXPOSE is common knowledge. Anything not in the
- *     table stays empty — a wrong guess (the old hardcoded 3000) breaks
+ *     table stays empty, a wrong guess (the old hardcoded 3000) breaks
  *     publishing silently, an empty field asks the operator.
  */
 

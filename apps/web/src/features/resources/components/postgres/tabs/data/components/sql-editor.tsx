@@ -2,7 +2,7 @@
  * CodeMirror SQL editor for the data console. Line numbers, Postgres syntax
  * highlighting, schema-aware autocomplete, and a per-statement **run gutter**:
  * every statement shows a ▶ that runs just that statement. ⌘↵ runs the
- * statement under the cursor. Nothing auto-runs — execution is always an
+ * statement under the cursor. Nothing auto-runs. Execution is always an
  * explicit click or keypress.
  *
  * The imperative ref exposes run-all / run-selection / run-current for the

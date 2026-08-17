@@ -19,7 +19,7 @@ import { environment, project, resource } from "@otterdeploy/db/schema/project";
  * when a `projectScope: "selected"` key is acting outside its allow-list.
  *
  * Every enforcer is a strict no-op for non-key actors (session/cookie/CLI
- * bearer) and for keys whose scope isn't `"selected"` — it returns BEFORE
+ * bearer) and for keys whose scope isn't `"selected"`. It returns BEFORE
  * touching the database. Resolution misses (id not found in the active org) also
  * return early: the handler's own NOT_FOUND is the right error there, not a
  * FORBIDDEN that would leak which ids exist.
@@ -34,7 +34,7 @@ import type { Context } from "../context";
 
 import { requireProjectScope } from "./api-key-scope";
 
-/** The handful of `db` methods these guards touch — narrowed so tests can pass
+/** The handful of `db` methods these guards touch. Narrowed so tests can pass
  *  a hand-rolled mock without the full drizzle type surface. Mirrors the
  *  reconcile.ts (packages/jobs) injection pattern. */
 type DbLike = Pick<typeof db, "select">;
@@ -52,15 +52,21 @@ function scopeIrrelevant(context: Context): boolean {
 
 /** Active org id, narrowed to non-null. Guards only run inside org-scoped
  *  procedures (orgScopedMiddleware already threw NO_ACTIVE_ORGANIZATION
- *  otherwise), so this is sound. */
+ *  otherwise), so the throw below is unreachable in practice. */
 function orgId(context: Context): OrganizationId {
-  return context.activeOrganizationId as OrganizationId;
+  const id = context.activeOrganizationId;
+  if (id === null) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "No active organization for a project-scope check.",
+    });
+  }
+  return id;
 }
 
 /**
  * Enforce the key's project scope against a known project id. No-ops for
  * non-selected keys and for a falsy `projectId` (the org check is the only
- * gate we can apply when the project can't be determined — e.g. an org-level
+ * gate we can apply when the project can't be determined, e.g. an org-level
  * environment with a null projectId).
  */
 export function enforceProjectScope(context: Context, projectId: string | null | undefined): void {
@@ -71,7 +77,7 @@ export function enforceProjectScope(context: Context, projectId: string | null |
 
 /**
  * Resolve `resource.projectId` and enforce. The `resource` table has no org
- * column — org scoping is through `project.organizationId` via inner join,
+ * column: org scoping is through `project.organizationId` via inner join,
  * exactly like the project router's own resource queries. A miss (wrong org or
  * unknown id) returns early so the handler's own NOT_FOUND fires.
  */
@@ -136,10 +142,10 @@ export async function enforceScheduleScope(
 
 /**
  * Resolve `environment.projectId` and enforce. The `environment` table has no
- * org column — org scoping is through `project.organizationId` via inner join,
+ * org column: org scoping is through `project.organizationId` via inner join,
  * exactly like the env router's own `getEnvInOrg`. A standalone (unclaimed) env
  * has a null projectId and no project to join, so it never matches here and the
- * guard no-ops — the handler's NOT_FOUND is the right error for that. A miss
+ * guard no-ops. The handler's NOT_FOUND is the right error for that. A miss
  * returns early.
  */
 export async function enforceEnvScope(

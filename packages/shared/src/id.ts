@@ -17,7 +17,7 @@ import { createId as cuid } from "@paralleldrive/cuid2";
 import * as z from "zod";
 
 // ---------------------------------------------------------------------------
-// Prefix registry — add new prefixes here as tables are created
+// Prefix registry: add new prefixes here as tables are created
 // ---------------------------------------------------------------------------
 
 export const ID_PREFIX = {
@@ -30,7 +30,7 @@ export const ID_PREFIX = {
   organization: "org",
   member: "mbr",
   invitation: "inv",
-  // api keys (better-auth apiKey plugin — table name is `apikey`)
+  // api keys (better-auth apiKey plugin, table name is `apikey`)
   apiKey: "ak",
   project: "prj",
   resource: "res",
@@ -68,23 +68,23 @@ export const ID_PREFIX = {
   notificationChannel: "ntfc",
   notificationSubscription: "ntfs",
   notificationDelivery: "ntfd",
-  // firewall — managed IP blocklists synced into CrowdSec
+  // firewall, managed IP blocklists synced into CrowdSec
   blocklist: "blk",
-  // SSH keys — org-scoped keypairs for Git auth + node management
+  // SSH keys: org-scoped keypairs for Git auth + node management
   sshKey: "ssh",
-  // TLS — operator-uploaded custom certificates + trusted CA inventory
+  // TLS: operator-uploaded custom certificates + trusted CA inventory
   customCertificate: "cert",
   trustedCa: "ca",
-  // ephemeral database credentials — short-lived, auto-disposed DB roles
+  // ephemeral database credentials: short-lived, auto-disposed DB roles
   databaseEphemeralCredential: "dbeph",
-  // webhooks — outbound event subscriptions + delivery log + inbound trigger
+  // webhooks: outbound event subscriptions + delivery log + inbound trigger
   // endpoints
   webhook: "wh",
   webhookDelivery: "whd",
   inboundEndpoint: "inhk",
   // orphaned remote resources awaiting GC (teardown couldn't reach the daemon)
   orphanedResource: "orph",
-  // private networking — the org's connected VPN/mesh account (NetBird,
+  // private networking: the org's connected VPN/mesh account (NetBird,
   // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
   meshNetwork: "mesh",
   // external secret managers — org-scoped provider connections whose secrets
@@ -104,7 +104,7 @@ export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
  *
  *  - Docker labels (`otterdeploy.resource.id`), fixed at container creation and
  *    only replaced when the container is recreated.
- *  - IDs inside stored JSON — deployment snapshots, audit payloads, manifests.
+ *  - IDs inside stored JSON. Deployment snapshots, audit payloads, manifests.
  *  - Bookmarked URLs and already-open browser tabs.
  *
  * `zId` translates those to the current spelling via `canonicalId` on the way
@@ -145,12 +145,18 @@ export const LEGACY_ID_PREFIX = {
   webhookDelivery: "whdlv",
 } as const satisfies Partial<Record<keyof typeof ID_PREFIX, string>>;
 
+/**
+ * `LEGACY_ID_PREFIX`, readable by plain string key. The object literal type
+ * carries an implicit index signature, so this is a plain widening assignment,
+ * not an assertion.
+ */
+const LEGACY_BY_KEY: Record<string, string | undefined> = LEGACY_ID_PREFIX;
+
 /** Old spelling for a current prefix, when it had one. */
-function legacyFor(prefix: IdPrefix): string | null {
+function legacyFor(prefix: string): string | null {
   for (const [key, current] of Object.entries(ID_PREFIX)) {
     if (current !== prefix) continue;
-    const old = (LEGACY_ID_PREFIX as Record<string, string | undefined>)[key];
-    return old ?? null;
+    return LEGACY_BY_KEY[key] ?? null;
   }
   return null;
 }
@@ -161,7 +167,7 @@ function legacyFor(prefix: IdPrefix): string | null {
  * Uses a plain property-name brand (`__brand`) rather than a `unique symbol`.
  * A unique-symbol brand trips TS4023/TS4058 ("cannot be named '__brand'") the
  * moment a consumer emits a type that references `Id<P>` (e.g. an oRPC
- * router's inferred output) — the emitted declaration has to name a symbol it
+ * router's inferred output). The emitted declaration has to name a symbol it
  * isn't allowed to see, so the branded input/output types stop lining up and
  * callers are forced to launder plain strings through `as never`. A plain
  * property name is always nameable across module boundaries, so it survives
@@ -178,7 +184,13 @@ export type Id<P extends string = string> = string & {
  * Format: `{prefix}_{cuid2}`
  */
 export function createId<P extends IdPrefix>(prefix: P): Id<P> {
-  return `${prefix}_${cuid()}` as Id<P>;
+  const id = `${prefix}_${cuid()}`;
+  if (!hasPrefix(id, prefix)) {
+    // Unreachable: the string was built from `prefix` one line up. The guard
+    // exists so the brand comes from a real runtime check, not an assertion.
+    throw new Error(`minted ID "${id}" does not carry prefix "${prefix}"`);
+  }
+  return id;
 }
 
 /**
@@ -202,7 +214,7 @@ export function idPrefix(id: string): string | null {
 export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> {
   if (id.startsWith(`${prefix}_`)) return true;
   // An ID minted before the prefixes were shortened is still that entity.
-  const legacy = legacyFor(prefix as IdPrefix);
+  const legacy = legacyFor(prefix);
   return legacy != null && id.startsWith(`${legacy}_`);
 }
 
@@ -213,10 +225,16 @@ export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> 
  * so a plain split on the first `_` would read it as `proxy` and miss it. That
  * is the same trap that had `idPrefix("proxy_route_...")` returning `proxy`.
  */
+const CURRENT_BY_KEY: Record<string, string | undefined> = ID_PREFIX;
 const CURRENT_FOR_LEGACY: ReadonlyArray<readonly [string, string]> = Object.entries(
   LEGACY_ID_PREFIX,
 )
-  .map(([key, old]) => [old, ID_PREFIX[key as keyof typeof ID_PREFIX]] as const)
+  .flatMap(([key, old]) => {
+    // Every LEGACY_ID_PREFIX key is an ID_PREFIX key (enforced by the
+    // `satisfies` on the table), so the lookup never actually misses.
+    const current = CURRENT_BY_KEY[key];
+    return current === undefined ? [] : [[old, current] as const];
+  })
   .sort(([a], [b]) => b.length - a.length);
 
 /**
@@ -251,7 +269,7 @@ export function zId<P extends IdPrefix>(
   prefix: P,
 ): z.ZodPipe<z.ZodString, z.ZodTransform<Id<P>, string>> {
   const legacy = legacyFor(prefix);
-  // Accept the pre-shortening spelling too — see LEGACY_ID_PREFIX. Anchored and
+  // Accept the pre-shortening spelling too. See LEGACY_ID_PREFIX. Anchored and
   // built from a fixed table, never from user input, so there is nothing to
   // escape.
   const pattern = legacy ? `^(?:${prefix}|${legacy})_` : `^${prefix}_`;
@@ -265,7 +283,16 @@ export function zId<P extends IdPrefix>(
       // translating it would only move the failure: it passes validation and then
       // matches no row, which is what a bookmarked URL or an already-open tab
       // sends after the prefixes were shortened.
-      .transform((s) => canonicalId(s) as Id<P>)
+      .transform((s) => {
+        const canonical = canonicalId(s);
+        if (!hasPrefix(canonical, prefix)) {
+          // Unreachable: the regex above admits only `${prefix}_` or the
+          // legacy spelling, and canonicalId rewrites legacy to current. The
+          // guard brands the value from a runtime check instead of asserting.
+          throw new Error(`ID "${s}" did not canonicalize to prefix "${prefix}"`);
+        }
+        return canonical;
+      })
   );
 }
 
@@ -275,7 +302,7 @@ type IdSchemaMap = {
 };
 
 /**
- * Branded-ID validators keyed by entity name — the ergonomic entry point for
+ * Branded-ID validators keyed by entity name: the ergonomic entry point for
  * branding an untrusted string at a boundary (route `validateSearch`/`params`,
  * a form field, a raw query param). `string` in, `Id<P>` out.
  *
@@ -283,9 +310,56 @@ type IdSchemaMap = {
  *   // TanStack route: the param comes out already branded.
  *   validateSearch: z.object({ id: idSchema.project })   // → ProjectId
  */
-export const idSchema = Object.fromEntries(
-  Object.entries(ID_PREFIX).map(([key, prefix]) => [key, zId(prefix as IdPrefix)]),
-) as IdSchemaMap;
+export const idSchema: IdSchemaMap = {
+  user: zId(ID_PREFIX.user),
+  session: zId(ID_PREFIX.session),
+  account: zId(ID_PREFIX.account),
+  verification: zId(ID_PREFIX.verification),
+  organization: zId(ID_PREFIX.organization),
+  member: zId(ID_PREFIX.member),
+  invitation: zId(ID_PREFIX.invitation),
+  apiKey: zId(ID_PREFIX.apiKey),
+  project: zId(ID_PREFIX.project),
+  resource: zId(ID_PREFIX.resource),
+  deployment: zId(ID_PREFIX.deployment),
+  servicePort: zId(ID_PREFIX.servicePort),
+  serviceMount: zId(ID_PREFIX.serviceMount),
+  serviceEnvVar: zId(ID_PREFIX.serviceEnvVar),
+  projectEnvVar: zId(ID_PREFIX.projectEnvVar),
+  projectEnvSubscription: zId(ID_PREFIX.projectEnvSubscription),
+  environment: zId(ID_PREFIX.environment),
+  preview: zId(ID_PREFIX.preview),
+  proxyRoute: zId(ID_PREFIX.proxyRoute),
+  deploymentGuest: zId(ID_PREFIX.deploymentGuest),
+  server: zId(ID_PREFIX.server),
+  nodeEnrollment: zId(ID_PREFIX.nodeEnrollment),
+  workspace: zId(ID_PREFIX.workspace),
+  gitProvider: zId(ID_PREFIX.gitProvider),
+  gitInstallation: zId(ID_PREFIX.gitInstallation),
+  gitRepo: zId(ID_PREFIX.gitRepo),
+  containerRegistry: zId(ID_PREFIX.containerRegistry),
+  deploymentLog: zId(ID_PREFIX.deploymentLog),
+  backup: zId(ID_PREFIX.backup),
+  backupSchedule: zId(ID_PREFIX.backupSchedule),
+  backupDestination: zId(ID_PREFIX.backupDestination),
+  backupLog: zId(ID_PREFIX.backupLog),
+  auditLog: zId(ID_PREFIX.auditLog),
+  notification: zId(ID_PREFIX.notification),
+  notificationChannel: zId(ID_PREFIX.notificationChannel),
+  notificationSubscription: zId(ID_PREFIX.notificationSubscription),
+  notificationDelivery: zId(ID_PREFIX.notificationDelivery),
+  blocklist: zId(ID_PREFIX.blocklist),
+  sshKey: zId(ID_PREFIX.sshKey),
+  customCertificate: zId(ID_PREFIX.customCertificate),
+  trustedCa: zId(ID_PREFIX.trustedCa),
+  databaseEphemeralCredential: zId(ID_PREFIX.databaseEphemeralCredential),
+  webhook: zId(ID_PREFIX.webhook),
+  webhookDelivery: zId(ID_PREFIX.webhookDelivery),
+  inboundEndpoint: zId(ID_PREFIX.inboundEndpoint),
+  orphanedResource: zId(ID_PREFIX.orphanedResource),
+  meshNetwork: zId(ID_PREFIX.meshNetwork),
+  vaultProvider: zId(ID_PREFIX.vaultProvider),
+};
 
 /**
  * Branded id types keyed by entity name, derived from {@link idSchema}:
@@ -309,13 +383,22 @@ export type Slug<P extends string = string> = string & {
 /**
  * Zod validator that normalizes any string into a slug (lowercase, trimmed,
  * dashes only) and brands it for the given entity kind. The runtime check is
- * `.slugify().min(2).max(48)` — the brand is compile-time only.
+ * `.slugify().min(2).max(48)`: the brand is compile-time only.
  *
  * @example
  *   z.object({ slug: zSlug("project") })
  */
+/**
+ * The exact shape zod's `.slugify()` emits: lowercase `[a-z0-9]` runs joined
+ * by single dashes, no leading/trailing dash. Checking it at runtime is what
+ * lets the brand be applied by narrowing instead of an assertion.
+ */
+function isSlug<P extends string>(value: string): value is Slug<P> {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+}
+
 export function zSlug<P extends string>(brand: P) {
-  // The `brand` arg is type-only at runtime — it just narrows the resulting
+  // The `brand` arg is type-only at runtime, it just narrows the resulting
   // Slug<P> generic so TS distinguishes Slug<"project"> from Slug<"env">.
   void brand;
   return z
@@ -323,89 +406,21 @@ export function zSlug<P extends string>(brand: P) {
     .slugify()
     .min(2)
     .max(48)
-    .transform((s) => s as Slug<P>);
+    .transform((s) => {
+      if (!isSlug<P>(s)) {
+        // Unreachable: `.slugify()` above already normalized `s` into exactly
+        // the shape isSlug checks.
+        throw new Error(`value "${s}" is not a normalized slug`);
+      }
+      return s;
+    });
 }
 
 // ---------------------------------------------------------------------------
-// Named brand aliases — one per ID_PREFIX entry, plus slug variants where
-// they exist. Consumers should prefer these (`ProjectId`) over the verbose
-// inline `Id<typeof ID_PREFIX.project>` form. The generic primitives above
-// are still exported for cases where the prefix is dynamic (rare).
+// Named brand aliases (`ProjectId`, `ResourceId`, `ProjectSlug`, …) live in
+// ./id-brands and are re-exported here, so every existing
+// `import { ProjectId } from "@otterdeploy/shared/id"` keeps working. The
+// split keeps this module under the line cap; the alias file is type-only.
 // ---------------------------------------------------------------------------
 
-// Auth
-export type UserId = Id<typeof ID_PREFIX.user>;
-export type SessionId = Id<typeof ID_PREFIX.session>;
-export type AccountId = Id<typeof ID_PREFIX.account>;
-export type VerificationId = Id<typeof ID_PREFIX.verification>;
-
-// Organizations
-export type OrganizationId = Id<typeof ID_PREFIX.organization>;
-export type MemberId = Id<typeof ID_PREFIX.member>;
-export type InvitationId = Id<typeof ID_PREFIX.invitation>;
-
-// Project graph
-export type ProjectId = Id<typeof ID_PREFIX.project>;
-export type ResourceId = Id<typeof ID_PREFIX.resource>;
-export type DeploymentId = Id<typeof ID_PREFIX.deployment>;
-export type ServicePortId = Id<typeof ID_PREFIX.servicePort>;
-export type ServiceMountId = Id<typeof ID_PREFIX.serviceMount>;
-export type ServiceEnvVarId = Id<typeof ID_PREFIX.serviceEnvVar>;
-export type ProjectEnvVarId = Id<typeof ID_PREFIX.projectEnvVar>;
-export type ProjectEnvSubscriptionId = Id<typeof ID_PREFIX.projectEnvSubscription>;
-export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
-export type PreviewId = Id<typeof ID_PREFIX.preview>;
-export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
-export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
-export type ServerId = Id<typeof ID_PREFIX.server>;
-export type NodeEnrollmentId = Id<typeof ID_PREFIX.nodeEnrollment>;
-export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;
-
-// Git source
-export type GitProviderId = Id<typeof ID_PREFIX.gitProvider>;
-export type GitInstallationId = Id<typeof ID_PREFIX.gitInstallation>;
-
-export type GitRepoId = Id<typeof ID_PREFIX.gitRepo>;
-
-// Build pipeline
-export type ContainerRegistryId = Id<typeof ID_PREFIX.containerRegistry>;
-export type DeploymentLogId = Id<typeof ID_PREFIX.deploymentLog>;
-
-// Backups
-export type BackupId = Id<typeof ID_PREFIX.backup>;
-export type BackupScheduleId = Id<typeof ID_PREFIX.backupSchedule>;
-export type BackupDestinationId = Id<typeof ID_PREFIX.backupDestination>;
-export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
-
-export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
-export type BlocklistId = Id<typeof ID_PREFIX.blocklist>;
-export type SshKeyId = Id<typeof ID_PREFIX.sshKey>;
-export type CustomCertificateId = Id<typeof ID_PREFIX.customCertificate>;
-export type TrustedCaId = Id<typeof ID_PREFIX.trustedCa>;
-export type DatabaseEphemeralCredentialId = Id<typeof ID_PREFIX.databaseEphemeralCredential>;
-
-export type NotificationId = Id<typeof ID_PREFIX.notification>;
-
-// Webhooks
-export type WebhookId = Id<typeof ID_PREFIX.webhook>;
-export type WebhookDeliveryId = Id<typeof ID_PREFIX.webhookDelivery>;
-export type InboundEndpointId = Id<typeof ID_PREFIX.inboundEndpoint>;
-
-export type OrphanedResourceId = Id<typeof ID_PREFIX.orphanedResource>;
-
-// Private networking (NetBird / Tailscale) — docs/designs/vpn-mesh.md
-export type MeshNetworkId = Id<typeof ID_PREFIX.meshNetwork>;
-
-// External secret managers (HashiCorp Vault / Infisical / Doppler)
-export type VaultProviderId = Id<typeof ID_PREFIX.vaultProvider>;
-
-// Notification channels
-export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;
-export type NotificationSubscriptionId = Id<typeof ID_PREFIX.notificationSubscription>;
-export type NotificationDeliveryId = Id<typeof ID_PREFIX.notificationDelivery>;
-
-// Slugs (URL-safe identifiers, distinct from cuid IDs)
-export type ProjectSlug = Slug<typeof ID_PREFIX.project>;
-export type EnvironmentSlug = Slug<typeof ID_PREFIX.environment>;
-// Back-compat alias — pre-existing callsites import `EnvSlug`.
-export type EnvSlug = EnvironmentSlug;
+export type * from "./id-brands";

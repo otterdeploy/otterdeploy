@@ -64,7 +64,7 @@ initLogger({
     enricherPlugin("audit-context", auditEnricher()),
     // Persist audit events to Postgres. `auditOnly` filters to events with
     // `event.audit` set; `await` makes the write crash-safe. Runs alongside
-    // the default console drain — normal logging is untouched.
+    // the default console drain: normal logging is untouched.
     drainPlugin("audit-pg", auditOnly(createAuditPgDrain(), { await: true })),
   ],
 });
@@ -73,7 +73,7 @@ const app = new Hono<EvlogVariables>();
 
 // Cache policy, set HERE rather than left to the edge or the browser's
 // heuristics. Vite content-hashes every asset filename, so those are immutable
-// and can be cached for a year — but `index.html` is the mutable pointer AT
+// and can be cached for a year, but `index.html` is the mutable pointer AT
 // them, and it shipped with no cache directives at all. A browser then applies
 // heuristic caching to it, keeps the old index, and the old index keeps naming
 // the old hashed bundle (itself cached). The result: an operator ran the
@@ -85,37 +85,37 @@ app.use("/*", async (c, next) => {
   // Mutate the response's own headers rather than calling `c.header()`: by the
   // time this runs, serveStatic has already produced the Response, and
   // `c.header()` only feeds headers into a response Hono has yet to build. The
-  // difference is silent — it set the asset header (served by the first
+  // difference is silent. It set the asset header (served by the first
   // handler) and dropped it on index.html (served by the deep-link fallback),
   // which is the one that actually needed it.
   const set = (v: string) => {
     try {
       c.res.headers.set("Cache-Control", v);
     } catch {
-      // An immutable Headers (some upstream Responses) — nothing to do, and a
+      // An immutable Headers (some upstream Responses), nothing to do, and a
       // cache hint is never worth failing a request over.
     }
   };
-  // Content-hashed build output — the name changes when the bytes do.
+  // Content-hashed build output. The name changes when the bytes do.
   if (c.req.path.startsWith("/assets/")) {
     set("public, max-age=31536000, immutable");
     return;
   }
   // Everything else the SPA serves is a mutable entry point (index.html and
-  // the deep-link fallback below). `no-cache` still allows a 304 — it means
+  // the deep-link fallback below). `no-cache` still allows a 304. It means
   // "revalidate", not "never store".
   if (!c.res.headers.get("Cache-Control")) set("no-cache");
 });
 
-// od-5j8.10 — trusted-proxy + body-limit gates. Both run FIRST, ahead of
+// od-5j8.10, trusted-proxy + body-limit gates. Both run FIRST, ahead of
 // every other middleware (including evlog): sanitizing X-Forwarded-*
 // against the trusted-proxy list before evlog's auditEnricher reads
 // x-forwarded-for straight off the headers is what keeps a spoofed IP out of
-// the audit trail (evlog has no injectable IP resolver — see
+// the audit trail (evlog has no injectable IP resolver, see
 // packages/api/src/security/trusted-proxy.ts), and rejecting an oversized
 // body before any handler/logger touches it is what makes the 413 early
 // rather than post-buffer. Shared with the terminal-WS/ticket work
-// (od-5j8.9) landing in this same file — kept to these two focused
+// (od-5j8.9) landing in this same file: kept to these two focused
 // `app.use` calls so the two changes don't collide.
 app.use(async (c, next) => {
   sanitizeForwardingHeaders(c);
@@ -128,9 +128,9 @@ const identify = createAuthMiddleware(auth, {
     "/api/auth/**", // Better Auth itself
     "/api/public/**", // Public endpoints
     "/api/health", // Health checks
-    "/api/webhooks/**", // Inbound webhooks — auth is per-source signature
-    "/api/integrations/github/**", // GitHub App install callback — uses signed state
-    "/api/agent/**", // Health-agent ingest — auth is a Bearer HMAC machine token
+    "/api/webhooks/**", // Inbound webhooks: auth is per-source signature
+    "/api/integrations/github/**", // GitHub App install callback: uses signed state
+    "/api/agent/**", // Health-agent ingest: auth is a Bearer HMAC machine token
   ],
   include: ["/api/**"],
   maskEmail: true,
@@ -145,7 +145,7 @@ app.use(
 
 // Streaming-tolerant logger wrapper. For event-iterator procedures the
 // response body keeps producing after evlog's `finish()` has already
-// emitted the wide event — any `log.set()` from the generator body races
+// emitted the wide event. Any `log.set()` from the generator body races
 // against that flush and gets dropped with a console warning. We silence
 // the noise by intercepting `emit` to flip a local flag, then making
 // post-emit `set` a silent no-op. Pre-emit `set` still works normally;
@@ -184,26 +184,43 @@ app.use(
     // origins (3001 vs 3000 in dev, and any split-origin deploy), so sign-up
     // sends `x-otterdeploy-bootstrap-token` as a CORS-unsafe request header. Left
     // out, the browser fails the preflight and the first-account form can never
-    // reach the server — the one flow with no alternative path in.
+    // reach the server, the one flow with no alternative path in.
     allowHeaders: ["Content-Type", "Authorization", BOOTSTRAP_TOKEN_HEADER],
     credentials: true,
   }),
 );
+
+// Every status hono's `ContentfulStatusCode` names (except the type-only -1
+// "unofficial" marker). Each literal is checked against the union, so a hono
+// upgrade that changes the set fails compilation here instead of drifting.
+const CONTENTFUL_STATUS_CODES: ReadonlySet<ContentfulStatusCode> = new Set([
+  100, 102, 103, 200, 201, 202, 203, 206, 207, 208, 226, 300, 301, 302, 303, 305, 306, 307, 308,
+  400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418,
+  421, 422, 423, 424, 425, 426, 428, 429, 431, 451, 500, 501, 502, 503, 504, 505, 506, 507, 508,
+  510, 511,
+]);
+
+function isContentfulStatusCode(status: number): status is ContentfulStatusCode {
+  const codes: ReadonlySet<number> = CONTENTFUL_STATUS_CODES;
+  return codes.has(status);
+}
 
 app.onError((error, c) => {
   c.get("log").error(error);
   const parsed = parseError(error);
   return c.json(
     { message: parsed.message, why: parsed.why, fix: parsed.fix },
-    parsed.status as ContentfulStatusCode,
+    // parseError types `status` as a bare number; a non-standard or bodyless
+    // status can't carry this JSON error body, so those collapse to 500.
+    isContentfulStatusCode(parsed.status) ? parsed.status : 500,
   );
 });
 
 // Public but deliberately low-information: everything the unauthenticated
 // sign-in page needs to render itself correctly, and nothing more.
 //
-//   mode            — bootstrap form / open sign-up / invitation-only.
-//   socialProviders — the ids actually registered on the live auth instance.
+//   mode: bootstrap form / open sign-up / invitation-only.
+//   socialProviders: the ids actually registered on the live auth instance.
 //
 // The provider list has to be served at RUNTIME rather than baked into the
 // bundle (the old VITE_AUTH_SOCIAL_PROVIDERS): a self-hoster runs a prebuilt
@@ -226,7 +243,7 @@ app.get("/api/auth/bootstrap-status", async (c) => {
 });
 
 // Device-code responses get their verification URLs rebased onto the canonical
-// control-plane origin on the way out — better-auth can only take a static
+// control-plane origin on the way out: better-auth can only take a static
 // string for that option. See handlers/auth/device-origin.ts.
 app.on(["POST", "GET"], "/api/auth/*", async (c) =>
   withCanonicalDeviceOrigin(c.req.path, await auth.handler(c.req.raw)),
@@ -261,7 +278,7 @@ const rpcHandler = new RPCHandler(appRouter, {
  * every RPC and OpenAPI response.
  *
  * The CLI reads these off the call it was already making and warns the user
- * when the pair has drifted apart — see packages/api/src/routers/system/compat.ts
+ * when the pair has drifted apart. See packages/api/src/routers/system/compat.ts
  * for why release-time lockstep does not make that check redundant. Set on the
  * response rather than served from an endpoint so it costs no round trip and
  * needs no auth; browsers ignore it, and a CLI talking to an older server sees
@@ -319,12 +336,12 @@ app.get(
 // `/health` (prod compose healthcheck) is a READINESS probe: it runs a real
 // query through the same cache→Postgres path product reads use. During the
 // od-664 wedge this exact process served a static 200 here for three days
-// while every projects-page query hung — a healthcheck that touches nothing
+// while every projects-page query hung: a healthcheck that touches nothing
 // certifies nothing. 503 on failure so `docker ps` shows (unhealthy) and
 // monitoring can alert or restart.
 //
 // `/api/health` (browser poll during self-update cutover, auth-excluded) stays
-// a static LIVENESS payload on purpose — mid-cutover the new container may
+// a static LIVENESS payload on purpose: mid-cutover the new container may
 // answer before its dependencies do, and the updater only needs "process up,
 // which version", not "fully ready".
 const healthPayload = {
@@ -341,7 +358,7 @@ app.get("/api/health", (c) => c.json(healthPayload));
 // ─── Workbench: BullMQ dashboard (dev only) ────────────────────────
 // The queue-inspection UI (every registry queue, incl. the builder's
 // deploy.triggered) ships ONLY in dev: @getworkbench/hono is a devDependency,
-// so a production image never installs it — and its heavy transitive deps
+// so a production image never installs it, and its heavy transitive deps
 // (vite, @cloudflare/workerd, ~150MB) stay out of the image. The dynamic import
 // lives behind the NODE_ENV gate so a production bundle never resolves it. It
 // can also mutate jobs, so keeping it off in prod is safer. Registered here
@@ -352,14 +369,14 @@ if (env.NODE_ENV !== "production") {
   app.route("/jobs", workbench({ queues: await workbenchQueues(), title: "otterdeploy jobs" }));
 }
 
-// Terminal websocket. Auth is NOT cookie-based here (od-5j8.9) — the handler
+// Terminal websocket. Auth is NOT cookie-based here (od-5j8.9). The handler
 // validates Origin and consumes a single-use ticket minted by the
 // authenticated `terminal.mintTicket` oRPC call; see
 // apps/server/src/handlers/terminal/ws.ts.
 app.get("/pty", terminalWebSocketHandler);
 
 app.post("/api/webhooks/github", githubWebhookHandler);
-// Inbound trigger endpoints (Webhooks page). Public by design — auth is the
+// Inbound trigger endpoints (Webhooks page). Public by design: auth is the
 // per-endpoint HMAC signature + optional IP allowlist, verified in the
 // handler; rides the same /api/webhooks/** identify exclusion as GitHub's.
 app.post("/api/webhooks/in/:token", inboundWebhookHandler);
@@ -380,7 +397,7 @@ app.post("/api/node-enrollments/:id/complete", completeNodeEnrollmentHandler);
 // ─── Local source upload ───────────────────────────────────────────
 // `otterdeploy deploy` streams a source tarball here for a `source: "upload"`
 // service; the handler stages it on the shared data dir and enqueues the build
-// (Bearer session token or org API key). Raw route — binary body. See
+// (Bearer session token or org API key). Raw route: binary body. See
 // packages/api/src/routers/project/upload-source.ts.
 app.post("/api/services/:resourceId/source", uploadSourceHandler);
 
@@ -393,11 +410,11 @@ app.get("/api/internal/deploy-authz", deployAuthzHandler);
 app.get("/.well-known/otterdeploy/authorize", deployAuthorizeHandler);
 app.get("/.well-known/otterdeploy/callback", deployCallbackHandler);
 app.get("/.well-known/otterdeploy/share", deployShareHandler);
-// Guest access (email one-time PIN) — served on the deployment domain.
+// Guest access (email one-time PIN), served on the deployment domain.
 app.get("/.well-known/otterdeploy/access", deployAccessHandler);
 app.post("/.well-known/otterdeploy/otp/request", deployOtpRequestHandler);
 app.post("/.well-known/otterdeploy/otp/verify", deployOtpVerifyHandler);
-// Access PIN (NetBird-style shared code) — served on the deployment domain.
+// Access PIN (NetBird-style shared code), served on the deployment domain.
 app.post("/.well-known/otterdeploy/pin/verify", deployPinVerifyHandler);
 
 // ─── Static web dashboard (production single-image) ────────────────────────
@@ -418,7 +435,7 @@ app.get("/assets/*", (c) => c.notFound());
 app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
 
 // Live streams (deployment build logs, project events, container/task log
-// tails) all run over oRPC event-iterators on /rpc — see packages/api. The
+// tails) all run over oRPC event-iterators on /rpc. See packages/api. The
 // client retry plugin gives them EventSource-style auto-reconnect, so there
 // are no bespoke /sse/* routes to maintain here.
 
@@ -441,16 +458,19 @@ runBootstrap();
 // second listener there would EADDRINUSE against ourselves and crash-loop. Only
 // bind when the two ports differ (the dev case: portless gives the main server a
 // dynamic port, so the deterministic CONTROL_PLANE_PORT doesn't collide).
-const g = globalThis as typeof globalThis & {
-  __controlPlaneListener?: { reload: (o: { fetch: typeof app.fetch }) => void };
-};
+declare global {
+  // `var` in `declare global` is how the property becomes visible on
+  // `globalThis` without asserting a shape onto it.
+
+  var __controlPlaneListener: { reload: (o: { fetch: typeof app.fetch }) => void } | undefined;
+}
 if (env.CONTROL_PLANE_PORT && env.CONTROL_PLANE_PORT !== env.PORT) {
-  if (g.__controlPlaneListener) {
+  if (globalThis.__controlPlaneListener) {
     // --hot reloaded: swap the handler in place so the auth routes pick up
     // edits without a rebind (avoids both EADDRINUSE and stale code).
-    g.__controlPlaneListener.reload({ fetch: app.fetch });
+    globalThis.__controlPlaneListener.reload({ fetch: app.fetch });
   } else {
-    g.__controlPlaneListener = Bun.serve({
+    globalThis.__controlPlaneListener = Bun.serve({
       port: env.CONTROL_PLANE_PORT,
       hostname: "0.0.0.0",
       fetch: app.fetch,

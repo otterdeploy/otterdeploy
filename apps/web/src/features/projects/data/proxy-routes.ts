@@ -14,8 +14,8 @@ const routeIdSchema = zId("rt");
  * `project.proxyRoute.list`. One row per published HTTP / layer-4 route the
  * reconciler maintains.
  *
- * Routes themselves are reconciler-owned (no create/delete from the client) —
- * the only user-settable fields are `protected` (the auth wall) and
+ * Routes themselves are reconciler-owned (no create/delete from the client).
+ * The only user-settable fields are `protected` (the auth wall) and
  * `routePolicy`. Both ride `onUpdate`, dispatching to the matching oRPC
  * procedure on whichever field changed, so the protection switch and policy
  * dialog mutate the collection instead of holding their own
@@ -31,7 +31,7 @@ const routeIdSchema = zId("rt");
  * rolls back and the caller can surface the inline parse error from the
  * rejection.
  */
-/** Namespace prefix every subset key extends — a bare orpc key never matches a
+/** Namespace prefix every subset key extends: a bare orpc key never matches a
  *  collection's prefixed key.
  *
  *  Local to this module now. It used to be exported for the project event
@@ -48,7 +48,7 @@ export class RoutePolicyRejectedError extends Error {
 }
 
 const proxyRoutesQueryOptions = queryCollectionOptions({
-  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // Stable id so the OPFS-backed SQLite table survives page loads. See
   // projectCollection for why persistence never round-trips without one.
   id: "proxy-routes",
   syncMode: "on-demand",
@@ -73,9 +73,7 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
   onUpdate: async ({ transaction }) => {
     await Promise.all(
       transaction.mutations.map(async (m) => {
-        // Branded already: the row's id comes from the contract's output
-        // schema, so no assertion is needed to address the route.
-        const routeId = m.original.id;
+        const routeId = routeIdSchema.parse(m.original.id);
         // The auth-wall toggle.
         if (m.changes.protected !== undefined) {
           await orpc.project.proxyRoute.setProtection.call({
@@ -111,7 +109,7 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
 
 type ProxyRouteRow = Awaited<ReturnType<typeof orpc.project.proxyRoute.list.call>>[number];
 
-// Two-branch createCollection + pinned generics — see projectCollection for why.
+// Two-branch createCollection + pinned generics: see projectCollection for why.
 export const proxyRoutesCollection = persistence
   ? createCollection(
       persistedCollectionOptions<ProxyRouteRow, string | number>({
@@ -127,7 +125,7 @@ export const proxyRoutesCollection = persistence
  * email + one-time code). Sourced from `project.proxyRoute.listGuests`, scoped
  * by `eq(g.routeId, …)`. Insert → inviteGuest, delete → removeGuest; the add /
  * remove rows are optimistic, so the form drops its own pending flag. The
- * server list omits `routeId` (it's the path param) — we stamp it back on each
+ * server list omits `routeId` (it's the path param), we stamp it back on each
  * row so the client-side `eq` filter matches.
  */
 const routeGuestsQueryOptions = queryCollectionOptions({
@@ -154,8 +152,9 @@ const routeGuestsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const row = m.modified;
+        const routeId = routeIdSchema.parse(row.routeId);
         await orpc.project.proxyRoute.inviteGuest.call({
-          routeId: row.routeId,
+          routeId,
           email: row.email,
           sessionHours: row.sessionHours,
         });
@@ -163,7 +162,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
         // id, normalized email) replaces it.
         void queryClient.invalidateQueries({
           queryKey: orpc.project.proxyRoute.listGuests.queryKey({
-            input: { routeId: row.routeId },
+            input: { routeId },
           }),
         });
       }),
@@ -173,7 +172,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map((m) =>
         orpc.project.proxyRoute.removeGuest.call({
-          routeId: m.original.routeId,
+          routeId: routeIdSchema.parse(m.original.routeId),
           guestId: m.original.id,
         }),
       ),

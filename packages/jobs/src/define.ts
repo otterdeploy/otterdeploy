@@ -6,8 +6,8 @@ import type { z } from "zod";
  * with the job's name/id/attempt automatically tagged.
  *
  * Fields are `UnknownRecord` (not `JsonObject`) on purpose: this bridges to
- * evlog's global `Log`, whose wide events accept arbitrary runtime values —
- * handlers pass live `Error` instances (e.g. `{ error: err }`) that evlog
+ * evlog's global `Log`, whose wide events accept arbitrary runtime values.
+ * Handlers pass live `Error` instances (e.g. `{ error: err }`) that evlog
  * serializes itself. */
 export interface JobLogger {
   info(fields: UnknownRecord): void;
@@ -23,15 +23,15 @@ export interface JobLogger {
 export interface JobContext<TPayload> {
   /** Structured logger scoped to this job run. */
   log: JobLogger;
-  /** Underlying BullMQ Job — escape hatch for advanced needs (children, etc.). */
+  /** Underlying BullMQ Job: escape hatch for advanced needs (children, etc.). */
   job: Job<TPayload>;
 }
 
 /**
- * A typed job definition. Use the `defineJob()` helper to build one — it's
+ * A typed job definition. Use the `defineJob()` helper to build one. It's
  * just an identity function that locks in the generics.
  */
-export interface JobDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface JobDef<TSchema extends z.ZodType = z.ZodType> {
   /** Logical job name. Becomes the BullMQ queue name. */
   name: string;
   /** Zod schema for the job payload (validated on enqueue and on worker pickup). */
@@ -51,6 +51,6 @@ export interface JobDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
   };
 }
 
-export function defineJob<TSchema extends z.ZodTypeAny>(def: JobDef<TSchema>): JobDef<TSchema> {
+export function defineJob<TSchema extends z.ZodType>(def: JobDef<TSchema>): JobDef<TSchema> {
   return def;
 }

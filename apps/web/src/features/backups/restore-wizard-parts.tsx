@@ -14,7 +14,7 @@ import { cn } from "@/shared/lib/utils";
 import { Field } from "./shared";
 
 /** `into` restores the snapshot into a DIFFERENT existing database rather than
- *  over its own source — the API's `targetResourceId`. It is not a distinct
+ *  over its own source. The API's `targetResourceId`. It is not a distinct
  *  server mode: the request still goes as `in-place`, with a target attached. */
 export type RestoreMode = "download" | "in-place" | "into";
 export type Step = 0 | 1 | 2;
@@ -92,7 +92,7 @@ export function RestoreModeCard({
   );
 }
 
-/** The Confirm stage — a plain note for downloads, the typed-name gate for in-place. */
+/** The Confirm stage: a plain note for downloads, the typed-name gate for in-place. */
 export function ConfirmStep({
   mode,
   source,
@@ -147,6 +147,11 @@ export function ConfirmStep({
   );
 }
 
+/** Adjacent-step tables: keep `Step` closed under back/forward navigation
+ *  without arithmetic that would widen the union to `number`. */
+const PREV_STEP: Record<Step, Step> = { 0: 0, 1: 0, 2: 1 };
+const NEXT_STEP: Record<Step, Step> = { 0: 1, 1: 2, 2: 2 };
+
 /** Cancel / Back / Continue / run controls along the wizard's bottom edge. */
 export function WizardFooter({
   step,
@@ -172,12 +177,12 @@ export function WizardFooter({
         Cancel
       </Button>
       {step > 0 && (
-        <Button variant="outline" size="sm" onClick={() => onStep((step - 1) as Step)}>
+        <Button variant="outline" size="sm" onClick={() => onStep(PREV_STEP[step])}>
           Back
         </Button>
       )}
       {step < 2 ? (
-        <Button size="sm" onClick={() => onStep((step + 1) as Step)}>
+        <Button size="sm" onClick={() => onStep(NEXT_STEP[step])}>
           Continue
         </Button>
       ) : (

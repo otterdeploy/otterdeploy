@@ -1,7 +1,7 @@
 /**
  * Server (swarm node) lifecycle. Per-org scoped.
  *
- * Org scoping is enforced via the `organization_id` column directly — unlike
+ * Org scoping is enforced via the `organization_id` column directly. Unlike
  * envs, servers don't transitively belong to a project. List / get / delete
  * all filter on `(server.id, server.organizationId)` to prevent cross-tenant
  * reads.
@@ -132,7 +132,7 @@ export async function provisionServer(
         meshProvider,
         buildServer: input.buildServer ?? false,
       }),
-    // Must RETURN, never throw — see createServer above.
+    // Must RETURN, never throw. See createServer above.
     catch: (cause) =>
       isUniqueViolation(cause)
         ? new ServerConflictError({ host: input.host })
@@ -162,7 +162,7 @@ export async function provisionServer(
 /**
  * od-5j8.11 drift remediation: re-apply the host firewall + native CrowdSec
  * bouncer to an already-joined server. Unlike retryProvision this works on
- * ANY provisionStatus (a "ready" node can still be firewall-drifted) — it
+ * ANY provisionStatus (a "ready" node can still be firewall-drifted). It
  * only requires a stored managed SSH key, since a one-time bootstrap
  * password is never persisted past the initial join.
  */
@@ -211,7 +211,7 @@ export async function retryProvision(
       new ProvisionNotFailedError({ serverId: input.id, status: existing.provisionStatus }),
     );
   }
-  // A one-time-password run — or a mesh join — stored no reusable secret, so
+  // A one-time-password run (or a mesh join) stored no reusable secret, so
   // there's nothing left to reconnect/rejoin with. Re-add the server instead.
   if (!existing.sshKeyId || existing.meshProvider !== "none") {
     return Result.err(new ProvisionMissingCredentialError({ serverId: input.id }));

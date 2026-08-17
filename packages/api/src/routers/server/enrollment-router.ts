@@ -1,4 +1,4 @@
-import type { NodeEnrollmentId, UserId } from "@otterdeploy/shared/id";
+import { ID_PREFIX, hasPrefix } from "@otterdeploy/shared/id";
 
 import type { Context } from "../../context";
 
@@ -39,7 +39,7 @@ async function requireEnrollmentStepUp(
 
   // `verifyStepUpCredential`, not a bare `verifyTotpCode`: this used to reject
   // anyone without 2FA outright, which made node enrollment impossible for an
-  // operator who had never set up an authenticator — while still showing them
+  // operator who had never set up an authenticator, while still showing them
   // a code field. The shared primitive asks for whichever credential the
   // account actually has, exactly as terminal step-up does.
   const verified = await verifyStepUpCredential(context, user, {
@@ -87,9 +87,15 @@ export const serverEnrollmentRouter = {
       if (!(await isSwarmEnrollmentReady(input.role))) {
         throw errors.SWARM_UNAVAILABLE();
       }
+      // Step-up above guarantees a session user exists; the prefix guard
+      // brands the id from a runtime check instead of asserting.
+      const userId = context.session?.user.id;
+      if (userId === undefined || !hasPrefix(userId, ID_PREFIX.user)) {
+        throw errors.INVALID_STEP_UP();
+      }
       const created = await createNodeEnrollment({
         organizationId: context.activeOrganizationId,
-        createdByUserId: context.session?.user.id as UserId,
+        createdByUserId: userId,
         role: input.role,
         ttlMinutes: input.ttlMinutes,
       });
@@ -110,7 +116,7 @@ export const serverEnrollmentRouter = {
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "node-enrollment", id: input.id } });
       const revoked = await revokeNodeEnrollment({
-        id: input.id as NodeEnrollmentId,
+        id: input.id,
         organizationId: context.activeOrganizationId,
       });
       if (!revoked) throw errors.NOT_FOUND();

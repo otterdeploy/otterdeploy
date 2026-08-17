@@ -67,7 +67,7 @@ export interface SwarmServiceSpec {
   /**
    * Mounts attached to the container. File-type mounts MUST already be
    * materialized to disk (see materializeServiceMounts) before this spec
-   * is handed to docker — the SpecMount entries here always reference a
+   * is handed to docker. The SpecMount entries here always reference a
    * real source path or volume name. Pass an empty array for no mounts.
    */
   mounts: SpecMount[];
@@ -86,7 +86,7 @@ export interface SwarmServiceSpec {
   /**
    * The deployment row this rollout serves. Stamped as the
    * `otterdeploy.deployment.id` label on BOTH the service and the container
-   * spec so live swarm tasks can be bucketed back to their deployment — that's
+   * spec so live swarm tasks can be bucketed back to their deployment. That's
    * what feeds the per-deployment task counts (the "N/M replica" badge and
    * "N tasks" history) in the deployments tab. Mirrors the database spec.
    * Null when no deployment row exists yet (e.g. an image service created
@@ -97,8 +97,8 @@ export interface SwarmServiceSpec {
   /**
    * Swarm node id this service is pinned to, already resolved from the
    * resource's `placementServerId` (see swarm/resolve-placement). Null/absent
-   * leaves the scheduler free, which is the right default for stateless work —
-   * a pinned service does not fail over.
+   * leaves the scheduler free, which is the right default for stateless work.
+   * A pinned service does not fail over.
    */
   placementNodeId?: string | null;
 }
@@ -151,7 +151,7 @@ export async function updateSwarmService(
   const networkName = await ensureProjectNetwork(spec.projectSlug, rlog);
   const existing = await inspectSwarmService(docker, spec.serviceName, networkName);
   if (!existing) {
-    // Not yet provisioned — fall through to provision path.
+    // Not yet provisioned: fall through to provision path.
     docker.destroy();
     return provisionSwarmService(spec, rlog);
   }
@@ -198,7 +198,7 @@ export async function updateSwarmService(
 }
 
 // ---------------------------------------------------------------------------
-// Restart (forces task replacement with current spec — caller has bumped
+// Restart (forces task replacement with current spec, caller has bumped
 // `forceUpdateCounter` so the swarm sees a meaningful diff in ForceUpdate.)
 // ---------------------------------------------------------------------------
 

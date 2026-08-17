@@ -28,7 +28,7 @@ import {
 type DomainRow = Awaited<ReturnType<CliClient["service"]["domains"]["list"]>>[number];
 
 // Server normalizes domains (trim, lowercase, strip trailing dot) before
-// storing — apply the same normalization so lookups by hostname match.
+// storing: apply the same normalization so lookups by hostname match.
 function normalizeDomain(domain: string): string {
   return domain.trim().toLowerCase().replace(/\.$/, "");
 }
@@ -93,13 +93,13 @@ function printDomainState(record: DomainRow): void {
 
 function printDnsInstructions(record: DomainRow, serviceName: string): void {
   if (record.status === "disabled") {
-    warn("Service is not publicly exposed — the route stays disabled until it is.");
+    warn("Service is not publicly exposed. The route stays disabled until it is.");
   }
   switch (record.dnsState) {
     case "pointed":
       return;
     case "proxied":
-      note("Domain is behind a proxy (e.g. Cloudflare) — TLS is terminated there.");
+      note("Domain is behind a proxy (e.g. Cloudflare). TLS is terminated there.");
       return;
     default: {
       if (record.dnsTarget) {
@@ -201,10 +201,10 @@ const removeDomain = defineCommand({
     const record = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
     if (!args.yes) {
       // Removing the primary silently promotes another domain, which changes
-      // where generated URLs point — say so before asking.
-      const caveat = record.isPrimary ? " (primary — another domain will be promoted)" : "";
+      // where generated URLs point: say so before asking.
+      const caveat = record.isPrimary ? " (primary; another domain will be promoted)" : "";
       const q = `Remove ${record.domain} from ${ctx.resourceName}${caveat}?`;
-      if (!(await confirm(q))) abort("Aborted — nothing was removed.");
+      if (!(await confirm(q))) abort("Aborted. Nothing was removed.");
     }
     await ctx.client.service.domains.remove({
       projectId: ctx.projectId,

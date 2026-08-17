@@ -2,7 +2,7 @@ import type { NotificationId } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
- * In-app notifications — one row per delivered notification to a user. The
+ * In-app notifications: one row per delivered notification to a user. The
  * `notification.send` job writes these; the web client reads the unread feed
  * and marks them read. `push`/`sms` channels are delivered through external
  * providers (see packages/jobs/src/jobs/notification.ts) and still leave an
@@ -27,7 +27,7 @@ export const notification = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
 
-    // Tenant scope — nullable for account-level (non-org) notifications.
+    // Tenant scope, nullable for account-level (non-org) notifications.
     organizationId: text("organization_id").references(() => organization.id, {
       onDelete: "cascade",
     }),

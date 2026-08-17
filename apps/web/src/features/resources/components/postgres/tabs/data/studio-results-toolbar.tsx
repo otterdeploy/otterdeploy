@@ -28,13 +28,13 @@ import { isFilterActive } from "./data/filters";
 
 type TableController = DataStudioController["table"];
 
-/** Data ↔ Structure — the toolbar's view toggle for the open table. */
+/** Data ↔ Structure: the toolbar's view toggle for the open table. */
 export function DataStructureToggle({ t }: { t: TableController }) {
   return (
     <ToggleGroup
       size="sm"
       value={[t.tableView]}
-      onValueChange={([v]) => v && t.setTableView(v as "data" | "structure")}
+      onValueChange={([v]) => (v === "data" || v === "structure") && t.setTableView(v)}
       className="gap-0.5"
     >
       <ToggleGroupItem value="data" aria-label="Data view" className="h-6 gap-1 px-1.5 text-[11px]">

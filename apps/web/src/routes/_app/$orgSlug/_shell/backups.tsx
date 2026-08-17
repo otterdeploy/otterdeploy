@@ -1,5 +1,5 @@
 /**
- * Backups — database dumps, schedules, and storage destinations for the active
+ * Backups: database dumps, schedules, and storage destinations for the active
  * org. Reads three TanStack DB collections via live queries and renders them;
  * all mutation lives on the collections (or the run/restore actions). Filtering
  * stays client-side over the full list.

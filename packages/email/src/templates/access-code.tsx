@@ -27,7 +27,7 @@ export function AccessCodeEmail({
       </Para>
       <CodePanel code={code} />
       <Muted>
-        This code expires in {expiresInMinutes} minutes and can be used once. Don&apos;t share it —
+        This code expires in {expiresInMinutes} minutes and can be used once. Don&apos;t share it:
         anyone with the code can view the deployment.
       </Muted>
       <Footnote>If you didn&apos;t request this, you can safely ignore this email.</Footnote>

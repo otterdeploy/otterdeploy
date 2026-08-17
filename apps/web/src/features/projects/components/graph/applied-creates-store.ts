@@ -8,7 +8,7 @@
  *   - the resource collection (TanStack DB) → gains the new resource row
  * They settle at different times. In the window where diff has already dropped
  * the create but the resource hasn't landed yet, the node belongs to neither
- * source and unmounts — then remounts when the resource arrives. That's the
+ * source and unmounts, then remounts when the resource arrives. That's the
  * disappear/reappear.
  *
  * Discard has no such gap (the resource never lands, and we *want* the ghost
@@ -18,7 +18,7 @@
  * mounted until the matching resource appears, then clears them. Discard never
  * records, so its ghosts drop the instant diff drops them.
  *
- * Keys are `${resource}:${name}` — the same id the graph node carries.
+ * Keys are `${resource}:${name}`. The same id the graph node carries.
  */
 
 import { useSyncExternalStore } from "react";
@@ -88,7 +88,7 @@ export function clearAppliedCreate(projectId: string, key: string) {
 
 /**
  * Drop EVERY recorded create for a project. Called on Discard: discard removes
- * the pending changes from the manifest, so the diff stops reporting them — but
+ * the pending changes from the manifest, so the diff stops reporting them, but
  * a create recorded by a prior Deploy (whose resource never landed, e.g. a
  * failed apply) has nothing to clear it, so the graph would keep re-synthesizing
  * its ghost from this store until the 30s TTL. Clearing here makes the ghost

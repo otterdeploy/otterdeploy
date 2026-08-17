@@ -28,7 +28,16 @@ import { and, eq } from "drizzle-orm";
 
 import { resolveStackDumpTarget } from "./stack";
 
-export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
+const BACKUP_ENGINES = ["postgres", "redis", "mariadb", "mongodb"] as const;
+
+export type DatabaseEngine = (typeof BACKUP_ENGINES)[number];
+
+/** Narrow a stored engine string to the engines the dump pipeline supports.
+ *  The DB enum is wider (it also has `clickhouse`), so this is a real check,
+ *  not a formality: an unsupported engine resolves to no context/target. */
+function toBackupEngine(engine: string): DatabaseEngine | null {
+  return BACKUP_ENGINES.find((e) => e === engine) ?? null;
+}
 
 /** Fields common to every run, regardless of what it backs up. */
 interface ExecutionContextBase {
@@ -39,7 +48,7 @@ interface ExecutionContextBase {
   storagePath: string | null;
   /** sha256 of the stored archive body (null until the run succeeds). */
   checksum: string | null;
-  /** Pre-backup command (scheduled runs only) — exec'd in the DB container. */
+  /** Pre-backup command (scheduled runs only), exec'd in the DB container. */
   preHook: string | null;
   /** Owning schedule (null for manual runs); tags snapshots for tag-scoped `forget`. */
   scheduleId: BackupScheduleId | null;
@@ -57,7 +66,7 @@ interface ExecutionContextBase {
 
 /** Discriminated by source: a managed-database dump, a compose-stack database
  *  dump, or a named-volume tar. `database` and `stack` carry an identical field
- *  set (engine + credentials + the container's resourceId) — they differ only in
+ *  set (engine + credentials + the container's resourceId). They differ only in
  *  provenance, so the whole dump→rustic pipeline treats them uniformly. */
 export type ExecutionContext =
   | (ExecutionContextBase & {
@@ -143,15 +152,16 @@ async function toStackContext(
   };
 }
 
-/** Managed database — require the full resource + database join to have
+/** Managed database: require the full resource + database join to have
  *  resolved, same as the old inner joins. */
 function toDatabaseContext(base: ExecutionContextBase, row: ContextRow): ExecutionContext | null {
+  const engine = row.engine ? toBackupEngine(row.engine) : null;
   if (
     !row.resourceId ||
     !row.resourceName ||
     !row.projectId ||
     !row.projectSlug ||
-    !row.engine ||
+    !engine ||
     row.databaseName == null ||
     row.username == null ||
     row.password == null
@@ -165,7 +175,7 @@ function toDatabaseContext(base: ExecutionContextBase, row: ContextRow): Executi
     resourceName: row.resourceName,
     projectId: row.projectId,
     projectSlug: row.projectSlug,
-    engine: row.engine as DatabaseEngine,
+    engine,
     databaseName: row.databaseName,
     username: row.username,
     password: row.password,
@@ -223,7 +233,7 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
 }
 
 /**
- * Where a restore WRITES — which is not necessarily where the snapshot came
+ * Where a restore WRITES, which is not necessarily where the snapshot came
  * from.
  *
  * `getExecutionContext` resolves a run's own source; restoring a snapshot into
@@ -244,7 +254,7 @@ export interface DatabaseTarget {
 export async function resolveDatabaseTarget(
   resourceId: ResourceId,
   /** Scope: the target must belong to the caller's org. Without this a caller
-   *  could restore their own snapshot INTO another tenant's database — the
+   *  could restore their own snapshot INTO another tenant's database. The
    *  snapshot is scoped upstream, the write target was not. */
   organizationId: OrganizationId,
 ): Promise<DatabaseTarget | null> {
@@ -266,11 +276,13 @@ export async function resolveDatabaseTarget(
   if (!row || row.databaseName == null || row.username == null || row.password == null) {
     return null;
   }
+  const engine = toBackupEngine(row.engine);
+  if (!engine) return null;
   return {
     resourceId: row.resourceId,
     resourceName: row.resourceName,
     projectSlug: row.projectSlug,
-    engine: row.engine as DatabaseEngine,
+    engine,
     databaseName: row.databaseName,
     username: row.username,
     password: row.password,

@@ -1,11 +1,11 @@
 /**
- * Audit filter bar — range / custom dates / actor / action / target / outcome
+ * Audit filter bar: range / custom dates / actor / action / target / outcome
  * / search. The form itself is created by the route (`useAuditFilterForm`) so
  * the route keeps deriving its query input from the same store; this file owns
  * the option sources (the `audit.distinct` query) and the controls' rendering.
  *
  * Every categorical control is a searchable Combobox (Base UI) rather than a
- * plain select — the actor / action / target lists can run to dozens of
+ * plain select: the actor / action / target lists can run to dozens of
  * distinct values, so type-to-filter is the only usable affordance. The range
  * ("time rate") and outcome pickers use the same control for one coherent bar.
  */
@@ -46,14 +46,14 @@ const OUTCOME_OPTIONS: FilterOption[] = [
 const RANGE_OPTIONS: FilterOption[] = RANGES.map((r) => ({ value: r.id, label: r.label }));
 
 /** Filters live in a TanStack Form used purely as a reactive state container.
- *  No submit — the route's `useStore` re-renders on every value change. */
+ *  No submit: the route's `useStore` re-renders on every value change. */
 export function useAuditFilterForm() {
   return useForm({ defaultValues: DEFAULT_AUDIT_FILTER });
 }
 export type AuditFilterForm = ReturnType<typeof useAuditFilterForm>;
 
 /** Distinct actor / action / target-kind values over the *time window only*
- *  (not the other filters) — so picking one option doesn't make the rest
+ *  (not the other filters), so picking one option doesn't make the rest
  *  vanish from their dropdowns. Same stable-key trick as the stats query.
  *  If the current selection has aged out of the window, `withCurrent` keeps
  *  it as an extra option so the control doesn't silently blank while the
@@ -91,9 +91,9 @@ export function AuditFilters({
   queryFilter,
 }: {
   form: AuditFilterForm;
-  /** Live (undebounced) filter values — drives the visible controls. */
+  /** Live (undebounced) filter values. Drives the visible controls. */
   filter: AuditFilter;
-  /** Debounced filter — the one the route queries with; keys the distinct query. */
+  /** Debounced filter: the one the route queries with; keys the distinct query. */
   queryFilter: AuditFilter;
 }) {
   const { actorOptions, actionOptions, targetOptions } = useFilterOptions(filter, queryFilter);
@@ -219,7 +219,7 @@ export function AuditFilters({
 }
 
 /** Inject the current selection into the option list when the distinct query
- *  no longer returns it (window changed) — a control with a value that has no
+ *  no longer returns it (window changed). A control with a value that has no
  *  matching option renders blank while still filtering. */
 function withCurrent(options: FilterOption[], current: string): FilterOption[] {
   if (current === "any" || options.some((o) => o.value === current)) return options;
@@ -229,8 +229,8 @@ function withCurrent(options: FilterOption[], current: string): FilterOption[] {
 /**
  * Searchable single-select used by every categorical audit filter. Options are
  * `{ value, label }`; when `anyLabel` is given an "Any" sentinel (value `"any"`)
- * is prepended so clearing the filter is one click. The range picker omits it —
- * a time window is always one of the presets.
+ * is prepended so clearing the filter is one click. The range picker omits it.
+ * A time window is always one of the presets.
  */
 function FilterCombobox({
   value,

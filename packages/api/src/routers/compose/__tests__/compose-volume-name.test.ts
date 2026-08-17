@@ -1,11 +1,11 @@
 /**
  * Compose named volumes are file-local (`data`, `db-data`), so the docker
- * volume behind one has to be scoped to its stack — otherwise two stacks in a
+ * volume behind one has to be scoped to its stack. Otherwise two stacks in a
  * project share a volume and each other's data.
  *
  * The mapper used to drop named volumes entirely. Services then fell back to an
- * ANONYMOUS volume from their image's own VOLUME directive — a fresh, empty one
- * on every redeploy — or got no persistence at all. Determinism is the whole
+ * ANONYMOUS volume from their image's own VOLUME directive. A fresh, empty one
+ * on every redeploy, or got no persistence at all. Determinism is the whole
  * point of the name: a redeploy must reattach the same data.
  */
 
@@ -20,7 +20,7 @@ describe("composeVolumeName", () => {
     );
   });
 
-  it("is deterministic — a redeploy reattaches the same volume", () => {
+  it("is deterministic, a redeploy reattaches the same volume", () => {
     const a = composeVolumeName("store-rustfs", "rustfs-data");
     const b = composeVolumeName("store-rustfs", "rustfs-data");
     expect(a).toBe(b);

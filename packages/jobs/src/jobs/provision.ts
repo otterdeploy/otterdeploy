@@ -7,7 +7,7 @@ import { defineJob } from "../define";
  * swarm). The REAL handler is wired in `apps/server` because it needs
  * `@otterdeploy/api`'s SSH + manager-socket access, which can't live in
  * `packages/jobs` (that would invert the dependency). The inline handler below
- * is a fallback that only logs — reaching it means no server process claimed
+ * is a fallback that only logs. Reaching it means no server process claimed
  * the queue. Design: docs/designs/server-onboarding.md
  *
  * Secrets (SSH password, mesh auth key, cloudflare token) travel as AES-GCM
@@ -29,7 +29,7 @@ export const ProvisionServerPayload = z.object({
   meshAuthKeyCiphertext: z.string().nullable().optional(),
   cloudflareTokenCiphertext: z.string().nullable().optional(),
   // od-5j8.11: re-run ONLY the host-firewall + native-bouncer steps against
-  // an already-joined node (drift remediation) — skips Docker install/swarm
+  // an already-joined node (drift remediation): skips Docker install/swarm
   // join entirely. Requires sshKeyId (no password path: nothing is stored to
   // reconnect with after the initial join).
   firewallOnly: z.boolean().default(false),
@@ -50,7 +50,7 @@ export const provisionServerJob = defineJob({
   async handler(payload, { log }) {
     log.warn({
       provision: { event: "no-handler", serverId: payload.serverId },
-      why: "server.provision reached the fallback handler — apps/server must wire the real one",
+      why: "server.provision reached the fallback handler; apps/server must wire the real one",
     });
     return { acknowledged: true };
   },

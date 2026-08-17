@@ -1,6 +1,7 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
-import type { JsonObject } from "@otterdeploy/shared/json";
 
 /** Append a non-request control-plane action to the same durable audit trail
  * used by oRPC. Background work has no request logger/audit plugin envelope,

@@ -1,4 +1,3 @@
-import type { JsonObject } from "@otterdeploy/shared/json";
 import { describe, expect, it } from "vite-plus/test";
 
 import { resolveEnvironment } from "../merge";
@@ -67,52 +66,51 @@ describe("resolveEnvironment", () => {
       },
     };
     const merged = resolveEnvironment(m, "production");
-    expect((merged.services.web as { ports: unknown[] }).ports).toEqual([{ container: 8080 }]);
+    expect(merged.services.web?.ports).toEqual([{ container: 8080 }]);
   });
 
   it("deletes keys when override value is null", () => {
-    const m = {
-      ...base(),
+    // `null` env overrides are merge-time-only syntax the Manifest type can't
+    // express (envMap values are strings), so the fixture rides in through
+    // Object.assign's intersection rather than a type assertion.
+    const m = Object.assign(base(), {
       environments: {
         production: {
-          services: { web: { env: { LOG_LEVEL: null as unknown as string } } },
+          services: { web: { env: { LOG_LEVEL: null } } },
         },
       },
-    } as unknown as Manifest;
+    });
     const merged = resolveEnvironment(m, "production");
-    expect((merged.services.web as { env: Record<string, string> }).env).not.toHaveProperty(
-      "LOG_LEVEL",
-    );
-    expect((merged.services.web as { env: Record<string, string> }).env.DATABASE_URL).toBe(
-      "${database:primary.url}",
-    );
+    expect(merged.services.web?.env).not.toHaveProperty("LOG_LEVEL");
+    expect(merged.services.web?.env?.DATABASE_URL).toBe("${database:primary.url}");
   });
 
   it("replaces the whole block on discriminator change (image → git)", () => {
-    const m = {
+    const m: Manifest = {
       ...base(),
       environments: {
         preview: {
           services: { web: { source: "git", sourceSubdir: "." } },
         },
       },
-    } as unknown as Manifest;
+    };
     const merged = resolveEnvironment(m, "preview");
-    const web = merged.services.web as JsonObject;
+    const web = merged.services.web;
     expect(web).toEqual({ source: "git", sourceSubdir: "." });
-    expect(web.image).toBeUndefined();
-    expect(web.replicas).toBeUndefined();
+    expect(web !== undefined && "image" in web).toBe(false);
+    expect(web !== undefined && "replicas" in web).toBe(false);
   });
 
   it("removes a database entirely via null override", () => {
-    const m = {
-      ...base(),
+    // Same story as the null env override above: a null database block is
+    // merge-time-only syntax, so no valid Manifest literal can carry it.
+    const m = Object.assign(base(), {
       environments: {
         local: {
           databases: { primary: null },
         },
       },
-    } as unknown as Manifest;
+    });
     const merged = resolveEnvironment(m, "local");
     expect(merged.databases.primary).toBeUndefined();
   });

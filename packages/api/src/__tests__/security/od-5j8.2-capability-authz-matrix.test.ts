@@ -1,5 +1,5 @@
 /**
- * od-5j8.2 — central capability authorization across every transport.
+ * od-5j8.2: central capability authorization across every transport.
  *
  * Invariant under test:
  *   1. An unauthenticated caller is rejected by the capability boundary
@@ -9,10 +9,10 @@
  *      an org API key never gains install authority) is rejected.
  *   3. Every non-oRPC transport that performs privileged work (the raw HTTP
  *      upload route, the WebSocket PTY upgrade) delegates its decision to the
- *      SAME `authorizeCapability` function oRPC procedures use — not a
+ *      SAME `authorizeCapability` function oRPC procedures use, not a
  *      hand-rolled parallel check that can drift out of sync.
  *   4. Structurally, no router file builds a procedure directly off
- *      `publicProcedure` — every handler in `packages/api/src/routers/**`
+ *      `publicProcedure`: every handler in `packages/api/src/routers/**`
  *      is reachable only through a procedure builder that requires at least
  *      authentication (`protectedProcedure`/`orgScopedProcedure`/
  *      `projectScopedProcedure`/`requirePermission`/`requireInstallAdmin`/
@@ -179,7 +179,7 @@ describe("[od-5j8.2] under-privileged callers are rejected", () => {
   });
 
   test("a malformed capability (missing organizationId) still fails closed rather than defaulting to allow", async () => {
-    // @ts-expect-error — hostile input: a capability object missing the
+    // @ts-expect-error. Hostile input: a capability object missing the
     // required `organizationId` must not be treated as an implicit allow.
     // (An organization-scope capability with no id can never equal the
     // actor's own org id, so this must resolve to an explicit deny.)
@@ -197,11 +197,11 @@ describe("[od-5j8.2] every API key is capped at the least-privileged org role", 
     // authorizeKeyScope alone would allow this (the key's own map grants it);
     // authorizeRoleScope is the second, independent gate that caps every key
     // at `member` regardless of what the key's stored permission map claims.
-    expect(authorizeRoleScope({ member: ["delete"] } as never)).toBe(false);
+    expect(authorizeRoleScope({ member: ["delete"] })).toBe(false);
   });
 
   test("a key requesting an ordinary member-level action is allowed by the role cap", () => {
-    expect(authorizeRoleScope({ service: ["deploy"] } as never)).toBe(true);
+    expect(authorizeRoleScope({ service: ["deploy"] })).toBe(true);
   });
 });
 
@@ -210,7 +210,7 @@ describe("[od-5j8.2] non-oRPC transports delegate to the same capability boundar
     orpc: "packages/api/src/index.ts",
     rawUpload: "apps/server/src/handlers/upload/source.ts",
     // od-5j8.9: the WebSocket PTY upgrade itself no longer authorizes
-    // anything — target authorization now happens once, at ticket-mint time,
+    // anything: target authorization now happens once, at ticket-mint time,
     // through the ordinary `terminal.mintTicket` oRPC procedure. See
     // packages/api/src/__tests__/security/od-5j8.9-terminal-ticket-origin.test.ts
     // for the WS-transport invariants (Origin check, ticket consumption, no
@@ -248,7 +248,7 @@ describe("[od-5j8.2] a procedure with no declared capability still fails closed 
       const text = readSource(file);
       if (/\bpublicProcedure\b/.test(text)) offenders.push(file);
     }
-    // publicProcedure is the unauthenticated base — it exists only to build
+    // publicProcedure is the unauthenticated base. It exists only to build
     // protectedProcedure/orgScopedProcedure in index.ts. A router that
     // references it directly would define an endpoint reachable with no
     // authentication at all, silently bypassing every capability check below.

@@ -3,7 +3,7 @@
  * `./database.ts`; this file pins `engine: "postgres"` for callers that
  * haven't migrated to the generic database surface yet.
  *
- * Prefer the generic exports (provisionSwarmDatabase etc.) for new code —
+ * Prefer the generic exports (provisionSwarmDatabase etc.) for new code:
  * those carry the `engine` field and work for redis / mariadb / mongodb
  * without any wrapper changes.
  */

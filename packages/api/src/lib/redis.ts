@@ -1,7 +1,7 @@
 /**
  * Redis client factory used by the API process outside the BullMQ
  * machinery (live log subscriptions, future pub/sub consumers).
- * BullMQ stays on ioredis (its own internal dependency) — we don't
+ * BullMQ stays on ioredis (its own internal dependency). We don't
  * speak to it through this helper.
  *
  * Uses Bun's built-in RedisClient, which exposes pub/sub via a
@@ -13,7 +13,7 @@ import { env } from "@otterdeploy/env/server";
 import { RedisClient } from "bun";
 
 /**
- * Open a fresh Bun Redis client. Callers own the lifecycle — call
+ * Open a fresh Bun Redis client. Callers own the lifecycle. Call
  * `.close()` when done. A client that has called `subscribe()` can't
  * issue normal commands, so publish + subscribe in the same process
  * need two clients (call `createRedis()` twice or use `.duplicate()`).

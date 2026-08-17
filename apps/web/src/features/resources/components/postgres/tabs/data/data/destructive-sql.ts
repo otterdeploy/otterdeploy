@@ -3,7 +3,7 @@
  * statements (DROP / TRUNCATE / unscoped DELETE / unscoped UPDATE) get the
  * type-the-database-name gate; everything else gets a plain styled confirm.
  *
- * Deliberately a simple lexical heuristic, not a parser — comments and
+ * Deliberately a simple lexical heuristic, not a parser: comments and
  * single-quoted strings are stripped first so literals can't false-positive,
  * then each `;`-separated statement is checked by its leading keyword. A CTE
  * that fans into a DELETE (`WITH … DELETE`) is missed by design; it still

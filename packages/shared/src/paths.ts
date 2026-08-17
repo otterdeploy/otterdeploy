@@ -16,13 +16,7 @@
  *
  * See docs/designs/data-folder.md.
  */
-import type {
-  DeploymentId,
-  EnvironmentId,
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "./id";
+import type { DeploymentId, EnvironmentId, OrganizationId, ProjectId, ResourceId } from "./id";
 
 /**
  * Root for everything below. Defaults to `/data/otterdeploy`; override with
@@ -87,8 +81,7 @@ export interface ResourceRef {
 
 /** Path segment for an environment: the stable env id, or `main` for the NULL
  *  (main) environment. */
-export const envSegment = (environmentId: EnvironmentId | null): string =>
-  environmentId ?? "main";
+export const envSegment = (environmentId: EnvironmentId | null): string => environmentId ?? "main";
 
 /** Root of one organization's subtree. */
 export const orgDir = (organizationId: OrganizationId): string =>
@@ -141,8 +134,7 @@ export const composeVolumeDir = (ref: ResourceRef, member: string): string =>
 
 /** Backup dumps staged before off-cluster upload. Scratch: written and cleared
  *  per run, TTL-swept. Durable repos live under `orgBackupRepoRoot`. */
-export const backupStagingDir = (ref: ResourceRef): string =>
-  `${resourceDir(ref)}/backup-staging`;
+export const backupStagingDir = (ref: ResourceRef): string => `${resourceDir(ref)}/backup-staging`;
 
 /* ------------------------------------------------------------------------- *
  * work/ — ephemeral build scratch, TTL-swept by the builder. Kept

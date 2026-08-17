@@ -75,7 +75,7 @@ export async function removeGuest(
 
 /**
  * Wall-level check: is `email` an invited guest of the deployment on `domain`,
- * and if so for how long (hours)? Returns null when not invited — callers must
+ * and if so for how long (hours)? Returns null when not invited. Callers must
  * treat null and "invited" identically to the user (anti-enumeration).
  */
 export async function guestSessionHoursFor(domain: string, email: string): Promise<number | null> {

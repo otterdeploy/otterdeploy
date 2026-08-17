@@ -2,13 +2,13 @@
  * Deep readiness probe for `/health`.
  *
  * The od-664 outage proved a static `{ok: true}` health payload is worse than
- * none: the server process was wedged for three days — project queries parked
- * on a never-settling await — while the compose healthcheck kept reading
+ * none: the server process was wedged for three days, project queries parked
+ * on a never-settling await, while the compose healthcheck kept reading
  * "healthy" off a handler that touched nothing. This probe answers the
  * question the healthcheck is actually asking: can this process still serve a
  * real query?
  *
- * The probe runs the same path a product read runs — a Drizzle select on the
+ * The probe runs the same path a product read runs. A Drizzle select on the
  * `resource` table, which flows through the global Redis query cache and then
  * Postgres. That table is chosen deliberately: it is the one whose query path
  * wedged in od-664 (project.list and project.resource.list hung; project-only
@@ -27,13 +27,13 @@ const READINESS_TIMEOUT_MS = 5_000;
 
 export interface ReadinessResult {
   ok: boolean;
-  /** Present only on failure — safe to expose, carries no query data. */
+  /** Present only on failure: safe to expose, carries no query data. */
   error?: string;
 }
 
 export async function checkReadiness(): Promise<ReadinessResult> {
   try {
-    // Async wrapper because a Drizzle builder is a thenable, not a Promise —
+    // Async wrapper because a Drizzle builder is a thenable, not a Promise,
     // and crucially it only dispatches when awaited, which must happen INSIDE
     // the race so the deadline covers the query itself.
     await withTimeout(

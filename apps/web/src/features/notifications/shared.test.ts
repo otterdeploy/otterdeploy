@@ -177,20 +177,20 @@ describe("bellLabel", () => {
   });
 
   it("appends the failure hint only when one applies", () => {
-    expect(bellLabel({ unread: "Notifications — 2 unread", failure: null })).toBe(
-      "Notifications — 2 unread",
+    expect(bellLabel({ unread: "Notifications: 2 unread", failure: null })).toBe(
+      "Notifications: 2 unread",
     );
-    expect(bellLabel({ unread: "Notifications — 1 unread", failure: "has a failure" })).toBe(
-      "Notifications — 1 unread — has a failure",
+    expect(bellLabel({ unread: "Notifications: 1 unread", failure: "has a failure" })).toBe(
+      "Notifications: 1 unread, has a failure",
     );
   });
 
-  it("says nothing about builds — those belong to the activity indicator", () => {
+  it("says nothing about builds: those belong to the activity indicator", () => {
     // The bell answers "anything unread?" and only that. In-flight work is the
     // activity indicator's job, and duplicating it here is what made the old
     // pulsing ring both redundant and (being project-scoped) frequently wrong.
-    expect(bellLabel({ unread: "Notifications — 3 unread", failure: "failure" })).toBe(
-      "Notifications — 3 unread — failure",
+    expect(bellLabel({ unread: "Notifications: 3 unread", failure: "failure" })).toBe(
+      "Notifications: 3 unread, failure",
     );
   });
 });

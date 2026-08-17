@@ -1,10 +1,10 @@
 /**
- * Data-viewer fetching hooks — the React-Query layer over `database.query` /
+ * Data-viewer fetching hooks. The React-Query layer over `database.query` /
  * `database.tables`. Everything that *reads* the live database lives here, so
  * the components stay presentational; SQL strings come from `./queries`.
  *
  * `resourceId` is typed `string` here and cast to the branded oRPC input type
- * at the call boundary (`never` is assignable to any input type) — callers pass
+ * at the call boundary (`never` is assignable to any input type). Callers pass
  * the plain resource id.
  */
 
@@ -48,7 +48,7 @@ export function useDataCapabilities(resourceId: string) {
 
 /**
  * Primary-key columns for the selected table, in key order. An empty array
- * (table has no PK) means rows can't be edited — the grid stays read-only.
+ * (table has no PK) means rows can't be edited. The grid stays read-only.
  */
 export function useTablePrimaryKey({
   resourceId,
@@ -110,7 +110,7 @@ export function useQueryRows({
 }
 
 /**
- * Cell variants + FK targets for the selected table — both read
+ * Cell variants + FK targets for the selected table: both read
  * `information_schema` through the same read-only query path, then reshape into
  * column-keyed maps the grid consumes.
  */
@@ -156,7 +156,7 @@ export function useTableColumnMeta({
     return m;
   })();
 
-  // Collapsed display types ("varchar", "timestamp") — the Columns popover and
+  // Collapsed display types ("varchar", "timestamp"): the Columns popover and
   // row-detail panel label columns with these.
   const columnTypes = (() => {
     const m: Record<string, string> = {};
@@ -214,7 +214,7 @@ export function useTableStructure({
   return { query, structure };
 }
 
-/** Columns + PK flag for one table — lazy (only once its row is expanded). */
+/** Columns + PK flag for one table: lazy (only once its row is expanded). */
 export function useTableColumns({
   resourceId,
   table,

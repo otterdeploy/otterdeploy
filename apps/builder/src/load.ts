@@ -12,7 +12,7 @@
  * The registry is optional: when the project binds an external one we
  * load its credentials (the build pushes there for remote/multi-node
  * swarms); with no binding we resolve a registry-less local image name
- * and the build stays on the host daemon — see `runBuildPipeline`.
+ * and the build stays on the host daemon. See `runBuildPipeline`.
  */
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
@@ -33,7 +33,7 @@ import { and, eq } from "drizzle-orm";
 export interface PipelineContext {
   deployment: typeof deployment.$inferSelect;
   resource: typeof resource.$inferSelect;
-  /** The service row for this resource — carries `buildConfig`, which
+  /** The service row for this resource: carries `buildConfig`, which
    *  tells the pipeline which builder to dispatch to (and its options). */
   service: typeof serviceResource.$inferSelect;
   project: typeof project.$inferSelect;
@@ -44,11 +44,11 @@ export interface PipelineContext {
    *  registry is bound, else a registry-less local name the build `--load`s
    *  into the host daemon and swarm runs directly. */
   imageRepository: string;
-  /** The bound git repo — `null` for a `source: "upload"` service, whose source
+  /** The bound git repo, `null` for a `source: "upload"` service, whose source
    *  arrives as an uploaded tarball rather than a clone. */
   repo: typeof gitRepo.$inferSelect | null;
   /** GitHub-side numeric installation id used to mint clone tokens, resolved
-   *  from `repo.installationId` (an internal `git_installation.id` FK — NOT
+   *  from `repo.installationId` (an internal `git_installation.id` FK, NOT
    *  the value GitHub's token API wants). Only resolved for *private* repos
    *  (public repos clone anonymously and never mint a token); `null` for
    *  public bindings or when no installation is needed. Mirrors the resolution
@@ -90,16 +90,16 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
   const [proj] = await db.select().from(project).where(eq(project.id, res.projectId)).limit(1);
   if (!proj) throw new PipelineLoadError("project", `${res.projectId} not found`);
 
-  // Git binding now lives on the SERVICE, not the project — two services in one
+  // Git binding now lives on the SERVICE, not the project. Two services in one
   // project can build from two different repos. Fail fast if this one isn't
   // bound (the operator picks a repo in the service's Source settings). An
-  // `upload` service has no repo at all — its source is the uploaded tarball —
+  // `upload` service has no repo at all (its source is the uploaded tarball)
   // so it skips this check and the repo/installation loading below entirely.
   const isUpload = svc.source === "upload";
   if (!isUpload && !svc.gitRepoId) {
     throw new PipelineLoadError(
       "service.gitRepoId",
-      `service ${res.name} has no git repo binding — pick a repo in its Source settings`,
+      `service ${res.name} has no git repo binding. Pick a repo in its Source settings`,
     );
   }
 
@@ -108,7 +108,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
   // is matched from the shared registry library by the image's host. With no
   // imageRepository we build a registry-less local image: the builder shares the
   // host docker socket with the single-node swarm, so the `--load`ed image is
-  // already present where the container runs — no push. This is the default.
+  // already present where the container runs, no push. This is the default.
   let registry: typeof containerRegistry.$inferSelect | null = null;
   let imageRepository: string;
   if (svc.imageRepository) {
@@ -126,7 +126,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     if (!reg) {
       throw new PipelineLoadError(
         "registry",
-        `no registry credential for host ${host} — add one in Registries or clear the image target`,
+        `no registry credential for host ${host}. Add one in Registries or clear the image target`,
       );
     }
     registry = reg;
@@ -135,7 +135,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     imageRepository = localImageRepository(svc.serviceName);
   }
 
-  // Upload source: no repo, no clone token — the tarball is the whole source.
+  // Upload source: no repo, no clone token: the tarball is the whole source.
   if (isUpload) {
     return {
       deployment: dep,
@@ -149,15 +149,22 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     };
   }
 
-  const [repo] = await db
-    .select()
-    .from(gitRepo)
-    .where(eq(gitRepo.id, svc.gitRepoId as NonNullable<typeof svc.gitRepoId>))
-    .limit(1);
+  // Unreachable in practice: every upload service returned above and the
+  // `!isUpload && !svc.gitRepoId` guard already threw. Restated as a real
+  // narrow so the query below needs no non-null assertion.
+  const gitRepoId = svc.gitRepoId;
+  if (!gitRepoId) {
+    throw new PipelineLoadError(
+      "service.gitRepoId",
+      `service ${res.name} has no git repo binding. Pick a repo in its Source settings`,
+    );
+  }
+
+  const [repo] = await db.select().from(gitRepo).where(eq(gitRepo.id, gitRepoId)).limit(1);
   if (!repo) {
     throw new PipelineLoadError("repo", `git_repo ${svc.gitRepoId} not found`);
   }
-  // Only a *private* repo actually needs a clone token — a public repo clones
+  // Only a *private* repo actually needs a clone token. A public repo clones
   // fine over anonymous HTTPS. repo.installationId is an internal
   // `git_installation.id` FK; the token mint + GitHub API want the *numeric*
   // installation id, so resolve the row here (handing the internal id to
@@ -165,7 +172,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
   //
   // Resolving is gated on isPrivate so a PUBLIC repo that was bound through the
   // GitHub App and later lost its installation (app removed / reconnected,
-  // which orphans the FK) still builds — it doesn't need the token at all.
+  // which orphans the FK) still builds. It doesn't need the token at all.
   // Only a private repo hard-fails, with a reconnect hint. Same lookup as
   // manifest-apply-git.ts.
   let githubInstallationId: string | null = null;
@@ -178,7 +185,7 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     if (!inst) {
       throw new PipelineLoadError(
         "installation",
-        `git_installation ${repo.installationId} not found — reconnect GitHub in Settings → Git Providers`,
+        `git_installation ${repo.installationId} not found. Reconnect GitHub in Settings → Git Providers`,
       );
     }
     githubInstallationId = inst.installationId;

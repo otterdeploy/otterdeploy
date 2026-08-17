@@ -581,7 +581,7 @@ export function describeNoProviderError({
     lines.push('  • Codex CLI: not installed.');
   }
   if (chatAvailable()) {
-    lines.push('  • Chat: an Impeccable live session is polling but selection chose another provider — unexpected; please report.');
+    lines.push('  • Chat: an Impeccable live session is polling but selection chose another provider. Unexpected; please report.');
   } else {
     lines.push('  • Chat: no Impeccable live session is currently polling on this server. Start Impeccable live in your chat to route Apply through the chat agent.');
   }
@@ -638,7 +638,7 @@ export function extractRunnerErrorMessage(output, command) {
  * For claude we run the same `--print --output-format json` invocation we use
  * for real batches; an unauthenticated CLI fails in ~36 ms with
  * { is_error: true, result: "Not logged in · ..." }.
- * For codex we only confirm the binary exists — `codex exec` always burns a
+ * For codex we only confirm the binary exists: `codex exec` always burns a
  * real LLM call, so checking auth without spending tokens is not possible
  * here; if the user has codex installed but unauthed, the runtime error from
  * runCodex (now improved by extractRunnerErrorMessage) will surface clearly.

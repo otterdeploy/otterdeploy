@@ -1,7 +1,7 @@
 /**
  * The auth-wall (deployment protection) toggle for one HTTP route. Shared
  * by the Routes-table cell and the Networking → Access tab. Mutates the
- * shared `proxyRoutesCollection` — the optimistic flip is instant and rolls
+ * shared `proxyRoutesCollection`: the optimistic flip is instant and rolls
  * back (with a toast) if the server rejects.
  */
 
@@ -10,6 +10,10 @@ import { toast } from "sonner";
 
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import { Switch } from "@/shared/components/ui/switch";
+
+/** Callers hand routes around as `{ id: string }`; parse back to the branded
+ *  id at the collection boundary instead of asserting. */
+const routeIdSchema = zId("rt");
 
 /**
  * The status beside the switch, in a box sized to the longer of the two
@@ -39,7 +43,7 @@ export function ProtectionSwitch({
   const onToggle = (checked: boolean) => {
     // Parse, don't cast: the row's id travels as a plain string through the
     // table's view types — validate the brand at the mutation boundary.
-    const tx = proxyRoutesCollection.update(zId("rt").parse(route.id), (draft) => {
+    const tx = proxyRoutesCollection.update(routeIdSchema.parse(route.id), (draft) => {
       draft.protected = checked;
     });
     tx.isPersisted.promise

@@ -2,12 +2,12 @@
  * One outbound webhook: target URL, effective status (failing is derived from
  * recent delivery failures server-side), delivery stats, subscribed-event
  * chips, and the HMAC signing secret behind an eye-reveal. Mirrors the
- * notifications ChannelCard idiom — `rounded-md border bg-card` shell +
+ * notifications ChannelCard idiom: `rounded-md border bg-card` shell +
  * outline action cluster.
  *
  * Delete rides `outboundCollection` (optimistic). Test and pause stay direct
  * `client.webhooks.outbound.*` calls: `test` has no row to mutate and `pause`
- * flips a server-computed status — both refetch the list on success.
+ * flips a server-computed status. Both refetch the list on success.
  */
 import { useState } from "react";
 

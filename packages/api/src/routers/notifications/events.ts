@@ -1,5 +1,5 @@
 /**
- * Platform event catalog — the rows of the subscription matrix. Server-side
+ * Platform event catalog: the rows of the subscription matrix. Server-side
  * source of truth: the contract validates subscription `eventId`s against
  * EVENT_IDS, and event emitters look up severity here so providers (PagerDuty,
  * etc.) get a consistent level. The web client keeps a parallel labelled copy

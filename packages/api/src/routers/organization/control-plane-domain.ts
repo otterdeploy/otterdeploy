@@ -1,6 +1,6 @@
 /**
  * Control-plane domain settings (platform-wide singleton). The domain the
- * otterdeploy dashboard/API itself answers on — distinct from the org base
+ * otterdeploy dashboard/API itself answers on: distinct from the org base
  * domain, which is where *deployed resources* publish. Surfaced under org
  * settings for the single-tenant beta (same precedent as email-settings).
  *
@@ -28,7 +28,7 @@ export interface ControlPlaneDomainView {
   domain: string | null;
   verifiedAt: Date | null;
   verifyToken: string | null;
-  /** Where the A record should point — surfaced so the UI can render the
+  /** Where the A record should point. Surfaced so the UI can render the
    *  exact record to create. Null until boot detection / operator input. */
   serverIp: string | null;
 }
@@ -93,7 +93,7 @@ export async function setControlPlaneDomain(
     .onConflictDoUpdate({ target: platformSettings.id, set });
 
   // Take effect immediately: the site block appears (or disappears) on the
-  // live edge without waiting for verification — cert is internal until then.
+  // live edge without waiting for verification. Cert is internal until then.
   await reconcile(rlog);
   return getControlPlaneDomain();
 }
@@ -154,7 +154,7 @@ export async function autoConfigureControlPlaneDomain(
     return Result.err(
       new ControlPlaneDomainError(
         "domain",
-        "Save a control-plane domain first — there's nothing to point Cloudflare at.",
+        "Save a control-plane domain first. There's nothing to point Cloudflare at.",
       ),
     );
   }
@@ -170,12 +170,12 @@ export async function autoConfigureControlPlaneDomain(
     return Result.err(
       new ControlPlaneDomainError(
         "server-ip",
-        "Platform serverIp not configured — set it before auto-configuring DNS.",
+        "Platform serverIp not configured: set it before auto-configuring DNS.",
       ),
     );
   }
 
-  // Capture narrowed values — the guards above don't carry into the closure.
+  // Capture narrowed values: the guards above don't carry into the closure.
   const domain = row.controlPlaneFqdn;
   const verifyToken = row.controlPlaneFqdnVerifyToken;
   const serverIp = row.serverIp;

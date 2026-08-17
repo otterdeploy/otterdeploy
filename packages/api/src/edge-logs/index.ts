@@ -42,4 +42,19 @@ export {
   persistenceEnabled,
 } from "./persist";
 export { startEdgeLogSink, stopEdgeLogSink } from "./ingest";
+export {
+  startThreatRollup,
+  stopThreatRollup,
+  flushThreatRollup,
+  __resetThreatRollup,
+} from "./threat-rollup";
+export {
+  startEdgeAnalytics,
+  stopEdgeAnalytics,
+  recordAnalytics,
+  snapshotAccumulators,
+  __resetEdgeStatAgg,
+} from "./aggregate";
+export { pruneAnalyticsRollups } from "./aggregate-flush";
+export { maybeBackfillAnalytics } from "./analytics-backfill";
 export { ensureEdgeLogTable, ensurePartitions, dropOldPartitions } from "./partition";

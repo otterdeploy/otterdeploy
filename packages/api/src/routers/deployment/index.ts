@@ -1,5 +1,5 @@
 /**
- * Deployment router — cross-resource deployment reads. Per-resource
+ * Deployment router: cross-resource deployment reads. Per-resource
  * deployment history lives under `project.resource.deployments.*`
  * (see ../project/router-resource-deployments); this namespace holds the
  * project-wide views.

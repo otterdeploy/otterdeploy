@@ -1,20 +1,20 @@
 import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 /**
- * od-5j8.6 — Caddy admin isolation + typed route policy.
+ * od-5j8.6: Caddy admin isolation + typed route policy.
  *
  * Invariant under test:
  *   1. `routeValidationError` (the final boundary before a value becomes a
  *      Caddyfile token) rejects loopback, private, and "foreign alias"
- *      upstreams — a tenant proxy route can only ever target an identity the
+ *      upstreams: a tenant proxy route can only ever target an identity the
  *      control plane itself minted (`otterdeploy-<slug>` service names, the
  *      `*.otterdeploy.internal` database naming convention, or the literal
  *      control-plane server/host.docker.internal pair).
- *   2. `routePolicySchema` is a closed (`.strict()`) allowlist — the former
+ *   2. `routePolicySchema` is a closed (`.strict()`) allowlist. The former
  *      `custom_directives` raw-Caddyfile escape hatch cannot be
  *      reintroduced by smuggling an extra field through the typed policy.
  *   3. The `proxy_route` table itself no longer has a raw-directive column.
  *   4. The Caddy admin API is reached only over the app's own configured
- *      admin URL/binary — reconcile/builder code never constructs a second,
+ *      admin URL/binary: reconcile/builder code never constructs a second,
  *      unvalidated admin endpoint.
  */
 import { readFileSync } from "node:fs";
@@ -64,7 +64,7 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
     ["localhost hostname", "localhost"],
     ["docker host escape", "host.docker.internal"],
     ["another project's plausible service name", "otterdeploy-victim-svc"], // wrong project, but the
-    // validator can only judge shape, not ownership — the id/name minting
+    // validator can only judge shape, not ownership. The id/name minting
     // boundary is what prevents cross-tenant collision upstream of this
     // function. This case documents that the SHAPE check alone passes it,
     // which is why route ownership must be enforced before this call, not by
@@ -166,7 +166,7 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
   });
 });
 
-describe("[od-5j8.6] the typed route policy is a closed allowlist — raw directives cannot be smuggled back in", () => {
+describe("[od-5j8.6] the typed route policy is a closed allowlist. Raw directives cannot be smuggled back in", () => {
   test("the schema rejects any field outside the declared allowlist", () => {
     const hostileExtras = [
       { customDirective: "reverse_proxy 127.0.0.1:9999" },
@@ -185,7 +185,7 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist — raw direct
   test("routeValidationError rejects a route whose policy carries a smuggled field", () => {
     const error = routeValidationError({
       ...baseHttpRoute,
-      // @ts-expect-error — deliberately hostile shape under test.
+      // @ts-expect-error, deliberately hostile shape under test.
       routePolicy: { ...DEFAULT_ROUTE_POLICY, customDirective: "reverse_proxy internal:9999" },
     });
     expect(error).toBe("route policy is invalid");
@@ -199,7 +199,7 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist — raw direct
     expect(result.success).toBe(false);
   });
 
-  test("maxRequestBodyMb is bounded — cannot be set to an unbounded or negative value", () => {
+  test("maxRequestBodyMb is bounded. Cannot be set to an unbounded or negative value", () => {
     expect(
       routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: -1 }).success,
     ).toBe(false);
@@ -214,7 +214,7 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist — raw direct
     ).toBe(true);
   });
 
-  test("compression/hsts/frameOptions/referrerPolicy are closed enums — no arbitrary directive string", () => {
+  test("compression/hsts/frameOptions/referrerPolicy are closed enums, no arbitrary directive string", () => {
     expect(
       routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, compression: "brotli-with-backdoor" })
         .success,
@@ -250,7 +250,7 @@ describe("[od-5j8.6] the raw directive escape hatch is structurally gone", () =>
     const builder = source("packages/api/src/caddy/builder.ts");
     // Every exported block-building function that consumes a route must call
     // assertSafeRoute before it can reach string interpolation into the
-    // Caddyfile — this is the structural half of the runtime corpus above.
+    // Caddyfile: this is the structural half of the runtime corpus above.
     const callSites = builder.match(/assertSafeRoute\(/g)?.length ?? 0;
     expect(callSites).toBeGreaterThanOrEqual(1);
   });
@@ -268,7 +268,7 @@ describe("[od-5j8.6] Caddy admin API isolation", () => {
     expect(env).toMatch(/unix:\/\//);
   });
 
-  test("the admin client only speaks unix/http/https to the one configured admin URL — no ad hoc second endpoint", () => {
+  test("the admin client only speaks unix/http/https to the one configured admin URL, no ad hoc second endpoint", () => {
     const client = source("packages/api/src/caddy/client.ts");
     expect(client).toContain("Caddy admin URL must use unix, http, or https.");
   });

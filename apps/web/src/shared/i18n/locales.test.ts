@@ -1,7 +1,7 @@
 /**
  * Locale parity, checked at runtime.
  *
- * Key drift is primarily a *type* error now — `packages/i18n/src/types.ts`
+ * Key drift is primarily a *type* error now. `packages/i18n/src/types.ts`
  * derives a dotted-path union from each bundle and asserts the difference is
  * `never`, so a missing or orphaned key fails `tsc`. These tests are not
  * redundant with that:
@@ -12,7 +12,7 @@
  *   - Placeholder and empty-value checks are beyond what the type system
  *     sees: `{{count}}` vs `{{total}}` are both just `string`.
  *
- * A missing key doesn't throw at runtime — i18next silently falls back to
+ * A missing key doesn't throw at runtime. I18next silently falls back to
  * English, so a half-translated screen ships looking fine to whoever wrote it
  * and broken to everyone else.
  */
@@ -48,15 +48,19 @@ function valueAt(tree: Tree, path: string): string | undefined {
   return typeof found === "string" ? found : undefined;
 }
 
-const enPaths = paths(en as Tree);
+// JSON imports are anonymous object types, so they satisfy `Tree`'s index
+// signature structurally; the annotation checks that instead of asserting it.
+const enTree: Tree = en;
+
+const enPaths = paths(enTree);
 
 /**
  * Every locale except the source of truth. Adding one here is all it takes to
  * hold it to the same bar.
  */
 const translations: ReadonlyArray<{ name: string; tree: Tree }> = [
-  { name: "de", tree: de as Tree },
-  { name: "es", tree: es as Tree },
+  { name: "de", tree: de },
+  { name: "es", tree: es },
 ];
 
 describe.each(translations)("locale parity: $name", ({ tree }) => {
@@ -80,7 +84,7 @@ describe.each(translations)("locale parity: $name", ({ tree }) => {
     const mismatched = enPaths
       .map((path) => ({
         path,
-        en: placeholders(valueAt(en as Tree, path) ?? ""),
+        en: placeholders(valueAt(enTree, path) ?? ""),
         translated: placeholders(valueAt(tree, path) ?? ""),
       }))
       .filter(({ en: a, translated: b }) => a.join(",") !== b.join(","));
@@ -92,12 +96,12 @@ describe.each(translations)("locale parity: $name", ({ tree }) => {
     expect(empty).toEqual([]);
   });
 
-  it("actually translates — a locale that is byte-identical to English is a stub", () => {
+  it("actually translates: a locale that is byte-identical to English is a stub", () => {
     // Guards the failure mode where a bundle is copied from English and never
     // translated: it passes every parity check above while showing English.
     // Proper nouns and machine tokens legitimately match, so this only asserts
     // that the bulk of the bundle differs.
-    const identical = enPaths.filter((path) => valueAt(en as Tree, path) === valueAt(tree, path));
+    const identical = enPaths.filter((path) => valueAt(enTree, path) === valueAt(tree, path));
     expect(identical.length).toBeLessThan(enPaths.length / 2);
   });
 });

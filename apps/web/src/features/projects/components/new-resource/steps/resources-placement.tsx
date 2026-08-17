@@ -5,7 +5,7 @@
  */
 
 import { useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 
@@ -32,7 +32,7 @@ export function useSwarmNodes() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     ...orpc.server.stats.queryOptions(),
     // Lightweight refresh so the placement preview stays current while the
-    // operator is configuring — same cadence the servers page uses.
+    // operator is configuring. Same cadence the servers page uses.
     refetchInterval: 5000,
   });
   type Row = NonNullable<typeof stats>["perServer"][number];
@@ -71,9 +71,9 @@ function replicasOnNode(
 export function PlacementSection() {
   const form = useFormContext();
   const { orgSlug } = useParams({ strict: false });
-  const placement = useStore(form.store, (s) => s.values.placement);
-  const replicas = useStore(form.store, (s) => s.values.replicas);
-  const pinnedNodeId = useStore(form.store, (s) => s.values.pinnedNodeId);
+  const placement = useSelector(form.store, (s) => s.values.placement);
+  const replicas = useSelector(form.store, (s) => s.values.replicas);
+  const pinnedNodeId = useSelector(form.store, (s) => s.values.pinnedNodeId);
   const { nodes, loading: nodesLoading } = useSwarmNodes();
 
   return (
@@ -97,13 +97,13 @@ export function PlacementSection() {
               <f.SelectField
                 label="Placement strategy"
                 items={[
-                  { label: "Any node — let scheduler decide", value: "any" },
+                  { label: "Any node (scheduler decides)", value: "any" },
                   {
-                    label: "Spread across nodes — one replica per node",
+                    label: "Spread across nodes (one replica per node)",
                     value: "spread",
                   },
                   {
-                    label: "Pack onto fewest nodes — minimize spread",
+                    label: "Pack onto fewest nodes (minimize spread)",
                     value: "pack",
                   },
                   { label: "Pin to specific node", value: "pin" },
@@ -121,7 +121,7 @@ export function PlacementSection() {
             ) : nodes.length === 0 ? (
               <div className="flex items-center justify-between gap-3 text-[11px]">
                 <span className="text-muted-foreground">
-                  No swarm nodes registered yet — placement is unavailable.
+                  No swarm nodes registered yet, so placement is unavailable.
                 </span>
                 {orgSlug && (
                   <Button
@@ -164,7 +164,7 @@ export function PlacementSection() {
                         <span className="font-mono text-muted-foreground">{n.name}</span>
                         <span className="flex-1" />
                         <span className="text-muted-foreground">
-                          {n.cpuTotal > 0 ? `${pct}%` : "—"}
+                          {n.cpuTotal > 0 ? `${pct}%` : "–"}
                         </span>
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -172,7 +172,7 @@ export function PlacementSection() {
                           <span key={i} className="inline-block size-2.5 rounded-xs bg-chart-2" />
                         ))}
                         {onThis === 0 && (
-                          <span className="text-[10px] text-muted-foreground">—</span>
+                          <span className="text-[10px] text-muted-foreground">–</span>
                         )}
                       </div>
                     </div>

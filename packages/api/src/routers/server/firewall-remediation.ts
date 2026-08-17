@@ -1,12 +1,14 @@
 /**
- * od-5j8.11 drift remediation — split out of provision-runner.ts to keep that
+ * od-5j8.11 drift remediation: split out of provision-runner.ts to keep that
  * file under the line cap. Re-applies ONLY the host-firewall + native-bouncer
  * steps to an already-joined node, without touching Docker install / swarm
  * join / provisionStatus. Triggered by `server.reapplyFirewall`
  * (handlers.ts) via the same `server.provision` job in `firewallOnly` mode.
  */
 import type { ProvisionServerPayload } from "@otterdeploy/jobs";
-import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
+
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { decryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
@@ -21,7 +23,7 @@ import { SshSession } from "./ssh-exec";
 
 /**
  * Other org servers' IPv4 addresses (mesh address preferred, else host),
- * excluding `excludeHost` — the peer set a newly (re)configured node's
+ * excluding `excludeHost`: the peer set a newly (re)configured node's
  * swarm-port rules should trust. Best-effort/read-only; never throws (a DB
  * hiccup here degrades to "no peers yet", not a failed provision).
  */
@@ -35,12 +37,12 @@ export async function resolveFirewallPeers(
   );
 }
 
-/** Resolve the swarm manager address from OUR daemon — same lookup
+/** Resolve the swarm manager address from OUR daemon. Same lookup
  *  provision-runner.ts's resolveJoinTarget does, duplicated narrowly here
  *  (firewallOnly never joins, so it only needs the address, not a token). */
 async function resolveManagerAddr(): Promise<string> {
   const tokens = await getSwarmJoinTokens();
-  if (tokens.managerAddr === "—") {
+  if (tokens.managerAddr === "–") {
     throw new Error("The primary host isn't a Docker Swarm manager yet.");
   }
   return tokens.managerAddr;
@@ -49,24 +51,35 @@ async function resolveManagerAddr(): Promise<string> {
 /**
  * od-5j8.11 drift remediation: connect to an ALREADY-JOINED node and re-run
  * only the host-firewall + native-bouncer steps. Never touches
- * provisionStatus/status — a firewall remediation run must not resurrect a
+ * provisionStatus/status: a firewall remediation run must not resurrect a
  * failed/removed node's lifecycle state. sshKeyId-only (no password path: a
  * one-time bootstrap password is never stored, so there's nothing left to
- * reconnect with after the initial join — same constraint retryProvision
+ * reconnect with after the initial join: same constraint retryProvision
  * enforces).
  */
 export async function runFirewallOnlyJob(payload: ProvisionServerPayload): Promise<void> {
-  const serverId = payload.serverId as ServerId;
-  const organizationId = payload.organizationId as OrganizationId;
+  // The payload round-trips through Redis as plain strings; both ids were
+  // minted by createId, so these prefix checks brand them without an
+  // assertion. A payload that fails them is corrupt: it addresses no
+  // provision stream and no server row, so there is nothing to remediate,
+  // emit to, or patch.
+  if (
+    !hasPrefix(payload.serverId, ID_PREFIX.server) ||
+    !hasPrefix(payload.organizationId, ID_PREFIX.organization)
+  ) {
+    return;
+  }
+  const serverId: ServerId = payload.serverId;
+  const organizationId: OrganizationId = payload.organizationId;
   const emit = (line: string) => emitProvisionLine(serverId, line);
   try {
-    if (!payload.sshKeyId) {
-      throw new Error("No stored SSH key on this server — remediation requires a managed key.");
+    if (!payload.sshKeyId || !hasPrefix(payload.sshKeyId, ID_PREFIX.sshKey)) {
+      throw new Error("No stored SSH key on this server, remediation requires a managed key.");
     }
     const managerAddr = await resolveManagerAddr();
-    const key = await getSshKeyInOrg({ id: payload.sshKeyId as SshKeyId, organizationId });
+    const key = await getSshKeyInOrg({ id: payload.sshKeyId, organizationId });
     if (!key?.privateKeyCiphertext) {
-      throw new Error("The stored SSH key has no private half — pick a generated key.");
+      throw new Error("The stored SSH key has no private half. Pick a generated key.");
     }
     const privateKey = await decryptForDomain(key.privateKeyCiphertext, "ssh-keys");
 

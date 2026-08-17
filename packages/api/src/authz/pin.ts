@@ -1,15 +1,15 @@
 /**
  * Access-PIN support for deployment protection (NetBird-style): the operator
  * sets a short numeric code on a protected route; anyone who enters it on the
- * wall page gets a time-boxed, deployment-scoped cookie — no org account or
+ * wall page gets a time-boxed, deployment-scoped cookie, no org account or
  * email invite.
  *
- * Storage is an argon2 hash on the proxy_route row (Bun.password — memory-hard
+ * Storage is an argon2 hash on the proxy_route row (Bun.password, memory-hard
  * so the ~10^6 PIN space can't be cheaply brute-forced offline if the hash ever
  * leaks). Online guessing is capped by a Redis rate limit per (domain, client
  * IP). The minted cookie carries a FINGERPRINT of the current hash, so
  * rotating or removing the PIN invalidates every outstanding cookie on the
- * next request — no waiting out the TTL.
+ * next request, no waiting out the TTL.
  */
 
 import type { RedisClient } from "bun";
@@ -41,7 +41,7 @@ export async function verifyPinAgainstHash(pin: string, hash: string): Promise<b
 
 /** Short digest of the stored hash, embedded in the pin cookie. The authz
  *  gate compares it to the CURRENT hash's fingerprint, so a rotated/removed
- *  PIN kills all outstanding cookies immediately. Not secret — it's a hash
+ *  PIN kills all outstanding cookies immediately. Not secret: it's a hash
  *  of a salted argon2 string, useless without the cookie's HMAC. */
 export async function pinFingerprint(hash: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(hash));

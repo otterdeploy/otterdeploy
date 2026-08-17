@@ -5,7 +5,7 @@ import { Button, Column, Hr, Link, Row, Section, Text } from "@react-email/compo
 
 /**
  * The typographic + content atoms every template composes inside
- * {@link module:_layout.EmailLayout} — headings, paragraphs, buttons, badges,
+ * {@link module:_layout.EmailLayout}: headings, paragraphs, buttons, badges,
  * data tables. Split from ./_layout (which keeps the tokens + shell) under the
  * file cap; ./_layout re-exports everything here so templates keep importing
  * from one place.
@@ -30,7 +30,7 @@ export function Para({ children, tight }: { children: ReactNode; tight?: boolean
   );
 }
 
-/** Quiet secondary line — expiry notes, etc. */
+/** Quiet secondary line: expiry notes, etc. */
 export function Muted({ children }: { children: ReactNode }) {
   return <Text className="m-0 mt-4 text-[13px] leading-5 text-muted">{children}</Text>;
 }
@@ -45,7 +45,7 @@ export function Divider() {
   return <Hr className="border-hairline my-7 border-t border-solid" />;
 }
 
-/** The one primary action — solid ink, left-aligned to the content column. */
+/** The one primary action: solid ink, left-aligned to the content column. */
 export function BrandButton({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Section className="mt-7">
@@ -135,11 +135,11 @@ export function Badge({
 }
 
 /** A key/value context table inside a subtle panel. Values are already
- *  presentation strings — the caller formats them, not this view.
+ *  presentation strings: the caller formats them, not this view.
  *
  *  The fill lives on the rounded container itself (an element's own background
  *  is clipped by its border-radius); the cells stay transparent. Never shade a
- *  child cell — `overflow-hidden` doesn't clip table cells in email clients, so
+ *  child cell: `overflow-hidden` doesn't clip table cells in email clients, so
  *  a filled square cell would poke through the rounded corners. */
 export function DataTable({ rows }: { rows: [string, string][] }) {
   if (!rows.length) return null;

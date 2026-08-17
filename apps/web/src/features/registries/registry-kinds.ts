@@ -1,5 +1,5 @@
 /**
- * Registry kinds — UX sugar over the stored host/username/password row.
+ * Registry kinds: UX sugar over the stored host/username/password row.
  *
  * Nothing here is persisted: the add dialog's kind picker pre-fills the
  * host and adapts field hints, and the cards derive the kind back from
@@ -10,7 +10,7 @@
  * Copy stays honest: otterdeploy authenticates with username +
  * password/token only (docker login semantics). Cloud IAM / metadata
  * auth modes (ECR IAM roles, GCP workload identity, ACR managed
- * identity) are not supported — the hints say what to paste instead.
+ * identity) are not supported. The hints say what to paste instead.
  */
 
 export type RegistryKind =
@@ -29,7 +29,7 @@ export interface RegistryKindMeta {
   label: string;
   /** Full name, surfaced as the tile's title/tooltip. */
   fullLabel: string;
-  /** SvglLogo `search` key — unknown keys render the monogram fallback. */
+  /** SvglLogo `search` key: unknown keys render the monogram fallback. */
   brand: string;
   /** Host to pre-fill on pick; empty when the real host is account-specific. */
   hostPrefill: string;
@@ -131,7 +131,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
 };
 
-/** Picker display order — most common first, escape hatch last. */
+/** Picker display order: most common first, escape hatch last. */
 export const REGISTRY_KINDS: readonly RegistryKindMeta[] = [
   REGISTRY_KIND_META.dockerhub,
   REGISTRY_KIND_META.ghcr,
@@ -145,8 +145,8 @@ export const REGISTRY_KINDS: readonly RegistryKindMeta[] = [
 
 /**
  * Derive the kind from a stored (or in-progress) host. Mirrors the
- * server's canonical host shape (lowercase, no scheme). Unknown hosts —
- * including most self-hosted registries — read as generic; "harbor" in
+ * server's canonical host shape (lowercase, no scheme). Unknown hosts.
+ * Including most self-hosted registries. Read as generic; "harbor" in
  * the hostname is the only self-hosted heuristic we apply.
  */
 export function kindForHost(host: string): RegistryKind {

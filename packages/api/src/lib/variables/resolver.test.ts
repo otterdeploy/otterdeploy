@@ -1,5 +1,6 @@
-import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { Id, IdPrefix } from "@otterdeploy/shared/id";
 
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("../../routers/service/queries", () => ({
@@ -39,12 +40,25 @@ import { getServiceRecord, resolveResourceForPreview } from "../../routers/servi
 import { listVaultProvidersByOrg } from "../../routers/vault-provider/queries";
 import { getSecrets } from "../vault";
 import { resolveServiceEnv } from "./resolver";
-const PROJECT_ID = "project_1" as ProjectId;
-const RESOURCE_ID = "resource_api" as ResourceId;
-const PROD_ENV = "env_prod";
-const PREVIEW_ENV = "env_pr1";
 
-type Mock = ReturnType<typeof vi.fn>;
+/** Brand a fixture id after genuinely checking its prefix (legacy spellings
+ *  included) instead of casting. Throws on a typo'd fixture. */
+function idOf<P extends IdPrefix>(prefix: P, value: string): Id<P> {
+  if (!hasPrefix(value, prefix)) throw new Error(`expected a "${prefix}" id, got "${value}"`);
+  return value;
+}
+
+const PROJECT_ID = idOf(ID_PREFIX.project, "project_1");
+const RESOURCE_ID = idOf(ID_PREFIX.resource, "resource_api");
+const PROD_ENV = "env_prod";
+const PREVIEW_ENV = idOf(ID_PREFIX.preview, "prev_pr1");
+
+/** The vi.mock factories above replace every import with a vi.fn(); narrow via
+ *  vitest's own runtime check instead of casting. */
+function asMock(fn: unknown) {
+  if (!vi.isMockFunction(fn)) throw new Error("expected a vi.fn() mock");
+  return fn;
+}
 
 const mockResource = (
   overrides: Partial<{
@@ -94,13 +108,13 @@ describe("resolveServiceEnv", () => {
     vi.clearAllMocks();
     // Default (non-preview) call path: no explicit env → resolve the project's
     // persistent env, which has no base to inherit from.
-    (getProjectRecord as unknown as Mock).mockResolvedValue({ environmentId: PROD_ENV });
-    (getEnvironmentById as unknown as Mock).mockResolvedValue({ baseEnvironmentId: null });
-    (loadProjectEnvBag as unknown as Mock).mockResolvedValue({});
+    asMock(getProjectRecord).mockResolvedValue({ environmentId: PROD_ENV });
+    asMock(getEnvironmentById).mockResolvedValue({ baseEnvironmentId: null });
+    asMock(loadProjectEnvBag).mockResolvedValue({});
   });
 
   it("resolves a Postgres reference end-to-end", async () => {
-    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+    asMock(getServiceRecord).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
@@ -114,11 +128,11 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForPreview as unknown as Mock).mockResolvedValueOnce(
+    asMock(resolveResourceForPreview).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
-    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
+    asMock(getDatabaseResourceRecord).mockResolvedValueOnce(dbExports());
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
 
@@ -128,7 +142,7 @@ describe("resolveServiceEnv", () => {
   });
 
   it("substitutes multiple refs inside a single value", async () => {
-    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+    asMock(getServiceRecord).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
@@ -142,11 +156,11 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForPreview as unknown as Mock).mockResolvedValue(
+    asMock(resolveResourceForPreview).mockResolvedValue(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
 
-    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValue(dbExports());
+    asMock(getDatabaseResourceRecord).mockResolvedValue(dbExports());
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isOk()).toBe(true);
@@ -155,7 +169,7 @@ describe("resolveServiceEnv", () => {
   });
 
   it("returns RefMissingResourceError when the referenced name is not in the project", async () => {
-    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+    asMock(getServiceRecord).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
@@ -169,7 +183,7 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForPreview as unknown as Mock).mockResolvedValueOnce(undefined);
+    asMock(resolveResourceForPreview).mockResolvedValueOnce(undefined);
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
@@ -178,7 +192,7 @@ describe("resolveServiceEnv", () => {
   });
 
   it("returns RefUnknownVarError when the var isn't exported by the upstream", async () => {
-    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+    asMock(getServiceRecord).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
@@ -192,10 +206,10 @@ describe("resolveServiceEnv", () => {
       ],
     });
 
-    (resolveResourceForPreview as unknown as Mock).mockResolvedValueOnce(
+    asMock(resolveResourceForPreview).mockResolvedValueOnce(
       mockResource({ id: "resource_db", name: "db", type: "database" }),
     );
-    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(dbExports());
+    asMock(getDatabaseResourceRecord).mockResolvedValueOnce(dbExports());
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
     expect(result.isErr()).toBe(true);
@@ -249,13 +263,13 @@ describe("resolveServiceEnv", () => {
       ],
     };
 
-    (getServiceRecord as unknown as Mock).mockImplementation(async (_pid: string, rid: string) => {
+    asMock(getServiceRecord).mockImplementation(async (_pid: string, rid: string) => {
       if (rid === "resource_api") return apiRecord;
       if (rid === "resource_web") return webRecord;
       return undefined;
     });
 
-    (resolveResourceForPreview as unknown as Mock).mockImplementation(
+    asMock(resolveResourceForPreview).mockImplementation(
       async (_pid: string, _envId: string, name: string) => {
         if (name === "web")
           return mockResource({ id: "resource_web", name: "web", type: "service" });
@@ -273,14 +287,13 @@ describe("resolveServiceEnv", () => {
 
   it("resolves in a preview env: env-specific DB branch + inherited base project var", async () => {
     // Preview env inherits from production.
-    (getEnvironmentById as unknown as Mock).mockResolvedValue({ baseEnvironmentId: PROD_ENV });
+    asMock(getEnvironmentById).mockResolvedValue({ baseEnvironmentId: PROD_ENV });
     // Base (prod) carries a shared var; the preview overrides nothing.
-    (loadProjectEnvBag as unknown as Mock).mockImplementation(
-      async (input: { environmentId: string }) =>
-        input.environmentId === PROD_ENV ? { APP_NAME: "acme" } : {},
+    asMock(loadProjectEnvBag).mockImplementation(async (input: { environmentId: string }) =>
+      input.environmentId === PROD_ENV ? { APP_NAME: "acme" } : {},
     );
 
-    (getServiceRecord as unknown as Mock).mockResolvedValueOnce({
+    asMock(getServiceRecord).mockResolvedValueOnce({
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
       ports: [],
@@ -301,7 +314,7 @@ describe("resolveServiceEnv", () => {
     });
 
     // The env-aware lookup returns the branch DB (env-specific) for this preview.
-    (resolveResourceForPreview as unknown as Mock).mockImplementation(
+    asMock(resolveResourceForPreview).mockImplementation(
       async (_pid: string, envId: string, name: string) => {
         expect(envId).toBe(PREVIEW_ENV);
         if (name === "db")
@@ -314,11 +327,11 @@ describe("resolveServiceEnv", () => {
         return undefined;
       },
     );
-    (getDatabaseResourceRecord as unknown as Mock).mockResolvedValueOnce(
+    asMock(getDatabaseResourceRecord).mockResolvedValueOnce(
       dbExports("postgres://appuser:secret@db-pr1.internal:5432/appdb"),
     );
 
-    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID, PREVIEW_ENV as PreviewId);
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID, PREVIEW_ENV);
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
@@ -327,15 +340,8 @@ describe("resolveServiceEnv", () => {
   });
 });
 
-/** Real type guard (no assertion) to reach vitest mock methods on an import. */
-function isMock(value: unknown): value is Mock {
-  return typeof value === "function" && "mock" in value;
-}
-
-function mockOf(value: unknown): Mock {
-  if (!isMock(value)) throw new Error("expected a vitest mock");
-  return value;
-}
+// Same narrowing as `asMock` above; alias kept so this block reads locally.
+const mockOf = asMock;
 
 describe("resolveServiceEnv — vault references", () => {
   const serviceWithEnv = (env: Array<{ key: string; value: string }>) => ({
@@ -395,10 +401,7 @@ describe("resolveServiceEnv — vault references", () => {
       kind: "hashicorp",
       credential: "cipher-token",
     });
-    expect(mockOf(getSecrets).mock.calls[0]?.[1]).toEqual([
-      "app/db:password",
-      "app/db:user",
-    ]);
+    expect(mockOf(getSecrets).mock.calls[0]?.[1]).toEqual(["app/db:password", "app/db:user"]);
     // Provider rows load once for the whole resolve.
     expect(listVaultProvidersByOrg).toHaveBeenCalledTimes(1);
   });

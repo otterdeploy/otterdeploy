@@ -1,5 +1,5 @@
 /**
- * Two-factor authentication (TOTP) — enable/disable from the account menu.
+ * Two-factor authentication (TOTP): enable/disable from the account menu.
  * Backed entirely by better-auth's `twoFactor` plugin client
  * (`twoFactor.enable` / `verifyTotp` / `generateBackupCodes` / `disable`); the
  * secret + backup codes are encrypted at rest server-side. No QR lib is bundled,
@@ -37,7 +37,7 @@ const STEP_DESCRIPTION: Record<TwoFactorStep, string> = {
   loading: "Protect your account with a time-based code from an authenticator app.",
   idle: "Protect your account with a time-based code from an authenticator app.",
   setup: "Add the key to your authenticator app, then enter the 6-digit code to confirm.",
-  backup: "Save these backup codes somewhere safe — each works once if you lose your device.",
+  backup: "Save these backup codes somewhere safe. Each works once if you lose your device.",
   enabled: "Your account is protected by an authenticator app.",
 };
 
@@ -52,14 +52,18 @@ export function TwoFactorDialog({
   const qc = useQueryClient();
 
   // Shares the gate's cached session rather than declaring a second queryFn on
-  // the same key — two fetchers under one key is a race over which one a
+  // the same key: two fetchers under one key is a race over which one a
   // refetch uses. Opening the dialog is now usually a cache hit too.
   const sessionQ = useQuery({ ...sessionQuery, enabled: open });
-  const enabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
-  );
+  // The session user type doesn't carry the twoFactor plugin's field, so
+  // narrow structurally instead of asserting the plugin-augmented shape.
+  const sessionUser: unknown = sessionQ.data?.user;
+  const enabled =
+    typeof sessionUser === "object" && sessionUser !== null && "twoFactorEnabled" in sessionUser
+      ? Boolean(sessionUser.twoFactorEnabled)
+      : false;
 
-  // Multi-step enable flow — the password/code entries live in the form; the
+  // Multi-step enable flow: the password/code entries live in the form; the
   // server-issued secret + backup codes are flow state.
   const form = useForm({ defaultValues: { password: "", code: "" } });
   const [totpURI, setTotpURI] = useState<string | null>(null);
@@ -83,7 +87,7 @@ export function TwoFactorDialog({
     mutationFn: async () => {
       const res = await authClient.twoFactor.enable({ password: form.getFieldValue("password") });
       // `||`, not `??`: a crashed server can answer with an EMPTY error body,
-      // leaving `message` as "" — nullish coalescing would surface a blank
+      // leaving `message` as "": nullish coalescing would surface a blank
       // error and the dialog would appear to silently do nothing.
       if (res.error) {
         throw new Error(res.error.message || res.error.statusText || "Couldn't start 2FA");
@@ -92,12 +96,18 @@ export function TwoFactorDialog({
     },
     onSuccess: (data) => {
       setTotpURI(data?.totpURI ?? "");
-      setBackupCodes((data?.backupCodes as string[] | undefined) ?? null);
-      // The server just attached a 2FA secret to the user record — refetch the
+      // Same structural narrowing as the session user above: the client
+      // response type doesn't guarantee `backupCodes`, so verify the shape.
+      const codesRaw: unknown =
+        data && typeof data === "object" && "backupCodes" in data ? data.backupCodes : undefined;
+      setBackupCodes(
+        Array.isArray(codesRaw) ? codesRaw.filter((c): c is string => typeof c === "string") : null,
+      );
+      // The server just attached a 2FA secret to the user record: refetch the
       // session in the background so its user object can't go stale mid-flow.
       void refreshSession();
     },
-    // No onError toast — the failure renders inline in the dialog (stepError).
+    // No onError toast: the failure renders inline in the dialog (stepError).
   });
 
   // Confirms the secret + flips twoFactorEnabled true.
@@ -115,7 +125,7 @@ export function TwoFactorDialog({
       setTotpURI(null);
       form.setFieldValue("code", "");
     },
-    // No onError toast — the failure renders inline in the dialog (stepError).
+    // No onError toast: the failure renders inline in the dialog (stepError).
   });
 
   const disable = useMutation({
@@ -130,7 +140,7 @@ export function TwoFactorDialog({
       toast.success(t("account.twoFactor.disabled"));
       close(false);
     },
-    // No onError toast — the failure renders inline in the dialog (stepError).
+    // No onError toast: the failure renders inline in the dialog (stepError).
   });
 
   // Panel selection: backup-codes (post-verify or fresh enable) → setup (have a
@@ -139,7 +149,7 @@ export function TwoFactorDialog({
   const showSetup = totpURI !== null;
   const step = resolveStep({ loading: sessionQ.isPending, showBackup, showSetup, enabled });
 
-  // Inline failure for whichever request the visible step can fire — a failed
+  // Inline failure for whichever request the visible step can fire. A failed
   // enable/disable/verify must never leave the dialog looking idle.
   const stepError =
     step === "idle"
@@ -184,7 +194,7 @@ export function TwoFactorDialog({
 
         {stepError && (
           <p role="alert" className="text-[13px] text-destructive">
-            {stepError.message || "Something went wrong — please try again."}
+            {stepError.message || "Something went wrong. Please try again."}
           </p>
         )}
 

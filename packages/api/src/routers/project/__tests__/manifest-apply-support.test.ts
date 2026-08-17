@@ -19,7 +19,7 @@ const envChange = (
 describe("groupChanges", () => {
   it("synthesizes a service update for an env-only diff", () => {
     // THE dealort bug: a diff of nothing but env changes planned N items and
-    // applied zero — no service/database change meant no phase ran, so the
+    // applied zero, no service/database change meant no phase ran, so the
     // pending bar never cleared no matter how many times Apply was clicked.
     const grouped = groupChanges([
       envChange("service", "dealort", "ARCJET_KEY"),

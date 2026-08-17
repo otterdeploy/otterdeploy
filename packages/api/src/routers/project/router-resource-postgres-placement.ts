@@ -1,7 +1,7 @@
 /**
  * The database placement handler, split out of router-resource-postgres so that
  * router file stays under its line cap. Behaviour lives in
- * ./database-placement — this is only the transport binding.
+ * ./database-placement: this is only the transport binding.
  */
 
 import { matchError } from "better-result";

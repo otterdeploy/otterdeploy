@@ -111,8 +111,8 @@ function AlertDialogTitle({
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
       className={cn(
-        // Confirm titles routinely interpolate an identifier — a volume name,
-        // image digest, container id — that has no space to break at. Without
+        // Confirm titles routinely interpolate an identifier: a volume name,
+        // image digest, container id: that has no space to break at. Without
         // `overflow-wrap: anywhere` its min-content width becomes the grid
         // track's minimum and the whole dialog outgrows its max-width.
         // `anywhere` (not `break-word`) is required: only `anywhere` also

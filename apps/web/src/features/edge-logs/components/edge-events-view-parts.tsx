@@ -31,7 +31,7 @@ export const CATEGORY_TEXT: Record<string, string> = {
   other: "text-muted-foreground",
 };
 
-/** Event table — full bleed, separators only. */
+/** Event table: full bleed, separators only. */
 export function EventsTable({
   rows,
   wrap,
@@ -124,7 +124,7 @@ function EventRow({
           {row.category}
         </TableCell>
         <TableCell className="text-foreground/80">
-          {row.host ?? (row.domains.length ? `${row.domains.length} domains` : "—")}
+          {row.host ?? (row.domains.length ? `${row.domains.length} domains` : "–")}
         </TableCell>
         <TableCell
           className={cn(

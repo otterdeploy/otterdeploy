@@ -22,7 +22,7 @@ interface EnvVar {
  *
  * Piped output stays raw `KEY=value`, because `env list --service web > .env` is
  * a real workflow and decorating it would corrupt the file. A terminal gets an
- * aligned table with secrets flagged — same data, formatted for the reader that
+ * aligned table with secrets flagged: same data, formatted for the reader that
  * is actually there. This is the one place output shape depends on the TTY.
  */
 function printVars(vars: EnvVar[], subject: string): void {
@@ -75,7 +75,7 @@ async function requireSharedEnv(args: { url?: string; slug?: string; config?: st
   const project = await ctx.client.project.getBySlug({ slug: ctx.projectSlug });
   let environmentId: string | null = project.environmentId;
   if (!environmentId) {
-    // The project has no bound default env — fall back to any environment
+    // The project has no bound default env. Fall back to any environment
     // attached to it (env.list is already projectId-scoped).
     const envs = await ctx.client.env.list({ projectId: ctx.projectId });
     environmentId = envs[0]?.id ?? null;
@@ -94,7 +94,7 @@ async function requireSharedEnv(args: { url?: string; slug?: string; config?: st
 
 function rejectSharedWithService(args: { shared?: boolean; service?: string }): void {
   if (args.shared && args.service) {
-    abort("`--shared` is project-level — drop it, or drop `--service`.");
+    abort("`--shared` is project-level. Drop it, or drop `--service`.");
   }
 }
 
@@ -157,7 +157,7 @@ const setEnv = defineCommand({
     const { client, projectId, resourceId } = await requireService(args);
     // Each service.env.set triggers a swarm redeploy of the service. For
     // N pairs that would be N sequential rolling updates (slow). Merge
-    // with the existing env and ship one bulkSet — single redeploy.
+    // with the existing env and ship one bulkSet: single redeploy.
     const existing = await client.service.env.list({ projectId, resourceId });
     const merged = new Map<string, string>();
     for (const e of existing) merged.set(e.key, e.value);
@@ -165,7 +165,7 @@ const setEnv = defineCommand({
     const vars = [...merged.entries()].map(([key, value]) => ({ key, value }));
     await client.service.env.bulkSet({ projectId, resourceId, vars });
     ok(`Set ${pairs.length} var(s) on ${args.service}.`);
-    // Setting a var restarts the service — say so rather than letting the
+    // Setting a var restarts the service: say so rather than letting the
     // rolling update look like an unrelated event.
     note(dim("The service is rolling to pick up the change."));
   },
@@ -183,7 +183,7 @@ const unsetEnv = defineCommand({
   },
   async run({ args, rawArgs }) {
     rejectSharedWithService(args);
-    // Bare positionals are the keys — but skip the VALUE of a space-separated
+    // Bare positionals are the keys, but skip the VALUE of a space-separated
     // string flag (e.g. the "web" in `--service web`), which is also bare.
     const valueFlags = new Set(["--service", "--config", "--slug", "--url"]);
     const keys = rawArgs.filter((a, i) => {
@@ -203,7 +203,7 @@ const unsetEnv = defineCommand({
       return;
     }
     const { client, projectId, resourceId } = await requireService(args);
-    // Same logic as `set` — one bulkSet/redeploy instead of N. Fetch
+    // Same logic as `set`. One bulkSet/redeploy instead of N. Fetch
     // existing, drop the requested keys, send the remaining set back.
     const existing = await client.service.env.list({ projectId, resourceId });
     const toRemove = new Set(keys);
@@ -244,7 +244,7 @@ const importEnv = defineCommand({
       const { client, projectId, environmentId, projectSlug } = await requireSharedEnv(args);
       let vars: EnvVar[] = parsed;
       if (args.merge) {
-        // bulkReplace is wholesale, so merge client-side — and carry the
+        // bulkReplace is wholesale, so merge client-side, and carry the
         // existing isSecret flags or the replace would reset them.
         const existing = await client.project.envVar.list({ projectId, environmentId });
         const map = new Map<string, EnvVar>();

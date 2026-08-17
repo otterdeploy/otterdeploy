@@ -7,8 +7,8 @@ import type {
 import { db } from "@otterdeploy/db";
 import { notificationDelivery } from "@otterdeploy/db/schema";
 /**
- * Per-channel delivery-history queries (the card's "Deliveries" dialog) —
- * split from queries.ts, which holds the channel CRUD + stats presenter.
+ * Per-channel delivery-history queries (the card's "Deliveries" dialog).
+ * Split from queries.ts, which holds the channel CRUD + stats presenter.
  */
 import { and, desc, eq, sql } from "drizzle-orm";
 

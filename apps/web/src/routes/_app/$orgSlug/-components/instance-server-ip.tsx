@@ -1,8 +1,8 @@
 /**
- * Public IP card — the address behind every sslip.io fallback domain and the
+ * Public IP card: the address behind every sslip.io fallback domain and the
  * Cloudflare A records auto-configure writes. Detected on first boot in
  * production; this card makes it visible and correctable (NAT, multi-homed,
- * wrong echo answer). When env SERVER_IP pins it, editing is disabled — the
+ * wrong echo answer). When env SERVER_IP pins it, editing is disabled: the
  * env value re-applies on every boot and would silently win.
  */
 
@@ -51,7 +51,7 @@ export function ServerIpCard({ organizationId }: { organizationId: OrganizationI
           </code>{" "}
           fallback domains every resource gets before you own a real domain, and it's what
           Cloudflare auto-configure points A records at. Auto-detected on first boot in
-          production — correct it here if detection got it wrong (NAT, multi-homed host).
+          production. Correct it here if detection got it wrong (NAT, multi-homed host).
         </>
       }
     >
@@ -92,7 +92,7 @@ export function ServerIpCard({ organizationId }: { organizationId: OrganizationI
         </div>
         {envOverride && (
           <div className="text-[11.5px] text-muted-foreground">
-            Pinned by the <code className="font-mono">SERVER_IP</code> environment variable — it
+            Pinned by the <code className="font-mono">SERVER_IP</code> environment variable, which
             re-applies on every boot, so edits here wouldn't stick. Change or unset the env var to
             manage it from this page.
           </div>

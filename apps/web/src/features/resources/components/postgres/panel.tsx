@@ -40,9 +40,9 @@ interface RealResourcePanelProps {
   // are disabled; Variables + Settings edit the manifest entry; opens on
   // Variables. Mirrors ServiceResourcePanel's `pending`.
   pending?: boolean;
-  /** Manifest key for the staged database — the edit target in pending mode. */
+  /** Manifest key for the staged database: the edit target in pending mode. */
   dbName?: string;
-  /** The active tab, straight off the route's `?tab=` search param — the URL
+  /** The active tab, straight off the route's `?tab=` search param. The URL
    *  owns this, not the panel. Unrecognized/absent values fall back to the
    *  usual pending-aware default. */
   tab?: string;
@@ -80,7 +80,7 @@ export function RealResourcePanel({
     pending ? "variables" : "deployments",
   );
 
-  // Re-roll the running container with its current spec — same image, env,
+  // Re-roll the running container with its current spec: same image, env,
   // and public flag. Distinct from the wizard's create; this just bounces the
   // swarm task (and re-applies container labels, so a DB created before a
   // label change starts reporting metrics).
@@ -130,7 +130,7 @@ export function RealResourcePanel({
       >
         <div className="border-b border-border/60 px-4 sm:px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
-            {/* Runtime tabs are disabled until the database is deployed —
+            {/* Runtime tabs are disabled until the database is deployed:
                 no tasks, data, metrics, or container exist yet. */}
             <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
               Deployments
@@ -157,7 +157,7 @@ export function RealResourcePanel({
           <div className="h-full overflow-y-auto">
             <div className="relative">
               {/* Runtime tabs query tasks/data/metrics by resourceId, which
-                  doesn't exist for a staged create — only mount once deployed. */}
+                  doesn't exist for a staged create. Only mount once deployed. */}
               {!pending && (
                 <TabsContent value="deployments" className="px-4 pt-5 pb-6 sm:px-6">
                   <ResourceTasksTab
@@ -217,7 +217,7 @@ export function RealResourcePanel({
                 <ResourceTerminal
                   match={{
                     kind: "database",
-                    engine: resource.engine as "postgres" | "redis" | "mariadb" | "mongodb",
+                    engine: resource.engine,
                     serviceName: resource.runtime.serviceName,
                   }}
                   fallbackLabel={resource.runtime.serviceName}

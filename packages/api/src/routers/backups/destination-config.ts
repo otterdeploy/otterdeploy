@@ -1,7 +1,7 @@
 /**
  * Structural validation for backup-destination config, shared by create/update
  * and the credential test. Passing this doesn't guarantee a working
- * destination (bad creds or an unwritable path still fail at runtime) — it
+ * destination (bad creds or an unwritable path still fail at runtime). It
  * guarantees the engine has the fields it needs to ATTEMPT an upload, so a
  * half-filled form can't save a destination that only fails after a full
  * dump/encrypt/stage cycle.

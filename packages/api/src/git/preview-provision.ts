@@ -8,9 +8,8 @@
  * add up.
  */
 
-import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
-
 import { gitRepo, project } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -46,25 +45,30 @@ export async function deployPreviewForProject(
   pr: PullRequestEvent["pull_request"],
   repo: RepoRow,
 ): Promise<PreviewOutcome> {
+  // Plain strings off the select. Branded here once, at the seam, so every
+  // helper below takes the branded form without a cast.
+  const projectId = idSchema.project.parse(p.id);
+  const gitRepoId = idSchema.gitRepo.parse(repo.id);
+
   // Checked BEFORE anything is created: the point of the cap is that no
   // container, route or database branch is provisioned once the project is
-  // full. A push to an already-open PR always passes — see preview-cap.ts.
+  // full. A push to an already-open PR always passes. See preview-cap.ts.
   const cap = await checkPreviewCap({
-    projectId: p.id as ProjectId,
-    gitRepoId: repo.id as GitRepoId,
+    projectId,
+    gitRepoId,
     prNumber: pr.number,
   });
   if (!cap.allowed) {
-    // Never a silent cap — the same rule idle GC follows. Somebody opened a
+    // Never a silent cap: the same rule idle GC follows. Somebody opened a
     // PR expecting a preview; they have to be able to find out why there
     // isn't one, and what to do about it.
     log.info({
       github: { event: "pull_request", step: "preview-cap", prNumber: pr.number },
       preview: { cap: cap.cap, active: cap.current, projectId: p.id },
-      msg: "preview refused — project at its concurrent-preview limit",
+      msg: "preview refused: project at its concurrent-preview limit",
     });
     await reportPreviewCapRefusal({
-      gitRepoId: repo.id as GitRepoId,
+      gitRepoId,
       prNumber: pr.number,
       verdict: { cap: cap.cap, current: cap.current },
     });
@@ -72,8 +76,8 @@ export async function deployPreviewForProject(
   }
 
   const row = await ensurePreview({
-    projectId: p.id as ProjectId,
-    gitRepoId: repo.id as GitRepoId,
+    projectId,
+    gitRepoId,
     repoSlug: repoSlug(repo),
     prNumber: pr.number,
     prNodeId: pr.node_id ?? null,
@@ -94,11 +98,11 @@ export async function deployPreviewForProject(
   const branched = await Result.tryPromise({
     try: () =>
       branchProjectDatabases({
-        projectId: p.id as ProjectId,
+        projectId,
         projectSlug: p.slug,
         previewId: row.id,
         previewSlug: row.slug,
-        gitRepoId: repo.id as GitRepoId,
+        gitRepoId,
       }),
     catch: (cause) => cause,
   });
@@ -109,15 +113,15 @@ export async function deployPreviewForProject(
     });
   }
 
-  // Mint the preview hosts up front — the container 502s until the build
+  // Mint the preview hosts up front: the container 502s until the build
   // converges, which the PR comment reflects as "Building". Best-effort:
   // a routing failure must not strand the build itself.
   const routes = await Result.tryPromise({
     try: () =>
       ensurePreviewRoutes({
-        projectId: p.id as ProjectId,
+        projectId,
         projectSlug: p.slug,
-        gitRepoId: repo.id as GitRepoId,
+        gitRepoId,
         preview: { id: row.id, slug: row.slug, prNumber: row.prNumber },
       }),
     catch: (cause) => cause,
@@ -130,8 +134,8 @@ export async function deployPreviewForProject(
   }
 
   const deployments = await triggerPreviewBuild({
-    projectId: p.id as ProjectId,
-    gitRepoId: repo.id as GitRepoId,
+    projectId,
+    gitRepoId,
     previewId: row.id,
     sha: pr.head.sha,
     branch: pr.head.ref,

@@ -1,11 +1,11 @@
 /**
  * Add / edit dialog for a container registry credential.
  *
- * Same component for both flows — when `existing` is set we PATCH and
+ * Same component for both flows: when `existing` is set we PATCH and
  * the password field is optional (blank = leave existing in place); when
  * it's null we POST and password is required. The host field is locked
  * after creation because changing it would semantically be "this is now
- * a different registry" — operators should delete and re-add.
+ * a different registry": operators should delete and re-add.
  *
  * The kind picker is UX sugar: picking a kind pre-fills the host and
  * adapts field hints, but only host/username/password are stored. The
@@ -16,7 +16,7 @@
 import { useState } from "react";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -37,7 +37,7 @@ interface RegistryDialogProps {
 export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogProps) {
   const isEdit = existing !== null;
 
-  // Sticky kind from an explicit tile pick — needed because picking e.g.
+  // Sticky kind from an explicit tile pick. Needed because picking e.g.
   // ECR clears the host (account-specific), and `kindForHost("")` would
   // immediately snap the selection back to Generic.
   const [pickedKind, setPickedKind] = useState<RegistryKind | null>(null);
@@ -48,7 +48,7 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
     existing,
     onSubmit: (value) => {
       // Optimistic mutate: close instantly, surface the outcome off the
-      // transaction's persisted promise — TanStack DB rolls back on reject.
+      // transaction's persisted promise. TanStack DB rolls back on reject.
       const tx = existing
         ? registryCollection.update(
             existing.id,
@@ -82,7 +82,7 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
     },
   });
 
-  const host = useStore(form.store, (s) => s.values.host);
+  const host = useSelector(form.store, (s) => s.values.host);
   const kind = pickedKind ?? kindForHost(existing?.host ?? host);
 
   const pickKind = (k: RegistryKind) => {
@@ -99,8 +99,8 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
   };
 
   const runTest = (values: RegistryFormValues) => {
-    // Edit flow: host is locked and a blank password means "use stored" —
-    // test by id so the server decrypts the saved secret. A typed password
+    // Edit flow: host is locked and a blank password means "use stored".
+    // Test by id so the server decrypts the saved secret. A typed password
     // rides along as an override so it can be verified before saving.
     const input = existing
       ? {

@@ -1,6 +1,6 @@
 /**
  * Image → engine detection for compose-stack database backups. This is the
- * declarative allow-list that decides which stack services are dumpable — it
+ * declarative allow-list that decides which stack services are dumpable. It
  * must match real database images (across registries/tags) and, crucially, NOT
  * misfire on app images that merely contain a DB name (nocodb, postgrest, …).
  */

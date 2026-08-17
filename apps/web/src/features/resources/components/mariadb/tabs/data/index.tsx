@@ -1,5 +1,5 @@
 /**
- * "Data" tab for a MariaDB/MySQL resource — a read-only table browser.
+ * "Data" tab for a MariaDB/MySQL resource: a read-only table browser.
  *
  * Unlike the Postgres SQL console this is deliberately a browser: a table list
  * on the left, a paginated row grid on the right. The server builds every

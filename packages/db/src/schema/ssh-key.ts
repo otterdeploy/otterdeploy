@@ -1,18 +1,18 @@
 import type { SshKeyId } from "@otterdeploy/shared/id";
 
-// SSH keys — org-scoped keypairs used to authenticate Git pulls (deploy keys)
+// SSH keys: org-scoped keypairs used to authenticate Git pulls (deploy keys)
 // and to manage swarm nodes. Two flavours live in this one table:
 //
 //   - generated keys: we run `ssh-keygen`, store the PUBLIC half in the clear
 //     (`publicKey`) and the PRIVATE half as AES-GCM ciphertext
 //     (`privateKeyCiphertext`, via packages/api/src/lib/crypto). The private
-//     key is never returned to the browser — only the public half + fingerprint.
+//     key is never returned to the browser. Only the public half + fingerprint.
 //   - imported keys: the operator pastes a public key line; we keep only the
 //     public half (`privateKeyCiphertext` is null). The private key lives on the
 //     operator's machine, not ours.
 //
 // "Used by" (git providers / nodes / services consuming the key) is derived at
-// read time from the subsystems that reference a key, not denormalized here —
+// read time from the subsystems that reference a key, not denormalized here,
 // so this table never drifts out of sync with actual usage.
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import {
@@ -43,12 +43,12 @@ export const sshKey = pgTable(
     /** Operator-visible label, e.g. "otterdeploy-deploy". */
     name: text("name").notNull(),
     type: sshKeyTypeEnum("type").notNull(),
-    /** Key size in bits — set for rsa/ecdsa, null for ed25519 (fixed-size). */
+    /** Key size in bits: set for rsa/ecdsa, null for ed25519 (fixed-size). */
     bits: integer("bits"),
     /** Full OpenSSH public-key line: "ssh-ed25519 AAAA… comment". Not secret. */
     publicKey: text("public_key").notNull(),
     /** AES-GCM ciphertext of the OpenSSH private key. Null for imported
-     *  (public-only) keys — we never hold their private half. */
+     *  (public-only) keys: we never hold their private half. */
     privateKeyCiphertext: text("private_key_ciphertext"),
     /** SHA256 fingerprint, e.g. "SHA256:Ad7Qm…". Unique per org (dedupes
      *  re-imports of the same key). */

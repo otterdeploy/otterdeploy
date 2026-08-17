@@ -30,7 +30,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     template: z.string().optional(),
   }),
   // Fallback title only. Every route below sets its own, and the deepest match
-  // wins — the product name is not repeated onto pages that have a real name of
+  // wins: the product name is not repeated onto pages that have a real name of
   // their own. See docs: the tab should say where you are, not what app it is.
   //
   // No `links` here on purpose. Icon declarations live in apps/web/index.html so
@@ -42,7 +42,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       {
         name: "description",
         content:
-          "Self-hostable deployments — build, ship, and operate your services on your own servers.",
+          "Self-hostable deployments. Build, ship, and operate your services on your own servers.",
       },
     ],
   }),
@@ -67,8 +67,8 @@ function RootComponent() {
           {/* grid-cols-[minmax(0,1fr)], not the implicit `1fr`: a grid item's
               default `min-width:auto` floors it at min-content, so ONE wide
               child deep in the tree (a fixed-column table, a long log line)
-              stretched the whole app past the viewport on a phone — header,
-              tiles and all — instead of scrolling inside its own container. */}
+              stretched the whole app past the viewport on a phone: header,
+              tiles and all: instead of scrolling inside its own container. */}
           <div className="grid h-svh grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr]">
             <Outlet />
           </div>

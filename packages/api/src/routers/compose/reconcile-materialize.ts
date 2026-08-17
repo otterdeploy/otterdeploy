@@ -2,14 +2,14 @@
  * Materializing ONE compose service's `service_resource` row.
  *
  * Split out of reconcile.ts, which owns the orchestration loop and the
- * teardown pass — this is the row-level mechanics that loop calls per service.
+ * teardown pass. This is the row-level mechanics that loop calls per service.
  */
 
 import type { EnvironmentId, ResourceId } from "@otterdeploy/shared/id";
 
 import type { StackReconcileContext } from "./reconcile";
 
-// Via the barrel, as reconcile.ts did before the split — importing the deep
+// Via the barrel, as reconcile.ts did before the split, importing the deep
 // paths instead orphans the re-exports and trips the dead-code ratchet.
 import { allowedHostBind } from "../../lib/host-binds";
 import {
@@ -28,7 +28,7 @@ import { pickResourceName, type toServiceFields } from "./reconcile-map";
  * host bind is not one of those: it is a platform grant (see lib/host-binds.ts)
  * that the compose file requests and the platform decides to honour. Leaving it
  * create-only meant every stack deployed before the grant existed stayed broken
- * through any number of redeploys — the Dozzle stacks already out there would
+ * through any number of redeploys: the Dozzle stacks already out there would
  * have needed deleting and re-adding to pick up their socket.
  *
  * Additive on purpose: each bind is upserted on its own `(service, target)` key,
@@ -60,7 +60,7 @@ export /**
  *
  * Split out of {@link reconcileStackServices} because the create/update fork
  * and the two "seeded once on create, user-owned from then on" rules that hang
- * off it (env, bind mounts) are a self-contained decision — the reconcile loop
+ * off it (env, bind mounts) are a self-contained decision. The reconcile loop
  * only needs the resulting `(resourceId, isCreate)` pair, and every branch kept
  * inline there competes for attention with the per-service crash tolerance the
  * loop itself exists to provide.
@@ -70,18 +70,18 @@ async function materializeServiceRow(input: {
   composeServiceName: string;
   mapped: ReturnType<typeof toServiceFields>;
   existingResourceId: ResourceId | undefined;
-  /** The owning stack's environment — a child belongs wherever its stack does.
+  /** The owning stack's environment. A child belongs wherever its stack does.
    *  Read from the stack row rather than threaded through every context
    *  construction site, so it cannot go missing on one path and it follows the
    *  stack if that ever moves. */
   environmentId: EnvironmentId | null;
-  /** Owning stack's resource name — children are namespaced by it. */
+  /** Owning stack's resource name. Children are namespaced by it. */
   stackResourceName: string;
 }): Promise<{ resourceId: ResourceId; isCreate: boolean }> {
   const { ctx, mapped } = input;
   if (input.existingResourceId) {
     // Structure (image/command/replicas/healthcheck/resources) tracks the
-    // file. Env + ports + name are left alone — the user owns env post-create.
+    // file. Env + ports + name are left alone. The user owns env post-create.
     await updateServiceRecord(input.existingResourceId, mapped.fields);
     await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts);
     return { resourceId: input.existingResourceId, isCreate: false };
@@ -107,7 +107,7 @@ async function materializeServiceRow(input: {
     ...mapped.fields,
   });
   const resourceId = created.resource.id;
-  // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
+  // Seed bind mounts (multi-file inline stacks) ONCE, on create. Mirroring
   // the env "user owns it post-create" convention, so a later compose edit
   // never clobbers user-managed mounts and existing stacks are untouched.
   if (mapped.mounts.length > 0) {

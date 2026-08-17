@@ -14,7 +14,7 @@
  *   export-selected; state mirrored up via `onSelectionChange`);
  * - `enableRowDetail` prepends a per-row chevron that opens the RowDetailPanel
  *   on the right (every column, per-field copy, jump-to-inline-edit);
- * - `hiddenColumns` drops columns from the GRID only — the data (and therefore
+ * - `hiddenColumns` drops columns from the GRID only. The data (and therefore
  *   exports and the detail panel) keeps every column.
  */
 
@@ -73,7 +73,7 @@ export function DiceResultGrid({
   onOpenRef?: (fk: FkTarget, value: string) => void;
   /** Allow inline edit / delete (actor has write capability). */
   editable?: boolean;
-  /** Primary-key columns — required to target a row; empty disables editing. */
+  /** Primary-key columns, required to target a row; empty disables editing. */
   primaryKey?: string[];
   onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
@@ -146,7 +146,7 @@ export function DiceResultGrid({
     hiddenColumns,
     selectable,
     enableRowDetail,
-    // Stable setState identity — keeps the memoized defs from re-building.
+    // Stable setState identity: keeps the memoized defs from re-building.
     onOpenDetail: setDetailIndex,
   });
 
@@ -188,7 +188,7 @@ export function DiceResultGrid({
         editable={canEdit}
         onEditField={(column) => {
           // Jump to the inline editor for this cell (hidden columns aren't in
-          // the grid — unhide first to edit them there).
+          // the grid: unhide first to edit them there).
           if (detailIndex === null || !canEdit || (hiddenColumns ?? []).includes(column)) return;
           grid.tableMeta.scrollToCell?.(detailIndex, column);
           grid.tableMeta.onCellEditingStart?.(detailIndex, column);

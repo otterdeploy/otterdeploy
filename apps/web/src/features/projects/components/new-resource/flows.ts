@@ -45,8 +45,8 @@ const SOURCE_FAST_STEPS: StepEntry[] = [
   ["kind", "Source"],
   ["source", "Repository"],
   ["networking", "Networking"],
-  // Env vars are essential for almost every app (DATABASE_URL, API keys, …) —
-  // keep them in the default flow, not just behind "Advanced setup".
+  // Env vars are essential for almost every app (DATABASE_URL, API keys, …).
+  // Keep them in the default flow, not just behind "Advanced setup".
   ["variables", "Variables"],
   ["review", "Review"],
 ];
@@ -66,7 +66,7 @@ const DB_FAST_STEPS: StepEntry[] = [
 ];
 
 // A port-less compute service (background worker): same git build flow, minus
-// the Networking step — it publishes no port and gets no public route.
+// the Networking step: it publishes no port and gets no public route.
 const dropNetworking = (steps: StepEntry[]): StepEntry[] =>
   steps.filter(([step]) => step !== "networking");
 const WORKER_STEPS = dropNetworking(SOURCE_STEPS);

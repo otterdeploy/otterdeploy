@@ -2,7 +2,7 @@
  * Map one database_resource row to a StackService entry.
  *
  * Engine-specific bits (image, identity env, healthcheck command, mount
- * target) come from the adapter — keeps the renderer in lockstep with
+ * target) come from the adapter. Keeps the renderer in lockstep with
  * what the apply path actually deploys.
  */
 

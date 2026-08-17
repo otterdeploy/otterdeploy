@@ -4,17 +4,17 @@ Several composed coss primitives wrap Base UI **`Portal`** inside `*Popup` (or d
 
 Use it when you need portal-level behavior from Base UI, for example:
 
-- **`keepMounted`** — where the component’s `Portal` type supports it (see Base UI typings/docs for that component).
-- **`container`** — render portaled content into a specific DOM node (stacking contexts, micro-frontends, shadow DOM setups).
+- **`keepMounted`**: where the component’s `Portal` type supports it (see Base UI typings/docs for that component).
+- **`container`**: render portaled content into a specific DOM node (stacking contexts, micro-frontends, shadow DOM setups).
 - Other props accepted by that component’s **`Portal.Props`** (including `className` / `ref` when applicable).
 
 ## Surfaces that expose `portalProps`
 
 - **Modals / overlays:** `DialogPopup`, `AlertDialogPopup`, `SheetPopup`, `DrawerPopup`, `CommandDialogPopup`
 - **Floating layers:** `MenuPopup`, `PopoverPopup`, `TooltipPopup`, `PreviewCardPopup`, `AutocompletePopup`, `ComboboxPopup`, `SelectPopup`
-- **Toast (providers, not a `*Popup` name):** `ToastProvider`, `AnchoredToastProvider` — `portalProps` is forwarded to the internal `Toast.Portal` for the stacked and anchored viewports, respectively
+- **Toast (providers, not a `*Popup` name):** `ToastProvider`, `AnchoredToastProvider`: `portalProps` is forwarded to the internal `Toast.Portal` for the stacked and anchored viewports, respectively
 
-Only these surfaces accept `portalProps`. Any other registry component that portals content but is not listed here keeps the portal internal and is out of scope for this prop—compose Base UI parts yourself if you need direct portal control.
+Only these surfaces accept `portalProps`. Any other registry component that portals content but is not listed here keeps the portal internal and is out of scope for this prop. Compose Base UI parts yourself if you need direct portal control.
 
 ## Positioner vs portal
 

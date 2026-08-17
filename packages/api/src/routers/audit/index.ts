@@ -1,7 +1,6 @@
-import type { AuditLogId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import {
   and,
   count,
@@ -45,18 +44,18 @@ function toAuditEvent(r: AuditRow) {
   };
 }
 
-/** Org scope + optional time window — shared by `list` and `distinct`.
+/** Org scope + optional time window. Shared by `list` and `distinct`.
  *
  * Includes rows with a NULL `organizationId` alongside the caller's own org:
  * every DENIED row from an auth/org-gate rejection (UNAUTHORIZED,
  * NO_ACTIVE_ORGANIZATION) is written before `activeOrganizationId` is ever
- * known (see `traceProcedure` in packages/api/src/index.ts — the tenant id
+ * known (see `traceProcedure` in packages/api/src/index.ts, the tenant id
  * on the audit envelope comes from context captured at request start, and
  * for those two denial codes that's before a session/org has resolved). An
- * org-only `eq` filter made the DENIED counter permanently 0 — no denied row
+ * org-only `eq` filter made the DENIED counter permanently 0, no denied row
  * has ever carried a real org id, by construction, so it could never match.
  * These rows aren't another tenant's private data (there IS no tenant), so
- * surfacing them everywhere isn't a cross-org leak — it's the only way an
+ * surfacing them everywhere isn't a cross-org leak. It's the only way an
  * operator ever sees "someone got blocked before establishing identity" at
  * all. */
 function windowConds(orgId: string, from?: string, to?: string): SQL[] {
@@ -121,7 +120,7 @@ export const auditRouter = {
   }),
 
   /** Project-scoped feed for the graph workspace's Activity tab. The audit row
-   *  has no project column — scope is derived from the target: either the
+   *  has no project column. Scope is derived from the target: either the
    *  event targeted the project itself (`targetId = projectId`) or its target
    *  payload carries the project (`target->>'projectId'`, the shape resource
    *  mutations set). Org filter stays the cross-tenant guard. */
@@ -180,7 +179,7 @@ export const auditRouter = {
     ]);
 
     // The DISTINCT is over the (id, type, email, label) tuple, so an actor
-    // whose label/email changed mid-window appears twice — collapse by id,
+    // whose label/email changed mid-window appears twice. Collapse by id,
     // preferring the row that carries a label.
     const actors = new Map<string, (typeof actorRows)[number]>();
     for (const a of actorRows) {
@@ -208,9 +207,13 @@ export const auditRouter = {
 
     const rel: SQL[] = [];
     if (input.correlationId) rel.push(eq(auditLog.correlationId, input.correlationId));
-    // causationId is stored as free text (it names the causing event), so cast
-    // to the branded id type for the primary-key comparison.
-    if (input.causationId) rel.push(eq(auditLog.id, input.causationId as AuditLogId));
+    // causationId is stored as free text (it names the causing event). Narrow
+    // it through the real prefix guard for the primary-key comparison; a value
+    // without an audit-log prefix could never match a row anyway, so skipping
+    // it changes nothing observable.
+    if (input.causationId && hasPrefix(input.causationId, ID_PREFIX.auditLog)) {
+      rel.push(eq(auditLog.id, input.causationId));
+    }
     if (rel.length === 0) return { items: [] };
 
     const rows = await db

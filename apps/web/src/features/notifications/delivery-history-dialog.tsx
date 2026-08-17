@@ -1,10 +1,10 @@
 /**
- * Per-channel delivery history — opened from the channel card ("View
+ * Per-channel delivery history, opened from the channel card ("View
  * deliveries" / clicking the stats row). Answers "what actually went through
  * THIS destination?": a 7-day per-event breakdown up top, then the raw
  * delivery log (newest first, keyset load-more) with provider errors inline.
  * Backed by `notifications.deliveries`; all rows are real `notification_
- * delivery` records — no synthesized history.
+ * delivery` records, no synthesized history.
  */
 import type { ReactNode } from "react";
 
@@ -34,8 +34,10 @@ import {
 } from "./shared";
 
 type DeliveriesPage = Awaited<ReturnType<typeof client.notifications.deliveries>>;
+type DeliveryCursor = NonNullable<DeliveriesPage["nextCursor"]>;
 
 const PAGE_SIZE = 50;
+const FIRST_PAGE: DeliveryCursor | null = null;
 
 interface DeliveryHistoryDialogProps {
   open: boolean;
@@ -49,19 +51,21 @@ export function DeliveryHistoryDialog({ open, onOpenChange, channel }: DeliveryH
   const query = useInfiniteQuery({
     queryKey: [...orpc.notifications.deliveries.key(), channelId],
     enabled: open && channel !== null,
-    initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) =>
-      client.notifications.deliveries({
-        // enabled-gated: only runs with a channel present.
-        channelId: channelId as Channel["id"],
+    initialPageParam: FIRST_PAGE,
+    queryFn: async ({ pageParam }) => {
+      // enabled-gated: only runs with a channel present.
+      if (channelId === undefined) throw new Error("No channel selected");
+      return client.notifications.deliveries({
+        channelId,
         limit: PAGE_SIZE,
-        ...(pageParam ? { cursor: pageParam as DeliveriesPage["items"][number]["id"] } : {}),
-      }),
+        ...(pageParam ? { cursor: pageParam } : {}),
+      });
+    },
     getNextPageParam: (last) => last.nextCursor,
   });
 
   const pages = query.data?.pages ?? [];
-  // The 7d breakdown is identical on every page — read it off the first.
+  // The 7d breakdown is identical on every page. Read it off the first.
   const breakdown = pages[0]?.breakdown7d ?? [];
   const items = pages.flatMap((p) => p.items);
 
@@ -137,7 +141,7 @@ function Breakdown({ rows }: { rows: DeliveriesPage["breakdown7d"] }) {
       <SectionLabel>{t("notifications.eventsLast7Days")}</SectionLabel>
       {rows.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">
-          Nothing in the last 7 days — older deliveries are listed below.
+          Nothing in the last 7 days. Older deliveries are listed below.
         </p>
       ) : (
         <div className="overflow-hidden rounded-md border">

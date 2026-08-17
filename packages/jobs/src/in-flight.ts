@@ -3,7 +3,7 @@
  *
  * Workers run `concurrency=1` by default, so triggering several deploys
  * queues them behind the active build. Those queued deploys produce no log
- * output while they wait their turn — the watchdog must NOT mistake that
+ * output while they wait their turn. The watchdog must NOT mistake that
  * silence for a dead build. But it must STILL catch a genuinely-down builder
  * (a job that sits queued because nothing is consuming it).
  *

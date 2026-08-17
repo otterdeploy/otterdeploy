@@ -10,7 +10,7 @@ import { cmd } from "../lib/name";
 import { abort, confirm, detail, dim, ok, out, section, warn } from "../lib/ui";
 
 // Only the key count of each section matters here, so `object` is the whole
-// contract — any manifest section map satisfies it.
+// contract: any manifest section map satisfies it.
 function countsOf(manifest: { services?: object; databases?: object; composes?: object }): string {
   const n = (record: object | undefined): number => Object.keys(record ?? {}).length;
   return `${n(manifest.services)} services ${dim("·")} ${n(manifest.databases)} databases ${dim("·")} ${n(manifest.composes)} composes`;
@@ -36,7 +36,7 @@ export const pullCommand = defineCommand({
 
     // An unparseable local file is a legitimate reason to pull, so its load
     // failure only matters where the content was needed (slug fallback and
-    // the overwrite summary) — it must not abort the pull itself.
+    // the overwrite summary): it must not abort the pull itself.
     const hasLocal = configExists(args.config);
     let localManifest: Manifest | null = null;
     let localError: Error | null = null;
@@ -73,7 +73,7 @@ export const pullCommand = defineCommand({
           "pass `--yes` if you are certain",
         );
       }
-      // Show both sides before overwriting — the counts are what tell you
+      // Show both sides before overwriting. The counts are what tell you
       // whether you are about to lose local work.
       section("Overwrite local config");
       detail([
@@ -83,7 +83,7 @@ export const pullCommand = defineCommand({
       out();
       warn("The local file is replaced wholesale. Uncommitted edits are lost.");
       if (!(await confirm("Overwrite the local config?"))) {
-        abort("Aborted — the local config was left untouched.");
+        abort("Aborted. The local config was left untouched.");
       }
     }
 

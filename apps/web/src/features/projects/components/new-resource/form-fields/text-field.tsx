@@ -20,7 +20,7 @@ export function TextField({
 }: TextFieldProps) {
   const field = useFieldContext<string>();
   // Quiet until the operator has actually been here: errors render only
-  // after the field blurs (or a failed Continue marks it blurred) — a
+  // after the field blurs (or a failed Continue marks it blurred). A
   // pristine required field showing red before any typing is just noise.
   const errors = field.state.meta.isBlurred ? field.state.meta.errors : [];
   return (

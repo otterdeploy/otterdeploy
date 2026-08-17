@@ -3,7 +3,7 @@
  *
  * The authorizing org for a protected deployment is derived, never stored
  * twice: domain → proxyRoute → project.organizationId. Membership is the
- * single gate — any member of the owning org may view the deployment
+ * single gate: any member of the owning org may view the deployment
  * (role-granular policies are a later refinement).
  *
  * See docs/designs/deployment-protection.md §7.
@@ -21,12 +21,12 @@ export interface DomainOrg {
   projectId: string;
   /** The route's access-PIN hash (null = PIN method off). Carried here so
    *  the forward_auth hot path and the wall page get it from the route row
-   *  they already load — no second query. */
+   *  they already load, no second query. */
   accessPinHash: string | null;
 }
 
 /** Resolve the org that authorizes a protected deployment domain. Returns
- *  null when the domain is unknown OR not protection-enabled — callers
+ *  null when the domain is unknown OR not protection-enabled. Callers
  *  treat null as "no gate, allow through". */
 export async function resolveProtectedDomainOrg(domain: string): Promise<DomainOrg | null> {
   const route = await getProxyRouteByDomain(domain);

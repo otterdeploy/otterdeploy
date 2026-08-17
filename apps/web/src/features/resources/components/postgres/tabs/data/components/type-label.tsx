@@ -1,6 +1,6 @@
 /**
  * Muted type-tone for column-type labels (Columns popover, Structure view, row
- * detail) — one quiet hue per type family, per the reference viewer. Tones stay
+ * detail): one quiet hue per type family, per the reference viewer. Tones stay
  * desaturated so the accent budget (DESIGN.md) is untouched.
  */
 

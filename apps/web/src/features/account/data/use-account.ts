@@ -1,5 +1,5 @@
 /**
- * Account-page data hooks — the signed-in user's session, linked accounts and
+ * Account-page data hooks. The signed-in user's session, linked accounts and
  * device sessions, all straight from the better-auth client. Query keys are
  * shared with the shell's account dialogs (`["auth", …]`) so the page and the
  * dialogs read/invalidate one cache.
@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { authClient } from "@/lib/auth-client";
 
-/** Shared auth cache keys — the shell's account dialogs read the same cache,
+/** Shared auth cache keys. The shell's account dialogs read the same cache,
  *  so invalidations here and there must agree on these exact keys. */
 export const authKeys = {
   all: ["auth"] as const,
@@ -29,7 +29,7 @@ export interface SessionRow {
 }
 
 /** The live session (user + session token). Fresher than the router context
- *  snapshot — carries `twoFactorEnabled` and reflects profile edits. */
+ *  snapshot: carries `twoFactorEnabled` and reflects profile edits. */
 export function useCurrentSession() {
   return useQuery({
     queryKey: authKeys.currentSession,
@@ -38,7 +38,7 @@ export function useCurrentSession() {
 }
 
 /** Linked sign-in methods. `credential` in the list means the user has a
- *  password — the gate for change-password and TOTP two-factor. */
+ *  password: the gate for change-password and TOTP two-factor. */
 export function useLinkedAccounts() {
   return useQuery({
     queryKey: authKeys.accounts,
@@ -61,7 +61,7 @@ export function useSessions() {
       if (res.error) {
         throw new Error(res.error.message ?? "Failed to load sessions");
       }
-      return (res.data ?? []) as SessionRow[];
+      return res.data ?? [];
     },
   });
 }

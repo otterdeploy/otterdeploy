@@ -1,5 +1,5 @@
 /**
- * Shared bits for the PR-preview detail panel tabs — status-pill styling,
+ * Shared bits for the PR-preview detail panel tabs: status-pill styling,
  * the label/badge utility classes, and the preview row types inferred from
  * the `project.previews.list` procedure.
  */
@@ -27,14 +27,14 @@ export type PreviewService = Preview["services"][number];
  * What a service is actually SERVING, relative to the preview's head commit.
  *
  * A status pill alone is not honest here. `running` means "a container is up",
- * not "the commit you just pushed is live" — so a preview whose newest build
+ * not "the commit you just pushed is live", so a preview whose newest build
  * failed, or is still building, shows green while serving an older commit. That
  * is precisely the state someone reviewing a PR must not be misled about: they
  * click through, see the previous revision, and review the wrong thing.
  *
- *  - `none`    — nothing is serving yet
- *  - `current` — serving the preview's head commit
- *  - `stale`   — serving an OLDER commit than the head; `serving` is what's up
+ *  - `none`, nothing is serving yet
+ *  - `current`, serving the preview's head commit
+ *  - `stale`, serving an OLDER commit than the head; `serving` is what's up
  */
 export type Freshness =
   | { kind: "none" }

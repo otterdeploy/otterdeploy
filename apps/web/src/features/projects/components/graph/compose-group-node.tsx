@@ -167,10 +167,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
   // service resource, so this routes to the same panel a standalone service
   // gets (deployments/logs/terminal/variables/settings).
   const navigate = useNavigate();
-  const params = useParams({ strict: false }) as {
-    orgSlug?: string;
-    projectSlug?: ProjectSlug;
-  };
+  const params = useParams({ strict: false });
   const openService = (resourceId: string) => {
     if (!params.orgSlug || !params.projectSlug) return;
     void navigate({

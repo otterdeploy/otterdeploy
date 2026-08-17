@@ -26,7 +26,7 @@ function pickRollbackTarget(rows: DeploymentRow[]): DeploymentRow | undefined {
 function printTarget(target: DeploymentRow | undefined, deploymentId: string): void {
   section("Rollback target");
   if (!target) {
-    // An explicitly-passed id we couldn't find locally — the server still
+    // An explicitly-passed id we couldn't find locally. The server still
     // validates it, so say what we know rather than inventing detail.
     detail([["deployment", paint("id", shortId(deploymentId))]]);
     return;
@@ -35,7 +35,7 @@ function printTarget(target: DeploymentRow | undefined, deploymentId: string): v
   detail([
     ["deployment", paint("id", shortId(target.id))],
     ["image", target.image],
-    ["commit", sha === "" ? dim("—") : dim(sha)],
+    ["commit", sha === "" ? dim("–") : dim(sha)],
     ["deployed", dim(relativeTime(target.createdAt))],
   ]);
 }
@@ -73,7 +73,7 @@ export const rollbackCommand = defineCommand({
     let deploymentId: string;
     let target: DeploymentRow | undefined;
     if (args.deployment) {
-      // Explicit id: details are cosmetic — the server validates existence.
+      // Explicit id: details are cosmetic. The server validates existence.
       deploymentId = args.deployment;
       target = rows.find((r) => r.id === args.deployment);
     } else {
@@ -92,7 +92,7 @@ export const rollbackCommand = defineCommand({
       printTarget(target, deploymentId);
       out();
       if (!(await confirm(`Roll back ${resourceName} to this deployment?`))) {
-        abort("Aborted — nothing was rolled back.");
+        abort("Aborted. Nothing was rolled back.");
       }
     }
 

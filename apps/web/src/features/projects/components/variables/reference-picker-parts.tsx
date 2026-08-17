@@ -4,9 +4,9 @@
  * budget.
  */
 
-import type { ReactNode } from "react";
-
 import type { TranslationKey } from "@otterdeploy/i18n";
+
+import type { ReactNode } from "react";
 
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";

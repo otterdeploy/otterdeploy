@@ -1,5 +1,5 @@
 /**
- * Wall page chrome — the shared Hono JSX document shell plus the console-frame
+ * Wall page chrome: the shared Hono JSX document shell plus the console-frame
  * status pages (Interstitial, Denied, ErrorPage). Split out of
  * deploy-protection.tsx to keep each module under the line cap. Public surface
  * unchanged: these components are imported back by the handler modules.
@@ -20,14 +20,14 @@ export const Page: FC<
     title: string;
     css: string;
     headExtra?: unknown;
-    /** Suppress the default "Otterdeploy Authentication" footer — for pages
+    /** Suppress the default "Otterdeploy Authentication" footer: for pages
      *  (e.g. ErrorPage) that render their own. */
     hideFoot?: boolean;
   }>
 > = ({ title, css, headExtra, hideFoot, children }) => (
   <>
     {raw("<!doctype html>")}
-    <html>
+    <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -81,13 +81,13 @@ const ConsoleFrame: FC<PropsWithChildren<{ barRight: unknown; statusTag: string 
   </>
 );
 
-/** The "Authenticating…" handoff screen — the shared console frame with a
+/** The "Authenticating…" handoff screen: the shared console frame with a
  *  spinner, an indigo accent, and a live status line. Navigates to `next`
  *  immediately (meta-refresh + location.replace + noscript fallback); with no
  *  `next` (dev preview) it stays put and cycles the status steps. */
 export const Interstitial: FC<{ next?: string }> = ({ next }) => (
   <Page
-    title="Otterdeploy — Authenticating"
+    title="Otterdeploy, Authenticating"
     hideFoot
     headExtra={next ? <meta http-equiv="refresh" content={`0;url=${next}`} /> : undefined}
     css={
@@ -161,19 +161,19 @@ export const Interstitial: FC<{ next?: string }> = ({ next }) => (
 export const Denied: FC<{ domain: string }> = ({ domain }) => (
   <Page title="No access" css={deniedCss}>
     <div class="wrap">
-      {/* Reached only WITH a valid session, so the visitor is signed in — the
+      {/* Reached only WITH a valid session, so the visitor is signed in, the
           old "You don't have access" read as "you're signed out" and sent
           people back to a sign-in they'd already completed. */}
       <h1>You're signed in, but not invited here</h1>
       <p>
         Your account doesn't have access to {domain}. Ask an organization owner to add you, then
-        reload — or switch to an account that's already a member.
+        reload, or switch to an account that's already a member.
       </p>
     </div>
   </Page>
 );
 
-/** Branded failure page for the wall routes — bad/expired link, unknown
+/** Branded failure page for the wall routes: bad/expired link, unknown
  *  deployment, or an unexpected 500. Uses the shared console frame (same
  *  grid/glow/grain + corner-tick chrome as the web `ErrorScreen`). `title`/
  *  `detail` are fixed, caller-chosen copy: no error object, stack, or SQL ever
@@ -183,11 +183,11 @@ export const ErrorPage: FC<{
   title: string;
   detail: string;
   /** Host to offer as a way back, when one is known and still meaningful. A
-   *  404 deliberately passes none — retrying a deployment that doesn't exist
+   *  404 deliberately passes none. Retrying a deployment that doesn't exist
    *  just fails again. */
   retryHost?: string;
 }> = ({ status, title, detail, retryHost }) => {
-  // 5xx = red (our fault), 4xx = indigo (request/link) — mirrors the web pages.
+  // 5xx = red (our fault), 4xx = indigo (request/link): mirrors the web pages.
   const isServer = status >= 500;
   const accent = isServer ? "oklch(0.685 0.205 25)" : "oklch(0.623 0.214 259.815)";
   const glow = isServer ? "oklch(0.685 0.205 25 / 0.26)" : "oklch(0.623 0.214 259.815 / 0.26)";

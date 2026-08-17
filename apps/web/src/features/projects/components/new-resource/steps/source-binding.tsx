@@ -101,7 +101,7 @@ interface BindingSummaryProps {
   projectSlug: string;
   installations: RepoOwner[];
   onBound: (repoId: string, fullName: string) => void;
-  /** Clear the current binding so the picker reappears — lets the operator
+  /** Clear the current binding so the picker reappears: lets the operator
    *  point this service at a different repo. */
   onChangeRepo: () => void;
 }
@@ -151,7 +151,7 @@ export function BindingSummary(props: BindingSummaryProps) {
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-semibold">Deploy from a repository</div>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              Pick a repo from your connected GitHub App, or paste a public URL — no detour to
+              Pick a repo from your connected GitHub App, or paste a public URL, with no detour to
               Settings needed.
             </p>
           </div>
@@ -192,7 +192,7 @@ function NoProviderCard(props: BindingSummaryProps) {
             <div className="text-[13px] font-semibold">No git provider connected</div>
             <p className="mt-1 text-[12px] text-muted-foreground">
               Connect the GitHub App for private repos + push deploys. For a public repo, paste its
-              URL below — no app install needed.
+              URL below. No app install needed.
             </p>
             <Link
               to="/$orgSlug/git-providers"
@@ -217,7 +217,7 @@ function NoProviderCard(props: BindingSummaryProps) {
 /**
  * Connect a public Git URL: creates the gitRepo row server-side, then
  * persists the binding on the project. On success we hand the new
- * gitRepoId back to the parent (it owns the form) — the parent's
+ * gitRepoId back to the parent (it owns the form). The parent's
  * `setFieldValue` write is what flips BindingSummary's render branch.
  *
  * No query invalidation in the success path; the parent already

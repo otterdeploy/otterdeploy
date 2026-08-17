@@ -21,11 +21,17 @@ import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./ed
 import { HostFilter } from "./host-filter";
 
 /**
- * Edge events view — the operational log plane (Phase 3). Caddy's default
+ * Edge events view: the operational log plane (Phase 3). Caddy's default
  * logger: TLS/ACME certificate lifecycle and reverse_proxy upstream errors,
  * scoped to the caller's domains. Mirrors the access-log view's full-bleed
  * table; no histogram/percentiles (these are discrete events, not requests).
  */
+/** Membership test that narrows a free-form string to one of the options. */
+function isMember<T extends string>(options: readonly T[], v: string): v is T {
+  const all: readonly string[] = options;
+  return all.includes(v);
+}
+
 export function EdgeEventsView({ projectId }: { projectId?: string }) {
   const { t } = useTranslation();
   const [range, setRange] = useState<Range>("1h");
@@ -42,8 +48,12 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
       input: {
         projectId,
         range,
-        categories: categories.size ? ([...categories] as Category[]) : undefined,
-        levels: levels.size ? ([...levels] as Level[]) : undefined,
+        categories: categories.size
+          ? [...categories].filter((v): v is Category => isMember(CATEGORIES, v))
+          : undefined,
+        levels: levels.size
+          ? [...levels].filter((v): v is Level => isMember(LEVELS, v))
+          : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
       },
@@ -53,7 +63,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
 
   const data = query.data;
   const rows = data?.rows ?? [];
-  // No hostStats here — derive the filter options from the rows themselves
+  // No hostStats here: derive the filter options from the rows themselves
   // (each event's host plus any batch domains).
   const hostOptions = (() => {
     const set = new Set<string>();
@@ -73,14 +83,20 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
           <LiveBadge live={live} />
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Caddy's operational log — TLS/ACME certificate lifecycle and upstream errors. Live-tailed
+          Caddy's operational log: TLS/ACME certificate lifecycle and upstream errors. Live-tailed
           from the proxy's default logger.
         </p>
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <Segmented options={RANGES} value={range} onChange={(v) => setRange(v as Range)} />
+        <Segmented
+          options={RANGES}
+          value={range}
+          onChange={(v) => {
+            if (isMember(RANGES, v)) setRange(v);
+          }}
+        />
         <Chips
           options={CATEGORIES}
           selected={categories}

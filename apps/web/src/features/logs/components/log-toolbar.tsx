@@ -1,6 +1,6 @@
 /**
  * Toolbar for {@link LogViewer}: copy, a line/match count, per-severity match
- * navigators (error/warn — step through matches with 1/N + ↑/↓, keeping every
+ * navigators (error/warn, step through matches with 1/N + ↑/↓, keeping every
  * line in view), and a "find in logs" box. Split out so the viewer file stays
  * focused on the scroller + state.
  */
@@ -147,7 +147,7 @@ function LevelChip({
         onClick={onActivate}
         disabled={disabled}
         aria-pressed={active}
-        title={`${count} ${plural(count, label)}${disabled ? "" : active ? " — click to clear" : " — click to step through"}`}
+        title={`${count} ${plural(count, label)}${disabled ? "" : active ? ", click to clear" : ", click to step through"}`}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2",
           stepping ? "pr-1.5" : "pr-2",

@@ -60,7 +60,7 @@ export function PortsField({ hostPlaceholder }: { hostPlaceholder?: string }) {
           <Input
             className="font-mono"
             type="number"
-            // 0 is the "not filled in yet" sentinel — render as empty, not a
+            // 0 is the "not filled in yet" sentinel. Render as empty, not a
             // literal 0 the operator has to delete.
             value={p.port === 0 ? "" : p.port}
             placeholder="80"
@@ -93,8 +93,8 @@ export function PortsField({ hostPlaceholder }: { hostPlaceholder?: string }) {
           <Input
             className={cn("font-mono", !p.public && "opacity-50")}
             value={p.host}
-            // Empty host on a public row publishes at the derived hostname —
-            // surface it right where the omission happens.
+            // Empty host on a public row publishes at the derived hostname.
+            // Surface it right where the omission happens.
             placeholder={p.public ? hostPlaceholder : undefined}
             onChange={(e) => {
               const next = ports.map((x, j) => (j === i ? { ...x, host: e.target.value } : x));

@@ -9,27 +9,27 @@ import type {
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
- * Backups schema — destinations, schedules, runs, and run logs.
+ * Backups schema: destinations, schedules, runs, and run logs.
  *
  * Three control-plane tables describe desired + historical backup state, plus
  * an append-only log stream cloned from `deploymentLog`. The execution plane
  * (a builder-style worker) is the only thing that runs `pg_dump`/`tar`/`rclone`;
  * these rows only ever describe what should happen and what did happen.
  *
- *   backup_destination — where backups go (S3 / local disk / SFTP). S3 creds
+ *   backup_destination: where backups go (S3 / local disk / SFTP). S3 creds
  *     are stored encrypted via `encryptSecret` (AES-GCM keyed off
- *     BETTER_AUTH_SECRET — see packages/api/src/lib/crypto.ts). Never store
+ *     BETTER_AUTH_SECRET: see packages/api/src/lib/crypto.ts). Never store
  *     plaintext secrets here.
  *
- *   backup_schedule — when + what to back up, with a retention policy. A single
+ *   backup_schedule: when + what to back up, with a retention policy. A single
  *     scanning cron (cron.backup-scheduler) reads these rows so user edits take
- *     effect without reconfiguring BullMQ schedulers — the DB is the source of
+ *     effect without reconfiguring BullMQ schedulers: the DB is the source of
  *     truth for cron + retention.
  *
- *   backup — one row per run (manual "backup now" or scheduler-enqueued). Holds
+ *   backup: one row per run (manual "backup now" or scheduler-enqueued). Holds
  *     terminal result: status, sizes, checksum, storage path, error.
  *
- *   backup_log — append-only per-run output, one line per row (clone of
+ *   backup_log: append-only per-run output, one line per row (clone of
  *     deploymentLog). Lets the detail panel paginate + live-tail via Redis
  *     pub/sub without scanning a JSONB blob.
  */
@@ -73,7 +73,7 @@ export const backupDestinationStatusEnum = pgEnum("backup_destination_status", [
 /**
  * What a run backs up. `database` = logical dump of a database resource;
  * `volume` = tar archive of a named Docker volume (helper container, read-only
- * mount). `stack` is a reserved value with NO engine behind it — nothing ever
+ * mount). `stack` is a reserved value with NO engine behind it. Nothing ever
  * writes it and the contract/UI no longer offer it; it stays in the pg enum
  * only because removing an enum value is a type-rebuild migration.
  */
@@ -108,13 +108,13 @@ export const backupRetentionClassEnum = pgEnum("backup_retention_class", [
 export const backupLogStreamEnum = pgEnum("backup_log_stream", ["stdout", "stderr", "system"]);
 
 // ---------------------------------------------------------------------------
-// backup_destination — where backups are stored
+// backup_destination: where backups are stored
 // ---------------------------------------------------------------------------
 
 /**
  * `config` holds non-secret connection params (bucket / region / endpoint /
  * prefix for S3, or `path` for local). `encryptedSecret` is the AES-GCM
- * ciphertext blob (access key + secret, or SFTP key) — base64url, never logged,
+ * ciphertext blob (access key + secret, or SFTP key): base64url, never logged,
  * nullable because `local` destinations have no secret.
  */
 export const backupDestination = pgTable(
@@ -138,7 +138,7 @@ export const backupDestination = pgTable(
      * can schedule a backup without first inventing a host path. Its `config`
      * (path + org prefix) is owned by ensureManagedLocalDestination and is NOT
      * user-editable; it cannot be deleted, only disabled, and only while
-     * another active destination exists. At most one per org — enforced by the
+     * another active destination exists. At most one per org. Enforced by the
      * partial unique index below, which is also what makes the ensure path
      * safe to call concurrently.
      */
@@ -158,7 +158,7 @@ export const backupDestination = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// backup_schedule — when + what + retention policy
+// backup_schedule: when + what + retention policy
 // ---------------------------------------------------------------------------
 
 export const backupSchedule = pgTable(
@@ -189,11 +189,11 @@ export const backupSchedule = pgTable(
     retentionDays: integer("retention_days"),
     maxStorageGb: integer("max_storage_gb"),
     // Storage destinations this schedule fans each run out to (a single dump is
-    // copied to every id). No FK — like `sources`, it's a jsonb id array;
+    // copied to every id). No FK: like `sources`, it's a jsonb id array;
     // referential integrity is enforced at write time in the router.
     destinationIds: jsonb("destination_ids").$type<BackupDestinationId[]>().notNull().default([]),
     encryption: backupEncryptionEnum("encryption").notNull().default("aes-256-gcm"),
-    // NOTE: former `pitr` + `notify_channel` columns were dropped as vestigial —
+    // NOTE: former `pitr` + `notify_channel` columns were dropped as vestigial,
     // no PITR capability exists in the engine (logical dumps only, no WAL
     // archiving), and failure alerts route through the platform-event matrix
     // (backup.failed → Notifications), not per-schedule channels.
@@ -216,7 +216,7 @@ export const backupSchedule = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// backup — one row per run
+// backup: one row per run
 // ---------------------------------------------------------------------------
 
 export const backup = pgTable(
@@ -231,7 +231,7 @@ export const backup = pgTable(
       .$type<OrganizationId>()
       .references(() => organization.id, { onDelete: "cascade" }),
     // Source discriminator: exactly one of `resourceId` / `volumeName` is set.
-    // kind=database ⇒ resourceId (FK, cascade — a deleted DB takes its run
+    // kind=database ⇒ resourceId (FK, cascade, a deleted DB takes its run
     // history with it). kind=volume ⇒ volumeName (no FK: Docker volumes are
     // daemon objects, not rows; the name is resolved against the daemon at
     // execution time and the run row outlives the volume).
@@ -252,11 +252,11 @@ export const backup = pgTable(
       .$type<BackupDestinationId>()
       .references(() => backupDestination.id, { onDelete: "restrict" }),
     encryption: backupEncryptionEnum("encryption").notNull().default("aes-256-gcm"),
-    // Result-size columns, REPURPOSED for the rustic engine (no migration — the
+    // Result-size columns, REPURPOSED for the rustic engine (no migration, the
     // physical columns are reused with new semantics; see
     // packages/api/src/backups/{engine,db}.ts markBackupSucceeded):
     //   sourceSizeBytes     = rustic summary.total_bytes_processed (dump size).
-    //   compressedSizeBytes = rustic summary.data_added — bytes ADDED to the repo
+    //   compressedSizeBytes = rustic summary.data_added: bytes ADDED to the repo
     //     this run (post-dedup + zstd), NOT a standalone compressed archive size;
     //     with incremental dedup an unchanged source can add ~0 bytes.
     sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
@@ -268,7 +268,7 @@ export const backup = pgTable(
     // REPURPOSED: was the S3 key / local path of the produced archive; now holds
     // the rustic SNAPSHOT ID (64-hex, from backup JSON `.id`). Combined with the
     // (resource × destination) repo derivation it fully addresses the snapshot
-    // for dump/restore/forget — there is no per-run file path anymore.
+    // for dump/restore/forget: there is no per-run file path anymore.
     storagePath: text("storage_path"),
     retention: backupRetentionClassEnum("retention").notNull().default("standard"),
     durationMs: integer("duration_ms"),
@@ -291,7 +291,7 @@ export const backup = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// backup_log — append-only per-run output (clone of deploymentLog)
+// backup_log: append-only per-run output (clone of deploymentLog)
 // ---------------------------------------------------------------------------
 
 export const backupLog = pgTable(
@@ -307,7 +307,7 @@ export const backupLog = pgTable(
     ts: timestamp("ts").defaultNow().notNull(),
   },
   (table) => [
-    // "give me lines for backup X after seq Y" — ordering + pagination cursor.
+    // "give me lines for backup X after seq Y", ordering + pagination cursor.
     index("backup_log_backup_seq_idx").on(table.backupId, table.seq),
   ],
 );

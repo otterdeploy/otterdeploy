@@ -1,6 +1,6 @@
 /**
- * The full volumes surface — ownership attribution, orphan detection, stats,
- * and create/inspect/remove — rendered as a section so it can live inside the
+ * The full volumes surface. Ownership attribution, orphan detection, stats,
+ * and create/inspect/remove. Rendered as a section so it can live inside the
  * Docker page's Volumes tab (its former standalone route now redirects there).
  */
 import { useState } from "react";
@@ -44,7 +44,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
   const [bulkOpen, setBulkOpen] = useState(false);
 
   const volumes = list.data?.volumes ?? [];
-  // Keyed by name — the daemon's own identifier for a volume, and what
+  // Keyed by name: the daemon's own identifier for a volume, and what
   // `volumes.remove` takes.
   const selection = useTableSelection(volumes, (v) => v.name);
   const drivers = list.data?.drivers ?? ["local"];
@@ -87,8 +87,8 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
             />
             <EmptyTitle>{t("volumes.empty")}</EmptyTitle>
             <EmptyDescription>
-              Databases and service mounts create volumes automatically when deployed — or create
-              one here to attach to a service.
+              Databases and service mounts create volumes automatically when deployed, or create one
+              here to attach to a service.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -111,7 +111,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
           />
           <p className="text-[11px] text-muted-foreground">
             Attached-to shows the platform resource that owns each volume. Orphans are unreferenced
-            by any container and unclaimed by any resource — candidates for cleanup.
+            by any container and unclaimed by any resource: candidates for cleanup.
           </p>
         </div>
       )}
@@ -135,7 +135,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
           if (!open) setRemoving(null);
         }}
       />
-      {/* Floating — fixed to the viewport, so it renders outside the table's
+      {/* Floating, fixed to the viewport, so it renders outside the table's
           flow and stays put while a long inventory scrolls. */}
       <SelectionBar
         selection={selection}

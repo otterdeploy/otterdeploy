@@ -2,7 +2,7 @@
  * The lattice field behind every protection screen.
  *
  * A perspective grid of dots running to a horizon, with a deploy wave rolling
- * outward through it — the same world the app's sign-in hero renders
+ * outward through it: the same world the app's sign-in hero renders
  * (`apps/web/src/features/auth/components/auth-hero-field.ts`). These pages are
  * server-rendered strings with no bundler in the path, so the renderer ships as
  * an inline script rather than an import; the geometry constants are kept in
@@ -14,8 +14,8 @@
  * screen that looks unfinished and one that looks calm.
  *
  * Degrades honestly: no canvas support, `prefers-reduced-motion`, or a
- * zero-size element and the page keeps its background with no script errors —
- * the CSS backdrop underneath is still there.
+ * zero-size element and the page keeps its background with no script errors.
+ * The CSS backdrop underneath is still there.
  */
 
 /** Mood tunes the field to the page's state without changing its shape. */

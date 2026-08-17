@@ -5,7 +5,7 @@ import { applyProjectStack } from "./stack-apply";
 import { diffProjectStack } from "./stack-diff";
 import { saveProjectStack } from "./stack-save";
 
-// YAML stack-code editor surface — separate from the JSON manifest
+// YAML stack-code editor surface. Separate from the JSON manifest
 // pipeline. The editor pane in the graph view reads/writes this; the
 // pipeline still lands per-database extraEnv via apply for now.
 export const stackRouter = {

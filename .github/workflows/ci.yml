@@ -28,7 +28,7 @@ jobs:
         with:
           bun-version: 1.3.10
 
-      # Turbo's local cache — keyed on the lockfile + the turbo config so a
+      # Turbo's local cache. Keyed on the lockfile + the turbo config so a
       # dependency or pipeline change busts it.
       - name: Cache turbo
         uses: actions/cache@v4
@@ -47,10 +47,10 @@ jobs:
         if: matrix.task == 'typecheck'
         run: bun run typecheck --cache-dir=.turbo
 
-      # oxlint (type-aware) + oxfmt --check — non-mutating CI form (the `check`
+      # oxlint (type-aware) + oxfmt --check. Non-mutating CI form (the `check`
       # script formats in place with --write).
       # The type-aware pass resolves the TanStack route files, which import the
-      # gitignored routeTree.gen.ts — generate the route trees first (via each
+      # gitignored routeTree.gen.ts: generate the route trees first (via each
       # app's typecheck, which runs `tsr generate`; type errors are the
       # typecheck job's concern, so its exit code is ignored here).
       - name: Lint & format check
@@ -101,17 +101,17 @@ jobs:
   # Separate from the `check` matrix: this is the only job carrying service
   # containers, so it owns every test that needs real infrastructure.
   #
-  #   postgres — the od-5j8.1 installation-bootstrap migrations + the real
+  #   postgres: the od-5j8.1 installation-bootstrap migrations + the real
   #              better-auth signup hook end-to-end (od-5j8.1.1), see
   #              test-infra/integration/.
-  #   redis    — the terminal-ticket + step-up security suite
+  #   redis: the terminal-ticket + step-up security suite
   #              (packages/api/src/**/*.redis.test.ts).
   #
   # The `test` matrix leg above stays infra-free, and that is enforced by
   # config rather than convention: vitest.config.ts EXCLUDES `*.redis.test.ts`
   # so a file needing Redis cannot drift back into the fast leg. It used to be
   # convention alone, and the terminal-ticket suite had quietly depended on a
-  # Redis that leg never had — three tests spent 5s each timing out on a
+  # Redis that leg never had. Three tests spent 5s each timing out on a
   # connection that could not succeed, passing locally only because developers
   # run compose.
   integration:
@@ -133,8 +133,8 @@ jobs:
           --health-retries 10
       # Backs the terminal-ticket and step-up suites
       # (packages/api/src/__tests__/security/*.redis.test.ts). Those assert
-      # behaviour Redis itself provides — TTL eviction, GETDEL atomicity under a
-      # race, SET NX refusing to clobber — so they need the real thing: a double
+      # behaviour Redis itself provides: TTL eviction, GETDEL atomicity under a
+      # race, SET NX refusing to clobber, so they need the real thing: a double
       # that imitates those semantics would only be testing the double, and the
       # guarantee under test is that a replayed terminal credential fails.
       redis:

@@ -113,11 +113,11 @@ const deleteCommand = defineCommand({
       warn("This permanently deletes every service, database, and route in it.");
 
       if (!(await confirm(`Delete project ${project.slug}?`))) {
-        abort("Aborted — nothing was deleted.");
+        abort("Aborted. Nothing was deleted.");
       }
       const typed = await ask("Type the project slug to confirm");
       if (typed !== args.slug) {
-        abort("Slug did not match — nothing was deleted.");
+        abort("Slug did not match. Nothing was deleted.");
       }
     }
 

@@ -53,10 +53,7 @@ export function formSchema(isEdit: boolean, t: (key: TranslationKey) => string) 
   return z
     .object({
       kind: z.enum(["hashicorp", "infisical", "doppler"]),
-      name: z
-        .string()
-        .min(1, required)
-        .regex(NAME_PATTERN, t("vault.validationNamePattern")),
+      name: z.string().min(1, required).regex(NAME_PATTERN, t("vault.validationNamePattern")),
       credential: isEdit ? z.string() : z.string().min(1, required),
       url: z.string(),
       mount: z.string(),

@@ -7,20 +7,20 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
  * Project env vars (one row per (projectId, environmentId, key)) sourced from
- * `project.envVar.list`. Unlike the resource/dependency collections — which are
- * project-scoped only — env-var subsets are keyed by BOTH `projectId` and
+ * `project.envVar.list`. Unlike the resource/dependency collections, which are
+ * project-scoped only. Env-var subsets are keyed by BOTH `projectId` and
  * `environmentId`, since the list endpoint is per-environment. Consumers scope
  * by adding `eq(v.projectId, …)` AND `eq(v.environmentId, …)` to their live
  * query; TanStack DB forwards both as `loadSubsetOptions`, from which
  * `queryKey` / `queryFn` recover the pair to fetch (and cache) the right subset.
  *
- * The row type — and so the insert/update shape — is inferred from the
+ * The row type (and so the insert/update shape) is inferred from the
  * collection (the wire shape of `project.envVar.list`), so views never
  * hand-write it.
  */
 const environmentIdSchema = zId("env");
 
-/** Namespace prefix for the project-variables collection — the single source of
+/** Namespace prefix for the project-variables collection: the single source of
  *  truth the variables table invalidates after a bulk env replace. See
  *  [[RESOURCE_COLLECTION_KEY]]. */
 export const PROJECT_VARIABLES_COLLECTION_KEY = ["projectVariables"] as const;
@@ -91,7 +91,7 @@ const variablesQueryOptions = queryCollectionOptions({
   getKey: (item) => item.id,
 });
 
-// DELIBERATELY NOT PERSISTED — the one collection excluded from the OPFS
+// DELIBERATELY NOT PERSISTED: the one collection excluded from the OPFS
 // SQLite layer. Unsealed env vars arrive with their plaintext `value`, and
 // persisting them would write secrets to the browser's disk where they
 // outlive the session (and logout). In-memory only: every visit refetches,
@@ -99,7 +99,7 @@ const variablesQueryOptions = queryCollectionOptions({
 // always "" on the wire), but a row-level split isn't worth the machinery.
 export const variablesCollection = createCollection(variablesQueryOptions);
 
-/** Row shape inferred from the collection — views import this instead of
+/** Row shape inferred from the collection: views import this instead of
  *  re-declaring an EnvVarRow interface. */
 export type VariableRow =
   ReturnType<typeof variablesCollection.get> extends infer T

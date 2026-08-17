@@ -39,7 +39,7 @@ export function StateBadge({
   return (
     <Badge variant="secondary" className={cn("gap-1.5", TONE_CLASS[resolved])} title={title}>
       <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-80" />
-      {label || state || "—"}
+      {label || state || "–"}
     </Badge>
   );
 }

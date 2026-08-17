@@ -18,15 +18,21 @@ interface ClientOptions {
  *
  * Sits at the transport rather than in each command: there is no call path that
  * can skip it, so `otd anything` learns the server's generation for free from
- * the request it was already making. Failures are none of its business — a
+ * the request it was already making. Failures are none of its business. A
  * rejected promise passes straight through to the error boundary.
  */
 function observingFetch(inner: typeof fetch): typeof fetch {
-  return (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+  const observing = async (
+    input: Parameters<typeof fetch>[0],
+    init?: Parameters<typeof fetch>[1],
+  ): Promise<Response> => {
     const response = await inner(input, init);
     observeCompatHeaders(response.headers);
     return response;
-  }) as typeof fetch;
+  };
+  // `preconnect` is delegated so the wrapper genuinely satisfies `typeof
+  // fetch` (call signature + namespace), matching lib/local-tls's fetchFor.
+  return Object.assign(observing, { preconnect: fetch.preconnect });
 }
 
 export function createCliClient({ url, token }: ClientOptions): AppRouterClient {

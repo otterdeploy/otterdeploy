@@ -13,7 +13,7 @@ describe("isSwarmNodeId", () => {
     expect(isSwarmNodeId("")).toBe(false);
     expect(isSwarmNodeId(null)).toBe(false);
     expect(isSwarmNodeId(undefined)).toBe(false);
-    // A hostname — not unique, and the reason we constrain on id.
+    // A hostname, not unique, and the reason we constrain on id.
     expect(isSwarmNodeId("ubuntu-4gb-nbg1-1")).toBe(false);
     // An otterdeploy server row id, which is not a swarm id.
     expect(isSwarmNodeId("server_dpwvw00dn0yi9kqclvcnojv5")).toBe(false);
@@ -67,7 +67,7 @@ describe("placementSpread", () => {
   });
 
   test("spreads nothing at all when unpinned", () => {
-    // Must be an empty object, not { Placement: undefined } — swarm treats a
+    // Must be an empty object, not { Placement: undefined }. Swarm treats a
     // present-but-empty key differently from an absent one.
     expect(placementSpread(null)).toEqual({});
     expect("Placement" in placementSpread(null)).toBe(false);

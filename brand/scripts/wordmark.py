@@ -2,8 +2,8 @@
 """
 Outlines the "otterdeploy" wordmark to SVG path data.
 
-The lockups must render identically everywhere — GitHub strips `@font-face`
-from SVGs and design tools will not have Geist installed — so the wordmark ships
+The lockups must render identically everywhere, GitHub strips `@font-face`
+from SVGs and design tools will not have Geist installed, so the wordmark ships
 as vector outlines rather than live text. Shaping goes through HarfBuzz with the
 same variable-font instance and OpenType features the product UI uses
 (`wght` 600, `cv11`, `ss01` per DESIGN.md), so the outlines match the running app.
@@ -91,7 +91,7 @@ def main() -> None:
                 "descender": descender,
                 "capHeight": cap_height,
                 "xHeight": x_height,
-                # Inked bounds in SVG (y-down) space — used to optically centre
+                # Inked bounds in SVG (y-down) space, used to optically centre
                 # the wordmark against the mark in the lockups.
                 "bbox": {
                     "xMin": bounds.bounds[0],
@@ -111,7 +111,7 @@ def _to_bytes(font: TTFont) -> bytes:
     """Serialises to plain sfnt.
 
     `TTFont.save` preserves the source flavor, so a font loaded from `.woff2`
-    saves back as WOFF2 — which HarfBuzz cannot parse. It fails silently, mapping
+    saves back as WOFF2, which HarfBuzz cannot parse. It fails silently, mapping
     every character to `.notdef`, so the wordmark comes out as tofu boxes at
     uniform 500-unit advances. Clearing the flavor is what makes shaping real.
     """

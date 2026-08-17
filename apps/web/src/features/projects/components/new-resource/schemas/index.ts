@@ -60,7 +60,7 @@ export interface ResourceFormState {
   /** HTTP health-check path probed on the primary port. Empty = no
    *  container healthcheck (process liveness only). Mapped to the same
    *  portable wget||curl `CMD-SHELL` cmd the service settings card writes
-   *  (`healthcheck-http.ts`) — the manifest + swarm driver honor it. */
+   *  (`healthcheck-http.ts`): the manifest + swarm driver honor it. */
   healthPath: string;
   healthInterval: number;
   healthTimeout: number;

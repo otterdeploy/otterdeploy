@@ -1,5 +1,5 @@
 /**
- * Derivation and hooks behind the self-update progress view — phase ordering,
+ * Derivation and hooks behind the self-update progress view, phase ordering,
  * the cutover-recovery poll, log-line shaping, and the terminal outcome.
  *
  * Split from ./update-progress-parts so that file is presentational only. The
@@ -25,7 +25,7 @@ export type RunStatus = "idle" | "running" | "succeeded" | "failed";
 
 export type CancelMutation = ReturnType<typeof useCancelUpdate>;
 
-/** Visible steps in order. `handoff` folds into `recreate` for display — it's
+/** Visible steps in order. `handoff` folds into `recreate` for display: it's
  *  the same "restarting the control plane" beat. */
 export const STEPS: { key: Exclude<UpdatePhase, "handoff">; label: string }[] = [
   { key: "validate", label: "Validate" },
@@ -55,7 +55,7 @@ function useArmedAfter(enabled: boolean, delayMs: number): boolean {
   useEffect(() => {
     if (!enabled) return;
     const id = setTimeout(() => setElapsed(true), delayMs);
-    // Rearm from zero if this ever re-enables — a second wait deserves a
+    // Rearm from zero if this ever re-enables: a second wait deserves a
     // second lead-in, not the leftover `true` from the first.
     return () => {
       clearTimeout(id);
@@ -68,15 +68,16 @@ function useArmedAfter(enabled: boolean, delayMs: number): boolean {
 
 /**
  * Latches true once `pending` has been observed, and STAYS true after it goes
- * false again — which is the whole point: the caller needs to distinguish "this
+ * false again, which is the whole point: the caller needs to distinguish "this
  * run settled while I watched it" from "this run was already settled when I
  * mounted", and by the time it can tell, `pending` is false in both cases.
  */
 function useSeen(pending: boolean): boolean {
   const [seen, setSeen] = useState(false);
-  useEffect(() => {
-    if (pending) setSeen(true);
-  }, [pending]);
+  // Latch during render (guarded prev-value compare) rather than in an
+  // effect: same adjust-in-render pattern as the sort/follow latch in
+  // use-logs-table, and it avoids the extra cascading render an effect costs.
+  if (pending && !seen) setSeen(true);
   return pending || seen;
 }
 
@@ -86,12 +87,12 @@ function useSeen(pending: boolean): boolean {
  * Two independent signals, because the /health probe usually LOSES the race
  * that matters: `useUpdateState` polls every 2s while the probe waits out a 6s
  * lead-in first. When updateState wins, the run reads `succeeded`, `recovering`
- * goes false, the probe disarms — and the reload the operator was promised
+ * goes false, the probe disarms, and the reload the operator was promised
  * never fires, leaving `Done` to drop them back onto the OLD bundle.
  *
  * So a settled `succeeded` counts as arrival in its own right. It is sound
  * evidence: the only writer is finalizeHandedOffRun() on the NEW server's boot
- * (the old process can't reach it — its own currentVersion() never equals the
+ * (the old process can't reach it, its own currentVersion() never equals the
  * target), so `realDone` on a real run means the cutover landed.
  *
  * `sawPending` gates that second signal on having actually observed the run in
@@ -123,7 +124,12 @@ export function useCutoverRecovery(target: string, outcome: Outcome): void {
       // binary reports, not a cached read model.
       const res = await fetch(`${env.VITE_SERVER_URL}/api/health`, { cache: "no-store", signal });
       if (!res.ok) throw new Error(`health ${res.status}`);
-      return (await res.json()) as { version?: string };
+      const body: unknown = await res.json();
+      const version =
+        body && typeof body === "object" && "version" in body && typeof body.version === "string"
+          ? body.version
+          : undefined;
+      return { version };
     },
     enabled: armed,
     // Across a cutover the control plane is *expected* to be unreachable, so a
@@ -133,7 +139,7 @@ export function useCutoverRecovery(target: string, outcome: Outcome): void {
     retry: false,
     meta: { suppressErrorToast: true },
     refetchInterval: 3000,
-    // An operator who switches tabs mid-update still gets reloaded — React
+    // An operator who switches tabs mid-update still gets reloaded. React
     // Query otherwise pauses the interval whenever the document is unfocused.
     refetchIntervalInBackground: true,
     staleTime: 0,

@@ -1,5 +1,5 @@
 import { useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Result } from "better-result";
 import { useTranslation } from "react-i18next";
@@ -83,7 +83,7 @@ function PipeStrip({
   );
 }
 
-/** Host-match preview for the image target — surface which shared credential
+/** Host-match preview for the image target: surface which shared credential
  *  the builder will push with (or that none matches), so it's transparent. */
 function RegistryHint({
   image,
@@ -111,7 +111,7 @@ function RegistryHint({
 export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource }) {
   const { t } = useTranslation();
   // Current source block from the saved manifest (the source of truth this card
-  // edits). Read straight off manifest.get — the same call stageSource writes.
+  // edits). Read straight off manifest.get. The same call stageSource writes.
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({ input: { id: resource.projectId } }),
   );
@@ -124,7 +124,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
       id: inst.id,
       label: `${p.kind}: ${inst.accountLogin}`,
       // Carried so the repository field can link out to the right provider.
-      kind: p.kind as string,
+      kind: p.kind,
     })),
   );
   const [activeInstallationId, setActiveInstallationId] = useActiveInstallation(installations);
@@ -136,7 +136,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
     }),
   );
 
-  // The saved values this card edits against — form baseline and dirty check.
+  // The saved values this card edits against. Form baseline and dirty check.
   const seeded = seedSource(gitSvc);
 
   const saveMut = useMutation({
@@ -158,13 +158,13 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
 
   // Re-seeding when the saved source block changes (manifest load, post-save
   // refetch) needs no effect: useForm hands `defaultValues` to `form.update()`
-  // on every render, and update() re-seeds when they change — comparing them
+  // on every render, and update() re-seeds when they change. Comparing them
   // structurally, so `seeded` being a fresh object each render costs nothing.
   //
   // It re-seeds only while the form is untouched, which is the behaviour we
   // want and the reason the effect had to go: `form.reset(seeded)` has no such
-  // guard, so any manifest refetch mid-edit — the build card on this same tab
-  // staging a change, a teammate deploying — threw away what the operator had
+  // guard, so any manifest refetch mid-edit. The build card on this same tab
+  // staging a change, a teammate deploying. Threw away what the operator had
   // typed. Its dep array is also what span the render loop this card was
   // already carrying a workaround for.
   const form = useSourceFormState(seeded, async (value, formApi) => {
@@ -172,7 +172,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
       try: () => saveMut.mutateAsync(value),
       catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
     });
-    // The mutation's onError has already surfaced the failure — bailing here
+    // The mutation's onError has already surfaced the failure. Bailing here
     // just keeps the operator's edits so a retry is one click.
     if (staged.isErr()) return;
     // Staged values are the new baseline. Reset clears `isTouched`, which is
@@ -183,7 +183,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
     formApi.reset();
   });
 
-  const values = useStore(form.store, (s) => s.values);
+  const values = useSelector(form.store, (s) => s.values);
   const { repo, branch, image } = values;
   const dirty = sourceDirty(values, seeded);
 

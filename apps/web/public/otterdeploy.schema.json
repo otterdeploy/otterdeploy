@@ -3290,5 +3290,5 @@
   "additionalProperties": false,
   "$id": "https://otterdeploy.com/otterdeploy.schema.json",
   "title": "Otterdeploy Manifest",
-  "description": "Schema for otterdeploy.json — the declarative manifest of services + databases for an otterdeploy project."
+  "description": "Schema for otterdeploy.json: the declarative manifest of services + databases for an otterdeploy project."
 }

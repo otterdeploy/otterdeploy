@@ -45,11 +45,14 @@ export function CreateKeyDialog({
   onCreated: (apiKey: string) => void;
 }) {
   const { t } = useTranslation();
+  // Annotated so the form's `scopes` field infers the full record type rather
+  // than the empty object literal.
+  const noScopes: Record<string, string[]> = {};
   const form = useForm({
     defaultValues: {
       name: "",
       expiryIndex: DEFAULT_EXPIRY_INDEX,
-      scopes: {} as Record<string, string[]>,
+      scopes: noScopes,
     },
     onSubmit: async ({ value }) => {
       const expiresIn = EXPIRY_OPTIONS[value.expiryIndex]?.seconds ?? null;
@@ -57,7 +60,7 @@ export function CreateKeyDialog({
 
       // Optimistic insert: `onInsert` mints the key server-side and hands the
       // one-time plaintext token back via `onKey`. Close instantly; surface the
-      // result async — TanStack DB rolls the row back on reject.
+      // result async: TanStack DB rolls the row back on reject.
       const createdAt = new Date();
       const tx = apiKeysCollection.insert(
         {
@@ -124,7 +127,6 @@ export function CreateKeyDialog({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder={t("apiKeys.namePlaceholder")}
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={String(err)}>{String(err)}</FieldError>

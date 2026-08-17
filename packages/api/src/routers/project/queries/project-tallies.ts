@@ -1,5 +1,5 @@
 /**
- * Org-wide aggregate reads that back the project-list CARDS — the per-project
+ * Org-wide aggregate reads that back the project-list CARDS. The per-project
  * resource/route tallies and the service-resource refs the "running" count is
  * computed against.
  *
@@ -21,7 +21,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 /**
  * Per-project resource tallies for the project cards, as one grouped scan of
- * `resource` — NOT correlated subqueries hung off the project select. Drizzle
+ * `resource`, NOT correlated subqueries hung off the project select. Drizzle
  * only table-qualifies columns when the outer query has a join, so
  * `sql\`(select count(*) from ${resource} where ${resource.projectId} = ${project.id})\``
  * rendered as `where "project_id" = "id"`; inside the subquery both names bind
@@ -30,9 +30,9 @@ import { and, eq, inArray, sql } from "drizzle-orm";
  * whose `.from()` is the table it actually reads, which also lets the global
  * cache tag and invalidate it on a resource write.
  *
- * `serviceCount` MUST cover the same universe the running tally does —
+ * `serviceCount` MUST cover the same universe the running tally does.
  * `countRunningServicesByProject` matches live containers across service AND
- * compose resources — otherwise a project whose workloads are compose stacks
+ * compose resources: otherwise a project whose workloads are compose stacks
  * shows more running than total (a `type='service'`-only count renders `5/0`:
  * the stack's containers count as running, but its `compose` resource isn't in
  * the denominator). Counting `service` + `compose` keeps running ⊆ total.
@@ -52,7 +52,7 @@ export async function countResourcesByProject(organizationId: OrganizationId) {
 }
 
 /**
- * Per-project count of *enabled* proxy routes — disabled/custom-pending routes
+ * Per-project count of *enabled* proxy routes. Disabled/custom-pending routes
  * never reach the edge, so they don't belong in the card's tally. Grouped for
  * the same reasons as {@link countResourcesByProject}.
  */

@@ -14,7 +14,7 @@ import { proxyAccessContractSlice } from "./proxy-access";
 import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 
-// The access-PIN hash never leaves the server — omitted here so no endpoint
+// The access-PIN hash never leaves the server. Omitted here so no endpoint
 // that outputs a route can leak it (PIN state is read via `accessPin` below).
 export const proxyRouteSchema = createSelectSchema(proxyRoute)
   .omit({ accessPinHash: true, domainVerifyToken: true })
@@ -29,15 +29,15 @@ const listProxyRoutesInput = z.object({
   projectId: projectIdField,
 });
 
-/** Read-only render of a project's contribution to the edge Caddyfile —
- *  the reconciler's per-project fragment plus the short revision SHA. */
+/** Read-only render of a project's contribution to the edge Caddyfile.
+ *  The reconciler's per-project fragment plus the short revision SHA. */
 const projectCaddyfileSchema = z.object({
   caddyfile: z.string(),
   revision: z.string(),
 });
 
 // ─── TLS certificates (live edge probe) ─────────────────────────────
-/** One probed certificate — what Caddy actually serves for a domain right
+/** One probed certificate: what Caddy actually serves for a domain right
  *  now (issuer/expiry/SANs), or an error when the probe couldn't connect. */
 const certificateSchema = z.object({
   domain: z.string(),

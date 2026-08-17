@@ -1,9 +1,15 @@
-import type { JsonObject } from "@otterdeploy/shared/json";
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import { describe, expect, it } from "vite-plus/test";
 
 import { STACK_FILE_SCHEMA_VERSION, stackFileSchema, type StackFile } from "../schema";
 
 const parse = (s: string) => Bun.YAML.parse(s);
+
+/** Narrow a parsed YAML value to an object, failing the test otherwise. */
+function asJsonObject(value: unknown): JsonObject {
+  if (!isJsonObject(value)) throw new Error("expected a JSON object");
+  return value;
+}
 import { applyEngineDefaults } from "../render/apply-defaults";
 import { toComposeYaml } from "../render/to-compose";
 
@@ -66,7 +72,7 @@ describe("stack/render/applyEngineDefaults", () => {
     // rather than a constant. From 18 the official image owns a
     // version-specific subdirectory and takes the parent dir; 17 and earlier
     // take `.../data`. Hard-coding either one made this test fail the moment
-    // the catalog default moved — which is the wrong signal, since the change
+    // the catalog default moved, which is the wrong signal, since the change
     // in behaviour was intentional and correct.
     const major = Number(/postgres:(\d+)/.exec(service.image ?? "")?.[1]);
     const expected = major >= 18 ? "/var/lib/postgresql" : "/var/lib/postgresql/data";
@@ -135,13 +141,13 @@ describe("stack/render/applyEngineDefaults", () => {
 describe("stack/render/toComposeYaml", () => {
   it("emits parseable YAML with required compose fields", () => {
     const yaml = toComposeYaml(applyEngineDefaults(minimalPostgresFile()));
-    const parsed = parse(yaml) as JsonObject;
-    const services = parsed["services"] as JsonObject | undefined;
+    const parsed = asJsonObject(parse(yaml));
+    const services = asJsonObject(parsed["services"]);
     expect(services).toBeDefined();
-    const primary = services?.["primary"] as JsonObject | undefined;
-    expect(primary?.["image"]).toMatch(/^postgres:/);
-    expect(primary?.["environment"]).toBeDefined();
-    const env = primary?.["environment"] as JsonObject;
+    const primary = asJsonObject(services["primary"]);
+    expect(primary["image"]).toMatch(/^postgres:/);
+    expect(primary["environment"]).toBeDefined();
+    const env = asJsonObject(primary["environment"]);
     expect(env["POSTGRES_USER"]).toBe("owner");
   });
 
@@ -159,7 +165,7 @@ describe("stack/render/toComposeYaml", () => {
     expect(a).toBe(b);
 
     // Reordering keys in the source object should NOT change the emitted
-    // YAML — keys are alpha-sorted on the way out.
+    // YAML: keys are alpha-sorted on the way out.
     const reordered: StackFile = {
       services: minimalPostgresFile().services,
       version: STACK_FILE_SCHEMA_VERSION,
@@ -170,16 +176,17 @@ describe("stack/render/toComposeYaml", () => {
 
   it("round-trips: rendered → YAML → parsed compose carries identity in deploy.labels", () => {
     // The renderer projects the x-otterdeploy identity into deploy.labels (pure
-    // compose — nothing parses our output back in), NOT an x-otterdeploy block.
+    // compose, nothing parses our output back in), NOT an x-otterdeploy block.
     // Assert it survives the full render → YAML → parse round-trip as structured
     // labels (the string form is covered by the projection test above).
     const file = applyEngineDefaults(minimalPostgresFile());
     const yaml = toComposeYaml(file);
-    const parsed = parse(yaml) as { services: JsonObject };
-    const primary = parsed.services["primary"] as JsonObject;
+    const parsed = asJsonObject(parse(yaml));
+    const services = asJsonObject(parsed["services"]);
+    const primary = asJsonObject(services["primary"]);
     expect(primary["x-otterdeploy"]).toBeUndefined();
-    const deploy = primary["deploy"] as JsonObject;
-    const labels = deploy["labels"] as JsonObject;
+    const deploy = asJsonObject(primary["deploy"]);
+    const labels = asJsonObject(deploy["labels"]);
     expect(labels["otterdeploy.kind"]).toBe("database");
     expect(labels["otterdeploy.engine"]).toBe("postgres");
     expect(labels["otterdeploy.resource.id"]).toBe("resource_test_pg");

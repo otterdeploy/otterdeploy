@@ -1,4 +1,4 @@
-# Auth Screens & Organizations — Design Spec
+# Auth Screens & Organizations: Design Spec
 
 **Date:** 2026-05-23
 **Owner:** Jefferson
@@ -13,7 +13,7 @@ end-to-end authentication and a real multi-tenant organization model.
 Concretely:
 
 - Real sign-in and sign-up forms wired to Better Auth (email + password).
-- Session-gated `_app/*` routes — unauth users get redirected, signed-in
+- Session-gated `_app/*` routes: unauth users get redirected, signed-in
   users get their real user + organization data.
 - First-org onboarding flow at `/_auth/onboarding/create-organization`.
 - Better Auth `organization` plugin powers the workspace concept; UI and
@@ -28,7 +28,7 @@ Each is its own future spec.
 - Forgot / reset password flow.
 - Email verification (`requireEmailVerification`).
 - 2FA / TOTP plugin.
-- Members / invitations / role-management UI on `/team` — the DB tables
+- Members / invitations / role-management UI on `/team`: the DB tables
   ship with this spec via the org plugin, but the UI is its own design.
 - Replacing the hardcoded `projects` / `environments` arrays inside an org
   with real API data.
@@ -59,14 +59,14 @@ plugins: [
 No custom hooks; plugin defaults are fine for v1.
 
 This makes the server side match the client side's existing
-`organizationClient()` plugin — currently the client expects the plugin
+`organizationClient()` plugin: currently the client expects the plugin
 endpoints but the server doesn't expose them.
 
 ### 3.2 DB schema
 
 Run `bun better-auth migrate` (or generate → `bun db:push`). The plugin
 adds `organization`, `member`, `invitation` tables. We do not hand-author
-their schema — Better Auth owns it and the drizzle adapter picks them up
+their schema: Better Auth owns it and the drizzle adapter picks them up
 via the existing schema-module import.
 
 Verify generated tables land alongside the rest of the auth schema in
@@ -79,11 +79,11 @@ Better Auth. `authClient.organization.setActive({ organizationId })`
 flips it. `authClient.organization.list()` returns the user's orgs.
 
 No new oRPC router. Plugin client methods cover create / list / setActive
-/ getFullOrganization — an oRPC passthrough would add nothing.
+/ getFullOrganization: an oRPC passthrough would add nothing.
 
 ### 3.4 Server-side org permission checks
 
-Not in this spec — no router yet enforces org membership. Adding
+Not in this spec, no router yet enforces org membership. Adding
 `requireMember` checks to existing routers (project, env, docker, caddy)
 is part of the future members/invites spec, not this one.
 
@@ -114,7 +114,7 @@ setActive }`.
 **Drift to flag (not blocking this spec):** `adminClient`,
 `magicLinkClient`, and `apiKeyClient` are on the client but the server
 (`packages/auth/src/index.ts`) does not enable the corresponding
-plugins. They're dormant — calls would 404, but nothing in this spec
+plugins. They're dormant. Calls would 404, but nothing in this spec
 calls them. Server-side enablement of those plugins is its own
 follow-up.
 
@@ -134,10 +134,10 @@ matches the TanStack-everywhere posture). One zod schema per form.
 
 ### 4.3 Modified routes
 
-**`/_auth/layout.tsx`** — center-card shell. `beforeLoad` checks the
+**`/_auth/layout.tsx`**: center-card shell. `beforeLoad` checks the
 session; if signed-in, `throw redirect({ to: "/" })`.
 
-**`/_app/layout.tsx`** — `beforeLoad` does the real session + org gate
+**`/_app/layout.tsx`**: `beforeLoad` does the real session + org gate
 (replaces the fake `user` + `workspaces` block):
 
 ```ts
@@ -163,7 +163,7 @@ return {
 Use `Promise.all` for the two calls if Better Auth client supports it
 cleanly.
 
-**`/_app/index.tsx`** — redirect to `/<activeOrgSlug>`. Pure loader.
+**`/_app/index.tsx`**: redirect to `/<activeOrgSlug>`. Pure loader.
 
 ### 4.4 Route directory rename
 
@@ -179,7 +179,7 @@ to `/<activeOrgSlug>` (preferred over 404; less hostile if a user
 bookmarks an org they were removed from).
 
 `ID_PREFIX.workspace` stays in `packages/shared/src/id.ts` as dead code
-for now — UI just stops using it. Removing it is a separate cleanup PR
+for now: UI just stops using it. Removing it is a separate cleanup PR
 once nothing in `packages/api` references it either.
 
 ### 4.5 Component renames (in place)
@@ -193,7 +193,7 @@ components:
 - Props / locals: `workspaces` → `organizations`, `workspaceId` →
   `orgSlug`, `Workspace` → `Organization` type.
 - `_app/layout.tsx` loader output types: `Workspace` → `Organization`.
-  Drop the fake `projects` / `environments` fields on the type — they
+  Drop the fake `projects` / `environments` fields on the type, they
   stay hardcoded in components until the follow-up spec.
 
 ### 4.6 Visual layout
@@ -219,7 +219,7 @@ body changes).
 
 ### 5.2 Sign-up → onboarding → app
 
-1. `authClient.signUp.email({ name, email, password })` — Better Auth
+1. `authClient.signUp.email({ name, email, password })`: Better Auth
    automatically creates a session.
 2. Navigate to `/onboarding/create-organization`.
 3. Form submits → `authClient.organization.create({ name, slug })`.
@@ -233,7 +233,7 @@ body changes).
 3. Both populate `_app/layout.tsx` route context.
 4. `_app/$orgSlug/layout.tsx` validates `params.orgSlug` against the
    list; redirects to `activeOrgSlug` if missing.
-5. Sidebar reads `organizations` from route context — no extra fetch.
+5. Sidebar reads `organizations` from route context, no extra fetch.
 
 ### 5.4 Sign-out
 
@@ -244,22 +244,22 @@ body changes).
 
 `getSession` + `list` is two requests per `_app` navigation. `Promise.all`
 in the loader. If it becomes hot in practice, swap to TanStack Query
-caching keyed by session ID — not v1 work.
+caching keyed by session ID, not v1 work.
 
 ## 6. Error Handling
 
 Better Auth client methods return `{ data, error }` (not throws). All
 call sites branch on `result.error`.
 
-- **Forms** — surface `result.error.message` directly into an inline
+- **Forms**: surface `result.error.message` directly into an inline
   destructive shadcn `Alert` at the top of the card. No code-by-code
   mapping in v1. Field-level zod validation errors render under each
   field via the shadcn `Field` primitive.
-- **Loaders** — `authClient.getSession` returning `data: null` is the
+- **Loaders**: `authClient.getSession` returning `data: null` is the
   unauth signal; redirect to `/sign-in`. Any thrown / network failure
   from `organization.list` is `throw`n so the nearest TanStack Router
   `errorComponent` renders.
-- **Submit UX** — TanStack Form's `isSubmitting` disables the button +
+- **Submit UX**: TanStack Form's `isSubmitting` disables the button +
   shows an inline spinner. No optimistic UI; auth flows are blocking.
 
 Typed app-error catalogs (evlog `createError`) are out of scope. Error
@@ -283,7 +283,7 @@ this spec.
   - [ ] Visiting `/<slug>` for an org the current user is not a member of
     → redirects to the user's active org slug.
   - [ ] Invalid creds → inline alert from `result.error.message`.
-  - [ ] Rate-limit (server has `max: 100, window: 60`) — manually verify
+  - [ ] Rate-limit (server has `max: 100, window: 60`), manually verify
     the surfaced message reads reasonably.
 - Run the dev server and click both flows in a browser before claiming
   the work is done.
@@ -293,13 +293,13 @@ this spec.
 - No feature flag. This replaces stub routes that nothing depends on.
 - Single PR ships the whole spec.
 - DB migration: `bun better-auth migrate` (or generate → `bun db:push`).
-- No existing data to backfill — fake `workspaces` were hardcoded; real
+- No existing data to backfill: fake `workspaces` were hardcoded; real
   users will create orgs through the onboarding flow.
 
 ## 9. Open Items (Tracked, Not Blocking)
 
-- Polar deps drift in `packages/auth` (Section 2 — explicit follow-up).
+- Polar deps drift in `packages/auth` (Section 2: explicit follow-up).
 - `ID_PREFIX.workspace` removal from `packages/shared/src/id.ts` once
   `packages/api` stops referencing it.
-- Future `_app/$orgSlug/layout.tsx` validation behavior — currently
+- Future `_app/$orgSlug/layout.tsx` validation behavior: currently
   redirect to active slug, may want a "no access" page later.

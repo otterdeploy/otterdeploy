@@ -2,7 +2,7 @@
  * Recovery action for a failed provisioning run.
  *
  * The row is already persisted with its error, and `server.retryProvision`
- * re-runs the job in place — but only when a managed key is on file. A
+ * re-runs the job in place, but only when a managed key is on file. A
  * one-time password or a mesh auth key is never stored, so those runs have
  * nothing left to reconnect with; there we offer a re-add prefilled from the
  * failed row instead of making the operator retype it.
@@ -53,8 +53,8 @@ export function ProvisionRetryCell({
         className="h-7"
         title={
           server.meshProvider === "none"
-            ? "This run used a one-time password, which is never stored — re-add to supply it again."
-            : "Mesh auth keys are never stored — re-add to supply it again."
+            ? "This run used a one-time password, which is never stored. Re-add the server to supply it again."
+            : "Mesh auth keys are never stored. Re-add the server to supply it again."
         }
         onClick={(event) => {
           event.stopPropagation();

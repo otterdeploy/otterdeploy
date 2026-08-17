@@ -1,5 +1,4 @@
 import type { RequestListener } from "node:http";
-import type { AddressInfo } from "node:net";
 
 import { createServer } from "node:http";
 import { describe, expect, test } from "vite-plus/test";
@@ -16,7 +15,11 @@ async function withServer(
     server.listen(0, "127.0.0.1", resolve);
   });
   try {
-    const address = server.address() as AddressInfo;
+    const address = server.address();
+    // A TCP listener always reports an AddressInfo; narrow instead of assert.
+    if (address === null || typeof address === "string") {
+      throw new Error(`expected a TCP AddressInfo, got ${String(address)}`);
+    }
     await run(address.port);
   } finally {
     await new Promise<void>((resolve, reject) => {

@@ -1,16 +1,16 @@
 /**
- * Live swarm topology for the servers page — the "Managers & quorum" card
+ * Live swarm topology for the servers page. The "Managers & quorum" card
  * and the leader marker in the node table. One `docker node ls` per call,
  * no caching: reachability/leadership are exactly what quorum questions are
  * about, so stale answers would be worse than none.
  *
  * Enriches each node with the org's matching server-row id (same
  * hostname-based join as availability.ts / stats.ts) so the UI can wire
- * promote/demote/remove actions — which take a ServerId — straight from a
+ * promote/demote/remove actions (which take a ServerId) straight from a
  * node row. `serverId: null` = the node joined the swarm but was never
  * registered as a server; actions stay disabled for it, honestly.
  *
- * Plain-docker runtime: `{ swarm: false, nodes: [] }` — the UI renders its
+ * Plain-docker runtime: `{ swarm: false, nodes: [] }`: the UI renders its
  * "requires Docker Swarm" state instead of an empty cluster.
  */
 
@@ -30,11 +30,11 @@ export interface SwarmNodeEntry {
   hostname: string;
   role: NodeRole;
   availability: string;
-  /** Node status.state — "ready", "down", … */
+  /** Node status.state: "ready", "down", … */
   state: string;
   addr: string | null;
   leader: boolean;
-  /** ManagerStatus.Reachability — "reachable"/"unreachable"/"unknown"; null on workers. */
+  /** ManagerStatus.Reachability: "reachable"/"unreachable"/"unknown"; null on workers. */
   reachability: string | null;
   engineVersion: string | null;
   /** Matching registered server row, or null when the node isn't registered. */
@@ -46,7 +46,7 @@ export interface SwarmNodesView {
   nodes: SwarmNodeEntry[];
 }
 
-/** ManagerStatus-derived fields — workers carry none. */
+/** ManagerStatus-derived fields. Workers carry none. */
 function managerInfo(ms: { Leader?: boolean; Reachability?: string } | null | undefined): {
   leader: boolean;
   reachability: string | null;

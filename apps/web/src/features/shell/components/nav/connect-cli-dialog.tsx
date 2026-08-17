@@ -1,5 +1,5 @@
 /**
- * Connect CLI — the device-authorization flow itself is already built (the
+ * Connect CLI: the device-authorization flow itself is already built (the
  * `otterdeploy login` command + the `/device` approval page via better-auth's
  * deviceAuthorization plugin). This dialog just gets the user there: the exact
  * login command for this control plane + a shortcut to the approval page.
@@ -65,7 +65,7 @@ export function ConnectCliDialog({
             </button>
           </li>
           <li className="text-muted-foreground">
-            It opens a verification page and shows a code — approve it there to finish. You can open
+            It opens a verification page and shows a code. Approve it there to finish. You can open
             that page now:
           </li>
         </ol>

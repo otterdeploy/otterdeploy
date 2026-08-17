@@ -1,7 +1,7 @@
 /**
  * Adapts the graph's node list into the clone dialog's candidate list.
  *
- * Split out of GraphCanvas purely for its line budget — the mapping is the
+ * Split out of GraphCanvas purely for its line budget: the mapping is the
  * only thing here. Every applied node is offered, not just the one that was
  * right-clicked: cloning a service without the database it references is the
  * mistake this dialog exists to catch, and it can only be caught if the
@@ -14,7 +14,9 @@ import {
 } from "@/features/projects/components/graph/clone-dialog";
 import type { ResourceFlowNode } from "@/features/projects/components/graph/resource-node-types";
 
-const CLONEABLE = new Set(["service", "database", "compose"]);
+function cloneableKind(kind: ResourceFlowNode["data"]["kind"]): CloneCandidate["kind"] | null {
+  return kind === "service" || kind === "database" || kind === "compose" ? kind : null;
+}
 
 export function GraphCloneDialog({
   projectId,
@@ -28,14 +30,13 @@ export function GraphCloneDialog({
   target: ResourceFlowNode | null;
   onClose: () => void;
 }) {
-  // A ghost or unapplied node has no resourceId — there is nothing to copy.
-  const candidates: CloneCandidate[] = nodes
-    .filter((n) => !!n.data.resourceId && CLONEABLE.has(n.data.kind))
-    .map((n) => ({
-      resourceId: n.data.resourceId as string,
-      name: n.data.name,
-      kind: n.data.kind as CloneCandidate["kind"],
-    }));
+  // A ghost or unapplied node has no resourceId. There is nothing to copy.
+  const candidates: CloneCandidate[] = nodes.flatMap((n) => {
+    const { resourceId, name } = n.data;
+    const kind = cloneableKind(n.data.kind);
+    if (!resourceId || !kind) return [];
+    return [{ resourceId, name, kind }];
+  });
 
   return (
     <CloneDialog

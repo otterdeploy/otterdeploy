@@ -2,7 +2,7 @@
  * Push a reconciled Caddyfile to one node's edge proxy.
  *
  * The node proxy's admin API is deliberately unpublished (see
- * provision-node-proxy — port 2019 stays inside the container), so config
+ * provision-node-proxy: port 2019 stays inside the container), so config
  * travels over the same SSH transport that installed it rather than over an
  * admin port exposed to the network.
  *
@@ -11,7 +11,7 @@
  * overwriting the live file and reloading leaves a BAD config on disk when the
  * reload fails. Caddy keeps serving the old config from memory, everything
  * looks fine, and the node comes back with a broken edge the next time its
- * container restarts — an outage detached by hours from the change that caused
+ * container restarts: an outage detached by hours from the change that caused
  * it. Validating a side file first means the live one is only ever replaced by
  * something Caddy has already accepted.
  *
@@ -28,7 +28,7 @@ import { NODE_PROXY_CONTAINER } from "../routers/server/provision-node-proxy";
 /** Where the install script bind-mounts the edge config from. */
 export const NODE_EDGE_DIR = "/etc/otterdeploy/edge";
 
-/** Exit code meaning "config identical, nothing done" — not a failure. */
+/** Exit code meaning "config identical, nothing done", not a failure. */
 export const PUSH_UNCHANGED_EXIT = 75;
 /** Exit code meaning the new config failed validation and was NOT applied. */
 export const PUSH_INVALID_EXIT = 76;
@@ -61,13 +61,13 @@ export function nodePushScript(caddyfile: string, sudo = ""): string {
     `CURRENT=$(${S}sha256sum ${NODE_EDGE_DIR}/Caddyfile 2>/dev/null | cut -c1-12 || true)`,
     `NEXT=$(printf '%s' '${b64}' | base64 -d | sha256sum | cut -c1-12)`,
     `if [ "$CURRENT" = "$NEXT" ]; then`,
-    `  echo "edge config already at ${revision} — no reload"`,
+    `  echo "edge config already at ${revision}, no reload"`,
     `  exit ${PUSH_UNCHANGED_EXIT}`,
     "fi",
     // Write aside. The live file is untouched until this one validates.
     `printf '%s' '${b64}' | base64 -d | ${S}tee ${NODE_EDGE_DIR}/Caddyfile.next >/dev/null`,
     `if ! ${S}docker exec ${name} caddy validate --config /etc/caddy/Caddyfile.next --adapter caddyfile >/dev/null 2>&1; then`,
-    `  echo "new edge config rejected by caddy validate — keeping the current one"`,
+    `  echo "new edge config rejected by caddy validate, keeping the current one"`,
     `  ${S}rm -f ${NODE_EDGE_DIR}/Caddyfile.next`,
     `  exit ${PUSH_INVALID_EXIT}`,
     "fi",
@@ -84,7 +84,7 @@ export type NodePushOutcome =
   | { kind: "unchanged"; revision: string }
   /** Validation rejected it; the node kept its previous config. */
   | { kind: "invalid"; revision: string }
-  /** Node has no edge proxy — not an error, just nothing to push to. */
+  /** Node has no edge proxy, not an error, just nothing to push to. */
   | { kind: "no-proxy" }
   | { kind: "failed"; error: string };
 

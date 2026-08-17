@@ -2,7 +2,7 @@
  * Postgres `extraEnv` write path + the thin editor wrappers that build the
  * desired env map (set/unset a key, rollback to a snapshot). All mutations
  * funnel through `applyPostgresExtraEnv`, which is the only way the postgres
- * container env array changes after creation — it inserts a deployment row,
+ * container env array changes after creation, it inserts a deployment row,
  * persists the new env, and rolls the swarm task.
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
@@ -28,8 +28,8 @@ import { rollDatabaseContainer } from "./roll";
 /**
  * Shared write path for editor mutations on `extraEnv`. Persists the new map,
  * then rolls the swarm service with the merged Env array. The DB user/pass/
- * db rows are derived from the resource record — they're never read from
- * `extraEnv` — so a stale or malicious key in the editor can't displace the
+ * db rows are derived from the resource record. They're never read from
+ * `extraEnv`, so a stale or malicious key in the editor can't displace the
  * database identity.
  */
 export async function applyPostgresExtraEnv(
@@ -64,7 +64,7 @@ export async function applyPostgresExtraEnv(
   // engine from the record.
   const engine = record.database.engine;
   // Base the roll on the image that's actually RUNNING (latest deployment
-  // row), not the bare engine default — an env change must never downgrade a
+  // row), not the bare engine default: an env change must never downgrade a
   // pgvector/postgis/timescale image OR silently swap the operator's version
   // pick (postgres:18 → 17-alpine). Same precedent as restart.ts. The
   // extension resolver still wins when a non-contrib extension demands its
@@ -88,7 +88,7 @@ export async function applyPostgresExtraEnv(
     log,
   );
 
-  // Keep a DECLARED manifest extraEnv truthful — otherwise the next
+  // Keep a DECLARED manifest extraEnv truthful. Otherwise the next
   // manifest.diff stages a phantom revert of this edit (same convention as
   // syncManifestDatabasePublic; a manifest that omits the key is untouched).
   await syncManifestDatabaseExtraEnv(

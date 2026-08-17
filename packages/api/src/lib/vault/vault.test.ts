@@ -7,11 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { VaultProviderRuntime } from "./types";
 
 import { dopplerGetSecrets } from "./doppler";
-import {
-  hashicorpGetSecrets,
-  hashicorpListSecretNames,
-  splitHashicorpRef,
-} from "./hashicorp";
+import { hashicorpGetSecrets, hashicorpListSecretNames, splitHashicorpRef } from "./hashicorp";
 import { infisicalGetSecrets, infisicalListSecretNames } from "./infisical";
 
 const fetchMock = vi.fn<typeof fetch>();

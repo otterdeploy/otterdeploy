@@ -1,16 +1,20 @@
-import type { Node } from "@otterdeploy/docker";
+import type { Node, NodeSpec } from "@otterdeploy/docker";
 
 import { describe, expect, test } from "vite-plus/test";
 
 import { pickNodeForServer } from "./node-resolver";
 
-const node = (id: string, hostname: string, state = "ready", availability = "active"): Node =>
-  ({
-    ID: id,
-    Description: { Hostname: hostname },
-    Status: { State: state },
-    Spec: { Availability: availability },
-  }) as Node;
+const node = (
+  id: string,
+  hostname: string,
+  state = "ready",
+  availability: NodeSpec["Availability"] = "active",
+): Node => ({
+  ID: id,
+  Description: { Hostname: hostname },
+  Status: { State: state },
+  Spec: { Availability: availability },
+});
 
 describe("pickNodeForServer", () => {
   test("resolves the obvious single match", () => {
@@ -24,7 +28,7 @@ describe("pickNodeForServer", () => {
   test("picks the Ready node when a hostname is duplicated", () => {
     // The real shape of this cluster: a re-provisioned machine leaves its old
     // node registered, Down, under the same hostname. Listed FIRST here on
-    // purpose — first-match would pin to the dead one.
+    // purpose: first-match would pin to the dead one.
     const nodes = [node("dead1", "ubuntu-4gb-nbg1-1", "down"), node("live1", "ubuntu-4gb-nbg1-1")];
     expect(pickNodeForServer(nodes, { hostname: "ubuntu-4gb-nbg1-1", name: null })).toEqual({
       kind: "resolved",

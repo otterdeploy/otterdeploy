@@ -3,12 +3,12 @@
  *
  * The control plane sits behind Caddy in production (and, sometimes, plain
  * loopback/SSH-tunnel access during bootstrap). Both paths speak to the Hono
- * app directly — Caddy as a reverse proxy, a tunnel as a raw TCP forward — so
+ * app directly (Caddy as a reverse proxy, a tunnel as a raw TCP forward) so
  * the app is the only place that can tell whether the headers a request
  * carries were actually SET by something we trust. Blindly trusting
  * `X-Forwarded-For`/`X-Forwarded-Proto` lets any direct caller (an internet
- * client hitting the control plane directly, or — if the control plane's
- * port were ever reachable from a project network — a tenant workload) spoof
+ * client hitting the control plane directly, or: if the control plane's
+ * port were ever reachable from a project network, a tenant workload) spoof
  * its IP and scheme, defeating rate limits, IP allowlists, the firewall/
  * blocklist (od-5j8.5), and audit-log attribution (od-5j8.10).
  *
@@ -29,7 +29,7 @@ export interface ResolvedClientAddress {
    *  trusted, otherwise the raw TCP peer address. Never client-controlled
    *  when `trustedPeer` is false. */
   ip: string;
-  /** "https" only when a trusted peer forwarded it; otherwise "http" — never
+  /** "https" only when a trusted peer forwarded it; otherwise "http", never
    *  taken from a header an untrusted caller could set. */
   proto: "http" | "https";
   /** Whether the immediate peer matched the trusted-proxy list. False means
@@ -38,7 +38,7 @@ export interface ResolvedClientAddress {
 }
 
 /** Parses a comma-separated list of bare IPs and/or CIDRs into a BlockList.
- *  Garbage entries (hostnames, malformed CIDRs) are silently skipped — same
+ *  Garbage entries (hostnames, malformed CIDRs) are silently skipped. Same
  *  fail-open-on-typo, fail-closed-on-trust posture as the egress allowlist
  *  parser (packages/shared/src/egress-policy.ts): a malformed entry must
  *  never crash the request path, and an ENTRY that fails to parse simply
@@ -73,7 +73,7 @@ function trustedProxyList(raw: string): BlockList {
   return cached.list;
 }
 
-/** True when `peerAddress` (the actual TCP peer — never a header) matches
+/** True when `peerAddress` (the actual TCP peer, never a header) matches
  *  the configured trusted-proxy list. */
 export function isTrustedProxyPeer(peerAddress: string | null, trustedProxiesRaw: string): boolean {
   if (!peerAddress) return false;
@@ -83,15 +83,15 @@ export function isTrustedProxyPeer(peerAddress: string | null, trustedProxiesRaw
 }
 
 export interface ResolveClientAddressInput {
-  /** The actual TCP peer address (e.g. from Bun's `requestIP`/`getConnInfo`)
-   *  — never derived from a header. Null when unavailable (e.g. a transport
+  /** The actual TCP peer address (e.g. from Bun's `requestIP`/`getConnInfo`),
+   *  never derived from a header. Null when unavailable (e.g. a transport
    *  that doesn't expose it), which is treated as untrusted. */
   peerAddress: string | null;
   headers: Headers;
   trustedProxiesRaw: string;
 }
 
-/** Pure resolution — no Hono/Bun dependency, so it's directly unit testable.
+/** Pure resolution, no Hono/Bun dependency, so it's directly unit testable.
  *  Forwarding headers are honored ONLY when `peerAddress` matches
  *  `trustedProxiesRaw`; otherwise they're ignored outright and the raw
  *  connection is authoritative. */
@@ -113,7 +113,7 @@ export function resolveClientAddress(input: ResolveClientAddressInput): Resolved
 /** Best-effort raw TCP peer address for the current request. Bun's
  *  `requestIP` (surfaced via `hono/bun`'s `getConnInfo`) is unavailable for
  *  some transports (e.g. a Unix-socket listener, or the vitest fetch-only
- *  harness) — treated as "no peer", which resolveClientAddress treats as
+ *  harness), treated as "no peer", which resolveClientAddress treats as
  *  untrusted (fails closed, never fails open). */
 function rawPeerAddress(c: Context): string | null {
   try {
@@ -123,7 +123,7 @@ function rawPeerAddress(c: Context): string | null {
   }
 }
 
-/** Hono/Bun adapter — resolves the real client IP/proto for the current
+/** Hono/Bun adapter: resolves the real client IP/proto for the current
  *  request. Every consumer that used to read `x-forwarded-for` /
  *  `x-forwarded-proto` directly should call this instead (see
  *  apps/server/src/handlers/deploy-protection/shared.tsx and
@@ -146,7 +146,7 @@ export function resolveClient(
  * which populates `audit.context.ip` straight from
  * `x-forwarded-for`/`x-real-ip` and has no injectable IP resolver) can never
  * see a spoofed value. Call this once, as early as possible in the
- * middleware chain — before the evlog middleware runs. A no-op when the peer
+ * middleware chain: before the evlog middleware runs. A no-op when the peer
  * IS trusted (the edge's own headers pass through unmodified) or when the
  * request already has no such headers.
  */

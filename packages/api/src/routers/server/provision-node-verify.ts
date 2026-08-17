@@ -1,5 +1,5 @@
 /**
- * Post-join swarm verification — split out of provision-runner.ts to keep
+ * Post-join swarm verification: split out of provision-runner.ts to keep
  * that file under the line cap. Confirms a freshly `docker swarm join`-ed
  * host actually appears ready in `docker node ls` (the manager-side check;
  * the join itself runs over SSH), and applies the optional build-node label.

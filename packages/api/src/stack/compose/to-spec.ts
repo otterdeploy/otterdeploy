@@ -7,7 +7,7 @@
  *
  * Intra-stack DNS: each service's `internalHostname` is its bare compose name,
  * so `depends_on` peers reach it at `http://<name>` over the project overlay
- * network — exactly as compose promises. Named volumes are namespaced by stack
+ * network: exactly as compose promises. Named volumes are namespaced by stack
  * so two stacks with a `data` volume don't collide.
  */
 import type { SpecMount, SwarmServiceRestart, SwarmServiceSpec } from "../../swarm";
@@ -19,11 +19,11 @@ import { allowedHostBind } from "../../lib/host-binds";
 export interface ComposeSpecContext {
   resourceId: string;
   projectSlug: string;
-  /** Stack namespace — prefixes swarm service + volume names. */
+  /** Stack namespace: prefixes swarm service + volume names. */
   stackName: string;
   /** Fully-resolved env for THIS service (project cascade + ${refs}). */
   resolvedEnv: Record<string, string>;
-  /** Concrete image to run — the built tag for `build:` services. */
+  /** Concrete image to run. The built tag for `build:` services. */
   image: string;
   deploymentId?: string | null;
   forceUpdateCounter: number;
@@ -31,14 +31,14 @@ export interface ComposeSpecContext {
 
 /**
  * Swarm service name for a compose sub-service. The single source of truth for
- * the naming — used both at deploy (here) and by the live-task query that maps
+ * the naming, used both at deploy (here) and by the live-task query that maps
  * swarm tasks back to their compose sub-service.
  *
  * The prefix is what makes the result a *minted* identity: a bare
  * `${stack}-${service}` is indistinguishable from any other alias on the
  * overlay network, so `caddy/route-validation.ts` cannot tell a legitimate
  * upstream from an arbitrary container a tenant asked to proxy to. It is the
- * same `od-` every other swarm service carries — one convention, and the short
+ * same `od-` every other swarm service carries. One convention, and the short
  * form leaves room under Docker's 63-char cap for `${stack}-${service}`.
  */
 export function composeSwarmServiceName(stackName: string, serviceName: string): string {
@@ -119,8 +119,8 @@ function toRestart(r: ParsedComposeService["restart"]): SwarmServiceRestart {
 
 /** Named volumes plus allowlisted host binds; tmpfs and every other bind are
  *  dropped here. Named volumes get the stack prefix; anonymous ones a stable
- *  derived name. Kept in step with `routers/compose/reconcile-map.ts#toMounts`
- *  — the two compose paths must agree on what a stack is allowed to mount. */
+ *  derived name. Kept in step with `routers/compose/reconcile-map.ts#toMounts`.
+ *  The two compose paths must agree on what a stack is allowed to mount. */
 function toMounts(svc: ParsedComposeService, volumeBase: string, stackName: string): SpecMount[] {
   const out: SpecMount[] = [];
   for (const v of svc.volumes) {

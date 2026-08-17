@@ -17,7 +17,7 @@ const DAY_MINUTES = 1440;
 /**
  * A human interval relative to now, in either direction: `4m ago`, `in 2h`.
  *
- * Bidirectional on purpose — the same helper renders "created 3h ago" and
+ * Bidirectional on purpose: the same helper renders "created 3h ago" and
  * "expires in 30d", and a one-directional version silently mislabels the latter.
  */
 export function relativeTime(iso: string): string {
@@ -75,7 +75,7 @@ export function elapsed(fromIso: string, toIso: string | null | undefined): stri
 }
 
 /** An em dash for a value that is genuinely absent, dimmed by the caller. */
-export const ABSENT = "—";
+export const ABSENT = "–";
 
 // Binary units, because the divisor is 1024. The two formatters this replaced
 // disagreed: one divided by 1024 and labelled the result "MB", which overstates

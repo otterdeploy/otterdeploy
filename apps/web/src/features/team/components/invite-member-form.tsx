@@ -3,7 +3,7 @@
  * only (the Team page gates rendering).
  *
  * Calls `authClient.organization.inviteMember` directly so we get the real
- * invitation id back and can always offer a copyable accept link — email
+ * invitation id back and can always offer a copyable accept link. Email
  * delivery is best-effort (a self-hosted install may have no transport
  * configured), so the link is the reliable path. The email field validates
  * against the loaded members + pending invites so an existing member or a
@@ -43,6 +43,15 @@ const INVITE_ROLES = [
   { value: "admin", label: "Admin" },
 ] as const;
 
+type InviteRole = (typeof INVITE_ROLES)[number]["value"];
+
+interface InviteFormValues {
+  email: string;
+  role: InviteRole;
+}
+
+const inviteDefaults: InviteFormValues = { email: "", role: "member" };
+
 export function InviteMemberForm({ organizationId }: { organizationId: string }) {
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
   // Loaded so the email field can flag an existing member / pending invite
@@ -52,10 +61,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
 
   const { t } = useTranslation();
   const form = useForm({
-    defaultValues: {
-      email: "",
-      role: "member" as "member" | "admin",
-    },
+    defaultValues: inviteDefaults,
     onSubmit: async ({ value }) => {
       const email = value.email.trim();
       if (!email) return;
@@ -77,7 +83,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
       void queryClient.invalidateQueries({ queryKey: [...invitationsSubsetKey(organizationId)] });
 
       // Use the real invitation id from the response so the accept link always
-      // works — even when no email was delivered.
+      // works. Even when no email was delivered.
       const inviteId = res.data?.id;
       if (inviteId) {
         setSent({ email, url: acceptInviteUrl(inviteId) });
@@ -134,7 +140,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
               />
               <FieldError
                 errors={field.state.meta.errors.map((e) =>
-                  typeof e === "string" ? { message: e } : (e as { message?: string } | undefined),
+                  typeof e === "string" ? { message: e } : undefined,
                 )}
               />
             </Field>
@@ -147,7 +153,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
               <Select
                 items={INVITE_ROLES.map((r) => ({ label: r.label, value: r.value }))}
                 value={field.state.value}
-                onValueChange={(v) => field.handleChange((v ?? "member") as "member" | "admin")}
+                onValueChange={(v) => field.handleChange(v === "admin" ? "admin" : "member")}
               >
                 {/* No height override: the trigger's data-[size=default]:h-8
                     beats a plain h-* class anyway (data variants sort later),

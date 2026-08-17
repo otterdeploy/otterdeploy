@@ -2,10 +2,10 @@ import type { RequestLogger } from "evlog";
 
 /**
  * Compose-stack deploy orchestration. A `type: compose` resource fans out to N
- * swarm services on the project overlay network — this applies/reconciles/
+ * swarm services on the project overlay network: this applies/reconciles/
  * removes them as one unit. Every sub-service carries the compose resource's id
  * as the `otterdeploy.resource.id` label (set by `buildServiceSpec`), so we
- * reconcile the live set by listing on that label — no extra labelling needed.
+ * reconcile the live set by listing on that label, no extra labelling needed.
  *
  * Each spec is produced by `stack/compose/to-spec.ts#composeServiceToSpec`. We
  * reuse `updateSwarmService` (create-or-update) per service, so the entire
@@ -59,7 +59,7 @@ export async function deployComposeStack(
   return aggregate(runtimes);
 }
 
-/** Tear the whole stack down — every swarm service owned by this resource. */
+/** Tear the whole stack down: every swarm service owned by this resource. */
 export async function removeComposeStack(
   input: { resourceId: string },
   rlog?: RequestLogger,

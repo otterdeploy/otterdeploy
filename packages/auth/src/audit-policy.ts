@@ -3,7 +3,7 @@
  * each one is called, which body fields may be recorded, and how an endpoint
  * result maps to an outcome.
  *
- * Kept free of database and env imports on purpose — this is the part worth
+ * Kept free of database and env imports on purpose. This is the part worth
  * unit-testing, and pulling `@otterdeploy/db` in behind it would make the
  * allowlist tests require a configured environment to run. The writer that
  * consumes this lives in ./audit.ts.
@@ -13,7 +13,7 @@
  *  1. **Allowlist, never catch-all.** `/get-session` is hit on every page load
  *     and `/device/token` is polled every few seconds by a waiting CLI.
  *     Auditing "all auth routes" would bury real sign-ins under refresh
- *     traffic — the same mistake the oRPC read gate already made once and
+ *     traffic: the same mistake the oRPC read gate already made once and
  *     fixed (see `packages/api/src/__tests__/audit-read-gate.test.ts`).
  *  2. **Only identifiers leave the request body.** Passwords, reset tokens,
  *     TOTP codes and backup codes all travel through these endpoints. Fields
@@ -35,7 +35,7 @@ export interface AuditedPath {
   action: string;
   targetType?: string;
   /**
-   * Body fields recorded into the jsonb `target`. Identifiers only — see rule
+   * Body fields recorded into the jsonb `target`. Identifiers only: see rule
    * 2. These are request-supplied and unvalidated, so they inform an
    * investigation but never carry authority (and never reach a FK column).
    */
@@ -50,12 +50,12 @@ export interface AuditedPath {
 
 /**
  * The audited identity surface. Paths are better-auth route paths (verified
- * against the 1.6.11 route table — `/request-password-reset`, for instance, is
+ * against the 1.6.11 route table: `/request-password-reset`, for instance, is
  * the real path; `/forget-password` only exists as a rate-limiter alias).
  *
  * Deliberately absent: `/get-session`, `/list-sessions`, `/list-accounts`,
  * `/organization/list*`, `/organization/set-active`, `/api-key/get`,
- * `/api-key/list` and the other reads — a read of your own identity is not an
+ * `/api-key/list` and the other reads. A read of your own identity is not an
  * audit event, and the polled ones would dominate the table.
  */
 const AUDITED_PATHS: Record<string, AuditedPath> = {
@@ -77,7 +77,7 @@ const AUDITED_PATHS: Record<string, AuditedPath> = {
   "/delete-user": { action: "auth.userDelete", targetType: "user" },
 
   // ── Sessions ────────────────────────────────────────────────────────────
-  // The session token itself is never recorded — revoking by token would put a
+  // The session token itself is never recorded. Revoking by token would put a
   // live credential in a 90-day table.
   "/revoke-session": { action: "auth.sessionRevoke" },
   "/revoke-sessions": { action: "auth.sessionRevokeAll" },
@@ -192,16 +192,15 @@ export function auditEntryForPath(path: string): AuditedPath | null {
  *
  * 401/403 become `denied` rather than `failure` so they read as a refused
  * action in the same state vocabulary the oRPC middleware uses (see
- * `DENIED_ORPC_CODES` in authz/procedure-audit.ts) — and so a wrong password,
+ * `DENIED_ORPC_CODES` in authz/procedure-audit.ts), and so a wrong password,
  * which is a refusal rather than a malfunction, lands in the bucket an auditor
  * expects. Both are counted by the denial-burst anomaly rule.
  */
 export function classifyAuthOutcome(returned: unknown): { outcome: Outcome; reason?: string } {
   if (!isAPIError(returned)) return { outcome: "success" };
-  const error = returned as { statusCode?: number; body?: { message?: string; code?: string } };
-  const status = error.statusCode;
+  const status = returned.statusCode;
   const outcome: Outcome = status === 401 || status === 403 ? "denied" : "failure";
-  const reason = error.body?.message ?? error.body?.code;
+  const reason = returned.body?.message ?? returned.body?.code;
   return { outcome, reason: reason ? reason.slice(0, MAX_REASON) : undefined };
 }
 

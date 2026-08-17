@@ -2,11 +2,12 @@ import type { UnknownRecord } from "@otterdeploy/shared/json";
 
 import { ORPCError } from "@orpc/server";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import { createRequestLogger } from "evlog";
 import { describe, expect, test } from "vite-plus/test";
 
 // The guards module imports `@otterdeploy/db`, whose client validates the full
 // server env at import time. Satisfy the required vars before the dynamic
-// import below so the module graph loads (no real DB is ever touched — every
+// import below so the module graph loads (no real DB is ever touched, every
 // guard takes an injected `client`). Same pattern as tokens.test.ts.
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy required vars so the guards' module graph (which imports @otterdeploy/db) loads.
 process.env.DATABASE_URL ??= "postgres://test/test";
@@ -28,6 +29,10 @@ const {
   enforceResourceScope,
   enforceScheduleScope,
 } = await import("../project-scope-guards");
+// Imported dynamically for the same env-at-import reason as the guards. Only
+// its TYPE is load-bearing here: `dbReturning` proxies it so no query ever
+// reaches a database.
+const { db } = await import("@otterdeploy/db");
 import type { ApiKeyActor } from "../../context";
 import type { Context } from "../../context";
 
@@ -35,10 +40,19 @@ import type { Context } from "../../context";
 // Test doubles
 // ---------------------------------------------------------------------------
 
-/** Minimal context factory — only the fields the guards read. The rest of the
- *  Context surface is irrelevant to project-scope enforcement, so we cast. */
+/** Complete context fixture (same shape as tenant-scope.test.ts builds): the
+ *  guards only read `apiKey` and `activeOrganizationId`, but the fixture fills
+ *  the whole Context surface so no cast is needed. */
 function ctx(apiKey: ApiKeyActor | null, activeOrganizationId = "org_1"): Context {
-  return { apiKey, activeOrganizationId } as unknown as Context;
+  return {
+    actor: apiKey,
+    session: null,
+    apiKey,
+    activeOrganizationId: zId(ID_PREFIX.organization).parse(activeOrganizationId),
+    headers: new Headers(),
+    log: createRequestLogger({ method: "TEST", path: "/authz" }),
+    broadcast: () => undefined,
+  };
 }
 
 function selectedKey(projectIds: string[]): ApiKeyActor {
@@ -60,7 +74,7 @@ const allKey: ApiKeyActor = {
   projectScope: "all",
 };
 
-// Branded id fixtures — validated through zId (never `as never`). Values are
+// Branded id fixtures, validated through zId (never `as never`). Values are
 // opaque to the guards (the db mock ignores them); only the prefix must match.
 const RESOURCE_ID = zId(ID_PREFIX.resource).parse("resource_1");
 const BACKUP_ID = zId(ID_PREFIX.backup).parse("bak_1");
@@ -73,7 +87,7 @@ const ENV_ID = zId(ID_PREFIX.environment).parse("env_1");
  *  is awaited as a thenable. */
 function dbReturning(rows: Array<{ projectId: string | null }>) {
   let queried = false;
-  // The chain's values are builder methods (functions), not data — a
+  // The chain's values are builder methods (functions), not data. A
   // string-keyed bag of runtime values is exactly what UnknownRecord is for.
   const chain: UnknownRecord = {};
   const passthrough = () => chain;
@@ -81,13 +95,22 @@ function dbReturning(rows: Array<{ projectId: string | null }>) {
   chain.innerJoin = passthrough;
   chain.where = passthrough;
   chain.limit = () => Promise.resolve(rows);
-  const client = {
-    select: () => {
-      queried = true;
-      return chain;
+  // A Proxy over the real client carries `typeof db` (so it satisfies the
+  // guards' DbLike parameter without an assertion) while every property access
+  // is intercepted: `select` is answered by the recording chain and anything
+  // else throws, so no query can ever reach a database.
+  const client = new Proxy(db, {
+    get: (_target, prop) => {
+      if (prop !== "select") {
+        throw new Error(`unexpected db access in test double: ${String(prop)}`);
+      }
+      return () => {
+        queried = true;
+        return chain;
+      };
     },
-  };
-  return { client: client as never, wasQueried: () => queried };
+  });
+  return { client, wasQueried: () => queried };
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +128,7 @@ describe("enforceProjectScope", () => {
       throw new Error("expected throw");
     } catch (err) {
       expect(err).toBeInstanceOf(ORPCError);
-      expect((err as ORPCError<string, unknown>).code).toBe("FORBIDDEN");
+      if (err instanceof ORPCError) expect(err.code).toBe("FORBIDDEN");
     }
   });
 
@@ -130,21 +153,21 @@ describe("enforceProjectScope", () => {
 describe("enforceResourceScope", () => {
   test("resolves resource→project, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    expect(
+    await expect(
       enforceResourceScope(ctx(selectedKey(["proj_1"])), RESOURCE_ID, client),
     ).resolves.toBeUndefined();
   });
 
   test("resolves resource→project, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_2" }]);
-    expect(
+    await expect(
       enforceResourceScope(ctx(selectedKey(["proj_1"])), RESOURCE_ID, client),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   test("resource not found (wrong org) ⇒ no-op (handler's NOT_FOUND fires)", async () => {
     const { client } = dbReturning([]);
-    expect(
+    await expect(
       enforceResourceScope(ctx(selectedKey(["proj_1"])), RESOURCE_ID, client),
     ).resolves.toBeUndefined();
   });
@@ -169,21 +192,21 @@ describe("enforceResourceScope", () => {
 describe("enforceBackupScope", () => {
   test("resolves backup→resource→project, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    expect(
+    await expect(
       enforceBackupScope(ctx(selectedKey(["proj_1"])), BACKUP_ID, client),
     ).resolves.toBeUndefined();
   });
 
   test("out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_9" }]);
-    expect(
+    await expect(
       enforceBackupScope(ctx(selectedKey(["proj_1"])), BACKUP_ID, client),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   test("not found ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    expect(
+    await expect(
       enforceBackupScope(ctx(selectedKey(["proj_1"])), BACKUP_ID, client),
     ).resolves.toBeUndefined();
   });
@@ -202,21 +225,21 @@ describe("enforceBackupScope", () => {
 describe("enforceScheduleScope", () => {
   test("project-scoped schedule, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_9" }]);
-    expect(
+    await expect(
       enforceScheduleScope(ctx(selectedKey(["proj_1"])), SCHEDULE_ID, client),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   test("org-wide schedule (null projectId) ⇒ no-op (can't pin a project)", async () => {
     const { client } = dbReturning([{ projectId: null }]);
-    expect(
+    await expect(
       enforceScheduleScope(ctx(selectedKey(["proj_1"])), SCHEDULE_ID, client),
     ).resolves.toBeUndefined();
   });
 
   test("not found ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    expect(
+    await expect(
       enforceScheduleScope(ctx(selectedKey(["proj_1"])), SCHEDULE_ID, client),
     ).resolves.toBeUndefined();
   });
@@ -229,19 +252,25 @@ describe("enforceScheduleScope", () => {
 describe("enforceEnvScope", () => {
   test("project env, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    expect(enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client)).resolves.toBeUndefined();
+    await expect(
+      enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client),
+    ).resolves.toBeUndefined();
   });
 
   test("project env, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_2" }]);
-    expect(enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client)).rejects.toMatchObject({
+    await expect(
+      enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client),
+    ).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
   });
 
   test("standalone/org env (not joinable) ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    expect(enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client)).resolves.toBeUndefined();
+    await expect(
+      enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client),
+    ).resolves.toBeUndefined();
   });
 
   test("scope 'all' key ⇒ skips DB", async () => {

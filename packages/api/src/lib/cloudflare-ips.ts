@@ -3,7 +3,7 @@
  * custom domain that's proxied through Cloudflare (orange-cloud).
  *
  * A proxied domain's A/AAAA resolves into one of these ranges rather than
- * our origin IP — Cloudflare terminates TLS at its edge, so the origin
+ * our origin IP: Cloudflare terminates TLS at its edge, so the origin
  * can't complete an ACME challenge and should serve `tls internal`
  * instead (Cloudflare "Full" SSL mode accepts it). We carry both the
  * published IPv4 and IPv6 ranges and match via BigInt so an AAAA record
@@ -57,7 +57,7 @@ function ipToBigInt(ip: string): bigint | null {
 
 /** Expand a (possibly `::`-compressed) IPv6 literal to a 128-bit BigInt. */
 function ipv6ToBigInt(ip: string): bigint | null {
-  // Drop a zone id if present (fe80::1%en0) — irrelevant for range checks.
+  // Drop a zone id if present (fe80::1%en0). Irrelevant for range checks.
   const [bare = ""] = ip.split("%");
   const halves = bare.split("::");
   if (halves.length > 2) return null;
@@ -90,7 +90,7 @@ function inCidr(ip: string, cidr: string): boolean {
 
   const isV6 = cidr.includes(":");
   const totalBits = isV6 ? 128 : 32;
-  // A /0 (mask all) would shift by totalBits — guard it.
+  // A /0 (mask all) would shift by totalBits. Guard it.
   if (bits <= 0) return true;
   const mask = ((1n << BigInt(bits)) - 1n) << BigInt(totalBits - bits);
   return (ipVal & mask) === (netVal & mask);

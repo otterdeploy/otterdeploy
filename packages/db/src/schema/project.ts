@@ -52,7 +52,7 @@ type EnvId = EnvironmentId;
  *  - `packages`: extra Nix packages to install
  *  - `aptPackages`: extra apt packages (Debian-based default base image)
  *  - `installCmd`: override the install phase
- *  - `env`: build-time env vars (separate from runtime — those live on
+ *  - `env`: build-time env vars (separate from runtime, those live on
  *    the service resource)
  */
 export interface NixpacksConfig {
@@ -75,20 +75,20 @@ export const project = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    // Slug is unique per organization, not globally — two orgs can each have
+    // Slug is unique per organization, not globally. Two orgs can each have
     // a project named "web". Enforced by the (organization_id, slug) unique
     // index below.
     slug: text("slug").notNull(),
     environmentId: text("environment_id").$type<EnvId>(),
     // Declarative stack file (compose-compatible YAML with x-otterdeploy
-    // extensions). Source of truth migration — Phase 1 ships the column
+    // extensions). Source of truth migration: Phase 1 ships the column
     // empty; subsequent phases populate + apply it. `stackFileVersion` is
     // a monotonic counter used for optimistic locking on writes.
     stackFile: text("stack_file"),
     stackFileVersion: integer("stack_file_version").notNull().default(0),
     lastAppliedFile: text("last_applied_file"),
     lastAppliedAt: timestamp("last_applied_at"),
-    // JSON-native declarative manifest — CLI-facing source of truth.
+    // JSON-native declarative manifest: CLI-facing source of truth.
     // Lives alongside `stackFile` while the compose-shaped storage is
     // phased out; the renderer can still emit compose from this column.
     // `manifestVersion` is a monotonic counter for optimistic locking on
@@ -99,20 +99,20 @@ export const project = pgTable(
     lastAppliedManifest: jsonb("last_applied_manifest").$type<JsonObject | null>(),
     lastManifestAppliedAt: timestamp("last_manifest_applied_at"),
     // Per-project domain override. When set + verified, this project's
-    // resources land under it instead of the org's baseDomain — e.g. a
+    // resources land under it instead of the org's baseDomain. E.g. a
     // service `web` lands at `web.<customDomain>` (no project slug, since
     // the apex IS the project). Falls through to org.baseDomain when null.
     customDomain: text("custom_domain"),
     customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
     customDomainVerifyToken: text("custom_domain_verify_token"),
-    // Git source + image target moved to the SERVICE (service_resource) — each
+    // Git source + image target moved to the SERVICE (service_resource). Each
     // git service owns its own repo/branch/image now, so two services in one
     // project can build from two different repos. The project no longer carries
     // a repo binding. See docs/designs (per-service source) + service_resource.
     nixpacksConfig: jsonb("nixpacks_config").$type<NixpacksConfig | null>().default(null),
     // Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}.
     // Keyed by node id (not resourceId) so a position set on a pending node
-    // carries over when the resource lands — the id is stable across that
+    // carries over when the resource lands. The id is stable across that
     // handover. Shared per project; nodes with no saved position fall back to
     // dagre auto-layout. Written by `project.saveGraphLayout`.
     graphLayout: jsonb("graph_layout")
@@ -154,7 +154,7 @@ export const teamMember = pgTable(
 // docs/designs/pr-previews.md.
 // Environments are USER-CREATED contexts only (Development / Staging /
 // Production): named variable scopes the operator manages. PR previews are
-// deliberately NOT environments — they live in the `preview` table below and
+// deliberately NOT environments: they live in the `preview` table below and
 // scope their rows via `previewId` columns, so they can never surface in
 // environment UI (switcher, variables tabs, pickers) by construction.
 export const environment = pgTable(
@@ -184,7 +184,7 @@ export const environment = pgTable(
 export const previewStateEnum = pgEnum("preview_state", ["active", "closed"]);
 
 /**
- * A PR preview — a first-class entity bound to (project, repo, PR#), NOT an
+ * A PR preview: a first-class entity bound to (project, repo, PR#), NOT an
  * environment. One row per open PR; `previewId` columns on deployment /
  * proxy_route / resource scope a preview's containers, routes and opt-in DB
  * branches to it. Services opt in via serviceResource.previewsEnabled;
@@ -210,17 +210,17 @@ export const preview = pgTable(
     // PR presentation metadata, refreshed on every pull_request event. All
     // nullable: previews created before this existed (and any provider whose
     // payload omits a field) simply render without it rather than blocking the
-    // preview. Never used for identity or routing — that stays (repo, number).
+    // preview. Never used for identity or routing. That stays (repo, number).
     prTitle: text("pr_title"),
     prAuthorLogin: text("pr_author_login"),
     prAuthorAvatarUrl: text("pr_author_avatar_url"),
     /** Canonical web URL of the PR itself, for a one-click hop to GitHub. */
     prUrl: text("pr_url"),
-    /** Plain head branch name (`feat/checkout-v2`) — GitHub's pr.head.ref. */
+    /** Plain head branch name (`feat/checkout-v2`): GitHub's pr.head.ref. */
     branch: text("branch").notNull(),
     headSha: text("head_sha").notNull(),
     /** Repo-qualified suffix (`<repoSlug>-pr-<n>`) naming the preview's
-     *  containers, volumes and hosts — byte-identical at create and teardown. */
+     *  containers, volumes and hosts: byte-identical at create and teardown. */
     slug: text("slug").notNull(),
     state: previewStateEnum("state").notNull().default("active"),
     // Paused = containers stopped to free resources but the preview + routes
@@ -273,14 +273,14 @@ export const resource = pgTable(
     type: resourceTypeEnum("type").notNull(),
     status: resourceStatusEnum("status").notNull().default("draft"),
     // Environment scoping. NULL = base resource (and, after the backfill, the
-    // project's MAIN environment — main is represented as base so existing
+    // project's MAIN environment. Main is represented as base so existing
     // container/volume/host names never change; see lib/environment/scoping.ts).
     // Set = a resource owned by a non-main environment such as staging.
     environmentId: text("environment_id").$type<EnvId>(),
     // Preview scoping. NULL = base resource (the normal case); set = a
     // preview-scoped instance such as an opt-in DB branch. The variable
     // resolver prefers the preview-scoped row, then the environment-scoped
-    // row, then falls back to the base — narrowest scope that owns a row wins.
+    // row, then falls back to the base: narrowest scope that owns a row wins.
     previewId: text("preview_id").$type<PreviewId>(),
     // Provenance for a branched resource (e.g. a COW db branch). Self-referential
     // FK enforced app-side (same idiom as project.gitRepoId).
@@ -300,8 +300,8 @@ export const resource = pgTable(
   },
   (table) => [
     // One partial unique per scope. A scoped row deliberately REUSES the base
-    // name — that is what makes a name-based `${{…}}` ref re-resolve to the
-    // scoped copy — so the three cannot share an index.
+    // name: that is what makes a name-based `${{…}}` ref re-resolve to the
+    // scoped copy, so the three cannot share an index.
     //
     // Base: both scope columns null. Unchanged in meaning from before the
     // environment column existed, because every pre-existing row has
@@ -315,7 +315,7 @@ export const resource = pgTable(
       .where(sql`environment_id is not null and preview_id is null`),
     // Preview-scoped: unique per (project, preview, name). Keyed on the preview
     // alone and not the environment, since a preview already belongs to exactly
-    // one — including the environment would allow two rows that the resolver
+    // one, including the environment would allow two rows that the resolver
     // could not choose between.
     uniqueIndex("resource_project_name_preview_unique")
       .on(table.projectId, table.previewId, table.name)
@@ -371,7 +371,7 @@ export const databaseResource = pgTable(
     // Setting or unsetting triggers a swarm task update (~5s downtime).
     extraEnv: jsonb("extra_env").$type<Record<string, string>>().notNull().default({}),
     // Keys in `extraEnv` that the operator marked sensitive. Display-only
-    // hint — the value still travels the same wire path. Reveal in the UI
+    // hint: the value still travels the same wire path. Reveal in the UI
     // is gated by this list; copy/paste audit can also key off it.
     secretKeys: jsonb("secret_keys").$type<string[]>().notNull().default([]),
     // Enabled Postgres extensions (canonical `CREATE EXTENSION` names, e.g.
@@ -381,14 +381,14 @@ export const databaseResource = pgTable(
     // change) and runs CREATE/DROP EXTENSION against the live database.
     extensions: jsonb("extensions").$type<string[]>().notNull().default([]),
     // Opt-in: branch this database into PR previews (dump/restore or COW copy
-    // per DB). Default OFF — an unbranched database is shared by previews via
+    // per DB). Default OFF: an unbranched database is shared by previews via
     // the resolver's base fallback, so a PR costs no extra data copy.
     previewBranching: boolean("preview_branching").notNull().default(false),
     // COW branch bookkeeping. NULL branchStrategy = a base (unbranched) database.
     // When set, this row is a preview-scoped branch of another database; see
     // resource.branchedFromResourceId for provenance.
     branchStrategy: branchStrategyEnum("branch_strategy"),
-    // ZFS snapshot name the branch was cloned from — needed to destroy the
+    // ZFS snapshot name the branch was cloned from. Needed to destroy the
     // snapshot on teardown. NULL for the `copy` strategy (no snapshot exists).
     branchSnapshotRef: text("branch_snapshot_ref"),
     // Pre-migration Docker `local` volume name, for rows whose bytes still live
@@ -403,11 +403,11 @@ export const databaseResource = pgTable(
   (table) => [
     // databaseName / username are NOT globally unique: a COW branch reuses its
     // source's db name + user (Postgres ignores POSTGRES_* on a non-empty
-    // PGDATA), and they only need to be unique *within a container* — which is
+    // PGDATA), and they only need to be unique *within a container*, which is
     // guaranteed by construction. Plain indexes for lookup. See §3.6.
     index("database_resource_database_name_idx").on(table.databaseName),
     index("database_resource_username_idx").on(table.username),
-    // Hostnames stay globally unique — branches get distinct ones.
+    // Hostnames stay globally unique. Branches get distinct ones.
     uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
     uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
   ],
@@ -416,14 +416,14 @@ export const databaseResource = pgTable(
 /**
  * Credentials minted for a database that's STAGED in the manifest but not yet
  * provisioned. A database's identity (db name, username, hostname) is
- * deterministic from its name; only the password is random — so we generate it
+ * deterministic from its name; only the password is random, so we generate it
  * the moment the operator adds the database, store it here, and show the real
  * connection details in the pending panel. At Deploy the provisioner reuses
  * this exact password, so what the operator copied pre-deploy keeps working.
  *
  * The row is transient: deleted once the real `database_resource` row exists
  * (post-provision) or when the staged change is discarded. Keyed by
- * (projectId, name) — the same identity the manifest uses for the entry.
+ * (projectId, name): the same identity the manifest uses for the entry.
  */
 export const databaseDraftCredential = pgTable(
   "database_draft_credential",
@@ -450,12 +450,12 @@ export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
 /**
  * Where a service's image comes from.
  *
- *   image  — pre-built image pulled from a registry. `serviceResource.image`
+ *   image: pre-built image pulled from a registry. `serviceResource.image`
  *            is the source of truth; the swarm provisioner uses it directly.
  *            This is what every service created before the build pipeline
  *            landed is set to.
  *
- *   git    — built by apps/builder from the project's git binding. The
+ *   git: built by apps/builder from the project's git binding. The
  *            wizard creates the row with `image` set to a `pending:…`
  *            placeholder; the first build pushes a real tag and bumps the
  *            column to it. Swarm provisioning is deferred until then so a
@@ -476,7 +476,7 @@ export const serviceResource = pgTable(
     command: text("command").array(),
     entrypoint: text("entrypoint").array(),
 
-    // How this service is sourced — see serviceSourceEnum above. Pre-build-
+    // How this service is sourced. See serviceSourceEnum above. Pre-build-
     // pipeline services default to "image" so the swarm provisioner keeps
     // working unchanged.
     source: serviceSourceEnum("source").notNull().default("image"),
@@ -485,7 +485,7 @@ export const serviceResource = pgTable(
     sourceSubdir: text("source_subdir"),
     // Framework/language detected at build time (next/vite/go/python/…), used
     // by the graph to render the service's brand logo. Captured by the builder
-    // from the cloned repo + railpack's analysis — NOT from the git API — and
+    // from the cloned repo + railpack's analysis (NOT from the git API) and
     // stored here so the graph reads it without any network call. Null until
     // the first successful build, or when nothing recognisable was detected.
     framework: text("framework").$type<FrameworkKind>(),
@@ -493,7 +493,7 @@ export const serviceResource = pgTable(
     replicas: integer("replicas").notNull().default(1),
     // Pre-pause desired replica count. Non-null = the service is PAUSED
     // (operator scaled it to zero via service.pause); resume restores this
-    // count and clears the column. Null = not paused — including a service
+    // count and clears the column. Null = not paused. Including a service
     // an operator manually set to 0 replicas, which is honest "scaled to
     // zero", not paused.
     pausedReplicas: integer("paused_replicas"),
@@ -518,7 +518,7 @@ export const serviceResource = pgTable(
     memoryLimitMb: integer("memory_limit_mb"),
     cpuReservation: numeric("cpu_reservation", { precision: 4, scale: 2 }),
     memoryReservationMb: integer("memory_reservation_mb"),
-    // Extended resource limits — match the manifest schema additions.
+    // Extended resource limits: match the manifest schema additions.
     // diskLimitMb is enforced via container --storage-opt size on docker
     // engines that support it; swapLimitMb maps to memory-swap; pidsLimit
     // maps to --pids-limit / deploy.resources.limits.pids.
@@ -526,12 +526,12 @@ export const serviceResource = pgTable(
     swapLimitMb: integer("swap_limit_mb"),
     pidsLimit: integer("pids_limit"),
 
-    // Lifecycle hooks — each runs once in a throwaway container off the
+    // Lifecycle hooks. Each runs once in a throwaway container off the
     // freshly-built image, on the project network, with the resolved env.
     // Exec-form (text[], one shell command per entry, run in order).
-    //   preDeploy  — after the build, BEFORE the new replicas take traffic.
+    //   preDeploy: after the build, BEFORE the new replicas take traffic.
     //                A non-zero exit aborts the rollout. Use: db migrations.
-    //   postDeploy — after the new replicas are live + healthy. Use: cache
+    //   postDeploy: after the new replicas are live + healthy. Use: cache
     //                warmup, smoke checks, deploy pings.
     preDeploy: text("pre_deploy").array(),
     postDeploy: text("post_deploy").array(),
@@ -548,19 +548,19 @@ export const serviceResource = pgTable(
     // two different repos. A push to `branch` of `gitRepoId` deploys just the
     // services bound to that (repo, branch) pair. Null for image-sourced
     // services, or a git service not yet bound (lands pending:initial, build
-    // fails clearly until bound). branch is nullable — resolve the effective
+    // fails clearly until bound). branch is nullable. Resolve the effective
     // branch at read time via `branch ?? repo.defaultBranch ?? "main"`. FK to
     // git_repo enforced app-side (cross-schema import cycle; see git.ts).
     gitRepoId: text("git_repo_id").$type<GitRepoId>(),
     branch: text("branch"),
     // Per-service image target: fully-qualified image name (no tag) the builder
     // pushes to; the builder appends <sha> + :latest. Null = registry-less local
-    // build (image stays in the host daemon — the default). The push credential
+    // build (image stays in the host daemon, the default). The push credential
     // is matched from the shared container_registry library by this string's
     // host at build time, so the manifest carries no opaque registry id.
     imageRepository: text("image_repository"),
     // Opt-in gate for PR preview deployments, per service (the preview unit is
-    // the resource, not the project — a project may host several git services
+    // the resource, not the project: a project may host several git services
     // and only some should follow PRs). When false (default), a pull_request
     // webhook for this service's repo doesn't rebuild it; the preview env is
     // created only when at least one bound service opted in. Teardown on PR
@@ -583,7 +583,7 @@ export const serviceResource = pgTable(
     publicEnabled: boolean("public_enabled").notNull().default(false),
     publicDomain: text("public_domain"),
 
-    // When set, this service is a member of a Docker Compose stack — it was
+    // When set, this service is a member of a Docker Compose stack. It was
     // materialized from the stack's compose file and is owned by it. Null for a
     // standalone service. Drives graph grouping (services sharing a stackId
     // render inside the stack's group) and stack teardown. We clear it + delete
@@ -609,7 +609,7 @@ export const serviceResource = pgTable(
     // lookup. See git/handle-push.ts.
     index("service_resource_git_repo_branch_idx").on(table.gitRepoId, table.branch),
     // internalHostname is the service's DNS alias on its project overlay
-    // network — it only has to be unique *within that network*, not globally.
+    // network: it only has to be unique *within that network*, not globally.
     // Two different projects (each on its own `otterdeploy-<project>` network)
     // can both run a service called "dealort". Scope the uniqueness to
     // (networkName, internalHostname) so same-named services across projects
@@ -641,7 +641,7 @@ export const composeResource = pgTable(
     // inline source: the raw compose YAML pasted by the user. For a single-file
     // stack this is the whole thing; for a multi-file stack it mirrors the
     // designated compose file in `files` (kept in sync so every existing reader
-    // — parse/deploy — keeps working unchanged).
+    // (parse/deploy) keeps working unchanged).
     composeContent: text("compose_content"),
     // inline multi-file stack: the compose file PLUS supporting files (Dockerfiles
     // + build contexts, env_file targets, bind-mounted scripts). Materialized to
@@ -652,23 +652,23 @@ export const composeResource = pgTable(
     // gitRepoId binds a connected repo (like service_resource) so private repos
     // clone with the GitHub App installation token; gitRepoUrl is the resolved
     // clone URL (also the sole source for legacy public-URL stacks with no
-    // binding). A soft reference to git_repo.id (not an FK — mirrors services).
+    // binding). A soft reference to git_repo.id (not an FK: mirrors services).
     gitRepoId: text("git_repo_id").$type<GitRepoId>(),
     gitRepoUrl: text("git_repo_url"),
     gitRef: text("git_ref"),
     sourceSubdir: text("source_subdir"),
     composePath: text("compose_path"),
-    // Swarm stack namespace — unique, derived `<projectSlug>-<resourceSlug>`.
+    // Swarm stack namespace: unique, derived `<projectSlug>-<resourceSlug>`.
     stackName: text("stack_name").notNull(),
     // Derived parse summary (service name, image, hasBuild, ports) for the UI.
-    // NOT authoritative — recomputed from the file on every save/deploy.
+    // NOT authoritative, recomputed from the file on every save/deploy.
     services: jsonb("services").$type<ComposeServiceSummary[]>().notNull().default([]),
     // Built image tags for `build:` services (service name → image ref), written
     // by the build worker. Image-only services aren't listed. See compose.md.
     builtImages: jsonb("built_images").$type<Record<string, string>>().notNull().default({}),
     // Which `service:port` are fronted by a public domain.
     exposed: jsonb("exposed").$type<ComposeExposed[]>().notNull().default([]),
-    // Brand mark for the graph node — an SvglLogo search string (e.g. "Ghost"),
+    // Brand mark for the graph node: an SvglLogo search string (e.g. "Ghost"),
     // carried over from the template the stack was deployed from. Null for
     // hand-authored stacks, which fall back to the generic compose icon.
     logoBrand: text("logo_brand"),
@@ -682,7 +682,7 @@ export const composeResource = pgTable(
   (table) => [uniqueIndex("compose_resource_stack_name_unique").on(table.stackName)],
 );
 
-// Deployment — one logical "push" of a resource to swarm. Each create /
+// Deployment: one logical "push" of a resource to swarm. Each create /
 // redeploy / env-change inserts a new deployment row and tags the swarm
 // spec with `otterdeploy.deployment.id=<id>` so the tasks docker schedules
 // inherit the link via Spec.ContainerSpec.Labels. The Deployments tab in
@@ -735,25 +735,25 @@ export const deployment = pgTable(
     status: deploymentStatusEnum("status").notNull().default("pending"),
     // Full configuration snapshot of the resource at deploy time. The
     // shape mirrors the resource's own columns (env, ports, healthcheck,
-    // command, mounts, resources, etc.) — enough to reproduce the deploy
+    // command, mounts, resources, etc.). Enough to reproduce the deploy
     // by re-applying it. "Rollback to deployment N" means: load this
     // snapshot, write its fields back onto the resource row, then run a
     // normal redeploy. The schema is intentionally untyped at the DB
     // layer (resources differ between database/service kinds) and
     // validated at the application boundary instead.
     snapshot: jsonb("snapshot").$type<JsonObject>().notNull().default({}),
-    // Git provenance — populated when the deployment was triggered by a
+    // Git provenance, populated when the deployment was triggered by a
     // push (reason="git-push") or built from a repo. Nullable for
     // image-only / database deployments.
     gitSha: text("git_sha"),
     gitRef: text("git_ref"),
     gitCommitMessage: text("git_commit_message"),
     gitCommitAuthor: text("git_commit_author"),
-    // Avatar URL of the GitHub user who pushed (webhook `sender.avatar_url`) —
-    // shown on the deployment card so a git-push deploy carries the author's
+    // Avatar URL of the GitHub user who pushed (webhook `sender.avatar_url`).
+    // Shown on the deployment card so a git-push deploy carries the author's
     // face, not just their name. Null for CLI/image/database deploys.
     gitCommitAuthorAvatar: text("git_commit_author_avatar"),
-    // Content hash (sha256, hex) of an uploaded source tarball — the
+    // Content hash (sha256, hex) of an uploaded source tarball: the
     // source: "upload" analog of gitSha, giving CLI/local deploys a stable
     // content identifier where there's no commit. Null for git / image-only
     // deployments (they carry gitSha or nothing).
@@ -805,13 +805,13 @@ export const serviceMount = pgTable(
      * For type=bind   → the absolute host path being bind-mounted.
      * For type=file   → the relative path under <PLATFORM.files.root>/<service>/
      *                   where `content` is materialized; the bind target points at
-     *                   that materialized file. May be left null for type=file —
-     *                   the spec builder will default it to the target's basename.
+     *                   that materialized file. May be left null for type=file.
+     *                   The spec builder will default it to the target's basename.
      */
     source: text("source"),
     /**
      * File contents for type=file. Stored as text (utf-8). Binary blobs aren't
-     * supported here — use type=bind to a pre-staged file for those.
+     * supported here: use type=bind to a pre-staged file for those.
      */
     content: text("content"),
     readOnly: boolean("read_only").notNull().default(false),
@@ -897,10 +897,10 @@ export const serviceEnvVar = pgTable(
     // Drives masking in the UI. Does not affect storage (plaintext for v1).
     isSecret: boolean("is_secret").notNull().default(false),
     // Write-only secret (Railway-style "sealed" variable). When true,
-    // `value` holds a v2 ciphertext envelope (domain "env-vars" — see
+    // `value` holds a v2 ciphertext envelope (domain "env-vars", see
     // packages/api/src/lib/crypto.ts), never plaintext. Sticky one-way flag:
     // once sealed, a row can be REPLACED or DELETED but never unsealed back
-    // to a readable value — see upsertServiceEnvVar. The resolver
+    // to a readable value: see upsertServiceEnvVar. The resolver
     // (packages/api/src/lib/variables/resolver.ts) is the only reader
     // allowed to decrypt it, and only at deploy/injection time; every
     // list/read surface must mask it before it reaches the API/UI.
@@ -913,7 +913,7 @@ export const serviceEnvVar = pgTable(
   },
   (table) => [
     // Base rows are unique per (service, key); preview overrides reuse the
-    // base key but are uniqued per (service, preview, key) instead — the
+    // base key but are uniqued per (service, preview, key) instead. The
     // same partial-unique split the resource table uses.
     uniqueIndex("service_env_var_unique")
       .on(table.serviceResourceId, table.key)
@@ -929,7 +929,7 @@ export const serviceEnvVar = pgTable(
 
 // Project-scoped shared env var. One row per (projectId, environmentId, key).
 // Services receive these values only when they explicitly subscribe via
-// projectEnvSubscription — sharing is opt-in per service.
+// projectEnvSubscription, sharing is opt-in per service.
 export const projectEnvVar = pgTable(
   "project_env_var",
   {
@@ -948,7 +948,7 @@ export const projectEnvVar = pgTable(
     key: text("key").notNull(),
     value: text("value").notNull(),
     isSecret: boolean("is_secret").notNull().default(true),
-    // Write-only secret (Railway-style "sealed" variable) — see the matching
+    // Write-only secret (Railway-style "sealed" variable). See the matching
     // column on `serviceEnvVar` for the full contract (sticky one-way,
     // ciphertext-in-`value`, decrypt only at deploy/injection time).
     sealed: boolean("sealed").notNull().default(false),
@@ -967,7 +967,7 @@ export const projectEnvVar = pgTable(
 );
 
 // Explicit subscription: this service receives this project key at runtime.
-// Without a row, the service does NOT get the value — even if it exists at
+// Without a row, the service does NOT get the value. Even if it exists at
 // the project level. Keyed by `projectEnvKey` (not the row id) so renaming a
 // project var key requires explicit re-subscription, surfacing the breakage.
 export const projectEnvSubscription = pgTable(

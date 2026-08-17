@@ -3,9 +3,9 @@
  *
  * Cloning one resource is copying a row. Cloning a set is a different problem,
  * and this module exists for the difference: env values reference other
- * resources by NAME (`${{db.DATABASE_URL}}` — see lib/variables/parser). Copy
+ * resources by NAME (`${{db.DATABASE_URL}}`, see lib/variables/parser). Copy
  * those values verbatim and the cloned service points at the ORIGINAL
- * database. It deploys, it connects, it works — and it writes to production.
+ * database. It deploys, it connects, it works, and it writes to production.
  * Nothing in the runtime treats that as an error, and the operator has no
  * reason to suspect it, which makes it the single most dangerous thing a naive
  * clone can do.
@@ -62,7 +62,7 @@ export interface ClonePlan {
  *
  * `-copy`, then `-copy-2`… rather than a numeric suffix on the base, because
  * "api-copy-2" reads as the second copy of api while "api-2" reads as a second
- * api — and one of those is a lie about what the resource is.
+ * api, and one of those is a lie about what the resource is.
  *
  * `taken` must include names claimed EARLIER IN THIS SAME PLAN, or cloning two
  * resources at once hands both the same name and the second insert fails on
@@ -79,7 +79,7 @@ export function cloneName(base: string, taken: ReadonlySet<string>): string {
     const bounded = candidate.slice(0, 60);
     if (!taken.has(bounded)) return bounded;
   }
-  // Pathological — 100 copies of one name. Better than looping forever.
+  // Pathological: 100 copies of one name. Better than looping forever.
   return `${root}-copy-${taken.size + 1}`.slice(0, 60);
 }
 

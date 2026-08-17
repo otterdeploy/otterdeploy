@@ -6,7 +6,7 @@
  * those never ends a statement.
  *
  * `from` points at the first real SQL token (leading comments/whitespace are
- * skipped — that's where the ▶ lands, matching the studio reference), and
+ * skipped. That's where the ▶ lands, matching the studio reference), and
  * `text` is that token through the statement's end.
  */
 export interface SqlStatement {

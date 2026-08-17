@@ -1,6 +1,6 @@
 /**
  * Reusable card + read-only-row primitives for the postgres settings tab.
- * Kept inside this folder because nothing else uses them — when another
+ * Kept inside this folder because nothing else uses them. When another
  * settings surface shares them they can promote to ../atoms.
  */
 

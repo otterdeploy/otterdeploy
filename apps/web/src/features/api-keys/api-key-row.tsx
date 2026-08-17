@@ -1,12 +1,12 @@
 /**
  * One row of the API keys table: masked prefix, scopes, usage/expiry, the
  * enable toggle and rotate/delete affordances (owners/admins only). Mutations
- * go straight to `apiKeysCollection` — optimistic, with the rollback/toast
+ * go straight to `apiKeysCollection`. Optimistic, with the rollback/toast
  * handled off the transaction's `isPersisted` promise.
  *
  * Rotation note: the better-auth api-key plugin (1.6.x) has no rotate
  * endpoint (`/api-key/{create,get,list,update,delete}` only), so rotate is
- * create-then-delete — a replacement key with the same name/scopes/expiry is
+ * create-then-delete. A replacement key with the same name/scopes/expiry is
  * minted first, and the old key is deleted only after the new one persists.
  * Not atomic: if the delete fails both keys are briefly live, and we say so.
  */
@@ -65,7 +65,7 @@ export function ApiKeyRow({
       .finally(() => setBusy(false));
   };
 
-  // Create-then-delete rotation (no rotate endpoint in the plugin — see the
+  // Create-then-delete rotation (no rotate endpoint in the plugin, see the
   // file header). The replacement inherits name/scopes and the SAME absolute
   // expiresAt, so a "90 days" key rotated on day 30 still dies on day 90.
   const rotate = () => {
@@ -94,15 +94,15 @@ export function ApiKeyRow({
     );
     insertTx.isPersisted.promise
       .then(() => {
-        // Reveal the new secret immediately — it must not be lost even if the
+        // Reveal the new secret immediately: it must not be lost even if the
         // old-key cleanup below fails.
         if (plaintext) onRotated(plaintext);
         const deleteTx = apiKeysCollection.delete(apiKey.id);
         return deleteTx.isPersisted.promise
-          .then(() => toast.success(`Rotated "${apiKey.name ?? "key"}" — old key revoked`))
+          .then(() => toast.success(`Rotated "${apiKey.name ?? "key"}". Old key revoked`))
           .catch(() =>
             toast.error(
-              "Replacement key created, but the old key couldn't be deleted — it is still active. Delete it manually.",
+              "Replacement key created, but the old key couldn't be deleted. It is still active. Delete it manually.",
             ),
           );
       })
@@ -122,7 +122,7 @@ export function ApiKeyRow({
       </TableCell>
       <TableCell>
         <code className="font-mono text-[12px] text-muted-foreground">
-          {apiKey.start ? `${apiKey.start}…` : "—"}
+          {apiKey.start ? `${apiKey.start}…` : "–"}
         </code>
       </TableCell>
       <TableCell>

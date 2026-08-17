@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 interface ErrorScreenProps {
   /** HTTP-style status code, shown as the hero numeral. */
   code: string;
-  /** Accent theme — semantic per status code. */
+  /** Accent theme: semantic per status code. */
   accent: "indigo" | "red";
   /** Small label above the numeral. */
   eyebrow: string;
@@ -25,7 +25,7 @@ const ACCENTS = {
   },
 } as const;
 
-/** Filled primary action — works on both `<a>` and `<button>`. */
+/** Filled primary action: works on both `<a>` and `<button>`. */
 export const errorBtnClass =
   "cursor-pointer border border-(--accent) bg-(--accent) px-6 py-[0.82rem] " +
   "font-mono text-[0.79rem] uppercase tracking-[0.05em] text-(--bg) no-underline " +
@@ -43,9 +43,13 @@ export const errorPathClass =
 
 const reveal = "animate-error-rise motion-reduce:animate-none";
 
+/** The screen's palette rides on CSS custom properties; the intersection type
+ *  admits them without a cast (same pattern as the graph's CometStyle). */
+type ErrorScreenStyle = CSSProperties & Record<`--${string}`, string>;
+
 /**
  * Full-screen error screen in the Otterdeploy console aesthetic. Presentational
- * only — each app wraps it with code-specific content, because the wrappers
+ * only: each app wraps it with code-specific content, because the wrappers
  * differ in ways this component must not care about: the control panel
  * translates its copy through react-i18next and retries via the router's
  * `reset`, while the marketing site has neither.
@@ -53,7 +57,7 @@ const reveal = "animate-error-rise motion-reduce:animate-none";
  * Deliberately free of i18n, router and app-config imports so both can use it.
  * Styling is Tailwind utilities; the grid / glow / grain / reveal-keyframe are
  * `@utility` + `@theme` definitions in the adjacent error-screen.css, which the
- * consuming app must `@import` — see that file.
+ * consuming app must `@import`. See that file.
  */
 export function ErrorScreen({
   code,
@@ -64,7 +68,7 @@ export function ErrorScreen({
   message,
   actions,
 }: ErrorScreenProps) {
-  const rootStyle = {
+  const rootStyle: ErrorScreenStyle = {
     "--bg": "#0a0b0d",
     "--ink": "#e7e8ec",
     "--dim": "#8b8d95",
@@ -73,7 +77,7 @@ export function ErrorScreen({
     "--line2": "rgba(231,232,236,0.16)",
     "--accent": ACCENTS[accent].accent,
     "--glow": ACCENTS[accent].glow,
-  } as CSSProperties;
+  };
 
   return (
     <div

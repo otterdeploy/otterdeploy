@@ -1,19 +1,19 @@
 /**
- * In-app inbox fan-out for platform events — the header bell's data source.
+ * In-app inbox fan-out for platform events: the header bell's data source.
  *
  * Every real (non-test) platform event writes one `notification` row per org
- * member, so the event shows up in every member's in-app inbox — by default,
+ * member, so the event shows up in every member's in-app inbox. By default,
  * with zero configuration. The events carried here (deploys, backups, certs,
  * health) are the same org-visible operational state the dashboard already
- * shows — no role gate.
+ * shows, no role gate.
  *
- * od-1kc.5: this used to be gated behind `subscribedChannelCount > 0` — the
+ * od-1kc.5: this used to be gated behind `subscribedChannelCount > 0`, the
  * SAME subscription-matrix gate that decides Slack/email/webhook delivery.
  * In-app isn't one of the `notification_channel_config.kind` options
- * (slack/discord/email/webhook/telegram/pagerduty/push — see
+ * (slack/discord/email/webhook/telegram/pagerduty/push, see
  * packages/db/src/schema/notification-channel.ts); it was never meant to be
  * an opt-in row in that matrix, so a fresh org with zero external channels
- * configured (the common case — nobody's wired Slack on day one) got a
+ * configured (the common case, nobody's wired Slack on day one) got a
  * permanently empty bell despite the inbox's own empty state promising
  * "Deploy, build, and backup events land here." Two real deploys + a restart
  * produced zero items because of exactly this gate.
@@ -23,7 +23,7 @@
  *   - writes are deduped on an occurrence key (the BullMQ job id, stable
  *     across retries) stored in the row's `data`, so a retried job can't
  *     double-write. The write runs BEFORE channel delivery for the same
- *     reason — a channel failure retries the job, and the dedupe absorbs it.
+ *     reason: a channel failure retries the job, and the dedupe absorbs it.
  */
 import { db } from "@otterdeploy/db";
 import { member, notification } from "@otterdeploy/db/schema";
@@ -40,7 +40,7 @@ export interface InboxFanoutEvent {
 }
 
 /**
- * Pure gate: fan out in-app for every real (non-test) platform event —
+ * Pure gate: fan out in-app for every real (non-test) platform event:
  * unconditionally, independent of whether the org has any external channel
  * subscribed. See the module doc for why this must NOT depend on the
  * external-channel subscription matrix. `subscribedChannelCount` is no
@@ -58,7 +58,7 @@ export function shouldFanOutInApp(input: {
   return true;
 }
 
-/** Row payloads for one event occurrence — pure, so the mapping is testable. */
+/** Row payloads for one event occurrence: pure, so the mapping is testable. */
 export function inboxRowsFor(
   event: InboxFanoutEvent,
   userIds: readonly string[],
@@ -110,7 +110,7 @@ export async function writeInboxRows(
     occurrenceKey,
   );
   await db.insert(notification).values(rows);
-  // Rows exist now — announce so open tabs resync the bell instead of
+  // Rows exist now. Announce so open tabs resync the bell instead of
   // waiting out the inbox poll backstop.
   publishOrgEvent(event.organizationId, "inbox");
   return rows.length;

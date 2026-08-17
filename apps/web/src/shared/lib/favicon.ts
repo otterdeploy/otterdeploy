@@ -53,13 +53,13 @@ function getPainter(): Painter | null {
   canvas.width = CANVAS_PX;
   canvas.height = CANVAS_PX;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null; // headless/blocked canvas — leave the static icon up
+  if (!ctx) return null; // headless/blocked canvas, so leave the static icon up
   painter = { canvas, ctx };
   return painter;
 }
 
 function prefersDark(): boolean {
-  // The *browser chrome's* scheme, deliberately — not the app's theme. The icon
+  // The *browser chrome's* scheme, deliberately, not the app's theme. The icon
   // sits in the tab strip, so it has to contrast with the tab strip.
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -106,7 +106,7 @@ function paint(status: MarkStatus, elapsedMs: number): string | null {
 
   const deploying = status === "deploying";
 
-  // Ring — dimmed to a track while something is in flight.
+  // Ring, dimmed to a track while something is in flight.
   ctx.globalAlpha = deploying ? 0.2 : 1;
   ctx.strokeStyle = ink;
   ctx.setLineDash([]);
@@ -164,13 +164,13 @@ let suppressed: HTMLLinkElement[] = [];
  * elects ONE icon from everything declared: Chrome takes the scalable SVG and
  * scales it itself (index.html says as much), so it never looks at the canvas
  * PNG we append and the tab stays frozen on the static mark no matter what we
- * paint. Adding our link "first" wouldn't fix it either — election is by type
+ * paint. Adding our link "first" wouldn't fix it either. Election is by type
  * and size, not document order. The only deterministic answer is to leave
  * exactly one icon link in the document, so there is nothing to elect.
  *
  * `rel~="icon"` matches `icon` and `shortcut icon` but not `apple-touch-icon`
  * (a single different token), so the homescreen icon and the manifest are left
- * alone — neither participates in tab-strip election.
+ * alone: neither participates in tab-strip election.
  *
  * Called only after a frame has actually painted, so a blocked or headless
  * canvas leaves the static icons up rather than stripping the tab bare.
@@ -196,7 +196,7 @@ function stopLoop(): void {
 
 function render(): void {
   const href = paint(current, performance.now() - startedAt);
-  // No canvas (headless, blocked) — leave the static icons in place untouched.
+  // No canvas (headless, blocked): leave the static icons in place untouched.
   if (!href) return;
   // Point ours at the frame BEFORE removing the others, so there is never a
   // moment where the document declares no icon at all.
@@ -207,7 +207,7 @@ function render(): void {
 /**
  * Repaints when the browser chrome flips light/dark. Without this, a tab left
  * open across a theme change keeps an icon painted for the old tab strip.
- * Attached lazily on first use and never detached — one listener per document.
+ * Attached lazily on first use and never detached, one listener per document.
  */
 let schemeWatcher: MediaQueryList | null = null;
 function watchScheme(): void {
@@ -251,7 +251,7 @@ export function resetFavicon(): void {
   stopLoop();
   removeManagedLink();
   // Put index.html's declarations back, or teardown would leave the tab with no
-  // icon at all — worse than the static one we replaced.
+  // icon at all: worse than the static one we replaced.
   restoreStaticIcons();
   current = "idle";
 }

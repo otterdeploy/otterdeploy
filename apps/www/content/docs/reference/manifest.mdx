@@ -1,6 +1,6 @@
 ---
 title: Manifest
-description: The otterdeploy.json schema — the declarative shape of a project.
+description: The otterdeploy.json schema, the declarative shape of a project.
 ---
 
 A project can be described by one JSON document. Diff it, review it, commit it,
@@ -63,7 +63,7 @@ Discriminated by `source`.
 | --- | --- |
 | `repo` | `"owner/name"`. Resolved against the org's installations on apply, so no opaque id lands on disk |
 | `branch` | Branch whose pushes deploy this service. Falls back to the repo default |
-| `sourceSubdir` | Repo-relative subdirectory — the monorepo case |
+| `sourceSubdir` | Repo-relative subdirectory: the monorepo case |
 | `build` | Build configuration, below |
 
 A git service may be staged unbound; only its build fails, clearly, until a
@@ -76,7 +76,7 @@ the artefact is supplied out of band.
 
 ### Build configuration
 
-Discriminated by `builder`. Every variant accepts `watchPatterns` — globs
+Discriminated by `builder`. Every variant accepts `watchPatterns`, globs
 against the changed paths in a push. When set, a push only redeploys if at
 least one path matches; when unset, every push redeploys.
 
@@ -99,13 +99,13 @@ least one path matches; when unset, every push redeploys.
 | `replicas` | Task count |
 | `ports` | `{ container, protocol?, appProtocol?, primary?, name? }` |
 | `env` | `UPPER_SNAKE` keys; values may contain references |
-| `startCommand` | **Exec form** — `["bun", "run", "start"]`, not a string |
+| `startCommand` | **Exec form**: `["bun", "run", "start"]`, not a string |
 | `entrypoint` | Exec form |
 | `healthcheck` | `{ cmd, intervalMs?, timeoutMs?, retries?, startMs? }` |
 | `resources` | `cpuLimit`, `memoryMb`, `cpuReservation`, `memoryReservationMb`, `diskMb`, `swapMb`, `pidsLimit` |
 | `restart` | `{ condition: "none" \| "on-failure" \| "any", maxAttempts?, delayMs?, windowMs? }` |
-| `preDeploy` | Hooks run after build, before new replicas take traffic — migrations |
-| `postDeploy` | Hooks run after replicas are live and healthy — warmup, smoke checks |
+| `preDeploy` | Hooks run after build, before new replicas take traffic: migrations |
+| `postDeploy` | Hooks run after replicas are live and healthy: warmup, smoke checks |
 | `domains` | Create-time seed only; see below |
 
 <Callout title="Shell expressions need a shell">
@@ -115,7 +115,7 @@ least one path matches; when unset, every push redeploys.
 
 `domains` is a **create-time seed**, so an operator can set a domain before the
 first deploy. After creation, domains are managed on the resource and this
-field is deliberately not diffed for drift — otherwise applying the manifest
+field is deliberately not diffed for drift, otherwise applying the manifest
 would undo every domain added since.
 
 ## Databases

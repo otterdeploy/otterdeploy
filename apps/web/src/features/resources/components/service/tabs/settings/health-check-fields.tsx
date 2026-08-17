@@ -1,5 +1,5 @@
 /**
- * Input row for the health-check card — the probe path plus the interval /
+ * Input row for the health-check card. The probe path plus the interval /
  * timeout / retries number fields. Split out of `health-check-card.tsx` to
  * keep that module within the file-size budget.
  */
@@ -54,9 +54,10 @@ export function FieldsRow({
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0 sm:grid-cols-[2fr_1fr_1fr_1fr]">
-      <label className="flex min-w-0 flex-col gap-1">
+      <label htmlFor="health-check-path" className="flex min-w-0 flex-col gap-1">
         <span className="text-[11px] text-muted-foreground">Path</span>
         <Input
+          id="health-check-path"
           value={form.path}
           onChange={(e) => onPatch({ path: e.target.value })}
           placeholder="/health"

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vite-plus/test";
 
-// HMAC key is derived from BETTER_AUTH_SECRET — set one before importing.
+// HMAC key is derived from BETTER_AUTH_SECRET. Set one before importing.
 beforeAll(() => {
   // oxlint-disable-next-line node/no-process-env -- test env setup boundary: HMAC key derives from this secret; set before importing tokens.
   process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-0123456789";

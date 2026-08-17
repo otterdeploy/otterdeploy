@@ -56,8 +56,8 @@ function nextScenario(row: BlocklistRow): string {
 }
 
 /** How many decisions currently exist for a scenario. Used to tell "the import
- *  worked but we could not read the confirmation" apart from a real failure —
- *  the two are indistinguishable from empty output alone. Returns 0 when the
+ *  worked but we could not read the confirmation" apart from a real failure.
+ *  The two are indistinguishable from empty output alone. Returns 0 when the
  *  agent can't be reached, which keeps the caller on the failure path. */
 async function countScenarioDecisions(scenario: string): Promise<number> {
   const out = await cscliRun(
@@ -73,7 +73,10 @@ async function countScenarioDecisions(scenario: string): Promise<number> {
     if (!Array.isArray(parsed)) return 0;
     // One alert row carries the decisions it created.
     return parsed.reduce<number>((total, alert) => {
-      const decisions = (alert as { decisions?: unknown[] }).decisions;
+      const decisions =
+        typeof alert === "object" && alert !== null && "decisions" in alert
+          ? alert.decisions
+          : undefined;
       return total + (Array.isArray(decisions) ? decisions.length : 0);
     }, 0);
   } catch {
@@ -106,7 +109,7 @@ async function unreadableImport(
   }
   const error = lastOutput(
     out,
-    "CrowdSec did not report a result for this import — no decisions were applied.",
+    "CrowdSec did not report a result for this import, no decisions were applied.",
   );
   await setBlocklistSyncResult(row.id, { status: "error", error });
   return { ok: false, count: 0, error };
@@ -140,7 +143,7 @@ export async function syncBlocklist(
     timeoutMs: 180_000,
   });
   if (out === null) {
-    const error = "CrowdSec agent isn't running — start the firewall profile.";
+    const error = "CrowdSec agent isn't running. Start the firewall profile.";
     await setBlocklistSyncResult(row.id, { status: "error", error });
     return { ok: false, count: 0, error };
   }
@@ -148,7 +151,7 @@ export async function syncBlocklist(
   const match = out.match(/Imported\s+(\d+)/i) ?? out.match(/(\d+)\s+decision/i);
   if (!match || /error|invalid|failed|denied|unable|timed out/i.test(out)) {
     // Silence is not a rejection. cscli prints "Imported N decisions" on
-    // success, so empty output means we could not READ the result — not that
+    // success, so empty output means we could not READ the result, not that
     // CrowdSec refused it. Ask the agent what actually landed before calling
     // this a failure: reporting a rejection here (and deleting the blocklist
     // upstream) while the decisions are live is how enforcement and the UI

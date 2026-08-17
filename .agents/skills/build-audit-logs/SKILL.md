@@ -11,7 +11,7 @@ For **application developers** who either need to add an audit trail to their pr
 
 This skill assumes the audit lives in **your app**. To extend the evlog package itself (new audit helper, new drain wrapper), see the contributor skills under `.agents/skills/`.
 
-## Quick reference — call-site cheat sheet
+## Quick reference: call-site cheat sheet
 
 When you already know the system is wired and just need to remember the API:
 
@@ -23,7 +23,7 @@ When you already know the system is wired and just need to remember the API:
 | Auto-record success / failure / denied for a function | `withAudit({ action, target }, fn)` |
 | Recording a state change | add `changes: auditDiff(before, after)` |
 | Centralised typed action vocabulary | `defineAuditAction('invoice.refund', { target: 'invoice' })` |
-| Asserting audits in tests | `mockAudit()` — `assertAudit()` or `toIncludeAuditOf()` |
+| Asserting audits in tests | `mockAudit()`: `assertAudit()` or `toIncludeAuditOf()` |
 
 `AuditFields` schema (always provide `action`, `actor`, `outcome`; `target` strongly recommended; the rest is filled in for you):
 
@@ -59,7 +59,7 @@ An audit log answers a forensic question: **who did what, on which resource, whe
 | Audience       | Auditors, security, legal                       | Engineers                          |
 | Storage        | Often dedicated (separate dataset / DB)         | Shared with telemetry              |
 
-evlog ships the audit layer as a thin extension of its wide-event pipeline (a typed `audit` field on `BaseWideEvent` plus a few helpers and drain wrappers). The point is that you compose with the primitives the app already uses — same drains, same enrichers, same redact, same framework integration. There is no parallel system to maintain.
+evlog ships the audit layer as a thin extension of its wide-event pipeline (a typed `audit` field on `BaseWideEvent` plus a few helpers and drain wrappers). The point is that you compose with the primitives the app already uses. Same drains, same enrichers, same redact, same framework integration. There is no parallel system to maintain.
 
 ## Mental model
 
@@ -79,7 +79,7 @@ log.audit(...) ──► sets event.audit ──► force-keep ──► auditEn
 
 ## Design calls before writing code
 
-Make these explicit and write them down somewhere a security reviewer can find. Without a written rule, the system can't be audited — auditors look for the policy first, then the enforcement.
+Make these explicit and write them down somewhere a security reviewer can find. Without a written rule, the system can't be audited. Auditors look for the policy first, then the enforcement.
 
 ### 1. Where do audits live?
 
@@ -108,12 +108,12 @@ Skip if:
 
 Strategies:
 
-- `'hmac'` — per-event signature; quick to verify; rotate `secret` annually and embed a key id (extend `AuditFields`).
-- `'hash-chain'` — sequence integrity; deleting a row breaks the chain forward; persist `state.{load,save}` if you run multiple processes (Redis is the typical store).
+- `'hmac'`: per-event signature; quick to verify; rotate `secret` annually and embed a key id (extend `AuditFields`).
+- `'hash-chain'`: sequence integrity; deleting a row breaks the chain forward; persist `state.{load,save}` if you run multiple processes (Redis is the typical store).
 
 ### 3. Multi-tenancy?
 
-If the app is multi-tenant, **tenant isolation on every audit event is non-negotiable** — a query that mixes tenants is a privacy incident. Wire it once in the enricher:
+If the app is multi-tenant, **tenant isolation on every audit event is non-negotiable**. A query that mixes tenants is a privacy incident. Wire it once in the enricher:
 
 ```ts
 auditEnricher({ tenantId: ctx => resolveTenant(ctx) })
@@ -123,14 +123,14 @@ Then either (a) partition the audit dataset by `audit.context.tenantId`, or (b) 
 
 ### 4. Retention
 
-Pick a window per sink and document it. Enforce at the sink layer, not in app code — the sink already has audited mechanisms for it (lifecycle policies, `DELETE` jobs, dataset retention).
+Pick a window per sink and document it. Enforce at the sink layer, not in app code. The sink already has audited mechanisms for it (lifecycle policies, `DELETE` jobs, dataset retention).
 
 | Framework | Typical retention                                                   |
 | --------- | ------------------------------------------------------------------- |
 | SOC2      | 1 year minimum, 7 years recommended                                 |
 | HIPAA     | 6 years                                                             |
 | PCI DSS   | 1 year (3 months immediately accessible)                            |
-| GDPR      | "As long as necessary" — see "GDPR vs append-only" below            |
+| GDPR      | "As long as necessary": see "GDPR vs append-only" below            |
 
 How to enforce per sink:
 
@@ -150,7 +150,7 @@ A built-in `cryptoShredding` helper is on the roadmap; until then, encrypt in a 
 
 ## Step-by-step buildout
 
-### Step 1 — Wire the pipeline (one-time)
+### Step 1: Wire the pipeline (one-time)
 
 The wiring shape is the same in every framework: register `auditEnricher()` so `event.audit.context` gets `requestId`, `traceId`, `ip`, `userAgent`, and (if configured) `tenantId` automatically, then add a main drain plus an audit-only sink.
 
@@ -178,9 +178,9 @@ export default defineNitroPlugin((nitroApp) => {
 })
 ```
 
-For Hono, Express, Next.js, or standalone scripts / workers, see [`references/framework-wiring.md`](references/framework-wiring.md). The pattern is identical — only the framework integration helper changes.
+For Hono, Express, Next.js, or standalone scripts / workers, see [`references/framework-wiring.md`](references/framework-wiring.md). The pattern is identical. Only the framework integration helper changes.
 
-### Step 2 — Define the action vocabulary
+### Step 2: Define the action vocabulary
 
 Audits get queried and alerted on by `audit.action`. A typo is a missing alert, so centralise the list:
 
@@ -200,11 +200,11 @@ Naming conventions:
 - Past tense if the audit is logged after the fact (`invoice.refunded`); present tense when wrapped by `withAudit()` (which resolves the outcome itself).
 - Lowercase, dot-delimited, no spaces.
 
-### Step 3 — Instrument call sites
+### Step 3: Instrument call sites
 
 Three patterns, in order of preference:
 
-**A. Wrap the action with `withAudit()`** — pure audit-worthy actions (refund, delete, role change, password reset). Outcome resolution is automatic, so you can't forget to log a denial or failure:
+**A. Wrap the action with `withAudit()`**. Pure audit-worthy actions (refund, delete, role change, password reset). Outcome resolution is automatic, so you can't forget to log a denial or failure:
 
 ```ts
 import { withAudit, AuditDeniedError } from 'evlog'
@@ -224,7 +224,7 @@ Outcome resolution:
 - `fn` throws `AuditDeniedError` (or any error with `status === 403`) → `outcome: 'denied'`, error message becomes `reason`.
 - Any other thrown error → `outcome: 'failure'`, then re-thrown.
 
-**B. Manual `log.audit()` inside a handler** — when the audit is one of several decisions in a larger handler, or when you need to emit before the action completes:
+**B. Manual `log.audit()` inside a handler**: when the audit is one of several decisions in a larger handler, or when you need to emit before the action completes:
 
 ```ts
 const log = useLogger(event)
@@ -249,7 +249,7 @@ log.audit({
 })
 ```
 
-**C. Standalone `audit()` for jobs / scripts** — no request, no logger. Same shape, no context auto-fill:
+**C. Standalone `audit()` for jobs / scripts**, no request, no logger. Same shape, no context auto-fill:
 
 ```ts
 import { audit } from 'evlog'
@@ -262,9 +262,9 @@ audit({
 })
 ```
 
-### Step 4 — Add denial coverage
+### Step 4: Add denial coverage
 
-Auditors care most about denials — they're how you prove the policy is actually being enforced. Every authorisation check should have a paired `log.audit.deny()`. Pulling the deny into a single helper guarantees coverage parity with successes:
+Auditors care most about denials: they're how you prove the policy is actually being enforced. Every authorisation check should have a paired `log.audit.deny()`. Pulling the deny into a single helper guarantees coverage parity with successes:
 
 ```ts
 function authorize(actor, action, resource) {
@@ -280,7 +280,7 @@ function authorize(actor, action, resource) {
 }
 ```
 
-### Step 5 — Redact
+### Step 5: Redact
 
 Apply `auditRedactPreset` (or merge it into the existing `RedactConfig`). It drops `Authorization` / `Cookie` headers and common credential field names (`password`, `token`, `apiKey`, `cardNumber`, `cvv`, `ssn`) wherever they appear inside `audit.changes.before` / `audit.changes.after`:
 
@@ -294,9 +294,9 @@ initLogger({
 })
 ```
 
-### Step 6 — Test it
+### Step 6: Test it
 
-`mockAudit()` captures audit events for assertions without going through any drain. Make the denial test mandatory in code review — untested denial paths are the most common cause of audit gaps:
+`mockAudit()` captures audit events for assertions without going through any drain. Make the denial test mandatory in code review. Untested denial paths are the most common cause of audit gaps:
 
 ```ts
 import { mockAudit } from 'evlog'
@@ -330,7 +330,7 @@ it('denies refund for non-owners and records the denial', async () => {
 })
 ```
 
-### Step 7 — Production readiness checklist
+### Step 7: Production readiness checklist
 
 Walk through this with a security stakeholder before declaring the system production-ready (the same checklist powers the review mode below):
 
@@ -344,13 +344,13 @@ Walk through this with a security stakeholder before declaring the system produc
 - [ ] Hash-chain `state.{load,save}` persists across process restarts (file / Redis / Postgres).
 - [ ] HMAC `secret` rotation procedure is documented; `keyId` is embedded in `AuditFields` (extend via `declare module`).
 - [ ] Tests include a denial path for every privileged action.
-- [ ] Audit dataset access is itself logged — meta-auditing matters.
+- [ ] Audit dataset access is itself logged: meta-auditing matters.
 
 ## Review an existing audit setup
 
 When the user already has an audit system and wants it reviewed, work through the four passes below in order. Each pass tells you exactly what to grep, what to look for, and what to flag.
 
-### Pass 1 — Pipeline wiring
+### Pass 1, Pipeline wiring
 
 Find where the logger is initialised and where drains / enrichers are registered:
 
@@ -366,7 +366,7 @@ Flag if:
 - `signed()` is used without a persisted `state` while running multiple processes → hash-chain breaks across restarts / instances.
 - `await: true` is missing on the audit-only sink → events may be lost on crash.
 
-### Pass 2 — Coverage (call sites)
+### Pass 2: Coverage (call sites)
 
 Inventory every mutating action and every authorisation check:
 
@@ -384,7 +384,7 @@ For each match, check:
 - `log.set({ audit: ... })` without using the helpers → bypasses force-keep, may be dropped by tail-sampling.
 - `withAudit()` action name in present tense (`invoice.refund`) is fine; manual `log.audit()` after the fact should use past tense (`invoice.refunded`).
 
-### Pass 3 — Redaction & integrity
+### Pass 3, Redaction & integrity
 
 ```bash
 rg -n "auditRedactPreset|RedactConfig|paths:\s*\[" --type ts
@@ -398,7 +398,7 @@ Flag if:
 - HMAC `secret` is hard-coded or read from `process.env.SECRET` without a rotation plan / `keyId` → events become unverifiable after rotation.
 - Hash-chain `state` is in-memory only → chain restarts each process boot, breaking continuity.
 
-### Pass 4 — Tests
+### Pass 4, Tests
 
 ```bash
 rg -n "mockAudit\(|toIncludeAuditOf\(" --type ts
@@ -423,27 +423,27 @@ Then map each finding to the relevant step in the buildout above (e.g. P0 → St
 
 - **Logging only successes.** Auditors care most about denials. Pair `log.audit()` with `log.audit.deny()` on every negative branch of every check.
 - **Leaking PII through `changes`.** `auditDiff()` runs through `RedactConfig`, but only if the field paths are listed. Add `password`, `token`, `apiKey` once globally so it's never a per-call-site decision.
-- **Treating audits as observability.** Don't sample, downsample, or summarise audit events. Force-keep is on by default — don't disable it.
+- **Treating audits as observability.** Don't sample, downsample, or summarise audit events. Force-keep is on by default. Don't disable it.
 - **Conflating `actor.id` with the session id.** `actor.id` is the stable user id (or system identity); correlate sessions via `context.requestId` / `context.traceId`.
-- **Forgetting standalone jobs.** Cron, queue workers, CLIs trigger audit-worthy actions too — use `audit()` or `withAudit()`.
+- **Forgetting standalone jobs.** Cron, queue workers, CLIs trigger audit-worthy actions too. Use `audit()` or `withAudit()`.
 - **Faking the actor type.** `actor.type: 'user'` for cron jobs gets flagged in audits. Use `'system'`, `'api'`, or `'agent'` accurately.
 - **Single global secret with no rotation.** HMAC keys must rotate; without a `keyId`, old events become unverifiable after rotation.
-- **One drain that fails takes audits down.** Sinks must fail in isolation. The default `drain: [...]` array does this; if you wrap in `Promise.all`, don't throw on a single rejection — log it.
+- **One drain that fails takes audits down.** Sinks must fail in isolation. The default `drain: [...]` array does this; if you wrap in `Promise.all`, don't throw on a single rejection, log it.
 
 ## Glossary
 
-- **Action** — `audit.action`, the verb-on-noun identifier (`invoice.refund`).
-- **Actor** — who/what performed the action (`user`, `system`, `api`, `agent`).
-- **Target** — the resource the action was performed on.
-- **Outcome** — `success`, `failure`, or `denied`.
-- **Idempotency key** — auto-derived hash of `action + actor + target + timestamp`; safe retries across drains.
-- **Causation id** — id of the action that caused this one (admin action → system reactions).
-- **Correlation id** — shared by every action in one logical operation.
-- **Hash-chain** — each event's `prevHash` matches the previous event's `hash`, forming a verifiable sequence.
+- **Action**: `audit.action`, the verb-on-noun identifier (`invoice.refund`).
+- **Actor**: who/what performed the action (`user`, `system`, `api`, `agent`).
+- **Target**: the resource the action was performed on.
+- **Outcome**: `success`, `failure`, or `denied`.
+- **Idempotency key**: auto-derived hash of `action + actor + target + timestamp`; safe retries across drains.
+- **Causation id**: id of the action that caused this one (admin action → system reactions).
+- **Correlation id**: shared by every action in one logical operation.
+- **Hash-chain**: each event's `prevHash` matches the previous event's `hash`, forming a verifiable sequence.
 
 ## Reference
 
 - Per-framework wiring (Hono, Express, Next.js, standalone): [`references/framework-wiring.md`](references/framework-wiring.md)
-- Docs: [Audit logs overview](https://www.evlog.dev/use-cases/audit/overview) — source at [`apps/docs/content/4.use-cases/4.audit/`](../../../apps/docs/content/4.use-cases/4.audit/)
+- Docs: [Audit logs overview](https://www.evlog.dev/use-cases/audit/overview), source at [`apps/docs/content/4.use-cases/4.audit/`](../../../apps/docs/content/4.use-cases/4.audit/)
 - Source: [`packages/evlog/src/audit.ts`](../../../packages/evlog/src/audit.ts)
 - Tests: [`packages/evlog/test/core/audit.test.ts`](../../../packages/evlog/test/core/audit.test.ts)

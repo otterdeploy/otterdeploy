@@ -13,7 +13,7 @@ const auditOutcomeSchema = z.enum(["success", "failure", "denied"]);
 const auditEventSchema = z.object({
   id: z.string(),
   /** ISO-8601 event timestamp (full date+time, e.g. 2026-06-11T22:23:00.051Z).
-   *  The handler emits `Date.toISOString()`, so this must be `datetime()` — not
+   *  The handler emits `Date.toISOString()`, so this must be `datetime()`, not
    *  `time()`, which only accepts a time-of-day string and rejects every row. */
   timestamp: z.iso.datetime(),
   action: z.string(),
@@ -60,7 +60,7 @@ const listAuditOutput = z.object({
   }),
 });
 
-/** Distinct filter values over a time window — feeds the actor / action /
+/** Distinct filter values over a time window: feeds the actor / action /
  *  target-kind dropdowns without shipping the whole event set. */
 const distinctAuditInput = z.object({
   /** ISO timestamps bounding the window (same semantics as `list`). */

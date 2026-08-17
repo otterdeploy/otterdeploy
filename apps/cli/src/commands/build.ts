@@ -55,7 +55,7 @@ export const buildCommand = defineCommand({
       return;
     }
 
-    // `succeeded`, not `ok` — `ok` is the outcome printer imported above.
+    // `succeeded`, not `ok`: `ok` is the outcome printer imported above.
     const { ok: succeeded, outcomes } = await waitForDeployments({
       client,
       projectId,

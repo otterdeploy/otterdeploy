@@ -5,7 +5,7 @@
  * live in ./social-providers.ts (they carry an auth-instance reload).
  *
  * Every writer here goes through `persist()`, which drops the resolver's
- * memoized settings row — skipping that is the one way a saved setting appears
+ * memoized settings row, skipping that is the one way a saved setting appears
  * not to apply. Writers whose effect isn't purely a later read do their extra
  * work at the router layer (saving CrowdSec re-renders the edge).
  *
@@ -147,7 +147,7 @@ function toRuntimeView(row: PlatformRow | undefined): RuntimeSettingsView {
   return {
     egressAllowlist: resolve(storedAllowlist, env.OTTERDEPLOY_EGRESS_ALLOWLIST.join(",")),
     // Distinguishes "showing you the env value" from "you saved an empty
-    // allowlist" — the card says which, because they mean different things.
+    // allowlist": the card says which, because they mean different things.
     egressFromEnv: storedAllowlist == null,
     previewIdleTeardownHours: resolve(
       row?.previewIdleTeardownHours,
@@ -181,7 +181,7 @@ export async function saveRuntimeSettings(
 ): Promise<RuntimeSettingsView> {
   await persist({
     // Stored verbatim (including ""), because an empty allowlist is a real
-    // choice — "allow nothing" has to be able to override a non-empty env.
+    // choice: "allow nothing" has to be able to override a non-empty env.
     egressAllowlist: input.egressAllowlist,
     previewIdleTeardownHours: input.previewIdleTeardownHours,
     edgeLogPersist: input.edgeLogPersist,

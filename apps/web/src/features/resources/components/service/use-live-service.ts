@@ -2,7 +2,7 @@
  * Live `service.get` view + pause/resume actions for the service panel.
  *
  * The panel's `resource` prop comes from the polled resource-list collection,
- * which doesn't carry runtime status or the pause marker — this hook layers
+ * which doesn't carry runtime status or the pause marker. This hook layers
  * the richer service view (runtime state, ports, healthcheck, pausedReplicas)
  * on top, polling on the same cadence family as the other panel collections.
  */
@@ -44,7 +44,7 @@ export function useLiveService({
 
 /**
  * Pause/resume mutations shaped as the header's {@link PauseControl}.
- * Returns null until the live view is loaded — the header renders no
+ * Returns null until the live view is loaded. The header renders no
  * pause button on guessed state.
  */
 export function usePauseControl({
@@ -64,7 +64,7 @@ export function usePauseControl({
         }),
       }),
       // The graph node + panel prop read replicas/status from the resource
-      // collection — refresh it now instead of waiting for the 5s poll.
+      // collection: refresh it now instead of waiting for the 5s poll.
       queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
       queryClient.invalidateQueries({
         queryKey: orpc.project.resource.list.queryKey({
@@ -76,7 +76,7 @@ export function usePauseControl({
 
   const pauseMut = useMutation({
     ...orpc.service.pause.mutationOptions(),
-    onSuccess: () => toast.success("Service paused — replicas scaled to zero"),
+    onSuccess: () => toast.success("Service paused. Replicas scaled to zero."),
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to pause service"),
     onSettled: invalidate,
   });

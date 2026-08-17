@@ -1,13 +1,12 @@
-import type * as z from "zod";
-
 /**
- * Notification channels router — channel CRUD + the event/channel subscription
+ * Notification channels router: channel CRUD + the event/channel subscription
  * matrix. Mutations are RBAC-gated on the `notificationChannel` resource.
  * Secrets are AES-GCM encrypted at rest (shared crypto in @otterdeploy/jobs);
  * `test` and real platform events both fan out through `triggerPlatformEvent`.
  */
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
 import { encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
+import * as z from "zod";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { subscriptionSchema } from "./contract";
@@ -176,8 +175,9 @@ export const notificationsRouter = {
     list: orgScopedProcedure.notifications.subscriptions.list.handler(async ({ context }) => {
       const rows = await listSubscriptionRows(context.activeOrganizationId);
       // DB stores eventId as text; the contract narrows it to the catalog
-      // enum, and only catalog ids are ever written, so the cast is safe.
-      return rows as Array<z.infer<typeof subscriptionSchema>>;
+      // enum, and only catalog ids are ever written, so this parse never
+      // rejects in practice. It's the typed boundary, not a cast.
+      return z.array(subscriptionSchema).parse(rows);
     }),
 
     toggle: requirePermission({
@@ -208,8 +208,8 @@ export const notificationsRouter = {
 
   // ─── in-app inbox (the header bell) ─────────────────────────────────
   // User-scoped reads/writes on the caller's own `notification` rows. An
-  // API-key actor has no session user and therefore no personal inbox —
-  // reads come back empty and writes are no-ops rather than 401s, so a
+  // API-key actor has no session user and therefore no personal inbox.
+  // Reads come back empty and writes are no-ops rather than 401s, so a
   // key-driven client polling shared endpoints never trips on this one.
   inbox: {
     list: orgScopedProcedure.notifications.inbox.list.handler(async ({ input, context }) => {

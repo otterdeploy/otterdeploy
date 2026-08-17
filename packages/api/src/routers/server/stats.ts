@@ -4,7 +4,7 @@
  * node ids back to otterdeploy server rows via the hostname pair.
  *
  * Mapping note:
- *   The server table doesn't store swarm node ids — the bootstrap row is the
+ *   The server table doesn't store swarm node ids. The bootstrap row is the
  *   manager and remote rows come from the join-command flow without a
  *   back-channel from the daemon. We resolve by hostname: `docker.nodes.list`
  *   gives `Description.Hostname` per swarm node, and the server table has
@@ -22,6 +22,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { isSwarmRuntime } from "../../runtime";
 import { isLiveTask, localHostRowIndex, unreachableNodeIds } from "./stats-attribution";
+import { readMemoryBytes, readNanoCpus } from "./stats-reservations";
 type OrgId = OrganizationId;
 
 export interface ServerNodeStats {
@@ -40,19 +41,6 @@ export interface ServerClusterStats {
 export interface ServerStats {
   perServer: ServerNodeStats[];
   cluster: ServerClusterStats;
-}
-
-// Type-safe nibbles into the loosely-typed Task.Spec blob from the docker SDK.
-function readNanoCpus(spec: unknown): number {
-  if (typeof spec !== "object" || spec === null) return 0;
-  const resources = (spec as { Resources?: { Reservations?: { NanoCPUs?: number } } }).Resources;
-  return resources?.Reservations?.NanoCPUs ?? 0;
-}
-
-function readMemoryBytes(spec: unknown): number {
-  if (typeof spec !== "object" || spec === null) return 0;
-  const resources = (spec as { Resources?: { Reservations?: { MemoryBytes?: number } } }).Resources;
-  return resources?.Reservations?.MemoryBytes ?? 0;
 }
 
 const BYTES_PER_GB = 1024 ** 3;
@@ -136,14 +124,14 @@ function aggregateTasks(
 
 /** Resolve slug → friendly name for the cluster pills. Shared by both runtimes.
  *
- * Task/container labels are the Docker daemon's memory, not the platform's —
- * a project deleted from the DB (or a pre-nuke install's leftovers) can leave
+ * Task/container labels are the Docker daemon's memory, not the platform's.
+ * A project deleted from the DB (or a pre-nuke install's leftovers) can leave
  * a still-running container/task stamped `otterdeploy.project=<old-slug>`
  * behind. Reconciling against the DB here (rather than falling back to the
  * raw slug as a display name) is what keeps a resource like that from
  * surfacing as a ghost "store" filter chip that resolves nothing (od-1kc.4).
- * The task itself still counts toward the cluster-wide `tasksRunning` total —
- * only the per-project pill (and its filter) is dropped. */
+ * The task itself still counts toward the cluster-wide `tasksRunning` total.
+ * Only the per-project pill (and its filter) is dropped. */
 /** Exported for unit tests only. */
 export async function clusterProjectPills(
   organizationId: OrgId,
@@ -176,7 +164,7 @@ interface ServerRow {
  * Plain-docker (DEFAULT runtime) stats. There are no swarm tasks/nodes, so we
  * count the managed CONTAINERS instead (label `otterdeploy.managed=true`, the
  * same label the docker driver stamps). Plain docker is single-node, so the
- * whole aggregate belongs to the local host — attributed to the (single) server
+ * whole aggregate belongs to the local host. Attributed to the (single) server
  * row. cpu/mem "allocated" reflects swarm task RESERVATIONS, which the plain
  * docker driver doesn't set (it uses limits), so it's reported as 0 here rather
  * than conflating limits with reservations.
@@ -198,7 +186,7 @@ async function getDockerServerStats(
 
   for (const c of list.value) {
     tasksRunning++;
-    const slug = (c as { Labels?: Record<string, string> }).Labels?.["otterdeploy.project"];
+    const slug = c.Labels["otterdeploy.project"];
     if (slug) {
       projects.add(slug);
       projectTaskCount.set(slug, (projectTaskCount.get(slug) ?? 0) + 1);
@@ -259,7 +247,7 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
     cluster: { tasksRunning: 0, projects: [] },
   };
 
-  // DEFAULT runtime is plain docker — there are no swarm tasks/nodes, so the
+  // DEFAULT runtime is plain docker. There are no swarm tasks/nodes, so the
   // task/node aggregation below returns nothing. Count managed containers
   // instead. Only DEPLOY_RUNTIME=swarm reaches the swarm path.
   if (!isSwarmRuntime()) {

@@ -14,14 +14,14 @@
  *
  * The rule that satisfies both: only a definite ANSWER about identity may
  * redirect. A resolved-but-absent session and a 401 are answers ("nobody is
- * signed in"). Transport failures are not answers at all — they throw upstream
+ * signed in"). Transport failures are not answers at all. They throw upstream
  * in the query functions and never reach this decision.
  */
 
 import type { OrganizationList, OrganizationSummary } from "@/lib/auth-queries";
 
 export type AuthGateDecision =
-  /** Nobody is signed in — go to /sign-in, preserving where they were headed. */
+  /** Nobody is signed in. Go to /sign-in, preserving where they were headed. */
   | { kind: "sign-in" }
   /** Signed in, but belongs to no workspace yet. */
   | { kind: "onboarding" }
@@ -34,7 +34,7 @@ export type AuthGateDecision =
 
 export function decideAuthGate(input: {
   /** Resolved session, or null when the server answered "no session". */
-  session: unknown | null;
+  session: unknown;
   /** Resolved org list, or null when the org endpoint answered 401. */
   organizations: OrganizationList;
 }): AuthGateDecision {

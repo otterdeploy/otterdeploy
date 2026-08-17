@@ -9,11 +9,11 @@ This document defines the mandatory patterns for all oRPC procedures, routers, a
 **This is the most important rule.** Every error must be predefined using `.errors()` so the client receives full type safety.
 
 ```ts
-// ❌ FORBIDDEN — client sees this as an unknown error, no types
+// ❌ FORBIDDEN: client sees this as an unknown error, no types
 throw new ORPCError("NOT_FOUND");
 throw new ORPCError("CONFLICT", { message: "Already exists" });
 
-// ✅ REQUIRED — predefined in .errors(), fully typed on the client
+// ✅ REQUIRED, predefined in .errors(), fully typed on the client
 throw errors.NOT_FOUND();
 throw errors.CONFLICT({ data: { existingId: "abc" } });
 ```
@@ -24,7 +24,7 @@ If an error is not declared in `.errors()`, it is invisible to the client's type
 
 ## 2. Base Procedure With Common Errors
 
-Define a base procedure that declares errors shared across all routes. Every procedure must extend from this base — never from a bare `os`.
+Define a base procedure that declares errors shared across all routes. Every procedure must extend from this base, never from a bare `os`.
 
 ```ts
 // src/procedures/base.ts
@@ -93,14 +93,14 @@ const createRisk = base
 Any custom error code (not in the built-in list) defaults to HTTP 500. You must always provide an explicit `status`:
 
 ```ts
-// ❌ BAD — DUPLICATE_NAME defaults to 500
+// ❌ BAD: DUPLICATE_NAME defaults to 500
 .errors({
   DUPLICATE_NAME: {
     message: 'Already exists',
   },
 })
 
-// ✅ GOOD — explicit status
+// ✅ GOOD: explicit status
 .errors({
   DUPLICATE_NAME: {
     status: 409,
@@ -118,12 +118,12 @@ Built-in codes that auto-map correctly (no override needed): `BAD_REQUEST` (400)
 All procedures must include `.route()` with at minimum a `summary` and `description`. This powers the OpenAPI spec and makes the API self-documenting.
 
 ```ts
-// ❌ BAD — no route metadata
+// ❌ BAD, no route metadata
 const list = base.input(listInput).handler(async ({ input }) => {
   /* ... */
 });
 
-// ✅ GOOD — route metadata present
+// ✅ GOOD: route metadata present
 const list = base
   .route({
     method: "GET",
@@ -147,12 +147,12 @@ const list = base
 Both input and output schemas are mandatory. This ensures full type safety end-to-end and generates accurate OpenAPI specs.
 
 ```ts
-// ❌ BAD — no output schema
+// ❌ BAD, no output schema
 const get = base.input(z.object({ id: z.string() })).handler(async ({ input }) => {
   return db.risks.findById(input.id);
 });
 
-// ✅ GOOD — both input and output defined
+// ✅ GOOD: both input and output defined
 const get = base
   .route({
     method: "GET",
@@ -188,7 +188,7 @@ const create = base                // 1. base procedure
 
 ---
 
-## 7. Router Structure — Group by Domain
+## 7. Router Structure: Group by Domain
 
 Routers are organized by domain in folders. Each domain folder has an `index.ts` that re-exports the merged sub-router.
 
@@ -253,7 +253,7 @@ export const appRouter = {
 Handlers should contain minimal logic. Extract business logic into service functions:
 
 ```ts
-// ❌ BAD — fat handler
+// ❌ BAD: fat handler
 .handler(async ({ input, errors, context }) => {
   const existing = await db.risks.findByName(input.name)
   if (existing) throw errors.DUPLICATE_NAME({ data: { existingId: existing.id } })
@@ -265,7 +265,7 @@ Handlers should contain minimal logic. Extract business logic into service funct
   return risk
 })
 
-// ✅ GOOD — thin handler, logic in service
+// ✅ GOOD: thin handler, logic in service
 .handler(async ({ input, errors, context }) => {
   return riskService.create(input, { db: context.db, errors })
 })
@@ -346,7 +346,7 @@ import { safe, isDefinedError } from "@orpc/client";
 const [error, data, isDefined] = await safe(client.risk.create(input));
 
 if (isDefined) {
-  // error is fully typed — TS knows the codes and data shapes
+  // error is fully typed: TS knows the codes and data shapes
   if (error.code === "DUPLICATE_NAME") {
     redirect(`/risks/${error.data.existingId}`);
   }
@@ -369,7 +369,7 @@ const mutation = useMutation(
   orpc.risk.create.mutationOptions({
     onError: (error) => {
       if (isDefinedError(error)) {
-        // typed error — autocomplete on .code and .data
+        // typed error: autocomplete on .code and .data
         if (error.code === "DUPLICATE_NAME") {
           toast.error(`Already exists: ${error.data.existingId}`);
         }
@@ -392,7 +392,7 @@ const mutation = useMutation(
 
 ---
 
-## 13. Forbidden Patterns — Quick Reference
+## 13. Forbidden Patterns: Quick Reference
 
 | Pattern                                          | Allowed?  | Reason                               |
 | ------------------------------------------------ | --------- | ------------------------------------ |

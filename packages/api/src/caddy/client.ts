@@ -71,7 +71,7 @@ async function requestAdmin(adminUrl: string, path: string, body: string): Promi
     // Wall-clock deadline, not just `req.setTimeout`: the socket-idle timeout
     // demonstrably did NOT fire when Caddy's admin endpoint accepted the
     // request and then never answered (its config mutex was held by a stuck
-    // apply for three days — od-664). That silent hang blocked every route
+    // apply for three days. Od-664). That silent hang blocked every route
     // apply AND server bootstrap's caddy-reconcile step, which runs before
     // the job workers start. The timer rejects unconditionally so no
     // transport quirk can turn "Caddy is stuck" back into "wait forever".

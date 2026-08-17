@@ -8,7 +8,7 @@ export const BOOTSTRAP_TOKEN_HEADER = "x-otterdeploy-bootstrap-token";
  * form. Only the SSO plugin's own callbacks qualify.
  *
  * This is half of the SSO admission gate and it is the load-bearing half. The
- * other half — "a provider is registered for this email's domain" — is NOT
+ * other half ("a provider is registered for this email's domain") is NOT
  * sufficient on its own: once an operator registers `acme.com`, admitting any
  * `@acme.com` signup regardless of path would let anyone self-register through
  * `/sign-up/email` simply by claiming an address at an SSO'd domain, never
@@ -54,14 +54,14 @@ export function decideRegistration(input: {
    * forgets to thread it through gets. It is deliberately consulted only in
    * the post-bootstrap branch: open registration can never satisfy the first
    * account (that still needs the installer's token) and never grants
-   * install-admin — otherwise flipping one switch would hand the next visitor
+   * install-admin: otherwise flipping one switch would hand the next visitor
    * authority over the whole install.
    */
   openRegistration?: boolean;
   /**
    * True when an org-scoped SSO provider is registered for this email address's
    * domain AND the account is being created by that provider's callback (see
-   * {@link isSsoCallbackPath} — the caller must require both).
+   * {@link isSsoCallbackPath}: the caller must require both).
    *
    * This is the third way to be admitted after bootstrap, alongside an
    * invitation and open registration, and it exists because SSO is otherwise

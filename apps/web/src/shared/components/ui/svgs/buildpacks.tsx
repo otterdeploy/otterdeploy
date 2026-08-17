@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * Cloud Native Buildpacks brand mark — three stacked diamond cubes
+ * Cloud Native Buildpacks brand mark: three stacked diamond cubes
  * with pink / blue / indigo gradients. Ported from
  * github.com/buildpacks/artwork/blob/main/light-background/logo-light.svg.
  *

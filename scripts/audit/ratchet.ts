@@ -9,8 +9,8 @@
  * It is a **ratchet, not a wall**: the 177 dead-code findings, 18 cycles and 356
  * clone groups that exist today block nobody. What fails CI is a number going
  * *up*. When a number goes down, the script says so and prints the command that
- * pins the new floor — that is how a phase's gain gets locked in
- * (`docs/audit/PLAN.md`, "Definition of done — per phase").
+ * pins the new floor: that is how a phase's gain gets locked in
+ * (`docs/audit/PLAN.md`, "Definition of done, per phase").
  *
  *   bun scripts/audit/ratchet.ts                  # totals vs the committed baseline
  *   bun scripts/audit/ratchet.ts --base <ref>     # + which findings this branch introduced
@@ -18,11 +18,11 @@
  *
  * Two things it deliberately does NOT gate on:
  *
- *   complexity — oxlint already errors at cyclomatic 15 (`.oxlintrc.json`).
+ *   complexity: oxlint already errors at cyclomatic 15 (`.oxlintrc.json`).
  *     fallow's CRAP score assumes 0% coverage when no coverage file is passed,
  *     which makes every new function above cyclomatic 6 "critical". That is
  *     noise, not signal, so complexity is reported and left to lint.
- *   unlisted-dependencies — `vite-plus` is imported by ~40 test files while
+ *   unlisted-dependencies: `vite-plus` is imported by ~40 test files while
  *     declared only at the root (od-hml). fallow attributes a project-wide
  *     finding to whichever file the changeset touched, so gating on it would
  *     fail every PR that edits a test until od-hml lands.
@@ -30,26 +30,38 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import * as z from "zod";
 
 import { FALLOW_VERSION, fallowJson } from "./fallow";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const BASELINE_PATH = join(ROOT, "docs", "audit", "baseline.json");
 
-interface Totals {
-  deadCodeIssues: number;
-  circularDependencies: number;
-  cloneGroups: number;
-  duplicationPercentage: number;
+const totalsSchema = z.object({
+  deadCodeIssues: z.number(),
+  circularDependencies: z.number(),
+  cloneGroups: z.number(),
+  duplicationPercentage: z.number(),
+});
+
+const baselineSchema = z.object({
+  fallowVersion: z.string(),
+  measured: z.string(),
+  totals: totalsSchema,
+});
+
+type Totals = z.infer<typeof totalsSchema>;
+type Baseline = z.infer<typeof baselineSchema>;
+
+type Finding = Record<string, unknown>;
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
 }
 
-interface Baseline {
-  fallowVersion: string;
-  measured: string;
-  totals: Totals;
+function asString(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
 }
-
-type Finding = Record<string, unknown> & { introduced?: boolean };
 
 const MEASURES: { key: keyof Totals; label: string }[] = [
   { key: "deadCodeIssues", label: "dead-code findings" },
@@ -61,8 +73,8 @@ const MEASURES: { key: keyof Totals; label: string }[] = [
 /**
  * Graph-shape findings that are never a legitimate work-in-progress state, so a
  * newly introduced one fails on its own rather than waiting for a total to move.
- * The totals ratchet nets out — deleting an unused type elsewhere in the same PR
- * would hide a new cycle — and these are the findings that must not be hidden.
+ * The totals ratchet nets out, deleting an unused type elsewhere in the same PR
+ * would hide a new cycle, and these are the findings that must not be hidden.
  */
 const GATED_FINDINGS = new Set([
   "circular_dependencies",
@@ -76,11 +88,11 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** Read one number out of a fallow report, refusing to guess if it is absent. */
 function num(report: Record<string, unknown>, section: string, key: string): number {
-  const holder = report[section] as Record<string, unknown> | undefined;
-  const value = holder?.[key];
+  const holder = report[section];
+  const value = isRecord(holder) ? holder[key] : undefined;
   if (typeof value !== "number") {
     throw new Error(
-      `fallow report has no numeric ${section}.${key} — the schema moved under the ` +
+      `fallow report has no numeric ${section}.${key}. The schema moved under the ` +
         `version pin in scripts/audit/fallow.ts, so this gate is measuring nothing`,
     );
   }
@@ -91,7 +103,7 @@ function measure(): Totals {
   const dead = fallowJson(["dead-code"], ROOT);
   const dupes = fallowJson(["dupes"], ROOT);
   if (!dead || !dupes) {
-    throw new Error(`fallow@${FALLOW_VERSION} produced no report — the ratchet cannot run`);
+    throw new Error(`fallow@${FALLOW_VERSION} produced no report. The ratchet cannot run`);
   }
   return {
     deadCodeIssues: num(dead, "summary", "total_issues"),
@@ -102,11 +114,11 @@ function measure(): Totals {
 }
 
 function readBaseline(): Baseline {
-  const parsed = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as Baseline;
+  const parsed = baselineSchema.parse(JSON.parse(readFileSync(BASELINE_PATH, "utf8")));
   if (parsed.fallowVersion !== FALLOW_VERSION) {
     throw new Error(
       `baseline was measured with fallow ${parsed.fallowVersion} but the pin is ` +
-        `${FALLOW_VERSION}. Counts are not comparable across versions — re-run ` +
+        `${FALLOW_VERSION}. Counts are not comparable across versions. Re-run ` +
         "`bun scripts/audit/ratchet.ts --update` in the commit that bumps the pin",
     );
   }
@@ -137,20 +149,26 @@ function compareTotals(now: Totals, base: Totals): (keyof Totals)[] {
 
 /** The one file a finding points at, for the findings that point at one. */
 function findingPath(item: Finding): string | undefined {
-  return (item.path ?? item.file) as string | undefined;
+  return asString(item.path) ?? asString(item.file);
 }
 
 /** The symbol or package a finding names, for the findings that name one. */
 function findingName(item: Finding): string | undefined {
-  return (item.export_name ?? item.type_name ?? item.package_name ?? item.name) as
-    | string
-    | undefined;
+  return (
+    asString(item.export_name) ??
+    asString(item.type_name) ??
+    asString(item.package_name) ??
+    asString(item.name)
+  );
 }
 
-/** The files a finding spans — cycles list them, clone groups nest them. */
+/** The files a finding spans: cycles list them, clone groups nest them. */
 function findingFiles(item: Finding): string[] | undefined {
-  const instances = item.instances as { file?: string }[] | undefined;
-  return (item.files as string[] | undefined) ?? instances?.map((i) => i.file ?? "?");
+  if (Array.isArray(item.files)) return item.files.map((f) => asString(f) ?? "?");
+  if (Array.isArray(item.instances)) {
+    return item.instances.map((i) => (isRecord(i) ? asString(i.file) : undefined) ?? "?");
+  }
+  return undefined;
 }
 
 /**
@@ -158,8 +176,9 @@ function findingFiles(item: Finding): string[] | undefined {
  * the first importer is what tells the reader where to start looking.
  */
 function withFirstImporter(name: string, item: Finding): string {
-  const importers = item.imported_from as { path?: string }[] | undefined;
-  const first = importers?.[0]?.path;
+  const importers = Array.isArray(item.imported_from) ? item.imported_from : undefined;
+  const head = importers?.[0];
+  const first = isRecord(head) ? asString(head.path) : undefined;
   if (!first) return name;
   const rest = (importers?.length ?? 1) - 1;
   return rest > 0 ? `${name} (${first}, +${rest} more)` : `${name} (${first})`;
@@ -169,7 +188,7 @@ function withFirstImporter(name: string, item: Finding): string {
 function describe(item: Finding): string {
   const at = findingPath(item);
   const name = findingName(item);
-  if (at) return name ? `${at} — ${name}` : at;
+  if (at) return name ? `${at}, ${name}` : at;
   const files = findingFiles(item);
   if (files) return files.join(" <-> ");
   if (name) return withFirstImporter(name, item);
@@ -179,14 +198,16 @@ function describe(item: Finding): string {
 /** Every finding the changeset introduced, category → findings. */
 function introducedByCategory(audit: Record<string, unknown>): Map<string, Finding[]> {
   const out = new Map<string, Finding[]>();
-  const dead = (audit.dead_code ?? {}) as Record<string, unknown>;
+  const dead = isRecord(audit.dead_code) ? audit.dead_code : {};
   for (const [category, items] of Object.entries(dead)) {
     if (!Array.isArray(items)) continue;
-    const introduced = (items as Finding[]).filter((i) => i.introduced);
+    const introduced = items.filter(isRecord).filter((i) => Boolean(i.introduced));
     if (introduced.length > 0) out.set(category, introduced);
   }
-  const duplication = audit.duplication as { clone_groups?: Finding[] } | undefined;
-  const clones = (duplication?.clone_groups ?? []).filter((g) => g.introduced);
+  const duplication = isRecord(audit.duplication) ? audit.duplication : undefined;
+  const groupsRaw = duplication ? duplication.clone_groups : undefined;
+  const groups = Array.isArray(groupsRaw) ? groupsRaw : [];
+  const clones = groups.filter(isRecord).filter((g) => Boolean(g.introduced));
   if (clones.length > 0) out.set("clone_groups", clones);
   return out;
 }
@@ -202,10 +223,12 @@ function report(audit: Record<string, unknown>, baseRef: string): void {
     const mark = GATED_FINDINGS.has(category) ? "FAIL" : "note";
     for (const item of items) console.log(`  ${mark}  ${category}  ${describe(item)}`);
   }
-  const complexity = (audit.complexity as { findings?: unknown[] } | undefined)?.findings ?? [];
+  const complexityHolder = isRecord(audit.complexity) ? audit.complexity : undefined;
+  const complexityRaw = complexityHolder ? complexityHolder.findings : undefined;
+  const complexity = Array.isArray(complexityRaw) ? complexityRaw : [];
   if (complexity.length > 0) {
     const n = complexity.length;
-    console.log(`\n  ${n} complexity findings in changed files — reported only;`);
+    console.log(`\n  ${n} complexity findings in changed files. Reported only;`);
     console.log("  oxlint gates complexity (see the header of this file).");
   }
 }
@@ -232,11 +255,11 @@ function runUpdate(now: Totals): void {
 function pass(now: Totals, base: Totals): void {
   const better = MEASURES.filter(({ key }) => now[key] < base[key]);
   if (better.length === 0) {
-    console.log("\nPASS — nothing regressed.");
+    console.log("\nPASS, nothing regressed.");
     return;
   }
   console.log(
-    `\nPASS — ${better.map((m) => m.label).join(", ")} improved. Lock it in:\n` +
+    `\nPASS: ${better.map((m) => m.label).join(", ")} improved. Lock it in:\n` +
       "  bun scripts/audit/ratchet.ts --update",
   );
 }
@@ -246,7 +269,7 @@ function fail(worse: (keyof Totals)[], now: Totals, base: Totals, introduced: st
   for (const key of worse) console.log(`  ${key} rose from ${base[key]} to ${now[key]}`);
   for (const line of introduced) console.log(`  ${line}`);
   console.log(
-    "\nFix the finding, or — if the rise is deliberate and justified — say why in the\n" +
+    "\nFix the finding, or (if the rise is deliberate and justified) say why in the\n" +
       "commit message and re-pin with `bun scripts/audit/ratchet.ts --update`.",
   );
   process.exitCode = 1;

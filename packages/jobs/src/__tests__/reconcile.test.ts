@@ -150,6 +150,10 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
     },
   });
 
+  // The stub mimics only the fluent-call shapes reconcile.ts exercises;
+  // drizzle's real select/update/insert generics (DbLike) are third-party
+  // internals no hand-written mock can structurally satisfy.
+  // oxlint-disable-next-line typescript/consistent-type-assertions
   return { db: { select, update, insert } as never, rows, logLines };
 }
 

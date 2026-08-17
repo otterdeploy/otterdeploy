@@ -1,8 +1,8 @@
 /**
- * Release source — resolves the latest published otterdeploy version.
+ * Release source: resolves the latest published otterdeploy version.
  *
  * Default source is the GitHub Releases API (`releases/latest`), which hands us
- * a semver tag, the changelog body, and a URL in one call — so the UI can show
+ * a semver tag, the changelog body, and a URL in one call, so the UI can show
  * "what's new" for free. Overridable via OTTERDEPLOY_UPDATE_MANIFEST_URL to a
  * fixture/mirror (testing, air-gapped). All failures are non-fatal: a network
  * error or garbage payload resolves to `null`, which the caller reads as "no
@@ -21,7 +21,7 @@ export interface LatestRelease {
   url: string | null;
 }
 
-// GitHub `releases/latest` payload — we only read three fields; `.loose()`
+// GitHub `releases/latest` payload: we only read three fields; `.loose()`
 // (passthrough) so the rest of GitHub's large object doesn't fail validation.
 const githubReleaseSchema = z.looseObject({
   tag_name: z.string().min(1),

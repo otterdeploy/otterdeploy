@@ -36,7 +36,7 @@ export function ResourceOverlayDialog({
     // `disablePointerDismissal`: a multi-step wizard must NOT close on an
     // outside/pointer press. Beyond the UX (you'd lose staged progress on a
     // stray click), Base UI's outside-press check misfires when the clicked
-    // control unmounts in the same tick — e.g. clicking "Next" swaps the footer
+    // control unmounts in the same tick. E.g. clicking "Next" swaps the footer
     // button, so the click target is gone from the DOM by the time the dismiss
     // handler runs, and it reads the in-dialog click as "outside" and closes.
     // That's the bug where the template wizard vanished before the vars step.

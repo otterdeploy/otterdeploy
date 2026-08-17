@@ -1,10 +1,10 @@
 /**
- * Logical DB copy over the existing docker-exec transport (exec.ts) — the
+ * Logical DB copy over the existing docker-exec transport (exec.ts): the
  * primitive behind the `copy` DB-branching strategy (docs/designs/pr-previews.md
  * §4.2/§4.4). Dumps a source Postgres to an in-memory `pg_dump --format=custom`
  * archive and restores it into a fresh branch DB, both via exec inside the
  * engine's own container (no creds on the wire). Reuses `dumpCommand` (the same
- * command the backup engine builds) plus `execDump` / `execCapture` — this file
+ * command the backup engine builds) plus `execDump` / `execCapture`. This file
  * adds no new transport, only the branch-copy shaping.
  */
 import type { Docker } from "@otterdeploy/docker";
@@ -32,7 +32,11 @@ export async function pgDumpToBuffer(
   // execDump now streams (backup pipes it into rustic); the copy/branch path
   // still wants the whole archive, so drain the stream into a buffer here.
   const chunks: Buffer[] = [];
-  for await (const chunk of dump.stream) chunks.push(chunk as Buffer);
+  // The exec stream is binary (no encoding set), so chunks are Buffers at
+  // runtime; `Buffer.from` covers the type-level string arm without a cast.
+  for await (const chunk of dump.stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
   const exitCode = await dump.exitCode;
   if (exitCode !== 0) {
     const stderr = await dump.stderr();
@@ -59,7 +63,7 @@ export async function pgRestoreFromBuffer(
     `echo ${shellQuote(b64)} | base64 -d > ${tmp}`,
   ]);
   // Allow non-zero at the exec layer only so we can capture stderr and surface
-  // it — a silent success on a failed restore would hide a broken branch.
+  // it: a silent success on a failed restore would hide a broken branch.
   const restore = await execCapture(
     docker,
     containerId,

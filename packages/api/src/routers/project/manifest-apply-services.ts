@@ -1,5 +1,5 @@
 /**
- * Service create/update via the existing service handlers — the manifest just
+ * Service create/update via the existing service handlers. The manifest just
  * decides what to call, so the wire path is identical to the equivalent UI
  * clicks. The per-field patch builders are shared by create + update.
  */
@@ -13,6 +13,7 @@ import type {
 } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { declaredEnvOf, type ServiceManifest } from "../../stack/manifest";
@@ -60,7 +61,7 @@ function buildResourcesPatch(spec: ServiceManifest) {
 
 interface CreateServiceArgs {
   projectId: ProjectId;
-  /** Environment the service is created in — scopes the name check and gets
+  /** Environment the service is created in. Scopes the name check and gets
    *  stamped on the row. */
   environmentId: EnvironmentId;
   organizationId: OrgId;
@@ -74,7 +75,7 @@ function buildCreateServiceInput(
   args: CreateServiceArgs,
   gitRepoId: GitRepoId | null,
 ): Parameters<typeof createService>[0] {
-  // Git-sourced services start with a placeholder image — the builder
+  // Git-sourced services start with a placeholder image. The builder
   // overwrites it on first build. The existing handler accepts the
   // placeholder; we still pass the manifest's command/entrypoint.
   const image = args.spec.source === "image" ? args.spec.image : "pending:initial";
@@ -86,7 +87,7 @@ function buildCreateServiceInput(
     source: args.spec.source,
     ...gitSourceColumns(args.spec, gitRepoId),
     // A git create on an unbound project should still land as a
-    // `pending:initial` row (swarm skipped) — the missing build binding
+    // `pending:initial` row (swarm skipped). The missing build binding
     // surfaces below as a non-fatal "build not started" skip, not a hard
     // create failure that leaves the ghost stuck forever.
     skipBuildBindingCheck: true,
@@ -129,15 +130,17 @@ export async function createServiceFromManifest(
       }),
     );
   }
-  return Result.ok({ resourceId: result.value.id as ResourceId });
+  // ServiceView.id is a plain string on the wire shape; the row was minted by
+  // createId, so branding it back through the boundary validator can't fail.
+  return Result.ok({ resourceId: idSchema.resource.parse(result.value.id) });
 }
 
 /**
  * Attach manifest-declared public domains to a just-created service, reusing
  * the same handlers the domains UI calls. Order matters: add the custom
  * routes first (they land disabled while the service is still unexposed),
- * then `exposeService` enables them in place — it won't mint a throwaway
- * generated host because real custom routes already exist — and finally pin
+ * then `exposeService` enables them in place: it won't mint a throwaway
+ * generated host because real custom routes already exist, and finally pin
  * the operator's chosen primary. Every step's failure becomes a non-fatal
  * skip so a single bad domain never rolls back the created service.
  */
@@ -165,15 +168,15 @@ export async function seedServiceDomains(args: {
       skip(`domain ${d.domain} skipped: ${added.error.message}`);
       continue;
     }
-    if (d.primary) primaryRouteId = added.value.id as ProxyRouteId;
+    if (d.primary) primaryRouteId = idSchema.proxyRoute.parse(added.value.id);
   }
 
-  // Nothing landed (e.g. no http port → every add failed) — don't expose.
+  // Nothing landed (e.g. no http port → every add failed). Don't expose.
   const routesAdded = primaryRouteId !== null || skips.length < args.domains.length;
   if (!routesAdded) return skips;
 
   // Custom routes were just added above, so expose enables them in place and
-  // never reaches the sslip fallback — pass `false` (no silent sslip opt-in);
+  // never reaches the sslip fallback. Pass `false` (no silent sslip opt-in);
   // if it ever did, refusing here becomes a non-fatal skip, which is correct.
   const exposed = await exposeService(ref, false, args.log);
   if (exposed.isErr()) {
@@ -207,7 +210,7 @@ interface UpdateServiceArgs {
  * manifest that simply doesn't mention it would clear the column.
  *
  * Every gate here mirrors one in `stack/manifest/diff-source.ts` diffGitBinding.
- * Keep them in lockstep — a gate that diffs but doesn't apply is invisible at
+ * Keep them in lockstep. A gate that diffs but doesn't apply is invisible at
  * runtime: the pending bar shows the change, Apply reports success, and the
  * identical change is back on the next diff.
  */
@@ -232,7 +235,7 @@ function buildGitBindingPatch(spec: ServiceManifest, gitRepoId: GitRepoId | null
   };
 }
 
-/** Exported for tests — see {@link buildGitBindingPatch} on why the gates here
+/** Exported for tests: see {@link buildGitBindingPatch} on why the gates here
  *  have to match the diff's. */
 export function buildUpdateServiceInput(
   args: UpdateServiceArgs,
@@ -290,14 +293,14 @@ export async function updateServiceFromManifest(
   }
 
   // Declared-only: no (or empty) declared env means the live env editor owns
-  // the keys — skip the reconcile entirely. Passing `[]` here used to WIPE a
+  // the keys: skip the reconcile entirely. Passing `[]` here used to WIPE a
   // service's whole live env (and roll the container) whenever any field
   // update applied on a manifest that never declared env.
   if (declaredEnvOf(args.spec.env) === undefined) {
     return Result.ok({ resourceId: args.resourceId });
   }
 
-  // Reconcile env wholesale — bulkSetEnv replaces the set with what we pass.
+  // Reconcile env wholesale: bulkSetEnv replaces the set with what we pass.
   const envResult = await bulkSetEnv(
     {
       projectId: args.projectId,

@@ -23,7 +23,7 @@ describe("toRelativeName", () => {
 
   it("does not treat a lookalike suffix as the zone", () => {
     // "notacme.com" ends with "acme.com" as a SUBSTRING but is a different
-    // zone — stripping it would produce a wrong record name.
+    // zone, stripping it would produce a wrong record name.
     expect(toRelativeName("waves.notacme.com", "acme.com")).toBeNull();
   });
 

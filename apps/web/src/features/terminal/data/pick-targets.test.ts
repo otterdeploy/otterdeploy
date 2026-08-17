@@ -76,7 +76,7 @@ describe("buildPickerTargets", () => {
       servers: [],
     });
 
-    // One row, not two — the container and the resource are the same box.
+    // One row, not two: the container and the resource are the same box.
     expect(targets).toHaveLength(1);
     const [row] = targets;
     expect(row?.name).toBe("orders");

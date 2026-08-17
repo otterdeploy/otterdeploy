@@ -10,7 +10,7 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * The viewport is an external store, not React state — read it through
+ * The viewport is an external store, not React state. Read it through
  * `useSyncExternalStore` rather than seeding `false` and correcting it from an
  * effect. That also kills the one-frame desktop flash a mobile visitor used to
  * get on first paint.

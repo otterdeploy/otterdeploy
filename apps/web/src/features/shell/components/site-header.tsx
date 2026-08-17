@@ -25,7 +25,7 @@ export function SiteHeader() {
   });
   const project = projectMatch?.loaderData?.project;
   // Single, provider-owned wizard dialog (mounted in ResourceOverlayProvider).
-  // The header just asks it to open — no second dialog instance with its own
+  // The header just asks it to open, no second dialog instance with its own
   // state to drift out of sync.
   const overlay = useResourceOverlay();
   const status = useAppStatus();
@@ -37,7 +37,7 @@ export function SiteHeader() {
         {/* Below `md` the mark IS the sidebar toggle, so the header carries one
             brand element instead of a panel icon sitting next to a logo that
             did something else. The sidebar is an off-canvas Sheet there and its
-            only other opener is Cmd/Ctrl+B — unreachable on a touch device — so
+            only other opener is Cmd/Ctrl+B (unreachable on a touch device) so
             this control has to exist; folding it into the mark keeps it to one.
             From `md` the sidebar is always visible and toggles from its own
             rail, so the mark goes back to being the link home. */}
@@ -56,8 +56,8 @@ export function SiteHeader() {
           params={{ orgSlug: organization.slug }}
           className="hidden shrink-0 items-center md:flex"
           // The label overrides the mark's own, so it has to carry the state
-          // too — otherwise a deploy is visible but never announced.
-          aria-label={status === "idle" ? "otterdeploy home" : `otterdeploy home — ${status}`}
+          // too: otherwise a deploy is visible but never announced.
+          aria-label={status === "idle" ? "otterdeploy home" : `otterdeploy home: ${status}`}
         >
           {/* Same rollup the tab shows, so the mark reads identically whether
               this window is focused or sitting in the background. */}
@@ -115,7 +115,7 @@ export function SiteHeader() {
               >
                 {t("nav.newService", "+ New service")}
               </Button>
-              {/* Same action, icon-only — the label alone is wider than the
+              {/* Same action, icon-only: the label alone is wider than the
                   space left beside the notification and theme controls. */}
               <Button
                 size="icon"

@@ -40,10 +40,9 @@ export function LinkedSecretsField() {
 
   return (
     <p className="text-[11.5px] text-muted-foreground">
-      Secret providers connected ({providers.data.map((p) => p.name).join(", ")}) — reference
-      their secrets in any value as{" "}
-      <code className="font-mono">{"${{vault.<provider>.<ref>}}"}</code>; they resolve at deploy
-      time.
+      Secret providers connected ({providers.data.map((p) => p.name).join(", ")}) — reference their
+      secrets in any value as <code className="font-mono">{"${{vault.<provider>.<ref>}}"}</code>;
+      they resolve at deploy time.
     </p>
   );
 }

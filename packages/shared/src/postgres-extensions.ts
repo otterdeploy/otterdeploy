@@ -6,25 +6,25 @@
  *   - the API handler that persists the selection, picks the right image,
  *     and runs `CREATE EXTENSION` against the live database.
  *
- * `name` is the canonical identifier — it is exactly the string passed to
+ * `name` is the canonical identifier. It is exactly the string passed to
  * `CREATE EXTENSION "<name>"`, and it is what we persist on the resource.
  *
  * Two kinds of extensions:
- *   - `contrib: true`  — ships inside the stock `postgres:*` image
+ *   - `contrib: true`: ships inside the stock `postgres:*` image
  *     (postgres-contrib). Enabling one is a pure `CREATE EXTENSION`; no
  *     image change, applies live with ~0 downtime.
- *   - `contrib: false` — the extension's shared objects are NOT in the
+ *   - `contrib: false`: the extension's shared objects are NOT in the
  *     stock image. Enabling requires switching the service to an image that
  *     bundles it (`image`), rolling the task, THEN `CREATE EXTENSION`. Two
  *     non-contrib extensions that need *different* images cannot be enabled
- *     together (one image, one base) — that's a conflict the caller reports.
+ *     together (one image, one base): that's a conflict the caller reports.
  *
  * Non-contrib images are all PG17-based and ship the standard contrib set,
  * so contrib extensions ride along on them too.
  */
 
 export interface PostgresExtensionMeta {
-  /** `CREATE EXTENSION "<name>"` identifier — also what we persist. */
+  /** `CREATE EXTENSION "<name>"` identifier, also what we persist. */
   name: string;
   /** Display name in the wizard / settings UI. */
   label: string;
@@ -101,7 +101,7 @@ export function getPostgresExtension(name: string): PostgresExtensionMeta | unde
   return BY_NAME.get(name);
 }
 
-/** Keep only names we recognise — drops anything stale/unknown so a bad
+/** Keep only names we recognise. Drops anything stale/unknown so a bad
  *  persisted value can't reach `CREATE EXTENSION`. */
 export function knownPostgresExtensions(names: readonly string[]): string[] {
   return names.filter((n) => BY_NAME.has(n));
@@ -116,7 +116,7 @@ export type ResolveImageResult =
  * extensions. Returns the `defaultImage` when every enabled extension is
  * contrib (or none are enabled). When exactly one non-contrib image is
  * needed, returns it. When two enabled extensions demand *different*
- * images, returns a conflict listing the offending extension names — the
+ * images, returns a conflict listing the offending extension names. The
  * caller surfaces this instead of silently dropping one.
  *
  * `changed` tells the caller whether the resolved image differs from the
@@ -137,7 +137,7 @@ export function resolvePostgresImage(
 
   const distinctImages = [...imageToExt.keys()];
   if (distinctImages.length > 1) {
-    // More than one distinct non-contrib image required — incompatible.
+    // More than one distinct non-contrib image required: incompatible.
     return { ok: false, conflict: [...imageToExt.values()].flat() };
   }
   // `[0]` is `string | undefined` under noUncheckedIndexedAccess. Undefined ⇒

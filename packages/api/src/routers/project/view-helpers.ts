@@ -1,7 +1,7 @@
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 /**
- * Pure string / identifier helpers shared across the project handler split —
+ * Pure string / identifier helpers shared across the project handler split:
  * docker-name + slug sanitizers, per-engine swarm name builders, the public
  * connection-string formatter, and the unique-violation sniffer. Leaf module:
  * depends only on the DatabaseEngine type so it can be imported anywhere
@@ -43,12 +43,12 @@ export function sanitizeDockerName(value: string) {
 
 // Per-engine prefixes for the swarm service + volume names. `pg`/`pgdata`
 // are kept for postgres so existing rows continue to resolve to the same
-// docker objects after this change ships — non-postgres engines used to
+// docker objects after this change ships. Non-postgres engines used to
 // silently inherit those same postgres prefixes and ended up named
 // `otterdeploy-pg-<project>-<redis-resource>`, which was nonsense.
 // Resources created against the wrong-prefix names (any non-postgres
 // engine deployed before this fix) need to be torn down and recreated to
-// pick up the correct names — the swarm service is still under the old
+// pick up the correct names. The swarm service is still under the old
 // `pg` name and won't be located by the new lookup.
 const ENGINE_SERVICE_PREFIX: Record<DatabaseEngine, string> = {
   postgres: "pg",

@@ -20,7 +20,7 @@ import { PackageManager } from "@/components/docs/package-manager";
 
 const cx = (...parts: Array<string | false | undefined>) => parts.filter(Boolean).join(" ");
 
-function H2({ className, ...props }: ComponentProps<"h2">) {
+function H2({ className, children, ...props }: ComponentProps<"h2">) {
   return (
     <h2
       className={cx(
@@ -28,11 +28,13 @@ function H2({ className, ...props }: ComponentProps<"h2">) {
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </h2>
   );
 }
 
-function H3({ className, ...props }: ComponentProps<"h3">) {
+function H3({ className, children, ...props }: ComponentProps<"h3">) {
   return (
     <h3
       className={cx(
@@ -40,7 +42,9 @@ function H3({ className, ...props }: ComponentProps<"h3">) {
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </h3>
   );
 }
 
@@ -53,7 +57,7 @@ function P({ className, ...props }: ComponentProps<"p">) {
   );
 }
 
-function A({ className, ...props }: ComponentProps<"a">) {
+function A({ className, children, ...props }: ComponentProps<"a">) {
   // `--od-accent` rather than `--primary`: the primary token is tuned to sit
   // under near-white button text and measures ~2.2:1 as link text on the dark
   // canvas. See the docs-chrome block in styles/app.css.
@@ -64,7 +68,9 @@ function A({ className, ...props }: ComponentProps<"a">) {
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </a>
   );
 }
 
@@ -93,7 +99,7 @@ function HR({ className, ...props }: ComponentProps<"hr">) {
 
 /**
  * Replaces Fumadocs' callout, which shipped three things DESIGN.md forbids: a
- * 2px coloured bar down the left edge (never intentional — use a full hairline
+ * 2px coloured bar down the left edge (never intentional, use a full hairline
  * ring or a tonal tint), a resting `shadow-md`, and a lucide icon in a project
  * that uses Hugeicons everywhere.
  *

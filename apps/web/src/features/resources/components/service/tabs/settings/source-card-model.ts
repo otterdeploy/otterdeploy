@@ -3,8 +3,8 @@
  * block out of the manifest, seeding/diffing the form against it, defaulting the
  * installation picker, and resolving the repo option list + the bound repo's id.
  *
- * Split out of source-card.tsx because the card was doing all of this inline —
- * every `?.` hop and `??` fallback in the derivation counted against one
+ * Split out of source-card.tsx because the card was doing all of this inline.
+ * Every `?.` hop and `??` fallback in the derivation counted against one
  * component's branch budget, which put the render well over the complexity cap.
  * Nothing here renders; source-card.tsx stays presentational + wiring.
  */
@@ -26,7 +26,7 @@ export interface GitSourceBlock {
   previews?: boolean;
 }
 
-/** The service's source block from the saved manifest — `null` unless the
+/** The service's source block from the saved manifest. `null` unless the
  *  service exists AND builds from git, which is the only case this card edits. */
 export function readGitSource(data: ManifestGet | undefined, name: string): GitSourceBlock | null {
   const svc = data?.manifest?.services?.[name];
@@ -47,7 +47,7 @@ export type SourceFormValues = ReturnType<typeof seedSource>;
 // Historical note: `seedSource` was wrapped in a `useMemo` over its five
 // primitives to hand the card a reference that only changed when the saved
 // source did. That existed because the card re-seeded through an effect keyed
-// on the object — `readGitSource` rebuilds it every render, so the effect
+// on the object: `readGitSource` rebuilds it every render, so the effect
 // called `form.reset`, the store write re-rendered, and it looped until React
 // gave up with "Maximum update depth exceeded", taking the settings tab with
 // it. The effect is gone; TanStack Form compares `defaultValues` structurally,
@@ -78,7 +78,7 @@ export function useSourceFormState(
 
 /**
  * The picked git installation, defaulting to the first one once the list loads.
- * Adjusted in render — React bails out when the value is unchanged, so this
+ * Adjusted in render. React bails out when the value is unchanged, so this
  * self-limits instead of chaining an extra render through an effect.
  */
 export function useActiveInstallation(installations: readonly { id: string }[]) {

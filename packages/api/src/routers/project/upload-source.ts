@@ -1,14 +1,14 @@
 /**
  * Local-source deploys (`source: "upload"`). The CLI's `otterdeploy deploy` tars
  * the project and streams it to the control plane; the server stages the tarball
- * on the shared data dir and enqueues a build the same way a git push does —
+ * on the shared data dir and enqueues a build the same way a git push does,
  * only the source acquisition differs (extract a tarball vs. clone a repo).
  *
  * Split into two steps because the tarball path is keyed by the deployment id:
- *   1. createUploadDeployment — verify the service is org-owned + upload-sourced,
+ *   1. createUploadDeployment: verify the service is org-owned + upload-sourced,
  *      insert a pending deployment row, return its id (so the caller knows where
  *      to stage the tarball: sourceTarballPath(projectId, deploymentId)).
- *   2. triggerUploadBuild — after the bytes are on disk, enqueue the build.
+ *   2. triggerUploadBuild: after the bytes are on disk, enqueue the build.
  * If staging fails between the two, the caller marks the row failed so it never
  * strands as a phantom `pending`.
  */
@@ -60,7 +60,9 @@ export async function resolveUploadSourceTarget(args: {
 
   return row
     ? {
-        organizationId: row.organizationId as OrganizationId,
+        // The WHERE clause pinned project.organization_id to exactly this
+        // value, so the caller's already-branded id IS the row's.
+        organizationId: args.organizationId,
         projectId: row.projectId,
         source: row.source,
       }
@@ -94,18 +96,18 @@ export async function createUploadDeployment(args: {
       image: "pending:upload",
       reason: "create" as const,
       status: "pending" as const,
-      // No git identity for an uploaded source — the row keys the tarball path
+      // No git identity for an uploaded source: the row keys the tarball path
       // by (projectId, deploymentId), not a sha.
     })
     .returning({ id: deployment.id });
   if (!inserted) return Result.err("failed to insert deployment row");
 
-  return Result.ok({ projectId: row.projectId as ProjectId, deploymentId: inserted.id });
+  return Result.ok({ projectId: row.projectId, deploymentId: inserted.id });
 }
 
 /**
  * Record the content hash of the staged tarball on the deployment row. The
- * source: "upload" analog of a commit sha — surfaced in the build log and the
+ * source: "upload" analog of a commit sha, surfaced in the build log and the
  * deployment history so a local deploy has a stable content identifier. Called
  * after the bytes are on disk and before the build is enqueued (the builder
  * reads it off the row). Best-effort: a failure here must not block the deploy.
@@ -119,7 +121,7 @@ export async function setUploadDeploymentSourceSha(
 
 /**
  * Enqueue the tarball build after the source has been staged to disk. The
- * builder reads sourceTarballPath(projectId, deploymentId) — no bytes travel
+ * builder reads sourceTarballPath(projectId, deploymentId), no bytes travel
  * through Redis. On a queue outage the row is marked failed so it doesn't hang
  * as a phantom `pending` (same guard as the git path).
  */

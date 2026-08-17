@@ -1,7 +1,7 @@
 /**
  * Promote/demote + remove-from-swarm actions shared by the Managers & quorum
  * card and the server health sheet. Every mutation goes through the styled
- * confirm (never window.confirm) and states its quorum consequence — the
+ * confirm (never window.confirm) and states its quorum consequence: the
  * server re-checks the same guards authoritatively (last manager, leader,
  * down-only removal) and answers with a clear 409 when the topology moved
  * under us.
@@ -16,7 +16,7 @@ import { orpc } from "@/shared/server/orpc";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 
-/** Raft majority — mirror of the server-side guard math (swarm-guards.ts). */
+/** Raft majority: mirror of the server-side guard math (swarm-guards.ts). */
 export function quorumRequired(managerCount: number): number {
   return Math.floor(Math.max(0, managerCount) / 2) + 1;
 }
@@ -28,7 +28,7 @@ function errorMessage(err: unknown, fallback: string): string {
 /**
  * Promote (worker → manager) or demote (manager → worker) with a confirm
  * that spells out the resulting quorum. Blocked states render a disabled
- * button with the reason as `title` — mirroring the server guards so the
+ * button with the reason as `title`, mirroring the server guards so the
  * refusal is visible before a round-trip, never instead of one.
  */
 export function RoleChangeAction({
@@ -48,11 +48,11 @@ export function RoleChangeAction({
 
   const blockedReason =
     node.serverId === null
-      ? "This node isn't registered as a server — add it on this page first"
+      ? "This node isn't registered as a server. Add it on this page first."
       : !promote && node.leader
-        ? "The swarm leader can't be demoted — promote another manager and let leadership move first"
+        ? "The swarm leader can't be demoted. Promote another manager and let leadership move first."
         : !promote && managerCount <= 1
-          ? "The last manager can't be demoted — the swarm would be left unmanageable"
+          ? "The last manager can't be demoted. The swarm would be left unmanageable."
           : null;
 
   const confirmRole = () => {
@@ -65,7 +65,7 @@ export function RoleChangeAction({
         serverCollection.utils.writeUpdate(updated);
         refetchSwarmNodes();
         toast.success(
-          `${node.hostname} ${promote ? "promoted to manager" : "demoted to worker"} — quorum is now ${quorumRequired(nextManagers)} of ${nextManagers}`,
+          `${node.hostname} ${promote ? "promoted to manager" : "demoted to worker"}. Quorum is now ${quorumRequired(nextManagers)} of ${nextManagers}`,
         );
         setOpen(false);
       })
@@ -96,7 +96,7 @@ export function RoleChangeAction({
         title={promote ? `Promote ${node.hostname} to manager` : `Demote ${node.hostname} to worker`}
         description={
           promote
-            ? `The manager set grows to ${nextManagers} — quorum becomes ${quorumRequired(nextManagers)} of ${nextManagers}. An even manager count tolerates no more failures than the next odd one down.`
+            ? `The manager set grows to ${nextManagers}. Quorum becomes ${quorumRequired(nextManagers)} of ${nextManagers}. An even manager count tolerates no more failures than the next odd one down.`
             : `Demoting drops quorum to ${quorumRequired(nextManagers)} of ${nextManagers} manager${nextManagers === 1 ? "" : "s"}. The node keeps running its tasks as a worker.`
         }
         confirmLabel={promote ? "Promote" : "Demote"}
@@ -131,7 +131,7 @@ export function RemoveFromSwarmAction({
     orpc.server.removeNode
       .call({ id: server.id })
       .then(() => {
-        // Swarm confirmed the detach — now drop the row via the collection so
+        // Swarm confirmed the detach: now drop the row via the collection so
         // the table updates through the same path as a manual delete.
         serverCollection.delete(server.id);
         refetchSwarmNodes();
@@ -153,7 +153,7 @@ export function RemoveFromSwarmAction({
           <div className="mt-0.5 text-[11.5px] text-muted-foreground">
             {isDown
               ? "Detaches the node and deletes this server. The host itself is untouched."
-              : `Only nodes the swarm reports as down can be removed — this node is ${node.state}. Drain it and stop its daemon first.`}
+              : `Only nodes the swarm reports as down can be removed. This node is ${node.state}. Drain it and stop its daemon first.`}
           </div>
         </div>
         <Button

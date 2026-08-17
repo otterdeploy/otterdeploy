@@ -83,9 +83,7 @@ const createInput = z.discriminatedUnion("kind", [
 const updateInput = z.object({
   id: providerIdField,
   name: vaultProviderNameSchema.optional(),
-  config: z
-    .union([hashicorpConfigSchema, infisicalConfigSchema, dopplerConfigSchema])
-    .optional(),
+  config: z.union([hashicorpConfigSchema, infisicalConfigSchema, dopplerConfigSchema]).optional(),
   credential: z.string().min(1).max(8192).optional(),
 });
 

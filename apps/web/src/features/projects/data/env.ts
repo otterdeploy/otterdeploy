@@ -6,7 +6,7 @@ import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 const envQueryOptions = queryCollectionOptions({
-  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // Stable id so the OPFS-backed SQLite table survives page loads. See
   // projectCollection for why persistence never round-trips without one.
   id: "environments",
   ...orpc.env.list.queryOptions(),
@@ -35,7 +35,7 @@ const envQueryOptions = queryCollectionOptions({
 
 export type EnvRow = Awaited<ReturnType<typeof orpc.env.list.call>>[number];
 
-// Two-branch createCollection + pinned generics — see projectCollection for why.
+// Two-branch createCollection + pinned generics: see projectCollection for why.
 export const envCollection = persistence
   ? createCollection(
       persistedCollectionOptions<EnvRow, string | number>({
@@ -48,7 +48,7 @@ export const envCollection = persistence
 
 /**
  * Optimistic row for a hand-created environment. Environments are purely
- * user-created contexts now — PR previews live in their own `preview` table
+ * user-created contexts now. PR previews live in their own `preview` table
  * and never appear here. Keeps the two insert sites (create dialog + project
  * onboarding) in sync with the full `environment` row shape.
  */

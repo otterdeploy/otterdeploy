@@ -46,7 +46,7 @@ export function SystemVarsList({
       {open && (
         <>
           <p className="text-[12.5px] text-muted-foreground">
-            otterdeploy injects these system variables into every container — read-only and derived
+            otterdeploy injects these system variables into every container. Read-only and derived
             from the resource record.
           </p>
           {filteredSystem.length === 0 ? (

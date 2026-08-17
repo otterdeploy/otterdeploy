@@ -1,5 +1,5 @@
 /**
- * Query-history popover — the SQL console's execution log (last ~50 statements
+ * Query-history popover: the SQL console's execution log (last ~50 statements
  * for this database, successes and failures, browser-local). Each entry shows a
  * one-line statement preview with rows · duration (or the error) and a status
  * dot; clicking loads the statement into the Playground buffer.
@@ -53,7 +53,7 @@ export function HistoryPopover({
         <div className="max-h-80 overflow-y-auto p-1">
           {entries.length === 0 ? (
             <p className="px-2 py-2 text-[12px] text-muted-foreground">
-              Nothing yet — statements you run land here, including failures.
+              Nothing yet. Statements you run land here, including failures.
             </p>
           ) : (
             entries.map((e) => (

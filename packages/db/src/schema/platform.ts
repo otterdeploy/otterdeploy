@@ -7,7 +7,7 @@
  *
  * Bootstrap: a default row is upserted on app boot with the id below
  * and values seeded from env vars. The settings page mutates this row
- * in place — no row-per-version or history kept; if change tracking is
+ * in place, no row-per-version or history kept; if change tracking is
  * needed later, write to a separate audit log.
  */
 
@@ -26,12 +26,12 @@ export const platformSettings = pgTable("platform_settings", {
    *  Caddy site block proxying it to the control plane; better-auth already
    *  trusts same-origin requests, so no auth config change is needed. */
   controlPlaneFqdn: text("control_plane_fqdn"),
-  /** TXT-verification state for controlPlaneFqdn — same model as the org
+  /** TXT-verification state for controlPlaneFqdn: same model as the org
    *  base domain: the site block goes live immediately (tls internal), but
    *  ACME issuance is gated on proving ownership. */
   controlPlaneFqdnVerifiedAt: timestamp("control_plane_fqdn_verified_at"),
   controlPlaneFqdnVerifyToken: text("control_plane_fqdn_verify_token"),
-  /** Public IP the swarm manager exposes — used to build sslip.io
+  /** Public IP the swarm manager exposes, used to build sslip.io
    *  fallback domains (`<ip>.sslip.io`) so a fresh install resolves
    *  without the operator owning any domain. Detected on first boot
    *  and editable from the platform settings page. */
@@ -68,7 +68,7 @@ export const platformSettings = pgTable("platform_settings", {
   // above: the env var SEEDS the value (and stays the fallback while the
   // column is null), but once an operator edits it in the UI this row is
   // the source of truth. A null column therefore means "defer to env",
-  // never "off" — see packages/api/src/lib/platform-runtime-settings.ts,
+  // never "off": see packages/api/src/lib/platform-runtime-settings.ts,
   // which is the only place allowed to resolve the two against each other.
 
   // ─── Who may create an account ──────────────────────────────────────
@@ -84,7 +84,7 @@ export const platformSettings = pgTable("platform_settings", {
   // Seeded from {GITHUB,GOOGLE,GITLAB}_OAUTH_CLIENT_ID/_SECRET. A provider
   // is live only when enabled AND it has both a client id and a secret.
   // Editing these hot-reloads the better-auth instance (packages/auth
-  // reloadAuth) — no restart, and no SPA rebuild either, because the web
+  // reloadAuth), no restart, and no SPA rebuild either, because the web
   // reads the enabled list from /api/auth/public-config at runtime rather
   // than the build-time VITE_AUTH_SOCIAL_PROVIDERS it used to.
   githubOauthEnabled: boolean("github_oauth_enabled"),
@@ -111,8 +111,8 @@ export const platformSettings = pgTable("platform_settings", {
   // ─── Firewall / CrowdSec bouncer ────────────────────────────────────
   // Seeded from CROWDSEC_LAPI_URL / CROWDSEC_BOUNCER_KEY. Saving these
   // re-renders the Caddyfile global block + per-site gate. The agent
-  // container itself still has to be running (compose `firewall` profile)
-  // — the UI says so rather than pretending it can start it.
+  // container itself still has to be running (compose `firewall` profile).
+  // The UI says so rather than pretending it can start it.
   crowdsecLapiUrl: text("crowdsec_lapi_url"),
   crowdsecBouncerKeyCiphertext: text("crowdsec_bouncer_key_ciphertext"),
   /** Explicit off-switch that survives credentials being present, so an
@@ -134,7 +134,7 @@ export const platformSettings = pgTable("platform_settings", {
    *
    *  Idle teardown bounds how LONG a preview lives; this bounds how MANY exist.
    *  Without it a busy repository opens twenty pull requests and provisions
-   *  twenty databases. At the cap the next preview is refused and told why —
+   *  twenty databases. At the cap the next preview is refused and told why,
    *  never evicted, because eviction would tear down a preview someone is
    *  actively reviewing to make room for one nobody has opened yet. */
   previewMaxPerProject: integer("preview_max_per_project"),
@@ -154,11 +154,11 @@ export const platformSettings = pgTable("platform_settings", {
   // ─── Build pipeline ─────────────────────────────────────────────────
   /** Deploy jobs the builder pulls concurrently. null ⇒
    *  BUILDER_CONCURRENCY. Read at worker start, so a change needs the
-   *  builder to restart — the UI states that plainly. */
+   *  builder to restart: the UI states that plainly. */
   builderConcurrency: integer("builder_concurrency"),
 
   // ─── Platform self-update (packages/api/src/routers/system). The CURRENT
-  //     version is not stored here — it's read live from env.OTTERDEPLOY_VERSION
+  //     version is not stored here. It's read live from env.OTTERDEPLOY_VERSION
   //     (the image tag the compose stack booted with). These columns cache the
   //     last "check for updates" result + hold the operator's update prefs.
   //     Transient apply run-state (progress/logs) lives in-memory + a status

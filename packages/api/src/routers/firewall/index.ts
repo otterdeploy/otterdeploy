@@ -1,14 +1,17 @@
 /**
- * Firewall router — CrowdSec decisions (read via LAPI, see decisions-read.ts),
+ * Firewall router: CrowdSec decisions (read via LAPI, see decisions-read.ts),
  * block/unblock actions, flagged-IP review, and managed blocklists. Global
  * CrowdSec reads require installation-admin access; mutations additionally
  * require the active organization's firewall:update capability.
  */
 
-import type { BlocklistId } from "@otterdeploy/shared/id";
+import { hasPrefix, ID_PREFIX, type BlocklistId } from "@otterdeploy/shared/id";
 
 import { requireInstallAdmin, requireInstallAdminPermission, requirePermission } from "../..";
-import { flaggedIps } from "../../edge-logs/threat-scan";
+// The bounded flagged-IP windows are a subset of the edge-log time ranges, so
+// they share one source of truth for how long each one is.
+import { RANGE_MS as FLAGGED_WINDOW_MS } from "../../edge-logs/ring";
+import { flaggedIps, flaggedIpsAllTime } from "../../edge-logs/threat-scan";
 import { validatePublicHttpUrl } from "../../security/public-fetch";
 import { listOrgDomains } from "../edge-logs/queries";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
@@ -75,8 +78,11 @@ export const firewallRouter = {
   flagged: requirePermission({ firewall: ["read"] }).firewall.flagged.handler(
     async ({ input, context }) => {
       const hosts = await listOrgDomains(context.activeOrganizationId);
-      const sinceMs = Date.now() - input.windowMinutes * 60_000;
-      return flaggedIps(hosts, sinceMs, 100);
+      // `all` reads the durable rollup (survives the raw log's retention
+      // sweep); the bounded windows aggregate the raw rows, which carry the
+      // per-request detail a window view implies.
+      if (input.window === "all") return flaggedIpsAllTime(hosts, 100);
+      return flaggedIps(hosts, Date.now() - FLAGGED_WINDOW_MS[input.window], 100);
     },
   ),
 
@@ -164,7 +170,10 @@ export const firewallRouter = {
 
     toggle: globalFirewallWrite.firewall.blocklists.toggle.handler(
       async ({ input, context, errors }) => {
-        const id = input.id as BlocklistId;
+        // The contract carries a plain string; a non-`blk_` id can't be a row,
+        // so it gets the same NOT_FOUND the DB miss would produce.
+        if (!hasPrefix(input.id, ID_PREFIX.blocklist)) throw errors.NOT_FOUND();
+        const id: BlocklistId = input.id;
         const existing = await getBlocklist(id);
         if (!existing) throw errors.NOT_FOUND();
         context.log.set({
@@ -192,7 +201,8 @@ export const firewallRouter = {
 
     remove: globalFirewallWrite.firewall.blocklists.remove.handler(
       async ({ input, context, errors }) => {
-        const id = input.id as BlocklistId;
+        if (!hasPrefix(input.id, ID_PREFIX.blocklist)) throw errors.NOT_FOUND();
+        const id: BlocklistId = input.id;
         const row = await getBlocklist(id);
         if (!row) throw errors.NOT_FOUND();
         context.log.set({ target: { type: "blocklist", id } });
@@ -208,7 +218,8 @@ export const firewallRouter = {
 
     syncNow: globalFirewallWrite.firewall.blocklists.syncNow.handler(
       async ({ input, context, errors }) => {
-        const id = input.id as BlocklistId;
+        if (!hasPrefix(input.id, ID_PREFIX.blocklist)) throw errors.NOT_FOUND();
+        const id: BlocklistId = input.id;
         const row = await getBlocklist(id);
         if (!row) throw errors.NOT_FOUND();
         context.log.set({ target: { type: "blocklist", id } });
@@ -227,7 +238,7 @@ export const firewallRouter = {
     enroll: globalFirewallWrite.firewall.console.enroll.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "crowdsec-console", id: "installation" } });
-        // Key passed as a positional arg ($1) — never interpolated into the shell.
+        // Key passed as a positional arg ($1), never interpolated into the shell.
         const out = await cscliRun('cscli console enroll "$1"', [input.key.trim()]);
         if (out === null) {
           throw errors.INVALID_INPUT({
@@ -237,9 +248,7 @@ export const firewallRouter = {
         const ok = !/error|invalid|failed|denied/i.test(out);
         const message =
           out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) ||
-          (ok
-            ? "Enrollment requested — accept the instance in the console."
-            : "Enrollment failed.");
+          (ok ? "Enrollment requested: accept the instance in the console." : "Enrollment failed.");
         if (!ok) throw errors.INVALID_INPUT({ message });
         return { ok, message };
       },

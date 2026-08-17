@@ -1,16 +1,16 @@
 /**
- * Shared read model for the platform updater — used by the banner, the header
+ * Shared read model for the platform updater. Used by the banner, the header
  * button, the dialog, and the Platform card so they all agree. Backed by the
  * cached `system.updateSettings` row (populated by a check) + `system.version`.
  *
  * Every procedure here is `requireInstallAdmin()` server-side (see
- * packages/api/src/routers/system/index.ts), and the banner is ambient — it
+ * packages/api/src/routers/system/index.ts), and the banner is ambient. It
  * mounts on every shell page. So for anyone else these reads aren't merely
  * useless, they're a guaranteed 403 on every single page load. Gate them on
  * the server-owned flag the `/_app` context already carries: `enabled: false`
  * means the request is never made, rather than made-and-then-hidden.
  *
- * `retry: false` stays for the install admin themselves — a transient failure
+ * `retry: false` stays for the install admin themselves. A transient failure
  * shouldn't be hammered.
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -20,8 +20,8 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
  * Server-owned installation-administrator identity, returned with every
- * session and resolved once in the `/_app` route context. Presentation only —
- * the same flag is re-checked server-side on every one of these procedures.
+ * session and resolved once in the `/_app` route context. Presentation only.
+ * The same flag is re-checked server-side on every one of these procedures.
  */
 function useIsInstallAdmin(): boolean {
   return useRouteContext({ from: "/_app" }).isInstallAdmin;
@@ -37,7 +37,7 @@ export interface UpdateStatus {
   url: string | null;
   simulated: boolean;
   dismissed: string | null;
-  /** available AND not dismissed — drives the loud banner. */
+  /** available AND not dismissed: drives the loud banner. */
   bannerVisible: boolean;
   lastCheckedAt: string | null;
   isLoading: boolean;
@@ -78,7 +78,7 @@ export function useUpdateStatus(): UpdateStatus {
   const current = version.data?.current;
   // A newer version is "available" only when the cached latest differs from the
   // version we're actually running. Without the `!== current` guard the banner
-  // (and header/dialog/Platform card) stay lit after a successful update — the
+  // (and header/dialog/Platform card) stay lit after a successful update. The
   // server keeps the just-installed version cached as `availableVersion`, and a
   // no-op check when already current caches current-as-latest too, so
   // `latest !== null` alone never clears. Gate on a known `current` so a
@@ -97,7 +97,7 @@ export function useUpdateStatus(): UpdateStatus {
     dismissed: parts.dismissed,
     bannerVisible: available && parts.latest !== parts.dismissed,
     lastCheckedAt: parts.lastCheckedAt,
-    // Never "loading" when we deliberately never asked — a disabled query
+    // Never "loading" when we deliberately never asked: a disabled query
     // would otherwise leave the Updates card spinning on an ellipsis forever.
     isLoading: enabled && (version.isLoading || settings.isLoading),
   };
@@ -137,7 +137,7 @@ export function useUpdateState() {
   });
 }
 
-/** Operator reset for a wedged update — clears the stuck run so apply works. */
+/** Operator reset for a wedged update. Clears the stuck run so apply works. */
 export function useCancelUpdate() {
   return useMutation({
     ...orpc.system.cancelUpdate.mutationOptions(),

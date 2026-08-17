@@ -2,7 +2,7 @@
  * Public inbound-webhook receiver: `POST /api/webhooks/in/:token`.
  *
  * No session auth (the route sits under the identify middleware's
- * `/api/webhooks/**` exclusion) — every request is verified per-source
+ * `/api/webhooks/**` exclusion): every request is verified per-source
  * instead: HMAC-SHA256 over the raw body against the endpoint's secret,
  * optional source-IP allowlist, light per-token rate limit. All of that plus
  * the action (redeploy the bound service via the same primitive the UI uses)
@@ -21,7 +21,7 @@ import { resolveClient } from "@otterdeploy/api/security/trusted-proxy";
 
 /** Caller IP: the X-Forwarded-For first hop when the immediate peer is a
  * configured trusted proxy (Caddy fronts the server in production), else the
- * raw socket address — never a header an untrusted direct caller could set.
+ * raw socket address, never a header an untrusted direct caller could set.
  * Feeds the endpoint's IP allowlist, so trusting an unverified header here
  * would let anyone bypass it. See
  * packages/api/src/security/trusted-proxy.ts. */

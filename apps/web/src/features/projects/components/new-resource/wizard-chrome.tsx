@@ -41,7 +41,7 @@ export function isKindWired(kindId: string, kind: ServiceKind | null): boolean {
 // cap. Each helper is a pure presentational component over the wizard
 // state the body already computed; no hooks live in this band.
 
-// Per-step dispatch table — collapses the 11-way `step === "X" && cond
+// Per-step dispatch table. Collapses the 11-way `step === "X" && cond
 // && <StepX />` JSX chain (cyclomatic-36) into a Record lookup. Each
 // entry decides whether it should render for the current context and
 // returns the React node or `null`. WizardStepBody is now one lookup.
@@ -53,7 +53,7 @@ interface StepCtx {
   projectId: ProjectId;
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
-  /** Selecting a source IS the Source step's answer — advance on the click
+  /** Selecting a source IS the Source step's answer, advance on the click
    *  rather than making the operator confirm it with a second one. */
   onKindChosen: (kindId: string) => void;
 }
@@ -120,7 +120,7 @@ export function WizardStepBody({
 }
 
 /** Post-attempt footer strip: the human validation messages blocking
- *  Continue (deduped), never raw field names — "Pick a source to continue",
+ *  Continue (deduped), never raw field names: "Pick a source to continue",
  *  not "kindId". Only rendered after a failed Continue (see wizard.tsx). */
 export function RequiredHint({
   issues,
@@ -177,8 +177,15 @@ export function WizardFooter({
         Cancel
       </Button>
       {showAdvancedToggle && (
-        <label className="ml-1 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground select-none">
-          <Switch checked={advancedSetup} onCheckedChange={onAdvancedChange} />
+        <label
+          htmlFor="wizard-advanced-setup"
+          className="ml-1 flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground select-none"
+        >
+          <Switch
+            id="wizard-advanced-setup"
+            checked={advancedSetup}
+            onCheckedChange={onAdvancedChange}
+          />
           Advanced setup
         </label>
       )}
@@ -207,7 +214,7 @@ export function WizardFooter({
         disabled={createDisabled}
       >
         {/* In the engine sub-view, kindId is empty until an engine is picked,
-            which collapses the flow to one step — so guard the "Add resource"
+            which collapses the flow to one step, so guard the "Add resource"
             label behind !showDbBack and read "Continue" instead. */}
         {isLast && !showDbBack ? (isCreating ? "Adding…" : "Add resource") : "Continue"}
         {(!isLast || showDbBack) && (

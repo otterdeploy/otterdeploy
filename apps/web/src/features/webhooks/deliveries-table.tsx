@@ -1,6 +1,6 @@
 /**
  * Recent outbound delivery attempts (org-wide, newest first). Append-only
- * server data — a plain polling query, not a collection. One row per ATTEMPT
+ * server data: a plain polling query, not a collection. One row per ATTEMPT
  * (retries show as #2/#3 against the same target), matching the demo's
  * time / target / event / code / attempt / latency table.
  */
@@ -99,8 +99,8 @@ export function DeliveriesTable() {
                   colSpan={6}
                   className="py-6 text-center text-[12px] text-muted-foreground"
                 >
-                  No deliveries yet — they'll appear here when a subscribed event fires or you send
-                  a test.
+                  No deliveries yet. They'll appear here when a subscribed event fires or you send a
+                  test.
                 </TableCell>
               </TableRow>
             )}

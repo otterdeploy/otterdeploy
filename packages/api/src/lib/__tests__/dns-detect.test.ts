@@ -20,7 +20,7 @@ describe("zoneCandidates", () => {
   });
 
   it("includes multi-part suffixes as candidates rather than guessing registrability", () => {
-    // We are not parsing the public suffix list — we ask which label ANSWERS
+    // We are not parsing the public suffix list. We ask which label ANSWERS
     // NS. co.uk is a legitimate candidate to try; it simply won't be reached
     // because acme.co.uk answers first.
     expect(zoneCandidates("a.acme.co.uk")).toEqual(["a.acme.co.uk", "acme.co.uk", "co.uk"]);
@@ -50,7 +50,7 @@ describe("providerFromNameservers", () => {
   });
 
   it("does not match a lookalike domain that merely ends in the brand name", () => {
-    // `ns.cloudflare.com.evil.test` must not be read as Cloudflare — the suffix
+    // `ns.cloudflare.com.evil.test` must not be read as Cloudflare. The suffix
     // check anchors on a label boundary, not a substring.
     expect(providerFromNameservers(["ns.cloudflare.com.evil.test"])).toBe("unknown");
     expect(providerFromNameservers(["notns.cloudflare.com.attacker.net"])).toBe("unknown");

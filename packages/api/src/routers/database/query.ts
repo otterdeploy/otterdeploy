@@ -24,7 +24,7 @@ export interface DbConnInfo {
   projectSlug: string;
   resourceName: string;
   /** Used to find the running container by its `otterdeploy.resource.id` label
-   *  (runtime-agnostic — see findResourceContainerId). */
+   *  (runtime-agnostic, see findResourceContainerId). */
   resourceId: ResourceId;
 }
 
@@ -75,7 +75,7 @@ export async function runReadOnlyQuery(
 
 /**
  * Run a write statement (the data viewer's row mutations) and parse the
- * `RETURNING` grid. No read-only envelope — the caller must already have
+ * `RETURNING` grid. No read-only envelope. The caller must already have
  * checked the `database:write` capability. Throws on query error.
  */
 export async function runWriteQuery(
@@ -165,7 +165,7 @@ function quoteIdent(name: string): string {
 
 /**
  * Render a value as a SQL literal. `null` → `NULL`; everything else is a quoted
- * text literal — Postgres resolves the unknown-typed literal to the column type
+ * text literal: Postgres resolves the unknown-typed literal to the column type
  * via assignment/comparison cast (same discipline as the read path's builders).
  */
 function literal(value: string | null): string {

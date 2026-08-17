@@ -119,7 +119,7 @@ describe("script builders", () => {
   });
 });
 
-describe("meshInstallScript — wildcard DNS label (od-3vy keystone)", () => {
+describe("meshInstallScript: wildcard DNS label (od-3vy keystone)", () => {
   test("registers the wildcard label so private hostnames resolve", () => {
     const script = meshInstallScript("netbird", "KEY", "sudo", null, "od");
     // One label at join covers every private service on the node.

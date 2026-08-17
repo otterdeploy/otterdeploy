@@ -1,5 +1,5 @@
 /**
- * The Servers node table (+ its empty state) — extracted from ServersRoute so
+ * The Servers node table (+ its empty state), extracted from ServersRoute so
  * the route stays inside the lint size budget and the table's column set has
  * one home. Rows open the per-server health sheet via onOpenServer.
  */
@@ -43,7 +43,7 @@ export function ServersTable({
   servers: Server[];
   statsByServer: ReadonlyMap<string, ServerRowStats>;
   healthByServer: ReadonlyMap<string, ServerHealthEntry>;
-  /** Swarm node per server id — empty on the plain-docker runtime, where the
+  /** Swarm node per server id: empty on the plain-docker runtime, where the
    *  role column falls back to the registered (DB) role. */
   nodesByServer: ReadonlyMap<string, SwarmNode>;
   onOpenServer: (serverId: string) => void;
@@ -81,7 +81,7 @@ export function ServersTable({
     <Card className="min-w-0 gap-0 overflow-hidden rounded-md p-0">
       {/* Below `md` the table's fixed columns would be a sideways scroll on a
           phone, so the same rows render stacked instead. One card, divided
-          rows — not a card per server, which would nest cards. */}
+          rows, not a card per server, which would nest cards. */}
       <div className="divide-y divide-border/60 md:hidden">
         {servers.map((server) => (
           <ServerMobileRow

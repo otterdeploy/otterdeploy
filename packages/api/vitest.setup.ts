@@ -5,7 +5,7 @@
 // variables". This setup file runs before any test module is imported, so it
 // satisfies every REQUIRED (non-optional, no-default) field in
 // packages/env/src/server.ts. `??=` so a real value from the environment
-// always wins — we never weaken or override a configured var.
+// always wins: we never weaken or override a configured var.
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: this file IS the env setup, run before any test module imports the validated env schema.
 process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).

@@ -1,5 +1,5 @@
 /**
- * The Settings tab's lifecycle mutations — rebuild/redeploy, pause/resume,
+ * The Settings tab's lifecycle mutations. Rebuild/redeploy, pause/resume,
  * teardown, keep-alive, and the DB-branch enable/disable/reset trio. Each
  * invalidates the previews list on success and toasts either way.
  */

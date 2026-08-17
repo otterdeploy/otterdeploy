@@ -6,7 +6,7 @@ import {
 } from "@otterdeploy/ui/error-screen";
 
 /**
- * 404 — wired into the router as `defaultNotFoundComponent` (see router.tsx).
+ * 404, wired into the router as `defaultNotFoundComponent` (see router.tsx).
  *
  * Shares `ErrorScreen` with the control panel so a wrong URL looks the same
  * whether you hit it here or in the dashboard. Copy is inline rather than
@@ -29,8 +29,8 @@ export function NotFound() {
       statusTag="NO_MATCH"
       message={
         <>
-          Nothing is published at <span className={errorPathClass}>{shown}</span>. It may have moved
-          — the docs are the best place to look.
+          Nothing is published at <span className={errorPathClass}>{shown}</span>. It may have
+          moved. The docs are the best place to look.
         </>
       }
       actions={

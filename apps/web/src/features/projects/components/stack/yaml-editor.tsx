@@ -1,5 +1,5 @@
 /**
- * Editable YAML surface — a textarea with a synchronized line-number
+ * Editable YAML surface. A textarea with a synchronized line-number
  * gutter on the left. Plain monospace, no syntax highlighting in edit
  * mode (the highlighted YamlView is the read-only counterpart). The
  * gutter scrolls in lockstep with the textarea via a shared scrollTop

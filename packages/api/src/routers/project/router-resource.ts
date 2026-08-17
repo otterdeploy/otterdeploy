@@ -145,7 +145,7 @@ export const resourceRouter = {
     tail: orgScopedProcedure.project.resource.logs.tail.handler(
       // Eager handler that returns the iterator synchronously. We MUST
       // call context.log.set() before the body becomes a streaming
-      // response — otherwise evlog has already flushed the wide event by
+      // response: otherwise evlog has already flushed the wide event by
       // the time the generator's body would run, and the fields land in
       // /dev/null. Same reason the `postgres.create` handler does
       // validation + log.set eagerly before returning its generator.
@@ -166,7 +166,7 @@ export const resourceRouter = {
   },
 
   taskLogs: {
-    // Per-task variant — drives the deployment-detail expander. Same
+    // Per-task variant: drives the deployment-detail expander. Same
     // eager-handler pattern as logs.tail above: log.set runs before the
     // generator body so evlog sees the target fields.
     tail: orgScopedProcedure.project.resource.taskLogs.tail.handler(({ input, context }) => {
@@ -224,7 +224,7 @@ export const resourceRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
-          // The message carries the PR numbers — surface it rather than the
+          // The message carries the PR numbers. Surface it rather than the
           // generic contract string, or the operator learns nothing actionable.
           DatabaseHasBranchesError: (e) => errors.CONFLICT({ message: e.message }),
         });

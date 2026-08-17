@@ -1,6 +1,6 @@
 /**
  * Row-level pieces of the Custom certificates table: the honest status badge
- * (never optimistic — "Serving at edge" only appears when the live probe's
+ * (never optimistic, "Serving at edge" only appears when the live probe's
  * leaf fingerprint matches the stored one) and the delete confirm button.
  */
 import { Delete02Icon } from "@hugeicons/core-free-icons";
@@ -51,7 +51,7 @@ export function CustomStatusBadge({
           className="text-destructive"
           dot="bg-destructive"
           label={t("certificates.state.installFailed")}
-          tip={status.detail ?? "Installation failed — replace the certificate to retry."}
+          tip={status.detail ?? "Installation failed. Replace the certificate to retry."}
         />
       );
     case "unrouted":
@@ -138,7 +138,7 @@ export function DeleteCertButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete the certificate for “{hostname}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            The stored chain and key are removed and the edge is re-rendered without them — the
+            The stored chain and key are removed and the edge is re-rendered without them. The
             domain immediately falls back to its ACME or self-signed certificate. This can't be
             undone.
           </AlertDialogDescription>

@@ -20,12 +20,12 @@ export type InstallationView = z.infer<typeof gitInstallationViewSchema>;
 /**
  * Org-scoped git providers for the active org. Read-only collection: the page
  * just lists providers + their installations. Mutations stay as plain oRPC
- * calls in the components — `disconnect`/`refreshRepos` are installation-scoped
+ * calls in the components. `disconnect`/`refreshRepos` are installation-scoped
  * (not provider-scoped), and connect is a one-shot bootstrap that redirects off
  * to GitHub, so neither maps onto a collection delete/insert.
  */
 const gitProvidersQueryOptions = queryCollectionOptions({
-  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // Stable id: persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "git-providers",
   ...orpc.git.list.queryOptions({ input: undefined }),
@@ -37,7 +37,7 @@ const gitProvidersQueryOptions = queryCollectionOptions({
 
 type GitProviderRow = Awaited<ReturnType<typeof orpc.git.list.call>>[number];
 
-// Call `createCollection` inside each branch — the persisted and plain option
+// Call `createCollection` inside each branch. The persisted and plain option
 // objects are different types (see project.ts for the full type note).
 export const gitProvidersCollection = persistence
   ? createCollection(

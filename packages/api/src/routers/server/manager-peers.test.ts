@@ -12,8 +12,8 @@ describe("managerPeerScript", () => {
 
   test("validates the edited ruleset and reverts it if it would not parse", () => {
     const script = managerPeerScript(["10.1.2.3"]);
-    // Backup must be taken before the edit, and restored on a parse failure —
-    // a corrupt ruleset here would lock the operator out of the manager.
+    // Backup must be taken before the edit, and restored on a parse failure.
+    // A corrupt ruleset here would lock the operator out of the manager.
     expect(script.indexOf(".bak")).toBeLessThan(script.indexOf("sed -i"));
     expect(script).toContain("nft -c -f");
     expect(script).toContain("peer-persist-reverted");

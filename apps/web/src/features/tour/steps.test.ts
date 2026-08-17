@@ -12,7 +12,7 @@ const base: TourContext = {
 describe("buildTourSteps", () => {
   it("opens on a centered welcome step and ends on a centered closing step", () => {
     const steps = buildTourSteps(base);
-    // A centered step (no element) is driver.js's modal form — the right shape
+    // A centered step (no element) is driver.js's modal form. The right shape
     // for a beat that introduces or closes rather than points at something.
     expect(steps[0].id).toBe("welcome");
     expect(steps[0].element).toBeUndefined();
@@ -27,7 +27,7 @@ describe("buildTourSteps", () => {
     expect(ids).not.toContain("projectGraph");
     expect(ids).not.toContain("deployments");
     expect(ids).not.toContain("logs");
-    // The shell and server chapters still apply — they're what a fresh org
+    // The shell and server chapters still apply. They're what a fresh org
     // actually needs first.
     expect(ids).toContain("sidebar");
     expect(ids).toContain("addServer");

@@ -13,7 +13,7 @@ describe("logTabForStatus", () => {
     }
   });
 
-  test("never returns the details tab — this control is labelled View logs", () => {
+  test("never returns the details tab; this control is labelled View logs", () => {
     for (const s of ["running", "superseded", "removed", "weird-new-status", null, undefined]) {
       expect(logTabForStatus(s)).not.toBe("details");
     }

@@ -4,7 +4,7 @@
  * the row-detail slot.
  *
  * Split out of dice-grid.tsx because every one of these carried branching (or
- * lines) the grid component itself was being charged for — the adapter file is
+ * lines) the grid component itself was being charged for. The adapter file is
  * now just the wiring between the query result and the vendored DiceUI grid,
  * while the pieces that decide *what* a value/row/selection is live here.
  */
@@ -29,10 +29,13 @@ function boolWord(v: string): string {
  *  `data.reason`), falling back to a default. */
 export function errText(error: unknown, fallback: string): string {
   if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
+    if ("data" in error) {
+      const data = error.data;
+      if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+        return data.reason;
+      }
+    }
+    if ("message" in error && typeof error.message === "string") return error.message;
   }
   return fallback;
 }

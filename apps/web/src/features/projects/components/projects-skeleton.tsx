@@ -1,6 +1,6 @@
 /**
- * Loading placeholder for the projects list. Mirrors the real layout — page
- * header + a responsive grid of project cards — so the page doesn't jump when
+ * Loading placeholder for the projects list. Mirrors the real layout: page
+ * header + a responsive grid of project cards, so the page doesn't jump when
  * data arrives. Used as the route `pendingComponent` and the live-query
  * loading fallback.
  */

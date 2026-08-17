@@ -31,7 +31,7 @@ describe("authorizeKeyScope (per-key permission map)", () => {
   });
 });
 
-describe("authorizeRoleScope (DECISION A — member-role cap)", () => {
+describe("authorizeRoleScope (DECISION A: member-role cap)", () => {
   test("members lack database:write ⇒ denied even if key would list it", () => {
     expect(authorizeRoleScope({ database: ["write"] })).toBe(false);
   });

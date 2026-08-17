@@ -1,7 +1,7 @@
 /**
  * In-memory store for the operational log plane (Phase 3): a bounded ring
  * buffer plus a live pub/sub, mirroring ring.ts. Far lower volume than access
- * logs, so a smaller cap. v1 is live-tail-only (no DB table) — persistence is
+ * logs, so a smaller cap. v1 is live-tail-only (no DB table). Persistence is
  * deferred (see docs/designs/edge-logs.md §7.3). Module singleton on
  * globalThis for the same `--hot`-reload reason as the access ring.
  */
@@ -10,16 +10,20 @@ import type { EdgeEventFilter, EdgeEventLine, EdgeEventQueryResult } from "./typ
 
 import { RANGE_MS } from "./ring";
 
-/** Operational events are sparse vs. access logs — a small ring is plenty. */
+/** Operational events are sparse vs. access logs. A small ring is plenty. */
 const MAX_EVENTS = 5_000;
 
 type Subscriber = (line: EdgeEventLine) => void;
 
-const state = ((
-  globalThis as typeof globalThis & {
-    __edgeEventRing?: { buffer: EdgeEventLine[]; subscribers: Set<Subscriber> };
-  }
-).__edgeEventRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
+declare global {
+  // `var` (not let/const) is what lands the declaration on `typeof globalThis`.
+  var __edgeEventRing: { buffer: EdgeEventLine[]; subscribers: Set<Subscriber> } | undefined;
+}
+
+const state = (globalThis.__edgeEventRing ??= {
+  buffer: [],
+  subscribers: new Set<Subscriber>(),
+});
 
 export function pushEdgeEvent(line: EdgeEventLine): void {
   state.buffer.push(line);
@@ -33,7 +37,7 @@ export function subscribeEdgeEvents(fn: Subscriber): () => void {
   return () => state.subscribers.delete(fn);
 }
 
-/** Hosts an event is attributable to — the single `host` plus any batch
+/** Hosts an event is attributable to. The single `host` plus any batch
  *  `domains`. An event is visible to a caller iff one of these is in scope. */
 export function eventHosts(line: EdgeEventLine): string[] {
   return line.host ? [line.host, ...line.domains] : line.domains;
@@ -41,7 +45,7 @@ export function eventHosts(line: EdgeEventLine): string[] {
 
 /** True when the event touches at least one of the caller's hosts. Events with
  *  no attributable host at all (config reloads, server lifecycle) are NOT
- *  surfaced in the org/project-scoped UI — they'd leak nothing, but they're
+ *  surfaced in the org/project-scoped UI. They'd leak nothing, but they're
  *  also not actionable per-tenant; an operator surface is future work. */
 function inScope(line: EdgeEventLine, hosts: string[]): boolean {
   const owned = new Set(hosts);
@@ -99,7 +103,7 @@ export function queryEdgeEvents(filter: EdgeEventFilter, now: number): EdgeEvent
   return filterEdgeEvents(state.buffer, filter, now);
 }
 
-/** Test seam — drain the buffer between tests. */
+/** Test seam: drain the buffer between tests. */
 export function __resetEdgeEvents(): void {
   state.buffer.length = 0;
   state.subscribers.clear();

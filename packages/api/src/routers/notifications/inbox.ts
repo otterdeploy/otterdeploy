@@ -1,5 +1,5 @@
 /**
- * In-app inbox queries — the session user's own `notification` rows (written
+ * In-app inbox queries: the session user's own `notification` rows (written
  * by the `notification.send` job), scoped to the active org plus account-level
  * (org-null) rows. Split from queries.ts, which holds the channel/subscription
  * queries. All writes are guarded by userId so one user can never mark

@@ -1,10 +1,8 @@
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { useState, type ReactElement } from "react";
 
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { ID_PREFIX, createId, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -24,9 +22,14 @@ import { Input } from "@/shared/components/ui/input";
 
 import { projectCollection } from "../data/project";
 
-// `.slugify()` alone — used to derive the slug live as the user types the name.
+// `.slugify()` alone, used to derive the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.
 const slugifier = z.string().slugify();
+
+// Brands the (already slugified + length-checked) form value as a ProjectSlug
+// for the route param. Re-runs the same slugify/min/max pipeline, so a value
+// the form schema accepted parses to itself, just branded.
+const projectSlugSchema = zSlug(ID_PREFIX.project);
 
 const schema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -37,7 +40,7 @@ const schema = z.object({
 
 /** The optimistic row for a brand-new project: everything the collection needs
  *  so the destination route can render immediately, with every count and
- *  binding at its true empty value. Module-level because it's pure data — it
+ *  binding at its true empty value. Module-level because it's pure data. It
  *  also keeps the component under the max-lines-per-function ceiling. */
 function newProjectRow(value: { name: string; slug: string }) {
   const now = new Date();
@@ -57,7 +60,7 @@ function newProjectRow(value: { name: string; slug: string }) {
     customDomain: null,
     customDomainVerifiedAt: null,
     customDomainVerifyToken: null,
-    // Git source / image target moved to the SERVICE — no project-level
+    // Git source / image target moved to the SERVICE, no project-level
     // build binding on the row anymore.
     nixpacksConfig: null,
     graphLayout: {},
@@ -67,11 +70,11 @@ function newProjectRow(value: { name: string; slug: string }) {
 }
 
 interface CreateProjectDialogProps {
-  /** Uncontrolled usage (org-home "New project" button) — omit `open` and
+  /** Uncontrolled usage (org-home "New project" button): omit `open` and
    *  the dialog manages its own visibility, toggled by this trigger. */
   trigger?: ReactElement;
-  /** Controlled usage (header project switcher's "New project" menu item) —
-   *  the caller owns the open state since the trigger lives inside a
+  /** Controlled usage (header project switcher's "New project" menu item).
+   *  The caller owns the open state since the trigger lives inside a
    *  DropdownMenuItem that unmounts on click, before an internally-tracked
    *  open state would have a chance to flip. */
   open?: boolean;
@@ -85,7 +88,7 @@ export function CreateProjectDialog({
 }: CreateProjectDialogProps) {
   const navigate = useNavigate();
   // Both mount points (org home, header switcher) live under /$orgSlug, so the
-  // slug is always in scope here — no prop-drilling from the two callers.
+  // slug is always in scope here, no prop-drilling from the two callers.
   const { orgSlug } = useParams({ from: "/_app/$orgSlug" });
   const [openState, setOpenState] = useState(false);
   const isControlled = openProp !== undefined;
@@ -103,18 +106,18 @@ export function CreateProjectDialog({
 
       // Close and go straight to the new project. The optimistic row is
       // already in `projectCollection`, so the destination renders its real
-      // name and slug immediately — there is no server round-trip to wait on
+      // name and slug immediately: there is no server round-trip to wait on
       // and nothing to spin against ("fast is a feature": creating a thing
       // should land you on the thing).
       setOpen(false);
       void navigate({
         to: "/$orgSlug/$projectSlug",
-        params: { orgSlug, projectSlug: value.slug as ProjectSlug },
+        params: { orgSlug, projectSlug: projectSlugSchema.parse(value.slug) },
       });
 
       // Surface server-side failures asynchronously; tanstack/db rolls back
       // the optimistic row on rejection. Bounce back off the now-dead route so
-      // the operator isn't stranded on a project that no longer exists —
+      // the operator isn't stranded on a project that no longer exists.
       // "honest about system state" cuts both ways: the optimistic jump is
       // only honest if a rejection undoes it visibly.
       tx.isPersisted.promise.catch((error) => {
@@ -128,10 +131,10 @@ export function CreateProjectDialog({
   // keystroke. Without this, `form.getFieldValue("slug")` would only read
   // the value at the initial render and the live query below would never
   // re-run.
-  const slug = useStore(form.store, (s) => s.values.slug);
+  const slug = useSelector(form.store, (s) => s.values.slug);
 
   // Reactive uniqueness check against rows already in the collection. No
-  // server roundtrip needed — `projectCollection` holds the org's projects.
+  // server roundtrip needed. `projectCollection` holds the org's projects.
   const { data: conflict } = useLiveQuery(
     (q) =>
       q
@@ -186,7 +189,6 @@ export function CreateProjectDialog({
                     field.handleChange(next);
                     form.setFieldValue("slug", slugifier.parse(next));
                   }}
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={err?.message}>{err?.message}</FieldError>

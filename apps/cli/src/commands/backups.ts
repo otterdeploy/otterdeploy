@@ -109,14 +109,14 @@ const runCmd = defineCommand({
         );
       }
       if (!only) {
-        // The choices must print BEFORE the abort — `abort` exits, so anything
+        // The choices must print BEFORE the abort. `abort` exits, so anything
         // after it would never reach the terminal.
         err();
         for (const d of destinations) {
           row([paint("id", d.id), d.name, dim(`(${d.type})`)]);
         }
         err();
-        abort(`${destinations.length} destinations exist — pick one.`, "pass `--destination <id>`");
+        abort(`${destinations.length} destinations exist. Pick one.`, "pass `--destination <id>`");
       }
       destinationId = only.id;
       note(`Using the only destination: ${only.name} ${dim(`(${only.id})`)}.`);
@@ -132,7 +132,7 @@ const runCmd = defineCommand({
 const restoreCmd = defineCommand({
   meta: {
     name: "restore",
-    description: "Restore a backup in place — OVERWRITES the live database",
+    description: "Restore a backup in place (OVERWRITES the live database)",
   },
   args: {
     backupId: { type: "positional", required: true, description: "Backup id (bak_…, prefix ok)" },
@@ -168,7 +168,7 @@ const restoreCmd = defineCommand({
       // This guard must exit: restoring from a failed or in-flight backup would
       // overwrite a live database from an incomplete dump.
       abort(
-        `Backup ${shortId(backup.id)} is ${backup.status} — only succeeded backups restore.`,
+        `Backup ${shortId(backup.id)} is ${backup.status}. Only succeeded backups restore.`,
         `run \`${cmd("backups list")}\` to find a completed one`,
       );
     }
@@ -204,7 +204,7 @@ const restoreCmd = defineCommand({
       confirmation = (await ask(`Type "${expected}" to confirm`)) ?? "";
     }
     if (confirmation !== expected && confirmation !== backup.resourceId) {
-      abort("Confirmation did not match — nothing was restored.");
+      abort("Confirmation did not match. Nothing was restored.");
     }
 
     const result = await client.backups.restore({

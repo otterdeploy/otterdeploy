@@ -4,7 +4,7 @@
  * anything to paste back.
  *
  * Split from ./settings-cloudflare so that file stays about the token and the
- * zone it resolves — nothing here holds form state.
+ * zone it resolves; nothing here holds form state.
  */
 
 import { Button } from "@/shared/components/ui/button";
@@ -31,7 +31,7 @@ export type CloudflareZone = Awaited<
 // Cloudflare API-token deep link. `permissionGroups` is the documented
 // query param that pre-selects the scope on the create-token page; the
 // user only has to pick the zone under "Zone Resources" and hit Create.
-// We pass "Zone.DNS:Edit" — the minimum scope auto-configure DNS needs.
+// We pass "Zone.DNS:Edit", the minimum scope auto-configure DNS needs.
 // (Cloudflare doesn't offer OAuth for DNS, so this is as close to
 // one-click as their dashboard allows.)
 const CLOUDFLARE_TOKEN_TEMPLATE_URL =
@@ -51,7 +51,7 @@ export function StepNumber({ n }: { n: number }) {
   );
 }
 
-/** Steps 1 and 2 — open Cloudflare with the scopes pre-filled, then create and
+/** Steps 1 and 2: open Cloudflare with the scopes pre-filled, then create and
  *  copy the token there. Renders the bare <li>s so they stay children of the
  *  parent's <ol> and keep their numbering. */
 export function TokenSetupSteps() {
@@ -88,7 +88,7 @@ export function TokenSetupSteps() {
  * The tail of step 3: pick which zone this token should manage.
  *
  * Only rendered once a token has resolved zones, and it belongs to the token
- * that produced it — which is why it is part of step 3 rather than a fourth
+ * that produced it, which is why it is part of step 3 rather than a fourth
  * step. Lives here with the rest of the connect-flow markup so
  * settings-cloudflare.tsx stays about the mutations and form wiring; it was
  * the largest block in that file and pushed it over the line cap.
@@ -113,7 +113,7 @@ export function ZonePicker({
   if (zones.length === 0) {
     return (
       <p className="text-[12px] text-muted-foreground">
-        That token works, but it can't reach any zones — check its scope covers the zone you want.
+        That token works, but it can't reach any zones. Check its scope covers the zone you want.
       </p>
     );
   }
@@ -147,7 +147,7 @@ export function ZonePicker({
               <ComboboxItem key={zone.id} value={zone} className="text-[13px]">
                 <span className="min-w-0 flex-1 truncate">{zone.name}</span>
                 {/* Cloudflare reports zones that aren't serving yet
-                    ("pending") — worth seeing before you pick one and wonder
+                    ("pending"), worth seeing before you pick one and wonder
                     why DNS never applies. */}
                 {zone.status !== "active" && (
                   <span className="shrink-0 text-[11px] text-muted-foreground">{zone.status}</span>

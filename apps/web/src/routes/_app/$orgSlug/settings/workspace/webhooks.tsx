@@ -1,11 +1,13 @@
 /**
- * Webhooks page — Outbound (signed event POSTs + recent-deliveries log) and
+ * Webhooks page: Outbound (signed event POSTs + recent-deliveries log) and
  * Inbound (unique trigger URLs) behind line tabs, backed by the
  * `outboundCollection` / `inboundCollection` (oRPC `webhooks` router).
  * Outbound webhooks fire on the same platform-event catalog notifications
  * route; inbound endpoints verify HMAC + IP allowlist before acting.
  */
 import { useState } from "react";
+
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { Download01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -81,14 +83,14 @@ function RouteComponent() {
     const tx = editingOutbound
       ? outboundCollection.update(editingOutbound.id, (draft) => {
           draft.url = values.url;
-          draft.events = values.events as OutboundWebhook["events"];
+          draft.events = values.events;
         })
       : outboundCollection.insert({
-          // Optimistic placeholder — the real row (server id, minted secret)
+          // Optimistic placeholder: the real row (server id, minted secret)
           // replaces this on the post-create refetch.
-          id: crypto.randomUUID() as OutboundWebhook["id"],
+          id: createId(ID_PREFIX.webhook),
           url: values.url,
-          events: values.events as OutboundWebhook["events"],
+          events: values.events,
           status: "active",
           totalDeliveries: 0,
           successRate: null,

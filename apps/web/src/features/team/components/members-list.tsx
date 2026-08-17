@@ -1,7 +1,7 @@
 /**
  * Current organization members. Owners/admins can remove others; the row
  * for the signed-in user is marked "You" and never removable. Last-owner
- * protection is enforced server-side by better-auth — we surface any error.
+ * protection is enforced server-side by better-auth. We surface any error.
  *
  * Reads/mutates `membersCollection` directly: removal is an optimistic
  * `collection.delete`, with rollback/toast off the transaction's
@@ -27,7 +27,7 @@ import {
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 /** Roles an admin/owner can assign to a member from the list. Owners are not
- *  offered here — transferring ownership is a separate, deliberate action. */
+ *  offered here, transferring ownership is a separate, deliberate action. */
 const ROLE_OPTIONS = [
   { value: "member", label: "Member" },
   { value: "admin", label: "Admin" },
@@ -92,13 +92,15 @@ function MemberRow({
 
   const changeRole = (next: string) => {
     if (!next || next === member.role) return;
+    // The Select only surfaces ROLE_OPTIONS values; recover the union member
+    // from the raw string rather than trusting it.
+    const role = ROLE_OPTIONS.find((r) => r.value === next)?.value;
+    if (role === undefined) return;
     // Optimistic: the Select's value is already `member.role`, so the collection
     // update reflects instantly and rolls back itself on failure.
     membersCollection
       .update(member.id, (draft) => {
-        // The Select only surfaces valid role values, so narrow the string back to
-        // the role union the collection field expects.
-        draft.role = next as typeof member.role;
+        draft.role = role;
       })
       .isPersisted.promise.catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Failed to update role"),

@@ -6,7 +6,7 @@
  * load-bearing: `resource-delete.ts` strips the database from the manifest
  * FIRST, on purpose, so a partial teardown diffs as a recoverable delete rather
  * than a phantom create. If the destroy is instead allowed to fail partway, the
- * manifest entry is already gone while the data is still on disk — the worst of
+ * manifest entry is already gone while the data is still on disk, the worst of
  * both.
  *
  * Under the `copy` strategy a branch is an independent volume, so the base
@@ -14,7 +14,7 @@
  * `branchedFromResourceId` that resolves to nothing. Under `zfs` it is stronger
  * than a preference: a clone pins its origin snapshot, and ZFS refuses to
  * destroy a dataset while a clone depends on it. The guard is therefore
- * strategy-independent — one rule, and the ZFS case cannot be forgotten.
+ * strategy-independent: one rule, and the ZFS case cannot be forgotten.
  *
  * The message names the pull requests, because a filesystem error about
  * dependent clones is unactionable: nothing in the UI connects a dataset to
@@ -59,7 +59,7 @@ async function branchDependentsOf(baseResourceId: ResourceId): Promise<BranchDep
  *
  * Pinned previews are called out separately because the resolution differs: an
  * ordinary preview is reaped at `auto_teardown_at`, so waiting works and the
- * block clears itself. A pinned one never expires — it needs a person.
+ * block clears itself. A pinned one never expires: it needs a person.
  */
 export function branchDependentsMessage(dependents: BranchDependent[]): string | null {
   if (dependents.length === 0) return null;
@@ -70,7 +70,7 @@ export function branchDependentsMessage(dependents: BranchDependent[]): string |
   const base = `${dependents.length} ${noun} on this database: ${list}.`;
 
   return dependents.some((d) => d.pinned)
-    ? `${base} Close those pull requests, or unpin the pinned ones — a pinned preview is never torn down automatically.`
+    ? `${base} Close those pull requests, or unpin the pinned ones. A pinned preview is never torn down automatically.`
     : `${base} Close those pull requests, or wait for the previews to be torn down.`;
 }
 

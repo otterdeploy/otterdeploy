@@ -1,13 +1,13 @@
 import type { RequestLogger } from "evlog";
 
 /**
- * SnapshotDriver abstraction — the copy-on-write DB-branching seam, consistent
+ * SnapshotDriver abstraction: the copy-on-write DB-branching seam, consistent
  * with the `RuntimeDriver` pattern. A `SnapshotDriver` knows how to materialize
  * one database's volume as a branch of another's (and tear it down). The active
  * driver is selected at boot by `DB_BRANCH_STRATEGY` (see ./index.ts).
  *
  * Zod-first: every value set / spec is a `z.enum` / `z.object`, and the TS types
- * are inferred — one source of truth gives a runtime validator AND the static
+ * are inferred. One source of truth gives a runtime validator AND the static
  * type. The `branch_strategy` pg enum in @otterdeploy/db shares this value set.
  * See docs/designs/pr-previews.md §4.1.
  */
@@ -15,10 +15,11 @@ import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/datab
 import * as z from "zod";
 
 // Engine value set, derived from the shared catalog so adding an engine there
-// keeps this validator in sync (no hand-written duplicate).
-const databaseEngineSchema = z.enum(
-  Object.keys(DATABASE_ENGINES) as [DatabaseEngine, ...DatabaseEngine[]],
-);
+// keeps this validator in sync (no hand-written duplicate). Membership in the
+// catalog is the runtime check, and the guard narrows to the shared type.
+const databaseEngineSchema = z
+  .string()
+  .refine((v): v is DatabaseEngine => v in DATABASE_ENGINES, "unknown database engine");
 
 // Strategy a branch was actually materialized with (matches branchStrategyEnum
 // in @otterdeploy/db schema/project.ts §3.3).

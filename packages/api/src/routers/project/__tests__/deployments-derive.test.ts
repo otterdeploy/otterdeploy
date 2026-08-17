@@ -98,7 +98,7 @@ describe("deriveDeploymentStatus", () => {
   // ─── NOT crashes ─────────────────────────────────────────────────────
 
   test("operator stop (clean exit 0, no restarts) keeps the stored running status", () => {
-    // e.g. a stopped database — must not read as crashed.
+    // e.g. a stopped database. Must not read as crashed.
     const status = deriveDeploymentStatus(
       "running",
       true,
@@ -237,7 +237,7 @@ describe("deriveDeploymentStatus", () => {
     expect(status).toBe("paused");
   });
 
-  test("paused only applies to the latest row — history keeps its real outcome", () => {
+  test("paused only applies to the latest row. History keeps its real outcome", () => {
     const status = deriveDeploymentStatus("running", false, [], fresh(), false, true);
     expect(status).toBe("superseded");
   });
@@ -245,7 +245,7 @@ describe("deriveDeploymentStatus", () => {
 
 // ─── cancelled is terminal by operator intent ───────────────────────────────
 
-describe("deriveDeploymentStatus — cancelled", () => {
+describe("deriveDeploymentStatus, cancelled", () => {
   test("survives the failed tasks that cancelling itself leaves behind", () => {
     // Cancelling force-removes the helper mid-build, so docker routinely reports
     // failed tasks afterwards. Deriving from those would relabel a deliberate

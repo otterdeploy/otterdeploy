@@ -2,11 +2,11 @@
  * Git provider RPC contract.
  *
  * Surface:
- *   list           — providers + installations + repo counts for the active org
- *   startConnect   — returns the GitHub App install URL with a signed state
- *   disconnect     — soft-revokes an installation
- *   refreshRepos   — re-syncs the installation's repo list from GitHub
- *   listRepos      — accessible repos for an installation (DB-side, no API)
+ *   list: providers + installations + repo counts for the active org
+ *   startConnect: returns the GitHub App install URL with a signed state
+ *   disconnect: soft-revokes an installation
+ *   refreshRepos: re-syncs the installation's repo list from GitHub
+ *   listRepos: accessible repos for an installation (DB-side, no API)
  */
 
 import { oc } from "@orpc/contract";
@@ -43,7 +43,7 @@ export const gitInstallationViewSchema = z.object({
   revokedAt: z.date().nullable(),
   createdAt: z.date(),
   /** Repos GitHub grants this installation. Null = never successfully
-   *  fetched (or revoked) — render "—", not 0. */
+   *  fetched (or revoked). Render "–", not 0. */
   repoCount: z.number().int().min(0).nullable(),
 });
 
@@ -71,18 +71,18 @@ const startConnectInput = z.object({
 
 const startConnectOutput = z.object({
   /** Absolute URL the operator should be redirected to. */
-  redirectUrl: z.string().url(),
+  redirectUrl: z.url(),
 });
 
 const startManifestInput = z.object({
-  /** Optional GitHub org login — when set, the manifest form POSTs to
+  /** Optional GitHub org login: when set, the manifest form POSTs to
    *  the org's app-creation URL so the operator doesn't have to switch
    *  account context on GitHub. */
   accountLogin: z.string().min(1).nullable().optional(),
   /** Optional override of the App's display name. Defaults to "Otterdeploy".
    *  GitHub App names are globally unique, so the UI pre-fills a random one. */
   appName: z.string().min(1).optional(),
-  /** GitHub host to create the App on — omit for github.com, or a GHE
+  /** GitHub host to create the App on, omit for github.com, or a GHE
    *  hostname (e.g. "github.acme.com") for a self-hosted Enterprise instance. */
   host: z.string().min(1).optional(),
   returnTo: returnToField,
@@ -90,8 +90,8 @@ const startManifestInput = z.object({
 
 const startManifestOutput = z.object({
   /** Where the UI's auto-submitted form should POST. */
-  formActionUrl: z.string().url(),
-  /** JSON string — the value of the form's "manifest" field. */
+  formActionUrl: z.url(),
+  /** JSON string: the value of the form's "manifest" field. */
   manifestJson: z.string(),
 });
 
@@ -104,7 +104,7 @@ const refreshReposInput = z.object({
 });
 
 const refreshReposOutput = z.object({
-  /** GitHub's `total_count` for the installation — a successful sync always
+  /** GitHub's `total_count` for the installation. A successful sync always
    *  yields a real number, so this stays non-null. */
   repoCount: z.number().int().min(0),
 });
@@ -114,7 +114,7 @@ const listInstallationReposInput = z.object({
 });
 
 const connectPublicRepoInput = z.object({
-  // Any https:// clone URL — the handler validates + normalizes it.
+  // Any https:// clone URL: the handler validates + normalizes it.
   // SSH (`git@host:owner/repo.git`) is rejected: we'd need a per-org
   // deploy key to clone, which is its own credentials surface.
   cloneUrl: z.string().min(1),
@@ -212,7 +212,7 @@ const providerDetailSchema = z.object({
   appSlug: z.string().nullable(),
   externalAppId: z.string().nullable(),
   createdAt: z.date(),
-  /** Secrets are never returned — just whether each is present at rest. */
+  /** Secrets are never returned. Just whether each is present at rest. */
   secretsConfigured: z.object({
     clientSecret: z.boolean(),
     webhookSecret: z.boolean(),
@@ -274,11 +274,11 @@ export const gitContract = {
         status: 503,
         message: "GitHub App is not configured on this instance" as const,
       },
-      // GitHub no longer recognizes the installation — the client shows a
+      // GitHub no longer recognizes the installation: the client shows a
       // "Reinstall" action rather than a dead-end error.
       REINSTALL_REQUIRED: {
         status: 409,
-        message: "This GitHub installation is no longer valid — reinstall the app" as const,
+        message: "This GitHub installation is no longer valid, reinstall the app" as const,
       },
     })
     .meta({
@@ -302,7 +302,7 @@ export const gitContract = {
       },
       REINSTALL_REQUIRED: {
         status: 409,
-        message: "This GitHub installation is no longer valid — reinstall the app" as const,
+        message: "This GitHub installation is no longer valid, reinstall the app" as const,
       },
     })
     .meta({
@@ -334,7 +334,7 @@ export const gitContract = {
     .output(z.array(gitRepoViewSchema)),
   // Register a public Git URL as a gitRepo row (no installation, no
   // webhook, no token mint). Project-level binding still flows through
-  // project.update — this just makes the gitRepoId exist.
+  // project.update. This just makes the gitRepoId exist.
   connectPublicRepo: oc
     .errors({
       INVALID_URL: {
@@ -380,7 +380,7 @@ export const gitContract = {
     })
     .input(listBranchesInput)
     .output(listBranchesOutput),
-  // Bound repo's name/default branch straight from the DB — no GitHub call,
+  // Bound repo's name/default branch straight from the DB, no GitHub call,
   // so the binding display never depends on (rate-limitable) inspect.
   getRepo: oc
     .errors({

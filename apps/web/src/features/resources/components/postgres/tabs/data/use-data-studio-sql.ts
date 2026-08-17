@@ -2,7 +2,7 @@
  * SQL-console run model for {@link useDataStudio}'s table controller.
  *
  * Console runs are RUN-SCOPED, not cache-scoped: every Run press starts a fresh
- * run (a mutation — no react-query cache, no automatic retries) whose result or
+ * run (a mutation, no react-query cache, no automatic retries) whose result or
  * error is stored under a monotonically increasing run id. The results pane
  * renders only the LATEST run's outcome, so a stale error from an earlier
  * statement can never render against a newer one, and a slow older run that
@@ -33,10 +33,13 @@ type RecordHistory = (e: Omit<QueryHistoryEntry, "id" | "at">) => void;
  *  `data.reason`), falling back to the message. */
 export function errMessage(error: unknown): string {
   if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
+    if ("data" in error) {
+      const { data } = error;
+      if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+        return data.reason;
+      }
+    }
+    if ("message" in error && typeof error.message === "string") return error.message;
   }
   return "Something went wrong.";
 }
@@ -63,7 +66,7 @@ export interface SqlRunState {
 /**
  * Owns the console's run lifecycle. `startRead` sends the statement through the
  * read-only `database.query` path; `startWrite` through the audited
- * `database.execute` path (writable session — DML/DDL take effect). Both record
+ * `database.execute` path (writable session, DML/DDL take effect). Both record
  * a history entry exactly once, in the run's own settle callback.
  */
 export function useSqlRuns({
@@ -81,7 +84,7 @@ export function useSqlRuns({
   const queryMutation = useMutation(orpc.database.query.mutationOptions());
   const executeMutation = useMutation(orpc.database.execute.mutationOptions());
 
-  // Settle a run's outcome — ignored unless it's still the latest run, so a
+  // Settle a run's outcome. Ignored unless it's still the latest run, so a
   // slow older request can never overwrite a newer run's state.
   const settle = (id: number, patch: Partial<SqlRunState>) => {
     setRun((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
@@ -105,7 +108,7 @@ export function useSqlRuns({
           });
           if (kind === "write") {
             toast.success(
-              `Statement ran — ${res.rowCount} row${res.rowCount === 1 ? "" : "s"} affected`,
+              `Statement ran. ${res.rowCount} row${res.rowCount === 1 ? "" : "s"} affected`,
             );
             onWriteSuccess();
           }
@@ -134,8 +137,8 @@ export function useSqlRuns({
 /**
  * Write mode → stage the EXACT statement text behind a styled confirm dialog
  * (typed-phrase gate when the statement is destructive). The dialog previews
- * `pendingWrite.sql` and `confirmPendingWrite` runs that same staged string —
- * never re-reading the editor — so the preview can never diverge from what
+ * `pendingWrite.sql` and `confirmPendingWrite` runs that same staged string,
+ * never re-reading the editor, so the preview can never diverge from what
  * actually executes.
  */
 export function useWriteConfirm({ runWrite }: { runWrite: (sql: string) => void }) {

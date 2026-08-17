@@ -1,11 +1,11 @@
 /**
  * Cast-free readers for TanStack DB mutation metadata.
  *
- * `PendingMutation.metadata` is `unknown` by design — it's whatever the
+ * `PendingMutation.metadata` is `unknown` by design. It's whatever the
  * mutating component attached. The house rule is no `as` casts, so instead of
  * every onInsert/onUpdate asserting its expected shape, these narrow with
  * runtime checks: wrong or missing metadata degrades to `undefined`, which is
- * also the honest answer — the caller attached nothing usable.
+ * also the honest answer: the caller attached nothing usable.
  */
 
 function field(meta: unknown, key: string): unknown {
@@ -17,7 +17,7 @@ function field(meta: unknown, key: string): unknown {
 }
 
 /** The write-only secret a form attached for the server call (registry
- *  passwords, webhook signing secrets) — never part of the collection row. */
+ *  passwords, webhook signing secrets), never part of the collection row. */
 export function metadataSecret(meta: unknown): string | undefined {
   const value = field(meta, "secret");
   return typeof value === "string" ? value : undefined;
@@ -25,7 +25,7 @@ export function metadataSecret(meta: unknown): string | undefined {
 
 /** Same slot when the form attaches a MAP of write-only credentials
  *  (backup destination config: accessKey/secretKey/…). Any non-string
- *  value voids the whole record — a partially-typed shape is a caller
+ *  value voids the whole record: a partially-typed shape is a caller
  *  bug, not something to forward to the server. */
 export function metadataSecretRecord(meta: unknown): Record<string, string> | undefined {
   const raw = field(meta, "secret");

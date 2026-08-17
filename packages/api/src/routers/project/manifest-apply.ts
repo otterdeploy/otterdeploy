@@ -1,10 +1,10 @@
 /**
- * Reconciler — execute a manifest diff plan against the project's resources.
+ * Reconciler: execute a manifest diff plan against the project's resources.
  * Calls the existing service/database handlers so the wire path is identical to
  * the equivalent UI clicks; the manifest just decides what to call.
  *
  * Execution order (phases run in sequence; resources WITHIN a phase run in
- * parallel — they're mutually independent once the prior phase has settled):
+ * parallel: they're mutually independent once the prior phase has settled):
  *   1. Database creates                     (services may reference them)
  *   2. Resolve refs in service env values   (database rows exist by step 1)
  *   3. Service creates
@@ -30,7 +30,7 @@ import type { Manifest } from "../../stack/manifest";
 import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
-import { diffManifest } from "../../stack/manifest";
+import { diffManifest, manifestSchema } from "../../stack/manifest";
 import { snapshotAfterApply } from "./manifest-applied-snapshot";
 import {
   runComposeCreates,
@@ -73,7 +73,7 @@ export interface ApplyInput {
 
 // One reconcile at a time per project. Two concurrent applies (Deploy click +
 // applyChange from a panel, a double-click, CLI + UI) would both diff the same
-// pre-state and both try to create the same containers — the loser dies on a
+// pre-state and both try to create the same containers. The loser dies on a
 // docker name Conflict. Queue them instead: the second run re-reads current
 // state AFTER the first finishes, so its diff sees the work as already done.
 const applyQueues = new Map<ProjectId, Promise<unknown>>();
@@ -94,11 +94,11 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const { projectId, organizationId, manifest, environmentId, log } = input;
-  // Load state inside the queue slot — a snapshot taken while a prior apply
+  // Load state inside the queue slot. A snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
   // Resolve to a concrete scope before diffing. A project with no environment
-  // pointer cannot be diffed safely — every existing resource would look absent
-  // and the plan would be all-creates — so refuse rather than guess.
+  // pointer cannot be diffed safely. Every existing resource would look absent
+  // and the plan would be all-creates, so refuse rather than guess.
   const scope = await resolveProjectEnvironmentScope(projectId, environmentId);
   if (!scope) {
     throw createError({
@@ -137,12 +137,12 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     gitBuilds.push(...c.gitBuilds);
   };
 
-  // 1. Database creates first — services may reference them.
+  // 1. Database creates first. Services may reference them.
   fold(await runDatabaseCreates(ctx, byKind.databaseCreates));
   // 2. Build the ${database:…}/${service:…} ref table now the rows exist.
   const refTable = await loadRefTable(projectId);
   // A source change diffs to delete+create of the SAME name (see diff.ts) and
-  // MUST delete before it creates — otherwise the create collides with the
+  // MUST delete before it creates. Otherwise the create collides with the
   // still-live resource ("service already exists") and is skipped, leaving the
   // service torn down and never recreated. Split those replace-deletes out and
   // run them first; unrelated deletes stay last (frees their ports/domains
@@ -168,7 +168,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
 
   // Record what LANDED, not what was asked for. A resource in `skipped[]`
   // never happened, and writing it here would bake it into the snapshot that
-  // `discard` reverts to — making a failed create both unappliable (its name
+  // `discard` reverts to, making a failed create both unappliable (its name
   // collides with whatever did get created) and undiscardable, forever. See
   // manifest-applied-snapshot.ts.
   const [before] = await db
@@ -176,9 +176,13 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     .from(project)
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
     .limit(1);
+  // `lastApplied` is a jsonb column written exclusively by this pipeline from
+  // schema-validated manifests, so re-parse it at the read boundary instead of
+  // asserting. A row that no longer parses is treated as a first apply.
+  const parsedBefore = manifestSchema.safeParse(before?.lastApplied);
   const applied = snapshotAfterApply({
     submitted: manifest,
-    previous: (before?.lastApplied as Manifest | null) ?? null,
+    previous: parsedBefore.success ? parsedBefore.data : null,
     skipped,
   });
 
@@ -188,12 +192,12 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
 
   // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)
-  // from the now-current rows. Best-effort — it never throws, never blocks the
+  // from the now-current rows. Best-effort: it never throws, never blocks the
   // apply result, and no-ops when the data folder isn't writable.
   await writeProjectEscapeHatch(organizationId, projectId);
 
   // lastAppliedManifest just moved, so every open tab's pending-changes diff
-  // is stale — announce it so the stream resyncs them now instead of at the
+  // is stale, announce it so the stream resyncs them now instead of at the
   // slow poll backstop.
   publishManifestChanged(projectId);
 

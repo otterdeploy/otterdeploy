@@ -1,7 +1,7 @@
 /**
  * Inspect a bound git repo for the wizard's Root Directory picker.
  *
- * The expensive thing is GitHub's API — anonymous calls cap at 60/hr per
+ * The expensive thing is GitHub's API. Anonymous calls cap at 60/hr per
  * source IP, which gets eaten in seconds by per-folder navigation. Two
  * defences (both implemented in inspect-github.ts):
  *
@@ -115,7 +115,7 @@ export async function inspectRepoTree(args: {
 }
 
 export interface EnvInspection {
-  /** A real env file is committed to the repo — a security red flag. */
+  /** A real env file is committed to the repo, a security red flag. */
   committedEnv: string | null;
   /** Which template file the keys came from, if any. */
   templateFile: string | null;
@@ -158,7 +158,7 @@ export async function inspectEnvFiles(
   return Result.ok({ committedEnv, templateFile, keys });
 }
 
-/** Cap branch pagination — 5 pages × 100 covers any sane repo. */
+/** Cap branch pagination: 5 pages × 100 covers any sane repo. */
 const BRANCH_PAGE_CAP = 5;
 
 /**
@@ -195,20 +195,22 @@ export async function listRepoBranches(
       );
     }
 
-    const parsed = Result.try(() => JSON.parse(body) as unknown);
+    const parsed = Result.try((): unknown => JSON.parse(body));
     if (parsed.isErr()) {
       return Result.err(new InspectRepoUpstreamError(502, "Could not parse GitHub response"));
     }
     const pageItems = parsed.value;
     if (!Array.isArray(pageItems)) break;
-    for (const b of pageItems) {
-      const name = (b as { name?: unknown })?.name;
+    const items: unknown[] = pageItems;
+    for (const b of items) {
+      if (typeof b !== "object" || b === null || !("name" in b)) continue;
+      const { name } = b;
       if (typeof name === "string") names.push(name);
     }
     if (pageItems.length < 100) break;
   }
 
-  // Default branch first, then the rest, de-duped — and guarantee the
+  // Default branch first, then the rest, de-duped, and guarantee the
   // default is present even if the listing came back empty.
   const branches = Array.from(new Set([binding.defaultBranch, ...names]));
   return Result.ok({ branches, defaultBranch: binding.defaultBranch });

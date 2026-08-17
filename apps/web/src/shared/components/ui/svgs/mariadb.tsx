@@ -6,7 +6,7 @@ import { MariadbDark } from "./mariadb-dark";
 import { MariadbLight } from "./mariadb-light";
 
 /**
- * Theme-aware MariaDB seal — the navy body (#002B64) vanishes on the dark
+ * Theme-aware MariaDB seal: the navy body (#002B64) vanishes on the dark
  * canvas, so this delegates to the dark/light pair (MariaDB's reversed
  * lockup: navy → white, tan seal unchanged). Prefer importing `MariadbDark`
  * / `MariadbLight` directly when the caller already knows the resolved theme

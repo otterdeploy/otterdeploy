@@ -1,7 +1,7 @@
 /**
  * Container registry router. Org-scoped CRUD over container_registry
  * rows. Plaintext passwords flow in on create/update and are encrypted
- * before INSERT — see queries.ts for the boundary.
+ * before INSERT: see queries.ts for the boundary.
  */
 
 import { omitUndefined } from "@otterdeploy/shared/object";
@@ -31,7 +31,7 @@ export const registryRouter = {
     async ({ input, context, errors }) => {
       const host = canonicalizeHost(input.host);
       // Pre-check the uniqueness so we can return a typed 409 even when
-      // the underlying constraint isn't hit (race window) — the catch
+      // the underlying constraint isn't hit (race window). The catch
       // below covers the actual race.
       const existing = await findRegistryByOrgHostUser(
         context.activeOrganizationId,
@@ -71,7 +71,7 @@ export const registryRouter = {
         id: input.id,
         displayName: input.displayName,
         username: input.username,
-        // Treat empty string the same as omitted — the UI sends "" when
+        // Treat empty string the same as omitted. The UI sends "" when
         // the password field is left blank so we don't force a re-prompt.
         plaintextPassword: input.password && input.password.length > 0 ? input.password : undefined,
         authType: input.authType,
@@ -99,10 +99,10 @@ export const registryRouter = {
 
   /**
    * Docker Registry v2 handshake. With an `id`, stored credentials are
-   * used (inline username/password act as overrides — the dialog's edit
+   * used (inline username/password act as overrides, the dialog's edit
    * flow sends a new password before it's saved). Without an id, the
    * inline host/username/password are probed for pre-save "Test & save".
-   * Probe failures come back as `{ok: false, message}` — only a missing
+   * Probe failures come back as `{ok: false, message}`. Only a missing
    * stored credential is an RPC error.
    */
   testConnection: requirePermission({ registry: ["read"] }).registry.testConnection.handler(
@@ -141,13 +141,13 @@ export const registryRouter = {
 
   /**
    * Docker Registry v2 tag listing for the wizard's tag browser. With a
-   * `registryId`, the stored credential is used — but only when its host
+   * `registryId`, the stored credential is used, but only when its host
    * matches the image's registry (sending a GHCR token to Docker Hub
    * would be both useless and leaky). Without one, a stored credential
    * for the image's host is auto-matched exactly like deploy-time pull
    * auth (`resolveRegistryAuth`), falling back to anonymous. Listing
    * failures (rate limits, private repos, unreachable hosts) come back
-   * as `{ok: false, message}` — only a missing stored credential throws.
+   * as `{ok: false, message}`: only a missing stored credential throws.
    */
   listTags: requirePermission({ registry: ["read"] }).registry.listTags.handler(
     async ({ input, context, errors }) => {
@@ -174,7 +174,7 @@ export const registryRouter = {
         if (!stored) throw errors.NOT_FOUND();
         if (stored.host !== ref.host) {
           return failure(
-            `The selected credential is for ${stored.host}, but ${input.image} lives on ${ref.host} — pick a matching registry or anonymous pull`,
+            `The selected credential is for ${stored.host}, but ${input.image} lives on ${ref.host}. Pick a matching registry or anonymous pull`,
           );
         }
         username = stored.username;

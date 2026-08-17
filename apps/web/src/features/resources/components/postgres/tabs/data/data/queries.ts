@@ -1,5 +1,5 @@
 /**
- * Data-viewer query layer — every read-only SQL string this feature sends to
+ * Data-viewer query layer: every read-only SQL string this feature sends to
  * `database.query`, in one place. Builders quote identifiers (double quotes
  * doubled) and escape values (single quotes doubled); the query path itself is
  * read-only. Pair these builders with the hooks in `./use-database`.
@@ -45,7 +45,7 @@ export function shortType(type: string): string {
 
 // ─── SQL builders ───────────────────────────────────────────────────────────
 
-/** `SELECT *` page for the table browser — `where` is the pre-built ` WHERE …`
+/** `SELECT *` page for the table browser: `where` is the pre-built ` WHERE …`
  *  suffix from `buildWhere`, `limit` is typically pageSize + 1 (next-page probe). */
 export function browseRowsSql(
   table: TableRef,
@@ -148,7 +148,7 @@ export function referencedRowSql(fk: FkTarget, value: string): string {
   return `SELECT * FROM ${quoteIdent(fk.schema)}.${quoteIdent(fk.table)} WHERE ${quoteIdent(fk.column)} = '${escLiteral(value)}' LIMIT 1`;
 }
 
-/** Primary-key column names for a table, in key order — the write path needs
+/** Primary-key column names for a table, in key order: the write path needs
  *  them to target a row (editing is disabled when a table has none). */
 export function primaryKeysSql(table: TableRef): string {
   return `SELECT kcu.column_name

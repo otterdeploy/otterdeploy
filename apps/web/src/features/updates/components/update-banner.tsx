@@ -19,7 +19,7 @@ export function UpdateBanner() {
   const status = useUpdateStatus();
   const { openUpdate } = useUpdate();
   const dismiss = useDismissUpdate();
-  // Suppress the loud banner during a user's first session — the quiet header
+  // Suppress the loud banner during a user's first session. The quiet header
   // affordance (see the file doc comment) still surfaces the update either
   // way, so nothing is actually hidden, just not shouted on the first screen.
   const firstSession = useIsFirstSession();
@@ -36,7 +36,7 @@ export function UpdateBanner() {
         <Badge
           variant="secondary"
           className="shrink-0"
-          title="Dev/dry-run install — applying runs as a simulation."
+          title="Dev/dry-run install. Applying runs as a simulation."
         >
           dry-run
         </Badge>

@@ -2,7 +2,7 @@
  * Presentational field pieces + form-state hook for the service Source card.
  * Split out of source-card.tsx to keep that file under the max-lines cap (same
  * reason the deploy wizard splits source-pickers.tsx out of source.tsx). The
- * pickers reuse the deploy wizard's components — app Select (not native) for the
+ * pickers reuse the deploy wizard's components, app Select (not native) for the
  * installation, a searchable Combobox for the repository.
  */
 
@@ -28,7 +28,7 @@ import {
 import { Spinner } from "@/shared/components/ui/spinner";
 import { Switch } from "@/shared/components/ui/switch";
 
-/** Installation picker — the app Select (Base UI), mirroring the deploy wizard. */
+/** Installation picker: the app Select (Base UI), mirroring the deploy wizard. */
 export function InstallationField({
   installations,
   value,
@@ -41,7 +41,7 @@ export function InstallationField({
   if (installations.length === 0) {
     return (
       <p className="text-[11.5px] text-muted-foreground">
-        No git installations connected — connect one in Settings → Git providers.
+        No git installations connected. Connect one in Settings → Git providers.
       </p>
     );
   }
@@ -65,10 +65,10 @@ export function InstallationField({
   );
 }
 
-/** Repository picker — a searchable Combobox, mirroring the deploy wizard. */
+/** Repository picker: a searchable Combobox, mirroring the deploy wizard. */
 /** Opens the selected repository on its provider. Rendered beside the picker so
- *  "which repo does this build from?" and "take me to it" are the same glance —
- *  previously the name was shown but there was no way through to the source. */
+ *  "which repo does this build from?" and "take me to it" are the same glance.
+ *  Previously the name was shown but there was no way through to the source. */
 function RepoSourceLink({ kind, fullName }: { kind: string | null; fullName: string }) {
   const href = repoWebUrl(kind, fullName);
   if (!href) return null;
@@ -145,7 +145,7 @@ export function RepositoryField({
   );
 }
 
-/** PR-previews opt-in switch — per service, staged into the manifest like the
+/** PR-previews opt-in switch: per service, staged into the manifest like the
  *  rest of the source block. */
 export function PreviewsField({
   checked,

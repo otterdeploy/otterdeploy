@@ -16,7 +16,7 @@ export default defineConfig({
   // packages/api/src/edge-logs/partition.ts and intentionally kept out of the
   // schema barrel. Without this filter, push introspects the live DB, sees the
   // parent + daily child partitions (edge_log_YYYY_MM_DD) it doesn't know about,
-  // and queues DROPs for all of them — dropping the parent cascades to the
+  // and queues DROPs for all of them. Dropping the parent cascades to the
   // children, so the separate child DROP then fails with "table ... does not
   // exist" and aborts the push. Excluding them leaves the runtime-managed table
   // untouched. ("*" keeps every other table in drizzle-kit's purview.)
