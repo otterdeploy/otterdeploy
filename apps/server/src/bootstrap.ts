@@ -201,7 +201,8 @@ async function bootstrap() {
             j.name === "server.provision"
               ? {
                   ...j,
-                  handler: (payload: unknown) => runProvisionJob(ProvisionServerPayload.parse(payload)),
+                  handler: (payload: unknown) =>
+                    runProvisionJob(ProvisionServerPayload.parse(payload)),
                 }
               : j,
           ),

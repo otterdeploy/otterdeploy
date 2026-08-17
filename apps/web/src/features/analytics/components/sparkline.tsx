@@ -24,12 +24,7 @@ export function Sparkline({ values }: { values: readonly number[] }) {
   const area = `0,${H} ${line} ${W},${H}`;
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      className="h-7 w-full"
-      aria-hidden
-    >
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-7 w-full" aria-hidden>
       <polygon points={area} fill="var(--primary)" opacity="0.12" />
       <polyline
         points={line}

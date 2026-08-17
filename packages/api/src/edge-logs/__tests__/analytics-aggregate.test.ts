@@ -2,12 +2,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import type { AnalyticsLine, DayAcc, MinuteAcc } from "../aggregate";
 
-import {
-  foldLine,
-  OVERFLOW_KEY,
-  PATHS_PER_DAY_CAP,
-  VISITOR_HASH_CAP,
-} from "../aggregate";
+import { foldLine, OVERFLOW_KEY, PATHS_PER_DAY_CAP, VISITOR_HASH_CAP } from "../aggregate";
 import { percentileFromBuckets } from "../analytics-query";
 
 function line(over: Partial<AnalyticsLine> = {}): AnalyticsLine {

@@ -63,7 +63,11 @@ export function StatStrip({ stats }: { stats: readonly Stat[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {stats.map((stat) => (
-        <Card key={stat.label} className="flex flex-col gap-1 overflow-hidden p-4" title={stat.title}>
+        <Card
+          key={stat.label}
+          className="flex flex-col gap-1 overflow-hidden p-4"
+          title={stat.title}
+        >
           <span className="truncate text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
             {stat.label}
           </span>

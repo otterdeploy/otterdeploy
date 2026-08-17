@@ -320,6 +320,7 @@
       "files": ["apps/web/scripts/**"],
       "rules": {
         "no-console": "off",
+        "max-lines": "off",
         "node/no-process-env": "off",
         "typescript/no-unsafe-return": "off",
         "typescript/no-unsafe-member-access": "off",

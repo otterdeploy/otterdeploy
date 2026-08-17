@@ -108,7 +108,9 @@ async function initReader(input: {
   enabledMsg: string;
   disabledMsg: string;
 }): Promise<MmdbReader | null> {
-  const opened = await (await ensureDbPath(input)).andThenAsync(async (dbPath) =>
+  const opened = await (
+    await ensureDbPath(input)
+  ).andThenAsync(async (dbPath) =>
     dbPath === null
       ? Result.ok<MmdbReader | null, Error>(null)
       : (await openMmdb(dbPath)).map((reader): MmdbReader | null => {

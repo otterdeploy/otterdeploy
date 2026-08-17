@@ -23,8 +23,8 @@ import { log } from "evlog";
 
 import type { AnalyticsLine, DayAcc, MinuteAcc } from "./analytics-fold";
 
-import { dayKey } from "./analytics-normalize";
 import { foldLine } from "./analytics-fold";
+import { dayKey } from "./analytics-normalize";
 
 const BATCH = 5_000;
 /** Never look further back than the raw retention could plausibly hold. */
@@ -68,9 +68,7 @@ async function backfillPastDays(): Promise<void> {
   if (existing.length > 0) return;
 
   // Raw bounds: the oldest surviving row decides how far back we can go.
-  const oldest = await db
-    .select({ ts: sql<string | null>`min(${edgeLog.ts})` })
-    .from(edgeLog);
+  const oldest = await db.select({ ts: sql<string | null>`min(${edgeLog.ts})` }).from(edgeLog);
   const oldestTs = oldest[0]?.ts;
   if (!oldestTs) return;
 
@@ -147,9 +145,7 @@ async function backfillOneDay(dayStartMs: number): Promise<number> {
         and(
           gte(edgeLog.ts, new Date(dayStartMs)),
           lt(edgeLog.ts, new Date(dayEndMs)),
-          cursor
-            ? sql`(${edgeLog.ts}, ${edgeLog.id}) > (${cursor.ts}, ${cursor.id})`
-            : sql`true`,
+          cursor ? sql`(${edgeLog.ts}, ${edgeLog.id}) > (${cursor.ts}, ${cursor.id})` : sql`true`,
         ),
       )
       .orderBy(asc(edgeLog.ts), asc(edgeLog.id))

@@ -17,9 +17,8 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 import type { TopEntry } from "../analytics-model";
 import type { Stat } from "./stat-strip";
 
-import { deltaPct } from "./stat-strip";
-
 import { formatCount, formatShare } from "../analytics-model";
+import { deltaPct } from "./stat-strip";
 import { StatusMix } from "./status-mix";
 import { TopList } from "./top-list";
 import { VisitorMap } from "./visitor-map";
@@ -148,9 +147,7 @@ export function BreakdownPanels({
           total={sumCounts(dims.hosts)}
           emptyNote="No domains saw traffic in this window."
           selectedKey={hostFilter}
-          onSelectKey={(host) =>
-            onHostFilterChange(host === hostFilter ? undefined : host)
-          }
+          onSelectKey={(host) => onHostFilterChange(host === hostFilter ? undefined : host)}
         />
         <StatusMix entries={dims.statuses} />
       </div>
@@ -220,9 +217,8 @@ export function HonestyNotes({
     <div className="flex flex-col gap-0.5">
       {approximate ? (
         <p className="text-xs text-muted-foreground">
-          Visitor counts in this window are approximate: the visitor set was rebuilt after a
-          restart or hit its memory cap, so some days undercount or double-count returning
-          visitors.
+          Visitor counts in this window are approximate: the visitor set was rebuilt after a restart
+          or hit its memory cap, so some days undercount or double-count returning visitors.
         </p>
       ) : null}
       {shortWindow && breakdownDays !== undefined ? (

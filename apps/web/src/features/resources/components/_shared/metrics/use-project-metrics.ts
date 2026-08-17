@@ -134,4 +134,3 @@ export function useProjectAggregateMetrics(
     updatedAt: query.dataUpdatedAt,
   };
 }
-

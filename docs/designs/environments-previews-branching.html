@@ -996,9 +996,9 @@ preview
       <h2 id="lifecycle">Preview lifecycle</h2>
 
       <p>
-        The guards matter more than the happy path. Teardown is never gated on the opt-in, a
-        service that turned previews off after a preview was already running must still have it torn
-        down, or containers and branched databases leak. And a failed branch must never reach
+        The guards matter more than the happy path. Teardown is never gated on the opt-in, a service
+        that turned previews off after a preview was already running must still have it torn down,
+        or containers and branched databases leak. And a failed branch must never reach
         <em>running</em>.
       </p>
 
@@ -1222,8 +1222,7 @@ Pending → Provisioning → Branching → Building → Running
         <em
           >&ldquo;<code>zfs</code> clones the raw PGDATA volume at the volume layer, before the
           branch container boots&rdquo;</em
-        >:
-        whereas <code>copy</code> must dump and restore a layer up, with both containers running.
+        >: whereas <code>copy</code> must dump and restore a layer up, with both containers running.
         Implementing the driver is the work; designing the interface is not.
       </p>
 
@@ -1362,8 +1361,8 @@ Pending → Provisioning → Branching → Building → Running
         what happens when it is hit: <b>refuse the new preview and say so on the pull request</b>,
         rather than evicting the oldest. Eviction would tear down a preview someone is actively
         reviewing to make room for one nobody has looked at yet. A refusal that names the cap is
-        honest and actionable; a silent eviction is neither. The same rule as idle GC applies,
-        never a silent cap.
+        honest and actionable; a silent eviction is neither. The same rule as idle GC applies, never
+        a silent cap.
       </p>
 
       <p>
@@ -1477,8 +1476,8 @@ Pending → Provisioning → Branching → Building → Running
         Under <code>copy</code> a branch is an ordinary independent volume, so destroying a base
         database is unaffected by any preview. Under ZFS it is not: every open preview's clone holds
         its origin snapshot alive, and ZFS refuses to destroy a snapshot, or the dataset holding it,
-        while a clone depends on it. This is the one place where copy-on-write changes an
-        operation that has nothing to do with previews, so it gets designed rather than discovered.
+        while a clone depends on it. This is the one place where copy-on-write changes an operation
+        that has nothing to do with previews, so it gets designed rather than discovered.
       </p>
 
       <p>
@@ -1500,12 +1499,12 @@ Pending → Provisioning → Branching → Building → Running
             <td><b>Deleting a base database refuses while live branches exist</b></td>
             <td>
               A precondition in <code>resource-delete.ts</code>, checked <em>before</em> anything is
-              stripped, not a failure handler. Today the flow removes the database from the
-              manifest first, on purpose, so that a partial teardown diffs as a recoverable delete
-              rather than a phantom create. If the ZFS destroy is instead allowed to fail at step
-              three, the manifest entry is already gone while the dataset is still on disk. The
-              query is cheap: resources whose <code>branched_from_resource_id</code> is this
-              database and whose <code>preview_id</code> is not null.
+              stripped, not a failure handler. Today the flow removes the database from the manifest
+              first, on purpose, so that a partial teardown diffs as a recoverable delete rather
+              than a phantom create. If the ZFS destroy is instead allowed to fail at step three,
+              the manifest entry is already gone while the dataset is still on disk. The query is
+              cheap: resources whose <code>branched_from_resource_id</code> is this database and
+              whose <code>preview_id</code> is not null.
             </td>
           </tr>
           <tr>
@@ -1741,10 +1740,10 @@ export function scopeSuffix(scope: Scope): string {
           <tr>
             <td>A preview is already Running and a new push's re-branch fails</td>
             <td>
-              The running container keeps serving its existing branch (that data is still valid)
-              and only the new rollout is withheld. Blocked applies to reaching a running state, not
-              to leaving one. Tearing down a working review environment because a later branch
-              failed is worse than the failure.
+              The running container keeps serving its existing branch (that data is still valid) and
+              only the new rollout is withheld. Blocked applies to reaching a running state, not to
+              leaving one. Tearing down a working review environment because a later branch failed
+              is worse than the failure.
             </td>
           </tr>
           <tr>

@@ -85,7 +85,7 @@ export function boundingBoxOf(rects: Rect[]): Rect | null {
     maxY = Math.max(maxY, r.y + r.h);
   }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-}/**
+} /**
  * Minimum-translation vector that pushes `a` clear of `b` (both inflated by
  * `gap`), or null when they don't overlap. Only `a` is ever moved. The caller
  * treats `b` as an immovable obstacle. Resolves along the axis of least

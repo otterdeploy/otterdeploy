@@ -104,8 +104,7 @@ export function AnalyticsChart({
           { channel: "group" },
           {
             channel: "y",
-            text: (p: { yValue: number | null }) =>
-              p.yValue === null ? "–" : format(p.yValue),
+            text: (p: { yValue: number | null }) => (p.yValue === null ? "–" : format(p.yValue)),
           },
         ],
       },

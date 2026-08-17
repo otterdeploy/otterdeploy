@@ -88,7 +88,6 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
             />,
           )}
         </MetricCard>
-
       </div>
 
       <p className="text-xs text-muted-foreground">

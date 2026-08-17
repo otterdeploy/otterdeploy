@@ -46,8 +46,11 @@ export function ComposeGitFields({
   // → clone via the installation token; a pasted public URL is the fallback.
   // `bindingProjectId` (string | null) is the one RepoPicker/PublicRepoCTA want;
   // the branded `projectId` prop is what useUniqueStackName needs.
-  const { installations, projectId: bindingProjectId, hasInstallations } =
-    useBindingSummary(projectSlug);
+  const {
+    installations,
+    projectId: bindingProjectId,
+    hasInstallations,
+  } = useBindingSummary(projectSlug);
   const gitRepoId = useStore(form.store, (s) => s.values.file.gitRepoId);
   const gitRepoUrl = useStore(form.store, (s) => s.values.file.gitRepoUrl);
   const repoFullName = useStore(form.store, (s) => s.values.file.repoFullName);

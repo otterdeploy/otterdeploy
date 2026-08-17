@@ -130,7 +130,9 @@ export function AnalyticsView({
               title="Clear the domain filter"
             >
               {hostFilter}
-              <span aria-hidden className="text-muted-foreground">×</span>
+              <span aria-hidden className="text-muted-foreground">
+                ×
+              </span>
             </button>
           ) : null}
         </div>
