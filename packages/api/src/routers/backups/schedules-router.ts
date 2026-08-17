@@ -30,6 +30,19 @@ async function presentScheduleWithDetails(
   });
 }
 
+/** Resolve the requested destination ids against the org's ACTIVE ones. A
+ *  shrunken result means at least one id was foreign, disabled, or deleted -
+ *  `invalid` is the caller's typed INVALID_DESTINATION throw. */
+async function requireActiveDestinations(
+  organizationId: Parameters<typeof activeDestinationIdsFor>[0],
+  requested: Parameters<typeof activeDestinationIdsFor>[1],
+  invalid: () => never,
+): Promise<Awaited<ReturnType<typeof activeDestinationIdsFor>>> {
+  const destinationIds = await activeDestinationIdsFor(organizationId, requested);
+  if (destinationIds.length !== requested.length) invalid();
+  return destinationIds;
+}
+
 export const backupSchedulesRouter = {
   list: orgScopedProcedure.backups.schedules.list.handler(async ({ context }) => {
     const rows = await listSchedules({
@@ -41,13 +54,13 @@ export const backupSchedulesRouter = {
   create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
     async ({ input, context, errors }) => {
       enforceProjectScope(context, input.projectId);
-      const destinationIds = await activeDestinationIdsFor(
+      const destinationIds = await requireActiveDestinations(
         context.activeOrganizationId,
         input.destinationIds,
+        () => {
+          throw errors.INVALID_DESTINATION();
+        },
       );
-      if (destinationIds.length !== input.destinationIds.length) {
-        throw errors.INVALID_DESTINATION();
-      }
       const row = await createScheduleRecord({
         ...input,
         organizationId: context.activeOrganizationId,
@@ -64,11 +77,14 @@ export const backupSchedulesRouter = {
       context.log.set({ target: { type: "backup_schedule", id: input.id } });
       await enforceScheduleScope(context, input.id);
       const destinationIds = input.destinationIds
-        ? await activeDestinationIdsFor(context.activeOrganizationId, input.destinationIds)
+        ? await requireActiveDestinations(
+            context.activeOrganizationId,
+            input.destinationIds,
+            () => {
+              throw errors.INVALID_DESTINATION();
+            },
+          )
         : undefined;
-      if (input.destinationIds && destinationIds?.length !== input.destinationIds.length) {
-        throw errors.INVALID_DESTINATION();
-      }
       const row = await updateScheduleRecord({
         ...input,
         organizationId: context.activeOrganizationId,

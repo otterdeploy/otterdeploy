@@ -15,13 +15,13 @@ import { backupSchedule } from "@otterdeploy/db/schema";
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { and, eq } from "drizzle-orm";
 
-export async function createScheduleRecord(input: {
-  organizationId: OrganizationId;
+/** The operator-editable schedule fields, shared by create (all required)
+ *  and update (all optional via Partial). */
+interface ScheduleFields {
   name: string;
   sources: string[];
   cron: string;
   destinationIds: BackupDestinationId[];
-  projectId?: ProjectId | null;
   keepLast: number;
   keepHourly: number;
   keepDaily: number;
@@ -36,7 +36,14 @@ export async function createScheduleRecord(input: {
   maxRetries: number;
   verifyAfterBackup: boolean;
   overdueAfterHours: number | null;
-}): Promise<typeof backupSchedule.$inferSelect> {
+}
+
+export async function createScheduleRecord(
+  input: ScheduleFields & {
+    organizationId: OrganizationId;
+    projectId?: ProjectId | null;
+  },
+): Promise<typeof backupSchedule.$inferSelect> {
   const [row] = await db
     .insert(backupSchedule)
     .values({
@@ -66,28 +73,12 @@ export async function createScheduleRecord(input: {
   return row;
 }
 
-export async function updateScheduleRecord(input: {
-  organizationId: OrganizationId;
-  id: BackupScheduleId;
-  name?: string;
-  sources?: string[];
-  cron?: string;
-  destinationIds?: BackupDestinationId[];
-  keepLast?: number;
-  keepHourly?: number;
-  keepDaily?: number;
-  keepWeekly?: number;
-  keepMonthly?: number;
-  keepYearly?: number;
-  retentionDays?: number | null;
-  maxStorageGb?: number | null;
-  preHook?: string | null;
-  encryption?: "none" | "aes-256-gcm";
-  enabled?: boolean;
-  maxRetries?: number;
-  verifyAfterBackup?: boolean;
-  overdueAfterHours?: number | null;
-}): Promise<typeof backupSchedule.$inferSelect | null> {
+export async function updateScheduleRecord(
+  input: Partial<ScheduleFields> & {
+    organizationId: OrganizationId;
+    id: BackupScheduleId;
+  },
+): Promise<typeof backupSchedule.$inferSelect | null> {
   const patch: Partial<typeof backupSchedule.$inferInsert> = omitUndefined({
     name: input.name,
     sources: input.sources,

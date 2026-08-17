@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { orpc } from "@/shared/server/orpc";
 
-export function useDbConnections(resourceId: ResourceId, enabled: boolean) {
+function useDbConnections(resourceId: ResourceId, enabled: boolean) {
   return useQuery({
     ...orpc.database.connections.queryOptions({ input: { resourceId } }),
     enabled,
@@ -27,7 +27,7 @@ export function useDbConnections(resourceId: ResourceId, enabled: boolean) {
 type ConnectionsQuery = ReturnType<typeof useDbConnections>;
 
 /** Popover body: header with the ceiling, then one row per session group. */
-export function ConnectionsPopoverBody({
+function ConnectionsPopoverBody({
   query,
   total,
 }: {
