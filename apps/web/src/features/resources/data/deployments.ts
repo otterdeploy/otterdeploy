@@ -47,7 +47,7 @@ const deploymentIdSchema = zId("dep");
 /** Namespace prefix for the deployments collection: the single source of truth
  *  the project event stream invalidates when a docker deploy event lands. See
  *  [[RESOURCE_COLLECTION_KEY]]. */
-export const DEPLOYMENTS_COLLECTION_KEY = ["deployments"] as const;
+const DEPLOYMENTS_COLLECTION_KEY = ["deployments"] as const;
 
 const deploymentsQueryOptions = queryCollectionOptions({
   // Stable id, required for SQLite persistence to round-trip (see
@@ -123,7 +123,7 @@ export const deploymentsCollection = persistence
 /** Namespace prefix for the deployment-tasks collection: the single source of
  *  truth the project event stream invalidates on a docker task event. See
  *  [[RESOURCE_COLLECTION_KEY]]. */
-export const DEPLOYMENT_TASKS_COLLECTION_KEY = ["deployment-tasks"] as const;
+const DEPLOYMENT_TASKS_COLLECTION_KEY = ["deployment-tasks"] as const;
 
 const deploymentTasksQueryOptions = queryCollectionOptions({
   // Stable id, required for SQLite persistence to round-trip.

@@ -13,7 +13,7 @@ import { useDebouncedValue } from "@otterdeploy/ui/hooks/use-debounced-value";
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -21,12 +21,14 @@ import { useState } from "react";
 import {
   auditCollection,
   auditSubsetKey,
+  DEFAULT_AUDIT_FILTER,
+  prefetchAuditSubset,
   toAuditInput,
   type AuditEvent,
 } from "@/features/audit/data/audit";
 import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { AuditFilters, useAuditFilterForm } from "../-components/audit-filters";
 import { EventDrawer } from "../-components/audit-drawer";
@@ -36,6 +38,22 @@ import { AuditTableSection } from "../-components/audit-table";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/audit")({
   staticData: { crumb: "Audit" },
+  // Warm the default view on hover (intent-preload): the rows subset the
+  // collection will ask for AND the stats companion query, both under the
+  // exact keys the component uses (keyed on the filter *selection*, so the
+  // fresh `from` recomputed at mount still hits the cache). Non-blocking +
+  // best-effort — a miss just falls back to fetch-on-mount.
+  loader: () => {
+    prefetchAuditSubset(DEFAULT_AUDIT_FILTER);
+    void queryClient
+      .prefetchQuery({
+        ...orpc.audit.list.queryOptions({
+          input: { ...toAuditInput(DEFAULT_AUDIT_FILTER), limit: 1 },
+        }),
+        queryKey: [...orpc.audit.list.key(), "stats", auditSubsetKey(DEFAULT_AUDIT_FILTER)],
+      })
+      .catch(() => undefined);
+  },
   component: AuditRoute,
 });
 
@@ -46,7 +64,7 @@ function AuditRoute() {
   const [openEvent, setOpenEvent] = useState<AuditEvent | null>(null);
 
   const form = useAuditFilterForm();
-  const filter = useStore(form.store, (s) => s.values);
+  const filter = useSelector(form.store, (s) => s.values);
 
   // Each distinct filter is its own on-demand collection subset, so typing in
   // the search box would refetch on every keystroke. Debounce the term that

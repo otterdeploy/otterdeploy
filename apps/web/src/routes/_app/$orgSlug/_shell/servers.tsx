@@ -153,9 +153,15 @@ function resolveServersTab(tab: ServersTab, isInstallAdmin: boolean): ServersTab
   return "overview";
 }
 
+/** Narrow the tab strip's string value without asserting — the tuple lookup
+ *  is the type guard. */
+function toServersTab(value: string): ServersTab {
+  return SERVERS_TABS.find((tab) => tab === value) ?? "overview";
+}
+
 const serversSearch = z.object({
   tab: z.enum(SERVERS_TABS).catch("overview"),
-  dockerTab: z.enum(["containers", "images", "volumes", "networks", "tasks"]).optional(),
+  dockerTab: z.enum(["containers", "images", "volumes", "networks", "tasks", "events"]).optional(),
 });
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/servers")({

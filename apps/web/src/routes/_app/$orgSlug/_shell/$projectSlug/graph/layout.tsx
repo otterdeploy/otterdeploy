@@ -6,15 +6,14 @@ import {
   useLoaderData,
   useNavigate,
   useRouter,
-  useSearch,
 } from "@tanstack/react-router";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { AnimatePresence } from "motion/react";
-import { ReactFlowProvider, useReactFlow, type Node, type NodeChange } from "@xyflow/react";
+import { ReactFlowProvider, useReactFlow, type NodeChange } from "@xyflow/react";
 
 import { GraphContextMenu } from "@/features/projects/components/graph/graph-context-menu";
 import { type XY } from "@/features/projects/components/graph/layout-graph";
-import type { ResourceFlowNode } from "@/features/projects/components/graph/resource-node-types";
+import { isResourceFlowNode, type ResourceFlowNode } from "@/features/projects/components/graph/resource-node-types";
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import {
   PANEL_COLLAPSED_HEIGHT,
@@ -22,9 +21,11 @@ import {
   useStackPanelState,
   type StackPanelState,
 } from "@/features/projects/components/stack";
+import { prefetchDependencySubset } from "@/features/projects/data/dependencies";
+import { projectIdBySlug } from "@/features/projects/data/project";
 import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
-import { resourceCollection } from "@/features/resources/data/resource";
+import { prefetchResourceSubset, resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
 import {
@@ -44,32 +45,21 @@ import { GraphPanelShell } from "./-components/panel-shell";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")({
   component: RouteComponent,
   staticData: { crumb: "Graph" },
+  // Warm the graph's two on-demand collections (resources + dependency edges)
+  // on hover (intent-preload). The prefetch helpers write under the exact
+  // subset keys the collections read, so the canvas's first load renders from
+  // cache. Prefetched for the default/main environment (environmentId
+  // undefined) — resolving the active `?env=` in a loader isn't worth the
+  // complexity; a non-main view just fetches on mount as before. Non-blocking
+  // + best-effort; `projectIdBySlug` is populated because the parent
+  // `$projectSlug` layout loader awaits `projectCollection.preload()`.
+  loader: ({ params }) => {
+    const projectId = projectIdBySlug(params.projectSlug);
+    if (!projectId) return;
+    prefetchResourceSubset(projectId);
+    prefetchDependencySubset(projectId);
+  },
 });
-
-/** Every kind a resource node's data can carry. See ResourceKind. */
-const RESOURCE_NODE_KINDS: ReadonlySet<string> = new Set([
-  "service",
-  "database",
-  "volume",
-  "compose",
-  "preview",
-]);
-
-/**
- * React Flow's generic handlers surface the untyped base `Node`. This canvas
- * only registers the `resource` node type (see nodeTypes in graph-flow.tsx),
- * so the check is a formality, but it is a REAL shape check: node type plus
- * the required `ResourceNodeData` fields.
- */
-function isResourceFlowNode(node: Node): node is ResourceFlowNode {
-  return (
-    node.type === "resource" &&
-    typeof node.data.kind === "string" &&
-    RESOURCE_NODE_KINDS.has(node.data.kind) &&
-    typeof node.data.name === "string" &&
-    typeof node.data.description === "string"
-  );
-}
 
 function RouteComponent() {
   // AnimatePresence only sees its DIRECT children, so the drawer is rendered

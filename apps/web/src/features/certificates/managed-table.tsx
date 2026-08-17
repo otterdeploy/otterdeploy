@@ -151,7 +151,7 @@ function ManagedRow({
           </span>
         </TableCell>
         <TableCell className="text-muted-foreground">
-          <span className="flex flex-wrap gap-x-2 gap-y-0.5" onClick={(e) => e.stopPropagation()}>
+          <span className="flex flex-wrap gap-x-2 gap-y-0.5">
             {cert.projects.map((p) => (
               <Link
                 key={p.id}
@@ -160,6 +160,8 @@ function ManagedRow({
                 // plain string (same pragmatic cast as git-providers/app-detail).
                 params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(p.slug) }}
                 className="hover:text-foreground hover:underline"
+                // Following a project link must not also toggle the row open.
+                onClick={(e) => e.stopPropagation()}
               >
                 {p.name}
               </Link>

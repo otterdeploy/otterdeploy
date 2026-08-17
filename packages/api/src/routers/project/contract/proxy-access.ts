@@ -8,7 +8,13 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-import { basePath, proxyRouteIdField, resourceNotFoundErrors, tag } from "./shared";
+import {
+  basePath,
+  deploymentGuestIdField,
+  proxyRouteIdField,
+  resourceNotFoundErrors,
+  tag,
+} from "./shared";
 
 // ─── Access PIN (NetBird-style shared code) ─────────────────────────
 /** Whether the route currently has an access PIN configured. Never the PIN
@@ -79,9 +85,11 @@ const inviteGuestInput = z.object({
     .default(24),
 });
 
+// Branded guestId: validation rejects a malformed id at the contract edge
+// and the handler gets a DeploymentGuestId without asserting.
 const removeGuestInput = z.object({
   routeId: proxyRouteIdField,
-  guestId: z.string(),
+  guestId: deploymentGuestIdField,
 });
 
 export const proxyAccessContractSlice = {

@@ -10,11 +10,11 @@
 
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
 import { Button } from "@/shared/components/ui/button";
@@ -51,9 +51,10 @@ export function ComposeGitFields({
     projectId: bindingProjectId,
     hasInstallations,
   } = useBindingSummary(projectSlug);
-  const gitRepoId = useStore(form.store, (s) => s.values.file.gitRepoId);
-  const gitRepoUrl = useStore(form.store, (s) => s.values.file.gitRepoUrl);
-  const repoFullName = useStore(form.store, (s) => s.values.file.repoFullName);
+  const gitRepoId = useSelector(form.store, (s) => s.values.file.gitRepoId);
+  const gitRepoUrl = useSelector(form.store, (s) => s.values.file.gitRepoUrl);
+  const repoFullName = useSelector(form.store, (s) => s.values.file.repoFullName);
+  const subdirInputId = useId();
   // Placeholder name for a blank field: the repo URL's last path segment.
   const derivedName = stackNamePlaceholder("git", gitRepoUrl, null);
 
@@ -125,11 +126,12 @@ export function ComposeGitFields({
 
       <form.Field name="file.sourceSubdir">
         {(field) => (
-          <label className="flex flex-col gap-1.5">
+          <label htmlFor={subdirInputId} className="flex flex-col gap-1.5">
             <span className="text-xs text-muted-foreground">
               Root directory <span className="text-muted-foreground/60">(optional)</span>
             </span>
             <Input
+              id={subdirInputId}
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               placeholder="repo root"
@@ -171,7 +173,7 @@ export function ComposeInlineFields({
   // Membership set for the expose toggles. Memoized on the array so it is NOT
   // reallocated every render (the old `new Set(useStore(...))` was). The Set
   // only changes when the exposed list actually changes.
-  const exposedList = useStore(form.store, (s) => s.values.file.exposed);
+  const exposedList = useSelector(form.store, (s) => s.values.file.exposed);
   const exposed = useMemo(() => new Set(exposedList), [exposedList]);
   const toggleExpose = (key: string) => {
     const cur = form.state.values.file.exposed;

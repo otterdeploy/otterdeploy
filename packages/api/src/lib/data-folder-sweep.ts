@@ -16,7 +16,7 @@ import { log as globalLog } from "evlog";
 /**
  * Periodic reconcile of the host data folder against the DB — Phase 5 of
  * docs/designs/data-folder.md. Removes tenant dirs whose owning row is gone:
- * the failure mode Dokploy has (a crashed teardown leaves a dir forever).
+ * the classic failure mode (a crashed teardown leaves a dir forever).
  *
  * The tenant tree mirrors the DB hierarchy, so the sweep reconciles each level
  * against its table, top-down:

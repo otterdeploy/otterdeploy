@@ -18,6 +18,7 @@ import {
   removeMountInput,
   rollbackServiceInput,
   serviceMountSchema,
+  setDomainEnabledInput,
   setEnvInput,
   unsetEnvInput,
   updateDomainInput,
@@ -376,6 +377,20 @@ export const serviceContract = {
       })
       .meta({ path: `${basePath}/{resourceId}/domains/{routeId}/primary`, tag, method: "POST" })
       .input(domainRouteInput)
+      .output(serviceDomainSchema),
+
+    /**
+     * Pause / resume one host without deleting it. `enabled: false` takes the
+     * route out of Caddy but keeps every setting (cert decision, verification
+     * state) intact, so `enabled: true` restores it with nothing to re-prove.
+     */
+    setEnabled: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains/{routeId}/enabled`, tag, method: "POST" })
+      .input(setDomainEnabledInput)
       .output(serviceDomainSchema),
 
     remove: oc

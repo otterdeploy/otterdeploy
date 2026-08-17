@@ -57,6 +57,7 @@ const fakeRecord: ServiceRecord = {
     imageDigest: null,
     command: null,
     entrypoint: null,
+    extraNetworks: [],
     source: "image",
     sourceSubdir: null,
     framework: null,

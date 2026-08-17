@@ -178,8 +178,12 @@ function ChangePasswordForm() {
         </div>
         <form.Field name="revokeOthers">
           {(field) => (
-            <label className="flex w-fit cursor-pointer items-center gap-2 text-[12.5px] text-muted-foreground">
+            <label
+              htmlFor="pw-revoke-others"
+              className="flex w-fit cursor-pointer items-center gap-2 text-[12.5px] text-muted-foreground"
+            >
               <Checkbox
+                id="pw-revoke-others"
                 checked={field.state.value}
                 disabled={change.isPending}
                 onCheckedChange={(v) => field.handleChange(v === true)}

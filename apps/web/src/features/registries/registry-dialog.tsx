@@ -16,7 +16,7 @@
 import { useState } from "react";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -82,7 +82,7 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
     },
   });
 
-  const host = useStore(form.store, (s) => s.values.host);
+  const host = useSelector(form.store, (s) => s.values.host);
   const kind = pickedKind ?? kindForHost(existing?.host ?? host);
 
   const pickKind = (k: RegistryKind) => {

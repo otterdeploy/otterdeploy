@@ -4,6 +4,7 @@
  * authority from an organization role.
  */
 import { requireInstallAdmin } from "../..";
+import { listVolumeDir, readVolumeFile } from "./explore";
 import { createVolume, inspectVolume, listEnrichedVolumes, removeVolume } from "./service";
 
 export const volumesRouter = {
@@ -44,6 +45,39 @@ export const volumesRouter = {
     }
     return result.volume;
   }),
+
+  explore: {
+    list: requireInstallAdmin().volumes.explore.list.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "docker_volume", name: input.name } });
+      const result = await listVolumeDir(input.name, input.path);
+      if (!result.ok) {
+        if (result.kind === "invalid-path") throw errors.INVALID_PATH({ message: result.reason });
+        if (result.kind === "not-found") throw errors.NOT_FOUND({ message: result.reason });
+        throw errors.SERVER_ERROR({ message: result.reason });
+      }
+      return { path: result.path, entries: result.entries };
+    }),
+
+    read: requireInstallAdmin().volumes.explore.read.handler(async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "docker_volume", name: input.name } });
+      const result = await readVolumeFile(input.name, input.path);
+      if (!result.ok) {
+        if (result.kind === "invalid-path") throw errors.INVALID_PATH({ message: result.reason });
+        if (result.kind === "not-found") throw errors.NOT_FOUND({ message: result.reason });
+        throw errors.SERVER_ERROR({ message: result.reason });
+      }
+      // Volume contents are sensitive — audit each file view like inspect.
+      const user = context.session?.user;
+      if (user) {
+        context.log.audit?.({
+          action: "volumes.files.read",
+          actor: { type: "user", id: user.id, email: user.email },
+          outcome: "success",
+        });
+      }
+      return result.file;
+    }),
+  },
 
   remove: requireInstallAdmin().volumes.remove.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "docker_volume", name: input.name } });

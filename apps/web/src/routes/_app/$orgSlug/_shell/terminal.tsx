@@ -3,9 +3,14 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { serverCollection } from "@/features/servers/data/server";
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
 import { SessionPanels } from "@/features/terminal/components/session-panels";
 import { SessionStrip } from "@/features/terminal/components/session-strip";
+import {
+  terminalContainersCollection,
+  terminalDatabasesCollection,
+} from "@/features/terminal/data/targets";
 import { sessionSourcesToSearchParams, terminalSearchSchema } from "@/features/terminal/url";
 import { useTerminalSessions } from "@/features/terminal/use-terminal-sessions";
 import { Button } from "@/shared/components/ui/button";
@@ -25,6 +30,15 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/terminal")({
   // absent), so a fresh visit's sync-to-URL effect would otherwise write a
   // literal `?session=%5B%5D`: strip it back off when it's the empty default.
   search: { middlewares: [stripSearchParams({ session: [] })] },
+  // Warm the "New session" picker's data on hover (intent-preload): the two
+  // target collections share one terminal.targets RPC (deduped in targets.ts),
+  // plus the org server list. targets scans live docker state, so it is never
+  // awaited — best-effort only; the picker falls back to fetch-on-open.
+  loader: () => {
+    void terminalContainersCollection.preload().catch(() => undefined);
+    void terminalDatabasesCollection.preload().catch(() => undefined);
+    void serverCollection.preload().catch(() => undefined);
+  },
   component: RouteComponent,
 });
 

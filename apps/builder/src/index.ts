@@ -8,11 +8,21 @@
  * pipeline run inside them. Lives apart from apps/server, which shouldn't
  * depend on docker at all.
  *
- * Concurrency is configurable via BUILDER_CONCURRENCY (default 1).
+ * Concurrency is configurable via BUILDER_CONCURRENCY (default 1). The queue
+ * this process drains is its deploy LANE (BUILDER_LANE, default "default"):
+ * a lane-named builder consumes `deploy.triggered.<lane>` so installs with
+ * several build servers drain their queues concurrently, while the default
+ * builder keeps consuming the plain `deploy.triggered` queue unchanged.
  */
 
 import { builderConcurrency } from "@otterdeploy/api/lib/platform-runtime-settings";
-import { createWorkers, reconcileInterruptedDeployments } from "@otterdeploy/jobs";
+import { env } from "@otterdeploy/env/server";
+import {
+  createWorkers,
+  deployQueueName,
+  reconcileInterruptedDeployments,
+  registerDeployLane,
+} from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -47,7 +57,14 @@ async function bootstrap() {
   // which is why the settings card says a change needs the builder restarted
   // rather than implying it takes effect live.
   const concurrency = await builderConcurrency();
-  log.info({ builder: { event: "starting", concurrency } });
+  const lane = env.BUILDER_LANE;
+  log.info({ builder: { event: "starting", concurrency, lane } });
+
+  // Register the lane up front (enqueuers also register on every trigger).
+  // Best-effort insurance so queue readers can enumerate this lane even
+  // before its first job arrives; if Redis is down, the worker below fails
+  // loudly on its own.
+  await registerDeployLane(lane).catch(() => undefined);
 
   // Reset deployments stranded before we start pulling new jobs. Best-effort:
   // a reconcile failure must never block the worker.
@@ -56,6 +73,9 @@ async function bootstrap() {
   const workers = await createWorkers({
     jobs: [makeBuildJob()],
     concurrency,
+    // Bind the deploy worker to THIS builder's lane queue. The handler is the
+    // same on every lane; only the queue it consumes differs.
+    queueNameFor: () => deployQueueName(lane),
   });
   stop = workers.stop;
 

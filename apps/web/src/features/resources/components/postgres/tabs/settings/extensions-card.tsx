@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,11 +61,10 @@ export function ExtensionsCard({
   const setExtensions = useMutation({
     ...orpc.project.resource.database.postgres.setExtensions.mutationOptions(),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: resource.projectId },
-        }),
-      });
+      // The panel reads from the react-db `resourceCollection` — its cache key
+      // is PREFIXED by RESOURCE_COLLECTION_KEY, so the bare orpc list key this
+      // used to invalidate never matched and the card showed stale state.
+      await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
       toast.success("Extensions updated");
     },
     onError: (err) => toast.error(err.message ?? "Failed to update extensions"),

@@ -2,7 +2,7 @@ import { useState, type ReactElement } from "react";
 
 import { ID_PREFIX, createId, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -131,7 +131,7 @@ export function CreateProjectDialog({
   // keystroke. Without this, `form.getFieldValue("slug")` would only read
   // the value at the initial render and the live query below would never
   // re-run.
-  const slug = useStore(form.store, (s) => s.values.slug);
+  const slug = useSelector(form.store, (s) => s.values.slug);
 
   // Reactive uniqueness check against rows already in the collection. No
   // server roundtrip needed. `projectCollection` holds the org's projects.
@@ -189,7 +189,6 @@ export function CreateProjectDialog({
                     field.handleChange(next);
                     form.setFieldValue("slug", slugifier.parse(next));
                   }}
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={err?.message}>{err?.message}</FieldError>

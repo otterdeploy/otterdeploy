@@ -1,7 +1,7 @@
 /**
- * Platform-wide settings: single-row table keyed by a fixed id. Same
- * pattern Coolify uses for `InstanceSettings`: there's exactly one row
- * per install, and it carries the configuration that lives above any
+ * Platform-wide settings — single-row table keyed by a fixed id. The
+ * single-row instance-settings pattern: there's exactly one row per
+ * install, and it carries the configuration that lives above any
  * org/user (control plane URL, ACME issuer email, the host IP we use
  * for sslip.io fallback domains, etc.).
  *
@@ -160,9 +160,9 @@ export const platformSettings = pgTable("platform_settings", {
   // ─── Platform self-update (packages/api/src/routers/system). The CURRENT
   //     version is not stored here. It's read live from env.OTTERDEPLOY_VERSION
   //     (the image tag the compose stack booted with). These columns cache the
-  //     last "check for updates" result + hold the operator's update prefs, the
-  //     same split Coolify keeps on InstanceSettings. Transient apply run-state
-  //     (progress/logs) lives in-memory + a status file under DATA_DIR, not here.
+  //     last "check for updates" result + hold the operator's update prefs.
+  //     Transient apply run-state (progress/logs) lives in-memory + a status
+  //     file under DATA_DIR, not here.
   /** Release channel to track. "stable" ⇒ GitHub `releases/latest`. */
   updateChannel: text("update_channel").default("stable"),
   /** When on, the scheduled updater applies a newer version automatically. */

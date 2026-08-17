@@ -81,6 +81,14 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
             protected: m.changes.protected,
           });
         }
+        // The operator's route on/off switch. The collection mutates the
+        // column (`disabledByUser`); the wire speaks `enabled`, inverted.
+        if (m.changes.disabledByUser !== undefined) {
+          await orpc.project.proxyRoute.setEnabled.call({
+            routeId,
+            enabled: !m.changes.disabledByUser,
+          });
+        }
         if (m.changes.routePolicy !== undefined) {
           const result = await orpc.project.proxyRoute.setRoutePolicy.call({
             routeId,

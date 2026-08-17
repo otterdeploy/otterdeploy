@@ -18,6 +18,9 @@ export interface RouteRow {
   publicHost: string;
   tls: "letsencrypt" | "internal";
   enabled: boolean;
+  /** The operator's explicit off switch — orthogonal to the system-owned
+   *  `enabled` gate. The route serves only when `enabled && !disabledByUser`. */
+  disabledByUser: boolean;
   isHttp: boolean;
   protected: boolean;
   routePolicy: RoutePolicy;
@@ -57,6 +60,7 @@ export function mapRoute(
     publicHost,
     tls: route.usesAcme ? "letsencrypt" : "internal",
     enabled: route.enabled,
+    disabledByUser: route.disabledByUser,
     isHttp,
     protected: route.protected,
     routePolicy: route.routePolicy,

@@ -33,22 +33,30 @@ import {
   SHARE_LINK_ITEMS,
 } from "./route-access-shared";
 
-/** Guests + shareable link + CI token, stacked. The whole access surface
- *  for one route, used inline (Access tab) or inside a dialog (Routes tab). */
+/**
+ * The whole access surface for one route, used inline (Access tab) or inside
+ * a dialog (Routes tab). Two panes on wide viewports — PEOPLE (guest invites)
+ * on the left, the three CREDENTIAL mechanisms (PIN / link / token) stacked
+ * on the right — so the dialog reads as two short columns instead of one
+ * long scroll. Collapses back to a single stack under `md`.
+ */
 export function RouteAccessControls({ routeId }: { routeId: string }) {
   return (
-    <div className="flex flex-col divide-y">
-      <div className="pb-5">
+    <div className="grid grid-cols-1 gap-y-5 md:grid-cols-[1fr_1px_1fr] md:gap-x-7">
+      <div>
         <GuestsSection routeId={routeId} />
       </div>
-      <div className="py-5">
-        <PinSection routeId={routeId} />
-      </div>
-      <div className="py-5">
-        <ShareLinkSection routeId={routeId} />
-      </div>
-      <div className="pt-5">
-        <BypassTokenSection routeId={routeId} />
+      <div className="hidden bg-border md:block" />
+      <div className="flex flex-col divide-y">
+        <div className="pb-5">
+          <PinSection routeId={routeId} />
+        </div>
+        <div className="py-5">
+          <ShareLinkSection routeId={routeId} />
+        </div>
+        <div className="pt-5">
+          <BypassTokenSection routeId={routeId} />
+        </div>
       </div>
     </div>
   );

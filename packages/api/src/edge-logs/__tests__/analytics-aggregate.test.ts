@@ -178,12 +178,15 @@ describe("foldLine", () => {
 });
 
 describe("percentileFromBuckets", () => {
+  // 13 histogram slots: the 12 duration buckets plus the overflow bucket.
+  const emptyHistogram = (): number[] => Array.from({ length: 13 }, () => 0);
+
   test("empty histogram has no percentile", () => {
-    expect(percentileFromBuckets(new Array<number>(13).fill(0), 0.95)).toBeNull();
+    expect(percentileFromBuckets(emptyHistogram(), 0.95)).toBeNull();
   });
 
   test("a single-bucket histogram interpolates within that bucket's bounds", () => {
-    const buckets = new Array<number>(13).fill(0);
+    const buckets = emptyHistogram();
     buckets[6] = 100; // (50, 100] ms
     const p50 = percentileFromBuckets(buckets, 0.5);
     const p99 = percentileFromBuckets(buckets, 0.99);
@@ -194,7 +197,7 @@ describe("percentileFromBuckets", () => {
   });
 
   test("overflow-only traffic reads as ≥5000, clamped", () => {
-    const buckets = new Array<number>(13).fill(0);
+    const buckets = emptyHistogram();
     buckets[12] = 10;
     const p95 = percentileFromBuckets(buckets, 0.95);
     expect(p95).toBeGreaterThanOrEqual(5_000);
@@ -202,7 +205,7 @@ describe("percentileFromBuckets", () => {
   });
 
   test("split distribution puts the median at the boundary bucket", () => {
-    const buckets = new Array<number>(13).fill(0);
+    const buckets = emptyHistogram();
     buckets[0] = 50; // ≤1ms
     buckets[12] = 50; // overflow
     const p50 = percentileFromBuckets(buckets, 0.5);

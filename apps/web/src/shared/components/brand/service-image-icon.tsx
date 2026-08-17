@@ -22,6 +22,8 @@ import { BunLogo } from "@/shared/components/ui/svgs/bun";
 import { Dbeaver } from "@/shared/components/ui/svgs/dbeaver";
 import { Directus } from "@/shared/components/ui/svgs/directus";
 import { Docker } from "@/shared/components/ui/svgs/docker";
+import { Dozzle } from "@/shared/components/ui/svgs/dozzle";
+import { Drizzle } from "@/shared/components/ui/svgs/drizzle";
 import { EclipseMosquitto } from "@/shared/components/ui/svgs/eclipse-mosquitto";
 import { Excalidraw } from "@/shared/components/ui/svgs/excalidraw";
 import { Forgejo } from "@/shared/components/ui/svgs/forgejo";
@@ -33,6 +35,7 @@ import { Grafana } from "@/shared/components/ui/svgs/grafana";
 import { Harbor } from "@/shared/components/ui/svgs/harbor";
 import { Hasura } from "@/shared/components/ui/svgs/hasura";
 import { Hoppscotch } from "@/shared/components/ui/svgs/hoppscotch";
+import { ItTools } from "@/shared/components/ui/svgs/it-tools";
 import { Jaeger } from "@/shared/components/ui/svgs/jaeger";
 import { Keycloak } from "@/shared/components/ui/svgs/keycloak";
 import { Libretranslate } from "@/shared/components/ui/svgs/libretranslate";
@@ -104,6 +107,15 @@ const IMAGE_BRANDS: Record<string, BrandSvg> = {
   oven: BunLogo,
   // Self-hosted apps that show up as stack members.
   authentik: Authentik,
+  // `ghcr.io/goauthentik/server` keys as owner "goauthentik", never
+  // "authentik" — without this the running stack fell back to the neutral
+  // glyph while the catalog (keyed by app name) showed the brand.
+  goauthentik: Authentik,
+  dozzle: Dozzle,
+  "it-tools": ItTools,
+  // `ghcr.io/drizzle-team/gateway` keys as "drizzle-team/gateway", bare
+  // "gateway", owner "drizzle-team" — only the owner is distinctive.
+  "drizzle-team": Drizzle,
   baserow: Baserow,
   cloudbeaver: Dbeaver,
   dbeaver: Dbeaver,
@@ -167,7 +179,7 @@ function imageKeys(image: string): string[] {
   return [path, name, owner].filter(Boolean);
 }
 
-function resolveImageBrand(
+export function resolveImageBrand(
   image: string | null | undefined,
 ): { Icon: BrandSvg; invertInDark: boolean } | null {
   if (!image) return null;

@@ -16,9 +16,10 @@ export const authKeys = {
   currentSession: ["auth", "current-session"] as const,
   accounts: ["auth", "accounts"] as const,
   sessions: ["auth", "sessions"] as const,
+  passkeys: ["auth", "passkeys"] as const,
 };
 
-export interface SessionRow {
+interface SessionRow {
   id: string;
   token: string;
   createdAt: string | Date;
@@ -65,7 +66,37 @@ export function useSessions() {
   });
 }
 
-/** Coarse "Browser on OS" label from a user-agent string. Best-effort, used
+interface PasskeyRow {
+  id: string;
+  name?: string | null;
+  deviceType: string;
+  backedUp: boolean;
+  createdAt?: string | Date | null;
+  aaguid?: string | null;
+}
+
+/** Registered WebAuthn passkeys (the `@better-auth/passkey` plugin's list). */
+export function usePasskeys() {
+  return useQuery({
+    queryKey: authKeys.passkeys,
+    queryFn: async (): Promise<PasskeyRow[]> => {
+      const res = await authClient.passkey.listUserPasskeys();
+      if (res.error) {
+        throw new Error(res.error.message ?? "Failed to load passkeys");
+      }
+      return (res.data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        deviceType: p.deviceType,
+        backedUp: p.backedUp,
+        createdAt: p.createdAt,
+        aaguid: p.aaguid,
+      }));
+    },
+  });
+}
+
+/** Coarse "Browser on OS" label from a user-agent string. Best-effort — used
  *  for display only, never for any decision. */
 export function describeAgent(ua: string | null | undefined): string {
   if (!ua) return "Unknown device";

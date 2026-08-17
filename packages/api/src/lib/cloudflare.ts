@@ -75,16 +75,14 @@ async function cfEnvelope<T>(
   resultSchema: z.ZodType<T>,
   init: RequestInit = {},
 ): Promise<Result<CFEnvelope<T>, CloudflareError>> {
+  // Merge via `Headers`: it accepts every HeadersInit shape (plain object,
+  // entry array, Headers instance) where an object spread only handled the
+  // first. Caller-provided headers still win over the defaults.
+  const headers = new Headers(init.headers);
+  if (!headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const res = await Result.tryPromise({
-    try: () =>
-      fetch(`${CLOUDFLARE_API}${path}`, {
-        ...init,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          ...init.headers,
-        },
-      }),
+    try: () => fetch(`${CLOUDFLARE_API}${path}`, { ...init, headers }),
     catch: (cause) =>
       new CloudflareError(
         cause instanceof Error ? cause.message : String(cause),

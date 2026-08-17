@@ -9,6 +9,7 @@ import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   ComposeFileEditor,
@@ -44,15 +45,16 @@ export function ComposeServicesTab({
   source: "inline" | "git";
   serviceStatus: (serviceName: string) => StackServiceStatus;
 }) {
+  const { t } = useTranslation();
   if (services.length === 0) {
     return (
       <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
         <EmptyHeader>
-          <EmptyTitle>No services parsed</EmptyTitle>
+          <EmptyTitle>{t("resources.stackNoServices")}</EmptyTitle>
           <EmptyDescription>
             {source === "git"
-              ? "Services appear once the stack is built from the repo."
-              : "This stack's compose file declares no services."}
+              ? t("resources.stackNoServicesGit")
+              : t("resources.stackNoServicesInline")}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -80,23 +82,23 @@ export function ComposeFileTab({
   isLoading: boolean;
   composeContent: string | null | undefined;
 }) {
+  const { t } = useTranslation();
   // Git stacks stay read-only. Their compose file lives in the repo and is
   // resolved at build time, so editing it here would just be overwritten.
   if (source === "git") {
     return (
       <>
         <p className="mb-3 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
-          This stack builds from a repository. The compose file lives in the repo and is resolved at
-          build time.
+          {t("resources.stackFromRepo")}
         </p>
         {isLoading ? (
           <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
-            Loading compose file…
+            {t("resources.composeLoading")}
           </div>
         ) : composeContent ? (
           <ComposeViewer content={composeContent} />
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>
+          <p className="text-[12.5px] text-muted-foreground">{t("resources.composeEmpty")}</p>
         )}
       </>
     );
@@ -105,12 +107,12 @@ export function ComposeFileTab({
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
-        Loading compose file…
+        {t("resources.composeLoading")}
       </div>
     );
   }
   if (composeContent == null) {
-    return <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>;
+    return <p className="text-[12.5px] text-muted-foreground">{t("resources.composeEmpty")}</p>;
   }
   // Mounts only once the content has loaded, so the editor seeds its draft from
   // the real YAML without an effect.
@@ -142,6 +144,7 @@ export function ComposeSettingsTab({
   onDelete: () => void;
   deleting: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <div className="mb-4">
@@ -153,11 +156,10 @@ export function ComposeSettingsTab({
         />
       </div>
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-        <div className="text-[13px] font-semibold text-destructive">Delete stack</div>
-        <p className="mt-1 text-[12px] text-muted-foreground">
-          Removes every service in this stack from swarm, its routes, and the resource record. This
-          can't be undone.
-        </p>
+        <div className="text-[13px] font-semibold text-destructive">
+          {t("resources.deleteStack")}
+        </div>
+        <p className="mt-1 text-[12px] text-muted-foreground">{t("resources.deleteStackBlurb")}</p>
         <TypedConfirmDialog
           trigger={
             <Button
@@ -168,14 +170,14 @@ export function ComposeSettingsTab({
               disabled={deleting}
             >
               <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-              {deleting ? "Deleting…" : "Delete stack"}
+              {deleting ? t("common.deleting") : t("resources.deleteStack")}
             </Button>
           }
-          title={`Delete the ${name} stack?`}
-          description={`All ${serviceCount} of its services are removed from swarm along with their routes and the resource record. This can't be undone.`}
+          title={t("resources.deleteStackTitle", { name })}
+          description={t("resources.deleteStackDescription", { n: serviceCount })}
           confirmPhrase={name}
-          confirmLabel="Delete stack"
-          pendingLabel="Deleting…"
+          confirmLabel={t("resources.deleteStack")}
+          pendingLabel={t("common.deleting")}
           pending={deleting}
           onConfirm={onDelete}
         />

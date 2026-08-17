@@ -32,7 +32,7 @@ import { projectCollection } from "@/features/projects/data/project";
 import { serverCollection } from "@/features/servers/data/server";
 
 import { buildTourSteps, resolveRouteParams, type TourContext, type TourStep } from "./steps";
-import { hasSeenTour, markTourCompleted, markTourDismissed } from "./storage";
+import { markTourCompleted, markTourDismissed } from "./storage";
 
 import "driver.js/dist/driver.css";
 

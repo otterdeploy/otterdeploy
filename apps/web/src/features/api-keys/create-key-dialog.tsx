@@ -127,7 +127,6 @@ export function CreateKeyDialog({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder={t("apiKeys.namePlaceholder")}
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={String(err)}>{String(err)}</FieldError>

@@ -23,6 +23,7 @@ import type { ComposeManifest } from "../../stack/manifest";
 
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
+import { resolveBuildLane } from "../../lib/build-lane";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
@@ -193,14 +194,19 @@ async function createGitStackFromManifest(
     })
     .returning({ id: deployment.id });
 
-  await triggerDeploy({
-    projectId,
-    // Real binding when picked (correlation); else the resource id.
-    gitRepoId: gitRepoId ?? created.value.resource.id,
-    ref,
-    sha: head.sha,
-    deploymentIds: [dep?.id ?? ""],
-  });
+  await triggerDeploy(
+    {
+      projectId,
+      // Real binding when picked (correlation); else the resource id.
+      gitRepoId: gitRepoId ?? created.value.resource.id,
+      ref,
+      sha: head.sha,
+      deploymentIds: [dep?.id ?? ""],
+    },
+    undefined,
+    // Route to the project's build server lane, if it has a dedicated one.
+    await resolveBuildLane(projectId),
+  );
   log.set({ manifestComposeBuild: { resourceId: created.value.resource.id, ref } });
   return Result.ok({ resourceId: created.value.resource.id });
 }

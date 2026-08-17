@@ -84,6 +84,11 @@ export const SECRET_DOMAINS = [
   // from "server-secrets" (which is ephemeral, job-payload-lifetime material)
   // because these are long-lived and grant API control of the org's whole VPN.
   "mesh-creds",
+  // External secret-manager credentials — the Vault token / Infisical client
+  // secret / Doppler service token on `vault_provider` rows. Long-lived and
+  // able to read every secret the org points at otterdeploy, so it gets its
+  // own domain for the same reason "mesh-creds" does.
+  "vault-creds",
 ] as const;
 export type SecretDomain = (typeof SECRET_DOMAINS)[number];
 
@@ -344,13 +349,16 @@ export async function decryptForDomain(blob: string, domain: SecretDomain): Prom
     throw new Error("decryptForDomain: malformed ciphertext (unrecognized format)");
   }
   const parsed = parseV2Envelope(blob);
+  // Unknown-domain first: it checks the raw envelope string (and narrows it to
+  // SecretDomain for getDomainKey); a garbage domain reports as unknown rather
+  // than as a mismatch against whatever the caller expected.
+  if (!isSecretDomain(parsed.domain)) {
+    throw new Error(`decryptForDomain: unknown domain "${parsed.domain}" in envelope`);
+  }
   if (parsed.domain !== domain) {
     throw new Error(
       `decryptForDomain: domain mismatch (envelope="${parsed.domain}", expected="${domain}")`,
     );
-  }
-  if (!isSecretDomain(parsed.domain)) {
-    throw new Error(`decryptForDomain: unknown domain "${parsed.domain}" in envelope`);
   }
   const key = await getDomainKey(parsed.domain, parsed.keyId);
   return open(key, parsed.nonce, parsed.ciphertext);

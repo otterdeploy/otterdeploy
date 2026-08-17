@@ -5,9 +5,9 @@
  * A proxied domain's A/AAAA resolves into one of these ranges rather than
  * our origin IP: Cloudflare terminates TLS at its edge, so the origin
  * can't complete an ACME challenge and should serve `tls internal`
- * instead (Cloudflare "Full" SSL mode accepts it). Coolify keeps the same
- * IPv4 list for its DNS-validation check; we add the published IPv6 ranges
- * and match both via BigInt so an AAAA record is classified too.
+ * instead (Cloudflare "Full" SSL mode accepts it). We carry both the
+ * published IPv4 and IPv6 ranges and match via BigInt so an AAAA record
+ * is classified too.
  *
  * Source: https://www.cloudflare.com/ips/ (stable; rarely changes).
  */

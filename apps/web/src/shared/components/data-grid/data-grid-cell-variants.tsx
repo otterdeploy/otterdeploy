@@ -110,7 +110,7 @@ export function ShortTextCell<TData>({
     tableMeta?.onCellEditingStop?.();
   }, [tableMeta, rowIndex, columnId, initialValue, readOnly]);
 
-  const onInput = React.useCallback((event: React.FormEvent<HTMLDivElement>) => {
+  const onInput = React.useCallback((event: React.InputEvent<HTMLDivElement>) => {
     const currentValue = event.currentTarget.textContent ?? "";
     setValue(currentValue);
   }, []);
@@ -322,13 +322,19 @@ export function LongTextCell<TData>({
       const textarea = textareaRef.current;
       if (!textarea) return;
       textarea.focus();
-      const length = textarea.value.length;
-      textarea.setSelectionRange(length, length);
       if (pendingCharRef.current) {
         const char = pendingCharRef.current;
         pendingCharRef.current = null;
-        document.execCommand("insertText", false, char);
+        // Write through the native prototype `value` setter (Reflect.set with
+        // the textarea as receiver bypasses React's instance value tracker)
+        // and fire an `input` event so the char takes the same
+        // controlled-onChange path (state + debounced save) as a real
+        // keystroke.
+        Reflect.set(HTMLTextAreaElement.prototype, "value", textarea.value + char, textarea);
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
       }
+      const length = textarea.value.length;
+      textarea.setSelectionRange(length, length);
       textarea.scrollTop = textarea.scrollHeight;
     };
     const raf = requestAnimationFrame(focus);
@@ -345,8 +351,8 @@ export function LongTextCell<TData>({
         !event.ctrlKey &&
         !event.metaKey
       ) {
-        // Store the character to be inserted after textarea focuses
-        // This ensures it's part of the textarea's undo history
+        // Store the character to be inserted after the textarea focuses; the
+        // focus effect replays it through the textarea's input pipeline.
         pendingCharRef.current = event.key;
       }
     },
@@ -605,7 +611,7 @@ export function UrlCell<TData>({
     tableMeta?.onCellEditingStop?.();
   }, [tableMeta, rowIndex, columnId, initialValue, readOnly]);
 
-  const onInput = React.useCallback((event: React.FormEvent<HTMLDivElement>) => {
+  const onInput = React.useCallback((event: React.InputEvent<HTMLDivElement>) => {
     const currentValue = event.currentTarget.textContent ?? "";
     setValue(currentValue);
   }, []);

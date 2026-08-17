@@ -70,12 +70,18 @@ function AccessDialog({ routeId, domain }: { routeId: string; domain: string }) 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" className="size-7" aria-label="Manage access" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground hover:text-foreground"
+            aria-label="Manage access"
+            title="Manage access"
+          />
         }
       >
         <HugeiconsIcon icon={ShieldKeyIcon} strokeWidth={1.8} className="size-3.5" />
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Access to {domain}</DialogTitle>
           <DialogDescription>

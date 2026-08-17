@@ -70,6 +70,7 @@ export {
   saveGlobalCaddyOptions,
   setProxyRoutePolicy,
   setProxyRouteProtection,
+  setProxyRouteUserEnabled,
   setRouteAccessPin,
 } from "./proxy-routes";
 

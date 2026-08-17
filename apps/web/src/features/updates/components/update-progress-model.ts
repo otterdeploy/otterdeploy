@@ -74,9 +74,10 @@ function useArmedAfter(enabled: boolean, delayMs: number): boolean {
  */
 function useSeen(pending: boolean): boolean {
   const [seen, setSeen] = useState(false);
-  useEffect(() => {
-    if (pending) setSeen(true);
-  }, [pending]);
+  // Latch during render (guarded prev-value compare) rather than in an
+  // effect: same adjust-in-render pattern as the sort/follow latch in
+  // use-logs-table, and it avoids the extra cascading render an effect costs.
+  if (pending && !seen) setSeen(true);
   return pending || seen;
 }
 

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import { guardImageRemoval, guardNetworkRemoval, guardVolumeRemoval } from "../guards";
+import {
+  guardImageRemoval,
+  guardNetworkCreateName,
+  guardNetworkRemoval,
+  guardVolumeRemoval,
+} from "../guards";
 
 describe("guardImageRemoval", () => {
   test("unused image ⇒ ok", () => {
@@ -70,6 +75,35 @@ describe("guardNetworkRemoval", () => {
 
   test("unattached user network ⇒ ok", () => {
     expect(guardNetworkRemoval({ name: "helio-mesh", ingress: false, attached: 0 })).toEqual({
+      ok: true,
+    });
+  });
+});
+
+describe("guardNetworkCreateName", () => {
+  const managedPrefix = "otterdeploy-";
+
+  test.each(["bridge", "host", "none", "ingress", "docker_gwbridge"])(
+    "builtin name %s ⇒ refused",
+    (name) => {
+      const r = guardNetworkCreateName({ name, managedPrefix });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toMatch(/builtin/i);
+    },
+  );
+
+  test("managed prefix ⇒ refused (project networks own it)", () => {
+    const r = guardNetworkCreateName({ name: "otterdeploy-myproject", managedPrefix });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/reserved/i);
+  });
+
+  test("plain user name ⇒ ok", () => {
+    expect(guardNetworkCreateName({ name: "shared-mesh", managedPrefix })).toEqual({ ok: true });
+  });
+
+  test("name merely containing the prefix mid-string ⇒ ok", () => {
+    expect(guardNetworkCreateName({ name: "my-otterdeploy-net", managedPrefix })).toEqual({
       ok: true,
     });
   });

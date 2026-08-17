@@ -12,7 +12,7 @@
  * operator saves the HTTP form over it.
  */
 
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -100,7 +100,7 @@ function HealthCheckForm({
   service: ServiceView;
 }) {
   const hcForm = useForm({ defaultValues: initialHealthcheckForm(service.healthcheck) });
-  const form = useStore(hcForm.store, (s) => s.values);
+  const form = useSelector(hcForm.store, (s) => s.values);
   const onPatch = (patch: Partial<HealthCheckFormState>) => {
     if (patch.enabled !== undefined) hcForm.setFieldValue("enabled", patch.enabled);
     if (patch.path !== undefined) hcForm.setFieldValue("path", patch.path);

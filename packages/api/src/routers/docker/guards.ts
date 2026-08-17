@@ -44,6 +44,29 @@ export function guardVolumeRemoval(opts: { attachedTo: string[] }): GuardResult 
 const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_gwbridge"]);
 
 /**
+ * Network creation: refuse the builtin names outright, and refuse the
+ * platform's managed prefix — `otterdeploy-<slug>` names are minted by
+ * project provisioning, and a user network squatting one would be silently
+ * adopted (or clobbered — see ensureProjectNetwork's replace path) by the
+ * next deploy of a project with that slug.
+ */
+export function guardNetworkCreateName(opts: { name: string; managedPrefix: string }): GuardResult {
+  if (BUILTIN_NETWORKS.has(opts.name)) {
+    return {
+      ok: false,
+      reason: `"${opts.name}" is a builtin Docker network name.`,
+    };
+  }
+  if (opts.name.startsWith(opts.managedPrefix)) {
+    return {
+      ok: false,
+      reason: `Names starting with "${opts.managedPrefix}" are reserved for project networks.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * Network removal: refuse the daemon's builtin networks (bridge/host/none),
  * swarm plumbing (ingress/docker_gwbridge or any network with the Ingress
  * flag), and any network with containers still attached.

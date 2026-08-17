@@ -1,4 +1,4 @@
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 
@@ -30,7 +30,7 @@ function isPristinePorts(ports: Port[]): boolean {
 
 export function StepKind({ dbView, onDbViewChange, onChosen }: StepKindProps) {
   const form = useFormContext();
-  const kindId = useStore(form.store, (s) => s.values.kindId);
+  const kindId = useSelector(form.store, (s) => s.values.kindId);
 
   return (
     <KindPicker

@@ -38,6 +38,7 @@ export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
 export type ServerId = Id<typeof ID_PREFIX.server>;
 export type NodeEnrollmentId = Id<typeof ID_PREFIX.nodeEnrollment>;
 export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;
+export type VaultProviderId = Id<typeof ID_PREFIX.vaultProvider>;
 
 // Git source
 export type GitProviderId = Id<typeof ID_PREFIX.gitProvider>;

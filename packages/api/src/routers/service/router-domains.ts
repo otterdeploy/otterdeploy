@@ -16,22 +16,30 @@ import {
 } from "./domains";
 import { autoConfigureServiceDomainDns } from "./domains-autoconfigure";
 import { checkServiceDomain, listServiceDomains } from "./domains-check";
+import { setServiceDomainEnabled } from "./domains-enabled";
 import { generateServiceDomain } from "./expose";
 
 /**
  * Brand-narrow the contract's plain-string routeId. A string without the
- * proxy-route prefix can't match any stored route, so callers surface the
- * same DOMAIN_NOT_FOUND the row lookup would have produced.
+ * proxy-route prefix can't match any stored route, so surface the same
+ * DOMAIN_NOT_FOUND the row lookup would have produced.
  */
-function toProxyRouteId(routeId: string): ProxyRouteId | null {
-  return hasPrefix(routeId, ID_PREFIX.proxyRoute) ? routeId : null;
+function requireRouteId(routeId: string, errors: { DOMAIN_NOT_FOUND: () => Error }): ProxyRouteId {
+  if (!hasPrefix(routeId, ID_PREFIX.proxyRoute)) throw errors.DOMAIN_NOT_FOUND();
+  return routeId;
+}
+
+/** Every domains handler audits against the same resource-row target. */
+function setTarget(
+  log: { set: (f: { target: { type: "resource"; id: string; projectId: string } }) => void },
+  input: { resourceId: string; projectId: string },
+): void {
+  log.set({ target: { type: "resource", id: input.resourceId, projectId: input.projectId } });
 }
 
 export const serviceDomainsRouter = {
   list: projectScopedProcedure.service.domains.list.handler(async ({ input, context, errors }) => {
-    context.log.set({
-      target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-    });
+    setTarget(context.log, input);
     const result = await listServiceDomains({
       projectId: input.projectId,
       resourceId: input.resourceId,
@@ -66,9 +74,7 @@ export const serviceDomainsRouter = {
 
   generate: requirePermission({ service: ["update"] }).service.domains.generate.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-      });
+      setTarget(context.log, input);
       const result = await generateServiceDomain(
         {
           projectId: input.projectId,
@@ -91,9 +97,7 @@ export const serviceDomainsRouter = {
 
   add: requirePermission({ service: ["update"] }).service.domains.add.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-      });
+      setTarget(context.log, input);
       const result = await addServiceDomain(
         {
           projectId: input.projectId,
@@ -119,11 +123,8 @@ export const serviceDomainsRouter = {
 
   update: requirePermission({ service: ["update"] }).service.domains.update.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-      });
-      const routeId = toProxyRouteId(input.routeId);
-      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
+      setTarget(context.log, input);
+      const routeId = requireRouteId(input.routeId, errors);
       const result = await updateServiceDomain(
         {
           projectId: input.projectId,
@@ -150,11 +151,8 @@ export const serviceDomainsRouter = {
 
   recheck: requirePermission({ service: ["update"] }).service.domains.recheck.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-      });
-      const routeId = toProxyRouteId(input.routeId);
-      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
+      setTarget(context.log, input);
+      const routeId = requireRouteId(input.routeId, errors);
       const result = await recheckServiceDomain(
         {
           projectId: input.projectId,
@@ -178,11 +176,8 @@ export const serviceDomainsRouter = {
   autoConfigureDns: requirePermission({
     service: ["update"],
   }).service.domains.autoConfigureDns.handler(async ({ input, context, errors }) => {
-    context.log.set({
-      target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-    });
-    const routeId = toProxyRouteId(input.routeId);
-    if (!routeId) throw errors.DOMAIN_NOT_FOUND();
+    setTarget(context.log, input);
+    const routeId = requireRouteId(input.routeId, errors);
     const result = await autoConfigureServiceDomainDns({
       organizationId: context.activeOrganizationId,
       resourceId: input.resourceId,
@@ -205,11 +200,8 @@ export const serviceDomainsRouter = {
 
   setPrimary: requirePermission({ service: ["update"] }).service.domains.setPrimary.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-      });
-      const routeId = toProxyRouteId(input.routeId);
-      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
+      setTarget(context.log, input);
+      const routeId = requireRouteId(input.routeId, errors);
       const result = await setPrimaryServiceDomain(
         {
           projectId: input.projectId,
@@ -230,13 +222,35 @@ export const serviceDomainsRouter = {
     },
   ),
 
+  setEnabled: requirePermission({ service: ["update"] }).service.domains.setEnabled.handler(
+    async ({ input, context, errors }) => {
+      setTarget(context.log, input);
+      const routeId = requireRouteId(input.routeId, errors);
+      const result = await setServiceDomainEnabled(
+        {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+          routeId,
+          enabled: input.enabled,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+          DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
   remove: requirePermission({ service: ["update"] }).service.domains.remove.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
-      });
-      const routeId = toProxyRouteId(input.routeId);
-      if (!routeId) throw errors.DOMAIN_NOT_FOUND();
+      setTarget(context.log, input);
+      const routeId = requireRouteId(input.routeId, errors);
       const result = await removeServiceDomain(
         {
           projectId: input.projectId,

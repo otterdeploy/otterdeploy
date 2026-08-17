@@ -105,7 +105,11 @@ function normalizeKeyVals(v: unknown): Record<string, string> {
   const out: Record<string, string> = {};
   if (isObj(v)) {
     for (const [k, val] of Object.entries(v)) {
-      out[k] = val == null ? "" : String(val);
+      // Compose values are scalars; a nested map/list is author error, kept
+      // visible as JSON rather than an opaque "[object Object]".
+      if (val == null) out[k] = "";
+      else if (typeof val === "object") out[k] = JSON.stringify(val);
+      else out[k] = String(val);
     }
   } else if (Array.isArray(v)) {
     for (const entry of v) {

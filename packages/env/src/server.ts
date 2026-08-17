@@ -243,16 +243,30 @@ export const env = createEnv({
     // Settings → Git Providers). App ID, client secret, webhook secret,
     // PEM private key, and slug all live on the `git_provider` row
     // (secrets encrypted at rest via packages/api/src/lib/crypto.ts) —
-    // no env vars for any of it. Matches how Coolify and Dokploy
-    // configure GitHub Apps.
+    // no env vars for any of it.
 
     // Build pipeline — apps/builder. Concurrency is how many deploy
     // jobs the builder pulls from the queue at once; default 1 keeps
     // docker builds from contending on the daemon.
     BUILDER_CONCURRENCY: z.coerce.number().int().positive().default(1),
 
+    // Which deploy lane this builder process drains (packages/jobs/src/lanes.ts).
+    // "default" (the default) consumes the shared `deploy.triggered` queue, so a
+    // single-builder install needs no configuration and behaves exactly as
+    // before lanes existed. A named lane consumes `deploy.triggered.<lane>`
+    // instead: run one builder per dedicated build server, give each the lane
+    // name here, and set the matching `server.build_lane` column so projects
+    // placed on that server enqueue to it. Lowercase letters/digits/hyphens,
+    // ≤63 chars — kept queue-name and DNS-label safe.
+    BUILDER_LANE: z
+      .string()
+      .min(1)
+      .max(63)
+      .regex(/^[a-z0-9-]+$/)
+      .default("default"),
+
     // Per-build isolation: each deployment runs in a throwaway "helper"
-    // container (Coolify-style) the worker spawns via `docker run --rm`.
+    // container the worker spawns via `docker run --rm`.
     // IMAGE is what it runs (the builder image itself, which carries the
     // railpack/docker toolchain + this code); NETWORK is the docker network
     // it joins so it can reach Postgres/Redis. Defaults match docker-compose.

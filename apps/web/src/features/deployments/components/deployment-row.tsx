@@ -14,6 +14,7 @@ import {
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { DeploymentStatusBadge } from "@/features/resources/components/_shared/deployment-cards";
 import { Button } from "@/shared/components/ui/button";
@@ -106,6 +107,7 @@ export function DeployRow({
   onOpen: (d: ProjectDeployment) => void;
   onRollback: (d: ProjectDeployment) => void;
 }) {
+  const { t } = useTranslation();
   const eligible = isRollbackEligible(d);
   return (
     <TableRow className="group cursor-pointer" onClick={() => onOpen(d)}>
@@ -157,7 +159,7 @@ export function DeployRow({
             }}
           >
             <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3" />
-            Roll back
+            {t("deployments.rollBack")}
           </Button>
         )}
       </TableCell>

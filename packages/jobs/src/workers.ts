@@ -20,17 +20,23 @@ import { jobs as defaultJobs } from "./registry";
  * which can't live in `packages/jobs` itself).
  *
  * `opts.concurrency` sets BullMQ Worker concurrency. Default 1.
+ *
+ * `opts.queueNameFor` overrides which QUEUE a job's worker consumes (default:
+ * the job's own name, the historical 1:1 mapping). This is how a builder
+ * binds `deploy.triggered` to its lane's queue (`deploy.triggered.<lane>`) —
+ * the handler is queue-agnostic, only the Worker's binding moves.
  */
 export async function createWorkers(opts?: {
   jobs?: ReadonlyArray<JobDef>;
   concurrency?: number;
+  queueNameFor?: (def: JobDef) => string;
 }): Promise<{ stop: () => Promise<void> }> {
   const workers: Worker[] = [];
   const jobList = opts?.jobs ?? defaultJobs;
   const concurrency = opts?.concurrency ?? 1;
 
   for (const job of jobList) {
-    const worker = createWorker(job, concurrency);
+    const worker = createWorker(job, concurrency, opts?.queueNameFor?.(job));
     workers.push(worker);
 
     if (job.cron) {
@@ -57,9 +63,15 @@ export async function createWorkers(opts?: {
   };
 }
 
-function createWorker<TDef extends JobDef>(def: TDef, concurrency: number): Worker {
+function createWorker<TDef extends JobDef>(
+  def: TDef,
+  concurrency: number,
+  queueName?: string,
+): Worker {
   return new Worker(
-    def.name,
+    // A Worker's first argument is the QUEUE it consumes, not the job name —
+    // they only coincide by convention. Lane workers pass an override.
+    queueName ?? def.name,
     async (job: Job) => {
       const parsed = def.schema.safeParse(job.data);
       if (!parsed.success) {

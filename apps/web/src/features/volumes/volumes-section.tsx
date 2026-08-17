@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 
 import type { VolumeRow } from "@/features/volumes/shared";
 
+import { BrowseVolumeDialog } from "@/features/volumes/browse-volume-dialog";
 import { BulkRemoveVolumesDialog } from "@/features/volumes/bulk-remove-volumes-dialog";
 import { CreateVolumeDialog } from "@/features/volumes/create-volume-dialog";
 import { volumesListQuery } from "@/features/volumes/data/volumes";
@@ -38,6 +39,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [inspecting, setInspecting] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<VolumeRow | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -104,6 +106,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
             orgSlug={orgSlug}
             selection={selection}
             onInspect={(v) => setInspecting(v.name)}
+            onBrowse={(v) => setBrowsing(v.name)}
             onRemove={(v) => setRemoving(v)}
           />
           <p className="text-[11px] text-muted-foreground">
@@ -118,6 +121,12 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
         name={inspecting}
         onOpenChange={(open) => {
           if (!open) setInspecting(null);
+        }}
+      />
+      <BrowseVolumeDialog
+        name={browsing}
+        onOpenChange={(open) => {
+          if (!open) setBrowsing(null);
         }}
       />
       <RemoveVolumeDialog

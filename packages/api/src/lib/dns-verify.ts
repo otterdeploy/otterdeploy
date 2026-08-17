@@ -7,9 +7,9 @@
  * shouldn't be able to create.)
  *
  * We use a TXT record (Vercel/Railway/Render pattern) instead of an
- * A-record check (Coolify's approach) because TXT proves intent.
- * An A record might already be pointing at the install for unrelated
- * reasons (CDN, shared IP, etc.) and shouldn't grant publishing rights.
+ * A-record check because TXT proves intent — an A record might already
+ * be pointing at the install for unrelated reasons (CDN, shared IP,
+ * etc.) and shouldn't grant publishing rights.
  */
 
 import { DnsRecordMissing, resolveTxtRobust } from "./dns-resolver";

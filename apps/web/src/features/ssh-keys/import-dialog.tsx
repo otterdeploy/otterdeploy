@@ -109,7 +109,6 @@ export function ImportKeyDialog({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder="alice-laptop"
-                  autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={String(err)}>{String(err)}</FieldError>

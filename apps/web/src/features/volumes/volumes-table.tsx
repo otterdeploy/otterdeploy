@@ -4,6 +4,7 @@ import {
   DatabaseIcon,
   Delete02Icon,
   EyeIcon,
+  Folder01Icon,
   Layers01Icon,
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
@@ -108,10 +109,12 @@ function StatusBadge({ volume }: { volume: VolumeRow }) {
 function RowMenu({
   volume,
   onInspect,
+  onBrowse,
   onRemove,
 }: {
   volume: VolumeRow;
   onInspect: (volume: VolumeRow) => void;
+  onBrowse: (volume: VolumeRow) => void;
   onRemove: (volume: VolumeRow) => void;
 }) {
   return (
@@ -133,6 +136,10 @@ function RowMenu({
           <HugeiconsIcon icon={EyeIcon} strokeWidth={2} className="size-3.5" />
           Inspect
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onBrowse(volume)}>
+          <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5" />
+          Browse files
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => onRemove(volume)}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
@@ -148,6 +155,7 @@ export function VolumesTable({
   orgSlug,
   selection,
   onInspect,
+  onBrowse,
   onRemove,
 }: {
   volumes: VolumeRow[];
@@ -156,6 +164,7 @@ export function VolumesTable({
    *  outside the card. */
   selection: TableSelection<VolumeRow>;
   onInspect: (volume: VolumeRow) => void;
+  onBrowse: (volume: VolumeRow) => void;
   onRemove: (volume: VolumeRow) => void;
 }) {
   const { t } = useTranslation();
@@ -218,7 +227,7 @@ export function VolumesTable({
               </TableCell>
               <TableCell className="text-muted-foreground">{timeAgoSeconds(v.createdAt)}</TableCell>
               <TableCell className="pr-4 text-right">
-                <RowMenu volume={v} onInspect={onInspect} onRemove={onRemove} />
+                <RowMenu volume={v} onInspect={onInspect} onBrowse={onBrowse} onRemove={onRemove} />
               </TableCell>
             </TableRow>
           ))}

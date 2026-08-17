@@ -149,6 +149,7 @@ export function DomainRow({
           onSetPrimary={actions.setPrimary.run}
           onEdit={() => setEditing(true)}
           onRemove={actions.remove.run}
+          onSetEnabled={actions.setEnabled.run}
         />
       </div>
 

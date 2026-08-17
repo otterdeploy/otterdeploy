@@ -39,7 +39,7 @@ const CaddyEventSchema = z.object({
   identifiers: z.array(z.string()).optional(),
   // reverse_proxy errors carry the upstream dial + the proxied request.
   upstream: z.string().optional(),
-  request: z.object({ host: z.string().optional() }).passthrough().optional(),
+  request: z.looseObject({ host: z.string().optional() }).optional(),
 });
 
 function levelOf(raw: string | undefined): EdgeEventLevel {

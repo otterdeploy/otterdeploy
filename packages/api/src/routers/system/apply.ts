@@ -4,11 +4,11 @@ import type { Readable } from "node:stream";
  * Apply orchestrator. The self-replacement crux.
  *
  * A compose stack can't `up` itself and survive: recreating the `server`
- * container kills the process mid-command. So the real path is Coolify's trick.
- * Launch a DETACHED, auto-removing HELPER container (docker CLI + compose,
+ * container kills the process mid-command. So the real path is to launch a
+ * DETACHED, auto-removing HELPER container (docker CLI + compose,
  * socket + install-dir mounted) that bumps the pinned version and runs
  * `compose pull && up -d`. The server hands off, ends the progress stream, and
- * the browser polls /health for the new container (Dokploy's reconnection loop).
+ * the browser polls /health for the new container.
  *
  * The dry-run path replaces the helper with an in-process simulation that emits
  * the same progress phases and flips nothing, so the entire flow is exercisable

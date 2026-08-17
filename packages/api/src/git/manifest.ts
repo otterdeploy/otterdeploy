@@ -24,8 +24,7 @@
  *
  * Spec: https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest
  *
- * Matches the pattern Coolify and Dokploy use, no env vars at any
- * step of the round-trip.
+ * No env vars at any step of the round-trip.
  */
 
 import type { GitProviderId, OrganizationId } from "@otterdeploy/shared/id";

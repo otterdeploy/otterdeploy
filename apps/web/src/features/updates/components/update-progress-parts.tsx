@@ -1,23 +1,17 @@
-import { useEffect, useState } from "react";
-
 /**
  * Presentational + pure helpers for {@link UpdateProgress}. Split out so the
  * pane component itself stays under the line/complexity budget.
  */
-import { env } from "@otterdeploy/env/web";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { LogLineRow, type LogLine } from "@/features/logs/components/log-viewer";
 import { Button } from "@/shared/components/ui/button";
 
-import type { useCancelUpdate } from "../data/use-update-status";
-
 export type UpdatePhase = "validate" | "pull" | "migrate" | "recreate" | "handoff" | "done";
 export type RunStatus = "idle" | "running" | "succeeded" | "failed";
 
-import { STEPS, phaseIndex, type CancelMutation, type Outcome } from "./update-progress-model";
+import { STEPS, type CancelMutation, type Outcome } from "./update-progress-model";
 
 function dotClass(errored: boolean, done: boolean, active: boolean): string {
   const base = "size-1.5 rounded-full";

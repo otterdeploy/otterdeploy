@@ -15,8 +15,10 @@
  * actually land on, so the wizard tells the truth before you commit to it.
  */
 
+import { useId } from "react";
+
 import { detectComposeFilenames } from "@otterdeploy/shared/compose";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { Input } from "@/shared/components/ui/input";
@@ -40,8 +42,8 @@ type Detection =
   | { kind: "empty" };
 
 function useComposeDetection(form: ComposeForm): Detection {
-  const gitRepoId = useStore(form.store, (s) => s.values.file.gitRepoId);
-  const subdir = useStore(form.store, (s) => s.values.file.sourceSubdir);
+  const gitRepoId = useSelector(form.store, (s) => s.values.file.gitRepoId);
+  const subdir = useSelector(form.store, (s) => s.values.file.sourceSubdir);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
@@ -152,8 +154,9 @@ async function validateComposePath(args: {
 
 export function ComposeFileField({ form }: { form: ComposeForm }) {
   const detection = useComposeDetection(form);
-  const subdir = useStore(form.store, (s) => s.values.file.sourceSubdir);
-  const gitRepoId = useStore(form.store, (s) => s.values.file.gitRepoId);
+  const subdir = useSelector(form.store, (s) => s.values.file.sourceSubdir);
+  const gitRepoId = useSelector(form.store, (s) => s.values.file.gitRepoId);
+  const composePathId = useId();
   const detected = detection.kind === "found" ? detection.names[0] : null;
 
   return (
@@ -175,11 +178,12 @@ export function ComposeFileField({ form }: { form: ComposeForm }) {
           // alternate file, and a control nested in a label steals its own
           // clicks to focus the input instead.
           <div className="flex flex-col gap-1.5">
-            <label className="flex flex-col gap-1.5">
+            <label htmlFor={composePathId} className="flex flex-col gap-1.5">
               <span className="text-xs text-muted-foreground">
                 Compose file <span className="text-muted-foreground/60">(optional)</span>
               </span>
               <Input
+                id={composePathId}
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 // The detected name IS the placeholder. Leaving the field blank

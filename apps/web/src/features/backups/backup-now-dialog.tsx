@@ -5,7 +5,7 @@ import { useLiveQuery } from "@tanstack/react-db";
  * both: databases from real `terminal.targets` data, volumes from the live
  * daemon inventory (orphans included). Submits via `runBackup` → `backups.run`.
  */
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { Result } from "better-result";
 import { toast } from "sonner";
 
@@ -134,7 +134,7 @@ function BackupNowBody({
     onSubmit: ({ value }) => submitBackup(value, onClose),
   });
   // Only hit the daemon inventory once the Volume source is selected.
-  const sourceKind = useStore(form.store, (s) => s.values.sourceKind);
+  const sourceKind = useSelector(form.store, (s) => s.values.sourceKind);
   const volumeList = useVolumesList(sourceKind === "volume");
   const destOptions = toDestOptions(destinations);
 

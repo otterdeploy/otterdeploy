@@ -63,7 +63,7 @@ async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<v
 export const dockerDriver: RuntimeDriver = {
   kind: "docker",
 
-  async provision(spec) {
+  async provision(spec, log) {
     const docker = Docker.fromEnv();
     const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
     // replicas:0 = scaled to zero (stopped). Plain Docker has no replica count,
@@ -93,12 +93,14 @@ export const dockerDriver: RuntimeDriver = {
       buildContainerOptions(spec, networkName),
       spec.serviceName,
       networkName,
+      spec.extraNetworks,
+      log,
     );
     docker.destroy();
     return status;
   },
 
-  async update(spec) {
+  async update(spec, log) {
     const docker = Docker.fromEnv();
     const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
     if (spec.replicas === 0) {
@@ -121,6 +123,8 @@ export const dockerDriver: RuntimeDriver = {
       buildContainerOptions(spec, networkName),
       spec.serviceName,
       networkName,
+      spec.extraNetworks,
+      log,
     );
     docker.destroy();
     return status;
@@ -167,7 +171,7 @@ export const dockerDriver: RuntimeDriver = {
       const summary: Summary = container;
       // Name filter would be a substring match; index by the exact `/name` the
       // way findContainer pins it, stripping docker's leading slash.
-      for (const name of summary.Names ?? []) byName.set(name.replace(/^\//, ""), summary);
+      for (const name of summary.Names) byName.set(name.replace(/^\//, ""), summary);
     }
 
     for (const input of inputs) {

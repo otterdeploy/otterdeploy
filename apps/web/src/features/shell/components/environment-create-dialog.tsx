@@ -102,7 +102,6 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
                 <Input
                   id={field.name}
                   name={field.name}
-                  autoFocus
                   placeholder={t("shell.environmentPlaceholder")}
                   value={field.state.value}
                   onBlur={field.handleBlur}

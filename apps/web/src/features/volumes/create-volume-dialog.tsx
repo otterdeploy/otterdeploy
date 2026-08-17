@@ -29,7 +29,7 @@ import { createVolume } from "./data/volumes";
 
 const NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
 
-interface LabelRow {
+export interface LabelRow {
   key: string;
   value: string;
 }
@@ -66,6 +66,12 @@ export function CreateVolumeDialog({
       <CreateVolumeBody drivers={drivers} onClose={() => onOpenChange(false)} />
     </Dialog>
   );
+}
+
+interface CreateVolumeFormValues {
+  name: string;
+  driver: string;
+  labels: LabelRow[];
 }
 
 function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: () => void }) {
@@ -129,7 +135,6 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
                     className="font-mono"
                     placeholder="app-uploads"
                     value={field.state.value}
-                    autoFocus
                     aria-invalid={nameTouchedInvalid || undefined}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
@@ -205,8 +210,9 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
   );
 }
 
-/** Editable key/value label rows, submitted as-is (blank keys are dropped). */
-function LabelsEditor({
+/** Editable key/value label rows, submitted as-is (blank keys are dropped).
+ *  Exported for the create-network dialog, which shares the exact shape. */
+export function LabelsEditor({
   value,
   onChange,
 }: {

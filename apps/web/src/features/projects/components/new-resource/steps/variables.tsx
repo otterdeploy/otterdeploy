@@ -1,6 +1,6 @@
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
@@ -8,6 +8,7 @@ import type { ServiceKind } from "@/features/projects/data/service-kinds";
 import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
+import { LinkedSecretsField } from "../form-fields/linked-secrets-field";
 import { SectionHeader } from "../form-primitives";
 
 interface StepVariablesProps {
@@ -23,8 +24,8 @@ interface StepVariablesProps {
  */
 export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo);
-  const root = useStore(form.store, (s) => s.values.root);
+  const repo = useSelector(form.store, (s) => s.values.repo);
+  const root = useSelector(form.store, (s) => s.values.root);
 
   const env = useQuery({
     ...orpc.git.inspectEnv.queryOptions({
@@ -55,6 +56,13 @@ export function StepVariables({ projectId }: StepVariablesProps) {
       <form.AppField name="variables">
         {(f) => <f.VariablesField projectId={projectId} />}
       </form.AppField>
+
+      {/* External secret-manager hint: `${{vault.…}}` refs work in the value
+          cells above; this only points at the capability (or its settings
+          page when no provider is connected yet). */}
+      <div className="mt-2">
+        <LinkedSecretsField />
+      </div>
     </>
   );
 }
