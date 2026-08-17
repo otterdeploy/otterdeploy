@@ -214,7 +214,10 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
 
       <div
         className={cn(
-          "w-92 overflow-hidden rounded-2xl border bg-muted/30 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
+          // Opaque `bg-card`, matching standalone resource nodes — the
+          // translucent `bg-muted/30` it replaces let the canvas dot grid
+          // bleed through the stack shell.
+          "w-92 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
           selected && "ring-2 ring-ring/40",
           data.pending === "delete" && "cursor-not-allowed opacity-80",
           data.pending === "update" && "border-dashed border-info/60",

@@ -10,12 +10,7 @@ import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import { ArrowReloadHorizontalIcon, HardDriveIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { Docker } from "@/shared/components/ui/svgs/docker";
-import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
-import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
-import { Mysql } from "@/shared/components/ui/svgs/mysql";
-import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
-import { Redis } from "@/shared/components/ui/svgs/redis";
+import { ServiceImageTile } from "@/shared/components/brand/service-image-icon";
 import { cn } from "@/shared/lib/utils";
 
 import type { ComposeServiceInfo, ReplicaInfo, VolumeAttachment } from "./resource-node-types";
@@ -23,48 +18,23 @@ import type { ComposeServiceInfo, ReplicaInfo, VolumeAttachment } from "./resour
 import { stackStatusMeta, statusMeta } from "./resource-node-meta";
 import { VisitPill } from "./visit-pill";
 
-/** Comet border — a light travels the edge while a resource has a staged
+/** The comet's colour is a CSS custom property, which React's CSSProperties
+ *  doesn't model. Declaring the one variable we set keeps the style object
+ *  typed instead of asserted. */
+type CometStyle = CSSProperties & { "--comet-color": string };
+
+/** Comet border: a light travels the edge while a resource has a staged
  *  change. Blue for a pending create (new resource), yellow for a pending
  *  delete. Decorative: sits above content but never eats clicks. */
 export function PendingComet({ pending }: { pending?: "create" | "update" | "delete" }) {
-  if (pending === "create") {
-    return (
-      <span
-        aria-hidden
-        className="comet-border z-20 rounded-2xl"
-        style={{ "--comet-color": "var(--info)" } as CSSProperties}
-      />
-    );
-  }
-  if (pending === "delete") {
-    return (
-      <span
-        aria-hidden
-        className="comet-border z-20 rounded-2xl"
-        style={{ "--comet-color": "var(--warning)" } as CSSProperties}
-      />
-    );
-  }
-  return null;
+  const color =
+    pending === "create" ? "var(--info)" : pending === "delete" ? "var(--warning)" : null;
+  if (!color) return null;
+  const style: CometStyle = { "--comet-color": color };
+  return <span aria-hidden className="comet-border z-20 rounded-2xl" style={style} />;
 }
 
-/** Brand SVG for a compose service from its image ref — postgres/redis/etc.
- *  get their real logo, everything else falls back to the Docker mark. */
-function ServiceBrandIcon({ image, className }: { image: string | null; className?: string }) {
-  if (!image) return <Docker className={className} aria-hidden />;
-  // Strip registry/tag, keep the bare image name (e.g. "library/postgres:16"
-  // → "postgres"). Match on substring so "bitnami/postgresql" still resolves.
-  const base = image.split("/").pop()?.split(":")[0]?.toLowerCase() ?? "";
-  if (base.includes("postgres")) return <Postgresql className={className} aria-hidden />;
-  if (base.includes("mariadb")) return <Mariadb className={className} aria-hidden />;
-  if (base.includes("mysql")) return <Mysql className={className} aria-hidden />;
-  if (base.includes("mongo")) return <Mongodb className={className} aria-hidden />;
-  if (base.includes("redis") || base.includes("valkey"))
-    return <Redis className={className} aria-hidden />;
-  return <Docker className={className} aria-hidden />;
-}
-
-/** Mount row — name + optional mount-path on the left, size aligned right.
+/** Mount row. Name + optional mount-path on the left, size aligned right.
  *  Restores the design spec's Variant A intent ("stacked rows w/ mount path"). */
 export function MountRow({ volume }: { volume: VolumeAttachment }) {
   const [sizeNum, sizeUnit] = (() => {
@@ -97,7 +67,7 @@ export function MountRow({ volume }: { volume: VolumeAttachment }) {
   );
 }
 
-/** Replica row — small dot + label on the left, state name on the right.
+/** Replica row: small dot + label on the left, state name on the right.
  *  Mirrors MountRow but tighter since service replicas are typically homogenous
  *  and you want to fit several per card. */
 export function ReplicaRow({ replica }: { replica: ReplicaInfo }) {
@@ -127,8 +97,8 @@ export function ReplicaRow({ replica }: { replica: ReplicaInfo }) {
   );
 }
 
-/** Handlers that turn a stack service card into a button when — and only when
- *  — the service is actually deployed. Split out of StackServiceCard so the
+/** Handlers that turn a stack service card into a button when (and only when)
+ *  the service is actually deployed. Split out of StackServiceCard so the
  *  card body only ever spreads one object instead of branching on `clickable`
  *  four times over (role/tabIndex/onClick/onKeyDown). */
 function stackCardActivation(
@@ -167,7 +137,7 @@ function stackCardActivation(
   };
 }
 
-/** The status line of a stack service card — dot, state label, and the restart
+/** The status line of a stack service card: dot, state label, and the restart
  *  counter. Split out of StackServiceCard: the honest-status wording and the
  *  restart pluralisation are their own branchy concern. */
 function StackServiceStatusLine({ service }: { service: ComposeServiceInfo }) {
@@ -216,7 +186,7 @@ function StackVolumeChips({ volumes }: { volumes: string[] }) {
   );
 }
 
-/** One service card inside a compose stack group — brand icon + name, an
+/** One service card inside a compose stack group: brand icon + name, an
  *  independent status line, and any named-volume chips. Each card answers for
  *  itself so a half-up stack reads honestly (one failed, one running). When the
  *  service is deployed (has a resourceId), the card opens its full panel. */
@@ -233,14 +203,16 @@ export function StackServiceCard({
       // `nodrag` so interacting with the card doesn't drag the whole stack node.
       className={cn(
         "nodrag rounded-xl border bg-card px-3.5 py-3 shadow-sm transition-colors",
-        clickable && "cursor-pointer hover:border-ring/40 hover:bg-muted/30",
+        // `bg-card-hover` (opaque), not `bg-muted/30`: a background-color hover
+        // REPLACES the card's fill rather than layering on it, so a 4%-alpha
+        // tint turned the hovered card see-through. You could read the node
+        // behind it. See --card-hover in index.css.
+        clickable && "cursor-pointer hover:border-ring/40 hover:bg-card-hover",
       )}
       {...activation}
     >
       <div className="flex items-center gap-2.5">
-        <span className="grid size-7 shrink-0 place-items-center rounded-lg border bg-background">
-          <ServiceBrandIcon image={service.image} className="size-4" />
-        </span>
+        <ServiceImageTile image={service.image} />
         <span className="min-w-0 flex-1 truncate text-[14px] leading-tight font-semibold text-card-foreground">
           {service.name}
         </span>
@@ -250,7 +222,7 @@ export function StackServiceCard({
           </span>
         ) : null}
         {/* Icon-only: the member row already carries a name, a build chip and
-            a status line — the word "Visit" would push one of them off. */}
+            a status line: the word "Visit" would push one of them off. */}
         {service.publicUrl ? <VisitPill url={service.publicUrl} compact /> : null}
       </div>
       <StackServiceStatusLine service={service} />

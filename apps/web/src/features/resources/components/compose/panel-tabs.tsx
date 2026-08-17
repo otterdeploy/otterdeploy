@@ -1,5 +1,5 @@
 /**
- * Content tabs for {@link ComposeResourcePanel} — the Services list, the
+ * Content tabs for {@link ComposeResourcePanel}: the Services list, the
  * read-only Compose file viewer, and the Settings (exposed-services summary +
  * delete) pane. Pulled into a sibling module so the panel component stays
  * small.
@@ -9,6 +9,7 @@ import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   ComposeFileEditor,
@@ -42,17 +43,18 @@ export function ComposeServicesTab({
 }: {
   services: ComposeService[];
   source: "inline" | "git";
-  serviceStatus: (name: string) => StackServiceStatus;
+  serviceStatus: (serviceName: string) => StackServiceStatus;
 }) {
+  const { t } = useTranslation();
   if (services.length === 0) {
     return (
       <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
         <EmptyHeader>
-          <EmptyTitle>No services parsed</EmptyTitle>
+          <EmptyTitle>{t("resources.stackNoServices")}</EmptyTitle>
           <EmptyDescription>
             {source === "git"
-              ? "Services appear once the stack is built from the repo."
-              : "This stack's compose file declares no services."}
+              ? t("resources.stackNoServicesGit")
+              : t("resources.stackNoServicesInline")}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -61,7 +63,7 @@ export function ComposeServicesTab({
   return (
     <div className="flex flex-col gap-2.5">
       {services.map((s) => (
-        <ServiceRow key={s.name} service={s} status={serviceStatus(s.name)} />
+        <ServiceRow key={s.name} service={s} status={serviceStatus(s.serviceName)} />
       ))}
     </div>
   );
@@ -80,23 +82,23 @@ export function ComposeFileTab({
   isLoading: boolean;
   composeContent: string | null | undefined;
 }) {
-  // Git stacks stay read-only — their compose file lives in the repo and is
+  const { t } = useTranslation();
+  // Git stacks stay read-only. Their compose file lives in the repo and is
   // resolved at build time, so editing it here would just be overwritten.
   if (source === "git") {
     return (
       <>
         <p className="mb-3 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
-          This stack builds from a repository — the compose file lives in the repo and is resolved
-          at build time.
+          {t("resources.stackFromRepo")}
         </p>
         {isLoading ? (
           <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
-            Loading compose file…
+            {t("resources.composeLoading")}
           </div>
         ) : composeContent ? (
           <ComposeViewer content={composeContent} />
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>
+          <p className="text-[12.5px] text-muted-foreground">{t("resources.composeEmpty")}</p>
         )}
       </>
     );
@@ -105,12 +107,12 @@ export function ComposeFileTab({
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
-        Loading compose file…
+        {t("resources.composeLoading")}
       </div>
     );
   }
   if (composeContent == null) {
-    return <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>;
+    return <p className="text-[12.5px] text-muted-foreground">{t("resources.composeEmpty")}</p>;
   }
   // Mounts only once the content has loaded, so the editor seeds its draft from
   // the real YAML without an effect.
@@ -142,6 +144,7 @@ export function ComposeSettingsTab({
   onDelete: () => void;
   deleting: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <div className="mb-4">
@@ -153,10 +156,11 @@ export function ComposeSettingsTab({
         />
       </div>
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-        <div className="text-[13px] font-semibold text-destructive">Delete stack</div>
+        <div className="text-[13px] font-semibold text-destructive">
+          {t("resources.deleteStack")}
+        </div>
         <p className="mt-1 text-[12px] text-muted-foreground">
-          Removes every service in this stack from swarm, its routes, and the resource record. This
-          can't be undone.
+          {t("resources.deleteStackBlurb")}
         </p>
         <TypedConfirmDialog
           trigger={
@@ -168,14 +172,14 @@ export function ComposeSettingsTab({
               disabled={deleting}
             >
               <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-              {deleting ? "Deleting…" : "Delete stack"}
+              {deleting ? t("common.deleting") : t("resources.deleteStack")}
             </Button>
           }
-          title={`Delete the ${name} stack?`}
-          description={`All ${serviceCount} of its services are removed from swarm along with their routes and the resource record. This can't be undone.`}
+          title={t("resources.deleteStackTitle", { name })}
+          description={t("resources.deleteStackDescription", { n: serviceCount })}
           confirmPhrase={name}
-          confirmLabel="Delete stack"
-          pendingLabel="Deleting…"
+          confirmLabel={t("resources.deleteStack")}
+          pendingLabel={t("common.deleting")}
           pending={deleting}
           onConfirm={onDelete}
         />
@@ -187,7 +191,7 @@ export function ComposeSettingsTab({
 function ServiceRow({ service, status }: { service: ComposeService; status: StackServiceStatus }) {
   const meta = stackStatusMeta[status];
   // Task-derived "building" covers swarm's pre-running phases (pulling,
-  // starting) — for an image-only service nothing builds, so say "Deploying".
+  // starting): for an image-only service nothing builds, so say "Deploying".
   const label =
     status === "error" && service.hasBuild
       ? "Build failed"
@@ -207,7 +211,7 @@ function ServiceRow({ service, status }: { service: ComposeService; status: Stac
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
         <span className="truncate">
-          {service.image ?? (service.hasBuild ? "built from source" : "—")}
+          {service.image ?? (service.hasBuild ? "built from source" : "–")}
         </span>
         {service.ports.length > 0 && <span>· ports {service.ports.join(", ")}</span>}
       </div>
