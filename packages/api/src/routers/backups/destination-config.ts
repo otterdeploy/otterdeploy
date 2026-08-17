@@ -9,13 +9,15 @@
 
 import type { JsonObject } from "@otterdeploy/shared/json";
 
-export type DestinationType = "s3" | "local" | "sftp";
+export type DestinationType = "s3" | "local" | "sftp" | "azblob" | "gcs";
 
 /** Required non-secret config keys per destination type. */
 const REQUIRED_CONFIG: Record<DestinationType, string[]> = {
   s3: ["bucket"],
   local: ["path"],
   sftp: ["host"],
+  azblob: ["container"],
+  gcs: ["bucket"],
 };
 
 /** Required config keys that are absent or blank. */

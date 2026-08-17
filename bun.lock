@@ -263,7 +263,6 @@
         "@otterdeploy/jobs": "workspace:*",
         "@otterdeploy/shared": "workspace:*",
         "better-result": "^2.9.2",
-        "cron-parser": "^4.9.0",
         "drizzle-orm": "catalog:",
         "drizzle-zod": "catalog:",
         "evlog": "catalog:",

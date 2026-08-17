@@ -13,8 +13,15 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { backup, backupLog, databaseResource, project, resource } from "@otterdeploy/db/schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import {
+  backup,
+  backupLock,
+  backupLog,
+  databaseResource,
+  project,
+  resource,
+} from "@otterdeploy/db/schema";
+import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 
 // The execution-context read (source + destination + credentials → engine ctx)
 // lives in ./context; re-exported here so the engine's existing `./db` imports
@@ -36,6 +43,10 @@ export async function createBackupRun(input: {
   scheduleId?: BackupScheduleId | null;
   encryption?: "none" | "aes-256-gcm";
   method?: string;
+  /** `physical` = pg_basebackup cluster tar (postgres only); default logical dump. */
+  approach?: "logical" | "physical";
+  /** 1-based attempt number; >1 marks a scheduler retry of a failed run. */
+  attempt?: number;
 }): Promise<BackupId> {
   const [row] = await db
     .insert(backup)
@@ -49,10 +60,69 @@ export async function createBackupRun(input: {
       status: "queued",
       encryption: input.encryption ?? "aes-256-gcm",
       method: input.method,
+      approach: input.approach ?? "logical",
+      attempt: input.attempt ?? 1,
     })
     .returning({ id: backup.id });
   if (!row) throw new Error("createBackupRun: insert returned no rows");
   return row.id;
+}
+
+/** Terminal/live status of one run (drives the scheduler's retry decision). */
+export async function getBackupStatus(
+  backupId: BackupId,
+): Promise<"queued" | "running" | "succeeded" | "failed" | null> {
+  const [row] = await db
+    .select({ status: backup.status })
+    .from(backup)
+    .where(eq(backup.id, backupId))
+    .limit(1);
+  return row?.status ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Single-in-flight lock per source
+// ---------------------------------------------------------------------------
+
+/**
+ * Claim the source's backup slot (databasus's `INSERT … ON CONFLICT DO
+ * NOTHING` pattern). Returns false when another run of the same source is
+ * already active, in which case the caller must NOT dump: a concurrent
+ * pg_dump of the same database doubles its load, and a concurrent volume tar
+ * reads a moving filesystem.
+ */
+export async function claimBackupLock(scope: string, backupId: BackupId): Promise<boolean> {
+  const rows = await db
+    .insert(backupLock)
+    .values({ scope, backupId })
+    .onConflictDoNothing()
+    .returning({ scope: backupLock.scope });
+  return rows.length > 0;
+}
+
+export async function releaseBackupLock(backupId: BackupId): Promise<void> {
+  await db.delete(backupLock).where(eq(backupLock.backupId, backupId));
+}
+
+/**
+ * Boot-time recovery: fail every run the previous process left `queued`/
+ * `running` (they can never complete: the dump pipeline lives in-process) and
+ * clear all orphaned locks. Returns the failed rows so the caller can notify.
+ */
+export async function reconcileInterruptedBackups(
+  startedAt: Date,
+): Promise<Array<{ id: BackupId; organizationId: OrganizationId }>> {
+  const rows = await db
+    .update(backup)
+    .set({
+      status: "failed",
+      completedAt: new Date(),
+      errorMessage: "backup interrupted: the server restarted while this run was in progress",
+    })
+    .where(and(inArray(backup.status, ["queued", "running"]), lt(backup.createdAt, startedAt)))
+    .returning({ id: backup.id, organizationId: backup.organizationId });
+  await db.delete(backupLock).where(lt(backupLock.claimedAt, startedAt));
+  return rows;
 }
 
 export async function appendBackupLog(

@@ -1,3 +1,5 @@
+import type { BackupId, OrganizationId } from "@otterdeploy/shared/id";
+
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
@@ -8,14 +10,37 @@ import {
   executeBackup,
   getDatabaseResourceInOrg,
   listBackupLogs,
+  listRestores,
+  listVerifications,
+  requestBackupVerification,
   restoreBackup,
   verifyBackup,
 } from "../../backups";
+import { activeDestinationIdsFor } from "../../backups/destination-availability";
 import { inspectVolume } from "../volumes/service";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
 import { backupSchedulesRouter } from "./schedules-router";
 import { getBackup, listBackups } from "./service";
+
+type BackupContext = Parameters<typeof enforceBackupScope>[0] & {
+  activeOrganizationId: OrganizationId;
+};
+
+async function requireBackup(context: BackupContext, id: BackupId, notFound: () => Error) {
+  context.log.set({ target: { type: "backup", id } });
+  await enforceBackupScope(context, id);
+  const found = await getBackup({
+    id,
+    organizationId: context.activeOrganizationId,
+  });
+  if (found.isErr()) {
+    throw matchError(found.error, {
+      BackupNotFoundError: notFound,
+    });
+  }
+  return found.value;
+}
 
 export const backupsRouter = {
   list: orgScopedProcedure.backups.list.handler(async ({ input, context }) => {
@@ -30,23 +55,20 @@ export const backupsRouter = {
   }),
 
   get: orgScopedProcedure.backups.get.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "backup", id: input.id } });
-    const result = await getBackup({
-      id: input.id,
-      organizationId: context.activeOrganizationId,
-    });
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        BackupNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
-    return presentBackup(result.value);
+    const backup = await requireBackup(context, input.id, () => errors.NOT_FOUND());
+    return presentBackup(backup);
   }),
 
   // Manual "backup now": RBAC: backup:run. Source is a database resource OR
   // a named Docker volume (the contract enforces exactly-one).
   run: requirePermission({ backup: ["run"] }).backups.run.handler(
     async ({ input, context, errors }) => {
+      const destinationIds = await activeDestinationIdsFor(
+        context.activeOrganizationId,
+        input.destinationIds,
+      );
+      if (destinationIds.length !== input.destinationIds.length) throw errors.INVALID();
+
       let source: BackupRunSource;
       if (input.resourceId) {
         await enforceResourceScope(context, input.resourceId);
@@ -68,13 +90,14 @@ export const backupsRouter = {
 
       // One backup record per destination; the dump runs once per record.
       const ids: Awaited<ReturnType<typeof createBackupRun>>[] = [];
-      for (const destinationId of input.destinationIds) {
+      for (const destinationId of destinationIds) {
         const id = await createBackupRun({
           organizationId: context.activeOrganizationId,
           source,
           destinationId,
           encryption: input.encryption,
           method: "manual",
+          approach: input.approach,
         });
         ids.push(id);
         // Run detached. Status + logs are observable via get/logs.
@@ -87,35 +110,44 @@ export const backupsRouter = {
 
   // Integrity check for a stored archive. Read-only, org-scoped.
   verify: orgScopedProcedure.backups.verify.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "backup", id: input.id } });
-    await enforceBackupScope(context, input.id);
-    const found = await getBackup({
-      id: input.id,
-      organizationId: context.activeOrganizationId,
-    });
-    if (found.isErr()) {
-      throw matchError(found.error, {
-        BackupNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
+    await requireBackup(context, input.id, () => errors.NOT_FOUND());
     return verifyBackup(input.id);
+  }),
+
+  // Restore-proving verification (sandbox restore), detached: RBAC: backup:run
+  // (it exercises the same engine surface as a run, not a restore of live data).
+  verifyRestore: requirePermission({ backup: ["run"] }).backups.verifyRestore.handler(
+    async ({ input, context, errors }) => {
+      await requireBackup(context, input.id, () => errors.NOT_FOUND());
+      const requested = await requestBackupVerification(input.id, "manual");
+      if (requested.isErr()) {
+        throw matchError(requested.error, {
+          BackupContextMissingError: () => errors.NOT_FOUND(),
+          VerificationUnsupportedError: (e) => errors.UNSUPPORTED({ data: { reason: e.message } }),
+        });
+      }
+      return { verificationId: requested.value, status: "queued" };
+    },
+  ),
+
+  // Verification history for a run, newest first. Read-only, org-scoped.
+  verifications: orgScopedProcedure.backups.verifications.handler(
+    async ({ input, context, errors }) => {
+      await requireBackup(context, input.id, () => errors.NOT_FOUND());
+      return listVerifications(input.id);
+    },
+  ),
+
+  // Restore history for a run, newest first. Read-only, org-scoped.
+  restores: orgScopedProcedure.backups.restores.handler(async ({ input, context, errors }) => {
+    await requireBackup(context, input.id, () => errors.NOT_FOUND());
+    return listRestores(input.id);
   }),
 
   // Restore a succeeded backup: RBAC: backup:restore.
   restore: requirePermission({ backup: ["restore"] }).backups.restore.handler(
     async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "backup", id: input.id } });
-      await enforceBackupScope(context, input.id);
-      // Scope check: the backup must belong to the caller's org.
-      const found = await getBackup({
-        id: input.id,
-        organizationId: context.activeOrganizationId,
-      });
-      if (found.isErr()) {
-        throw matchError(found.error, {
-          BackupNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
+      await requireBackup(context, input.id, () => errors.NOT_FOUND());
       const result = await restoreBackup({
         backupId: input.id,
         mode: input.mode,

@@ -6,6 +6,7 @@ import { useLiveQuery } from "@tanstack/react-db";
  * daemon inventory (orphans included). Submits via `runBackup` → `backups.run`.
  */
 import { useForm, useSelector } from "@tanstack/react-form";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
@@ -17,6 +18,7 @@ import type { Destination } from "./data/destinations";
 import {
   EncryptToggle,
   NoDestinations,
+  SourceKindField,
   StartBackupButton,
   toDestOptions,
 } from "./backup-now-parts";
@@ -63,6 +65,7 @@ function emptyRun(resourceId: string | undefined): {
   volumeName: string;
   destinationIds: string[];
   encrypted: boolean;
+  physical: boolean;
 } {
   return {
     sourceKind: "database",
@@ -70,7 +73,48 @@ function emptyRun(resourceId: string | undefined): {
     volumeName: "",
     destinationIds: [],
     encrypted: true,
+    physical: false,
   };
+}
+
+type BackupRunValues = ReturnType<typeof emptyRun>;
+
+async function submitBackup(value: BackupRunValues, onClose: () => void): Promise<void> {
+  const result = await Result.tryPromise({
+    try: () =>
+      runBackup({
+        ...(value.sourceKind === "volume"
+          ? { volumeName: value.volumeName }
+          : { resourceId: value.resourceId }),
+        destinationIds: value.destinationIds,
+        encryption: value.encrypted ? "aes-256-gcm" : "none",
+        approach: value.sourceKind === "database" && value.physical ? "physical" : "logical",
+      }),
+    catch: (cause) =>
+      cause instanceof Error ? cause : new Error("Couldn't start backup", { cause }),
+  });
+  if (result.isErr()) {
+    toast.error(result.error.message);
+    return;
+  }
+  toast.success(
+    value.destinationIds.length > 1
+      ? `Backup started → ${value.destinationIds.length} destinations`
+      : "Backup started",
+  );
+  onClose();
+}
+
+function BackupNowHeader() {
+  return (
+    <DialogHeader className="border-b px-5 py-3">
+      <DialogTitle className="text-sm font-semibold">Run a backup now</DialogTitle>
+      <p className="text-xs text-muted-foreground">
+        Dump a database or archive a volume to one or more destinations. Runs out-of-band from any
+        schedule.
+      </p>
+    </DialogHeader>
+  );
 }
 
 function BackupNowBody({
@@ -85,45 +129,18 @@ function BackupNowBody({
   initialResourceId?: string;
 }) {
   const { data: databases } = useLiveQuery((q) => q.from({ d: terminalDatabasesCollection }));
-
   const form = useForm({
     defaultValues: emptyRun(initialResourceId),
-    onSubmit: async ({ value }) => {
-      try {
-        await runBackup({
-          ...(value.sourceKind === "volume"
-            ? { volumeName: value.volumeName }
-            : { resourceId: value.resourceId }),
-          destinationIds: value.destinationIds,
-          encryption: value.encrypted ? "aes-256-gcm" : "none",
-        });
-        toast.success(
-          value.destinationIds.length > 1
-            ? `Backup started → ${value.destinationIds.length} destinations`
-            : "Backup started",
-        );
-        onClose();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Couldn't start backup");
-      }
-    },
+    onSubmit: ({ value }) => submitBackup(value, onClose),
   });
-
   // Only hit the daemon inventory once the Volume source is selected.
   const sourceKind = useSelector(form.store, (s) => s.values.sourceKind);
   const volumeList = useVolumesList(sourceKind === "volume");
-
   const destOptions = toDestOptions(destinations);
 
   return (
     <DialogContent className="gap-0 p-0 sm:max-w-3xl">
-      <DialogHeader className="border-b px-5 py-3">
-        <DialogTitle className="text-sm font-semibold">Run a backup now</DialogTitle>
-        <p className="text-xs text-muted-foreground">
-          Dump a database or archive a volume to one or more destinations. Runs out-of-band from any
-          schedule.
-        </p>
-      </DialogHeader>
+      <BackupNowHeader />
 
       <form
         onSubmit={(e) => {
@@ -138,32 +155,55 @@ function BackupNowBody({
           {volumeList.available ? (
             <form.Field name="sourceKind">
               {(field) => (
-                <Field label="Source">
-                  <Segmented
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                    options={[
-                      { id: "database", label: "Database" },
-                      { id: "volume", label: "Volume" },
-                    ]}
-                  />
-                </Field>
+                <SourceKindField value={field.state.value} onChange={field.handleChange} />
               )}
             </form.Field>
           ) : null}
 
           {sourceKind === "database" ? (
-            <form.Field name="resourceId">
-              {(field) => (
-                <Field label="Database">
-                  <DatabaseCombobox
-                    databases={databases}
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                  />
-                </Field>
-              )}
-            </form.Field>
+            <>
+              <form.Field name="resourceId">
+                {(field) => (
+                  <Field label="Database">
+                    <DatabaseCombobox
+                      databases={databases}
+                      value={field.state.value}
+                      onChange={field.handleChange}
+                    />
+                  </Field>
+                )}
+              </form.Field>
+              {/* Physical (pg_basebackup) is a postgres-only capability: a
+                  whole-cluster tar for disaster recovery. Offered only when
+                  the chosen database is actually postgres, so the option can
+                  never fail on engine grounds. */}
+              <form.Subscribe selector={(s) => s.values.resourceId}>
+                {(resourceId) =>
+                  databases.find((d) => d.resourceId === resourceId)?.engine === "postgres" ? (
+                    <form.Field name="physical">
+                      {(field) => (
+                        <Field label="Method">
+                          <Segmented
+                            value={field.state.value ? "physical" : "logical"}
+                            onChange={(v) => field.handleChange(v === "physical")}
+                            options={[
+                              { id: "logical", label: "Logical dump" },
+                              { id: "physical", label: "Physical (pg_basebackup)" },
+                            ]}
+                          />
+                          {field.state.value && (
+                            <p className="text-[11px] text-muted-foreground">
+                              Whole-cluster tar for disaster recovery. Restores by extracting into a
+                              fresh data directory (download only, no in-place restore).
+                            </p>
+                          )}
+                        </Field>
+                      )}
+                    </form.Field>
+                  ) : null
+                }
+              </form.Subscribe>
+            </>
           ) : (
             <form.Field name="volumeName">
               {(field) => (

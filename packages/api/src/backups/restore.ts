@@ -8,14 +8,14 @@
  * Split out of engine.ts, which keeps the backup write path (executeBackup).
  */
 import type { BackupId, ResourceId } from "@otterdeploy/shared/id";
-import type { Readable, Writable } from "node:stream";
+import type { Writable } from "node:stream";
 
-import { Docker, demuxStream } from "@otterdeploy/docker";
-import { Duplex, Writable as NodeWritable } from "node:stream";
+import { Docker } from "@otterdeploy/docker";
+import { Result } from "better-result";
+import { Writable as NodeWritable } from "node:stream";
 
 import type { ResolvedDestination } from "./backends";
 
-import { buildContainerName } from "../routers/project/views";
 import { deriveRepoKey, toRusticRepo } from "./backends";
 import {
   type DatabaseTarget,
@@ -24,14 +24,9 @@ import {
   resolveDatabaseTarget,
 } from "./db";
 import { resolveSecret } from "./engine-helpers";
-import { findResourceContainerId } from "./exec";
+import { createRestoreRun, finishRestoreRun } from "./restore-db";
+import { restoreDatabaseInPlace, restoreVolumeInPlace } from "./restore-in-place";
 import { RusticCli } from "./rustic";
-import {
-  assertVolumeExists,
-  listVolumeMounters,
-  restoreVolumeFromTar,
-  volumeRestoreBlockReason,
-} from "./volume";
 
 /** Open the run's rustic repo: resolve backend creds, derive the (resource ×
  *  destination) repo key + its password, and build a driver. */
@@ -43,16 +38,6 @@ async function openRepo(ctx: ExecutionContext): Promise<RusticCli> {
     secret,
   };
   return new RusticCli(toRusticRepo(dest, deriveRepoKey(ctx)));
-}
-
-/** Collect a readable stream fully into one Buffer. */
-function collect(stream: Readable): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on("data", (c: Buffer) => chunks.push(c));
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-    stream.on("error", reject);
-  });
 }
 
 /** A buffer-collecting Writable + a promise that resolves with the bytes once
@@ -82,113 +67,12 @@ function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
 
 export type RestoreMode = "download" | "in-place";
 
-type VolumeContext = Extract<ExecutionContext, { kind: "volume" }>;
-// The DB-ish arm, managed `database` and compose `stack` share one field set.
-
-/** In-place restore of a named volume: refuse while any container mounts it,
- *  then reload the snapshot's tar via the backup path's helper mechanics. */
-async function restoreVolumeInPlace(
-  docker: Docker,
-  ctx: VolumeContext,
-  cli: RusticCli,
-  snapshotId: string,
-): Promise<{ ok: true }> {
-  // Guard: extracting under a container that mounts the volume, even a stopped
-  // one that could restart mid-extract, risks a corrupt half-state.
-  const mounters = await listVolumeMounters(docker, ctx.volumeName);
-  const blocked = volumeRestoreBlockReason(mounters);
-  if (blocked) throw new Error(blocked);
-  await assertVolumeExists(docker, ctx.volumeName);
-  // Stream the tar out of the snapshot, then load it back through the same
-  // helper-container mechanics the backup path uses (clear + putArchive).
-  const { sink, done } = bufferSink();
-  await cli.dumpToStream({ snapshotId, filenameInSnapshot: "volume.tar", out: sink });
-  const tar = await done;
-  await restoreVolumeFromTar(docker, ctx.volumeName, tar);
-  return { ok: true };
-}
-
-/** In-place restore of a Postgres DB: stream the snapshot's dump into an
- *  in-container pg_restore over a hijacked exec duplex (drained to avoid
- *  deadlock); fail the run on a non-zero pg_restore exit. */
-async function restorePostgresInPlace(
-  docker: Docker,
-  target: DatabaseTarget,
-  cli: RusticCli,
-  snapshotId: string,
-): Promise<{ ok: true }> {
-  const serviceName = buildContainerName({
-    engine: target.engine,
-    projectSlug: target.projectSlug,
-    resourceName: target.resourceName,
-  });
-  const containerId = await findResourceContainerId(docker, target.resourceId);
-  if (!containerId) throw new Error(`No running container for ${serviceName}`);
-
-  if (target.engine !== "postgres") {
-    throw new Error(`in-place restore for ${target.engine} is not implemented`);
-  }
-
-  // Stream the custom-format dump straight from the snapshot into an in-container
-  // pg_restore: rustic writes to pg_restore's stdin over the exec's hijacked
-  // duplex, and we demux + capture its stderr. pg_restore exits non-zero on a
-  // genuinely failed restore, so we surface stderr and fail the run. A silent
-  // `{ ok: true }` on a half-restored DB would mislead the caller.
-  const container = docker.containers.getContainer(containerId);
-  const execResult = await container.exec({
-    Cmd: [
-      "pg_restore",
-      "--clean",
-      "--if-exists",
-      "--no-owner",
-      "-U",
-      target.username,
-      "-d",
-      target.databaseName,
-    ],
-    Env: [`PGPASSWORD=${target.password}`],
-    AttachStdin: true,
-    AttachStdout: true,
-    AttachStderr: true,
-    Tty: false,
-  });
-  if (execResult.isErr()) throw execResult.error;
-  const exec = execResult.value;
-
-  const startResult = await exec.start({ Detach: false, Tty: false, stdin: true });
-  if (startResult.isErr()) throw startResult.error;
-  // `stdin: true` hijacks the connection, so the stream is a full Duplex
-  // (HttpDuplex extends node's Duplex); a read-only stream is a driver bug.
-  const duplex = startResult.value;
-  if (!(duplex instanceof Duplex)) throw new Error("exec.start with stdin gave no writable stream");
-
-  // Drain stdout + capture stderr BEFORE piping the dump in: demux back-pressures
-  // behind unread output, so an unconsumed pg_restore stream would deadlock the
-  // dump we're feeding into stdin.
-  const { stdout, stderr } = demuxStream(duplex);
-  const stdoutDone = collect(stdout);
-  const stderrDone = collect(stderr);
-
-  // rustic's stdout is piped into the duplex (pg_restore stdin); ending it on
-  // completion half-closes stdin (FIN, read side stays open) so pg_restore sees
-  // EOF, finishes, and its exit code becomes observable via inspect().
-  await cli.dumpToStream({ snapshotId, filenameInSnapshot: "dump", out: duplex });
-  await stdoutDone;
-  const stderrText = (await stderrDone).toString("utf8");
-
-  const inspect = await exec.inspect();
-  const exitCode = inspect.isOk() ? (inspect.value.ExitCode ?? 0) : 0;
-  if (exitCode !== 0) {
-    throw new Error(`pg_restore failed (exit ${exitCode}): ${stderrText.slice(0, 2000)}`);
-  }
-  return { ok: true };
-}
-
 /**
  * Restore a succeeded backup. `download` streams the snapshot's file back out
  * (`dump`) and returns its bytes for the caller to hand to the user. `in-place`
- * streams it into the live database (pg only) or, for volume runs, replaces the
- * volume's contents. Refused while any container still mounts it.
+ * streams it into the live database (postgres / mariadb / mongodb) or, for
+ * volume runs, replaces the volume's contents. Refused while any container
+ * still mounts it.
  */
 /**
  * The database a restore should WRITE to, or null to write back over the
@@ -253,15 +137,65 @@ export async function restoreBackup(input: {
   const snapshotId = ctx.storagePath;
   if (!snapshotId) throw new Error("backup has no stored snapshot (did the run succeed?)");
 
+  // Every attempt past the gates gets a persisted row: history + observable
+  // status instead of an outcome that only ever lived inside this RPC.
+  const restoreId = await createRestoreRun({
+    organizationId: ctx.organizationId,
+    backupId: input.backupId,
+    mode: input.mode,
+    targetResourceId: target?.resourceId ?? null,
+  });
+  const startedAt = Date.now();
+  const outcome = await Result.tryPromise({
+    try: () => performRestore(ctx, target, input.mode, snapshotId),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  });
+  if (outcome.isErr()) {
+    await finishRestoreRun({
+      id: restoreId,
+      status: "failed",
+      errorMessage: outcome.error.message,
+      durationMs: Date.now() - startedAt,
+    });
+    throw outcome.error;
+  }
+  await finishRestoreRun({
+    id: restoreId,
+    status: "succeeded",
+    durationMs: Date.now() - startedAt,
+  });
+  return outcome.value;
+}
+
+async function performRestore(
+  ctx: ExecutionContext,
+  target: DatabaseTarget | null,
+  mode: RestoreMode,
+  snapshotId: string,
+): Promise<{ ok: true; bytes?: Buffer; filename?: string }> {
   const cli = await openRepo(ctx);
   const filenameInSnapshot = ctx.kind === "volume" ? "volume.tar" : "dump";
 
-  if (input.mode === "download") {
+  if (mode === "download") {
     const { sink, done } = bufferSink();
     await cli.dumpToStream({ snapshotId, filenameInSnapshot, out: sink });
     const bytes = await done;
-    const filename = ctx.kind === "volume" ? `${ctx.backupId}.tar` : `${ctx.backupId}.dump`;
+    const filename =
+      ctx.kind === "volume"
+        ? `${ctx.backupId}.tar`
+        : ctx.approach === "physical"
+          ? `${ctx.backupId}.basebackup.tar`
+          : `${ctx.backupId}.dump`;
     return { ok: true, bytes, filename };
+  }
+
+  // A physical base backup restores by extracting into a FRESH data directory
+  // with the server stopped; streaming it into a live cluster would corrupt
+  // it. Refuse with the operator path instead of attempting it.
+  if (ctx.kind !== "volume" && ctx.approach === "physical") {
+    throw new Error(
+      "physical base backups cannot be restored in place: download the tar and extract it into a fresh PostgreSQL data directory",
+    );
   }
 
   const docker = Docker.fromEnv();
@@ -277,7 +211,7 @@ export async function restoreBackup(input: {
       username: ctx.username,
       password: ctx.password,
     };
-    return await restorePostgresInPlace(docker, writeTo, cli, snapshotId);
+    return await restoreDatabaseInPlace(docker, writeTo, cli, snapshotId, ctx.sourceSizeBytes);
   } finally {
     docker.destroy();
   }

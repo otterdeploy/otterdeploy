@@ -1,4 +1,5 @@
 import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 /**
  * Create / edit a backup destination. TanStack Form drives the fields; on
  * submit it mutates `destinationsCollection` optimistically (secret threaded
@@ -6,6 +7,7 @@ import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
  * by remounting per target (the `key`), no `useEffect`.
  */
 import { useForm } from "@tanstack/react-form";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -126,14 +128,15 @@ function DestinationEditorBody({
   };
   const form = useForm({
     defaultValues,
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const tx = saveDestination(initial, organizationId, value);
       onClose();
-      tx.isPersisted.promise
-        .then(() => toast.success(editing ? "Destination updated" : "Destination created"))
-        .catch((err: unknown) =>
-          toast.error(err instanceof Error ? err.message : "Couldn't save destination"),
-        );
+      const persisted = await Result.tryPromise({
+        try: () => tx.isPersisted.promise,
+        catch: errorFromUnknown,
+      });
+      if (persisted.isErr()) toast.error(persisted.error.message);
+      else toast.success(editing ? "Destination updated" : "Destination created");
     },
   });
 
@@ -183,6 +186,8 @@ function DestinationEditorBody({
                       { id: "s3", label: "S3" },
                       { id: "local", label: "Local disk" },
                       { id: "sftp", label: "SFTP" },
+                      { id: "azblob", label: "Azure Blob" },
+                      { id: "gcs", label: "GCS" },
                     ]}
                   />
                 </Field>

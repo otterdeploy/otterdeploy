@@ -16,7 +16,28 @@ import { Switch } from "@/shared/components/ui/switch";
 
 import type { Destination } from "./data/destinations";
 
-import { destUri } from "./shared";
+import { destUri, Field, Segmented } from "./shared";
+
+export function SourceKindField({
+  value,
+  onChange,
+}: {
+  value: "database" | "volume";
+  onChange: (value: "database" | "volume") => void;
+}) {
+  return (
+    <Field label="Source">
+      <Segmented
+        value={value}
+        onChange={onChange}
+        options={[
+          { id: "database", label: "Database" },
+          { id: "volume", label: "Volume" },
+        ]}
+      />
+    </Field>
+  );
+}
 
 /** Combobox options for the destination multi-select. */
 export function toDestOptions(destinations: Destination[]) {

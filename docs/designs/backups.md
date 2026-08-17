@@ -33,6 +33,39 @@ reaches DB containers across Swarm nodes.
   the `otterdeploy backups` CLI command group, and the dashboard Backups page reading real
   data.
 
+### Production-hardening pass (2026-08-17, epic od-6et)
+
+Everything below landed after a code-level comparison against databasus
+(competitive analysis: the epic's artifact) and supersedes older statements in
+this doc where they conflict:
+
+- **Orchestration**: cron validated at the boundary by the same parser
+  (`cron-parser`, `packages/api/src/lib/cron.ts`) the scheduler fires with;
+  single-in-flight lock per source (`backup_lock`, claim in `engine.ts`);
+  boot-time reaper fails runs stranded `running` by a restart; per-schedule
+  bounded retry (`maxRetries`); scheduler liveness folded into `/health`.
+- **Trust**: restore-proving verification (`verify-restore.ts` +
+  `backup_verification`) restores the snapshot into a throwaway container of
+  the source's own image and checks tables/size — manual, or automatic per
+  schedule (`verifyAfterBackup`); persisted restore runs (`backup_restore`)
+  with history in the detail drawer; disk-space preflight before in-place
+  restores; `backup.overdue` + `backup.verify-failed` platform events.
+- **Coverage**: in-place restore for mariadb/mysql + mongodb (was pg-only);
+  physical postgres backups via pg_basebackup (`approach: "physical"`,
+  download-only restore; see docs/designs/continuous-protection.md);
+  `keepLast`/`keepHourly` retention tiers; `maxStorageGb` wired via
+  snapshot-level `forget`; destinations grew `azblob` + `gcs` (OpenDAL) and a
+  live write-read probe; SFTP editor now collects the SSH key the backend
+  actually requires; repo-password rotation rides the DATA_ENCRYPTION_KEYS
+  keyring (older secrets are tried and repos re-keyed via `rustic key add`).
+- **UI**: the Backups page is four linkable views (Activity / Coverage /
+  Schedules / Destinations); Coverage classifies every database as
+  protected / not scheduled / volume-backup (redis) / not supported yet
+  (clickhouse), with one-click schedule creation preseeded to the database.
+- **Deferred with a written decision**: WAL archiving + PITR
+  (docs/designs/continuous-protection.md), remote/external databases
+  (docs/designs/remote-database-backups.md).
+
 ---
 
 ## Table of contents

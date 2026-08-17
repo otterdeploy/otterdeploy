@@ -1,7 +1,9 @@
 import type {
   BackupDestinationId,
   BackupId,
+  BackupRestoreId,
   BackupScheduleId,
+  BackupVerificationId,
   OrganizationId,
   ProjectId,
   ResourceId,
@@ -56,7 +58,13 @@ import { project, resource } from "./project";
 // Enums (shared across backup tables)
 // ---------------------------------------------------------------------------
 
-export const backupDestinationTypeEnum = pgEnum("backup_destination_type", ["s3", "local", "sftp"]);
+export const backupDestinationTypeEnum = pgEnum("backup_destination_type", [
+  "s3",
+  "local",
+  "sftp",
+  "azblob",
+  "gcs",
+]);
 
 /**
  * `disabled` is operator intent, not a health signal: the scheduler skips a
@@ -87,6 +95,16 @@ export const backupStatusEnum = pgEnum("backup_status", [
 ]);
 
 /**
+ * How the archive is produced. `logical` = engine dump (pg_dump/mysqldump/
+ * mongodump). `physical` = pg_basebackup tar of the whole cluster (postgres
+ * only): restores by extracting into a fresh data directory, so in-place
+ * restore and sandbox verification are refused for it. Continuous protection
+ * (WAL archiving + PITR) is the follow-up on top of this
+ * (docs/designs/continuous-protection.md).
+ */
+export const backupApproachEnum = pgEnum("backup_approach", ["logical", "physical"]);
+
+/**
  * Encryption-at-rest mode applied to the produced archive. v1 only implements
  * `aes-256-gcm` (reuses the registry crypto) and `none`; `kms-managed` and
  * `customer-key` are reserved for later and rejected by the engine for now.
@@ -106,6 +124,41 @@ export const backupRetentionClassEnum = pgEnum("backup_retention_class", [
 ]);
 
 export const backupLogStreamEnum = pgEnum("backup_log_stream", ["stdout", "stderr", "system"]);
+
+/**
+ * Restore-proving verification lifecycle. A verification run restores the
+ * snapshot into a throwaway container and inspects the result; `passed` means
+ * the dump actually restores, not merely that the repo is intact (that cheaper
+ * structural check remains the `verify` endpoint).
+ */
+export const backupVerificationStatusEnum = pgEnum("backup_verification_status", [
+  "queued",
+  "running",
+  "passed",
+  "failed",
+]);
+
+export const backupVerificationTriggerEnum = pgEnum("backup_verification_trigger", [
+  "manual",
+  "after-backup",
+]);
+
+/** Denormalized latest-verification badge on the run row (list views read it
+ *  without a lateral join; the verification row remains the source of detail). */
+export const backupVerifiedStatusEnum = pgEnum("backup_verified_status", [
+  "none",
+  "running",
+  "passed",
+  "failed",
+]);
+
+export const backupRestoreStatusEnum = pgEnum("backup_restore_status", [
+  "running",
+  "succeeded",
+  "failed",
+]);
+
+export const backupRestoreModeEnum = pgEnum("backup_restore_mode", ["download", "in-place"]);
 
 // ---------------------------------------------------------------------------
 // backup_destination: where backups are stored
@@ -182,6 +235,10 @@ export const backupSchedule = pgTable(
     cron: text("cron").notNull(),
     // Retention windows: count-based tiers plus optional
     // age (days) and storage (GB) ceilings, enforced by the forget-policy.
+    // `keepLast` (most-recent N regardless of bucket) and `keepHourly` extend
+    // the GFS ladder downward for tight-RPO schedules.
+    keepLast: integer("keep_last").notNull().default(0),
+    keepHourly: integer("keep_hourly").notNull().default(0),
     keepDaily: integer("keep_daily").notNull().default(0),
     keepWeekly: integer("keep_weekly").notNull().default(0),
     keepMonthly: integer("keep_monthly").notNull().default(0),
@@ -199,6 +256,22 @@ export const backupSchedule = pgTable(
     // (backup.failed → Notifications), not per-schedule channels.
     enabled: boolean("enabled").notNull().default(true),
     preHook: text("pre_hook"),
+    /** Bounded retry for failed scheduled runs: a failed (source × destination)
+     *  run is re-attempted up to this many extra times within the same
+     *  schedule pass, with a short backoff between attempts. 0 = off. */
+    maxRetries: integer("max_retries").notNull().default(0),
+    /** Run a restore-proving verification of each successful run's snapshot
+     *  right after it completes (throwaway container + pg_restore + checks). */
+    verifyAfterBackup: boolean("verify_after_backup").notNull().default(false),
+    /**
+     * Overdue alerting: emit `backup.overdue` when the schedule's newest
+     * successful run is older than this many hours. Null = derive the
+     * threshold from the cron cadence (2× the fire interval), so alerts work
+     * without configuration. `overdueNotifiedAt` dedupes the alert to one per
+     * overdue episode; a subsequent success clears it.
+     */
+    overdueAfterHours: integer("overdue_after_hours"),
+    overdueNotifiedAt: timestamp("overdue_notified_at"),
     lastRunAt: timestamp("last_run_at"),
     lastRunStatus: backupStatusEnum("last_run_status"),
     nextRunAt: timestamp("next_run_at"),
@@ -245,6 +318,7 @@ export const backup = pgTable(
       .references(() => backupSchedule.id, { onDelete: "set null" }),
     kind: backupKindEnum("kind").notNull().default("database"),
     status: backupStatusEnum("status").notNull().default("queued"),
+    approach: backupApproachEnum("approach").notNull().default("logical"),
     // e.g. "pg_dump --format=custom -Z9".
     method: text("method"),
     destinationId: text("destination_id")
@@ -272,6 +346,13 @@ export const backup = pgTable(
     storagePath: text("storage_path"),
     retention: backupRetentionClassEnum("retention").notNull().default("standard"),
     durationMs: integer("duration_ms"),
+    /** 1-based attempt number: >1 marks a scheduler retry of a failed run
+     *  (same source × destination, fresh row so each attempt keeps its logs). */
+    attempt: integer("attempt").notNull().default(1),
+    /** Latest restore-proving verification outcome for this run (denormalized
+     *  from backup_verification for cheap list rendering). */
+    verifiedStatus: backupVerifiedStatusEnum("verified_status").notNull().default("none"),
+    verifiedAt: timestamp("verified_at"),
     errorMessage: text("error_message"),
     startedAt: timestamp("started_at"),
     // Set only on a terminal (succeeded|failed) transition.
@@ -293,6 +374,107 @@ export const backup = pgTable(
 // ---------------------------------------------------------------------------
 // backup_log: append-only per-run output (clone of deploymentLog)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// backup_lock: single-in-flight claim per backup source
+// ---------------------------------------------------------------------------
+
+/**
+ * At most one active backup per source (databasus's claim pattern): the engine
+ * INSERTs the source scope ON CONFLICT DO NOTHING before dumping and deletes
+ * the row when the run settles. A second run of the same source, manual or
+ * scheduled, fails fast with a clear message instead of double-dumping the
+ * database. `claimedAt` exists so the boot-time reaper can clear locks
+ * orphaned by a crash (the claim is process-local work, not durable intent).
+ */
+export const backupLock = pgTable("backup_lock", {
+  /** Source scope: the resource id for database/stack runs, `volume-<name>`
+   *  for volume runs (same derivation as the repo scope). */
+  scope: text("scope").primaryKey(),
+  backupId: text("backup_id")
+    .notNull()
+    .$type<BackupId>()
+    .references(() => backup.id, { onDelete: "cascade" }),
+  claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// backup_verification: restore-proving verification runs
+// ---------------------------------------------------------------------------
+
+/**
+ * One row per verification run. The engine restores the snapshot into a
+ * throwaway container (same image as the source) and inspects the result;
+ * `checks` holds the collected evidence (restored size, table count, per-table
+ * row counts, size ratio) so the UI can show *why* a backup is trusted, not
+ * just a green dot.
+ */
+export const backupVerification = pgTable(
+  "backup_verification",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<BackupVerificationId>()
+      .$defaultFn(() => createId(ID_PREFIX.backupVerification)),
+    organizationId: text("organization_id")
+      .notNull()
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    backupId: text("backup_id")
+      .notNull()
+      .$type<BackupId>()
+      .references(() => backup.id, { onDelete: "cascade" }),
+    status: backupVerificationStatusEnum("status").notNull().default("queued"),
+    trigger: backupVerificationTriggerEnum("trigger").notNull().default("manual"),
+    /** Evidence bag: restoredSizeBytes, tableCount, schemaCount, rowCounts
+     *  (top tables), sizeRatio. Shape owned by verify-restore.ts. */
+    checks: jsonb("checks").$type<JsonObject>(),
+    failMessage: text("fail_message"),
+    durationMs: integer("duration_ms"),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("backup_verification_backup_idx").on(table.backupId, table.createdAt)],
+);
+
+// ---------------------------------------------------------------------------
+// backup_restore: persisted restore runs (history + status)
+// ---------------------------------------------------------------------------
+
+/**
+ * One row per restore attempt, so restores have history and observable status
+ * instead of living only inside a blocking RPC. Written by restoreBackup
+ * around its existing execution path; failure keeps the error message.
+ */
+export const backupRestore = pgTable(
+  "backup_restore",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<BackupRestoreId>()
+      .$defaultFn(() => createId(ID_PREFIX.backupRestore)),
+    organizationId: text("organization_id")
+      .notNull()
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    backupId: text("backup_id")
+      .notNull()
+      .$type<BackupId>()
+      .references(() => backup.id, { onDelete: "cascade" }),
+    mode: backupRestoreModeEnum("mode").notNull(),
+    /** Set when the restore wrote into a different database than the
+     *  snapshot's source (`targetResourceId` flows). */
+    targetResourceId: text("target_resource_id").$type<ResourceId>(),
+    status: backupRestoreStatusEnum("status").notNull().default("running"),
+    errorMessage: text("error_message"),
+    durationMs: integer("duration_ms"),
+    startedAt: timestamp("started_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("backup_restore_backup_idx").on(table.backupId, table.createdAt)],
+);
 
 export const backupLog = pgTable(
   "backup_log",

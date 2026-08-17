@@ -18,23 +18,27 @@
 import type { Readable } from "node:stream";
 
 import { Docker } from "@otterdeploy/docker";
+import { Result } from "better-result";
 
 import type { ResolvedDestination } from "./backends";
 
 import { emitPlatformEvent } from "../notifications/emit";
 import { buildContainerName } from "../routers/project/views";
-import { deriveRepoKey, toRusticRepo } from "./backends";
+import { deriveRepoKey, repoScope, toRusticRepo } from "./backends";
 import {
   type ExecutionContext,
   appendBackupLog,
+  claimBackupLock,
   getExecutionContext,
   markBackupFailed,
   markBackupRunning,
   markBackupSucceeded,
+  releaseBackupLock,
 } from "./db";
-import { dumpCommand, resolveSecret, runPreHook } from "./engine-helpers";
+import { dumpCommand, physicalDumpCommand, resolveSecret, runPreHook } from "./engine-helpers";
 import { execDump, findResourceContainerId } from "./exec";
 import { RusticCli } from "./rustic";
+import { requestBackupVerification } from "./verify-restore";
 import { assertVolumeExists, dumpVolume } from "./volume";
 
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => Promise<void>;
@@ -102,9 +106,60 @@ async function produceArchive(
 
   await runPreHook(docker, containerId, ctx.preHook, log);
 
-  const { cmd, env, method } = dumpCommand(ctx);
+  const { cmd, env, method } =
+    ctx.approach === "physical" ? physicalDumpCommand(ctx) : dumpCommand(ctx);
+  if (ctx.approach === "physical") {
+    await log("system", "Physical backup: streaming a pg_basebackup cluster tar");
+  }
   const dump = await execDump(docker, containerId, cmd, env);
   return { stream: dump.stream, method, stderr: dump.stderr, exitCode: dump.exitCode };
+}
+
+/** Success bookkeeping: terminal row write, log line, platform event, and the
+ *  optional restore-proving verification trigger. Split from executeBackup to
+ *  keep its orchestration readable (and under the complexity cap). */
+async function finalizeSuccess(
+  ctx: ExecutionContext,
+  method: string,
+  result: { snapshotId: string; addedBytes: number; sourceSizeBytes: number; durationMs: number },
+  log: LogFn,
+): Promise<void> {
+  await markBackupSucceeded(ctx.backupId, {
+    storagePath: result.snapshotId,
+    // rustic owns integrity (`check`); no blob checksum is computed here.
+    checksum: null,
+    compressedSizeBytes: result.addedBytes,
+    sourceSizeBytes: result.sourceSizeBytes,
+    durationMs: result.durationMs,
+    method,
+  });
+  await log(
+    "system",
+    `Backup succeeded: snapshot ${result.snapshotId.slice(0, 12)} (+${result.addedBytes} B)`,
+  );
+  await emitPlatformEvent({
+    organizationId: ctx.organizationId,
+    eventId: "backup.succeeded",
+    title: "Backup succeeded",
+    message:
+      ctx.kind === "volume"
+        ? `Volume ${ctx.volumeName} backed up successfully.`
+        : `${ctx.resourceName} (${ctx.projectSlug}) backed up successfully.`,
+    data: eventData(ctx),
+  });
+
+  // Schedule opted into restore-proving verification: it runs detached (the
+  // sandbox restore can take minutes and must never block the run pipeline).
+  // Unsupported engines are skipped silently here; a manual verify surfaces
+  // the unsupported reason instead.
+  if (
+    ctx.verifyAfterBackup &&
+    ctx.kind !== "volume" &&
+    ctx.engine === "postgres" &&
+    ctx.approach === "logical"
+  ) {
+    await requestBackupVerification(ctx.backupId, "after-backup");
+  }
 }
 
 /**
@@ -120,6 +175,18 @@ export async function executeBackup(backupId: ExecutionContext["backupId"]): Pro
   }
 
   const log: LogFn = (stream, line) => appendBackupLog(ctx.backupId, stream, line);
+
+  // Single-in-flight per source: a concurrent dump of the same database (or a
+  // tar of the same moving volume) is never useful, so the second run fails
+  // fast with a clear message. No platform event: this is an operator-visible
+  // coordination outcome, not an infrastructure failure worth paging on.
+  const claimed = await claimBackupLock(repoScope(ctx), ctx.backupId);
+  if (!claimed) {
+    const message = `another backup of ${sourceLabel(ctx)} is already running; try again once it finishes`;
+    await log("system", message);
+    await markBackupFailed(ctx.backupId, message);
+    return;
+  }
 
   const docker = Docker.fromEnv();
   try {
@@ -167,29 +234,7 @@ export async function executeBackup(backupId: ExecutionContext["backupId"]): Pro
       throw new Error(`${what} exited ${dumpExit}: ${dumpStderr.slice(0, 1000)}`);
     }
 
-    await markBackupSucceeded(ctx.backupId, {
-      storagePath: result.snapshotId,
-      // rustic owns integrity (`check`); no blob checksum is computed here.
-      checksum: null,
-      compressedSizeBytes: result.addedBytes,
-      sourceSizeBytes: result.sourceSizeBytes,
-      durationMs: result.durationMs,
-      method: source.method,
-    });
-    await log(
-      "system",
-      `Backup succeeded: snapshot ${result.snapshotId.slice(0, 12)} (+${result.addedBytes} B)`,
-    );
-    await emitPlatformEvent({
-      organizationId: ctx.organizationId,
-      eventId: "backup.succeeded",
-      title: "Backup succeeded",
-      message:
-        ctx.kind === "volume"
-          ? `Volume ${ctx.volumeName} backed up successfully.`
-          : `${ctx.resourceName} (${ctx.projectSlug}) backed up successfully.`,
-      data: eventData(ctx),
-    });
+    await finalizeSuccess(ctx, source.method, result, log);
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
     await log("system", `Backup failed: ${message}`);
@@ -202,6 +247,12 @@ export async function executeBackup(backupId: ExecutionContext["backupId"]): Pro
       data: eventData(ctx),
     });
   } finally {
+    // Best-effort: a failed unlock is recoverable (the boot reaper clears
+    // orphans) and must not mask the run's real outcome.
+    await Result.tryPromise({
+      try: () => releaseBackupLock(ctx.backupId),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    });
     docker.destroy();
   }
 }

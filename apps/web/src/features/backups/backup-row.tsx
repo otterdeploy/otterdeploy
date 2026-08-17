@@ -11,6 +11,8 @@ import {
   SquareLock01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -23,6 +25,7 @@ import { restoreBackup } from "./data/backups";
 import {
   StatusBadge,
   ProjectTagBadge,
+  VerifiedBadge,
   absTime,
   backupWhen,
   destIcon,
@@ -51,15 +54,20 @@ export function BackupRow({
   const DIcon = destIcon(b.destinationType ?? "s3");
   const succeeded = b.status === "succeeded";
 
-  const download = () => {
+  const download = async () => {
     setDownloading(true);
-    restoreBackup({ id: b.id, mode: "download" })
-      .then((res) => {
-        if (res.data && res.filename) downloadBase64(res.data, res.filename);
-        else toast.error("Backup archive is unavailable");
-      })
-      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Download failed"))
-      .finally(() => setDownloading(false));
+    const restored = await Result.tryPromise({
+      try: () => restoreBackup({ id: b.id, mode: "download" }),
+      catch: errorFromUnknown,
+    });
+    if (restored.isErr()) {
+      toast.error(restored.error.message);
+    } else if (restored.value.data && restored.value.filename) {
+      downloadBase64(restored.value.data, restored.value.filename);
+    } else {
+      toast.error("Backup archive is unavailable");
+    }
+    setDownloading(false);
   };
 
   return (
@@ -69,14 +77,12 @@ export function BackupRow({
           own items and the column track lines up with the header. One markup,
           two layouts: the alternative (a second mobile row component) drifts
           the moment a column is added. */}
-      <button
-        type="button"
+      <div
         className={cn(
           "flex w-full flex-col gap-1.5 px-3 py-2.5 text-left hover:bg-muted/30",
           "md:grid md:items-center md:gap-2 md:py-2",
           COLS,
         )}
-        onClick={() => setExpanded((v) => !v)}
       >
         <span className="flex min-w-0 items-center justify-between gap-2 md:contents">
           <span className="flex min-w-0 items-center gap-2">
@@ -131,7 +137,10 @@ export function BackupRow({
             ) : (
               <span className="font-mono text-[11px] text-muted-foreground">–</span>
             )}
-            <StatusBadge status={b.status} />
+            <span className="flex flex-wrap items-center gap-1">
+              <StatusBadge status={b.status} />
+              <VerifiedBadge status={b.verifiedStatus} />
+            </span>
           </span>
           <span className="flex items-center justify-end gap-0.5">
             {/* Each action stops propagation itself so activating it (mouse or
@@ -162,16 +171,25 @@ export function BackupRow({
             >
               <HugeiconsIcon icon={Download01Icon} className="size-3" />
             </Button>
-            <HugeiconsIcon
-              icon={ArrowRight01Icon}
-              className={cn(
-                "ml-1 size-3 text-muted-foreground transition-transform",
-                expanded && "rotate-90",
-              )}
-            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              title={expanded ? "Hide details" : "Show details"}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                className={cn(
+                  "size-3 text-muted-foreground transition-transform",
+                  expanded && "rotate-90",
+                )}
+              />
+            </Button>
           </span>
         </span>
-      </button>
+      </div>
       {expanded && <BackupDetail backup={b} onRestore={onRestore} />}
     </div>
   );

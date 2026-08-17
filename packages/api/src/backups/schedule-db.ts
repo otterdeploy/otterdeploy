@@ -15,13 +15,12 @@ import type {
 import { db } from "@otterdeploy/db";
 import {
   backup,
-  backupDestination,
   backupSchedule,
   databaseResource,
   project,
   resource,
 } from "@otterdeploy/db/schema";
-import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 
 import { listStackDatabaseResources } from "./stack";
 
@@ -33,6 +32,8 @@ export interface DueSchedule {
   cron: string;
   destinationIds: BackupDestinationId[];
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
+  keepLast: number;
+  keepHourly: number;
   keepDaily: number;
   keepWeekly: number;
   keepMonthly: number;
@@ -40,6 +41,8 @@ export interface DueSchedule {
   retentionDays: number | null;
   maxStorageGb: number | null;
   preHook: string | null;
+  /** Extra attempts for a failed (source × destination) run. 0 = off. */
+  maxRetries: number;
   // Null = freshly created, never scheduled, initialize without backfilling.
   nextRunAt: Date | null;
 }
@@ -55,6 +58,8 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       cron: backupSchedule.cron,
       destinationIds: backupSchedule.destinationIds,
       encryption: backupSchedule.encryption,
+      keepLast: backupSchedule.keepLast,
+      keepHourly: backupSchedule.keepHourly,
       keepDaily: backupSchedule.keepDaily,
       keepWeekly: backupSchedule.keepWeekly,
       keepMonthly: backupSchedule.keepMonthly,
@@ -62,6 +67,7 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       retentionDays: backupSchedule.retentionDays,
       maxStorageGb: backupSchedule.maxStorageGb,
       preHook: backupSchedule.preHook,
+      maxRetries: backupSchedule.maxRetries,
       nextRunAt: backupSchedule.nextRunAt,
     })
     .from(backupSchedule)
@@ -104,43 +110,6 @@ export async function getScheduleRunTarget(input: {
   return row ?? null;
 }
 
-/**
- * Which of a schedule's `destinationIds` should a run actually write to?
- *
- * Pure so the rule is testable without a database. Two ids get dropped:
- *   - `disabled`: operator intent; the destination keeps its restorable
- *     snapshots but takes no new backups.
- *   - ids with no matching row: `destinationIds` is a plain jsonb array with no
- *     foreign key, so a deleted destination leaves a dangling id that would
- *     otherwise fail deep inside the engine instead of being skipped here.
- * `degraded` is deliberately kept: it's a health signal, not intent, and
- * dropping it would stop backups exactly when they matter most.
- *
- * Order is preserved so run ordering stays deterministic.
- */
-export function runnableDestinationIds(
-  ids: BackupDestinationId[],
-  rows: { id: BackupDestinationId; status: string }[],
-): BackupDestinationId[] {
-  const statusById = new Map(rows.map((r) => [r.id, r.status]));
-  return ids.filter((id) => {
-    const status = statusById.get(id);
-    return status !== undefined && status !== "disabled";
-  });
-}
-
-/** `runnableDestinationIds` against the live rows for those ids. */
-export async function activeDestinationIdsFor(
-  ids: BackupDestinationId[],
-): Promise<BackupDestinationId[]> {
-  if (ids.length === 0) return [];
-  const rows = await db
-    .select({ id: backupDestination.id, status: backupDestination.status })
-    .from(backupDestination)
-    .where(inArray(backupDestination.id, ids));
-  return runnableDestinationIds(ids, rows);
-}
-
 export async function updateScheduleAfterRun(
   scheduleId: BackupScheduleId,
   fields: {
@@ -149,7 +118,67 @@ export async function updateScheduleAfterRun(
     nextRunAt: Date | null;
   },
 ): Promise<void> {
-  await db.update(backupSchedule).set(fields).where(eq(backupSchedule.id, scheduleId));
+  await db
+    .update(backupSchedule)
+    .set(
+      // A successful pass ends any overdue episode, so the next lapse notifies
+      // again instead of being swallowed by a stale marker.
+      fields.lastRunStatus === "succeeded" ? { ...fields, overdueNotifiedAt: null } : fields,
+    )
+    .where(eq(backupSchedule.id, scheduleId));
+}
+
+// ---------------------------------------------------------------------------
+// Overdue detection (backup.overdue)
+// ---------------------------------------------------------------------------
+
+export interface OverdueCandidate {
+  id: BackupScheduleId;
+  organizationId: OrganizationId;
+  name: string;
+  cron: string;
+  overdueAfterHours: number | null;
+  overdueNotifiedAt: Date | null;
+  createdAt: Date;
+  /** Newest successful run for the schedule (null = never succeeded). */
+  lastSuccessAt: Date | null;
+}
+
+/** Enabled schedules + their newest successful run, for the overdue sweep. */
+export async function listOverdueCandidates(): Promise<OverdueCandidate[]> {
+  const rows = await db
+    .select({
+      id: backupSchedule.id,
+      organizationId: backupSchedule.organizationId,
+      name: backupSchedule.name,
+      cron: backupSchedule.cron,
+      overdueAfterHours: backupSchedule.overdueAfterHours,
+      overdueNotifiedAt: backupSchedule.overdueNotifiedAt,
+      createdAt: backupSchedule.createdAt,
+      lastSuccessAt: sql<Date | null>`(
+        SELECT max(${backup.completedAt}) FROM ${backup}
+        WHERE ${backup.scheduleId} = ${backupSchedule.id}
+          AND ${backup.status} = 'succeeded'
+      )`,
+    })
+    .from(backupSchedule)
+    .where(eq(backupSchedule.enabled, true));
+  return rows.map((r) => ({
+    ...r,
+    // node-postgres returns the scalar subquery as a string/Date depending on
+    // the driver path; normalize to a Date | null the sweep can compare.
+    lastSuccessAt: r.lastSuccessAt == null ? null : new Date(r.lastSuccessAt),
+  }));
+}
+
+export async function markScheduleOverdueNotified(
+  scheduleId: BackupScheduleId,
+  at: Date,
+): Promise<void> {
+  await db
+    .update(backupSchedule)
+    .set({ overdueNotifiedAt: at })
+    .where(eq(backupSchedule.id, scheduleId));
 }
 
 /** A resolved source, tagged so the run gets the right engine path: `database`

@@ -7,6 +7,14 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Preserve real errors and wrap non-Error rejection reasons without losing
+ *  the original value. */
+export function errorFromUnknown(cause: unknown): Error {
+  if (cause instanceof Error) return cause;
+  if (typeof cause === "string") return new Error(cause);
+  return new Error("Unexpected non-Error rejection", { cause });
+}
+
 /** Thrown by {@link withTimeout} so callers can distinguish "took too long"
  *  from the operation's own failures. */
 export class TimeoutError extends Error {
@@ -35,7 +43,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label = "operati
       },
       (error: unknown) => {
         clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
+        reject(errorFromUnknown(error));
       },
     );
   });

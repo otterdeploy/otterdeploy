@@ -1,8 +1,10 @@
 /**
- * The restore wizard's Verify stage: a server-side integrity check (the
- * server re-fetches the stored archive and recomputes its checksum against
- * the recorded one: a real probe, no fake diff) plus a plain source → target
- * summary built from what is genuinely stored on the run row.
+ * The restore wizard's Verify stage: a server-side integrity check (rustic's
+ * structural repo `check` plus confirming the recorded snapshot still
+ * resolves: a real probe against the destination, no fake diff) plus a plain
+ * source → target summary built from what is genuinely stored on the run row.
+ * Deeper restore-proving verification lives on the run's detail drawer
+ * ("Verify by restoring").
  *
  * The check is a query keyed on the run id, so switching runs swaps verdicts
  * without any per-mount refetch, and re-opening the wizard on a run verified
@@ -71,7 +73,7 @@ function IntegrityBadge({
   if (checking) {
     return (
       <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
-        re-fetching archive…
+        checking repository…
       </Badge>
     );
   }
@@ -82,7 +84,7 @@ function IntegrityBadge({
         className="gap-1 border-success/30 bg-success/10 font-mono text-[10px] text-success"
       >
         <HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-2.5" />
-        checksum match
+        snapshot intact
       </Badge>
     );
   }
@@ -93,7 +95,7 @@ function IntegrityBadge({
         className="gap-1 border-destructive/30 bg-destructive/10 font-mono text-[10px] text-destructive"
       >
         <HugeiconsIcon icon={Alert02Icon} className="size-2.5" />
-        checksum mismatch
+        snapshot missing
       </Badge>
     );
   }

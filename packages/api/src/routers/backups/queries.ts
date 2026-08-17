@@ -15,6 +15,8 @@ import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schem
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
 
+import { listStackDatabaseResources } from "../../backups/stack";
+
 type BackupKind = "database" | "volume";
 
 export interface BackupRow {
@@ -24,7 +26,7 @@ export interface BackupRow {
   sourceService: string | null;
   sourceHost: string | null;
   destinationName: string | null;
-  destinationType: "s3" | "local" | "sftp" | null;
+  destinationType: "s3" | "local" | "sftp" | "azblob" | "gcs" | null;
 }
 
 const backupSelection = {
@@ -44,7 +46,7 @@ function toBackupRow(r: {
   dbHost: string | null;
   dbPort: number | null;
   destName: string | null;
-  destType: "s3" | "local" | "sftp" | null;
+  destType: "s3" | "local" | "sftp" | "azblob" | "gcs" | null;
 }): BackupRow {
   // Volume runs have no resource. Their display source is the volume name.
   const source = r.resourceName ?? r.backup.volumeName;
@@ -125,7 +127,7 @@ export async function listSchedulesByOrg(organizationId: OrganizationId): Promis
   // org-wide destination lookup rather than a join. `sources` is the same shape,
   // so resolve its health the same way. One org-wide database-resource lookup,
   // matched in memory per schedule (avoids an N+1 across schedules).
-  const [schedules, dests, dbResources] = await Promise.all([
+  const [schedules, dests, dbResources, stackResources] = await Promise.all([
     db
       .select()
       .from(backupSchedule)
@@ -141,12 +143,16 @@ export async function listSchedulesByOrg(organizationId: OrganizationId): Promis
       .innerJoin(project, eq(project.id, resource.projectId))
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
       .where(eq(project.organizationId, organizationId)),
+    // Stack DB services are schedulable sources too (classifyScheduleSources
+    // counts them); omitting them here wrongly flagged stack-backed schedules
+    // as orphaned in the list.
+    listStackDatabaseResources(organizationId),
   ]);
 
   const nameById = new Map(dests.map((d) => [d.id, d.name]));
   // Every ref (id or name) that currently points at a live database resource.
   const liveRefs = new Set<string>();
-  for (const r of dbResources) {
+  for (const r of [...dbResources, ...stackResources]) {
     liveRefs.add(r.id);
     liveRefs.add(r.name);
   }

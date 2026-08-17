@@ -85,11 +85,20 @@ otterdeploy/
 - **Debt: PAID (2026-08-17).** The ~1,169 legacy assertion sites are gone; the
   repo-wide oxlint error count is ZERO and the lint CI job gates on it. Keep it
   at zero: never add a new assertion, and fix any that sneak in immediately.
-- **JSON boundaries are parsed, not cast.** Text → `parseJson(text, schema)`;
-  already-decoded values → `parseWith(value, schema)`: both in
-  `packages/api/src/lib/z-json.ts`, returning better-result typed errors
-  (`InvalidJson` / `SchemaMismatch`). Never `JSON.parse(x) as T`, never
-  `payload as MyShape`.
+- **JSON boundaries are parsed, not cast.** Decode with
+  `schema.parse(JSON.parse(text))` inside a better-result boundary
+  (`Result.try` / `Result.tryPromise` with a typed catch), never
+  `JSON.parse(x) as T`, never `payload as MyShape`. (`z-json.ts` exports
+  `zJsonObject` for jsonb column shapes; the previously-documented
+  `parseJson`/`parseWith` helpers no longer exist.)
+- **No raw try/catch in new code.** Use better-result (`Result.try`,
+  `Result.tryPromise`, `matchError`/`matchErrorPartial`, `TaggedError`);
+  promise `.catch(...)` swallowing counts as raw too — wrap best-effort
+  cleanup in `Result.tryPromise` and ignore the Result. `try/finally`
+  (no catch) for resource cleanup is fine.
+- **Cron**: parse/validate with the native `Bun.cron.parse` via
+  `packages/api/src/lib/cron.ts` — one parser for boundary validation and
+  scheduler math. Do not reintroduce `cron-parser`.
 - **Patch payloads**: build with `omitUndefined` from `@otterdeploy/shared/object`,
   never chains of `...(x !== undefined && { x })`.
 

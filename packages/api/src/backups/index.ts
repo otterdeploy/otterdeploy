@@ -6,6 +6,14 @@
 export { executeBackup } from "./engine";
 export { restoreBackup, verifyBackup } from "./restore";
 export type { RestoreMode, VerifyResult } from "./restore";
-export { runDueBackupSchedules, startBackupScheduler } from "./scheduler";
+export { listRestores } from "./restore-db";
+export { backupSchedulerLiveness, runDueBackupSchedules, startBackupScheduler } from "./scheduler";
 export { createBackupRun, getDatabaseResourceInOrg, listBackupLogs } from "./db";
 export type { BackupRunSource } from "./db";
+export {
+  BackupContextMissingError,
+  VerificationUnsupportedError,
+  requestBackupVerification,
+  verificationSupport,
+} from "./verify-restore";
+export { listVerifications } from "./verify-db";

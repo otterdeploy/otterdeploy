@@ -25,12 +25,16 @@ export function ScheduleEditorDialog({
   open,
   onOpenChange,
   destinations,
+  presetSources,
 }: {
   initial: Schedule | null;
   organizationId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   destinations: Destination[];
+  /** Pre-seeded sources for a NEW schedule (the Coverage tab's
+   *  "Create schedule" on an unprotected database). Ignored when editing. */
+  presetSources?: string[];
 }) {
   if (!open) return null;
   return (
@@ -41,6 +45,7 @@ export function ScheduleEditorDialog({
         organizationId={organizationId}
         onClose={() => onOpenChange(false)}
         destinations={destinations}
+        presetSources={presetSources}
       />
     </Dialog>
   );
@@ -51,14 +56,16 @@ function ScheduleEditorBody({
   organizationId,
   onClose,
   destinations,
+  presetSources,
 }: {
   initial: Schedule | null;
   organizationId: string;
   onClose: () => void;
   destinations: Destination[];
+  presetSources?: string[];
 }) {
   const editing = initial !== null;
-  const form = useScheduleForm({ initial, organizationId, destinations, onClose });
+  const form = useScheduleForm({ initial, organizationId, destinations, onClose, presetSources });
 
   return (
     <DialogContent className="gap-0 p-0 sm:max-w-3xl">

@@ -1,4 +1,6 @@
 import { env } from "@otterdeploy/env/server";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
 /**
  * Thin wrapper around the `rustic` CLI (v0.11.3, GNU x86_64, vendored into the
  * server image, see apps/server/Dockerfile). rustic is the ONLY backup engine:
@@ -15,13 +17,13 @@ import { env } from "@otterdeploy/env/server";
  *     [repository.options]        # OpenDAL backend keys (bucket, root, …)
  *
  * and invokes `rustic -P <profilePathWithout.toml> <subcmd> …`. The profile is
- * unlinked in a `finally`. stderr is streamed line-by-line to a log callback so
+ * unlinked after every invocation. stderr is streamed line-by-line to a log callback so
  * a run's progress/errors land in the backup log; a non-zero exit rejects.
  *
  * The verified rustic command surface lives in docs/rustic-backup-implementation-plan.md §0.
  */
 import { spawn } from "node:child_process";
-import { hkdfSync, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,6 +31,24 @@ import { Readable, Writable } from "node:stream";
 import * as z from "zod";
 
 import type { RusticRepo } from "./backends";
+
+import { masterSecretCandidates } from "../lib/crypto";
+import {
+  type ForgetSpec,
+  buildRusticProfile,
+  buildForgetArgs,
+  deriveRepoPassword,
+  isPasswordError,
+} from "./rustic-args";
+
+// Re-exported so existing importers (tests, retention-apply, scheduler) keep
+// their `./rustic` entry point.
+export {
+  type ForgetSpec,
+  buildForgetArgs,
+  deriveRepoPassword,
+  isPasswordError,
+} from "./rustic-args";
 
 /** Where run progress/errors are surfaced (matches the engine's log closure). */
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => void | Promise<void>;
@@ -59,113 +79,105 @@ const rusticBackupOutput = z.object({
 /** `rustic snapshots <id> --json` stdout: grouped snapshot lists. */
 const rusticSnapshotGroups = z.array(z.object({ snapshots: z.array(z.unknown()).optional() }));
 
-/** GFS keep policy for `forget`. Maps 1:1 onto rustic's `--keep-*` flags. */
-export interface ForgetSpec {
-  keepLast?: number;
-  keepDaily?: number;
-  keepWeekly?: number;
-  keepMonthly?: number;
-  keepYearly?: number;
-  /** Hard max age in days → `--keep-within <N>d`. */
-  keepWithinDays?: number | null;
-}
-
-/**
- * Derive a repo's encryption password: HKDF-SHA256 over `BETTER_AUTH_SECRET`
- * with `info = domain` (the repo key's `passwordDomain` — equals the repo id
- * for external destinations, org-qualified for managed ones; see
- * backends.deriveRepoKey), hex-encoded. Deterministic (re-derivable, no secret
- * store) and domain-separated per repo. Pure so it's unit-testable without env.
- *
- * ⚠️ Rotating `BETTER_AUTH_SECRET` re-derives every password → existing repos
- * become unreadable. Operational constraint; there's no rotation path in v1.
- */
-export function deriveRepoPassword(secret: string, domain: string): string {
-  const derived = hkdfSync(
-    "sha256",
-    Buffer.from(secret, "utf8"),
-    Buffer.alloc(0),
-    Buffer.from(domain, "utf8"),
-    32,
-  );
-  return Buffer.from(derived).toString("hex");
-}
-
-/** Build the `forget` argv (pure, so the flag mapping is unit-testable). Only
- *  set tiers emit a flag; always scoped by `--filter-tags` and always `--prune`
- *  + `--json`. */
-export function buildForgetArgs(spec: ForgetSpec, filterTags: string[]): string[] {
-  const args = ["forget", "--filter-tags", filterTags.join(",")];
-  const tier = (flag: string, n: number | undefined) => {
-    if (n != null && n > 0) args.push(flag, String(n));
-  };
-  tier("--keep-last", spec.keepLast);
-  tier("--keep-daily", spec.keepDaily);
-  tier("--keep-weekly", spec.keepWeekly);
-  tier("--keep-monthly", spec.keepMonthly);
-  tier("--keep-yearly", spec.keepYearly);
-  if (spec.keepWithinDays != null && spec.keepWithinDays > 0) {
-    args.push("--keep-within", `${spec.keepWithinDays}d`);
-  }
-  args.push("--prune", "--json");
-  return args;
-}
-
-/** Quote a value as a TOML basic string (escapes `\`, `"`, and controls). */
-function tomlString(value: string): string {
-  const escaped = value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "\\r")
-    .replace(/\t/g, "\\t");
-  return `"${escaped}"`;
-}
-
 export class RusticCli {
   // oxlint-disable-next-line node/no-process-env -- binary path override; not part of the app env schema.
   private readonly binary = process.env.RUSTIC_BIN ?? "/usr/local/bin/rustic";
+
+  /** Index into the keyring candidates that last opened this repo. Starts at
+   *  the current key; bumped by the fallback when an older secret matches. */
+  private candidateIndex = 0;
 
   constructor(
     private readonly repo: RusticRepo,
     private readonly log: LogFn = () => {},
   ) {}
 
-  /** This repo's HKDF-derived password (never placed on argv). */
-  private password(): string {
-    return deriveRepoPassword(env.BETTER_AUTH_SECRET, this.repo.passwordDomain);
-  }
-
-  /** The config-profile TOML delivering repository URL, password, and backend options. */
-  private profileToml(): string {
-    const lines = [
-      "[repository]",
-      `repository = ${tomlString(this.repo.repository)}`,
-      `password = ${tomlString(this.password())}`,
-    ];
-    const keys = Object.keys(this.repo.options);
-    if (keys.length > 0) {
-      lines.push("", "[repository.options]");
-      for (const key of keys) {
-        lines.push(`${key} = ${tomlString(this.repo.options[key] ?? "")}`);
-      }
-    }
-    return `${lines.join("\n")}\n`;
+  /** Candidate passwords, current keyring secret first (see
+   *  masterSecretCandidates). Rotation = add a new keyring id + repoint
+   *  DATA_ENCRYPTION_KEY_ID; repos re-key themselves on next touch. */
+  private passwords(): string[] {
+    const secrets = masterSecretCandidates();
+    const base = secrets.length > 0 ? secrets : [env.BETTER_AUTH_SECRET];
+    return [...new Set(base.map((s) => deriveRepoPassword(s, this.repo.passwordDomain)))];
   }
 
   /** Write the throwaway profile, run `rustic -P <base> <args>`, always unlink it. */
-  private async run(
+  private async runWithPassword(
+    password: string,
     subArgs: string[],
     opts: { stdin?: Readable; stdout?: Writable } = {},
   ): Promise<string> {
     const base = join(tmpdir(), `rustic-${randomBytes(12).toString("hex")}`);
     // `-P <base>` reads `<base>.toml` (verified). Write with the extension,
     // pass the extensionless base.
-    await writeFile(`${base}.toml`, this.profileToml(), { mode: 0o600 });
-    try {
-      return await this.spawn(["-P", base, ...subArgs], opts);
-    } finally {
-      await unlink(`${base}.toml`).catch(() => undefined);
+    await writeFile(`${base}.toml`, buildRusticProfile(this.repo, password), { mode: 0o600 });
+    const spawned = await Result.tryPromise({
+      try: () => this.spawn(["-P", base, ...subArgs], opts),
+      catch: errorFromUnknown,
+    });
+    const cleaned = await Result.tryPromise({
+      try: () => unlink(`${base}.toml`),
+      catch: errorFromUnknown,
+    });
+    if (cleaned.isErr()) throw cleaned.error;
+    if (spawned.isErr()) throw spawned.error;
+    return spawned.value;
+  }
+
+  /**
+   * Run with the current candidate password; on a wrong-password failure, walk
+   * the remaining keyring candidates. When an OLDER secret opens the repo,
+   * best-effort `key add` the current-secret password so the repo re-keys to
+   * the new keyring entry — the rotation path that makes rotating the root
+   * secret survivable. A consumed stdin can't be replayed, so stdin calls
+   * don't fall back (the engine opens the repo with `ensureInit` first, which
+   * settles the candidate before any stdin is attached).
+   */
+  private async run(
+    subArgs: string[],
+    opts: { stdin?: Readable; stdout?: Writable } = {},
+  ): Promise<string> {
+    const candidates = this.passwords();
+    let index = Math.min(this.candidateIndex, candidates.length - 1);
+    for (;;) {
+      const attempt = await Result.tryPromise({
+        try: () => this.runWithPassword(candidates[index] ?? "", subArgs, opts),
+        catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+      });
+      if (attempt.isOk()) {
+        if (index !== 0) await this.rekeyToCurrent(candidates[index] ?? "", candidates[0] ?? "");
+        this.candidateIndex = index;
+        return attempt.value;
+      }
+      const canFallBack =
+        isPasswordError(attempt.error.message) && index < candidates.length - 1 && !opts.stdin;
+      if (!canFallBack) throw attempt.error;
+      index += 1;
+      void this.log("system", "repo password from a previous keyring entry; trying older secrets");
+    }
+  }
+
+  /** Best-effort `key add` of the current-secret password using a working old
+   *  one. Failure only means the repo stays keyed to the old entry (still
+   *  readable via fallback); never fails the caller's operation. */
+  private async rekeyToCurrent(workingPassword: string, currentPassword: string): Promise<void> {
+    const file = join(tmpdir(), `rustic-key-${randomBytes(12).toString("hex")}`);
+    const outcome = await Result.tryPromise({
+      try: async () => {
+        await writeFile(file, `${currentPassword}\n`, { mode: 0o600 });
+        await this.runWithPassword(workingPassword, ["key", "add", "--new-password-file", file]);
+      },
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    });
+    await Result.tryPromise({
+      try: () => unlink(file),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    });
+    if (outcome.isOk()) {
+      this.candidateIndex = 0;
+      void this.log("system", "repo re-keyed to the current keyring entry");
+    } else {
+      void this.log("system", `repo re-key skipped: ${outcome.error.message.slice(0, 300)}`);
     }
   }
 
@@ -295,6 +307,14 @@ export class RusticCli {
   /** Apply a keep policy scoped to the given tags, then prune (`forget … --prune`). */
   async forget(spec: ForgetSpec, filterTags: string[]): Promise<void> {
     await this.run(buildForgetArgs(spec, filterTags));
+  }
+
+  /** Remove SPECIFIC snapshots by id, then prune (`forget <id>… --prune`).
+   *  This is what enforces the byte-ceiling retention: the selection is
+   *  computed in retention.ts and executed here at the snapshot level. */
+  async forgetSnapshots(snapshotIds: string[]): Promise<void> {
+    if (snapshotIds.length === 0) return;
+    await this.run(["forget", ...snapshotIds, "--prune", "--json"]);
   }
 
   /** Structural integrity check of the whole repo (`check`). */

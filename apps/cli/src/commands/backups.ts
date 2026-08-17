@@ -7,24 +7,19 @@ import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
 import {
   abort,
-  ask,
   detail,
   dim,
   err,
   hint,
   note,
   ok,
-  out,
   paint,
   row,
   section,
   stateLabel,
   table,
-  warn,
 } from "../lib/ui";
-
-/** How many ambiguous matches to show before it stops being a useful list. */
-const MAX_AMBIGUOUS = 10;
+import { restoreBackupCommand, verifyBackupCommand } from "./backups-restore";
 
 const listCmd = defineCommand({
   meta: { name: "list", description: "List backup runs (org-wide)" },
@@ -87,6 +82,10 @@ const runCmd = defineCommand({
   args: {
     database: { type: "positional", required: true, description: "Database name" },
     destination: { type: "string", description: "Destination id (bakdest_…)" },
+    physical: {
+      type: "boolean",
+      description: "pg_basebackup cluster tar instead of a logical dump (postgres only)",
+    },
     config: { type: "string", description: "Path to config file" },
     slug: { type: "string", description: "Project slug (defaults to config)" },
     url: { type: "string", description: "Override control plane URL" },
@@ -122,97 +121,14 @@ const runCmd = defineCommand({
       note(`Using the only destination: ${only.name} ${dim(`(${only.id})`)}.`);
     }
 
-    const result = await client.backups.run({ resourceId, destinationIds: [destinationId] });
-    ok(`Backup queued for ${resourceName}.`);
+    const result = await client.backups.run({
+      resourceId,
+      destinationIds: [destinationId],
+      approach: args.physical ? "physical" : "logical",
+    });
+    ok(`${args.physical ? "Physical backup" : "Backup"} queued for ${resourceName}.`);
     detail([["id", result.ids.map((id) => paint("id", shortId(id))).join(" ")]]);
     hint(`run \`${cmd("backups list")}\` to watch progress`);
-  },
-});
-
-const restoreCmd = defineCommand({
-  meta: {
-    name: "restore",
-    description: "Restore a backup in place (OVERWRITES the live database)",
-  },
-  args: {
-    backupId: { type: "positional", required: true, description: "Backup id (bak_…, prefix ok)" },
-    confirm: {
-      type: "string",
-      description: "Confirmation phrase (the database name) for non-interactive use",
-    },
-    url: { type: "string", description: "Override control plane URL" },
-  },
-  async run({ args }) {
-    const { url, token } = await ensureAuthenticated(args.url);
-    const client = createCliClient({ url, token });
-
-    const backups = await client.backups.list({});
-    const matches = backups.filter((b) => b.id.startsWith(args.backupId));
-    const exact = backups.find((b) => b.id === args.backupId);
-    const backup = exact ?? (matches.length === 1 ? matches[0] : undefined);
-    if (!backup) {
-      if (matches.length > 1) {
-        err();
-        for (const m of matches.slice(0, MAX_AMBIGUOUS)) {
-          row([paint("id", m.id), orAbsent(m.source), dim(relativeTime(String(m.createdAt)))]);
-        }
-        err();
-        abort(`\`${args.backupId}\` matches ${matches.length} backups.`, "use a longer id");
-      }
-      abort(
-        `No backup \`${args.backupId}\` in this organization.`,
-        `run \`${cmd("backups list")}\` to see them`,
-      );
-    }
-    if (backup.status !== "succeeded") {
-      // This guard must exit: restoring from a failed or in-flight backup would
-      // overwrite a live database from an incomplete dump.
-      abort(
-        `Backup ${shortId(backup.id)} is ${backup.status}. Only succeeded backups restore.`,
-        `run \`${cmd("backups list")}\` to find a completed one`,
-      );
-    }
-
-    const expected = backup.source ?? backup.resourceId;
-    if (!expected) {
-      // Without a name there is nothing meaningful to type back, and an empty
-      // confirmation string would make this destructive command a no-prompt one.
-      abort(
-        `Backup ${shortId(backup.id)} records no database name to confirm against.`,
-        "restore it from the dashboard instead",
-      );
-    }
-    section("In-place restore");
-    detail([
-      ["database", paint("danger", expected)],
-      [
-        "backup",
-        `${paint("id", shortId(backup.id))} ${dim(relativeTime(String(backup.createdAt)))}`,
-      ],
-      ["size", dim(formatBytes(backup.compressedSizeBytes ?? backup.sourceSizeBytes))],
-    ]);
-    out();
-    warn(`This OVERWRITES the live database "${expected}". It cannot be undone.`);
-
-    // The API demands a typed confirmation (resource name or id) for
-    // in-place restores; there is deliberately no --yes bypass here.
-    let confirmation = args.confirm;
-    if (!confirmation) {
-      if (!process.stdin.isTTY) {
-        abort("Non-interactive session.", `pass \`--confirm "${expected}"\` to proceed`);
-      }
-      confirmation = (await ask(`Type "${expected}" to confirm`)) ?? "";
-    }
-    if (confirmation !== expected && confirmation !== backup.resourceId) {
-      abort("Confirmation did not match. Nothing was restored.");
-    }
-
-    const result = await client.backups.restore({
-      id: backup.id,
-      mode: "in-place",
-      confirm: confirmation,
-    });
-    if (result.ok) ok(`Restored ${expected} from ${shortId(backup.id)}.`);
   },
 });
 
@@ -267,7 +183,8 @@ export const backupsCommand = defineCommand({
   subCommands: {
     list: listCmd,
     run: runCmd,
-    restore: restoreCmd,
+    restore: restoreBackupCommand,
+    verify: verifyBackupCommand,
     destinations: destinationsCmd,
   },
 });

@@ -11,8 +11,8 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { orgBackupRepoRoot } from "@otterdeploy/shared/paths";
 import { describe, expect, it } from "vite-plus/test";
 
+import { runnableDestinationIds } from "../destination-availability";
 import { managedLocalConfig } from "../managed-destination";
-import { runnableDestinationIds } from "../schedule-db";
 
 const org = (id: string) => idSchema.organization.parse(id);
 const dest = (id: string) => idSchema.backupDestination.parse(id);

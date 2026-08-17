@@ -116,18 +116,28 @@ function RestoreWizardBody({ backup, onClose }: { backup: Backup; onClose: () =>
               title={t("backups.downloadTitle")}
               sub={t("backups.downloadSub")}
             />
-            <RestoreModeCard
-              id="in-place"
-              current={mode}
-              onSelect={setMode}
-              danger
-              title={t("backups.inPlaceTitle")}
-              sub={isVolume ? t("backups.inPlaceSubVolume") : t("backups.inPlaceSubDatabase")}
-            />
+            {/* A physical base backup restores by extracting into a fresh
+                data directory with the server stopped: the destructive modes
+                are not offered because the server would refuse them anyway. */}
+            {backup.approach === "physical" ? (
+              <p className="rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                This is a physical pg_basebackup cluster tar. Download it and extract into a fresh
+                PostgreSQL data directory; in-place restore doesn't apply.
+              </p>
+            ) : (
+              <RestoreModeCard
+                id="in-place"
+                current={mode}
+                onSelect={setMode}
+                danger
+                title={t("backups.inPlaceTitle")}
+                sub={isVolume ? t("backups.inPlaceSubVolume") : t("backups.inPlaceSubDatabase")}
+              />
+            )}
             {/* A volume snapshot has no database target, so this is offered
                 only for database backups — and only when the project has
                 another database of the same engine to restore into. */}
-            {!isVolume && targets.length > 0 && (
+            {!isVolume && backup.approach !== "physical" && targets.length > 0 && (
               <>
                 <RestoreModeCard
                   id="into"

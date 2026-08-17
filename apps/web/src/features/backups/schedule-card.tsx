@@ -15,6 +15,8 @@ import {
   SquareLock01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -25,40 +27,43 @@ import { cn } from "@/shared/lib/utils";
 import type { Schedule } from "./data/schedules";
 
 import { runSchedule, schedulesCollection } from "./data/schedules";
-import { StatusBadge, cronHuman, encLabel, relTime, retentionLabel } from "./shared";
+import { cronHuman, retentionLabel } from "./labels";
+import { StatusBadge, encLabel, relTime } from "./shared";
 
 export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEdit: () => void }) {
-  const toggle = (checked: boolean) => {
+  const toggle = async (checked: boolean) => {
     const tx = schedulesCollection.update(s.id, (draft) => {
       draft.enabled = checked;
     });
-    tx.isPersisted.promise.catch((err: unknown) =>
-      toast.error(err instanceof Error ? err.message : "Couldn't update schedule"),
-    );
+    const persisted = await Result.tryPromise({
+      try: () => tx.isPersisted.promise,
+      catch: errorFromUnknown,
+    });
+    if (persisted.isErr()) toast.error(persisted.error.message);
   };
 
-  const remove = () => {
+  const remove = async () => {
     const tx = schedulesCollection.delete(s.id);
-    tx.isPersisted.promise
-      .then(() => toast.success("Schedule deleted"))
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't delete schedule"),
-      );
+    const persisted = await Result.tryPromise({
+      try: () => tx.isPersisted.promise,
+      catch: errorFromUnknown,
+    });
+    if (persisted.isErr()) toast.error(persisted.error.message);
+    else toast.success("Schedule deleted");
   };
 
   const [running, setRunning] = useState(false);
-  const triggerRun = () => {
+  const triggerRun = async () => {
     setRunning(true);
-    runSchedule(s.id)
-      .then((res) =>
-        res.queued > 0
-          ? toast.success(`Queued ${res.queued} backup${res.queued === 1 ? "" : "s"}`)
-          : toast.info("No database sources resolved for this schedule"),
-      )
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't run schedule"),
-      )
-      .finally(() => setRunning(false));
+    const run = await Result.tryPromise({
+      try: () => runSchedule(s.id),
+      catch: errorFromUnknown,
+    });
+    if (run.isErr()) toast.error(run.error.message);
+    else if (run.value.queued > 0) {
+      toast.success(`Queued ${run.value.queued} backup${run.value.queued === 1 ? "" : "s"}`);
+    } else toast.info("No database sources resolved for this schedule");
+    setRunning(false);
   };
 
   const encryption = encLabel(s.encryption);
@@ -114,38 +119,7 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
         </div>
       </div>
 
-      <div className="flex items-end gap-4 border-t pt-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-            Last run
-          </span>
-          <span className="flex items-center gap-1.5">
-            {s.lastRunStatus ? (
-              <StatusBadge status={s.lastRunStatus} />
-            ) : (
-              <span className="font-mono text-[11px] text-muted-foreground">never</span>
-            )}
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {relTime(s.lastRunAt)}
-            </span>
-          </span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-            Next run
-          </span>
-          <span className="font-mono text-xs text-foreground/80">
-            {s.enabled ? relTime(s.nextRunAt) : "paused"}
-          </span>
-        </div>
-        <div className="flex-1" />
-        {s.encryption !== "none" && (
-          <Badge variant="secondary" className="gap-1 text-[10px]">
-            <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
-            {encryption}
-          </Badge>
-        )}
-      </div>
+      <ScheduleRunFooter schedule={s} encryption={encryption} />
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" className="gap-1.5" onClick={onEdit}>
@@ -173,6 +147,64 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           Delete
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Last/next run + the policy badges (auto-verify, retry, encryption). */
+function ScheduleRunFooter({
+  schedule: s,
+  encryption,
+}: {
+  schedule: Schedule;
+  encryption: string;
+}) {
+  return (
+    <div className="flex items-end gap-4 border-t pt-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          Last run
+        </span>
+        <span className="flex items-center gap-1.5">
+          {s.lastRunStatus ? (
+            <StatusBadge status={s.lastRunStatus} />
+          ) : (
+            <span className="font-mono text-[11px] text-muted-foreground">never</span>
+          )}
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {relTime(s.lastRunAt)}
+          </span>
+        </span>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          Next run
+        </span>
+        <span className="font-mono text-xs text-foreground/80">
+          {s.enabled ? relTime(s.nextRunAt) : "paused"}
+        </span>
+      </div>
+      <div className="flex-1" />
+      {s.verifyAfterBackup && (
+        <Badge
+          variant="outline"
+          className="gap-1 border-success/30 bg-success/10 font-mono text-[10px] text-success"
+          title="Each successful run is restore-verified in a sandbox"
+        >
+          auto-verify
+        </Badge>
+      )}
+      {s.maxRetries > 0 && (
+        <Badge variant="secondary" className="font-mono text-[10px]" title="Failed runs retry">
+          retry ×{s.maxRetries}
+        </Badge>
+      )}
+      {s.encryption !== "none" && (
+        <Badge variant="secondary" className="gap-1 text-[10px]">
+          <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
+          {encryption}
+        </Badge>
+      )}
     </div>
   );
 }

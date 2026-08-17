@@ -5,10 +5,25 @@ import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
 
 import type { Destination } from "./data/destinations";
 
-import { NumberField, SelectField, TextField } from "./form-fields";
+import { SelectField, TextField } from "./form-fields";
 import { MultiSelectCombobox } from "./multi-combobox";
-import { PRESET_CRON, type ScheduleFormApi } from "./schedule-form";
+import { type ScheduleFormApi, cronFromPreset } from "./schedule-form";
+import { ReliabilityFields, RetentionFields } from "./schedule-policy-fields";
 import { Field, Segmented, destUri } from "./shared";
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const HOUR_ITEMS = Array.from({ length: 24 }, (_, h) => ({
+  value: String(h),
+  label: `${String(h).padStart(2, "0")}:00 UTC`,
+}));
+
+const WEEKDAY_ITEMS = WEEKDAYS.map((label, value) => ({ value: String(value), label }));
+
+const DOM_ITEMS = Array.from({ length: 28 }, (_, i) => ({
+  value: String(i + 1),
+  label: `Day ${i + 1}`,
+}));
 
 export function ScheduleFields({
   form,
@@ -59,43 +74,9 @@ export function ScheduleFields({
         )}
       </form.Field>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-xs text-muted-foreground">Cron preset</span>
-        <form.Field name="preset">
-          {(f) => (
-            <Segmented
-              value={f.state.value}
-              onChange={(np) => {
-                f.handleChange(np);
-                if (np !== "custom") form.setFieldValue("cron", PRESET_CRON[np]);
-              }}
-              options={[
-                { id: "hourly", label: "Hourly" },
-                { id: "daily", label: "Daily" },
-                { id: "weekly", label: "Weekly" },
-                { id: "monthly", label: "Monthly" },
-                { id: "custom", label: "Custom" },
-              ]}
-            />
-          )}
-        </form.Field>
-      </div>
-
-      <form.Field name="cron">
-        {(f) => (
-          <TextField
-            label="Cron expression"
-            value={f.state.value}
-            mono
-            onChange={(v) => {
-              f.handleChange(v);
-              form.setFieldValue("preset", "custom");
-            }}
-          />
-        )}
-      </form.Field>
-
+      <CadenceFields form={form} />
       <RetentionFields form={form} />
+      <ReliabilityFields form={form} />
 
       <form.Field name="preHook">
         {(f) => (
@@ -139,89 +120,118 @@ export function ScheduleFields({
       </div>
 
       {/* Failure alerting is org-wide, not per-schedule: the engine emits
-          backup.failed / backup.succeeded platform events, and the
-          Notifications matrix decides which channels receive them. */}
+          backup.failed / backup.overdue / backup.verify-failed platform events,
+          and the Notifications matrix decides which channels receive them. */}
       <p className="rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-        Failure alerts route via{" "}
-        <span className="font-medium text-foreground/80">Notifications</span>
-        {". "}Subscribe a channel to the <span className="font-mono">backup.failed</span> event to
-        get paged when a scheduled run fails.
+        Alerts route via <span className="font-medium text-foreground/80">Notifications</span>
+        {": "}subscribe a channel to <span className="font-mono">backup.failed</span>,{" "}
+        <span className="font-mono">backup.overdue</span>, or{" "}
+        <span className="font-mono">backup.verify-failed</span> to get paged.
       </p>
     </div>
   );
 }
 
-/** GFS retention tiers + age/storage caps. */
-function RetentionFields({ form }: { form: ScheduleFormApi }) {
+/** Cadence: preset-first with real time knobs; `custom` exposes raw cron. */
+function CadenceFields({ form }: { form: ScheduleFormApi }) {
+  const syncCron = () => {
+    const v = form.state.values;
+    if (v.preset === "custom") return;
+    form.setFieldValue(
+      "cron",
+      cronFromPreset(v.preset, { atHour: v.atHour, weekday: v.weekday, dayOfMonth: v.dayOfMonth }),
+    );
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs text-muted-foreground">Retention (keep newest per period)</span>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <form.Field name="keepDaily">
-          {(f) => (
-            <NumberField
-              label="Daily"
-              min={0}
-              value={f.state.value}
-              onChange={(v) => f.handleChange(Number(v))}
-            />
-          )}
-        </form.Field>
-        <form.Field name="keepWeekly">
-          {(f) => (
-            <NumberField
-              label="Weekly"
-              min={0}
-              value={f.state.value}
-              onChange={(v) => f.handleChange(Number(v))}
-            />
-          )}
-        </form.Field>
-        <form.Field name="keepMonthly">
-          {(f) => (
-            <NumberField
-              label="Monthly"
-              min={0}
-              value={f.state.value}
-              onChange={(v) => f.handleChange(Number(v))}
-            />
-          )}
-        </form.Field>
-        <form.Field name="keepYearly">
-          {(f) => (
-            <NumberField
-              label="Yearly"
-              min={0}
-              value={f.state.value}
-              onChange={(v) => f.handleChange(Number(v))}
-            />
-          )}
-        </form.Field>
-      </div>
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <form.Field name="retentionDays">
-          {(f) => (
-            <NumberField
-              label="Max age (days, optional)"
-              min={1}
-              placeholder="none"
-              value={f.state.value}
-              onChange={f.handleChange}
-            />
-          )}
-        </form.Field>
-        <form.Field name="maxStorageGb">
-          {(f) => (
-            <NumberField
-              label="Max storage (GB, optional)"
-              min={1}
-              placeholder="none"
-              value={f.state.value}
-              onChange={f.handleChange}
-            />
-          )}
-        </form.Field>
-      </div>
+      <span className="text-xs text-muted-foreground">Runs</span>
+      <form.Field name="preset">
+        {(f) => (
+          <Segmented
+            value={f.state.value}
+            onChange={(np) => {
+              f.handleChange(np);
+              // Recompute the compiled cron right away so the summary +
+              // custom field always reflect the chosen preset.
+              setTimeout(syncCron, 0);
+            }}
+            options={[
+              { id: "hourly", label: "Hourly" },
+              { id: "daily", label: "Daily" },
+              { id: "weekly", label: "Weekly" },
+              { id: "monthly", label: "Monthly" },
+              { id: "custom", label: "Custom" },
+            ]}
+          />
+        )}
+      </form.Field>
+
+      <form.Subscribe selector={(s) => s.values.preset}>
+        {(preset) => (
+          <>
+            {preset !== "hourly" && preset !== "custom" && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {preset === "weekly" && (
+                  <form.Field name="weekday">
+                    {(f) => (
+                      <SelectField
+                        label="On"
+                        items={WEEKDAY_ITEMS}
+                        value={String(f.state.value)}
+                        onChange={(v) => {
+                          f.handleChange(Number(v));
+                          setTimeout(syncCron, 0);
+                        }}
+                      />
+                    )}
+                  </form.Field>
+                )}
+                {preset === "monthly" && (
+                  <form.Field name="dayOfMonth">
+                    {(f) => (
+                      <SelectField
+                        label="On"
+                        items={DOM_ITEMS}
+                        value={String(f.state.value)}
+                        onChange={(v) => {
+                          f.handleChange(Number(v));
+                          setTimeout(syncCron, 0);
+                        }}
+                      />
+                    )}
+                  </form.Field>
+                )}
+                <form.Field name="atHour">
+                  {(f) => (
+                    <SelectField
+                      label="At"
+                      items={HOUR_ITEMS}
+                      value={String(f.state.value)}
+                      onChange={(v) => {
+                        f.handleChange(Number(v));
+                        setTimeout(syncCron, 0);
+                      }}
+                    />
+                  )}
+                </form.Field>
+              </div>
+            )}
+            {preset === "custom" && (
+              <form.Field name="cron">
+                {(f) => (
+                  <TextField
+                    label="Cron expression (5-field, UTC; @daily-style nicknames work)"
+                    value={f.state.value}
+                    mono
+                    onChange={f.handleChange}
+                  />
+                )}
+              </form.Field>
+            )}
+          </>
+        )}
+      </form.Subscribe>
     </div>
   );
 }

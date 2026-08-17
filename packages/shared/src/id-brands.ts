@@ -55,6 +55,8 @@ export type BackupId = Id<typeof ID_PREFIX.backup>;
 export type BackupScheduleId = Id<typeof ID_PREFIX.backupSchedule>;
 export type BackupDestinationId = Id<typeof ID_PREFIX.backupDestination>;
 export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
+export type BackupVerificationId = Id<typeof ID_PREFIX.backupVerification>;
+export type BackupRestoreId = Id<typeof ID_PREFIX.backupRestore>;
 
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
 export type BlocklistId = Id<typeof ID_PREFIX.blocklist>;

@@ -30,6 +30,13 @@ const DESTINATION_VIEW = {
 
 export type DestinationView = Omit<typeof backupDestination.$inferSelect, "encryptedSecret">;
 
+function destinationScope(input: { organizationId: OrganizationId; id: BackupDestinationId }) {
+  return and(
+    eq(backupDestination.id, input.id),
+    eq(backupDestination.organizationId, input.organizationId),
+  );
+}
+
 async function getDestinationForOrg(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
@@ -37,12 +44,7 @@ async function getDestinationForOrg(input: {
   const [row] = await db
     .select(DESTINATION_VIEW)
     .from(backupDestination)
-    .where(
-      and(
-        eq(backupDestination.id, input.id),
-        eq(backupDestination.organizationId, input.organizationId),
-      ),
-    )
+    .where(destinationScope(input))
     .limit(1);
   return row ?? null;
 }
@@ -52,7 +54,11 @@ async function getDestinationForOrg(input: {
 export async function getDestinationGuardFields(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
-}): Promise<{ type: "s3" | "local" | "sftp"; managed: boolean; status: string } | null> {
+}): Promise<{
+  type: "s3" | "local" | "sftp" | "azblob" | "gcs";
+  managed: boolean;
+  status: string;
+} | null> {
   const [row] = await db
     .select({
       type: backupDestination.type,
@@ -60,12 +66,7 @@ export async function getDestinationGuardFields(input: {
       status: backupDestination.status,
     })
     .from(backupDestination)
-    .where(
-      and(
-        eq(backupDestination.id, input.id),
-        eq(backupDestination.organizationId, input.organizationId),
-      ),
-    )
+    .where(destinationScope(input))
     .limit(1);
   return row ?? null;
 }
@@ -80,12 +81,7 @@ export async function setDestinationStatusRecord(input: {
   const [row] = await db
     .update(backupDestination)
     .set({ status: input.status })
-    .where(
-      and(
-        eq(backupDestination.id, input.id),
-        eq(backupDestination.organizationId, input.organizationId),
-      ),
-    )
+    .where(destinationScope(input))
     .returning(DESTINATION_VIEW);
   return row ?? null;
 }
@@ -95,7 +91,7 @@ export async function getDestinationWithSecret(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
 }): Promise<{
-  type: "s3" | "local" | "sftp";
+  type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   config: JsonObject;
   encryptedSecret: string | null;
 } | null> {
@@ -106,12 +102,7 @@ export async function getDestinationWithSecret(input: {
       encryptedSecret: backupDestination.encryptedSecret,
     })
     .from(backupDestination)
-    .where(
-      and(
-        eq(backupDestination.id, input.id),
-        eq(backupDestination.organizationId, input.organizationId),
-      ),
-    )
+    .where(destinationScope(input))
     .limit(1);
   return row ?? null;
 }
@@ -119,7 +110,7 @@ export async function getDestinationWithSecret(input: {
 export async function createDestinationRecord(input: {
   organizationId: OrganizationId;
   name: string;
-  type: "s3" | "local" | "sftp";
+  type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   config: JsonObject;
   encryptedSecret: string | null;
 }): Promise<DestinationView> {
@@ -159,12 +150,7 @@ export async function updateDestinationRecord(input: {
   const [row] = await db
     .update(backupDestination)
     .set(patch)
-    .where(
-      and(
-        eq(backupDestination.id, input.id),
-        eq(backupDestination.organizationId, input.organizationId),
-      ),
-    )
+    .where(destinationScope(input))
     .returning(DESTINATION_VIEW);
   return row ?? null;
 }
@@ -206,12 +192,7 @@ export async function deleteDestinationRecord(input: {
 }): Promise<{ id: BackupDestinationId } | null> {
   const [row] = await db
     .delete(backupDestination)
-    .where(
-      and(
-        eq(backupDestination.id, input.id),
-        eq(backupDestination.organizationId, input.organizationId),
-      ),
-    )
+    .where(destinationScope(input))
     .returning({ id: backupDestination.id });
   return row ?? null;
 }
