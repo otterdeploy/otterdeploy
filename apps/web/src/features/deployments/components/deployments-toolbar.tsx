@@ -6,7 +6,6 @@
 
 import { useTranslation } from "react-i18next";
 
-import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 import {
   Select,
   SelectContent,
@@ -50,13 +49,17 @@ export function DeploymentsToolbar({
   // Base UI <SelectValue> renders the selected option's *label* only when the
   // root <Select> gets a matching `items` list (same trick as the audit page).
   const serviceItems = [
-    { label: "All resources", value: "all" },
+    { label: t("deployments.allResources"), value: "all" },
     ...resources.map((r) => ({ label: r.name, value: r.id })),
   ];
-  const statusItems = [
-    { label: "All statuses", value: "any" },
-    ...DEPLOY_STATUS_FILTERS.map((s) => ({ label: s.label, value: s.id })),
+  const statusItems: { label: string; value: DeployStatusFilter | "any" }[] = [
+    { label: t("deployments.allStatuses"), value: "any" },
+    ...DEPLOY_STATUS_FILTERS.map((s) => ({ label: t(`deployments.statuses.${s.id}`), value: s.id })),
   ];
+  const windowItems = DEPLOY_WINDOWS.map((w) => ({
+    label: t(`deployments.windows.${w.id}`),
+    value: w.id,
+  }));
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -80,7 +83,10 @@ export function DeploymentsToolbar({
       <Select
         items={statusItems}
         value={status}
-        onValueChange={(v) => onStatusChange((v as DeployStatusFilter | "any") ?? status)}
+        onValueChange={(v) => {
+          const next = statusItems.find((it) => it.value === v);
+          if (next) onStatusChange(next.value);
+        }}
       >
         <SelectTrigger className="h-8 w-40" aria-label={t("deployments.filterByStatus")}>
           <SelectValue />
@@ -94,18 +100,25 @@ export function DeploymentsToolbar({
         </SelectContent>
       </Select>
 
-      <NativeSelect
+      <Select
+        items={windowItems}
         value={window}
-        onChange={(e) => onWindowChange(e.target.value as DeployWindow)}
-        className="h-8 w-36"
-        aria-label={t("deployments.timeWindow")}
+        onValueChange={(v) => {
+          const next = DEPLOY_WINDOWS.find((w) => w.id === v);
+          if (next) onWindowChange(next.id);
+        }}
       >
-        {DEPLOY_WINDOWS.map((w) => (
-          <NativeSelectOption key={w.id} value={w.id}>
-            {w.label}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+        <SelectTrigger className="h-8 w-36" aria-label={t("deployments.timeWindow")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {windowItems.map((it) => (
+            <SelectItem key={it.value} value={it.value}>
+              {it.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
