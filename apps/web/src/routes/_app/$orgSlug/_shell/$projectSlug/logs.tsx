@@ -33,7 +33,8 @@ import { LogsTableView } from "@/features/logs/components/logs-table-view";
 import { LogsToolbar } from "@/features/logs/components/logs-toolbar";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import { useLogsTable } from "@/features/logs/components/use-logs-table";
-import { resourceCollection } from "@/features/resources/data/resource";
+import { projectIdBySlug } from "@/features/projects/data/project";
+import { prefetchResourceSubset, resourceCollection } from "@/features/resources/data/resource";
 import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useDebouncedCallback } from "@/shared/components/data-grid/hooks/use-debounced-callback";
@@ -51,9 +52,16 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
   staticData: { crumb: "Logs" },
   validateSearch: zLogsSearch,
   component: RouteComponent,
-  // No loader preload: `resourceCollection` (drives the log source filter) is
-  // syncMode "on-demand": preload() is a no-op there; it loads when the live
-  // query subscribes with its projectId filter.
+  // `resourceCollection` (drives the log source filter) is syncMode
+  // "on-demand", so `preload()` is a no-op — instead warm the exact subset the
+  // page's live query will ask for (default/main environment) so hover
+  // intent-preload makes the filter row render from cache. Non-blocking +
+  // best-effort; the log stream itself is a live socket, not a query.
+  loader: ({ params }) => {
+    const projectId = projectIdBySlug(params.projectSlug);
+    if (!projectId) return;
+    prefetchResourceSubset(projectId);
+  },
 });
 
 function RouteComponent() {

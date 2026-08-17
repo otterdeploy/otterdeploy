@@ -7,6 +7,7 @@
  */
 
 import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
+import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -18,6 +19,7 @@ import { connectCaddyToNetwork } from "../swarm/client";
 import { streamImagePull } from "../swarm/image-pull";
 import { toHealthcheckTest } from "../swarm/internals";
 import { createPullLineSummarizer } from "../swarm/pull-progress";
+import { connectExtraNetworks } from "./docker-driver-networks";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
 export const networkNameFor = (projectSlug: string) =>
@@ -267,6 +269,8 @@ export async function createAndStart(
   options: CreateContainerOptions,
   name: string,
   networkName: string,
+  extraNetworks?: string[],
+  rlog?: RequestLogger,
 ): Promise<RuntimeStatus> {
   let created = await docker.containers.create(options);
   // Self-heal a name Conflict once: a leftover container from a failed prior
@@ -279,5 +283,8 @@ export async function createAndStart(
   if (created.isErr()) throw created.error;
   const start = await created.value.start();
   if (start.isErr()) throw start.error;
+  // Extra memberships are post-start connects (docker create honors one
+  // endpoint config); per-network failures are non-fatal — see the module.
+  await connectExtraNetworks(docker, name, networkName, extraNetworks ?? [], rlog);
   return waitForContainer(docker, name, networkName);
 }

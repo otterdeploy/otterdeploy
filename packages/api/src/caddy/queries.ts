@@ -10,11 +10,15 @@ import { createError } from "evlog";
 import { publishRouteRemoved, publishRouteUpserted } from "../routers/project/project-event-bus";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
+// "Enabled" for rendering purposes is two gates: the system one (`enabled`,
+// recomputed from DNS/exposure verification) AND the operator's explicit
+// switch (`disabledByUser`). A route the user paused stays out of Caddy even
+// though the system considers it servable.
 export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
-    .where(eq(proxyRoute.enabled, true))
+    .where(and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)))
     .orderBy(asc(proxyRoute.projectId), asc(proxyRoute.domain));
 }
 
@@ -38,7 +42,7 @@ export async function listEnabledRoutePlacements(): Promise<
     })
     .from(proxyRoute)
     .leftJoin(resource, eq(proxyRoute.resourceId, resource.id))
-    .where(eq(proxyRoute.enabled, true));
+    .where(and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)));
   return rows.map((r) => ({ ...r, placementServerId: r.placementServerId ?? null }));
 }
 
@@ -168,6 +172,7 @@ export async function updateProxyRoute(
     upstreamHost: string;
     upstreamPort: number;
     enabled: boolean;
+    disabledByUser: boolean;
     protected: boolean;
     usesAcme: boolean;
     isPrimary: boolean;
@@ -193,7 +198,8 @@ export async function updateProxyRoute(
 }
 
 /** Announce removed rows. Unlike an upsert there is no row to carry, so each
- *  delete is announced by key. The client drops exactly those. */
+ *  delete is announced by key — the client drops exactly those. Rows come from
+ *  `.returning()` on the schema columns, so the ids arrive already branded. */
 function publishRemovedRows(
   rows: Array<{ id: ProxyRouteId; projectId: ProjectId; resourceId: ResourceId | null }>,
 ): void {

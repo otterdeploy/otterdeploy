@@ -180,7 +180,7 @@ export const backupSchedule = pgTable(
     // Resource refs this schedule backs up (resource ids or source names).
     sources: jsonb("sources").$type<string[]>().notNull().default([]),
     cron: text("cron").notNull(),
-    // Retention windows (Coolify-style): count-based tiers plus optional
+    // Retention windows: count-based tiers plus optional
     // age (days) and storage (GB) ceilings, enforced by the forget-policy.
     keepDaily: integer("keep_daily").notNull().default(0),
     keepWeekly: integer("keep_weekly").notNull().default(0),

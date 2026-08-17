@@ -107,6 +107,8 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         icon: WebhookIcon,
         keywords: ["hmac", "deliveries", "inbound", "events"],
       },
+      // Secret providers moved to OPERATIONAL_NAV → Workspace as "Secrets";
+      // the old settings path redirects there.
       // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
       // path now redirects there. Its transport cards (email provider, Twilio,
       // FCM) were removed outright. Per-channel delivery credentials are

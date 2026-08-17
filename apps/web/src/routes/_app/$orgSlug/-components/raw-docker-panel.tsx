@@ -17,25 +17,18 @@ import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
 import { ConfirmRemoveDialog } from "./docker-dialogs";
+import { DockerEventsFeed } from "./docker-events-feed";
 import { formatBytes } from "./docker-format";
-import { DockerPageHeader, ManagerScopeCaption, type DockerTab } from "./docker-page-header";
+import {
+  DockerPageHeader,
+  ManagerScopeCaption,
+  toDockerTab,
+  type DockerTab,
+} from "./docker-page-header";
 import { ContainersTable } from "./docker-table-containers";
 import { ImagesTable } from "./docker-table-images";
-import { NetworksTable } from "./docker-table-networks";
+import { NetworksSection } from "./docker-table-networks";
 import { TasksTable } from "./docker-tables";
-
-/** Real narrowing for the Tabs callback, which hands the value back as a
- *  plain string. Values come only from the triggers this panel renders, so
- *  the guard is exhaustive over `DockerTab`. */
-function isDockerTab(value: string): value is DockerTab {
-  return (
-    value === "containers" ||
-    value === "images" ||
-    value === "volumes" ||
-    value === "networks" ||
-    value === "tasks"
-  );
-}
 
 /** Narrow swarm tasks to one node. Pulled out of the panel so the "all nodes"
  *  branch doesn't sit in the component body. See the note at the call site
@@ -167,6 +160,8 @@ export function RawDockerPanel({
     ["volumes", "Volumes", volumes.data?.volumes.length],
     ["networks", "Networks", networks.data?.length],
     ["tasks", "Tasks", tasks.data?.length],
+    // No count — the feed is a live stream, not an inventory.
+    ["events", "Events", undefined],
   ];
 
   const nodeItems = [
@@ -180,9 +175,7 @@ export function RawDockerPanel({
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => {
-        if (isDockerTab(v)) setTab(v);
-      }}
+      onValueChange={(v) => setTab(toDockerTab(v))}
       className="flex min-w-0 flex-1 flex-col gap-0"
     >
       <DockerPageHeader
@@ -218,7 +211,8 @@ export function RawDockerPanel({
         </TabsContent>
         <TabsContent value="networks">
           <ManagerScopeCaption swarm={swarm} tab={tab} />
-          <NetworksTable query={networks} />
+          {/* Create button + dialog live with the table (panel line cap). */}
+          <NetworksSection query={networks} swarm={swarm} />
         </TabsContent>
         <TabsContent value="tasks">
           <p className="mb-3 text-xs text-muted-foreground">
@@ -226,6 +220,15 @@ export function RawDockerPanel({
             service.
           </p>
           <TasksTable query={filteredTasks} nodeNames={nodeNames} />
+        </TabsContent>
+        <TabsContent value="events">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Everything the docker daemon reports in real time — container lifecycle, image pulls,
+            network and volume changes. History is buffered in this tab only.
+          </p>
+          {/* Mount-gated so the stream only subscribes while this tab is
+              active; leaving the tab aborts the daemon connection. */}
+          {tab === "events" && <DockerEventsFeed />}
         </TabsContent>
       </div>
 

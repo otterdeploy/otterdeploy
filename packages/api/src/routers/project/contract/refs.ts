@@ -17,14 +17,18 @@ import { projectIdField } from "./shared";
 
 const availableReferenceSchema = z.object({
   /** What produces this reference. Drives the icon/label in the
-   *  picker: UI keeps a small switch on this field. */
-  sourceKind: z.enum(["database", "service", "project", "environment"]),
+   *  picker — UI keeps a small switch on this field. `vault` rows come from
+   *  a configured external secret manager (best-effort key listing). */
+  sourceKind: z.enum(["database", "service", "project", "environment", "vault"]),
   /** Display label for the source. For resources it's the resource's
    *  `name`; for project/environment scopes it's a fixed label. */
   sourceName: z.string(),
   /** Engine for database sources (drives the brand icon). Null for
    *  non-database sources. */
   engine: z.enum(["postgres", "redis", "mariadb", "mongodb"]).nullable(),
+  /** Provider kind for vault sources (drives the brand icon, same role as
+   *  `engine` for databases). Null for non-vault sources. */
+  vaultKind: z.enum(["hashicorp", "infisical", "doppler"]).nullable(),
   /** The exported key name (e.g. `DATABASE_URL`, `PGHOST`). */
   key: z.string(),
   /** The full reference token to insert into a value field. */

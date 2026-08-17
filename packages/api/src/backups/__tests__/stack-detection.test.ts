@@ -29,8 +29,8 @@ describe("engineFromImage", () => {
   });
 
   it("does NOT misfire on app images that merely contain a DB name", () => {
-    // The exact false-positive class Coolify maintains an exclusion list for:
-    // our exact-base-name allow-list rejects them for free.
+    // The exact false-positive class keyword scanners need an exclusion list
+    // for — our exact-base-name allow-list rejects them for free.
     expect(engineFromImage("nocodb/nocodb:latest")).toBeNull();
     expect(engineFromImage("postgrest/postgrest")).toBeNull();
     expect(engineFromImage("supertokens/supertokens-postgresql")).toBeNull();

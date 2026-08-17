@@ -15,7 +15,21 @@ import {
 } from "@/shared/components/ui/select";
 import { TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
-export type DockerTab = "containers" | "images" | "volumes" | "networks" | "tasks";
+export const DOCKER_TABS = [
+  "containers",
+  "images",
+  "volumes",
+  "networks",
+  "tasks",
+  "events",
+] as const;
+export type DockerTab = (typeof DOCKER_TABS)[number];
+
+/** Narrow an arbitrary tab-strip value to a DockerTab without asserting —
+ *  the tuple lookup is the type guard. */
+export function toDockerTab(value: string): DockerTab {
+  return DOCKER_TABS.find((tab) => tab === value) ?? "containers";
+}
 
 export function DockerPageHeader({
   tab,

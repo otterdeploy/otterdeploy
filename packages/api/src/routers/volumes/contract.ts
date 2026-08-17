@@ -101,6 +101,43 @@ const inspectedVolumeSchema = z.object({
   createdAt: z.string().nullable(),
 });
 
+// ─── File explorer (read-only) ─────────────────────────────────────────────
+
+const invalidPath = {
+  INVALID_PATH: {
+    status: 400,
+    message: "Invalid path" as const,
+  },
+};
+
+/** Path inside the volume, relative to its root ("" = root). Traversal and
+ *  shell-metacharacter safety is enforced server-side (explore.ts) — the
+ *  contract only bounds the size. */
+const explorePathInput = z.object({
+  name: volumeNameField,
+  path: z.string().max(4096).default(""),
+});
+
+const volumeDirEntrySchema = z.object({
+  name: z.string(),
+  kind: z.enum(["file", "dir", "symlink", "other"]),
+  /** stat %s — meaningful for files; directories report their inode size. */
+  size: z.number(),
+  /** Unix seconds (stat %Y). */
+  mtime: z.number(),
+  /** Octal permission string (stat %a), e.g. "755". */
+  mode: z.string(),
+});
+
+/** Flat view of a capped file read: `content` is null when `binary`;
+ *  `truncated` means the file is larger than the ~256 KB view cap. */
+const volumeFileViewSchema = z.object({
+  content: z.string().nullable(),
+  binary: z.boolean(),
+  truncated: z.boolean(),
+  size: z.number(),
+});
+
 export const volumesContract = {
   list: oc
     .errors(serverError)
@@ -139,4 +176,21 @@ export const volumesContract = {
     .meta({ path: `${basePath}/{name}`, tag, method: "DELETE" })
     .input(nameInput)
     .output(z.object({ ok: z.boolean() })),
+
+  /** Read-only browse of a volume's contents via a disposable helper
+   *  container (see explore.ts). NOT_FOUND covers both a missing volume and
+   *  a missing path inside it — the message says which. */
+  explore: {
+    list: oc
+      .errors({ ...serverError, ...notFound, ...invalidPath })
+      .meta({ path: `${basePath}/{name}/files`, tag, method: "GET" })
+      .input(explorePathInput)
+      .output(z.object({ path: z.string(), entries: z.array(volumeDirEntrySchema) })),
+
+    read: oc
+      .errors({ ...serverError, ...notFound, ...invalidPath })
+      .meta({ path: `${basePath}/{name}/file`, tag, method: "GET" })
+      .input(explorePathInput)
+      .output(volumeFileViewSchema),
+  },
 };

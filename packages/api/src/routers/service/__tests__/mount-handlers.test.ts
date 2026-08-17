@@ -78,6 +78,7 @@ const serviceRow: ServiceResourceRow = {
   imageDigest: null,
   command: null,
   entrypoint: null,
+  extraNetworks: [],
   source: "image",
   sourceSubdir: null,
   framework: null,

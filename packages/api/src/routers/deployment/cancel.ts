@@ -30,7 +30,7 @@ import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
-import { deployTriggeredJob, getQueue } from "@otterdeploy/jobs";
+import { allDeployQueues } from "@otterdeploy/jobs";
 import { Result, TaggedError } from "better-result";
 import { and, eq } from "drizzle-orm";
 
@@ -85,28 +85,26 @@ function helperContainerName(deploymentId: DeploymentId): string {
  * stop on its own. Returns whether a job was actually removed, for logging.
  */
 async function dequeue(deploymentId: DeploymentId): Promise<boolean> {
-  const queue = getQueue(deployTriggeredJob.name);
-  // `active` is deliberately excluded: removing a job BullMQ is currently
-  // processing does not stop the worker, it just loses the bookkeeping.
-  const jobs = await queue.getJobs(["waiting", "delayed", "paused"]);
   let removed = false;
-  for (const job of jobs) {
-    // BullMQ types `data` as any; treat it as the untrusted payload it is and
-    // narrow structurally instead of asserting the shape.
-    const data: unknown = job?.data;
-    const ids =
-      typeof data === "object" && data !== null && "deploymentIds" in data
-        ? data.deploymentIds
-        : undefined;
-    if (!Array.isArray(ids) || !ids.includes(deploymentId)) continue;
-    // Shared job: its other deployments are still wanted. Leave it queued;
-    // the builder skips this one when it reads the `cancelled` row.
-    if (ids.length > 1) continue;
-    try {
-      await job.remove();
-      removed = true;
-    } catch {
-      // Raced into `active` between getJobs and remove. The row write covers us.
+  // Every deploy lane's queue — the job may sit on a named build-server lane
+  // (packages/jobs/src/lanes.ts) rather than the shared default queue.
+  for (const queue of await allDeployQueues()) {
+    // `active` is deliberately excluded: removing a job BullMQ is currently
+    // processing does not stop the worker, it just loses the bookkeeping.
+    const jobs = await queue.getJobs(["waiting", "delayed", "paused"]);
+    for (const job of jobs) {
+      // Untyped queue → `data` is `any`; guard the shape instead of asserting.
+      const ids = job?.data?.deploymentIds;
+      if (!Array.isArray(ids) || !ids.includes(deploymentId)) continue;
+      // Shared job — its other deployments are still wanted. Leave it queued;
+      // the builder skips this one when it reads the `cancelled` row.
+      if (ids.length > 1) continue;
+      try {
+        await job.remove();
+        removed = true;
+      } catch {
+        // Raced into `active` between getJobs and remove. The row write covers us.
+      }
     }
   }
   return removed;

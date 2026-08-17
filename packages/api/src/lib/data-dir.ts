@@ -42,11 +42,10 @@ export function dataRootAvailable(): Promise<boolean> {
 }
 
 /**
- * Recursively delete `path`, but ONLY if it resolves INSIDE `DATA_ROOT` *and*
- * ends with `id`. Cheap insurance against a path bug nuking the wrong tree
- * (borrowed from Coolify's `endsWith(uuid)` guard): a derivation that returns
- * `""`, `"/"`, or someone else's directory fails one of the two checks and the
- * call becomes a no-op instead of an `rm -rf`.
+ * Recursively delete `path` — but ONLY if it resolves INSIDE `DATA_ROOT` *and*
+ * ends with `id`. Cheap insurance against a path bug nuking the wrong tree:
+ * a derivation that returns `""`, `"/"`, or someone else's directory fails
+ * one of the two checks and the call becomes a no-op instead of an `rm -rf`.
  *
  * This is the ONLY guarded-delete in the codebase on purpose. It used to be
  * copy-pasted at each call site, which is how a guard quietly loses a clause.

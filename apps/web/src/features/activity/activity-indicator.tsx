@@ -123,7 +123,8 @@ function ActivityRow({
 
 export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
   const { t } = useTranslation();
-  const { items, building, queued, total, builderStalled, busy, fetchedAt } = useDeployActivity();
+  const { items, building, queued, total, builderStalled, busy, fetchedAt, lanes } =
+    useDeployActivity();
 
   // Idle workspace → no control at all. See the module comment.
   if (!busy) return null;
@@ -176,6 +177,10 @@ export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
           <span className="text-[13px] font-medium">{t("activity.title")}</span>
           <span className="font-mono text-[10px] text-muted-foreground">
             {summary(building, queued)}
+            {/* Multi-builder installs only: a hint that the backlog spans
+                named deploy lanes, so "2 queued" behind one active build
+                stops looking like a stall. Single-lane installs never see it. */}
+            {lanes.length > 1 ? ` · ${lanes.length} lanes` : ""}
           </span>
         </div>
 

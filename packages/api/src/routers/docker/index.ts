@@ -1,7 +1,9 @@
 import type { Context } from "../../context";
 
 import { requireInstallAdmin } from "../..";
+import { streamDockerEvents } from "./events-stream";
 import {
+  createNetwork,
   inspectContainer,
   inspectImage,
   inspectNetwork,
@@ -141,12 +143,30 @@ export const dockerRouter = {
         return result.items;
       },
     ),
+    create: requireInstallAdmin().docker.networks.create.handler(
+      async ({ input, errors, context }) => {
+        context.log.set({ target: { type: "docker-network", id: input.name } });
+        const result = await createNetwork(input);
+        if (!result.ok) throwDockerError(result, errors);
+        return result.items;
+      },
+    ),
     remove: requireInstallAdmin().docker.networks.remove.handler(
       async ({ input, errors, context }) => {
         context.log.set({ target: { type: "docker-network", id: input.id } });
         const result = await removeNetwork(input.id);
         if (!result.ok) throwDockerError(result, errors);
         return result.items;
+      },
+    ),
+  },
+  events: {
+    // No audit entry: like the list endpoints this is a read of operational
+    // metadata, already gated behind install-admin.
+    stream: requireInstallAdmin().docker.events.stream.handler(
+      async ({ input, context, signal }) => {
+        context.log.set({ target: { type: "docker-events" } });
+        return streamDockerEvents(input, signal);
       },
     ),
   },

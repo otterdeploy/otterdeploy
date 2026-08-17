@@ -99,8 +99,24 @@ const deployActivityOutput = z.object({
   ),
   building: z.number().int().nonnegative(),
   queued: z.number().int().nonnegative(),
-  /** Queued work with no active build consuming it. The builder is down. */
+  /** Queued work with no active build consuming it, on ANY lane — every
+   *  builder is down. */
   builderStalled: z.boolean(),
+  /**
+   * Per-deploy-lane queue occupancy (packages/jobs/src/lanes.ts). Single-lane
+   * installs see just "default"; multi-builder installs get one entry per
+   * lane so the UI can say where a backlog lives. Optional: omitted when the
+   * queue backend can't be read, and only computed while a backlog exists.
+   */
+  lanes: z
+    .array(
+      z.object({
+        lane: z.string(),
+        active: z.number().int().nonnegative(),
+        queued: z.number().int().nonnegative(),
+      }),
+    )
+    .optional(),
 });
 
 export const deploymentContract = {

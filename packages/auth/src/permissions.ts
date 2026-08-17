@@ -66,6 +66,11 @@ export const statements = {
   // exposure UI needs to know a mesh exists at all.
   // Design: docs/designs/vpn-mesh.md
   mesh: ["create", "read", "update", "delete"],
+  // External secret managers (HashiCorp Vault / Infisical / Doppler). The
+  // stored credential can read every secret the org points at otterdeploy,
+  // so mutation stays admin/owner like sshKey/certificate/mesh. `read` lets
+  // members see which providers exist (the reference picker needs the names).
+  vaultProvider: ["create", "read", "update", "delete"],
   // Interactive container shells are a distinct high-risk capability. Do not
   // infer shell access from the ability to deploy or update a service.
   terminal: ["open"],
@@ -103,6 +108,9 @@ export const member = ac.newRole({
   // Private networking: members can see that a mesh is connected (so the
   // service exposure control renders) but can't connect/disconnect it.
   mesh: ["read"],
+  // Secret providers: members see the names (reference picker), never the
+  // credentials, and can't add/remove providers.
+  vaultProvider: ["read"],
   terminal: ["open"],
 });
 
@@ -123,6 +131,7 @@ export const admin = ac.newRole({
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
   mesh: ["create", "read", "update", "delete"],
+  vaultProvider: ["create", "read", "update", "delete"],
   terminal: ["open"],
 });
 
@@ -143,6 +152,7 @@ export const owner = ac.newRole({
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
   mesh: ["create", "read", "update", "delete"],
+  vaultProvider: ["create", "read", "update", "delete"],
   terminal: ["open"],
 });
 

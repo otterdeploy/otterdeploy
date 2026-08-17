@@ -35,6 +35,12 @@ import {
 import { decryptForDomain } from "../crypto";
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
+import {
+  createVaultState,
+  loadVaultValues,
+  vaultValueFor,
+  type VaultResolveState,
+} from "./vault-resolve";
 interface ResolveContext {
   projectId: ProjectId;
   // The persistent environment whose var bags apply (the project's default
@@ -46,6 +52,9 @@ interface ResolveContext {
   previewId: PreviewId | null;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
+  // `${{vault.<provider>.<ref>}}` state — provider rows load once per
+  // resolve, fetched values live only for this resolve's duration.
+  vault: VaultResolveState;
 }
 
 export async function resolveServiceEnv(
@@ -56,7 +65,8 @@ export async function resolveServiceEnv(
   // Var bags always come from the project's persistent environment. A
   // preview inherits production's vars verbatim (it is not an environment);
   // only its RESOURCE refs may re-resolve to preview-scoped branches.
-  const envId = (await getProjectRecord(projectId))?.environmentId;
+  const projectRecord = await getProjectRecord(projectId);
+  const envId = projectRecord?.environmentId;
   if (!envId) {
     return Result.err(new RefMissingResourceError({ refResourceName: "environment" }));
   }
@@ -67,6 +77,8 @@ export async function resolveServiceEnv(
     previewId: previewId ?? null,
     visited: new Set([serviceResourceId]),
     exportsCache: new Map(),
+    // Vault providers are org-scoped; the project row carries the org.
+    vault: createVaultState(projectRecord.organizationId ?? null),
   };
 
   const record = await getServiceRecord(projectId, serviceResourceId);
@@ -111,6 +123,10 @@ async function resolveEnvFor(
     rows = [...byKey.values()];
   }
 
+  // First pass: parse every row up-front so vault refs can be fetched in
+  // provider-grouped batches (one login/read per provider) before any
+  // substitution runs.
+  const parsedRows: Array<{ key: string; tokens: Token[] }> = [];
   for (const envVar of rows) {
     // Sealed vars store a ciphertext envelope, not a template string. This
     // IS the deploy/injection boundary, so decrypt here (and nowhere a
@@ -129,10 +145,19 @@ async function resolveEnvFor(
         }),
       );
     }
+    parsedRows.push({ key: envVar.key, tokens: parsed.tokens });
+  }
 
-    const subbed = await substitute(parsed.tokens, ctx);
+  const vaultLoaded = await loadVaultValues(
+    parsedRows.flatMap((row) => row.tokens),
+    ctx.vault,
+  );
+  if (vaultLoaded.isErr()) return Result.err(vaultLoaded.error);
+
+  for (const row of parsedRows) {
+    const subbed = await substitute(row.tokens, ctx);
     if (subbed.isErr()) return Result.err(subbed.error);
-    resolved[envVar.key] = subbed.value;
+    resolved[row.key] = subbed.value;
   }
 
   return Result.ok(resolved);
@@ -147,6 +172,14 @@ async function substitute(
   for (const token of tokens) {
     if (token.kind === "literal") {
       out += token.value;
+      continue;
+    }
+
+    if (token.kind === "vault") {
+      // Batch-fetched by loadVaultValues before substitution began.
+      const value = vaultValueFor(token, ctx.vault);
+      if (value.isErr()) return Result.err(value.error);
+      out += value.value;
       continue;
     }
 

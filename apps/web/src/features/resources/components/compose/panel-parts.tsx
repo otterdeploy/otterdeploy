@@ -6,6 +6,7 @@
 
 import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { Button } from "@/shared/components/ui/button";
@@ -82,6 +83,7 @@ export function ComposePanelHeader({
   onRedeploy: () => void;
   redeploying: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
       {/* min-w-0 so the stack name and its summary line truncate instead of
@@ -91,7 +93,7 @@ export function ComposePanelHeader({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Back to graph"
+          aria-label={t("resources.backToGraph")}
           onClick={onClose}
           className="mt-1 shrink-0"
         >
@@ -126,7 +128,7 @@ export function ComposePanelHeader({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Close panel"
+          aria-label={t("resources.closePanel")}
           onClick={onClose}
         >
           <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />

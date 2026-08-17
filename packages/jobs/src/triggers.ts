@@ -14,7 +14,8 @@ import {
   webhookEventJob,
 } from "./jobs/webhook";
 import { type UserSignupPayload, welcomeSequenceJob } from "./jobs/welcome-sequence";
-import { getQueue } from "./queues";
+import { DEFAULT_DEPLOY_LANE, registerDeployLane } from "./lanes";
+import { getDeployQueue, getQueue } from "./queues";
 
 export type {
   EmailPayload,
@@ -123,9 +124,22 @@ export async function cancelDataProcessing(dataId: string) {
   return { cancelled: toRemove.length };
 }
 
-export async function triggerDeploy(payload: DeployTriggeredPayload, opts?: JobsOptions) {
+/**
+ * Enqueue a build. `lane` routes it to a named deploy lane's queue (see
+ * lanes.ts) — omitted, everything lands on the shared default lane, exactly
+ * the pre-lane behavior. The JOB name stays `deploy.triggered` on every lane;
+ * only the queue differs, and the builder's worker is bound to its lane's
+ * queue by name. The lane is registered in the discovery set BEFORE the add,
+ * so a queue reader can never observe a job on a lane it cannot enumerate.
+ */
+export async function triggerDeploy(
+  payload: DeployTriggeredPayload,
+  opts?: JobsOptions,
+  lane: string = DEFAULT_DEPLOY_LANE,
+) {
   const parsed = deployTriggeredJob.schema.parse(payload);
-  return enqueue(deployTriggeredJob.name, parsed, {
+  await registerDeployLane(lane);
+  return getDeployQueue(lane).add(deployTriggeredJob.name, parsed, {
     ...deployTriggeredJob.opts,
     ...opts,
   });

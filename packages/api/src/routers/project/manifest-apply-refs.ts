@@ -165,7 +165,7 @@ function resolveDatabaseRef(
     unresolved.push(whole);
     return whole;
   }
-  return typeof value === "string" ? value : String(value);
+  return String(value);
 }
 
 function resolveServiceRef(
@@ -193,6 +193,9 @@ function interpolate(raw: string, refs: RefTable): { value: string; unresolved: 
   if (tokens.length === 0) return { value: raw, unresolved };
 
   const out = raw.replace(/\$\{([^}]+)\}/g, (whole, body: string) => {
+    // Platform `${{…}}` tokens pass through verbatim — they resolve at deploy
+    // time, so apply writes them raw exactly like the live env editor does.
+    if (body.startsWith("{")) return whole;
     if (body === "secret") return whole; // handled upstream
     const colonIdx = body.indexOf(":");
     if (colonIdx === -1) {

@@ -38,6 +38,7 @@ export const deploymentIdField = zId(ID_PREFIX.deployment);
 export const environmentIdField = zId(ID_PREFIX.environment);
 export const organizationIdField = zId(ID_PREFIX.organization);
 export const proxyRouteIdField = zId(ID_PREFIX.proxyRoute);
+export const deploymentGuestIdField = zId(ID_PREFIX.deploymentGuest);
 export const containerRegistryIdField = zId(ID_PREFIX.containerRegistry);
 export const gitProviderIdField = zId(ID_PREFIX.gitProvider);
 export const gitInstallationIdField = zId(ID_PREFIX.gitInstallation);

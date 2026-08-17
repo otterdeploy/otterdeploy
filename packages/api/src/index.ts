@@ -35,6 +35,7 @@ import { sshKeysContract } from "./routers/sshKeys/contract";
 import { ssoContract } from "./routers/sso/contract";
 import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
+import { vaultProviderContract } from "./routers/vault-provider/contract";
 import { volumesContract } from "./routers/volumes/contract";
 import { webhooksContract } from "./routers/webhooks/contract";
 
@@ -65,6 +66,7 @@ export const publicProcedure = implement({
   sshKeys: sshKeysContract,
   system: systemContract,
   terminal: terminalContract,
+  vaultProvider: vaultProviderContract,
   volumes: volumesContract,
   webhooks: webhooksContract,
 })

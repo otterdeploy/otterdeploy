@@ -11,11 +11,12 @@
  * because the template generator will eventually need it server-side to mark
  * each `requiredEnv` entry autofilled: see docs/designs/template-registry.md.
  *
- * This is a heuristic on the KEY NAME, deliberately. Coolify's equivalent
- * (`SERVICE_PASSWORD_X`, `SERVICE_FQDN_X`) only fires when a template author
- * wrote the magic prefix, so a pasted third-party compose file gets nothing.
- * Matching on the name means any compose file benefits with zero authoring.
- * At the cost of the occasional miss (`ROOT_PW`) or false positive. Every
+ * This is a heuristic on the KEY NAME, deliberately. The common alternative
+ * (magic template prefixes like `SERVICE_PASSWORD_X`, `SERVICE_FQDN_X`) only
+ * fires when a template author wrote the prefix, so a pasted third-party
+ * compose file gets nothing.
+ * Matching on the name means any compose file benefits with zero authoring —
+ * at the cost of the occasional miss (`ROOT_PW`) or false positive. Every
  * seeded value stays editable, so a wrong guess costs an edit, never a deploy.
  */
 

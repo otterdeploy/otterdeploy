@@ -32,9 +32,8 @@ import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
 import type { PlatformEventPayload } from "./jobs/notification-event";
-import type { getQueue as GetQueueFn } from "./queues";
 
-import { deployTriggeredJob } from "./jobs/deploy";
+import { deployQueueName, listDeployLanes } from "./lanes";
 
 const LOCK_KEY = "otterdeploy:reconcile:deploy:lock";
 const LOCK_TTL_MS = 60_000;
@@ -45,11 +44,25 @@ const INTERRUPTED_MESSAGE =
 /** The handful of `db` methods reconcile touches, narrowed so tests can pass a
  *  hand-rolled mock without dragging in the full drizzle type surface. */
 type DbLike = Pick<typeof DbClient, "select" | "update" | "insert">;
-type GetQueueLike = typeof GetQueueFn;
+
+/** The single queue read the orphan scan needs — structurally satisfied by a
+ *  BullMQ Queue (the states param is the literal in-flight union, a subset of
+ *  BullMQ's JobType, so method bivariance lines up) and by a plain object in
+ *  tests without any type laundering. */
+interface DeployQueueLike {
+  getJobs(
+    states: Array<"waiting" | "active" | "delayed" | "paused">,
+  ): Promise<Array<{ data?: { deploymentIds?: unknown } } | undefined>>;
+}
+type GetQueueLike = (name: string) => DeployQueueLike;
 
 export interface ReconcileOptions {
   db?: DbLike;
   getQueue?: GetQueueLike;
+  /** Override deploy-lane discovery (default: the Redis lane set, failing
+   *  open to just the default lane). Tests inject a fixed list so the scan
+   *  is deterministic without Redis. */
+  listLanes?: () => Promise<string[]>;
   /** Emit deploy.failed notifications for each reset row. Default true. */
   emit?: boolean;
   /** Only consider rows at least this old. The periodic (server-side) sweep
@@ -114,6 +127,7 @@ export async function reconcileInterruptedDeployments(
   // which validate env / pull in the notification+email stack at module load.
   const db = opts.db ?? (await import("@otterdeploy/db")).db;
   const getQueue = opts.getQueue ?? (await import("./queues")).getQueue;
+  const listLanes = opts.listLanes ?? listDeployLanes;
   const emit = opts.emit ?? true;
   const acquireLock = opts.acquireLock ?? defaultAcquireLock;
   const emitEvent =
@@ -132,7 +146,14 @@ export async function reconcileInterruptedDeployments(
   }
 
   try {
-    const failed = await reconcileOrphans(db, getQueue, emit, emitEvent, opts.minAgeMs ?? 0);
+    const failed = await reconcileOrphans(
+      db,
+      getQueue,
+      listLanes,
+      emit,
+      emitEvent,
+      opts.minAgeMs ?? 0,
+    );
     const superseded = await reconcileDuplicateRunning(db);
     globalLog.info({
       reconcile: { event: "done", failed, superseded },
@@ -148,6 +169,7 @@ export async function reconcileInterruptedDeployments(
 async function reconcileOrphans(
   db: DbLike,
   getQueue: GetQueueLike,
+  listLanes: () => Promise<string[]>,
   emit: boolean,
   emitEvent: (payload: PlatformEventPayload) => Promise<unknown>,
   minAgeMs: number,
@@ -166,18 +188,20 @@ async function reconcileOrphans(
 
   if (candidates.length === 0) return 0;
 
-  // Union every deploymentId still owned by an in-flight deploy.triggered job.
+  // Union every deploymentId still owned by an in-flight deploy.triggered job,
+  // across EVERY deploy lane — a build queued on a named lane's queue must not
+  // be mistaken for an orphan just because it isn't on the default queue.
   const owned = new Set<string>();
-  const queue = getQueue(deployTriggeredJob.name);
-  const jobs = await queue.getJobs(["waiting", "active", "delayed", "paused"]);
-  for (const job of jobs) {
-    const data: unknown = job?.data;
-    const ids =
-      typeof data === "object" && data !== null && "deploymentIds" in data
-        ? data.deploymentIds
-        : undefined;
-    if (!Array.isArray(ids)) continue;
-    for (const id of ids) if (typeof id === "string") owned.add(id);
+  for (const lane of await listLanes()) {
+    const queue = getQueue(deployQueueName(lane));
+    const jobs = await queue.getJobs(["waiting", "active", "delayed", "paused"]);
+    for (const job of jobs) {
+      // Untyped queue → `data` is `any`; guard the shape instead of asserting.
+      const ids = job?.data?.deploymentIds;
+      if (Array.isArray(ids)) {
+        for (const id of ids) if (typeof id === "string") owned.add(id);
+      }
+    }
   }
 
   let count = 0;

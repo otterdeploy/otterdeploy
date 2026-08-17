@@ -23,7 +23,7 @@ import type {
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
-import { deployTriggeredJob, getQueue } from "@otterdeploy/jobs";
+import { getDeployQueue, listDeployLanes } from "@otterdeploy/jobs";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
 
@@ -62,35 +62,62 @@ export interface DeployActivityItem {
   createdAt: string;
 }
 
+export interface DeployLaneActivity {
+  lane: string;
+  /** Jobs a builder on this lane is processing right now. */
+  active: number;
+  /** Jobs sitting on this lane's queue (waiting/delayed/paused). */
+  queued: number;
+}
+
 export interface DeployActivity {
   /** Oldest first: the queue reads top-to-bottom in the order it will drain. */
   items: DeployActivityItem[];
   building: number;
   queued: number;
   /**
-   * Queued work with nothing consuming it. The builder is down or wedged.
+   * Queued work with nothing consuming it — every builder is down or wedged.
    *
    * This is the signal a bare count cannot give you: "3 queued" is normal
    * behind an active build and alarming behind nothing. Same discriminator the
-   * stale-build watchdog uses (packages/jobs/src/in-flight.ts).
+   * stale-build watchdog uses (packages/jobs/src/in-flight.ts), unioned over
+   * every deploy lane.
    */
   builderStalled: boolean;
+  /** Per-lane queue occupancy; single-lane installs see just "default".
+   *  Omitted when the queue backend can't be read. */
+  lanes?: DeployLaneActivity[];
 }
 
 /**
- * Is the deploy worker consuming its queue right now?
+ * Queue occupancy per deploy lane, and whether ANY lane's worker is active.
  *
- * Fails CLOSED (`true` = something is active) when Redis can't be reached: an
+ * Fails CLOSED (`anyActive: true`, no lanes) when Redis can't be reached: an
  * unreachable queue means we don't know, and guessing "stalled" would light a
  * warning on every transient blip. The watchdog is what catches a genuinely
  * dead builder; this flag only has to avoid crying wolf.
  */
-async function anyBuildActive(): Promise<boolean> {
+async function laneQueueStats(): Promise<{ anyActive: boolean; lanes?: DeployLaneActivity[] }> {
   try {
-    const counts = await getQueue(deployTriggeredJob.name).getJobCounts("active");
-    return (counts.active ?? 0) > 0;
+    const laneNames = await listDeployLanes();
+    const lanes = await Promise.all(
+      laneNames.map(async (lane): Promise<DeployLaneActivity> => {
+        const counts = await getDeployQueue(lane).getJobCounts(
+          "active",
+          "waiting",
+          "delayed",
+          "paused",
+        );
+        return {
+          lane,
+          active: counts.active ?? 0,
+          queued: (counts.waiting ?? 0) + (counts.delayed ?? 0) + (counts.paused ?? 0),
+        };
+      }),
+    );
+    return { anyActive: lanes.some((l) => l.active > 0), lanes };
   } catch {
-    return true;
+    return { anyActive: true };
   }
 }
 
@@ -153,17 +180,22 @@ export async function getDeployActivity(input: {
     projectId: row.projectId,
     projectSlug: projectSlugSchema.parse(row.projectSlug),
     projectName: row.projectName,
-    // The SQL filter admits exactly the two IN_FLIGHT statuses, so this
-    // narrowing is total over what the query can return.
+    // Narrowed by the inArray(IN_FLIGHT) filter above; the ternary keeps the
+    // narrowing honest without asserting over drizzle's wider status enum.
     status: row.status === "building" ? "building" : "pending",
     reason: row.reason,
     gitRef: row.gitRef,
     createdAt: row.createdAt.toISOString(),
   }));
 
-  // Only worth asking when there is a backlog to be stalled. An idle org
-  // should not touch Redis on every poll.
-  const builderStalled = queued > 0 && !(await anyBuildActive());
+  // Only worth asking when there is a backlog to be stalled — an idle org
+  // should not touch Redis on every poll. The lane list rides along when the
+  // queue read happens, so multi-lane installs see where the backlog lives.
+  if (queued === 0) return { items, building, queued, builderStalled: false };
 
-  return { items, building, queued, builderStalled };
+  const stats = await laneQueueStats();
+  const builderStalled = !stats.anyActive;
+  return stats.lanes
+    ? { items, building, queued, builderStalled, lanes: stats.lanes }
+    : { items, building, queued, builderStalled };
 }

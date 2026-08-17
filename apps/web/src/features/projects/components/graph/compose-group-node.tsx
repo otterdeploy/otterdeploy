@@ -1,10 +1,12 @@
 /**
  * A compose stack rendered as a GROUP: a titled container wrapping one card per
  * service, each with its own status. This is the deliberate answer to "one pill
- * for a multi-service stack is a lie". The operator sees, at a glance, which
+ * for a multi-service stack is a lie" — the operator sees, at a glance, which
  * service is up, which failed to build, which is offline. Split out of
  * resource-node.tsx to keep that file + this component under the line caps.
  */
+
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -209,10 +211,10 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
 
       <div
         className={cn(
-          // `bg-background`, never `bg-muted/*`: the muted token is a 4%-alpha
-          // tint, so a translucent group let any node underneath show through
-          // its body. A node is an opaque object on the canvas, always.
-          "w-92 overflow-hidden rounded-2xl border bg-background shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
+          // Opaque `bg-card`, matching standalone resource nodes — the
+          // translucent `bg-muted/30` it replaces let the canvas dot grid
+          // bleed through the stack shell.
+          "w-92 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
           selected && "ring-2 ring-ring/40",
           data.pending === "delete" && "cursor-not-allowed opacity-80",
           data.pending === "update" && "border-dashed border-info/60",
@@ -228,10 +230,10 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
           hasServices={services.length > 0}
         />
 
-        {/* CHILD SERVICE CARDS: one per compose service, independent status. */}
+        {/* CHILD SERVICE CARDS — one per compose service, independent status. */}
         <div className="flex flex-col gap-2.5 px-2.5 pb-2.5">
           {services.length === 0 ? (
-            <div className="rounded-xl border border-dashed bg-card px-3.5 py-4 text-center text-[12.5px] text-muted-foreground">
+            <div className="rounded-xl border border-dashed bg-card/40 px-3.5 py-4 text-center text-[12.5px] text-muted-foreground">
               No services parsed yet
             </div>
           ) : (

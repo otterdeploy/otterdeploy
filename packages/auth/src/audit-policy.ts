@@ -92,6 +92,16 @@ const AUDITED_PATHS: Record<string, AuditedPath> = {
   "/two-factor/verify-backup-code": { action: "auth.twoFactorBackupVerify" },
   "/two-factor/generate-backup-codes": { action: "auth.twoFactorBackupRegenerate" },
 
+  // ── Passkeys ────────────────────────────────────────────────────────────
+  // Registering a passkey adds a durable sign-in credential to the account and
+  // deleting one removes it, so both are audited. Verify failures are kept:
+  // repeated ones are someone probing a stolen credential. The generate-*
+  // option endpoints are omitted — like `/device/code`, requesting a challenge
+  // proves nothing until it is verified.
+  "/passkey/verify-registration": { action: "auth.passkeyRegister" },
+  "/passkey/delete-passkey": { action: "auth.passkeyDelete" },
+  "/passkey/verify-authentication": { action: "auth.passkeyVerify" },
+
   // ── CLI device grant ────────────────────────────────────────────────────
   // Approving a device code hands a CLI a bearer token for the whole account,
   // so approve/deny are audited. `/device/token` is success-only (see

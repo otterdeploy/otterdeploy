@@ -240,7 +240,7 @@ export interface ProjectCaddyfile {
  *  stamps, so the UI can detect drift. */
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
-  let routes = records.filter((r) => r.enabled).map(toRouteInput);
+  let routes = records.filter((r) => r.enabled && !r.disabledByUser).map(toRouteInput);
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
     // DB-only read (no file writes). Shows the same `tls` lines reconcile

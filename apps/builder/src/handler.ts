@@ -3,7 +3,7 @@
  * `packages/jobs/src/jobs/deploy.ts`. Iterates the deployments named in the
  * payload and builds each in its own throwaway helper container, in series.
  *
- * Coolify-style per-build isolation: rather than running the build pipeline
+ * Per-build isolation: rather than running the build pipeline
  * in-process, the worker spawns a fresh `docker run --rm` container per
  * deployment (see build-one.ts) and waits for it to exit. The container
  * carries the railpack/docker toolchain and holds its own DB + Redis handles,

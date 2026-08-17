@@ -1,7 +1,21 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+/**
+ * Bulk .env editor — TanStack Form owns the buffer + target selection (no
+ * hand-rolled state), the localStorage-backed drafts collection keeps the
+ * buffer alive across reloads, and submit state comes from the form's own
+ * isSubmitting. The form BODY remounts each time the dialog opens (or a
+ * dropped .env arrives) so defaults re-seed without prev-value juggling.
+ */
+
+import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import {
+  clearVariableDraft,
+  setVariableDraft,
+  variableDraftId,
+  variableDraftsCollection,
+} from "@/features/projects/data/variable-drafts";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -10,57 +24,17 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Textarea } from "@/shared/components/ui/textarea";
-import { orpc } from "@/shared/server/orpc";
 
-import { BulkEditSidebar } from "./variables-bulk-sidebar";
-import { parseDotEnv, type ParsedVar } from "./variables-dotenv";
 import type { EnvironmentRef, EnvVarRow } from "./variables-types";
 
-/** One atomic bulkReplace per selected env: the calls are independent (each
- *  targets a distinct env) so they run concurrently; failures are collected so
- *  a partial failure reports exactly which envs missed. */
-async function applyToTargets(
-  targets: EnvironmentRef[],
-  replaceEnv: (target: EnvironmentRef) => Promise<unknown>,
-): Promise<{
-  applied: EnvironmentRef[];
-  failed: { env: EnvironmentRef; message: string }[];
-}> {
-  const applied: EnvironmentRef[] = [];
-  const failed: { env: EnvironmentRef; message: string }[] = [];
-  const results = await Promise.all(
-    targets.map(async (target): Promise<{ target: EnvironmentRef; message: string | null }> => {
-      try {
-        await replaceEnv(target);
-        return { target, message: null };
-      } catch (err) {
-        return {
-          target,
-          message: err instanceof Error ? err.message : "Couldn't save",
-        };
-      }
-    }),
-  );
-  for (const { target, message } of results) {
-    if (message === null) applied.push(target);
-    else failed.push({ env: target, message });
-  }
-  return { applied, failed };
-}
+import { envLabel, runBulkApply } from "./variables-bulk-apply";
+import { BulkEditSidebar } from "./variables-bulk-sidebar";
+import { parseDotEnv } from "./variables-dotenv";
 
-export function BulkEditDialog({
-  projectId,
-  env,
-  allEnvs,
-  currentRows,
-  open,
-  onOpenChange,
-  onSaved,
-  prefillText,
-}: {
+interface BulkEditProps {
   projectId: string;
   env: EnvironmentRef;
-  /** Every env in the project: the cross-env "Apply to" targets. */
+  /** Every env in the project — the cross-env "Apply to" targets. */
   allEnvs: EnvironmentRef[];
   currentRows: EnvVarRow[];
   open: boolean;
@@ -69,152 +43,210 @@ export function BulkEditDialog({
   onSaved: (envIds: string[]) => void;
   /** When set (drag-drop .env import), seeds the editor instead of the current rows. */
   prefillText?: string | null;
-}) {
+}
+
+export function BulkEditDialog(props: BulkEditProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      {/* Keyed remount re-seeds the form's defaults on every open / env
+          switch / dropped file — the render-time prev-value dance this
+          replaces lived at the mercy of refetch timing. */}
+      {props.open && <BulkEditBody key={`${props.env.id}:${props.prefillText ?? ""}`} {...props} />}
+    </Dialog>
+  );
+}
+
+function BulkEditBody({
+  projectId,
+  env,
+  allEnvs,
+  currentRows,
+  onOpenChange,
+  onSaved,
+  prefillText,
+}: BulkEditProps) {
+  const { t } = useTranslation();
   const initial = currentRows.map((v) => `${v.key}=${v.value}`).join("\n");
-  const [text, setText] = useState(prefillText ?? initial);
+  // A surviving draft outranks the saved rows — it's what the operator typed
+  // before a reload ate the component state. An explicit .env drop outranks both.
+  const storedDraft = variableDraftsCollection.get(variableDraftId(projectId, env.id));
+  const restoredFromDraft = prefillText == null && storedDraft !== undefined;
 
-  // Re-hydrate when the dialog opens or the rows refetch so a stale
-  // edit doesn't persist between visits to the same env tab. A dropped
-  // .env file (prefillText) wins over the current rows. Done in render
-  // (prev-value compare) instead of an effect so the buffer is correct
-  // on the first paint.
-  const [prevInitial, setPrevInitial] = useState(initial);
-  const [prevPrefill, setPrevPrefill] = useState(prefillText);
-  if (initial !== prevInitial || prefillText !== prevPrefill) {
-    setPrevInitial(initial);
-    setPrevPrefill(prefillText);
-    setText(prefillText ?? initial);
-  }
-
-  // Cross-env targets: the current env is pre-checked each time the
-  // dialog opens; others are opt-in.
-  const [targetIds, setTargetIds] = useState<Set<string>>(() => new Set([env.id]));
-  const [prevOpen, setPrevOpen] = useState(open);
-  const [prevEnvId, setPrevEnvId] = useState(env.id);
-  if (open !== prevOpen || env.id !== prevEnvId) {
-    setPrevOpen(open);
-    setPrevEnvId(env.id);
-    if (open) setTargetIds(new Set([env.id]));
-  }
-
-  const toggleTarget = (envId: string) =>
-    setTargetIds((s) => {
-      const next = new Set(s);
-      if (next.has(envId)) next.delete(envId);
-      else next.add(envId);
-      return next;
-    });
-
-  const parsed: ParsedVar[] = parseDotEnv(text);
-
-  const targets = allEnvs.filter((e) => targetIds.has(e.id));
-  const targetNames = targets.map((e) => e.name || e.slug).join(", ");
-
-  const bulkMut = useMutation(orpc.project.envVar.bulkReplace.mutationOptions());
-  const [saving, setSaving] = useState(false);
-
-  const apply = async () => {
-    if (targets.length === 0 || saving) return;
-    setSaving(true);
-    const { applied, failed } = await applyToTargets(targets, (target) =>
-      bulkMut.mutateAsync({
+  const form = useForm({
+    defaultValues: {
+      text: prefillText ?? storedDraft?.text ?? initial,
+      targetIds: [env.id],
+    },
+    onSubmit: async ({ value }) => {
+      const targets = allEnvs.filter((e) => value.targetIds.includes(e.id));
+      if (targets.length === 0) return;
+      const parsed = parseDotEnv(value.text);
+      const { applied, failed } = await runBulkApply({
         projectId,
-        environmentId: target.id,
-        vars: parsed.map((p) => ({
-          key: p.key,
-          value: p.value,
-          isSecret: p.isSecret,
-        })),
-      }),
-    );
-    setSaving(false);
-    if (applied.length > 0) onSaved(applied.map((e) => e.id));
-    if (failed.length === 0) {
-      onOpenChange(false);
-      toast.success(`Saved ${parsed.length} variables to ${targetNames}`);
-    } else {
-      const failedNames = failed.map((f) => f.env.name || f.env.slug).join(", ");
-      const appliedNames = applied.map((e) => e.name || e.slug).join(", ");
-      toast.error(
-        `Failed for ${failedNames}: ${failed[0].message}` +
-          (applied.length > 0 ? `, applied to ${appliedNames}` : ""),
-      );
-    }
+        targets,
+        vars: parsed,
+        fallbackMessage: t("variables.couldntSave"),
+      });
+      // The buffer is now the saved state for every applied env — their
+      // drafts (including this editor's) would otherwise resurrect stale text.
+      for (const target of applied) clearVariableDraft(projectId, target.id);
+      if (applied.length > 0) onSaved(applied.map((e) => e.id));
+      if (failed.length === 0) {
+        onOpenChange(false);
+        toast.success(
+          t("variables.savedToast", {
+            n: parsed.length,
+            targets: targets.map(envLabel).join(", "),
+          }),
+        );
+      } else {
+        const suffix =
+          applied.length > 0
+            ? t("variables.appliedSuffix", { names: applied.map(envLabel).join(", ") })
+            : "";
+        toast.error(
+          t("variables.failedToast", {
+            names: failed.map((f) => envLabel(f.env)).join(", "),
+            message: failed[0].message,
+          }) + suffix,
+        );
+      }
+    },
+  });
+
+  const setText = (next: string) => {
+    form.setFieldValue("text", next);
+    setVariableDraft({ projectId, environmentId: env.id, text: next, pristine: initial });
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl gap-0 p-0">
-        <DialogHeader className="border-b px-5 py-3">
-          <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
-            Bulk edit
-            <span className="font-mono text-xs font-normal text-muted-foreground capitalize">
-              · {env.name || env.slug}
-            </span>
-            <span className="text-xs font-normal text-muted-foreground">
-              Paste a .env, or edit inline
-            </span>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid grid-cols-[1fr_280px] divide-x">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 border-b px-3 py-2 text-[11px]">
-              <span className="text-muted-foreground">
-                .env format · # comments ok · KEY=value
-              </span>
-              <div className="flex-1" />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7"
-                onClick={() =>
-                  navigator.clipboard
-                    ?.readText()
-                    .then((t) => setText(t))
-                    .catch(() => {})
-                }
-              >
-                Paste from clipboard
-              </Button>
-            </div>
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              spellCheck={false}
-              className="min-h-[360px] resize-none rounded-none border-0 bg-muted/20 font-mono text-xs leading-7"
-            />
-          </div>
-
-          <BulkEditSidebar
-            allEnvs={allEnvs}
-            targetIds={targetIds}
-            onToggleTarget={toggleTarget}
-            parsed={parsed}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 border-t px-4 py-3">
-          <span className="text-[11px] text-muted-foreground">
-            {targets.length === 0
-              ? "Select at least one environment."
-              : `Replaces every variable in ${targetNames}. Atomic per environment.`}
+    <DialogContent className="gap-0 p-0 sm:max-w-4xl">
+      <DialogHeader className="border-b px-5 py-3">
+        <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
+          {t("variables.bulkTitle")}
+          <span className="font-mono text-xs font-normal text-muted-foreground capitalize">
+            · {envLabel(env)}
           </span>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            disabled={saving || targets.length === 0}
-            onClick={() => void apply()}
-          >
-            {saving
-              ? "Saving…"
-              : `Apply ${parsed.length} vars${targets.length > 1 ? ` to ${targets.length} envs` : ""} →`}
-          </Button>
+          <span className="text-xs font-normal text-muted-foreground">
+            {t("variables.bulkSubtitle")}
+          </span>
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="grid grid-cols-[1fr_280px] divide-x">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2 border-b px-3 py-2 text-[11px]">
+            <span className="text-muted-foreground">{t("variables.dotenvHint")}</span>
+            {restoredFromDraft && (
+              <span className="flex items-center gap-1.5 text-warning">
+                {t("variables.draftRestored")}
+                <button
+                  type="button"
+                  className="underline decoration-warning/40 underline-offset-2 hover:decoration-warning"
+                  onClick={() => {
+                    clearVariableDraft(projectId, env.id);
+                    form.setFieldValue("text", initial);
+                  }}
+                >
+                  {t("variables.discardDraft")}
+                </button>
+              </span>
+            )}
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7"
+              onClick={() =>
+                navigator.clipboard
+                  ?.readText()
+                  .then((clip) => setText(clip))
+                  .catch(() => {})
+              }
+            >
+              {t("variables.pasteClipboard")}
+            </Button>
+          </div>
+          <form.Field name="text">
+            {(field) => (
+              <Textarea
+                value={field.state.value}
+                onChange={(e) => setText(e.target.value)}
+                spellCheck={false}
+                className="min-h-[360px] resize-none rounded-none border-0 bg-muted/20 font-mono text-xs leading-7"
+              />
+            )}
+          </form.Field>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <form.Subscribe selector={(s) => s.values}>
+          {(values) => (
+            <BulkEditSidebar
+              allEnvs={allEnvs}
+              targetIds={new Set(values.targetIds)}
+              onToggleTarget={(envId) =>
+                form.setFieldValue("targetIds", (prev) =>
+                  prev.includes(envId) ? prev.filter((id) => id !== envId) : [...prev, envId],
+                )
+              }
+              parsed={parseDotEnv(values.text)}
+            />
+          )}
+        </form.Subscribe>
+      </div>
+
+      <form.Subscribe
+        selector={(s) => ({
+          values: s.values,
+          isSubmitting: s.isSubmitting,
+        })}
+      >
+        {({ values, isSubmitting }) => (
+          <BulkEditFooter
+            targets={allEnvs.filter((e) => values.targetIds.includes(e.id))}
+            parsedCount={parseDotEnv(values.text).length}
+            isSubmitting={isSubmitting}
+            onCancel={() => onOpenChange(false)}
+            onSubmit={() => void form.handleSubmit()}
+          />
+        )}
+      </form.Subscribe>
+    </DialogContent>
+  );
+}
+
+function BulkEditFooter({
+  targets,
+  parsedCount,
+  isSubmitting,
+  onCancel,
+  onSubmit,
+}: {
+  targets: EnvironmentRef[];
+  parsedCount: number;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-2 border-t px-4 py-3">
+      <span className="text-[11px] text-muted-foreground">
+        {targets.length === 0
+          ? t("variables.selectAtLeastOne")
+          : t("variables.replacesIn", { targets: targets.map(envLabel).join(", ") })}
+      </span>
+      <div className="flex-1" />
+      <Button variant="outline" size="sm" onClick={onCancel}>
+        {t("common.cancel")}
+      </Button>
+      <Button size="sm" disabled={isSubmitting || targets.length === 0} onClick={onSubmit}>
+        {isSubmitting
+          ? t("common.saving")
+          : targets.length > 1
+            ? t("variables.applyVarsMulti", { n: parsedCount, envs: targets.length })
+            : t("variables.applyVars", { n: parsedCount })}
+      </Button>
+    </div>
   );
 }

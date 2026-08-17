@@ -7,6 +7,7 @@
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
 import { Badge } from "@/shared/components/ui/badge";
@@ -27,10 +28,11 @@ export function ComposePreview({
   exposed: Set<string>;
   onToggleExpose: (key: string) => void;
 }) {
+  const { t } = useTranslation();
   if (parsing && !preview) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Spinner className="size-3.5" /> Parsing…
+        <Spinner className="size-3.5" /> {t("common.parsing")}
       </div>
     );
   }

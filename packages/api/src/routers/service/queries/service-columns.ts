@@ -60,6 +60,9 @@ export interface CreateServiceInput {
   internalHostname: string;
   serviceName: string;
   networkName: string;
+  /** Extra docker networks (names) joined in addition to the project
+   *  network. Applied on the next deploy; unknown names are skipped there. */
+  extraNetworks?: string[];
 
   /** Owning compose stack (the compose resource id). Null/omitted for a
    *  standalone service. Set when this service is materialized from a stack. */
@@ -88,6 +91,7 @@ export function serviceCoreColumns(input: CreateServiceInput) {
     command: input.command ?? null,
     entrypoint: input.entrypoint ?? null,
     replicas: input.replicas ?? 1,
+    extraNetworks: input.extraNetworks ?? [],
   };
 }
 

@@ -365,7 +365,8 @@ app.get("/api/health", (c) => c.json(healthPayload));
 // (before the SPA catch-all) so `/jobs` still routes ahead of it in dev.
 if (env.NODE_ENV !== "production") {
   const { workbench } = await import("@getworkbench/hono");
-  app.route("/jobs", workbench({ queues: workbenchQueues(), title: "otterdeploy jobs" }));
+  // Await: workbenchQueues also discovers named deploy-lane queues from Redis.
+  app.route("/jobs", workbench({ queues: await workbenchQueues(), title: "otterdeploy jobs" }));
 }
 
 // Terminal websocket. Auth is NOT cookie-based here (od-5j8.9). The handler

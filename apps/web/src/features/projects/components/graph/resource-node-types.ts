@@ -180,3 +180,28 @@ export interface ResourceNodeData extends UnknownRecord {
 }
 
 export type ResourceFlowNode = Node<ResourceNodeData, "resource">;
+
+/** Every kind a resource node's data can carry. See ResourceKind. */
+const RESOURCE_NODE_KINDS: ReadonlySet<string> = new Set([
+  "service",
+  "database",
+  "volume",
+  "compose",
+  "preview",
+]);
+
+/**
+ * React Flow's generic handlers surface the untyped base `Node`. The graph
+ * canvas only registers the `resource` node type (see nodeTypes in
+ * graph-flow.tsx), so the check is a formality, but it is a REAL shape check:
+ * node type plus the required `ResourceNodeData` fields.
+ */
+export function isResourceFlowNode(node: Node): node is ResourceFlowNode {
+  return (
+    node.type === "resource" &&
+    typeof node.data.kind === "string" &&
+    RESOURCE_NODE_KINDS.has(node.data.kind) &&
+    typeof node.data.name === "string" &&
+    typeof node.data.description === "string"
+  );
+}

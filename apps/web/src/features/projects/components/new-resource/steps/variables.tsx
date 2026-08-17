@@ -8,6 +8,7 @@ import type { ServiceKind } from "@/features/projects/data/service-kinds";
 import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
+import { LinkedSecretsField } from "../form-fields/linked-secrets-field";
 import { SectionHeader } from "../form-primitives";
 
 interface StepVariablesProps {
@@ -55,6 +56,13 @@ export function StepVariables({ projectId }: StepVariablesProps) {
       <form.AppField name="variables">
         {(f) => <f.VariablesField projectId={projectId} />}
       </form.AppField>
+
+      {/* External secret-manager hint: `${{vault.…}}` refs work in the value
+          cells above; this only points at the capability (or its settings
+          page when no provider is connected yet). */}
+      <div className="mt-2">
+        <LinkedSecretsField />
+      </div>
     </>
   );
 }

@@ -26,6 +26,7 @@ import { sshKeysRouter } from "./sshKeys";
 import { ssoRouter } from "./sso";
 import { systemRouter } from "./system";
 import { terminalRouter } from "./terminal";
+import { vaultProviderRouter } from "./vault-provider";
 import { volumesRouter } from "./volumes";
 import { webhooksRouter } from "./webhooks";
 
@@ -56,6 +57,7 @@ export const appRouter = {
   sshKeys: sshKeysRouter,
   system: systemRouter,
   terminal: terminalRouter,
+  vaultProvider: vaultProviderRouter,
   volumes: volumesRouter,
   webhooks: webhooksRouter,
 };

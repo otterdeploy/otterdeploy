@@ -1,5 +1,7 @@
-import { oc } from "@orpc/contract";
+import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
+
+import { networksContract } from "./contract-networks";
 
 const tag = "docker";
 const basePath = "/docker";
@@ -54,23 +56,6 @@ const volumeSchema = z.object({
   size: z.number(),
   /** Containers referencing this volume; -1 when unknown. */
   refCount: z.number(),
-});
-
-const networkSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  driver: z.string(),
-  scope: z.string(),
-  createdAt: z.number(),
-  internal: z.boolean(),
-  attachable: z.boolean(),
-  /** Swarm routing-mesh network (undeletable plumbing). */
-  ingress: z.boolean(),
-  /** First IPAM config entry; null when the driver has no subnet (host/null). */
-  subnet: z.string().nullable(),
-  gateway: z.string().nullable(),
-  /** Number of containers attached. */
-  containers: z.number(),
 });
 
 const taskSchema = z.object({
@@ -147,18 +132,34 @@ const volumeInspectSchema = z.object({
   createdAt: z.string().nullable(),
 });
 
-const networkInspectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.string().nullable(),
-  driver: z.string(),
-  scope: z.string(),
-  internal: z.boolean(),
-  attachable: z.boolean(),
-  ingress: z.boolean(),
-  ipv6: z.boolean(),
-  subnets: z.array(z.object({ subnet: z.string(), gateway: z.string().nullable() })),
-  attachedContainers: z.number(),
+/** Daemon object classes the events feed distinguishes. The normalizer only
+ *  types container/service/task/network/node; image and volume come off the
+ *  raw payload, and anything else (plugin, config, secret, daemon, future
+ *  types) lands in "unknown". */
+const dockerEventTypeSchema = z.enum([
+  "container",
+  "service",
+  "task",
+  "network",
+  "node",
+  "image",
+  "volume",
+  "unknown",
+]);
+
+/** One daemon event, flattened for display — no nested Actor, no raw echo. */
+const dockerEventSchema = z.object({
+  /** Daemon event timestamp, epoch milliseconds. */
+  ts: z.number(),
+  type: dockerEventTypeSchema,
+  /** Daemon action verb — `start`, `die`, `pull`, `connect`, … */
+  action: z.string(),
+  actorId: z.string(),
+  /** Human name when the daemon reports one (container/service/network name,
+   *  image ref); null for events that only carry an id. */
+  actorName: z.string().nullable(),
+  /** Actor attributes as the daemon sent them — labels, exitCode, signal, … */
+  attributes: z.record(z.string(), z.string()),
 });
 
 const listContainersInput = z.object({
@@ -236,29 +237,23 @@ export const dockerContract = {
       .input(z.object({ name: z.string().min(1) }))
       .output(z.object({ removed: z.boolean() })),
   },
-  networks: {
-    list: oc
-      .errors(serverError)
-      .meta({ path: `${basePath}/networks`, tag, method: "GET" })
-      .input(z.object({}))
-      .output(z.array(networkSchema)),
-    inspect: oc
-      .errors({ ...serverError, ...notFoundError })
-      .meta({ path: `${basePath}/networks/inspect`, tag, method: "GET" })
-      .input(idInput)
-      .output(networkInspectSchema),
-    remove: oc
-      .errors({ ...serverError, ...notFoundError, ...conflictError })
-      .meta({ path: `${basePath}/networks/remove`, tag, method: "POST" })
-      .input(idInput)
-      .output(z.object({ removed: z.boolean() })),
-  },
+  // Split into ./contract-networks.ts (line cap) — now also carries create.
+  networks: networksContract,
   tasks: {
     list: oc
       .errors(serverError)
       .meta({ path: `${basePath}/tasks`, tag, method: "GET" })
       .input(z.object({}))
       .output(z.array(taskSchema)),
+  },
+  events: {
+    stream: oc
+      .errors(serverError)
+      .meta({ path: `${basePath}/events/stream`, tag, method: "GET" })
+      // Optional server-side narrowing; the web UI streams everything and
+      // filters client-side so toggling a chip never tears the buffer.
+      .input(z.object({ types: z.array(dockerEventTypeSchema).optional() }))
+      .output(eventIterator(dockerEventSchema)),
   },
   nodes: {
     list: oc

@@ -212,11 +212,34 @@ export class RefCycleError extends TaggedError("RefCycleError")<{
   }
 }
 
+/**
+ * A `${{vault.<provider>.<ref>}}` reference could not be resolved at deploy
+ * time — unknown provider name, provider API failure, or a ref the provider
+ * doesn't hold. `detail` is operator-actionable and never contains the secret
+ * value or the stored credential.
+ */
+export class VaultResolveError extends TaggedError("VaultResolveError")<{
+  message: string;
+  providerName: string;
+  ref: string;
+  detail: string;
+}>() {
+  constructor(args: { providerName: string; ref: string; detail: string }) {
+    super({
+      providerName: args.providerName,
+      ref: args.ref,
+      detail: args.detail,
+      message: `vault reference \${{vault.${args.providerName}.${args.ref}}} failed: ${args.detail}`,
+    });
+  }
+}
+
 export type ResolveError =
   | RefParseError
   | RefMissingResourceError
   | RefUnknownVarError
-  | RefCycleError;
+  | RefCycleError
+  | VaultResolveError;
 
 /**
  * A move was refused because the service has node-local volumes that will not

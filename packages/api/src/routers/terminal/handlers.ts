@@ -16,10 +16,16 @@
 import type { OrganizationId, ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
+import {
+  databaseResource,
+  project,
+  resource,
+  serviceResource,
+} from "@otterdeploy/db/schema/project";
 import { type ContainerSummary, Docker } from "@otterdeploy/docker";
+import { FRAMEWORK_KINDS, type Framework } from "@otterdeploy/shared/framework";
 import { canonicalId, hasPrefix, ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 
 /** Brands raw slugs (docker labels, unbranded DB columns) at the boundary. */
 const projectSlugSchema = zSlug(ID_PREFIX.project);
@@ -32,6 +38,9 @@ export interface TerminalContainer {
   image: string;
   state: string;
   resourceType: "service" | "postgres" | "redis" | "mariadb" | "mongodb";
+  /** Detected framework for source-built services (picker icon fallback
+   *  when the image ref resolves no brand mark). */
+  framework: Framework | null;
   projectSlug: ProjectSlug | null;
   projectName: string | null;
   serviceResourceId: ResourceId | null;
@@ -120,6 +129,8 @@ function toTerminalContainer(
     image: c.Image,
     state: c.State,
     resourceType,
+    // Stamped in a batch after assembly (one query for all service rows).
+    framework: null,
     projectSlug: parsedSlug.success ? parsedSlug.data : null,
     projectName: terminalProject.name,
     serviceResourceId:
@@ -167,6 +178,27 @@ export async function listTerminalTargets(input: {
       if (mapped) containers.push(mapped);
     }
   }
+
+  // Framework enrichment: the picker's icon fallback when the image ref
+  // resolves no brand mark (source-built services have a build image no
+  // resolver recognises, but a detected framework we can render instead).
+  const frameworkIds = containers.flatMap((c) =>
+    c.resourceType === "service" && c.serviceResourceId ? [c.serviceResourceId] : [],
+  );
+  if (frameworkIds.length > 0) {
+    const rows = await db
+      .select({ resourceId: serviceResource.resourceId, framework: serviceResource.framework })
+      .from(serviceResource)
+      .where(inArray(serviceResource.resourceId, frameworkIds));
+    const frameworkByResource = new Map(rows.map((r) => [r.resourceId, r.framework]));
+    const isFramework = (value: string | null | undefined): value is Framework =>
+      value != null && FRAMEWORK_KINDS.some((kind) => kind === value);
+    for (const c of containers) {
+      const detected = c.serviceResourceId ? frameworkByResource.get(c.serviceResourceId) : null;
+      if (isFramework(detected)) c.framework = detected;
+    }
+  }
+
   // Sort: project then service then replica slot for stable rendering.
   containers.sort((a, b) => {
     if (a.projectSlug !== b.projectSlug) {

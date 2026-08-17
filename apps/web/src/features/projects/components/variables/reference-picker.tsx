@@ -1,5 +1,5 @@
 /**
- * Reference picker dropdown: the Railway-style "Add Reference" surface
+ * Reference picker dropdown — the Railway-style "Add Reference" surface
  * for the env-var editor.
  *
  * Reads from `project.refs.list` and renders one row per available
@@ -7,47 +7,28 @@
  * return the token string to the caller, which inserts it at the
  * cursor in the associated value field.
  *
- * Two grouping signals:
- *   - `sourceKind` (database / service / project / environment) drives
- *     the brand icon on the left of each row
- *   - `sourceName` is shown as a small label on the right so the user
- *     can tell DATABASE_URL on "postgres-main" from DATABASE_URL on
- *     "postgres-replica"
- *
- * Filter input narrows by substring match against `key`, `sourceName`,
- * or the full token: same fuzzy intuition as Railway's picker.
+ * Narrowing works two ways: the text input substring-matches `key`,
+ * `sourceName` or the full token, and a horizontally scrollable chip bar
+ * (one chip per source) filters to a single resource with a tap.
+ * Presentational pieces + grouping live in `./reference-picker-parts`.
  */
 
 import { useState, useMemo } from "react";
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
-import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
-import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
-import { Postgresql } from "@/shared/components/ui/svgs/postgresql";
-import { Redis } from "@/shared/components/ui/svgs/redis";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
-type RefSourceKind = "database" | "service" | "project" | "environment";
-
-interface RefGroup {
-  key: string;
-  kind: RefSourceKind;
-  engine: "postgres" | "redis" | "mariadb" | "mongodb" | null;
-  /** Resource name, or "Shared variables" for project/environment scope. */
-  label: string;
-  /** Small qualifier under the label (e.g. "database", "service"). */
-  sub: string;
-  items: Array<{ key: string; token: string; isSecret: boolean; platform: boolean }>;
-}
+import { buildRefGroups, buildRefSources, SourceChip, SourceIcon } from "./reference-picker-parts";
 
 export interface ReferencePickerProps {
   /** Accepts either a branded project id or the plain string the
-   *  caller has on hand. Branded types are launder via `as never` at
+   *  caller has on hand — branded types are launder via `as never` at
    *  the query-options call so both shapes work. */
   projectId: string;
-  /** Hide the row whose token equals this. Used when the picker is
+  /** Hide the row whose token equals this — used when the picker is
    *  opened from a field whose value already IS one specific token. */
   excludeToken?: string | null;
   /** Called once the user clicks a row. Receives the token to insert. */
@@ -58,29 +39,6 @@ export interface ReferencePickerProps {
   className?: string;
 }
 
-const ENGINE_ICONS = {
-  postgres: Postgresql,
-  redis: Redis,
-  mariadb: Mariadb,
-  mongodb: Mongodb,
-} as const;
-
-function SourceIcon({
-  kind,
-  engine,
-}: {
-  kind: "database" | "service" | "project" | "environment";
-  engine: "postgres" | "redis" | "mariadb" | "mongodb" | null;
-}) {
-  if (kind === "database" && engine && engine in ENGINE_ICONS) {
-    const Icon = ENGINE_ICONS[engine];
-    return <Icon className="size-4 shrink-0" />;
-  }
-  // Generic monospace `{ }` glyph for service / project / environment
-  // sources: they share the same neutral treatment.
-  return <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{"{ }"}</span>;
-}
-
 export function ReferencePicker({
   projectId,
   excludeToken,
@@ -88,7 +46,10 @@ export function ReferencePicker({
   onClose,
   className,
 }: ReferencePickerProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  /** Tap-to-filter source chip — a group key, or null for all sources. */
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
 
   const { data: refs = [], isLoading } = useQuery(
     orpc.project.refs.list.queryOptions({
@@ -98,7 +59,9 @@ export function ReferencePicker({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = excludeToken ? refs.filter((r) => r.token !== excludeToken) : refs;
+    let base = excludeToken ? refs.filter((r) => r.token !== excludeToken) : refs;
+    if (sourceFilter !== null)
+      base = base.filter((r) => `${r.sourceKind}:${r.sourceName}` === sourceFilter);
     if (q.length === 0) return base;
     return base.filter(
       (r) =>
@@ -106,37 +69,13 @@ export function ReferencePicker({
         r.sourceName.toLowerCase().includes(q) ||
         r.token.toLowerCase().includes(q),
     );
-  }, [query, refs, excludeToken]);
+  }, [query, refs, excludeToken, sourceFilter]);
 
-  // Group by source so each row's owner is unambiguous: resource exports sit
-  // under the resource's own name, shared project/environment vars under
-  // "Shared variables". Databases first, then services, then shared.
-  const groups = useMemo(() => {
-    const order = { database: 0, service: 1, project: 2, environment: 3 };
-    const map = new Map<string, RefGroup>();
-    for (const r of filtered) {
-      const groupKey = `${r.sourceKind}:${r.sourceName}`;
-      const existing = map.get(groupKey);
-      if (existing) existing.items.push(r);
-      else
-        map.set(groupKey, {
-          key: groupKey,
-          kind: r.sourceKind,
-          engine: r.engine,
-          label: r.sourceName,
-          sub:
-            r.sourceKind === "database"
-              ? "database"
-              : r.sourceKind === "service"
-                ? "service"
-                : "project · all environments",
-          items: [r],
-        });
-    }
-    return [...map.values()].sort(
-      (a, b) => order[a.kind] - order[b.kind] || a.label.localeCompare(b.label),
-    );
-  }, [filtered]);
+  const groups = useMemo(() => buildRefGroups(filtered), [filtered]);
+
+  // Chip bar sources come from the FULL ref list (before text/source
+  // filtering) so the chips never vanish while one of them is active.
+  const sources = useMemo(() => buildRefSources(refs), [refs]);
 
   return (
     <div
@@ -148,7 +87,7 @@ export function ReferencePicker({
       <div className="border-b p-2">
         <input
           type="text"
-          placeholder="Filter Database, Service or Shared Variables"
+          placeholder={t("refPicker.filterPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -157,27 +96,45 @@ export function ReferencePicker({
           className="h-7 w-full bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/60"
         />
       </div>
+      {/* Tap-to-filter source chips — horizontally scrollable, one per
+          source, so narrowing to one resource is a tap instead of typing. */}
+      {sources.length > 1 && (
+        <div className="flex [scrollbar-width:none] items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
+          <SourceChip
+            active={sourceFilter === null}
+            onClick={() => setSourceFilter(null)}
+            label={t("refPicker.all")}
+          />
+          {sources.map((s) => (
+            <SourceChip
+              key={s.key}
+              active={sourceFilter === s.key}
+              onClick={() => setSourceFilter(sourceFilter === s.key ? null : s.key)}
+              label={s.label}
+              icon={<SourceIcon kind={s.kind} engine={s.engine} vaultKind={s.vaultKind} />}
+            />
+          ))}
+        </div>
+      )}
       <div className="max-h-[320px] overflow-y-auto py-1">
         {isLoading ? (
           <div className="px-3 py-6 text-center text-[11px] text-muted-foreground">
-            Loading references…
+            {t("refPicker.loading")}
           </div>
         ) : groups.length === 0 ? (
           <div className="px-3 py-6 text-center text-[11px] text-muted-foreground">
-            {query
-              ? "No references match your filter"
-              : "No references defined yet in this project"}
+            {query || sourceFilter ? t("refPicker.noMatches") : t("refPicker.noRefs")}
           </div>
         ) : (
           groups.map((g) => (
             <div key={g.key} className="mb-1 last:mb-0">
-              {/* Group header names the owner: a resource, or the shared
-                  project/environment scope, so each token's origin is clear. */}
+              {/* Group header names the owner — a resource, or the shared
+                  project/environment scope — so each token's origin is clear. */}
               <div className="flex items-center gap-2 px-3 py-1.5">
-                <SourceIcon kind={g.kind} engine={g.engine} />
+                <SourceIcon kind={g.kind} engine={g.engine} vaultKind={g.vaultKind} />
                 <span className="text-[11.5px] font-semibold text-foreground">{g.label}</span>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] tracking-wide text-muted-foreground uppercase">
-                  {g.sub}
+                  {t(g.subKey)}
                 </span>
               </div>
               {g.items.map((r) => (
@@ -193,15 +150,17 @@ export function ReferencePicker({
                   <span className="font-mono text-[11.5px]">{r.key}</span>
                   <span className="ml-auto flex items-center gap-2">
                     {/* Platform-generated (HOST/PORT/URL/DOMAIN/DATABASE_URL/…)
-                        vs the service's own env keys. Tagged so they're not
+                        vs the service's own env keys — tagged so they're not
                         mistaken for each other. */}
                     {r.platform && (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] tracking-wide text-muted-foreground/70 uppercase">
-                        platform
+                        {t("refPicker.platform")}
                       </span>
                     )}
                     {r.isSecret && (
-                      <span className="text-[10px] text-muted-foreground/70">secret</span>
+                      <span className="text-[10px] text-muted-foreground/70">
+                        {t("refPicker.secret")}
+                      </span>
                     )}
                   </span>
                 </button>

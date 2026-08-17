@@ -107,6 +107,12 @@ export function rewriteRefs(
       out += token.value.replaceAll("${{", "\\${{");
       continue;
     }
+    if (token.kind === "vault") {
+      // Vault refs point at an org-level secret provider, not a project
+      // resource — copied verbatim; never renamed, never "external".
+      out += token.raw;
+      continue;
+    }
     const target = rename.get(token.resource);
     if (target === undefined) {
       external.push(token.resource);

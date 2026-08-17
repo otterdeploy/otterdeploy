@@ -13,6 +13,7 @@ import { clearAuthCache } from "@/lib/auth-queries";
 
 import { AuthField, AuthSubmitButton } from "./auth-fields";
 import { EnterpriseSsoSignIn } from "./enterprise-sso-sign-in";
+import { PasskeySignIn } from "./passkey-sign-in";
 import { SocialSignIn } from "./social-sign-in";
 import { TwoFactorChallenge } from "./two-factor-challenge";
 
@@ -160,6 +161,10 @@ export function SignInForm({
       </form>
 
       <SocialSignIn dividerLabel="or continue with" providers={socialProviders} />
+
+      {/* Passkey sign-in completes with a full session (first factor + user
+          verification), so it reuses completeLogin directly — no 2FA step. */}
+      <PasskeySignIn onSignedIn={completeLogin} />
 
       {/* Always rendered, unlike SocialSignIn: whether SSO applies depends on
           the email domain the visitor types, which we cannot know up front. */}
