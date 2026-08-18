@@ -9,6 +9,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
 import { LinkedSecretsField } from "../form-fields/linked-secrets-field";
+import { noDuplicateKeysValidator } from "../form-fields/variables-field";
 import { SectionHeader } from "../form-primitives";
 
 interface StepVariablesProps {
@@ -53,7 +54,7 @@ export function StepVariables({ projectId }: StepVariablesProps) {
         </div>
       )}
 
-      <form.AppField name="variables">
+      <form.AppField name="variables" validators={{ onChange: noDuplicateKeysValidator }}>
         {(f) => <f.VariablesField projectId={projectId} />}
       </form.AppField>
 

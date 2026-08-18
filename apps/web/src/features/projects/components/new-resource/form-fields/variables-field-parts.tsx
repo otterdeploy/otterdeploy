@@ -12,6 +12,7 @@ import { Fragment, useState } from "react";
 
 import { AlertDiamondIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { ReferencePicker } from "@/features/projects/components/variables";
 import { Button } from "@/shared/components/ui/button";
@@ -130,6 +131,9 @@ function VariableValueCell({
 
 interface VariableRowProps {
   v: Var;
+  /** Another row shares this (trimmed) key. Renders the inline warning; the
+   *  mount sites' field validator blocks the deploy on the same predicate. */
+  duplicate?: boolean;
   projectId?: string;
   pickerOpen: boolean;
   onKeyChange: (key: string) => void;
@@ -143,6 +147,7 @@ interface VariableRowProps {
 
 export function VariableRow({
   v,
+  duplicate = false,
   projectId,
   pickerOpen,
   onKeyChange,
@@ -153,6 +158,7 @@ export function VariableRow({
   onPick,
   onClosePicker,
 }: VariableRowProps) {
+  const { t } = useTranslation();
   return (
     <Fragment>
       <TableRow>
@@ -161,9 +167,15 @@ export function VariableRow({
             type="text"
             value={v.key}
             placeholder="KEY"
+            aria-invalid={duplicate || undefined}
             onChange={(e) => onKeyChange(e.target.value)}
-            className="h-8 font-mono"
+            className={cn("h-8 font-mono", duplicate && "border-destructive/60")}
           />
+          {duplicate && (
+            <p className="mt-1 text-[10.5px] text-destructive">
+              {t("resources.variables.duplicateNote", { key: v.key.trim() })}
+            </p>
+          )}
         </TableCell>
         <TableCell className="py-2">
           <VariableValueCell
