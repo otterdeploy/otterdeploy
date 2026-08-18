@@ -24,6 +24,7 @@ import type { ComposeForm, Preview } from "./compose-wizard-shared";
 
 import { fileStepSchema, varsStepSchema } from "./compose-schema";
 import { ComposeGitFields, ComposeInlineFields } from "./compose-wizard-fields";
+import { noDuplicateKeysValidator } from "./form-fields/variables-field";
 
 // The file-step button's label. Git has no vars step, so its file step stages
 // directly ("Add resource"). Inline always routes through the vars step so env
@@ -63,7 +64,7 @@ function ComposeVarsStep({
           generated; what's left is usually a URL or name only you know.
         </div>
       )}
-      <form.AppField name="vars.variables">
+      <form.AppField name="vars.variables" validators={{ onChange: noDuplicateKeysValidator }}>
         {(field) => <field.VariablesField projectId={projectId} />}
       </form.AppField>
     </div>

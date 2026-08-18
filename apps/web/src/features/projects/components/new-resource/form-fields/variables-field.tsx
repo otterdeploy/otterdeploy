@@ -25,9 +25,34 @@ export interface Var {
   required?: boolean;
 }
 
+/**
+ * Keys used by more than one row (trimmed; blank rows don't count). Only the
+ * LAST duplicate would survive the flatten to a record, so the others would be
+ * silently dropped at deploy: the same trap the service variables editor
+ * already flags. Shared with the mount sites' field validator so the row
+ * warning and the submit block cannot drift.
+ */
+export function duplicateEnvKeys(vars: Var[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const v of vars) {
+    const k = v.key.trim();
+    if (!k) continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([k]) => k));
+}
+
+/** Field validator for the wizard mounts: blocks the deploy while duplicate
+ *  keys exist. The per-row warning explains WHICH keys; the error itself is
+ *  never rendered. */
+export function noDuplicateKeysValidator({ value }: { value: Var[] }): string | undefined {
+  return duplicateEnvKeys(value).size > 0 ? "duplicate keys" : undefined;
+}
+
 export function VariablesField({ projectId }: { projectId?: string }) {
   const field = useFieldContext<Var[]>();
   const vars = field.state.value;
+  const duplicateKeys = duplicateEnvKeys(vars);
   const [bulk, setBulk] = useState(false);
   // Which row's reference picker is open. Opened by typing `${{` (autocomplete)
   // or clicking the `{ }` button in a value cell.
@@ -86,6 +111,7 @@ export function VariablesField({ projectId }: { projectId?: string }) {
             <VariableRow
               key={i}
               v={v}
+              duplicate={duplicateKeys.has(v.key.trim())}
               projectId={projectId}
               pickerOpen={pickerRow === i}
               onKeyChange={(key) =>
