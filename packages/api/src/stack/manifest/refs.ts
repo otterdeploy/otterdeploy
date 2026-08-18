@@ -63,7 +63,7 @@ export function parseRefs(value: string): Ref[] {
     if (body === undefined) continue;
     // `${{…}}` is the PLATFORM reference grammar (`${{postgres.DATABASE_URL}}`,
     // `${{vault.<provider>.<key>}}`), resolved at deploy time by the variable
-    // resolver — not a manifest ref. The single-brace regex captures it as
+    // resolver: not a manifest ref. The single-brace regex captures it as
     // `{…` (stopping at the first `}`), which used to throw "Unknown
     // reference" and reject any staged env row that carried a reference
     // token. Treat it as opaque text instead.

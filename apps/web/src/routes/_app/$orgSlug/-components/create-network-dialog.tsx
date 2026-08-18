@@ -2,7 +2,7 @@
  * Create a docker network from the Raw Docker panel. Driver defaults to the
  * one the active runtime can actually use (overlay under swarm, bridge under
  * plain docker); attachable defaults ON because an unattachable network can't
- * serve the per-service extra-networks feature. IPAM is one optional pool —
+ * serve the per-service extra-networks feature. IPAM is one optional pool -
  * the daemon auto-allocates a subnet when it's left blank.
  *
  * Controlled state, not tanstack-form: the field slices live in
@@ -35,7 +35,7 @@ export function CreateNetworkDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Drives the default driver — services can only join networks whose
+  /** Drives the default driver: services can only join networks whose
    *  driver matches the active runtime. */
   swarm: boolean;
 }) {

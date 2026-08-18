@@ -1,7 +1,7 @@
 /**
  * Top-level Analytics: the one traffic surface, promoted out of the project
  * shell because on a real install most edge traffic (the control-plane
- * dashboard above all) belongs to no project — a project-nested view could
+ * dashboard above all) belongs to no project: a project-nested view could
  * only ever show a slice. Install admins see every host on the box; other
  * members see their org's domains; a project filter narrows either to one
  * project's domains. Window (preset or custom from/to) and filter ride the

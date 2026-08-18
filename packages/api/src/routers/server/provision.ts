@@ -186,7 +186,7 @@ export function parseMeshAddress(output: string): string | null {
 
 /**
  * Install Cloudflare Tunnel (cloudflared) as a host-network container running
- * the operator's tunnel — the standard pattern for reaching a NAT'd server / an
+ * the operator's tunnel: the standard pattern for reaching a NAT'd server / an
  * ingress path without opening ports. `token` is the connector token (secret).
  * Requires Docker (runs after the Docker step).
  */

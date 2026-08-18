@@ -64,7 +64,7 @@ interface ExecutionContextBase {
     type: "s3" | "local" | "sftp" | "azblob" | "gcs";
     config: JsonObject;
     encryptedSecret: string | null;
-    /** Platform-managed local destination — changes how `deriveRepoKey` roots
+    /** Platform-managed local destination: changes how `deriveRepoKey` roots
      *  the repo (bare scope under the org's `orgBackupRepoRoot`, org-qualified
      *  password domain). */
     managed: boolean;

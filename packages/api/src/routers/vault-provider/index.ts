@@ -1,6 +1,6 @@
 /**
  * Secret-provider router. Reads are `vaultProvider: ["read"]` (the reference
- * picker needs the provider names); every mutation is admin/owner — the
+ * picker needs the provider names); every mutation is admin/owner: the
  * stored credential can read every secret the org points at otterdeploy.
  */
 

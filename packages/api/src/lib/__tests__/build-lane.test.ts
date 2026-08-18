@@ -3,13 +3,13 @@
  * lane is a project whose placed resources point at exactly one build server
  * with a valid lane. Everything ambiguous, invalid, or broken must resolve to
  * "default", because a wrong lane routes a build to a queue no builder may be
- * draining — a silently stuck deploy — while "default" merely shares a queue.
+ * draining (a silently stuck deploy) while "default" merely shares a queue.
  */
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
-// Typed so the mocked drizzle chain returns a known row shape — keeps the
+// Typed so the mocked drizzle chain returns a known row shape: keeps the
 // mock free of both `as unknown` laundering and unsafe-any returns.
 const selectRows = vi.fn<() => Promise<Array<{ serverId: string; buildLane: string | null }>>>();
 

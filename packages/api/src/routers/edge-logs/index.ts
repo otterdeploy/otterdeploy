@@ -193,7 +193,7 @@ export const edgeLogsRouter = {
   // Rollup-backed analytics: no ring fallback (the rollups always live in the
   // DB) and no raw-row scans, so every range costs the same. Host scope is the
   // same server-side resolve as everything else; the same evlog landmine
-  // applies — never log the live `hosts` array.
+  // applies: never log the live `hosts` array.
   analytics: {
     overview: orgScopedProcedure.edgeLogs.analytics.overview.handler(
       async ({ input, context, errors }) => {

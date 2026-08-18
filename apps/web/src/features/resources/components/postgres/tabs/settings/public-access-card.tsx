@@ -49,7 +49,7 @@ export function PublicAccessCard({
     onSuccess: async () => {
       await Promise.all([
         // The panel reads this resource from the react-db `resourceCollection`,
-        // whose cache key is PREFIXED by RESOURCE_COLLECTION_KEY — the bare
+        // whose cache key is PREFIXED by RESOURCE_COLLECTION_KEY: the bare
         // orpc list key never matched it, so the toggle stayed visually stale
         // until the collection's slow poll.
         queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),

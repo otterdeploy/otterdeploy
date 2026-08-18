@@ -30,7 +30,7 @@
     "closeSidebar": "Seitenleiste schließen",
     "notifications": {
       "title": "Benachrichtigungen",
-      "unread": "Benachrichtigungen — {{count}} ungelesen",
+      "unread": "Benachrichtigungen: {{count}} ungelesen",
       "labelFailure": "enthält einen Fehler"
     },
     "toggleTheme": "Design wechseln",
@@ -107,7 +107,7 @@
       "eyebrow": "Interner Fehler",
       "title": "Etwas ist schiefgelaufen.",
       "statusTag": "FAULT",
-      "messageDefault": "Otterdeploy ist beim Rendern dieser Seite auf einen unerwarteten Fehler gestoßen. Der Fehler wurde protokolliert — das liegt an uns, nicht an dir. Versuch es gleich noch einmal.",
+      "messageDefault": "Otterdeploy ist beim Rendern dieser Seite auf einen unerwarteten Fehler gestoßen. Der Fehler wurde protokolliert. Das liegt an uns, nicht an dir. Versuch es gleich noch einmal.",
       "retry": "⟳ Erneut versuchen",
       "returnHome": "↩ Zur Startseite"
     },
@@ -249,15 +249,15 @@
     "steps": {
       "welcome": {
         "title": "Eine kurze Tour",
-        "description": "Sechs Minuten durch die Teile von otterdeploy, die du täglich brauchst — wo deine Maschinen liegen, wie ein Projekt aufgebaut ist und wo du nachsiehst, wenn ein Deploy schiefgeht. Mit Esc kommst du jederzeit raus; im Kontomenü findest du sie wieder."
+        "description": "Sechs Minuten durch die Teile von otterdeploy, die du täglich brauchst: wo deine Maschinen liegen, wie ein Projekt aufgebaut ist und wo du nachsiehst, wenn ein Deploy schiefgeht. Mit Esc kommst du jederzeit raus; im Kontomenü findest du sie wieder."
       },
       "sidebar": {
         "title": "Die Seitenleiste",
-        "description": "Alles Organisationsweite liegt hier, gruppiert nach Zweck: oben deine Projekte, in der Mitte die Infrastruktur, auf der sie laufen, darunter die ausgehenden Verbindungen, die ein Deploy braucht — Git, Registries, Schlüssel."
+        "description": "Alles Organisationsweite liegt hier, gruppiert nach Zweck: oben deine Projekte, in der Mitte die Infrastruktur, auf der sie laufen, darunter die ausgehenden Verbindungen, die ein Deploy braucht (Git, Registries, Schlüssel)."
       },
       "projects": {
         "title": "Projekte",
-        "description": "Ein Projekt bündelt die Services, Datenbanken und Routen, die zusammen ausgeliefert werden — eine App und ihre Abhängigkeiten. Die Badge zählt, was dieser Workspace hat."
+        "description": "Ein Projekt bündelt die Services, Datenbanken und Routen, die zusammen ausgeliefert werden: eine App und ihre Abhängigkeiten. Die Badge zählt, was dieser Workspace hat."
       },
       "infrastructure": {
         "title": "Server",
@@ -273,11 +273,11 @@
       },
       "activity": {
         "title": "Systemzustand in Echtzeit",
-        "description": "Laufende Deploys, ungelesene Benachrichtigungen und der Design-Umschalter. Die Marke oben links zeigt denselben Zustand, sodass ein laufender Build von jeder Seite sichtbar ist — und aus einem Hintergrund-Tab."
+        "description": "Laufende Deploys, ungelesene Benachrichtigungen und der Design-Umschalter. Die Marke oben links zeigt denselben Zustand, sodass ein laufender Build von jeder Seite sichtbar ist, auch aus einem Hintergrund-Tab."
       },
       "serversPage": {
         "title": "Dein Cluster",
-        "description": "Eine Zeile pro Maschine, mit Swarm-Rolle, Verfügbarkeit und letzter Zustandsmessung. `unknown` ist bewusst kein Bestanden — es heißt, dass noch niemand nachgesehen hat."
+        "description": "Eine Zeile pro Maschine, mit Swarm-Rolle, Verfügbarkeit und letzter Zustandsmessung. `unknown` ist bewusst kein Bestanden: es heißt, dass noch niemand nachgesehen hat."
       },
       "addServer": {
         "title": "Server hinzufügen",
@@ -289,7 +289,7 @@
       },
       "projectGraph": {
         "title": "Der Projektgraph",
-        "description": "Dein Projekt als Leinwand: Services, Datenbanken und die Routen dorthin, mit Live-Status an jedem Node. Rechtsklick auf einen Node öffnet, startet neu, klont oder zeigt Logs — Rechtsklick auf die Leinwand legt Neues an."
+        "description": "Dein Projekt als Leinwand: Services, Datenbanken und die Routen dorthin, mit Live-Status an jedem Node. Rechtsklick auf einen Node öffnet, startet neu, klont oder zeigt Logs; Rechtsklick auf die Leinwand legt Neues an."
       },
       "projectTabs": {
         "title": "Alles zu diesem Projekt",
@@ -301,7 +301,7 @@
       },
       "deployments": {
         "title": "Jeder Deploy bleibt erhalten",
-        "description": "Eine Zeile pro Push, mit Grund — git-push, redeploy, env-change, rollback — und dem Konfigurations-Snapshot, mit dem er lief. Dieser Snapshot macht ein Rollback zur echten Option statt zum Ratespiel."
+        "description": "Eine Zeile pro Push, mit Grund (git-push, redeploy, env-change, rollback) und dem Konfigurations-Snapshot, mit dem er lief. Dieser Snapshot macht ein Rollback zur echten Option statt zum Ratespiel."
       },
       "logs": {
         "title": "Logs, die die Wahrheit sagen",
@@ -309,7 +309,7 @@
       },
       "variables": {
         "title": "Variablen",
-        "description": "Setze sie pro Projekt oder pro Service und referenziere andere Ressourcen über ihren Namen — `${database:main.DATABASE_URL}` wird beim Deploy aufgelöst. Diese späte Bindung gibt Previews ihre eigene Datenbank."
+        "description": "Setze sie pro Projekt oder pro Service und referenziere andere Ressourcen über ihren Namen: `${database:main.DATABASE_URL}` wird beim Deploy aufgelöst. Diese späte Bindung gibt Previews ihre eigene Datenbank."
       },
       "networking": {
         "title": "Domains und Routen",
@@ -317,11 +317,11 @@
       },
       "help": {
         "title": "Wo du das wiederfindest",
-        "description": "Die Tour liegt hier, wann immer du sie erneut willst — neben dem Befehlsmenü und deinen Kontoeinstellungen."
+        "description": "Die Tour liegt hier, wann immer du sie erneut willst, neben dem Befehlsmenü und deinen Kontoeinstellungen."
       },
       "done": {
         "title": "Das ist die Grundform",
-        "description": "Der Rest sind Dokumentation und die Befehlspalette. Wenn etwas falsch aussieht, steht die ehrliche Antwort meist im Tab Deployments oder Logs — otterdeploy versteckt einen Fehler nie hinter einem Spinner."
+        "description": "Der Rest sind Dokumentation und die Befehlspalette. Wenn etwas falsch aussieht, steht die ehrliche Antwort meist im Tab Deployments oder Logs; otterdeploy versteckt einen Fehler nie hinter einem Spinner."
       }
     }
   },
@@ -348,8 +348,8 @@
     "dialogTitle": "DNS-Einträge konfigurieren",
     "dialogDescription": "Lege beide Einträge bei deinem DNS-Anbieter an und prüfe sie dann.",
     "dialogDescriptionZone": "Lege beide Einträge in {{zone}} an und prüfe sie dann.",
-    "lookupFailed": "Wir konnten keinen DNS-Resolver erreichen, um deinen Anbieter zu erkennen — daher werden nur die manuellen Einträge angezeigt.",
-    "proxiedWarning": "Dieser Name löst derzeit auf etwas anderes als diese Installation auf {{address}}. Falls das ein Cloudflare-Proxy ist, schalte die orange Wolke aus — bei Einträgen mit Proxy endet TLS am Proxy, und das Zertifikat hier kann nie fertig ausgestellt werden.",
+    "lookupFailed": "Wir konnten keinen DNS-Resolver erreichen, um deinen Anbieter zu erkennen; daher werden nur die manuellen Einträge angezeigt.",
+    "proxiedWarning": "Dieser Name löst derzeit auf etwas anderes als diese Installation auf {{address}}. Falls das ein Cloudflare-Proxy ist, schalte die orange Wolke aus: bei Einträgen mit Proxy endet TLS am Proxy, und das Zertifikat hier kann nie fertig ausgestellt werden.",
     "oneClick": {
       "title": "DNS-Einrichtung mit einem Klick",
       "canAuto": "Diese Domain liegt bei Cloudflare. Wir können beide Einträge für dich anlegen.",
@@ -362,7 +362,7 @@
       "type": "Typ",
       "name": "Name",
       "value": "Wert",
-      "empty": "Noch nichts hinzuzufügen — speichere zuerst die Domain."
+      "empty": "Noch nichts hinzuzufügen. Speichere zuerst die Domain."
     }
   },
   "dataGrid": {
@@ -427,17 +427,17 @@
     },
     "organization": {
       "title": "Organisation erstellen",
-      "description": "Eine Organisation ist dein oberster Workspace — ihr gehören deine Projekte, Server, Domains und dein Team. Du kannst später weitere anlegen oder Leute einladen.",
+      "description": "Eine Organisation ist dein oberster Workspace: ihr gehören deine Projekte, Server, Domains und dein Team. Du kannst später weitere anlegen oder Leute einladen.",
       "namePlaceholder": "Acme"
     },
     "domain": {
       "title": "Basis-Domain festlegen",
-      "description": "Darunter bekommen deine deployten Apps und Datenbanken ihre öffentlichen URLs — nicht das Dashboard selbst.",
+      "description": "Darunter bekommen deine deployten Apps und Datenbanken ihre öffentlichen URLs, nicht das Dashboard selbst.",
       "label": "Basis-Domain"
     },
     "project": {
       "title": "Erstes Projekt erstellen",
-      "description": "Ein Projekt bündelt die Services, Datenbanken und Routen, die zusammen ausgeliefert werden — wie eine App und ihre Abhängigkeiten. Wir bringen dich direkt hinein.",
+      "description": "Ein Projekt bündelt die Services, Datenbanken und Routen, die zusammen ausgeliefert werden, wie eine App und ihre Abhängigkeiten. Wir bringen dich direkt hinein.",
       "namePlaceholder": "Storefront"
     }
   },
@@ -509,7 +509,25 @@
     "copyLogs": "Logs kopieren",
     "findInLogs": "In Logs suchen",
     "selectedCount_one": "{{count}} ausgewählt",
-    "selectedCount_other": "{{count}} ausgewählt"
+    "selectedCount_other": "{{count}} ausgewählt",
+    "wrap": "Umbruch",
+    "pause": "Pause",
+    "resume": "Fortsetzen",
+    "timestamps": "Zeitstempel umschalten",
+    "copyVisibleLines": "Sichtbare Zeilen kopieren",
+    "clearView": "Log-Ansicht leeren",
+    "filterMessages": "Log-Meldungen filtern",
+    "filterPlaceholder": "Meldungen filtern…",
+    "copiedLines_one": "{{count}} Zeile kopiert",
+    "copiedLines_other": "{{count}} Zeilen kopiert",
+    "copyFailed": "Logs konnten nicht kopiert werden",
+    "connecting": "Verbindung zum Log-Stream wird aufgebaut…",
+    "connectingHint": "Live-Ausgabe dieses Services wird angebunden.",
+    "disconnected": "Log-Stream getrennt",
+    "disconnectedHint": "Automatischer Wiederverbindungsversuch.",
+    "noContainer": "Noch kein Container aktiv",
+    "noContainerHint": "Deploye diesen Service und seine Container-Logs streamen hier live.",
+    "noMatches": "Keine Zeilen entsprechen den aktuellen Filtern."
   },
   "apiKeys": {
     "createTitle": "API-Schlüssel erstellen",
@@ -557,7 +575,7 @@
     "keyType": "Schlüsseltyp",
     "publicKey": "Öffentlicher Schlüssel",
     "detectedType": "Erkannter Typ:",
-    "unrecognised": "nicht erkannt — füge die vollständige Public-Key-Zeile ein",
+    "unrecognised": "nicht erkannt. Füge die vollständige Public-Key-Zeile ein",
     "pastePrompt": "füge oben einen öffentlichen Schlüssel ein",
     "notInUse": "Nicht in Verwendung",
     "copyFingerprint": "Fingerprint kopieren",
@@ -637,7 +655,7 @@
     },
     "removeCa": "{{name}} entfernen",
     "removeCaConfirm": "„{{name}}“ aus dem CA-Speicher entfernen?",
-    "removeCaDescription": "Das gespeicherte PEM wird gelöscht. Alles, was darauf verweist (etwa eine eigene Caddy-Konfiguration eines Projekts, die auf eine heruntergeladene Kopie zeigt), bleibt unberührt — dies entfernt nur den Inventareintrag."
+    "removeCaDescription": "Das gespeicherte PEM wird gelöscht. Alles, was darauf verweist (etwa eine eigene Caddy-Konfiguration eines Projekts, die auf eine heruntergeladene Kopie zeigt), bleibt unberührt; dies entfernt nur den Inventareintrag."
   },
   "webhooks": {
     "columns": {
@@ -660,7 +678,7 @@
     "fixedForLifetime": "Endpoint-URL und HMAC-Secret bleiben für die gesamte Lebensdauer des Endpoints unverändert.",
     "targetAction": "Zielaktion",
     "redeployService": "Einen Service neu deployen",
-    "recordOnly": "Nichts — nur den Aufruf protokollieren",
+    "recordOnly": "Nichts, nur den Aufruf protokollieren",
     "servicesLoading": "Services werden geladen…",
     "servicesEmpty": "Noch keine Services in diesem Workspace",
     "servicePlaceholder": "Service auswählen…"
@@ -671,7 +689,7 @@
     "alreadyBanned": "Für diese IP besteht bereits eine aktive CrowdSec-Sperre.",
     "listName": "Listenname",
     "enrollmentKey": "Enrollment-Key aus der Konsole",
-    "listAdded": "Liste hinzugefügt — Import läuft…",
+    "listAdded": "Liste hinzugefügt, Import läuft…",
     "syncNow": "Jetzt synchronisieren",
     "blockPlaceholder": "IP oder CIDR sperren…",
     "blockAria": "Eine IP oder einen CIDR-Bereich sperren",
@@ -679,7 +697,7 @@
     "yourLists": "Deine Listen",
     "yourListsSubtitle": "Öffentliche und eigene Listen, die planmäßig in CrowdSec importiert werden.",
     "publicLists": "Öffentliche Sperrlisten",
-    "publicListsSubtitle": "Bekannte kostenlose Listen — kein CrowdSec-Konto nötig. Mit einem Klick hinzufügen.",
+    "publicListsSubtitle": "Bekannte kostenlose Listen, kein CrowdSec-Konto nötig. Mit einem Klick hinzufügen.",
     "removeListDescription": "Die Liste und alle von ihr importierten IPs werden aus der Firewall entfernt. Du kannst sie später aus dem Katalog oder per URL erneut hinzufügen.",
     "block": "Sperren",
     "blocking": "Wird gesperrt…",
@@ -748,14 +766,14 @@
     "searchEvents": "Meldung, Host, Fehler suchen…",
     "searchLogs": "Pfad, IP, Status suchen…",
     "wrapHint": "Lange Werte in erweiterten Zeilen umbrechen statt abschneiden",
-    "bannedIp": "Für diese IP besteht eine aktive CrowdSec-Sperre — neue Anfragen werden am Edge abgewiesen.",
+    "bannedIp": "Für diese IP besteht eine aktive CrowdSec-Sperre: neue Anfragen werden am Edge abgewiesen.",
     "searchHosts": "Hosts suchen…",
     "noHosts": "Keine Hosts gefunden.",
     "allHosts": "Alle Hosts"
   },
   "resources": {
     "variables": {
-      "duplicateNote": "Doppelter Schlüssel — eine andere Zeile heißt ebenfalls {{key}}. Zum Speichern eine der Zeilen umbenennen oder löschen.",
+      "duplicateNote": "Doppelter Schlüssel: eine andere Zeile heißt ebenfalls {{key}}. Zum Speichern eine der Zeilen umbenennen oder löschen.",
       "duplicateCount_one": "{{count}} doppelter Schlüssel",
       "duplicateCount_other": "{{count}} doppelte Schlüssel",
       "duplicateBlocksSave": "Doppelte Schlüssel auflösen, um zu speichern"
@@ -775,10 +793,10 @@
       "imageTargetHint": "Vollqualifiziert, ohne Tag. Leer = lokaler Build. Zugangsdaten werden über den Host zugeordnet.",
       "prPreviews": "PR-Previews",
       "prPreviewsHint": "Diesen Service für jeden Pull Request in eine isolierte Preview-Umgebung neu bauen.",
-      "staged": "Quelle vorgemerkt — zum Anwenden deployen",
+      "staged": "Quelle vorgemerkt. Zum Anwenden deployen",
       "stageFailed": "Quelle konnte nicht vorgemerkt werden",
       "registryMatched": "Push über {{name}} ({{host}}).",
-      "registryUnmatched": "Keine Registry-Zugangsdaten für {{host}} — lege welche unter „Registries“ an oder leere dieses Feld.",
+      "registryUnmatched": "Keine Registry-Zugangsdaten für {{host}}. Lege welche unter „Registries“ an oder leere dieses Feld.",
       "pipe": {
         "repo": "Repo",
         "build": "Build",
@@ -800,8 +818,8 @@
     "deleteStackBlurb": "Entfernt jeden Service dieses Stacks aus dem Swarm, seine Routen und den Ressourcen-Eintrag. Das kann nicht rückgängig gemacht werden.",
     "deleteStackTitle": "Den Stack {{name}} löschen?",
     "deleteStackDescription": "Alle {{n}} Services werden aus dem Swarm entfernt, samt ihrer Routen und des Ressourcen-Eintrags. Das kann nicht rückgängig gemacht werden.",
-    "variablesStaged": "Variablen vorgemerkt — prüfe und wende die ausstehenden Änderungen an.",
-    "variablesSavedRedeploy": "Variablen gespeichert — sie greifen beim nächsten Redeploy",
+    "variablesStaged": "Variablen vorgemerkt. Prüfe und wende die ausstehenden Änderungen an.",
+    "variablesSavedRedeploy": "Variablen gespeichert. Sie greifen beim nächsten Redeploy",
     "variablesSaveFailed": "Speichern fehlgeschlagen",
     "publicAccessTitle": "Öffentlicher Zugriff",
     "publicAccessDescription": "Aus hält die DB nur im internen Netzwerk. An verdrahtet den Caddy-Layer-4-Proxy und stellt den öffentlichen Hostnamen ins offene Internet.",
@@ -817,13 +835,13 @@
     "publicEnabledToast": "Öffentlicher Zugriff aktiviert",
     "publicDisabledToast": "Öffentlicher Zugriff deaktiviert",
     "publicUpdateFailed": "Öffentlicher Zugriff konnte nicht geändert werden",
-    "publicAccessStaged": "Öffentlicher Zugriff vorgemerkt — zum Anwenden deployen"
+    "publicAccessStaged": "Öffentlicher Zugriff vorgemerkt. Zum Anwenden deployen"
   },
   "tableSelection": {
     "genericFailure": "fehlgeschlagen",
     "removed": "{{items}} entfernt",
-    "removeFailed": "{{items}} konnten nicht entfernt werden — {{reason}}",
-    "removedPartial": "{{items}} entfernt · {{skipped}} übersprungen — {{reason}}"
+    "removeFailed": "{{items}} konnten nicht entfernt werden: {{reason}}",
+    "removedPartial": "{{items}} entfernt · {{skipped}} übersprungen: {{reason}}"
   },
   "docker": {
     "someNotRemoved": "Einige {{items}} konnten nicht entfernt werden",
@@ -854,7 +872,7 @@
     "inPlaceSubVolume": "Ersetzt den Inhalt des Volumes durch dieses Archiv. Wird verweigert, solange ein Container es eingebunden hat. Erfordert die eingetippte Namensbestätigung.",
     "inPlaceSubDatabase": "Überschreibt die aktuelle Quelle mit diesem Snapshot. Erfordert die eingetippte Namensbestätigung.",
     "intoTitle": "In eine andere Datenbank wiederherstellen",
-    "intoSub": "Befüllt eine andere Datenbank aus diesem Snapshot. Deren Inhalt wird überschrieben, nicht der dieser Quelle — die eingetippte Bestätigung nennt das Ziel.",
+    "intoSub": "Befüllt eine andere Datenbank aus diesem Snapshot. Deren Inhalt wird überschrieben, nicht der dieser Quelle; die eingetippte Bestätigung nennt das Ziel.",
     "targetDatabase": "Ziel-Datenbank",
     "selectDatabase": "Datenbank auswählen…",
     "archiveUnavailable": "Backup-Archiv ist nicht verfügbar",
@@ -872,7 +890,7 @@
     "emptyTitle": "Keine Secret-Provider",
     "emptyDescription": "Verbinde HashiCorp Vault, OpenBao, Infisical oder Doppler und referenziere deren Secrets aus den Variablen jedes Services, ohne Werte nach otterdeploy zu kopieren.",
     "syntaxBefore": "Referenziere ein Secret in jedem Variablenwert als",
-    "syntaxAfter": "— es wird bei jedem Deploy vom Provider geholt und hier nie gespeichert.",
+    "syntaxAfter": "(wird bei jedem Deploy vom Provider geholt und hier nie gespeichert).",
     "editTitle": "Secret-Provider bearbeiten",
     "addTitle": "Secret-Provider hinzufügen",
     "dialogDescriptionBefore": "Referenziere seine Secrets aus jeder Umgebungsvariablen als",
@@ -884,7 +902,7 @@
     "credentialHintCreate": "Verschlüsselt gespeichert; wird nie wieder angezeigt.",
     "saveChanges": "Änderungen speichern",
     "providerUpdated": "Provider aktualisiert",
-    "providerAdded": "Provider hinzugefügt — führe einen Verbindungstest aus, um ihn zu prüfen",
+    "providerAdded": "Provider hinzugefügt. Führe einen Verbindungstest aus, um ihn zu prüfen",
     "saveError": "Provider konnte nicht gespeichert werden",
     "validationRequired": "Erforderlich",
     "validationNamePattern": "Nur Kleinbuchstaben, Ziffern, `-` und `_`",
@@ -947,12 +965,12 @@
     "dotenvHint": ".env-Format · # Kommentare ok · KEY=value",
     "pasteClipboard": "Aus Zwischenablage einfügen",
     "selectAtLeastOne": "Wähle mindestens ein Environment.",
-    "replacesIn": "Ersetzt jede Variable in {{targets}} — atomar pro Environment.",
+    "replacesIn": "Ersetzt jede Variable in {{targets}}, atomar pro Environment.",
     "applyVars": "{{n}} Variablen anwenden →",
     "applyVarsMulti": "{{n}} Variablen auf {{envs}} Environments anwenden →",
     "savedToast": "{{n}} Variablen in {{targets}} gespeichert",
     "failedToast": "Fehlgeschlagen für {{names}}: {{message}}",
-    "appliedSuffix": " — angewendet auf {{names}}",
+    "appliedSuffix": " · angewendet auf {{names}}",
     "couldntSave": "Konnte nicht speichern"
   }
 }

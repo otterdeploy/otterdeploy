@@ -1,6 +1,6 @@
 /**
- * Persisted restore runs (backup_restore): every restore attempt gets a row —
- * status, target, duration, failure — so restores have history and observable
+ * Persisted restore runs (backup_restore): every restore attempt gets a row -
+ * status, target, duration, failure: so restores have history and observable
  * state instead of living only inside a blocking RPC. Written by restore.ts.
  */
 import type { BackupId, BackupRestoreId, OrganizationId, ResourceId } from "@otterdeploy/shared/id";

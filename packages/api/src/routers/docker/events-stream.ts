@@ -3,7 +3,7 @@
  *
  * Bridges the docker event bus (process-wide singleton in
  * `swarm/events/subscriber`) to a per-request async generator. Unlike the
- * project stream this one is deliberately unscoped — it is the daemon-level
+ * project stream this one is deliberately unscoped: it is the daemon-level
  * escape hatch behind the install-admin gate, so every event the bus sees is
  * forwarded, flattened into the display-oriented wire shape via
  * `toWireEvent` (see `./events-wire.ts` for the mapping and its tests).
@@ -20,7 +20,7 @@ export interface DockerEventsStreamInput {
  * Live tail of the daemon's event feed as a bounded async generator. Same
  * queue discipline as `streamProjectEvents` (routers/project/events-stream.ts):
  * a slow reader drops oldest instead of backpressuring the shared bus, and
- * the abort signal — not `generator.return()` — is what wakes a parked loop
+ * the abort signal (not `generator.return()`) is what wakes a parked loop
  * on client disconnect (od-664: a parked `await` can't be interrupted, so
  * without the abort listener every closed stream leaked its bus subscription
  * until the next daemon event happened to arrive).

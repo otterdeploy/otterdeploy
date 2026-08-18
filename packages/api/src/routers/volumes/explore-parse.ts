@@ -1,7 +1,7 @@
 /**
  * Pure half of the volume file explorer: the path gate that keeps user input
  * inside the /v mount, and the parser for the BusyBox `stat` lines the helper
- * container prints. No daemon, no I/O — unit-tested in
+ * container prints. No daemon, no I/O: unit-tested in
  * __tests__/explore.test.ts; the container plumbing lives in explore.ts.
  */
 import { posix } from "node:path";
@@ -21,7 +21,7 @@ export type ResolvedVolumePath =
 /**
  * Normalize a user-supplied path inside the volume and refuse anything that
  * could escape the mount: `..` segments (even ones a normalize would collapse
- * away — reject, don't repair), `~` expansion candidates, NUL bytes. The
+ * away: reject, don't repair), `~` expansion candidates, NUL bytes. The
  * container path is only ever built by joining vetted segments onto /v, and a
  * final resolve() re-checks containment as defense in depth (the same
  * belt-and-braces as swarm/file-mounts.ts `resolveFileMountPath`).
@@ -53,7 +53,7 @@ export function resolveVolumeExplorePath(path: string): ResolvedVolumePath {
 export interface VolumeDirEntry {
   name: string;
   kind: "file" | "dir" | "symlink" | "other";
-  /** stat %s — meaningful for files; directories report their inode size. */
+  /** stat %s: meaningful for files; directories report their inode size. */
   size: number;
   /** Unix seconds (stat %Y). */
   mtime: number;
@@ -82,8 +82,8 @@ export interface ParsedStatLine {
  * Parse one `STAT_LIST_FORMAT` line. Fields are read right-to-left because
  * only the leading `%n` may contain the tab delimiter (a tab in a filename is
  * legal); the trailing four fields are a type word, two numbers, and an octal
- * mode, none of which can. Returns null for unparseable fragments — e.g. the
- * shrapnel a newline-bearing filename produces — which are skipped rather
+ * mode, none of which can. Returns null for unparseable fragments: e.g. the
+ * shrapnel a newline-bearing filename produces: which are skipped rather
  * than guessed at.
  */
 export function parseStatLine(line: string): ParsedStatLine | null {
@@ -102,14 +102,14 @@ export function parseStatLine(line: string): ParsedStatLine | null {
 }
 
 export interface VolumeDirListing {
-  /** The listed path's own stat entry (depth 0) — proves existence + kind. */
+  /** The listed path's own stat entry (depth 0): proves existence + kind. */
   self: { kind: VolumeDirEntry["kind"] } | null;
   entries: VolumeDirEntry[];
 }
 
 /**
  * Split the find/stat stdout for a directory listing into the directory's own
- * entry (depth 0 — its presence proves the path exists, its kind proves it's
+ * entry (depth 0: its presence proves the path exists, its kind proves it's
  * a directory) and its direct children, sorted directories-first then by name.
  */
 export function parseVolumeDirListing(stdout: string, containerPath: string): VolumeDirListing {
@@ -127,7 +127,7 @@ export function parseVolumeDirListing(stdout: string, containerPath: string): Vo
     if (!parsed.path.startsWith(childPrefix)) continue;
     const name = parsed.path.slice(childPrefix.length);
     // -maxdepth 1 already guarantees direct children; a `/` here means the
-    // line is shrapnel from a newline-bearing filename — drop it.
+    // line is shrapnel from a newline-bearing filename: drop it.
     if (name === "" || name.includes("/")) continue;
     entries.push({
       name,

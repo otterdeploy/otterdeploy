@@ -34,7 +34,7 @@ export { buildWebhookBody } from "./jobs/webhook";
 export { createWorkers } from "./workers";
 export { getAllQueues, getQueue, getDeployQueue, allDeployQueues, closeQueues } from "./queues";
 
-// Deploy lanes — per-build-node queues (see lanes.ts).
+// Deploy lanes: per-build-node queues (see lanes.ts).
 export {
   DEFAULT_DEPLOY_LANE,
   deployQueueName,

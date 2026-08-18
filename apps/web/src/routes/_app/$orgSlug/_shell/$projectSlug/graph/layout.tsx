@@ -17,7 +17,7 @@ import { isResourceFlowNode, type ResourceFlowNode } from "@/features/projects/c
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import {
   PANEL_COLLAPSED_HEIGHT,
-  StackCodePanel,
+  // StackCodePanel, (parked with the drawer mount below; re-add together)
   useStackPanelState,
   type StackPanelState,
 } from "@/features/projects/components/stack";
@@ -49,7 +49,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")
   // on hover (intent-preload). The prefetch helpers write under the exact
   // subset keys the collections read, so the canvas's first load renders from
   // cache. Prefetched for the default/main environment (environmentId
-  // undefined) — resolving the active `?env=` in a loader isn't worth the
+  // undefined): resolving the active `?env=` in a loader isn't worth the
   // complexity; a non-main view just fetches on mount as before. Non-blocking
   // + best-effort; `projectIdBySlug` is populated because the parent
   // `$projectSlug` layout loader awaits `projectCollection.preload()`.
@@ -105,7 +105,11 @@ function RouteComponent() {
     <div className="relative flex flex-1 overflow-hidden p-0 sm:p-3">
       <div className="relative flex-1 overflow-hidden border-0 sm:rounded-2xl sm:border">
         <ReactFlowProvider>
-          <GraphCanvas panel={panel} />
+          {/* While the stack-code drawer is parked (below), the canvas sees a
+              permanently closed zero-height drawer so its bottom chrome sits
+              at the bottom edge instead of floating above a drawer that isn't
+              rendered. Revert to `panel={panel}` when the drawer returns. */}
+          <GraphCanvas panel={{ ...panel, open: false, occupiedHeight: 0 }} />
           {/* The `top-10` gap exists to clear the floating canvas toolbar; on a
               phone the drawer covers the whole canvas instead, so it starts at
               the top edge. */}
@@ -123,7 +127,10 @@ function RouteComponent() {
               ) : null}
             </AnimatePresence>
           </div>
+          {/* Stack-code drawer parked (owner call, 2026-08-18): hidden, not
+              deleted. Restore by un-commenting this line and its import.
           <StackCodePanel projectId={project.id} projectSlug={projectSlug} panel={panel} />
+          */}
         </ReactFlowProvider>
       </div>
     </div>

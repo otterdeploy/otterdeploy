@@ -62,7 +62,7 @@ async function teardownServiceRuntime(
         payload: {
           projectId: ref.projectId,
           resourceId: ref.resourceId,
-          // Host-side paths are environment-keyed (null = main env) — carried so
+          // Host-side paths are environment-keyed (null = main env): carried so
           // a later GC retry can rebuild the resource's on-disk ref.
           environmentId: ref.environmentId,
         },
@@ -234,7 +234,7 @@ export async function deleteProjectResource(
       await deleteProxyRoutesByResource(input.resourceId);
       await teardownServiceRuntime(
         found.record.service.serviceName,
-        // Host-side paths key on the resource's environment too (null = main) —
+        // Host-side paths key on the resource's environment too (null = main) -
         // the row carries it; the API-scope ref does not.
         { ...input, environmentId: found.record.resource.environmentId ?? null },
         log,

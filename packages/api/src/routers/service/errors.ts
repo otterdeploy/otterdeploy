@@ -214,7 +214,7 @@ export class RefCycleError extends TaggedError("RefCycleError")<{
 
 /**
  * A `${{vault.<provider>.<ref>}}` reference could not be resolved at deploy
- * time — unknown provider name, provider API failure, or a ref the provider
+ * time: unknown provider name, provider API failure, or a ref the provider
  * doesn't hold. `detail` is operator-actionable and never contains the secret
  * value or the stored credential.
  */

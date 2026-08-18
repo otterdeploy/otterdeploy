@@ -1,13 +1,13 @@
 /**
- * Extra networks — attach this service to additional operator-created docker
+ * Extra networks: attach this service to additional operator-created docker
  * networks (created in the Raw Docker panel). The project network is always
  * on and not listed here: Caddy routing rides it, so there is deliberately no
  * way to detach it (public exposure is the Public networking card's job via
- * `publicEnabled` — detaching the default network is deliberately not a
+ * `publicEnabled`: detaching the default network is deliberately not a
  * "private service" mechanism here).
  *
  * The eligible-network picker reads `docker.networks.list`, which is
- * install-admin-gated — members see the attached names read-only instead of
+ * install-admin-gated: members see the attached names read-only instead of
  * a 403 (the same split the scaling card makes for `docker.nodes.list`).
  */
 import { useState } from "react";
@@ -128,17 +128,17 @@ function ExtraNetworksForm({
         resourceId: resource.resourceId,
         extraNetworks: staged,
       },
-      { onSuccess: () => toast.success("Networks saved — service redeploying to apply them") },
+      { onSuccess: () => toast.success("Networks saved: service redeploying to apply them") },
     );
   };
 
   return (
     <>
-      {/* The project network, always on — shown so the list never reads as
+      {/* The project network, always on: shown so the list never reads as
           "this service is on no network", but with no remove affordance. */}
       <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
         <span className="font-mono text-[12.5px]">{service.runtime.networkName}</span>
-        <span className="text-[11px] text-muted-foreground">Project network — always attached</span>
+        <span className="text-[11px] text-muted-foreground">Project network · always attached</span>
       </div>
 
       {staged.map((name) => (

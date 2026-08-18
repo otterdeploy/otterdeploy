@@ -174,7 +174,7 @@ export function DomainRowActions({
   const { t } = useTranslation();
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
-      {/* Pause/resume without deleting — checked while the operator hasn't
+      {/* Pause/resume without deleting: checked while the operator hasn't
           paused it, whatever the system gate currently says. */}
       <Switch
         checked={domain.status !== "paused"}

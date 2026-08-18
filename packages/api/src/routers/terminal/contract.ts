@@ -27,7 +27,7 @@ const terminalContainerSchema = z.object({
   state: z.string(),
   /** otterdeploy.resource.type label value (drives picker grouping). */
   resourceType: z.enum(["service", "postgres", "redis", "mariadb", "mongodb"]),
-  /** Detected framework for source-built services — the picker's icon
+  /** Detected framework for source-built services: the picker's icon
    *  fallback when the image ref resolves no brand mark. Null for databases
    *  and for services never built / not detected. */
   framework: z.enum(FRAMEWORK_KINDS).nullable(),

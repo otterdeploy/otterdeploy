@@ -125,7 +125,7 @@ export const updateServiceInput = z.object({
 
   // Extra docker networks this service joins in ADDITION to its always-on
   // project network (the project network carries Caddy routing and is never
-  // detachable — public exposure is `publicEnabled`'s job). Names, applied on
+  // detachable: public exposure is `publicEnabled`'s job). Names, applied on
   // the redeploy this update triggers; a deleted network is skipped at deploy.
   // Null clears the list; omitted leaves it untouched (patch semantics).
   extraNetworks: z.array(z.string().min(1)).nullable().optional(),
@@ -246,7 +246,7 @@ export const domainRouteInput = z.object({
 });
 
 /** The operator's per-host on/off switch. `enabled: false` maps onto the
- *  route's `disabledByUser` column — the system-owned `enabled` gate is not
+ *  route's `disabledByUser` column: the system-owned `enabled` gate is not
  *  touched, so re-enabling needs no re-verification. */
 export const setDomainEnabledInput = domainRouteInput.extend({
   enabled: z.boolean(),

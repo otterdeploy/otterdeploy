@@ -1,13 +1,13 @@
 /**
  * Add / edit dialog for an external secret provider.
  *
- * Same component for both flows — when `editing` is set we PATCH and the
+ * Same component for both flows: when `editing` is set we PATCH and the
  * credential field is optional (blank = keep the stored one); when it's null
  * we POST and the credential is required. The kind is locked after creation:
  * changing it would semantically be "this is now a different provider", so
  * operators delete and re-add instead.
  *
- * The credential is write-only from here on — the list endpoint only ever
+ * The credential is write-only from here on: the list endpoint only ever
  * returns `credentialSet: boolean`.
  */
 

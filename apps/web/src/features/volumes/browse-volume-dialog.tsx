@@ -2,7 +2,7 @@
  * Read-only file explorer for one volume, backed by volumes.explore.* (a
  * disposable helper container mounts the volume read-only server-side).
  * Breadcrumb navigation, dirs-first listing, and an inline view of small
- * text files — binary and >256 KB files are named as not (fully) viewable
+ * text files: binary and >256 KB files are named as not (fully) viewable
  * rather than silently mangled.
  */
 import { useState } from "react";
@@ -43,7 +43,7 @@ export function BrowseVolumeDialog({
 
 function BrowseBody({ name }: { name: string }) {
   // `path` is the directory being listed; `file` (when set) is the relative
-  // path of the file being viewed — the listing stays cached underneath.
+  // path of the file being viewed: the listing stays cached underneath.
   const [path, setPath] = useState("");
   const [file, setFile] = useState<string | null>(null);
 
@@ -63,7 +63,7 @@ function BrowseBody({ name }: { name: string }) {
         <DialogDescription className="mt-0.5 truncate font-mono text-xs">{name}</DialogDescription>
       </DialogHeader>
 
-      {/* Breadcrumb — the last crumb is the current location, not a link. */}
+      {/* Breadcrumb: the last crumb is the current location, not a link. */}
       <nav
         aria-label="Volume path"
         className="flex flex-wrap items-center gap-0.5 border-b bg-muted/30 px-5 py-2 font-mono text-xs"
@@ -124,7 +124,7 @@ function BrowseBody({ name }: { name: string }) {
       </div>
 
       <p className="border-t px-5 py-2 text-[11px] text-muted-foreground">
-        Read-only view — files over 256 KB are shown truncated; binary files aren't rendered.
+        Read-only view: files over 256 KB are shown truncated; binary files aren't rendered.
       </p>
     </DialogContent>
   );
@@ -173,7 +173,7 @@ interface DirEntry {
 }
 
 function EntryRow({ entry, onOpen }: { entry: DirEntry; onOpen: () => void }) {
-  // Symlinks and special files are listed honestly but not openable — the
+  // Symlinks and special files are listed honestly but not openable: the
   // server refuses to dereference them anyway.
   const openable = entry.kind === "dir" || entry.kind === "file";
   return (
@@ -243,7 +243,7 @@ function FileView({ name, path }: { name: string; path: string }) {
   if (data.binary) {
     return (
       <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-        Binary file · {fmtBytes(data.size)} — not viewable here.
+        Binary file · {fmtBytes(data.size)}: not viewable here.
       </p>
     );
   }

@@ -69,13 +69,13 @@ export interface StackChildRow {
  * resource's status, falling back to the stack's own deploy state when the
  * stack has no child for it yet.
  *
- * The join key is `serviceName` — NEVER the child's resource name.
+ * The join key is `serviceName`. NEVER the child's resource name.
  * `pickResourceName` collision-suffixes that one (stack "it-tools-2" + service
  * "it-tools" → resource "it-tools-2-it-tools"; a namesake → "<stack>-service"),
  * so keying on it matched the declared compose key for essentially no stack.
  * Every member silently fell through to `base`, i.e. this panel rendered the
- * STACK's deploy status N times over while the graph — which already joins on
- * serviceName — showed each child's real state. That is the panel and the node
+ * STACK's deploy status N times over while the graph: which already joins on
+ * serviceName: showed each child's real state. That is the panel and the node
  * contradicting each other about one deploy, which is exactly what this
  * module's header promises cannot happen.
  *

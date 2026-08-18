@@ -99,7 +99,7 @@ const deployActivityOutput = z.object({
   ),
   building: z.number().int().nonnegative(),
   queued: z.number().int().nonnegative(),
-  /** Queued work with no active build consuming it, on ANY lane — every
+  /** Queued work with no active build consuming it, on ANY lane: every
    *  builder is down. */
   builderStalled: z.boolean(),
   /**

@@ -45,7 +45,7 @@ const INTERRUPTED_MESSAGE =
  *  hand-rolled mock without dragging in the full drizzle type surface. */
 type DbLike = Pick<typeof DbClient, "select" | "update" | "insert">;
 
-/** The single queue read the orphan scan needs — structurally satisfied by a
+/** The single queue read the orphan scan needs: structurally satisfied by a
  *  BullMQ Queue (the states param is the literal in-flight union, a subset of
  *  BullMQ's JobType, so method bivariance lines up) and by a plain object in
  *  tests without any type laundering. */
@@ -189,7 +189,7 @@ async function reconcileOrphans(
   if (candidates.length === 0) return 0;
 
   // Union every deploymentId still owned by an in-flight deploy.triggered job,
-  // across EVERY deploy lane — a build queued on a named lane's queue must not
+  // across EVERY deploy lane: a build queued on a named lane's queue must not
   // be mistaken for an orphan just because it isn't on the default queue.
   const owned = new Set<string>();
   for (const lane of await listLanes()) {

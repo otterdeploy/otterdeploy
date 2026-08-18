@@ -150,7 +150,7 @@ const analyticsInput = z
     /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
     projectId: zId("prj").optional(),
     /** Install-wide: EVERY host in the rollups, including the control-plane
-     *  dashboard domain (which no org's domain list contains — the dominant
+     *  dashboard domain (which no org's domain list contains: the dominant
      *  traffic on a small install would otherwise be invisible everywhere).
      *  Install-admin only; overrides projectId. */
     installWide: z.boolean().optional(),
@@ -261,7 +261,7 @@ const analyticsBreakdownsResultSchema = z.object({
   oses: z.array(analyticsTopEntrySchema),
   deviceTypes: z.array(analyticsTopEntrySchema),
   /** Breakdowns are day-granular: the UTC days intersecting the range. For
-   *  "24h" that is typically 2 calendar days — the UI labels this honestly
+   *  "24h" that is typically 2 calendar days: the UI labels this honestly
    *  instead of pretending sub-day precision. */
   breakdownDays: z.number(),
   flags: analyticsFlagsSchema,

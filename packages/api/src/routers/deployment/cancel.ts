@@ -86,7 +86,7 @@ function helperContainerName(deploymentId: DeploymentId): string {
  */
 async function dequeue(deploymentId: DeploymentId): Promise<boolean> {
   let removed = false;
-  // Every deploy lane's queue — the job may sit on a named build-server lane
+  // Every deploy lane's queue: the job may sit on a named build-server lane
   // (packages/jobs/src/lanes.ts) rather than the shared default queue.
   for (const queue of await allDeployQueues()) {
     // `active` is deliberately excluded: removing a job BullMQ is currently
@@ -96,7 +96,7 @@ async function dequeue(deploymentId: DeploymentId): Promise<boolean> {
       // Untyped queue → `data` is `any`; guard the shape instead of asserting.
       const ids = job?.data?.deploymentIds;
       if (!Array.isArray(ids) || !ids.includes(deploymentId)) continue;
-      // Shared job — its other deployments are still wanted. Leave it queued;
+      // Shared job: its other deployments are still wanted. Leave it queued;
       // the builder skips this one when it reads the `cancelled` row.
       if (ids.length > 1) continue;
       try {

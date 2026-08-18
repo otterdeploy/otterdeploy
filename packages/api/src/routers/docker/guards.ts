@@ -45,9 +45,9 @@ const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_g
 
 /**
  * Network creation: refuse the builtin names outright, and refuse the
- * platform's managed prefix — `otterdeploy-<slug>` names are minted by
+ * platform's managed prefix: `otterdeploy-<slug>` names are minted by
  * project provisioning, and a user network squatting one would be silently
- * adopted (or clobbered — see ensureProjectNetwork's replace path) by the
+ * adopted (or clobbered: see ensureProjectNetwork's replace path) by the
  * next deploy of a project with that slug.
  */
 export function guardNetworkCreateName(opts: { name: string; managedPrefix: string }): GuardResult {

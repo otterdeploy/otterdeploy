@@ -1,5 +1,5 @@
 /**
- * Pure task-state mapping for the swarm driver — how a service's live tasks
+ * Pure task-state mapping for the swarm driver: how a service's live tasks
  * resolve to a runtime status + failure reason. Split out of internals.ts
  * (line cap); consumed by its service inspection and the status tests.
  */
@@ -35,7 +35,7 @@ function taskErr(task: TaskLike | undefined): string | null {
  * The newest task drives the live status. But swarm keeps spawning replacement
  * tasks when one can't start (its image isn't pullable, the container exits
  * immediately, …), so the newest task is frequently a fresh "preparing"/"pending"
- * retry even while every attempt fails — which `mapTaskStateToStatus` reads as
+ * retry even while every attempt fails: which `mapTaskStateToStatus` reads as
  * "starting". Unless a task is actually running, surface the most recent hard
  * failure's reason so a stuck rollout reports as "error" (and the deploy is
  * marked failed) instead of an eternal "starting" a caller mistakes for success.

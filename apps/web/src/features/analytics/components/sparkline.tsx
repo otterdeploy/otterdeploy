@@ -1,6 +1,6 @@
 /**
  * Tiny inline area sparkline for the stat tiles: one polyline + gradient
- * fill, no axes, no tooltip — the tile's number IS the reading, the spark
+ * fill, no axes, no tooltip: the tile's number IS the reading, the spark
  * only shows shape. Hand-rolled SVG: a chart library per tile is weight the
  * tiles don't need.
  */

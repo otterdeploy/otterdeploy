@@ -284,7 +284,7 @@ export async function createAndStart(
   const start = await created.value.start();
   if (start.isErr()) throw start.error;
   // Extra memberships are post-start connects (docker create honors one
-  // endpoint config); per-network failures are non-fatal — see the module.
+  // endpoint config); per-network failures are non-fatal: see the module.
   await connectExtraNetworks(docker, name, networkName, extraNetworks ?? [], rlog);
   return waitForContainer(docker, name, networkName);
 }

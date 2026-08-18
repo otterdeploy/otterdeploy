@@ -26,7 +26,7 @@ export interface DomainRowActionsApi {
   autoConfigure: { run: () => void; pending: boolean };
   /** Pause/resume the host without deleting it (the row's on/off switch). */
   setEnabled: { run: (enabled: boolean) => void; pending: boolean };
-  /** Any write in flight — the row disables its actions on this. */
+  /** Any write in flight: the row disables its actions on this. */
   busy: boolean;
 }
 

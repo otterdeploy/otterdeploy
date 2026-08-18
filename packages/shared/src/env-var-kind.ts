@@ -15,7 +15,7 @@
  * (magic template prefixes like `SERVICE_PASSWORD_X`, `SERVICE_FQDN_X`) only
  * fires when a template author wrote the prefix, so a pasted third-party
  * compose file gets nothing.
- * Matching on the name means any compose file benefits with zero authoring —
+ * Matching on the name means any compose file benefits with zero authoring -
  * at the cost of the occasional miss (`ROOT_PW`) or false positive. Every
  * seeded value stays editable, so a wrong guess costs an edit, never a deploy.
  */

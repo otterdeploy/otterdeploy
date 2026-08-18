@@ -1,5 +1,5 @@
 /**
- * Reference picker dropdown — the Railway-style "Add Reference" surface
+ * Reference picker dropdown: the Railway-style "Add Reference" surface
  * for the env-var editor.
  *
  * Reads from `project.refs.list` and renders one row per available
@@ -25,10 +25,10 @@ import { buildRefGroups, buildRefSources, SourceChip, SourceIcon } from "./refer
 
 export interface ReferencePickerProps {
   /** Accepts either a branded project id or the plain string the
-   *  caller has on hand — branded types are launder via `as never` at
+   *  caller has on hand: branded types are launder via `as never` at
    *  the query-options call so both shapes work. */
   projectId: string;
-  /** Hide the row whose token equals this — used when the picker is
+  /** Hide the row whose token equals this: used when the picker is
    *  opened from a field whose value already IS one specific token. */
   excludeToken?: string | null;
   /** Called once the user clicks a row. Receives the token to insert. */
@@ -48,7 +48,7 @@ export function ReferencePicker({
 }: ReferencePickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  /** Tap-to-filter source chip — a group key, or null for all sources. */
+  /** Tap-to-filter source chip: a group key, or null for all sources. */
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
 
   const { data: refs = [], isLoading } = useQuery(
@@ -96,7 +96,7 @@ export function ReferencePicker({
           className="h-7 w-full bg-transparent text-[12px] outline-none placeholder:text-muted-foreground/60"
         />
       </div>
-      {/* Tap-to-filter source chips — horizontally scrollable, one per
+      {/* Tap-to-filter source chips: horizontally scrollable, one per
           source, so narrowing to one resource is a tap instead of typing. */}
       {sources.length > 1 && (
         <div className="flex [scrollbar-width:none] items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
@@ -128,8 +128,8 @@ export function ReferencePicker({
         ) : (
           groups.map((g) => (
             <div key={g.key} className="mb-1 last:mb-0">
-              {/* Group header names the owner — a resource, or the shared
-                  project/environment scope — so each token's origin is clear. */}
+              {/* Group header names the owner: a resource, or the shared
+                  project/environment scope: so each token's origin is clear. */}
               <div className="flex items-center gap-2 px-3 py-1.5">
                 <SourceIcon kind={g.kind} engine={g.engine} vaultKind={g.vaultKind} />
                 <span className="text-[11.5px] font-semibold text-foreground">{g.label}</span>
@@ -150,7 +150,7 @@ export function ReferencePicker({
                   <span className="font-mono text-[11.5px]">{r.key}</span>
                   <span className="ml-auto flex items-center gap-2">
                     {/* Platform-generated (HOST/PORT/URL/DOMAIN/DATABASE_URL/…)
-                        vs the service's own env keys — tagged so they're not
+                        vs the service's own env keys: tagged so they're not
                         mistaken for each other. */}
                     {r.platform && (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] tracking-wide text-muted-foreground/70 uppercase">

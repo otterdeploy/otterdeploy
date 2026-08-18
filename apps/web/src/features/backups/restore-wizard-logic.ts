@@ -1,5 +1,5 @@
 /**
- * Restore-wizard logic — the restore runner and the target/typed-gate rule.
+ * Restore-wizard logic: the restore runner and the target/typed-gate rule.
  * Split from `restore-wizard.tsx` so that component stays a dialog shell
  * within the file-size budget.
  */
@@ -36,7 +36,7 @@ export function performRestore({
   onClose: () => void;
   t: (key: TranslationKey, options?: Record<string, string>) => string;
 }): Promise<void> {
-  // `into` is `in-place` plus a target — the server has one destructive mode,
+  // `into` is `in-place` plus a target: the server has one destructive mode,
   // and `targetResourceId` is what redirects it.
   return restoreBackup({
     id: backup.id,

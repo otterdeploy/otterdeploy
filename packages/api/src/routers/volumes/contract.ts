@@ -111,7 +111,7 @@ const invalidPath = {
 };
 
 /** Path inside the volume, relative to its root ("" = root). Traversal and
- *  shell-metacharacter safety is enforced server-side (explore.ts) — the
+ *  shell-metacharacter safety is enforced server-side (explore.ts): the
  *  contract only bounds the size. */
 const explorePathInput = z.object({
   name: volumeNameField,
@@ -121,7 +121,7 @@ const explorePathInput = z.object({
 const volumeDirEntrySchema = z.object({
   name: z.string(),
   kind: z.enum(["file", "dir", "symlink", "other"]),
-  /** stat %s — meaningful for files; directories report their inode size. */
+  /** stat %s: meaningful for files; directories report their inode size. */
   size: z.number(),
   /** Unix seconds (stat %Y). */
   mtime: z.number(),
@@ -179,7 +179,7 @@ export const volumesContract = {
 
   /** Read-only browse of a volume's contents via a disposable helper
    *  container (see explore.ts). NOT_FOUND covers both a missing volume and
-   *  a missing path inside it — the message says which. */
+   *  a missing path inside it: the message says which. */
   explore: {
     list: oc
       .errors({ ...serverError, ...notFound, ...invalidPath })

@@ -2,14 +2,14 @@
  * Pure bus-event → wire-event mapping for the docker events stream.
  *
  * Separate from `events-stream.ts` (which owns the subscription/queue
- * machinery) because the generator pulls in the swarm barrel — and with it
- * the db client — while this mapping only needs types. That keeps the unit
+ * machinery) because the generator pulls in the swarm barrel: and with it
+ * the db client: while this mapping only needs types. That keeps the unit
  * test (`__tests__/events-wire.test.ts`) runnable without a bun runtime.
  *
  * The normalizer only types container/service/task/network/node events;
  * image and volume events reach us as `kind: "unknown"` with the original
  * payload on `raw`, and are recovered from the raw `Type`/`Actor` fields
- * (already typed as `EventMessage` — no JSON boundary here, the subscriber
+ * (already typed as `EventMessage`: no JSON boundary here, the subscriber
  * parsed the daemon's NDJSON before normalizing).
  */
 
@@ -36,7 +36,7 @@ export interface DockerWireEvent {
   attributes: Record<string, string>;
 }
 
-/** Narrow a raw daemon `Type` string to the wire vocabulary without a cast —
+/** Narrow a raw daemon `Type` string to the wire vocabulary without a cast -
  *  literal comparison against the tuple is the type guard. */
 function toWireType(type: string | null | undefined): DockerEventType {
   for (const known of DOCKER_EVENT_TYPES) {
@@ -47,12 +47,12 @@ function toWireType(type: string | null | undefined): DockerEventType {
 
 /** Actor attributes off the raw payload, for the kinds the normalizer
  *  doesn't carry them on (network/node/unknown). `raw` is a typed
- *  `EventMessage` — plain property reads, no JSON boundary. */
+ *  `EventMessage`: plain property reads, no JSON boundary. */
 function rawAttributes(event: DockerEvent): Record<string, string> {
   return event.raw.Actor?.Attributes ?? {};
 }
 
-/** Image / volume / plugin / config / secret / daemon events — the
+/** Image / volume / plugin / config / secret / daemon events: the
  *  normalizer keeps them opaque, so the fields come off `raw`. Image events
  *  name the ref in Actor.ID and often repeat it under Attributes.name. */
 function unknownToWire(
@@ -100,7 +100,7 @@ export function toWireEvent(event: DockerEvent): DockerWireEvent {
         type: "task",
         action: event.action,
         actorId: event.taskId,
-        // Tasks carry no `name` attribute — the owning service's name is the
+        // Tasks carry no `name` attribute: the owning service's name is the
         // closest human handle the daemon gives us.
         actorName: event.labels["com.docker.swarm.service.name"] ?? null,
         attributes: event.labels,

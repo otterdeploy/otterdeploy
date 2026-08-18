@@ -22,7 +22,7 @@ export interface ForgetSpec {
 
 /**
  * Derive a repo's encryption password: HKDF-SHA256 over a master secret with
- * `info = domain` (the repo key's `passwordDomain` — equals the repo id for
+ * `info = domain` (the repo key's `passwordDomain`: equals the repo id for
  * external destinations, org-qualified for managed ones; see
  * backends.deriveRepoKey), hex-encoded. Deterministic (re-derivable, no secret
  * store) and domain-separated per repo. Pure so it's unit-testable without env.

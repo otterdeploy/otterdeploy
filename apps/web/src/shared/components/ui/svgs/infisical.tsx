@@ -2,7 +2,7 @@ import type { SVGProps } from "react";
 
 /**
  * Infisical infinity mark (selfhst/icons). Rendered in the brand yellow
- * #F5F841 — place it on a dark tile; the yellow has no contrast on light
+ * #F5F841: place it on a dark tile; the yellow has no contrast on light
  * surfaces.
  */
 const Infisical = (props: SVGProps<SVGSVGElement>) => (

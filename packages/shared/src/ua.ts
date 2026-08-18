@@ -1,11 +1,11 @@
 /**
  * Shared user-agent primitives: the CLI-tool matcher, the well-known bot
  * list, the generic bot hint, and the OS-family sniff. Two consumers shape
- * these differently — the web's display classifier
+ * these differently: the web's display classifier
  * (apps/web/src/features/edge-logs/components/edge-logs-ua.ts) renders
  * "Browser major / OS" strings, the API's analytics classifier
  * (packages/api/src/edge-logs/analytics-ua.ts) wants version-free families
- * plus a bot flag — but the recognition tables must stay identical or the
+ * plus a bot flag: but the recognition tables must stay identical or the
  * two surfaces disagree about what a bot is.
  */
 

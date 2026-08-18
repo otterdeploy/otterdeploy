@@ -145,7 +145,7 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
 
   const taskTemplate: SwarmTaskTemplate = {
     ContainerSpec: buildContainerSpec(spec, otterdeployLabels),
-    // Project network first — it carries the service's DNS aliases and Caddy
+    // Project network first: it carries the service's DNS aliases and Caddy
     // routing, so it is unconditional. Extras join alias-less (cross-network
     // reachability, not discovery identity); dedupe + project-name skip live
     // in resolveExtraNetworkTargets so the rule is unit-testable.

@@ -1,5 +1,5 @@
 /**
- * Provider-client tests — fixture JSON through the real zod response
+ * Provider-client tests: fixture JSON through the real zod response
  * schemas, no live HTTP (global fetch is stubbed).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";

@@ -1,5 +1,5 @@
 /**
- * Workspace secret providers — connect HashiCorp Vault / OpenBao, Infisical
+ * Workspace secret providers: connect HashiCorp Vault / OpenBao, Infisical
  * or Doppler so env vars can reference externally-managed secrets as
  * `${{vault.<provider>.<ref>}}`. Values resolve at deploy time and are never
  * stored by otterdeploy; only each provider's own credential is kept,
@@ -9,7 +9,7 @@
  * Settings → Workspace): connecting a provider, rotating its credential and
  * re-testing it are operating tasks you return to, not one-time setup.
  *
- * Owner/admin only for mutations — the UI hides the controls as a courtesy,
+ * Owner/admin only for mutations: the UI hides the controls as a courtesy,
  * and the `vaultProvider` RBAC statement on the router is the boundary.
  */
 
@@ -49,7 +49,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/secrets")({
   staticData: { crumb: "Secrets" },
-  // Warm the provider list on hover (intent-preload) — same query
+  // Warm the provider list on hover (intent-preload): same query
   // `useVaultProviders` reads. Non-blocking + best-effort.
   loader: () => {
     void queryClient
@@ -59,7 +59,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/secrets")({
   component: RouteComponent,
 });
 
-/** The reference-token grammar, tucked behind an info button — standing
+/** The reference-token grammar, tucked behind an info button: standing
  *  explainer boxes read as clutter to anyone past their first visit. */
 function SyntaxHelp() {
   const { t } = useTranslation();

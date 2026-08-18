@@ -114,7 +114,7 @@ export function PanelIcon({ node, size = "md" }: { node: ResourceNodeData; size?
     }
   }
   // Pulled-image services: brand mark resolved from the image ref (postgres,
-  // n8n, vaultwarden, …). Only when recognised — unknown images keep the
+  // n8n, vaultwarden, …). Only when recognised: unknown images keep the
   // tinted kind icon below rather than a neutral container glyph.
   if (node.image && hasImageBrand(node.image)) {
     return (

@@ -32,7 +32,7 @@ export interface PickerTarget {
   /** Image ref (or engine name) driving the row's brand mark; null renders
    *  the group's neutral glyph. */
   image: string | null;
-  /** Detected framework — icon fallback when the image resolves no brand
+  /** Detected framework: icon fallback when the image resolves no brand
    *  (source-built services carry build images no resolver recognises). */
   framework: Framework | null;
   source: SessionSource;
@@ -156,7 +156,7 @@ function databaseTargets(
       detail: short || "–",
       keywords: [db.engine, db.projectName, container?.image ?? "", "database", "console", "shell"],
       // The engine name alone resolves to its brand mark (postgres / redis /
-      // …) — the same resolver services use, matching on the bare name.
+      // …): the same resolver services use, matching on the bare name.
       image: container?.image ?? db.engine,
       framework: null,
       source: container

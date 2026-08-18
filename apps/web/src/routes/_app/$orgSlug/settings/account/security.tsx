@@ -1,5 +1,5 @@
 /**
- * Account → Security — password, two-factor and passkeys. Self-scoped
+ * Account → Security: password, two-factor and passkeys. Self-scoped
  * (better-auth client APIs), no RBAC gating.
  */
 

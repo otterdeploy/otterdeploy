@@ -1,6 +1,6 @@
 /**
  * Country flag as an SVG from `country-flag-icons`. Not emoji: emoji flags
- * are regional-indicator pairs and Windows ships no glyphs for them — every
+ * are regional-indicator pairs and Windows ships no glyphs for them: every
  * flag degrades to two letters there, so the column would be decorative on
  * macOS and broken everywhere else.
  *

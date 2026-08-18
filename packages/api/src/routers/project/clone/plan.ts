@@ -109,7 +109,7 @@ export function rewriteRefs(
     }
     if (token.kind === "vault") {
       // Vault refs point at an org-level secret provider, not a project
-      // resource — copied verbatim; never renamed, never "external".
+      // resource: copied verbatim; never renamed, never "external".
       out += token.raw;
       continue;
     }

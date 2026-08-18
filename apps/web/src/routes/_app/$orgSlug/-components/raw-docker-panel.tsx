@@ -160,7 +160,7 @@ export function RawDockerPanel({
     ["volumes", "Volumes", volumes.data?.volumes.length],
     ["networks", "Networks", networks.data?.length],
     ["tasks", "Tasks", tasks.data?.length],
-    // No count — the feed is a live stream, not an inventory.
+    // No count: the feed is a live stream, not an inventory.
     ["events", "Events", undefined],
   ];
 
@@ -223,7 +223,7 @@ export function RawDockerPanel({
         </TabsContent>
         <TabsContent value="events">
           <p className="mb-3 text-xs text-muted-foreground">
-            Everything the docker daemon reports in real time — container lifecycle, image pulls,
+            Everything the docker daemon reports in real time: container lifecycle, image pulls,
             network and volume changes. History is buffered in this tab only.
           </p>
           {/* Mount-gated so the stream only subscribes while this tab is

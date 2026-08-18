@@ -179,7 +179,7 @@ export async function* streamProgress(
 async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
   const res = await Result.tryPromise({
     // Schema-parsed, not cast: the file is a JSON boundary (an older server
-    // version — or a stray hand edit — may have written it).
+    // version (or a stray hand edit) may have written it).
     try: async () => runSnapshotSchema.parse(JSON.parse(await readFile(STATUS_FILE, "utf8"))),
     catch: (cause) => cause,
   });

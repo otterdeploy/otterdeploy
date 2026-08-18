@@ -70,7 +70,7 @@ const flaggedIpSchema = z.object({
  * and are therefore capped by ITS retention (7 days by default): ask for `7d`
  * on an install that keeps 3 and you get 3. `all` reads the durable
  * `edge_threat_ip` rollup instead, which is never swept, so it reports every
- * probe ever recorded — including IPs whose request rows are long gone.
+ * probe ever recorded: including IPs whose request rows are long gone.
  */
 const flaggedWindowSchema = z.enum(["1h", "6h", "24h", "7d", "all"]);
 

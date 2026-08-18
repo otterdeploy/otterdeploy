@@ -151,7 +151,7 @@ export async function setProxyRouteProtection(
 
 /** The operator's route on/off switch. Writes `disabledByUser` (the wire
  *  speaks `enabled` for the UI's sake) rather than the system-owned `enabled`
- *  column, so expose/recheck can't silently overturn the choice — and all
+ *  column, so expose/recheck can't silently overturn the choice: and all
  *  cert/verification state survives the round-trip. */
 export async function setProxyRouteUserEnabled(
   input: OrgRef & { routeId: ProxyRouteId; enabled: boolean },

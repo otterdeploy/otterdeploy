@@ -5,7 +5,7 @@
  * unit-test without a daemon; the swarm driver feeds `partitionExtraNetworks`
  * the live network list before building the docker spec, because a swarm
  * service create/update fails WHOLE if any target network is missing or not
- * an overlay — a deleted extra network must degrade to a logged skip, never
+ * an overlay: a deleted extra network must degrade to a logged skip, never
  * a bricked deploy.
  */
 
@@ -15,7 +15,7 @@ import type { RequestLogger } from "evlog";
 import { asStepLogger } from "../lib/logger";
 
 /** Dedupe the requested extra networks and drop the always-on project
- *  network (it is attached unconditionally with the service's DNS aliases —
+ *  network (it is attached unconditionally with the service's DNS aliases -
  *  listing it again would duplicate the endpoint). Preserves first-seen
  *  order so specs stay byte-stable across deploys. */
 export function resolveExtraNetworkTargets(
@@ -32,7 +32,7 @@ export function resolveExtraNetworkTargets(
 }
 
 export interface ExtraNetworkPartition {
-  /** Networks that exist with the required driver — safe to put in the spec. */
+  /** Networks that exist with the required driver: safe to put in the spec. */
   apply: string[];
   /** Requested names that can't be joined right now, with the reason. */
   skipped: Array<{ name: string; reason: string }>;
@@ -42,7 +42,7 @@ export interface ExtraNetworkPartition {
  * Split requested extra networks into applyable vs skipped against the
  * daemon's live network list. `requiredDriver` is "overlay" under swarm
  * (tasks can only join overlay networks); the plain-docker driver doesn't
- * pre-filter — its per-network connect is already non-fatal.
+ * pre-filter: its per-network connect is already non-fatal.
  */
 export function partitionExtraNetworks(
   requested: readonly string[],
@@ -68,7 +68,7 @@ export function partitionExtraNetworks(
 /**
  * The swarm driver's pre-filter: resolve the spec's extra networks against
  * the daemon's live overlay networks, logging every skip. When the list API
- * itself errors the requested names pass through unfiltered — the daemon is
+ * itself errors the requested names pass through unfiltered: the daemon is
  * already unhealthy and the service create will report the real failure.
  */
 export async function applyableSwarmExtraNetworks(

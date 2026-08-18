@@ -1,7 +1,7 @@
 /**
  * Unsaved bulk-edit drafts for the Variables page, persisted per
  * (project, environment) in a localStorage-backed TanStack DB collection so
- * a reload — or an accidental tab close — doesn't eat what the operator
+ * a reload (or an accidental tab close) doesn't eat what the operator
  * typed. Cross-tab synced by the storage event (built into the collection).
  *
  * A draft exists only while the editor's text differs from the saved rows:
@@ -12,7 +12,7 @@
 import { createCollection, localStorageCollectionOptions } from "@tanstack/db";
 
 export interface VariableDraft {
-  /** `${projectId}:${environmentId}` — one draft per env editor. */
+  /** `${projectId}:${environmentId}`: one draft per env editor. */
   id: string;
   projectId: string;
   environmentId: string;

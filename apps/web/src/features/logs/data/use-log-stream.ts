@@ -28,7 +28,7 @@
  *     instead of once per line (it was O(n²) over a build log).
  */
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 export type LogStreamStatus = "connecting" | "live" | "ended" | "error";
 
@@ -171,6 +171,14 @@ class StreamBuffer<TLine> {
     this.#scheduleCommit();
   }
 
+  /** Operator-initiated wipe: drop the visible history but keep the live
+   *  stream and its status untouched (unlike `reset`, which is a teardown). */
+  clear() {
+    this.#cancelPending();
+    this.#lines = [];
+    this.#commit();
+  }
+
   snapshotNow(): StreamSnapshot<TLine> {
     return { lines: this.#lines.slice(), status: this.#status };
   }
@@ -215,7 +223,7 @@ export interface UseLogStreamOptions<TRaw, TLine> {
 
 export function useLogStream<TRaw, TLine>(
   opts: UseLogStreamOptions<TRaw, TLine>,
-): { lines: TLine[]; status: LogStreamStatus } {
+): { lines: TLine[]; status: LogStreamStatus; clear: () => void } {
   const { bufferSize, key, cacheCompleted } = opts;
   const [buffer] = useState(() => new StreamBuffer<TLine>());
   const seqRef = useRef(0);
@@ -294,5 +302,9 @@ export function useLogStream<TRaw, TLine>(
     };
   }, [key, buffer, bufferSize, cacheCompleted]);
 
-  return useSyncExternalStore(buffer.subscribe, buffer.getSnapshot);
+  const snapshot = useSyncExternalStore(buffer.subscribe, buffer.getSnapshot);
+  // Stable identity: `buffer` never changes for a mounted hook, so consumers
+  // can pass `clear` straight to an onClick without memo ceremony.
+  const clear = useCallback(() => buffer.clear(), [buffer]);
+  return { ...snapshot, clear };
 }

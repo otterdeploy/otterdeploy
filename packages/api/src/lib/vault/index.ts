@@ -23,7 +23,7 @@ export type { VaultProviderKind, VaultProviderRuntime } from "./types";
 
 /**
  * Fetch `refs` from the provider in one batch. Throws an `Error` with an
- * operator-actionable message (provider name + HTTP status/reason — never the
+ * operator-actionable message (provider name + HTTP status/reason: never the
  * credential or a secret value) on any failure, including a ref the provider
  * doesn't hold.
  */
@@ -55,7 +55,7 @@ export async function testProvider(provider: VaultProviderRuntime): Promise<void
 
 /**
  * Best-effort key listing for the reference picker. Throws on provider
- * failure — callers that want "empty on error" (the picker path) catch it.
+ * failure: callers that want "empty on error" (the picker path) catch it.
  */
 export async function listSecretNames(provider: VaultProviderRuntime): Promise<string[]> {
   switch (provider.kind) {

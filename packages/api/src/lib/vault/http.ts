@@ -20,7 +20,7 @@ export interface VaultFetchOptions<T> {
   method?: "GET" | "POST";
   headers?: Record<string, string>;
   /** JSON-serialized when present. Must never contain the raw credential in
-   *  a form that could end up in an error message — errors only ever quote
+   *  a form that could end up in an error message: errors only ever quote
    *  provider name + status, not bodies. */
   body?: unknown;
 }
@@ -50,7 +50,7 @@ export async function vaultFetch<T>(opts: VaultFetchOptions<T>): Promise<T> {
 
   if (!res.ok) {
     throw new Error(
-      `secret provider "${opts.providerName}": HTTP ${res.status} from the provider API — ` +
+      `secret provider "${opts.providerName}": HTTP ${res.status} from the provider API: ` +
         statusHint(res.status),
     );
   }
@@ -61,7 +61,7 @@ export async function vaultFetch<T>(opts: VaultFetchOptions<T>): Promise<T> {
   const parsed = opts.schema.safeParse(decoded);
   if (!parsed.success) {
     // Shape mismatch, not a value dump: never include the body (it may hold
-    // secret material) — the zod issue paths are enough to debug.
+    // secret material): the zod issue paths are enough to debug.
     throw new Error(
       `secret provider "${opts.providerName}": unexpected response shape (${parsed.error.issues
         .slice(0, 3)

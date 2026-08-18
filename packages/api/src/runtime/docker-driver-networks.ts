@@ -12,7 +12,7 @@ import { resolveExtraNetworkTargets } from "../swarm/extra-networks";
 
 /**
  * Join a freshly-started container to each requested extra network.
- * Per-network failures are non-fatal by design — a network the operator
+ * Per-network failures are non-fatal by design: a network the operator
  * deleted since attaching it must degrade to a logged skip, never a bricked
  * deploy. The project network (already joined at create, with the DNS
  * aliases) is skipped.

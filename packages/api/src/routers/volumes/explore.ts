@@ -1,20 +1,20 @@
 /**
- * Read-only volume file explorer — browse a named volume's contents without
+ * Read-only volume file explorer: browse a named volume's contents without
  * SSH. Mirrors the backup engine's helper-container trick (backups/volume.ts):
  * a disposable alpine container mounts the volume read-only at /v, runs one
  * BusyBox command, exits, and is auto-removed. On top of that:
  *
- *   listVolumeDir : `find <dir> -maxdepth 1 -exec stat -c <fmt> {} +` — one
+ *   listVolumeDir : `find <dir> -maxdepth 1 -exec stat -c <fmt> {} +`: one
  *                   run yields the directory itself (depth 0, proves it IS a
  *                   directory) plus its direct children.
  *   readVolumeFile: `stat` for size/type, then `head -c 256K` for the bytes.
  *                   NUL in the captured bytes ⇒ reported binary, no content.
  *
- * Safety model — the path is user input:
+ * Safety model: the path is user input:
  *   - validated/normalized by `resolveVolumeExplorePath` (explore-parse.ts)
  *     BEFORE any daemon call: `..` segments, `~` expansion candidates, and
  *     NUL are refused;
- *   - every command is an argv array handed to the daemon — there is no
+ *   - every command is an argv array handed to the daemon: there is no
  *     shell anywhere, so no quoting/injection surface;
  *   - the mount is ReadOnly and the helper gets NetworkMode "none";
  *   - the volume's existence is checked first, because a run would otherwise
@@ -34,10 +34,10 @@ import { parseVolumeDirListing, resolveVolumeExplorePath, STAT_LIST_FORMAT } fro
 
 const docker = Docker.fromEnv();
 
-/** Same helper image the volume backup path uses — small, ships BusyBox. */
+/** Same helper image the volume backup path uses: small, ships BusyBox. */
 const EXPLORE_HELPER_IMAGE = "alpine:3.20";
 
-/** Hard cap on file-view bytes (256 KiB) — larger files render truncated. */
+/** Hard cap on file-view bytes (256 KiB): larger files render truncated. */
 export const VOLUME_FILE_READ_CAP = 262144;
 
 // ─── Helper-container plumbing ─────────────────────────────────────────────
@@ -75,7 +75,7 @@ interface HelperCapture {
 /**
  * Run one command in the read-only helper and capture its output, with the
  * same pull-and-retry the backup helper uses when the image is absent
- * locally. No network inside the container — nothing here needs one.
+ * locally. No network inside the container: nothing here needs one.
  */
 async function runExploreHelper(
   cmd: string[],
@@ -188,7 +188,7 @@ export async function listVolumeDir(
 
 /**
  * Pre-read stat: existence, type, and full size. Refuses everything but
- * regular files — dereferencing a symlink would read out of the helper
+ * regular files: dereferencing a symlink would read out of the helper
  * container's own filesystem, not the volume.
  */
 async function statRegularFile(

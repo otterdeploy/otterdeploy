@@ -1,5 +1,5 @@
 /**
- * Pure lane-name logic — no Redis, no env. The queue-name mapping is the
+ * Pure lane-name logic: no Redis, no env. The queue-name mapping is the
  * backward-compatibility contract of the whole lanes feature: the default
  * lane MUST keep the historical bare queue name so jobs enqueued before
  * lanes existed still drain after an upgrade.
@@ -13,7 +13,7 @@ describe("deployQueueName", () => {
   test("the default lane maps to the bare historical queue name", () => {
     expect(deployQueueName(DEFAULT_DEPLOY_LANE)).toBe("deploy.triggered");
     // Guard the coupling: if the job is ever renamed, the default lane must
-    // follow it — this is the same string, not a lookalike literal.
+    // follow it: this is the same string, not a lookalike literal.
     expect(deployQueueName(DEFAULT_DEPLOY_LANE)).toBe(deployTriggeredJob.name);
   });
 

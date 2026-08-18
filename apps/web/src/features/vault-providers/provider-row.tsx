@@ -1,5 +1,5 @@
 /**
- * One configured secret provider — name (the reference-token namespace),
+ * One configured secret provider: name (the reference-token namespace),
  * kind, verification status, and the test / edit / delete actions.
  */
 
@@ -102,7 +102,7 @@ export function ProviderRow({
         ) : null}
         <code className="mt-1 w-fit max-w-full truncate rounded bg-muted px-1.5 py-1 font-mono text-[10px]">
           {`\${{vault.${provider.name}.`}
-          {KIND_REF_HINTS[provider.kind].split(" — ")[0]}
+          {KIND_REF_HINTS[provider.kind].split(": ")[0]}
           {"}}"}
         </code>
       </div>

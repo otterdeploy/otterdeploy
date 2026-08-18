@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/audit")({
   // collection will ask for AND the stats companion query, both under the
   // exact keys the component uses (keyed on the filter *selection*, so the
   // fresh `from` recomputed at mount still hits the cache). Non-blocking +
-  // best-effort — a miss just falls back to fetch-on-mount.
+  // best-effort: a miss just falls back to fetch-on-mount.
   loader: () => {
     prefetchAuditSubset(DEFAULT_AUDIT_FILTER);
     void queryClient

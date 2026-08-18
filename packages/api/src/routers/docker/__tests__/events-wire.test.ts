@@ -20,7 +20,7 @@ describe("toWireEvent", () => {
         ID: "abc123",
         Attributes: { name: "web_app.1", image: "ghcr.io/acme/web:1.2", exitCode: "137" },
       },
-      // Small exact nano value — realistic epoch-nanos exceed 2^53 and would
+      // Small exact nano value: realistic epoch-nanos exceed 2^53 and would
       // trip precision lint; the seconds-fallback test covers real magnitudes.
       timeNano: 123_456_789,
     });
@@ -119,7 +119,7 @@ describe("toWireEvent", () => {
     });
     expect(event.type).toBe("volume");
     expect(event.attributes.driver).toBe("local");
-    // Volume events don't carry a name attribute — the id IS the name.
+    // Volume events don't carry a name attribute: the id IS the name.
     expect(event.actorName).toBeNull();
   });
 

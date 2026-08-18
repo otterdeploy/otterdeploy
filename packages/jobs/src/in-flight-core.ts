@@ -1,10 +1,10 @@
 /**
- * Pure core of the in-flight deploy scan — the union logic, factored away
+ * Pure core of the in-flight deploy scan: the union logic, factored away
  * from ./queues (whose import graph reaches @otterdeploy/env) so it can be
  * unit-tested against fake queues with no Redis and no env.
  */
 
-// Queued, running, delayed for retry, or on a paused queue — anything short of
+// Queued, running, delayed for retry, or on a paused queue: anything short of
 // completed/failed. Mirrors the interrupted-deploy reconciler's state set.
 export const IN_FLIGHT_STATES = ["waiting", "active", "delayed", "paused"] as const;
 
@@ -19,7 +19,7 @@ export interface InFlightDeploys {
   anyActive: boolean;
 }
 
-/** The two queue reads the scan needs — structurally satisfied by a BullMQ
+/** The two queue reads the scan needs: structurally satisfied by a BullMQ
  *  Queue, and by a plain object in tests. The states param is the literal
  *  in-flight union (a subset of BullMQ's JobType) so a real Queue's stricter
  *  signature stays method-bivariance-compatible. */

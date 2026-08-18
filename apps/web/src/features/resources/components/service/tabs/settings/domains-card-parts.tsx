@@ -26,7 +26,7 @@ export interface DomainView {
   source: "generated" | "custom";
   isPrimary: boolean;
   /** "disabled" is the system gate (unexposed / verification pending);
-   *  "paused" is the operator's explicit off switch — config kept intact. */
+   *  "paused" is the operator's explicit off switch: config kept intact. */
   status: "live" | "disabled" | "paused";
   dnsState: DnsState;
   dnsCheckedAt: string | null;
@@ -59,7 +59,7 @@ export function StatusBadge({
   domain: DomainStatusView;
   baseDomainStatus?: BaseDomainStatus;
 }) {
-  // The operator's own switch — distinct from system "Disabled" so nobody
+  // The operator's own switch: distinct from system "Disabled" so nobody
   // goes hunting for a DNS problem that isn't there.
   if (domain.status === "paused") {
     return <Badge variant="secondary">Paused</Badge>;

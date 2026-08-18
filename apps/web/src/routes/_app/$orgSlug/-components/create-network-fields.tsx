@@ -25,7 +25,7 @@ export interface CreateNetworkFormValues {
   attachable: boolean;
   internal: boolean;
   enableIPv6: boolean;
-  /** Raw text — parsed/validated by parseMtu. */
+  /** Raw text: parsed/validated by parseMtu. */
   mtu: string;
   subnet: string;
   gateway: string;
@@ -88,7 +88,7 @@ export async function submitCreateNetwork(values: CreateNetworkFormValues): Prom
     });
     toast.success(
       created.warning
-        ? `Network ${values.name} created — ${created.warning}`
+        ? `Network ${values.name} created: ${created.warning}`
         : `Network ${values.name} created`,
     );
     return true;
@@ -134,8 +134,8 @@ function SwitchRow({
 }
 
 const DRIVERS = [
-  { value: "bridge", label: "bridge — plain-docker containers" },
-  { value: "overlay", label: "overlay — swarm services" },
+  { value: "bridge", label: "bridge: plain-docker containers" },
+  { value: "overlay", label: "overlay: swarm services" },
 ];
 
 export function DriverField({ values, patch }: FieldsProps) {
@@ -174,7 +174,7 @@ export function FlagFields({ values, patch }: FieldsProps) {
       />
       <SwitchRow
         label="Internal"
-        hint="No outbound route — members only see each other."
+        hint="No outbound route: members only see each other."
         checked={values.internal}
         onChange={(v) => patch({ internal: v })}
       />

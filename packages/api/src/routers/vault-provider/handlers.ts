@@ -1,10 +1,10 @@
 /**
- * Secret-provider handlers — CRUD + credential round-trip for the org's
+ * Secret-provider handlers. CRUD + credential round-trip for the org's
  * external secret managers.
  *
  * Two rules run through all of this:
  *   1. The credential is write-only. It is encrypted the moment it arrives
- *      ("vault-creds" domain) and no view ever carries it — only
+ *      ("vault-creds" domain) and no view ever carries it: only
  *      `credentialSet: boolean`.
  *   2. A failing provider keeps its row. `test` records status/lastError so
  *      the operator can fix a rotated token without re-entering the config,
@@ -119,7 +119,7 @@ export async function removeVaultProviderHandler(input: {
 
 /**
  * Round-trip the stored credential and record the outcome. Provider failures
- * are the RESULT here ({ ok: false }), not an exception — the row keeps its
+ * are the RESULT here ({ ok: false }), not an exception: the row keeps its
  * config either way.
  */
 export async function testVaultProviderHandler(input: {
@@ -152,7 +152,7 @@ export async function testVaultProviderHandler(input: {
   return { ok: true, error: null };
 }
 
-/** Best-effort key listing for the reference picker — `[]` on any provider
+/** Best-effort key listing for the reference picker: `[]` on any provider
  *  failure so a slow/broken provider degrades the picker, never breaks it. */
 export async function listVaultSecretNamesHandler(input: {
   id: VaultProviderId;

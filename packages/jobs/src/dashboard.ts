@@ -6,7 +6,7 @@ import { allDeployQueues, getAllQueues } from "./queues";
  * job registry directly.
  *
  * Async because it also discovers named deploy lane queues from the Redis
- * lane set — the registry alone only knows the default `deploy.triggered`.
+ * lane set: the registry alone only knows the default `deploy.triggered`.
  * Discovery runs once at mount, so a lane first used after boot appears on
  * the next server restart.
  */

@@ -1,6 +1,6 @@
 /**
  * Redirect shim. Secret providers moved out of the settings zone into the
- * operational shell (`/$orgSlug/secrets`) — connecting a provider, rotating
+ * operational shell (`/$orgSlug/secrets`): connecting a provider, rotating
  * its credential and re-testing it are surfaces you return to, not one-time
  * configuration.
  *

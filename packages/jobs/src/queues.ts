@@ -25,13 +25,13 @@ export function getAllQueues(): Queue[] {
 }
 
 /** The deploy queue for one lane. The default lane is the plain
- *  `deploy.triggered` queue — same object the registry-derived paths use. */
+ *  `deploy.triggered` queue: same object the registry-derived paths use. */
 export function getDeployQueue(lane: string = DEFAULT_DEPLOY_LANE): Queue {
   return getQueue(deployQueueName(lane));
 }
 
 /**
- * Every deploy lane queue currently known — the default lane first, then any
+ * Every deploy lane queue currently known: the default lane first, then any
  * named lanes discovered via the Redis lane set. Readers that must not miss a
  * build (in-flight watchdog, reconcile, activity, cancel) fan out over this
  * instead of reading the single global queue.

@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * HashiCorp Vault mark (Simple Icons). Rendered in the brand yellow #FFEC6E —
+ * HashiCorp Vault mark (Simple Icons). Rendered in the brand yellow #FFEC6E -
  * place it on a dark tile; the yellow has no contrast on light surfaces.
  */
 const Vault = (props: SVGProps<SVGSVGElement>) => (

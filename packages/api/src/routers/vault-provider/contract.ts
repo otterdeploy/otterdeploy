@@ -1,9 +1,9 @@
 /**
- * External secret-manager oRPC contract — org-scoped provider connections
+ * External secret-manager oRPC contract: org-scoped provider connections
  * whose secrets are referenced from env vars as
  * `${{vault.<providerName>.<ref>}}` and resolved only at deploy time.
  *
- * The stored credential is NEVER part of any output schema — the list view
+ * The stored credential is NEVER part of any output schema: the list view
  * carries `credentialSet: boolean` and nothing else. Reads are open to any
  * org member (the reference picker needs the names); mutations are gated
  * admin/owner in the router.
@@ -17,7 +17,7 @@ const basePath = "/vault-providers";
 
 export const vaultProviderKindSchema = z.enum(["hashicorp", "infisical", "doppler"]);
 
-/** The `<providerName>` segment of a reference token — must survive the
+/** The `<providerName>` segment of a reference token: must survive the
  *  parser grammar, hence the lowercase-slug shape. */
 export const vaultProviderNameSchema = z
   .string()
@@ -77,7 +77,7 @@ const createInput = z.discriminatedUnion("kind", [
   }),
 ]);
 
-// Update mirrors create per kind (the kind itself is immutable — delete and
+// Update mirrors create per kind (the kind itself is immutable: delete and
 // recreate to change it) but every field is optional; an absent credential
 // means "keep the stored one".
 const updateInput = z.object({
@@ -91,7 +91,7 @@ const providerView = z.object({
   id: providerIdField,
   name: z.string(),
   kind: vaultProviderKindSchema,
-  /** Non-secret config only — never the credential. */
+  /** Non-secret config only: never the credential. */
   config: z.object({
     url: z.string().optional(),
     mount: z.string().optional(),
@@ -154,7 +154,7 @@ export const vaultProviderContract = {
     .input(byIdInput)
     .output(z.object({ ok: z.boolean(), error: z.string().nullable() })),
 
-  /** Best-effort key listing for the reference picker — `[]` on any provider
+  /** Best-effort key listing for the reference picker: `[]` on any provider
    *  failure, never an error (the picker degrades to free-text refs). */
   listSecretNames: oc
     .errors(providerErrors)

@@ -147,18 +147,18 @@ const dockerEventTypeSchema = z.enum([
   "unknown",
 ]);
 
-/** One daemon event, flattened for display — no nested Actor, no raw echo. */
+/** One daemon event, flattened for display: no nested Actor, no raw echo. */
 const dockerEventSchema = z.object({
   /** Daemon event timestamp, epoch milliseconds. */
   ts: z.number(),
   type: dockerEventTypeSchema,
-  /** Daemon action verb — `start`, `die`, `pull`, `connect`, … */
+  /** Daemon action verb: `start`, `die`, `pull`, `connect`, … */
   action: z.string(),
   actorId: z.string(),
   /** Human name when the daemon reports one (container/service/network name,
    *  image ref); null for events that only carry an id. */
   actorName: z.string().nullable(),
-  /** Actor attributes as the daemon sent them — labels, exitCode, signal, … */
+  /** Actor attributes as the daemon sent them: labels, exitCode, signal, … */
   attributes: z.record(z.string(), z.string()),
 });
 
@@ -237,7 +237,7 @@ export const dockerContract = {
       .input(z.object({ name: z.string().min(1) }))
       .output(z.object({ removed: z.boolean() })),
   },
-  // Split into ./contract-networks.ts (line cap) — now also carries create.
+  // Split into ./contract-networks.ts (line cap): now also carries create.
   networks: networksContract,
   tasks: {
     list: oc

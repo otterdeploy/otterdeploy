@@ -141,7 +141,7 @@ export async function addServiceDomain(
   return Result.ok(toDomainView(route, serverIp));
 }
 
-/** Load a route and confirm it belongs to the addressed resource — folds
+/** Load a route and confirm it belongs to the addressed resource: folds
  *  "missing" and "wrong resource" into one 404 so existence never leaks.
  *  Exported for the pause/resume slice in ./domains-enabled. */
 export async function loadOwnedRoute(

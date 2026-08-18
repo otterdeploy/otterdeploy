@@ -75,7 +75,7 @@ export interface SwarmServiceSpec {
   /**
    * Extra operator-created docker networks to join, by NAME, in addition to
    * the always-on project network (which carries the service's DNS aliases
-   * and Caddy routing — it is never detachable). The drivers apply these
+   * and Caddy routing: it is never detachable). The drivers apply these
    * best-effort: a name that no longer resolves to a live network of the
    * right driver is skipped with a log line, never a failed deploy.
    */
@@ -121,7 +121,7 @@ export async function provisionSwarmService(
     return existing;
   }
 
-  // Filter the extras against the live daemon FIRST — swarm rejects the whole
+  // Filter the extras against the live daemon FIRST: swarm rejects the whole
   // create if any Networks target is missing or not an overlay.
   const extraNetworks = await applyableSwarmExtraNetworks(docker, spec, networkName, rlog);
   const createResult = await docker.services.create(
@@ -172,7 +172,7 @@ export async function updateSwarmService(
     });
   }
 
-  // Same live filter as the provision path — a deleted extra network must
+  // Same live filter as the provision path: a deleted extra network must
   // degrade to a logged skip, not a failed rolling update.
   const extraNetworks = await applyableSwarmExtraNetworks(docker, spec, networkName, rlog);
   const newSpec = buildServiceSpec({ ...spec, extraNetworks }, networkName);

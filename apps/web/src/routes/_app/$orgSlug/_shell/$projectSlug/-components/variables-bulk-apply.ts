@@ -1,5 +1,5 @@
 /**
- * The bulk editor's apply path: one atomic bulkReplace per selected env — the
+ * The bulk editor's apply path: one atomic bulkReplace per selected env: the
  * calls are independent (each targets a distinct env) so they run
  * concurrently; failures are collected so a partial failure reports exactly
  * which envs missed. Split from `variables-bulk-edit.tsx` so the dialog stays

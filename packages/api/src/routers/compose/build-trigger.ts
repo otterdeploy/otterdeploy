@@ -145,7 +145,7 @@ export async function enqueueInlineComposeBuild(input: {
   await triggerDeploy(
     {
       projectId: input.projectId,
-      // Correlation-only (no repo) — the builder loads everything off the row.
+      // Correlation-only (no repo): the builder loads everything off the row.
       gitRepoId: input.resourceId,
       ref: "inline",
       sha,

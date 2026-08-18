@@ -1,5 +1,5 @@
 /**
- * Field building blocks for the secret-provider dialog — one labelled text
+ * Field building blocks for the secret-provider dialog: one labelled text
  * field (same structural-field-API pattern as the SSO dialog) plus the
  * per-kind config field groups, split out so the dialog stays under the
  * function line cap.
@@ -57,7 +57,7 @@ export function ProviderTextField({
   );
 }
 
-/** All per-kind form field names, flat — the dialog assembles the per-kind
+/** All per-kind form field names, flat: the dialog assembles the per-kind
  *  config object at submit time. */
 export interface ProviderFormValues {
   kind: "hashicorp" | "infisical" | "doppler";
@@ -120,7 +120,7 @@ export const KIND_FIELDS: Record<
   ],
 };
 
-/** The credential's label key per kind — it's a different artifact per provider. */
+/** The credential's label key per kind: it's a different artifact per provider. */
 export const CREDENTIAL_LABEL_KEYS: Record<ProviderFormValues["kind"], TranslationKey> = {
   hashicorp: "vault.credentials.hashicorp",
   infisical: "vault.credentials.infisical",

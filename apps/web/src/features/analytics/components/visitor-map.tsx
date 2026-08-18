@@ -1,14 +1,14 @@
 /**
  * Visitors by country: a real choropleth (pre-projected SVG paths, no mapping
- * library — see ../../../scripts/update-world-map.mjs), a donut, and the
+ * library: see ../../../scripts/update-world-map.mjs), a donut, and the
  * ranked country list, all colored from ONE rank→accent ramp so a country is
  * the same shade in all three places.
  *
  * The ramp is by RANK, not by share: traffic is heavily skewed (one country
  * is usually most of it), so ramping on absolute share collapses the whole
  * long tail into a single shade. The span is fixed at RAMP_SPAN and rank is
- * clamped to it: the readable ranks get the whole ramp, and the tail — which
- * is all "barely any traffic" anyway — shares the faintest step.
+ * clamped to it: the readable ranks get the whole ramp, and the tail: which
+ * is all "barely any traffic" anyway: shares the faintest step.
  */
 
 import { useMemo, useState } from "react";

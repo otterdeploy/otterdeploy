@@ -127,7 +127,7 @@ export function coveringDayKeys(fromMs: number, nowMs: number): string[] {
 }
 
 /** Day rows for the window with today's (and any matching) live accumulators
- *  REPLACING their DB counterparts — day accs are running totals seeded from
+ *  REPLACING their DB counterparts: day accs are running totals seeded from
  *  the DB, so adding would roughly double today. `hosts: null` means
  *  install-wide: no host filter at all (the caller has already authorized
  *  install scope). The returned rows may be live acc objects: read-only. */
