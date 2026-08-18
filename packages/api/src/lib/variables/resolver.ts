@@ -183,7 +183,7 @@ async function substitute(
       continue;
     }
 
-    const exportsResult = await loadExports(token.resource, ctx);
+    const exportsResult = await loadExports(token.resource, ctx, token.var);
     if (exportsResult.isErr()) return Result.err(exportsResult.error);
 
     const value = exportsResult.value[token.var];
@@ -204,6 +204,7 @@ async function substitute(
 async function loadExports(
   refResourceName: string,
   ctx: ResolveContext,
+  refVarName: string,
 ): Promise<Result<Record<string, string>, ResolveError>> {
   // Magic scopes: `project` and `environment` aren't real resources but
   // env-var bags shared across every service in the (project, environment)
@@ -227,6 +228,17 @@ async function loadExports(
   }
 
   if (ctx.visited.has(resourceRow.id)) {
+    // A ref back into a resource that is currently resolving. Only the env-var
+    // exports actually recurse; the computed service exports (HOST / PORT /
+    // URL / DOMAIN / PUBLIC_URL / DOMAINS) derive from the service record, its
+    // ports and its proxy routes alone. Serve those, so a service can point
+    // e.g. BETTER_AUTH_URL at its own PUBLIC_URL, and only report a true
+    // cycle when the requested var needs the env bag.
+    if (resourceRow.type === "service") {
+      const computed = await loadServiceExports(resourceRow, refResourceName, ctx, true);
+      if (computed.isErr()) return computed;
+      if (computed.value[refVarName] !== undefined) return computed;
+    }
     return Result.err(new RefCycleError({ chain: [...ctx.visited, resourceRow.id] }));
   }
 
@@ -251,11 +263,9 @@ async function loadScopeExports(
 ): Promise<Result<Record<string, string>, ResolveError>> {
   // The bag is keyed by (projectId, environmentId). The persistent env's own
   // vars. Previews read the same bag (they are not environments).
-  const bag: Record<string, string> = {};
-  Object.assign(
-    bag,
-    await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.environmentId }),
-  );
+  const bag: Record<string, string> = {
+    ...(await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.environmentId })),
+  };
   ctx.exportsCache.set(cacheKey, bag);
   return Result.ok(bag);
 }
@@ -288,20 +298,31 @@ async function loadDatabaseExports(
   return Result.ok(exports);
 }
 
+/**
+ * `envFree` skips the recursive env resolve and returns only the computed
+ * exports — the cycle fallback above uses it. Env-free results are NOT
+ * cached: the full record must still be built when the resource is
+ * referenced outside the cycle.
+ */
 async function loadServiceExports(
   resourceRow: ResourceRow,
   refResourceName: string,
   ctx: ResolveContext,
+  envFree = false,
 ): Promise<Result<Record<string, string>, ResolveError>> {
   const record = await getServiceRecord(ctx.projectId, resourceRow.id);
   if (!record) {
     return Result.err(new RefMissingResourceError({ refResourceName }));
   }
 
-  ctx.visited.add(resourceRow.id);
-  const nestedResult = await resolveEnvFor(record, ctx);
-  ctx.visited.delete(resourceRow.id);
-  if (nestedResult.isErr()) return Result.err(nestedResult.error);
+  let resolvedEnv: Record<string, string> = {};
+  if (!envFree) {
+    ctx.visited.add(resourceRow.id);
+    const nestedResult = await resolveEnvFor(record, ctx);
+    ctx.visited.delete(resourceRow.id);
+    if (nestedResult.isErr()) return Result.err(nestedResult.error);
+    resolvedEnv = nestedResult.value;
+  }
 
   // Public domains (ordered primary-first) → DOMAIN / PUBLIC_URL / DOMAINS.
   const routes = await listProxyRoutesByResourceId(resourceRow.id);
@@ -310,9 +331,9 @@ async function loadServiceExports(
     resource: resourceRow,
     service: record.service,
     ports: record.ports,
-    resolvedEnv: nestedResult.value,
+    resolvedEnv,
     domains: routes.map((r) => r.domain),
   });
-  ctx.exportsCache.set(resourceRow.id, exports);
+  if (!envFree) ctx.exportsCache.set(resourceRow.id, exports);
   return Result.ok(exports);
 }
