@@ -11,6 +11,9 @@ interface ToolbarProps {
   countLabel?: string | null;
   hasPending: boolean;
   diff: { added: number; edited: number; deleted: number };
+  /** Distinct keys duplicated across rows. Non-zero blocks Save: env is
+   *  keyed by name, so saving would silently drop all but one row. */
+  duplicateCount: number;
   saving: boolean;
   onBulkEdit: () => void;
   onDiscard: () => void;
@@ -22,6 +25,7 @@ export function Toolbar({
   countLabel = "User Variables",
   hasPending,
   diff,
+  duplicateCount,
   saving,
   onBulkEdit,
   onDiscard,
@@ -39,6 +43,11 @@ export function Toolbar({
           <span className="text-[11.5px] font-normal text-muted-foreground">
             {countLabel !== null && "· "}
             <DiffSummary diff={diff} />
+          </span>
+        )}
+        {duplicateCount > 0 && (
+          <span className="text-[11.5px] font-normal text-destructive">
+            · {duplicateCount} duplicate key{duplicateCount === 1 ? "" : "s"}
           </span>
         )}
       </div>
@@ -62,7 +71,8 @@ export function Toolbar({
       <Button
         size="sm"
         className="h-7 text-[12px]"
-        disabled={!hasPending || saving}
+        disabled={!hasPending || saving || duplicateCount > 0}
+        title={duplicateCount > 0 ? "Resolve duplicate keys to save" : undefined}
         onClick={onSave}
       >
         {saving ? "Saving…" : "Save changes"}

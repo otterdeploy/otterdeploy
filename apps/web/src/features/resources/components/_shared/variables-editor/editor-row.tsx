@@ -35,6 +35,10 @@ interface EditorRowProps {
   row: DraftRow;
   status: RowStatus;
   projectId: string;
+  /** Another visible row carries the same (trimmed) key. Flags the key field
+   *  and blocks Save until resolved: env is keyed by name, so saving both
+   *  would silently keep one and drop the other. */
+  duplicate: boolean;
   revealed: boolean;
   copied: boolean;
   pickerOpen: boolean;
@@ -49,6 +53,7 @@ export function EditorRow({
   row,
   status,
   projectId,
+  duplicate,
   revealed,
   copied,
   pickerOpen,
@@ -73,6 +78,7 @@ export function EditorRow({
             placeholder="KEY"
             className="h-7 w-full min-w-0 font-mono text-[12px] sm:w-56 sm:flex-none"
             spellCheck={false}
+            aria-invalid={duplicate || undefined}
           />
         </div>
         <ValueCell
@@ -96,6 +102,12 @@ export function EditorRow({
           />
         </div>
       </div>
+      {duplicate && (
+        <p className="text-[10.5px] text-destructive sm:pl-[5.5rem]">
+          Duplicate key — another row is also named{" "}
+          <span className="font-mono">{row.key.trim()}</span>. Rename or delete one to save.
+        </p>
+      )}
       {showPickerHint(row.value, pickerOpen) && (
         <p className="text-[10.5px] text-muted-foreground sm:pl-[5.5rem]">
           Tip: press the {"{ }"} button to finish this reference.

@@ -118,6 +118,9 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
   );
 
   const save = () => {
+    // Belt-and-braces behind the disabled Save button: env is keyed by name,
+    // so a duplicate would silently drop all but one row server-side.
+    if (editor.duplicateKeys.size > 0) return;
     // Drop empty-keyed rows here rather than at the server so the operator
     // sees the row disappear instead of a silent server-side filter.
     const env = editor.rows.flatMap((r) =>
@@ -159,6 +162,7 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
         countLabel={countLabel}
         hasPending={editor.hasPending}
         diff={editor.diff}
+        duplicateCount={editor.duplicateKeys.size}
         saving={onSave ? stagingSave : saveMut.isPending}
         onBulkEdit={() => setBulkOpen(true)}
         onDiscard={editor.discard}
@@ -169,6 +173,7 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
         rows={editor.rows}
         deletedRows={editor.deletedRows}
         projectId={resource.projectId}
+        duplicateKeys={editor.duplicateKeys}
         statusOf={editor.statusOf}
         onUpdate={editor.update}
         onDelete={editor.removeRow}
