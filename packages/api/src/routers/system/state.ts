@@ -144,11 +144,17 @@ export function cancel(reason: string): boolean {
 
 /** Replay accumulated events then tail new ones until the run is terminal (and
  *  fully drained) or the client aborts. A handoff also ends the stream. The
- *  server is going away. */
+ *  server is going away.
+ *
+ *  `afterSeq` skips the replay up to (and including) that sequence number, so
+ *  a reconnecting client resumes where it left off instead of receiving the
+ *  whole history again. Seqs are continuous across a cutover: the new server
+ *  restores them from the persisted snapshot in finalizeHandedOffRun(). */
 export async function* streamProgress(
   signal: AbortSignal | undefined,
+  afterSeq = 0,
 ): AsyncGenerator<ProgressEvent> {
-  let cursor = 0;
+  let cursor = resumeIndex(run.logs, afterSeq);
   let wake: (() => void) | null = null;
   const listener = () => wake?.();
   listeners.add(listener);
@@ -172,6 +178,14 @@ export async function* streamProgress(
     listeners.delete(listener);
     signal?.removeEventListener("abort", onAbort);
   }
+}
+
+/** Index of the first log entry newer than `afterSeq` (logs are seq-ordered),
+ *  or the end of the list when everything has already been seen. */
+function resumeIndex(logs: ProgressEvent[], afterSeq: number): number {
+  if (afterSeq <= 0) return 0;
+  const i = logs.findIndex((l) => l.seq > afterSeq);
+  return i < 0 ? logs.length : i;
 }
 
 /** Read the persisted snapshot from disk. Used after a restart to recover the

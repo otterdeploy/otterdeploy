@@ -7,6 +7,7 @@ import { useState } from "react";
  * check.
  */
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -25,14 +26,14 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 import { useUpdateStatus } from "../data/use-update-status";
 import { UpdateProgress } from "./update-progress";
 
-function reasonText(reason: "already-running" | "no-update" | "downgrade"): string {
+function reasonKey(reason: "already-running" | "no-update" | "downgrade") {
   switch (reason) {
     case "already-running":
-      return "An update is already in progress.";
+      return "updates.reasonAlreadyRunning" as const;
     case "no-update":
-      return "You're already on the latest version.";
+      return "updates.reasonNoUpdate" as const;
     case "downgrade":
-      return "The available version isn't newer than what's running.";
+      return "updates.reasonDowngrade" as const;
   }
 }
 
@@ -47,6 +48,7 @@ export function UpdateDialog({
    *  this browser didn't start it. A fresh local apply takes precedence. */
   attached?: { target: string; dryRun: boolean } | null;
 }) {
+  const { t } = useTranslation();
   const status = useUpdateStatus();
   const [applying, setApplying] = useState<{ target: string; dryRun: boolean } | null>(null);
 
@@ -66,13 +68,13 @@ export function UpdateDialog({
       void queryClient.invalidateQueries({ queryKey: orpc.system.updateState.queryKey() });
       if (res.started) setApplying({ target: res.targetVersion, dryRun: res.dryRun });
       else if (res.reason === "already-running") {
-        toast.message(reasonText(res.reason));
+        toast.message(t(reasonKey(res.reason)));
       } else {
-        toast.message(reasonText(res.reason));
+        toast.message(t(reasonKey(res.reason)));
         handleOpenChange(false);
       }
     },
-    onError: (e) => toast.error(e.message ?? "Couldn't start the update"),
+    onError: (e) => toast.error(e.message ?? t("updates.startFailed")),
   });
 
   // A locally-started apply wins; otherwise fall back to a re-attached run.
@@ -83,7 +85,11 @@ export function UpdateDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {active ? "Updating otterdeploy" : "Update otterdeploy"}
+            {active
+              ? active.dryRun
+                ? t("updates.titleSimulating")
+                : t("updates.titleUpdating")
+              : t("updates.titleIdle")}
             {status.latest && (
               <>
                 <Badge variant="outline" className="font-mono">
@@ -97,9 +103,7 @@ export function UpdateDialog({
           </DialogTitle>
           {!active && (
             <DialogDescription>
-              {status.dryRun
-                ? "Dry-run mode: this simulates the full update and streams progress, but changes nothing. No images are pulled and the control plane will not restart."
-                : "This pulls the new images and restarts the control plane. The dashboard will be briefly unavailable and this page will reconnect automatically when it's back."}
+              {status.dryRun ? t("updates.descriptionDryRun") : t("updates.descriptionReal")}
             </DialogDescription>
           )}
         </DialogHeader>
@@ -114,7 +118,7 @@ export function UpdateDialog({
           status.notes && (
             <div className="flex flex-col gap-1.5">
               <div className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                Release notes
+                {t("updates.releaseNotes")}
               </div>
               <Markdown className="max-h-[280px] overflow-auto rounded-md border bg-muted/40 px-3 py-1.5">
                 {status.notes}
@@ -132,14 +136,18 @@ export function UpdateDialog({
                 rel="noreferrer"
                 className="mr-auto self-center text-[12px] text-primary underline-offset-4 hover:underline"
               >
-                View release on GitHub →
+                {t("updates.viewRelease")}
               </a>
             )}
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="button" disabled={apply.isPending} onClick={() => apply.mutate({})}>
-              {apply.isPending ? "Starting…" : status.dryRun ? "Run simulation" : "Update now"}
+              {apply.isPending
+                ? t("updates.starting")
+                : status.dryRun
+                  ? t("updates.runSimulation")
+                  : t("updates.updateNow")}
             </Button>
           </DialogFooter>
         )}
