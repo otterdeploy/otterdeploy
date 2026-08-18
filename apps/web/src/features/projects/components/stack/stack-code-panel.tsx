@@ -28,6 +28,7 @@ export interface StackCodePanelProps {
   panel: StackPanelState;
 }
 
+// fallow-ignore-next-line unused-export -- parked with the graph drawer; see stack/index.ts
 export function StackCodePanel({ projectId, projectSlug, panel }: StackCodePanelProps) {
   const [view, setView] = useState<PanelViewMode>("edit");
   const stack = useStackState({ projectId });
