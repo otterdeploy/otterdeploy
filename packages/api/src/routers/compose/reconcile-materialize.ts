@@ -18,7 +18,7 @@ import {
   updateServiceRecord,
   upsertServiceMount,
 } from "../service/queries";
-import { pickResourceName, type toServiceFields } from "./reconcile-map";
+import { pickInternalHostname, pickResourceName, type toServiceFields } from "./reconcile-map";
 
 /**
  * Re-apply allowlisted host binds on UPDATE, not just on create.
@@ -92,13 +92,21 @@ async function materializeServiceRow(input: {
     input.composeServiceName,
     input.stackResourceName,
   );
+  // Collision-aware: the mapped hostname is the bare compose name, which a
+  // sibling stack (or a standalone service) may already own on this shared
+  // network. See pickInternalHostname.
+  const internalHostname = await pickInternalHostname(
+    mapped.networkName,
+    input.composeServiceName,
+    input.stackResourceName,
+  );
   const created = await createServiceRecord({
     projectId: ctx.projectId,
     environmentId: input.environmentId,
     name,
     status: "draft",
     source: "image",
-    internalHostname: mapped.internalHostname,
+    internalHostname,
     serviceName: mapped.serviceName,
     networkName: mapped.networkName,
     stackId: ctx.stackResourceId,

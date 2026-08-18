@@ -6,7 +6,7 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { resource } from "@otterdeploy/db/schema/project";
+import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { isSecretKey } from "@otterdeploy/shared/env-var-kind";
 import { and, eq } from "drizzle-orm";
 
@@ -280,4 +280,47 @@ export async function pickResourceName(
   }
   // Extremely unlikely: fall back to a stack-scoped suffix.
   return `${base}-${composeName.length}`;
+}
+
+/**
+ * Overlay DNS alias for a NEW stack child. The bare compose name is what the
+ * file's own services dial (`http://server:3000`), so it is the first choice.
+ * But the project network is SHARED by every stack and standalone service,
+ * and `service_resource` enforces UNIQUE (network_name, internal_hostname):
+ * half the catalog names its main container `server`/`db`/`redis`, so the
+ * second stack to use one of those crashed the whole materialize with a raw
+ * SQL error. When the bare name is owned by someone else, namespace by the
+ * stack (mirroring pickResourceName); intra-stack references to that bare
+ * name were never going to reach this child anyway; on the shared network
+ * the existing owner answers that DNS name.
+ */
+export async function pickInternalHostname(
+  networkName: string,
+  composeName: string,
+  stackName: string,
+): Promise<string> {
+  const taken = async (candidate: string) => {
+    const [row] = await db
+      .select({ id: serviceResource.resourceId })
+      .from(serviceResource)
+      .where(
+        and(
+          eq(serviceResource.networkName, networkName),
+          eq(serviceResource.internalHostname, candidate),
+        ),
+      )
+      .limit(1);
+    return row !== undefined;
+  };
+
+  const bare = sanitize(composeName);
+  if (!(await taken(bare))) return bare;
+  const namespaced = sanitize(`${stackName}-${composeName}`);
+  if (namespaced !== bare && !(await taken(namespaced))) return namespaced;
+  for (let i = 2; i < 50; i++) {
+    const candidate = `${namespaced}-${i}`;
+    if (!(await taken(candidate))) return candidate;
+  }
+  // Unreachable outside adversarial input; keep the insert deterministic.
+  return `${namespaced}-${composeName.length}`;
 }
