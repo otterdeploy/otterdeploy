@@ -38,6 +38,13 @@ import { deployQueueName, listDeployLanes } from "./lanes";
 const LOCK_KEY = "otterdeploy:reconcile:deploy:lock";
 const LOCK_TTL_MS = 60_000;
 
+/** Rows younger than this are NEVER swept, whoever calls. A 15-minute floor
+ *  covers the longest realistic inline stack provision (a 7.5GB image pull
+ *  took ~10 minutes in production) while a genuinely orphaned row still
+ *  settles on a later tick. The real fix is ownership signaling for inline
+ *  deploys (od-tel is adjacent); this makes the sweep safe until then. */
+export const DEFAULT_MIN_ROW_AGE_MS = 15 * 60_000;
+
 const INTERRUPTED_MESSAGE =
   "Interrupted by restart. The build process exited before this deployment finished.";
 
@@ -65,9 +72,12 @@ export interface ReconcileOptions {
   listLanes?: () => Promise<string[]>;
   /** Emit deploy.failed notifications for each reset row. Default true. */
   emit?: boolean;
-  /** Only consider rows at least this old. The periodic (server-side) sweep
-   *  passes a few minutes so it can never race the insert-then-enqueue window
-   *  of a deploy that's being created right now; builder boot keeps 0. */
+  /** Only consider rows at least this old. Defaults to
+   *  {@link DEFAULT_MIN_ROW_AGE_MS}: compose-stack deploys provision INLINE
+   *  (no lane job owns their per-service pending rows), so a zero-grace sweep
+   *  shot a live stack deploy 21 seconds in when the builder's interval tick
+   *  landed mid-provision (store-autumn, 2026-08-18). Tests pass 0 to make
+   *  fresh fixture rows visible. */
   minAgeMs?: number;
   /** Override the run-once lock. Defaults to a Redis SET NX PX on the shared
    *  connection. Tests inject this to exercise the not-acquired branch without
@@ -152,7 +162,7 @@ export async function reconcileInterruptedDeployments(
       listLanes,
       emit,
       emitEvent,
-      opts.minAgeMs ?? 0,
+      opts.minAgeMs ?? DEFAULT_MIN_ROW_AGE_MS,
     );
     const superseded = await reconcileDuplicateRunning(db);
     globalLog.info({
