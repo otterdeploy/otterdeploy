@@ -20,7 +20,7 @@ import type { PtyBackend, StartArgs } from "./pty-backend";
 import { PtySpawnError, PtyTerminalUnavailableError } from "../../lib/errors";
 import { attempt, buildBaseEnv, SHELL, USR_HOME } from "./pty-backend";
 
-function killShell(proc: Subprocess): void {
+function killShell(proc: Subprocess, helperName: string | null): void {
   // Interactive zsh ignores SIGTERM. SIGHUP is what the kernel sends when the
   // controlling terminal disappears, which is what we want here. SIGKILL is
   // the belt-and-suspenders fallback.
@@ -30,6 +30,22 @@ function killShell(proc: Subprocess): void {
     if (proc.exitCode !== null) return;
     attempt(() => proc.kill("SIGKILL"), "kill-failed-sigkill");
   }, 250).unref?.();
+
+  // Killing `docker run` only detaches the CLIENT; the helper container (and
+  // the nsenter'd shell in it) keeps running and `--rm` never fires because
+  // the container never exits. That is exactly how a host-shell helper sat on
+  // the production box for 11 days. Remove it by name; if the session ended
+  // normally the container is already gone and this is a cheap no-op error.
+  if (helperName) {
+    const rm = Bun.spawn(["docker", "rm", "-f", helperName], {
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    void Result.tryPromise({
+      try: () => rm.exited,
+      catch: () => null,
+    });
+  }
 }
 
 /** True when this process is itself inside a container. In production the
@@ -70,11 +86,15 @@ const HOST_LOGIN_SCRIPT = [
  *  server mounts docker.sock, which is root-equivalent on the host by
  *  definition: it only makes the advertised behaviour real. Still gated behind
  *  the same step-up auth as before. `-w` inherits PID 1's cwd. */
-function hostShellArgv(): string[] {
+function hostShellArgv(helperName: string): string[] {
   return [
     "docker",
     "run",
     "--rm",
+    // Stable, session-scoped name so dispose can `docker rm -f` the helper
+    // when killing the docker CLI alone would leak it (see killShell).
+    "--name",
+    helperName,
     "-i",
     "-t",
     // nsenter carries no environment across, so the helper's env is all the
@@ -110,7 +130,8 @@ export function startHostShell(
 ): Result<PtyBackend, PtySpawnError | PtyTerminalUnavailableError> {
   const childEnv = buildBaseEnv(args.userId);
   const containerized = runningInContainer();
-  const argv = containerized ? hostShellArgv() : [SHELL];
+  const helperName = containerized ? `od-host-shell-${crypto.randomUUID().slice(0, 8)}` : null;
+  const argv = helperName ? hostShellArgv(helperName) : [SHELL];
 
   return Result.try({
     try: () =>
@@ -150,7 +171,7 @@ export function startHostShell(
       write: (data) => term.write(data),
       resize: (cols, rows) => term.resize(cols, rows),
       dispose: () => {
-        killShell(proc);
+        killShell(proc, helperName);
         attempt(() => term.close(), "terminal-close-failed");
       },
     });
