@@ -183,11 +183,13 @@ export function FlaggedPanel() {
       {/* Say where the numbers come from. A bounded window can only see as far
           back as raw access logs are kept, so an empty 7d table is not evidence
           of a quiet 7 days on an install with 3-day retention. */}
-      <p className="px-4 py-3 text-[11px] text-muted-foreground/70">
-        {range === "all"
-          ? "All time reads durable probe counters, written as requests arrive and never aged out — they outlive the access logs they came from."
-          : "Bounded windows aggregate raw access logs, so they reach back only as far as the edge-log retention window. Switch to all time for the full record."}
-      </p>
+      {range !== "all" && (
+        <p className="px-4 py-3 text-[11px] text-muted-foreground/70">
+          Bounded windows aggregate raw access logs, so they reach back only as
+          far as the edge-log retention window. Switch to all time for the full
+          record.
+        </p>
+      )}
     </div>
   );
 }
