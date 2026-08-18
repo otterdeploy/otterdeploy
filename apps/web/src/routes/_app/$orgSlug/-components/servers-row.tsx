@@ -1,12 +1,13 @@
+/**
+ * The per-server availability control (active / drain / pause) and the stats
+ * shape the overview cards read. The old table row that lived here was
+ * replaced by the fleet cards (servers-fleet-cards.tsx).
+ */
 import { useState } from "react";
 
-import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
 import { serverCollection, type Server } from "@/features/servers/data/server";
-import { type ServerHealthEntry } from "@/features/servers/data/health";
-import { type SwarmNode } from "@/features/servers/data/swarm";
 import { orpc } from "@/shared/server/orpc";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -16,105 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
-import {
-  TableCell,
-  TableRow,
-} from "@/shared/components/ui/table";
-
-import type { ProvisionInitialValues } from "@/features/servers/components/server-provision-form";
-
-import { LiveHealthCell } from "./servers-live-cell";
-import { RoleBadge, ServerNameCell, StatusBadge, UsageBars } from "./servers-row-cells";
-import { ServerDeleteButton } from "./servers-row-delete";
-import { ProvisionRetryCell } from "./servers-row-retry";
 
 export interface ServerRowStats {
   tasksRunning: number;
   cpuAllocatedVcpu: number;
   memoryAllocatedGb: number;
   projects: string[];
-}
-
-export function ServerRow({
-  server,
-  stats,
-  health,
-  node,
-  onOpen,
-  onReAdd,
-}: {
-  server: Server;
-  stats: ServerRowStats | null;
-  health: ServerHealthEntry | null;
-  /** Matching swarm node (null when plain docker / not joined): the role
-   *  column prefers swarm truth and marks the Raft leader. */
-  node: SwarmNode | null;
-  onOpen: () => void;
-  /** Re-open Add server prefilled, for failed runs that stored no credential. */
-  onReAdd: (initial: ProvisionInitialValues) => void;
-}) {
-  // When stats haven't arrived yet (first paint, swarm unreachable, …) we
-  // render zeros against capacity rather than fake values. Honest about
-  // missing live data without crashing the layout.
-  const cpuUsed = stats?.cpuAllocatedVcpu ?? 0;
-  const memUsed = stats?.memoryAllocatedGb ?? 0;
-  const taskCount = stats?.tasksRunning ?? null;
-
-  return (
-    <TableRow className="group cursor-pointer" onClick={onOpen}>
-      <TableCell className="pl-4">
-        <ServerNameCell server={server} />
-      </TableCell>
-
-      <TableCell>
-        <RoleBadge role={node?.role ?? server.role} leader={node?.leader ?? false} />
-      </TableCell>
-
-      {/* stopPropagation: the row opens the health sheet; interacting with
-          the availability select shouldn't. */}
-      <TableCell onClick={(e) => e.stopPropagation()}>
-        <AvailabilitySelect server={server} />
-      </TableCell>
-
-      <TableCell>
-        <UsageBars
-          cpuUsed={cpuUsed}
-          cpuTotal={server.cpuTotal}
-          memUsed={memUsed}
-          memTotal={server.memTotalGb}
-          draining={server.status === "draining" || server.availability === "drain"}
-        />
-      </TableCell>
-
-      <TableCell>
-        <LiveHealthCell health={health} />
-      </TableCell>
-
-      <TableCell className="text-right font-mono text-[12px] tabular-nums">
-        {taskCount === null ? (
-          <span className="text-muted-foreground/40">–</span>
-        ) : (
-          taskCount
-        )}
-      </TableCell>
-
-      <TableCell>
-        <StatusBadge status={server.status} availability={server.availability} />
-      </TableCell>
-
-      <TableCell className="pr-3">
-        <div className="flex items-center justify-end gap-2">
-          <ProvisionRetryCell server={server} onReAdd={onReAdd} />
-          <ServerDeleteButton server={server} />
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            strokeWidth={2}
-            className="size-4 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground"
-          />
-        </div>
-      </TableCell>
-    </TableRow>
-  );
 }
 
 export function AvailabilitySelect({

@@ -31,6 +31,18 @@ export interface ListedContainer {
   status: string;
   ports: string[];
   createdAt: number;
+  managed: boolean;
+}
+
+/** Platform-created vs operator stray, from the labels the platform stamps:
+ *  `otterdeploy.managed` on deployed resources, and the install's own compose
+ *  project / swarm stack namespace on the control-plane containers. */
+function isManagedContainer(labels: Record<string, string> | undefined): boolean {
+  if (!labels) return false;
+  if (labels["otterdeploy.managed"] === "true") return true;
+  const composeProject = labels["com.docker.compose.project"] ?? "";
+  const stackNamespace = labels["com.docker.stack.namespace"] ?? "";
+  return composeProject.startsWith("otterdeploy") || stackNamespace.startsWith("otterdeploy");
 }
 
 export interface ListedImage {
@@ -119,6 +131,7 @@ export async function listContainers(opts: { all?: boolean }): Promise<Listed<Li
       status: c.Status,
       ports: formatPorts(c.Ports),
       createdAt: c.Created,
+      managed: isManagedContainer(c.Labels),
     })),
   };
 }

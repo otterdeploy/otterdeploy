@@ -36,6 +36,10 @@ const containerSchema = z.object({
   /** Human port strings, e.g. "3000/tcp" or "0.0.0.0:8080→80/tcp". */
   ports: z.array(z.string()),
   createdAt: z.number(),
+  /** Platform-created (otterdeploy.managed label / the install's own compose
+   *  project). False marks strays the operator started by hand: on a
+   *  raw-daemon view those are exactly what you came to find. */
+  managed: z.boolean(),
 });
 
 const imageSchema = z.object({
