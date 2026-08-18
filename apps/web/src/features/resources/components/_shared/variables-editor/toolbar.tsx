@@ -1,5 +1,6 @@
 import { Database02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 
@@ -31,6 +32,7 @@ export function Toolbar({
   onDiscard,
   onSave,
 }: ToolbarProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-2 text-[14px] font-semibold">
@@ -47,7 +49,7 @@ export function Toolbar({
         )}
         {duplicateCount > 0 && (
           <span className="text-[11.5px] font-normal text-destructive">
-            · {duplicateCount} duplicate key{duplicateCount === 1 ? "" : "s"}
+            · {t("resources.variables.duplicateCount", { count: duplicateCount })}
           </span>
         )}
       </div>
@@ -72,7 +74,7 @@ export function Toolbar({
         size="sm"
         className="h-7 text-[12px]"
         disabled={!hasPending || saving || duplicateCount > 0}
-        title={duplicateCount > 0 ? "Resolve duplicate keys to save" : undefined}
+        title={duplicateCount > 0 ? t("resources.variables.duplicateBlocksSave") : undefined}
         onClick={onSave}
       >
         {saving ? "Saving…" : "Save changes"}

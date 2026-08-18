@@ -8,6 +8,7 @@ import {
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
@@ -102,12 +103,7 @@ export function EditorRow({
           />
         </div>
       </div>
-      {duplicate && (
-        <p className="text-[10.5px] text-destructive sm:pl-[5.5rem]">
-          Duplicate key — another row is also named{" "}
-          <span className="font-mono">{row.key.trim()}</span>. Rename or delete one to save.
-        </p>
-      )}
+      {duplicate && <DuplicateNote keyName={row.key.trim()} />}
       {showPickerHint(row.value, pickerOpen) && (
         <p className="text-[10.5px] text-muted-foreground sm:pl-[5.5rem]">
           Tip: press the {"{ }"} button to finish this reference.
@@ -119,6 +115,15 @@ export function EditorRow({
 
 function showPickerHint(value: string, pickerOpen: boolean) {
   return value.length > 0 && !pickerOpen && hasOpenRefToken(value);
+}
+
+function DuplicateNote({ keyName }: { keyName: string }) {
+  const { t } = useTranslation();
+  return (
+    <p className="text-[10.5px] text-destructive sm:pl-[5.5rem]">
+      {t("resources.variables.duplicateNote", { key: keyName })}
+    </p>
+  );
 }
 
 function StatusPill({ status }: { status: RowStatus }) {
