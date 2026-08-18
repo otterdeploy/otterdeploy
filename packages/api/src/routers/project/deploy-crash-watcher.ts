@@ -76,6 +76,56 @@ function bumpDieCount(deploymentId: string): number {
   return next;
 }
 
+/**
+ * Docker cannot cap `always`/`unless-stopped` restarts (MaximumRetryCount is
+ * on-failure only), so a compose service with `restart: always` and a boot
+ * crash looped FOREVER: 123k deploy-log lines from one bad env var in
+ * production. Track RAPID consecutive dies per container (a healthy
+ * long-runner that crashes occasionally must keep its keep-alive) and stop
+ * the container once the loop is undeniable. The driver maps condition "any"
+ * to unless-stopped, so an explicit stop ends the loop for good; a redeploy
+ * starts fresh. Plain docker only: swarm reschedules new tasks per die and
+ * its exhaustion is covered by the failed-task threshold.
+ */
+const RAPID_DIE_WINDOW_MS = 60_000;
+const RAPID_DIE_CAP = 5;
+const rapidDies = new Map<string, { count: number; lastAt: number }>();
+
+function bumpRapidDies(containerId: string): number {
+  if (rapidDies.size > BOOKKEEPING_CAP) rapidDies.clear();
+  const now = Date.now();
+  const prev = rapidDies.get(containerId);
+  const count = prev && now - prev.lastAt < RAPID_DIE_WINDOW_MS ? prev.count + 1 : 1;
+  rapidDies.set(containerId, { count, lastAt: now });
+  return count;
+}
+
+/** Explicit stop breaks the restart loop; the resulting die reports 143 and
+ *  is filtered as a clean stop, so this cannot recurse. */
+async function stopCrashLoop(containerId: string): Promise<boolean> {
+  const docker = Docker.fromEnv();
+  try {
+    const stopped = await docker.containers.getContainer(containerId).stop({ t: 5 });
+    return stopped.isOk();
+  } finally {
+    docker.destroy();
+  }
+}
+
+/** The enforcement path for an uncapped policy in a tight loop. True when the
+ *  die was fully handled here (container stopped, line + alert emitted). */
+async function breakUncappedLoop(ctx: DieContext, containerId: string): Promise<boolean> {
+  if (ctx.swarmManaged || ctx.maxAttempts != null) return false;
+  if (bumpRapidDies(containerId) < RAPID_DIE_CAP) return false;
+  const stopped = await stopCrashLoop(containerId).catch(() => false);
+  if (!stopped) return false;
+  const line = `${exitPhrase(ctx)}: crash loop, stopped after ${RAPID_DIE_CAP} rapid restarts (the restart policy has no cap). Service is down until redeployed`;
+  await appendSystemLine(ctx.deploymentId, line);
+  void publishResourceChanged(ctx.resourceId);
+  await notifyCrashed(ctx, line, "gave-up").catch(() => undefined);
+  return true;
+}
+
 /** Dedupe key includes the phase so a deployment gets at most TWO alerts: one
  *  when the crash loop is first detected, one when the policy gives up for
  *  good: the actionable moment, which must not be swallowed by the first. */
@@ -253,6 +303,9 @@ async function handleDie(event: ContainerEvent): Promise<void> {
     swarmManaged: event.labels["com.docker.swarm.service.id"] != null,
     oomKilled: restartState.oomKilled,
   };
+
+  // Unlimited restart policy in a tight loop: enforce the cap docker can't.
+  if (await breakUncappedLoop(ctx, event.containerId)) return;
 
   const retry = retryPhrase(ctx);
   const line = `${exitPhrase(ctx)}: ${retry.line}`;
