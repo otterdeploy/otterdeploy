@@ -58,6 +58,28 @@ describe("update run state", () => {
     expect(state.cancel("nothing to do")).toBe(false);
   });
 
+  it("resumes after a given seq instead of replaying history", async () => {
+    state.begin("v5.0.0");
+    state.emit("validate", "one");
+    state.emit("pull", "two");
+    const lastSeen = state.snapshot().logs.at(-1)?.seq ?? 0;
+
+    const consume = (async () => {
+      const seen: string[] = [];
+      for await (const event of state.streamProgress(undefined, lastSeen)) {
+        seen.push(event.message);
+      }
+      return seen;
+    })();
+
+    state.emit("recreate", "three");
+    state.finish(true);
+    const seen = await consume;
+    // "one" and "two" were already delivered to this client; only the tail
+    // after the resume point flows on reconnect.
+    expect(seen).toEqual(["three"]);
+  });
+
   it("ends the stream on handoff (server about to be replaced)", async () => {
     state.begin("v3.0.0");
     const consume = (async () => {

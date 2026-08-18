@@ -47,7 +47,7 @@
     },
     "apps/cli": {
       "name": "@otterdeploy/cli",
-      "version": "0.13.0",
+      "version": "0.14.5",
       "bin": {
         "otterdeploy": "dist/index.js",
       },

@@ -28,22 +28,16 @@ export function UpdateBanner() {
 
   return (
     <div className="flex h-11 w-full min-w-0 shrink-0 items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 text-[13px]">
-      <span className="min-w-0 truncate font-medium">
-        A new version of otterdeploy is available
-      </span>
+      <span className="min-w-0 truncate font-medium">{t("updates.bannerAvailable")}</span>
       <Badge className="shrink-0 font-mono">{status.latest}</Badge>
       {status.dryRun && (
-        <Badge
-          variant="secondary"
-          className="shrink-0"
-          title="Dev/dry-run install. Applying runs as a simulation."
-        >
+        <Badge variant="secondary" className="shrink-0" title={t("updates.dryRunHint")}>
           dry-run
         </Badge>
       )}
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
         <Button type="button" size="sm" onClick={openUpdate}>
-          What's new
+          {t("updates.whatsNew")}
         </Button>
         <Button
           type="button"

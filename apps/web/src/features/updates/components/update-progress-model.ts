@@ -26,14 +26,15 @@ export type RunStatus = "idle" | "running" | "succeeded" | "failed";
 export type CancelMutation = ReturnType<typeof useCancelUpdate>;
 
 /** Visible steps in order. `handoff` folds into `recreate` for display: it's
- *  the same "restarting the control plane" beat. */
-export const STEPS: { key: Exclude<UpdatePhase, "handoff">; label: string }[] = [
-  { key: "validate", label: "Validate" },
-  { key: "pull", label: "Pull" },
-  { key: "migrate", label: "Migrate" },
-  { key: "recreate", label: "Recreate" },
-  { key: "done", label: "Done" },
-];
+ *  the same "restarting the control plane" beat. Labels are i18n keys,
+ *  resolved at render time by the stepper. */
+export const STEPS = [
+  { key: "validate", labelKey: "updates.stepValidate" },
+  { key: "pull", labelKey: "updates.stepPull" },
+  { key: "migrate", labelKey: "updates.stepMigrate" },
+  { key: "recreate", labelKey: "updates.stepRecreate" },
+  { key: "done", labelKey: "updates.stepDone" },
+] as const;
 
 export function phaseIndex(p: UpdatePhase): number {
   const key = p === "handoff" ? "recreate" : p;
@@ -166,14 +167,23 @@ export function toLogLine(e: {
   message: string;
   ts: string;
 }): Omit<LogLine, "id"> {
-  return { stream: e.level === "error" ? "stderr" : "system", line: e.message, ts: e.ts };
+  return {
+    stream: e.level === "error" ? "stderr" : "system",
+    line: e.message,
+    // Time-of-day only (UTC, like every other log surface): an update run
+    // spans minutes, so repeating the full date on every row is noise in a
+    // dialog-width pane.
+    ts: e.ts.slice(11, 19),
+  };
 }
 
 export function toErrorLine(err: unknown): Omit<LogLine, "id"> {
   return {
     stream: "stderr",
     line: `Stream error: ${err instanceof Error ? err.message : String(err)}`,
-    ts: new Date().toISOString(),
+    // Same time-of-day format as toLogLine: a full ISO date on one red row in
+    // a pane of HH:MM:SS lines reads as a different kind of event.
+    ts: new Date().toISOString().slice(11, 19),
   };
 }
 
@@ -187,13 +197,12 @@ export interface Outcome {
   recovering: boolean;
 }
 
-export function deriveOutcome(
-  dryRun: boolean,
-  streamEnded: boolean,
-  runStatus?: RunStatus,
-): Outcome {
+export function deriveOutcome(dryRun: boolean, runStatus?: RunStatus): Outcome {
   const failed = runStatus === "failed";
-  const dryDone = dryRun && streamEnded && !failed;
+  // Both flavours of done come from the polled run state, not the stream:
+  // the stream ending only means "disconnected" (the tail hook reconnects),
+  // so it was never a sound completion signal even for a dry run.
+  const dryDone = dryRun && runStatus === "succeeded";
   const realDone = !dryRun && runStatus === "succeeded";
   const done = dryDone || realDone;
   return {
