@@ -87,6 +87,11 @@ export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): 
   return name;
 }
 
+/** Repo namespace the builder tags locally-built images under (see
+ *  apps/builder/src/load.ts). These are loaded straight into the daemon and
+ *  exist in NO registry, so a pull can only ever fail with "access denied". */
+const LOCAL_IMAGE_NAMESPACE = "otterdeploy-local/";
+
 /** Best-effort image pull. A failure is non-fatal here (the image may already
  *  be local); container create will surface a real "no such image" if it's
  *  genuinely missing. `onLine` receives occasional human-readable progress
@@ -98,6 +103,11 @@ export async function pullImage(
   image: string,
   onLine?: (line: string) => void,
 ): Promise<void> {
+  // Locally-built artifacts: the daemon already holds the only copy that will
+  // ever exist, so the mutable-tag refresh rationale doesn't apply and the
+  // guaranteed-failing registry round-trip just spammed every deploy log with
+  // "pull access denied".
+  if (image.startsWith(LOCAL_IMAGE_NAMESPACE)) return;
   const summarize = createPullLineSummarizer();
   try {
     for await (const event of streamImagePull(docker, image, null, { skipIfPresent: false })) {
