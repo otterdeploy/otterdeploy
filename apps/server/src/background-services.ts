@@ -25,14 +25,15 @@ import { log } from "evlog";
 
 /** Periodic deploy reconcile. The builder runs the same pass at ITS boot, but
  *  if the builder dies (or never comes up) nobody would ever fail its orphaned
- *  pending/building rows. Every 5m, with a 3m min-age so it can't race the
- *  insert-then-enqueue window of a deploy being created right now; the Redis
- *  run-once lock inside makes concurrent passes (builder boot + this) safe. */
+ *  pending/building rows. Every 5m; the min-age grace lives in the reconcile
+ *  itself (DEFAULT_MIN_ROW_AGE_MS) so no caller can sweep a live inline stack
+ *  deploy: a 3m override here still shot deploys whose image pull ran longer.
+ *  The Redis run-once lock inside makes concurrent passes (builder + this)
+ *  safe. */
 function startDeployReconcile(): () => void {
   const RECONCILE_INTERVAL_MS = 5 * 60_000;
-  const MIN_ROW_AGE_MS = 3 * 60_000;
   const tick = () => {
-    void reconcileInterruptedDeployments({ minAgeMs: MIN_ROW_AGE_MS }).catch((cause) => {
+    void reconcileInterruptedDeployments().catch((cause) => {
       log.warn({
         reconcile: { event: "periodic-failed" },
         error: cause instanceof Error ? cause.message : String(cause),
