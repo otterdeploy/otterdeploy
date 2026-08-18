@@ -185,9 +185,8 @@ export function FlaggedPanel() {
           of a quiet 7 days on an install with 3-day retention. */}
       {range !== "all" && (
         <p className="px-4 py-3 text-[11px] text-muted-foreground/70">
-          Bounded windows aggregate raw access logs, so they reach back only as
-          far as the edge-log retention window. Switch to all time for the full
-          record.
+          Bounded windows aggregate raw access logs, so they reach back only as far as the edge-log
+          retention window. Switch to all time for the full record.
         </p>
       )}
     </div>
