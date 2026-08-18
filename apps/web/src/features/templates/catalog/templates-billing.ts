@@ -2,9 +2,9 @@
 import type { StackTemplate } from "./types";
 
 // Upstream ships no container image, so we publish our own build of
-// github.com/useautumn/autumn (Apache-2.0) at a pinned commit: see
-// infra/autumn/Dockerfile + .github/workflows/autumn-image.yml. The tag is the
-// pinned upstream short sha; bump both together when upgrading.
+// github.com/useautumn/autumn (Apache-2.0) at a pinned commit, built and
+// pushed manually from infra/autumn/Dockerfile (see the notes there). The tag
+// is the pinned upstream short sha; bump both together when upgrading.
 const AUTUMN_IMAGE = "ghcr.io/dr34mw0rk5/autumn:sha-7ed106c";
 
 export const BILLING_TEMPLATES: StackTemplate[] = [

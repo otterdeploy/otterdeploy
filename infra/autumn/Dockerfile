@@ -1,10 +1,20 @@
-# ghcr.io/otterdeploy/autumn — prebuilt image for the Autumn billing template.
+# ghcr.io/dr34mw0rk5/autumn — prebuilt image for the Autumn billing template.
 #
 # Autumn (github.com/useautumn/autumn, Apache-2.0) publishes no container
 # image, so we build one from a pinned upstream commit and the template pulls
 # it like every other catalog entry. One image serves every process in the
-# stack with a different command (server / workers / cron / dashboard build),
+# stack with a different command (server / workers / cron / dashboard),
 # mirroring how upstream deploys the same image per service.
+#
+# Published MANUALLY (no CI workflow): build for both arches, push per-arch
+# tags, then merge the manifest, e.g.
+#   docker buildx build --platform linux/amd64 -t ghcr.io/dr34mw0rk5/autumn:sha-<pin>-amd64 --push .
+#   docker buildx build --platform linux/arm64 -t ghcr.io/dr34mw0rk5/autumn:sha-<pin>-arm64 --push .
+#   docker buildx imagetools create -t ghcr.io/dr34mw0rk5/autumn:sha-<pin> \
+#     -t ghcr.io/dr34mw0rk5/autumn:latest \
+#     ghcr.io/dr34mw0rk5/autumn:sha-<pin>-amd64 ghcr.io/dr34mw0rk5/autumn:sha-<pin>-arm64
+# To upgrade: bump AUTUMN_SHA below, rebuild, and point the template's
+# AUTUMN_IMAGE tag (templates-billing.ts) at the new pin.
 #
 # The dashboard is prebuilt here with sentinel origins: VITE_* vars are
 # compile-time, so the dist is baked against http://__AUTUMN_API_URL__ /
@@ -23,8 +33,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Pinned commit of github.com/useautumn/autumn (dev branch). Upstream tags SDK
-# releases only, so a commit pin is the only reproducible reference. Bump via
-# the autumn-image workflow's `upstream_sha` input.
+# releases only, so a commit pin is the only reproducible reference.
 ARG AUTUMN_SHA=7ed106c32f90aa9ae06761e929bc4138d9e852c9
 RUN git init -q . \
   && git remote add origin https://github.com/useautumn/autumn.git \
