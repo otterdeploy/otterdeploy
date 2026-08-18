@@ -195,11 +195,15 @@ function buildHelperScript(target: string, installDir: string): string {
   return [
     "set -e",
     `cd "${installDir}"`,
+    'echo "otterdeploy updater: pulling images"',
+    // Pull under a process-env override (which beats .env in compose's
+    // interpolation order) and only pin .env once the pull has succeeded:
+    // a failed pull must leave the install still describing the version
+    // that is actually running, not the one it never reached.
+    `OTTERDEPLOY_VERSION="${target}" docker compose --env-file .env pull`,
     `echo "otterdeploy updater: pinning OTTERDEPLOY_VERSION=${target}"`,
     // Bump (or add) the pinned version in .env. BusyBox sed (Alpine) supports -i.
     `if grep -q '^OTTERDEPLOY_VERSION=' .env; then sed -i "s|^OTTERDEPLOY_VERSION=.*|OTTERDEPLOY_VERSION=${target}|" .env; else echo "OTTERDEPLOY_VERSION=${target}" >> .env; fi`,
-    'echo "otterdeploy updater: pulling images"',
-    "docker compose --env-file .env pull",
     'echo "otterdeploy updater: recreating stack"',
     "docker compose --env-file .env up -d --remove-orphans --wait --wait-timeout 120",
     'echo "otterdeploy updater: done"',

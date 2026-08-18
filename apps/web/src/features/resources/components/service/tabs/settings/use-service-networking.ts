@@ -34,11 +34,6 @@ export function useServiceNetworking({
       queryClient.invalidateQueries({ queryKey: SERVICE_DOMAINS_COLLECTION_KEY }),
       // The primary mirrors into the resource list (panel header, graph), and
       // adding/removing the last host flips `publicEnabled` with it.
-      queryClient.invalidateQueries({
-        queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: input.projectId },
-        }),
-      }),
       queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
       queryClient.invalidateQueries({ queryKey: orpc.service.get.queryKey({ input }) }),
       // The Protection card gates on this resource's proxy routes ("expose

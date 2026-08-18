@@ -66,11 +66,6 @@ export function usePauseControl({
       // The graph node + panel prop read replicas/status from the resource
       // collection: refresh it now instead of waiting for the 5s poll.
       queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
-      queryClient.invalidateQueries({
-        queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId },
-        }),
-      }),
     ]);
   };
 

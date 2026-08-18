@@ -47,8 +47,8 @@ export const systemRouter = {
     return snapshot();
   }),
 
-  progress: requireInstallAdmin().system.progress.handler(async function* ({ signal }) {
-    yield* streamProgress(signal);
+  progress: requireInstallAdmin().system.progress.handler(async function* ({ input, signal }) {
+    yield* streamProgress(signal, input?.afterSeq);
   }),
 
   hostHealth: requireInstallAdmin().system.hostHealth.handler(async () => {

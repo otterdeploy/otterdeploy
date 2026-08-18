@@ -205,7 +205,11 @@ export const systemContract = {
 
   progress: oc
     .meta({ path: `${base}/progress`, tag, method: "GET" })
-    .input(emptyInput)
+    // `afterSeq`: resume point for reconnects. The stream replays a run's
+    // whole history to a fresh subscriber; a client that reconnects (the
+    // cutover restarts the server under it) passes the last seq it saw so
+    // the replay starts after it instead of duplicating every line.
+    .input(z.object({ afterSeq: z.number().int().nonnegative().optional() }).optional())
     .output(eventIterator(progressEventSchema)),
 
   hostHealth: oc
