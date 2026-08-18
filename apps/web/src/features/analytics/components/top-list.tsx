@@ -7,6 +7,7 @@
 import type { ReactNode } from "react";
 
 import { Card } from "@/shared/components/ui/card";
+import { ScrollArea } from "@/shared/components/ui/scroll-area";
 
 import { formatCount, formatShare, type TopEntry } from "../analytics-model";
 
@@ -54,48 +55,50 @@ export function TopList({
       {entries.length === 0 ? (
         <p className="px-4 pb-4 text-xs text-muted-foreground">{emptyNote}</p>
       ) : (
-        <ul className="overflow-y-auto px-2 pb-2" style={{ maxHeight }}>
-          {entries.map((entry) => {
-            const clickable = onSelectKey !== undefined && entry.key !== "other";
-            const row = (
-              <>
-                {/* Proportional bar behind the row text: quiet, hairline-free. */}
-                <span
-                  aria-hidden
-                  className="absolute inset-y-1 left-0 rounded-sm bg-muted"
-                  style={{ width: max > 0 ? `${(entry.count / max) * 100}%` : 0 }}
-                />
-                <span className="relative min-w-0 flex-1 truncate font-mono text-xs">
-                  {renderKey ? renderKey(entry.key) : entry.key}
-                </span>
-                <span className="relative font-mono text-xs text-foreground tabular-nums">
-                  {formatCount(entry.count)}
-                </span>
-                <span className="relative w-12 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                  {formatShare(entry.count, total)}
-                </span>
-              </>
-            );
-            return (
-              <li key={entry.key}>
-                {clickable ? (
-                  <button
-                    type="button"
-                    onClick={() => onSelectKey(entry.key)}
-                    aria-pressed={entry.key === selectedKey}
-                    className="relative flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left hover:bg-muted/60 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none aria-pressed:ring-1 aria-pressed:ring-primary/40"
-                  >
-                    {row}
-                  </button>
-                ) : (
-                  <div className="relative flex items-center gap-3 rounded-sm px-2 py-1.5">
-                    {row}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <ScrollArea style={{ maxHeight }} viewportClassName="max-h-[inherit]">
+          <ul className="px-2 pb-2">
+            {entries.map((entry) => {
+              const clickable = onSelectKey !== undefined && entry.key !== "other";
+              const row = (
+                <>
+                  {/* Proportional bar behind the row text: quiet, hairline-free. */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-1 left-0 rounded-sm bg-muted"
+                    style={{ width: max > 0 ? `${(entry.count / max) * 100}%` : 0 }}
+                  />
+                  <span className="relative min-w-0 flex-1 truncate font-mono text-xs">
+                    {renderKey ? renderKey(entry.key) : entry.key}
+                  </span>
+                  <span className="relative font-mono text-xs text-foreground tabular-nums">
+                    {formatCount(entry.count)}
+                  </span>
+                  <span className="relative w-12 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                    {formatShare(entry.count, total)}
+                  </span>
+                </>
+              );
+              return (
+                <li key={entry.key}>
+                  {clickable ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectKey(entry.key)}
+                      aria-pressed={entry.key === selectedKey}
+                      className="relative flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left hover:bg-muted/60 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none aria-pressed:ring-1 aria-pressed:ring-primary/40"
+                    >
+                      {row}
+                    </button>
+                  ) : (
+                    <div className="relative flex items-center gap-3 rounded-sm px-2 py-1.5">
+                      {row}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </ScrollArea>
       )}
     </Card>
   );

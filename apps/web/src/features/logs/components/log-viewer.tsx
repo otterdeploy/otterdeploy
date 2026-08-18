@@ -16,55 +16,14 @@ import { toast } from "sonner";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
-import { AnsiLine, stripAnsi } from "./ansi";
-import { classifyLogSeverity, markEventHeads, SEVERITY_BAR, SEVERITY_TEXT } from "./log-severity";
+import { stripAnsi } from "./ansi";
+import { JumpToLatest } from "./jump-to-latest";
+import { LogLineRow, type LogLine } from "./log-line-row";
+import { classifyLogSeverity, markEventHeads } from "./log-severity";
 import { LogToolbar, type NavLevel, plural } from "./log-toolbar";
 
-export interface LogLine {
-  id: number;
-  stream: "stdout" | "stderr" | "system";
-  line: string;
-  ts: string | null;
-}
-
-export function LogLineRow({
-  line,
-  highlighted = false,
-  severity: precomputed,
-}: {
-  line: LogLine;
-  highlighted?: boolean;
-  /** Pass the severity when the caller already classified this line (the
-   *  viewer does, for its counts) so the row doesn't strip ANSI a second time
-   *  for every line it paints. */
-  severity?: ReturnType<typeof classifyLogSeverity>;
-}) {
-  // Classify + search on ANSI-stripped text; render with the tool's own
-  // colors via AnsiLine (a raw ESC byte is invisible in HTML, so untreated
-  // lines would show literal `[32m✓[39m` garbage).
-  const severity = precomputed ?? classifyLogSeverity(stripAnsi(line.line));
-  return (
-    <div
-      data-log-id={line.id}
-      className={cn(
-        "flex scroll-my-8 items-stretch gap-2.5 rounded-sm",
-        highlighted && "bg-foreground/10 ring-1 ring-foreground/15 ring-inset",
-      )}
-    >
-      <span className={cn("w-[3px] shrink-0 rounded-full", SEVERITY_BAR[severity])} />
-      <div className={cn("flex min-h-[1.35em] flex-1 gap-3", SEVERITY_TEXT[severity])}>
-        {line.ts && (
-          <span className="shrink-0 text-muted-foreground/50">
-            {line.ts.replace("T", " ").replace(/\.\d+Z$/, "")}
-          </span>
-        )}
-        <span className="break-all whitespace-pre-wrap">
-          <AnsiLine text={line.line} />
-        </span>
-      </div>
-    </div>
-  );
-}
+// Re-exported so existing callers keep their single import site.
+export { LogLineRow, type LogLine } from "./log-line-row";
 
 interface Classified {
   line: LogLine;
@@ -169,6 +128,8 @@ export function LogViewer({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [query, setQuery] = useState("");
+  const [showTs, setShowTs] = useState(true);
+  const [colors, setColors] = useState(true);
   // Which severity we're stepping through, and how far in. Navigation keeps
   // every line visible (unlike a filter) and just jumps between matches.
   const [nav, setNav] = useState<{ level: NavLevel; index: number } | null>(null);
@@ -255,6 +216,10 @@ export function LogViewer({
 
   const hasLines = lines.length > 0;
 
+  // Resuming the tail also drops out of match-stepping: that owns the scroll
+  // position while active and would immediately fight the re-pin.
+  const resumeFollow = () => (setNav(null), setAutoScroll(true));
+
   return (
     <div ref={rootRef} className={cn("flex min-h-0 flex-1 flex-col gap-2", className)}>
       {hasLines && (
@@ -270,46 +235,55 @@ export function LogViewer({
           onQueryChange={setQuery}
           searchRef={searchRef}
           onCopy={copyVisible}
+          showTs={showTs}
+          onToggleTs={() => setShowTs((v) => !v)}
+          colors={colors}
+          onToggleColors={() => setColors((v) => !v)}
         />
       )}
-      <div
-        ref={scrollerRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-          if (atBottom !== autoScroll) setAutoScroll(atBottom);
-        }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
-      >
-        {!hasLines ? (
-          empty
-        ) : visible.length === 0 ? (
-          <div className="grid h-full place-items-center text-center text-[12px] text-muted-foreground">
-            No lines match your search.
-          </div>
-        ) : (
-          <div className="relative w-full" style={{ height: totalSize }}>
-            {virtualRows.map((v) => {
-              const c = visible[v.index];
-              if (!c) return null;
-              return (
-                <div
-                  key={v.key}
-                  data-index={v.index}
-                  ref={measureRow}
-                  className="absolute top-0 left-0 w-full"
-                  style={{ transform: `translateY(${v.start}px)` }}
-                >
-                  <LogLineRow
-                    line={c.line}
-                    severity={c.severity}
-                    highlighted={c.line.id === currentMatchId}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollerRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+            if (atBottom !== autoScroll) setAutoScroll(atBottom);
+          }}
+          className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
+        >
+          {!hasLines ? (
+            empty
+          ) : visible.length === 0 ? (
+            <div className="grid h-full place-items-center text-center text-[12px] text-muted-foreground">
+              No lines match your search.
+            </div>
+          ) : (
+            <div className="relative w-full" style={{ height: totalSize }}>
+              {virtualRows.map((v) => {
+                const c = visible[v.index];
+                if (!c) return null;
+                return (
+                  <div
+                    key={v.key}
+                    data-index={v.index}
+                    ref={measureRow}
+                    className="absolute top-0 left-0 w-full"
+                    style={{ transform: `translateY(${v.start}px)` }}
+                  >
+                    <LogLineRow
+                      line={c.line}
+                      severity={c.severity}
+                      highlighted={c.line.id === currentMatchId}
+                      showTimestamp={showTs}
+                      plain={!colors}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {!autoScroll && visible.length > 0 && <JumpToLatest onClick={resumeFollow} />}
       </div>
     </div>
   );

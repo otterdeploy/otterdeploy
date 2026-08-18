@@ -4,7 +4,21 @@ import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
 import { cn } from "@/shared/lib/utils";
 
-function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.Props) {
+function ScrollArea({
+  className,
+  children,
+  viewportRef,
+  viewportClassName,
+  ...props
+}: ScrollAreaPrimitive.Root.Props & {
+  /** Access to the scrollable viewport element, for callers that manage a
+   *  scroll position (e.g. a log tail pinning to the bottom). */
+  viewportRef?: React.Ref<HTMLDivElement>;
+  /** Extra classes on the viewport. Needed for max-height caps: the viewport's
+   *  `size-full` (a percentage) resolves to auto against a max-height-only
+   *  root, so the cap must land on the viewport itself (`max-h-[inherit]`). */
+  viewportClassName?: string;
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -12,8 +26,12 @@ function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className={cn(
+          "size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1",
+          viewportClassName,
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

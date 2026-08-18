@@ -14,6 +14,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { JumpToLatest } from "@/features/logs/components/jump-to-latest";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import {
   LEVEL_TEXT,
@@ -144,44 +145,47 @@ export function ServiceLogsTab({
         />
       </div>
 
-      <div
-        ref={scrollerRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-          if (atBottom !== follow) setFollow(atBottom);
-        }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
-      >
-        {!hasOutput ? (
-          <div className="grid h-full min-h-40 place-items-center text-center">
-            <div className="flex max-w-sm flex-col items-center gap-2.5">
-              <div className="grid size-11 place-items-center rounded-full border border-border/50 bg-foreground/[0.03] text-muted-foreground/70">
-                <HugeiconsIcon icon={ContainerIcon} strokeWidth={1.8} className="size-5" />
-              </div>
-              <div className="text-[13px] font-medium text-foreground/80">
-                {status === "connecting"
-                  ? t("logs.connecting")
-                  : status === "error"
-                    ? t("logs.disconnected")
-                    : t("logs.noContainer")}
-              </div>
-              <div className="text-[12px] text-muted-foreground">
-                {status === "connecting"
-                  ? t("logs.connectingHint")
-                  : status === "error"
-                    ? t("logs.disconnectedHint")
-                    : t("logs.noContainerHint")}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollerRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+            if (atBottom !== follow) setFollow(atBottom);
+          }}
+          className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
+        >
+          {!hasOutput ? (
+            <div className="grid h-full min-h-40 place-items-center text-center">
+              <div className="flex max-w-sm flex-col items-center gap-2.5">
+                <div className="grid size-11 place-items-center rounded-full border border-border/50 bg-foreground/[0.03] text-muted-foreground/70">
+                  <HugeiconsIcon icon={ContainerIcon} strokeWidth={1.8} className="size-5" />
+                </div>
+                <div className="text-[13px] font-medium text-foreground/80">
+                  {status === "connecting"
+                    ? t("logs.connecting")
+                    : status === "error"
+                      ? t("logs.disconnected")
+                      : t("logs.noContainer")}
+                </div>
+                <div className="text-[12px] text-muted-foreground">
+                  {status === "connecting"
+                    ? t("logs.connectingHint")
+                    : status === "error"
+                      ? t("logs.disconnectedHint")
+                      : t("logs.noContainerHint")}
+                </div>
               </div>
             </div>
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="grid h-full min-h-40 place-items-center text-center text-[12px] text-muted-foreground">
-            {t("logs.noMatches")}
-          </div>
-        ) : (
-          visible.map((l) => <LogRow key={l.id} line={l} wrap={wrap} showTs={showTs} />)
-        )}
+          ) : visible.length === 0 ? (
+            <div className="grid h-full min-h-40 place-items-center text-center text-[12px] text-muted-foreground">
+              {t("logs.noMatches")}
+            </div>
+          ) : (
+            visible.map((l) => <LogRow key={l.id} line={l} wrap={wrap} showTs={showTs} />)
+          )}
+        </div>
+        {!follow && hasOutput && <JumpToLatest onClick={() => setFollow(true)} />}
       </div>
     </div>
   );
