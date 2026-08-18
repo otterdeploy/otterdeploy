@@ -42,7 +42,7 @@ const GROUP_HEADING: Record<TargetGroup, string> = {
 };
 
 // Servers first: the machines are the anchor an operator orients by, and the
-// list is shortest — services (the longest group) go last so they never bury
+// list is shortest: services (the longest group) go last so they never bury
 // the hosts.
 const GROUP_ORDER: TargetGroup[] = ["server", "database", "service"];
 

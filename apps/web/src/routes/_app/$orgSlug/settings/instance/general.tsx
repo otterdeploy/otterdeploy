@@ -1,6 +1,6 @@
 /**
- * Instance settings (od-u63.7 label-only rename; path unchanged — this file
- * still lives at `/settings/instance/general`) — install-wide configuration,
+ * Instance settings (od-u63.7 label-only rename; path unchanged: this file
+ * still lives at `/settings/instance/general`): install-wide configuration,
  * one level above any workspace.
  * Everything here edits the platform_settings singleton: the control-plane
  * domain (the dashboard's own address), the public IP behind sslip.io

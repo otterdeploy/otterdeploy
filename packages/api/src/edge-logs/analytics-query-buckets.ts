@@ -149,8 +149,8 @@ export async function loadMinuteBuckets(
   const buckets = new Map<number, InternalBucket>();
   if (hosts !== null && hosts.length === 0) return buckets;
   const step = sql.raw(String(stepMinutes));
-  // A bare JS array in a sql`` template renders as `(($1, $2, …))` — a record,
-  // not an array — and Postgres rejects `= ANY(record)`. Join into an IN list.
+  // A bare JS array in a sql`` template renders as `(($1, $2, …))`: a record,
+  // not an array: and Postgres rejects `= ANY(record)`. Join into an IN list.
   // `hosts: null` = install-wide: no host predicate.
   const hostPredicate =
     hosts === null

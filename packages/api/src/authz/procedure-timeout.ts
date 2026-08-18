@@ -1,5 +1,5 @@
 /**
- * Global per-procedure deadline — the backstop od-664 was missing.
+ * Global per-procedure deadline: the backstop od-664 was missing.
  *
  * The projects page hung for three days because one handler awaited an
  * in-process promise that never settled: no query reached Postgres, no error
@@ -11,7 +11,7 @@
  * "forever" into a typed TIMEOUT error the client can render and retry.
  *
  * Streaming procedures (events.orgStream, logs.tail, …) are safe under the
- * same deadline: their handlers RESOLVE quickly with an async iterator — the
+ * same deadline: their handlers RESOLVE quickly with an async iterator: the
  * deadline covers obtaining the iterator, not the lifetime of the stream.
  *
  * The limit is deliberately generous. It exists to catch never-settling

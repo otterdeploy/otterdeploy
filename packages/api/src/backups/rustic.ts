@@ -128,7 +128,7 @@ export class RusticCli {
    * Run with the current candidate password; on a wrong-password failure, walk
    * the remaining keyring candidates. When an OLDER secret opens the repo,
    * best-effort `key add` the current-secret password so the repo re-keys to
-   * the new keyring entry — the rotation path that makes rotating the root
+   * the new keyring entry: the rotation path that makes rotating the root
    * secret survivable. A consumed stdin can't be replayed, so stdin calls
    * don't fall back (the engine opens the repo with `ensureInit` first, which
    * settles the candidate before any stdin is attached).

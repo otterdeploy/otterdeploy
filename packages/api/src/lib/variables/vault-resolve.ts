@@ -5,7 +5,7 @@
  * record at once, tokens are grouped by provider name, the org's provider
  * rows load ONCE per resolve, credentials decrypt once per provider, and each
  * provider gets a single `getSecrets` call. Values live only in the
- * per-resolve state — nothing is cached across resolves and nothing resolved
+ * per-resolve state: nothing is cached across resolves and nothing resolved
  * here is ever persisted.
  */
 
@@ -25,7 +25,7 @@ import { getSecrets } from "../vault";
 export interface VaultResolveState {
   /** Null when the project row didn't carry an org (only mocked test data). */
   organizationId: OrganizationId | null;
-  /** Provider rows by name — loaded lazily, once per resolve. */
+  /** Provider rows by name: loaded lazily, once per resolve. */
   providers: Map<string, VaultProviderRecord> | null;
   /** Fetched values keyed by `vaultValueKey(provider, ref)`. */
   values: Map<string, string>;
@@ -76,7 +76,7 @@ export function vaultValueFor(
 /**
  * Ensure every vault token in `tokens` has a value in `state.values`.
  * Unknown provider name, provider API failure, or a missing key all surface
- * as `VaultResolveError` — the caller threads it through the usual
+ * as `VaultResolveError`: the caller threads it through the usual
  * ResolveError channel (resource marked invalid, error mapped at the router).
  */
 export async function loadVaultValues(

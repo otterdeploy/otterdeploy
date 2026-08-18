@@ -33,7 +33,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/terminal")({
   // Warm the "New session" picker's data on hover (intent-preload): the two
   // target collections share one terminal.targets RPC (deduped in targets.ts),
   // plus the org server list. targets scans live docker state, so it is never
-  // awaited — best-effort only; the picker falls back to fetch-on-open.
+  // awaited: best-effort only; the picker falls back to fetch-on-open.
   loader: () => {
     void terminalContainersCollection.preload().catch(() => undefined);
     void terminalDatabasesCollection.preload().catch(() => undefined);

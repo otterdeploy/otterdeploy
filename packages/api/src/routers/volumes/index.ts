@@ -66,7 +66,7 @@ export const volumesRouter = {
         if (result.kind === "not-found") throw errors.NOT_FOUND({ message: result.reason });
         throw errors.SERVER_ERROR({ message: result.reason });
       }
-      // Volume contents are sensitive — audit each file view like inspect.
+      // Volume contents are sensitive: audit each file view like inspect.
       const user = context.session?.user;
       if (user) {
         context.log.audit?.({

@@ -1,6 +1,6 @@
 /**
  * The operator's route on/off switch for one proxy route. Flips
- * `disabledByUser` on the shared `proxyRoutesCollection` — the optimistic
+ * `disabledByUser` on the shared `proxyRoutesCollection`: the optimistic
  * flip is instant and rolls back (with a toast) if the server rejects.
  * Deliberately separate from the system-owned `enabled` gate: pausing keeps
  * cert settings and verification state intact, so resuming needs nothing

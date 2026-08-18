@@ -1,5 +1,5 @@
 /**
- * Brand mark per provider kind, on a fixed dark tile in both themes — the
+ * Brand mark per provider kind, on a fixed dark tile in both themes: the
  * Vault and Infisical marks are brand yellow and have no contrast on light
  * surfaces. Shared by the provider rows and the kind picker so the two
  * surfaces can't drift.
@@ -26,7 +26,7 @@ export function ProviderMark({
   logoClassName,
 }: {
   kind: VaultProviderKind;
-  /** Tile size/shape overrides — defaults to a size-9 rounded tile. */
+  /** Tile size/shape overrides: defaults to a size-9 rounded tile. */
   className?: string;
   logoClassName?: string;
 }) {

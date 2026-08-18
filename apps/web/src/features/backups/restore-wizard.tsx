@@ -1,11 +1,11 @@
 /**
- * Restore a succeeded backup — three stages: choose a target (download or
+ * Restore a succeeded backup: three stages: choose a target (download or
  * in-place), Verify (the server re-fetches the stored archive and recomputes
- * its checksum against the recorded one — a real integrity probe, no fake
+ * its checksum against the recorded one: a real integrity probe, no fake
  * diff), then the typed-name Confirm for the destructive path. The engine
  * supports two modes: download the archive, or restore in place (database
  * dumps via pg_restore, volume archives by replacing the volume contents).
- * A third target restores INTO ANOTHER existing database — the API's
+ * A third target restores INTO ANOTHER existing database: the API's
  * `targetResourceId`. It rides the same `in-place` mode with a target attached;
  * the typed-name gate then guards the TARGET's name, since the target is what
  * gets overwritten. Only same-engine database resources are offered, and volume
@@ -135,7 +135,7 @@ function RestoreWizardBody({ backup, onClose }: { backup: Backup; onClose: () =>
               />
             )}
             {/* A volume snapshot has no database target, so this is offered
-                only for database backups — and only when the project has
+                only for database backups: and only when the project has
                 another database of the same engine to restore into. */}
             {!isVolume && backup.approach !== "physical" && targets.length > 0 && (
               <>

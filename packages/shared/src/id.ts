@@ -89,7 +89,7 @@ export const ID_PREFIX = {
   // private networking: the org's connected VPN/mesh account (NetBird,
   // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
   meshNetwork: "mesh",
-  // external secret managers — org-scoped provider connections whose secrets
+  // external secret managers: org-scoped provider connections whose secrets
   // are referenced from env vars as `${{vault.<provider>.<ref>}}`
   vaultProvider: "vlt",
 } as const;

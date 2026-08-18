@@ -147,14 +147,14 @@ const auditFilterSchema: z.ZodType<AuditFilter> = z.object({
   limit: z.number(),
 });
 
-/** Cache-key prefix for the rows collection — shared by the collection's
+/** Cache-key prefix for the rows collection: shared by the collection's
  *  `queryKey` and the loader prefetch below so they cannot drift. */
 const AUDIT_COLLECTION_KEY = ["audit"] as const;
 
 /**
  * Fetch one filter subset's rows and stamp the subset key back onto each row so
  * the live-query `eq(a.key, …)` matches client-side (rows are already
- * server-filtered). `counts`/`total` are dropped here — they're aggregates, not
+ * server-filtered). `counts`/`total` are dropped here: they're aggregates, not
  * row data; the route reads them from its companion query. Shared by the
  * collection's `queryFn` and `prefetchAuditSubset` (same cache entry).
  */

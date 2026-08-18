@@ -14,7 +14,7 @@ import {
 } from "@otterdeploy/shared/paths";
 import { log as globalLog } from "evlog";
 /**
- * Periodic reconcile of the host data folder against the DB — Phase 5 of
+ * Periodic reconcile of the host data folder against the DB. Phase 5 of
  * docs/designs/data-folder.md. Removes tenant dirs whose owning row is gone:
  * the classic failure mode (a crashed teardown leaves a dir forever).
  *
@@ -24,7 +24,7 @@ import { log as globalLog } from "evlog";
  *   orgs/<orgId>                            → organization
  *     projects/<projectId>                  → project
  *       envs/<envId|main>                   → environment ("main" is the NULL
- *                                             environment — ALWAYS kept)
+ *                                             environment. ALWAYS kept)
  *         resources/<resourceId>            → resource; inside a LIVE resource,
  *                                             staged files in backup-staging/
  *                                             past a TTL are reclaimed
@@ -57,7 +57,7 @@ import {
 const STAGED_BACKUP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** The ids currently present in the DB, one set per reconciled level. Plain
- *  string sets — membership checks compare directory names. */
+ *  string sets: membership checks compare directory names. */
 interface LiveIds {
   orgs: ReadonlySet<string>;
   projects: ReadonlySet<string>;
@@ -79,7 +79,7 @@ async function listDirNames(path: string): Promise<string[]> {
 /**
  * Brand a directory name as an id via its schema, refusing anything the
  * parse would rewrite (a legacy-prefixed name can't round-trip back to the
- * on-disk path). Returns null for names that aren't ours — the sweep leaves
+ * on-disk path). Returns null for names that aren't ours: the sweep leaves
  * unknown dirs alone rather than guessing.
  */
 function parseDirId<T extends string>(
@@ -109,13 +109,13 @@ async function reclaimStaleStaged(dir: string, now: number): Promise<number> {
         removed += 1;
       }
     } catch {
-      // raced with another remover — ignore.
+      // raced with another remover: ignore.
     }
   }
   return removed;
 }
 
-/** `…/envs/<seg>/resources/<resourceId>` — each orphaned resource goes; a live
+/** `…/envs/<seg>/resources/<resourceId>`: each orphaned resource goes; a live
  *  one gets its backup-staging TTL pass. Returns the number removed. */
 async function reconcileResources(
   organizationId: OrganizationId,
@@ -140,7 +140,7 @@ async function reconcileResources(
   return removed;
 }
 
-/** `…/projects/<projectId>/envs/<seg>` — the literal `main` segment (the NULL
+/** `…/projects/<projectId>/envs/<seg>`: the literal `main` segment (the NULL
  *  environment) is ALWAYS kept; any other segment reconciles against the
  *  environment table. Returns the number removed. */
 async function reconcileEnvs(
@@ -167,7 +167,7 @@ async function reconcileEnvs(
   return removed;
 }
 
-/** `orgs/<orgId>/projects/<projectId>` — a gone project drops its whole
+/** `orgs/<orgId>/projects/<projectId>`: a gone project drops its whole
  *  subtree (escape hatch included); a live one recurses into its envs. */
 async function reconcileProjects(
   organizationId: OrganizationId,
@@ -188,7 +188,7 @@ async function reconcileProjects(
   return removed;
 }
 
-/** `orgs/<orgId>` — a gone org drops its whole subtree (durable backup repos
+/** `orgs/<orgId>`: a gone org drops its whole subtree (durable backup repos
  *  included: org deletion is the one place allowed to); a live one recurses. */
 async function reconcileOrgs(live: LiveIds, now: number): Promise<number> {
   let removed = 0;
@@ -205,7 +205,7 @@ async function reconcileOrgs(live: LiveIds, now: number): Promise<number> {
   return removed;
 }
 
-/** `work/sources/<projectId>` — a deleted project's staged upload tarballs.
+/** `work/sources/<projectId>`: a deleted project's staged upload tarballs.
  *  Live buckets are left alone: the builder consumes (deletes) each tarball
  *  after extraction. */
 async function reconcileSourceBuckets(live: LiveIds): Promise<number> {
@@ -258,7 +258,7 @@ async function sweepDataFolder(now = Date.now()): Promise<number> {
 /**
  * Start the periodic sweep. Runs once shortly after boot (reclaim anything a
  * crashed teardown left), then on the interval. Returns a stop handle. Mirrors
- * `startBackupScheduler` — a control-plane tick, `unref`'d so it never keeps the
+ * `startBackupScheduler`: a control-plane tick, `unref`'d so it never keeps the
  * loop alive on its own.
  */
 export function startDataFolderSweep(intervalMs = 6 * 60 * 60 * 1000): () => void {

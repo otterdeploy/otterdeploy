@@ -1,11 +1,11 @@
 /**
- * Live daemon event feed — the Events tab of the Raw Docker panel.
+ * Live daemon event feed: the Events tab of the Raw Docker panel.
  *
  * Streams `docker.events.stream` (the daemon's `/events` firehose, flattened
  * server-side) through the shared `useLogStream` ring buffer. Everything the
  * daemon reports is streamed; the type chips filter the CLIENT buffer only,
  * so toggling one never tears the stream or drops history. The parent mounts
- * this component only while the tab is active — unmounting aborts the
+ * this component only while the tab is active: unmounting aborts the
  * subscription, so an idle panel holds no daemon connection.
  */
 import { useEffect, useMemo, useReducer, useState } from "react";
@@ -41,7 +41,7 @@ interface EventLine {
 }
 
 /** Scrollback depth. Healthcheck probes alone emit an exec_* triple per probe
- *  per container, so a busy daemon fills this in minutes — deep enough to
+ *  per container, so a busy daemon fills this in minutes: deep enough to
  *  read back through an incident, bounded so an open tab can't grow forever. */
 const BUFFER_SIZE = 500;
 
@@ -63,7 +63,7 @@ function actionClass(action: string): string {
 /** Compact `k=v` summary of the actor attributes. Name is already the row's
  *  actor column and namespaced label keys (`com.docker.…`, `org.…`) are
  *  build metadata noise, so both are skipped; the survivors are the daemon's
- *  event-specific facts — exitCode, signal, image, driver, container, … */
+ *  event-specific facts: exitCode, signal, image, driver, container, … */
 function attributesSummary(attributes: Record<string, string>): string {
   const parts: string[] = [];
   for (const [key, value] of Object.entries(attributes)) {
@@ -111,7 +111,7 @@ export function DockerEventsFeed() {
   const [hiddenTypes, setHiddenTypes] = useState<ReadonlySet<EventType>>(new Set());
 
   const { lines, status } = useLogStream({
-    // useLogStream owns reconnects (initial/backfill semantics don't apply —
+    // useLogStream owns reconnects (initial/backfill semantics don't apply -
     // the daemon feed has no replay), so no client retry context here.
     open: (signal) => orpc.docker.events.stream.call({}, { signal }),
     map: (ev, seq): EventLine => ({ id: seq, ...ev }),
@@ -120,7 +120,7 @@ export function DockerEventsFeed() {
     paused,
   });
 
-  // Relative timestamps drift while the feed is quiet or paused — tick a
+  // Relative timestamps drift while the feed is quiet or paused: tick a
   // re-render twice a minute so "5 seconds ago" can't sit there for an hour.
   const [, tick] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -134,7 +134,7 @@ export function DockerEventsFeed() {
     return byType;
   }, [lines]);
 
-  // Newest first — an ops feed is read from "what just happened" downward.
+  // Newest first: an ops feed is read from "what just happened" downward.
   const visible = useMemo(() => {
     const filtered = hiddenTypes.size
       ? lines.filter((line) => !hiddenTypes.has(line.type))

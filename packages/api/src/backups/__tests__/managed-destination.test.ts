@@ -24,7 +24,7 @@ describe("managedLocalConfig", () => {
     expect(config.path).toBe(orgBackupRepoRoot(org("org_a")));
   });
 
-  it("namespaces by org via the path itself — no `prefix` key", () => {
+  it("namespaces by org via the path itself: no `prefix` key", () => {
     // Two orgs on one install must not share a repo root, or one org's `forget
     // --prune` could reach another's snapshots. The namespace is the path
     // (`orgs/<org>/backups/`), so deriveRepoKey's bare-scope managed ids stay apart.
@@ -50,13 +50,13 @@ describe("runnableDestinationIds", () => {
     expect(runnableDestinationIds(ids, rows)).toEqual(ids);
   });
 
-  it("drops disabled destinations — this is what makes `disable` real", () => {
+  it("drops disabled destinations: this is what makes `disable` real", () => {
     const ids = [dest("bdst_local"), dest("bdst_s3")];
     const rows = [row("bdst_local", "disabled"), row("bdst_s3", "active")];
     expect(runnableDestinationIds(ids, rows)).toEqual([dest("bdst_s3")]);
   });
 
-  it("keeps `degraded` destinations — health, not operator intent", () => {
+  it("keeps `degraded` destinations: health, not operator intent", () => {
     const ids = [dest("bdst_s3")];
     expect(runnableDestinationIds(ids, [row("bdst_s3", "degraded")])).toEqual([dest("bdst_s3")]);
   });

@@ -9,95 +9,22 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import {
-  ContainerIcon,
-  Copy01Icon,
-  PauseIcon,
-  PlayIcon,
-  Search01Icon,
-  TextWrapIcon,
-} from "@hugeicons/core-free-icons";
+import { ContainerIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { statusBadge } from "@/features/logs/components/logs-status";
 import {
-  LEVEL_STRIPE,
   LEVEL_TEXT,
   LOG_LEVELS,
   useProjectLogStream,
   type LogLevel,
-  type LogLine,
 } from "@/features/logs/data/use-project-log-stream";
-import { Button } from "@/shared/components/ui/button";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
-function LogRow({ line, wrap }: { line: LogLine; wrap: boolean }) {
-  return (
-    <div className="flex items-stretch gap-2.5">
-      <span className={cn("w-[3px] shrink-0 rounded-full", LEVEL_STRIPE[line.level])} />
-      <span className="shrink-0 text-muted-foreground/50">{line.ts}</span>
-      <span
-        className={cn(
-          LEVEL_TEXT[line.level],
-          wrap ? "break-all whitespace-pre-wrap" : "whitespace-pre",
-        )}
-      >
-        {line.msg}
-      </span>
-    </div>
-  );
-}
-
-/** The toolbar's right-side controls. Wrap toggle, pause/resume, copy. */
-function TailControls({
-  wrap,
-  onToggleWrap,
-  paused,
-  onTogglePause,
-  onCopy,
-}: {
-  wrap: boolean;
-  onToggleWrap: () => void;
-  paused: boolean;
-  onTogglePause: () => void;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="ml-auto flex items-center gap-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className={cn("h-7 gap-1.5 text-[12px]", !wrap && "text-muted-foreground/60")}
-        onClick={onToggleWrap}
-      >
-        <HugeiconsIcon icon={TextWrapIcon} strokeWidth={2} className="size-3.5" />
-        Wrap
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-7 gap-1.5 text-[12px]"
-        onClick={onTogglePause}
-      >
-        <HugeiconsIcon icon={paused ? PlayIcon : PauseIcon} strokeWidth={2} className="size-3.5" />
-        {paused ? "Resume" : "Pause"}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Copy visible lines"
-        onClick={onCopy}
-      >
-        <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />
-      </Button>
-    </div>
-  );
-}
+import { LogRow, TailControls } from "./logs-parts";
 
 export function ServiceLogsTab({
   projectId,
@@ -106,13 +33,15 @@ export function ServiceLogsTab({
   projectId: string;
   resourceId: string;
 }) {
+  const { t } = useTranslation();
   const [paused, setPaused] = useState(false);
   const [wrap, setWrap] = useState(true);
+  const [showTs, setShowTs] = useState(true);
   const [query, setQuery] = useState("");
   const [lvlFilter, setLvlFilter] = useState<Set<LogLevel>>(() => new Set(LOG_LEVELS));
 
   const resourceIds = [resourceId];
-  const { lines, status } = useProjectLogStream({ projectId, resourceIds, paused });
+  const { lines, status, clear } = useProjectLogStream({ projectId, resourceIds, paused });
 
   const needle = query.trim().toLowerCase();
   const visible = lines.filter(
@@ -146,8 +75,8 @@ export function ServiceLogsTab({
     if (!text) return;
     void copyToClipboard(text).then((ok) =>
       ok
-        ? toast.success(`Copied ${visible.length} line${visible.length === 1 ? "" : "s"}`)
-        : toast.error("Couldn't copy logs"),
+        ? toast.success(t("logs.copiedLines", { count: visible.length }))
+        : toast.error(t("logs.copyFailed")),
     );
   };
 
@@ -187,8 +116,8 @@ export function ServiceLogsTab({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Filter log messages"
-            placeholder="filter messages…"
+            aria-label={t("logs.filterMessages")}
+            placeholder={t("logs.filterPlaceholder")}
             className="h-7 w-full rounded-md border bg-transparent pl-8 font-mono text-[11.5px] outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-foreground/20"
           />
         </div>
@@ -209,6 +138,9 @@ export function ServiceLogsTab({
           paused={paused}
           onTogglePause={() => setPaused((p) => !p)}
           onCopy={copyVisible}
+          onClear={clear}
+          showTs={showTs}
+          onToggleTs={() => setShowTs((s) => !s)}
         />
       </div>
 
@@ -229,26 +161,26 @@ export function ServiceLogsTab({
               </div>
               <div className="text-[13px] font-medium text-foreground/80">
                 {status === "connecting"
-                  ? "Connecting to the log stream…"
+                  ? t("logs.connecting")
                   : status === "error"
-                    ? "Log stream disconnected"
-                    : "No container running yet"}
+                    ? t("logs.disconnected")
+                    : t("logs.noContainer")}
               </div>
               <div className="text-[12px] text-muted-foreground">
                 {status === "connecting"
-                  ? "Attaching to this service's live output."
+                  ? t("logs.connectingHint")
                   : status === "error"
-                    ? "Retrying automatically."
-                    : "Deploy this service and its container logs will stream here live."}
+                    ? t("logs.disconnectedHint")
+                    : t("logs.noContainerHint")}
               </div>
             </div>
           </div>
         ) : visible.length === 0 ? (
           <div className="grid h-full min-h-40 place-items-center text-center text-[12px] text-muted-foreground">
-            No lines match the current filters.
+            {t("logs.noMatches")}
           </div>
         ) : (
-          visible.map((l) => <LogRow key={l.id} line={l} wrap={wrap} />)
+          visible.map((l) => <LogRow key={l.id} line={l} wrap={wrap} showTs={showTs} />)
         )}
       </div>
     </div>

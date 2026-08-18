@@ -1,7 +1,7 @@
 /**
  * The pure half of the analytics accumulator: acc shapes, constructors, and
  * {@link foldLine}, which folds one access-log line into per-(host, minute)
- * and per-(host, UTC day) accumulators. No timers, no DB, no globals — the
+ * and per-(host, UTC day) accumulators. No timers, no DB, no globals: the
  * live singleton in ./aggregate and the historical backfill both call this,
  * which is what guarantees their numbers agree byte-for-byte.
  */

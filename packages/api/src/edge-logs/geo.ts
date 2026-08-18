@@ -19,7 +19,7 @@ import { open as openMaxmind } from "maxmind";
  * `initGeo()` resolves + opens the reader once at startup (async); the hot-path
  * `lookupCountry()` the ingest loop calls per access log is a sync map lookup.
  *
- * Record shapes are narrowed with real runtime guards at the read boundary —
+ * Record shapes are narrowed with real runtime guards at the read boundary -
  * never asserted: the DB's layout is whatever file the operator pointed us
  * at. Two layouts exist in the wild: MaxMind GeoLite2 / DB-IP official nest
  * the code under `country.iso_code`; the free ip-location-db rebuilds put a
@@ -86,7 +86,7 @@ const g = globalThis;
 
 /**
  * Open one .mmdb. Static import: `maxmind` is a declared dependency and the
- * previous load-by-variable dynamic import was a trap — the bundler couldn't
+ * previous load-by-variable dynamic import was a trap: the bundler couldn't
  * wire it to the chunk it had ALREADY inlined, so the bundled server's
  * runtime resolution failed (`Cannot find package 'maxmind'`: bun's isolated
  * install links it only under packages/api/node_modules) and geo silently
@@ -161,7 +161,7 @@ export async function initGeo(): Promise<void> {
 
 /** Whether country lookups are configured and working. The Analytics surface
  *  reads this so an empty countries list can say "geo isn't set up" instead of
- *  rendering as "no visitors" — the two used to be indistinguishable. */
+ *  rendering as "no visitors": the two used to be indistinguishable. */
 export function geoAvailable(): boolean {
   return g.__edgeGeoReader != null;
 }

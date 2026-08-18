@@ -17,7 +17,7 @@ import { projectIdField } from "./shared";
 
 const availableReferenceSchema = z.object({
   /** What produces this reference. Drives the icon/label in the
-   *  picker — UI keeps a small switch on this field. `vault` rows come from
+   *  picker. UI keeps a small switch on this field. `vault` rows come from
    *  a configured external secret manager (best-effort key listing). */
   sourceKind: z.enum(["database", "service", "project", "environment", "vault"]),
   /** Display label for the source. For resources it's the resource's

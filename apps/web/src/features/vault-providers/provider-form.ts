@@ -1,5 +1,5 @@
 /**
- * Form logic for the secret-provider dialog — defaults, the zod schema and
+ * Form logic for the secret-provider dialog: defaults, the zod schema and
  * the flat-form → discriminated-payload assembly. Split from
  * `provider-dialog.tsx` so that component stays a dialog shell within the
  * file-size budget.
@@ -14,7 +14,7 @@ import type { ProviderFormValues } from "./provider-fields";
 
 import { type VaultProvider, type VaultProviderKind } from "./data/vault-providers";
 
-/** Mirrors the contract's name regex — the token grammar's provider slug. */
+/** Mirrors the contract's name regex: the token grammar's provider slug. */
 const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
 export const KINDS: VaultProviderKind[] = ["hashicorp", "infisical", "doppler"];

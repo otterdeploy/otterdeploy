@@ -29,7 +29,7 @@ const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
 const backupVerificationIdField = zId(ID_PREFIX.backupVerification);
 const backupRestoreIdField = zId(ID_PREFIX.backupRestore);
 
-/** Cron expressions are validated at the boundary — an unparseable expression
+/** Cron expressions are validated at the boundary: an unparseable expression
  *  would otherwise be accepted, silently null the schedule's nextRunAt, and
  *  dead-end it forever with a green-looking row. The same parser drives
  *  scheduler math, so valid-here always means fires-there, and the error

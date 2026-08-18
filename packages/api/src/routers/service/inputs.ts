@@ -250,7 +250,7 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     preDeploy: input.preDeploy,
     postDeploy: input.postDeploy,
     buildConfig: input.buildConfig,
-    // The column is NOT NULL DEFAULT [] — an explicit null on the wire means
+    // The column is NOT NULL DEFAULT []: an explicit null on the wire means
     // "clear", which lands as the empty list rather than a null column.
     extraNetworks: input.extraNetworks === null ? [] : input.extraNetworks,
     // Per-service git rebinding. undefined → left alone (omitUndefined in

@@ -1,5 +1,5 @@
 /**
- * Operator network creation — the write half of the Raw Docker networks tab.
+ * Operator network creation: the write half of the Raw Docker networks tab.
  * Split out of service-admin.ts (line cap); the read/remove paths stay there.
  */
 import type { NetworkCreateOptions } from "@otterdeploy/docker";
@@ -8,7 +8,7 @@ import { PLATFORM } from "../../constants";
 import { docker, failure, type Listed } from "./client";
 import { guardNetworkCreateName } from "./guards";
 
-/** Marks a network as created by an operator through the panel — the
+/** Marks a network as created by an operator through the panel: the
  *  per-service extra-networks picker keys its eligibility off this. */
 export const USER_NETWORK_LABEL = "otterdeploy.user-network";
 
@@ -29,7 +29,7 @@ function toCreateOptions(input: CreateNetworkInput): NetworkCreateOptions {
     Name: input.name,
     Driver: input.driver,
     Internal: input.internal ?? false,
-    // Attachable defaults ON — an unattachable network can't serve the
+    // Attachable defaults ON: an unattachable network can't serve the
     // per-service attach feature (and standalone-container debugging) at all.
     Attachable: input.attachable ?? true,
     EnableIPv6: input.enableIPv6 ?? false,
@@ -61,7 +61,7 @@ export async function createNetwork(
   });
   if (!guard.ok) return { ok: false, reason: guard.reason, kind: "conflict" };
 
-  // Unlike volume create, network create is NOT idempotent — but docker allows
+  // Unlike volume create, network create is NOT idempotent: but docker allows
   // duplicate network NAMES (identity is the id). Pre-inspect so the operator
   // gets an honest 409 instead of a second network shadowing the first.
   const existing = await docker.networks.inspect(input.name);

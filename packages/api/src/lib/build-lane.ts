@@ -5,7 +5,7 @@
  * own queue (packages/jobs/src/lanes.ts). This resolver is the enqueue-side
  * half: it maps a project to a lane through the project's resource placement.
  *
- * Deliberately conservative — a project routes to a named lane ONLY when its
+ * Deliberately conservative: a project routes to a named lane ONLY when its
  * placed resources point at exactly one distinct server that is a dedicated
  * build node (`buildServer`) with a `buildLane` configured. Everything else
  * (no placement, mixed placements across several lane-bearing build servers,

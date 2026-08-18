@@ -96,7 +96,7 @@ export function usePasskeys() {
   });
 }
 
-/** Coarse "Browser on OS" label from a user-agent string. Best-effort — used
+/** Coarse "Browser on OS" label from a user-agent string. Best-effort: used
  *  for display only, never for any decision. */
 export function describeAgent(ua: string | null | undefined): string {
   if (!ua) return "Unknown device";

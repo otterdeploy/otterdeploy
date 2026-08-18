@@ -126,7 +126,7 @@ export async function cancelDataProcessing(dataId: string) {
 
 /**
  * Enqueue a build. `lane` routes it to a named deploy lane's queue (see
- * lanes.ts) — omitted, everything lands on the shared default lane, exactly
+ * lanes.ts): omitted, everything lands on the shared default lane, exactly
  * the pre-lane behavior. The JOB name stays `deploy.triggered` on every lane;
  * only the queue differs, and the builder's worker is bound to its lane's
  * queue by name. The lane is registered in the discovery set BEFORE the add,

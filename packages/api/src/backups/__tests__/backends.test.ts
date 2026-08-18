@@ -1,7 +1,7 @@
 /**
  * Pure mapping layer for the rustic engine: destination → repository URL +
  * OpenDAL options, and the repo-key derivation that scopes each repo. No daemon
- * or network — the invocation side (RusticCli) is smoke-tested against a real
+ * or network: the invocation side (RusticCli) is smoke-tested against a real
  * binary separately.
  */
 import { idSchema } from "@otterdeploy/shared/id";
@@ -16,7 +16,7 @@ import { deriveRepoPassword } from "../rustic";
 // External destinations use the repo id as its own password domain.
 const key = (repoId: string): RepoKey => ({ repoId, passwordDomain: repoId });
 
-describe("toRusticRepo — local", () => {
+describe("toRusticRepo: local", () => {
   it("roots the repo at <path>/<repoId>", () => {
     const dest: ResolvedDestination = {
       type: "local",
@@ -46,7 +46,7 @@ describe("toRusticRepo — local", () => {
   });
 });
 
-describe("toRusticRepo — s3", () => {
+describe("toRusticRepo: s3", () => {
   const base: ResolvedDestination = {
     type: "s3",
     config: { bucket: "my-bucket" },
@@ -89,7 +89,7 @@ describe("toRusticRepo — s3", () => {
   });
 });
 
-describe("toRusticRepo — sftp", () => {
+describe("toRusticRepo: sftp", () => {
   it("maps a key-auth destination to opendal:sftp", () => {
     const dest: ResolvedDestination = {
       type: "sftp",
@@ -145,7 +145,7 @@ describe("toRusticRepo — sftp", () => {
   });
 });
 
-// Minimal fixtures — repoScope/deriveRepoKey read only the source discriminant,
+// Minimal fixtures: repoScope/deriveRepoKey read only the source discriminant,
 // the org, and the destination's `managed` flag + `config.prefix` (RepoIdSource).
 interface CtxOpts {
   prefix?: string;
@@ -184,7 +184,7 @@ describe("repoScope", () => {
   });
 });
 
-describe("deriveRepoKey — external destinations", () => {
+describe("deriveRepoKey: external destinations", () => {
   it("roots under otterdeploy-backups/<scope>, password domain = repo id", () => {
     expect(deriveRepoKey(dbCtx())).toEqual(key("otterdeploy-backups/res_1"));
     expect(deriveRepoKey(volCtx())).toEqual(key("otterdeploy-backups/volume-pgdata"));
@@ -197,7 +197,7 @@ describe("deriveRepoKey — external destinations", () => {
   });
 });
 
-describe("deriveRepoKey — managed local destination", () => {
+describe("deriveRepoKey: managed local destination", () => {
   it("repo id is the bare scope; password domain is org-qualified", () => {
     expect(deriveRepoKey(dbCtx({ managed: true, org: "org_a" }))).toEqual({
       repoId: "res_1",
@@ -209,13 +209,13 @@ describe("deriveRepoKey — managed local destination", () => {
     });
   });
 
-  it("ignores a prefix key — managed config is platform-owned and has none", () => {
+  it("ignores a prefix key: managed config is platform-owned and has none", () => {
     expect(deriveRepoKey(dbCtx({ managed: true, prefix: "stale" })).repoId).toBe("res_1");
   });
 
   it("two orgs, same volume scope: identical on-disk repo id, different passwords", () => {
     // The path already separates the orgs (each managed root is
-    // orgs/<org>/backups/), so the repo id — and with it the on-disk layout —
+    // orgs/<org>/backups/), so the repo id: and with it the on-disk layout -
     // must not change; only the derived password may.
     const a = deriveRepoKey(volCtx({ managed: true, org: "org_a" }));
     const b = deriveRepoKey(volCtx({ managed: true, org: "org_b" }));

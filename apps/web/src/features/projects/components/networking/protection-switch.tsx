@@ -20,7 +20,7 @@ const routeIdSchema = zId("rt");
  * states so toggling never moves the switch out from under the pointer (the
  * column is shared, so an intrinsic width re-flowed every other row too).
  *
- * Sentence-case UI text with a status dot — not mono: mono is for machine
+ * Sentence-case UI text with a status dot: not mono: mono is for machine
  * text (IDs, hashes, logs); "Login required" is product vocabulary.
  */
 export function ProtectionStateLabel({ isProtected }: { isProtected: boolean }) {
@@ -42,7 +42,7 @@ export function ProtectionSwitch({
 }) {
   const onToggle = (checked: boolean) => {
     // Parse, don't cast: the row's id travels as a plain string through the
-    // table's view types — validate the brand at the mutation boundary.
+    // table's view types: validate the brand at the mutation boundary.
     const tx = proxyRoutesCollection.update(routeIdSchema.parse(route.id), (draft) => {
       draft.protected = checked;
     });

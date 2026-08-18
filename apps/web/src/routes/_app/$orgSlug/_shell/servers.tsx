@@ -153,7 +153,7 @@ function resolveServersTab(tab: ServersTab, isInstallAdmin: boolean): ServersTab
   return "overview";
 }
 
-/** Narrow the tab strip's string value without asserting — the tuple lookup
+/** Narrow the tab strip's string value without asserting: the tuple lookup
  *  is the type guard. */
 function toServersTab(value: string): ServersTab {
   return SERVERS_TABS.find((tab) => tab === value) ?? "overview";

@@ -1,5 +1,5 @@
 /**
- * Aggregate scanner-probe traffic from the edge access logs — the data behind
+ * Aggregate scanner-probe traffic from the edge access logs: the data behind
  * the Firewall "flagged IPs" panel and the periodic edge-anomaly alert. Both
  * group suspicious requests (path matches {@link THREAT_SQL_REGEX}) by client
  * IP over a recent window. DB-backed when persistence is on (the default);
@@ -31,7 +31,7 @@ export interface FlaggedIp {
   samplePaths: string[];
 }
 
-/** One (host, ip) probe group — the scan maps `host` back to an org. */
+/** One (host, ip) probe group: the scan maps `host` back to an org. */
 export interface HostThreatGroup {
   host: string;
   ip: string;
@@ -169,7 +169,7 @@ export async function flaggedIpsAllTime(hosts: string[], limit = 100): Promise<F
 }
 
 /** All (host, ip) probe groups with ≥ `minCount` requests since `sinceMs`,
- *  across every host — the anomaly scan resolves each host to its org. */
+ *  across every host: the anomaly scan resolves each host to its org. */
 export async function scanSuspiciousGroups(
   sinceMs: number,
   minCount: number,

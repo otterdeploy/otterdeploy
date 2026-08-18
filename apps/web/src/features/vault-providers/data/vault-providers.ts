@@ -28,9 +28,9 @@ export const KIND_LABELS: Record<VaultProviderKind, string> = {
 
 /** Per-kind `<ref>` format for the `${{vault.<provider>.<ref>}}` help text. */
 export const KIND_REF_HINTS: Record<VaultProviderKind, string> = {
-  hashicorp: "<path>:<field> — e.g. app/db:PASSWORD (KV v2)",
-  infisical: "<secret key> — e.g. DATABASE_URL",
-  doppler: "<secret key> — e.g. API_KEY",
+  hashicorp: "<path>:<field>: e.g. app/db:PASSWORD (KV v2)",
+  infisical: "<secret key>: e.g. DATABASE_URL",
+  doppler: "<secret key>: e.g. API_KEY",
 };
 
 function useInvalidateProviders() {

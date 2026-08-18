@@ -80,7 +80,7 @@ export class SshSession {
         privateKey: target.privateKey,
         password: target.password,
         readyTimeout: 20_000,
-        // First contact with a brand-new host — no known_hosts entry can exist
+        // First contact with a brand-new host: no known_hosts entry can exist
         // yet, so we accept the host key on trust (effectively
         // StrictHostKeyChecking=no). The tailnet path (phase 2) removes the
         // MITM window by carrying this over an authenticated mesh.

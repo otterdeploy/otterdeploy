@@ -1,7 +1,7 @@
 /**
  * External secret-manager hint for the wizard's variables step.
  *
- * Deliberately NOT a picker — the variables step's value cells already open
+ * Deliberately NOT a picker: the variables step's value cells already open
  * the full reference picker on `${{`, and vault entries flow through it like
  * any other source. This component only tells the operator that the
  * capability exists: which providers are connected (reference them as
@@ -32,7 +32,7 @@ export function LinkedSecretsField() {
           Connect a secret provider
         </Link>{" "}
         and reference them here as{" "}
-        <code className="font-mono">{"${{vault.<provider>.<ref>}}"}</code> — values are fetched at
+        <code className="font-mono">{"${{vault.<provider>.<ref>}}"}</code>; values are fetched at
         deploy time, never stored.
       </p>
     );
@@ -40,7 +40,7 @@ export function LinkedSecretsField() {
 
   return (
     <p className="text-[11.5px] text-muted-foreground">
-      Secret providers connected ({providers.data.map((p) => p.name).join(", ")}) — reference their
+      Secret providers connected ({providers.data.map((p) => p.name).join(", ")}): reference their
       secrets in any value as <code className="font-mono">{"${{vault.<provider>.<ref>}}"}</code>;
       they resolve at deploy time.
     </p>

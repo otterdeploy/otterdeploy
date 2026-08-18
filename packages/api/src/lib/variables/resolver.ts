@@ -52,7 +52,7 @@ interface ResolveContext {
   previewId: PreviewId | null;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
-  // `${{vault.<provider>.<ref>}}` state — provider rows load once per
+  // `${{vault.<provider>.<ref>}}` state: provider rows load once per
   // resolve, fetched values live only for this resolve's duration.
   vault: VaultResolveState;
 }
@@ -300,7 +300,7 @@ async function loadDatabaseExports(
 
 /**
  * `envFree` skips the recursive env resolve and returns only the computed
- * exports — the cycle fallback above uses it. Env-free results are NOT
+ * exports: the cycle fallback above uses it. Env-free results are NOT
  * cached: the full record must still be built when the resource is
  * referenced outside the cycle.
  */

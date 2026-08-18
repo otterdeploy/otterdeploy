@@ -1,9 +1,9 @@
 /**
  * Strip platform naming machinery from a swarm service / container name for
  * DISPLAY. The machine name (`od-<project>-<service>`, legacy
- * `otterdeploy-<engine>-<project>-<name>`) is load-bearing — it's the unique
+ * `otterdeploy-<engine>-<project>-<name>`) is load-bearing: it's the unique
  * per-daemon identity, the DNS address Caddy dials, and what route validation
- * authenticates — so it never changes; but a human reading a list next to a
+ * authenticates: so it never changes; but a human reading a list next to a
  * project badge doesn't need to re-read the prefix and project in every row.
  *
  * Always keep the RAW name in search keywords and in any payload sent back to

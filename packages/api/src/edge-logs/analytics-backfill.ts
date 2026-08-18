@@ -4,12 +4,12 @@
  * partitions (~7 days by default) through the SAME accumulator fold the live
  * ingest uses, so the Analytics tab is non-empty on day one and its numbers
  * are byte-for-byte consistent with what live aggregation would have produced
- * (bot classification, path normalization, histograms — none of which a SQL
+ * (bot classification, path normalization, histograms: none of which a SQL
  * GROUP BY could reproduce).
  *
  * Today is deliberately excluded: it is owned by the live accumulator's
  * seed-then-count cycle. Past days are written insert-only (DO NOTHING), so a
- * re-run — or a race with a straggling live flush — can never clobber.
+ * re-run (or a race with a straggling live flush) can never clobber.
  * Backfilled visitor counts are exact: the whole day's IPs are hashed in one
  * pass and the set discarded.
  */

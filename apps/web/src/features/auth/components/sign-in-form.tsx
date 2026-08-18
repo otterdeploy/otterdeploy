@@ -163,7 +163,7 @@ export function SignInForm({
       <SocialSignIn dividerLabel="or continue with" providers={socialProviders} />
 
       {/* Passkey sign-in completes with a full session (first factor + user
-          verification), so it reuses completeLogin directly — no 2FA step. */}
+          verification), so it reuses completeLogin directly: no 2FA step. */}
       <PasskeySignIn onSignedIn={completeLogin} />
 
       {/* Always rendered, unlike SocialSignIn: whether SSO applies depends on

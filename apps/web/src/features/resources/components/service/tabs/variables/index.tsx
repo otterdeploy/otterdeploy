@@ -98,16 +98,16 @@ export function ServiceVariablesTabBody({
 }
 
 /**
- * Saving STAGES onto the manifest whenever the service is declared there —
+ * Saving STAGES onto the manifest whenever the service is declared there -
  * pending creates always are, and live services are once applied. The pill
  * (pending-changes bar) then surfaces the env diff for review; Apply
  * reconciles + redeploys. Direct-write (`env.bulkSet`, takes effect on next
  * redeploy) remains only as the fallback for services the manifest doesn't
- * know — e.g. drifted or pre-manifest resources (onSave undefined → the
+ * know: e.g. drifted or pre-manifest resources (onSave undefined → the
  * editor's own bulkSet mutation).
  *
  * Once env is DECLARED on the manifest entry, the staged map is also the
- * saved state the editor should baseline against — the live rows lag it
+ * saved state the editor should baseline against: the live rows lag it
  * until Apply, and baselining on them would repaint the editor with
  * pre-stage values (with dirty chips) right after a successful save.
  */

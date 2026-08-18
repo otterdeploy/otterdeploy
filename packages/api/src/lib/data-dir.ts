@@ -42,7 +42,7 @@ export function dataRootAvailable(): Promise<boolean> {
 }
 
 /**
- * Recursively delete `path` — but ONLY if it resolves INSIDE `DATA_ROOT` *and*
+ * Recursively delete `path`: but ONLY if it resolves INSIDE `DATA_ROOT` *and*
  * ends with `id`. Cheap insurance against a path bug nuking the wrong tree:
  * a derivation that returns `""`, `"/"`, or someone else's directory fails
  * one of the two checks and the call becomes a no-op instead of an `rm -rf`.
@@ -69,7 +69,7 @@ export async function removeResourceDir(ref: ResourceRef): Promise<void> {
   await removeGuardedDir(resourceDir(ref), ref.resourceId);
 }
 
-/** Remove one environment's subtree (`…/envs/<envId>/`) on env delete — a
+/** Remove one environment's subtree (`…/envs/<envId>/`) on env delete: a
  *  preview's whole disk footprint in one step. Never called for `main` (the
  *  main environment cannot be deleted), and the id guard enforces that: the
  *  path ends with the env id, which `main` is not. */
@@ -92,7 +92,7 @@ export async function removeProjectDir(
 }
 
 /** Remove an organization's whole subtree (`orgs/<orgId>/`) on org delete.
- *  Includes the org's durable backup repos — org deletion is the one place
+ *  Includes the org's durable backup repos: org deletion is the one place
  *  that is allowed to drop them. */
 export async function removeOrgDir(organizationId: OrganizationId): Promise<void> {
   if (!(await dataRootAvailable())) return;

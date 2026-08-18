@@ -35,9 +35,9 @@ import {
 
 /**
  * The whole access surface for one route, used inline (Access tab) or inside
- * a dialog (Routes tab). Two panes on wide viewports — PEOPLE (guest invites)
+ * a dialog (Routes tab). Two panes on wide viewports. PEOPLE (guest invites)
  * on the left, the three CREDENTIAL mechanisms (PIN / link / token) stacked
- * on the right — so the dialog reads as two short columns instead of one
+ * on the right: so the dialog reads as two short columns instead of one
  * long scroll. Collapses back to a single stack under `md`.
  */
 export function RouteAccessControls({ routeId }: { routeId: string }) {

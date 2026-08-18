@@ -7,7 +7,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { parseStatLine, parseVolumeDirListing, resolveVolumeExplorePath } from "../explore-parse";
 
-describe("resolveVolumeExplorePath — accepts", () => {
+describe("resolveVolumeExplorePath: accepts", () => {
   test("empty path is the volume root", () => {
     expect(resolveVolumeExplorePath("")).toEqual({
       ok: true,
@@ -47,7 +47,7 @@ describe("resolveVolumeExplorePath — accepts", () => {
   });
 });
 
-describe("resolveVolumeExplorePath — rejects", () => {
+describe("resolveVolumeExplorePath: rejects", () => {
   test.each(["..", "a/../b", "../etc/passwd", "a/b/..", "/..", ".././x"])(
     "'..' traversal: %s",
     (raw) => {

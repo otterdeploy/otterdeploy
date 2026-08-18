@@ -4,10 +4,10 @@
  * the live catalog rows (engine, size, connections, last backup) and overlays
  * schedule membership:
  *
- *   protected   — at least one enabled schedule covers it (by id or name)
- *   unprotected — dumpable engine with no schedule: the actionable warning
- *   volume-only — redis-family engines (no logical dump; point at its volume)
- *   unsupported — clickhouse (no backup path yet; honest, not a silent skip)
+ *   protected  : at least one enabled schedule covers it (by id or name)
+ *   unprotected: dumpable engine with no schedule: the actionable warning
+ *   volume-only: redis-family engines (no logical dump; point at its volume)
+ *   unsupported: clickhouse (no backup path yet; honest, not a silent skip)
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
 

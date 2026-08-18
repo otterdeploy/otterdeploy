@@ -12,7 +12,7 @@
  * but nothing active anywhere, no builder is consuming and a long-silent
  * deploy is fair game to fail.
  *
- * Scans EVERY deploy lane queue (see lanes.ts), not just the default — a
+ * Scans EVERY deploy lane queue (see lanes.ts), not just the default: a
  * build queued on a named lane is just as owned as one on the shared queue.
  * The union itself lives in in-flight-core.ts so it stays purely testable.
  */

@@ -52,7 +52,7 @@ export interface ServiceDomainView {
 
 /** Status projection, split out so the pause/system-gate precedence is a
  *  pure decision the tests can pin: the operator's pause wins over both
- *  system states — a paused route must not masquerade as merely "disabled"
+ *  system states: a paused route must not masquerade as merely "disabled"
  *  (which the UI treats as "fix your DNS / re-expose"). */
 export function domainStatusFor(route: Pick<ProxyRouteRecord, "enabled" | "disabledByUser">) {
   if (route.disabledByUser) return "paused" as const;

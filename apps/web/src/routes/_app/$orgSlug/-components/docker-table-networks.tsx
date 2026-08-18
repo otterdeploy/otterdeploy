@@ -41,7 +41,7 @@ const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_g
 
 const isBuiltin = (n: Network) => BUILTIN_NETWORKS.has(n.name) || n.ingress;
 
-/** The Networks tab body — create affordance above the inventory table.
+/** The Networks tab body: create affordance above the inventory table.
  *  Owns the dialog state so the panel stays under its function-line cap. */
 export function NetworksSection({ query, swarm }: { query: QueryLike<Network>; swarm: boolean }) {
   const [createOpen, setCreateOpen] = useState(false);

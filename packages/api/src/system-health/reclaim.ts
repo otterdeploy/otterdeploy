@@ -1,12 +1,12 @@
 /**
- * Space reclamation — the one-click fixes behind the health recommendations.
+ * Space reclamation: the one-click fixes behind the health recommendations.
  * Three deliberately safe targets:
  *
  *   images      → `image prune` with dangling=false (all images unused by any
- *                 container — old deploy images live here; re-pulled if needed)
+ *                 container: old deploy images live here; re-pulled if needed)
  *   build-cache → BuildKit cache prune (idle daemon entries) PLUS the data
  *                 folder's `cache/` tree (the `cache/buildx` layer caches).
- *                 `cache/` is regenerable by contract — always safe to wipe
+ *                 `cache/` is regenerable by contract: always safe to wipe
  *                 entirely; the next build just starts cold and re-warms it
  *   containers  → stopped containers, LIMITED to otterdeploy-managed ones so a
  *                 shared host's other stopped containers are never touched
@@ -46,7 +46,7 @@ async function pathSizeBytes(path: string): Promise<number> {
 
 /**
  * Wipe the data folder's `cache/` tree (BuildKit layer caches under
- * `cache/buildx` — the on-disk export caches the daemon prune can't see).
+ * `cache/buildx`: the on-disk export caches the daemon prune can't see).
  * Removes each child through the guarded remover (never the `cache/` dir
  * itself); best-effort, returns the bytes measured before removal.
  */
@@ -112,7 +112,7 @@ async function pruneOne(docker: Docker, target: ReclaimTarget): Promise<ReclaimR
 }
 
 /** Run the requested prunes in sequence (they contend on the daemon anyway).
- *  Per-target failures are reported, never thrown — a locked build cache must
+ *  Per-target failures are reported, never thrown: a locked build cache must
  *  not stop the image prune from freeing space. */
 export async function reclaimSpace(targets: ReclaimTarget[]): Promise<{
   results: ReclaimResult[];

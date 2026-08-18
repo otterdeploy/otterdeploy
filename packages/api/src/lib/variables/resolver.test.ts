@@ -402,7 +402,7 @@ describe("resolveServiceEnv", () => {
 // Same narrowing as `asMock` above; alias kept so this block reads locally.
 const mockOf = asMock;
 
-describe("resolveServiceEnv — vault references", () => {
+describe("resolveServiceEnv: vault references", () => {
   const serviceWithEnv = (env: Array<{ key: string; value: string }>) => ({
     resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
     service: { resourceId: "resource_api", internalHostname: "api" },

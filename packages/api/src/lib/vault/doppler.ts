@@ -1,5 +1,5 @@
 /**
- * Doppler client — service-token access to one config's secrets.
+ * Doppler client: service-token access to one config's secrets.
  *
  * Ref syntax: the secret key. A service token is usually pre-scoped to a
  * single project+config; `dopplerProject`/`dopplerConfig` are only needed
@@ -15,7 +15,7 @@ import { vaultFetch } from "./http";
 const DOPPLER_API_URL = "https://api.doppler.com";
 
 // `format=json` download: a flat { KEY: value } object. Values are strings in
-// practice, but the API doesn't promise it — non-strings are stringified.
+// practice, but the API doesn't promise it: non-strings are stringified.
 const downloadSchema = z.record(z.string(), z.unknown());
 
 async function fetchAll(provider: VaultProviderRuntime): Promise<Map<string, string>> {

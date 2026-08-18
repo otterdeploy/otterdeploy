@@ -1,5 +1,5 @@
 /**
- * The multi-lane in-flight union — pure, against fake queues. The property
+ * The multi-lane in-flight union: pure, against fake queues. The property
  * under test is the watchdog discriminator: ownership and activity must be
  * the UNION over every lane, so a build active on one lane keeps a deploy
  * queued on another lane from being declared abandoned.

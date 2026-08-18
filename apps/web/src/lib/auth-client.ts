@@ -26,7 +26,7 @@ export const authClient = createAuthClient({
     // WebAuthn passkeys. Provides `signIn.passkey()` for the sign-in page and
     // the `passkey.*` management calls (add/list/rename/delete) the account
     // security page uses. The WebAuthn ceremony runs in the browser; the
-    // server only ever sees public keys — see db/schema/auth.ts `passkey`.
+    // server only ever sees public keys: see db/schema/auth.ts `passkey`.
     passkeyClient(),
     // Enterprise SSO. Provides `signIn.sso({ email })` for the sign-in page and
     // the `sso.*` provider-management calls the workspace settings page uses.

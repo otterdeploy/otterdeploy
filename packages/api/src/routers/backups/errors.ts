@@ -45,7 +45,7 @@ export class DestinationInUseError extends TaggedError("DestinationInUseError")<
  * Raised when a mutation targets the platform-managed local destination in a
  * way that isn't allowed: deleting it, or editing the org-scoped repo path the
  * platform owns. Carries `operation` so the UI can explain which door is shut rather
- * than showing a generic refusal — though the UI should not offer these
+ * than showing a generic refusal: though the UI should not offer these
  * affordances on a managed row in the first place.
  */
 export class DestinationManagedError extends TaggedError("DestinationManagedError")<{
@@ -59,7 +59,7 @@ export class DestinationManagedError extends TaggedError("DestinationManagedErro
       operation: args.operation,
       message:
         args.operation === "delete"
-          ? `backup destination ${args.destinationId} is managed by the platform and cannot be deleted — disable it instead`
+          ? `backup destination ${args.destinationId} is managed by the platform and cannot be deleted: disable it instead`
           : `backup destination ${args.destinationId} is managed by the platform; its location is not editable`,
     });
   }
@@ -67,7 +67,7 @@ export class DestinationManagedError extends TaggedError("DestinationManagedErro
 
 /**
  * Raised when disabling the managed destination would leave the org with no
- * active destination at all — every schedule would silently become a no-op.
+ * active destination at all: every schedule would silently become a no-op.
  */
 export class DestinationLastActiveError extends TaggedError("DestinationLastActiveError")<{
   message: string;
@@ -77,13 +77,13 @@ export class DestinationLastActiveError extends TaggedError("DestinationLastActi
     super({
       destinationId: args.destinationId,
       message:
-        "this is the only active backup destination — add another one before disabling it, or scheduled backups would stop running",
+        "this is the only active backup destination: add another one before disabling it, or scheduled backups would stop running",
     });
   }
 }
 
 /** Raised on create/update when a destination's config is structurally
- *  incomplete (e.g. a `local` destination with no `path`) — rejected up front
+ *  incomplete (e.g. a `local` destination with no `path`): rejected up front
  *  so the failure never waits for a backup run to surface. */
 export class DestinationConfigInvalidError extends TaggedError("DestinationConfigInvalidError")<{
   message: string;
@@ -98,7 +98,7 @@ export class DestinationConfigInvalidError extends TaggedError("DestinationConfi
 }
 
 /**
- * Raised when a destination credential fails validation — missing required
+ * Raised when a destination credential fails validation: missing required
  * config, no credentials, or an undecryptable secret. Carries the reason so
  * the operator/UI sees exactly what was wrong.
  */

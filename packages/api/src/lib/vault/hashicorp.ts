@@ -1,5 +1,5 @@
 /**
- * HashiCorp Vault / OpenBao client — KV v2 engine only.
+ * HashiCorp Vault / OpenBao client. KV v2 engine only.
  *
  * Ref syntax: `<path>:<field>`, split on the LAST colon so paths may contain
  * colons themselves. One `GET {url}/v1/{mount}/data/{path}` per distinct
@@ -124,7 +124,7 @@ const LIST_MAX_ENTRIES = 200;
 
 /**
  * Best-effort recursive KV v2 metadata listing for the reference picker.
- * Returns secret paths (the `<path>` half of a ref — the operator appends
+ * Returns secret paths (the `<path>` half of a ref: the operator appends
  * `:<field>`). Depth/entry caps keep a huge mount from stalling the picker.
  * Callers treat any throw as "no listing available".
  */

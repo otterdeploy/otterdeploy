@@ -76,7 +76,7 @@ export interface DeployActivity {
   building: number;
   queued: number;
   /**
-   * Queued work with nothing consuming it — every builder is down or wedged.
+   * Queued work with nothing consuming it: every builder is down or wedged.
    *
    * This is the signal a bare count cannot give you: "3 queued" is normal
    * behind an active build and alarming behind nothing. Same discriminator the
@@ -188,7 +188,7 @@ export async function getDeployActivity(input: {
     createdAt: row.createdAt.toISOString(),
   }));
 
-  // Only worth asking when there is a backlog to be stalled — an idle org
+  // Only worth asking when there is a backlog to be stalled: an idle org
   // should not touch Redis on every poll. The lane list rides along when the
   // queue read happens, so multi-lane installs see where the backlog lives.
   if (queued === 0) return { items, building, queued, builderStalled: false };

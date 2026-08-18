@@ -1,11 +1,11 @@
 /**
- * Passkeys — inline list of the account's registered WebAuthn credentials
+ * Passkeys: inline list of the account's registered WebAuthn credentials
  * (better-auth `@better-auth/passkey` plugin), with per-row delete and an
  * add-passkey footer. The WebAuthn ceremony runs entirely in the browser; the
  * server stores only the credential's public key.
  *
  * The card renders a short explainer instead of the add button when the
- * browser has no `PublicKeyCredential` (plain-HTTP installs — WebAuthn needs a
+ * browser has no `PublicKeyCredential` (plain-HTTP installs. WebAuthn needs a
  * secure context), so existing passkeys are still listed and deletable from an
  * insecure origin even though new ones can't be added there.
  */
@@ -43,7 +43,7 @@ export function PasskeysCard() {
   const add = useMutation({
     mutationFn: async () => {
       const res = await authClient.passkey.addPasskey();
-      // A closed browser prompt resolves with a cancellation error — stay
+      // A closed browser prompt resolves with a cancellation error: stay
       // silent for that one; the user changed their mind, nothing failed.
       if (res?.error) {
         const code = "code" in res.error ? res.error.code : undefined;
@@ -146,7 +146,7 @@ export function PasskeysCard() {
               </Button>
             ) : (
               <p className="text-[12px] text-muted-foreground">
-                Passkeys need a secure (HTTPS) origin — this browser can't register one here.
+                Passkeys need a secure (HTTPS) origin: this browser can't register one here.
               </p>
             )}
           </SettingsFooter>

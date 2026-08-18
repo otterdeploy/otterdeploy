@@ -28,6 +28,20 @@ export const LEVEL_TEXT: Record<LogLevel, string> = {
   error: "text-destructive",
 };
 
+/**
+ * Message-body colors for rendered log ROWS. Info is the normal case, so it
+ * reads in the terminal's plain foreground; a wall of accent-blue text is
+ * noise, not signal. The level chips/badges keep LEVEL_TEXT: there the color
+ * IS the label. Warn/error stay tinted in rows because they are the outliers
+ * an operator scans for.
+ */
+export const LEVEL_ROW_TEXT: Record<LogLevel, string> = {
+  debug: "text-muted-foreground",
+  info: "text-terminal-foreground",
+  warn: "text-warning",
+  error: "text-destructive",
+};
+
 export const LEVEL_STRIPE: Record<LogLevel, string> = {
   debug: "bg-muted-foreground/40",
   info: "bg-info",
@@ -121,12 +135,16 @@ export function useProjectLogStream({
   // Virtualized table keeps the DOM light, so we can afford a much deeper
   // scrollback than the old per-row-DOM list (which capped at 500).
   bufferSize = 5000,
-}: UseProjectLogStreamArgs): { lines: LogLine[]; status: LogStreamStatus } {
+}: UseProjectLogStreamArgs): { lines: LogLine[]; status: LogStreamStatus; clear: () => void } {
   // Key the resource list by sorted-join so resourceIds = [a, b] and [b, a]
   // don't trigger reconnects.
   const key = resourceIds ? resourceIds.toSorted().join(",") : "";
 
-  const { lines: rawLines, status } = useLogStream({
+  const {
+    lines: rawLines,
+    status,
+    clear,
+  } = useLogStream({
     // No client retry plugin here. useLogStream owns reconnects so a reopen
     // keeps the buffer intact and requests NO backfill (tail: 0), instead of
     // the plugin's transparent re-invoke duplicating 50 lines per service.
@@ -181,5 +199,5 @@ export function useProjectLogStream({
   // row models, histogram buckets) and re-processed the whole 5k buffer 4-5
   // times per frame.
   const lines = useMemo(() => coalesceMultiline(rawLines), [rawLines]);
-  return { lines, status };
+  return { lines, status, clear };
 }

@@ -1,6 +1,6 @@
 /**
  * Rollup readers for the Analytics surface. Everything here reads
- * `edge_stat_minute` / `edge_stat_day` — never the raw `edge_log` — so cost
+ * `edge_stat_minute` / `edge_stat_day` (never the raw `edge_log`) so cost
  * is bounded by the window's bucket count, not by traffic volume, and the
  * 90-day range is as cheap as the 24-hour one.
  *

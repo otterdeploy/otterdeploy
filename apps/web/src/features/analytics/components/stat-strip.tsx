@@ -1,7 +1,7 @@
 /**
  * Headline figures, one small card each, Plausible-style: value, a trend
  * delta against the equal-length previous window (green when it moved the
- * good way — for latency and errors that's DOWN), the honest qualifier line,
+ * good way: for latency and errors that's DOWN), the honest qualifier line,
  * and a spark showing the shape.
  */
 

@@ -9,10 +9,10 @@
  * stable ids (never names) so it is rename-safe and collision-free. The first
  * path segment answers "can I delete this?":
  *
- *   platform/  the platform itself — load-bearing, 0700
- *   orgs/      all tenant data — nothing tenant-owned lives outside it
- *   work/      ephemeral build scratch — a crash here loses nothing durable
- *   cache/     regenerable — always safe to wipe entirely
+ *   platform/  the platform itself: load-bearing, 0700
+ *   orgs/      all tenant data: nothing tenant-owned lives outside it
+ *   work/      ephemeral build scratch: a crash here loses nothing durable
+ *   cache/     regenerable: always safe to wipe entirely
  *
  * See docs/designs/data-folder.md.
  */
@@ -30,11 +30,11 @@ export const DATA_ROOT = (process.env.OTTERDEPLOY_DATA_DIR ?? "/data/otterdeploy
 );
 
 /* ------------------------------------------------------------------------- *
- * platform/ — the platform itself. Load-bearing; never swept.
+ * platform/: the platform itself. Load-bearing; never swept.
  *
  * Two platform paths have no TS helper on purpose, because nothing in this
  * codebase writes them: `platform/source/` (the install root, owned by
- * scripts/install.sh — the default `OTTERDEPLOY_INSTALL_DIR`) and
+ * scripts/install.sh: the default `OTTERDEPLOY_INSTALL_DIR`) and
  * `platform/backups/<ts>-<reason>/` (self-update safety sets: control-plane
  * dump + env + override, written by the deploy procedure). Add a helper here
  * the day code needs one; the layout contract lives in
@@ -62,7 +62,7 @@ export const branchPoolImagePath = (): string => `${DATA_ROOT}/platform/branch-p
 export const updateStatusPath = (): string => `${DATA_ROOT}/platform/update-status.json`;
 
 /* ------------------------------------------------------------------------- *
- * orgs/ — all tenant data. Mirrors org → project → env → resource; each level
+ * orgs/: all tenant data. Mirrors org → project → env → resource; each level
  * reconciles against its DB table (the orphan sweep), and deleting an org is
  * one subtree.
  * ------------------------------------------------------------------------- */
@@ -114,7 +114,7 @@ export const envDir = (
 
 /**
  * One resource, one home: everything a resource owns lives under this single
- * directory — `meta.json`, `ssl/`, `init/`, `volumes/`, `backup-staging/`.
+ * directory: `meta.json`, `ssl/`, `init/`, `volumes/`, `backup-staging/`.
  * "Everything for resource X" is one `ls`; deleting the resource is one guarded
  * subtree removal.
  */
@@ -137,7 +137,7 @@ export const composeVolumeDir = (ref: ResourceRef, member: string): string =>
 export const backupStagingDir = (ref: ResourceRef): string => `${resourceDir(ref)}/backup-staging`;
 
 /* ------------------------------------------------------------------------- *
- * work/ — ephemeral build scratch, TTL-swept by the builder. Kept
+ * work/: ephemeral build scratch, TTL-swept by the builder. Kept
  * project-keyed (not org-keyed) on purpose: this is the high-churn hot loop
  * and the shallow path keeps it simple.
  * ------------------------------------------------------------------------- */
@@ -156,7 +156,7 @@ export const sourceTarballPath = (projectId: ProjectId, deploymentId: Deployment
   `${DATA_ROOT}/work/sources/${projectId}/${deploymentId}.tar.gz`;
 
 /* ------------------------------------------------------------------------- *
- * cache/ — regenerable. Wiping this directory is always safe.
+ * cache/: regenerable. Wiping this directory is always safe.
  * ------------------------------------------------------------------------- */
 
 /** BuildKit layer cache (per-image OCI caches + buildx state). */

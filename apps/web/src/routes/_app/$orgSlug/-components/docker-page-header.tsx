@@ -25,7 +25,7 @@ export const DOCKER_TABS = [
 ] as const;
 export type DockerTab = (typeof DOCKER_TABS)[number];
 
-/** Narrow an arbitrary tab-strip value to a DockerTab without asserting —
+/** Narrow an arbitrary tab-strip value to a DockerTab without asserting -
  *  the tuple lookup is the type guard. */
 export function toDockerTab(value: string): DockerTab {
   return DOCKER_TABS.find((tab) => tab === value) ?? "containers";

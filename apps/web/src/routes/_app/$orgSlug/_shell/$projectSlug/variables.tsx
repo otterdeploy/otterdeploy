@@ -1,13 +1,13 @@
 /**
- * Variables — Infisical-style overview matrix + per-env table + bulk-edit
+ * Variables. Infisical-style overview matrix + per-env table + bulk-edit
  * modal (with cross-env apply + drag-drop .env import + .env download).
  * Data wired to `orpc.project.envVar.{list,upsert,delete,bulkReplace}`.
  *
- * Tabs are dynamic — one per project environment (whatever slugs the org has
+ * Tabs are dynamic: one per project environment (whatever slugs the org has
  * set up). External secret managers deliberately have NO surface here: they
  * are connected on the workspace Secrets page and consumed through
  * `${{vault.<provider>.<ref>}}` references, which the Add-Reference picker
- * already lists — a provider gallery on this page would duplicate that with
+ * already lists: a provider gallery on this page would duplicate that with
  * state it doesn't own. The matrix / per-env table / bulk editor each live
  * in `-components/`.
  */

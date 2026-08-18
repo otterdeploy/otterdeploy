@@ -1,5 +1,5 @@
 /**
- * Docker networks slice of the raw-docker contract — list/inspect/remove plus
+ * Docker networks slice of the raw-docker contract: list/inspect/remove plus
  * operator network creation. Split out of contract.ts (250-line cap) the same
  * way the volumes feature splits its schemas.
  */
@@ -47,7 +47,7 @@ const networkSchema = z.object({
   containers: z.number(),
   /** Created by an operator through this panel (label otterdeploy.user-network). */
   userNetwork: z.boolean(),
-  /** Platform-owned project network (label otterdeploy.managed) — never an
+  /** Platform-owned project network (label otterdeploy.managed): never an
    *  attach target for the per-service extra-networks picker. */
   managed: z.boolean(),
 });
@@ -76,7 +76,7 @@ const networkNameField = z
   );
 
 /** One IPAM pool. Gateway/ipRange only make sense inside a subnet, so they
- *  require one — the daemon would otherwise reject the create with an opaque
+ *  require one: the daemon would otherwise reject the create with an opaque
  *  500 instead of a field-level message. */
 const ipamPoolSchema = z
   .object({
@@ -99,7 +99,7 @@ export const createNetworkInput = z.object({
   /** bridge = plain-docker containers; overlay = swarm services. The dialog
    *  defaults to whichever matches the active runtime. */
   driver: z.enum(["bridge", "overlay"]),
-  /** No outbound route — containers on the network only see each other. */
+  /** No outbound route: containers on the network only see each other. */
   internal: z.boolean().optional(),
   /** Standalone containers may join. Defaults ON: an unattachable network
    *  can't serve the per-service extra-networks feature at all. */

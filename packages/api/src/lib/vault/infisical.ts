@@ -1,9 +1,9 @@
 /**
- * Infisical client — Universal Auth (machine identity) against cloud or a
+ * Infisical client. Universal Auth (machine identity) against cloud or a
  * self-hosted instance.
  *
  * Ref syntax: the secret key. One login + one raw-secrets fetch per resolve
- * call — refs are looked up in that single snapshot.
+ * call: refs are looked up in that single snapshot.
  */
 
 import * as z from "zod";
@@ -87,7 +87,7 @@ export async function infisicalGetSecrets(
   return out;
 }
 
-/** Login AND read — a token that authenticates but can't reach the project
+/** Login AND read: a token that authenticates but can't reach the project
  *  should fail the test, not the first deploy. */
 export async function infisicalTest(provider: VaultProviderRuntime): Promise<void> {
   await fetchAll(provider);

@@ -1,5 +1,5 @@
 /**
- * Bulk .env editor — TanStack Form owns the buffer + target selection (no
+ * Bulk .env editor. TanStack Form owns the buffer + target selection (no
  * hand-rolled state), the localStorage-backed drafts collection keeps the
  * buffer alive across reloads, and submit state comes from the form's own
  * isSubmitting. The form BODY remounts each time the dialog opens (or a
@@ -34,7 +34,7 @@ import { parseDotEnv } from "./variables-dotenv";
 interface BulkEditProps {
   projectId: string;
   env: EnvironmentRef;
-  /** Every env in the project — the cross-env "Apply to" targets. */
+  /** Every env in the project: the cross-env "Apply to" targets. */
   allEnvs: EnvironmentRef[];
   currentRows: EnvVarRow[];
   open: boolean;
@@ -49,7 +49,7 @@ export function BulkEditDialog(props: BulkEditProps) {
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       {/* Keyed remount re-seeds the form's defaults on every open / env
-          switch / dropped file — the render-time prev-value dance this
+          switch / dropped file: the render-time prev-value dance this
           replaces lived at the mercy of refetch timing. */}
       {props.open && <BulkEditBody key={`${props.env.id}:${props.prefillText ?? ""}`} {...props} />}
     </Dialog>
@@ -67,7 +67,7 @@ function BulkEditBody({
 }: BulkEditProps) {
   const { t } = useTranslation();
   const initial = currentRows.map((v) => `${v.key}=${v.value}`).join("\n");
-  // A surviving draft outranks the saved rows — it's what the operator typed
+  // A surviving draft outranks the saved rows: it's what the operator typed
   // before a reload ate the component state. An explicit .env drop outranks both.
   const storedDraft = variableDraftsCollection.get(variableDraftId(projectId, env.id));
   const restoredFromDraft = prefillText == null && storedDraft !== undefined;
@@ -87,7 +87,7 @@ function BulkEditBody({
         vars: parsed,
         fallbackMessage: t("variables.couldntSave"),
       });
-      // The buffer is now the saved state for every applied env — their
+      // The buffer is now the saved state for every applied env: their
       // drafts (including this editor's) would otherwise resurrect stale text.
       for (const target of applied) clearVariableDraft(projectId, target.id);
       if (applied.length > 0) onSaved(applied.map((e) => e.id));

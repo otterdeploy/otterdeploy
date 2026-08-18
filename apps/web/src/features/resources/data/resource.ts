@@ -34,7 +34,7 @@ function parseCol<T extends z.ZodType>(
   field = "id",
 ): z.infer<T> {
   // `field` is a path array (e.g. ["projectId"] or ["r","projectId"]) shared by
-  // reference with the live-query's where-expression — read the leaf with
+  // reference with the live-query's where-expression: read the leaf with
   // .at(-1), never mutate.
   const expr = filters.find((f) => f.field.at(-1) === field);
   if (!expr) throw new Error(`${field} is required`);
@@ -47,7 +47,7 @@ const environmentIdSchema = zId("env");
 /**
  * The environment filter as live queries push it down. `""` is the
  * unresolved-switcher sentinel (`inActiveEnvironment` renders `eq(env, "")`
- * while the active environment is still loading) — treat it as "no
+ * while the active environment is still loading): treat it as "no
  * environment filter" rather than failing the id parse.
  */
 function parseEnvironmentFilter(
@@ -77,7 +77,7 @@ type ResourceRow = Awaited<ReturnType<typeof orpc.project.resource.list.call>>[n
  * Fetch one project's resource rows, applying the client-side twin of the
  * server's NULL-means-main rule (inEnvironmentScope): stamp NULL
  * environmentId rows with the environment they were fetched under, so live
- * queries scope with a plain eq() — the or(isNull) expression this replaces
+ * queries scope with a plain eq(): the or(isNull) expression this replaces
  * was unparseable by the on-demand subset extractor, which silently broke ALL
  * network sync for this collection (2026-08-17 incident). Shared by the
  * collection's queryFn and `prefetchResourceSubset` so the normalization
@@ -103,7 +103,7 @@ async function fetchResourceRows(
  * makes the collection's first load instant. Non-blocking + best-effort.
  */
 export function prefetchResourceSubset(projectId: string, environmentId?: string): void {
-  // Parse (not cast) to the branded env id the row-stamping fetch expects —
+  // Parse (not cast) to the branded env id the row-stamping fetch expects -
   // callers hand loaders plain strings.
   const envId = environmentId === undefined ? undefined : environmentIdSchema.parse(environmentId);
   void queryClient
@@ -118,7 +118,7 @@ export function prefetchResourceSubset(projectId: string, environmentId?: string
 }
 
 const resourceQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip (see
+  // Stable id: required for SQLite persistence to round-trip (see
   // projectCollection in features/projects/data/project.ts).
   id: "resources",
   syncMode: "on-demand",
@@ -126,13 +126,13 @@ const resourceQueryOptions = queryCollectionOptions({
     const baseQuery = [...RESOURCE_COLLECTION_KEY];
     const { filters } = parseLoadSubsetOptions(opts);
     // Startup base-key call: query-db-collection calls queryKey({}) once to
-    // compute the prefix every subset key must extend. No filters yet — just
+    // compute the prefix every subset key must extend. No filters yet: just
     // return the prefix.
     if (!filters.at(0)) return baseQuery;
     const projectId = parseCol(projectIdSchema, filters, "projectId");
     // The environment MUST be part of the key. Without it every environment
     // shares one cache entry, so switching the switcher re-renders the
-    // previous environment's rows and never refetches — the switcher looked
+    // previous environment's rows and never refetches: the switcher looked
     // broken when in fact nothing had asked the server a new question.
     const environmentId = parseEnvironmentFilter(filters);
     const subsetKey = orpc.project.resource.list.queryKey({
@@ -146,7 +146,7 @@ const resourceQueryOptions = queryCollectionOptions({
     if (!filters.at(0)) return [];
     const projectId = parseCol(projectIdSchema, filters, "projectId");
     const environmentId = parseEnvironmentFilter(filters);
-    // NULL-environmentId stamping happens inside the shared fetch — see
+    // NULL-environmentId stamping happens inside the shared fetch: see
     // fetchResourceRows above.
     return fetchResourceRows(projectId, environmentId);
   },
@@ -163,7 +163,7 @@ const resourceQueryOptions = queryCollectionOptions({
   // Repair backstop, not the freshness mechanism. Live changes arrive as
   // pushes: docker transitions via the project-events stream, and
   // build-time transitions (building → failed schedule no swarm tasks, so
-  // no docker event) via publishResourceChanged on the Redis event bus —
+  // no docker event) via publishResourceChanged on the Redis event bus -
   // both invalidate this collection through useProjectEvents. The poll
   // only covers a missed/dropped event. At 5s it multiplied with the
   // event-driven refetches into ~100 list calls/min on an idle tab.
@@ -174,12 +174,12 @@ const resourceQueryOptions = queryCollectionOptions({
 
 // PERSISTENCE DISABLED for this collection (2026-08-17 incident): with the
 // OPFS SQLite wrapper active, this collection served days-stale rows and
-// REGISTERED NO NETWORK QUERIES AT ALL — the edge logs showed zero
+// REGISTERED NO NETWORK QUERIES AT ALL: the edge logs showed zero
 // `project.resource.list` requests across hard refreshes while sibling
 // persisted collections (dependencies, serviceTasks) synced normally. Every
 // resource surface (graph, panels, the postgres public-access toggle)
 // rendered a frozen snapshot; mutations succeeded server-side and the UI
 // never caught up. Until the persistence spike explains and covers that
-// failure mode with a test, resources — the platform's core truth surface —
+// failure mode with a test, resources: the platform's core truth surface -
 // stay network-synced only.
 export const resourceCollection = createCollection(resourceQueryOptions);

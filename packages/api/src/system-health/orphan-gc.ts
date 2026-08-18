@@ -44,7 +44,7 @@ export interface RecordOrphanInput {
 
 /**
  * Record a runtime object whose teardown failed so the GC sweep can retry it.
- * Best-effort and never throws — it is called from delete paths that have
+ * Best-effort and never throws: it is called from delete paths that have
  * already (or are about to) commit the DB delete; a failure to record must not
  * turn into a failure to delete.
  */
@@ -74,7 +74,7 @@ export async function recordOrphanedResource(input: RecordOrphanInput): Promise<
 
 const BASE_BACKOFF_MS = 60_000; // 1m after the first failure…
 const MAX_BACKOFF_MS = 60 * 60_000; // …doubling up to 1h.
-/** Attempts past which we escalate the log — the object is stuck (daemon down,
+/** Attempts past which we escalate the log: the object is stuck (daemon down,
  *  or a bug in the teardown primitive) and wants operator eyes. */
 const ORPHAN_ATTEMPT_ESCALATION = 8;
 
@@ -122,7 +122,7 @@ async function destroyVolumeOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   const res = await removeVolume(row.ref, row.organizationId);
   if (res.ok) return "gone";
   // not-found ⇒ already gone; conflict ⇒ a live container references it, so it
-  // isn't actually orphaned — stop tracking it. Only a hard error retries.
+  // isn't actually orphaned: stop tracking it. Only a hard error retries.
   return res.kind === "not-found" || res.kind === "conflict" ? "gone" : "retry";
 }
 
@@ -137,7 +137,7 @@ const imageOrphanPayload = z.object({
 
 async function destroyImageOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   // Host image reclaim is itself best-effort (never throws); the payload carries
-  // the ids it needs. Nothing to retry — clear the row after one go (a payload
+  // the ids it needs. Nothing to retry: clear the row after one go (a payload
   // that doesn't parse can never succeed later, so it clears too).
   const payload = imageOrphanPayload.safeParse(row.payload ?? {});
   if (payload.success) {
@@ -166,7 +166,7 @@ async function destroyOrphan(row: OrphanRow): Promise<DestroyOutcome> {
       return destroyImageOrphan(row);
     case "network":
       // removeProjectNetwork is best-effort (logs, never throws), so we can't
-      // distinguish "removed" from "daemon down". Attempt once and clear — a
+      // distinguish "removed" from "daemon down". Attempt once and clear: a
       // leaked empty overlay network is low-cost and the next deploy reuses it.
       await removeProjectNetwork(row.ref);
       return "gone";

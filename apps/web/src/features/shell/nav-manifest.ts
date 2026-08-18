@@ -1,7 +1,7 @@
 /**
  * Single typed source of truth for app-level navigation.
  *
- * Three consumers derive from this module — keep them in sync by editing
+ * Three consumers derive from this module: keep them in sync by editing
  * ONLY this file when a destination is added, moved, or renamed:
  *
  *   - the operational sidebar   (features/shell/components/sidebar/project-sidebar.tsx)
@@ -9,9 +9,9 @@
  *   - the command palette       (features/command-palette/components/nav-items.tsx)
  *
  * Two chromes, never coexisting:
- *   OPERATIONAL_NAV  — the org shell (sidebar chrome). Day-to-day operating
+ *   OPERATIONAL_NAV : the org shell (sidebar chrome). Day-to-day operating
  *                      surfaces: projects, infrastructure, observability.
- *   SETTINGS_NAV     — the settings zone (Linear-style takeover under
+ *   SETTINGS_NAV    : the settings zone (Linear-style takeover under
  *                      `/$orgSlug/settings/*`): Account / Workspace / Instance.
  *
  * `to` values are typed against the generated route tree via `RoutePath`
@@ -51,7 +51,7 @@ import type { RoutePath } from "./components/sidebar";
 export type NavIcon = typeof Home01Icon;
 
 export interface NavManifestItem {
-  /** English label — also the fallback when `i18nKey` is absent or untranslated. */
+  /** English label: also the fallback when `i18nKey` is absent or untranslated. */
   title: string;
   /**
    * Optional i18n key; render with `t(i18nKey, title)`.
@@ -61,7 +61,7 @@ export interface NavManifestItem {
    * data would otherwise launder a typo past the checker.
    */
   i18nKey?: TranslationKey;
-  /** Typed route path — checked against the generated route tree. */
+  /** Typed route path: checked against the generated route tree. */
   to: RoutePath;
   icon: NavIcon;
   /** Extra search terms for the command palette. */
@@ -71,7 +71,7 @@ export interface NavManifestItem {
   /**
    * Omit this destination unless the viewer is an installation administrator.
    *
-   * Set it when EVERY procedure the page calls on mount is install-scoped —
+   * Set it when EVERY procedure the page calls on mount is install-scoped -
    * otherwise the page renders for someone who cannot use it and each of its
    * queries 403s on its own, which reads as a broken app rather than a
    * permission boundary. This only omits the link; the route guards itself and
@@ -81,7 +81,7 @@ export interface NavManifestItem {
   /**
    * Anchor for the product tour, rendered as `data-tour="<id>"`.
    *
-   * Set it only on destinations the tour actually stops at — the attribute is
+   * Set it only on destinations the tour actually stops at: the attribute is
    * a contract with `features/tour/steps.ts`, so an unused one is dead weight
    * and a renamed one silently breaks a step (the tour skips a missing
    * element rather than stalling, so nothing throws).
@@ -112,7 +112,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       },
       {
         // od-u63.2 removed this slot on the reasoning that Templates is a
-        // creation path, not a destination — true of an 18-entry list that
+        // creation path, not a destination: true of an 18-entry list that
         // existed to seed the wizard. The catalog is now 54 entries across 9
         // categories with search and category filters, i.e. something you
         // browse before you know what you want, which is what a destination
@@ -144,7 +144,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         icon: ServerStack01Icon,
         tourId: "nav-servers",
         // Docker (od-u63.3), Volumes ("Raw Docker" tab) and Platform
-        // (od-u63.4, "Install health" tab) all fold in here — keep every
+        // (od-u63.4, "Install health" tab) all fold in here: keep every
         // surface's old search terms so the palette still finds this page.
         keywords: [
           "nodes",
@@ -192,7 +192,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         icon: EarthIcon,
         tourId: "nav-edge",
         // Networking, Edge logs and Settings → Certificates all folded in as
-        // tabs (od-u63.1) — keep every surface's old search terms so the
+        // tabs (od-u63.1): keep every surface's old search terms so the
         // palette still finds this from any of their names.
         keywords: [
           "domains",
@@ -212,7 +212,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         ],
       },
       // Audit folds in here rather than keeping its own single-item
-      // "Observability" group now that Platform is gone (od-u63.4) — one
+      // "Observability" group now that Platform is gone (od-u63.4): one
       // less group heading for one destination reads calmer.
       {
         title: "Audit",
@@ -291,7 +291,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
 
 /**
  * Destinations reachable from the palette and by deep link but deliberately
- * absent from the sidebar — creation paths rather than places you "go"
+ * absent from the sidebar: creation paths rather than places you "go"
  * (od-u63.2). Merged into the palette's first group; see `ORG_NAV_GROUPS` in
  * `command-palette/components/nav-items.tsx`.
  *
@@ -301,7 +301,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
  */
 export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [];
 
-/** Pinned entry at the bottom of the operational sidebar — enters the zone. */
+/** Pinned entry at the bottom of the operational sidebar: enters the zone. */
 export const SETTINGS_ENTRY: NavManifestItem = {
   title: "Settings",
   i18nKey: "nav.settings",

@@ -53,7 +53,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
   validateSearch: zLogsSearch,
   component: RouteComponent,
   // `resourceCollection` (drives the log source filter) is syncMode
-  // "on-demand", so `preload()` is a no-op — instead warm the exact subset the
+  // "on-demand", so `preload()` is a no-op: instead warm the exact subset the
   // page's live query will ask for (default/main environment) so hover
   // intent-preload makes the filter row render from cache. Non-blocking +
   // best-effort; the log stream itself is a live socket, not a query.

@@ -18,7 +18,7 @@ export interface RouteRow {
   publicHost: string;
   tls: "letsencrypt" | "internal";
   enabled: boolean;
-  /** The operator's explicit off switch — orthogonal to the system-owned
+  /** The operator's explicit off switch: orthogonal to the system-owned
    *  `enabled` gate. The route serves only when `enabled && !disabledByUser`. */
   disabledByUser: boolean;
   isHttp: boolean;

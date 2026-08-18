@@ -12,7 +12,7 @@ import { Button } from "@/shared/components/ui/button";
  * challenge follows) and the caller's `onSignedIn` finishes the login exactly
  * like a password sign-in would.
  *
- * Rendered only when the browser exposes `PublicKeyCredential` — WebAuthn
+ * Rendered only when the browser exposes `PublicKeyCredential`. WebAuthn
  * requires a secure context, and a plain-HTTP self-hosted dashboard (which this
  * app explicitly supports, see packages/auth cookie handling) doesn't have one.
  * Hiding the button beats showing one that always errors.

@@ -2,12 +2,12 @@
  * Backups, restructured into four views so "what am I doing here" is always
  * one glance away (od-6et):
  *
- *   Activity     — run history + stats + filters; the "what happened" surface
+ *   Activity    : run history + stats + filters; the "what happened" surface
  *                  and the home of one-shot "Backup now".
- *   Coverage     — every database and whether a schedule protects it; the
+ *   Coverage    : every database and whether a schedule protects it; the
  *                  "is everything backed up?" surface.
- *   Schedules    — the recurring pipelines (cadence, retention, verification).
- *   Destinations — where snapshots are stored.
+ *   Schedules   : the recurring pipelines (cadence, retention, verification).
+ *   Destinations: where snapshots are stored.
  *
  * The view rides a `?view=` search param so each surface is linkable. Reads
  * come from the three TanStack DB collections via live queries; all mutation

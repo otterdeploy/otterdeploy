@@ -147,7 +147,7 @@ export function SourceIcon({
     );
   }
   // Generic monospace `{ }` glyph for service / project / environment
-  // sources — they share the same neutral treatment.
+  // sources: they share the same neutral treatment.
   return <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{"{ }"}</span>;
 }
 

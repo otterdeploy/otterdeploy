@@ -61,7 +61,7 @@ export function ExtensionsCard({
   const setExtensions = useMutation({
     ...orpc.project.resource.database.postgres.setExtensions.mutationOptions(),
     onSuccess: async () => {
-      // The panel reads from the react-db `resourceCollection` — its cache key
+      // The panel reads from the react-db `resourceCollection`: its cache key
       // is PREFIXED by RESOURCE_COLLECTION_KEY, so the bare orpc list key this
       // used to invalidate never matched and the card showed stale state.
       await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });

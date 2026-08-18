@@ -84,7 +84,7 @@ export const SECRET_DOMAINS = [
   // from "server-secrets" (which is ephemeral, job-payload-lifetime material)
   // because these are long-lived and grant API control of the org's whole VPN.
   "mesh-creds",
-  // External secret-manager credentials — the Vault token / Infisical client
+  // External secret-manager credentials: the Vault token / Infisical client
   // secret / Doppler service token on `vault_provider` rows. Long-lived and
   // able to read every secret the org points at otterdeploy, so it gets its
   // own domain for the same reason "mesh-creds" does.
@@ -199,7 +199,7 @@ export function currentKeyId(): string {
  * then every other configured id). Consumers that derive deterministic
  * passwords from master material (the rustic repo passwords in
  * backups/rustic.ts) use this to open repos keyed under a previous secret and
- * migrate them forward — the missing rotation path for `BETTER_AUTH_SECRET`.
+ * migrate them forward: the missing rotation path for `BETTER_AUTH_SECRET`.
  * Secrets, handle with the same care as the keyring itself.
  */
 export function masterSecretCandidates(): string[] {

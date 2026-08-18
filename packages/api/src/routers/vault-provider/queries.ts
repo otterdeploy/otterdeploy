@@ -1,5 +1,5 @@
 /**
- * `vault_provider` persistence — org-scoped external secret-manager rows.
+ * `vault_provider` persistence: org-scoped external secret-manager rows.
  * Every read is org-filtered so a provider id from another workspace behaves
  * exactly like a missing one.
  */
@@ -63,7 +63,7 @@ export async function updateVaultProviderRecord(input: {
         name: input.name,
         configJson: input.configJson,
         credentialCiphertext: input.credentialCiphertext,
-        // Any config/credential change invalidates the last verification —
+        // Any config/credential change invalidates the last verification -
         // the operator re-tests to earn "connected" back.
         status: "unverified" as const,
         lastError: null,

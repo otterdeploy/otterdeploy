@@ -43,7 +43,7 @@ export interface AvailableReference {
   sourceKind: "database" | "service" | "project" | "environment" | "vault";
   sourceName: string;
   engine: DatabaseEngine | null;
-  /** Provider kind for vault sources — the picker's brand icon, same role
+  /** Provider kind for vault sources: the picker's brand icon, same role
    *  as `engine` for databases. */
   vaultKind: "hashicorp" | "infisical" | "doppler" | null;
   key: string;
@@ -197,7 +197,7 @@ export async function listAvailableRefs(
   }
 
   // ── External secret managers. One group per configured provider, keys
-  // from a best-effort listing (empty on any provider error — the picker
+  // from a best-effort listing (empty on any provider error: the picker
   // degrades to free-text `${{vault.<provider>.<ref>}}` refs). Values never
   // travel here: a vault ref is always a secret and only resolves at deploy.
   refs.push(...(await listVaultRefs(input.organizationId)));

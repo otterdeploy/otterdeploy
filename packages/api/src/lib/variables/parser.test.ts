@@ -75,7 +75,7 @@ describe("parseValue", () => {
   });
 });
 
-describe("parseValue — vault references", () => {
+describe("parseValue: vault references", () => {
   it("parses a three-segment vault reference", () => {
     const result = parseValue("${{vault.prod-vault.app/db:PASSWORD}}");
     expect(result.ok).toBe(true);

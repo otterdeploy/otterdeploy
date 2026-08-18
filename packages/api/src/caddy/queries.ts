@@ -198,7 +198,7 @@ export async function updateProxyRoute(
 }
 
 /** Announce removed rows. Unlike an upsert there is no row to carry, so each
- *  delete is announced by key — the client drops exactly those. Rows come from
+ *  delete is announced by key: the client drops exactly those. Rows come from
  *  `.returning()` on the schema columns, so the ids arrive already branded. */
 function publishRemovedRows(
   rows: Array<{ id: ProxyRouteId; projectId: ProjectId; resourceId: ResourceId | null }>,
