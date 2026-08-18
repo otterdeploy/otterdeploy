@@ -754,6 +754,12 @@
     "allHosts": "Alle Hosts"
   },
   "resources": {
+    "variables": {
+      "duplicateNote": "Doppelter Schlüssel — eine andere Zeile heißt ebenfalls {{key}}. Zum Speichern eine der Zeilen umbenennen oder löschen.",
+      "duplicateCount_one": "{{count}} doppelter Schlüssel",
+      "duplicateCount_other": "{{count}} doppelte Schlüssel",
+      "duplicateBlocksSave": "Doppelte Schlüssel auflösen, um zu speichern"
+    },
     "source": {
       "title": "Quelle",
       "description": "Woraus dieser Service gebaut wird. Ein Push auf seinen Branch deployt ihn.",

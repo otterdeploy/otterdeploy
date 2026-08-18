@@ -21,6 +21,7 @@ import type {
 } from "@/features/projects/components/graph/resource-node";
 
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
+import { hasImageBrand, ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
@@ -111,6 +112,16 @@ export function PanelIcon({ node, size = "md" }: { node: ResourceNodeData; size?
         </div>
       );
     }
+  }
+  // Pulled-image services: brand mark resolved from the image ref (postgres,
+  // n8n, vaultwarden, …). Only when recognised — unknown images keep the
+  // tinted kind icon below rather than a neutral container glyph.
+  if (node.image && hasImageBrand(node.image)) {
+    return (
+      <div className={tile}>
+        <ServiceImageIcon image={node.image} className={s.glyph} />
+      </div>
+    );
   }
   // Template/compose brand mark (e.g. Authentik), persisted as `logoBrand` on
   // the stack. Same precedence + tile as the graph's compose group header, so a

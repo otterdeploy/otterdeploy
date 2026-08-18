@@ -10,6 +10,7 @@ import { ArrowReloadHorizontalIcon, CheckmarkCircle02Icon } from "@hugeicons/cor
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
+import { hasImageBrand, ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
 import { useLiveDuration } from "@/shared/lib/duration";
 import { cn } from "@/shared/lib/utils";
 
@@ -90,6 +91,10 @@ export function ResourceCardHeader({ data }: { data: ResourceNodeData }) {
             <FrameworkLogo framework={framework} className="size-6" />
           ) : BrandLogo ? (
             <BrandLogo className="size-6" aria-label={data.engine} />
+          ) : hasImageBrand(data.image) ? (
+            // Pulled-image services: the app's brand mark resolved from the
+            // image ref, matching PanelIcon and the metrics cards.
+            <ServiceImageIcon image={data.image} className="size-6" />
           ) : (
             <HugeiconsIcon
               icon={meta.icon}

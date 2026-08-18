@@ -1,5 +1,6 @@
 import { Database02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 
@@ -11,6 +12,9 @@ interface ToolbarProps {
   countLabel?: string | null;
   hasPending: boolean;
   diff: { added: number; edited: number; deleted: number };
+  /** Distinct keys duplicated across rows. Non-zero blocks Save: env is
+   *  keyed by name, so saving would silently drop all but one row. */
+  duplicateCount: number;
   saving: boolean;
   onBulkEdit: () => void;
   onDiscard: () => void;
@@ -22,11 +26,13 @@ export function Toolbar({
   countLabel = "User Variables",
   hasPending,
   diff,
+  duplicateCount,
   saving,
   onBulkEdit,
   onDiscard,
   onSave,
 }: ToolbarProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-2 text-[14px] font-semibold">
@@ -39,6 +45,11 @@ export function Toolbar({
           <span className="text-[11.5px] font-normal text-muted-foreground">
             {countLabel !== null && "· "}
             <DiffSummary diff={diff} />
+          </span>
+        )}
+        {duplicateCount > 0 && (
+          <span className="text-[11.5px] font-normal text-destructive">
+            · {t("resources.variables.duplicateCount", { count: duplicateCount })}
           </span>
         )}
       </div>
@@ -62,7 +73,8 @@ export function Toolbar({
       <Button
         size="sm"
         className="h-7 text-[12px]"
-        disabled={!hasPending || saving}
+        disabled={!hasPending || saving || duplicateCount > 0}
+        title={duplicateCount > 0 ? t("resources.variables.duplicateBlocksSave") : undefined}
         onClick={onSave}
       >
         {saving ? "Saving…" : "Save changes"}

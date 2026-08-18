@@ -14,6 +14,8 @@ interface TableViewProps {
   rows: DraftRow[];
   deletedRows: DraftRow[];
   projectId: string;
+  /** Trimmed keys carried by more than one visible row (see useEditorState). */
+  duplicateKeys: Set<string>;
   statusOf: (row: DraftRow) => RowStatus;
   onUpdate: (id: string, patch: Partial<Pick<DraftRow, "key" | "value" | "isSecret">>) => void;
   onDelete: (id: string) => void;
@@ -25,6 +27,7 @@ export function TableView({
   rows,
   deletedRows,
   projectId,
+  duplicateKeys,
   statusOf,
   onUpdate,
   onDelete,
@@ -67,6 +70,7 @@ export function TableView({
               row={row}
               status={statusOf(row)}
               projectId={projectId}
+              duplicate={duplicateKeys.has(row.key.trim())}
               revealed={revealed.has(row.id)}
               copied={copiedId === row.id}
               pickerOpen={pickerOpen === row.id}

@@ -190,6 +190,13 @@ export function resolveImageBrand(
   return null;
 }
 
+/** Whether the ref resolves to a known brand mark. Callers that have their own
+ *  fallback (e.g. the tinted kind icon) gate on this instead of accepting
+ *  `ServiceImageIcon`'s neutral container glyph. */
+export function hasImageBrand(image: string | null | undefined): boolean {
+  return resolveImageBrand(image) != null;
+}
+
 /** The identity glyph alone: brand mark when we recognise the image, neutral
  *  shipping container when we don't (including build-from-source services,
  *  which have no image yet). */

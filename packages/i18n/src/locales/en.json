@@ -754,6 +754,12 @@
     "allHosts": "All hosts"
   },
   "resources": {
+    "variables": {
+      "duplicateNote": "Duplicate key — another row is also named {{key}}. Rename or delete one to save.",
+      "duplicateCount_one": "{{count}} duplicate key",
+      "duplicateCount_other": "{{count}} duplicate keys",
+      "duplicateBlocksSave": "Resolve duplicate keys to save"
+    },
     "source": {
       "title": "Source",
       "description": "Where this service builds from. Pushing to its branch deploys it.",

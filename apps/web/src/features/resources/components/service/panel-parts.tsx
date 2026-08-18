@@ -53,6 +53,9 @@ export function ServicePanelHeader({
             name: resource.name,
             description: resource.image,
             framework,
+            // Brand mark only for pulled images; a git/upload build's image
+            // is an internal artifact ref with no brand identity.
+            ...(resource.source === "image" ? { image: resource.image } : {}),
           }}
         />
         <div className="flex min-w-0 flex-col gap-0.5">

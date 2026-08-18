@@ -142,14 +142,24 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
       for (const r of prev) {
         if (!r.deleted) idByKey.set(r.key, r.id);
       }
-      return next.map((e) => ({
-        id: idByKey.get(e.key) ?? rid(),
-        key: e.key,
-        value: e.value,
-        isSecret: e.isSecret,
-        baseline: baselineByKey.get(e.key) ?? null,
-        deleted: false,
-      }));
+      // Consume id/baseline on first use: a pasted .env can repeat a key, and
+      // reusing the same id for both rows would collide React keys and make
+      // update() patch them in lockstep. The second occurrence becomes a fresh
+      // "added" row, which the duplicate-key flag then surfaces.
+      return next.map((e) => {
+        const id = idByKey.get(e.key);
+        if (id) idByKey.delete(e.key);
+        const baseline = baselineByKey.get(e.key);
+        if (baseline) baselineByKey.delete(e.key);
+        return {
+          id: id ?? rid(),
+          key: e.key,
+          value: e.value,
+          isSecret: e.isSecret,
+          baseline: baseline ?? null,
+          deleted: false,
+        };
+      });
     });
 
   const visible = rows.filter((r) => !r.deleted);
@@ -159,11 +169,25 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
   const diff = { added, edited, deleted: deleted.length };
   const hasPending = diff.added + diff.edited + diff.deleted > 0;
 
+  // Keys (trimmed) carried by more than one visible row. Save is blocked
+  // while any exist: bulkSet keys env by name, so one row would silently
+  // overwrite the other and which survives is serialization luck.
+  const keyCounts = new Map<string, number>();
+  for (const r of visible) {
+    const k = r.key.trim();
+    if (k) keyCounts.set(k, (keyCounts.get(k) ?? 0) + 1);
+  }
+  const duplicateKeys = new Set<string>();
+  for (const [k, n] of keyCounts) {
+    if (n > 1) duplicateKeys.add(k);
+  }
+
   return {
     rows: visible,
     deletedRows: deleted,
     diff,
     hasPending,
+    duplicateKeys,
     statusOf,
     update,
     addRow,

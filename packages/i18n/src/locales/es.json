@@ -754,6 +754,12 @@
     "allHosts": "Todos los hosts"
   },
   "resources": {
+    "variables": {
+      "duplicateNote": "Clave duplicada — otra fila también se llama {{key}}. Renombra o elimina una para guardar.",
+      "duplicateCount_one": "{{count}} clave duplicada",
+      "duplicateCount_other": "{{count}} claves duplicadas",
+      "duplicateBlocksSave": "Resuelve las claves duplicadas para guardar"
+    },
     "source": {
       "title": "Origen",
       "description": "Desde dónde se construye este servicio. Un push a su rama lo despliega.",

@@ -8,6 +8,7 @@ import {
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
@@ -35,6 +36,10 @@ interface EditorRowProps {
   row: DraftRow;
   status: RowStatus;
   projectId: string;
+  /** Another visible row carries the same (trimmed) key. Flags the key field
+   *  and blocks Save until resolved: env is keyed by name, so saving both
+   *  would silently keep one and drop the other. */
+  duplicate: boolean;
   revealed: boolean;
   copied: boolean;
   pickerOpen: boolean;
@@ -49,6 +54,7 @@ export function EditorRow({
   row,
   status,
   projectId,
+  duplicate,
   revealed,
   copied,
   pickerOpen,
@@ -73,6 +79,7 @@ export function EditorRow({
             placeholder="KEY"
             className="h-7 w-full min-w-0 font-mono text-[12px] sm:w-56 sm:flex-none"
             spellCheck={false}
+            aria-invalid={duplicate || undefined}
           />
         </div>
         <ValueCell
@@ -96,6 +103,7 @@ export function EditorRow({
           />
         </div>
       </div>
+      {duplicate && <DuplicateNote keyName={row.key.trim()} />}
       {showPickerHint(row.value, pickerOpen) && (
         <p className="text-[10.5px] text-muted-foreground sm:pl-[5.5rem]">
           Tip: press the {"{ }"} button to finish this reference.
@@ -107,6 +115,15 @@ export function EditorRow({
 
 function showPickerHint(value: string, pickerOpen: boolean) {
   return value.length > 0 && !pickerOpen && hasOpenRefToken(value);
+}
+
+function DuplicateNote({ keyName }: { keyName: string }) {
+  const { t } = useTranslation();
+  return (
+    <p className="text-[10.5px] text-destructive sm:pl-[5.5rem]">
+      {t("resources.variables.duplicateNote", { key: keyName })}
+    </p>
+  );
 }
 
 function StatusPill({ status }: { status: RowStatus }) {
