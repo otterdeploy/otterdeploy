@@ -23,6 +23,11 @@ vi.mock("../../routers/project/queries", () => ({
 vi.mock("../../routers/vault-provider/queries", () => ({
   listVaultProvidersByOrg: vi.fn(async () => []),
 }));
+// Service exports read the resource's proxy routes for DOMAIN/PUBLIC_URL;
+// default to "not exposed" and let route-dependent tests override.
+vi.mock("../../caddy/queries", () => ({
+  listProxyRoutesByResourceId: vi.fn(async () => []),
+}));
 vi.mock("../vault", () => ({
   getSecrets: vi.fn(),
 }));
@@ -30,6 +35,7 @@ vi.mock("../crypto", () => ({
   decryptForDomain: vi.fn(async (blob: string) => blob),
 }));
 
+import { listProxyRoutesByResourceId } from "../../caddy/queries";
 import {
   getDatabaseResourceRecord,
   getEnvironmentById,
@@ -217,50 +223,30 @@ describe("resolveServiceEnv", () => {
     expect(result.error._tag).toBe("RefUnknownVarError");
   });
 
-  it("detects a cycle between two services", async () => {
+  // Two services referencing each other. Whether that's a hard error depends
+  // on WHAT they reference: computed exports (HOST/PORT/URL/DOMAIN/PUBLIC_URL)
+  // never read the env bag, so mutual refs to them resolve; refs into each
+  // other's env vars genuinely recurse and must fail.
+  const twoServiceFixture = (apiValue: string, webValue: string) => {
+    const port = (id: string, serviceResourceId: string) => ({
+      id,
+      serviceResourceId,
+      containerPort: 80,
+      protocol: "tcp",
+      appProtocol: "http",
+      isPrimary: true,
+    });
     const apiRecord = {
       resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
       service: { resourceId: "resource_api", internalHostname: "api" },
-      ports: [
-        {
-          id: "p1",
-          serviceResourceId: "resource_api",
-          containerPort: 80,
-          protocol: "tcp",
-          appProtocol: "http",
-          isPrimary: true,
-        },
-      ],
-      env: [
-        {
-          id: "v1",
-          serviceResourceId: "resource_api",
-          key: "OTHER",
-          value: "${{web.HOST}}",
-        },
-      ],
+      ports: [port("p1", "resource_api")],
+      env: [{ id: "v1", serviceResourceId: "resource_api", key: "OTHER", value: apiValue }],
     };
     const webRecord = {
       resource: mockResource({ id: "resource_web", name: "web", type: "service" }),
       service: { resourceId: "resource_web", internalHostname: "web" },
-      ports: [
-        {
-          id: "p2",
-          serviceResourceId: "resource_web",
-          containerPort: 80,
-          protocol: "tcp",
-          appProtocol: "http",
-          isPrimary: true,
-        },
-      ],
-      env: [
-        {
-          id: "v2",
-          serviceResourceId: "resource_web",
-          key: "OTHER",
-          value: "${{api.HOST}}",
-        },
-      ],
+      ports: [port("p2", "resource_web")],
+      env: [{ id: "v2", serviceResourceId: "resource_web", key: "OTHER", value: webValue }],
     };
 
     asMock(getServiceRecord).mockImplementation(async (_pid: string, rid: string) => {
@@ -277,6 +263,79 @@ describe("resolveServiceEnv", () => {
           return mockResource({ id: "resource_api", name: "api", type: "service" });
         return undefined;
       },
+    );
+  };
+
+  it("detects a genuine env-var cycle between two services", async () => {
+    twoServiceFixture("${{web.OTHER}}", "${{api.OTHER}}");
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("RefCycleError");
+  });
+
+  it("resolves mutual refs to computed exports (HOST) without a cycle", async () => {
+    twoServiceFixture("${{web.HOST}}", "${{api.HOST}}");
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.OTHER).toBe("web");
+  });
+
+  it("serves a self-reference to PUBLIC_URL from the computed exports", async () => {
+    asMock(getServiceRecord).mockImplementation(async () => ({
+      resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
+      service: { resourceId: "resource_api", internalHostname: "api" },
+      ports: [
+        {
+          id: "p1",
+          serviceResourceId: "resource_api",
+          containerPort: 80,
+          protocol: "tcp",
+          appProtocol: "http",
+          isPrimary: true,
+        },
+      ],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "BETTER_AUTH_URL",
+          value: "${{api.PUBLIC_URL}}",
+        },
+      ],
+    }));
+    asMock(resolveResourceForPreview).mockResolvedValue(
+      mockResource({ id: "resource_api", name: "api", type: "service" }),
+    );
+    asMock(listProxyRoutesByResourceId).mockResolvedValue([
+      { domain: "api.example.com", isPrimary: true },
+    ]);
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.BETTER_AUTH_URL).toBe("https://api.example.com");
+  });
+
+  it("still reports a cycle for a self-reference to an env var", async () => {
+    asMock(getServiceRecord).mockImplementation(async () => ({
+      resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
+      service: { resourceId: "resource_api", internalHostname: "api" },
+      ports: [],
+      env: [
+        {
+          id: "v1",
+          serviceResourceId: "resource_api",
+          key: "SELF",
+          value: "${{api.SELF}}",
+        },
+      ],
+    }));
+    asMock(resolveResourceForPreview).mockResolvedValue(
+      mockResource({ id: "resource_api", name: "api", type: "service" }),
     );
 
     const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
