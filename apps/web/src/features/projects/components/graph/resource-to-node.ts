@@ -154,6 +154,10 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // Machine ref belongs in the muted footer, shortened. A pulled image
           // already IS the description, no footer echo for those.
           ...(r.source === "git" ? { tech: { label: shortImageRef(r.image) } } : {}),
+          // Pulled images carry the ref so header tiles can resolve the app's
+          // brand mark. Git/upload builds produce internal artifact refs with
+          // no brand identity, so those stay off the node.
+          ...(r.source === "image" ? { image: r.image } : {}),
           // Brand logo for the header tile. Detected at build time and stored
           // on the resource: read straight off the record, no git-API call.
           // Undefined (no logo) until the first build populates it.

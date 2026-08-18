@@ -145,6 +145,11 @@ export interface ResourceNodeData extends UnknownRecord {
    *  in place of the generic kind icon, and the tech footer prefixes
    *  the framework label. */
   framework?: FrameworkKind | null;
+  /** Pulled-image services only: the image ref, so the header tile can
+   *  resolve the app's brand mark (postgres, n8n, …) instead of falling
+   *  back to the generic kind icon. Absent for git/upload builds, whose
+   *  image is an internal artifact ref with no brand identity. */
+  image?: string | null;
   /** Compose-only: SvglLogo search string from the source template. When set,
    *  the stack header renders the brand tile in place of the generic icon. */
   logoBrand?: string;
