@@ -76,6 +76,53 @@ export function containerTone(state: string, status?: string): StateTone {
   return "muted"; // created / removing / …
 }
 
+const UPTIME_UNITS: Array<[RegExp, string]> = [
+  [/^seconds?$/, "s"],
+  [/^minutes?$/, "m"],
+  [/^hours?$/, "h"],
+  [/^days?$/, "d"],
+  [/^weeks?$/, "w"],
+  [/^months?$/, "mo"],
+  [/^years?$/, "y"],
+];
+
+/** "About an hour" → "1h", "3 days" → "3d". Null when the phrase is novel. */
+function shortSpan(phrase: string): string | null {
+  const m = /^(?:About )?(an?|\d+) (\w+)/i.exec(phrase);
+  if (!m) return null;
+  const n = /^an?$/i.test(m[1] ?? "") ? "1" : (m[1] ?? "");
+  const unit = UPTIME_UNITS.find(([re]) => re.test(m[2] ?? ""))?.[1];
+  return unit ? `${n}${unit}` : null;
+}
+
+/**
+ * Compress the daemon's status line to chip length: "Up 21 minutes (healthy)"
+ * → "21m · healthy", "Exited (137) 3 hours ago" → "exited (137) · 3h ago".
+ * The healthy majority reads quiet; exceptions carry their detail. Falls back
+ * to the raw status when the dialect is novel, honesty over brevity.
+ */
+export function compressContainerStatus(state: string, status: string): string {
+  const s = state.toLowerCase();
+  if (s === "running") {
+    const up = shortSpan(status.replace(/^Up\s+/, ""));
+    const health = /\(healthy\)/i.test(status)
+      ? " · healthy"
+      : /\(unhealthy\)/i.test(status)
+        ? " · unhealthy"
+        : /\(health: starting\)/i.test(status)
+          ? " · starting"
+          : "";
+    return up ? `${up}${health}` : status;
+  }
+  if (s === "exited" || s === "dead") {
+    const m = /^Exited \((\d+)\)\s*(.*)$/.exec(status);
+    if (!m) return status;
+    const ago = shortSpan(m[2] ?? "");
+    return `exited (${m[1]})${ago ? ` · ${ago} ago` : ""}`;
+  }
+  return state || status;
+}
+
 /** Swarm task state → tone (running=ok, ready=info, preparing=warn, …). */
 export function taskTone(state: string): StateTone {
   const s = state.toLowerCase();

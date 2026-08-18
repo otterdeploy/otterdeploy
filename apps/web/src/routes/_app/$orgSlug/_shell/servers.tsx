@@ -32,9 +32,9 @@ import {
   LocalHostHealth,
   ServersTabList,
 } from "../-components/servers-install-admin";
+import { ServerFleetCards } from "../-components/servers-fleet-cards";
 import { ManagersQuorumCard } from "../-components/servers-managers-card";
 import { ClusterStatTiles, FilterPill, ServersPending } from "../-components/servers-parts";
-import { ServersTable } from "../-components/servers-table";
 
 // Pulled out of ServersRoute (rather than inline IIFEs) to keep the
 // component's own branching under the complexity budget. These are pure
@@ -267,7 +267,7 @@ function ServersRoute() {
         {/* Swarm-gated: renders nothing on the plain-docker runtime. */}
         <ManagersQuorumCard view={swarmView} />
 
-        <ServersTable
+        <ServerFleetCards
           servers={visibleServers}
           statsByServer={perServerStats}
           healthByServer={healthByServer}
