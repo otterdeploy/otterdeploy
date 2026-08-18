@@ -14,6 +14,7 @@
 import { useMemo, useState } from "react";
 
 import { Card } from "@/shared/components/ui/card";
+import { ScrollArea } from "@/shared/components/ui/scroll-area";
 
 import type { TopEntry } from "../analytics-model";
 
@@ -158,29 +159,31 @@ export function VisitorMap({
                   Share of requests by country. The map shows where; the list shows how many.
                 </p>
               </div>
-              <ul className="max-h-56 overflow-y-auto">
-                {countries.map((entry, index) => (
-                  <li key={entry.key} className="flex items-center gap-2.5 rounded-sm px-1 py-1">
-                    <span
-                      aria-hidden
-                      className="size-2 shrink-0 rounded-full"
-                      style={{
-                        background: entry.key === "other" ? "var(--muted)" : fillFor(index),
-                      }}
-                    />
-                    <CountryFlag code={entry.key} />
-                    <span className="min-w-0 flex-1 truncate text-xs">
-                      {entry.key === "other" ? "Other" : countryName(entry.key)}
-                    </span>
-                    <span className="font-mono text-xs tabular-nums">
-                      {formatCount(entry.count)}
-                    </span>
-                    <span className="w-12 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                      {formatShare(entry.count, total)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <ScrollArea className="max-h-56" viewportClassName="max-h-[inherit]">
+                <ul>
+                  {countries.map((entry, index) => (
+                    <li key={entry.key} className="flex items-center gap-2.5 rounded-sm px-1 py-1">
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 rounded-full"
+                        style={{
+                          background: entry.key === "other" ? "var(--muted)" : fillFor(index),
+                        }}
+                      />
+                      <CountryFlag code={entry.key} />
+                      <span className="min-w-0 flex-1 truncate text-xs">
+                        {entry.key === "other" ? "Other" : countryName(entry.key)}
+                      </span>
+                      <span className="font-mono text-xs tabular-nums">
+                        {formatCount(entry.count)}
+                      </span>
+                      <span className="w-12 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                        {formatShare(entry.count, total)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
             </>
           )}
         </div>

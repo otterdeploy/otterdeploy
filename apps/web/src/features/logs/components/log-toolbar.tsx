@@ -12,6 +12,8 @@ import {
   ArrowDown01Icon,
   ArrowUp01Icon,
   CancelCircleIcon,
+  Clock01Icon,
+  ColorsIcon,
   Copy01Icon,
   Search01Icon,
 } from "@hugeicons/core-free-icons";
@@ -36,6 +38,10 @@ export function LogToolbar({
   onQueryChange,
   searchRef,
   onCopy,
+  showTs,
+  onToggleTs,
+  colors,
+  onToggleColors,
 }: {
   countLabel: string;
   errorCount: number;
@@ -49,6 +55,10 @@ export function LogToolbar({
   onQueryChange: (value: string) => void;
   searchRef: RefObject<HTMLInputElement | null>;
   onCopy: () => void;
+  showTs: boolean;
+  onToggleTs: () => void;
+  colors: boolean;
+  onToggleColors: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -61,6 +71,18 @@ export function LogToolbar({
       >
         <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />
       </button>
+      <ToolbarToggle
+        icon={Clock01Icon}
+        label={t("logs.timestamps")}
+        on={showTs}
+        onToggle={onToggleTs}
+      />
+      <ToolbarToggle
+        icon={ColorsIcon}
+        label={t("logs.colors")}
+        on={colors}
+        onToggle={onToggleColors}
+      />
       <span className="font-mono text-[11.5px] text-muted-foreground tabular-nums">
         {countLabel}
       </span>
@@ -103,6 +125,36 @@ export function LogToolbar({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Small icon toggle: lit while on, dimmed with a strike-through-ish fade when
+ *  off. `aria-pressed` carries the state for screen readers. */
+function ToolbarToggle({
+  icon,
+  label,
+  on,
+  onToggle,
+}: {
+  icon: typeof Clock01Icon;
+  label: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "grid size-7 shrink-0 place-items-center rounded-md hover:bg-muted",
+        on ? "text-foreground/80" : "text-muted-foreground/40 hover:text-foreground/60",
+      )}
+    >
+      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5" />
+    </button>
   );
 }
 

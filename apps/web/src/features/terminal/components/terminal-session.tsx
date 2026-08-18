@@ -76,7 +76,40 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
       e.preventDefault();
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    detachWheelRef.current = () => el.removeEventListener("wheel", onWheel);
+
+    // Follow-output pinning. wterm's own "stick to the bottom on output" is
+    // broken by an off-by-a-row: its scroll-to-bottom rounds scrollTop DOWN to
+    // a row-height multiple, and its at-bottom check treats a gap >= 5px as
+    // "the user scrolled up". Whenever the pane height isn't a clean multiple
+    // of the row height the rounded pin leaves such a gap, so the very next
+    // write disengages following for good and the viewport strands somewhere
+    // in the scrollback while output keeps growing below it. Keep our own
+    // follow flag (a generous near-bottom threshold, one row plus slack, so
+    // wterm's rounded pin still counts as "at bottom") and re-pin to the
+    // exact bottom after every content mutation.
+    let follow = true;
+    const nearBottom = () => el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    const onScroll = () => {
+      follow = nearBottom();
+      // Snap the last stretch: wterm's rounded pin stops up to a row short,
+      // which would leave the prompt row clipped. Converges in one step (the
+      // re-entrant scroll event finds scrollTop already exact).
+      if (follow) {
+        const exact = el.scrollHeight - el.clientHeight;
+        if (el.scrollTop < exact) el.scrollTop = exact;
+      }
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const observer = new MutationObserver(() => {
+      if (follow) el.scrollTop = el.scrollHeight - el.clientHeight;
+    });
+    observer.observe(el, { childList: true, characterData: true, subtree: true });
+
+    detachWheelRef.current = () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
   };
   useEffect(() => () => detachWheelRef.current?.(), []);
 

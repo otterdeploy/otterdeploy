@@ -66,7 +66,13 @@ function DialogContent({
           // is actually on screen, which would re-hide the footer it exists to
           // protect. overscroll-contain keeps the page behind from scrolling
           // once the dialog hits its end.
-          "max-h-[calc(100svh-2rem)] overflow-y-auto overscroll-contain",
+          // overflow-x-hidden is load-bearing: `overflow-y: auto` forces the
+          // x-axis to compute to auto too, and the close button's -mr-2 (sized
+          // against the default p-4) pokes past the edge of p-0 dialogs, which
+          // would otherwise mint a phantom horizontal scrollbar. Nothing in a
+          // dialog is meant to pan sideways; wide content scrolls in its own
+          // container.
+          "max-h-[calc(100svh-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain",
           className,
         )}
         {...props}

@@ -514,6 +514,7 @@
     "pause": "Pausar",
     "resume": "Reanudar",
     "timestamps": "Alternar marcas de tiempo",
+    "colors": "Alternar colores ANSI",
     "copyVisibleLines": "Copiar líneas visibles",
     "clearView": "Limpiar la vista de registros",
     "filterMessages": "Filtrar mensajes de registro",

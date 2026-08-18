@@ -514,6 +514,7 @@
     "pause": "Pause",
     "resume": "Fortsetzen",
     "timestamps": "Zeitstempel umschalten",
+    "colors": "ANSI-Farben umschalten",
     "copyVisibleLines": "Sichtbare Zeilen kopieren",
     "clearView": "Log-Ansicht leeren",
     "filterMessages": "Log-Meldungen filtern",

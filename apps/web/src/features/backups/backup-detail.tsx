@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
+import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -102,22 +103,27 @@ function BackupLog({ backupId }: { backupId: string }) {
       <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         Log {logs.length > 0 ? `· ${logs.length} lines` : ""}
       </span>
-      <div className="max-h-40 overflow-auto rounded-md border bg-background p-2.5 font-mono text-[11px] leading-relaxed">
-        {isLoading ? (
-          <div className="text-muted-foreground">Loading…</div>
-        ) : logs.length === 0 ? (
-          <div className="text-muted-foreground">No log output.</div>
-        ) : (
-          logs.map((l) => (
-            <div
-              key={l.seq}
-              className={cn("text-foreground/80", l.stream === "stderr" && "text-destructive")}
-            >
-              {l.line}
-            </div>
-          ))
-        )}
-      </div>
+      <ScrollArea
+        className="max-h-40 rounded-md border bg-background font-mono text-[11px] leading-relaxed"
+        viewportClassName="max-h-[inherit]"
+      >
+        <div className="p-2.5">
+          {isLoading ? (
+            <div className="text-muted-foreground">Loading…</div>
+          ) : logs.length === 0 ? (
+            <div className="text-muted-foreground">No log output.</div>
+          ) : (
+            logs.map((l) => (
+              <div
+                key={l.seq}
+                className={cn("text-foreground/80", l.stream === "stderr" && "text-destructive")}
+              >
+                {l.line}
+              </div>
+            ))
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -514,6 +514,7 @@
     "pause": "Pause",
     "resume": "Resume",
     "timestamps": "Toggle timestamps",
+    "colors": "Toggle ANSI colors",
     "copyVisibleLines": "Copy visible lines",
     "clearView": "Clear log view",
     "filterMessages": "Filter log messages",
