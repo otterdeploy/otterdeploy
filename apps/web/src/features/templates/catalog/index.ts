@@ -9,6 +9,7 @@ import { AI_TEMPLATES } from "./templates-ai";
 import { AI_APPS_TEMPLATES } from "./templates-ai-apps";
 import { ANALYTICS_TEMPLATES } from "./templates-analytics";
 import { APPSTACK_TEMPLATES } from "./templates-appstack";
+import { BILLING_TEMPLATES } from "./templates-billing";
 import { CMS_TEMPLATES } from "./templates-cms";
 import { CRM_TEMPLATES } from "./templates-crm";
 import { DATA_TEMPLATES } from "./templates-data";
@@ -37,6 +38,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...DEV_TEMPLATES,
   ...DEVTOOLS_TEMPLATES,
   ...DEVKIT_TEMPLATES,
+  ...BILLING_TEMPLATES,
   ...APPSTACK_TEMPLATES,
   ...PUBLISHING_TEMPLATES,
   ...SERVICES_TEMPLATES,

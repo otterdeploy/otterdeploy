@@ -1,0 +1,109 @@
+name: Build Autumn Image
+
+# Publishes ghcr.io/otterdeploy/autumn from infra/autumn/Dockerfile, which
+# builds github.com/useautumn/autumn (Apache-2.0) at a pinned commit — upstream
+# ships no container image of their own. The Autumn stack template in the web
+# app's catalog pulls the immutable `:sha-<upstream-sha>` tag this publishes.
+#
+# To upgrade: dispatch with a new `upstream_sha` (also update the ARG default
+# in infra/autumn/Dockerfile so the two stay in step), then point the template
+# at the new tag.
+on:
+  push:
+    paths:
+      - infra/autumn/**
+      - .github/workflows/autumn-image.yml
+  workflow_dispatch:
+    inputs:
+      upstream_sha:
+        description: "useautumn/autumn commit to build (defaults to the Dockerfile's ARG)"
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository_owner }}/autumn
+
+jobs:
+  build:
+    name: autumn (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    outputs:
+      sha: ${{ steps.pin.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Resolve the upstream pin once: the dispatch input when given, else the
+      # Dockerfile's ARG default. The short form becomes the image tag.
+      - id: pin
+        env:
+          INPUT_SHA: ${{ github.event.inputs.upstream_sha }}
+        run: |
+          sha="${INPUT_SHA:-$(sed -n 's/^ARG AUTUMN_SHA=//p' infra/autumn/Dockerfile)}"
+          if [ -z "$sha" ]; then echo "No upstream sha resolved" >&2; exit 1; fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (${{ matrix.arch }})
+        uses: docker/build-push-action@v6
+        with:
+          context: infra/autumn
+          file: infra/autumn/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          build-args: |
+            AUTUMN_SHA=${{ steps.pin.outputs.sha }}
+          tags: ${{ env.IMAGE }}:sha-${{ steps.pin.outputs.short }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=autumn-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=autumn-${{ matrix.arch }}
+
+  merge-manifest:
+    name: Merge manifest
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create & push multi-arch manifest
+        env:
+          SHORT: ${{ needs.build.outputs.sha }}
+        run: |
+          short="${SHORT:0:7}"
+          docker buildx imagetools create \
+            -t "${IMAGE}:sha-${short}" \
+            -t "${IMAGE}:latest" \
+            "${IMAGE}:sha-${short}-amd64" \
+            "${IMAGE}:sha-${short}-arm64"
