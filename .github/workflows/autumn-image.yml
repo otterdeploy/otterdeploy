@@ -1,9 +1,13 @@
 name: Build Autumn Image
 
-# Publishes ghcr.io/otterdeploy/autumn from infra/autumn/Dockerfile, which
+# Publishes ghcr.io/dr34mw0rk5/autumn from infra/autumn/Dockerfile, which
 # builds github.com/useautumn/autumn (Apache-2.0) at a pinned commit — upstream
 # ships no container image of their own. The Autumn stack template in the web
 # app's catalog pulls the immutable `:sha-<upstream-sha>` tag this publishes.
+#
+# The package lives in the dr34mw0rk5 org, so the repo-scoped GITHUB_TOKEN
+# cannot push it: pushes authenticate with the DR34MW0RK5_GHCR_TOKEN repo
+# secret, a PAT with `write:packages` authorized for that org.
 #
 # To upgrade: dispatch with a new `upstream_sha` (also update the ARG default
 # in infra/autumn/Dockerfile so the two stay in step), then point the template
@@ -25,11 +29,10 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ghcr.io/${{ github.repository_owner }}/autumn
+  IMAGE: ghcr.io/dr34mw0rk5/autumn
 
 jobs:
   build:
@@ -68,7 +71,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.DR34MW0RK5_GHCR_TOKEN }}
 
       - name: Build and push (${{ matrix.arch }})
         uses: docker/build-push-action@v6
@@ -95,7 +98,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.DR34MW0RK5_GHCR_TOKEN }}
 
       - name: Create & push multi-arch manifest
         env:
