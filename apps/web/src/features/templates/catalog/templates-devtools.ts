@@ -86,7 +86,7 @@ services:
     environment:
       FORGEJO__server__ROOT_URL: \${FORGEJO_URL}
       FORGEJO__database__DB_TYPE: postgres
-      FORGEJO__database__HOST: "db:5432"
+      FORGEJO__database__HOST: "\${{stack.db.HOST}}:5432"
       FORGEJO__database__NAME: forgejo
       FORGEJO__database__USER: forgejo
       FORGEJO__database__PASSWD: \${POSTGRES_PASSWORD}
@@ -133,7 +133,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: "postgres://unleash:\${POSTGRES_PASSWORD}@db:5432/unleash"
+      DATABASE_URL: "postgres://unleash:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/unleash"
       DATABASE_SSL: "false"
     ports:
       - "4242"

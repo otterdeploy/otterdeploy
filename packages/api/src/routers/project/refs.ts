@@ -98,9 +98,12 @@ export async function listAvailableRefs(
   // Reference pickers offer what the CURRENT environment can actually reach:
   // a staging service must not be offered production's database as a source.
   const scope = resolveEnvironmentScope(project, input.environmentId);
-  const { databases, services } = scope
+  const { databases, services, composes } = scope
     ? await listProjectResources(input.projectId, scope)
-    : { databases: [], services: [] };
+    : { databases: [], services: [], composes: [] };
+  // Stack names, for addressing a stack's children by compose service key
+  // instead of by their (fallback-suffixed, rename-prone) resource name.
+  const stackNameById = new Map(composes.map((c) => [c.resource.id, c.resource.name] as const));
 
   // ── Database resources: postgres exporter today; redis/mariadb/mongo
   // pick up their own exporter when we wire them. The exporter contract
@@ -147,6 +150,17 @@ export async function listAvailableRefs(
     // User-defined keys come from the service's own env bag; everything else
     // serviceExports adds (HOST/PORT/URL/DOMAIN/PUBLIC_URL/DOMAINS) is platform.
     const userKeys = new Set(env.map((e) => e.key));
+    // A stack child gets the stack-scoped addressing (`${{autumn.db.HOST}}`):
+    // the compose key is stable where the child's resource name is not — a
+    // second instance of the same template renames the resource (`autumn-db-2`)
+    // and would silently strand every token the picker had handed out. Falls
+    // back to the flat form for children predating `compose_service`, which
+    // heal on their stack's next reconcile.
+    const stackName = row.service.stackId ? stackNameById.get(row.service.stackId) : undefined;
+    const source =
+      stackName && row.service.composeService
+        ? `${stackName}.${row.service.composeService}`
+        : row.resource.name;
     const exported = serviceExports({
       resource: row.resource,
       service: row.service,
@@ -161,7 +175,7 @@ export async function listAvailableRefs(
         engine: null,
         vaultKind: null,
         key,
-        token: `\${{${row.resource.name}.${key}}}`,
+        token: `\${{${source}.${key}}}`,
         isSecret: isSecretKey(key),
         platform: !userKeys.has(key),
       });

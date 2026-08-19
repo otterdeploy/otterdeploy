@@ -593,6 +593,13 @@ export const serviceResource = pgTable(
       .$type<ResourceId>()
       .references(() => composeResource.resourceId, { onDelete: "set null" }),
 
+    // The compose file's service KEY this child was materialized from
+    // (`db`, `server`), stable across resource-name fallbacks and hostname
+    // renames. Addressing key for stack-scoped env refs
+    // (`${{stack.db.HOST}}` / `${{autumn.db.HOST}}`). Null for standalone
+    // services and for pre-column children until their stack redeploys.
+    composeService: text("compose_service"),
+
     forceUpdateCounter: integer("force_update_counter").notNull().default(0),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 vi.mock("../../routers/service/queries", () => ({
   resolveResourceForPreview: vi.fn(),
   getServiceRecord: vi.fn(),
+  getComposeStackByName: vi.fn(),
+  getStackChildByComposeService: vi.fn(),
   // The preview overlay reads this; default to "no overrides" so base env flows
   // through (clearAllMocks keeps the impl, only wiping call history).
   listPreviewServiceEnvVars: vi.fn(async () => []),
@@ -42,7 +44,12 @@ import {
   getProjectRecord,
   loadProjectEnvBag,
 } from "../../routers/project/queries";
-import { getServiceRecord, resolveResourceForPreview } from "../../routers/service/queries";
+import {
+  getComposeStackByName,
+  getServiceRecord,
+  getStackChildByComposeService,
+  resolveResourceForPreview,
+} from "../../routers/service/queries";
 import { listVaultProvidersByOrg } from "../../routers/vault-provider/queries";
 import { getSecrets } from "../vault";
 import { resolveServiceEnv } from "./resolver";
@@ -502,5 +509,97 @@ describe("resolveServiceEnv: vault references", () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("VaultResolveError");
+  });
+});
+
+describe("resolveServiceEnv: stack-scoped references", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    asMock(getProjectRecord).mockResolvedValue({ environmentId: PROD_ENV });
+    asMock(getEnvironmentById).mockResolvedValue({ baseEnvironmentId: null });
+    asMock(loadProjectEnvBag).mockResolvedValue({});
+  });
+
+  /** api (in stack `autumn`) refs its sibling db child via the self scope. */
+  const stackFixture = (apiEnvValue: string) => {
+    const apiRecord = {
+      resource: mockResource({ id: "resource_api", name: "autumn-api", type: "service" }),
+      service: {
+        resourceId: "resource_api",
+        internalHostname: "autumn-api",
+        stackId: "resource_stack",
+      },
+      ports: [],
+      env: [{ id: "v1", serviceResourceId: "resource_api", key: "URL", value: apiEnvValue }],
+    };
+    const dbChildRecord = {
+      resource: mockResource({ id: "resource_dbchild", name: "autumn-db", type: "service" }),
+      service: {
+        resourceId: "resource_dbchild",
+        internalHostname: "autumn-db",
+        stackId: "resource_stack",
+      },
+      ports: [],
+      env: [],
+    };
+    asMock(getServiceRecord).mockImplementation(async (_pid: string, rid: string) => {
+      if (rid === "resource_api") return apiRecord;
+      if (rid === "resource_dbchild") return dbChildRecord;
+      return undefined;
+    });
+    asMock(getStackChildByComposeService).mockImplementation(
+      async (_pid: string, stackId: string, key: string) =>
+        stackId === "resource_stack" && key === "db"
+          ? mockResource({ id: "resource_dbchild", name: "autumn-db", type: "service" })
+          : undefined,
+    );
+  };
+
+  it("resolves ${{stack.db.HOST}} against the caller's own stack", async () => {
+    stackFixture("http://${{stack.db.HOST}}:5432");
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.URL).toBe("http://autumn-db:5432");
+  });
+
+  it("resolves ${{autumn.db.HOST}} through the stack's resource name", async () => {
+    stackFixture("http://${{autumn.db.HOST}}:5432");
+    asMock(getComposeStackByName).mockImplementation(async (_pid: string, name: string) =>
+      name === "autumn"
+        ? mockResource({ id: "resource_stack", name: "autumn", type: "service" })
+        : undefined,
+    );
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.URL).toBe("http://autumn-db:5432");
+  });
+
+  it("errors on the self scope from a standalone service (no stack)", async () => {
+    asMock(getServiceRecord).mockResolvedValue({
+      resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
+      service: { resourceId: "resource_api", internalHostname: "api", stackId: null },
+      ports: [],
+      env: [
+        { id: "v1", serviceResourceId: "resource_api", key: "URL", value: "${{stack.db.HOST}}" },
+      ],
+    });
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("RefMissingResourceError");
+  });
+
+  it("errors when the compose key has no child in the stack", async () => {
+    stackFixture("${{stack.ghost.HOST}}");
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("RefMissingResourceError");
   });
 });

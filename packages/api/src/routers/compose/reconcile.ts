@@ -1,14 +1,8 @@
-import type {
-  DeploymentId,
-  EnvironmentId,
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
+import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 /**
  * Materialize a compose stack's services as REAL `service_resource` rows owned
@@ -25,9 +19,6 @@ import { Result } from "better-result";
  * Variables tab survive re-deploys). See docs/designs/compose.md.
  */
 import { eq } from "drizzle-orm";
-import { createLogger } from "evlog";
-
-import type { SwarmServiceRuntime } from "../../swarm";
 
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { runtime } from "../../runtime";
@@ -36,15 +27,15 @@ import {
   type ParsedCompose,
   type ParsedComposeService,
 } from "../../stack/compose";
-import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { deleteResourceById } from "../project/queries";
-import { exposeService } from "../service/expose";
-import { getServiceRecord } from "../service/queries";
-import { provisionFresh, redeployOne } from "../service/redeploy";
 import { interpolate } from "./env";
-import { friendlyServiceCollisionMessage } from "./queries";
 import { toServiceFields } from "./reconcile-map";
 import { materializeServiceRow } from "./reconcile-materialize";
+import {
+  describeReconcileFailure,
+  rolloutMaterialized,
+  type MaterializedService,
+} from "./reconcile-rollout";
 
 export interface StackReconcileContext {
   projectId: ProjectId;
@@ -77,102 +68,6 @@ export interface StackReconcileContext {
 export interface StackReconcileResult {
   deployed: number;
   failed: string[];
-}
-
-function toErrorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-/** User-facing failure line for one compose service: a friendly collision
- *  message when the throw is a DB unique-violation, else the raw error text. */
-function describeReconcileFailure(e: unknown, svcName: string): string {
-  return friendlyServiceCollisionMessage(e, svcName) ?? toErrorMessage(e);
-}
-
-/**
- * Seed-only public exposure: the wizard/manifest's `exposed` selection
- * applies ONCE, the moment a compose service is first materialized as a real
- * service_resource: via the exact same `exposeService` primitive the
- * child's own Settings toggle calls, so it lands in the single per-service
- * source of truth instead of a stack-level shadow record. Callers only fire
- * this when `isCreate` is true, so it never re-fires on a later reconcile and
- * never undoes an operator's own expose/unexpose. Best-effort: an exposure
- * failure is logged to the deploy progress but never fails the service's
- * otherwise-successful rollout.
- */
-async function seedServiceExposure(
-  ctx: StackReconcileContext,
-  isCreate: boolean,
-  svcName: string,
-  resourceId: ResourceId,
-  log: RequestLogger | undefined,
-  progress: (line: string) => void,
-): Promise<void> {
-  if (!isCreate || !ctx.exposedSeedServiceNames.has(svcName)) return;
-  const seedLog = log ?? createLogger({ operation: "compose.seed-expose" });
-  const seeded = await Result.tryPromise({
-    try: () =>
-      exposeService(
-        { projectId: ctx.projectId, organizationId: ctx.organizationId, resourceId },
-        // Skip the "confirm the sslip.io fallback" prompt a manual toggle
-        // would show. There's no operator present to answer it mid-rollout.
-        true,
-        seedLog,
-      ),
-    catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-  });
-  if (seeded.isErr()) {
-    progress(`Service ${svcName}: seed expose failed, ${toErrorMessage(seeded.error)}`);
-  } else if (seeded.value.isErr()) {
-    progress(`Service ${svcName}: seed expose failed, ${seeded.value.error.message}`);
-  } else {
-    progress(
-      `Service ${svcName}: exposed publicly at ${seeded.value.value.publicDomain ?? "generated host"}.`,
-    );
-  }
-}
-
-/**
- * Settle one service's deployment row from its rollout outcome and report
- * whether it came up. Returns `true` only for a service that actually reached
- * a running state; every failure path marks the deployment failed and writes
- * one operator-readable progress line first.
- *
- * Split out so the reconcile loop reads as "roll out, settle, continue on
- * failure": the three-way outcome (threw / swarm reported error / running) is
- * the same shape for every service and doesn't need re-deciding per iteration.
- */
-async function settleServiceRollout<E>(input: {
-  deploymentId: DeploymentId;
-  /** Generic in the error arm: the caller's rollout is `provisionFresh`,
-   *  `redeployOne`, or a bare `Error` for a vanished row: all three settle
-   *  identically, and only `toErrorMessage` ever touches the payload. */
-  rolled: Result<SwarmServiceRuntime, E>;
-  composeServiceName: string;
-  progress: (line: string) => void;
-}): Promise<boolean> {
-  const { rolled, composeServiceName: svcName, progress } = input;
-  if (rolled.isErr()) {
-    const message = toErrorMessage(rolled.error);
-    await markDeploymentFailed(input.deploymentId, message);
-    progress(`Service ${svcName}: failed, ${message}`);
-    return false;
-  }
-  if (rolled.value.status === "error") {
-    // Prefer the swarm task's own failure reason (e.g. an image that can't
-    // be pulled) over a generic "errored". That message is all the user
-    // sees on a stack that never came up.
-    const detail = rolled.value.errorMessage ?? "swarm reported an error state";
-    await markDeploymentFailed(input.deploymentId, `${svcName}: ${detail}`);
-    progress(`Service ${svcName}: failed, ${detail}`);
-    return false;
-  }
-  await db
-    .update(deployment)
-    .set({ status: "running", completedAt: new Date() })
-    .where(eq(deployment.id, input.deploymentId));
-  progress(`Service ${svcName}: rolled out.`);
-  return true;
 }
 
 /**
@@ -239,23 +134,25 @@ export async function reconcileStackServices(
   let deployed = 0;
   const progress = ctx.deployLog ?? (() => undefined);
 
+  // ── Pass 1: every service's ROW, before anything deploys.
+  //
+  // Deploying resolves that service's env, and `${{stack.<svc>.HOST}}` reads
+  // the sibling's row to answer. Materializing and deploying in one pass would
+  // therefore resolve a stack ref against a sibling that does not exist yet:
+  // every reference pointing "down" the file fails on a stack's FIRST deploy,
+  // and the file's authoring order silently becomes part of the contract
+  // (`app` before `db` — how compose files are normally written — being the
+  // broken case). One pass to make the whole stack visible, then one to roll
+  // it out.
+  const materialized: MaterializedService[] = [];
+
   for (const svc of parsed.services) {
-    // This service's own deployment row, once opened. Hoisted so the catch can
-    // SETTLE it: an unsettled row sits at "pending" forever, and the graph
-    // reads a stack member's pending row as "Building", so a stack whose
-    // Deployments tab said FAILED six hours ago still showed a spinner. The
-    // periodic reconciler can't save us either: it protects any row owned by an
-    // in-flight deploy job, which this one is for as long as the stack deploy
-    // runs. The code that opens the row owns closing it.
-    let openDeploymentId: DeploymentId | null = null;
     // Each service reconciles independently. A throw here (a failed
-    // pickResourceName, createServiceRecord, insertDeployment, or a
-    // buildSwarmSpec/provision that raises instead of returning an error) must
-    // NOT abort the loop: earlier services (e.g. the stack's first "server")
-    // are already committed, so an unguarded throw silently strands the whole
-    // stack at its first member: the "4 services → only server" collapse.
-    // Catch per service, record it as failed, and press on so every declared
-    // service at least gets its resource row + a failure the operator can see.
+    // pickResourceName or createServiceRecord) must NOT abort the loop:
+    // earlier services are already committed, so an unguarded throw silently
+    // strands the whole stack at its first member: the "4 services → only
+    // server" collapse. Catch per service, record it as failed, and press on
+    // so every declared service at least gets a failure the operator can see.
     try {
       const image = resolveImage(svc);
       if (!image) {
@@ -274,63 +171,31 @@ export async function reconcileStackServices(
         environmentId,
         stackResourceName,
       });
-
-      // One deployment row per service per reconcile → its own build/deploy
-      // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
-      // the swarm tasks, so the Deployments tab groups tasks correctly. The
-      // image is prebuilt/pulled (nothing compiles here) so the row starts at
-      // "pending", not "building".
-      const dep = await insertDeployment({
-        resourceId,
+      materialized.push({
+        svc,
         image,
-        reason: isCreate ? "create" : reason === "create" ? "create" : "redeploy",
-        status: "pending",
-        snapshot: { stack: ctx.stackResourceId, composeService: svc.name },
+        serviceName: mapped.serviceName,
+        resourceId,
+        isCreate,
       });
-      openDeploymentId = dep.id;
-
-      progress(
-        `Service ${svc.name}: ${isCreate ? "creating" : "updating"} ${mapped.serviceName} from ${image}…`,
-      );
-
-      // Provision (fresh) or update (existing) the swarm service via the EXISTING
-      // per-service primitive: same path a standalone service deploys through.
-      const rolled = isCreate
-        ? await (async () => {
-            const record = await getServiceRecord(ctx.projectId, resourceId);
-            if (!record) return Result.err(new Error("Service row vanished after create"));
-            return provisionFresh(ctx.projectId, record, ctx.projectSlug, log);
-          })()
-        : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
-
-      const rolledOut = await settleServiceRollout({
-        deploymentId: dep.id,
-        rolled,
-        composeServiceName: svc.name,
-        progress,
-      });
-      // Settled either way; nothing left for the catch to close.
-      openDeploymentId = null;
-      if (!rolledOut) {
-        failed.push(svc.name);
-        continue;
-      }
-      deployed++;
-
-      await seedServiceExposure(ctx, isCreate, svc.name, resourceId, log, progress);
     } catch (e) {
-      // A DB unique-violation (name / hostname / domain collision) otherwise
-      // leaks the raw drizzle INSERT into the deploy log. Map it to one line.
+      // A DB unique-violation (name / hostname collision) otherwise leaks the
+      // raw drizzle INSERT into the deploy log. Map it to one line.
       const detail = describeReconcileFailure(e, svc.name);
       progress(`Service ${svc.name}: failed, ${detail}`);
-      // Close this service's own row, so its card stops reading "Building".
-      // Best-effort: a DB that just threw must not also abort the loop.
-      if (openDeploymentId) {
-        await markDeploymentFailed(openDeploymentId, detail).catch(() => undefined);
-      }
       failed.push(svc.name);
     }
   }
+
+  const rollout = await rolloutMaterialized({
+    ctx,
+    materialized,
+    reason,
+    progress,
+    log,
+  });
+  deployed += rollout.deployed;
+  failed.push(...rollout.failed);
 
   // Remove services the file no longer declares: tear down swarm + routes +
   // the resource row (cascade-drops its sidecar/env/ports/deployments).

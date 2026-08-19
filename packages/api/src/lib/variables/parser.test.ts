@@ -168,3 +168,71 @@ describe("extractRefs", () => {
     expect(extractRefs("${{bad")).toEqual([]);
   });
 });
+
+describe("parseValue: stack-scoped references", () => {
+  it("parses an absolute stack ref as stack + compose key + var", () => {
+    const result = parseValue("${{autumn.db.HOST}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens).toEqual([
+      {
+        kind: "ref",
+        resource: "db",
+        stack: { name: "autumn" },
+        var: "HOST",
+        raw: "${{autumn.db.HOST}}",
+      },
+    ]);
+  });
+
+  it("parses the literal `stack` first segment as the self scope", () => {
+    const result = parseValue("postgres://u:p@${{stack.db.HOST}}:5432/x");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const ref = result.tokens.find((t) => t.kind === "ref");
+    expect(ref).toEqual({
+      kind: "ref",
+      resource: "db",
+      stack: { name: null },
+      var: "HOST",
+      raw: "${{stack.db.HOST}}",
+    });
+  });
+
+  it("keeps flat refs flat: VAR must be the final segment", () => {
+    const result = parseValue("${{db.HOST}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens[0]).toMatchObject({ kind: "ref", resource: "db", var: "HOST" });
+    expect(result.tokens[0]).not.toHaveProperty("stack");
+  });
+
+  it("reads an uppercase middle segment as the compose key, not the var", () => {
+    const result = parseValue("${{autumn.DB_MAIN.HOST}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens[0]).toMatchObject({
+      kind: "ref",
+      resource: "DB_MAIN",
+      stack: { name: "autumn" },
+      var: "HOST",
+    });
+  });
+
+  it("leaves the vault form alone", () => {
+    const result = parseValue("${{vault.prov.path:field}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens[0]).toMatchObject({ kind: "vault", provider: "prov" });
+  });
+
+  it("rejects a dangling third segment", () => {
+    expect(parseValue("${{a.b.c.D}}").ok).toBe(false);
+    expect(parseValue("${{a.b.}}").ok).toBe(false);
+  });
+
+  it("dedupes by scope in extractRefs: same key in two stacks stays two refs", () => {
+    const refs = extractRefs("${{a.db.HOST}} ${{b.db.HOST}} ${{stack.db.HOST}} ${{db.HOST}}");
+    expect(refs).toHaveLength(4);
+  });
+});

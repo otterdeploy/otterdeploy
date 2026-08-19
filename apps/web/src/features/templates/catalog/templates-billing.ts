@@ -99,11 +99,11 @@ services:
       BETTER_AUTH_SECRET: \${BETTER_AUTH_SECRET}
       ENCRYPTION_IV: \${ENCRYPTION_IV}
       ENCRYPTION_PASSWORD: \${ENCRYPTION_PASSWORD}
-      DATABASE_URL: "postgres://autumn:\${POSTGRES_PASSWORD}@\${{autumn-db.HOST}}:5432/autumn"
-      REDIS_URL: "redis://\${{autumn-redis.HOST}}:6379"
-      MISC_CACHE_DRAGONFLY_PUBLIC_URL: "redis://\${{autumn-dragonfly.HOST}}:6379"
-      CACHE_V2_DRAGONFLY_URL: "redis://\${{autumn-dragonfly.HOST}}:6379"
-      DYNAMODB_ENDPOINT: "http://\${{autumn-dynamodb.HOST}}:8000"
+      DATABASE_URL: "postgres://autumn:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/autumn"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
+      MISC_CACHE_DRAGONFLY_PUBLIC_URL: "redis://\${{stack.dragonfly.HOST}}:6379"
+      CACHE_V2_DRAGONFLY_URL: "redis://\${{stack.dragonfly.HOST}}:6379"
+      DYNAMODB_ENDPOINT: "http://\${{stack.dynamodb.HOST}}:8000"
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
       # Upstream defaults to 4 cluster workers; each is a full bun app and the
@@ -132,11 +132,11 @@ services:
       BETTER_AUTH_SECRET: \${BETTER_AUTH_SECRET}
       ENCRYPTION_IV: \${ENCRYPTION_IV}
       ENCRYPTION_PASSWORD: \${ENCRYPTION_PASSWORD}
-      DATABASE_URL: "postgres://autumn:\${POSTGRES_PASSWORD}@\${{autumn-db.HOST}}:5432/autumn"
-      REDIS_URL: "redis://\${{autumn-redis.HOST}}:6379"
-      MISC_CACHE_DRAGONFLY_PUBLIC_URL: "redis://\${{autumn-dragonfly.HOST}}:6379"
-      CACHE_V2_DRAGONFLY_URL: "redis://\${{autumn-dragonfly.HOST}}:6379"
-      DYNAMODB_ENDPOINT: "http://\${{autumn-dynamodb.HOST}}:8000"
+      DATABASE_URL: "postgres://autumn:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/autumn"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
+      MISC_CACHE_DRAGONFLY_PUBLIC_URL: "redis://\${{stack.dragonfly.HOST}}:6379"
+      CACHE_V2_DRAGONFLY_URL: "redis://\${{stack.dragonfly.HOST}}:6379"
+      DYNAMODB_ENDPOINT: "http://\${{stack.dynamodb.HOST}}:8000"
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
     restart: always
@@ -159,10 +159,10 @@ services:
       BETTER_AUTH_SECRET: \${BETTER_AUTH_SECRET}
       ENCRYPTION_IV: \${ENCRYPTION_IV}
       ENCRYPTION_PASSWORD: \${ENCRYPTION_PASSWORD}
-      DATABASE_URL: "postgres://autumn:\${POSTGRES_PASSWORD}@\${{autumn-db.HOST}}:5432/autumn"
-      REDIS_URL: "redis://\${{autumn-redis.HOST}}:6379"
-      MISC_CACHE_DRAGONFLY_PUBLIC_URL: "redis://\${{autumn-dragonfly.HOST}}:6379"
-      CACHE_V2_DRAGONFLY_URL: "redis://\${{autumn-dragonfly.HOST}}:6379"
+      DATABASE_URL: "postgres://autumn:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/autumn"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
+      MISC_CACHE_DRAGONFLY_PUBLIC_URL: "redis://\${{stack.dragonfly.HOST}}:6379"
+      CACHE_V2_DRAGONFLY_URL: "redis://\${{stack.dragonfly.HOST}}:6379"
     restart: always
   dashboard:
     image: ${AUTUMN_IMAGE}

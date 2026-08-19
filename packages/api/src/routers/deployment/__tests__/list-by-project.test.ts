@@ -140,6 +140,7 @@ function serviceLookup(resourceId: ReturnType<typeof idSchema.resource.parse>): 
         command: null,
         entrypoint: null,
         extraNetworks: [],
+        composeService: null,
         source: "image",
         sourceSubdir: null,
         framework: null,
