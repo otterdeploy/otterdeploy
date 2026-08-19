@@ -14,10 +14,7 @@ import { createError } from "evlog";
 
 import type { ServiceEnvVarRow } from ".";
 
-import {
-  decryptUnsealedEnvRows,
-  encryptEnvValue,
-} from "../../../lib/env-crypto";
+import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 
 export async function listPreviewServiceEnvVars(
   serviceResourceId: ResourceId,
@@ -47,11 +44,7 @@ export async function upsertPreviewServiceEnvVar(input: {
     .insert(serviceEnvVar)
     .values({ ...input, value })
     .onConflictDoUpdate({
-      target: [
-        serviceEnvVar.serviceResourceId,
-        serviceEnvVar.previewId,
-        serviceEnvVar.key,
-      ],
+      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.previewId, serviceEnvVar.key],
       targetWhere: sql`preview_id is not null`,
       set: { value, updatedAt: new Date() },
     })

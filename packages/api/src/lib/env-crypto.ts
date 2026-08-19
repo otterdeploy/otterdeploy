@@ -50,9 +50,9 @@ export async function decryptEnvValue(stored: string): Promise<string> {
  * queries funnel through this so their consumers keep seeing exactly the
  * plaintext they saw before encrypt-at-rest.
  */
-export async function decryptUnsealedEnvRows<
-  T extends { value: string; sealed: boolean },
->(rows: T[]): Promise<T[]> {
+export async function decryptUnsealedEnvRows<T extends { value: string; sealed: boolean }>(
+  rows: T[],
+): Promise<T[]> {
   return Promise.all(
     rows.map(async (row) =>
       row.sealed ? row : { ...row, value: await decryptEnvValue(row.value) },

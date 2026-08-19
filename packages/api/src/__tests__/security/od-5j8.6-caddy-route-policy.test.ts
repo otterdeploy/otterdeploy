@@ -1,8 +1,5 @@
 import { customDirectivesSchema } from "@otterdeploy/shared/custom-directives";
-import {
-  DEFAULT_ROUTE_POLICY,
-  routePolicySchema,
-} from "@otterdeploy/shared/route-policy";
+import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 /**
  * od-5j8.6: Caddy admin isolation + typed route policy.
  * od-f4rb (2026-08-19): raw per-route directives reintroduced by owner
@@ -35,10 +32,7 @@ import type { ProxyRouteInput } from "../../caddy/builder";
 
 import { routeValidationError } from "../../caddy/route-validation";
 
-const repositoryRoot = resolve(
-  fileURLToPath(new URL(".", import.meta.url)),
-  "../../../../..",
-);
+const repositoryRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../..");
 
 function source(relativePath: string): string {
   return readFileSync(resolve(repositoryRoot, relativePath), "utf8");
@@ -81,10 +75,7 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
     // function. This case documents that the SHAPE check alone passes it,
     // which is why route ownership must be enforced before this call, not by
     // this call.
-    [
-      "a raw Docker network alias with no otterdeploy- prefix",
-      "victim-container",
-    ],
+    ["a raw Docker network alias with no otterdeploy- prefix", "victim-container"],
     [
       "control-plane database internal name used as an HTTP upstream",
       "postgres.project-1.otterdeploy.internal",
@@ -113,10 +104,7 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
   test.each([
     ["loopback", "127.0.0.1"],
     ["private address", "10.0.0.5"],
-    [
-      "an HTTP service name used as a database upstream",
-      "otterdeploy-app-abc123",
-    ],
+    ["an HTTP service name used as a database upstream", "otterdeploy-app-abc123"],
     [
       "wrong TLD suffix (typosquat of the internal zone)",
       "postgres.project-1.otterdeploy.internal.evil.com",
@@ -125,9 +113,7 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
   ])(
     "layer4 route: %s (%s) is rejected unless it matches the managed-database shape",
     (_label, upstreamHost) => {
-      expect(
-        routeValidationError({ ...baseLayer4Route, upstreamHost }),
-      ).not.toBeNull();
+      expect(routeValidationError({ ...baseLayer4Route, upstreamHost })).not.toBeNull();
     },
   );
 
@@ -162,35 +148,22 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
     ["embedded whitespace", "app .example.com"],
     ["not a domain at all", "not a domain"],
     ["single label", "localhost"],
-  ])(
-    "domain %s (%s) is rejected as a non-canonical DNS name",
-    (_label, domain) => {
-      expect(routeValidationError({ ...baseHttpRoute, domain })).not.toBeNull();
-    },
-  );
+  ])("domain %s (%s) is rejected as a non-canonical DNS name", (_label, domain) => {
+    expect(routeValidationError({ ...baseHttpRoute, domain })).not.toBeNull();
+  });
 
   test.each([0, -1, 65_536, 1.5, Number.NaN])(
     "port %s is outside the valid TCP range",
     (upstreamPort) => {
-      expect(
-        routeValidationError({ ...baseHttpRoute, upstreamPort }),
-      ).not.toBeNull();
+      expect(routeValidationError({ ...baseHttpRoute, upstreamPort })).not.toBeNull();
     },
   );
 
   test("protocol/ALPN fields cannot be mismatched across route types (protocol smuggling)", () => {
-    expect(
-      routeValidationError({ ...baseHttpRoute, protocol: "tcp" }),
-    ).not.toBeNull();
-    expect(
-      routeValidationError({ ...baseHttpRoute, layer4Alpn: "postgresql" }),
-    ).not.toBeNull();
-    expect(
-      routeValidationError({ ...baseLayer4Route, protocol: "http" }),
-    ).not.toBeNull();
-    expect(
-      routeValidationError({ ...baseLayer4Route, layer4Alpn: "smtp" }),
-    ).not.toBeNull();
+    expect(routeValidationError({ ...baseHttpRoute, protocol: "tcp" })).not.toBeNull();
+    expect(routeValidationError({ ...baseHttpRoute, layer4Alpn: "postgresql" })).not.toBeNull();
+    expect(routeValidationError({ ...baseLayer4Route, protocol: "http" })).not.toBeNull();
+    expect(routeValidationError({ ...baseLayer4Route, layer4Alpn: "smtp" })).not.toBeNull();
   });
 
   test("a well-formed route with no policy override is accepted (control case)", () => {
@@ -272,10 +245,9 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist. Raw directive
         compression: "brotli-with-backdoor",
       }).success,
     ).toBe(false);
-    expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, hsts: "custom" })
-        .success,
-    ).toBe(false);
+    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, hsts: "custom" }).success).toBe(
+      false,
+    );
     expect(
       routePolicySchema.safeParse({
         ...DEFAULT_ROUTE_POLICY,
@@ -297,9 +269,7 @@ describe("[od-f4rb] raw directives are confined to their site block", () => {
   });
 
   test("an unclosed opening brace is rejected (would swallow the site's closing brace)", () => {
-    expect(
-      customDirectivesSchema.safeParse("handle /x {\n\trespond 404").success,
-    ).toBe(false);
+    expect(customDirectivesSchema.safeParse("handle /x {\n\trespond 404").success).toBe(false);
   });
 
   test("depth may never dip negative even if it recovers to zero", () => {
@@ -307,42 +277,33 @@ describe("[od-f4rb] raw directives are confined to their site block", () => {
   });
 
   test("braces inside quoted strings and comments are literal text, not structure", () => {
-    expect(customDirectivesSchema.safeParse('respond "}" 200').success).toBe(
-      true,
-    );
-    expect(
-      customDirectivesSchema.safeParse("# a } comment\nencode gzip").success,
-    ).toBe(true);
+    expect(customDirectivesSchema.safeParse('respond "}" 200').success).toBe(true);
+    expect(customDirectivesSchema.safeParse("# a } comment\nencode gzip").success).toBe(true);
   });
 
   test("balanced, ordinary directives pass", () => {
-    const ok =
-      'header X-Robots-Tag "noindex"\nhandle_errors {\n\trespond "oops" 502\n}';
+    const ok = 'header X-Robots-Tag "noindex"\nhandle_errors {\n\trespond "oops" 502\n}';
     expect(customDirectivesSchema.safeParse(ok).success).toBe(true);
   });
 
   test("oversized and control-character payloads are rejected", () => {
-    expect(customDirectivesSchema.safeParse("x".repeat(20_000)).success).toBe(
-      false,
-    );
-    expect(customDirectivesSchema.safeParse("respond ok\u0000").success).toBe(
-      false,
-    );
-    expect(
-      customDirectivesSchema.safeParse("respond ok\u001b[31m").success,
-    ).toBe(false);
+    expect(customDirectivesSchema.safeParse("x".repeat(20_000)).success).toBe(false);
+    expect(customDirectivesSchema.safeParse("respond ok\u0000").success).toBe(false);
+    expect(customDirectivesSchema.safeParse("respond ok\u001b[31m").success).toBe(false);
   });
 
   test("the contract accepts directives only through the balance-checked schema", () => {
-    const contract = source(
-      "packages/api/src/routers/project/contract/proxy.ts",
-    );
+    const contract = source("packages/api/src/routers/project/contract/proxy.ts");
     expect(contract).toContain("customDirectivesSchema");
   });
 
   test("the builder re-validates stored text before splicing (a bad row degrades to no block, not a corrupted edge config)", () => {
+    // The re-validation lives in customDirectiveLines (caddy/custom-directives.ts),
+    // and buildHttpBlock must actually route stored text through it.
+    const lines = source("packages/api/src/caddy/custom-directives.ts");
+    expect(lines).toContain("customDirectivesSchema.safeParse");
     const builder = source("packages/api/src/caddy/builder.ts");
-    expect(builder).toContain("customDirectivesSchema.safeParse");
+    expect(builder).toContain("customDirectiveLines(route.customDirectives)");
   });
 
   test("the save path reconciles through Caddy /adapt validation with rollback", () => {
@@ -383,8 +344,6 @@ describe("[od-5j8.6] Caddy admin API isolation", () => {
 
   test("the Caddyfile itself binds the admin API to a permissioned (0600) Unix socket by default", () => {
     const caddyfile = source("infra/caddy/config/Caddyfile");
-    expect(caddyfile).toMatch(
-      /admin\s+\{\$CADDY_ADMIN_BIND:unix\/\/.*\|0600\}/,
-    );
+    expect(caddyfile).toMatch(/admin\s+\{\$CADDY_ADMIN_BIND:unix\/\/.*\|0600\}/);
   });
 });

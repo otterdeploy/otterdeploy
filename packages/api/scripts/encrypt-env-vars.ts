@@ -89,11 +89,7 @@ async function backfillProjectEnvVars(): Promise<BackfillSummary> {
     table: "project_env_var.value",
     rows,
     writeBack: (id, value) =>
-      db
-        .update(projectEnvVar)
-        .set({ value })
-        .where(eq(projectEnvVar.id, id))
-        .then(),
+      db.update(projectEnvVar).set({ value }).where(eq(projectEnvVar.id, id)).then(),
   });
 }
 
@@ -105,11 +101,7 @@ async function backfillServiceEnvVars(): Promise<BackfillSummary> {
     table: "service_env_var.value",
     rows,
     writeBack: (id, value) =>
-      db
-        .update(serviceEnvVar)
-        .set({ value })
-        .where(eq(serviceEnvVar.id, id))
-        .then(),
+      db.update(serviceEnvVar).set({ value }).where(eq(serviceEnvVar.id, id)).then(),
   });
 }
 
@@ -117,10 +109,7 @@ async function main(): Promise<void> {
   console.log(
     `[encrypt-env-vars] ${DRY_RUN ? "DRY RUN (no writes)" : "encrypting"} plaintext env var rows…`,
   );
-  const summaries = [
-    await backfillProjectEnvVars(),
-    await backfillServiceEnvVars(),
-  ];
+  const summaries = [await backfillProjectEnvVars(), await backfillServiceEnvVars()];
   let failed = false;
   for (const s of summaries) {
     console.log(

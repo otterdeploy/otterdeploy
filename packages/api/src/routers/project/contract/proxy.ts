@@ -12,12 +12,7 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { proxyAccessContractSlice } from "./proxy-access";
-import {
-  basePath,
-  projectNotFoundErrors,
-  resourceNotFoundErrors,
-  tag,
-} from "./shared";
+import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 
 // The access-PIN hash never leaves the server. Omitted here so no endpoint

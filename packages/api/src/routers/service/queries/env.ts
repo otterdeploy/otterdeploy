@@ -8,11 +8,7 @@ import { createError } from "evlog";
 import type { ResourceRow, ServiceEnvVarRow } from ".";
 import type { StackRefIdentity } from "./stack";
 
-import {
-  decryptEnvValue,
-  decryptUnsealedEnvRows,
-  encryptEnvValue,
-} from "../../../lib/env-crypto";
+import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 import { getStackRefIdentity } from "./stack";
 // ---------------------------------------------------------------------------
 // Env vars
@@ -28,10 +24,7 @@ export async function listServiceEnvVars(
     .select()
     .from(serviceEnvVar)
     .where(
-      and(
-        eq(serviceEnvVar.serviceResourceId, serviceResourceId),
-        isNull(serviceEnvVar.previewId),
-      ),
+      and(eq(serviceEnvVar.serviceResourceId, serviceResourceId), isNull(serviceEnvVar.previewId)),
     )
     // Bypass the global query cache: an edit that just landed must be visible
     // on the very next read (the resource list polls every 5s), not up to 60s
@@ -218,9 +211,7 @@ export async function bulkReplaceServiceEnvVars(
       }));
     }
 
-    return [...inserted, ...sealedRows].sort((a, b) =>
-      a.key.localeCompare(b.key),
-    );
+    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
   });
 }
 
@@ -242,11 +233,7 @@ export async function resolveResourceForPreview(
       .select()
       .from(resource)
       .where(
-        and(
-          eq(resource.projectId, projectId),
-          eq(resource.name, name),
-          isNull(resource.previewId),
-        ),
+        and(eq(resource.projectId, projectId), eq(resource.name, name), isNull(resource.previewId)),
       )
       .limit(1);
     return row;
@@ -314,8 +301,7 @@ export async function findServiceDependentsByName(input: {
     if (!stackRef) return false;
     if (value.includes(`\${{${stackRef.stackName}.${stackRef.composeService}.`)) return true;
     return (
-      rowStackId === stackRef.stackId &&
-      value.includes(`\${{stack.${stackRef.composeService}.`)
+      rowStackId === stackRef.stackId && value.includes(`\${{stack.${stackRef.composeService}.`)
     );
   };
 

@@ -24,9 +24,8 @@ export function CustomDirectivesField({
     <div className="grid gap-1.5">
       <Label htmlFor="route-custom-directives">Custom directives</Label>
       <p className="text-xs text-muted-foreground">
-        Raw Caddyfile lines for this site block. Validated against the live edge
-        config before they apply; a rejected block is rolled back and never
-        served.
+        Raw Caddyfile lines for this site block. Validated against the live edge config before they
+        apply; a rejected block is rolled back and never served.
       </p>
       <CaddyCodeEditor
         value={value}
@@ -34,9 +33,7 @@ export function CustomDirectivesField({
         placeholder={'header X-Robots-Tag "noindex"'}
         className="max-h-56 min-h-28"
       />
-      {error ? (
-        <p className="font-mono text-xs break-all text-destructive">{error}</p>
-      ) : null}
+      {error ? <p className="font-mono text-xs break-all text-destructive">{error}</p> : null}
     </div>
   );
 }

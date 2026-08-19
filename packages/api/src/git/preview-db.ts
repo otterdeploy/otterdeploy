@@ -19,22 +19,14 @@ import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import {
-  resource,
-  serviceEnvVar,
-  serviceResource,
-} from "@otterdeploy/db/schema/project";
+import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 import { randomBytes } from "node:crypto";
 
-import type { RefIndex } from "../lib/variables/stack-refs";
 import type { BranchDatabaseSpec } from "../runtime/types";
 
-import { decryptEnvValue } from "../lib/env-crypto";
-import { extractRefs } from "../lib/variables/parser";
-import { buildRefIndex, resolveRefTargetName } from "../lib/variables/stack-refs";
 import { insertDeployment } from "../routers/project/deployments";
 import { deriveInternalDbCredentials } from "../routers/project/postgres/credentials";
 import {
@@ -42,33 +34,11 @@ import {
   deleteResourceById,
   listDatabaseResourceRecords,
 } from "../routers/project/queries";
-import {
-  buildContainerName,
-  buildVolumeName,
-} from "../routers/project/view-helpers";
+import { buildContainerName, buildVolumeName } from "../routers/project/view-helpers";
 import { runtime } from "../runtime";
 import { resolveSnapshotDriverFor } from "../runtime/snapshot";
 import { getEngineAdapter } from "../swarm";
-
-/** Each service's outgoing refs, as resource NAMES, keyed by service id. */
-function outgoingRefNames(
-  rows: ReadonlyArray<{ serviceResourceId: string; value: string }>,
-  index: RefIndex<string>,
-): Map<string, Set<string>> {
-  const byId = new Map<string, Set<string>>();
-  for (const row of rows) {
-    let set = byId.get(row.serviceResourceId);
-    if (!set) {
-      set = new Set<string>();
-      byId.set(row.serviceResourceId, set);
-    }
-    for (const ref of extractRefs(row.value)) {
-      const name = resolveRefTargetName(ref, row.serviceResourceId, index);
-      if (name) set.add(name);
-    }
-  }
-  return byId;
-}
+import { serviceRefGraph } from "./preview-refs";
 
 /**
  * The BASE Postgres databases this preview's services actually CONNECT TO.
@@ -111,54 +81,15 @@ export async function referencedBaseDatabases(input: {
   if (bases.length === 0) return [];
   const baseByName = new Map(bases.map((b) => [b.resource.name, b] as const));
 
-  // Base resources by name (to resolve a ref to its target) and each base
-  // service's outgoing refs. extractRefs parses `${{…}}` exactly, so unlike a
-  // LIKE scan it never false-matches on names containing `_`/`%`.
+  // Base resources by name (to resolve a ref to its target), plus each base
+  // service's outgoing refs as names (stack-scoped compose keys translated,
+  // encrypted values decrypted; see preview-refs.ts).
   const allRes = await db
     .select({ id: resource.id, name: resource.name, type: resource.type })
     .from(resource)
-    .where(
-      and(eq(resource.projectId, input.projectId), isNull(resource.previewId)),
-    );
-  const resByName = new Map(allRes.map((r) => [r.name, r] as const));
-
-  // Stack membership: a stack-scoped ref names its target by COMPOSE KEY, so
-  // it has to be translated back to a resource name before it can join the
-  // name-keyed walk below. Left untranslated, `${{stack.db.HOST}}` would read
-  // as a ref to a resource named `db` — a miss at best, and at worst a branch
-  // of the wrong database.
-  const members = await db
-    .select({
-      resourceId: serviceResource.resourceId,
-      stackId: serviceResource.stackId,
-      composeService: serviceResource.composeService,
-    })
-    .from(serviceResource)
-    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
     .where(and(eq(resource.projectId, input.projectId), isNull(resource.previewId)));
-  const refIndex = buildRefIndex({ resources: allRes, members });
-
-  const envRows = await db
-    .select({
-      serviceResourceId: serviceEnvVar.serviceResourceId,
-      value: serviceEnvVar.value,
-      sealed: serviceEnvVar.sealed,
-    })
-    .from(serviceEnvVar)
-    .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
-  // Values are encrypted at rest (od-3pp7): decrypt unsealed rows before ref
-  // parsing. Sealed rows are skipped — extractRefs on their ciphertext found
-  // nothing before encryption either.
-  const scannable: Array<{ serviceResourceId: string; value: string }> = [];
-  for (const row of envRows) {
-    if (row.sealed) continue;
-    scannable.push({
-      serviceResourceId: row.serviceResourceId,
-      value: await decryptEnvValue(row.value),
-    });
-  }
-  const refsById = outgoingRefNames(scannable, refIndex);
+  const resByName = new Map(allRes.map((r) => [r.name, r] as const));
+  const refsById = await serviceRefGraph(input.projectId, allRes);
 
   // Forward BFS over the ref graph from the seed services; collect every base
   // DB name reached, following service→service edges transitively.
@@ -212,10 +143,7 @@ export async function branchProjectDatabases(input: {
   let branched = 0;
 
   for (const base of bases) {
-    if (
-      await branchExists(input.projectId, input.previewId, base.resource.name)
-    )
-      continue;
+    if (await branchExists(input.projectId, input.previewId, base.resource.name)) continue;
 
     const driver = await resolveSnapshotDriverFor(
       buildVolumeName({
@@ -261,9 +189,7 @@ async function branchExists(
   return rows.length > 0;
 }
 
-type BaseRecord = Awaited<
-  ReturnType<typeof listDatabaseResourceRecords>
->[number];
+type BaseRecord = Awaited<ReturnType<typeof listDatabaseResourceRecords>>[number];
 
 async function branchOne(
   input: {

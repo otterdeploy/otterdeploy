@@ -146,9 +146,7 @@ export function RoutePolicyFields({
       <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
         <div>
           <Label htmlFor="route-nosniff">Content type nosniff</Label>
-          <p className="text-xs text-muted-foreground">
-            Emit X-Content-Type-Options.
-          </p>
+          <p className="text-xs text-muted-foreground">Emit X-Content-Type-Options.</p>
         </div>
         <Switch
           id="route-nosniff"
@@ -164,9 +162,7 @@ export function RoutePolicyFields({
           maxLength={4_096}
           placeholder="Leave empty to omit the header"
           className="min-h-20 font-mono text-xs"
-          onChange={(event) =>
-            update("contentSecurityPolicy", event.target.value.trim() || null)
-          }
+          onChange={(event) => update("contentSecurityPolicy", event.target.value.trim() || null)}
         />
       </div>
     </div>

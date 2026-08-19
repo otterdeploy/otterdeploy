@@ -72,12 +72,7 @@ export async function listProjectDependencies(
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
     // Base rows only: preview overrides must not fabricate base graph edges.
-    .where(
-      and(
-        eq(resource.projectId, input.projectId),
-        isNull(serviceEnvVar.previewId),
-      ),
-    );
+    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
 
   // Dedupe edges via a "source|target" key. A service referencing the same
   // resource in 10 env vars produces one edge.

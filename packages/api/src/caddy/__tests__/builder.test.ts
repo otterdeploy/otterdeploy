@@ -53,11 +53,9 @@ describe("builder", () => {
   test("buildHttpBlock with usesAcme=true omits the tls directive (Caddy defaults to ACME)", () => {
     const output = buildHttpBlock({ ...httpRoute, usesAcme: true });
     expect(output).toBe(
-      [
-        "myapp-acme.otterdeploy.dev {",
-        "\treverse_proxy otterdeploy-acme-myapp:3000",
-        "}",
-      ].join("\n"),
+      ["myapp-acme.otterdeploy.dev {", "\treverse_proxy otterdeploy-acme-myapp:3000", "}"].join(
+        "\n",
+      ),
     );
   });
 
@@ -65,8 +63,7 @@ describe("builder", () => {
     const output = buildHttpBlock({
       ...httpRoute,
       usesAcme: true,
-      customDirectives:
-        'header X-Robots-Tag "noindex"\nhandle_errors {\n\trespond "oops" 502\n}',
+      customDirectives: 'header X-Robots-Tag "noindex"\nhandle_errors {\n\trespond "oops" 502\n}',
     });
     expect(output).toBe(
       [
@@ -88,11 +85,9 @@ describe("builder", () => {
       customDirectives: "}\nevil.example.com {\n\treverse_proxy 127.0.0.1:2019",
     });
     expect(output).toBe(
-      [
-        "myapp-acme.otterdeploy.dev {",
-        "\treverse_proxy otterdeploy-acme-myapp:3000",
-        "}",
-      ].join("\n"),
+      ["myapp-acme.otterdeploy.dev {", "\treverse_proxy otterdeploy-acme-myapp:3000", "}"].join(
+        "\n",
+      ),
     );
   });
 
@@ -130,9 +125,7 @@ describe("builder", () => {
     expect(output).toContain("api_url http://crowdsec:8080");
     expect(output).toContain("api_key k3y");
     // per-site directive present on the http block
-    expect(output).toMatch(
-      /myapp-acme\.otterdeploy\.dev \{[\s\S]*\tcrowdsec\n/,
-    );
+    expect(output).toMatch(/myapp-acme\.otterdeploy\.dev \{[\s\S]*\tcrowdsec\n/);
   });
 
   test("crowdsec absent ⇒ no crowdsec directives (existing behaviour)", () => {
@@ -252,12 +245,8 @@ describe("builder", () => {
     );
     expect(output).toContain('\t\tX-Content-Type-Options "nosniff"');
     expect(output).toContain('\t\tX-Frame-Options "DENY"');
-    expect(output).toContain(
-      '\t\tReferrer-Policy "strict-origin-when-cross-origin"',
-    );
-    expect(output).toContain(
-      `\t\tContent-Security-Policy "default-src 'self'; object-src 'none'"`,
-    );
+    expect(output).toContain('\t\tReferrer-Policy "strict-origin-when-cross-origin"');
+    expect(output).toContain(`\t\tContent-Security-Policy "default-src 'self'; object-src 'none'"`);
   });
 
   test("invalid persisted policy is rejected before Caddyfile rendering", () => {

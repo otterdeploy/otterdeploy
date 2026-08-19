@@ -10,11 +10,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { encryptForDomain } from "../crypto";
-import {
-  decryptEnvValue,
-  decryptUnsealedEnvRows,
-  encryptEnvValue,
-} from "../env-crypto";
+import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../env-crypto";
 
 describe("encryptEnvValue/decryptEnvValue", () => {
   it("round-trips arbitrary values through the env-vars domain envelope", async () => {
@@ -34,12 +30,7 @@ describe("encryptEnvValue/decryptEnvValue", () => {
   });
 
   it("passes legacy plaintext rows through byte-identical", async () => {
-    const legacy = [
-      "plain-value",
-      "postgres://x",
-      "v1-not-an-envelope",
-      "  spaced  ",
-    ];
+    const legacy = ["plain-value", "postgres://x", "v1-not-an-envelope", "  spaced  "];
     for (const value of legacy) {
       expect(await decryptEnvValue(value)).toBe(value);
     }
@@ -47,9 +38,7 @@ describe("encryptEnvValue/decryptEnvValue", () => {
 
   it('passes a user value that merely LOOKS like an envelope ("v2:...") through as literal text', async () => {
     // Wrong segment count: not parseable as v2:domain:keyId:nonce:ct.
-    expect(await decryptEnvValue("v2:something-user-typed")).toBe(
-      "v2:something-user-typed",
-    );
+    expect(await decryptEnvValue("v2:something-user-typed")).toBe("v2:something-user-typed");
     // Parseable shape but a different domain: another domain's ciphertext
     // must never be transparently decrypted through the env read path.
     const foreign = await encryptForDomain("other-secret", "ssh-keys");
@@ -61,8 +50,7 @@ describe("encryptEnvValue/decryptEnvValue", () => {
     // Corrupt the ciphertext segment so the GCM tag cannot verify.
     const parts = stored.split(":");
     const ct = parts[4] ?? "";
-    parts[4] =
-      ct.slice(0, -8) + (ct.endsWith("AAAA") ? "BBBB" : "AAAA") + ct.slice(-4);
+    parts[4] = ct.slice(0, -8) + (ct.endsWith("AAAA") ? "BBBB" : "AAAA") + ct.slice(-4);
     await expect(decryptEnvValue(parts.join(":"))).rejects.toThrow();
   });
 });

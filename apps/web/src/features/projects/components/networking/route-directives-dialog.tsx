@@ -39,35 +39,26 @@ export function RoutePolicyButton({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(() => copyPolicy(routePolicy));
-  const [directivesDraft, setDirectivesDraft] = useState(
-    () => customDirectives ?? "",
-  );
+  const [directivesDraft, setDirectivesDraft] = useState(() => customDirectives ?? "");
   // Caddy's rejection message for the raw block, shown inline next to the
   // editor rather than only as a toast: the user needs it while fixing text.
   const [directivesError, setDirectivesError] = useState<string | null>(null);
 
-  const update = <K extends keyof RoutePolicy>(
-    key: K,
-    value: RoutePolicy[K],
-  ) => {
+  const update = <K extends keyof RoutePolicy>(key: K, value: RoutePolicy[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
   const save = async () => {
     setSaving(true);
     setDirectivesError(null);
-    const nextDirectives =
-      directivesDraft.trim() === "" ? null : directivesDraft;
+    const nextDirectives = directivesDraft.trim() === "" ? null : directivesDraft;
     // The row model widens ids to string; re-brand at the mutation boundary.
-    const tx = proxyRoutesCollection.update(
-      idSchema.proxyRoute.parse(routeId),
-      (row) => {
-        row.routePolicy = draft;
-        if (nextDirectives !== (customDirectives ?? null)) {
-          row.customDirectives = nextDirectives;
-        }
-      },
-    );
+    const tx = proxyRoutesCollection.update(idSchema.proxyRoute.parse(routeId), (row) => {
+      row.routePolicy = draft;
+      if (nextDirectives !== (customDirectives ?? null)) {
+        row.customDirectives = nextDirectives;
+      }
+    });
     try {
       await tx.isPersisted.promise;
       toast.success("Route policy applied");
@@ -105,20 +96,15 @@ export function RoutePolicyButton({
         title="Route policy"
         onClick={() => setOpen(true)}
       >
-        <HugeiconsIcon
-          icon={Settings02Icon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
+        <HugeiconsIcon icon={Settings02Icon} strokeWidth={2} className="size-3.5" />
       </Button>
 
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Route policy</DialogTitle>
           <DialogDescription>
-            Edge behavior for <span className="font-mono">{domain}</span>.
-            Structured options below, plus raw Caddyfile directives appended
-            inside this domain&apos;s site block.
+            Edge behavior for <span className="font-mono">{domain}</span>. Structured options below,
+            plus raw Caddyfile directives appended inside this domain&apos;s site block.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,12 +120,7 @@ export function RoutePolicyButton({
         />
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={saving}
-            onClick={() => setOpen(false)}
-          >
+          <Button variant="outline" size="sm" disabled={saving} onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button size="sm" disabled={saving} onClick={() => void save()}>

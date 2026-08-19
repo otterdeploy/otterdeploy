@@ -2,11 +2,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import {
-  databaseResource,
-  resource,
-  serviceEnvVar,
-} from "@otterdeploy/db/schema/project";
+import { databaseResource, resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
 /**
  * On compose-stack deletion, remove the project variables the stack seeded
  * (its `${VAR}` values, written to the shared project bag at create time),
@@ -30,8 +26,7 @@ import { listComposeRecords } from "./queries";
 
 // `${{project.KEY}}` / `${{environment.KEY}}` reference tokens inside a
 // service or database env value.
-const SCOPE_REF_RE =
-  /\$\{\{\s*(?:project|environment)\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+const SCOPE_REF_RE = /\$\{\{\s*(?:project|environment)\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
 function extractScopeRefs(value: string, into: Set<string>): void {
   for (const m of value.matchAll(SCOPE_REF_RE)) {
@@ -68,12 +63,7 @@ async function collectReferencedKeys(
     .select({ value: serviceEnvVar.value, sealed: serviceEnvVar.sealed })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(
-      and(
-        eq(resource.projectId, projectId),
-        ne(resource.id, excludeResourceId),
-      ),
-    );
+    .where(and(eq(resource.projectId, projectId), ne(resource.id, excludeResourceId)));
   for (const row of serviceEnvRows) {
     // Encrypted at rest (od-3pp7). Sealed rows are skipped: this scan could
     // never see into their ciphertext before encryption either.
@@ -89,12 +79,7 @@ async function collectReferencedKeys(
     })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
-    .where(
-      and(
-        eq(resource.projectId, projectId),
-        ne(resource.id, excludeResourceId),
-      ),
-    );
+    .where(and(eq(resource.projectId, projectId), ne(resource.id, excludeResourceId)));
   for (const row of dbRows) {
     for (const value of Object.values(row.extraEnv ?? {})) {
       extractScopeRefs(value, referenced);
@@ -128,10 +113,7 @@ export async function cleanupOrphanedComposeVars(
   const environmentId = project?.environmentId;
   if (!environmentId) return;
 
-  const referenced = await collectReferencedKeys(
-    args.projectId,
-    args.deletedResourceId,
-  );
+  const referenced = await collectReferencedKeys(args.projectId, args.deletedResourceId);
 
   const removed: string[] = [];
   for (const key of seededKeys) {

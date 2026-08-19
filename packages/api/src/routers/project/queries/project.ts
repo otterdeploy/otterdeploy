@@ -65,12 +65,7 @@ export async function getProjectInOrg(input: {
   const [record] = await db
     .select()
     .from(project)
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .limit(1);
   return record;
 }
@@ -78,10 +73,7 @@ export async function getProjectInOrg(input: {
 /** Load a proxy route and verify it belongs to a project in the caller's
  *  org. Centralizes the auth check for every protection mutation; returns
  *  null for both "missing" and "other org" so existence never leaks. */
-export async function getRouteInOrg(
-  routeId: ProxyRouteId,
-  organizationId: OrganizationId,
-) {
+export async function getRouteInOrg(routeId: ProxyRouteId, organizationId: OrganizationId) {
   const route = await getProxyRouteById(routeId);
   if (!route) return null;
   const proj = await getProjectInOrg({
@@ -93,11 +85,7 @@ export async function getRouteInOrg(
 }
 
 export async function getProjectById(projectId: ProjectId) {
-  const [record] = await db
-    .select()
-    .from(project)
-    .where(eq(project.id, projectId))
-    .limit(1);
+  const [record] = await db.select().from(project).where(eq(project.id, projectId)).limit(1);
   return record;
 }
 
@@ -122,12 +110,7 @@ export async function getProjectBySlugInOrg(input: {
   const [record] = await db
     .select()
     .from(project)
-    .where(
-      and(
-        eq(project.slug, input.slug),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.slug, input.slug), eq(project.organizationId, input.organizationId)))
     .limit(1);
   return record;
 }
@@ -157,20 +140,14 @@ export async function updateProjectRecord(input: {
     patch.customDomainVerifiedAt = null;
     patch.customDomainVerifyToken = null;
   }
-  if (input.nixpacksConfig !== undefined)
-    patch.nixpacksConfig = input.nixpacksConfig;
+  if (input.nixpacksConfig !== undefined) patch.nixpacksConfig = input.nixpacksConfig;
 
   if (Object.keys(patch).length === 0) {
     // No-op: return the current row so the caller still gets the view shape.
     const [row] = await db
       .select()
       .from(project)
-      .where(
-        and(
-          eq(project.id, input.projectId),
-          eq(project.organizationId, input.organizationId),
-        ),
-      )
+      .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
       .limit(1);
     return row;
   }
@@ -178,12 +155,7 @@ export async function updateProjectRecord(input: {
   const [record] = await db
     .update(project)
     .set(patch)
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning();
   return record;
 }
@@ -197,12 +169,7 @@ export async function setProjectGraphLayout(input: {
   const [record] = await db
     .update(project)
     .set({ graphLayout: input.graphLayout })
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning({ id: project.id });
   return record;
 }
@@ -213,12 +180,7 @@ export async function deleteProjectRecord(input: {
 }) {
   const [record] = await db
     .delete(project)
-    .where(
-      and(
-        eq(project.id, input.projectId),
-        eq(project.organizationId, input.organizationId),
-      ),
-    )
+    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning({ id: project.id });
   return record;
 }
@@ -233,8 +195,7 @@ export async function createProjectRecord(input: {
 }) {
   return db.transaction(async (tx) => {
     const projectId = input.id ?? createId(ID_PREFIX.project);
-    const environmentId =
-      input.environmentId ?? createId(ID_PREFIX.environment);
+    const environmentId = input.environmentId ?? createId(ID_PREFIX.environment);
 
     const [createdProject] = await tx
       .insert(project)
@@ -263,9 +224,7 @@ export async function createProjectRecord(input: {
       const [linked] = await tx
         .update(environment)
         .set({ projectId })
-        .where(
-          and(eq(environment.id, environmentId), isNull(environment.projectId)),
-        )
+        .where(and(eq(environment.id, environmentId), isNull(environment.projectId)))
         .returning();
       createdEnvironment = linked;
     }

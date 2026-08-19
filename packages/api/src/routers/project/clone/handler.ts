@@ -31,9 +31,7 @@ import { getProjectInOrg } from "../queries";
 import { type CloneOutcome, executeClone } from "./execute";
 import { type CloneSource, type ClonePlan, planClone } from "./plan";
 
-class CloneProjectNotFoundError extends TaggedError(
-  "CloneProjectNotFoundError",
-)<{
+class CloneProjectNotFoundError extends TaggedError("CloneProjectNotFoundError")<{
   message: string;
 }>() {
   constructor() {
@@ -138,9 +136,7 @@ export interface ClonePreview {
   externalRefs: { fromName: string; toName: string; envKey: string }[];
 }
 
-export async function previewClone(
-  input: CloneInput,
-): Promise<Result<ClonePreview, CloneError>> {
+export async function previewClone(input: CloneInput): Promise<Result<ClonePreview, CloneError>> {
   const built = await buildPlan(input);
   if (built.isErr()) return Result.err(built.error);
   const { plan } = built.value;
@@ -156,21 +152,12 @@ export async function previewClone(
 export async function cloneResources(
   input: CloneInput,
   log: RequestLogger,
-): Promise<
-  Result<
-    CloneOutcome & { externalRefs: ClonePreview["externalRefs"] },
-    CloneError
-  >
-> {
+): Promise<Result<CloneOutcome & { externalRefs: ClonePreview["externalRefs"] }, CloneError>> {
   const built = await buildPlan(input);
   if (built.isErr()) return Result.err(built.error);
   const { plan, projectSlug } = built.value;
 
-  const outcome = await executeClone(
-    plan,
-    { projectId: input.projectId, projectSlug },
-    log,
-  );
+  const outcome = await executeClone(plan, { projectId: input.projectId, projectSlug }, log);
   // The warning travels with the result too, not just the preview: a caller
   // that skipped the preview still has to be told what its copies point at.
   return Result.ok({ ...outcome, externalRefs: plan.externalRefs });

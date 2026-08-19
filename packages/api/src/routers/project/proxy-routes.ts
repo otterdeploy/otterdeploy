@@ -11,22 +11,14 @@ import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import {
-  PLATFORM_SETTINGS_ID,
-  platformSettings,
-} from "@otterdeploy/db/schema/platform";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
 import type { OrgRef, ProjectRef } from "../scopes";
 
-import {
-  type GuestRecord,
-  listGuests,
-  removeGuest,
-  upsertGuest,
-} from "../../authz/guests";
+import { type GuestRecord, listGuests, removeGuest, upsertGuest } from "../../authz/guests";
 import { signGrantToken } from "../../authz/tokens";
 import {
   reconcile,
@@ -37,18 +29,12 @@ import {
   type SaveRoutePolicyResult,
 } from "../../caddy";
 import { RESERVED_AUTH_PREFIX } from "../../caddy/builder";
-import {
-  listProxyRoutesByProject,
-  updateProxyRoute,
-} from "../../caddy/queries";
+import { listProxyRoutesByProject, updateProxyRoute } from "../../caddy/queries";
 import { ProjectNotFoundError, ProxyRouteNotFoundError } from "./errors";
 import { getProjectInOrg, getRouteInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
 
-export {
-  listProjectCertificates,
-  type ProjectCertificates,
-} from "./proxy-route-certs";
+export { listProjectCertificates, type ProjectCertificates } from "./proxy-route-certs";
 export { getRouteAccessPin, setRouteAccessPin } from "./proxy-route-pin";
 
 export async function listProjectProxyRoutes(
@@ -130,34 +116,39 @@ export async function saveGlobalCaddyOptions(
   return next;
 }
 
+/** Org-scope the route lookup, then run one save-with-rollback on it. Shared
+ *  by the policy and custom-directives mutations so both keep the same
+ *  applied/error contract (the editor surfaces Caddy's own parse message). */
+async function withRouteInOrg(
+  input: OrgRef & { routeId: ProxyRouteId },
+  save: (
+    route: NonNullable<Awaited<ReturnType<typeof getRouteInOrg>>>,
+  ) => Promise<SaveRoutePolicyResult>,
+): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
+  const route = await getRouteInOrg(input.routeId, input.organizationId);
+  if (!route) {
+    return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
+  }
+  return Result.ok(await save(route));
+}
+
 /** Persist the allowlisted route policy, then reconcile with rollback on error. */
-export async function setProxyRoutePolicy(
+export function setProxyRoutePolicy(
   input: OrgRef & { routeId: ProxyRouteId; policy: RoutePolicy },
   rlog?: RequestLogger,
 ): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
-  const route = await getRouteInOrg(input.routeId, input.organizationId);
-  if (!route) {
-    return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
-  }
-  const result = await saveRoutePolicy(route, input.policy, rlog);
-  return Result.ok(result);
+  return withRouteInOrg(input, (route) => saveRoutePolicy(route, input.policy, rlog));
 }
 
-/** Persist raw per-route Caddyfile directives (od-f4rb), then reconcile with
- *  rollback on rejection — same applied/error contract as the policy save so
- *  the editor can surface Caddy's own parse message inline. */
-export async function setProxyRouteCustomDirectives(
+/** Persist raw per-route Caddyfile directives (od-f4rb) with the same
+ *  reconcile-with-rollback contract as the policy save. */
+export function setProxyRouteCustomDirectives(
   input: OrgRef & { routeId: ProxyRouteId; directives: string | null },
   rlog?: RequestLogger,
 ): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
-  const route = await getRouteInOrg(input.routeId, input.organizationId);
-  if (!route) {
-    return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
-  }
   // An emptied editor means "no custom block", not an empty string row.
   const directives = input.directives === "" ? null : input.directives;
-  const result = await saveRouteCustomDirectives(route, directives, rlog);
-  return Result.ok(result);
+  return withRouteInOrg(input, (route) => saveRouteCustomDirectives(route, directives, rlog));
 }
 
 export async function setProxyRouteProtection(
@@ -208,9 +199,7 @@ export async function setProxyRouteUserEnabled(
 
 export async function createDeploymentShareLink(
   input: OrgRef & { routeId: ProxyRouteId; expiresInHours: number },
-): Promise<
-  Result<{ url: string; expiresAt: string }, ProxyRouteNotFoundError>
-> {
+): Promise<Result<{ url: string; expiresAt: string }, ProxyRouteNotFoundError>> {
   const route = await getRouteInOrg(input.routeId, input.organizationId);
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
@@ -225,12 +214,7 @@ export async function createDeploymentShareLink(
 
 export async function createDeploymentBypassToken(
   input: OrgRef & { routeId: ProxyRouteId; expiresInDays: number },
-): Promise<
-  Result<
-    { header: string; token: string; expiresAt: string },
-    ProxyRouteNotFoundError
-  >
-> {
+): Promise<Result<{ header: string; token: string; expiresAt: string }, ProxyRouteNotFoundError>> {
   const route = await getRouteInOrg(input.routeId, input.organizationId);
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));

@@ -49,22 +49,12 @@ export {
   type ResourceLogEvent,
 } from "./resource-logs";
 
-export {
-  listResourceDeployments,
-  type DeploymentWithStats,
-} from "./deployments-list";
-export {
-  listTasksForDeployment,
-  type DeploymentTaskInfo,
-} from "./deployments-tasks";
+export { listResourceDeployments, type DeploymentWithStats } from "./deployments-list";
+export { listTasksForDeployment, type DeploymentTaskInfo } from "./deployments-tasks";
 
 export { listProjectDependencies, type DependencyEdge } from "./dependencies";
 
-export {
-  listProjectServiceTasks,
-  type ServiceTasks,
-  type ServiceTaskInfo,
-} from "./service-tasks";
+export { listProjectServiceTasks, type ServiceTasks, type ServiceTaskInfo } from "./service-tasks";
 
 export {
   createDeploymentBypassToken,

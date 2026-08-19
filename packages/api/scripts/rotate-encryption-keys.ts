@@ -70,11 +70,7 @@ import { projectEnvVar, serviceEnvVar } from "@otterdeploy/db/schema/project";
 import { sshKey } from "@otterdeploy/db/schema/ssh-key";
 import { eq } from "drizzle-orm";
 
-import {
-  currentKeyId,
-  rotateForDomain,
-  type SecretDomain,
-} from "../src/lib/crypto";
+import { currentKeyId, rotateForDomain, type SecretDomain } from "../src/lib/crypto";
 import { isV1Format, isV2Format } from "../src/lib/crypto-envelope";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -128,19 +124,13 @@ async function rotateColumn<TId>(input: {
 
 // ssh_key.private_key_ciphertext
 async function rotateSshKeys(): Promise<RotateSummary> {
-  const rows = await db
-    .select({ id: sshKey.id, value: sshKey.privateKeyCiphertext })
-    .from(sshKey);
+  const rows = await db.select({ id: sshKey.id, value: sshKey.privateKeyCiphertext }).from(sshKey);
   return rotateColumn({
     table: "ssh_key.private_key_ciphertext",
     domain: "ssh-keys",
     rows,
     writeBack: (id, value) =>
-      db
-        .update(sshKey)
-        .set({ privateKeyCiphertext: value })
-        .where(eq(sshKey.id, id))
-        .then(),
+      db.update(sshKey).set({ privateKeyCiphertext: value }).where(eq(sshKey.id, id)).then(),
   });
 }
 
@@ -248,11 +238,7 @@ async function rotateProjectEnvVars(): Promise<RotateSummary> {
     domain: "env-vars",
     rows: rows.filter((r) => isV1Format(r.value) || isV2Format(r.value)),
     writeBack: (id, value) =>
-      db
-        .update(projectEnvVar)
-        .set({ value })
-        .where(eq(projectEnvVar.id, id))
-        .then(),
+      db.update(projectEnvVar).set({ value }).where(eq(projectEnvVar.id, id)).then(),
   });
 }
 
@@ -266,11 +252,7 @@ async function rotateServiceEnvVars(): Promise<RotateSummary> {
     domain: "env-vars",
     rows: rows.filter((r) => isV1Format(r.value) || isV2Format(r.value)),
     writeBack: (id, value) =>
-      db
-        .update(serviceEnvVar)
-        .set({ value })
-        .where(eq(serviceEnvVar.id, id))
-        .then(),
+      db.update(serviceEnvVar).set({ value }).where(eq(serviceEnvVar.id, id)).then(),
   });
 }
 

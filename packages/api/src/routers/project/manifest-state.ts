@@ -120,34 +120,19 @@ export async function loadCurrentState(
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
       // Base rows only: a PR preview's branch DB reuses the base name and
       // would silently overwrite the base entry in the by-name map below.
-      .where(
-        and(
-          eq(resource.projectId, projectId),
-          isNull(resource.previewId),
-          inScope,
-        ),
-      ),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope)),
     db
       .select({ name: resource.name })
       .from(resource)
       .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-      .where(
-        and(
-          eq(resource.projectId, projectId),
-          isNull(resource.previewId),
-          inScope,
-        ),
-      ),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope)),
   ]);
 
   const services: Record<string, CurrentService> = {};
   if (serviceRows.length > 0) {
     const serviceIds = serviceRows.map((r) => r.service.resourceId);
     const [ports, envs] = await Promise.all([
-      db
-        .select()
-        .from(servicePort)
-        .where(inArray(servicePort.serviceResourceId, serviceIds)),
+      db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, serviceIds)),
       db
         .select()
         .from(serviceEnvVar)

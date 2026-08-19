@@ -1,10 +1,7 @@
 import { zId, type ProxyRouteId } from "@otterdeploy/shared/id";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
-import {
-  parseLoadSubsetOptions,
-  queryCollectionOptions,
-} from "@tanstack/query-db-collection";
+import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
@@ -107,12 +104,10 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
         // policy: `applied: false` carries Caddy's own parse/adapt message,
         // thrown so the optimistic row rolls back and the editor shows it.
         if (m.changes.customDirectives !== undefined) {
-          const result = await orpc.project.proxyRoute.setCustomDirectives.call(
-            {
-              routeId,
-              directives: m.changes.customDirectives,
-            },
-          );
+          const result = await orpc.project.proxyRoute.setCustomDirectives.call({
+            routeId,
+            directives: m.changes.customDirectives,
+          });
           if (!result.applied) {
             throw new RoutePolicyRejectedError(
               result.error ?? "Caddy rejected the custom directives",
@@ -126,9 +121,7 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
   getKey: (item) => item.id,
 });
 
-type ProxyRouteRow = Awaited<
-  ReturnType<typeof orpc.project.proxyRoute.list.call>
->[number];
+type ProxyRouteRow = Awaited<ReturnType<typeof orpc.project.proxyRoute.list.call>>[number];
 
 // Two-branch createCollection + pinned generics: see projectCollection for why.
 export const proxyRoutesCollection = persistence
@@ -204,9 +197,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
 });
 
 /** Server list rows plus the `routeId` the queryFn stamps back on. */
-type RouteGuestRow = Awaited<
-  ReturnType<typeof orpc.project.proxyRoute.listGuests.call>
->[number] & {
+type RouteGuestRow = Awaited<ReturnType<typeof orpc.project.proxyRoute.listGuests.call>>[number] & {
   routeId: ProxyRouteId;
 };
 

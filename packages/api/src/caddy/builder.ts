@@ -1,16 +1,9 @@
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
-import { customDirectivesSchema } from "@otterdeploy/shared/custom-directives";
-import {
-  DEFAULT_ROUTE_POLICY,
-  routePolicySchema,
-} from "@otterdeploy/shared/route-policy";
+import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 
-import {
-  buildLayer4Block,
-  buildLayer4SiteBlocks,
-  sanitizeMatcherName,
-} from "./layer4";
+import { customDirectiveLines } from "./custom-directives";
+import { buildLayer4Block, buildLayer4SiteBlocks, sanitizeMatcherName } from "./layer4";
 import { assertSafeRoute } from "./route-validation";
 
 // Re-exported so existing `./builder` import sites keep working after the
@@ -37,11 +30,9 @@ export interface ProxyRouteInput {
   protected?: boolean;
   /** Allowlisted behavior rendered by trusted builder code. */
   routePolicy?: RoutePolicy;
-  /** Raw Caddyfile directives spliced verbatim inside the site block
-   *  (HTTP routes only). Validated at the write boundary by
-   *  `customDirectivesSchema` (brace balance, so it cannot close the site
-   *  block) and re-checked here before splicing; Caddy's /adapt pass is the
-   *  final syntax gate. Absent/null ⇒ nothing emitted. */
+  /** Raw Caddyfile directives spliced verbatim inside the site block (HTTP
+   *  routes only). Brace-balance-checked at the write boundary AND re-checked
+   *  here (see customDirectiveLines); Caddy's /adapt pass is the syntax gate. */
   customDirectives?: string | null;
   /** Operator-uploaded certificate to serve for this domain instead of
    *  ACME / tls internal. Paths are CONTAINER paths under the `/etc/caddy`
@@ -142,8 +133,7 @@ export interface CaddyfileOptions {
 function hstsValue(policy: RoutePolicy): string | null {
   if (policy.hsts === "off") return null;
   if (policy.hsts === "one-year") return "max-age=31536000";
-  if (policy.hsts === "one-year-subdomains")
-    return "max-age=31536000; includeSubDomains";
+  if (policy.hsts === "one-year-subdomains") return "max-age=31536000; includeSubDomains";
   return "max-age=31536000; includeSubDomains; preload";
 }
 
@@ -151,40 +141,17 @@ function policyHeaderLines(policy: RoutePolicy): string[] {
   const headers: Array<[string, string | null]> = [
     ["Strict-Transport-Security", hstsValue(policy)],
     ["X-Content-Type-Options", policy.contentTypeNosniff ? "nosniff" : null],
-    [
-      "X-Frame-Options",
-      policy.frameOptions === "off" ? null : policy.frameOptions.toUpperCase(),
-    ],
-    [
-      "Referrer-Policy",
-      policy.referrerPolicy === "off" ? null : policy.referrerPolicy,
-    ],
+    ["X-Frame-Options", policy.frameOptions === "off" ? null : policy.frameOptions.toUpperCase()],
+    ["Referrer-Policy", policy.referrerPolicy === "off" ? null : policy.referrerPolicy],
     ["Content-Security-Policy", policy.contentSecurityPolicy],
   ];
-  const configured = headers.filter(
-    (entry): entry is [string, string] => entry[1] !== null,
-  );
+  const configured = headers.filter((entry): entry is [string, string] => entry[1] !== null);
   if (configured.length === 0) return [];
   return [
     "\theader {",
-    ...configured.map(
-      ([name, value]) => `\t\t${name} ${JSON.stringify(value)}`,
-    ),
+    ...configured.map(([name, value]) => `\t\t${name} ${JSON.stringify(value)}`),
     "\t}",
   ];
-}
-
-/** The user's raw directive lines, indented one level into the site block.
- *  Re-parsed through the same schema that guards the write boundary: if a
- *  stored value somehow bypassed it (manual DB edit, older row), an
- *  unbalanced block is dropped here rather than corrupting the entire edge
- *  config — one route's text must never take down every other site. */
-function customDirectiveLines(raw: string | null | undefined): string[] {
-  const parsed = customDirectivesSchema.safeParse(raw ?? "");
-  if (!parsed.success || parsed.data === "") return [];
-  return parsed.data
-    .split("\n")
-    .map((line) => (line === "" ? "" : `\t${line}`));
 }
 
 function routePolicyLines(input: unknown): string[] {
@@ -195,28 +162,19 @@ function routePolicyLines(input: unknown): string[] {
   if (policy.compression === "zstd") lines.push("\tencode zstd");
   if (policy.compression === "gzip-zstd") lines.push("\tencode zstd gzip");
   if (policy.maxRequestBodyMb !== null) {
-    lines.push(
-      "\trequest_body {",
-      `\t\tmax_size ${policy.maxRequestBodyMb}MB`,
-      "\t}",
-    );
+    lines.push("\trequest_body {", `\t\tmax_size ${policy.maxRequestBodyMb}MB`, "\t}");
   }
   lines.push(...policyHeaderLines(policy));
   return lines;
 }
 
-export function buildHttpBlock(
-  route: ProxyRouteInput,
-  options: HttpBlockOptions = {},
-): string {
+export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
   assertSafeRoute(route);
   const lines = [`${route.domain} {`];
   // Operator-uploaded cert wins over both ACME and `tls internal`: Caddy
   // serves exactly this pair and never tries to manage the domain itself.
   if (route.customCert) {
-    lines.push(
-      `\ttls ${route.customCert.certPath} ${route.customCert.keyPath}`,
-    );
+    lines.push(`\ttls ${route.customCert.certPath} ${route.customCert.keyPath}`);
   } else if (!route.usesAcme) {
     // Pre-Phase-2 the global `local_certs` covered everything; now we
     // emit per-site `tls internal` for any route that hasn't earned ACME
@@ -269,9 +227,7 @@ export function buildHttpBlock(
     lines.push("\t\trequest_header -Remote-User");
     lines.push("\t\trequest_header -Remote-Email");
     lines.push(`\t\tforward_auth ${authzUpstream} {`);
-    lines.push(
-      `\t\t\turi ${DEPLOY_AUTHZ_PATH}?domain=${encodeURIComponent(route.domain)}`,
-    );
+    lines.push(`\t\t\turi ${DEPLOY_AUTHZ_PATH}?domain=${encodeURIComponent(route.domain)}`);
     lines.push("\t\t\tcopy_headers Remote-User Remote-Email");
     lines.push("\t\t}");
     lines.push(`\t\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);

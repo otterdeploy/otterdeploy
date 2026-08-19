@@ -18,20 +18,13 @@
  * because the resolver needs it to decrypt at deploy/injection time.
  */
 
-import type {
-  EnvironmentId,
-  ProjectEnvVarId,
-  ProjectId,
-} from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { projectEnvVar } from "@otterdeploy/db/schema/project";
 import { and, asc, eq } from "drizzle-orm";
 
-import {
-  decryptUnsealedEnvRows,
-  encryptEnvValue,
-} from "../../../lib/env-crypto";
+import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 export interface ProjectEnvVarRow {
   id: ProjectEnvVarId;
   projectId: ProjectId;
@@ -55,9 +48,7 @@ interface Scope {
  * masks sealed values) and by the resolver's `loadProjectEnvBag` (which
  * decrypts sealed values itself, then flattens to Record<string,string>).
  */
-export async function listProjectEnvVars(
-  scope: Scope,
-): Promise<ProjectEnvVarRow[]> {
+export async function listProjectEnvVars(scope: Scope): Promise<ProjectEnvVarRow[]> {
   const rows = await db
     .select()
     .from(projectEnvVar)
@@ -120,11 +111,7 @@ export async function upsertProjectEnvVar(input: {
         sealed,
       })
       .onConflictDoUpdate({
-        target: [
-          projectEnvVar.projectId,
-          projectEnvVar.environmentId,
-          projectEnvVar.key,
-        ],
+        target: [projectEnvVar.projectId, projectEnvVar.environmentId, projectEnvVar.key],
         set: {
           value,
           isSecret: input.isSecret ?? true,
@@ -142,10 +129,7 @@ export async function upsertProjectEnvVar(input: {
 /** Drop one key from the (project, environment) bag. No-op when the key
  *  doesn't exist. Keeps idempotent client behaviour. Deleting is the one
  *  form of "undo" a sealed variable supports (no read-back). */
-export async function deleteProjectEnvVar(input: {
-  scope: Scope;
-  key: string;
-}): Promise<void> {
+export async function deleteProjectEnvVar(input: { scope: Scope; key: string }): Promise<void> {
   await db
     .delete(projectEnvVar)
     .where(
@@ -223,8 +207,6 @@ export async function bulkReplaceProjectEnvVars(
       }));
     }
 
-    return [...inserted, ...sealedRows].sort((a, b) =>
-      a.key.localeCompare(b.key),
-    );
+    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
   });
 }
