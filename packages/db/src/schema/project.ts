@@ -39,7 +39,11 @@ import {
 
 import { organization, user } from "./auth";
 
-export const projectStatusEnum = pgEnum("project_status", ["draft", "valid", "invalid"]);
+export const projectStatusEnum = pgEnum("project_status", [
+  "draft",
+  "valid",
+  "invalid",
+]);
 
 type EnvId = EnvironmentId;
 
@@ -96,7 +100,9 @@ export const project = pgTable(
     // edit don't accidentally race).
     manifest: jsonb("manifest").$type<JsonObject | null>(),
     manifestVersion: integer("manifest_version").notNull().default(0),
-    lastAppliedManifest: jsonb("last_applied_manifest").$type<JsonObject | null>(),
+    lastAppliedManifest: jsonb(
+      "last_applied_manifest",
+    ).$type<JsonObject | null>(),
     lastManifestAppliedAt: timestamp("last_manifest_applied_at"),
     // Per-project domain override. When set + verified, this project's
     // resources land under it instead of the org's baseDomain. E.g. a
@@ -109,7 +115,9 @@ export const project = pgTable(
     // git service owns its own repo/branch/image now, so two services in one
     // project can build from two different repos. The project no longer carries
     // a repo binding. See docs/designs (per-service source) + service_resource.
-    nixpacksConfig: jsonb("nixpacks_config").$type<NixpacksConfig | null>().default(null),
+    nixpacksConfig: jsonb("nixpacks_config")
+      .$type<NixpacksConfig | null>()
+      .default(null),
     // Operator-arranged graph layout: node id (`${kind}:${name}`) → {x,y}.
     // Keyed by node id (not resourceId) so a position set on a pending node
     // carries over when the resource lands. The id is stable across that
@@ -177,7 +185,10 @@ export const environment = pgTable(
   },
   (table) => [
     index("environment_project_id_idx").on(table.projectId),
-    uniqueIndex("environment_project_slug_unique").on(table.projectId, table.slug),
+    uniqueIndex("environment_project_slug_unique").on(
+      table.projectId,
+      table.slug,
+    ),
   ],
 );
 
@@ -257,7 +268,11 @@ export const resourceTypeEnum = pgEnum("resource_type", [
   // Config lives in `compose_resource`. See docs/designs/compose.md.
   "compose",
 ]);
-export const resourceStatusEnum = pgEnum("resource_status", ["draft", "valid", "invalid"]);
+export const resourceStatusEnum = pgEnum("resource_status", [
+  "draft",
+  "valid",
+  "invalid",
+]);
 export const resource = pgTable(
   "resource",
   {
@@ -284,7 +299,9 @@ export const resource = pgTable(
     previewId: text("preview_id").$type<PreviewId>(),
     // Provenance for a branched resource (e.g. a COW db branch). Self-referential
     // FK enforced app-side (same idiom as project.gitRepoId).
-    branchedFromResourceId: text("branched_from_resource_id").$type<ResourceId>(),
+    branchedFromResourceId: text(
+      "branched_from_resource_id",
+    ).$type<ResourceId>(),
     // Pin this resource to one server. NULL = let the scheduler place it
     // anywhere, which is the default and the right choice for stateless work.
     // Set = a hard swarm placement constraint, which also means NO failover:
@@ -364,12 +381,18 @@ export const databaseResource = pgTable(
     upstreamHost: text("upstream_host").notNull(),
     upstreamPort: integer("upstream_port").notNull().default(5432),
     caddyLayer4Snippet: text("caddy_layer4_snippet").notNull(),
-    engineConfig: jsonb("engine_config").$type<JsonObject>().notNull().default({}),
+    engineConfig: jsonb("engine_config")
+      .$type<JsonObject>()
+      .notNull()
+      .default({}),
     // User-editable env vars injected into the Postgres container alongside
     // the derived POSTGRES_USER / PASSWORD / DB. Used for tuning knobs like
     // POSTGRES_INITDB_ARGS, TZ, LANG, POSTGRES_HOST_AUTH_METHOD, etc.
     // Setting or unsetting triggers a swarm task update (~5s downtime).
-    extraEnv: jsonb("extra_env").$type<Record<string, string>>().notNull().default({}),
+    extraEnv: jsonb("extra_env")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     // Keys in `extraEnv` that the operator marked sensitive. Display-only
     // hint: the value still travels the same wire path. Reveal in the UI
     // is gated by this list; copy/paste audit can also key off it.
@@ -408,8 +431,12 @@ export const databaseResource = pgTable(
     index("database_resource_database_name_idx").on(table.databaseName),
     index("database_resource_username_idx").on(table.username),
     // Hostnames stay globally unique. Branches get distinct ones.
-    uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
-    uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
+    uniqueIndex("database_resource_public_hostname_unique").on(
+      table.publicHostname,
+    ),
+    uniqueIndex("database_resource_internal_hostname_unique").on(
+      table.internalHostname,
+    ),
   ],
 );
 
@@ -461,7 +488,11 @@ export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
  *            column to it. Swarm provisioning is deferred until then so a
  *            placeholder pull never reaches the daemon.
  */
-export const serviceSourceEnum = pgEnum("service_source", ["image", "git", "upload"]);
+export const serviceSourceEnum = pgEnum("service_source", [
+  "image",
+  "git",
+  "upload",
+]);
 
 export const serviceResource = pgTable(
   "service_resource",
@@ -578,7 +609,10 @@ export const serviceResource = pgTable(
     // network is deliberately not a "private service" mechanism here).
     // Applied on the next deploy; a name that no longer resolves to a live
     // network is skipped with a log line, never a hard failure.
-    extraNetworks: jsonb("extra_networks").$type<string[]>().notNull().default([]),
+    extraNetworks: jsonb("extra_networks")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
 
     publicEnabled: boolean("public_enabled").notNull().default(false),
     publicDomain: text("public_domain"),
@@ -607,7 +641,10 @@ export const serviceResource = pgTable(
     // Push routing: a webhook for (repo, branch) fans out to the services bound
     // to that pair. Replaces the old project-by-(gitRepoId, productionBranch)
     // lookup. See git/handle-push.ts.
-    index("service_resource_git_repo_branch_idx").on(table.gitRepoId, table.branch),
+    index("service_resource_git_repo_branch_idx").on(
+      table.gitRepoId,
+      table.branch,
+    ),
     // internalHostname is the service's DNS alias on its project overlay
     // network: it only has to be unique *within that network*, not globally.
     // Two different projects (each on its own `otterdeploy-<project>` network)
@@ -662,10 +699,16 @@ export const composeResource = pgTable(
     stackName: text("stack_name").notNull(),
     // Derived parse summary (service name, image, hasBuild, ports) for the UI.
     // NOT authoritative, recomputed from the file on every save/deploy.
-    services: jsonb("services").$type<ComposeServiceSummary[]>().notNull().default([]),
+    services: jsonb("services")
+      .$type<ComposeServiceSummary[]>()
+      .notNull()
+      .default([]),
     // Built image tags for `build:` services (service name → image ref), written
     // by the build worker. Image-only services aren't listed. See compose.md.
-    builtImages: jsonb("built_images").$type<Record<string, string>>().notNull().default({}),
+    builtImages: jsonb("built_images")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     // Which `service:port` are fronted by a public domain.
     exposed: jsonb("exposed").$type<ComposeExposed[]>().notNull().default([]),
     // Brand mark for the graph node: an SvglLogo search string (e.g. "Ghost"),
@@ -679,7 +722,9 @@ export const composeResource = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("compose_resource_stack_name_unique").on(table.stackName)],
+  (table) => [
+    uniqueIndex("compose_resource_stack_name_unique").on(table.stackName),
+  ],
 );
 
 // Deployment: one logical "push" of a resource to swarm. Each create /
@@ -769,13 +814,22 @@ export const deployment = pgTable(
   },
   (table) => [
     index("deployment_resource_id_idx").on(table.resourceId),
-    index("deployment_resource_created_idx").on(table.resourceId, table.createdAt),
+    index("deployment_resource_created_idx").on(
+      table.resourceId,
+      table.createdAt,
+    ),
     index("deployment_preview_id_idx").on(table.previewId),
   ],
 );
 
-export const servicePortProtocolEnum = pgEnum("service_port_protocol", ["tcp", "udp"]);
-export const serviceAppProtocolEnum = pgEnum("service_app_protocol", ["http", "tcp"]);
+export const servicePortProtocolEnum = pgEnum("service_port_protocol", [
+  "tcp",
+  "udp",
+]);
+export const serviceAppProtocolEnum = pgEnum("service_app_protocol", [
+  "http",
+  "tcp",
+]);
 
 // Mount type discriminator.
 //   - volume: named docker volume managed by swarm. Source = volume name.
@@ -784,7 +838,11 @@ export const serviceAppProtocolEnum = pgEnum("service_app_protocol", ["http", "t
 //             materialized to disk under PLATFORM.files.root/<service>/<target>
 //             at deploy time. Lets users author small config files (nginx.conf,
 //             init.sql, etc.) from the UI without ssh'ing to a node.
-export const serviceMountTypeEnum = pgEnum("service_mount_type", ["volume", "bind", "file"]);
+export const serviceMountTypeEnum = pgEnum("service_mount_type", [
+  "volume",
+  "bind",
+  "file",
+]);
 
 export const serviceMount = pgTable(
   "service_mount",
@@ -822,7 +880,10 @@ export const serviceMount = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("service_mount_target_unique").on(table.serviceResourceId, table.target),
+    uniqueIndex("service_mount_target_unique").on(
+      table.serviceResourceId,
+      table.target,
+    ),
     index("service_mount_service_resource_id_idx").on(table.serviceResourceId),
   ],
 );
@@ -840,7 +901,9 @@ export const servicePort = pgTable(
       .references(() => serviceResource.resourceId, { onDelete: "cascade" }),
     containerPort: integer("container_port").notNull(),
     protocol: servicePortProtocolEnum("protocol").notNull().default("tcp"),
-    appProtocol: serviceAppProtocolEnum("app_protocol").notNull().default("http"),
+    appProtocol: serviceAppProtocolEnum("app_protocol")
+      .notNull()
+      .default("http"),
     isPrimary: boolean("is_primary").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
@@ -893,8 +956,12 @@ export const serviceEnvVar = pgTable(
       .$type<PreviewId>()
       .references(() => preview.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
+    // Encrypted at rest (od-3pp7): every write stores a v2 "env-vars"
+    // ciphertext envelope (packages/api/src/lib/env-crypto.ts); reads
+    // decrypt-or-passthrough so pre-backfill plaintext rows keep working
+    // until scripts/encrypt-env-vars.ts re-encrypts them.
     value: text("value").notNull(),
-    // Drives masking in the UI. Does not affect storage (plaintext for v1).
+    // Drives masking in the UI only; storage is encrypted either way.
     isSecret: boolean("is_secret").notNull().default(false),
     // Write-only secret (Railway-style "sealed" variable). When true,
     // `value` holds a v2 ciphertext envelope (domain "env-vars", see
@@ -921,7 +988,9 @@ export const serviceEnvVar = pgTable(
     uniqueIndex("service_env_var_preview_unique")
       .on(table.serviceResourceId, table.previewId, table.key)
       .where(sql`preview_id is not null`),
-    index("service_env_var_service_resource_id_idx").on(table.serviceResourceId),
+    index("service_env_var_service_resource_id_idx").on(
+      table.serviceResourceId,
+    ),
     index("service_env_var_environment_id_idx").on(table.environmentId),
     index("service_env_var_preview_id_idx").on(table.previewId),
   ],
@@ -946,6 +1015,8 @@ export const projectEnvVar = pgTable(
       .$type<EnvId>()
       .references(() => environment.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
+    // Encrypted at rest (od-3pp7): see the matching column on
+    // `serviceEnvVar` for the storage/read contract.
     value: text("value").notNull(),
     isSecret: boolean("is_secret").notNull().default(true),
     // Write-only secret (Railway-style "sealed" variable). See the matching
@@ -959,7 +1030,11 @@ export const projectEnvVar = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("project_env_var_unique").on(table.projectId, table.environmentId, table.key),
+    uniqueIndex("project_env_var_unique").on(
+      table.projectId,
+      table.environmentId,
+      table.key,
+    ),
     index("project_env_var_project_id_idx").on(table.projectId),
     index("project_env_var_environment_id_idx").on(table.environmentId),
     index("project_env_var_key_idx").on(table.projectId, table.key),
@@ -985,8 +1060,13 @@ export const projectEnvSubscription = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("project_env_subscription_unique").on(table.serviceResourceId, table.projectEnvKey),
-    index("project_env_subscription_service_resource_id_idx").on(table.serviceResourceId),
+    uniqueIndex("project_env_subscription_unique").on(
+      table.serviceResourceId,
+      table.projectEnvKey,
+    ),
+    index("project_env_subscription_service_resource_id_idx").on(
+      table.serviceResourceId,
+    ),
     index("project_env_subscription_key_idx").on(table.projectEnvKey),
   ],
 );

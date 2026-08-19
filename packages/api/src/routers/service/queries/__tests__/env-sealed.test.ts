@@ -76,14 +76,16 @@ import { bulkReplaceServiceEnvVars, upsertServiceEnvVar } from "../env";
 
 /** Brand a fixture id through the real prefix guard (accepts the legacy `resource_` spelling). */
 function resourceIdFixture(value: string): ResourceId {
-  if (!hasPrefix(value, ID_PREFIX.resource)) throw new Error(`not a resource id: ${value}`);
+  if (!hasPrefix(value, ID_PREFIX.resource))
+    throw new Error(`not a resource id: ${value}`);
   return value;
 }
 
 const serviceResourceId = resourceIdFixture("resource_svc");
 
 /** Read the captured insert payload through a schema instead of casting it. */
-const capturedValue = () => z.object({ value: z.string() }).parse(lastInsertCapture.values).value;
+const capturedValue = () =>
+  z.object({ value: z.string() }).parse(lastInsertCapture.values).value;
 const capturedSealed = () =>
   z.object({ sealed: z.boolean() }).parse(lastInsertCapture.values).sealed;
 
@@ -117,7 +119,9 @@ describe("upsertServiceEnvVar, sealed write path", () => {
     expect(row.sealed).toBe(true);
     expect(row.value).not.toBe("plaintext-token");
     expect(row.value.startsWith("v2:env-vars:")).toBe(true);
-    expect(await decryptForDomain(row.value, "env-vars")).toBe("plaintext-token");
+    expect(await decryptForDomain(row.value, "env-vars")).toBe(
+      "plaintext-token",
+    );
   });
 
   test("sealing is sticky across writes. Omitting `sealed` on a later call doesn't unseal", async () => {
@@ -148,7 +152,47 @@ describe("upsertServiceEnvVar, sealed write path", () => {
     });
 
     expect(row.sealed).toBe(true);
-    expect(await decryptForDomain(row.value, "env-vars")).toBe("replacement-plaintext");
+    expect(await decryptForDomain(row.value, "env-vars")).toBe(
+      "replacement-plaintext",
+    );
+  });
+});
+
+describe("upsertServiceEnvVar, unsealed rows are encrypted at rest too (od-3pp7)", () => {
+  test("stores ciphertext in the DB but echoes the caller's plaintext back", async () => {
+    nextSelectRows = [];
+    lastInsertReturn = [
+      {
+        id: "sev_1",
+        serviceResourceId,
+        environmentId: null,
+        previewId: null,
+        key: "DATABASE_URL",
+        get value() {
+          return capturedValue();
+        },
+        isSecret: false,
+        sealed: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    const row = await upsertServiceEnvVar({
+      serviceResourceId,
+      key: "DATABASE_URL",
+      value: "postgres://user:pw@host/db",
+    });
+
+    // What hit the DB is a v2 env-vars envelope, never the plaintext…
+    expect(capturedValue().startsWith("v2:env-vars:")).toBe(true);
+    expect(capturedValue()).not.toContain("postgres://");
+    expect(await decryptForDomain(capturedValue(), "env-vars")).toBe(
+      "postgres://user:pw@host/db",
+    );
+    // …while the caller (and the UI it renders) gets the plaintext echo.
+    expect(row.sealed).toBe(false);
+    expect(row.value).toBe("postgres://user:pw@host/db");
   });
 });
 

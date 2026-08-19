@@ -221,9 +221,9 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist. Raw directive
   test("routeValidationError rejects a route whose policy carries a smuggled field", () => {
     const error = routeValidationError({
       ...baseHttpRoute,
-      // @ts-expect-error, deliberately hostile shape under test.
       routePolicy: {
         ...DEFAULT_ROUTE_POLICY,
+        // @ts-expect-error, deliberately hostile shape under test.
         customDirective: "reverse_proxy internal:9999",
       },
     });

@@ -14,11 +14,16 @@ import { createError } from "evlog";
 
 import type { ServiceEnvVarRow } from ".";
 
+import {
+  decryptUnsealedEnvRows,
+  encryptEnvValue,
+} from "../../../lib/env-crypto";
+
 export async function listPreviewServiceEnvVars(
   serviceResourceId: ResourceId,
   previewId: PreviewId,
 ): Promise<ServiceEnvVarRow[]> {
-  return db
+  const rows = await db
     .select()
     .from(serviceEnvVar)
     .where(
@@ -27,6 +32,8 @@ export async function listPreviewServiceEnvVars(
         eq(serviceEnvVar.previewId, previewId),
       ),
     );
+  // Encrypted at rest (od-3pp7); overlay consumers expect plaintext.
+  return decryptUnsealedEnvRows(rows);
 }
 
 export async function upsertPreviewServiceEnvVar(input: {
@@ -35,13 +42,18 @@ export async function upsertPreviewServiceEnvVar(input: {
   key: string;
   value: string;
 }): Promise<ServiceEnvVarRow> {
+  const value = await encryptEnvValue(input.value);
   const [row] = await db
     .insert(serviceEnvVar)
-    .values(input)
+    .values({ ...input, value })
     .onConflictDoUpdate({
-      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.previewId, serviceEnvVar.key],
+      target: [
+        serviceEnvVar.serviceResourceId,
+        serviceEnvVar.previewId,
+        serviceEnvVar.key,
+      ],
       targetWhere: sql`preview_id is not null`,
-      set: { value: input.value, updatedAt: new Date() },
+      set: { value, updatedAt: new Date() },
     })
     .returning();
   if (!row) {
@@ -51,7 +63,8 @@ export async function upsertPreviewServiceEnvVar(input: {
       why: "Database upsert returned no row",
     });
   }
-  return row;
+  // Echo the caller's plaintext back (the overrides panel renders it).
+  return { ...row, value: input.value };
 }
 
 export async function deletePreviewServiceEnvVar(input: {

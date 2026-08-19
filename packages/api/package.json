@@ -41,7 +41,9 @@
   "scripts": {
     "test": "bun --bun vitest run",
     "test:integration": "bun --bun vitest run --config vitest.redis.config.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "rotate:encryption-keys": "bun --env-file ../../.env scripts/rotate-encryption-keys.ts",
+    "encrypt:env-vars": "bun --env-file ../../.env scripts/encrypt-env-vars.ts"
   },
   "dependencies": {
     "@orpc/client": "catalog:",

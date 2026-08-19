@@ -18,6 +18,7 @@ import { createError } from "evlog";
 
 import { getProxyRouteById } from "../../../caddy/queries";
 import { decryptForDomain } from "../../../lib/crypto";
+import { decryptEnvValue } from "../../../lib/env-crypto";
 
 // The org-wide GROUP BY tallies behind the project-list cards now live in
 // ./project-tallies.ts (this file stays row-level project/environment CRUD).
@@ -64,7 +65,12 @@ export async function getProjectInOrg(input: {
   const [record] = await db
     .select()
     .from(project)
-    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
     .limit(1);
   return record;
 }
@@ -72,16 +78,26 @@ export async function getProjectInOrg(input: {
 /** Load a proxy route and verify it belongs to a project in the caller's
  *  org. Centralizes the auth check for every protection mutation; returns
  *  null for both "missing" and "other org" so existence never leaks. */
-export async function getRouteInOrg(routeId: ProxyRouteId, organizationId: OrganizationId) {
+export async function getRouteInOrg(
+  routeId: ProxyRouteId,
+  organizationId: OrganizationId,
+) {
   const route = await getProxyRouteById(routeId);
   if (!route) return null;
-  const proj = await getProjectInOrg({ projectId: route.projectId, organizationId });
+  const proj = await getProjectInOrg({
+    projectId: route.projectId,
+    organizationId,
+  });
   if (!proj) return null;
   return route;
 }
 
 export async function getProjectById(projectId: ProjectId) {
-  const [record] = await db.select().from(project).where(eq(project.id, projectId)).limit(1);
+  const [record] = await db
+    .select()
+    .from(project)
+    .where(eq(project.id, projectId))
+    .limit(1);
   return record;
 }
 
@@ -106,7 +122,12 @@ export async function getProjectBySlugInOrg(input: {
   const [record] = await db
     .select()
     .from(project)
-    .where(and(eq(project.slug, input.slug), eq(project.organizationId, input.organizationId)))
+    .where(
+      and(
+        eq(project.slug, input.slug),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
     .limit(1);
   return record;
 }
@@ -136,14 +157,20 @@ export async function updateProjectRecord(input: {
     patch.customDomainVerifiedAt = null;
     patch.customDomainVerifyToken = null;
   }
-  if (input.nixpacksConfig !== undefined) patch.nixpacksConfig = input.nixpacksConfig;
+  if (input.nixpacksConfig !== undefined)
+    patch.nixpacksConfig = input.nixpacksConfig;
 
   if (Object.keys(patch).length === 0) {
     // No-op: return the current row so the caller still gets the view shape.
     const [row] = await db
       .select()
       .from(project)
-      .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
+      .where(
+        and(
+          eq(project.id, input.projectId),
+          eq(project.organizationId, input.organizationId),
+        ),
+      )
       .limit(1);
     return row;
   }
@@ -151,7 +178,12 @@ export async function updateProjectRecord(input: {
   const [record] = await db
     .update(project)
     .set(patch)
-    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
     .returning();
   return record;
 }
@@ -165,7 +197,12 @@ export async function setProjectGraphLayout(input: {
   const [record] = await db
     .update(project)
     .set({ graphLayout: input.graphLayout })
-    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
     .returning({ id: project.id });
   return record;
 }
@@ -176,7 +213,12 @@ export async function deleteProjectRecord(input: {
 }) {
   const [record] = await db
     .delete(project)
-    .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
+    .where(
+      and(
+        eq(project.id, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
     .returning({ id: project.id });
   return record;
 }
@@ -191,7 +233,8 @@ export async function createProjectRecord(input: {
 }) {
   return db.transaction(async (tx) => {
     const projectId = input.id ?? createId(ID_PREFIX.project);
-    const environmentId = input.environmentId ?? createId(ID_PREFIX.environment);
+    const environmentId =
+      input.environmentId ?? createId(ID_PREFIX.environment);
 
     const [createdProject] = await tx
       .insert(project)
@@ -220,7 +263,9 @@ export async function createProjectRecord(input: {
       const [linked] = await tx
         .update(environment)
         .set({ projectId })
-        .where(and(eq(environment.id, environmentId), isNull(environment.projectId)))
+        .where(
+          and(eq(environment.id, environmentId), isNull(environment.projectId)),
+        )
         .returning();
       createdEnvironment = linked;
     }
@@ -283,7 +328,11 @@ export async function loadProjectEnvBag(input: {
   environmentId: EnvironmentId;
 }): Promise<Record<string, string>> {
   const rows = await db
-    .select({ key: projectEnvVar.key, value: projectEnvVar.value, sealed: projectEnvVar.sealed })
+    .select({
+      key: projectEnvVar.key,
+      value: projectEnvVar.value,
+      sealed: projectEnvVar.sealed,
+    })
     .from(projectEnvVar)
     .where(
       and(
@@ -293,7 +342,11 @@ export async function loadProjectEnvBag(input: {
     );
   const out: Record<string, string> = {};
   for (const row of rows) {
-    out[row.key] = row.sealed ? await decryptForDomain(row.value, "env-vars") : row.value;
+    // Sealed rows are always ciphertext (loud failure on a bad keyring);
+    // unsealed rows decrypt-or-passthrough until the od-3pp7 backfill runs.
+    out[row.key] = row.sealed
+      ? await decryptForDomain(row.value, "env-vars")
+      : await decryptEnvValue(row.value);
   }
   return out;
 }

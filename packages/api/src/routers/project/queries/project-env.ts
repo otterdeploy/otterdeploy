@@ -18,13 +18,20 @@
  * because the resolver needs it to decrypt at deploy/injection time.
  */
 
-import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  ProjectEnvVarId,
+  ProjectId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { projectEnvVar } from "@otterdeploy/db/schema/project";
 import { and, asc, eq } from "drizzle-orm";
 
-import { encryptForDomain } from "../../../lib/crypto";
+import {
+  decryptUnsealedEnvRows,
+  encryptEnvValue,
+} from "../../../lib/env-crypto";
 export interface ProjectEnvVarRow {
   id: ProjectEnvVarId;
   projectId: ProjectId;
@@ -48,7 +55,9 @@ interface Scope {
  * masks sealed values) and by the resolver's `loadProjectEnvBag` (which
  * decrypts sealed values itself, then flattens to Record<string,string>).
  */
-export async function listProjectEnvVars(scope: Scope): Promise<ProjectEnvVarRow[]> {
+export async function listProjectEnvVars(
+  scope: Scope,
+): Promise<ProjectEnvVarRow[]> {
   const rows = await db
     .select()
     .from(projectEnvVar)
@@ -59,7 +68,9 @@ export async function listProjectEnvVars(scope: Scope): Promise<ProjectEnvVarRow
       ),
     )
     .orderBy(asc(projectEnvVar.key));
-  return rows;
+  // Encrypted at rest (od-3pp7): unsealed values come back plaintext, sealed
+  // rows keep ciphertext (masked by the org-scoped handler as before).
+  return decryptUnsealedEnvRows(rows);
 }
 
 /**
@@ -94,7 +105,9 @@ export async function upsertProjectEnvVar(input: {
       .limit(1);
 
     const sealed = Boolean(existing?.sealed) || Boolean(input.sealed);
-    const value = sealed ? await encryptForDomain(input.value, "env-vars") : input.value;
+    // Encrypt-at-rest for every row (od-3pp7), not just sealed ones. The
+    // sealed flag now only governs READ behavior (write-only masking).
+    const value = await encryptEnvValue(input.value);
 
     const [row] = await tx
       .insert(projectEnvVar)
@@ -107,7 +120,11 @@ export async function upsertProjectEnvVar(input: {
         sealed,
       })
       .onConflictDoUpdate({
-        target: [projectEnvVar.projectId, projectEnvVar.environmentId, projectEnvVar.key],
+        target: [
+          projectEnvVar.projectId,
+          projectEnvVar.environmentId,
+          projectEnvVar.key,
+        ],
         set: {
           value,
           isSecret: input.isSecret ?? true,
@@ -116,14 +133,19 @@ export async function upsertProjectEnvVar(input: {
       })
       .returning();
     if (!row) throw new Error("projectEnvVar upsert returned no row");
-    return row;
+    // Echo the caller's plaintext back for unsealed rows (the UI renders the
+    // returned row); sealed rows keep ciphertext so masking holds.
+    return sealed ? row : { ...row, value: input.value };
   });
 }
 
 /** Drop one key from the (project, environment) bag. No-op when the key
  *  doesn't exist. Keeps idempotent client behaviour. Deleting is the one
  *  form of "undo" a sealed variable supports (no read-back). */
-export async function deleteProjectEnvVar(input: { scope: Scope; key: string }): Promise<void> {
+export async function deleteProjectEnvVar(input: {
+  scope: Scope;
+  key: string;
+}): Promise<void> {
   await db
     .delete(projectEnvVar)
     .where(
@@ -181,21 +203,28 @@ export async function bulkReplaceProjectEnvVars(
     const toInsert = next.filter((v) => !sealedKeys.has(v.key));
     let inserted: ProjectEnvVarRow[] = [];
     if (toInsert.length > 0) {
-      inserted = await tx
-        .insert(projectEnvVar)
-        .values(
-          toInsert.map((v) => ({
-            projectId: scope.projectId,
-            environmentId: scope.environmentId,
-            key: v.key,
-            value: v.value,
-            isSecret: v.isSecret ?? true,
-            sealed: false,
-          })),
-        )
-        .returning();
+      // Encrypt-at-rest (od-3pp7): ciphertext in the DB, but return the
+      // caller's plaintext (the editor re-renders the returned rows).
+      const values = await Promise.all(
+        toInsert.map(async (v) => ({
+          projectId: scope.projectId,
+          environmentId: scope.environmentId,
+          key: v.key,
+          value: await encryptEnvValue(v.value),
+          isSecret: v.isSecret ?? true,
+          sealed: false,
+        })),
+      );
+      const plaintextByKey = new Map(toInsert.map((v) => [v.key, v.value]));
+      const rows = await tx.insert(projectEnvVar).values(values).returning();
+      inserted = rows.map((row) => ({
+        ...row,
+        value: plaintextByKey.get(row.key) ?? row.value,
+      }));
     }
 
-    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
+    return [...inserted, ...sealedRows].sort((a, b) =>
+      a.key.localeCompare(b.key),
+    );
   });
 }

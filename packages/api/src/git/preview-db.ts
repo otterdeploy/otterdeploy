@@ -19,7 +19,11 @@ import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { resource, serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
+import {
+  resource,
+  serviceEnvVar,
+  serviceResource,
+} from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
@@ -27,6 +31,7 @@ import { randomBytes } from "node:crypto";
 
 import type { BranchDatabaseSpec } from "../runtime/types";
 
+import { decryptEnvValue } from "../lib/env-crypto";
 import { extractRefs } from "../lib/variables/parser";
 import { insertDeployment } from "../routers/project/deployments";
 import { deriveInternalDbCredentials } from "../routers/project/postgres/credentials";
@@ -35,7 +40,10 @@ import {
   deleteResourceById,
   listDatabaseResourceRecords,
 } from "../routers/project/queries";
-import { buildContainerName, buildVolumeName } from "../routers/project/view-helpers";
+import {
+  buildContainerName,
+  buildVolumeName,
+} from "../routers/project/view-helpers";
 import { runtime } from "../runtime";
 import { resolveSnapshotDriverFor } from "../runtime/snapshot";
 import { getEngineAdapter } from "../swarm";
@@ -52,6 +60,38 @@ import { getEngineAdapter } from "../swarm";
  * the branch set matches what the services will actually resolve to. Reused by
  * the branch path (what to copy) and the list query (whether to offer control).
  */
+/** Each base service's outgoing `${{…}}` resource refs, from its env values.
+ *  Values are encrypted at rest (od-3pp7), so this decrypts before parsing;
+ *  sealed rows are skipped — extractRefs on their ciphertext found nothing
+ *  before encryption either. */
+async function outgoingRefsByService(
+  projectId: ProjectId,
+): Promise<Map<string, Set<string>>> {
+  const envRows = await db
+    .select({
+      serviceResourceId: serviceEnvVar.serviceResourceId,
+      value: serviceEnvVar.value,
+      sealed: serviceEnvVar.sealed,
+    })
+    .from(serviceEnvVar)
+    .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
+    .where(
+      and(eq(resource.projectId, projectId), isNull(serviceEnvVar.previewId)),
+    );
+  const refsById = new Map<string, Set<string>>();
+  for (const row of envRows) {
+    if (row.sealed) continue;
+    let set = refsById.get(row.serviceResourceId);
+    if (!set) {
+      set = new Set<string>();
+      refsById.set(row.serviceResourceId, set);
+    }
+    for (const ref of extractRefs(await decryptEnvValue(row.value)))
+      set.add(ref.resource);
+  }
+  return refsById;
+}
+
 export async function referencedBaseDatabases(input: {
   projectId: ProjectId;
   gitRepoId: GitRepoId;
@@ -87,23 +127,12 @@ export async function referencedBaseDatabases(input: {
   const allRes = await db
     .select({ id: resource.id, name: resource.name, type: resource.type })
     .from(resource)
-    .where(and(eq(resource.projectId, input.projectId), isNull(resource.previewId)));
+    .where(
+      and(eq(resource.projectId, input.projectId), isNull(resource.previewId)),
+    );
   const resByName = new Map(allRes.map((r) => [r.name, r] as const));
 
-  const envRows = await db
-    .select({ serviceResourceId: serviceEnvVar.serviceResourceId, value: serviceEnvVar.value })
-    .from(serviceEnvVar)
-    .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
-  const refsById = new Map<string, Set<string>>();
-  for (const row of envRows) {
-    let set = refsById.get(row.serviceResourceId);
-    if (!set) {
-      set = new Set<string>();
-      refsById.set(row.serviceResourceId, set);
-    }
-    for (const ref of extractRefs(row.value)) set.add(ref.resource);
-  }
+  const refsById = await outgoingRefsByService(input.projectId);
 
   // Forward BFS over the ref graph from the seed services; collect every base
   // DB name reached, following service→service edges transitively.
@@ -157,7 +186,10 @@ export async function branchProjectDatabases(input: {
   let branched = 0;
 
   for (const base of bases) {
-    if (await branchExists(input.projectId, input.previewId, base.resource.name)) continue;
+    if (
+      await branchExists(input.projectId, input.previewId, base.resource.name)
+    )
+      continue;
 
     const driver = await resolveSnapshotDriverFor(
       buildVolumeName({
@@ -173,7 +205,11 @@ export async function branchProjectDatabases(input: {
     if (done.isOk()) branched++;
     else
       log.warn({
-        preview: { step: "branch-db", db: base.resource.name, previewId: input.previewId },
+        preview: {
+          step: "branch-db",
+          db: base.resource.name,
+          previewId: input.previewId,
+        },
         err: done.error,
       });
   }
@@ -199,7 +235,9 @@ async function branchExists(
   return rows.length > 0;
 }
 
-type BaseRecord = Awaited<ReturnType<typeof listDatabaseResourceRecords>>[number];
+type BaseRecord = Awaited<
+  ReturnType<typeof listDatabaseResourceRecords>
+>[number];
 
 async function branchOne(
   input: {
@@ -260,8 +298,16 @@ async function branchOne(
   const spec: BranchDatabaseSpec = {
     engine,
     resourceId: created.resource.id,
-    serviceName: buildContainerName({ engine, projectSlug, resourceName: branchResourceName }),
-    volumeName: buildVolumeName({ engine, projectSlug, resourceName: branchResourceName }),
+    serviceName: buildContainerName({
+      engine,
+      projectSlug,
+      resourceName: branchResourceName,
+    }),
+    volumeName: buildVolumeName({
+      engine,
+      projectSlug,
+      resourceName: branchResourceName,
+    }),
     hostnameAlias: creds.internalHostname,
     databaseName: creds.databaseName,
     username: creds.username,

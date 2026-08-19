@@ -16,6 +16,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import type { ProjectRef } from "../scopes";
 
+import { decryptEnvValue } from "../../lib/env-crypto";
 import { parseValue } from "../../lib/variables/parser";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
@@ -52,11 +53,17 @@ export async function listProjectDependencies(
     .select({
       serviceResourceId: serviceEnvVar.serviceResourceId,
       value: serviceEnvVar.value,
+      sealed: serviceEnvVar.sealed,
     })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
     // Base rows only: preview overrides must not fabricate base graph edges.
-    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
+    .where(
+      and(
+        eq(resource.projectId, input.projectId),
+        isNull(serviceEnvVar.previewId),
+      ),
+    );
 
   // Dedupe edges via a "source|target" key. A service referencing the same
   // resource in 10 env vars produces one edge.
@@ -64,7 +71,11 @@ export async function listProjectDependencies(
   const edges: DependencyEdge[] = [];
 
   for (const ev of envVars) {
-    const parsed = parseValue(ev.value);
+    // Values are encrypted at rest (od-3pp7). Sealed rows are skipped: their
+    // plaintext never leaves the resolver, and pre-encryption this scan could
+    // not see into them either (it parsed ciphertext), so no edges are lost.
+    if (ev.sealed) continue;
+    const parsed = parseValue(await decryptEnvValue(ev.value));
     // Unparseable values aren't this endpoint's concern. They show up as
     // validation errors via the service.env.set/bulkSet paths.
     if (!parsed.ok) continue;

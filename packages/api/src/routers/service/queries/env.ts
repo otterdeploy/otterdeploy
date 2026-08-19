@@ -2,12 +2,16 @@ import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
-import { and, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";
 
-import { encryptForDomain } from "../../../lib/crypto";
+import {
+  decryptEnvValue,
+  decryptUnsealedEnvRows,
+  encryptEnvValue,
+} from "../../../lib/env-crypto";
 // ---------------------------------------------------------------------------
 // Env vars
 // ---------------------------------------------------------------------------
@@ -18,21 +22,22 @@ import { encryptForDomain } from "../../../lib/crypto";
 export async function listServiceEnvVars(
   serviceResourceId: ResourceId,
 ): Promise<ServiceEnvVarRow[]> {
-  return (
-    db
-      .select()
-      .from(serviceEnvVar)
-      .where(
-        and(
-          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
-          isNull(serviceEnvVar.previewId),
-        ),
-      )
-      // Bypass the global query cache: an edit that just landed must be visible
-      // on the very next read (the resource list polls every 5s), not up to 60s
-      // later when the cache TTL expires or a flaky invalidation propagates.
-      .$withCache(false)
-  );
+  const rows = await db
+    .select()
+    .from(serviceEnvVar)
+    .where(
+      and(
+        eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+        isNull(serviceEnvVar.previewId),
+      ),
+    )
+    // Bypass the global query cache: an edit that just landed must be visible
+    // on the very next read (the resource list polls every 5s), not up to 60s
+    // later when the cache TTL expires or a flaky invalidation propagates.
+    .$withCache(false);
+  // Values are encrypted at rest (od-3pp7); consumers see plaintext, sealed
+  // rows keep their ciphertext (write-only, only the resolver decrypts them).
+  return decryptUnsealedEnvRows(rows);
 }
 
 /** Base env rows for a SET of service resources. One query instead of N
@@ -57,7 +62,7 @@ export async function listServiceEnvVarsForResources(
     // Variables tab renders; a stale cache hit hides a just-saved var until the
     // 60s TTL lapses (the "I saved it but it's not in the UI" bug).
     .$withCache(false);
-  for (const row of rows) {
+  for (const row of await decryptUnsealedEnvRows(rows)) {
     const list = result.get(row.serviceResourceId);
     if (list) list.push(row);
     else result.set(row.serviceResourceId, [row]);
@@ -95,7 +100,9 @@ export async function upsertServiceEnvVar(input: {
       .limit(1);
 
     const sealed = Boolean(existing?.sealed) || Boolean(input.sealed);
-    const value = sealed ? await encryptForDomain(input.value, "env-vars") : input.value;
+    // Encrypt-at-rest for every row (od-3pp7), not just sealed ones. The
+    // sealed flag now only governs READ behavior (write-only masking).
+    const value = await encryptEnvValue(input.value);
 
     const [row] = await tx
       .insert(serviceEnvVar)
@@ -125,7 +132,9 @@ export async function upsertServiceEnvVar(input: {
         why: "Database upsert returned no row",
       });
     }
-    return row;
+    // Echo the caller's plaintext back (the UI renders the returned row);
+    // sealed rows keep ciphertext so mapEnvVar's masking contract holds.
+    return sealed ? row : { ...row, value: input.value };
   });
 }
 
@@ -188,21 +197,28 @@ export async function bulkReplaceServiceEnvVars(
     const toInsert = vars.filter((v) => !sealedKeys.has(v.key));
     let inserted: ServiceEnvVarRow[] = [];
     if (toInsert.length > 0) {
-      inserted = await tx
-        .insert(serviceEnvVar)
-        .values(
-          toInsert.map((v) => ({
-            serviceResourceId,
-            key: v.key,
-            value: v.value,
-            isSecret: v.isSecret ?? false,
-            sealed: false,
-          })),
-        )
-        .returning();
+      // Encrypt-at-rest (od-3pp7): ciphertext in the DB, but return the
+      // caller's plaintext (the editor re-renders the returned rows).
+      const values = await Promise.all(
+        toInsert.map(async (v) => ({
+          serviceResourceId,
+          key: v.key,
+          value: await encryptEnvValue(v.value),
+          isSecret: v.isSecret ?? false,
+          sealed: false,
+        })),
+      );
+      const plaintextByKey = new Map(toInsert.map((v) => [v.key, v.value]));
+      const rows = await tx.insert(serviceEnvVar).values(values).returning();
+      inserted = rows.map((row) => ({
+        ...row,
+        value: plaintextByKey.get(row.key) ?? row.value,
+      }));
     }
 
-    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
+    return [...inserted, ...sealedRows].sort((a, b) =>
+      a.key.localeCompare(b.key),
+    );
   });
 }
 
@@ -224,7 +240,11 @@ export async function resolveResourceForPreview(
       .select()
       .from(resource)
       .where(
-        and(eq(resource.projectId, projectId), eq(resource.name, name), isNull(resource.previewId)),
+        and(
+          eq(resource.projectId, projectId),
+          eq(resource.name, name),
+          isNull(resource.previewId),
+        ),
       )
       .limit(1);
     return row;
@@ -248,26 +268,39 @@ export async function resolveResourceForPreview(
  * Find services in `projectId` whose env-var values literally reference
  * `${{<targetResourceName>.…}}`. Returns service resource IDs.
  *
- * Best-effort SQL `LIKE` scan; the resolver re-parses each candidate to
- * confirm and to skip escaped tokens (`\${{…}}`).
+ * Best-effort in-process scan (the resolver re-parses each candidate to
+ * confirm and to skip escaped tokens `\${{…}}`). This used to be a SQL
+ * `LIKE`, but values are encrypted at rest now (od-3pp7), so the scan
+ * decrypts app-side. Sealed rows are skipped — the old ciphertext `LIKE`
+ * could never match them either, so this preserves behavior exactly.
  */
 export async function findServiceDependentsByName(input: {
   projectId: ProjectId;
   targetResourceName: string;
 }): Promise<ResourceId[]> {
-  const pattern = `%\${{${input.targetResourceName}.%`;
   const rows = await db
-    .select({ serviceResourceId: serviceEnvVar.serviceResourceId })
+    .select({
+      serviceResourceId: serviceEnvVar.serviceResourceId,
+      value: serviceEnvVar.value,
+      sealed: serviceEnvVar.sealed,
+    })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
     .where(
       and(
         eq(resource.projectId, input.projectId),
-        like(serviceEnvVar.value, pattern),
         isNull(serviceEnvVar.previewId),
       ),
     );
 
+  const needle = `\${{${input.targetResourceName}.`;
   // Dedupe: a service can reference the target via multiple env vars.
-  return Array.from(new Set(rows.map((r) => r.serviceResourceId)));
+  const dependents = new Set<ResourceId>();
+  for (const row of rows) {
+    if (row.sealed || dependents.has(row.serviceResourceId)) continue;
+    if ((await decryptEnvValue(row.value)).includes(needle)) {
+      dependents.add(row.serviceResourceId);
+    }
+  }
+  return Array.from(dependents);
 }
