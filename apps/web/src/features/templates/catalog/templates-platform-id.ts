@@ -41,8 +41,8 @@ services:
       SITE_URL: \${SITE_URL}
       ENCRYPTION_KEY: \${ENCRYPTION_KEY}
       AUTH_SECRET: \${AUTH_SECRET}
-      DB_CONNECTION_URI: "postgres://infisical:\${POSTGRES_PASSWORD}@db:5432/infisical"
-      REDIS_URL: "redis://redis:6379"
+      DB_CONNECTION_URI: "postgres://infisical:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/infisical"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
       NODE_ENV: production
     ports:
       - "8080"
@@ -104,7 +104,7 @@ services:
       KC_HOSTNAME: \${KEYCLOAK_HOSTNAME}
       KC_HTTP_ENABLED: "true"
       KC_DB: postgres
-      KC_DB_URL: "jdbc:postgresql://db:5432/keycloak"
+      KC_DB_URL: "jdbc:postgresql://\${{stack.db.HOST}}:5432/keycloak"
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: \${POSTGRES_PASSWORD}
       KC_BOOTSTRAP_ADMIN_USERNAME: "\${KEYCLOAK_ADMIN:-admin}"
@@ -158,8 +158,8 @@ services:
     environment:
       APP_URL: \${APP_URL}
       APP_SECRET: \${APP_SECRET}
-      DATABASE_URL: "postgresql://docmost:\${POSTGRES_PASSWORD}@db:5432/docmost?schema=public"
-      REDIS_URL: "redis://redis:6379"
+      DATABASE_URL: "postgresql://docmost:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/docmost?schema=public"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
     ports:
       - "3000"
     volumes:

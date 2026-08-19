@@ -82,7 +82,12 @@ async function materializeServiceRow(input: {
   if (input.existingResourceId) {
     // Structure (image/command/replicas/healthcheck/resources) tracks the
     // file. Env + ports + name are left alone. The user owns env post-create.
-    await updateServiceRecord(input.existingResourceId, mapped.fields);
+    // composeService rides along so pre-column children (NULL after the
+    // backfill missed them) heal on their next reconcile.
+    await updateServiceRecord(input.existingResourceId, {
+      ...mapped.fields,
+      composeService: input.composeServiceName,
+    });
     await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts);
     return { resourceId: input.existingResourceId, isCreate: false };
   }
@@ -110,6 +115,7 @@ async function materializeServiceRow(input: {
     serviceName: mapped.serviceName,
     networkName: mapped.networkName,
     stackId: ctx.stackResourceId,
+    composeService: input.composeServiceName,
     ports: mapped.ports,
     env: mapped.env,
     ...mapped.fields,

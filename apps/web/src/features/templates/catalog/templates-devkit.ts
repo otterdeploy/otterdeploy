@@ -193,7 +193,7 @@ services:
       SITE_ROOT: \${SITE_ROOT}
       SECRET_KEY: \${SECRET_KEY}
       DB: postgres
-      DB_HOST: db
+      DB_HOST: "\${{stack.db.HOST}}"
       DB_PORT: "5432"
       DB_NAME: healthchecks
       DB_USER: healthchecks

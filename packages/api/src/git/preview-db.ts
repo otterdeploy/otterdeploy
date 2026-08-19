@@ -29,10 +29,12 @@ import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 import { randomBytes } from "node:crypto";
 
+import type { RefIndex } from "../lib/variables/stack-refs";
 import type { BranchDatabaseSpec } from "../runtime/types";
 
 import { decryptEnvValue } from "../lib/env-crypto";
 import { extractRefs } from "../lib/variables/parser";
+import { buildRefIndex, resolveRefTargetName } from "../lib/variables/stack-refs";
 import { insertDeployment } from "../routers/project/deployments";
 import { deriveInternalDbCredentials } from "../routers/project/postgres/credentials";
 import {
@@ -48,6 +50,26 @@ import { runtime } from "../runtime";
 import { resolveSnapshotDriverFor } from "../runtime/snapshot";
 import { getEngineAdapter } from "../swarm";
 
+/** Each service's outgoing refs, as resource NAMES, keyed by service id. */
+function outgoingRefNames(
+  rows: ReadonlyArray<{ serviceResourceId: string; value: string }>,
+  index: RefIndex<string>,
+): Map<string, Set<string>> {
+  const byId = new Map<string, Set<string>>();
+  for (const row of rows) {
+    let set = byId.get(row.serviceResourceId);
+    if (!set) {
+      set = new Set<string>();
+      byId.set(row.serviceResourceId, set);
+    }
+    for (const ref of extractRefs(row.value)) {
+      const name = resolveRefTargetName(ref, row.serviceResourceId, index);
+      if (name) set.add(name);
+    }
+  }
+  return byId;
+}
+
 /**
  * The BASE Postgres databases this preview's services actually CONNECT TO.
  * I.e. a platform-run database resource REACHABLE from at least one of the
@@ -60,38 +82,6 @@ import { getEngineAdapter } from "../swarm";
  * the branch set matches what the services will actually resolve to. Reused by
  * the branch path (what to copy) and the list query (whether to offer control).
  */
-/** Each base service's outgoing `${{…}}` resource refs, from its env values.
- *  Values are encrypted at rest (od-3pp7), so this decrypts before parsing;
- *  sealed rows are skipped — extractRefs on their ciphertext found nothing
- *  before encryption either. */
-async function outgoingRefsByService(
-  projectId: ProjectId,
-): Promise<Map<string, Set<string>>> {
-  const envRows = await db
-    .select({
-      serviceResourceId: serviceEnvVar.serviceResourceId,
-      value: serviceEnvVar.value,
-      sealed: serviceEnvVar.sealed,
-    })
-    .from(serviceEnvVar)
-    .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(
-      and(eq(resource.projectId, projectId), isNull(serviceEnvVar.previewId)),
-    );
-  const refsById = new Map<string, Set<string>>();
-  for (const row of envRows) {
-    if (row.sealed) continue;
-    let set = refsById.get(row.serviceResourceId);
-    if (!set) {
-      set = new Set<string>();
-      refsById.set(row.serviceResourceId, set);
-    }
-    for (const ref of extractRefs(await decryptEnvValue(row.value)))
-      set.add(ref.resource);
-  }
-  return refsById;
-}
-
 export async function referencedBaseDatabases(input: {
   projectId: ProjectId;
   gitRepoId: GitRepoId;
@@ -132,7 +122,43 @@ export async function referencedBaseDatabases(input: {
     );
   const resByName = new Map(allRes.map((r) => [r.name, r] as const));
 
-  const refsById = await outgoingRefsByService(input.projectId);
+  // Stack membership: a stack-scoped ref names its target by COMPOSE KEY, so
+  // it has to be translated back to a resource name before it can join the
+  // name-keyed walk below. Left untranslated, `${{stack.db.HOST}}` would read
+  // as a ref to a resource named `db` — a miss at best, and at worst a branch
+  // of the wrong database.
+  const members = await db
+    .select({
+      resourceId: serviceResource.resourceId,
+      stackId: serviceResource.stackId,
+      composeService: serviceResource.composeService,
+    })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .where(and(eq(resource.projectId, input.projectId), isNull(resource.previewId)));
+  const refIndex = buildRefIndex({ resources: allRes, members });
+
+  const envRows = await db
+    .select({
+      serviceResourceId: serviceEnvVar.serviceResourceId,
+      value: serviceEnvVar.value,
+      sealed: serviceEnvVar.sealed,
+    })
+    .from(serviceEnvVar)
+    .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
+    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
+  // Values are encrypted at rest (od-3pp7): decrypt unsealed rows before ref
+  // parsing. Sealed rows are skipped — extractRefs on their ciphertext found
+  // nothing before encryption either.
+  const scannable: Array<{ serviceResourceId: string; value: string }> = [];
+  for (const row of envRows) {
+    if (row.sealed) continue;
+    scannable.push({
+      serviceResourceId: row.serviceResourceId,
+      value: await decryptEnvValue(row.value),
+    });
+  }
+  const refsById = outgoingRefNames(scannable, refIndex);
 
   // Forward BFS over the ref graph from the seed services; collect every base
   // DB name reached, following service→service edges transitively.

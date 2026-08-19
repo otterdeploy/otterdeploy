@@ -39,7 +39,7 @@ import {
 import {
   createServiceRecord,
   deleteServiceRecord,
-  findServiceDependentsByName,
+  findExternalDependents,
   getServiceRecord,
   getServiceRecordByName,
   listServiceRecordsByProject,
@@ -255,11 +255,14 @@ export async function deleteService(
   if (ctx.isErr()) return Result.err(ctx.error);
   const { record } = ctx.value;
 
-  const dependents = await findServiceDependentsByName({
+  // Stack-aware: a child is also referenced by compose key
+  // (`${{stack.db.HOST}}`), which a name-only scan misses — deleting it would
+  // break a sibling silently instead of reporting it in use.
+  const externalDependents = await findExternalDependents({
     projectId: input.projectId,
-    targetResourceName: record.resource.name,
+    resourceId: input.resourceId,
+    resourceName: record.resource.name,
   });
-  const externalDependents = dependents.filter((id) => id !== input.resourceId);
   if (externalDependents.length > 0) {
     return Result.err(
       new ServiceInUseError({

@@ -37,8 +37,8 @@ services:
     environment:
       SERVER_URL: \${SERVER_URL}
       APP_SECRET: \${APP_SECRET}
-      PG_DATABASE_URL: "postgres://postgres:\${POSTGRES_PASSWORD}@db:5432/default"
-      REDIS_URL: "redis://redis:6379"
+      PG_DATABASE_URL: "postgres://postgres:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/default"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
       STORAGE_TYPE: local
       DISABLE_DB_MIGRATIONS: "false"
       DISABLE_CRON_JOBS_REGISTRATION: "false"
@@ -56,8 +56,8 @@ services:
     environment:
       SERVER_URL: \${SERVER_URL}
       APP_SECRET: \${APP_SECRET}
-      PG_DATABASE_URL: "postgres://postgres:\${POSTGRES_PASSWORD}@db:5432/default"
-      REDIS_URL: "redis://redis:6379"
+      PG_DATABASE_URL: "postgres://postgres:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/default"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
       DISABLE_DB_MIGRATIONS: "true"
       DISABLE_CRON_JOBS_REGISTRATION: "true"
     volumes:

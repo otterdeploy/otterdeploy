@@ -21,26 +21,22 @@ import {
   RefCycleError,
   RefMissingResourceError,
   RefParseError,
-  RefUnknownVarError,
   type ResolveError,
 } from "../../routers/service/errors";
 import {
+  getComposeStackByName,
+  getStackChildByComposeService,
   listPreviewServiceEnvVars,
   getServiceRecord,
   resolveResourceForPreview,
   type ResourceRow,
-  type ServiceEnvVarRow,
   type ServiceRecord,
 } from "../../routers/service/queries";
 import { decryptForDomain } from "../crypto";
 import { postgresExports, serviceExports } from "./exporters";
-import { parseValue, type Token } from "./parser";
-import {
-  createVaultState,
-  loadVaultValues,
-  vaultValueFor,
-  type VaultResolveState,
-} from "./vault-resolve";
+import { parseValue, type RefToken, type Token } from "./parser";
+import { overlayServiceEnv, substituteTokens } from "./substitute";
+import { createVaultState, loadVaultValues, type VaultResolveState } from "./vault-resolve";
 interface ResolveContext {
   projectId: ProjectId;
   // The persistent environment whose var bags apply (the project's default
@@ -86,23 +82,6 @@ export async function resolveServiceEnv(
     return Result.err(new RefMissingResourceError({ refResourceName: "(self)" }));
   }
   return resolveEnvFor(record, ctx);
-}
-
-/**
- * A service's env rows for the active environment, in precedence order:
- *   legacy NULL-env rows  <  active-env rows
- * (later overrides earlier, by key). NULL-env rows are pre-backfill leftovers
- * treated as a universal fallback, so production resolves identically before
- * the environment backfill runs.
- */
-function overlayServiceEnv(
-  rows: ServiceEnvVarRow[],
-  environmentId: EnvironmentId,
-): ServiceEnvVarRow[] {
-  const byKey = new Map<string, ServiceEnvVarRow>();
-  for (const r of rows) if (r.environmentId == null) byKey.set(r.key, r);
-  for (const r of rows) if (r.environmentId === environmentId) byKey.set(r.key, r);
-  return [...byKey.values()];
 }
 
 async function resolveEnvFor(
@@ -154,8 +133,11 @@ async function resolveEnvFor(
   );
   if (vaultLoaded.isErr()) return Result.err(vaultLoaded.error);
 
+  const callerStackId = record.service.stackId ?? null;
   for (const row of parsedRows) {
-    const subbed = await substitute(row.tokens, ctx);
+    const subbed = await substituteTokens(row.tokens, ctx.vault, (token) =>
+      loadExports(token, ctx, callerStackId),
+    );
     if (subbed.isErr()) return Result.err(subbed.error);
     resolved[row.key] = subbed.value;
   }
@@ -163,49 +145,31 @@ async function resolveEnvFor(
   return Result.ok(resolved);
 }
 
-async function substitute(
-  tokens: Token[],
+async function loadExports(
+  token: RefToken,
   ctx: ResolveContext,
-): Promise<Result<string, ResolveError>> {
-  let out = "";
+  callerStackId: ResourceId | null,
+): Promise<Result<Record<string, string>, ResolveError>> {
+  const refResourceName = token.resource;
+  const refVarName = token.var;
 
-  for (const token of tokens) {
-    if (token.kind === "literal") {
-      out += token.value;
-      continue;
-    }
-
-    if (token.kind === "vault") {
-      // Batch-fetched by loadVaultValues before substitution began.
-      const value = vaultValueFor(token, ctx.vault);
-      if (value.isErr()) return Result.err(value.error);
-      out += value.value;
-      continue;
-    }
-
-    const exportsResult = await loadExports(token.resource, ctx, token.var);
-    if (exportsResult.isErr()) return Result.err(exportsResult.error);
-
-    const value = exportsResult.value[token.var];
-    if (value === undefined) {
-      return Result.err(
-        new RefUnknownVarError({
-          refResourceName: token.resource,
-          refVarName: token.var,
-        }),
-      );
-    }
-    out += value;
+  // Stack-scoped form: `${{stack.db.HOST}}` (sibling in the caller's own
+  // stack) or `${{autumn.db.HOST}}` (that stack by resource name). The child
+  // is addressed by its COMPOSE service key, which survives the resource-name
+  // fallbacks and hostname renames that break every other identifier.
+  if (token.stack) {
+    const display = `${token.stack.name ?? "stack"}.${token.resource}`;
+    const stackResourceId =
+      token.stack.name === null
+        ? callerStackId
+        : ((await getComposeStackByName(ctx.projectId, token.stack.name))?.id ?? null);
+    const child = stackResourceId
+      ? await getStackChildByComposeService(ctx.projectId, stackResourceId, token.resource)
+      : undefined;
+    if (!child) return Result.err(new RefMissingResourceError({ refResourceName: display }));
+    return loadResourceExports(child, display, ctx, refVarName);
   }
 
-  return Result.ok(out);
-}
-
-async function loadExports(
-  refResourceName: string,
-  ctx: ResolveContext,
-  refVarName: string,
-): Promise<Result<Record<string, string>, ResolveError>> {
   // Magic scopes: `project` and `environment` aren't real resources but
   // env-var bags shared across every service in the (project, environment)
   // pair. Both resolve from the same underlying projectEnvVar table today.
@@ -223,10 +187,18 @@ async function loadExports(
     ctx.previewId,
     refResourceName,
   );
-  if (!resourceRow) {
-    return Result.err(new RefMissingResourceError({ refResourceName }));
-  }
+  if (!resourceRow) return Result.err(new RefMissingResourceError({ refResourceName }));
+  return loadResourceExports(resourceRow, refResourceName, ctx, refVarName);
+}
 
+/** Shared tail of both ref forms: cycle guard, cache, and the per-type
+ *  exporter for an already-located resource row. */
+async function loadResourceExports(
+  resourceRow: ResourceRow,
+  refResourceName: string,
+  ctx: ResolveContext,
+  refVarName: string,
+): Promise<Result<Record<string, string>, ResolveError>> {
   if (ctx.visited.has(resourceRow.id)) {
     // A ref back into a resource that is currently resolving. Only the env-var
     // exports actually recurse; the computed service exports (HOST / PORT /

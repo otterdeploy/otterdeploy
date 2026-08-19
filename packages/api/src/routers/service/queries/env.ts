@@ -1,17 +1,19 @@
 import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
+import { resource, serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";
+import type { StackRefIdentity } from "./stack";
 
 import {
   decryptEnvValue,
   decryptUnsealedEnvRows,
   encryptEnvValue,
 } from "../../../lib/env-crypto";
+import { getStackRefIdentity } from "./stack";
 // ---------------------------------------------------------------------------
 // Env vars
 // ---------------------------------------------------------------------------
@@ -265,8 +267,17 @@ export async function resolveResourceForPreview(
 }
 
 /**
- * Find services in `projectId` whose env-var values literally reference
- * `${{<targetResourceName>.…}}`. Returns service resource IDs.
+ * Find services in `projectId` whose env-var values literally reference the
+ * target. Returns service resource IDs.
+ *
+ * Three addressings reach the same resource, so all three are scanned:
+ *   `${{<name>.…}}`                     — by resource name (any resource)
+ *   `${{<stack>.<composeKey>.…}}`       — a stack child, absolutely
+ *   `${{stack.<composeKey>.…}}`         — a stack child, from a SIBLING only,
+ *                                         hence the same-stack restriction:
+ *                                         every stack with a `db` child would
+ *                                         otherwise match every other's.
+ * The last two only apply when `stackRef` says the target is a stack child.
  *
  * Best-effort in-process scan (the resolver re-parses each candidate to
  * confirm and to skip escaped tokens `\${{…}}`). This used to be a SQL
@@ -277,30 +288,63 @@ export async function resolveResourceForPreview(
 export async function findServiceDependentsByName(input: {
   projectId: ProjectId;
   targetResourceName: string;
+  /** Set when the target is a stack child. See [[getStackRefIdentity]]. */
+  stackRef?: StackRefIdentity | null;
 }): Promise<ResourceId[]> {
+  const stackRef = input.stackRef;
   const rows = await db
     .select({
       serviceResourceId: serviceEnvVar.serviceResourceId,
       value: serviceEnvVar.value,
       sealed: serviceEnvVar.sealed,
+      // The consuming service's own stackId: scopes the `stack.` self-scope
+      // addressing below.
+      stackId: serviceResource.stackId,
     })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    .where(
-      and(
-        eq(resource.projectId, input.projectId),
-        isNull(serviceEnvVar.previewId),
-      ),
-    );
+    .innerJoin(serviceResource, eq(serviceResource.resourceId, serviceEnvVar.serviceResourceId))
+    .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
 
-  const needle = `\${{${input.targetResourceName}.`;
+  // The same three addressings the pre-encryption SQL LIKE matched: by
+  // resource name, by `<stackName>.<composeService>`, and by the `stack.`
+  // self-scope (consuming row must live in the target's stack).
+  const matches = (value: string, rowStackId: string | null): boolean => {
+    if (value.includes(`\${{${input.targetResourceName}.`)) return true;
+    if (!stackRef) return false;
+    if (value.includes(`\${{${stackRef.stackName}.${stackRef.composeService}.`)) return true;
+    return (
+      rowStackId === stackRef.stackId &&
+      value.includes(`\${{stack.${stackRef.composeService}.`)
+    );
+  };
+
   // Dedupe: a service can reference the target via multiple env vars.
   const dependents = new Set<ResourceId>();
   for (const row of rows) {
     if (row.sealed || dependents.has(row.serviceResourceId)) continue;
-    if ((await decryptEnvValue(row.value)).includes(needle)) {
+    if (matches(await decryptEnvValue(row.value), row.stackId)) {
       dependents.add(row.serviceResourceId);
     }
   }
   return Array.from(dependents);
+}
+
+/**
+ * Services that reference `resourceId` and are not it — the delete guard's
+ * question, in one call. Resolves the target's stack addressing itself, so a
+ * caller cannot forget it and silently under-report a compose stack's
+ * internal dependencies.
+ */
+export async function findExternalDependents(input: {
+  projectId: ProjectId;
+  resourceId: ResourceId;
+  resourceName: string;
+}): Promise<ResourceId[]> {
+  const dependents = await findServiceDependentsByName({
+    projectId: input.projectId,
+    targetResourceName: input.resourceName,
+    stackRef: await getStackRefIdentity(input.resourceId),
+  });
+  return dependents.filter((id) => id !== input.resourceId);
 }

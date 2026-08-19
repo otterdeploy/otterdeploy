@@ -90,6 +90,12 @@ export function cloneName(base: string, taken: ReadonlySet<string>): string {
  * already resolved escaping, so re-emitting a literal that begins with `${{`
  * has to re-escape it or a round-trip would turn an escaped ref into a live
  * one.
+ *
+ * Stack-scoped refs rename their STACK segment, never the compose service key
+ * that follows it — the key names a service inside the file, which a clone
+ * does not rename. The `stack.` self scope has no name to rewrite at all: it
+ * re-resolves inside whichever stack the copy lands in, which is exactly the
+ * property that form exists for.
  */
 export function rewriteRefs(
   value: string,
@@ -111,6 +117,22 @@ export function rewriteRefs(
       // Vault refs point at an org-level secret provider, not a project
       // resource: copied verbatim; never renamed, never "external".
       out += token.raw;
+      continue;
+    }
+    if (token.stack) {
+      // Self scope: nothing to rename, and never "external" — it can only ever
+      // point inside the copy's own stack.
+      if (token.stack.name === null) {
+        out += token.raw;
+        continue;
+      }
+      const stackTarget = rename.get(token.stack.name);
+      if (stackTarget === undefined) {
+        external.push(token.stack.name);
+        out += token.raw;
+      } else {
+        out += `\${{${stackTarget}.${token.resource}.${token.var}}}`;
+      }
       continue;
     }
     const target = rename.get(token.resource);

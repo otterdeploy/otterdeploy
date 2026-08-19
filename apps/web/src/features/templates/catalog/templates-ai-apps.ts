@@ -135,12 +135,12 @@ services:
       AP_FRONTEND_URL: \${AP_FRONTEND_URL}
       AP_ENCRYPTION_KEY: \${AP_ENCRYPTION_KEY}
       AP_JWT_SECRET: \${AP_JWT_SECRET}
-      AP_POSTGRES_HOST: db
+      AP_POSTGRES_HOST: "\${{stack.db.HOST}}"
       AP_POSTGRES_PORT: "5432"
       AP_POSTGRES_DATABASE: activepieces
       AP_POSTGRES_USERNAME: activepieces
       AP_POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
-      AP_REDIS_HOST: redis
+      AP_REDIS_HOST: "\${{stack.redis.HOST}}"
       AP_REDIS_PORT: "6379"
       AP_EXECUTION_MODE: "UNSANDBOXED"
       AP_TELEMETRY_ENABLED: "false"

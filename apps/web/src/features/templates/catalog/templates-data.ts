@@ -78,7 +78,7 @@ services:
     depends_on:
       - db
     environment:
-      NC_DB: "pg://db:5432?u=nocodb&p=\${POSTGRES_PASSWORD}&d=nocodb"
+      NC_DB: "pg://\${{stack.db.HOST}}:5432?u=nocodb&p=\${POSTGRES_PASSWORD}&d=nocodb"
       NC_AUTH_JWT_SECRET: \${NC_AUTH_JWT_SECRET}
     ports:
       - "8080"
