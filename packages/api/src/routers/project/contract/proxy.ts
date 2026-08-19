@@ -6,12 +6,18 @@
 
 import { oc } from "@orpc/contract";
 import { proxyRoute } from "@otterdeploy/db/schema";
+import { customDirectivesSchema } from "@otterdeploy/shared/custom-directives";
 import { routePolicySchema } from "@otterdeploy/shared/route-policy";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { proxyAccessContractSlice } from "./proxy-access";
-import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./shared";
+import {
+  basePath,
+  projectNotFoundErrors,
+  resourceNotFoundErrors,
+  tag,
+} from "./shared";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 
 // The access-PIN hash never leaves the server. Omitted here so no endpoint
@@ -64,6 +70,15 @@ const projectCertificatesSchema = z.object({
 const setRoutePolicyInput = z.object({
   routeId: proxyRouteIdField,
   policy: routePolicySchema,
+});
+
+// Raw Caddyfile directives for the route's site block (od-f4rb). The schema
+// enforces structural integrity only (length cap, brace balance so the text
+// cannot escape its site block); Caddy's /adapt validation with rollback is
+// the syntax gate. Null clears the block.
+const setCustomDirectivesInput = z.object({
+  routeId: proxyRouteIdField,
+  directives: customDirectivesSchema.nullable(),
 });
 
 // ─── Global edge-proxy options (instance-wide platform_settings) ─────
@@ -164,6 +179,16 @@ export const proxyContractSlice = {
       method: "POST",
     })
     .input(setRoutePolicyInput)
+    .output(saveRoutePolicyResultSchema),
+
+  setCustomDirectives: oc
+    .errors(resourceNotFoundErrors)
+    .meta({
+      path: `${basePath}/proxy-routes/{routeId}/directives`,
+      tag,
+      method: "POST",
+    })
+    .input(setCustomDirectivesInput)
     .output(saveRoutePolicyResultSchema),
 
   setProtection: oc

@@ -1,4 +1,9 @@
-import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  PreviewId,
+  ProjectId,
+  ProxyRouteId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -7,7 +12,10 @@ import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
 
-import { publishRouteRemoved, publishRouteUpserted } from "../routers/project/project-event-bus";
+import {
+  publishRouteRemoved,
+  publishRouteUpserted,
+} from "../routers/project/project-event-bus";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
 // "Enabled" for rendering purposes is two gates: the system one (`enabled`,
@@ -18,7 +26,9 @@ export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
-    .where(and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)))
+    .where(
+      and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)),
+    )
     .orderBy(asc(proxyRoute.projectId), asc(proxyRoute.domain));
 }
 
@@ -42,11 +52,18 @@ export async function listEnabledRoutePlacements(): Promise<
     })
     .from(proxyRoute)
     .leftJoin(resource, eq(proxyRoute.resourceId, resource.id))
-    .where(and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)));
-  return rows.map((r) => ({ ...r, placementServerId: r.placementServerId ?? null }));
+    .where(
+      and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)),
+    );
+  return rows.map((r) => ({
+    ...r,
+    placementServerId: r.placementServerId ?? null,
+  }));
 }
 
-export async function listProxyRoutesByProject(projectId: ProjectId): Promise<ProxyRouteRecord[]> {
+export async function listProxyRoutesByProject(
+  projectId: ProjectId,
+): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
@@ -54,8 +71,14 @@ export async function listProxyRoutesByProject(projectId: ProjectId): Promise<Pr
     .orderBy(asc(proxyRoute.domain));
 }
 
-export async function getProxyRouteByDomain(domain: string): Promise<ProxyRouteRecord | undefined> {
-  const [record] = await db.select().from(proxyRoute).where(eq(proxyRoute.domain, domain)).limit(1);
+export async function getProxyRouteByDomain(
+  domain: string,
+): Promise<ProxyRouteRecord | undefined> {
+  const [record] = await db
+    .select()
+    .from(proxyRoute)
+    .where(eq(proxyRoute.domain, domain))
+    .limit(1);
   return record;
 }
 
@@ -65,7 +88,9 @@ export async function getProxyRouteByResourceId(
   const [record] = await db
     .select()
     .from(proxyRoute)
-    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)))
+    .where(
+      and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)),
+    )
     .limit(1);
   return record;
 }
@@ -81,12 +106,16 @@ export async function listProxyRoutesByResourceId(
   return db
     .select()
     .from(proxyRoute)
-    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)))
+    .where(
+      and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)),
+    )
     .orderBy(desc(proxyRoute.isPrimary), asc(proxyRoute.domain));
 }
 
 /** The preview-scoped routes of a PR preview (one per exposed service). */
-export async function listProxyRoutesByPreview(previewId: PreviewId): Promise<ProxyRouteRecord[]> {
+export async function listProxyRoutesByPreview(
+  previewId: PreviewId,
+): Promise<ProxyRouteRecord[]> {
   return db
     .select()
     .from(proxyRoute)
@@ -94,12 +123,20 @@ export async function listProxyRoutesByPreview(previewId: PreviewId): Promise<Pr
     .orderBy(asc(proxyRoute.domain));
 }
 
-export async function deleteProxyRoutesByPreview(previewId: PreviewId): Promise<void> {
+export async function deleteProxyRoutesByPreview(
+  previewId: PreviewId,
+): Promise<void> {
   await db.delete(proxyRoute).where(eq(proxyRoute.previewId, previewId));
 }
 
-export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRecord | undefined> {
-  const [record] = await db.select().from(proxyRoute).where(eq(proxyRoute.id, id)).limit(1);
+export async function getProxyRouteById(
+  id: ProxyRouteId,
+): Promise<ProxyRouteRecord | undefined> {
+  const [record] = await db
+    .select()
+    .from(proxyRoute)
+    .where(eq(proxyRoute.id, id))
+    .limit(1);
   return record;
 }
 
@@ -180,6 +217,7 @@ export async function updateProxyRoute(
     dnsState: "pointed" | "proxied" | "unpointed" | "unknown";
     dnsCheckedAt: Date | null;
     routePolicy: ProxyRouteRecord["routePolicy"];
+    customDirectives: string | null;
     domainVerifyToken: string | null;
     domainVerifiedAt: Date | null;
     accessPinHash: string | null;
@@ -201,7 +239,11 @@ export async function updateProxyRoute(
  *  delete is announced by key: the client drops exactly those. Rows come from
  *  `.returning()` on the schema columns, so the ids arrive already branded. */
 function publishRemovedRows(
-  rows: Array<{ id: ProxyRouteId; projectId: ProjectId; resourceId: ResourceId | null }>,
+  rows: Array<{
+    id: ProxyRouteId;
+    projectId: ProjectId;
+    resourceId: ResourceId | null;
+  }>,
 ): void {
   for (const row of rows) {
     publishRouteRemoved(row.projectId, row.id, row.resourceId);
@@ -211,7 +253,9 @@ function publishRemovedRows(
 /** Clear the primary flag on every route of a resource. Used before
  *  promoting a new primary so the (resourceId, isPrimary=true) invariant
  *  stays at most one. */
-export async function clearPrimaryForResource(resourceId: ResourceId): Promise<void> {
+export async function clearPrimaryForResource(
+  resourceId: ResourceId,
+): Promise<void> {
   const rows = await db
     .update(proxyRoute)
     .set({ isPrimary: false, updatedAt: new Date() })
@@ -243,7 +287,10 @@ export async function setRoutesEnabledForResource(
         eq(proxyRoute.resourceId, resourceId),
         isNull(proxyRoute.previewId),
         enabled
-          ? or(eq(proxyRoute.source, "generated"), isNotNull(proxyRoute.domainVerifiedAt))
+          ? or(
+              eq(proxyRoute.source, "generated"),
+              isNotNull(proxyRoute.domainVerifiedAt),
+            )
           : undefined,
       ),
     )
@@ -252,19 +299,27 @@ export async function setRoutesEnabledForResource(
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {
-  const rows = await db.delete(proxyRoute).where(eq(proxyRoute.id, id)).returning({
-    id: proxyRoute.id,
-    projectId: proxyRoute.projectId,
-    resourceId: proxyRoute.resourceId,
-  });
+  const rows = await db
+    .delete(proxyRoute)
+    .where(eq(proxyRoute.id, id))
+    .returning({
+      id: proxyRoute.id,
+      projectId: proxyRoute.projectId,
+      resourceId: proxyRoute.resourceId,
+    });
   publishRemovedRows(rows);
 }
 
-export async function deleteProxyRoutesByResource(resourceId: ResourceId): Promise<void> {
-  const rows = await db.delete(proxyRoute).where(eq(proxyRoute.resourceId, resourceId)).returning({
-    id: proxyRoute.id,
-    projectId: proxyRoute.projectId,
-    resourceId: proxyRoute.resourceId,
-  });
+export async function deleteProxyRoutesByResource(
+  resourceId: ResourceId,
+): Promise<void> {
+  const rows = await db
+    .delete(proxyRoute)
+    .where(eq(proxyRoute.resourceId, resourceId))
+    .returning({
+      id: proxyRoute.id,
+      projectId: proxyRoute.projectId,
+      resourceId: proxyRoute.resourceId,
+    });
   publishRemovedRows(rows);
 }

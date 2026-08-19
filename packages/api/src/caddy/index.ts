@@ -3,7 +3,10 @@ import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import {
+  PLATFORM_SETTINGS_ID,
+  platformSettings,
+} from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
 import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
@@ -28,7 +31,11 @@ import {
 import { adaptCaddyfile } from "./client";
 import { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 import { maskCaddySecrets, stripGlobalBlock } from "./display";
-import { reconcileNodeEdges, type NodeEdgeResult, type PlacedRoute } from "./node-reconciler";
+import {
+  reconcileNodeEdges,
+  type NodeEdgeResult,
+  type PlacedRoute,
+} from "./node-reconciler";
 import {
   listEnabledProxyRoutes,
   listEnabledRoutePlacements,
@@ -58,6 +65,7 @@ function toRouteInput(r: ProxyRouteRecord): ProxyRouteInput {
     usesAcme: r.usesAcme,
     protected: r.protected,
     routePolicy: r.routePolicy,
+    customDirectives: r.customDirectives,
   };
 }
 
@@ -118,7 +126,10 @@ export const CONTROL_PLANE_PROJECT_ID = "control-plane";
  *  Upstream reuses DEPLOY_AUTHZ_UPSTREAM: the address Caddy already uses to
  *  reach the control plane for forward_auth (dev: host.docker.internal:3000,
  *  prod: the server service DNS). */
-function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRouteInput {
+function controlPlaneRoute(cp: {
+  domain: string;
+  usesAcme: boolean;
+}): ProxyRouteInput {
   const upstream = env.DEPLOY_AUTHZ_UPSTREAM;
   const sep = upstream.lastIndexOf(":");
   const host = sep === -1 ? upstream : upstream.slice(0, sep);
@@ -136,7 +147,9 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
   };
 }
 
-export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> {
+export async function reconcile(
+  rlog?: RequestLogger,
+): Promise<ReconcileResult> {
   const log = asStepLogger(rlog);
   // Plain docker: re-attach the edge to every project bridge network first: a
   // recreated Caddy container drops those dynamic attachments, which 502s every
@@ -155,7 +168,9 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     materializeCustomCerts(rlog),
   ]);
   if (customCerts.length > 0) {
-    const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
+    const projectOrg = await mapProjectOrganizations([
+      ...new Set(records.map((r) => r.projectId)),
+    ]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {
@@ -195,7 +210,9 @@ async function reconcileNodeEdgesForInstall(
   if (!isSwarmRuntime()) return [];
 
   const placements = await listEnabledRoutePlacements();
-  const placementByDomain = new Map(placements.map((p) => [p.domain, p.placementServerId]));
+  const placementByDomain = new Map(
+    placements.map((p) => [p.domain, p.placementServerId]),
+  );
 
   // Index by domain because that's the one key both sides share. The built
   // route inputs have already lost their row ids by this point.
@@ -223,7 +240,10 @@ async function reconcileNodeEdgesForInstall(
  *  was just reconciled regardless. */
 async function resolveControlPlaneServerId(): Promise<ServerId | null> {
   const servers = await listAllServers();
-  return servers.find((s) => s.host === "127.0.0.1" || s.host === "localhost")?.id ?? null;
+  return (
+    servers.find((s) => s.host === "127.0.0.1" || s.host === "localhost")?.id ??
+    null
+  );
 }
 
 export interface ProjectCaddyfile {
@@ -238,9 +258,13 @@ export interface ProjectCaddyfile {
  *  (it is not project state and carries edge credentials); `revision` is
  *  still computed over the FULL fragment. The same short SHA the reconciler
  *  stamps, so the UI can detect drift. */
-export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
+export async function renderProjectCaddyfile(
+  projectId: ProjectId,
+): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
-  let routes = records.filter((r) => r.enabled && !r.disabledByUser).map(toRouteInput);
+  let routes = records
+    .filter((r) => r.enabled && !r.disabledByUser)
+    .map(toRouteInput);
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
     // DB-only read (no file writes). Shows the same `tls` lines reconcile
@@ -252,7 +276,10 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   const fragment = buildProjectFragment(routes, options);
-  const revision = createHash("sha256").update(fragment).digest("hex").slice(0, 12);
+  const revision = createHash("sha256")
+    .update(fragment)
+    .digest("hex")
+    .slice(0, 12);
   return { caddyfile: maskCaddySecrets(stripGlobalBlock(fragment)), revision };
 }
 
@@ -263,9 +290,14 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
 export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
   let routes = records.map(toRouteInput);
-  const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
+  const [options, customCerts] = await Promise.all([
+    loadCaddyOptions(),
+    listServableCustomCerts(),
+  ]);
   if (customCerts.length > 0) {
-    const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
+    const projectOrg = await mapProjectOrganizations([
+      ...new Set(records.map((r) => r.projectId)),
+    ]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {
@@ -274,7 +306,10 @@ export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   const caddyfile = buildCaddyfile(routes, env.CADDY_ADMIN_BIND, {
     ...options,
   });
-  const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
+  const revision = createHash("sha256")
+    .update(caddyfile)
+    .digest("hex")
+    .slice(0, 12);
   return { caddyfile: maskCaddySecrets(caddyfile), revision };
 }
 
@@ -295,14 +330,48 @@ export async function saveRoutePolicy(
   rlog?: RequestLogger,
 ): Promise<SaveRoutePolicyResult> {
   const updated = await updateProxyRoute(route.id, { routePolicy: policy });
-  if (!updated) return { route, applied: false, error: "Route no longer exists." };
+  if (!updated)
+    return { route, applied: false, error: "Route no longer exists." };
   const result = await reconcile(rlog);
   const error =
     result.loadError ??
-    result.skipped.find((entry) => entry.projectId === route.projectId)?.error ??
+    result.skipped.find((entry) => entry.projectId === route.projectId)
+      ?.error ??
     null;
   if (!error) return { route: updated, applied: true, error: null };
   await updateProxyRoute(route.id, { routePolicy: route.routePolicy });
+  await reconcile(rlog);
+  return { route, applied: false, error };
+}
+
+/**
+ * Persist raw per-route Caddyfile directives and atomically reconcile them.
+ * Same contract as saveRoutePolicy: the reconciler adapts the full generated
+ * config through Caddy's /adapt endpoint, and a rejection restores the
+ * previous value and reloads last-known-good so DB and edge never drift. The
+ * adapt error comes back verbatim so the editor can show Caddy's own parse
+ * message.
+ */
+export async function saveRouteCustomDirectives(
+  route: ProxyRouteRecord,
+  directives: string | null,
+  rlog?: RequestLogger,
+): Promise<SaveRoutePolicyResult> {
+  const updated = await updateProxyRoute(route.id, {
+    customDirectives: directives,
+  });
+  if (!updated)
+    return { route, applied: false, error: "Route no longer exists." };
+  const result = await reconcile(rlog);
+  const error =
+    result.loadError ??
+    result.skipped.find((entry) => entry.projectId === route.projectId)
+      ?.error ??
+    null;
+  if (!error) return { route: updated, applied: true, error: null };
+  await updateProxyRoute(route.id, {
+    customDirectives: route.customDirectives,
+  });
   await reconcile(rlog);
   return { route, applied: false, error };
 }

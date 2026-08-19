@@ -28,19 +28,31 @@ const COLUMN_COUNT = 5;
  *  probe has landed. The live health of what the edge is actually serving.
  *  Mode alone was misleading: a route can say "letsencrypt" while the edge
  *  serves an expired cert. */
-function TlsCell({ mode, cert }: { mode: string; cert: RouteCertificate | undefined }) {
+function TlsCell({
+  mode,
+  cert,
+}: {
+  mode: string;
+  cert: RouteCertificate | undefined;
+}) {
   const status = cert ? CERT_STATUS[cert.status] : null;
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
       <span
         className={cn(
           "size-1.5 rounded-full",
-          status ? status.dot : mode === "letsencrypt" ? "bg-success" : "bg-muted-foreground/60",
+          status
+            ? status.dot
+            : mode === "letsencrypt"
+              ? "bg-success"
+              : "bg-muted-foreground/60",
         )}
       />
       {mode}
       {status && cert?.status !== "valid" ? (
-        <span className={cn("text-[11px]", status.text)}>· {status.label.toLowerCase()}</span>
+        <span className={cn("text-[11px]", status.text)}>
+          · {status.label.toLowerCase()}
+        </span>
       ) : null}
     </span>
   );
@@ -52,9 +64,18 @@ function TlsCell({ mode, cert }: { mode: string; cert: RouteCertificate | undefi
 function RouteStatusCell({
   route,
 }: {
-  route: { id: string; domain: string; enabled: boolean; disabledByUser: boolean };
+  route: {
+    id: string;
+    domain: string;
+    enabled: boolean;
+    disabledByUser: boolean;
+  };
 }) {
-  const label = route.disabledByUser ? "paused" : route.enabled ? "enabled" : "disabled";
+  const label = route.disabledByUser
+    ? "paused"
+    : route.enabled
+      ? "enabled"
+      : "disabled";
   return (
     <div className="flex items-center gap-2.5">
       <RouteEnabledSwitch route={route} />
@@ -90,11 +111,15 @@ export function RouteGroupRows({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <HugeiconsIcon
-                icon={group.kind === "database" ? Database02Icon : ServerStack01Icon}
+                icon={
+                  group.kind === "database" ? Database02Icon : ServerStack01Icon
+                }
                 strokeWidth={1.8}
                 className="size-4 text-muted-foreground"
               />
-              <span className="font-mono text-[13px] font-medium">{group.name}</span>
+              <span className="font-mono text-[13px] font-medium">
+                {group.name}
+              </span>
               <span className="font-mono text-[12px] text-muted-foreground">
                 {group.internalHost}:{group.internalPort}
               </span>
@@ -141,7 +166,9 @@ export function RouteGroupRows({
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
                         "group inline-flex items-center gap-1 font-mono text-[12.5px] hover:underline",
-                        r.enabled && !r.disabledByUser ? "text-success" : "text-muted-foreground",
+                        r.enabled && !r.disabledByUser
+                          ? "text-success"
+                          : "text-muted-foreground",
                       )}
                     >
                       {r.publicHost}
@@ -155,7 +182,9 @@ export function RouteGroupRows({
                     <span
                       className={cn(
                         "font-mono text-[12.5px]",
-                        r.enabled && !r.disabledByUser ? "text-success" : "text-muted-foreground",
+                        r.enabled && !r.disabledByUser
+                          ? "text-success"
+                          : "text-muted-foreground",
                       )}
                     >
                       {r.publicHost}
@@ -172,19 +201,26 @@ export function RouteGroupRows({
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <RouteStatusCell route={r} />
               </TableCell>
-              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+              <TableCell
+                className="text-right"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {r.isHttp ? (
                   <RoutePolicyButton
                     routeId={r.id}
                     domain={r.domain}
                     routePolicy={r.routePolicy}
+                    customDirectives={r.customDirectives}
                   />
                 ) : null}
               </TableCell>
             </TableRow>
             {open ? (
               <TableRow
-                className={cn("bg-muted/20 hover:bg-muted/20", !isLast && "border-b-0")}
+                className={cn(
+                  "bg-muted/20 hover:bg-muted/20",
+                  !isLast && "border-b-0",
+                )}
               >
                 <TableCell colSpan={COLUMN_COUNT} className="p-0">
                   <RouteDetailPanel

@@ -12,6 +12,7 @@ import {
   listProjectCertificates,
   listProjectProxyRoutes,
   saveGlobalCaddyOptions,
+  setProxyRouteCustomDirectives,
   setProxyRoutePolicy,
   setProxyRouteProtection,
   setProxyRouteUserEnabled,
@@ -23,18 +24,20 @@ export const proxyRouteRouter = {
   // router-proxy-route-access.ts.
   ...proxyRouteAccessRouter,
 
-  list: orgScopedProcedure.project.proxyRoute.list.handler(async ({ input, context, errors }) => {
-    const result = await listProjectProxyRoutes({
-      projectId: input.projectId,
-      organizationId: context.activeOrganizationId,
-    });
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProjectNotFoundError: () => errors.NOT_FOUND(),
+  list: orgScopedProcedure.project.proxyRoute.list.handler(
+    async ({ input, context, errors }) => {
+      const result = await listProjectProxyRoutes({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
       });
-    }
-    return result.value;
-  }),
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
 
   caddyfile: orgScopedProcedure.project.proxyRoute.caddyfile.handler(
     async ({ input, context, errors }) => {
@@ -66,8 +69,8 @@ export const proxyRouteRouter = {
     },
   ),
 
-  globalOptions: requireInstallAdmin().project.proxyRoute.globalOptions.handler(async () =>
-    getGlobalCaddyOptions(),
+  globalOptions: requireInstallAdmin().project.proxyRoute.globalOptions.handler(
+    async () => getGlobalCaddyOptions(),
   ),
 
   // Instance-wide edge options, gated on firewall:update (admin/owner), since
@@ -87,61 +90,89 @@ export const proxyRouteRouter = {
 
   setRoutePolicy: requirePermission({
     route: ["update"],
-  }).project.proxyRoute.setRoutePolicy.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "proxy-route", id: input.routeId } });
-    const result = await setProxyRoutePolicy(
-      {
-        routeId: input.routeId,
-        policy: input.policy,
-        organizationId: context.activeOrganizationId,
-      },
-      context.log,
-    );
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
-    return result.value;
-  }),
+  }).project.proxyRoute.setRoutePolicy.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+      const result = await setProxyRoutePolicy(
+        {
+          routeId: input.routeId,
+          policy: input.policy,
+          organizationId: context.activeOrganizationId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  setCustomDirectives: requirePermission({
+    route: ["update"],
+  }).project.proxyRoute.setCustomDirectives.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+      const result = await setProxyRouteCustomDirectives(
+        {
+          routeId: input.routeId,
+          directives: input.directives,
+          organizationId: context.activeOrganizationId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
 
   setProtection: requirePermission({
     route: ["update"],
-  }).project.proxyRoute.setProtection.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "proxy-route", id: input.routeId } });
-    const result = await setProxyRouteProtection(
-      {
-        routeId: input.routeId,
-        protected: input.protected,
-        organizationId: context.activeOrganizationId,
-      },
-      context.log,
-    );
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
-    return result.value;
-  }),
+  }).project.proxyRoute.setProtection.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+      const result = await setProxyRouteProtection(
+        {
+          routeId: input.routeId,
+          protected: input.protected,
+          organizationId: context.activeOrganizationId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
 
   setEnabled: requirePermission({
     route: ["update"],
-  }).project.proxyRoute.setEnabled.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "proxy-route", id: input.routeId } });
-    const result = await setProxyRouteUserEnabled(
-      {
-        routeId: input.routeId,
-        enabled: input.enabled,
-        organizationId: context.activeOrganizationId,
-      },
-      context.log,
-    );
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
-      });
-    }
-    return result.value;
-  }),
+  }).project.proxyRoute.setEnabled.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+      const result = await setProxyRouteUserEnabled(
+        {
+          routeId: input.routeId,
+          enabled: input.enabled,
+          organizationId: context.activeOrganizationId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
 };

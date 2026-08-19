@@ -1,4 +1,9 @@
-import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  PreviewId,
+  ProjectId,
+  ProxyRouteId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
@@ -17,12 +22,21 @@ import {
 
 import { preview, project } from "./project";
 
-export const proxyRouteTypeEnum = pgEnum("proxy_route_type", ["http", "layer4"]);
-export const proxyRouteProtocolEnum = pgEnum("proxy_route_protocol", ["tcp", "http"]);
+export const proxyRouteTypeEnum = pgEnum("proxy_route_type", [
+  "http",
+  "layer4",
+]);
+export const proxyRouteProtocolEnum = pgEnum("proxy_route_protocol", [
+  "tcp",
+  "http",
+]);
 // Where a route's domain came from. "generated" = the auto-resolved
 // hostname minted on expose (resource override → project → org → sslip
 // chain). "custom" = a domain the operator typed in themselves.
-export const proxyRouteSourceEnum = pgEnum("proxy_route_source", ["generated", "custom"]);
+export const proxyRouteSourceEnum = pgEnum("proxy_route_source", [
+  "generated",
+  "custom",
+]);
 
 // Which network a route is served on. "public" is the internet-facing Caddy
 // listener: today's behavior, and the default for every existing and new row,
@@ -33,11 +47,10 @@ export const proxyRouteSourceEnum = pgEnum("proxy_route_source", ["generated", "
 // Deliberately NOT a boolean: "private" has to be able to mean *instead of*
 // public, or "make this app internal only" isn't expressible.
 // Design: docs/designs/vpn-mesh.md
-export const proxyRouteExposureScopeEnum = pgEnum("proxy_route_exposure_scope", [
-  "public",
-  "private",
-  "both",
-]);
+export const proxyRouteExposureScopeEnum = pgEnum(
+  "proxy_route_exposure_scope",
+  ["public", "private", "both"],
+);
 
 // Reachability of a custom domain, refreshed by the DNS check (on add /
 // recheck / edit). Drives the UI status chip and the ACME decision.
@@ -107,7 +120,9 @@ export const proxyRoute = pgTable(
     // Which network serves this route (see the enum above). Defaults to
     // "public" so every pre-existing row and every org without a connected
     // mesh behaves exactly as it does today.
-    exposureScope: proxyRouteExposureScopeEnum("exposure_scope").notNull().default("public"),
+    exposureScope: proxyRouteExposureScopeEnum("exposure_scope")
+      .notNull()
+      .default("public"),
     // "generated" (auto-resolved on expose) vs "custom" (operator-typed,
     // gated behind DNS verification). Drives both the UI badge and whether
     // a verify token is expected.
@@ -124,7 +139,9 @@ export const proxyRoute = pgTable(
     dnsCheckedAt: timestamp("dns_checked_at"),
     // TLS cert lifecycle, promoted from Caddy's ACME/cert log events by
     // edge-logs/ingest.ts (best-effort). Drives the domains-card cert badge.
-    certState: proxyRouteCertStateEnum("cert_state").notNull().default("unknown"),
+    certState: proxyRouteCertStateEnum("cert_state")
+      .notNull()
+      .default("unknown"),
     // Last cert-issuance error message (when certState = "failed").
     certError: text("cert_error"),
     // When a cert event last touched this row.
@@ -142,10 +159,20 @@ export const proxyRoute = pgTable(
     // authorizing org is derived from projectId → project.organizationId.
     // See docs/designs/deployment-protection.md.
     protected: boolean("protected").notNull().default(false),
-    // Allowlisted edge behavior rendered by trusted builder code. Unlike the
-    // former custom_directives text escape hatch, this cannot introduce
-    // handlers, upstreams, paths, filesystem access, or global options.
-    routePolicy: jsonb("route_policy").$type<RoutePolicy>().notNull().default(DEFAULT_ROUTE_POLICY),
+    // Allowlisted edge behavior rendered by trusted builder code: the safe,
+    // structured menu (headers, HSTS, compression, body limits, …).
+    routePolicy: jsonb("route_policy")
+      .$type<RoutePolicy>()
+      .notNull()
+      .default(DEFAULT_ROUTE_POLICY),
+    // Raw Caddyfile directives spliced verbatim inside this route's site
+    // block (od-f4rb, owner decision 2026-08-19 reversing od-5j8.6's removal
+    // of the escape hatch). Guarded at the write boundary by
+    // customDirectivesSchema (length cap + brace balance so the text cannot
+    // escape its site block) and at apply time by the reconciler's full-config
+    // Caddy /adapt validation with rollback, plus node-push's on-node
+    // `caddy validate` before the live file is swapped. Null = none.
+    customDirectives: text("custom_directives"),
     // Optional access PIN for the auth wall (NetBird-style): an argon2 hash
     // of a short numeric code anyone can enter on the wall page, no org
     // account or email invite needed. Null = the PIN method is off. Only

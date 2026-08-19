@@ -1,0 +1,1 @@
+ALTER TABLE "proxy_route" ADD COLUMN "custom_directives" text;
