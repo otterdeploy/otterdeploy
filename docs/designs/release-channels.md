@@ -1,6 +1,9 @@
 # Release channels: stable + nightly
 
-Status: proposed (2026-08-19). Tracked as od-<epic> (see beads).
+Status: implemented (2026-08-19). Tracked as od-tfs2. Shipped surface:
+`.github/workflows/nightly.yml` (the cutter), the retag path in
+`images.yml`, the stable-only gate in `cli-publish.yml`, the channel-aware
+`release-source.ts`, and the channel picker in the Updates card.
 
 ## Why
 

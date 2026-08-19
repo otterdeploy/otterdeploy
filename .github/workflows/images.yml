@@ -51,14 +51,25 @@ jobs:
   # whether the workflow RUNS. Without this, any matching push rebuilt BOTH
   # images, so every server/web change also recompiled caddy and churned the
   # `caddy:latest` digest (making later `compose pull`s recreate the edge proxy
-  # for nothing). Tags and manual dispatches always build everything (paths
-  # filters don't apply to tag pushes; a dispatch has no diff), as does any
-  # push without a usable before-SHA (force-push / new branch).
+  # for nothing).
+  #
+  # Branch pushes diff against the push's before-SHA. TAG refs (release + the
+  # nightly cutter's dispatch-at-tag) diff against the PREVIOUS release tag:
+  # an image whose inputs didn't change between releases is RETAGGED to the
+  # new version from the previous release's manifest instead of rebuilt.
+  # Same digest ⇒ `compose pull` no-ops ⇒ the container (notably the edge
+  # proxy) is never recreated by an update that didn't change it, and daily
+  # nightlies only pay for what actually moved. A branch-targeted manual
+  # dispatch, a first release, or a push without a usable before-SHA builds
+  # everything.
   changes:
     name: Detect changed images
     runs-on: ubuntu-latest
     outputs:
       images: ${{ steps.detect.outputs.images }}
+      has_builds: ${{ steps.detect.outputs.has_builds }}
+      retags: ${{ steps.detect.outputs.retags }}
+      has_retags: ${{ steps.detect.outputs.has_retags }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,27 +79,57 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           all='["server","caddy"]'
-          if [ "${{ github.ref_type }}" = "tag" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "images=$all" >> "$GITHUB_OUTPUT"; exit 0
+          emit() { # emit <builds-json-items> <retag-json-items>
+            echo "images=[$1]"                                >> "$GITHUB_OUTPUT"
+            echo "has_builds=$([ -n "$1" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+            echo "retags=[$2]"                                >> "$GITHUB_OUTPUT"
+            echo "has_retags=$([ -n "$2" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          }
+          classify() { # classify <diff-file-list> -> sets $builds
+            builds=""
+            # server: full-repo context (COPY . . + bun install, builds the web
+            # SPA into itself): same scope as the workflow `paths` filter.
+            if grep -qE '^(apps/(server|web|builder)/|packages/|bun\.lock$|\.github/workflows/images\.yml$)' <<<"$1"; then
+              builds='"server"'
+            fi
+            # caddy: pulls nothing from the repo outside its own build context.
+            if grep -qE '^(infra/caddy/|\.github/workflows/images\.yml$)' <<<"$1"; then
+              builds="${builds:+$builds,}\"caddy\""
+            fi
+          }
+
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            # Previous release tag by creation time (mixed stable/nightly
+            # history: creatordate orders them as they were actually cut).
+            prev=$(git tag --list 'v*.*.*' --sort=-creatordate | grep -vx "${{ github.ref_name }}" | head -1)
+            if [ -z "$prev" ]; then
+              echo "First release tag: building everything."
+              emit '"server","caddy"' ''; exit 0
+            fi
+            changed=$(git diff --name-only "$prev" "$GITHUB_SHA")
+            classify "$changed"
+            retags=""
+            for img in server caddy; do
+              if ! grep -q "\"$img\"" <<<"$builds"; then
+                retags="${retags:+$retags,}{\"image\":\"$img\",\"from\":\"$prev\"}"
+              fi
+            done
+            echo "Tag ${{ github.ref_name }} vs $prev: build [$builds], retag [$retags]"
+            emit "$builds" "$retags"; exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            emit '"server","caddy"' ''; exit 0
           fi
           if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
-            echo "images=$all" >> "$GITHUB_OUTPUT"; exit 0
+            emit '"server","caddy"' ''; exit 0
           fi
           changed=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
-          images=""
-          # server: full-repo context (COPY . . + bun install, builds the web
-          # SPA into itself): same scope as the workflow `paths` filter.
-          if grep -qE '^(apps/(server|web|builder)/|packages/|bun\.lock$|\.github/workflows/images\.yml$)' <<<"$changed"; then
-            images='"server"'
-          fi
-          # caddy: pulls nothing from the repo outside its own build context.
-          if grep -qE '^(infra/caddy/|\.github/workflows/images\.yml$)' <<<"$changed"; then
-            images="${images:+$images,}\"caddy\""
-          fi
+          classify "$changed"
           # Nothing matched (shouldn't happen given the workflow paths filter)
           # → build everything rather than silently skip.
-          [ -n "$images" ] || { echo "images=$all" >> "$GITHUB_OUTPUT"; exit 0; }
-          echo "images=[$images]" >> "$GITHUB_OUTPUT"
+          [ -n "$builds" ] || builds='"server","caddy"'
+          emit "$builds" ''
 
   # Native per-arch build (no QEMU emulation) → one tagged image per arch,
   # merged into a single multi-arch manifest below. The builder image bundles
@@ -96,6 +137,9 @@ jobs:
   build:
     name: ${{ matrix.image }} (${{ matrix.arch }})
     needs: changes
+    # Guarded: a release where nothing changed for any image (a retag-only
+    # run) must not spawn a matrix from an empty array (workflow error).
+    if: needs.changes.outputs.has_builds == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -145,6 +189,7 @@ jobs:
   merge-manifest:
     name: Merge manifest (${{ matrix.image }})
     needs: [changes, build]
+    if: needs.changes.outputs.has_builds == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -167,6 +212,48 @@ jobs:
             "${IMAGE}:${TAG}-amd64" \
             "${IMAGE}:${TAG}-arm64"
 
+  # Release tags only: an image whose inputs didn't change since the previous
+  # release gets the new version tag POINTED AT the previous release's
+  # manifest instead of a rebuild. Byte-identical digest ⇒ hosts running it
+  # see `compose pull` no-op ⇒ the container is not recreated by the update.
+  # (A rebuild of unchanged source would still produce a NEW digest —
+  # timestamps, refreshed base layers — and needlessly restart the edge
+  # proxy on every platform update.)
+  retag:
+    name: Retag unchanged (${{ matrix.entry.image }})
+    needs: changes
+    if: needs.changes.outputs.has_retags == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.changes.outputs.retags) }}
+    steps:
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Point ${{ env.TAG }} at the ${{ matrix.entry.from }} manifest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.entry.image }}
+          FROM_TAG: ${{ matrix.entry.from }}
+        run: |
+          # If the previous release's manifest is missing (pruned registry,
+          # pre-GHCR tag), fail loudly: re-run the workflow via manual
+          # dispatch at this tag after a `workflow_dispatch` full build, or
+          # push a trivial change to the image's inputs.
+          if ! docker buildx imagetools inspect "${IMAGE}:${FROM_TAG}" >/dev/null 2>&1; then
+            echo "::error::${IMAGE}:${FROM_TAG} not found in the registry; cannot retag. Dispatch images.yml at this tag to force a full build."
+            exit 1
+          fi
+          docker buildx imagetools create -t "${IMAGE}:${TAG}" "${IMAGE}:${FROM_TAG}"
+          echo "Retagged ${IMAGE}:${TAG} -> digest of :${FROM_TAG} (unchanged inputs)."
+
   # On release tags only: publish the GitHub Release AFTER both image manifests
   # exist, so the moment the updater sees a new `releases/latest` the pinned
   # `:vX.Y.Z` tags it will `compose pull` are already in the registry. A tag
@@ -174,8 +261,14 @@ jobs:
   # keeps it out of `releases/latest`. The stable channel never sees it.
   release:
     name: Publish GitHub Release
-    if: github.ref_type == 'tag'
-    needs: merge-manifest
+    # Waits on BOTH paths (built manifests + retagged manifests); either may
+    # be skipped on a given release, but neither may have failed — the moment
+    # the updater sees the release, every pinned tag must exist.
+    if: >-
+      github.ref_type == 'tag' && !cancelled()
+      && (needs.merge-manifest.result == 'success' || needs.merge-manifest.result == 'skipped')
+      && (needs.retag.result == 'success' || needs.retag.result == 'skipped')
+    needs: [merge-manifest, retag]
     runs-on: ubuntu-latest
     permissions:
       contents: write

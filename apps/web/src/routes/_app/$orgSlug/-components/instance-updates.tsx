@@ -9,10 +9,28 @@
 import { Rocket01Icon } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 
-import { useCheckForUpdate, useUpdate, useUpdateStatus } from "@/features/updates";
+import {
+  useCheckForUpdate,
+  useSetUpdateChannel,
+  useUpdate,
+  useUpdateStatus,
+  type UpdateChannel,
+} from "@/features/updates";
 import { SettingsFooter, SettingsRow, SettingsSection } from "@/shared/components/settings-section";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+
+const CHANNEL_ITEMS: Array<{ value: UpdateChannel; label: string }> = [
+  { value: "stable", label: "Stable" },
+  { value: "nightly", label: "Nightly" },
+];
 
 function lastCheckedLabel(iso: string | null): string {
   if (!iso) return "never";
@@ -24,6 +42,24 @@ export function UpdatesCard() {
   const status = useUpdateStatus();
   const { openUpdate } = useUpdate();
   const check = useCheckForUpdate();
+  const setChannel = useSetUpdateChannel();
+
+  const onChannelChange = (next: UpdateChannel | null) => {
+    const picked = CHANNEL_ITEMS.find((item) => item.value === next);
+    if (!picked || picked.value === status.channel) return;
+    setChannel.mutate(
+      { channel: picked.value },
+      {
+        onSuccess: () =>
+          toast.success(
+            picked.value === "nightly"
+              ? "Nightly channel enabled. Check for updates to pick up the latest build."
+              : "Back on the stable channel.",
+          ),
+        onError: (err) => toast.error(err.message ?? "Failed to switch channel"),
+      },
+    );
+  };
 
   const onCheck = () =>
     check.mutate(
@@ -60,6 +96,33 @@ export function UpdatesCard() {
             </code>
             {status.dryRun && <Badge variant="secondary">dry-run</Badge>}
           </span>
+        }
+      />
+      <SettingsRow
+        title="Release channel"
+        description={
+          status.channel === "nightly"
+            ? "Nightly ships every change from main after CI. Builds may break, and there is no way back to stable until the next stable release passes your running build."
+            : "Stable receives curated releases. Switch to nightly to test changes the day they land."
+        }
+        control={
+          <Select
+            value={status.channel}
+            onValueChange={onChannelChange}
+            items={CHANNEL_ITEMS}
+            disabled={setChannel.isPending}
+          >
+            <SelectTrigger className="w-32" aria-label="Release channel">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CHANNEL_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         }
       />
       <SettingsRow

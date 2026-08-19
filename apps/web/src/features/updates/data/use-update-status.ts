@@ -27,9 +27,13 @@ function useIsInstallAdmin(): boolean {
   return useRouteContext({ from: "/_app" }).isInstallAdmin;
 }
 
+export type UpdateChannel = "stable" | "nightly";
+
 export interface UpdateStatus {
   current: string;
   dryRun: boolean;
+  /** The update stream this install tracks (release-channels design). */
+  channel: UpdateChannel;
   /** A newer version is cached as available. */
   available: boolean;
   latest: string | null;
@@ -88,6 +92,7 @@ export function useUpdateStatus(): UpdateStatus {
   return {
     current: current ?? "…",
     dryRun,
+    channel: settings.data?.channel ?? "stable",
     available,
     latest: parts.latest,
     notes: parts.notes,
@@ -146,6 +151,16 @@ export function useCancelUpdate() {
 }
 
 export function useDismissUpdate() {
+  return useMutation({
+    ...orpc.system.updateSettings.save.mutationOptions(),
+    onSuccess: () => void invalidateSettings(),
+  });
+}
+
+/** Switch the update stream. The server clears any cached "available" target
+ *  from the previous channel, so invalidate settings to drop it client-side
+ *  too (the banner must never advertise across channels). */
+export function useSetUpdateChannel() {
   return useMutation({
     ...orpc.system.updateSettings.save.mutationOptions(),
     onSuccess: () => void invalidateSettings(),

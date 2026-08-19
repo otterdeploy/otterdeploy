@@ -11,15 +11,21 @@ const tag = "system";
 const base = "/system";
 const emptyInput = z.object({}).optional();
 
+// The update streams an instance can track (docs/designs/release-channels.md):
+// stable = curated releases (releases/latest); nightly = continuous prerelease
+// tags cut from main. A closed enum on BOTH input and output so a client can
+// neither request nor be told about a channel the updater doesn't implement.
+const updateChannelSchema = z.enum(["stable", "nightly"]);
+
 const versionInfoSchema = z.object({
   current: z.string(),
-  channel: z.string(),
+  channel: updateChannelSchema,
   runtime: z.enum(["docker", "swarm"]),
   dryRun: z.boolean(),
 });
 
 const updateSettingsSchema = z.object({
-  channel: z.string(),
+  channel: updateChannelSchema,
   autoUpdateEnabled: z.boolean(),
   lastCheckedAt: z.string().nullable(),
   availableVersion: z.string().nullable(),
@@ -29,7 +35,7 @@ const updateSettingsSchema = z.object({
 });
 
 const saveUpdateSettingsInput = z.object({
-  channel: z.string().optional(),
+  channel: updateChannelSchema.optional(),
   autoUpdateEnabled: z.boolean().optional(),
   dismissedVersion: z.string().nullable().optional(),
 });
