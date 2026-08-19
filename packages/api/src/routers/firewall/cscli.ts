@@ -20,7 +20,9 @@ import { Docker } from "@otterdeploy/docker";
  *  agent reads as unreachable instead of hanging the Firewall view. */
 const EXEC_TIMEOUT_MS = 30_000;
 
-function collectStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
+/** Buffer a whole (finite) attach stream. Shared with the migrate router's
+ *  container execs. */
+export function collectStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
     const done = () => resolve(Buffer.concat(chunks));

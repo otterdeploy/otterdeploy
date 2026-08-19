@@ -26,6 +26,7 @@ import { RuntimeSettingsCard } from "../../-components/instance-runtime";
 import { ServerIpCard } from "../../-components/instance-server-ip";
 import { SocialSignInCard } from "../../-components/instance-social-sign-in";
 import { EdgeDefaultsCard } from "../../-components/instance-edge";
+import { MigrationCard } from "../../-components/instance-migration";
 import { UpdatesCard } from "../../-components/instance-updates";
 
 export const Route = createFileRoute("/_app/$orgSlug/settings/instance/general")({
@@ -52,6 +53,7 @@ function InstanceRoute() {
       <SocialSignInCard organizationId={organization.id} />
       <CrowdsecCard organizationId={organization.id} />
       <RuntimeSettingsCard organizationId={organization.id} />
+      <MigrationCard />
     </Page>
   );
 }
