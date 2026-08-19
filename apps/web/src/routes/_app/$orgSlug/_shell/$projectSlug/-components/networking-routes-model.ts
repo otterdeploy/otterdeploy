@@ -24,6 +24,8 @@ export interface RouteRow {
   isHttp: boolean;
   protected: boolean;
   routePolicy: RoutePolicy;
+  /** Raw Caddyfile directives for the site block, null when none. */
+  customDirectives: string | null;
 }
 
 export interface RouteGroup {
@@ -64,6 +66,7 @@ export function mapRoute(
     isHttp,
     protected: route.protected,
     routePolicy: route.routePolicy,
+    customDirectives: route.customDirectives,
   };
 }
 

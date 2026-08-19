@@ -59,6 +59,38 @@ describe("builder", () => {
     );
   });
 
+  test("buildHttpBlock splices custom directives inside the site block, one indent level in", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      usesAcme: true,
+      customDirectives: 'header X-Robots-Tag "noindex"\nhandle_errors {\n\trespond "oops" 502\n}',
+    });
+    expect(output).toBe(
+      [
+        "myapp-acme.otterdeploy.dev {",
+        "\treverse_proxy otterdeploy-acme-myapp:3000",
+        '\theader X-Robots-Tag "noindex"',
+        "\thandle_errors {",
+        '\t\trespond "oops" 502',
+        "\t}",
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  test("buildHttpBlock drops a stored custom block that fails the brace-balance schema", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      usesAcme: true,
+      customDirectives: "}\nevil.example.com {\n\treverse_proxy 127.0.0.1:2019",
+    });
+    expect(output).toBe(
+      ["myapp-acme.otterdeploy.dev {", "\treverse_proxy otterdeploy-acme-myapp:3000", "}"].join(
+        "\n",
+      ),
+    );
+  });
+
   test("buildHttpBlock with protected=true emits forward_auth + ungated reserved-path handle", () => {
     const output = buildHttpBlock(
       { ...httpRoute, usesAcme: true, protected: true },
@@ -103,7 +135,9 @@ describe("builder", () => {
   });
 
   test("edgeLogSink emits per-site access log + request-id header", () => {
-    const output = buildHttpBlock(httpRoute, { edgeLogSink: "host.docker.internal:9100" });
+    const output = buildHttpBlock(httpRoute, {
+      edgeLogSink: "host.docker.internal:9100",
+    });
     expect(output).toContain("log {");
     expect(output).toContain("output net host.docker.internal:9100");
     expect(output).toContain("format json");

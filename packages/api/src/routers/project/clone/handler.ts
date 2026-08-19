@@ -26,6 +26,7 @@ import { serviceEnvVar } from "@otterdeploy/db/schema/project";
 import { Result, TaggedError } from "better-result";
 import { eq, inArray } from "drizzle-orm";
 
+import { decryptEnvValue } from "../../../lib/env-crypto";
 import { getProjectInOrg } from "../queries";
 import { type CloneOutcome, executeClone } from "./execute";
 import { type CloneSource, type ClonePlan, planClone } from "./plan";
@@ -95,6 +96,7 @@ async function buildPlan(
           resourceId: serviceEnvVar.serviceResourceId,
           key: serviceEnvVar.key,
           value: serviceEnvVar.value,
+          sealed: serviceEnvVar.sealed,
         })
         .from(serviceEnvVar)
         .where(
@@ -110,7 +112,11 @@ async function buildPlan(
   const envBySource = new Map<string, Record<string, string>>();
   for (const row of envRows) {
     const bag = envBySource.get(row.resourceId) ?? {};
-    bag[row.key] = row.value;
+    // Encrypted at rest (od-3pp7): decrypt unsealed values so ref detection
+    // and the clone's re-insert (which re-encrypts) see plaintext. Sealed
+    // rows keep ciphertext — their plaintext never leaves the resolver, and
+    // pre-encryption clones copied that same ciphertext verbatim.
+    bag[row.key] = row.sealed ? row.value : await decryptEnvValue(row.value);
     envBySource.set(row.resourceId, bag);
   }
 
@@ -135,7 +141,10 @@ export async function previewClone(input: CloneInput): Promise<Result<ClonePrevi
   if (built.isErr()) return Result.err(built.error);
   const { plan } = built.value;
   return Result.ok({
-    names: plan.items.map((i) => ({ sourceName: i.sourceName, targetName: i.targetName })),
+    names: plan.items.map((i) => ({
+      sourceName: i.sourceName,
+      targetName: i.targetName,
+    })),
     externalRefs: plan.externalRefs,
   });
 }

@@ -900,8 +900,12 @@ export const serviceEnvVar = pgTable(
       .$type<PreviewId>()
       .references(() => preview.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
+    // Encrypted at rest (od-3pp7): every write stores a v2 "env-vars"
+    // ciphertext envelope (packages/api/src/lib/env-crypto.ts); reads
+    // decrypt-or-passthrough so pre-backfill plaintext rows keep working
+    // until scripts/encrypt-env-vars.ts re-encrypts them.
     value: text("value").notNull(),
-    // Drives masking in the UI. Does not affect storage (plaintext for v1).
+    // Drives masking in the UI only; storage is encrypted either way.
     isSecret: boolean("is_secret").notNull().default(false),
     // Write-only secret (Railway-style "sealed" variable). When true,
     // `value` holds a v2 ciphertext envelope (domain "env-vars", see
@@ -953,6 +957,8 @@ export const projectEnvVar = pgTable(
       .$type<EnvId>()
       .references(() => environment.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
+    // Encrypted at rest (od-3pp7): see the matching column on
+    // `serviceEnvVar` for the storage/read contract.
     value: text("value").notNull(),
     isSecret: boolean("is_secret").notNull().default(true),
     // Write-only secret (Railway-style "sealed" variable). See the matching

@@ -2,6 +2,7 @@ import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 
+import { customDirectiveLines } from "./custom-directives";
 import { buildLayer4Block, buildLayer4SiteBlocks, sanitizeMatcherName } from "./layer4";
 import { assertSafeRoute } from "./route-validation";
 
@@ -29,6 +30,10 @@ export interface ProxyRouteInput {
   protected?: boolean;
   /** Allowlisted behavior rendered by trusted builder code. */
   routePolicy?: RoutePolicy;
+  /** Raw Caddyfile directives spliced verbatim inside the site block (HTTP
+   *  routes only). Brace-balance-checked at the write boundary AND re-checked
+   *  here (see customDirectiveLines); Caddy's /adapt pass is the syntax gate. */
+  customDirectives?: string | null;
   /** Operator-uploaded certificate to serve for this domain instead of
    *  ACME / tls internal. Paths are CONTAINER paths under the `/etc/caddy`
    *  mount, set by the reconcile layer only for certs whose files were
@@ -232,6 +237,7 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
   }
 
   lines.push(...routePolicyLines(route.routePolicy));
+  lines.push(...customDirectiveLines(route.customDirectives));
 
   lines.push("}");
   return lines.join("\n");
@@ -286,7 +292,11 @@ function buildGlobalBlock(o: GlobalBlockOptions): string[] {
 /** One HTTP site block per http route, each preceded by a blank separator. */
 function buildHttpSiteBlocks(
   httpRoutes: ProxyRouteInput[],
-  options: { authzUpstream?: string; edgeLogSink?: string; crowdsec?: CrowdsecConfig },
+  options: {
+    authzUpstream?: string;
+    edgeLogSink?: string;
+    crowdsec?: CrowdsecConfig;
+  },
 ): string[] {
   const lines: string[] = [];
   for (const route of httpRoutes) {

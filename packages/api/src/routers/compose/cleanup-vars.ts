@@ -18,6 +18,7 @@ import { databaseResource, resource, serviceEnvVar } from "@otterdeploy/db/schem
  */
 import { and, eq, ne } from "drizzle-orm";
 
+import { decryptEnvValue } from "../../lib/env-crypto";
 import { parseCompose } from "../../stack/compose";
 import { deleteProjectEnvVar, getProjectById } from "../project/queries";
 import { collectVarRefs } from "./env";
@@ -59,15 +60,23 @@ async function collectReferencedKeys(
   // Services: scope-ref tokens in their env values. (A deleted stack's child
   // service rows are already gone by the time this runs, so they don't count.)
   const serviceEnvRows = await db
-    .select({ value: serviceEnvVar.value })
+    .select({ value: serviceEnvVar.value, sealed: serviceEnvVar.sealed })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
     .where(and(eq(resource.projectId, projectId), ne(resource.id, excludeResourceId)));
-  for (const row of serviceEnvRows) extractScopeRefs(row.value, referenced);
+  for (const row of serviceEnvRows) {
+    // Encrypted at rest (od-3pp7). Sealed rows are skipped: this scan could
+    // never see into their ciphertext before encryption either.
+    if (row.sealed) continue;
+    extractScopeRefs(await decryptEnvValue(row.value), referenced);
+  }
 
   // Databases: scope-ref tokens in extraEnv values.
   const dbRows = await db
-    .select({ extraEnv: databaseResource.extraEnv, id: databaseResource.resourceId })
+    .select({
+      extraEnv: databaseResource.extraEnv,
+      id: databaseResource.resourceId,
+    })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
     .where(and(eq(resource.projectId, projectId), ne(resource.id, excludeResourceId)));
@@ -116,6 +125,8 @@ export async function cleanupOrphanedComposeVars(
     removed.push(key);
   }
   if (removed.length > 0) {
-    log.set({ composeVarCleanup: { resourceId: args.deletedResourceId, removed } });
+    log.set({
+      composeVarCleanup: { resourceId: args.deletedResourceId, removed },
+    });
   }
 }

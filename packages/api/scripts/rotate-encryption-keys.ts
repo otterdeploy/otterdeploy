@@ -24,8 +24,11 @@
  *   git_provider.client_secret_ciphertext         -> domain "git-secrets"
  *   git_provider.webhook_secret_ciphertext        -> domain "git-secrets"
  *   git_provider.private_key_pem_ciphertext       -> domain "git-secrets"
- *   project_env_var.value  (sealed = true only)   -> domain "env-vars"
- *   service_env_var.value  (sealed = true only)   -> domain "env-vars"
+ *   project_env_var.value  (ciphertext rows)       -> domain "env-vars"
+ *   service_env_var.value  (ciphertext rows)       -> domain "env-vars"
+ *     (od-3pp7 encrypts ALL env values at rest, not just sealed ones;
+ *      rows still in pre-backfill plaintext are skipped here — run
+ *      `encrypt:env-vars` to bring them into the envelope first)
  *
  * NOT covered (documented gaps, see od-5j8.12's closing report):
  *   - backup archive encryption (encryptBytes/decryptBytes) stays on the
@@ -68,6 +71,7 @@ import { sshKey } from "@otterdeploy/db/schema/ssh-key";
 import { eq } from "drizzle-orm";
 
 import { currentKeyId, rotateForDomain, type SecretDomain } from "../src/lib/crypto";
+import { isV1Format, isV2Format } from "../src/lib/crypto-envelope";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -133,7 +137,10 @@ async function rotateSshKeys(): Promise<RotateSummary> {
 // container_registry.encrypted_password
 async function rotateContainerRegistries(): Promise<RotateSummary> {
   const rows = await db
-    .select({ id: containerRegistry.id, value: containerRegistry.encryptedPassword })
+    .select({
+      id: containerRegistry.id,
+      value: containerRegistry.encryptedPassword,
+    })
     .from(containerRegistry);
   return rotateColumn({
     table: "container_registry.encrypted_password",
@@ -151,7 +158,10 @@ async function rotateContainerRegistries(): Promise<RotateSummary> {
 // custom_certificate.key_ciphertext
 async function rotateCustomCertificates(): Promise<RotateSummary> {
   const rows = await db
-    .select({ id: customCertificate.id, value: customCertificate.keyCiphertext })
+    .select({
+      id: customCertificate.id,
+      value: customCertificate.keyCiphertext,
+    })
     .from(customCertificate);
   return rotateColumn({
     table: "custom_certificate.key_ciphertext",
@@ -216,32 +226,31 @@ async function rotateGitProviders(): Promise<RotateSummary[]> {
   ];
 }
 
-// project_env_var.value, sealed rows only (non-sealed rows are plaintext
-// by design, nothing to rotate).
+// project_env_var.value: every ciphertext row (od-3pp7 encrypts all env
+// values at rest). Rows still in pre-backfill plaintext are not this
+// script's job — `encrypt:env-vars` envelopes them first.
 async function rotateProjectEnvVars(): Promise<RotateSummary> {
   const rows = await db
     .select({ id: projectEnvVar.id, value: projectEnvVar.value })
-    .from(projectEnvVar)
-    .where(eq(projectEnvVar.sealed, true));
+    .from(projectEnvVar);
   return rotateColumn({
-    table: "project_env_var.value (sealed)",
+    table: "project_env_var.value",
     domain: "env-vars",
-    rows,
+    rows: rows.filter((r) => isV1Format(r.value) || isV2Format(r.value)),
     writeBack: (id, value) =>
       db.update(projectEnvVar).set({ value }).where(eq(projectEnvVar.id, id)).then(),
   });
 }
 
-// service_env_var.value, sealed rows only.
+// service_env_var.value: every ciphertext row (see rotateProjectEnvVars).
 async function rotateServiceEnvVars(): Promise<RotateSummary> {
   const rows = await db
     .select({ id: serviceEnvVar.id, value: serviceEnvVar.value })
-    .from(serviceEnvVar)
-    .where(eq(serviceEnvVar.sealed, true));
+    .from(serviceEnvVar);
   return rotateColumn({
-    table: "service_env_var.value (sealed)",
+    table: "service_env_var.value",
     domain: "env-vars",
-    rows,
+    rows: rows.filter((r) => isV1Format(r.value) || isV2Format(r.value)),
     writeBack: (id, value) =>
       db.update(serviceEnvVar).set({ value }).where(eq(serviceEnvVar.id, id)).then(),
   });

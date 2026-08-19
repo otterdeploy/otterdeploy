@@ -152,6 +152,42 @@ describe("upsertServiceEnvVar, sealed write path", () => {
   });
 });
 
+describe("upsertServiceEnvVar, unsealed rows are encrypted at rest too (od-3pp7)", () => {
+  test("stores ciphertext in the DB but echoes the caller's plaintext back", async () => {
+    nextSelectRows = [];
+    lastInsertReturn = [
+      {
+        id: "sev_1",
+        serviceResourceId,
+        environmentId: null,
+        previewId: null,
+        key: "DATABASE_URL",
+        get value() {
+          return capturedValue();
+        },
+        isSecret: false,
+        sealed: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    const row = await upsertServiceEnvVar({
+      serviceResourceId,
+      key: "DATABASE_URL",
+      value: "postgres://user:pw@host/db",
+    });
+
+    // What hit the DB is a v2 env-vars envelope, never the plaintext…
+    expect(capturedValue().startsWith("v2:env-vars:")).toBe(true);
+    expect(capturedValue()).not.toContain("postgres://");
+    expect(await decryptForDomain(capturedValue(), "env-vars")).toBe("postgres://user:pw@host/db");
+    // …while the caller (and the UI it renders) gets the plaintext echo.
+    expect(row.sealed).toBe(false);
+    expect(row.value).toBe("postgres://user:pw@host/db");
+  });
+});
+
 describe("bulkReplaceServiceEnvVars, sealed rows survive wholesale replace", () => {
   test("an existing sealed row is preserved verbatim; a smuggled overwrite for its key is dropped", async () => {
     const existingSealed = {

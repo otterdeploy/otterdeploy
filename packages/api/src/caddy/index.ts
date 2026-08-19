@@ -58,6 +58,7 @@ function toRouteInput(r: ProxyRouteRecord): ProxyRouteInput {
     usesAcme: r.usesAcme,
     protected: r.protected,
     routePolicy: r.routePolicy,
+    customDirectives: r.customDirectives,
   };
 }
 
@@ -285,16 +286,19 @@ export interface SaveRoutePolicyResult {
 }
 
 /**
- * Persist an allowlisted route policy and atomically reconcile it. If Caddy
- * cannot accept the generated configuration, restore the previous policy and
- * reload the last-known-good desired state so database and edge do not drift.
+ * Persist one user-editable route field and atomically reconcile it. If
+ * Caddy cannot accept the generated configuration (the reconciler adapts the
+ * full config through Caddy's /adapt endpoint), write `rollback` and reload
+ * last-known-good so database and edge never drift. The adapt error comes
+ * back verbatim so the editor can show Caddy's own parse message.
  */
-export async function saveRoutePolicy(
+async function saveRouteField(
   route: ProxyRouteRecord,
-  policy: RoutePolicy,
+  patch: Partial<Pick<ProxyRouteRecord, "routePolicy" | "customDirectives">>,
+  rollback: Partial<Pick<ProxyRouteRecord, "routePolicy" | "customDirectives">>,
   rlog?: RequestLogger,
 ): Promise<SaveRoutePolicyResult> {
-  const updated = await updateProxyRoute(route.id, { routePolicy: policy });
+  const updated = await updateProxyRoute(route.id, patch);
   if (!updated) return { route, applied: false, error: "Route no longer exists." };
   const result = await reconcile(rlog);
   const error =
@@ -302,7 +306,31 @@ export async function saveRoutePolicy(
     result.skipped.find((entry) => entry.projectId === route.projectId)?.error ??
     null;
   if (!error) return { route: updated, applied: true, error: null };
-  await updateProxyRoute(route.id, { routePolicy: route.routePolicy });
+  await updateProxyRoute(route.id, rollback);
   await reconcile(rlog);
   return { route, applied: false, error };
+}
+
+/** Persist an allowlisted route policy with reconcile + rollback. */
+export function saveRoutePolicy(
+  route: ProxyRouteRecord,
+  policy: RoutePolicy,
+  rlog?: RequestLogger,
+): Promise<SaveRoutePolicyResult> {
+  return saveRouteField(route, { routePolicy: policy }, { routePolicy: route.routePolicy }, rlog);
+}
+
+/** Persist raw per-route Caddyfile directives (od-3pp7's sibling feature,
+ *  od-f4rb) with the same reconcile + rollback contract. */
+export function saveRouteCustomDirectives(
+  route: ProxyRouteRecord,
+  directives: string | null,
+  rlog?: RequestLogger,
+): Promise<SaveRoutePolicyResult> {
+  return saveRouteField(
+    route,
+    { customDirectives: directives },
+    { customDirectives: route.customDirectives },
+    rlog,
+  );
 }

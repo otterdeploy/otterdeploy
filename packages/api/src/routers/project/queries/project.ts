@@ -18,6 +18,7 @@ import { createError } from "evlog";
 
 import { getProxyRouteById } from "../../../caddy/queries";
 import { decryptForDomain } from "../../../lib/crypto";
+import { decryptEnvValue } from "../../../lib/env-crypto";
 
 // The org-wide GROUP BY tallies behind the project-list cards now live in
 // ./project-tallies.ts (this file stays row-level project/environment CRUD).
@@ -75,7 +76,10 @@ export async function getProjectInOrg(input: {
 export async function getRouteInOrg(routeId: ProxyRouteId, organizationId: OrganizationId) {
   const route = await getProxyRouteById(routeId);
   if (!route) return null;
-  const proj = await getProjectInOrg({ projectId: route.projectId, organizationId });
+  const proj = await getProjectInOrg({
+    projectId: route.projectId,
+    organizationId,
+  });
   if (!proj) return null;
   return route;
 }
@@ -283,7 +287,11 @@ export async function loadProjectEnvBag(input: {
   environmentId: EnvironmentId;
 }): Promise<Record<string, string>> {
   const rows = await db
-    .select({ key: projectEnvVar.key, value: projectEnvVar.value, sealed: projectEnvVar.sealed })
+    .select({
+      key: projectEnvVar.key,
+      value: projectEnvVar.value,
+      sealed: projectEnvVar.sealed,
+    })
     .from(projectEnvVar)
     .where(
       and(
@@ -293,7 +301,11 @@ export async function loadProjectEnvBag(input: {
     );
   const out: Record<string, string> = {};
   for (const row of rows) {
-    out[row.key] = row.sealed ? await decryptForDomain(row.value, "env-vars") : row.value;
+    // Sealed rows are always ciphertext (loud failure on a bad keyring);
+    // unsealed rows decrypt-or-passthrough until the od-3pp7 backfill runs.
+    out[row.key] = row.sealed
+      ? await decryptForDomain(row.value, "env-vars")
+      : await decryptEnvValue(row.value);
   }
   return out;
 }

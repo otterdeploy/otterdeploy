@@ -142,10 +142,17 @@ export const proxyRoute = pgTable(
     // authorizing org is derived from projectId → project.organizationId.
     // See docs/designs/deployment-protection.md.
     protected: boolean("protected").notNull().default(false),
-    // Allowlisted edge behavior rendered by trusted builder code. Unlike the
-    // former custom_directives text escape hatch, this cannot introduce
-    // handlers, upstreams, paths, filesystem access, or global options.
+    // Allowlisted edge behavior rendered by trusted builder code: the safe,
+    // structured menu (headers, HSTS, compression, body limits, …).
     routePolicy: jsonb("route_policy").$type<RoutePolicy>().notNull().default(DEFAULT_ROUTE_POLICY),
+    // Raw Caddyfile directives spliced verbatim inside this route's site
+    // block (od-f4rb, owner decision 2026-08-19 reversing od-5j8.6's removal
+    // of the escape hatch). Guarded at the write boundary by
+    // customDirectivesSchema (length cap + brace balance so the text cannot
+    // escape its site block) and at apply time by the reconciler's full-config
+    // Caddy /adapt validation with rollback, plus node-push's on-node
+    // `caddy validate` before the live file is swapped. Null = none.
+    customDirectives: text("custom_directives"),
     // Optional access PIN for the auth wall (NetBird-style): an argon2 hash
     // of a short numeric code anyone can enter on the wall page, no org
     // account or email invite needed. Null = the PIN method is off. Only

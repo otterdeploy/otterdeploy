@@ -23,6 +23,7 @@ import { signGrantToken } from "../../authz/tokens";
 import {
   reconcile,
   renderProjectCaddyfile,
+  saveRouteCustomDirectives,
   saveRoutePolicy,
   type ProjectCaddyfile,
   type SaveRoutePolicyResult,
@@ -115,17 +116,39 @@ export async function saveGlobalCaddyOptions(
   return next;
 }
 
-/** Persist the allowlisted route policy, then reconcile with rollback on error. */
-export async function setProxyRoutePolicy(
-  input: OrgRef & { routeId: ProxyRouteId; policy: RoutePolicy },
-  rlog?: RequestLogger,
+/** Org-scope the route lookup, then run one save-with-rollback on it. Shared
+ *  by the policy and custom-directives mutations so both keep the same
+ *  applied/error contract (the editor surfaces Caddy's own parse message). */
+async function withRouteInOrg(
+  input: OrgRef & { routeId: ProxyRouteId },
+  save: (
+    route: NonNullable<Awaited<ReturnType<typeof getRouteInOrg>>>,
+  ) => Promise<SaveRoutePolicyResult>,
 ): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
   const route = await getRouteInOrg(input.routeId, input.organizationId);
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
   }
-  const result = await saveRoutePolicy(route, input.policy, rlog);
-  return Result.ok(result);
+  return Result.ok(await save(route));
+}
+
+/** Persist the allowlisted route policy, then reconcile with rollback on error. */
+export function setProxyRoutePolicy(
+  input: OrgRef & { routeId: ProxyRouteId; policy: RoutePolicy },
+  rlog?: RequestLogger,
+): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
+  return withRouteInOrg(input, (route) => saveRoutePolicy(route, input.policy, rlog));
+}
+
+/** Persist raw per-route Caddyfile directives (od-f4rb) with the same
+ *  reconcile-with-rollback contract as the policy save. */
+export function setProxyRouteCustomDirectives(
+  input: OrgRef & { routeId: ProxyRouteId; directives: string | null },
+  rlog?: RequestLogger,
+): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
+  // An emptied editor means "no custom block", not an empty string row.
+  const directives = input.directives === "" ? null : input.directives;
+  return withRouteInOrg(input, (route) => saveRouteCustomDirectives(route, directives, rlog));
 }
 
 export async function setProxyRouteProtection(

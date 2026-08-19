@@ -43,7 +43,10 @@ export async function listEnabledRoutePlacements(): Promise<
     .from(proxyRoute)
     .leftJoin(resource, eq(proxyRoute.resourceId, resource.id))
     .where(and(eq(proxyRoute.enabled, true), eq(proxyRoute.disabledByUser, false)));
-  return rows.map((r) => ({ ...r, placementServerId: r.placementServerId ?? null }));
+  return rows.map((r) => ({
+    ...r,
+    placementServerId: r.placementServerId ?? null,
+  }));
 }
 
 export async function listProxyRoutesByProject(projectId: ProjectId): Promise<ProxyRouteRecord[]> {
@@ -180,6 +183,7 @@ export async function updateProxyRoute(
     dnsState: "pointed" | "proxied" | "unpointed" | "unknown";
     dnsCheckedAt: Date | null;
     routePolicy: ProxyRouteRecord["routePolicy"];
+    customDirectives: string | null;
     domainVerifyToken: string | null;
     domainVerifiedAt: Date | null;
     accessPinHash: string | null;
@@ -201,7 +205,11 @@ export async function updateProxyRoute(
  *  delete is announced by key: the client drops exactly those. Rows come from
  *  `.returning()` on the schema columns, so the ids arrive already branded. */
 function publishRemovedRows(
-  rows: Array<{ id: ProxyRouteId; projectId: ProjectId; resourceId: ResourceId | null }>,
+  rows: Array<{
+    id: ProxyRouteId;
+    projectId: ProjectId;
+    resourceId: ResourceId | null;
+  }>,
 ): void {
   for (const row of rows) {
     publishRouteRemoved(row.projectId, row.id, row.resourceId);

@@ -68,6 +68,7 @@ export {
   listProjectProxyRoutes,
   removeDeploymentGuest,
   saveGlobalCaddyOptions,
+  setProxyRouteCustomDirectives,
   setProxyRoutePolicy,
   setProxyRouteProtection,
   setProxyRouteUserEnabled,

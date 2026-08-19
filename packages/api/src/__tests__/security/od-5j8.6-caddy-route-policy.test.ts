@@ -1,6 +1,10 @@
+import { customDirectivesSchema } from "@otterdeploy/shared/custom-directives";
 import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 /**
  * od-5j8.6: Caddy admin isolation + typed route policy.
+ * od-f4rb (2026-08-19): raw per-route directives reintroduced by owner
+ * decision; invariants 2/3 below were re-scoped from "no raw text exists"
+ * to "raw text is confined and validated".
  *
  * Invariant under test:
  *   1. `routeValidationError` (the final boundary before a value becomes a
@@ -9,10 +13,12 @@ import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/rou
  *      control plane itself minted (`otterdeploy-<slug>` service names, the
  *      `*.otterdeploy.internal` database naming convention, or the literal
  *      control-plane server/host.docker.internal pair).
- *   2. `routePolicySchema` is a closed (`.strict()`) allowlist. The former
- *      `custom_directives` raw-Caddyfile escape hatch cannot be
- *      reintroduced by smuggling an extra field through the typed policy.
- *   3. The `proxy_route` table itself no longer has a raw-directive column.
+ *   2. `routePolicySchema` is a closed (`.strict()`) allowlist: the typed
+ *      policy itself still cannot smuggle arbitrary fields.
+ *   3. `customDirectivesSchema` confines raw text to its own site block
+ *      (brace balance, length cap, no control chars), the builder
+ *      re-validates stored rows before splicing, and the save path goes
+ *      through Caddy /adapt validation with rollback.
  *   4. The Caddy admin API is reached only over the app's own configured
  *      admin URL/binary: reconcile/builder code never constructs a second,
  *      unvalidated admin endpoint.
@@ -177,7 +183,10 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist. Raw directive
       { header_up: "Host attacker.example" },
     ];
     for (const extra of hostileExtras) {
-      const result = routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, ...extra });
+      const result = routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        ...extra,
+      });
       expect(result.success).toBe(false);
     }
   });
@@ -185,8 +194,11 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist. Raw directive
   test("routeValidationError rejects a route whose policy carries a smuggled field", () => {
     const error = routeValidationError({
       ...baseHttpRoute,
-      // @ts-expect-error, deliberately hostile shape under test.
-      routePolicy: { ...DEFAULT_ROUTE_POLICY, customDirective: "reverse_proxy internal:9999" },
+      routePolicy: {
+        ...DEFAULT_ROUTE_POLICY,
+        // @ts-expect-error, deliberately hostile shape under test.
+        customDirective: "reverse_proxy internal:9999",
+      },
     });
     expect(error).toBe("route policy is invalid");
   });
@@ -201,51 +213,108 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist. Raw directive
 
   test("maxRequestBodyMb is bounded. Cannot be set to an unbounded or negative value", () => {
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: -1 }).success,
+      routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        maxRequestBodyMb: -1,
+      }).success,
     ).toBe(false);
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 0 }).success,
+      routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        maxRequestBodyMb: 0,
+      }).success,
     ).toBe(false);
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 101 }).success,
+      routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        maxRequestBodyMb: 101,
+      }).success,
     ).toBe(false);
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 100 }).success,
+      routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        maxRequestBodyMb: 100,
+      }).success,
     ).toBe(true);
   });
 
   test("compression/hsts/frameOptions/referrerPolicy are closed enums, no arbitrary directive string", () => {
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, compression: "brotli-with-backdoor" })
-        .success,
+      routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        compression: "brotli-with-backdoor",
+      }).success,
     ).toBe(false);
     expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, hsts: "custom" }).success).toBe(
       false,
     );
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, frameOptions: "allow-all" }).success,
+      routePolicySchema.safeParse({
+        ...DEFAULT_ROUTE_POLICY,
+        frameOptions: "allow-all",
+      }).success,
     ).toBe(false);
   });
 });
 
-describe("[od-5j8.6] the raw directive escape hatch is structurally gone", () => {
-  test("proxy_route no longer has a custom-directives column", () => {
-    const schema = source("packages/db/src/schema/proxy-route.ts");
-    // Match an actual field/column declaration, not the explanatory comment
-    // that documents its removal ("Unlike the former custom_directives...").
-    expect(schema).not.toMatch(/customDirectives\s*:|["'`]custom_directives["'`]\)/);
+// od-f4rb (owner decision 2026-08-19) reintroduced raw per-route directives,
+// reversing this invariant's original "structurally gone" posture. What
+// remains non-negotiable is the BOUNDARY: raw text is confined to its own
+// site block (brace balance at the write schema AND re-checked at build), and
+// nothing reaches the edge without Caddy's own /adapt validation + rollback.
+describe("[od-f4rb] raw directives are confined to their site block", () => {
+  test("a block cannot close its site block and claim another domain", () => {
+    const escape = "}\nevil.example.com {\n\treverse_proxy 127.0.0.1:2019\n";
+    expect(customDirectivesSchema.safeParse(escape).success).toBe(false);
   });
 
-  test("project no longer has a custom Caddy config column", () => {
-    const schema = source("packages/db/src/schema/project.ts");
-    expect(schema).not.toMatch(/customCaddyConfig|custom_caddy_config/);
+  test("an unclosed opening brace is rejected (would swallow the site's closing brace)", () => {
+    expect(customDirectivesSchema.safeParse("handle /x {\n\trespond 404").success).toBe(false);
   });
 
-  test("the proxy contract no longer accepts a raw directives field from a client", () => {
+  test("depth may never dip negative even if it recovers to zero", () => {
+    expect(customDirectivesSchema.safeParse("}\nx {").success).toBe(false);
+  });
+
+  test("braces inside quoted strings and comments are literal text, not structure", () => {
+    expect(customDirectivesSchema.safeParse('respond "}" 200').success).toBe(true);
+    expect(customDirectivesSchema.safeParse("# a } comment\nencode gzip").success).toBe(true);
+  });
+
+  test("balanced, ordinary directives pass", () => {
+    const ok = 'header X-Robots-Tag "noindex"\nhandle_errors {\n\trespond "oops" 502\n}';
+    expect(customDirectivesSchema.safeParse(ok).success).toBe(true);
+  });
+
+  test("oversized and control-character payloads are rejected", () => {
+    expect(customDirectivesSchema.safeParse("x".repeat(20_000)).success).toBe(false);
+    expect(customDirectivesSchema.safeParse("respond ok\u0000").success).toBe(false);
+    expect(customDirectivesSchema.safeParse("respond ok\u001b[31m").success).toBe(false);
+  });
+
+  test("the contract accepts directives only through the balance-checked schema", () => {
     const contract = source("packages/api/src/routers/project/contract/proxy.ts");
-    expect(contract).not.toMatch(/customDirectives|rawDirectives/i);
+    expect(contract).toContain("customDirectivesSchema");
   });
 
+  test("the builder re-validates stored text before splicing (a bad row degrades to no block, not a corrupted edge config)", () => {
+    // The re-validation lives in customDirectiveLines (caddy/custom-directives.ts),
+    // and buildHttpBlock must actually route stored text through it.
+    const lines = source("packages/api/src/caddy/custom-directives.ts");
+    expect(lines).toContain("customDirectivesSchema.safeParse");
+    const builder = source("packages/api/src/caddy/builder.ts");
+    expect(builder).toContain("customDirectiveLines(route.customDirectives)");
+  });
+
+  test("the save path reconciles through Caddy /adapt validation with rollback", () => {
+    const caddyIndex = source("packages/api/src/caddy/index.ts");
+    expect(caddyIndex).toContain("saveRouteCustomDirectives");
+    // Rollback restores the previous value when the edge rejects the config.
+    expect(caddyIndex).toMatch(/customDirectives:\s*route\.customDirectives/);
+  });
+});
+
+describe("[od-5j8.6] the builder and reconciler still validate every route", () => {
   test("every Caddyfile block builder runs assertSafeRoute before emitting output", () => {
     const builder = source("packages/api/src/caddy/builder.ts");
     // Every exported block-building function that consumes a route must call

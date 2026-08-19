@@ -100,6 +100,20 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
             );
           }
         }
+        // Raw Caddyfile directives (od-f4rb). Same rollback contract as the
+        // policy: `applied: false` carries Caddy's own parse/adapt message,
+        // thrown so the optimistic row rolls back and the editor shows it.
+        if (m.changes.customDirectives !== undefined) {
+          const result = await orpc.project.proxyRoute.setCustomDirectives.call({
+            routeId,
+            directives: m.changes.customDirectives,
+          });
+          if (!result.applied) {
+            throw new RoutePolicyRejectedError(
+              result.error ?? "Caddy rejected the custom directives",
+            );
+          }
+        }
       }),
     );
   },

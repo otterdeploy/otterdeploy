@@ -82,6 +82,7 @@ function toCurrentService(
  */
 import type { EnvironmentScopeInput } from "./queries/resource";
 
+import { decryptEnvValue } from "../../lib/env-crypto";
 import { inEnvironmentScope } from "./queries/resource";
 
 export async function loadCurrentState(
@@ -91,7 +92,11 @@ export async function loadCurrentState(
   const inScope = inEnvironmentScope(environmentScope);
   const [serviceRows, databaseRows, composeRows] = await Promise.all([
     db
-      .select({ resource, service: serviceResource, repoFullName: gitRepo.fullName })
+      .select({
+        resource,
+        service: serviceResource,
+        repoFullName: gitRepo.fullName,
+      })
       .from(resource)
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
       // Resolve the bound repo's fullName for the diff's portable `repo` compare.
@@ -154,7 +159,11 @@ export async function loadCurrentState(
     const envBySvc = new Map<string, Record<string, string>>();
     for (const e of envs) {
       const existing = envBySvc.get(e.serviceResourceId) ?? {};
-      existing[e.key] = e.value;
+      // Encrypted at rest (od-3pp7): the manifest diff compares declared
+      // plaintext against current state, so decrypt unsealed values here.
+      // Sealed rows keep ciphertext (their plaintext never leaves the
+      // resolver), exactly as this map carried before encryption.
+      existing[e.key] = e.sealed ? e.value : await decryptEnvValue(e.value);
       envBySvc.set(e.serviceResourceId, existing);
     }
 

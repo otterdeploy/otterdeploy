@@ -12,6 +12,7 @@ import {
   listProjectCertificates,
   listProjectProxyRoutes,
   saveGlobalCaddyOptions,
+  setProxyRouteCustomDirectives,
   setProxyRoutePolicy,
   setProxyRouteProtection,
   setProxyRouteUserEnabled,
@@ -93,6 +94,26 @@ export const proxyRouteRouter = {
       {
         routeId: input.routeId,
         policy: input.policy,
+        organizationId: context.activeOrganizationId,
+      },
+      context.log,
+    );
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+      });
+    }
+    return result.value;
+  }),
+
+  setCustomDirectives: requirePermission({
+    route: ["update"],
+  }).project.proxyRoute.setCustomDirectives.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+    const result = await setProxyRouteCustomDirectives(
+      {
+        routeId: input.routeId,
+        directives: input.directives,
         organizationId: context.activeOrganizationId,
       },
       context.log,
