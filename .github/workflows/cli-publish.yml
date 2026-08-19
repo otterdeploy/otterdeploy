@@ -32,6 +32,12 @@ permissions:
 
 jobs:
   publish:
+    # Stable tags only. Nightly prerelease tags (v0.16.0-nightly.20260820,
+    # cut daily by nightly.yml) must not spam npm with daily versions: nightly
+    # INSTANCES keep their stable CLI, and call-time compatibility is what the
+    # compat.ts header handshake is for. If a nightly ever needs a CLI-visible
+    # contract change, that's a future `@next` dist-tag, not this job.
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

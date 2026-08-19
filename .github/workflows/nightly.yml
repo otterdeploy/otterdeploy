@@ -1,0 +1,75 @@
+name: Nightly Release
+
+# Cuts the nightly channel's releases (docs/designs/release-channels.md,
+# od-tfs2). Once a day: if main moved since the last release tag (stable OR
+# nightly), tag HEAD as `v<next-minor>-nightly.<YYYYMMDD>` and kick the
+# images workflow at that tag.
+#
+# Why next-minor: every nightly sorts AFTER the current stable (nightly users
+# are ahead) and BEFORE the stable it will become (v0.16.0 outranks every
+# v0.16.0-nightly.*), so the updater's existing semver compare handles both
+# channel ordering and the nightly→stable catch-up with no special cases.
+#
+# Why the explicit `gh workflow run`: tags pushed with GITHUB_TOKEN never
+# trigger other workflows (GitHub's recursion guard), so the push alone would
+# build nothing. Dispatching images.yml AT the tag ref runs it with
+# ref_type=tag, which is exactly the release path: pinned images, a GitHub
+# prerelease (the `-` suffix), pinned install artifacts, and no promotion of
+# `latest/` or `releases/latest` — the stable channel never sees it.
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write # push the tag
+  actions: write # dispatch images.yml
+
+concurrency:
+  group: nightly-cutter
+  cancel-in-progress: false
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Tag and dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Nothing landed since the last release (stable or nightly)? Done.
+          if [ -n "$(git tag --points-at HEAD --list 'v*.*.*')" ]; then
+            echo "HEAD is already tagged: nothing new to release."
+            exit 0
+          fi
+
+          # Next-minor from the newest STABLE tag (no prerelease suffix).
+          latest_stable=$(git tag --list 'v*.*.*' --sort=-v:refname | grep -v -- - | head -1)
+          if [ -z "$latest_stable" ]; then
+            echo "::error::No stable release tag exists yet; cut a stable release first."
+            exit 1
+          fi
+          base=${latest_stable#v}
+          major=${base%%.*}
+          rest=${base#*.}
+          minor=${rest%%.*}
+          tag="v${major}.$((minor + 1)).0-nightly.$(date -u +%Y%m%d)"
+
+          # Re-run safety: the day's nightly already exists (e.g. a manual
+          # dispatch after the cron): don't mint a second one.
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag already exists. Skipping."
+            exit 0
+          fi
+
+          git tag "$tag" HEAD
+          git push origin "refs/tags/$tag"
+          echo "Tagged $tag at $(git rev-parse --short HEAD)."
+
+          gh workflow run images.yml --repo "$GITHUB_REPOSITORY" --ref "refs/tags/$tag"
+          echo "Dispatched images.yml at $tag."

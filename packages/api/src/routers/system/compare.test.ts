@@ -45,6 +45,25 @@ describe("compareVersions", () => {
   });
 });
 
+describe("nightly-channel ordering (release-channels design)", () => {
+  it("orders dated nightlies chronologically (zero-padded dates sort lexically)", () => {
+    expect(compareVersions("v0.16.0-nightly.20260820", "v0.16.0-nightly.20260821")).toBe(-1);
+    expect(compareVersions("v0.16.0-nightly.20260821", "v0.16.0-nightly.20260820")).toBe(1);
+  });
+
+  it("a nightly sorts AFTER the stable it forked from and BEFORE the stable it becomes", () => {
+    // Nightlies carry next-minor: users on nightly are ahead of current stable…
+    expect(isNewer("v0.15.2", "v0.16.0-nightly.20260820")).toBe(true);
+    // …and the eventual stable of the same core outranks every nightly of it
+    // (the channel-switch catch-up point).
+    expect(isNewer("v0.16.0-nightly.20260820", "v0.16.0")).toBe(true);
+    // A nightly of the NEXT core never counts as an update for the current stable
+    // running on the stable channel resolver, but the comparator itself must
+    // still refuse the reverse direction (downgrade guard).
+    expect(isNewer("v0.16.0", "v0.16.0-nightly.20260820")).toBe(false);
+  });
+});
+
 describe("isNewer (the update-available predicate)", () => {
   it("is true only when latest is a real version strictly newer than current", () => {
     expect(isNewer("v0.5.0", "v0.5.1")).toBe(true);

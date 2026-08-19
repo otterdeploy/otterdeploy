@@ -11,11 +11,16 @@ import { env } from "@otterdeploy/env/server";
 import { eq } from "drizzle-orm";
 
 import { isNewer } from "./compare";
-import { fetchLatestRelease, type LatestRelease } from "./release-source";
+import {
+  fetchLatestRelease,
+  parseUpdateChannel,
+  type LatestRelease,
+  type UpdateChannel,
+} from "./release-source";
 
 export interface VersionInfo {
   current: string;
-  channel: string;
+  channel: UpdateChannel;
   runtime: "docker" | "swarm";
   /** Whether apply runs in simulation (dev default / forced). The UI badges it
    *  so a dry-run "update" is never mistaken for the real thing. */
@@ -23,7 +28,7 @@ export interface VersionInfo {
 }
 
 export interface UpdateSettings {
-  channel: string;
+  channel: UpdateChannel;
   autoUpdateEnabled: boolean;
   lastCheckedAt: string | null;
   availableVersion: string | null;
@@ -67,7 +72,7 @@ export async function getVersionInfo(): Promise<VersionInfo> {
   const row = await loadRow();
   return {
     current: currentVersion(),
-    channel: row?.updateChannel ?? "stable",
+    channel: parseUpdateChannel(row?.updateChannel),
     runtime: env.DEPLOY_RUNTIME,
     dryRun: resolveDryRun(),
   };
@@ -87,7 +92,7 @@ export async function getUpdateSettings(): Promise<UpdateSettings> {
   const row = await loadRow();
   if (!row) return { ...DEFAULT_SETTINGS };
   return {
-    channel: row.updateChannel ?? "stable",
+    channel: parseUpdateChannel(row.updateChannel),
     autoUpdateEnabled: row.autoUpdateEnabled ?? false,
     lastCheckedAt: row.lastUpdateCheckedAt?.toISOString() ?? null,
     availableVersion: row.availableVersion ?? null,
@@ -98,7 +103,7 @@ export async function getUpdateSettings(): Promise<UpdateSettings> {
 }
 
 export interface SaveUpdateSettingsInput {
-  channel?: string;
+  channel?: UpdateChannel;
   autoUpdateEnabled?: boolean;
   /** Set to the currently-available version to dismiss its banner; null clears. */
   dismissedVersion?: string | null;
@@ -106,7 +111,20 @@ export interface SaveUpdateSettingsInput {
 
 export async function saveUpdateSettings(input: SaveUpdateSettingsInput): Promise<UpdateSettings> {
   const set: Partial<typeof platformSettings.$inferInsert> = {};
-  if (input.channel !== undefined) set.updateChannel = input.channel;
+  if (input.channel !== undefined) {
+    set.updateChannel = input.channel;
+    // A cached "available" target belongs to the channel that found it.
+    // Switching channels clears it so the banner never advertises a nightly
+    // to someone who just moved back to stable (or a stale stable to a new
+    // nightly user); the next check repopulates from the right stream.
+    const row = await loadRow();
+    if (parseUpdateChannel(row?.updateChannel) !== input.channel) {
+      set.availableVersion = null;
+      set.availableReleaseNotes = null;
+      set.availableReleaseUrl = null;
+      set.dismissedVersion = null;
+    }
+  }
   if (input.autoUpdateEnabled !== undefined) set.autoUpdateEnabled = input.autoUpdateEnabled;
   if (input.dismissedVersion !== undefined) set.dismissedVersion = input.dismissedVersion;
 
@@ -117,9 +135,12 @@ export async function saveUpdateSettings(input: SaveUpdateSettingsInput): Promis
   return getUpdateSettings();
 }
 
-/** Resolve the latest version. The testing override short-circuits the network
- *  fetch so the whole UI can be exercised with no real release. */
-async function resolveLatest(): Promise<{ release: LatestRelease | null; simulated: boolean }> {
+/** Resolve the latest version for the instance's channel. The testing override
+ *  short-circuits the network fetch so the whole UI can be exercised with no
+ *  real release. */
+async function resolveLatest(
+  channel: UpdateChannel,
+): Promise<{ release: LatestRelease | null; simulated: boolean }> {
   const override = env.OTTERDEPLOY_LATEST_VERSION_OVERRIDE;
   if (override) {
     return {
@@ -132,14 +153,16 @@ async function resolveLatest(): Promise<{ release: LatestRelease | null; simulat
       },
     };
   }
-  return { release: await fetchLatestRelease(), simulated: false };
+  return { release: await fetchLatestRelease(channel), simulated: false };
 }
 
-/** Check the release source, compare to current, and cache the result on the
- *  platform row. Never throws: an unreachable source yields updateAvailable:false. */
+/** Check the channel's release source, compare to current, and cache the result
+ *  on the platform row. Never throws: an unreachable source yields
+ *  updateAvailable:false. */
 export async function checkForUpdate(): Promise<CheckResult> {
   const current = currentVersion();
-  const { release, simulated } = await resolveLatest();
+  const channel = parseUpdateChannel((await loadRow())?.updateChannel);
+  const { release, simulated } = await resolveLatest(channel);
   const checkedAt = new Date();
   const latest = release?.version ?? null;
   const notes = release?.notes ?? null;
