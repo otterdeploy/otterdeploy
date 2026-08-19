@@ -68,6 +68,11 @@ export interface CreateServiceInput {
    *  standalone service. Set when this service is materialized from a stack. */
   stackId?: ResourceId | null;
 
+  /** The compose file's service KEY this child was materialized from. The
+   *  addressing key for stack-scoped refs (`${{stack.db.HOST}}`); stable
+   *  where resource names and hostnames are not. */
+  composeService?: string | null;
+
   ports: Array<{
     containerPort: number;
     protocol?: "tcp" | "udp";
@@ -132,5 +137,6 @@ export function serviceDeployColumns(input: CreateServiceInput) {
     postDeploy: input.postDeploy ?? null,
     buildConfig: input.buildConfig ?? null,
     stackId: input.stackId ?? null,
+    composeService: input.composeService ?? null,
   };
 }

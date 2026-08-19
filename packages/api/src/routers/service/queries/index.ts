@@ -55,12 +55,20 @@ export { getPrimaryHttpPort, listServicePorts, replaceServicePorts } from "./por
 export {
   bulkReplaceServiceEnvVars,
   deleteServiceEnvVar,
+  findExternalDependents,
   findServiceDependentsByName,
   listServiceEnvVars,
   listServiceEnvVarsForResources,
   resolveResourceForPreview,
   upsertServiceEnvVar,
 } from "./env";
+
+export {
+  getComposeStackByName,
+  getStackChildByComposeService,
+  getStackRefIdentity,
+  type StackRefIdentity,
+} from "./stack";
 
 export {
   deletePreviewServiceEnvVar,
