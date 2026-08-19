@@ -48,4 +48,40 @@ describe("substituteComposeEnv", () => {
     expect(env.GONE).toBe(""); // missing → empty
     expect(missing).toEqual(["NOPE"]);
   });
+
+  it("passes `${{…}}` platform refs through untouched", () => {
+    // Two different grammars share the `$`: compose's `${VAR}` resolves HERE
+    // against the project bag, the platform's `${{…}}` resolves LATER against
+    // resources. Every template in the catalog now depends on the second
+    // surviving the first intact — a `${{` eaten here would deploy a service
+    // pointed at a hostname that is the empty string.
+    const { env, missing } = substituteComposeEnv(
+      {
+        DATABASE_URL: "postgres://u:${POSTGRES_PASSWORD}@${{stack.db.HOST}}:5432/app",
+        HOST: "${{autumn.db.HOST}}",
+      },
+      { POSTGRES_PASSWORD: "pw" },
+    );
+    expect(env.DATABASE_URL).toBe("postgres://u:pw@${{stack.db.HOST}}:5432/app");
+    expect(env.HOST).toBe("${{autumn.db.HOST}}");
+    expect(missing).toEqual([]);
+  });
+});
+
+describe("collectVarRefs: platform refs", () => {
+  it("does not mistake `${{…}}` for a required compose variable", () => {
+    // Otherwise every stack-scoped template would demand a project variable
+    // named `stack` before the wizard let you deploy it.
+    const refs = collectVarRefs({
+      services: [
+        {
+          image: "app:1",
+          command: null,
+          entrypoint: null,
+          env: { URL: "http://${{stack.db.HOST}}:5432", REAL: "${NEEDED}" },
+        },
+      ],
+    });
+    expect(refs.map((r) => r.name)).toEqual(["NEEDED"]);
+  });
 });
