@@ -84,6 +84,30 @@ describe("rewriteRefs", () => {
   test("leaves a plain value untouched", () => {
     expect(rewriteRefs("hello", rename).value).toBe("hello");
   });
+
+  test("never renames a stack ref's compose key", () => {
+    // `db` here is a service key INSIDE the compose file, not a project
+    // resource. Renaming it would repoint the copy at whatever resource
+    // happens to carry that name — the bug this case exists to pin down.
+    const out = rewriteRefs("${{autumn.db.HOST}}", rename);
+    expect(out.value).toBe("${{autumn.db.HOST}}");
+    expect(out.external).toEqual(["autumn"]);
+  });
+
+  test("renames the stack segment when the stack itself is being copied", () => {
+    const r = new Map([["autumn", "autumn-copy"]]);
+    const out = rewriteRefs("${{autumn.db.HOST}}", r);
+    expect(out.value).toBe("${{autumn-copy.db.HOST}}");
+    expect(out.external).toEqual([]);
+  });
+
+  test("copies the self scope verbatim and never calls it external", () => {
+    // `stack.` resolves against whichever stack the copy lands in, so there is
+    // nothing to rewrite and nothing pointing outside the set.
+    const out = rewriteRefs("postgres://${{stack.db.HOST}}:5432/app", rename);
+    expect(out.value).toBe("postgres://${{stack.db.HOST}}:5432/app");
+    expect(out.external).toEqual([]);
+  });
 });
 
 describe("planClone", () => {

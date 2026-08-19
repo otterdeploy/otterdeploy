@@ -1,7 +1,8 @@
 /**
  * Project-scoped dependency graph. Derived (not stored): walks every service
  * env var in the project, parses `${{<Resource>.<VAR>}}` references via the
- * shared variable parser, and resolves resource names to ids.
+ * shared variable parser, and resolves them to ids — by resource name for the
+ * flat form, by (stack, compose service key) for the stack-scoped one.
  *
  * Used by the graph view to draw edges between consuming services and the
  * databases / other services they depend on. Cheap enough to recompute on
@@ -10,13 +11,14 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
+import { resource, serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, eq, isNull } from "drizzle-orm";
 
 import type { ProjectRef } from "../scopes";
 
 import { parseValue } from "../../lib/variables/parser";
+import { buildRefIndex, resolveRefTargetId } from "../../lib/variables/stack-refs";
 import { ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
 
@@ -37,14 +39,26 @@ export async function listProjectDependencies(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  // Resource name -> id lookup for the whole project, in one round trip.
-  // Names are unique per project (resource_project_name_unique).
+  // Every resource in the project, in one round trip. Names are unique per
+  // project (resource_project_name_unique), so they index cleanly.
   const resources = await db
     .select({ id: resource.id, name: resource.name })
     .from(resource)
     .where(eq(resource.projectId, input.projectId));
-  const nameToId = new Map<string, ResourceId>();
-  for (const r of resources) nameToId.set(r.name, r.id);
+
+  // Stack membership for the same project, in one more round trip: it's what
+  // lets a stack-scoped ref resolve by compose service key. See
+  // [[resolveRefTargetId]] for why that can't go through the name map.
+  const members = await db
+    .select({
+      resourceId: serviceResource.resourceId,
+      stackId: serviceResource.stackId,
+      composeService: serviceResource.composeService,
+    })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .where(eq(resource.projectId, input.projectId));
+  const refIndex = buildRefIndex({ resources, members });
 
   // Every env var across every service in the project. The inner join scopes
   // to services owned by this project (no cross-tenant leakage).
@@ -71,7 +85,7 @@ export async function listProjectDependencies(
 
     for (const token of parsed.tokens) {
       if (token.kind !== "ref") continue;
-      const targetId = nameToId.get(token.resource);
+      const targetId = resolveRefTargetId(token, ev.serviceResourceId, refIndex);
       if (!targetId) continue; // dangling ref; skip
       if (targetId === ev.serviceResourceId) continue; // self-ref; skip
 

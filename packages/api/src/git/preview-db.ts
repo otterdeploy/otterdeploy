@@ -25,9 +25,11 @@ import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 import { randomBytes } from "node:crypto";
 
+import type { RefIndex } from "../lib/variables/stack-refs";
 import type { BranchDatabaseSpec } from "../runtime/types";
 
 import { extractRefs } from "../lib/variables/parser";
+import { buildRefIndex, resolveRefTargetName } from "../lib/variables/stack-refs";
 import { insertDeployment } from "../routers/project/deployments";
 import { deriveInternalDbCredentials } from "../routers/project/postgres/credentials";
 import {
@@ -39,6 +41,26 @@ import { buildContainerName, buildVolumeName } from "../routers/project/view-hel
 import { runtime } from "../runtime";
 import { resolveSnapshotDriverFor } from "../runtime/snapshot";
 import { getEngineAdapter } from "../swarm";
+
+/** Each service's outgoing refs, as resource NAMES, keyed by service id. */
+function outgoingRefNames(
+  rows: ReadonlyArray<{ serviceResourceId: string; value: string }>,
+  index: RefIndex<string>,
+): Map<string, Set<string>> {
+  const byId = new Map<string, Set<string>>();
+  for (const row of rows) {
+    let set = byId.get(row.serviceResourceId);
+    if (!set) {
+      set = new Set<string>();
+      byId.set(row.serviceResourceId, set);
+    }
+    for (const ref of extractRefs(row.value)) {
+      const name = resolveRefTargetName(ref, row.serviceResourceId, index);
+      if (name) set.add(name);
+    }
+  }
+  return byId;
+}
 
 /**
  * The BASE Postgres databases this preview's services actually CONNECT TO.
@@ -90,20 +112,28 @@ export async function referencedBaseDatabases(input: {
     .where(and(eq(resource.projectId, input.projectId), isNull(resource.previewId)));
   const resByName = new Map(allRes.map((r) => [r.name, r] as const));
 
+  // Stack membership: a stack-scoped ref names its target by COMPOSE KEY, so
+  // it has to be translated back to a resource name before it can join the
+  // name-keyed walk below. Left untranslated, `${{stack.db.HOST}}` would read
+  // as a ref to a resource named `db` — a miss at best, and at worst a branch
+  // of the wrong database.
+  const members = await db
+    .select({
+      resourceId: serviceResource.resourceId,
+      stackId: serviceResource.stackId,
+      composeService: serviceResource.composeService,
+    })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .where(and(eq(resource.projectId, input.projectId), isNull(resource.previewId)));
+  const refIndex = buildRefIndex({ resources: allRes, members });
+
   const envRows = await db
     .select({ serviceResourceId: serviceEnvVar.serviceResourceId, value: serviceEnvVar.value })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
     .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
-  const refsById = new Map<string, Set<string>>();
-  for (const row of envRows) {
-    let set = refsById.get(row.serviceResourceId);
-    if (!set) {
-      set = new Set<string>();
-      refsById.set(row.serviceResourceId, set);
-    }
-    for (const ref of extractRefs(row.value)) set.add(ref.resource);
-  }
+  const refsById = outgoingRefNames(envRows, refIndex);
 
   // Forward BFS over the ref graph from the seed services; collect every base
   // DB name reached, following service→service edges transitively.
