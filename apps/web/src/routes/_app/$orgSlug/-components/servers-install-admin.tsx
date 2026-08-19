@@ -30,7 +30,7 @@ export function ServersTabList({ isInstallAdmin }: { isInstallAdmin: boolean }) 
       <TabsTrigger value="overview">Overview</TabsTrigger>
       {isInstallAdmin ? (
         <>
-          <TabsTrigger value="docker">Raw Docker</TabsTrigger>
+          <TabsTrigger value="docker">Docker</TabsTrigger>
           <TabsTrigger value="install-health">Install health</TabsTrigger>
         </>
       ) : null}
