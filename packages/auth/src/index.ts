@@ -270,6 +270,15 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       // revoked session is honored for up to `maxAge`; 5 minutes is the standard
       // better-auth default for this window.
       cookieCache: { enabled: true, maxAge: 5 * 60 },
+      // Disable better-auth's session "freshness" gate (default 24h). It
+      // 403s SESSION_NOT_FRESH on /list-sessions, /revoke-session(s) and
+      // /unlink-account for any session older than a day — which made the
+      // Account page's sessions card error for every session more than 24h
+      // old (observed in prod 2026-08-19: logged-in operator, page broken).
+      // Sessions here are long-lived operator sessions; the destructive
+      // account actions carry their own explicit confirmations, and a
+      // re-login-every-day wall to VIEW sessions is not a security win.
+      freshAge: 0,
     },
     advanced: {
       // Over HTTPS keep Secure + SameSite=None (also lets a split-origin/cross-site
