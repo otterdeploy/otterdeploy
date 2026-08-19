@@ -45,8 +45,8 @@ services:
       BASE_URL: \${BASE_URL}
       SECRET_KEY_BASE: \${SECRET_KEY_BASE}
       TOTP_VAULT_KEY: \${TOTP_VAULT_KEY}
-      DATABASE_URL: postgres://postgres:\${POSTGRES_PASSWORD}@db:5432/plausible_db
-      CLICKHOUSE_DATABASE_URL: http://events-db:8123/plausible_events_db
+      DATABASE_URL: postgres://postgres:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/plausible_db
+      CLICKHOUSE_DATABASE_URL: http://\${{stack.events-db.HOST}}:8123/plausible_events_db
     ports:
       - "8000"
     restart: always
@@ -108,7 +108,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://umami:\${POSTGRES_PASSWORD}@db:5432/umami
+      DATABASE_URL: postgresql://umami:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/umami
       DATABASE_TYPE: postgresql
       APP_SECRET: \${APP_SECRET}
     ports:
@@ -162,7 +162,7 @@ services:
       - db
     environment:
       MB_DB_TYPE: postgres
-      MB_DB_HOST: db
+      MB_DB_HOST: "\${{stack.db.HOST}}"
       MB_DB_PORT: "5432"
       MB_DB_DBNAME: metabase
       MB_DB_USER: metabase

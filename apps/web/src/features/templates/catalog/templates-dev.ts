@@ -33,11 +33,11 @@ services:
       - redis
     environment:
       AUTHENTIK_SECRET_KEY: \${SECRET_KEY}
-      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__HOST: "\${{stack.db.HOST}}"
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: \${POSTGRES_PASSWORD}
-      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__HOST: "\${{stack.redis.HOST}}"
     ports:
       - "9000"
     restart: always
@@ -49,11 +49,11 @@ services:
       - redis
     environment:
       AUTHENTIK_SECRET_KEY: \${SECRET_KEY}
-      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__HOST: "\${{stack.db.HOST}}"
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: \${POSTGRES_PASSWORD}
-      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__HOST: "\${{stack.redis.HOST}}"
     restart: always
   db:
     image: postgres:16-alpine
@@ -153,7 +153,7 @@ services:
       - db
     environment:
       GITEA__database__DB_TYPE: postgres
-      GITEA__database__HOST: db:5432
+      GITEA__database__HOST: "\${{stack.db.HOST}}:5432"
       GITEA__database__NAME: gitea
       GITEA__database__USER: gitea
       GITEA__database__PASSWD: \${POSTGRES_PASSWORD}

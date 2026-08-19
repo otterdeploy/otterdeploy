@@ -38,8 +38,8 @@ services:
       - db
       - redis
     environment:
-      DATABASE_URL: "postgres://glitchtip:\${POSTGRES_PASSWORD}@db:5432/glitchtip"
-      REDIS_URL: "redis://redis:6379/0"
+      DATABASE_URL: "postgres://glitchtip:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/glitchtip"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379/0"
       SECRET_KEY: \${SECRET_KEY}
       GLITCHTIP_DOMAIN: \${GLITCHTIP_DOMAIN}
       DEFAULT_FROM_EMAIL: \${DEFAULT_FROM_EMAIL}
@@ -57,8 +57,8 @@ services:
       - db
       - redis
     environment:
-      DATABASE_URL: "postgres://glitchtip:\${POSTGRES_PASSWORD}@db:5432/glitchtip"
-      REDIS_URL: "redis://redis:6379/0"
+      DATABASE_URL: "postgres://glitchtip:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/glitchtip"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379/0"
       SECRET_KEY: \${SECRET_KEY}
       GLITCHTIP_DOMAIN: \${GLITCHTIP_DOMAIN}
       DEFAULT_FROM_EMAIL: \${DEFAULT_FROM_EMAIL}
@@ -150,7 +150,7 @@ services:
       - db
     environment:
       LISTMONK_app__address: "0.0.0.0:9000"
-      LISTMONK_db__host: db
+      LISTMONK_db__host: "\${{stack.db.HOST}}"
       LISTMONK_db__port: "5432"
       LISTMONK_db__user: listmonk
       LISTMONK_db__password: \${POSTGRES_PASSWORD}

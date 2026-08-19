@@ -31,7 +31,7 @@ services:
     environment:
       url: \${GHOST_URL}
       database__client: mysql
-      database__connection__host: db
+      database__connection__host: "\${{stack.db.HOST}}"
       database__connection__user: ghost
       database__connection__password: \${MYSQL_PASSWORD}
       database__connection__database: ghost
@@ -98,7 +98,7 @@ services:
       ADMIN_EMAIL: \${ADMIN_EMAIL}
       ADMIN_PASSWORD: \${ADMIN_PASSWORD}
       DB_CLIENT: pg
-      DB_HOST: db
+      DB_HOST: "\${{stack.db.HOST}}"
       DB_PORT: "5432"
       DB_DATABASE: directus
       DB_USER: directus

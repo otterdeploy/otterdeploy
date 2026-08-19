@@ -29,7 +29,7 @@ services:
     depends_on:
       - db
     environment:
-      WORDPRESS_DB_HOST: "db:3306"
+      WORDPRESS_DB_HOST: "\${{stack.db.HOST}}:3306"
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: \${MYSQL_PASSWORD}
       WORDPRESS_DB_NAME: wordpress
@@ -79,7 +79,7 @@ services:
     depends_on:
       - db
     environment:
-      MATOMO_DATABASE_HOST: db
+      MATOMO_DATABASE_HOST: "\${{stack.db.HOST}}"
       MATOMO_DATABASE_ADAPTER: mysql
       MATOMO_DATABASE_USERNAME: matomo
       MATOMO_DATABASE_PASSWORD: \${MYSQL_PASSWORD}

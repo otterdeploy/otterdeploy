@@ -29,8 +29,8 @@ services:
     depends_on:
       - db
     environment:
-      HASURA_GRAPHQL_DATABASE_URL: "postgres://hasura:\${POSTGRES_PASSWORD}@db:5432/hasura"
-      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://hasura:\${POSTGRES_PASSWORD}@db:5432/hasura"
+      HASURA_GRAPHQL_DATABASE_URL: "postgres://hasura:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/hasura"
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://hasura:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/hasura"
       HASURA_GRAPHQL_ADMIN_SECRET: \${HASURA_ADMIN_SECRET}
       HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
       HASURA_GRAPHQL_DEV_MODE: "false"
@@ -74,7 +74,7 @@ services:
     environment:
       DB: postgres12
       DB_PORT: "5432"
-      POSTGRES_SEEDS: db
+      POSTGRES_SEEDS: "\${{stack.db.HOST}}"
       POSTGRES_USER: temporal
       POSTGRES_PWD: \${POSTGRES_PASSWORD}
     ports:
@@ -85,7 +85,7 @@ services:
     depends_on:
       - temporal
     environment:
-      TEMPORAL_ADDRESS: "temporal:7233"
+      TEMPORAL_ADDRESS: "\${{stack.temporal.HOST}}:7233"
       TEMPORAL_CORS_ORIGINS: "http://localhost:3000"
     ports:
       - "8080"

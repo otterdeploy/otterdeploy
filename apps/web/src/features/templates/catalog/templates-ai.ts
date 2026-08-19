@@ -25,7 +25,7 @@ services:
       - ollama
     environment:
       WEBUI_SECRET_KEY: \${WEBUI_SECRET_KEY}
-      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_BASE_URL: "http://\${{stack.ollama.HOST}}:11434"
       WEBUI_AUTH: "True"
     ports:
       - "8080"
@@ -69,7 +69,7 @@ services:
       - db
     environment:
       LITELLM_MASTER_KEY: \${LITELLM_MASTER_KEY}
-      DATABASE_URL: "postgresql://litellm:\${POSTGRES_PASSWORD}@db:5432/litellm"
+      DATABASE_URL: "postgresql://litellm:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/litellm"
       STORE_MODEL_IN_DB: "True"
     ports:
       - "4000"
