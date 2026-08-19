@@ -25,6 +25,7 @@ import { firewallContract } from "./routers/firewall/contract";
 import { gitContract } from "./routers/git/contract";
 import { meshContract } from "./routers/mesh/contract";
 import { metricsContract } from "./routers/metrics/contract";
+import { migrateContract } from "./routers/migrate/contract";
 import { notificationsContract } from "./routers/notifications/contract";
 import { organizationContract } from "./routers/organization/contract";
 import { projectContract } from "./routers/project/contract";
@@ -57,6 +58,7 @@ export const publicProcedure = implement({
   git: gitContract,
   mesh: meshContract,
   metrics: metricsContract,
+  migrate: migrateContract,
   notifications: notificationsContract,
   organization: organizationContract,
   project: projectContract,

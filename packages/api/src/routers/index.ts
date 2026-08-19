@@ -16,6 +16,7 @@ import { firewallRouter } from "./firewall";
 import { gitRouter } from "./git";
 import { meshRouter } from "./mesh";
 import { metricsRouter } from "./metrics";
+import { migrateRouter } from "./migrate";
 import { notificationsRouter } from "./notifications";
 import { organizationRouter } from "./organization";
 import { projectRouter } from "./project";
@@ -48,6 +49,7 @@ export const appRouter = {
   git: gitRouter,
   mesh: meshRouter,
   metrics: metricsRouter,
+  migrate: migrateRouter,
   notifications: notificationsRouter,
   organization: organizationRouter,
   project: projectRouter,
