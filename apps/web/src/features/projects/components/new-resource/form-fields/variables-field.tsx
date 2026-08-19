@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import type { EnvSuggestion } from "@/features/resources/env-catalog";
+
 import { hasOpenRefToken, insertRefToken } from "@/features/resources/components/_shared/ref-token";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
@@ -49,7 +51,14 @@ export function noDuplicateKeysValidator({ value }: { value: Var[] }): string | 
   return duplicateEnvKeys(value).size > 0 ? "duplicate keys" : undefined;
 }
 
-export function VariablesField({ projectId }: { projectId?: string }) {
+export function VariablesField({
+  projectId,
+  suggestions = [],
+}: {
+  projectId?: string;
+  /** Known env vars for the wizard's typed image (env catalog). */
+  suggestions?: EnvSuggestion[];
+}) {
   const field = useFieldContext<Var[]>();
   const vars = field.state.value;
   const duplicateKeys = duplicateEnvKeys(vars);
@@ -60,6 +69,15 @@ export function VariablesField({ projectId }: { projectId?: string }) {
 
   const setValue = (i: number, value: string) => {
     field.handleChange(vars.map((x, j) => (j === i ? { ...x, value } : x)));
+  };
+
+  // Reads the CURRENT field value instead of the render-scoped `vars`: the
+  // key combobox fires onInputValueChange and onValueChange in the same tick
+  // on a pick, and two writes built from the same stale array would clobber
+  // each other (the second one dropped the first's secret flag).
+  const patchRow = (i: number, patch: (row: Var) => Partial<Var>) => {
+    const current = field.state.value;
+    field.handleChange(current.map((x, j) => (j === i ? { ...x, ...patch(x) } : x)));
   };
 
   if (bulk) {
@@ -113,9 +131,26 @@ export function VariablesField({ projectId }: { projectId?: string }) {
               v={v}
               duplicate={duplicateKeys.has(v.key.trim())}
               projectId={projectId}
+              suggestions={suggestions}
+              takenKeys={
+                new Set(
+                  vars
+                    .filter((_, j) => j !== i)
+                    .map((x) => x.key.trim())
+                    .filter(Boolean),
+                )
+              }
               pickerOpen={pickerRow === i}
-              onKeyChange={(key) =>
-                field.handleChange(vars.map((x, j) => (j === i ? { ...x, key } : x)))
+              onKeyChange={(key) => patchRow(i, () => ({ key }))}
+              onSuggestionPick={(s) =>
+                patchRow(i, (x) => ({
+                  key: s.key,
+                  value:
+                    x.value.trim() === "" && s.defaultValue !== undefined
+                      ? s.defaultValue
+                      : x.value,
+                  secret: s.secret ? true : x.secret,
+                }))
               }
               onValueInput={(val) => {
                 setValue(i, val);

@@ -212,7 +212,7 @@ volumes:
     compose: `name: meilisearch
 services:
   meilisearch:
-    image: getmeili/meilisearch:v1.49.0
+    image: getmeili/meilisearch:v1.53.1
     environment:
       MEILI_MASTER_KEY: \${MEILI_MASTER_KEY}
       MEILI_ENV: \${MEILI_ENV:-production}

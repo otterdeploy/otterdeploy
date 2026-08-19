@@ -84,7 +84,7 @@ volumes:
     compose: `name: beszel
 services:
   beszel:
-    image: henrygd/beszel:0.18.7
+    image: henrygd/beszel:0.18.8
     environment:
       APP_URL: \${APP_URL}
     ports:
@@ -132,7 +132,7 @@ services:
       retries: 5
     restart: always
   prometheus:
-    image: prom/prometheus:v3.13.1
+    image: prom/prometheus:v3.14.0
     volumes:
       - prometheus-data:/prometheus
     healthcheck:

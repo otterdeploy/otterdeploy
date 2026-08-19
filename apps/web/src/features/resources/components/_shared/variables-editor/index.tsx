@@ -10,6 +10,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import type { EnvSuggestion } from "@/features/resources/env-catalog";
+
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -50,6 +52,9 @@ interface VariablesEditorProps {
   // tab already renders its own count header. Otherwise the same rows get
   // counted twice under two different names (od-zh2.10).
   countLabel?: string | null;
+  /** Known env vars for this resource's image (env catalog); enables the
+   *  key-field autocomplete. Omit for resources with no known image. */
+  suggestions?: EnvSuggestion[];
 }
 
 /** Suggest an env-var key from a picked `${{Source.KEY}}` token. The KEY
@@ -59,7 +64,13 @@ function suggestKeyFromToken(token: string): string {
   return match?.[1] ?? "";
 }
 
-export function VariablesEditor({ resource, ref, onSave, countLabel }: VariablesEditorProps) {
+export function VariablesEditor({
+  resource,
+  ref,
+  onSave,
+  countLabel,
+  suggestions = [],
+}: VariablesEditorProps) {
   const { t } = useTranslation();
   const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -179,6 +190,7 @@ export function VariablesEditor({ resource, ref, onSave, countLabel }: Variables
         deletedRows={editor.deletedRows}
         projectId={resource.projectId}
         duplicateKeys={editor.duplicateKeys}
+        suggestions={suggestions}
         statusOf={editor.statusOf}
         onUpdate={editor.update}
         onDelete={editor.removeRow}

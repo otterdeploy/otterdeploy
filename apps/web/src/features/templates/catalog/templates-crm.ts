@@ -30,7 +30,7 @@ export const CRM_TEMPLATES: StackTemplate[] = [
     compose: `name: twenty
 services:
   twenty:
-    image: twentycrm/twenty:v2.20.0
+    image: twentycrm/twenty:v2.32.0
     depends_on:
       - db
       - redis
@@ -48,7 +48,7 @@ services:
       - twenty-data:/app/packages/twenty-server/.local-storage
     restart: always
   worker:
-    image: twentycrm/twenty:v2.20.0
+    image: twentycrm/twenty:v2.32.0
     command: ["yarn", "worker:prod"]
     depends_on:
       - db

@@ -41,7 +41,7 @@ services:
       - ghost-content:/var/lib/ghost/content
     restart: always
   db:
-    image: mysql:8.0
+    image: mysql:8.4
     environment:
       MYSQL_USER: ghost
       MYSQL_PASSWORD: \${MYSQL_PASSWORD}

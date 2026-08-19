@@ -148,7 +148,7 @@ volumes:
     compose: `name: gitea
 services:
   gitea:
-    image: gitea/gitea:1.26
+    image: gitea/gitea:1.27
     depends_on:
       - db
     environment:

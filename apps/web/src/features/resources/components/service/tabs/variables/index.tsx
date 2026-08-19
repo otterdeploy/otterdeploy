@@ -17,6 +17,7 @@ import {
   type VariablesEditorHandle,
   type VariablesEditorResource,
 } from "@/features/resources/components/_shared/variables-editor";
+import { envSuggestionsForImage } from "@/features/resources/env-catalog";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
@@ -26,7 +27,10 @@ export function ServiceVariablesTabBody({
   pending = false,
   serviceName,
 }: {
-  resource: VariablesEditorResource;
+  // `image` rides along from the panel's richer resource shape and keys the
+  // env-catalog autocomplete; git-sourced services without an image simply
+  // get no suggestions.
+  resource: VariablesEditorResource & { image?: string | null };
   // Pending-create mode: no resourceId yet, so saves stage onto the manifest
   // entry (`services[serviceName].env`) instead of hitting the live resource.
   pending?: boolean;
@@ -92,6 +96,7 @@ export function ServiceVariablesTabBody({
         resource={editorResource}
         onSave={onSave}
         countLabel={null}
+        suggestions={envSuggestionsForImage(resource.image)}
       />
     </div>
   );
