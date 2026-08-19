@@ -14,7 +14,10 @@ import { AlertDiamondIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
+import type { EnvSuggestion } from "@/features/resources/env-catalog";
+
 import { ReferencePicker } from "@/features/projects/components/variables";
+import { EnvKeyCombobox } from "@/features/resources/components/_shared/env-key-combobox";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
@@ -135,8 +138,14 @@ interface VariableRowProps {
    *  mount sites' field validator blocks the deploy on the same predicate. */
   duplicate?: boolean;
   projectId?: string;
+  /** Known env vars for the typed image (env catalog); empty = plain input. */
+  suggestions?: EnvSuggestion[];
+  /** Keys the other rows already carry; excluded from suggestions. */
+  takenKeys?: ReadonlySet<string>;
   pickerOpen: boolean;
   onKeyChange: (key: string) => void;
+  /** A suggestion was picked: fill key + optional default + secret flag. */
+  onSuggestionPick?: (s: EnvSuggestion) => void;
   onValueInput: (value: string) => void;
   onTogglePicker: () => void;
   onToggleSecret: () => void;
@@ -145,12 +154,60 @@ interface VariableRowProps {
   onClosePicker: () => void;
 }
 
+/** The KEY cell: env-catalog autocomplete when the wizard knows the image,
+ *  plain input otherwise, plus the duplicate-key warning. */
+function VariableKeyCell({
+  v,
+  duplicate,
+  suggestions,
+  takenKeys,
+  onKeyChange,
+  onSuggestionPick,
+}: Pick<
+  VariableRowProps,
+  "v" | "suggestions" | "takenKeys" | "onKeyChange" | "onSuggestionPick"
+> & { duplicate: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <TableCell className="py-2">
+      {suggestions && suggestions.length > 0 && onSuggestionPick ? (
+        <EnvKeyCombobox
+          value={v.key}
+          suggestions={suggestions}
+          takenKeys={takenKeys ?? new Set()}
+          onChange={onKeyChange}
+          onPick={onSuggestionPick}
+          className={cn("h-8 font-mono", duplicate && "border-destructive/60")}
+          invalid={duplicate}
+        />
+      ) : (
+        <Input
+          type="text"
+          value={v.key}
+          placeholder="KEY"
+          aria-invalid={duplicate || undefined}
+          onChange={(e) => onKeyChange(e.target.value)}
+          className={cn("h-8 font-mono", duplicate && "border-destructive/60")}
+        />
+      )}
+      {duplicate && (
+        <p className="mt-1 text-[10.5px] text-destructive">
+          {t("resources.variables.duplicateNote", { key: v.key.trim() })}
+        </p>
+      )}
+    </TableCell>
+  );
+}
+
 export function VariableRow({
   v,
   duplicate = false,
   projectId,
+  suggestions,
+  takenKeys,
   pickerOpen,
   onKeyChange,
+  onSuggestionPick,
   onValueInput,
   onTogglePicker,
   onToggleSecret,
@@ -158,25 +215,17 @@ export function VariableRow({
   onPick,
   onClosePicker,
 }: VariableRowProps) {
-  const { t } = useTranslation();
   return (
     <Fragment>
       <TableRow>
-        <TableCell className="py-2">
-          <Input
-            type="text"
-            value={v.key}
-            placeholder="KEY"
-            aria-invalid={duplicate || undefined}
-            onChange={(e) => onKeyChange(e.target.value)}
-            className={cn("h-8 font-mono", duplicate && "border-destructive/60")}
-          />
-          {duplicate && (
-            <p className="mt-1 text-[10.5px] text-destructive">
-              {t("resources.variables.duplicateNote", { key: v.key.trim() })}
-            </p>
-          )}
-        </TableCell>
+        <VariableKeyCell
+          v={v}
+          duplicate={duplicate}
+          suggestions={suggestions}
+          takenKeys={takenKeys}
+          onKeyChange={onKeyChange}
+          onSuggestionPick={onSuggestionPick}
+        />
         <TableCell className="py-2">
           <VariableValueCell
             v={v}

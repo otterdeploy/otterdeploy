@@ -8,13 +8,17 @@ import {
   ViewOffIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { useTranslation } from "react-i18next";
+
+import type { EnvSuggestion } from "@/features/resources/env-catalog";
 
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 
 import type { DraftRow, RowStatus } from "./use-editor-state";
 
+import { EnvKeyCombobox } from "../env-key-combobox";
 import { hasOpenRefToken } from "../ref-token";
 import { ValueCell } from "./value-cell";
 
@@ -36,6 +40,11 @@ interface EditorRowProps {
   row: DraftRow;
   status: RowStatus;
   projectId: string;
+  /** Known env vars for this resource's image (env catalog). Empty list =
+   *  the key field stays a plain input. */
+  suggestions: EnvSuggestion[];
+  /** Keys the OTHER visible rows already use; excluded from suggestions. */
+  takenKeys: ReadonlySet<string>;
   /** Another visible row carries the same (trimmed) key. Flags the key field
    *  and blocks Save until resolved: env is keyed by name, so saving both
    *  would silently keep one and drop the other. */
@@ -54,6 +63,8 @@ export function EditorRow({
   row,
   status,
   projectId,
+  suggestions,
+  takenKeys,
   duplicate,
   revealed,
   copied,
@@ -73,14 +84,38 @@ export function EditorRow({
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-2">
         <div className="flex min-w-0 items-start gap-2 sm:contents">
           <StatusPill status={status} />
-          <Input
-            value={row.key}
-            onChange={(e) => onChange({ key: e.target.value })}
-            placeholder="KEY"
-            className="h-7 w-full min-w-0 font-mono text-[12px] sm:w-56 sm:flex-none"
-            spellCheck={false}
-            aria-invalid={duplicate || undefined}
-          />
+          {suggestions.length > 0 ? (
+            <EnvKeyCombobox
+              value={row.key}
+              suggestions={suggestions}
+              takenKeys={takenKeys}
+              onChange={(key) => onChange({ key })}
+              // Picking fills the key, prefills a safe default when the value
+              // is still empty, and marks credentials sensitive up front.
+              // omitUndefined: an undefined `value`/`isSecret` must mean
+              // "leave alone", not an explicit write.
+              onPick={(s) =>
+                onChange(
+                  omitUndefined({
+                    key: s.key,
+                    value: row.value.trim() === "" ? s.defaultValue : undefined,
+                    isSecret: s.secret ? true : undefined,
+                  }),
+                )
+              }
+              className="h-7 w-full min-w-0 font-mono text-[12px] sm:w-56 sm:flex-none"
+              invalid={duplicate}
+            />
+          ) : (
+            <Input
+              value={row.key}
+              onChange={(e) => onChange({ key: e.target.value })}
+              placeholder="KEY"
+              className="h-7 w-full min-w-0 font-mono text-[12px] sm:w-56 sm:flex-none"
+              spellCheck={false}
+              aria-invalid={duplicate || undefined}
+            />
+          )}
         </div>
         <ValueCell
           row={row}

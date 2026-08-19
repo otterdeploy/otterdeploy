@@ -25,7 +25,7 @@ export const APPSTACK_TEMPLATES: StackTemplate[] = [
     compose: `name: hasura
 services:
   hasura:
-    image: hasura/graphql-engine:v2.44.0
+    image: hasura/graphql-engine:v2.50.1
     depends_on:
       - db
     environment:
@@ -68,7 +68,7 @@ volumes:
     compose: `name: temporal
 services:
   temporal:
-    image: temporalio/auto-setup:1.28.1
+    image: temporalio/auto-setup:1.29.7
     depends_on:
       - db
     environment:
@@ -81,7 +81,7 @@ services:
       - "7233"
     restart: always
   ui:
-    image: temporalio/ui:2.53.0
+    image: temporalio/ui:2.53.3
     depends_on:
       - temporal
     environment:
@@ -116,7 +116,7 @@ volumes:
     compose: `name: nats
 services:
   nats:
-    image: nats:2.11-alpine
+    image: nats:2.14-alpine
     command:
       - --jetstream
       - --store_dir=/data

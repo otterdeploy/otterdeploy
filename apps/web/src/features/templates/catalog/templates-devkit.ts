@@ -149,7 +149,7 @@ volumes:
     compose: `name: jaeger
 services:
   jaeger:
-    image: jaegertracing/all-in-one:1.62.0
+    image: jaegertracing/all-in-one:1.76.0
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
       SPAN_STORAGE_TYPE: memory

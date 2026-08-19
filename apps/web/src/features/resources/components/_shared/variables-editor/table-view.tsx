@@ -3,6 +3,8 @@ import { useState } from "react";
 import { ArrowReloadHorizontalIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import type { EnvSuggestion } from "@/features/resources/env-catalog";
+
 import { Button } from "@/shared/components/ui/button";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 
@@ -16,6 +18,8 @@ interface TableViewProps {
   projectId: string;
   /** Trimmed keys carried by more than one visible row (see useEditorState). */
   duplicateKeys: Set<string>;
+  /** Known env vars for this resource's image; empty disables autocomplete. */
+  suggestions: EnvSuggestion[];
   statusOf: (row: DraftRow) => RowStatus;
   onUpdate: (id: string, patch: Partial<Pick<DraftRow, "key" | "value" | "isSecret">>) => void;
   onDelete: (id: string) => void;
@@ -28,6 +32,7 @@ export function TableView({
   deletedRows,
   projectId,
   duplicateKeys,
+  suggestions,
   statusOf,
   onUpdate,
   onDelete,
@@ -70,6 +75,17 @@ export function TableView({
               row={row}
               status={statusOf(row)}
               projectId={projectId}
+              suggestions={suggestions}
+              // Every other visible row's key: suggesting one of these again
+              // would only mint the duplicate-key error flagged below.
+              takenKeys={
+                new Set(
+                  rows
+                    .filter((r) => r.id !== row.id)
+                    .map((r) => r.key.trim())
+                    .filter(Boolean),
+                )
+              }
               duplicate={duplicateKeys.has(row.key.trim())}
               revealed={revealed.has(row.id)}
               copied={copiedId === row.id}

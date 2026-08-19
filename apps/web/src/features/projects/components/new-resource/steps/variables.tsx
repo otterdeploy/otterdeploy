@@ -5,6 +5,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
+import { envSuggestionsForImage } from "@/features/resources/env-catalog";
 import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
@@ -27,6 +28,10 @@ export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
   const repo = useSelector(form.store, (s) => s.values.repo);
   const root = useSelector(form.store, (s) => s.values.root);
+  // Docker-image services: the typed image keys the env-catalog autocomplete.
+  // Git-sourced services have no image yet, so this stays empty for them.
+  const image = useSelector(form.store, (s) => s.values.image);
+  const suggestions = envSuggestionsForImage(image);
 
   const env = useQuery({
     ...orpc.git.inspectEnv.queryOptions({
@@ -55,7 +60,7 @@ export function StepVariables({ projectId }: StepVariablesProps) {
       )}
 
       <form.AppField name="variables" validators={{ onChange: noDuplicateKeysValidator }}>
-        {(f) => <f.VariablesField projectId={projectId} />}
+        {(f) => <f.VariablesField projectId={projectId} suggestions={suggestions} />}
       </form.AppField>
 
       {/* External secret-manager hint: `${{vault.…}}` refs work in the value

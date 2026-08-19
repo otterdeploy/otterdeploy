@@ -33,7 +33,7 @@ export const PLATFORM_ID_TEMPLATES: StackTemplate[] = [
     compose: `name: infisical
 services:
   infisical:
-    image: infisical/infisical:v0.162.16
+    image: infisical/infisical:v0.162.21
     depends_on:
       - db
       - redis
