@@ -307,7 +307,12 @@ jobs:
   # and the compose file that shipped with it stays fetchable forever.
   publish-artifacts:
     name: Publish install artifacts
-    if: github.ref_type == 'tag'
+    # Explicit result check, NOT the implicit success(): job-level success()
+    # is transitive over the whole ancestor graph, so a SKIPPED retag (or
+    # merge-manifest on a retag-only release) silently skipped this job even
+    # though `release` itself succeeded — which left get.otterdeploy.com
+    # stale on v0.15.3 while releases/latest had already moved.
+    if: github.ref_type == 'tag' && !cancelled() && needs.release.result == 'success'
     needs: release
     runs-on: ubuntu-latest
     permissions:
