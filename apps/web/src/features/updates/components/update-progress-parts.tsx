@@ -1,58 +1,150 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Presentational pieces for {@link UpdateProgress}. Split out so the pane
- * component itself stays under the line/complexity budget.
+ * Presentational pieces for {@link UpdateProgress}, the B1 "Quiet Progress"
+ * layout: state leads (headline + segmented phase bar), the log is evidence on
+ * demand (heartbeat line + disclosure), and the cutover gets a designed pane
+ * of its own. Split out so the pane component stays under the budget.
  */
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 
 import { LogLineRow, type LogLine } from "@/features/logs/components/log-viewer";
 import { Button } from "@/shared/components/ui/button";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
+import { cn } from "@/shared/lib/utils";
 
-import { STEPS, type CancelMutation, type Outcome } from "./update-progress-model";
+import { formatClock } from "./update-progress-clock";
+import {
+  PHASE_HEADLINE_KEYS,
+  STEPS,
+  type Outcome,
+  type UpdatePhase,
+} from "./update-progress-model";
 
-function dotClass(errored: boolean, done: boolean, active: boolean): string {
-  const base = "size-1.5 rounded-full";
-  if (errored) return `${base} bg-destructive`;
-  if (done) return `${base} bg-success`;
-  if (active) return `${base} animate-pulse bg-warning`;
-  return `${base} bg-muted-foreground/25`;
+/** Headline sentence + expectation sub-line. On failure the first error line
+ *  IS the headline: it renders here and nowhere else (the log below carries
+ *  the detail, the footer only carries the action). */
+export function UpdateHeadline({
+  outcome,
+  phase,
+  dryRun,
+  target,
+  error,
+}: {
+  outcome: Outcome;
+  phase: UpdatePhase;
+  dryRun: boolean;
+  target: string;
+  error: string | null;
+}) {
+  const { t } = useTranslation();
+  if (outcome.failed) {
+    const brief = error?.split("\n")[0] ?? t("updates.failedFallback");
+    return (
+      <div className="flex flex-col gap-0.5">
+        <div className="text-sm font-semibold text-destructive">{brief}</div>
+        <div className="text-xs text-muted-foreground">{t("updates.failedDetail")}</div>
+      </div>
+    );
+  }
+  const title = outcome.realDone
+    ? t("updates.realDone", { target })
+    : outcome.dryDone
+      ? t("updates.dryDoneTitle")
+      : t(PHASE_HEADLINE_KEYS[phase]);
+  const sub = outcome.done
+    ? outcome.dryDone
+      ? t("updates.dryDoneSub")
+      : null
+    : dryRun
+      ? t("updates.runningSubDry")
+      : t("updates.runningSubReal", { target });
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className={cn("text-base font-semibold", outcome.done && "text-success")}>{title}</div>
+      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+    </div>
+  );
 }
 
-function labelClass(errored: boolean, lit: boolean): string {
-  if (errored) return "text-destructive";
-  return lit ? "text-foreground/80" : "text-muted-foreground/50";
-}
-
-export function PhaseStepper({ current, failed }: { current: number; failed: boolean }) {
+/** The hairline progress bar: one segment per visible step, labels beneath.
+ *  Done phases read success, the live one pulses warning, a failure marks the
+ *  phase it died in. */
+export function SegmentedPhases({ current, failed }: { current: number; failed: boolean }) {
   const { t } = useTranslation();
   return (
-    <ol className="flex items-center gap-1.5 text-[10px] font-medium">
-      {STEPS.map((step, i) => {
-        const done = i < current || (!failed && current === STEPS.length - 1 && i === current);
-        const active = i === current && !done;
-        const errored = failed && i === current;
-        return (
-          <li key={step.key} className="flex min-w-0 items-center gap-1.5">
-            <span className={dotClass(errored, done, active)} />
-            <span className={labelClass(errored, done || active)}>{t(step.labelKey)}</span>
-            {i < STEPS.length - 1 && <span className="h-px w-3 bg-border" aria-hidden />}
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1" role="presentation">
+        {STEPS.map((step, i) => (
+          <span
+            key={step.key}
+            className={cn(
+              "h-0.75 flex-1 rounded-full bg-foreground/10",
+              i < current && "bg-success",
+              i === current && (failed ? "bg-destructive" : "bg-warning motion-safe:animate-pulse"),
+            )}
+          />
+        ))}
+      </div>
+      <ol className="flex gap-1 text-[10px]">
+        {STEPS.map((step, i) => (
+          <li
+            key={step.key}
+            className={cn(
+              "flex-1 text-muted-foreground/50",
+              i === current && (failed ? "text-destructive" : "text-foreground/80"),
+            )}
+          >
+            {t(step.labelKey)}
           </li>
-        );
-      })}
-    </ol>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** The last log line as a heartbeat, with the disclosure toggle and run clock. */
+export function HeartbeatRow({
+  line,
+  clockMs,
+  open,
+  onToggle,
+}: {
+  line: LogLine | null;
+  clockMs: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-t pt-2.5">
+      <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground/70">
+        {line ? (
+          <>
+            {line.ts && <span className="text-muted-foreground/40">{line.ts} </span>}
+            {line.line}
+          </>
+        ) : (
+          t("updates.starting")
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="shrink-0 text-[11.5px] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
+        {open ? t("updates.hideLog") : t("updates.showLog")} · {formatClock(clockMs)}
+      </button>
+    </div>
   );
 }
 
 /**
- * The update log tail. Follows the newest line only while the reader is at
- * the bottom; scrolling up hands the position over to them (the same contract
- * as the shared LogViewer), with a quiet jump-back affordance instead of the
- * old forced `scrollTop = scrollHeight` on every line.
+ * The update log as disclosed evidence. Follows the newest line only while the
+ * reader is at the bottom; scrolling up hands the position over to them, with
+ * a quiet jump-back affordance (same contract as the shared LogViewer).
  */
 export function LogPane({ lines }: { lines: LogLine[] }) {
   const { t } = useTranslation();
@@ -84,7 +176,7 @@ export function LogPane({ lines }: { lines: LogLine[] }) {
     <div className="relative">
       <ScrollArea
         viewportRef={viewportRef}
-        className="h-[320px] rounded-md border bg-terminal font-mono text-[11px] leading-relaxed text-terminal-foreground/85"
+        className="h-[240px] rounded-md border bg-terminal font-mono text-[11px] leading-relaxed text-terminal-foreground/85"
       >
         <div className="p-3">
           {lines.length === 0 ? (
@@ -108,91 +200,57 @@ export function LogPane({ lines }: { lines: LogLine[] }) {
   );
 }
 
-export function UpdateOutcome({
+/** Terminal actions only: the headline already carries the message, so this
+ *  row never repeats it. Running state shows nothing until the run has hung
+ *  long enough for reset to be plausible. */
+export function UpdateFooter({
   outcome,
-  target,
-  dryRun,
   onDone,
-  cancel,
-  error,
-  handedOff,
+  showReset,
+  resetPending,
+  onReset,
 }: {
   outcome: Outcome;
-  target: string;
-  dryRun: boolean;
   onDone: () => void;
-  cancel: CancelMutation;
-  error: string | null;
-  handedOff: boolean;
+  showReset: boolean;
+  resetPending: boolean;
+  onReset: () => void;
 }) {
   const { t } = useTranslation();
-  const handleCancel = () =>
-    cancel.mutate(
-      {},
-      {
-        onSuccess: (res) => {
-          toast.message(res.cancelled ? t("updates.resetOk") : t("updates.resetNone"));
-          onDone();
-        },
-        onError: (e) => toast.error(e.message ?? t("updates.resetFailed")),
-      },
-    );
-
-  if (outcome.failed) {
-    // First line only: a failed helper's error carries its whole output, and
-    // that detail already lives in the log pane above.
-    const brief = error?.split("\n")[0] ?? t("updates.failedFallback");
+  if (outcome.failed || outcome.dryDone) {
     return (
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-[12px] text-destructive">{brief}</span>
-        <Button type="button" size="sm" variant="outline" onClick={onDone} className="shrink-0">
-          {t("common.close")}
-        </Button>
-      </div>
-    );
-  }
-  if (outcome.dryDone) {
-    return (
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[12px] text-success">{t("updates.dryDone")}</span>
+      <div className="flex justify-end">
         <Button type="button" size="sm" variant="outline" onClick={onDone}>
-          {t("common.done")}
+          {outcome.failed ? t("common.close") : t("common.done")}
         </Button>
       </div>
     );
   }
   if (outcome.realDone) {
     return (
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[12px] text-success">{t("updates.realDone", { target })}</span>
+      <div className="flex justify-end">
         {/* Reload, don't just close: this document was served by the PREVIOUS
-            version, so dismissing the dialog leaves the operator driving the new
-            control plane through the old bundle. `realDone` is real-cutover only
-            (a dry run never sets it), so this is never a gratuitous reload.
-            The auto-reload in useCutoverRecovery normally beats the operator
-            here: this is the path for when it was blocked or unmounted. */}
+            version. The auto-reload in useCutoverRecovery normally beats the
+            operator here; this is the path for when it was blocked. */}
         <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
           {t("common.done")}
         </Button>
       </div>
     );
   }
-  if (dryRun) return null; // still simulating; the stepper shows activity
-
+  if (!showReset) return null;
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[11.5px] text-muted-foreground/70">
-        {handedOff ? t("updates.waitingCutover", { target }) : t("updates.applying")}
-      </span>
+      <span className="text-[11.5px] text-muted-foreground/70">{t("updates.slowHint")}</span>
       <Button
         type="button"
         size="sm"
         variant="ghost"
-        disabled={cancel.isPending}
-        onClick={handleCancel}
+        disabled={resetPending}
+        onClick={onReset}
         className="shrink-0 text-muted-foreground"
       >
-        {cancel.isPending ? t("updates.resetting") : t("updates.resetStuck")}
+        {resetPending ? t("updates.resetting") : t("updates.resetStuck")}
       </Button>
     </div>
   );
