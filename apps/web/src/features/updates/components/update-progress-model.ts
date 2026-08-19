@@ -42,6 +42,24 @@ export function phaseIndex(p: UpdatePhase): number {
   return i < 0 ? 0 : i;
 }
 
+/** One sentence of state per phase, the pane's headline. `handoff` and `done`
+ *  fold into recreate: by then the cutover pane or the outcome owns the room. */
+export const PHASE_HEADLINE_KEYS = {
+  validate: "updates.phaseValidate",
+  pull: "updates.phasePull",
+  migrate: "updates.phaseMigrate",
+  recreate: "updates.phaseRecreate",
+  handoff: "updates.phaseRecreate",
+  done: "updates.phaseRecreate",
+} as const;
+
+/** Reset stays hidden until a run has plausibly hung: it exists for the rare
+ *  stuck helper, and offering it earlier invites panic-clicks during every
+ *  normal wait (the flaw the old footer had). Pull can legitimately take a
+ *  couple of minutes; the cutover normally answers within seconds. */
+export const STUCK_RUN_MS = 180_000;
+export const STUCK_CUTOVER_MS = 90_000;
+
 /**
  * `enabled`, but only once it has held for `delayMs`.
  *
@@ -112,8 +130,10 @@ function cutoverArrived(args: {
 }
 
 /** Poll the control plane until the new container reports the target version,
- *  then reload onto the updated dashboard. Real-cutover recovery only. */
-export function useCutoverRecovery(target: string, outcome: Outcome): void {
+ *  then reload onto the updated dashboard. Real-cutover recovery only.
+ *  Returns the number of probes attempted so far, so the cutover pane can show
+ *  the wait as visible work instead of dead air. */
+export function useCutoverRecovery(target: string, outcome: Outcome): number {
   const armed = useArmedAfter(outcome.recovering, 6000);
   const sawPending = useSeen(outcome.recovering);
 
@@ -160,6 +180,11 @@ export function useCutoverRecovery(target: string, outcome: Outcome): void {
     // it a moment later.
     if (arrived) window.location.reload();
   }, [arrived]);
+
+  // Every failed fetch (the expected connection-refused kind) bumps
+  // errorUpdateCount; a successful probe is the arrival itself, so it counts
+  // as at most one more.
+  return health.errorUpdateCount + (health.isSuccess ? 1 : 0);
 }
 
 export function toLogLine(e: {

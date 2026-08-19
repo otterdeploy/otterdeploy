@@ -1,30 +1,43 @@
 import { useRef, useState } from "react";
 
 /**
- * Live progress pane for an in-flight platform update. Streams the server's
- * `system.progress` event-iterator into the log pane, renders the update
- * phases as a stepper, and offers a reset for a stuck run. On a real cutover
- * the server is replaced mid-update, so this also polls /api/health until the
- * NEW container answers with the target version, then hard-reloads, or, if
- * the persisted run turns `failed` (the helper died without cutting over),
- * stops waiting and surfaces the error. Presentational pieces live in
- * ./update-progress-parts to keep this file within budget.
+ * Live progress pane for an in-flight platform update, laid out as B1 "Quiet
+ * Progress" (see the update-flow exploration artifact): a phase headline and
+ * segmented bar lead, the log is a heartbeat line plus a disclosure, and the
+ * cutover renders as its own designed pane with a probe counter. Streams the
+ * server's `system.progress` event-iterator, and on a real cutover polls
+ * /api/health until the NEW container answers with the target version, then
+ * hard-reloads. Presentational pieces live in ./update-progress-parts.
  */
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+
 import { type LogLine } from "@/features/logs/components/log-viewer";
 import { useLogStream } from "@/features/logs/data/use-log-stream";
 import { orpc } from "@/shared/server/orpc";
 
 import { useCancelUpdate, useUpdateState } from "../data/use-update-status";
+import { CutoverPane } from "./update-cutover-pane";
+import { useElapsedSince } from "./update-progress-clock";
 import {
   STEPS,
+  STUCK_CUTOVER_MS,
+  STUCK_RUN_MS,
   deriveOutcome,
   phaseIndex,
   toErrorLine,
   toLogLine,
   useCutoverRecovery,
+  type Outcome,
   type UpdatePhase,
 } from "./update-progress-model";
-import { LogPane, PhaseStepper, UpdateOutcome } from "./update-progress-parts";
+import {
+  HeartbeatRow,
+  LogPane,
+  SegmentedPhases,
+  UpdateFooter,
+  UpdateHeadline,
+} from "./update-progress-parts";
 
 interface ProgressEvent {
   seq: number;
@@ -64,6 +77,7 @@ export function UpdateProgress({
   dryRun: boolean;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<UpdatePhase>("validate");
   const runState = useUpdateState();
   const cancel = useCancelUpdate();
@@ -83,7 +97,7 @@ export function UpdateProgress({
       return afterSeen(stream, lastSeqRef);
     },
     // Track the phase as lines flow. This runs in the stream loop, not an
-    // effect, so the setState is fine and keeps the stepper current.
+    // effect, so the setState is fine and keeps the headline current.
     map: (e, id): LogLine => {
       setPhase(e.phase);
       return { id, ...toLogLine(e) };
@@ -93,22 +107,117 @@ export function UpdateProgress({
   });
 
   const outcome = deriveOutcome(dryRun, runState.data?.status);
-  useCutoverRecovery(target, outcome);
+  const probes = useCutoverRecovery(target, outcome);
+  const handedOff = runState.data?.handedOff ?? false;
+  const inCutover = !dryRun && handedOff && !outcome.terminal;
 
-  const current = outcome.done ? STEPS.length - 1 : phaseIndex(phase);
+  const runMs = useElapsedSince(!outcome.terminal);
+  const cutoverMs = useElapsedSince(inCutover);
+
+  const handleReset = () =>
+    cancel.mutate(
+      {},
+      {
+        onSuccess: (res) => {
+          toast.message(res.cancelled ? t("updates.resetOk") : t("updates.resetNone"));
+          onDone();
+        },
+        onError: (e) => toast.error(e.message ?? t("updates.resetFailed")),
+      },
+    );
+
+  if (inCutover) {
+    return (
+      <CutoverPane
+        target={target}
+        probes={probes}
+        waitedMs={cutoverMs}
+        stuck={cutoverMs > STUCK_CUTOVER_MS}
+        resetPending={cancel.isPending}
+        onReset={handleReset}
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-3">
-      <PhaseStepper current={current} failed={outcome.failed} />
-      <LogPane lines={lines} />
-      <UpdateOutcome
+    <ProgressBody
+      outcome={outcome}
+      phase={phase}
+      dryRun={dryRun}
+      target={target}
+      error={runState.data?.error ?? null}
+      lines={lines}
+      runMs={runMs}
+      onDone={onDone}
+      resetPending={cancel.isPending}
+      onReset={handleReset}
+    />
+  );
+}
+
+/** Everything below the dialog header outside the cutover: headline, bar,
+ *  heartbeat + disclosure, terminal footer. Owns the disclosure state so the
+ *  streaming component above stays within the complexity budget. */
+function ProgressBody({
+  outcome,
+  phase,
+  dryRun,
+  target,
+  error,
+  lines,
+  runMs,
+  onDone,
+  resetPending,
+  onReset,
+}: {
+  outcome: Outcome;
+  phase: UpdatePhase;
+  dryRun: boolean;
+  target: string;
+  error: string | null;
+  lines: LogLine[];
+  runMs: number;
+  onDone: () => void;
+  resetPending: boolean;
+  onReset: () => void;
+}) {
+  const [logOpen, setLogOpen] = useState(false);
+  const [failedSeen, setFailedSeen] = useState(false);
+
+  // Failure must surface the evidence: force the disclosure open exactly once
+  // per failure (the operator can still close it again). Adjust-in-render
+  // latch, same pattern as useSeen in ./update-progress-model.
+  if (outcome.failed && !failedSeen) {
+    setFailedSeen(true);
+    if (!logOpen) setLogOpen(true);
+  }
+
+  const current = outcome.done ? STEPS.length : phaseIndex(phase);
+  return (
+    <div className="flex flex-col gap-3.5">
+      <UpdateHeadline
         outcome={outcome}
-        target={target}
+        phase={phase}
         dryRun={dryRun}
+        target={target}
+        error={error}
+      />
+      <SegmentedPhases current={current} failed={outcome.failed} />
+      {!outcome.failed && (
+        <HeartbeatRow
+          line={lines.at(-1) ?? null}
+          clockMs={runMs}
+          open={logOpen}
+          onToggle={() => setLogOpen((v) => !v)}
+        />
+      )}
+      {(logOpen || outcome.failed) && <LogPane lines={lines} />}
+      <UpdateFooter
+        outcome={outcome}
         onDone={onDone}
-        cancel={cancel}
-        error={runState.data?.error ?? null}
-        handedOff={runState.data?.handedOff ?? false}
+        showReset={!outcome.terminal && runMs > STUCK_RUN_MS}
+        resetPending={resetPending}
+        onReset={onReset}
       />
     </div>
   );

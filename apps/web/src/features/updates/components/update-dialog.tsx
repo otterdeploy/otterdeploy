@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * The one update modal. Confirm → live progress → done, all in a dialog (not
  * inline). Opened from the banner, the header button, or the Platform card via
  * the UpdateProvider. Reads the shared status so it always reflects the latest
- * check.
+ * check. While a REAL run is in flight the dialog refuses to close (every
+ * dismissal path — the ✕, the backdrop, Escape — funnels through Base UI's
+ * onOpenChange, so one intercept covers them all); dry runs stay dismissable
+ * because nothing real is moving.
  */
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -23,8 +26,39 @@ import {
 import { Markdown } from "@/shared/components/ui/markdown";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { useUpdateStatus } from "../data/use-update-status";
+import { useUpdateState, useUpdateStatus } from "../data/use-update-status";
 import { UpdateProgress } from "./update-progress";
+import { deriveOutcome } from "./update-progress-model";
+
+/**
+ * Wraps the dialog's onOpenChange so a close attempt while `blockClose` holds
+ * is refused with a transient hint instead of dismissing the dialog. Every
+ * dismissal path (the ✕, the backdrop, Escape) funnels through onOpenChange,
+ * so this one intercept covers them all.
+ */
+function useGuardedOpenChange(
+  blockClose: boolean,
+  onClose: () => void,
+  onOpenChange: (open: boolean) => void,
+) {
+  const [closeHint, setCloseHint] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(hintTimer.current ?? undefined), []);
+  const handleOpenChange = (next: boolean) => {
+    if (!next && blockClose) {
+      setCloseHint(true);
+      if (hintTimer.current) clearTimeout(hintTimer.current);
+      hintTimer.current = setTimeout(() => setCloseHint(false), 3000);
+      return;
+    }
+    if (!next) {
+      onClose();
+      setCloseHint(false);
+    }
+    onOpenChange(next);
+  };
+  return { closeHint, handleOpenChange };
+}
 
 function reasonKey(reason: "already-running" | "no-update" | "downgrade") {
   switch (reason) {
@@ -35,6 +69,47 @@ function reasonKey(reason: "already-running" | "no-update" | "downgrade") {
     case "downgrade":
       return "updates.reasonDowngrade" as const;
   }
+}
+
+/** Title + the version chips: "Updating otterdeploy  [v0.15.0] → [v0.15.1]". */
+function UpdateDialogTitle({
+  active,
+  status,
+}: {
+  active: { dryRun: boolean } | null;
+  status: ReturnType<typeof useUpdateStatus>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <DialogTitle className="flex items-center gap-2">
+      {active
+        ? active.dryRun
+          ? t("updates.titleSimulating")
+          : t("updates.titleUpdating")
+        : t("updates.titleIdle")}
+      {status.latest && (
+        <>
+          <Badge variant="outline" className="font-mono">
+            {status.current}
+          </Badge>
+          <span className="text-muted-foreground">→</span>
+          <Badge className="font-mono">{status.latest}</Badge>
+        </>
+      )}
+      {status.dryRun && <Badge variant="secondary">dry-run</Badge>}
+    </DialogTitle>
+  );
+}
+
+/** A close is refused only for a REAL run that hasn't settled. An unknown run
+ *  status (still loading) blocks too: refusing a close for a beat is cheap,
+ *  allowing one mid-cutover orphans the operator. */
+function shouldBlockClose(
+  active: { dryRun: boolean } | null,
+  runStatus: Parameters<typeof deriveOutcome>[1],
+): boolean {
+  if (active === null || active.dryRun) return false;
+  return !deriveOutcome(false, runStatus).terminal;
 }
 
 export function UpdateDialog({
@@ -50,13 +125,19 @@ export function UpdateDialog({
 }) {
   const { t } = useTranslation();
   const status = useUpdateStatus();
+  const runState = useUpdateState();
   const [applying, setApplying] = useState<{ target: string; dryRun: boolean } | null>(null);
 
-  // Reset the applying view on close (in the handler, not an effect).
-  const handleOpenChange = (next: boolean) => {
-    if (!next) setApplying(null);
-    onOpenChange(next);
-  };
+  // A locally-started apply wins; otherwise fall back to a re-attached run.
+  const active = applying ?? attached ?? null;
+  const blockClose = shouldBlockClose(active, runState.data?.status);
+
+  // Resetting the applying view on close lives in the handler, not an effect.
+  const { closeHint, handleOpenChange } = useGuardedOpenChange(
+    blockClose,
+    () => setApplying(null),
+    onOpenChange,
+  );
 
   const apply = useMutation({
     ...orpc.system.apply.mutationOptions(),
@@ -77,34 +158,20 @@ export function UpdateDialog({
     onError: (e) => toast.error(e.message ?? t("updates.startFailed")),
   });
 
-  // A locally-started apply wins; otherwise fall back to a re-attached run.
-  const active = applying ?? attached ?? null;
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {active
-              ? active.dryRun
-                ? t("updates.titleSimulating")
-                : t("updates.titleUpdating")
-              : t("updates.titleIdle")}
-            {status.latest && (
-              <>
-                <Badge variant="outline" className="font-mono">
-                  {status.current}
-                </Badge>
-                <span className="text-muted-foreground">→</span>
-                <Badge className="font-mono">{status.latest}</Badge>
-              </>
-            )}
-            {status.dryRun && <Badge variant="secondary">dry-run</Badge>}
-          </DialogTitle>
+          <UpdateDialogTitle active={active} status={status} />
           {!active && (
             <DialogDescription>
               {status.dryRun ? t("updates.descriptionDryRun") : t("updates.descriptionReal")}
             </DialogDescription>
+          )}
+          {closeHint && (
+            <p className="text-xs text-warning" role="status">
+              {t("updates.closeBlocked")}
+            </p>
           )}
         </DialogHeader>
 
