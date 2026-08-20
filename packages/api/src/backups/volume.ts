@@ -20,6 +20,8 @@ import type { Docker, Mount } from "@otterdeploy/docker";
 import { DockerNotFoundError, followProgress } from "@otterdeploy/docker";
 import { PassThrough, Readable, Writable } from "node:stream";
 
+import { HELPER_ROLES, helperLabels } from "../lib/helper-container";
+
 /** Helper image for tar/clear runs, small, ships GNU-compatible busybox tar. */
 const VOLUME_HELPER_IMAGE = "alpine:3.20";
 
@@ -106,7 +108,12 @@ async function runHelper(
   mount: Mount,
   output?: [Writable, Writable],
 ): Promise<{ statusCode: number }> {
-  const options = { HostConfig: { Mounts: [mount] }, autoRemove: true };
+  // AutoRemove on HostConfig so the daemon reaps it even when the run never
+  // starts; the label makes any survivor sweepable. See lib/helper-container.
+  const options = {
+    Labels: helperLabels(HELPER_ROLES.volumeBackup),
+    HostConfig: { Mounts: [mount], AutoRemove: true },
+  };
   let result = await docker.run(VOLUME_HELPER_IMAGE, cmd, output, options);
   if (result.isErr() && result.error instanceof DockerNotFoundError) {
     await pullHelperImage(docker);
