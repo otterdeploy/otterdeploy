@@ -520,7 +520,8 @@
       "shipped": "Ausgeliefert",
       "trigger": "Auslöser",
       "duration": "Dauer",
-      "created": "Erstellt"
+      "created": "Erstellt",
+      "service": "Dienst"
     },
     "filterByResource": "Nach Ressource filtern",
     "filterByStatus": "Nach Status filtern",

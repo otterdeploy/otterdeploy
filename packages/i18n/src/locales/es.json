@@ -520,7 +520,8 @@
       "shipped": "Qué se desplegó",
       "trigger": "Origen",
       "duration": "Duración",
-      "created": "Creado"
+      "created": "Creado",
+      "service": "Servicio"
     },
     "filterByResource": "Filtrar por recurso",
     "filterByStatus": "Filtrar por estado",

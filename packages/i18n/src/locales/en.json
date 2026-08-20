@@ -520,7 +520,8 @@
       "shipped": "What shipped",
       "trigger": "Trigger",
       "duration": "Duration",
-      "created": "Created"
+      "created": "Created",
+      "service": "Service"
     },
     "filterByResource": "Filter by resource",
     "filterByStatus": "Filter by status",
