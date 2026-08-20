@@ -104,7 +104,7 @@ export function TwoTone({
   return (
     <h2
       className={cx(
-        "text-[1.625rem] leading-[1.18] font-semibold tracking-[-0.025em] text-balance sm:text-[1.875rem]",
+        "text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.03em] text-balance sm:text-[2.25rem]",
         className,
       )}
     >
