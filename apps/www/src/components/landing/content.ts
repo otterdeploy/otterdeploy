@@ -21,10 +21,8 @@ export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | 
  * else" are still on the page; they're just not nav-worthy.
  */
 export const NAV_SECTIONS: { id: string; label: string }[] = [
+  { id: "features", label: "Features" },
   { id: "platform", label: "Platform" },
-  { id: "deploy", label: "Deploy" },
-  { id: "project", label: "Projects" },
-  { id: "previews", label: "Previews" },
   { id: "compare", label: "Compare" },
   { id: "faq", label: "FAQ" },
 ];

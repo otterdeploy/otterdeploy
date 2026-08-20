@@ -76,7 +76,7 @@ export function Band({
     <section
       id={id}
       className={cx(
-        "scroll-mt-14 border-t border-border",
+        "scroll-mt-24 border-t border-border",
         tone === "ink" && "od-ink bg-background text-foreground",
         className,
       )}

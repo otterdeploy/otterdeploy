@@ -24,7 +24,7 @@ export function Landing() {
   return (
     <div className="od-landing bg-background text-foreground">
       <a
-        href="#deploy"
+        href="#features"
         className="sr-only rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
       >
         Skip to content
@@ -33,8 +33,8 @@ export function Landing() {
       <TopBar />
       <main>
         <Hero />
-        <Platform />
         <Showcase />
+        <Platform />
         <More />
         <Compare />
         <Faq />
