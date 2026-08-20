@@ -11,6 +11,9 @@ vi.mock("../../project/queries", () => ({
 
 vi.mock("../../project/queries/resource", () => ({
   getResourceById: vi.fn(),
+  // Env scoping composes into the SQL where(); its own semantics are covered
+  // by the resource-queries tests. Returning undefined = "no extra condition".
+  inEnvironmentScope: vi.fn(() => undefined),
 }));
 
 vi.mock("../../project/deployments-list", () => ({
@@ -27,6 +30,9 @@ const selectChain = {
   leftJoin: vi.fn(),
   where: vi.fn(),
   orderBy: vi.fn(),
+  // mainEnvironmentName's lookup ends in .limit(); resolving [] makes every
+  // NULL-stamped row read as the "main" fallback in these tests.
+  limit: vi.fn().mockResolvedValue([]),
 };
 selectChain.from.mockReturnValue(selectChain);
 selectChain.innerJoin.mockReturnValue(selectChain);
@@ -40,11 +46,14 @@ vi.mock("@otterdeploy/db", () => ({
 import * as derivation from "../../project/deployments-list";
 import * as queries from "../../project/queries";
 import * as resourceQueries from "../../project/queries/resource";
+import { listProjectDeployments } from "../list-by-project";
 import {
+  computeStats,
   effectiveListedStatus,
-  listProjectDeployments,
+  matchesQuery,
   matchesStatusFilter,
-} from "../list-by-project";
+  medianDurationMs,
+} from "../list-filters";
 
 // Branded at the boundary the same way production code does: through the id
 // schema, using the canonical short prefixes so no legacy rewrite kicks in.
@@ -253,7 +262,12 @@ describe("matchesStatusFilter", () => {
 describe("listProjectDeployments", () => {
   test("returns ProjectNotFoundError when the project isn't in the org", async () => {
     vi.mocked(queries.getProjectInOrg).mockResolvedValue(undefined);
-    const result = await listProjectDeployments({ projectId, organizationId, limit: 50 });
+    const result = await listProjectDeployments({
+      projectId,
+      organizationId,
+      limit: 50,
+      offset: 0,
+    });
     expect(result.isErr()).toBe(true);
   });
 
@@ -268,7 +282,12 @@ describe("listProjectDeployments", () => {
       row({ resourceId: b, status: "building", createdAt: new Date("2026-07-09T09:00:00Z") }),
     ]);
 
-    const result = await listProjectDeployments({ projectId, organizationId, limit: 50 });
+    const result = await listProjectDeployments({
+      projectId,
+      organizationId,
+      limit: 50,
+      offset: 0,
+    });
     expect(result.isOk()).toBe(true);
     const { items, total } = result.unwrap();
     expect(total).toBe(4);
@@ -294,6 +313,7 @@ describe("listProjectDeployments", () => {
       organizationId,
       status: "superseded",
       limit: 50,
+      offset: 0,
     });
     const { items, total } = result.unwrap();
     expect(total).toBe(1);
@@ -315,7 +335,7 @@ describe("listProjectDeployments", () => {
       ),
     );
 
-    const result = await listProjectDeployments({ projectId, organizationId, limit: 2 });
+    const result = await listProjectDeployments({ projectId, organizationId, limit: 2, offset: 0 });
     const { items, total } = result.unwrap();
     expect(total).toBe(5);
     expect(items).toHaveLength(2);
@@ -340,7 +360,12 @@ describe("listProjectDeployments", () => {
     vi.mocked(derivation.deriveDeploymentStatus).mockReturnValue("running");
     vi.mocked(derivation.reconcileDeploySuccess).mockResolvedValue(undefined);
 
-    const result = await listProjectDeployments({ projectId, organizationId, limit: 50 });
+    const result = await listProjectDeployments({
+      projectId,
+      organizationId,
+      limit: 50,
+      offset: 0,
+    });
     const { items } = result.unwrap();
     const [first] = items;
     if (!first) throw new Error("expected a deployment item");
@@ -364,5 +389,163 @@ describe("matchesStatusFilter, cancelled", () => {
   test("cancelled is not confused with failed in either direction", () => {
     expect(matchesStatusFilter("failed", "cancelled", true)).toBe(false);
     expect(matchesStatusFilter("cancelled", "failed", true)).toBe(false);
+  });
+});
+
+// ── Search, stats, and pagination semantics ──────────────────────────────
+
+describe("matchesQuery", () => {
+  const base = {
+    resourceName: "web",
+    gitSha: "e59629f7abc",
+    gitCommitMessage: "feat(web): template search",
+    gitCommitAuthor: "Jace",
+    image: "registry.local/web:e59629f",
+    sourceSha: null,
+  };
+
+  test("matches case-insensitively across provenance fields", () => {
+    expect(matchesQuery(base, "E59629")).toBe(true);
+    expect(matchesQuery(base, "template SEARCH")).toBe(true);
+    expect(matchesQuery(base, "jace")).toBe(true);
+    expect(matchesQuery(base, "registry.local")).toBe(true);
+  });
+
+  test("blank or whitespace query matches everything", () => {
+    expect(matchesQuery(base, "")).toBe(true);
+    expect(matchesQuery(base, "   ")).toBe(true);
+  });
+
+  test("misses honestly and ignores null fields", () => {
+    expect(matchesQuery(base, "postgres")).toBe(false);
+    expect(matchesQuery({ ...base, gitSha: null, gitCommitMessage: null }, "e59629")).toBe(true);
+  });
+});
+
+describe("medianDurationMs", () => {
+  const timed = (createdAt: string, completedAt: string | null) => ({
+    createdAt: new Date(createdAt),
+    completedAt: completedAt ? new Date(completedAt) : null,
+  });
+
+  test("odd and even counts, incomplete rows excluded", () => {
+    expect(
+      medianDurationMs([
+        timed("2026-08-20T10:00:00Z", "2026-08-20T10:01:00Z"), // 60s
+        timed("2026-08-20T10:00:00Z", "2026-08-20T10:03:00Z"), // 180s
+        timed("2026-08-20T10:00:00Z", null), // in flight, excluded
+      ]),
+    ).toBe(120_000);
+    expect(
+      medianDurationMs([
+        timed("2026-08-20T10:00:00Z", "2026-08-20T10:01:00Z"), // 60s
+        timed("2026-08-20T10:00:00Z", "2026-08-20T10:02:00Z"), // 120s
+        timed("2026-08-20T10:00:00Z", "2026-08-20T10:04:00Z"), // 240s
+      ]),
+    ).toBe(120_000);
+  });
+
+  test("null when nothing completed", () => {
+    expect(medianDurationMs([])).toBeNull();
+    expect(medianDurationMs([timed("2026-08-20T10:00:00Z", null)])).toBeNull();
+  });
+});
+
+describe("computeStats", () => {
+  test("counts effective statuses: superseded rows are neither failed nor in flight", () => {
+    const at = new Date("2026-08-20T10:00:00Z");
+    const stats = computeStats([
+      { status: "running", isLatest: true, createdAt: at, completedAt: null },
+      { status: "building", isLatest: true, createdAt: at, completedAt: null },
+      { status: "failed", isLatest: false, createdAt: at, completedAt: null },
+      // Stored-running but replaced: effective superseded, not in flight.
+      { status: "running", isLatest: false, createdAt: at, completedAt: null },
+    ]);
+    expect(stats).toEqual({ windowTotal: 4, failed: 1, inFlight: 1, medianDurationMs: null });
+  });
+});
+
+describe("listProjectDeployments, search + offset + stats", () => {
+  test("q narrows items, total, and stats together", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_web");
+    const b = idSchema.resource.parse("res_postgres");
+    givenRows([
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-09T10:00:00Z") }),
+      row({ resourceId: b, status: "running", createdAt: new Date("2026-07-09T09:00:00Z") }),
+    ]);
+
+    const result = await listProjectDeployments({
+      projectId,
+      organizationId,
+      q: "postgres",
+      limit: 50,
+      offset: 0,
+    });
+    const { items, total, stats } = result.unwrap();
+    expect(total).toBe(1);
+    expect(items.map((i) => i.resourceName)).toEqual(["postgres"]);
+    expect(stats.windowTotal).toBe(1);
+  });
+
+  test("offset pages past earlier rows while total spans the full match set", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_a");
+    givenRows(
+      Array.from({ length: 5 }, (_, i) =>
+        row({
+          resourceId: a,
+          status: "superseded",
+          createdAt: new Date(Date.UTC(2026, 6, 1 + i)),
+        }),
+      ),
+    );
+
+    const page2 = await listProjectDeployments({ projectId, organizationId, limit: 2, offset: 2 });
+    const { items, total } = page2.unwrap();
+    expect(total).toBe(5);
+    expect(items).toHaveLength(2);
+    // Newest-first ordering: offset 2 lands on the 3rd- and 4th-newest rows.
+    expect(items.map((i) => new Date(i.createdAt).getUTCDate())).toEqual([3, 2]);
+  });
+
+  test("stats ignore the status filter while items respect it", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_a");
+    givenRows([
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-09T10:00:00Z") }),
+      row({ resourceId: a, status: "failed", createdAt: new Date("2026-07-08T10:00:00Z") }),
+      row({ resourceId: a, status: "failed", createdAt: new Date("2026-07-07T10:00:00Z") }),
+    ]);
+
+    const result = await listProjectDeployments({
+      projectId,
+      organizationId,
+      status: "failed",
+      limit: 50,
+      offset: 0,
+    });
+    const { items, total, stats } = result.unwrap();
+    expect(total).toBe(2);
+    expect(items).toHaveLength(2);
+    expect(stats.windowTotal).toBe(3);
+    expect(stats.failed).toBe(2);
+  });
+
+  test("rows resolve the main-environment name for NULL-stamped resources", async () => {
+    givenProjectExists();
+    const a = idSchema.resource.parse("res_a");
+    givenRows([
+      row({ resourceId: a, status: "running", createdAt: new Date("2026-07-09T10:00:00Z") }),
+    ]);
+    const result = await listProjectDeployments({
+      projectId,
+      organizationId,
+      limit: 50,
+      offset: 0,
+    });
+    const { items } = result.unwrap();
+    // The mocked env lookup returns no row, so the honest fallback applies.
+    expect(items[0]?.environmentName).toBe("main");
   });
 });

@@ -45,8 +45,13 @@ export const deploymentRouter = {
         organizationId: context.activeOrganizationId,
         resourceId: input.resourceId,
         status: input.status,
+        environment: input.environmentId
+          ? { environmentId: input.environmentId, isMain: input.environmentIsMain }
+          : undefined,
+        q: input.q,
         since: input.since ? new Date(input.since) : undefined,
         limit: input.limit,
+        offset: input.offset,
       });
       if (result.isErr()) {
         throw matchError(result.error, {

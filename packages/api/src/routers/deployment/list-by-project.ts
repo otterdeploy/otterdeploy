@@ -23,10 +23,16 @@
  * anyway, project deployment counts are modest, and it keeps exactly one
  * status-semantics implementation (`matchesStatusFilter`) shared with tests.
  */
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  DeploymentId,
+  EnvironmentId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
+import { deployment, environment, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, desc, eq, gte, isNull, type SQL } from "drizzle-orm";
 
@@ -42,15 +48,16 @@ import {
 } from "../project/deployments-list";
 import { ProjectNotFoundError } from "../project/errors";
 import { getProjectInOrg } from "../project/queries";
-import { getResourceById } from "../project/queries/resource";
-
-export type ProjectDeploymentsStatusFilter =
-  | "building"
-  | "running"
-  | "failed"
-  | "cancelled"
-  | "superseded"
-  | "removed";
+import { getResourceById, inEnvironmentScope } from "../project/queries/resource";
+import {
+  computeStats,
+  effectiveListedStatus,
+  IN_FLIGHT_OR_LIVE,
+  matchesQuery,
+  matchesStatusFilter,
+  type ProjectDeploymentStats,
+  type ProjectDeploymentsStatusFilter,
+} from "./list-filters";
 
 export type ResourceKind = "database" | "service" | "compose";
 
@@ -60,6 +67,7 @@ export interface ProjectDeploymentItem {
   resourceId: ResourceId;
   resourceName: string;
   resourceKind: ResourceKind;
+  environmentName: string;
   image: string;
   reason: DeploymentRow["reason"];
   status: DerivedDeploymentStatus;
@@ -76,47 +84,16 @@ export interface ProjectDeploymentItem {
   updatedAt: string;
 }
 
-/** Stored statuses that mean "this row was (or still is) the live/in-flight
- *  one": the states a NEWER deploy invalidates into `superseded`. */
-const IN_FLIGHT_OR_LIVE: ReadonlySet<DeploymentRow["status"]> = new Set([
-  "pending",
-  "building",
-  "running",
-]);
-
-/**
- * Status as the project-wide list shows it, before any docker refinement.
- * Non-latest rows that never settled (running/building/pending) were replaced
- * by a newer deploy → `superseded`; everything else keeps its stored status.
- */
-export function effectiveListedStatus(
-  stored: DeploymentRow["status"],
-  isLatest: boolean,
-): DeploymentRow["status"] {
-  if (!isLatest && IN_FLIGHT_OR_LIVE.has(stored)) return "superseded";
-  return stored;
-}
-
-/** Does a row match the effective-status filter? `building` covers stored
- *  `pending` too (both render as in-flight). Single source of truth for the
- *  filter semantics, used by the list and unit-tested directly. */
-export function matchesStatusFilter(
-  filter: ProjectDeploymentsStatusFilter,
-  stored: DeploymentRow["status"],
-  isLatest: boolean,
-): boolean {
-  const effective = effectiveListedStatus(stored, isLatest);
-  if (filter === "building") return effective === "building" || effective === "pending";
-  return effective === filter;
-}
-
 interface ListInput {
   projectId: ProjectId;
   organizationId: OrganizationId;
   resourceId?: ResourceId;
   status?: ProjectDeploymentsStatusFilter;
+  environment?: { environmentId: EnvironmentId; isMain: boolean };
+  q?: string;
   since?: Date;
   limit: number;
+  offset: number;
 }
 
 interface JoinedRow {
@@ -124,6 +101,8 @@ interface JoinedRow {
   resourceId: ResourceId;
   resourceName: string;
   resourceKind: ResourceKind;
+  /** Joined environment name; null = NULL-stamped row (main environment). */
+  environmentName: string | null;
   image: string;
   reason: DeploymentRow["reason"];
   status: DeploymentRow["status"];
@@ -183,9 +162,27 @@ async function refineLatestStatuses(
   return refined;
 }
 
+/** Display name for NULL-stamped rows: the project's own main environment.
+ *  A project without a resolvable main environment (shouldn't happen, but
+ *  the pointer is nullable) reads as "main" rather than blank. */
+async function mainEnvironmentName(mainEnvId: EnvironmentId | null): Promise<string> {
+  if (!mainEnvId) return "main";
+  const [row] = await db
+    .select({ name: environment.name })
+    .from(environment)
+    .where(eq(environment.id, mainEnvId))
+    .limit(1);
+  return row?.name ?? "main";
+}
+
 export async function listProjectDeployments(
   input: ListInput,
-): Promise<Result<{ items: ProjectDeploymentItem[]; total: number }, ProjectNotFoundError>> {
+): Promise<
+  Result<
+    { items: ProjectDeploymentItem[]; total: number; stats: ProjectDeploymentStats },
+    ProjectNotFoundError
+  >
+> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -211,6 +208,12 @@ export async function listProjectDeployments(
     // `resourceId` filter / the child service's Deployments tab).
     conditions.push(isNull(serviceResource.stackId));
   }
+  if (input.environment) {
+    // Same NULL-means-main scoping every resource read uses; this is what
+    // makes the environment filter agree with the rest of the app.
+    const scope = inEnvironmentScope(input.environment);
+    if (scope) conditions.push(scope);
+  }
   if (input.since) conditions.push(gte(deployment.createdAt, input.since));
 
   const rows: JoinedRow[] = await db
@@ -219,6 +222,7 @@ export async function listProjectDeployments(
       resourceId: deployment.resourceId,
       resourceName: resource.name,
       resourceKind: resource.type,
+      environmentName: environment.name,
       image: deployment.image,
       reason: deployment.reason,
       status: deployment.status,
@@ -239,6 +243,9 @@ export async function listProjectDeployments(
     // and compose stacks null out, which the stack-child filter above treats
     // as "not a child" (kept).
     .leftJoin(serviceResource, eq(serviceResource.resourceId, deployment.resourceId))
+    // Left join: NULL-stamped resources (main environment) have no
+    // environment row; their name resolves via mainEnvironmentName below.
+    .leftJoin(environment, eq(environment.id, resource.environmentId))
     .where(and(...conditions))
     .orderBy(desc(deployment.createdAt), desc(deployment.id));
 
@@ -255,15 +262,25 @@ export async function listProjectDeployments(
     isLatest: latestByResource.get(row.resourceId) === row.id,
   }));
 
+  // Search narrows both the table and the stats; the status select narrows
+  // only the table (see computeStats).
+  const q = input.q;
+  const searched = q ? withLatest.filter((row) => matchesQuery(row, q)) : withLatest;
+
+  const stats = computeStats(searched);
+
   const statusFilter = input.status;
   const filtered = statusFilter
-    ? withLatest.filter((row) => matchesStatusFilter(statusFilter, row.status, row.isLatest))
-    : withLatest;
+    ? searched.filter((row) => matchesStatusFilter(statusFilter, row.status, row.isLatest))
+    : searched;
 
   const total = filtered.length;
-  const page = filtered.slice(0, input.limit);
+  const page = filtered.slice(input.offset, input.offset + input.limit);
 
-  const refined = await refineLatestStatuses(input.projectId, page);
+  const [refined, mainEnvName] = await Promise.all([
+    refineLatestStatuses(input.projectId, page),
+    mainEnvironmentName(project.environmentId),
+  ]);
 
   const items: ProjectDeploymentItem[] = page.map((row) => ({
     id: row.id,
@@ -271,6 +288,7 @@ export async function listProjectDeployments(
     resourceId: row.resourceId,
     resourceName: row.resourceName,
     resourceKind: row.resourceKind,
+    environmentName: row.environmentName ?? mainEnvName,
     image: row.image,
     reason: row.reason,
     status: refined.get(row.id) ?? effectiveListedStatus(row.status, row.isLatest),
@@ -287,5 +305,5 @@ export async function listProjectDeployments(
     updatedAt: row.updatedAt.toISOString(),
   }));
 
-  return Result.ok({ items, total });
+  return Result.ok({ items, total, stats });
 }

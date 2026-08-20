@@ -514,11 +514,13 @@
   "deployments": {
     "columns": {
       "status": "Status",
-      "service": "Service",
-      "commit": "Commit",
-      "author": "Autor",
+      "resource": "Ressource",
+      "type": "Typ",
+      "env": "Umgebung",
+      "shipped": "Ausgeliefert",
+      "trigger": "Auslöser",
       "duration": "Dauer",
-      "when": "Wann"
+      "created": "Erstellt"
     },
     "filterByResource": "Nach Ressource filtern",
     "filterByStatus": "Nach Status filtern",
@@ -543,7 +545,19 @@
       "30d": "Letzte 30 Tage",
       "all": "Gesamter Zeitraum"
     },
-    "rollBack": "Zurückrollen"
+    "rollBack": "Zurückrollen",
+    "searchPlaceholder": "SHA, Commit-Nachricht, Autor suchen…",
+    "filterByEnvironment": "Nach Umgebung filtern",
+    "allEnvironments": "Alle Umgebungen",
+    "current": "aktuell",
+    "moreActions": "Weitere Aktionen",
+    "openDetail": "Detail öffnen",
+    "viewLogs": "Logs ansehen",
+    "copySha": "SHA kopieren",
+    "deploymentsCount": "Deployments",
+    "perPage": "Zeilen pro Seite",
+    "previousPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite"
   },
   "logs": {
     "allServices": "Alle Services",

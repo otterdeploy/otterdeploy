@@ -19,6 +19,7 @@ import { deploymentSchema } from "../project/contract/deployments";
 import {
   basePath,
   deploymentIdField,
+  environmentIdField,
   projectIdField,
   projectNotFoundErrors,
   resourceIdField,
@@ -36,6 +37,9 @@ const projectDeploymentListItemSchema = deploymentSchema
   .extend({
     resourceName: z.string(),
     resourceKind: z.enum(["database", "service", "compose"]),
+    /** Display name of the environment the resource lives in. NULL-stamped
+     *  rows resolve to the project's main environment name server-side. */
+    environmentName: z.string(),
     /** Is this the resource's newest base deployment? Drives rollback
      *  eligibility client-side (only non-latest settled deploys roll back). */
     isLatest: z.boolean(),
@@ -64,15 +68,41 @@ const listDeploymentsByProjectInput = z.object({
   /** Scope to one resource's deployments. Omitted → whole project. */
   resourceId: resourceIdField.optional(),
   status: statusFilterField.optional(),
+  /** Scope to one environment's resources. Omitted → every environment.
+   *  `environmentIsMain` must accompany it: main additionally owns
+   *  NULL-stamped resource rows (see `inEnvironmentScope`). */
+  environmentId: environmentIdField.optional(),
+  environmentIsMain: z.boolean().default(false),
+  /** Case-insensitive substring over sha, commit message, author, resource
+   *  name, and image ref. */
+  q: z.string().max(200).optional(),
   /** Only deployments created at/after this instant. Omitted → all time. */
   since: z.iso.datetime().optional(),
-  limit: z.number().int().min(1).max(200).default(50),
+  limit: z.number().int().min(1).max(500).default(50),
+  offset: z.number().int().min(0).default(0),
+});
+
+/**
+ * Headline figures for the stats strip. Computed over every filter EXCEPT
+ * `status`: the status select narrows the table while the strip keeps
+ * describing the whole filtered window (a strip that reads "100% failed"
+ * whenever the Failed filter is on would be noise, not information).
+ */
+const projectDeploymentStatsSchema = z.object({
+  /** Deployments in the filtered window (status filter excluded). */
+  windowTotal: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  inFlight: z.number().int().nonnegative(),
+  /** Median wall time of completed deploys; null when none completed. */
+  medianDurationMs: z.number().int().nonnegative().nullable(),
 });
 
 const listDeploymentsByProjectOutput = z.object({
   items: z.array(projectDeploymentListItemSchema),
-  /** Total rows matching the filters (ignores `limit`): powers "N of M". */
+  /** Total rows matching the filters (ignores limit/offset): powers the
+   *  pagination range. */
   total: z.number().int().nonnegative(),
+  stats: projectDeploymentStatsSchema,
 });
 
 /**
