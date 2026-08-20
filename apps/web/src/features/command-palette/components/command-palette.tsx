@@ -189,10 +189,7 @@ export function CommandPalette() {
 
           {inProject && (
             <CommandGroup heading={t("commandPalette.groups.thisProject")}>
-              <DeployItems
-                goNewResource={goNewResource}
-                goDeployTemplate={goDeployTemplate}
-              />
+              <DeployItems goNewResource={goNewResource} goDeployTemplate={goDeployTemplate} />
               {PROJECT_NAV.map((item) => (
                 <CommandItem
                   key={item.label}

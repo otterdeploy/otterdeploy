@@ -88,46 +88,13 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
   review: ({ kind, projectId }) => (kind ? <StepReview kind={kind} projectId={projectId} /> : null),
 };
 
-export function WizardStepBody({
-  step,
-  kind,
-  isDb,
-  isSourceBased,
-  isDocker,
-  projectId,
-  dbView,
-  onDbViewChange,
-  templateView,
-  onTemplateViewChange,
-  onKindChosen,
-}: {
-  step: Step;
-  kind: ServiceKind | null;
-  isDb: boolean;
-  isSourceBased: boolean;
-  isDocker: boolean;
-  projectId: ProjectId;
-  dbView: boolean;
-  onDbViewChange: (open: boolean) => void;
-  templateView: boolean;
-  onTemplateViewChange: (open: boolean) => void;
-  onKindChosen: (kindId: string) => void;
-}) {
+// Props are literally "which step" + the renderers' context: reuse StepCtx
+// instead of restating its fields as a second, drift-prone list.
+export function WizardStepBody({ step, ...ctx }: { step: Step } & StepCtx) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <div className={cn("mx-auto max-w-205", { "max-w-275": step === "kind" })}>
-        {STEP_RENDERERS[step]({
-          kind,
-          isDb,
-          isSourceBased,
-          isDocker,
-          projectId,
-          dbView,
-          onDbViewChange,
-          templateView,
-          onTemplateViewChange,
-          onKindChosen,
-        })}
+        {STEP_RENDERERS[step](ctx)}
       </div>
     </div>
   );
