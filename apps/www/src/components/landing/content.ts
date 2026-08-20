@@ -16,9 +16,13 @@ export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | 
 // ── Nav ────────────────────────────────────────────────────────────────────
 
 /**
- * The bar shows six stops, not every section: the centre of the bar is a map,
- * and a map that names every street stops being one. Edge and "everything
- * else" are still on the page; they're just not nav-worthy.
+ * Four stops, not every section: the centre of the bar is a map, and a map
+ * that names every street stops being one.
+ *
+ * Every id here must be a real `Band` on the page, because the scroll-spy
+ * looks each one up by `getElementById` and silently drops what it can't
+ * find. The showcase became one bento (`#features`), so the per-panel ids it
+ * used to carry — deploy, project, edge, previews — no longer exist.
  */
 export const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "features", label: "Features" },
@@ -40,7 +44,7 @@ export const RAIL_STATIONS: { key: string; note: string }[] = [
   { key: "image", note: "pushed" },
   { key: "rollout", note: "swarm" },
   { key: "route", note: "caddy" },
-  { key: "tls", note: "issued" },
+  { key: "tls", note: "valid" },
 ];
 
 /** Four counts, each verifiable in the repository. */
@@ -73,7 +77,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
-    title: "Edge & networking",
+    title: "Domains, TLS & networking",
     chips: [
       "Multi-domain routing",
       "Automatic TLS",
@@ -86,7 +90,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
-    title: "Data",
+    title: "Databases & backups",
     chips: [
       "Postgres",
       "Redis",
@@ -126,7 +130,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
-    title: "Automate",
+    title: "CLI, API & automation",
     chips: [
       "otterdeploy.json",
       "Typed oRPC API",
@@ -205,7 +209,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
 // ── Close ──────────────────────────────────────────────────────────────────
 
 export const REQUIREMENTS: { label: string; value: string }[] = [
-  { label: "Host", value: "One Linux box with root" },
+  { label: "Host", value: "One Linux VPS or bare-metal box, with root" },
   { label: "Runtime", value: "Docker, Swarm-enabled by the installer" },
   { label: "Ports", value: "80 and 443, for the edge and ACME" },
 ];

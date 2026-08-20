@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
@@ -17,7 +17,15 @@ import {
   LEVELS,
   type Level,
 } from "./edge-events-view-parts";
-import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./edge-logs-shared";
+import {
+  Chips,
+  LiveBadge,
+  RANGES,
+  type Range,
+  Segmented,
+  toggleSet,
+  useStickyHostOptions,
+} from "./edge-logs-shared";
 import { HostFilter } from "./host-filter";
 
 /**
@@ -30,6 +38,17 @@ import { HostFilter } from "./host-filter";
 function isMember<T extends string>(options: readonly T[], v: string): v is T {
   const all: readonly string[] = options;
   return all.includes(v);
+}
+
+/** Every host a set of event rows mentions: the row's own host plus any
+ *  cert-batch domains. */
+function observedHosts(rows: { host: string | null; domains: string[] }[]): string[] {
+  const set = new Set<string>();
+  for (const r of rows) {
+    if (r.host) set.add(r.host);
+    for (const d of r.domains) set.add(d);
+  }
+  return [...set];
 }
 
 export function EdgeEventsView({ projectId }: { projectId?: string }) {
@@ -59,20 +78,16 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
       },
     }),
     refetchInterval: live ? 2000 : false,
+    // Filter changes change the query key; without this the table and host
+    // dropdown blank out (and flash back) on every checkbox click.
+    placeholderData: keepPreviousData,
   });
 
   const data = query.data;
   const rows = data?.rows ?? [];
-  // No hostStats here: derive the filter options from the rows themselves
-  // (each event's host plus any batch domains).
-  const hostOptions = (() => {
-    const set = new Set<string>();
-    for (const r of data?.rows ?? []) {
-      if (r.host) set.add(r.host);
-      for (const d of r.domains) set.add(d);
-    }
-    return [...set].sort();
-  })();
+  // No hostStats here: the filter options come from the rows themselves (each
+  // event's host plus any batch domains), kept sticky across filter changes.
+  const hostOptions = useStickyHostOptions(observedHosts(rows));
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">

@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_app/$orgSlug/certificates")({
     throw redirect({
       to: "/$orgSlug/edge",
       params: { orgSlug: params.orgSlug },
-      search: { tab: "certificates" },
+      search: { tab: "caddy", pane: "certs" },
     });
   },
 });

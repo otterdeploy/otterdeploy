@@ -1,18 +1,28 @@
 /**
- * Live daemon event feed: the Events tab of the Raw Docker panel.
+ * Live daemon event feed: the Events tab of the Docker panel.
  *
- * Streams `docker.events.stream` (the daemon's `/events` firehose, flattened
+ * Opt-in: nothing streams until the operator clicks "Go live" (an event
+ * firehose is a debugging tool, not ambient decoration), and "Stop" unmounts
+ * the live view, which aborts the subscription. While live, it streams
+ * `docker.events.stream` (the daemon's `/events` firehose, flattened
  * server-side) through the shared `useLogStream` ring buffer. Everything the
  * daemon reports is streamed; the type chips filter the CLIENT buffer only,
- * so toggling one never tears the stream or drops history. The parent mounts
- * this component only while the tab is active: unmounting aborts the
- * subscription, so an idle panel holds no daemon connection.
+ * so toggling one never tears the stream or drops history. Nothing is
+ * persisted anywhere: the server bridges the daemon bus straight to the
+ * response, and this buffer is the only place events live.
+ *
+ * The list renders oldest→newest inside a fixed-height ScrollArea pinned to
+ * the bottom, with the same follow contract as every other tail in the app:
+ * scrolling up into history releases the pin, the shared JumpToLatest pill
+ * re-pins.
  */
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
+import { JumpToLatest } from "@/features/logs/components/jump-to-latest";
 import { useLogStream } from "@/features/logs/data/use-log-stream";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -105,6 +115,57 @@ function EventRow({ line }: { line: EventLine }) {
 }
 
 export function DockerEventsFeed() {
+  // Subscribe-on-demand: the live view is a separate component so "Stop"
+  // unmounts it, which is what aborts the stream (see useLogStream cleanup).
+  const [live, setLive] = useState(false);
+  if (!live) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-md px-4 py-12 ring-1 ring-foreground/10">
+        <p className="text-sm font-medium">Live daemon events</p>
+        <p className="max-w-md text-center text-xs leading-relaxed text-muted-foreground">
+          Tails the daemon's event feed in real time: container lifecycles, health probes, network
+          attaches. Nothing is stored — the feed exists only while you watch it.
+        </p>
+        <Button type="button" size="sm" className="h-7 text-xs" onClick={() => setLive(true)}>
+          Go live
+        </Button>
+      </div>
+    );
+  }
+  return <LiveEventsFeed onStop={() => setLive(false)} />;
+}
+
+/** Pin-to-bottom follow over the ScrollArea viewport (the hook owns the ref):
+ *  scrolling up releases the pin, `resume` (the JumpToLatest pill) re-pins.
+ *  Same contract as log-viewer.tsx, minus the virtualizer (500 rows max). */
+function useFollow(lineCount: number) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [following, setFollowing] = useState(true);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+      setFollowing((prev) => (atBottom === prev ? prev : atBottom));
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!following || lineCount === 0) return;
+    viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight });
+  }, [following, lineCount]);
+
+  const resume = () => {
+    setFollowing(true);
+    viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight });
+  };
+  return { viewportRef, following, resume };
+}
+
+function LiveEventsFeed({ onStop }: { onStop: () => void }) {
   const [paused, setPaused] = useState(false);
   // Hidden types rather than shown types, so "everything visible" is the
   // empty set and new event types default to visible.
@@ -134,13 +195,14 @@ export function DockerEventsFeed() {
     return byType;
   }, [lines]);
 
-  // Newest first: an ops feed is read from "what just happened" downward.
-  const visible = useMemo(() => {
-    const filtered = hiddenTypes.size
-      ? lines.filter((line) => !hiddenTypes.has(line.type))
-      : lines;
-    return filtered.toReversed();
-  }, [lines, hiddenTypes]);
+  // Chronological (oldest → newest), pinned to the bottom like every other
+  // tail in the app: "what just happened" is where the pin holds you.
+  const visible = useMemo(
+    () => (hiddenTypes.size ? lines.filter((line) => !hiddenTypes.has(line.type)) : lines),
+    [lines, hiddenTypes],
+  );
+
+  const { viewportRef, following, resume } = useFollow(visible.length);
 
   const toggleType = (type: EventType) => {
     setHiddenTypes((prev) => {
@@ -191,19 +253,30 @@ export function DockerEventsFeed() {
           >
             {paused ? "Resume" : "Pause"}
           </Button>
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={onStop}>
+            Stop
+          </Button>
         </div>
       </div>
 
-      <div className="min-w-0 overflow-x-auto rounded-md ring-1 ring-foreground/10">
-        {visible.length === 0 ? (
-          <p className="px-3 py-8 text-center text-sm text-muted-foreground">Waiting for events…</p>
-        ) : (
-          <div className="py-1">
-            {visible.map((line) => (
-              <EventRow key={line.id} line={line} />
-            ))}
-          </div>
-        )}
+      <div className="relative min-w-0">
+        <ScrollArea
+          className="h-[min(60vh,36rem)] rounded-md ring-1 ring-foreground/10"
+          viewportRef={viewportRef}
+        >
+          {visible.length === 0 ? (
+            <p className="grid h-full place-items-center text-sm text-muted-foreground">
+              Waiting for events…
+            </p>
+          ) : (
+            <div className="py-1">
+              {visible.map((line) => (
+                <EventRow key={line.id} line={line} />
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+        {!following && visible.length > 0 && <JumpToLatest onClick={resume} />}
       </div>
     </div>
   );

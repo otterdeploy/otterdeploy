@@ -35,17 +35,33 @@ const edgeLogLineSchema = z.object({
 const timeRange = z.enum(["5m", "1h", "6h", "24h", "7d"]);
 const statusBucket = z.enum(["2xx", "3xx", "4xx", "5xx"]);
 
-const edgeLogQueryInput = z.object({
-  /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
-  projectId: zId("prj").optional(),
-  range: timeRange.default("1h"),
-  /** Multi-select method/status/host filters; empty/omitted ⇒ no filter. */
-  methods: z.array(z.string()).optional(),
-  statuses: z.array(statusBucket).optional(),
-  hosts: z.array(z.string()).optional(),
-  search: z.string().optional(),
-  limit: z.number().int().positive().max(1000).optional(),
-});
+export const edgeLogQueryInput = z
+  .object({
+    /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
+    projectId: zId("prj").optional(),
+    range: timeRange.default("1h"),
+    /** Custom window (epoch ms), overriding `range`. Both or neither. Capped
+     *  at 7 days: the edge-log retention window (persist.ts RETENTION_DAYS),
+     *  so a wider ask can't pretend to cover data that no longer exists. */
+    from: z.number().int().positive().optional(),
+    to: z.number().int().positive().optional(),
+    /** Multi-select method/status/host filters; empty/omitted ⇒ no filter. */
+    methods: z.array(z.string()).optional(),
+    statuses: z.array(statusBucket).optional(),
+    hosts: z.array(z.string()).optional(),
+    search: z.string().optional(),
+    limit: z.number().int().positive().max(1000).optional(),
+  })
+  .refine((v) => (v.from === undefined) === (v.to === undefined), {
+    message: "from and to must be provided together",
+  })
+  .refine((v) => v.from === undefined || v.to === undefined || v.from < v.to, {
+    message: "from must be before to",
+  })
+  .refine(
+    (v) => v.from === undefined || v.to === undefined || v.to - v.from <= 7 * 24 * 60 * 60 * 1000,
+    { message: "window must be 7 days or less" },
+  );
 
 const edgeLogTailInput = z.object({
   projectId: zId("prj").optional(),

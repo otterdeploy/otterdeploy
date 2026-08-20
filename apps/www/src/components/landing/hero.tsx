@@ -40,19 +40,21 @@ export function Hero() {
         <StateChip tone="warning">pre-1.0 · under active development</StateChip>
 
         <h1
-          className="mt-7 max-w-[16ch] font-semibold text-balance"
+          className="mt-7 max-w-[18ch] font-semibold text-balance"
           style={{
             fontSize: "clamp(2.6rem, 5.6vw, 4.25rem)",
             lineHeight: 1.03,
             letterSpacing: "-0.045em",
           }}
         >
-          Push to git. Deploy to <span className="text-primary">your own servers.</span>
+          Push to git. Self-hosted deploys, on{" "}
+          <span className="text-primary">servers you own.</span>
         </h1>
 
         <p className="mt-6 max-w-[54ch] text-[1.0625rem] leading-relaxed text-pretty text-muted-foreground">
-          A deployment platform that runs on your hardware. Builds from a repo, managed databases,
-          automatic HTTPS, previews on every pull request. Self-hosted, open source, no usage bill.
+          An open-source, self-hosted PaaS: the own-your-infra answer to Vercel and Railway, running
+          on one Linux VPS you control. Builds from a GitHub repo, managed Postgres and Redis,
+          automatic HTTPS, a preview environment for every pull request. No usage bill.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -68,7 +70,7 @@ export function Hero() {
 
         <div className="mt-9 w-full max-w-[38rem] min-w-0">
           <p className="mb-2 font-mono text-[0.7rem] text-muted-foreground">
-            or run it on a box you already own
+            or run it on a server you already own
           </p>
           <CommandLine command={INSTALL_CMD} />
         </div>

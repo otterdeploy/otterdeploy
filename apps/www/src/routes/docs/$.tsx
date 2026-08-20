@@ -18,7 +18,7 @@ import { DocsVersion } from "@/components/docs-version";
 import { getMDXComponents } from "@/components/mdx";
 import { SiteBar } from "@/components/site-bar";
 import { baseOptions } from "@/lib/layout.shared";
-import { canonical, seo } from "@/lib/seo";
+import { breadcrumbJsonLd, canonical, seo } from "@/lib/seo";
 import { docsRoute } from "@/lib/shared";
 import { source } from "@/lib/source";
 
@@ -45,6 +45,16 @@ export const Route = createFileRoute("/docs/$")({
         type: "article",
       }),
       links: [canonical(path)],
+      // A breadcrumb trail in the result instead of a bare URL. Only for
+      // pages that resolved: a 404 has no trail worth describing.
+      scripts: loaderData?.title
+        ? [
+            {
+              type: "application/ld+json",
+              children: breadcrumbJsonLd(path, loaderData.title),
+            },
+          ]
+        : [],
     };
   },
 });

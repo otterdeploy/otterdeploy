@@ -92,15 +92,7 @@ export function Band({
  * A two-tone statement headline: the claim in ink, the payoff in the muted
  * tone. Both halves are full sentences — the page argues, it doesn't label.
  */
-export function TwoTone({
-  a,
-  b,
-  className,
-}: {
-  a: string;
-  b: string;
-  className?: string;
-}) {
+export function TwoTone({ a, b, className }: { a: string; b: string; className?: string }) {
   return (
     <h2
       className={cx(

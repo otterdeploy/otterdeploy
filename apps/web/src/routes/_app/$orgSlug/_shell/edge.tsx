@@ -8,12 +8,16 @@
  * doing right now. Content is unchanged from those pages; only the chrome
  * that wraps it moved.
  *
- * The Caddyfile and Firewall planes are backed by routers that are
+ * Layout: Access logs is the landing tab (the thing people open this page
+ * for), then a "Caddy" tab grouping the proxy's own facets behind a left
+ * sidebar (Config = rendered Caddyfile, Events, Certs), then Firewall.
+ *
+ * The Config pane and Firewall tab are backed by routers that are
  * install-admin in their entirety (`system.caddyfile`, `firewall.status` /
- * `firewall.decisions`), so those two tabs are OMITTED for anyone else rather
- * than rendered-and-403'd. See `EDGE_TABS_INSTALL_ADMIN` below. Certificates
- * is role-gated instead (`certificate:read`) and keeps its own in-plane
- * notice; Access logs and Events are org-scoped and always shown.
+ * `firewall.decisions`), so both are OMITTED for anyone else rather than
+ * rendered-and-403'd (see `resolveEdgeView`). Certs is role-gated instead
+ * (`certificate:read`) and keeps its own in-plane notice; Access logs and
+ * Events are org-scoped and always shown.
  */
 import { useState } from "react";
 
@@ -38,36 +42,60 @@ import {
   EmptyTitle,
 } from "@/shared/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { CertificatesActions, CertificatesTab } from "./-edge-certificates";
 
-const EDGE_TABS = ["caddyfile", "certificates", "logs", "caddy", "firewall"] as const;
+/** Top-level planes. `caddy` groups the proxy's own facets (config / events /
+ *  certs) behind a left sidebar; access logs land first because that's what
+ *  people open this page for. */
+const EDGE_TABS = ["logs", "caddy", "firewall"] as const;
 type EdgeTab = (typeof EDGE_TABS)[number];
+
+/** Sidebar panes inside the Caddy tab. */
+const CADDY_PANES = ["config", "events", "certs"] as const;
+type CaddyPane = (typeof CADDY_PANES)[number];
 
 function isEdgeTab(value: string): value is EdgeTab {
   return EDGE_TABS.some((tab) => tab === value);
 }
 
-/** Planes whose every query needs the installation-administrator identity. */
-const EDGE_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<EdgeTab>(["caddyfile", "firewall"]);
+// `.catch` covers both a missing param and a bad value → default to Access
+// logs. The two legacy values kept the old flat-tab deep links working:
+// `caddyfile` and `certificates` were top-level tabs before the Caddy group
+// existed (and `caddy` used to mean the Events plane; it now opens the group,
+// which still contains Events one click away).
+const EDGE_SEARCH_TABS = ["logs", "caddy", "firewall", "caddyfile", "certificates"] as const;
 
-/** The leftmost plane a non-install-admin can see. Their default AND the
- *  landing spot when a `?tab=` deep link names one they can't have. Hiding a
- *  trigger while the URL could still select the plane would leave the same
- *  403 one URL away. */
-const EDGE_TAB_FALLBACK: EdgeTab = "certificates";
-
-function resolveEdgeTab(tab: EdgeTab, isInstallAdmin: boolean): EdgeTab {
-  if (isInstallAdmin || !EDGE_TABS_INSTALL_ADMIN.has(tab)) return tab;
-  return EDGE_TAB_FALLBACK;
-}
-
-// `.catch` covers both a missing param and a bad value → default to the
-// Caddyfile plane, so the page always has a valid controlled tab.
 const zEdgeSearch = z.object({
-  tab: z.enum(EDGE_TABS).catch("caddyfile"),
+  tab: z.enum(EDGE_SEARCH_TABS).catch("logs"),
+  pane: z.enum(CADDY_PANES).optional().catch(undefined),
 });
+
+/** Fold legacy tab values + permissions into a concrete (tab, pane) pair.
+ *  Install-admin-only planes (firewall, the rendered Caddyfile) fall back for
+ *  everyone else, so a shared deep link never renders a 403 shell. */
+function resolveEdgeView(
+  search: z.infer<typeof zEdgeSearch>,
+  isInstallAdmin: boolean,
+): { tab: EdgeTab; pane: CaddyPane } {
+  let tab: EdgeTab;
+  let pane = search.pane;
+  if (search.tab === "caddyfile") {
+    tab = "caddy";
+    pane ??= "config";
+  } else if (search.tab === "certificates") {
+    tab = "caddy";
+    pane ??= "certs";
+  } else {
+    tab = search.tab;
+  }
+  if (!isInstallAdmin && tab === "firewall") tab = "logs";
+  pane ??= isInstallAdmin ? "config" : "events";
+  if (!isInstallAdmin && pane === "config") pane = "events";
+  return { tab, pane };
+}
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
   staticData: { crumb: "Edge" },
@@ -94,12 +122,20 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
 function RouteComponent() {
   const { orgSlug } = Route.useParams();
   const { isInstallAdmin } = Route.useRouteContext();
-  const { tab: requestedTab } = Route.useSearch();
-  const tab = resolveEdgeTab(requestedTab, isInstallAdmin);
+  const search = Route.useSearch();
+  const { tab, pane } = resolveEdgeView(search, isInstallAdmin);
   const navigate = Route.useNavigate();
-  const setTab = (next: EdgeTab) => navigate({ search: { tab: next }, replace: true });
+  // `pane` only means anything inside the Caddy group; keep the URL clean
+  // (no stray ?pane=) when leaving it.
+  const setTab = (next: EdgeTab) =>
+    navigate({
+      search: { tab: next, pane: next === "caddy" ? pane : undefined },
+      replace: true,
+    });
+  const setPane = (next: CaddyPane) =>
+    navigate({ search: { tab: "caddy", pane: next }, replace: true });
 
-  // Lifted so the header-row "Upload" buttons and the Certificates tab's own
+  // Lifted so the header-row "Upload" buttons and the Certs pane's own
   // "Upload" affordances (Custom / Trusted CAs sub-tabs) drive the same two
   // dialog instances instead of each owning a redundant copy.
   const [uploadCertOpen, setUploadCertOpen] = useState(false);
@@ -115,19 +151,11 @@ function RouteComponent() {
     >
       <div className="flex items-center justify-between gap-3 border-b px-4 pt-2 pb-2">
         <TabsList variant="line" className="h-auto bg-transparent p-0">
-          {isInstallAdmin ? (
-            <TabsTrigger value="caddyfile" className="px-3 py-2">
-              Caddyfile
-            </TabsTrigger>
-          ) : null}
-          <TabsTrigger value="certificates" className="px-3 py-2">
-            Certificates
-          </TabsTrigger>
           <TabsTrigger value="logs" className="px-3 py-2">
             Access logs
           </TabsTrigger>
           <TabsTrigger value="caddy" className="px-3 py-2">
-            Events
+            Caddy
           </TabsTrigger>
           {isInstallAdmin ? (
             <TabsTrigger value="firewall" className="px-3 py-2">
@@ -135,34 +163,57 @@ function RouteComponent() {
             </TabsTrigger>
           ) : null}
         </TabsList>
-        {tab === "caddyfile" ? <CaddyfileActions /> : null}
-        {tab === "certificates" ? (
+        {tab === "caddy" && pane === "config" ? <CaddyfileActions /> : null}
+        {tab === "caddy" && pane === "certs" ? (
           <CertificatesActions onUploadCert={() => setUploadCertOpen(true)} />
         ) : null}
       </div>
 
-      {/* Not just hidden, unmounted, so `useCaddyfileQuery` never runs for a
-          viewer who would only get a 403 out of it. */}
-      {isInstallAdmin ? (
-        <TabsContent value="caddyfile" className="min-h-0 flex-1 overflow-y-auto p-4">
-          <CaddyfileTab orgSlug={orgSlug} />
-        </TabsContent>
-      ) : null}
-
-      <TabsContent value="certificates" className="min-h-0 flex-1 overflow-y-auto p-4">
-        <CertificatesTab
-          orgSlug={orgSlug}
-          onUploadCert={() => setUploadCertOpen(true)}
-          onUploadCa={() => setUploadCaOpen(true)}
-        />
-      </TabsContent>
-
       <TabsContent value="logs" className="min-h-0 flex-1">
         <EdgeLogsView />
       </TabsContent>
-      <TabsContent value="caddy" className="min-h-0 flex-1">
-        <EdgeEventsView />
+
+      <TabsContent value="caddy" className="min-h-0 flex-1 overflow-hidden">
+        <div className="flex h-full min-w-0">
+          <nav className="flex w-36 shrink-0 flex-col gap-0.5 border-r p-2">
+            {/* Not just hidden, unmounted below: `useCaddyfileQuery` must
+                never run for a viewer who would only get a 403 out of it. */}
+            {isInstallAdmin ? (
+              <CaddyPaneLink active={pane === "config"} onClick={() => void setPane("config")}>
+                Config
+              </CaddyPaneLink>
+            ) : null}
+            <CaddyPaneLink active={pane === "events"} onClick={() => void setPane("events")}>
+              Events
+            </CaddyPaneLink>
+            <CaddyPaneLink active={pane === "certs"} onClick={() => void setPane("certs")}>
+              Certs
+            </CaddyPaneLink>
+          </nav>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {pane === "config" && isInstallAdmin ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <CaddyfileTab orgSlug={orgSlug} />
+              </div>
+            ) : null}
+            {pane === "events" ? (
+              <div className="min-h-0 flex-1">
+                <EdgeEventsView />
+              </div>
+            ) : null}
+            {pane === "certs" ? (
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <CertificatesTab
+                  orgSlug={orgSlug}
+                  onUploadCert={() => setUploadCertOpen(true)}
+                  onUploadCa={() => setUploadCaOpen(true)}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
       </TabsContent>
+
       {isInstallAdmin ? (
         <TabsContent value="firewall" className="min-h-0 flex-1">
           <FirewallView />
@@ -172,6 +223,34 @@ function RouteComponent() {
       <UploadCertDialog open={uploadCertOpen} onOpenChange={setUploadCertOpen} />
       <UploadCaDialog open={uploadCaOpen} onOpenChange={setUploadCaOpen} />
     </Tabs>
+  );
+}
+
+/** One Caddy-group sidebar entry. A button (not a Link) because the pane is
+ *  search-param state on this same route. */
+function CaddyPaneLink({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+        active
+          ? "bg-muted font-medium text-foreground"
+          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

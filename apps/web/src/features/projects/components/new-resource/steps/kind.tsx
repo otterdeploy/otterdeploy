@@ -12,6 +12,8 @@ import { resourceDefaults } from "../schemas";
 interface StepKindProps {
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  templateView: boolean;
+  onTemplateViewChange: (open: boolean) => void;
   /** Called with the chosen kind AFTER its defaults are seeded, so the wizard
    *  can advance. Takes the id because the flow (and therefore the next step)
    *  is derived from it. Reading the store here would still hold the previous
@@ -28,7 +30,13 @@ function isPristinePorts(ports: Port[]): boolean {
   );
 }
 
-export function StepKind({ dbView, onDbViewChange, onChosen }: StepKindProps) {
+export function StepKind({
+  dbView,
+  onDbViewChange,
+  templateView,
+  onTemplateViewChange,
+  onChosen,
+}: StepKindProps) {
   const form = useFormContext();
   const kindId = useSelector(form.store, (s) => s.values.kindId);
 
@@ -37,6 +45,8 @@ export function StepKind({ dbView, onDbViewChange, onChosen }: StepKindProps) {
       value={kindId || null}
       dbView={dbView}
       onDbViewChange={onDbViewChange}
+      templateView={templateView}
+      onTemplateViewChange={onTemplateViewChange}
       onChange={(id) => {
         form.setFieldValue("kindId", id);
         const k = SERVICE_KINDS.find((x) => x.id === id);

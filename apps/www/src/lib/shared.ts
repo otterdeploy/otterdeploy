@@ -1,4 +1,4 @@
-export const appName = "Otterdeploy";
+export const appName = "otterdeploy";
 export const docsRoute = "/docs";
 
 /**
@@ -58,4 +58,4 @@ export function isCanonicalHost(requestUrl: string): boolean {
 }
 
 export const siteDescription =
-  "A self-hostable deployment platform. Build from a git repo, run managed databases, get automatic HTTPS and per-PR previews. On servers you own.";
+  "Open-source, self-hosted PaaS: an alternative to Vercel and Railway that runs on your own VPS. Git-push builds, managed databases, automatic HTTPS, preview environments per pull request.";

@@ -24,6 +24,9 @@ export interface ResourceWizardProps {
   initialBranch?: string | null;
   initialKind?: string | null;
   initialStep?: Step;
+  /** Open with the kind step's template sub-view already showing (the
+   *  palette's "Deploy a template…" / the D→T gesture). */
+  initialTemplateView?: boolean;
   /** Template handoff: pair with `initialKind: "compose"` to open the compose
    *  flow seeded with a template's name + YAML (see features/templates/). */
   composePrefill?: ComposePrefill;
@@ -50,6 +53,7 @@ function ResourceWizardBody({
   initialKind = null,
   initialGitRepoId = null,
   initialBranch = null,
+  initialTemplateView = false,
   composePrefill,
   onComplete,
   onCancel,
@@ -107,6 +111,12 @@ function ResourceWizardBody({
   };
   const showDbBack = step === "kind" && dbEngineView;
 
+  // Template sub-view of the same step: in-dialog search over the catalog.
+  // Picking a template navigates the handoff URL, which remounts this wizard
+  // on the compose flow, so no form state needs resetting on the way out.
+  const [templateView, setTemplateView] = useState(initialTemplateView);
+  const showTemplateBack = step === "kind" && templateView;
+
   // Compose is its own resource type, not a manifest-staged service. Once it's
   // picked, hand off to the dedicated compose flow.
   if (kindId === "compose") {
@@ -136,6 +146,8 @@ function ResourceWizardBody({
           projectId={projectId}
           dbView={dbEngineView}
           onDbViewChange={setDbEngineView}
+          templateView={templateView}
+          onTemplateViewChange={setTemplateView}
           onKindChosen={advanceAfterKind}
         />
 
@@ -151,11 +163,13 @@ function ResourceWizardBody({
           createDisabled={createDisabled}
           goPrev={goPrev}
           handleContinue={handleContinue}
-          showAdvancedToggle={idx === 0 && !!kind && !showDbBack}
+          showAdvancedToggle={idx === 0 && !!kind && !showDbBack && !showTemplateBack}
           advancedSetup={advancedSetup}
           onAdvancedChange={setAdvanced}
           showDbBack={showDbBack}
           onDbBack={exitDbEngineView}
+          showTemplateBack={showTemplateBack}
+          onTemplateBack={() => setTemplateView(false)}
         />
       </div>
     </form.AppForm>

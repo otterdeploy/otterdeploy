@@ -50,12 +50,28 @@ export function statusFilterToApi(
   return found?.api ?? "running";
 }
 
+/** Rows-per-page choices, same set the data studio's footer offers. */
+export const DEPLOY_PAGE_SIZES = [50, 100, 200, 500] as const;
+export type DeployPageSize = (typeof DEPLOY_PAGE_SIZES)[number];
+export const DEFAULT_PAGE_SIZE: DeployPageSize = 50;
+
+/** The URL holds ALL of this page's state: filters, search, and pagination.
+ *  Every field renders a clean default when undefined, so a pristine visit
+ *  keeps a bare URL while any touched control becomes shareable. */
 export const zDeploymentsSearch = z.object({
   /** Resource id of a single resource, or undefined for all. */
   service: z.string().optional(),
   status: z.enum(["running", "failed", "building", "replaced", "removed"]).optional(),
   /** Time window; undefined renders as the 7d default (keeps the URL clean). */
   window: z.enum(["24h", "7d", "30d", "all"]).optional(),
+  /** Free-text search over sha / commit message / author / resource / image. */
+  q: z.string().optional(),
+  /** Environment id; undefined = all environments. */
+  environment: z.string().optional(),
+  /** 1-based page; undefined renders as page 1. */
+  page: z.number().int().min(1).optional(),
+  /** Rows per page; undefined renders as the 50 default. */
+  size: z.union([z.literal(50), z.literal(100), z.literal(200), z.literal(500)]).optional(),
 });
 
 export type DeploymentsSearch = z.infer<typeof zDeploymentsSearch>;
@@ -69,6 +85,9 @@ export interface ProjectDeployment {
   resourceId: string;
   resourceName: string;
   resourceKind: "database" | "service" | "compose";
+  /** Display name of the environment the resource lives in (main resolved
+   *  server-side for NULL-stamped rows). */
+  environmentName: string;
   image: string;
   reason:
     | "create"
@@ -101,6 +120,17 @@ export interface ProjectDeployment {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Headline figures for the stats strip. Mirrors the contract's
+ *  `projectDeploymentStatsSchema`: computed over every filter EXCEPT status
+ *  (the strip keeps describing the window while the status select narrows
+ *  the table). */
+export interface ProjectDeploymentStats {
+  windowTotal: number;
+  failed: number;
+  inFlight: number;
+  medianDurationMs: number | null;
 }
 
 /**

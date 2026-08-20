@@ -1,8 +1,9 @@
 /**
- * The project-wide deployments table: commit-first rows (status / service /
- * commit / author / duration / when) with a hover-revealed Roll back action on
- * eligible history rows (see `deployment-row.tsx`). Loading / error / empty
- * states plus the "N of M · Load more" footer follow the audit table idiom.
+ * The project-wide deployments table: status dot / resource / type / env /
+ * what shipped / trigger / duration / created, icon actions on the right
+ * (see `deployment-row.tsx`), and real pagination in the footer (range,
+ * rows-per-page select, ‹ ›: the same idiom as the data studio's results
+ * footer). Loading / error / empty states follow the audit table idiom.
  */
 
 import { RocketIcon } from "@hugeicons/core-free-icons";
@@ -14,11 +15,21 @@ import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { ErrorState } from "@/shared/components/ui/error-state";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
 
-import type { ProjectDeployment } from "../data/deployments-search";
-
+import {
+  DEPLOY_PAGE_SIZES,
+  type DeployPageSize,
+  type ProjectDeployment,
+} from "../data/deployments-search";
 import { DeployRow } from "./deployment-row";
 
 function DeploymentsPending() {
@@ -39,9 +50,83 @@ function DeploymentsPending() {
   );
 }
 
+/** Range · rows-per-page · ‹ › — mirrors the data studio's results footer. */
+function DeploymentsPager({
+  page,
+  size,
+  total,
+  count,
+  isFetching,
+  onPageChange,
+  onSizeChange,
+}: {
+  page: number;
+  size: DeployPageSize;
+  total: number;
+  /** Rows actually on this page (the last page is usually partial). */
+  count: number;
+  isFetching: boolean;
+  onPageChange: (page: number) => void;
+  onSizeChange: (size: DeployPageSize) => void;
+}) {
+  const { t } = useTranslation();
+  const first = total === 0 ? 0 : (page - 1) * size + 1;
+  const last = (page - 1) * size + count;
+  const hasNext = last < total;
+  return (
+    <div className="flex items-center justify-between gap-3 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+      <span className="font-mono">
+        {formatNumber(total)} {t("deployments.deploymentsCount")}
+      </span>
+      <div className="flex items-center gap-2">
+        <span className="font-mono">{total === 0 ? "0" : `${first}–${last}`}</span>
+        <Select
+          items={DEPLOY_PAGE_SIZES.map((s) => ({ label: `${s}/page`, value: String(s) }))}
+          value={String(size)}
+          onValueChange={(v) => {
+            const next = DEPLOY_PAGE_SIZES.find((s) => String(s) === v);
+            if (next) onSizeChange(next);
+          }}
+        >
+          <SelectTrigger className="h-6 w-22 text-[11px]" aria-label={t("deployments.perPage")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DEPLOY_PAGE_SIZES.map((s) => (
+              <SelectItem key={s} value={String(s)}>
+                {s}/page
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          disabled={page <= 1 || isFetching}
+          onClick={() => onPageChange(page - 1)}
+          aria-label={t("deployments.previousPage")}
+        >
+          ‹
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          disabled={!hasNext || isFetching}
+          onClick={() => onPageChange(page + 1)}
+          aria-label={t("deployments.nextPage")}
+        >
+          ›
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function DeploymentsTableSection({
   items,
   total,
+  page,
+  size,
   isLoading,
   isError,
   isFetching,
@@ -49,23 +134,29 @@ export function DeploymentsTableSection({
   emptyVariant,
   onRetry,
   onOpen,
+  onViewLogs,
   onRollback,
-  onLoadMore,
+  onPageChange,
+  onSizeChange,
 }: {
   items: ProjectDeployment[];
   total: number;
+  page: number;
+  size: DeployPageSize;
   isLoading: boolean;
   isError: boolean;
   isFetching: boolean;
   errorMessage?: string;
-  /** Which honest empty-state copy applies: resource/status filters are
-   *  narrowing ("filters"), only the time window is ("window"), or the
+  /** Which honest empty-state copy applies: resource/status/search filters
+   *  are narrowing ("filters"), only the time window is ("window"), or the
    *  project genuinely has no deployments ("none"). */
   emptyVariant: "filters" | "window" | "none";
   onRetry: () => void;
   onOpen: (d: ProjectDeployment) => void;
+  onViewLogs: (d: ProjectDeployment) => void;
   onRollback: (d: ProjectDeployment) => void;
-  onLoadMore: () => void;
+  onPageChange: (page: number) => void;
+  onSizeChange: (size: DeployPageSize) => void;
 }) {
   const { t } = useTranslation();
   if (isLoading) return <DeploymentsPending />;
@@ -74,7 +165,7 @@ export function DeploymentsTableSection({
       <ErrorState title="Couldn't load deployments" message={errorMessage} onRetry={onRetry} />
     );
   }
-  if (!isFetching && items.length === 0) {
+  if (!isFetching && items.length === 0 && page === 1) {
     return (
       <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
         <EmptyHeader>
@@ -92,7 +183,7 @@ export function DeploymentsTableSection({
           </EmptyTitle>
           <EmptyDescription>
             {emptyVariant === "filters"
-              ? "Try a wider time window or clear the resource / status filters."
+              ? "Try a wider time window, clear the search, or clear the filters."
               : emptyVariant === "window"
                 ? "Widen the time window to see older deploys."
                 : "Every build and deploy across this project lands here. Push to a connected repo, or deploy a resource from the graph."}
@@ -106,37 +197,38 @@ export function DeploymentsTableSection({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-24 pl-4">{t("deployments.columns.status")}</TableHead>
-            <TableHead className="w-40">{t("deployments.columns.service")}</TableHead>
-            <TableHead>{t("deployments.columns.commit")}</TableHead>
-            <TableHead className="w-32">{t("deployments.columns.author")}</TableHead>
+            <TableHead className="w-14 pl-4">{t("deployments.columns.status")}</TableHead>
+            <TableHead className="w-32">{t("deployments.columns.resource")}</TableHead>
+            <TableHead className="w-20">{t("deployments.columns.type")}</TableHead>
+            <TableHead className="w-24">{t("deployments.columns.env")}</TableHead>
+            <TableHead>{t("deployments.columns.shipped")}</TableHead>
+            <TableHead className="w-36">{t("deployments.columns.trigger")}</TableHead>
             <TableHead className="w-20 text-right">{t("deployments.columns.duration")}</TableHead>
-            <TableHead className="w-24 text-right">{t("deployments.columns.when")}</TableHead>
-            <TableHead className="w-28 pr-4" />
+            <TableHead className="w-24 text-right">{t("deployments.columns.created")}</TableHead>
+            <TableHead className="w-20 pr-4" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((d) => (
-            <DeployRow key={d.id} d={d} onOpen={onOpen} onRollback={onRollback} />
+            <DeployRow
+              key={d.id}
+              d={d}
+              onOpen={onOpen}
+              onViewLogs={onViewLogs}
+              onRollback={onRollback}
+            />
           ))}
         </TableBody>
       </Table>
-      {items.length < total && (
-        <div className="flex items-center justify-center gap-3 border-t bg-muted/30 px-4 py-2.5 text-[12px] text-muted-foreground">
-          <span>
-            {formatNumber(items.length)} of {formatNumber(total)}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7"
-            disabled={isFetching}
-            onClick={onLoadMore}
-          >
-            {isFetching ? "Loading…" : "Load more"}
-          </Button>
-        </div>
-      )}
+      <DeploymentsPager
+        page={page}
+        size={size}
+        total={total}
+        count={items.length}
+        isFetching={isFetching}
+        onPageChange={onPageChange}
+        onSizeChange={onSizeChange}
+      />
     </Card>
   );
 }

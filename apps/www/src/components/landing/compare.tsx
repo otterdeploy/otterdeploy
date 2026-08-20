@@ -15,7 +15,11 @@ import { Band, Container, cx, Mono, TwoTone } from "./primitives";
 function Mark({ mark, column }: { mark: CompareMark; column: string }) {
   const label = { yes: "Yes", partial: "Partial", no: "No" }[mark];
   return (
-    <span className="inline-grid size-5 place-items-center" role="img" aria-label={`${column}: ${label}`}>
+    <span
+      className="inline-grid size-5 place-items-center"
+      role="img"
+      aria-label={`${column}: ${label}`}
+    >
       {mark === "yes" ? (
         <span className="size-2.5 rounded-full bg-primary" />
       ) : mark === "partial" ? (

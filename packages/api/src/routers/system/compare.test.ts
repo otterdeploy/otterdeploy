@@ -51,6 +51,19 @@ describe("nightly-channel ordering (release-channels design)", () => {
     expect(compareVersions("v0.16.0-nightly.20260821", "v0.16.0-nightly.20260820")).toBe(1);
   });
 
+  it("a same-day re-cut (run counter) outranks the day's first nightly", () => {
+    // The counter is a THIRD identifier: semver ranks the longer list higher
+    // when the shorter is its prefix.
+    expect(compareVersions("v0.16.0-nightly.20260820", "v0.16.0-nightly.20260820.2")).toBe(-1);
+    expect(compareVersions("v0.16.0-nightly.20260820.2", "v0.16.0-nightly.20260820.3")).toBe(-1);
+    // Numeric identifiers order numerically, not lexically: .10 > .9.
+    expect(compareVersions("v0.16.0-nightly.20260820.9", "v0.16.0-nightly.20260820.10")).toBe(-1);
+    // The next DAY still outranks every counter of the previous one…
+    expect(compareVersions("v0.16.0-nightly.20260820.7", "v0.16.0-nightly.20260821")).toBe(-1);
+    // …and the stable of the same core outranks any counted nightly.
+    expect(isNewer("v0.16.0-nightly.20260820.7", "v0.16.0")).toBe(true);
+  });
+
   it("a nightly sorts AFTER the stable it forked from and BEFORE the stable it becomes", () => {
     // Nightlies carry next-minor: users on nightly are ahead of current stable…
     expect(isNewer("v0.15.2", "v0.16.0-nightly.20260820")).toBe(true);

@@ -11,6 +11,9 @@ import { ProjectVisual } from "./visuals-project";
  * screen; the words sit on the card so they read as a caption. Two wide cards
  * carry the two biggest ideas, three narrow ones fill in the rest — a single
  * calm grid instead of five alternating bands.
+ *
+ * The whole grid is one section (`#features`). The per-panel ids this used to
+ * carry are gone, which is why NAV_SECTIONS no longer lists them.
  */
 
 interface CardProps {
@@ -23,8 +26,8 @@ interface CardProps {
 
 const CARDS: CardProps[] = [
   {
-    title: "Connect a repo. Push. That's the deploy.",
-    body: "The framework is detected and Railpack builds it — no Dockerfile to keep current, though yours is used if present. The image rolls out as a Swarm service and the whole thing is one log you can watch.",
+    title: "Connect a GitHub repo. Push. That's the deploy.",
+    body: "The GitHub repo is inspected, the framework detected, and Railpack builds it — no Dockerfile to keep current, though yours is used if present. The image rolls out as a Swarm service and the whole thing is one log you can watch.",
     visual: <BuildVisual />,
     wide: true,
   },
@@ -35,18 +38,18 @@ const CARDS: CardProps[] = [
     wide: true,
   },
   {
-    title: "Domains that tell you the truth",
-    body: "Point a domain at your box: the Caddy edge picks it up, issues the certificate and starts routing. When something isn't right, it says which part.",
+    title: "Custom domains and automatic HTTPS that tell you the truth",
+    body: "Point a domain at your server and the Caddy edge picks it up, issues the certificate and starts routing. When it isn't ready yet, the route says which part: DNS still unpointed, or a certificate still obtaining.",
     visual: <RoutesVisual />,
   },
   {
-    title: "Databases your services just ask for",
+    title: "Managed Postgres, Redis and MongoDB your services just ask for",
     body: "Five engines, provisioned next to the app. Reference one by name and the connection string is filled in at deploy — secrets can be sealed.",
     visual: <EnvVisual />,
   },
   {
-    title: "Every pull request gets its own URL",
-    body: "A PR comes up on its own deployment, with its own database copy if you want one. Close it and everything is torn down.",
+    title: "Every pull request gets its own preview environment",
+    body: "A PR comes up as its own preview environment, with its own database copy if you want one. Close it and everything is torn down.",
     visual: <PreviewVisual />,
   },
 ];
