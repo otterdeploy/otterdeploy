@@ -1,9 +1,11 @@
 name: Nightly Release
 
 # Cuts the nightly channel's releases (docs/designs/release-channels.md,
-# od-tfs2). Once a day: if main moved since the last release tag (stable OR
-# nightly), tag HEAD as `v<next-minor>-nightly.<YYYYMMDD>` and kick the
-# images workflow at that tag.
+# od-tfs2). Daily cron + manual dispatch: if main moved since the last
+# release tag (stable OR nightly), tag HEAD as `v<next-minor>-nightly.<YYYYMMDD>`
+# and kick the images workflow at that tag. A same-day re-cut (manual
+# dispatch after the cron, with new commits) appends a run counter:
+# `…-nightly.<YYYYMMDD>.2`, `.3`, ….
 #
 # Why next-minor: every nightly sorts AFTER the current stable (nightly users
 # are ahead) and BEFORE the stable it will become (v0.16.0 outranks every
@@ -60,11 +62,19 @@ jobs:
           minor=${rest%%.*}
           tag="v${major}.$((minor + 1)).0-nightly.$(date -u +%Y%m%d)"
 
-          # Re-run safety: the day's nightly already exists (e.g. a manual
-          # dispatch after the cron): don't mint a second one.
+          # Same-day re-cut: main moved after today's nightly was tagged (the
+          # HEAD-tagged guard above already exited when nothing new landed),
+          # so bump a run counter: …-nightly.20260820 → ….2 → ….3. Semver
+          # prerelease ordering (compare.ts) ranks the longer identifier list
+          # higher on a tied prefix and numeric identifiers numerically, so
+          # each re-cut outranks the last, the next day outranks every
+          # counter, and v0.16.0 still outranks them all.
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-            echo "$tag already exists. Skipping."
-            exit 0
+            n=2
+            while git rev-parse -q --verify "refs/tags/$tag.$n" >/dev/null; do
+              n=$((n + 1))
+            done
+            tag="$tag.$n"
           fi
 
           git tag "$tag" HEAD
