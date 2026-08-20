@@ -27,6 +27,80 @@ import { cn } from "@/shared/lib/utils";
 
 import { LogRow, TailControls } from "./logs-parts";
 
+/**
+ * Follow-the-tail for a log scroller whose pane is hidden with `display:none`
+ * across tab switches (panel-body keeps it mounted on purpose, so the SSE
+ * stream and its buffered lines survive).
+ *
+ * A display:none element has NO layout box: scrollHeight, clientHeight and
+ * scrollTop all read 0. So every pin-to-bottom write is silently 0 = 0 while
+ * the tab is away, even as the stream keeps appending, and the operator's own
+ * scroll offset is flattened to 0 too. Reveal then hands back a full-height
+ * scroller still parked at offset 0 - the OLDEST line - and a pin keyed on
+ * line count only re-fires when the next line lands, so the view sits at the
+ * top and then races the tail one append at a time. That chase is the
+ * "outburst" of scrolling on tab-in.
+ *
+ * Watching the element's size fixes it at the source: when the scroller
+ * regains a box, land at the tail if following, or back where you left off if
+ * you were reading history. Self-healing - one path covers the reveal, a panel
+ * resize and a window resize - and it needs no visibility prop threaded down
+ * from the parent (which would only fix the reveal).
+ */
+function useTailFollow(
+  lineCount: number,
+  wrap: boolean,
+): {
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  follow: boolean;
+  onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
+  /** Re-pin to the tail (the Jump-to-latest affordance). */
+  resume: () => void;
+} {
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [follow, setFollow] = useState(true);
+  // The last offset the operator actually scrolled to. Captured from the
+  // scroll handler because `display:none` has already flattened the element's
+  // scrollTop to 0 by the time anything else could read it back.
+  const lastTopRef = useRef(0);
+
+  // Pin to the bottom as lines arrive, while following.
+  useEffect(() => {
+    if (!follow) return;
+    const el = scrollerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lineCount, follow, wrap]);
+
+  // Restore the view whenever the scroller regains a layout box.
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      // Zero height ⇒ still hidden; writing now is the same no-op that caused
+      // this in the first place, and it would clobber the saved offset.
+      if (el.clientHeight === 0) return;
+      el.scrollTop = follow ? el.scrollHeight : lastTopRef.current;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [follow]);
+
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    lastTopRef.current = el.scrollTop;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+    setFollow((prev) => (atBottom === prev ? prev : atBottom));
+  };
+
+  const resume = () => {
+    setFollow(true);
+    const el = scrollerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+
+  return { scrollerRef, follow, onScroll, resume };
+}
+
 export function ServiceLogsTab({
   projectId,
   resourceId,
@@ -54,48 +128,7 @@ export function ServiceLogsTab({
   // state instead of rendering those system lines as if they were app logs.
   const hasOutput = lines.some((l) => l.stream !== "system");
 
-  // Follow the tail while the operator sits at the bottom; release on scroll-up.
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [follow, setFollow] = useState(true);
-  // The last offset the operator actually scrolled to. Captured from the
-  // scroll handler because `display:none` has already flattened the element's
-  // scrollTop to 0 by the time anything else could read it back.
-  const lastTopRef = useRef(0);
-  useEffect(() => {
-    if (!follow) return;
-    const el = scrollerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [visible.length, follow, wrap]);
-
-  // Restore the view whenever the scroller regains a layout box.
-  //
-  // This pane is hidden with `display:none` across tab switches (panel-body
-  // keeps it mounted on purpose, so the SSE stream and its buffered lines
-  // survive). A display:none element has NO box: scrollHeight, clientHeight
-  // and scrollTop all read 0, so every pin above silently writes 0 = 0 while
-  // the tab is away, even as the stream keeps appending, and the operator's
-  // own scroll position is flattened to 0 too. Reveal then hands back a
-  // full-height scroller still parked at offset 0 - the OLDEST line - and the
-  // pin above only re-fires when the next line lands, so the view sat at the
-  // top and then raced the tail one append at a time. That chase is the
-  // "outburst" of scrolling on tab-in.
-  //
-  // Following ⇒ land at the tail; reading history ⇒ land where you left off.
-  // Observing the element's size is self-healing: one path covers the reveal,
-  // a panel resize, and a window resize, and it needs no visibility prop
-  // threaded down from the parent (which would only fix the reveal).
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => {
-      // Zero height ⇒ still hidden; writing now is the same no-op that caused
-      // this in the first place, and it would clobber the saved offset.
-      if (el.clientHeight === 0) return;
-      el.scrollTop = follow ? el.scrollHeight : lastTopRef.current;
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [follow]);
+  const { scrollerRef, follow, onScroll, resume } = useTailFollow(visible.length, wrap);
 
   const toggleLevel = (lv: LogLevel) =>
     setLvlFilter((prev) => {
@@ -182,12 +215,7 @@ export function ServiceLogsTab({
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={scrollerRef}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            lastTopRef.current = el.scrollTop;
-            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-            if (atBottom !== follow) setFollow(atBottom);
-          }}
+          onScroll={onScroll}
           className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
         >
           {!hasOutput ? (
@@ -220,7 +248,7 @@ export function ServiceLogsTab({
             visible.map((l) => <LogRow key={l.id} line={l} wrap={wrap} showTs={showTs} />)
           )}
         </div>
-        {!follow && hasOutput && <JumpToLatest onClick={() => setFollow(true)} />}
+        {!follow && hasOutput && <JumpToLatest onClick={resume} />}
       </div>
     </div>
   );
