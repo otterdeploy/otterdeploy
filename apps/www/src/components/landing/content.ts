@@ -15,13 +15,18 @@ export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | 
 
 // ── Nav ────────────────────────────────────────────────────────────────────
 
+/**
+ * The bar shows six stops, not every section: the centre of the bar is a map,
+ * and a map that names every street stops being one. Edge and "everything
+ * else" are still on the page; they're just not nav-worthy.
+ */
 export const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "platform", label: "Platform" },
   { id: "deploy", label: "Deploy" },
   { id: "project", label: "Projects" },
-  { id: "edge", label: "Edge" },
   { id: "previews", label: "Previews" },
-  { id: "more", label: "Everything else" },
+  { id: "compare", label: "Compare" },
+  { id: "faq", label: "FAQ" },
 ];
 
 // ── Hero ───────────────────────────────────────────────────────────────────
@@ -134,6 +139,68 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
       "CI tokens",
       "Shell completions",
     ],
+  },
+];
+
+// ── Compare ────────────────────────────────────────────────────────────────
+
+/**
+ * The table every visitor was going to build in a second tab anyway.
+ *
+ * Marks are deliberately generous to the competition: `partial` means the
+ * capability exists but needs wiring, plugins or caveats. Anything we are not
+ * sure of is marked in the competitor's favour — being caught overclaiming
+ * once costs more than every row combined.
+ */
+export type CompareMark = "yes" | "partial" | "no";
+
+export const COMPARE_COLUMNS = ["otterdeploy", "Coolify", "Dokploy", "CapRover", "Kamal"];
+
+export const COMPARE_ROWS: { label: string; marks: CompareMark[] }[] = [
+  { label: "Web dashboard", marks: ["yes", "yes", "yes", "yes", "no"] },
+  { label: "Preview deployments per PR", marks: ["yes", "yes", "yes", "no", "no"] },
+  { label: "Database branching for previews", marks: ["yes", "no", "no", "no", "no"] },
+  { label: "Managed databases", marks: ["yes", "yes", "yes", "partial", "partial"] },
+  { label: "Encrypted, scheduled backups", marks: ["yes", "partial", "partial", "partial", "no"] },
+  { label: "Zero-downtime rollouts", marks: ["yes", "partial", "yes", "partial", "yes"] },
+  { label: "Multi-node scheduling", marks: ["yes", "partial", "yes", "yes", "partial"] },
+  { label: "Compose stacks as one resource", marks: ["yes", "yes", "yes", "partial", "no"] },
+  { label: "Typed API + CLI", marks: ["yes", "partial", "partial", "partial", "partial"] },
+  { label: "Tailscale & NetBird mesh built in", marks: ["yes", "no", "no", "no", "no"] },
+  { label: "Host firewall + CrowdSec by default", marks: ["yes", "no", "no", "no", "no"] },
+];
+
+// ── FAQ ────────────────────────────────────────────────────────────────────
+
+/**
+ * Straight answers, including the uncomfortable ones. Every answer restates
+ * something already true elsewhere on this page or in the docs — the FAQ is
+ * where a visitor checks whether the marketing was honest.
+ */
+export const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: "Is it production-ready?",
+    a: "Not yet. otterdeploy is pre-1.0 and under active development: interfaces and schemas still change without migration paths. Run it on something you'd be willing to rebuild — side projects, staging, internal tools — and hold the production workloads until 1.0.",
+  },
+  {
+    q: "What does it cost?",
+    a: "Nothing. It's AGPL-3.0 open source with no tiers, no seats, no usage bill and no hosted upsell hiding features. You pay for your own hardware, which is the point.",
+  },
+  {
+    q: "How is this different from Coolify or Dokploy?",
+    a: "Same family, different bets. We bet on previews with database branching, a typed API and CLI for automation, mesh networking built in, and host security (firewall, CrowdSec) on by default rather than as homework. If another tool fits you better, use it — the comparison table above concedes their wins on purpose.",
+  },
+  {
+    q: "Do I need Kubernetes?",
+    a: "No. The installer puts Docker into Swarm mode and that's the whole orchestrator. One binary surface to learn, and multi-node when you need it by joining another box.",
+  },
+  {
+    q: "What do I need to start?",
+    a: "One Linux box you have root on, with ports 80 and 443 reachable for the edge and ACME. The installer does the rest, including the firewall.",
+  },
+  {
+    q: "What happens when the box dies?",
+    a: "Backups are encrypted, scheduled and restorable to any snapshot, so the honest answer is: you restore onto a new box. A single machine is a single point of failure — that trade is yours to make, and multi-node Swarm is there when you outgrow it.",
   },
 ];
 

@@ -86,6 +86,33 @@ export function Band({
   );
 }
 
+// ── Section headline ───────────────────────────────────────────────────────
+
+/**
+ * A two-tone statement headline: the claim in ink, the payoff in the muted
+ * tone. Both halves are full sentences — the page argues, it doesn't label.
+ */
+export function TwoTone({
+  a,
+  b,
+  className,
+}: {
+  a: string;
+  b: string;
+  className?: string;
+}) {
+  return (
+    <h2
+      className={cx(
+        "text-[1.625rem] leading-[1.18] font-semibold tracking-[-0.025em] text-balance sm:text-[1.875rem]",
+        className,
+      )}
+    >
+      {a} <span className="text-muted-foreground">{b}</span>
+    </h2>
+  );
+}
+
 // ── Machine-readable atoms ─────────────────────────────────────────────────
 
 /** A mono taxonomy label: the dashboard's voice for anything machine-made. */
@@ -134,7 +161,7 @@ export function Field({ children, className }: { children: ReactNode; className?
       className={cx(
         "od-field overflow-hidden rounded-2xl p-5 sm:p-7 lg:p-9",
         // The one place this page uses a shadow: the field genuinely floats.
-        "shadow-[0_24px_60px_-30px_oklch(0.3_0.18_266_/_0.7)]",
+        "shadow-[0_24px_60px_-30px_rgba(20,20,18,0.55)]",
         className,
       )}
     >
