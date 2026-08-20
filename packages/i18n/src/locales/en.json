@@ -1022,5 +1022,56 @@
     "failedToast": "Failed for {{names}}: {{message}}",
     "appliedSuffix": " · applied to {{names}}",
     "couldntSave": "Couldn't save"
+  },
+  "routeAccess": {
+    "manageAccess": "Manage access",
+    "title": "Access",
+    "wallOn": "Org members sign in automatically. Grant outside access with a guest invite, an access PIN, a shareable link, or a CI bypass token.",
+    "wallOff": "The wall is off, so this deployment is public and these methods are not enforced. Turn on Protection to apply them.",
+    "expiresIn": "Expires in",
+    "newCredential": "New",
+    "duration": {
+      "hour_one": "{{count}} hour",
+      "hour_other": "{{count}} hours",
+      "day_one": "{{count}} day",
+      "day_other": "{{count}} days",
+      "year_one": "{{count}} year",
+      "year_other": "{{count}} years"
+    },
+    "guests": {
+      "title": "Guests",
+      "hint": "Invite people by email. They get a one-time code to sign in, no account, for the session length you pick.",
+      "empty": "No guests invited yet.",
+      "addGuest": "Add guest",
+      "emailLabel": "Guest email",
+      "emailInvalid": "Enter a valid email address.",
+      "removeGuest": "Remove guest",
+      "removeFailed": "Failed to remove",
+      "inviteFailed": "Failed to invite"
+    },
+    "pin": {
+      "title": "Access PIN",
+      "hint": "One shared numeric code (4–8 digits) anyone can enter on the wall. Rotating or removing it signs every PIN session out.",
+      "set": "Set PIN",
+      "saveNew": "Save new PIN",
+      "rotate": "Rotate",
+      "isSet": "PIN is set",
+      "invalid": "PIN must be 4–8 digits.",
+      "saved": "Access PIN saved",
+      "removed": "Access PIN removed",
+      "updateFailed": "Failed to update PIN"
+    },
+    "link": {
+      "title": "Shareable link",
+      "hint": "A no-login URL anyone can open until it expires.",
+      "generate": "Generate link",
+      "createFailed": "Failed to create link"
+    },
+    "token": {
+      "title": "CI bypass token",
+      "hint": "Send as the x-otter-bypass request header to skip the wall in automation.",
+      "generate": "Generate token",
+      "createFailed": "Failed to create token"
+    }
   }
 }

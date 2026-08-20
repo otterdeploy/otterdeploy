@@ -11,6 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { createId, ID_PREFIX, idSchema } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { routeGuestsCollection } from "@/features/projects/data/proxy-routes";
@@ -25,18 +26,12 @@ import {
 } from "@/shared/components/ui/select";
 import { cn } from "@/shared/lib/utils";
 
-import {
-  EMAIL_RE,
-  GUEST_DURATIONS,
-  GUEST_ITEMS,
-  guestDurationLabel,
-  SectionHeader,
-} from "./route-access-shared";
+import { EMAIL_RE, SectionHeader, useGuestItems, useHoursLabel } from "./route-access-shared";
 
-function removeGuest(guestId: string) {
+function removeGuest(guestId: string, failMessage: string) {
   const tx = routeGuestsCollection.delete(guestId);
   tx.isPersisted.promise.catch((err) =>
-    toast.error(err instanceof Error ? err.message : "Failed to remove"),
+    toast.error(err instanceof Error ? err.message : failMessage),
   );
 }
 
@@ -49,20 +44,22 @@ function GuestList({
   rows: Array<{ id: string; email: string; sessionHours: number }>;
   onRemove: (guestId: string) => void;
 }) {
+  const { t } = useTranslation();
+  const hoursLabel = useHoursLabel();
   return (
     <div className="divide-y divide-border/40">
       {rows.map((g) => (
         <div key={g.id} className="flex items-center gap-2 px-3 py-2.5">
           <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{g.email}</span>
           <span className="shrink-0 text-[11.5px] text-muted-foreground">
-            {guestDurationLabel(g.sessionHours)}
+            {hoursLabel(g.sessionHours)}
           </span>
           <Button
             variant="ghost"
             size="icon"
             className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
             onClick={() => onRemove(g.id)}
-            aria-label="Remove guest"
+            aria-label={t("routeAccess.guests.removeGuest")}
           >
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={1.8} className="size-3.5" />
           </Button>
@@ -73,6 +70,8 @@ function GuestList({
 }
 
 export function GuestsSection({ routeId }: { routeId: string }) {
+  const { t } = useTranslation();
+  const guestItems = useGuestItems();
   const [adding, setAdding] = useState(false);
 
   // The panel hands over a plain string; brand it at this boundary once.
@@ -101,7 +100,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
       form.resetField("email");
       setAdding(false);
       tx.isPersisted.promise.catch((err) =>
-        toast.error(err instanceof Error ? err.message : "Failed to invite"),
+        toast.error(err instanceof Error ? err.message : t("routeAccess.guests.inviteFailed")),
       );
     },
   });
@@ -113,18 +112,18 @@ export function GuestsSection({ routeId }: { routeId: string }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeader
-        title="Guests"
-        hint="Invite people by email. They get a one-time code to sign in, no account, for the session length you pick."
-      />
+      <SectionHeader title={t("routeAccess.guests.title")} hint={t("routeAccess.guests.hint")} />
 
       <div className="overflow-hidden rounded-md border">
         {rows.length === 0 && !adding ? (
           <div className="px-4 py-6 text-center text-[12.5px] text-muted-foreground">
-            No guests invited yet.
+            {t("routeAccess.guests.empty")}
           </div>
         ) : (
-          <GuestList rows={rows} onRemove={removeGuest} />
+          <GuestList
+            rows={rows}
+            onRemove={(id) => removeGuest(id, t("routeAccess.guests.removeFailed"))}
+          />
         )}
 
         <div className="border-t border-border/40 bg-muted/20 px-3 py-2">
@@ -135,7 +134,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
                 onChange: ({ value }) => {
                   const trimmed = value.trim();
                   return trimmed.length > 0 && !EMAIL_RE.test(trimmed)
-                    ? "Enter a valid email address."
+                    ? t("routeAccess.guests.emailInvalid")
                     : undefined;
                 },
               }}
@@ -156,9 +155,10 @@ export function GuestsSection({ routeId }: { routeId: string }) {
                           if (e.key === "Escape") cancelAdd();
                         }}
                         placeholder="guest@example.com"
+                        aria-label={t("routeAccess.guests.emailLabel")}
                         aria-invalid={showEmailError}
                         className={cn(
-                          "h-7 min-w-0 flex-1 font-mono text-[12.5px]",
+                          "h-8 min-w-0 flex-1 font-mono text-[12.5px]",
                           showEmailError && "border-destructive focus-visible:ring-destructive/30",
                         )}
                         spellCheck={false}
@@ -167,17 +167,17 @@ export function GuestsSection({ routeId }: { routeId: string }) {
                       <form.Field name="hours">
                         {(hoursField) => (
                           <Select
-                            items={GUEST_ITEMS}
+                            items={guestItems}
                             value={hoursField.state.value}
                             onValueChange={(v) => hoursField.handleChange(v ?? "24")}
                           >
-                            <SelectTrigger className="h-7 w-[104px] text-[12px]">
+                            <SelectTrigger className="h-8 w-[104px] text-[12px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {GUEST_DURATIONS.map((d) => (
-                                <SelectItem key={d.hours} value={String(d.hours)}>
-                                  {d.label}
+                              {guestItems.map((it) => (
+                                <SelectItem key={it.value} value={it.value}>
+                                  {it.label}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -186,18 +186,20 @@ export function GuestsSection({ routeId }: { routeId: string }) {
                       </form.Field>
                       <Button
                         size="sm"
-                        className="h-7"
+                        className="h-8"
                         onClick={() => void form.handleSubmit()}
                         disabled={!EMAIL_RE.test(field.state.value.trim())}
                       >
-                        Add
+                        {t("common.add")}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7" onClick={cancelAdd}>
-                        Cancel
+                      <Button size="sm" variant="ghost" className="h-8" onClick={cancelAdd}>
+                        {t("common.cancel")}
                       </Button>
                     </div>
                     {showEmailError ? (
-                      <p className="text-[11.5px] text-destructive">Enter a valid email address.</p>
+                      <p className="text-[11.5px] text-destructive">
+                        {t("routeAccess.guests.emailInvalid")}
+                      </p>
                     ) : null}
                   </div>
                 );
@@ -207,11 +209,11 @@ export function GuestsSection({ routeId }: { routeId: string }) {
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 gap-1.5 text-[12px]"
+              className="h-8 gap-1.5 text-[12px]"
               onClick={() => setAdding(true)}
             >
               <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-              Add guest
+              {t("routeAccess.guests.addGuest")}
             </Button>
           )}
         </div>

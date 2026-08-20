@@ -9,6 +9,7 @@
  * Sizing convention: every interactive control in here is h-8 / text-[12px]
  * so rows line up; each "Generate" action is preceded by an explicit
  * "Expires in <duration>" picker so the lifetime is chosen, not assumed.
+ * All copy comes from the `routeAccess` i18n namespace.
  *
  * The Guests section lives in ./route-access-guests; shared constants +
  * small presentational pieces in ./route-access-shared.
@@ -18,6 +19,7 @@ import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -26,11 +28,11 @@ import { orpc } from "@/shared/server/orpc";
 
 import { GuestsSection } from "./route-access-guests";
 import {
-  BYPASS_TOKEN_ITEMS,
   CopyField,
   DurationSelect,
   SectionHeader,
-  SHARE_LINK_ITEMS,
+  useBypassTokenItems,
+  useShareLinkItems,
 } from "./route-access-shared";
 
 /**
@@ -67,6 +69,7 @@ const PIN_RE = /^\d{4,8}$/;
 /** Access PIN: one shared numeric code anyone on the wall can enter. Set /
  *  rotate / remove; the PIN itself is write-only (never read back). */
 function PinSection({ routeId }: { routeId: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
 
@@ -82,9 +85,9 @@ function PinSection({ routeId }: { routeId: string }) {
       queryClient.setQueryData(statusOptions.queryKey, res);
       form.reset();
       setEditing(false);
-      toast.success(res.enabled ? "Access PIN saved" : "Access PIN removed");
+      toast.success(res.enabled ? t("routeAccess.pin.saved") : t("routeAccess.pin.removed"));
     },
-    onError: (err) => toast.error(err.message ?? "Failed to update PIN"),
+    onError: (err) => toast.error(err.message ?? t("routeAccess.pin.updateFailed")),
   });
 
   const form = useForm({
@@ -102,16 +105,13 @@ function PinSection({ routeId }: { routeId: string }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeader
-        title="Access PIN"
-        hint="One shared numeric code (4–8 digits) anyone can enter on the wall. Rotating or removing it signs every PIN session out."
-      />
+      <SectionHeader title={t("routeAccess.pin.title")} hint={t("routeAccess.pin.hint")} />
       {enabled && !editing ? (
         <div className="flex items-center gap-2">
           <span className="font-mono text-[12.5px] text-muted-foreground">••••••</span>
-          <span className="text-[11.5px] text-muted-foreground">PIN is set</span>
+          <span className="text-[11.5px] text-muted-foreground">{t("routeAccess.pin.isSet")}</span>
           <Button size="sm" variant="outline" className="h-8" onClick={() => setEditing(true)}>
-            Rotate
+            {t("routeAccess.pin.rotate")}
           </Button>
           <Button
             size="sm"
@@ -120,7 +120,7 @@ function PinSection({ routeId }: { routeId: string }) {
             disabled={setAccessPin.isPending}
             onClick={() => setAccessPin.mutate({ routeId, pin: null })}
           >
-            Remove
+            {t("common.remove")}
           </Button>
         </div>
       ) : (
@@ -128,7 +128,7 @@ function PinSection({ routeId }: { routeId: string }) {
           name="pin"
           validators={{
             onChange: ({ value }) =>
-              value.length > 0 && !PIN_RE.test(value) ? "PIN must be 4–8 digits." : undefined,
+              value.length > 0 && !PIN_RE.test(value) ? t("routeAccess.pin.invalid") : undefined,
           }}
         >
           {(field) => {
@@ -147,9 +147,13 @@ function PinSection({ routeId }: { routeId: string }) {
                       if (e.key === "Escape") cancel();
                     }}
                     inputMode="numeric"
-                    placeholder="e.g. 482913"
+                    // The wide tracking previews PIN spacing on typed digits;
+                    // prose spaced out reads as broken, so the placeholder is
+                    // digits only and tracks normally.
+                    placeholder="482913"
+                    aria-label={t("routeAccess.pin.title")}
                     aria-invalid={showPinError}
-                    className="h-8 w-40 font-mono text-[12.5px] tracking-[0.2em]"
+                    className="h-8 w-40 font-mono text-[12.5px] tracking-[0.2em] placeholder:tracking-normal"
                     autoComplete="off"
                     spellCheck={false}
                   />
@@ -159,16 +163,16 @@ function PinSection({ routeId }: { routeId: string }) {
                     disabled={!PIN_RE.test(field.state.value) || setAccessPin.isPending}
                     onClick={() => void form.handleSubmit()}
                   >
-                    {enabled ? "Save new PIN" : "Set PIN"}
+                    {enabled ? t("routeAccess.pin.saveNew") : t("routeAccess.pin.set")}
                   </Button>
                   {editing ? (
                     <Button size="sm" variant="ghost" className="h-8" onClick={cancel}>
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                   ) : null}
                 </div>
                 {showPinError ? (
-                  <p className="text-[11.5px] text-destructive">PIN must be 4–8 digits.</p>
+                  <p className="text-[11.5px] text-destructive">{t("routeAccess.pin.invalid")}</p>
                 ) : null}
               </div>
             );
@@ -180,25 +184,24 @@ function PinSection({ routeId }: { routeId: string }) {
 }
 
 function ShareLinkSection({ routeId }: { routeId: string }) {
+  const { t } = useTranslation();
+  const shareLinkItems = useShareLinkItems();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [hours, setHours] = useState("72");
   const createShareLink = useMutation({
     ...orpc.project.proxyRoute.createShareLink.mutationOptions(),
     onSuccess: (res) => setShareUrl(res.url),
-    onError: (err) => toast.error(err.message ?? "Failed to create link"),
+    onError: (err) => toast.error(err.message ?? t("routeAccess.link.createFailed")),
   });
 
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeader
-        title="Shareable link"
-        hint="A no-login URL anyone can open until it expires."
-      />
+      <SectionHeader title={t("routeAccess.link.title")} hint={t("routeAccess.link.hint")} />
       {shareUrl ? (
         <CopyField value={shareUrl} onReset={() => setShareUrl(null)} />
       ) : (
         <div className="flex items-center gap-2">
-          <DurationSelect items={SHARE_LINK_ITEMS} value={hours} onChange={setHours} />
+          <DurationSelect items={shareLinkItems} value={hours} onChange={setHours} />
           <Button
             size="sm"
             className="h-8"
@@ -210,7 +213,7 @@ function ShareLinkSection({ routeId }: { routeId: string }) {
               })
             }
           >
-            Generate link
+            {t("routeAccess.link.generate")}
           </Button>
         </div>
       )}
@@ -219,25 +222,24 @@ function ShareLinkSection({ routeId }: { routeId: string }) {
 }
 
 function BypassTokenSection({ routeId }: { routeId: string }) {
+  const { t } = useTranslation();
+  const bypassTokenItems = useBypassTokenItems();
   const [bypassToken, setBypassToken] = useState<string | null>(null);
   const [days, setDays] = useState("90");
   const createBypassToken = useMutation({
     ...orpc.project.proxyRoute.createBypassToken.mutationOptions(),
     onSuccess: (res) => setBypassToken(res.token),
-    onError: (err) => toast.error(err.message ?? "Failed to create token"),
+    onError: (err) => toast.error(err.message ?? t("routeAccess.token.createFailed")),
   });
 
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeader
-        title="CI bypass token"
-        hint="Send as the x-otter-bypass request header to skip the wall in automation."
-      />
+      <SectionHeader title={t("routeAccess.token.title")} hint={t("routeAccess.token.hint")} />
       {bypassToken ? (
         <CopyField value={bypassToken} onReset={() => setBypassToken(null)} />
       ) : (
         <div className="flex items-center gap-2">
-          <DurationSelect items={BYPASS_TOKEN_ITEMS} value={days} onChange={setDays} />
+          <DurationSelect items={bypassTokenItems} value={days} onChange={setDays} />
           <Button
             size="sm"
             className="h-8"
@@ -249,7 +251,7 @@ function BypassTokenSection({ routeId }: { routeId: string }) {
               })
             }
           >
-            Generate token
+            {t("routeAccess.token.generate")}
           </Button>
         </div>
       )}
