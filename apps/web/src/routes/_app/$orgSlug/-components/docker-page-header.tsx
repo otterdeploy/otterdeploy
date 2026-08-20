@@ -1,10 +1,11 @@
 /**
- * Header block for the Docker route: page title/actions (refresh hint + the
- * swarm-only node filter for the Tasks tab) and the tab strip with live
- * counts, plus the manager-scope caption shown on the per-daemon tabs.
- * Rendered inside the route's <Tabs> so TabsList/TabsTrigger keep context.
+ * Header block for the Docker panel: the tab strip with live counts, with
+ * the refresh hint and the swarm-only node filter (Tasks tab) on the same
+ * row, plus the manager-scope caption shown on the per-daemon tabs. The
+ * panel already sits under the Servers page's Docker tab, so it carries no
+ * title of its own. Rendered inside the panel's <Tabs> so
+ * TabsList/TabsTrigger keep context.
  */
-import { PageHeader } from "@/shared/components/page";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Select,
@@ -49,38 +50,8 @@ export function DockerPageHeader({
   onNodeFilterChange: (v: string) => void;
 }) {
   return (
-    <div className="border-b px-6 pb-0 pt-6">
-      <PageHeader
-        title="Docker"
-        description="Containers, images, volumes, networks, and swarm tasks as the daemon sees them, outside the project and Stack abstraction."
-        actions={
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">
-              {refreshing ? "refreshing…" : null}
-            </span>
-            {swarm && tab === "tasks" && nodeItems.length > 1 && (
-              <Select
-                items={nodeItems}
-                value={nodeFilter}
-                onValueChange={(v) => onNodeFilterChange(v ?? "all")}
-              >
-                <SelectTrigger className="h-8 w-48" aria-label="Filter tasks by node">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {nodeItems.map((it) => (
-                    <SelectItem key={it.value} value={it.value}>
-                      {it.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        }
-      />
-
-      <TabsList variant="line" className="mt-3.5 h-9 justify-start gap-1">
+    <div className="flex items-center justify-between gap-3 border-b px-6 pb-0 pt-4">
+      <TabsList variant="line" className="h-9 justify-start gap-1">
         {tabs.map(([id, label, count]) => (
           <TabsTrigger key={id} value={id} className="gap-1.5">
             <span>{label}</span>
@@ -95,6 +66,30 @@ export function DockerPageHeader({
           </TabsTrigger>
         ))}
       </TabsList>
+
+      <div className="flex items-center gap-3 pb-1.5">
+        <span className="text-xs text-muted-foreground">
+          {refreshing ? "refreshing…" : null}
+        </span>
+        {swarm && tab === "tasks" && nodeItems.length > 1 && (
+          <Select
+            items={nodeItems}
+            value={nodeFilter}
+            onValueChange={(v) => onNodeFilterChange(v ?? "all")}
+          >
+            <SelectTrigger className="h-8 w-48" aria-label="Filter tasks by node">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {nodeItems.map((it) => (
+                <SelectItem key={it.value} value={it.value}>
+                  {it.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
     </div>
   );
 }
