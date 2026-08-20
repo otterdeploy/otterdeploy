@@ -14,7 +14,6 @@ import { ProjectVisual } from "./visuals-project";
 
 interface PanelProps {
   id: string;
-  eyebrow: string;
   title: string;
   body: string;
   points: string[];
@@ -24,14 +23,13 @@ interface PanelProps {
   tone?: "canvas" | "ink";
 }
 
-function Panel({ id, eyebrow, title, body, points, visual, flip, tone }: PanelProps) {
+function Panel({ id, title, body, points, visual, flip, tone }: PanelProps) {
   return (
     <Band id={id} tone={tone}>
       <Container className="py-16 lg:py-20">
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16">
           <div className={cx("min-w-0 max-w-[34rem]", flip && "lg:order-2")}>
-            <span className="font-mono text-[0.75rem] text-muted-foreground">{eyebrow}</span>
-            <h2 className="mt-3 text-[1.625rem] leading-[1.15] font-semibold tracking-[-0.025em] text-balance sm:text-[1.875rem]">
+            <h2 className="text-[1.625rem] leading-[1.15] font-semibold tracking-[-0.025em] text-balance sm:text-[1.875rem]">
               {title}
             </h2>
             <p className="mt-4 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
@@ -63,9 +61,8 @@ export function Showcase() {
     <>
       <Panel
         id="deploy"
-        eyebrow="deploy"
-        title="Connect a repo. Push. That's the deploy."
-        body="The repo is inspected, the framework is detected, and Railpack builds it, no Dockerfile to write and keep current, though it'll use yours if there is one. The image rolls out as a Swarm service, the old one drains, and the whole thing is one log you can watch."
+        title="Connect a GitHub repo. Push. That's the deploy."
+        body="The GitHub repo is inspected, the framework is detected, and Railpack builds it, no Dockerfile to write and keep current, though it'll use yours if there is one. The image rolls out as a Swarm service, the old one drains, and the whole thing is one log you can watch."
         points={[
           "Next.js, Astro, Go, Rust, static",
           "Dockerfile when you want it",
@@ -76,7 +73,6 @@ export function Showcase() {
 
       <Panel
         id="project"
-        eyebrow="projects"
         title="Your services, drawn the way you think about them"
         body="A project is a canvas: services, databases and compose stacks, with the wiring between them visible. Click a node for its logs, metrics, variables and domains, no hunting through tabs to find out what's actually running."
         points={[
@@ -90,17 +86,15 @@ export function Showcase() {
 
       <Panel
         id="edge"
-        eyebrow="edge"
-        title="Domains that tell you the truth"
-        body="Point a domain at your box and the Caddy edge picks it up, issues the certificate and starts routing. When something isn't right, it says which part. The DNS hasn't propagated, or the certificate is still being issued."
-        points={["Automatic HTTPS", "Multi-domain routing", "Password-wall a deployment"]}
+        title="Custom domains and automatic HTTPS that tell you the truth"
+        body="Point a domain at your box and the Caddy edge picks it up, issues the certificate and starts routing. When it isn't ready yet, the route says which part: DNS still unpointed, or a certificate still obtaining."
+        points={["Automatic HTTPS", "Multi-domain routing", "Deployment protection"]}
         visual={<RoutesVisual />}
       />
 
       <Panel
         id="data"
-        eyebrow="data"
-        title="Databases your services can just ask for"
+        title="Managed Postgres, Redis and MongoDB your services can just ask for"
         body="Provision Postgres, Redis, MariaDB, MongoDB or ClickHouse next to the app that needs it. Reference it by name and the connection string is filled in at deploy. Nothing copied, nothing to rotate by hand. Secrets can be sealed so even the API won't read them back."
         points={["Five engines", "Encrypted backups", "Restore to any snapshot"]}
         visual={<EnvVisual />}
@@ -109,9 +103,8 @@ export function Showcase() {
 
       <Panel
         id="previews"
-        eyebrow="previews"
-        title="Every pull request gets its own URL"
-        body="Open a PR and it comes up on its own deployment, with its own database copy if you want one. The link goes on the pull request. Close it and everything is torn down, and anything left idle is reaped without you remembering to."
+        title="Every pull request gets its own preview environment"
+        body="Open a PR and it comes up as its own preview environment, with its own database copy if you want one. The link goes on the pull request. Close it and everything is torn down, and anything left idle is reaped without you remembering to."
         points={["Per-PR deployments", "Optional database branching", "Automatic teardown"]}
         visual={<PreviewVisual />}
       />

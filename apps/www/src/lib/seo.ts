@@ -40,12 +40,23 @@ export function seo({
 }: SeoInput): MetaTag[] {
   // "otterdeploy" alone on the home page, "Getting started · otterdeploy"
   // elsewhere. Repeating the site name in front of itself reads as a bug.
-  const fullTitle = title ? `${title} · otterdeploy` : `${appName} · deploy on your own servers`;
+  const fullTitle = title
+    ? `${title} · otterdeploy`
+    : `${appName} · self-hosted PaaS: git push, your own servers`;
   const imageUrl = absoluteUrl(image);
 
   return [
     { title: fullTitle },
     { name: "description", content: description },
+
+    // Let search engines show a full-size image and an unlimited-length
+    // snippet. The defaults are conservative: Google truncates snippets and
+    // shows a thumbnail unless told otherwise, which loses the card on a
+    // result for a page whose whole job is explaining what this software is.
+    {
+      name: "robots",
+      content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+    },
 
     { property: "og:title", content: fullTitle },
     { property: "og:description", content: description },
@@ -99,5 +110,65 @@ export function softwareJsonLd(): string {
     isAccessibleForFree: true,
     softwareHelp: absoluteUrl("/docs"),
     codeRepository: "https://github.com/otterdeploy/otterdeploy",
+    applicationSubCategory: "Deployment Platform",
+    // Free as in no price, stated in the vocabulary a rich result renders.
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    sameAs: ["https://github.com/otterdeploy/otterdeploy"],
+  });
+}
+
+/**
+ * schema.org Organization for the project itself.
+ *
+ * Separate from the SoftwareApplication above: one describes the thing you
+ * install, this describes who publishes it. Search engines use it to link the
+ * site, the repository and the name together instead of treating each mention
+ * as an unrelated string.
+ */
+export function organizationJsonLd(): string {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "otterdeploy",
+    url: siteUrl,
+    description: siteDescription,
+    logo: absoluteUrl("/favicon-96x96.png"),
+    sameAs: ["https://github.com/otterdeploy/otterdeploy"],
+  });
+}
+
+/**
+ * schema.org BreadcrumbList for a docs page.
+ *
+ * Turns the result's second line from a raw URL into the real trail
+ * (otterdeploy › Docs › Guides › Backups). Built from the URL rather than the
+ * page tree so it cannot disagree with the address the crawler actually
+ * fetched.
+ */
+export function breadcrumbJsonLd(path: string, title: string): string {
+  const segments = path.split("/").filter(Boolean);
+
+  const items = [{ name: "otterdeploy", item: siteUrl }];
+  let href = "";
+  for (const [i, segment] of segments.entries()) {
+    href += `/${segment}`;
+    const last = i === segments.length - 1;
+    items.push({
+      // Only the leaf knows its real title; the folders in between are
+      // path segments, so they are title-cased rather than invented.
+      name: last ? title : segment.charAt(0).toUpperCase() + segment.slice(1),
+      item: absoluteUrl(href),
+    });
+  }
+
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((entry, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: entry.name,
+      item: entry.item,
+    })),
   });
 }

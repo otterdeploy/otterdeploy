@@ -17,9 +17,9 @@ export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | 
 
 export const NAV_SECTIONS: { id: string; label: string }[] = [
   { id: "platform", label: "Platform" },
-  { id: "deploy", label: "Deploy" },
+  { id: "deploy", label: "Git deploys" },
   { id: "project", label: "Projects" },
-  { id: "edge", label: "Edge" },
+  { id: "edge", label: "Domains" },
   { id: "previews", label: "Previews" },
   { id: "more", label: "Everything else" },
 ];
@@ -37,7 +37,7 @@ export const RAIL_STATIONS: { key: string; note: string }[] = [
   { key: "image", note: "pushed" },
   { key: "rollout", note: "swarm" },
   { key: "route", note: "caddy" },
-  { key: "tls", note: "issued" },
+  { key: "tls", note: "valid" },
 ];
 
 /** Four counts, each verifiable in the repository. */
@@ -70,7 +70,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
-    title: "Edge & networking",
+    title: "Domains, TLS & networking",
     chips: [
       "Multi-domain routing",
       "Automatic TLS",
@@ -83,7 +83,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
-    title: "Data",
+    title: "Databases & backups",
     chips: [
       "Postgres",
       "Redis",
@@ -123,7 +123,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
     ],
   },
   {
-    title: "Automate",
+    title: "CLI, API & automation",
     chips: [
       "otterdeploy.json",
       "Typed oRPC API",
@@ -140,7 +140,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
 // ── Close ──────────────────────────────────────────────────────────────────
 
 export const REQUIREMENTS: { label: string; value: string }[] = [
-  { label: "Host", value: "One Linux box with root" },
+  { label: "Host", value: "One Linux VPS or bare-metal box, with root" },
   { label: "Runtime", value: "Docker, Swarm-enabled by the installer" },
   { label: "Ports", value: "80 and 443, for the edge and ACME" },
 ];
