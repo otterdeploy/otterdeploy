@@ -166,9 +166,9 @@ export const LAUNCH_CATEGORIES: LaunchCategory[] = [
     kindId: "compose",
   },
   {
-    // Not terminal: the card routes to the org templates gallery, whose
-    // detail modal hands the chosen stack back to the compose wizard
-    // prefilled (see features/templates/ + the kind picker's onCardClick).
+    // Not terminal: the card drills into the in-dialog template search
+    // (new-resource/template-picker.tsx), which hands the chosen stack to
+    // the compose wizard prefilled via ?new=template (see features/templates/).
     id: "template",
     name: "From template",
     sub: "Launch a curated multi-service stack",

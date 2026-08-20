@@ -1,6 +1,7 @@
 import {
   Folder01Icon,
   Moon02Icon,
+  PackageIcon,
   Rocket01Icon,
   SearchIcon,
   Settings01Icon,
@@ -82,6 +83,38 @@ function makeGoHandlers(opts: {
   return { goOrg, goProject, openProject, switchEnv };
 }
 
+/** The two deploy launchers at the top of the This-project group: the plain
+ *  wizard (D) and the wizard opened straight on template search (D then T). */
+function DeployItems({
+  goNewResource,
+  goDeployTemplate,
+}: {
+  goNewResource: () => void;
+  goDeployTemplate: () => void;
+}) {
+  return (
+    <>
+      <CommandItem value="action new-service deploy" onSelect={goNewResource}>
+        <HugeiconsIcon icon={Rocket01Icon} strokeWidth={2} />
+        Deploy a new service…
+        <CommandShortcut>
+          <Kbd>D</Kbd>
+        </CommandShortcut>
+      </CommandItem>
+      <CommandItem value="action deploy-template templates stack" onSelect={goDeployTemplate}>
+        <HugeiconsIcon icon={PackageIcon} strokeWidth={2} />
+        Deploy a template…
+        <CommandShortcut>
+          <KbdGroup>
+            <Kbd>D</Kbd>
+            <Kbd>T</Kbd>
+          </KbdGroup>
+        </CommandShortcut>
+      </CommandItem>
+    </>
+  );
+}
+
 export function CommandPalette() {
   const { t } = useTranslation();
   const { open, setOpen } = useCommandPalette();
@@ -122,6 +155,11 @@ export function CommandPalette() {
       if (orgSlug && projectSlug) overlay.setOpen(true);
     });
 
+  const goDeployTemplate = () =>
+    run(() => {
+      if (orgSlug && projectSlug) overlay.openTemplates();
+    });
+
   // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys
   // and sequences, so these don't fire while the user is typing in a text
   // field, but that alone doesn't cover focus sitting on a non-input element
@@ -151,13 +189,10 @@ export function CommandPalette() {
 
           {inProject && (
             <CommandGroup heading={t("commandPalette.groups.thisProject")}>
-              <CommandItem value="action new-service deploy" onSelect={goNewResource}>
-                <HugeiconsIcon icon={Rocket01Icon} strokeWidth={2} />
-                Deploy a new service…
-                <CommandShortcut>
-                  <Kbd>D</Kbd>
-                </CommandShortcut>
-              </CommandItem>
+              <DeployItems
+                goNewResource={goNewResource}
+                goDeployTemplate={goDeployTemplate}
+              />
               {PROJECT_NAV.map((item) => (
                 <CommandItem
                   key={item.label}

@@ -1,10 +1,11 @@
 // KindPicker: source-first launcher for the create-resource wizard's first
 // step. Top level is six *source/category* cards (git, image, database,
 // compose, template, empty); "Create database" drills into an engine
-// sub-picker. The workload role (web app vs static vs worker) is NOT a card.
-// It's a downstream field, because the same role can be built from any source.
+// sub-picker, "From template" into an in-dialog template search. The workload
+// role (web app vs static vs worker) is NOT a card. It's a downstream field,
+// because the same role can be built from any source.
 // Extracted from StepKind so it can be reused in dialogs.
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 import {
   LAUNCH_CATEGORIES,
@@ -13,6 +14,7 @@ import {
   type ServiceKind,
 } from "@/features/projects/data/service-kinds";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
+import { Kbd } from "@/shared/components/ui/kbd";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Github } from "@/shared/components/ui/svgs/github";
 import { cn } from "@/shared/lib/utils";
@@ -24,7 +26,7 @@ import {
   builderPopClass,
 } from "./form-primitives";
 import { I } from "./icons";
-import { useResourceOverlay } from "./overlay-context";
+import { TemplatePicker } from "./template-picker";
 
 // Engines offered under "Create database", the data-group kinds, wired ones
 // first, coming-soon ones gated.
@@ -59,12 +61,27 @@ interface KindPickerProps {
    *  the footer next to Continue. */
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  /** Template sub-view toggle, wizard-owned for the same footer reason. */
+  templateView: boolean;
+  onTemplateViewChange: (open: boolean) => void;
 }
 
-export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPickerProps) {
-  const navigate = useNavigate();
-  const overlay = useResourceOverlay();
-  const { orgSlug, projectSlug } = useParams({ strict: false });
+export function KindPicker({
+  value,
+  onChange,
+  dbView,
+  onDbViewChange,
+  templateView,
+  onTemplateViewChange,
+}: KindPickerProps) {
+  // "D" opens this wizard; "T" on the cards drills into template search, so
+  // D→T is the whole "deploy a template" gesture. Only live while the cards
+  // are showing (the sub-views have real text inputs).
+  useHotkey("T", () => onTemplateViewChange(true), { enabled: !dbView && !templateView });
+
+  if (templateView) {
+    return <TemplatePicker />;
+  }
 
   if (dbView) {
     return (
@@ -103,18 +120,9 @@ export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPick
       return;
     }
     if (cat.id === "template") {
-      // Templates live on the org gallery page: close this dialog and send
-      // the operator there with the current project preselected. The
-      // gallery's "Deploy to project…" comes back via ?new=template, which
-      // reopens this wizard on the compose flow, prefilled.
-      overlay.setOpen(false);
-      if (orgSlug) {
-        void navigate({
-          to: "/$orgSlug/templates",
-          params: { orgSlug },
-          search: { project: projectSlug },
-        });
-      }
+      // In-dialog template search (no detour through the gallery page).
+      // Picking one hands off via ?new=template, same as the gallery does.
+      onTemplateViewChange(true);
       return;
     }
     if (cat.kindId) onChange(cat.kindId);
@@ -140,6 +148,11 @@ export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPick
             )}
           >
             {soon && <span className={SOON_CHIP}>soon</span>}
+            {cat.id === "template" && (
+              <Kbd className="absolute top-2 right-2 h-4 min-w-4 px-1 text-[10px] text-muted-foreground">
+                T
+              </Kbd>
+            )}
             <div className="flex items-center gap-2">
               <div className={builderIconClass}>
                 <CategoryIcon id={cat.id} />

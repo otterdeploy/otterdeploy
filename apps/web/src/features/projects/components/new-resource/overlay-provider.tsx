@@ -48,10 +48,14 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
 
   // In-app opens (site header, command palette) have no URL to derive from.
   const [openedInApp, setOpenedInApp] = useState(false);
+  // "Deploy a template…": open straight onto the kind step's template search.
+  // Reset on close so a later plain open starts on the cards again.
+  const [templatesFirst, setTemplatesFirst] = useState(false);
   const open = openedInApp || fromUrl;
 
   const setOpen = (next: boolean) => {
     setOpenedInApp(next);
+    if (!next) setTemplatesFirst(false);
     // Closing is what consumes the handoff. `replace` so Back doesn't land on
     // a URL that immediately re-opens the wizard.
     if (!next && handoff) {
@@ -67,6 +71,10 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
     open,
     setOpen,
     toggle: () => setOpen(!open),
+    openTemplates: () => {
+      setTemplatesFirst(true);
+      setOpenedInApp(true);
+    },
   };
 
   return (
@@ -79,6 +87,7 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
           projectId={project.id}
           projectName={project.name}
           open={open}
+          initialTemplateView={templatesFirst}
           composePrefill={
             template
               ? { name: template.name, content: template.compose, logoBrand: template.logoBrand }

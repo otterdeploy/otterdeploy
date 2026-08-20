@@ -53,13 +53,21 @@ interface StepCtx {
   projectId: ProjectId;
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  templateView: boolean;
+  onTemplateViewChange: (open: boolean) => void;
   /** Selecting a source IS the Source step's answer, advance on the click
    *  rather than making the operator confirm it with a second one. */
   onKindChosen: (kindId: string) => void;
 }
 const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
-  kind: ({ dbView, onDbViewChange, onKindChosen }) => (
-    <StepKind dbView={dbView} onDbViewChange={onDbViewChange} onChosen={onKindChosen} />
+  kind: ({ dbView, onDbViewChange, templateView, onTemplateViewChange, onKindChosen }) => (
+    <StepKind
+      dbView={dbView}
+      onDbViewChange={onDbViewChange}
+      templateView={templateView}
+      onTemplateViewChange={onTemplateViewChange}
+      onChosen={onKindChosen}
+    />
   ),
   source: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepSource /> : null),
   builder: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepBuilder /> : null),
@@ -89,6 +97,8 @@ export function WizardStepBody({
   projectId,
   dbView,
   onDbViewChange,
+  templateView,
+  onTemplateViewChange,
   onKindChosen,
 }: {
   step: Step;
@@ -99,6 +109,8 @@ export function WizardStepBody({
   projectId: ProjectId;
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  templateView: boolean;
+  onTemplateViewChange: (open: boolean) => void;
   onKindChosen: (kindId: string) => void;
 }) {
   return (
@@ -112,6 +124,8 @@ export function WizardStepBody({
           projectId,
           dbView,
           onDbViewChange,
+          templateView,
+          onTemplateViewChange,
           onKindChosen,
         })}
       </div>
@@ -153,6 +167,8 @@ export function WizardFooter({
   onAdvancedChange,
   showDbBack,
   onDbBack,
+  showTemplateBack,
+  onTemplateBack,
 }: {
   onCancel: (() => void) | undefined;
   idx: number;
@@ -170,6 +186,10 @@ export function WizardFooter({
    *  returns to the launch cards, sitting next to Continue. */
   showDbBack: boolean;
   onDbBack: () => void;
+  /** In the template sub-view of the Source step: Back to the launch cards,
+   *  and NO Continue: picking a template is the only way forward. */
+  showTemplateBack: boolean;
+  onTemplateBack: () => void;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2 border-t bg-transparent px-4 py-3">
@@ -195,32 +215,58 @@ export function WizardFooter({
         </span>
       )}
       <div className="flex-1" />
-      {(idx > 0 || showDbBack) && (
+      {(idx > 0 || showDbBack || showTemplateBack) && (
         <Button
           variant="outline"
           size="sm"
           className="h-8 gap-1.5"
-          onClick={showDbBack ? onDbBack : goPrev}
+          onClick={showDbBack ? onDbBack : showTemplateBack ? onTemplateBack : goPrev}
           disabled={isCreating}
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
           Back
         </Button>
       )}
-      <Button
-        size="sm"
-        className="h-8 gap-1.5"
-        onClick={() => handleContinue()}
-        disabled={createDisabled}
-      >
-        {/* In the engine sub-view, kindId is empty until an engine is picked,
-            which collapses the flow to one step, so guard the "Add resource"
-            label behind !showDbBack and read "Continue" instead. */}
-        {isLast && !showDbBack ? (isCreating ? "Adding…" : "Add resource") : "Continue"}
-        {(!isLast || showDbBack) && (
-          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
-        )}
-      </Button>
+      {!showTemplateBack && (
+        <ContinueButton
+          isLast={isLast}
+          isCreating={isCreating}
+          showDbBack={showDbBack}
+          createDisabled={createDisabled}
+          handleContinue={handleContinue}
+        />
+      )}
     </div>
+  );
+}
+
+function ContinueButton({
+  isLast,
+  isCreating,
+  showDbBack,
+  createDisabled,
+  handleContinue,
+}: {
+  isLast: boolean;
+  isCreating: boolean;
+  showDbBack: boolean;
+  createDisabled: boolean;
+  handleContinue: () => void;
+}) {
+  return (
+    <Button
+      size="sm"
+      className="h-8 gap-1.5"
+      onClick={() => handleContinue()}
+      disabled={createDisabled}
+    >
+      {/* In the engine sub-view, kindId is empty until an engine is picked,
+          which collapses the flow to one step, so guard the "Add resource"
+          label behind !showDbBack and read "Continue" instead. */}
+      {isLast && !showDbBack ? (isCreating ? "Adding…" : "Add resource") : "Continue"}
+      {(!isLast || showDbBack) && (
+        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+      )}
+    </Button>
   );
 }
