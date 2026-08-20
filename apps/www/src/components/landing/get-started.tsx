@@ -77,8 +77,8 @@ export function Footer() {
         <div>
           <Wordmark />
           <p className="mt-4 max-w-[36ch] text-[0.8125rem] leading-relaxed text-pretty text-muted-foreground">
-            An open-source, self-hosted PaaS. The control of running your own infrastructure,
-            with the ergonomics of a managed one.
+            An open-source, self-hosted PaaS. The control of running your own infrastructure, with
+            the ergonomics of a managed one.
           </p>
         </div>
 
