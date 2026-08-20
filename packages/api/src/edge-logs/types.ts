@@ -40,6 +40,11 @@ export interface EdgeLogFilter {
   /** Restrict to these hosts (the caller's org-owned domains). */
   hosts: string[];
   range: EdgeTimeRange;
+  /** Custom window (epoch ms) overriding `range`. Both or neither (the
+   *  contract enforces it); when set, the window is [from, to] instead of
+   *  the last `range` ending now. */
+  from?: number;
+  to?: number;
   /** Multi-select method/status filters; empty/undefined ⇒ no filter. */
   methods?: string[];
   statuses?: EdgeStatusBucket[];

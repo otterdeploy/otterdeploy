@@ -12,11 +12,11 @@ import type { SQL } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { edgeLog } from "@otterdeploy/db/schema/edge-log";
-import { and, desc, gte, inArray, lt, or, ilike, sql } from "drizzle-orm";
+import { and, desc, gte, inArray, lt, lte, or, ilike, sql } from "drizzle-orm";
 
 import type { EdgeLogFilter, EdgeLogLine, EdgeLogQueryResult } from "./types";
 
-import { RANGE_MS, summarizeEdgeLogs } from "./ring";
+import { resolveEdgeWindow, summarizeEdgeLogs } from "./ring";
 
 const MAX_FETCH = 10_000;
 
@@ -44,12 +44,18 @@ function searchCondition(search: string): SQL | undefined {
 }
 
 function buildConditions(filter: EdgeLogFilter, now: number): SQL[] {
-  const since = new Date(now - RANGE_MS[filter.range]);
+  const window = resolveEdgeWindow(filter, now);
   // Compare on lower(host): scope hosts are canonicalized (edge-logs/host) and
   // new rows store a canonical host, but rows written before that change may
   // carry mixed-case hosts. Lower() lets them match without a backfill.
   const scopeHost = sql`lower(${edgeLog.host})`;
-  const conds: SQL[] = [inArray(scopeHost, filter.hosts), gte(edgeLog.ts, since)];
+  const conds: SQL[] = [
+    inArray(scopeHost, filter.hosts),
+    gte(edgeLog.ts, new Date(window.startMs)),
+  ];
+  // Only a custom window has a real upper bound; a live window ends "now",
+  // and clamping to the pre-query timestamp would drop rows landing mid-query.
+  if (filter.to !== undefined) conds.push(lte(edgeLog.ts, new Date(window.endMs)));
   if (filter.selectedHosts?.length) conds.push(inArray(scopeHost, filter.selectedHosts));
   if (filter.methods?.length) conds.push(inArray(edgeLog.method, filter.methods));
   if (filter.statuses?.length) {
@@ -82,7 +88,7 @@ export async function queryEdgeLogsDb(
 
   // summarize expects ascending order (it slices the newest tail).
   const lines: EdgeLogLine[] = records.reverse().map(rowToLine);
-  return summarizeEdgeLogs(lines, filter.range, now, filter.limit ?? 200);
+  return summarizeEdgeLogs(lines, resolveEdgeWindow(filter, now), filter.limit ?? 200);
 }
 
 function rowToLine(r: typeof edgeLog.$inferSelect): EdgeLogLine {

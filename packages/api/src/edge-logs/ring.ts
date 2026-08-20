@@ -71,8 +71,21 @@ export function bucketOf(status: number): EdgeStatusBucket {
   return "2xx";
 }
 
-function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number): boolean {
-  if (Date.parse(line.ts) < sinceMs) return false;
+/** The concrete [start, end] window a filter asks for: the custom `from`/`to`
+ *  pair when given, else the last `range` ending at `now`. Shared by the ring
+ *  and the DB query so both read the same window from the same filter. */
+export function resolveEdgeWindow(
+  filter: Pick<EdgeLogFilter, "range" | "from" | "to">,
+  now: number,
+): { startMs: number; endMs: number } {
+  const endMs = filter.to ?? now;
+  const startMs = filter.from ?? endMs - RANGE_MS[filter.range];
+  return { startMs, endMs };
+}
+
+function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number, untilMs: number): boolean {
+  const ts = Date.parse(line.ts);
+  if (ts < sinceMs || ts > untilMs) return false;
   if (!f.hosts.includes(line.host)) return false;
   if (f.selectedHosts?.length && !f.selectedHosts.includes(line.host)) return false;
   if (f.methods?.length && !f.methods.includes(line.method)) return false;
@@ -92,24 +105,24 @@ function percentile(sorted: number[], p: number): number {
 }
 
 export function queryEdgeLogs(filter: EdgeLogFilter, now: number): EdgeLogQueryResult {
-  const sinceMs = now - RANGE_MS[filter.range];
-  const matched = state.buffer.filter((l) => matches(l, filter, sinceMs));
-  return summarizeEdgeLogs(matched, filter.range, now, filter.limit ?? 200);
+  const window = resolveEdgeWindow(filter, now);
+  const matched = state.buffer.filter((l) => matches(l, filter, window.startMs, window.endMs));
+  return summarizeEdgeLogs(matched, window, filter.limit ?? 200);
 }
 
 /**
  * Compute rows + histogram + per-host stats from an already-filtered set of
- * lines. Shared by the in-memory ring (queryEdgeLogs) and the DB-backed
- * query (query-db.ts), so both produce identical shapes from the same math.
+ * lines over a concrete [startMs, endMs] window (see resolveEdgeWindow).
+ * Shared by the in-memory ring (queryEdgeLogs) and the DB-backed query
+ * (query-db.ts), so both produce identical shapes from the same math.
  */
 export function summarizeEdgeLogs(
   matched: EdgeLogLine[],
-  range: EdgeTimeRange,
-  now: number,
+  window: { startMs: number; endMs: number },
   limit: number,
 ): EdgeLogQueryResult {
-  const windowMs = RANGE_MS[range];
-  const sinceMs = now - windowMs;
+  const windowMs = Math.max(1, window.endMs - window.startMs);
+  const sinceMs = window.startMs;
 
   // Rows: newest first, capped.
   const rows = matched.slice(-limit).reverse();

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
@@ -14,14 +14,21 @@ import { useEdgeBans } from "../data/use-edge-bans";
 import { classifyThreat } from "../threat";
 import { BlockAllButton } from "./edge-logs-block-ip";
 import { BUCKETS, BUCKET_TEXT, METHOD_TEXT, METHODS, type Bucket } from "./edge-logs-constants";
-import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./edge-logs-shared";
+import { Chips, LiveBadge, toggleSet, useStickyHostOptions } from "./edge-logs-shared";
 
-// `Chips`/`Segmented` traffic in plain strings, but only ever hand back one of
-// the options they were given; these guards recover the literal types.
+// `Chips` traffics in plain strings, but only ever hands back one of the
+// options it was given; this guard recovers the literal type.
 const isBucket = (v: string): v is Bucket => BUCKETS.some((b) => b === v);
-const isRange = (v: string): v is Range => RANGES.some((r) => r === v);
-import { exportCsv, HostFooter, LogHistogram, LogTable } from "./edge-logs-view-parts";
+import { exportCsv, HostFooter, LogTable } from "./edge-logs-view-parts";
 import { HostFilter } from "./host-filter";
+import { LogHistogram } from "./log-histogram";
+import {
+  isPresetWindow,
+  TimeRangePicker,
+  type TimeWindow,
+  windowLabels,
+  windowQueryInput,
+} from "./time-range-picker";
 
 /**
  * Edge access logs view. Scoped to one project's domains when `projectId` is
@@ -30,7 +37,7 @@ import { HostFilter } from "./host-filter";
  */
 export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const { t } = useTranslation();
-  const [range, setRange] = useState<Range>("1h");
+  const [timeWindow, setWindow] = useState<TimeWindow>({ preset: "1h" });
   const [methods, setMethods] = useState<Set<string>>(new Set());
   const [statuses, setStatuses] = useState<Set<string>>(new Set());
   const [hostFilter, setHostFilter] = useState<string[]>([]);
@@ -40,18 +47,23 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const [suspiciousOnly, setSuspiciousOnly] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  // A custom window is a fixed slice of the past: there is nothing to tail.
+  const isLiveWindow = isPresetWindow(timeWindow);
   const query = useQuery({
     ...orpc.edgeLogs.query.queryOptions({
       input: {
         projectId,
-        range,
+        ...windowQueryInput(timeWindow),
         methods: methods.size ? [...methods] : undefined,
         statuses: statuses.size ? [...statuses].filter(isBucket) : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
       },
     }),
-    refetchInterval: live ? 2000 : false,
+    refetchInterval: live && isLiveWindow ? 2000 : false,
+    // Filter changes change the query key; without this the table and host
+    // dropdown blank out (and flash back) on every checkbox click.
+    placeholderData: keepPreviousData,
   });
 
   // Active CrowdSec bans + block actions (single from a row, bulk from the
@@ -71,7 +83,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   ]
     .filter((ip) => !bannedIps.has(ip))
     .slice(0, 100);
-  const hostOptions = (data?.hostStats ?? []).map((s) => s.host).sort();
+  const hostOptions = useStickyHostOptions(hostStatHosts(data));
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
@@ -79,7 +91,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
       <div className="px-4 pt-4">
         <div className="flex items-center gap-2">
           <h1 className="text-base font-semibold">{t("edgeLogs.accessLogs")}</h1>
-          <LiveBadge live={live} />
+          <LiveBadge live={live && isLiveWindow} />
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
           Every HTTP request that hit the Caddy edge proxy. Live-tailed from Caddy's structured
@@ -89,13 +101,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <Segmented
-          options={RANGES}
-          value={range}
-          onChange={(v) => {
-            if (isRange(v)) setRange(v);
-          }}
-        />
+        <TimeRangePicker value={timeWindow} onChange={setWindow} />
         <Chips
           options={METHODS}
           selected={methods}
@@ -144,7 +150,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         </Button>
       </div>
 
-      <LogHistogram data={data} range={range} />
+      <LogHistogram data={data} labels={windowLabels(timeWindow)} />
 
       <LogTable
         rows={rows}
@@ -160,6 +166,11 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
       <HostFooter data={data} />
     </div>
   );
+}
+
+/** The hosts the current window saw traffic for, per the query's hostStats. */
+function hostStatHosts(data: { hostStats: { host: string }[] } | undefined): string[] {
+  return (data?.hostStats ?? []).map((s) => s.host);
 }
 
 /** Suspicious-only toggle + the bulk "Block N IPs" action that appears while

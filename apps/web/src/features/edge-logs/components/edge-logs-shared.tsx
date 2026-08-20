@@ -1,8 +1,30 @@
+import { useState } from "react";
+
 import { cn } from "@/shared/lib/utils";
 
 /** Time windows shared by both the access-log and event views. */
 export const RANGES = ["5m", "1h", "6h", "24h", "7d"] as const;
 export type Range = (typeof RANGES)[number];
+
+/** Sticky union of every host observed across renders, sorted. Filtered query
+ *  results only cover the hosts the CURRENT filters matched, so deriving the
+ *  dropdown options from them directly makes every other host vanish (and
+ *  flash back) the moment one is checked. Merging monotonically keeps the
+ *  option list stable for the life of the view. */
+export function useStickyHostOptions(observed: string[]): string[] {
+  const [options, setOptions] = useState<string[]>([]);
+  // Merged DURING RENDER (React's "adjusting state" pattern, same idiom as
+  // the wizard's filter-key reset), never in an effect: an effect that only
+  // feeds state back into state is a cascading render, and it paints one
+  // frame with the stale option list before correcting itself. The merge is
+  // monotonic, so re-running it under StrictMode's double invoke is a no-op.
+  const merged = new Set(options);
+  for (const host of observed) merged.add(host);
+  // Same size ⇒ nothing new (merges only ever grow), so keep the identity.
+  const next = merged.size === options.length ? options : [...merged].sort();
+  if (next !== options) setOptions(next);
+  return next;
+}
 
 /** Toggle membership of `v` in a string set, returning a fresh set. */
 export function toggleSet(set: Set<string>, v: string): Set<string> {

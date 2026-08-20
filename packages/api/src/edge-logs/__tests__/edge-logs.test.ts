@@ -163,6 +163,22 @@ describe("ring buffer", () => {
     expect(res.rows.map((r) => r.status).sort((a, b) => a - b)).toEqual([404, 500]);
   });
 
+  test("custom from/to window overrides the rolling range", () => {
+    const now = Date.now();
+    const hourAgo = now - 60 * 60_000;
+    pushEdgeLog(line({ path: "/old", ts: new Date(hourAgo - 10 * 60_000).toISOString() }));
+    pushEdgeLog(line({ path: "/inside", ts: new Date(hourAgo + 5 * 60_000).toISOString() }));
+    pushEdgeLog(line({ path: "/after", ts: new Date(now - 60_000).toISOString() }));
+    const res = queryEdgeLogs(
+      { hosts: ["plane.com"], range: "5m", from: hourAgo, to: hourAgo + 10 * 60_000 },
+      now,
+    );
+    expect(res.total).toBe(1);
+    expect(first(res.rows).path).toBe("/inside");
+    // Histogram buckets span the custom window, not the preset.
+    expect(Date.parse(first(res.histogram).t)).toBeGreaterThanOrEqual(hourAgo);
+  });
+
   test("subscribe delivers live lines and unsubscribes", () => {
     const seen: EdgeLogLine[] = [];
     const unsub = subscribeEdgeLogs((l) => seen.push(l));
