@@ -128,9 +128,7 @@ function PinSection({ routeId }: { routeId: string }) {
           name="pin"
           validators={{
             onChange: ({ value }) =>
-              value.length > 0 && !PIN_RE.test(value)
-                ? t("routeAccess.pin.invalid")
-                : undefined,
+              value.length > 0 && !PIN_RE.test(value) ? t("routeAccess.pin.invalid") : undefined,
           }}
         >
           {(field) => {
