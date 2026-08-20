@@ -51,13 +51,13 @@ export function Hero() {
           >
             Push to git.
             <br />
-            Deploy to your own servers.
+            Self-hosted deploys, on servers you own.
           </h1>
 
           <p className="mt-6 max-w-[44ch] text-[1.0625rem] leading-relaxed text-pretty text-muted-foreground">
-            A deployment platform that runs on your hardware. Builds from a repo, managed databases,
-            automatic HTTPS, previews on every pull request. Self-hosted, open source, no usage
-            bill.
+            An open-source, self-hosted PaaS: the own-your-infra answer to Vercel and Railway,
+            running on one Linux VPS you control. Builds from a GitHub repo, managed Postgres and
+            Redis, automatic HTTPS, a preview environment for every pull request. No usage bill.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">

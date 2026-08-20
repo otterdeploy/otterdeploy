@@ -18,7 +18,7 @@ export function More() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-10">
           <div className="max-w-[42ch]">
             <h2 className="text-[1.625rem] leading-[1.15] font-semibold tracking-[-0.025em] text-balance sm:text-[1.875rem]">
-              And the rest of the platform
+              And the rest of the self-hosted platform
             </h2>
             <p className="mt-3 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
               No tiers, no add-ons, no seat pricing. All of it is in the box you install.

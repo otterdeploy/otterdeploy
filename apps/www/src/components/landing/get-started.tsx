@@ -24,7 +24,7 @@ export function GetStarted() {
     <Band id="start" tone="ink">
       <Container className="py-20 text-center lg:py-24">
         <h2 className="mx-auto max-w-[20ch] text-[2rem] leading-[1.1] font-semibold tracking-[-0.03em] text-balance sm:text-[2.5rem]">
-          One box, one command, your own platform.
+          One VPS, one command, your own platform.
         </h2>
         <p className="mx-auto mt-5 max-w-[54ch] text-[1rem] leading-relaxed text-pretty text-muted-foreground">
           The installer provisions the host, pulls the published images, puts Docker into Swarm mode
@@ -77,8 +77,8 @@ export function Footer() {
         <div>
           <Wordmark />
           <p className="mt-4 max-w-[36ch] text-[0.8125rem] leading-relaxed text-pretty text-muted-foreground">
-            A self-hostable deployment platform. The control of running your own infrastructure,
-            with the ergonomics of a managed one.
+            An open-source, self-hosted PaaS. The control of running your own infrastructure, with
+            the ergonomics of a managed one.
           </p>
         </div>
 
