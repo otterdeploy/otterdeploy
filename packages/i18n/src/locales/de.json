@@ -1022,5 +1022,56 @@
     "failedToast": "Fehlgeschlagen für {{names}}: {{message}}",
     "appliedSuffix": " · angewendet auf {{names}}",
     "couldntSave": "Konnte nicht speichern"
+  },
+  "routeAccess": {
+    "manageAccess": "Zugriff verwalten",
+    "title": "Zugriff",
+    "wallOn": "Org-Mitglieder melden sich automatisch an. Externen Zugriff gewährst du per Gast-Einladung, Zugangs-PIN, teilbarem Link oder CI-Bypass-Token.",
+    "wallOff": "Die Schutzwand ist aus: Dieses Deployment ist öffentlich und diese Methoden greifen nicht. Schalte den Schutz ein, um sie anzuwenden.",
+    "expiresIn": "Läuft ab in",
+    "newCredential": "Neu",
+    "duration": {
+      "hour_one": "{{count}} Stunde",
+      "hour_other": "{{count}} Stunden",
+      "day_one": "{{count}} Tag",
+      "day_other": "{{count}} Tage",
+      "year_one": "{{count}} Jahr",
+      "year_other": "{{count}} Jahre"
+    },
+    "guests": {
+      "title": "Gäste",
+      "hint": "Lade Leute per E-Mail ein. Sie erhalten einen Einmal-Code zum Anmelden, ohne Konto, für die Sitzungsdauer, die du wählst.",
+      "empty": "Noch keine Gäste eingeladen.",
+      "addGuest": "Gast hinzufügen",
+      "emailLabel": "Gast-E-Mail",
+      "emailInvalid": "Gib eine gültige E-Mail-Adresse ein.",
+      "removeGuest": "Gast entfernen",
+      "removeFailed": "Entfernen fehlgeschlagen",
+      "inviteFailed": "Einladen fehlgeschlagen"
+    },
+    "pin": {
+      "title": "Zugangs-PIN",
+      "hint": "Ein gemeinsamer Zahlencode (4–8 Ziffern), den jeder an der Schutzwand eingeben kann. Rotieren oder Entfernen meldet jede PIN-Sitzung ab.",
+      "set": "PIN setzen",
+      "saveNew": "Neue PIN speichern",
+      "rotate": "Rotieren",
+      "isSet": "PIN ist gesetzt",
+      "invalid": "Die PIN muss 4–8 Ziffern haben.",
+      "saved": "Zugangs-PIN gespeichert",
+      "removed": "Zugangs-PIN entfernt",
+      "updateFailed": "PIN-Aktualisierung fehlgeschlagen"
+    },
+    "link": {
+      "title": "Teilbarer Link",
+      "hint": "Eine URL ohne Login, die jeder öffnen kann, bis sie abläuft.",
+      "generate": "Link generieren",
+      "createFailed": "Link konnte nicht erstellt werden"
+    },
+    "token": {
+      "title": "CI-Bypass-Token",
+      "hint": "Als Request-Header x-otter-bypass senden, um die Schutzwand in Automationen zu umgehen.",
+      "generate": "Token generieren",
+      "createFailed": "Token konnte nicht erstellt werden"
+    }
   }
 }

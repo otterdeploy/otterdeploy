@@ -2,21 +2,15 @@ import { useState } from "react";
 
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   ProtectionStateLabel,
   ProtectionSwitch,
 } from "@/features/projects/components/networking/protection-switch";
-import { RouteAccessControls } from "@/features/projects/components/networking/route-access-controls";
+import { RouteAccessDialogContent } from "@/features/projects/components/networking/route-access-dialog";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/shared/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/shared/components/ui/dialog";
 
 interface ProtectionRoute {
   id: string;
@@ -65,6 +59,7 @@ export function DeploymentProtectionCell({
 }
 
 function AccessDialog({ routeId, domain }: { routeId: string; domain: string }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -74,26 +69,15 @@ function AccessDialog({ routeId, domain }: { routeId: string; domain: string }) 
             variant="ghost"
             size="icon"
             className="size-7 text-muted-foreground hover:text-foreground"
-            aria-label="Manage access"
-            title="Manage access"
+            aria-label={t("routeAccess.manageAccess")}
+            title={t("routeAccess.manageAccess")}
           />
         }
       >
         <HugeiconsIcon icon={ShieldKeyIcon} strokeWidth={1.8} className="size-3.5" />
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Access to {domain}</DialogTitle>
-          <DialogDescription>
-            Org members sign in automatically. Invite external guests by email (they get a one-time
-            code, no account), or grant access with a shareable link or a CI header token.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="pt-1">
-          <RouteAccessControls routeId={routeId} />
-        </div>
-      </DialogContent>
+      {/* This shortcut only renders on protected routes, so the wall is on. */}
+      <RouteAccessDialogContent routeId={routeId} domain={domain} isProtected />
     </Dialog>
   );
 }

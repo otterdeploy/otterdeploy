@@ -1022,5 +1022,56 @@
     "failedToast": "Falló para {{names}}: {{message}}",
     "appliedSuffix": " · aplicado a {{names}}",
     "couldntSave": "No se pudo guardar"
+  },
+  "routeAccess": {
+    "manageAccess": "Gestionar acceso",
+    "title": "Acceso",
+    "wallOn": "Los miembros de la organización inician sesión automáticamente. Concede acceso externo con una invitación de invitado, un PIN de acceso, un enlace compartible o un token de omisión para CI.",
+    "wallOff": "El muro está desactivado: este despliegue es público y estos métodos no se aplican. Activa la Protección para aplicarlos.",
+    "expiresIn": "Caduca en",
+    "newCredential": "Nuevo",
+    "duration": {
+      "hour_one": "{{count}} hora",
+      "hour_other": "{{count}} horas",
+      "day_one": "{{count}} día",
+      "day_other": "{{count}} días",
+      "year_one": "{{count}} año",
+      "year_other": "{{count}} años"
+    },
+    "guests": {
+      "title": "Invitados",
+      "hint": "Invita a personas por correo. Reciben un código de un solo uso para entrar, sin cuenta, durante la sesión que elijas.",
+      "empty": "Aún no hay invitados.",
+      "addGuest": "Añadir invitado",
+      "emailLabel": "Correo del invitado",
+      "emailInvalid": "Introduce una dirección de correo válida.",
+      "removeGuest": "Quitar invitado",
+      "removeFailed": "No se pudo quitar",
+      "inviteFailed": "No se pudo invitar"
+    },
+    "pin": {
+      "title": "PIN de acceso",
+      "hint": "Un código numérico compartido (4–8 dígitos) que cualquiera puede introducir en el muro. Rotarlo o quitarlo cierra todas las sesiones por PIN.",
+      "set": "Establecer PIN",
+      "saveNew": "Guardar nuevo PIN",
+      "rotate": "Rotar",
+      "isSet": "El PIN está establecido",
+      "invalid": "El PIN debe tener 4–8 dígitos.",
+      "saved": "PIN de acceso guardado",
+      "removed": "PIN de acceso eliminado",
+      "updateFailed": "No se pudo actualizar el PIN"
+    },
+    "link": {
+      "title": "Enlace compartible",
+      "hint": "Una URL sin inicio de sesión que cualquiera puede abrir hasta que caduque.",
+      "generate": "Generar enlace",
+      "createFailed": "No se pudo crear el enlace"
+    },
+    "token": {
+      "title": "Token de omisión para CI",
+      "hint": "Envíalo como cabecera x-otter-bypass para saltarte el muro en automatizaciones.",
+      "generate": "Generar token",
+      "createFailed": "No se pudo crear el token"
+    }
   }
 }
