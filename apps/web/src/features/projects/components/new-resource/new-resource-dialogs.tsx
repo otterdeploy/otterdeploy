@@ -17,6 +17,9 @@ interface ResourceOverlayDialogProps {
   projectId: ProjectId;
   projectName?: string;
   open: boolean;
+  /** Open on the kind step's template search instead of the launch cards
+   *  (the palette's "Deploy a template…"). */
+  initialTemplateView?: boolean;
   /** When set (a template arrived via `?new=template`), skip the kind picker
    *  and open straight on the compose flow, seeded with the template. */
   composePrefill?: ComposePrefill | null;
@@ -29,6 +32,7 @@ export function ResourceOverlayDialog({
   projectId,
   projectName,
   open,
+  initialTemplateView = false,
   composePrefill,
   onOpenChange,
 }: ResourceOverlayDialogProps) {
@@ -77,13 +81,21 @@ export function ResourceOverlayDialog({
         <div className="flex-1 overflow-hidden">
           <ResourceWizard
             // Remount when a template arrives so form seeds cleanly even if
-            // the wizard was already open on another kind.
-            key={composePrefill ? `tpl:${composePrefill.name}` : "picker"}
+            // the wizard was already open on another kind. Same for a
+            // templates-first open landing on an already-open wizard.
+            key={
+              composePrefill
+                ? `tpl:${composePrefill.name}`
+                : initialTemplateView
+                  ? "templates"
+                  : "picker"
+            }
             orgSlug={orgSlug}
             projectSlug={projectSlug}
             projectId={projectId}
             projectName={projectName ?? ""}
             initialKind={composePrefill ? "compose" : undefined}
+            initialTemplateView={initialTemplateView}
             composePrefill={composePrefill ?? undefined}
             onComplete={() => onOpenChange(false)}
             onCancel={() => onOpenChange(false)}
