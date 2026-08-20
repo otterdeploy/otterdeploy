@@ -32,13 +32,35 @@ export function parseVersion(input: string | null | undefined): ParsedVersion | 
 
 const cmpNum = (x: number, y: number): number => (x < y ? -1 : x > y ? 1 : 0);
 
-/** A final release outranks any prerelease of the same core; otherwise order the
- *  prerelease identifiers lexically. */
+/** One dot-separated prerelease identifier, semver rule 11: numeric
+ *  identifiers compare numerically and sort below alphanumeric ones. */
+function compareIdentifier(a: string, b: string): number {
+  const aNum = /^\d+$/.test(a);
+  const bNum = /^\d+$/.test(b);
+  if (aNum && bNum) return cmpNum(Number(a), Number(b));
+  if (aNum !== bNum) return aNum ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** A final release outranks any prerelease of the same core; otherwise compare
+ *  identifier-by-identifier per semver. Numeric identifiers order numerically
+ *  (nightly.20260820.10 > nightly.20260820.9 — a plain string compare would
+ *  invert those), and when one list is a prefix of the other the LONGER sorts
+ *  higher (nightly.20260820.2 > nightly.20260820: a same-day nightly re-cut
+ *  outranks the day's first). */
 function comparePrerelease(a: string, b: string): number {
   if (a === b) return 0;
   if (a === "") return 1;
   if (b === "") return -1;
-  return a < b ? -1 : 1;
+  const as = a.split(".");
+  const bs = b.split(".");
+  const shared = Math.min(as.length, bs.length);
+  for (let i = 0; i < shared; i++) {
+    // `?? ""` only satisfies noUncheckedIndexedAccess: i < both lengths.
+    const c = compareIdentifier(as[i] ?? "", bs[i] ?? "");
+    if (c !== 0) return c;
+  }
+  return cmpNum(as.length, bs.length);
 }
 
 /** -1 if a<b, 0 if equal, 1 if a>b. Unparseable inputs sort as "older" than any

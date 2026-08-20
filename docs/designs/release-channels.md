@@ -72,7 +72,10 @@ changes which release the source resolves.
 
 A scheduled workflow (00:00 UTC) checks whether main moved since the last
 nightly tag; if so it tags `v<next-minor>-nightly.<YYYYMMDD>` (e.g.
-`v0.16.0-nightly.20260820`) and pushes it. The existing `images.yml` tag
+`v0.16.0-nightly.20260820`) and pushes it. A same-day re-cut (manual
+dispatch after the cron, with new commits on main) appends a run counter:
+`v0.16.0-nightly.20260820.2`, `.3`, … — each outranks the day's earlier
+cuts under semver prerelease ordering. The existing `images.yml` tag
 trigger (`v*.*.*`) builds pinned images for it; the release step marks it a
 **GitHub prerelease** (prereleases never become `releases/latest`, so stable
 instances are structurally unaffected). Each nightly is immutable and
@@ -102,10 +105,11 @@ Exposed via the system contract; only instance admins may change it.
 - Downgrade: `apply.ts` already refuses when target ≤ current; switching
   nightly→stable simply shows "no update" until stable passes the running
   nightly. The channel picker copy says so.
-- `compare.ts` needs one look: `-nightly.20260820` ordering vs
-  `-nightly.20260821` is lexical on the identifier — dates are
-  zero-padded so lexical order == chronological order. Verified shape works
-  with the existing regex (`[0-9A-Za-z.-]+`).
+- `compare.ts` orders prerelease identifiers per semver rule 11 (split on
+  `.`, numeric identifiers numerically, longer list wins on a tied prefix),
+  so dated nightlies order chronologically AND same-day run counters order
+  correctly (`….20260820 < ….20260820.2 < ….20260820.10 < ….20260821`).
+  Verified shape works with the existing regex (`[0-9A-Za-z.-]+`).
 
 ### 5. UI
 
