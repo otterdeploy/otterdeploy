@@ -127,6 +127,17 @@ DOCKER_VER=""
 exec 3>&1
 TERM_IS_TTY=false
 if [ -t 1 ]; then TERM_IS_TTY=true; fi
+
+# Colour is a terminal affordance, not content: it is set only when we are
+# actually writing to a terminal, and honours NO_COLOR (no-color.org) so a
+# piped or CI run gets plain text. Empty strings mean every use site collapses
+# to plain output with no branching at the call.
+if [ "$TERM_IS_TTY" = true ] && [ -z "${NO_COLOR:-}" ]; then
+  C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'; C_ACCENT=$'\033[36m'
+  C_OK=$'\033[32m';  C_WARN=$'\033[33m'; C_OFF=$'\033[0m'
+else
+  C_BOLD=""; C_DIM=""; C_ACCENT=""; C_OK=""; C_WARN=""; C_OFF=""
+fi
 # True once main() has pointed stdout/stderr at the log. Until then fd 3 and
 # stdout are the same terminal, so error paths must not write to both.
 LOG_ACTIVE=false
@@ -1604,34 +1615,240 @@ migrate_legacy_install() {
 # installs are unchanged. An option already set via its OTTERDEPLOY_* env var is
 # taken as-is with no prompt. Runs before the log capture so a changed DATA_DIR
 # repoints the derived paths.
+#
+# This is the only moment the install asks for anything, and it is the first
+# thing anyone sees of the product, so it is a real selector rather than a wall
+# of prose over a text prompt: ↑↓ moves, enter picks, ? opens the detail inline.
+# Answered questions collapse to one ✓ line, so the screen always shows where
+# you are instead of growing a transcript. Everything is drawn by moving the
+# cursor over our own block — no clear, no alternate screen — so whatever the
+# operator had in their scrollback is still there afterwards.
+
+# One line to the terminal. This whole screen runs before the log capture, and
+# it is a conversation, not a record, so none of it goes near the log.
+_p() { printf '%s\n' "$*" > "$SEL_TTY"; }
+
+# Trim a plain string to what fits after `indent` columns. The redraw walks the
+# cursor back by the number of lines it printed, so a line that WRAPS makes it
+# walk back too few and smear the screen on every keypress — on a narrow
+# terminal that is the difference between a UI and a mess. Only ever called on
+# raw text, never on a composed line, so it cannot cut an escape sequence in half.
+_fit() {
+  local text="$1" w=$((SEL_COLS - $2 - 1))
+  [ "$w" -lt 4 ] && w=4
+  if [ "${#text}" -gt "$w" ]; then printf '%s…' "${text:0:$((w - 1))}"; else printf '%s' "$text"; fi
+}
+
+# Reflow a paragraph to the width left after `indent` columns, one output line
+# per printed line. Prose is the one thing worth wrapping rather than cutting:
+# help text exists to be read, and a sentence that ends in "…" has failed at
+# the only job it had.
+_wrap() {
+  local w=$((SEL_COLS - $2 - 1)) line="" word words=()
+  # Cap the measure as well as floor it: prose set to the full width of a
+  # 200-column terminal is a worse read than prose set to 76.
+  [ "$w" -gt 76 ] && w=76
+  [ "$w" -lt 8 ] && w=8
+  read -ra words <<< "$1"
+  for word in "${words[@]}"; do
+    if [ -z "$line" ]; then
+      line="$word"
+    elif [ "$((${#line} + 1 + ${#word}))" -le "$w" ]; then
+      line="$line $word"
+    else
+      printf '%s\n' "$line"; line="$word"
+    fi
+  done
+  [ -n "$line" ] && printf '%s\n' "$line"
+  return 0
+}
+
+# One question. In: SEL_TITLE, SEL_BLURB, SEL_KEYS, SEL_DESC, SEL_HELP, SEL_IDX,
+# SEL_TOTAL, SEL (the index the cursor starts on). Out: SEL, left on the chosen
+# index. Everything is drawn to $SEL_TTY.
+_select() {
+  local n=${#SEL_KEYS[@]} height=0 show_help=false i key rest
+
+  _draw() {
+    local i pad line
+    _p ""
+    _p "  ${C_DIM}$SEL_IDX/$SEL_TOTAL${C_OFF}  ${C_BOLD}$SEL_TITLE${C_OFF}"
+    height=2
+    while IFS= read -r line; do
+      _p "       ${C_DIM}${line}${C_OFF}"
+      height=$((height + 1))
+    done < <(_wrap "$SEL_BLURB" 7)
+    _p ""
+    height=$((height + 1))
+    for ((i = 0; i < n; i++)); do
+      pad="$(printf '%-7s' "${SEL_KEYS[$i]}")"
+      if [ "$i" -eq "$SEL" ]; then
+        # The selected row is the only lit thing on the screen: accent caret,
+        # accent key, description at full strength. No highlight bar — it would
+        # have to be padded to a width we do not know, and the caret already
+        # says which row you are on.
+        _p "  ${C_ACCENT}▸${C_OFF} ${C_ACCENT}${C_BOLD}${pad}${C_OFF}  $(_fit "${SEL_DESC[$i]}" 13)"
+      else
+        _p "    ${C_DIM}${pad}  $(_fit "${SEL_DESC[$i]}" 13)${C_OFF}"
+      fi
+      height=$((height + 1))
+    done
+    if [ "$show_help" = true ]; then
+      _p ""
+      height=$((height + 1))
+      for i in "${SEL_HELP[@]}"; do
+        if [ -z "$i" ]; then
+          _p ""; height=$((height + 1)); continue
+        fi
+        while IFS= read -r line; do
+          _p "       ${C_DIM}${line}${C_OFF}"
+          height=$((height + 1))
+        done < <(_wrap "$i" 7)
+      done
+    fi
+    _p ""
+    if [ "$show_help" = true ]; then
+      _p "  ${C_DIM}↑↓ move · enter select · ? less${C_OFF}"
+    else
+      _p "  ${C_DIM}↑↓ move · enter select · ? details${C_OFF}"
+    fi
+    height=$((height + 2))
+  }
+
+  _draw
+  while :; do
+    # One keypress. -s keeps it off the screen, -n1 returns without waiting for
+    # a newline. EOF (a closed terminal) takes the current selection rather than
+    # spinning the loop.
+    IFS= read -rsn1 key <&4 || break
+    case "$key" in
+      "") break ;;                                  # enter: read -n1 eats the \n
+      $'\x1b')
+        # An arrow key is ESC [ A/B. Read the two bytes that follow; a bare ESC
+        # is not a key we offer, so it simply waits for the next one.
+        IFS= read -rsn2 rest <&4 || rest=""
+        case "$rest" in
+          '[A') [ "$SEL" -gt 0 ] && SEL=$((SEL - 1)) ;;
+          '[B') [ "$SEL" -lt $((n - 1)) ] && SEL=$((SEL + 1)) ;;
+        esac ;;
+      k|K) [ "$SEL" -gt 0 ] && SEL=$((SEL - 1)) ;;
+      j|J) [ "$SEL" -lt $((n - 1)) ] && SEL=$((SEL + 1)) ;;
+      '?') if [ "$show_help" = true ]; then show_help=false; else show_help=true; fi ;;
+      *)
+        # Typing the first letter of an option jumps to it (a/o/f here), which
+        # is how anyone who already knows the answer will use this.
+        for ((i = 0; i < n; i++)); do
+          case "${SEL_KEYS[$i]}" in "$key"*) SEL=$i; break ;; esac
+        done ;;
+    esac
+    # Redraw in place: back to the top of our block, clear from there down.
+    printf '\033[%dA\033[J' "$height" > "$SEL_TTY"
+    _draw
+  done
+  # Collapse the whole question to a single answered line.
+  printf '\033[%dA\033[J' "$height" > "$SEL_TTY"
+  _p "  ${C_OK}✓${C_OFF} ${C_DIM}$(printf '%-20s' "$SEL_TITLE")${C_OFF} ${SEL_KEYS[$SEL]}"
+  return 0
+}
+
+# The same question without a usable terminal for cursor control (TERM=dumb, a
+# terminal that refuses raw mode): type the answer, validated the same way.
+_select_typed() {
+  local n=${#SEL_KEYS[@]} i ans allowed=""
+  for ((i = 0; i < n; i++)); do
+    [ -n "$allowed" ] && allowed="$allowed|"
+    allowed="$allowed${SEL_KEYS[$i]}"
+  done
+  _p ""
+  _p "  $SEL_IDX/$SEL_TOTAL  $SEL_TITLE"
+  _p "       $SEL_BLURB"
+  for ((i = 0; i < n; i++)); do
+    _p "       $(printf '%-7s' "${SEL_KEYS[$i]}")  ${SEL_DESC[$i]}"
+  done
+  while :; do
+    printf '     > %s [%s]: ' "$allowed" "${SEL_KEYS[$SEL]}" > "$SEL_TTY"
+    IFS= read -r ans <&4 || ans=""
+    ans="$(printf '%s' "$ans" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    [ -z "$ans" ] && return 0
+    for ((i = 0; i < n; i++)); do
+      if [ "$ans" = "${SEL_KEYS[$i]}" ]; then SEL=$i; return 0; fi
+    done
+    if [ "$ans" = '?' ]; then
+      for i in "${SEL_HELP[@]}"; do
+        if [ -z "$i" ]; then _p ""; else _wrap "$i" 7 | sed 's/^/       /'; fi
+      done
+    else
+      _p "     · Not one of $allowed."
+    fi
+  done
+}
+
 configure() {
   local tty=""; [ -r /dev/tty ] && tty=/dev/tty
   if [ "$ASSUME_YES" = "true" ] || dry || [ -z "$tty" ]; then
     return
   fi
 
-  step "Configure otterdeploy  (Enter = keep the [default])"
+  # Count only the questions that will actually be asked — an OTTERDEPLOY_* var
+  # that is already set answers one without a prompt, so "1/2" never counts a
+  # question the operator never sees, and if both are set there is no screen at
+  # all rather than a header over nothing.
+  local total=0
+  [ -z "${OTTERDEPLOY_BRANCHING:-}" ] && total=$((total + 1))
+  [ -z "${OTTERDEPLOY_FIREWALL:-}" ]  && total=$((total + 1))
+  [ "$total" -eq 0 ] && return 0
 
-  _ctx() { printf '   %s\n' "$*" > "$tty"; }        # explanatory context → terminal
-  _ask() {                                          # _ask VAR OTTERDEPLOY_ENV "prompt" "default"
-    local var="$1" envname="$2" q="$3" def="$4" ans
-    [ -n "${!envname:-}" ] && return 0              # explicit env var wins, no prompt
-    printf '   \033[1m%s\033[0m [%s]: ' "$q" "$def" > "$tty"
-    IFS= read -r ans < "$tty" || ans=""
-    printf -v "$var" '%s' "${ans:-$def}"
-  }
+  SEL_TTY="$tty"
+  SEL_TOTAL="$total"
+  # Measured off the terminal itself rather than $COLUMNS (unset in a
+  # non-interactive shell) or `tput cols` (reads stdout, which may be the log).
+  local size
+  SEL_COLS=80
+  if size="$(stty size < "$tty" 2>/dev/null)"; then SEL_COLS="${size#* }"; fi
+  case "$SEL_COLS" in ''|*[!0-9]*|0) SEL_COLS=80 ;; esac
+  [ "$SEL_COLS" -lt 24 ] && SEL_COLS=24
+  local idx=0 interactive=true
+  [ "${TERM:-dumb}" = dumb ] && interactive=false
+  [ "$TERM_IS_TTY" = true ] || interactive=false
+
+  # One handle on the terminal for the whole screen, rather than reopening it
+  # for every keystroke.
+  exec 4< "$tty"
+  # The cursor is noise while a selector is up, but it must come back even if
+  # the operator interrupts mid-question.
+  if [ "$interactive" = true ]; then
+    trap 'printf "\033[?25h" > /dev/tty 2>/dev/null || true; exit 130' INT
+    printf '\033[?25l' > "$tty"
+  fi
+
+  _p ""
+  _p "  ${C_BOLD}otterdeploy${C_OFF}   ${C_DIM}setup${C_OFF}"
 
   # 1) Database branching — first, because it decides a HOST-level capability
   #    (whether we set up a ZFS pool) rather than a simple app setting.
-  _ctx ""
-  _ctx "Database branching — spin up instant, throwaway COPIES of a database"
-  _ctx "(for preview environments / tests) instead of a slow dump-and-restore."
-  _ctx "  auto : use copy-on-write ZFS if this host supports it, else fall back"
-  _ctx "         to the logical tier (works anywhere, but makes full pg_dump copies)."
-  _ctx "  on   : require ZFS for instant branches; abort if it isn't available."
-  _ctx "  off  : logical tier only — no ZFS pool is created on this host."
-  _ctx "Leave it on 'auto' unless you have a reason not to."
-  _ask BRANCHING OTTERDEPLOY_BRANCHING "Database branching (auto|on|off)" "$BRANCHING"
+  if [ -z "${OTTERDEPLOY_BRANCHING:-}" ]; then
+    idx=$((idx + 1))
+    SEL_IDX=$idx
+    SEL_TITLE="Database branching"
+    SEL_BLURB="Throwaway copies of a database, for preview envs and tests."
+    SEL_KEYS=(auto on off)
+    SEL_DESC=(
+      "ZFS snapshots where the host allows it, else pg_dump copies"
+      "require ZFS — abort the install if it isn't available"
+      "never use ZFS on this host"
+    )
+    SEL_HELP=(
+      "Preview environments and tests want a copy of a real database. The logical tier makes that copy with pg_dump and restore: it works on any host, but a large database takes minutes and the disk carries a second full copy of it."
+      ""
+      "ZFS makes it a copy-on-write snapshot instead — the branch is ready in about a second and costs only the blocks it changes. That needs a ZFS pool, which the installer creates on a sparse image file when the host has no spare disk to give it."
+      ""
+      "Either way the logical tier keeps working, so 'off' costs branch speed, never the feature."
+    )
+    SEL=0
+    case "$BRANCHING" in on) SEL=1 ;; off) SEL=2 ;; esac
+    if [ "$interactive" = true ]; then _select; else _select_typed; fi
+    BRANCHING="${SEL_KEYS[$SEL]}"
+  fi
 
   # NOT prompted: the compose source. Where the stack definition is fetched
   # from is our packaging detail, not an operator's decision — asking made
@@ -1642,18 +1859,34 @@ configure() {
   # 2) Firewall — od-5j8.11: ON by default (the product's headline
   #    differentiator). Community IP-reputation blocking (CrowdSec) at both
   #    the Caddy edge AND the host, plus a default-deny nftables baseline.
-  _ctx ""
-  _ctx "Firewall — CrowdSec IP-reputation blocking (edge + host) and a default-deny"
-  _ctx "nftables baseline, protecting SSH/edge traffic on this host out of the box."
-  _ctx "Recommended to leave ON; you can disable it later (OTTERDEPLOY_FIREWALL=false)."
   if [ -z "${OTTERDEPLOY_FIREWALL:-}" ]; then
-    local fw
-    printf '   \033[1mEnable the bundled firewall (CrowdSec + nftables)?\033[0m [Y/n]: ' > "$tty"
-    IFS= read -r fw < "$tty" || fw=""
-    case "$fw" in [Nn]*) FIREWALL=false ;; *) FIREWALL=true ;; esac
+    idx=$((idx + 1))
+    SEL_IDX=$idx
+    SEL_TITLE="Firewall"
+    SEL_BLURB="CrowdSec IP-reputation blocking, and deny-by-default nftables."
+    SEL_KEYS=(on off)
+    SEL_DESC=(
+      "recommended — SSH, 80 and 443 stay open"
+      "leave this host's firewall alone"
+    )
+    SEL_HELP=(
+      "CrowdSec blocks addresses with a bad reputation in the community feed, at the Caddy edge and on the host itself. Alongside it the installer applies an nftables baseline that drops inbound traffic except loopback, established flows, SSH, 80 and 443 — so a service you did not publish is not reachable just because its container bound a port."
+      ""
+      "An existing ufw or firewalld setup is detected and left alone: that step is skipped and reported, never silently overridden. Turn it off later with OTTERDEPLOY_FIREWALL=false and re-run, and 'firewall-rollback' removes the nftables table if it ever locks you out."
+    )
+    SEL=0
+    [ "$FIREWALL" = "true" ] || SEL=1
+    if [ "$interactive" = true ]; then _select; else _select_typed; fi
+    [ "${SEL_KEYS[$SEL]}" = on ] && FIREWALL=true || FIREWALL=false
   fi
 
-  printf '\n   Config → branching=%s  firewall=%s\n' "$BRANCHING" "$FIREWALL" > "$tty"
+  if [ "$interactive" = true ]; then
+    printf '\033[?25h' > "$tty"
+    trap - INT
+  fi
+  exec 4<&-
+  _p ""
+  return 0
 }
 
 usage() {
