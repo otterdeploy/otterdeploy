@@ -144,7 +144,10 @@ fi
 step "Stopping the otterdeploy stack"
 vflag=""; $KEEP_VOLUMES || vflag="-v"
 for d in "${INSTALL_DIRS[@]}"; do
-  [ -f "$d/docker-compose.yml" ] &&
+  # $SUDO test, not [ -f … ]: the install tree is root-owned 0700, so a plain
+  # test run by a non-root invoker reports "absent" and we'd skip the `down`
+  # entirely, leaving the stack running while everything under it is wiped.
+  $SUDO test -f "$d/docker-compose.yml" &&
     run $SUDO docker compose -p "$PROJECT" -f "$d/docker-compose.yml" --env-file "$d/.env" down $vflag --remove-orphans || true
 done
 sh_ "docker rm -f \$(docker ps -aq --filter label=com.docker.compose.project=$PROJECT) 2>/dev/null || true"
