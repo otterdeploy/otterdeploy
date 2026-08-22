@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c614c6b9-f5b4-441d-8ffd-5bef9e1a1b89",
+  "id": "44f5a6d2-fd08-42ec-b202-d40ebe4d8bfe",
   "prevIds": [
-    "401ba5dc-1a85-4db2-afbe-a18ec743827e",
-    "71ab5a37-0ad9-4a5a-8d6c-10ec4d3c179f"
+    "86b2a3c8-832e-4d13-bb6b-159f9b024789"
   ],
   "ddl": [
     {
@@ -7507,6 +7506,32 @@
       "generated": null,
       "identity": null,
       "name": "edge_log_geoip_asn_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "platform_settings"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "alert_warn_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "platform_settings"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "alert_crit_pct",
       "entityType": "columns",
       "schema": "public",
       "table": "platform_settings"
