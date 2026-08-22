@@ -6,6 +6,11 @@ import type { Context } from "hono";
  * sampler, which calls recordHealthSample directly) land here; the latest
  * snapshot per server is UPSERTED into server_health_sample.
  *
+ * Each accepted report ALSO appends a row to `server_metric`: the snapshot
+ * table is upserted in place (one row per server, backing the fast servers-list
+ * read), so it is the append-only series next to it that gives remote nodes any
+ * history at all.
+ *
  * Attribution reuses the stats.ts convention: the claimed hostname matches a
  * server row's `hostname` OR `name`, across ALL orgs (the same machine has
  * one bootstrap row per org). Unknown hostname ⇒ accepted-but-unmatched (202
@@ -18,20 +23,37 @@ import type { Context } from "hono";
  */
 import { db } from "@otterdeploy/db";
 import { server, serverHealthSample } from "@otterdeploy/db/schema/server";
+import { serverMetric } from "@otterdeploy/db/schema/server-metric";
 import { eq, or } from "drizzle-orm";
 import { log } from "evlog";
 import * as z from "zod";
 
 import { verifyAgentToken } from "./agent-token";
+import { deriveServerMetricValues } from "./metric-row";
 
-// Payload validation is deliberately shallow: `health` is the HostHealth
-// shape but agents may run a newer/older image than the control plane, so we
-// pin only what attribution and staleness need and store the rest as-is.
-const reportSchema = z.looseObject({
+/**
+ * Payload validation is deliberately shallow: `health` is the HostHealth
+ * shape but agents may run a newer/older image than the control plane, so we
+ * pin only what attribution and staleness need and store the rest as-is.
+ *
+ * The telemetry sections are `.nullish()` (optional AND nullable) so an agent
+ * running an OLDER image, which posts only memory/disk/docker, still ingests
+ * cleanly, and so does a node that could read none of them. The series
+ * columns are derived separately, in metric-row.ts, which tolerates every
+ * field being absent.
+ *
+ * Exported for tests: a version-skew contract is only real if it is asserted.
+ */
+export const reportSchema = z.looseObject({
   hostname: z.string().min(1),
   health: z.looseObject({
     memory: z.looseObject({ totalBytes: z.number() }),
     sampledAt: z.string().min(1),
+    cpu: z.looseObject({}).nullish(),
+    load: z.looseObject({}).nullish(),
+    filesystems: z.array(z.looseObject({})).nullish(),
+    diskIo: z.array(z.looseObject({})).nullish(),
+    network: z.array(z.looseObject({})).nullish(),
   }),
   capacity: z
     .object({ cpuTotal: z.number().int().nonnegative(), memTotalGb: z.number().nonnegative() })
@@ -51,14 +73,25 @@ export interface HealthSampleWrite {
 
 type ServerRow = typeof server.$inferSelect;
 
-/** Upsert the latest snapshot for each matched row + backfill placeholder
- *  capacity. Shared by the ingest route and the local sampler. */
+/** Upsert the latest snapshot for each matched row, append the time-series
+ *  row, and backfill placeholder capacity. Shared by the ingest route and the
+ *  local sampler. */
 export async function recordHealthSample(
   rows: Array<Pick<ServerRow, "id" | "organizationId" | "cpuTotal" | "memTotalGb">>,
   report: HealthSampleWrite,
 ): Promise<void> {
   const sampledAtDate = new Date(report.health.sampledAt);
   const sampledAt = Number.isNaN(sampledAtDate.getTime()) ? new Date() : sampledAtDate;
+  // Derived once: the same payload produces the same series row for every
+  // matched org row. Null ⇒ the payload had no readable memory block, so
+  // there is nothing honest to append (the snapshot still lands).
+  const metricValues = deriveServerMetricValues(report.health);
+  // The series is stamped with OUR clock, not the agent's. `sampledAt` is
+  // kept as reported on the snapshot for audit, but a node whose clock is
+  // minutes off would otherwise land its points outside (or ahead of) every
+  // window the charts ask for. Same reasoning as judging staleness on
+  // receivedAt, and the same clock resource_metric's defaultNow() uses.
+  const receivedAt = new Date();
 
   for (const row of rows) {
     await db
@@ -80,6 +113,17 @@ export async function recordHealthSample(
           receivedAt: new Date(),
         },
       });
+
+    // Append-only history. The snapshot above is one row per server forever;
+    // this is the series the per-node charts read.
+    if (metricValues) {
+      await db.insert(serverMetric).values({
+        serverId: row.id,
+        organizationId: row.organizationId,
+        ts: receivedAt,
+        ...metricValues,
+      });
+    }
 
     // Self-registration: fill capacity only where the join flow left zeros.
     // An operator-entered value is never overwritten by an agent.
