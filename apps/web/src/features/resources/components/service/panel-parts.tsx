@@ -37,7 +37,7 @@ export function ServicePanelHeader({
   onClose: () => void;
   onRestart: () => void;
   restarting: boolean;
-  onBuild: () => void;
+  onBuild: (noCache?: boolean) => void;
   building: boolean;
   /** Null/undefined until the live service view is loaded (or pending mode). */
   pause?: PauseControl | null;

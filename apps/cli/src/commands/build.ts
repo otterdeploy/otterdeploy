@@ -17,6 +17,10 @@ export const buildCommand = defineCommand({
     slug: { type: "string", description: "Project slug (defaults to config)" },
     url: { type: "string", description: "Override control plane URL" },
     wait: { type: "boolean", description: "Wait for the deployment to settle" },
+    "no-cache": {
+      type: "boolean",
+      description: "Rebuild from scratch, ignoring every build cache",
+    },
     timeout: { type: "string", description: "Wait timeout in minutes (default from wait)" },
     json: { type: "boolean", description: "Output as JSON" },
   },
@@ -38,10 +42,14 @@ export const buildCommand = defineCommand({
       args.service,
       "service",
     );
-    const { deploymentId } = await client.service.build({ projectId, resourceId });
+    const { deploymentId } = await client.service.build({
+      projectId,
+      resourceId,
+      ...(args["no-cache"] ? { noCache: true } : {}),
+    });
 
     if (!args.json) {
-      ok(`Build queued for ${resourceName}.`);
+      ok(`Build queued for ${resourceName}${args["no-cache"] ? " (no cache)" : ""}.`);
       section("Deployment");
       detail([["id", paint("id", shortId(deploymentId))]]);
       if (!args.wait) {

@@ -256,6 +256,9 @@ export async function getTreeSnapshot(
 }
 
 export interface PkgJson {
+  /** Workspace package name; the identity `deriveWatchPatterns` walks the
+   *  dependency graph by (and the value turbo's `--filter` takes). */
+  name?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   workspaces?: string[] | { packages?: string[] };
@@ -266,6 +269,7 @@ export interface PkgJson {
  *  a file that is not shaped like a package.json parses to null below, the
  *  same "no package.json" degrade path a fetch failure takes. */
 const pkgJsonSchema: z.ZodType<PkgJson> = z.object({
+  name: z.string().optional(),
   dependencies: z.record(z.string(), z.string()).optional(),
   devDependencies: z.record(z.string(), z.string()).optional(),
   workspaces: z

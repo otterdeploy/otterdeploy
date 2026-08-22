@@ -20,15 +20,12 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
-import { readFileSync } from "node:fs";
 
 import type { PipelineContext } from "./load";
 import type { LogSink } from "./log-stream";
 
 import { runDeployHooks } from "./deploy-hook";
 import { dockerPush } from "./docker-push";
-import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
-import { assertDockerfileValid } from "./dockerfile-validate";
 import {
   BuildStepError,
   DeployHookError,
@@ -37,7 +34,6 @@ import {
   SwarmUpdateError,
 } from "./errors";
 import { PipelineLoadError } from "./load";
-import { railpackBuild } from "./railpack";
 import { markFailed } from "./state";
 
 /** Every way the build sequence can fail, as a tagged union. */
@@ -104,69 +100,6 @@ export async function mintInstallationToken(
         }),
     )
     .map((m) => m.token);
-}
-
-/**
- * Build the service image. Two paths produce the same `{ shaTag, latestTag,
- * buildDir }` shape so the pipeline stays builder-agnostic: a repo Dockerfile
- * via `docker buildx build --load`, or railpack's BuildKit frontend. `auto`/
- * null resolves to dockerfile when one is present, else railpack. `compose`
- * resolves as railpack so the unsupported-builder fallback takes effect.
- */
-export function runImageBuild(args: {
-  buildConfig: BuildConfig | null;
-  builder: Builder;
-  workDir: string;
-  sourceSubdir: string | null;
-  imageRepository: string;
-  gitSha: string;
-  cacheBuilder: string | null;
-  cachePath: string | null;
-  sink: LogSink;
-}): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
-  const { buildConfig, builder, workDir, sourceSubdir, imageRepository, gitSha } = args;
-  const { cacheBuilder, cachePath, sink } = args;
-  // `compose` has no dockerfile config; resolve it as railpack.
-  const resolveBuilderKind = builder === "compose" ? "railpack" : builder;
-  const resolution = resolveDockerfileBuild({
-    builder: resolveBuilderKind,
-    dockerfilePath: buildConfig?.builder === "dockerfile" ? buildConfig.dockerfilePath : null,
-    workDir,
-    sourceSubdir,
-  });
-  for (const warning of resolution.warnings) sink.system(warning);
-
-  if (resolution.kind === "dockerfile") {
-    // Fail fast on unsupported instructions BEFORE invoking docker. A clear
-    // `file:line + reason + fix` beats a silent-wrong build (the VOLUME case).
-    assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) => sink.system(m));
-    return dockerfileBuild({
-      workDir,
-      sourceSubdir,
-      dockerfilePath: resolution.dockerfilePath,
-      contextDir: resolution.contextDir,
-      relativePath: resolution.relativePath,
-      imageRepository,
-      sha: gitSha,
-      // Build-args only apply to the Dockerfile builder; an `auto` build that
-      // resolves to a Dockerfile carries none (none configurable).
-      buildArgs:
-        buildConfig?.builder === "dockerfile" ? (buildConfig.buildArgs ?? undefined) : undefined,
-      builderName: cacheBuilder,
-      cachePath,
-      sink,
-    });
-  }
-  return railpackBuild({
-    workDir,
-    sourceSubdir,
-    imageRepository,
-    sha: gitSha,
-    config: buildConfig?.builder === "railpack" ? buildConfig : null,
-    builderName: cacheBuilder,
-    cachePath,
-    sink,
-  });
 }
 
 /**

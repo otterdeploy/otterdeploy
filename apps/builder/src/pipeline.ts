@@ -32,8 +32,10 @@ import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { rm } from "node:fs/promises";
 
+import type { PipelineContext } from "./load";
+
 import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
-import { ensureBuildxBuilder, cachePathFor } from "./buildx";
+import { ensureBuildxBuilder, cachePathFor, type TurboCacheEnv } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { detectServiceFramework } from "./detect-framework";
@@ -46,6 +48,7 @@ import {
 import { extractTarballToWorkDir } from "./extract";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
+import { runImageBuild } from "./pipeline-image-build";
 import {
   type BuildPipelineError,
   handleFailure,
@@ -53,12 +56,12 @@ import {
   pushImageIfRegistry,
   resolveBindingKind,
   resolveBuilder,
-  runImageBuild,
   runPostDeploy,
   runPreDeploy,
   step,
 } from "./pipeline-steps";
 import { markBuilding, markImageReady, markRunning } from "./state";
+import { resolveTurboCacheEnv } from "./turbo-cache";
 
 /** Mutable holder for the clone's work dir, so cleanup can remove it even
  *  when a later step fails (the dir is created mid-pipeline). */
@@ -122,6 +125,49 @@ async function previewClosedDuringBuild(
 ): Promise<boolean> {
   if (!previewId) return false;
   return !(await isPreviewActive(previewId));
+}
+
+/**
+ * Resolve every cache lever for one build.
+ *
+ * Three independent layers, deliberately kept separate:
+ *   - the BuildKit layer cache (a shared docker-container builder + a local
+ *     cache dir keyed by image repo); best-effort, null on any failure
+ *   - the per-deploy bypass, a property of THIS build rather than the service
+ *   - turbo's remote cache, opt-in per service, credentials read from the
+ *     service's own encrypted variables and passed only as buildx secrets
+ *
+ * None of them can fail a build: a cache is a speedup, never a dependency.
+ */
+async function resolveBuildCaches(
+  ctx: PipelineContext,
+  sink: LogSink,
+): Promise<{
+  cacheBuilder: string | null;
+  cachePath: string | null;
+  noCache: boolean;
+  turboCache: TurboCacheEnv;
+}> {
+  const cacheBuilder = await ensureBuildxBuilder(sink);
+  const cachePath = cacheBuilder ? cachePathFor(ctx.imageRepository) : null;
+
+  const noCache = ctx.deployment.noCache === true;
+  if (noCache) {
+    sink.system("cache bypass requested: building without any cached layers or tasks");
+  }
+
+  const turboCache = await resolveTurboCacheEnv({
+    enabled:
+      ctx.service.buildConfig?.builder === "railpack"
+        ? ctx.service.buildConfig.turboRemoteCache
+        : false,
+    projectId: ctx.project.id,
+    serviceResourceId: ctx.service.resourceId,
+    previewId: ctx.deployment.previewId,
+    sink,
+  });
+
+  return { cacheBuilder, cachePath, noCache, turboCache };
 }
 
 function runBuildSteps(
@@ -215,8 +261,7 @@ function runBuildSteps(
     // can be set up, route the build through it with a local cache keyed by the
     // image repo. Returns null (→ no cache, default-driver `--load`) on any
     // failure, so a build never depends on the cache being available.
-    const cacheBuilder = await ensureBuildxBuilder(sink);
-    const cachePath = cacheBuilder ? cachePathFor(ctx.imageRepository) : null;
+    const { cacheBuilder, cachePath, noCache, turboCache } = await resolveBuildCaches(ctx, sink);
 
     // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
     // path when pinned to dockerfile) becomes a tagged BuildStepError.
@@ -230,6 +275,8 @@ function runBuildSteps(
         gitSha: buildTag,
         cacheBuilder,
         cachePath,
+        noCache,
+        turboCache,
         sink,
       }),
     );

@@ -83,14 +83,90 @@ least one path matches; when unset, every push redeploys.
 | Builder | Fields |
 | --- | --- |
 | `auto` | None. Inspects the repo: a Dockerfile means `dockerfile`, otherwise `railpack` |
-| `dockerfile` | `dockerfilePath` (default `./Dockerfile`), `buildArgs` |
-| `railpack` | `buildCommand`, `spa`, `staticRoot`, `packageManager` |
+| `dockerfile` | `dockerfilePath` (default `./Dockerfile`), `dockerfileContext`, `buildArgs` |
+| `railpack` | `buildCommand`, `spa`, `staticRoot`, `packageManager`, `buildRunner`, `turboFilter`, `turboRemoteCache`, `turboPrune` |
 | `compose` | `composePath` (default `./docker-compose.yml`) |
 
 <Callout type="warn" title="buildArgs are not secrets">
   `--build-arg` values land in the image history. Use an
   [environment variable](/docs/guides/environment) for anything sensitive.
 </Callout>
+
+### Monorepos
+
+A service in a monorepo sets `sourceSubdir` to its app folder. When the repo
+root declares a workspace (`workspaces` in `package.json`, or
+`pnpm-workspace.yaml`), the build runs from the **repository root** so the
+lockfile, the workspace catalog, and the sibling packages the app imports all
+resolve.
+
+Turborepo is a task runner *over* that workspace, never a replacement for it.
+When the root has both a `turbo.json` and a `turbo` dependency, the app is
+built with `turbo run build --filter=<package name>`, which builds the internal
+packages it depends on first. Without turbo, the app's own `build` script runs
+on its own.
+
+| Field | |
+| --- | --- |
+| `buildRunner` | `auto` (default), `turbo`, or `script`. `turbo` fails the build if turbo isn't usable, rather than quietly falling back |
+| `turboFilter` | Overrides the derived `--filter`. Rarely needed |
+| `turboRemoteCache` | Opt into Turborepo Remote Cache. Reads `TURBO_TOKEN` (plus `TURBO_TEAM` / `TURBO_API`) from the service's variables and passes them to the build as secrets, never as build args |
+| `turboPrune` | Build from a `turbo prune`d copy of the workspace. See below |
+
+#### Pruning the workspace
+
+`turboPrune` builds from a copy of the monorepo containing only the packages
+your app actually reaches. Measured on this repo, building `apps/server`:
+
+| | Full | Pruned |
+| --- | --- | --- |
+| Build context | 48.9 MB / 3061 files | 23 MB / 1150 files |
+| Packages installed | 17 | 10 |
+
+The narrower install is the point — a backend service stops installing the
+frontend toolchains of apps it never imports. It does **not** improve
+install-layer caching: the build already copies only workspace manifests and
+the lockfile before installing, so a source-only change never re-runs install.
+
+It is off by default because `turbo prune` keeps only the root `package.json`,
+the lockfile and `turbo.json`, and drops every other root-level file. A repo
+whose packages do `"extends": "../../tsconfig.json"`, or that keeps a root
+`.npmrc`, `patches/`, or shared tool config, would break. Otterdeploy checks
+for exactly that before using a pruned tree and silently builds the full
+workspace instead when it isn't safe — so turning this on can never break a
+build that worked, at worst it does nothing.
+
+<Callout title="Uses the builder's turbo, not your repo's">
+  Pruning runs before install, so it can't use the `turbo` in your
+  `node_modules`. The builder image ships its own. On a self-hosted builder
+  without it, the build logs a line and proceeds unpruned.
+</Callout>
+
+For the `dockerfile` builder, where the Dockerfile *lives* and what it is
+*built with* are separate questions. A monorepo Dockerfile sits in the app's
+subdirectory but COPYs the root lockfile and sibling packages, so it needs the
+repository root as its build context:
+
+| `dockerfileContext` | |
+| --- | --- |
+| `auto` (default) | Reads the Dockerfile's COPY sources and uses the repository root only when they require it |
+| `subdir` | Always build from `sourceSubdir` |
+| `root` | Always build from the repository root |
+
+### Build caches
+
+Three independent layers, none of which can fail a build:
+
+- **Image layer cache** — always on, per image repository, on the build host.
+- **Turborepo local cache** — mounted into the build so turbo restores
+  unchanged packages even when the layer cache misses.
+- **Turborepo Remote Cache** — opt-in via `turboRemoteCache`, shared across
+  hosts.
+
+To rebuild without any of them, use **Redeploy without cache** on the service.
+It is a per-deploy choice rather than a setting: it drops the layer-cache
+import (while still repopulating it for next time) and sets `TURBO_FORCE` so
+turbo re-runs every task.
 
 ### Common service fields
 

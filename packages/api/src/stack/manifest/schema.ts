@@ -1,5 +1,6 @@
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
 
+import { BUILD_RUNNERS, DOCKERFILE_CONTEXT_MODES } from "@otterdeploy/shared/build-config";
 /**
  * Declarative manifest: JSON-native source of truth for a project's
  * resources. Lives in `project.manifest` (jsonb) and on disk as
@@ -110,6 +111,10 @@ const buildAutoSchema = z.object({
 const buildDockerfileSchema = z.object({
   builder: z.literal("dockerfile"),
   dockerfilePath: z.string().nullable().optional(),
+  // Where the BUILD CONTEXT is anchored for a Dockerfile inside a monorepo
+  // subdir. `auto` reads the Dockerfile's COPY sources and escalates to the
+  // repo root only when they demand it; see BuildDockerfileConfig.
+  dockerfileContext: z.enum(DOCKERFILE_CONTEXT_MODES).nullable().optional(),
   // Plain `--build-arg key=value` pairs (not secrets, they land in image
   // history). Keys are validated to Docker's arg-name rule so a bad name fails
   // at save time, not opaquely at `docker build`.
@@ -139,6 +144,18 @@ const buildRailpackSchema = z.object({
   spa: z.boolean().nullable().optional(),
   staticRoot: z.string().nullable().optional(),
   packageManager: z.string().nullable().optional(),
+  // Monorepo task runner. Turbo runs OVER a workspace the package manager
+  // defined, so these only apply once the repo root is a workspace and the
+  // service lives in a subdir of it. `turboFilter` overrides the derived
+  // --filter (the app's package name); `turboRemoteCache` opts into Turborepo
+  // Remote Cache, reading TURBO_TOKEN from the service's own variables.
+  buildRunner: z.enum(BUILD_RUNNERS).nullable().optional(),
+  turboFilter: z.string().nullable().optional(),
+  turboRemoteCache: z.boolean().nullable().optional(),
+  // Build from a `turbo prune`d copy of the workspace: a smaller context and a
+  // narrower install. Opt-in, and skipped automatically when it would drop
+  // root-level config the build may need.
+  turboPrune: z.boolean().nullable().optional(),
   watchPatterns,
 });
 
