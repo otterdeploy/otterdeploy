@@ -1,0 +1,76 @@
+name: Label PRs from title
+
+# Applies ONE label to a pull request, read off the conventional-commit type in
+# its title: `feat(api,db): …` → `feat`, `fix(web): …` → `fix`.
+#
+# Why this exists: .github/release.yml groups the generated changelog BY LABEL —
+# GitHub's release-notes generator matches labels only, never title prefixes. We
+# write conventional-commit titles religiously and label nothing, so every
+# category fell through to the `labels: ["*"]` catch-all and shipped releases
+# whose entire body was one flat "Other changes" list. The type was always in
+# the title; it just was not where GitHub looks. This copies it across.
+#
+# Runs on `pull_request_target`, NOT `pull_request`: a fork PR gets a read-only
+# token under the latter and could never label itself. The usual danger of
+# pull_request_target is running untrusted code with a write token — this job
+# never checks the PR out. It reads one string from the event payload and calls
+# the API, so there is nothing from the branch to execute.
+#
+# The title is passed through the environment rather than interpolated into the
+# script (`${{ … }}` inside `run:` is a shell-injection hole: a PR titled
+# `feat: $(curl evil)` would execute on a token with write scope).
+#
+# Existing labels are never touched: an operator who hand-labels a PR
+# `dependencies` keeps it, and the type label is added alongside. Titles with no
+# recognizable type are left alone and land in "Other changes", which is what
+# that catch-all is for.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: pr-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label from conventional-commit type
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # `type(optional scope)!: subject` → type. Anything else exits quiet.
+          type=$(printf '%s' "$PR_TITLE" | sed -nE 's/^([a-zA-Z]+)(\([^)]*\))?!?:.*/\1/p' | tr '[:upper:]' '[:lower:]')
+          if [ -z "$type" ]; then
+            echo "No conventional-commit type in '$PR_TITLE' — leaving unlabeled."
+            exit 0
+          fi
+
+          # Only types this repo actually uses (git log over the last 400
+          # commits). An unknown type is NOT invented as a new label: a typo
+          # would otherwise quietly create its own changelog bucket.
+          case "$type" in
+            feat|fix|perf|docs|refactor|chore|ci|build|style|test|polish) ;;
+            *)
+              echo "Unmapped type '$type' — leaving unlabeled."
+              exit 0
+              ;;
+          esac
+
+          # The label must exist before it can be applied, and none of these
+          # existed on this repo (only GitHub's stock bug/enhancement set did).
+          # `--force` makes creation idempotent, so the first PR of each type
+          # bootstraps its own label instead of failing.
+          gh label create "$type" --color ededed --description "Conventional-commit type: $type" --force
+
+          gh pr edit "$PR_NUMBER" --add-label "$type"
+          echo "Labeled #$PR_NUMBER as '$type'."
