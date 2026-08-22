@@ -79,7 +79,14 @@ export function PlacementPin({
   if (plainDocker) return null;
 
   const current = service.placementServerId ?? ANYWHERE;
-  const servers = serversQuery.data ?? [];
+  // A dedicated build server is not a placement candidate: it exists to build,
+  // and a box sized for builds shouldn't quietly start serving traffic too.
+  // One exception — a server this service is ALREADY pinned to stays listed,
+  // so flipping a server to "build server" can't strand a resource on an
+  // option the picker refuses to show.
+  const servers = (serversQuery.data ?? []).filter(
+    (s) => !s.buildServer || s.id === service.placementServerId,
+  );
   const pinnedServer = servers.find((s) => s.id === service.placementServerId);
 
   const move = (serverId: string | null, acknowledgeVolumeLoss?: boolean) => {

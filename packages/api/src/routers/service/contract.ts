@@ -224,6 +224,29 @@ export const serviceContract = {
     )
     .output(serviceSchema),
 
+  // Assign (or clear) the dedicated build server for this service. Unlike
+  // placement this does NOT roll the service: it changes where the next BUILD
+  // runs, not the running spec. Null inherits the project's, then the default.
+  setBuildServer: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+      // The chosen server can't be this service's builder: not a build server,
+      // gone, or the service has no image target so the run nodes could never
+      // pull what it built. `message` carries the specific reason.
+      BUILD_SERVER_INVALID: {
+        status: 422 as const,
+        message: "That server can't build this service." as const,
+      },
+    })
+    .meta({ path: `${basePath}/{resourceId}/build-server`, tag, method: "POST" })
+    .input(
+      getServiceInput.extend({
+        // Null inherits the project's build server, else the shared default.
+        serverId: z.string().nullable(),
+      }),
+    )
+    .output(serviceSchema),
+
   unexpose: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,

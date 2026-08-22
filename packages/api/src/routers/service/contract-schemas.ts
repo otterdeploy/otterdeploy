@@ -77,6 +77,10 @@ export const serviceSchema = z.object({
   // count service.resume restores. Null = not paused.
   pausedReplicas: z.number().int().positive().nullable(),
   placementServerId: z.string().nullable(),
+  /** Dedicated build server for THIS service; null inherits the project's,
+   *  then the shared default. Distinct from placementServerId, which is where
+   *  the container runs. */
+  buildServerId: z.string().nullable(),
 
   restart: serviceRestartSchema,
   healthcheck: serviceHealthcheckSchema,

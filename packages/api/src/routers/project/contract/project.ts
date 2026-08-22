@@ -107,6 +107,9 @@ const updateProjectInput = z.object({
   // Source card, staged into the manifest). The project update no longer
   // carries a repo/registry binding.
   nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
+  // Dedicated build server for this project's services. `null` clears it
+  // (build wherever each service runs). A service can still override it.
+  buildServerId: zId(ID_PREFIX.server).nullable().optional(),
 });
 
 const deleteProjectInput = z.object({
