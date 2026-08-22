@@ -123,12 +123,6 @@ const UNIT_PROPERTIES = [
  *  memory, and the collector is a singleton per host process. */
 const cpuBaselines = new Map<string, CpuBaseline>();
 
-/** Drop every remembered baseline, so the next report reads as a first
- *  sample again. Tests, and callers that want a clean slate. */
-export function resetCpuBaselines(state: Map<string, CpuBaseline> = cpuBaselines): void {
-  state.clear();
-}
-
 /** Run `systemctl <argv>`; null on spawn failure, non-zero exit, or timeout. */
 export type SystemctlExec = (argv: string[], timeoutMs: number) => Promise<string | null>;
 

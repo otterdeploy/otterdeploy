@@ -62,7 +62,7 @@ export type UnitSubState = (typeof UNIT_SUB_STATES)[number];
 
 /** systemd reports "this counter is not available" as UINT64_MAX. Read as a
  *  number it is 1.8e19, which would render as 18 exabytes of RAM. */
-export const UINT64_MAX = "18446744073709551615";
+const UINT64_MAX = "18446744073709551615";
 
 export type UnitProperties = Record<string, string>;
 

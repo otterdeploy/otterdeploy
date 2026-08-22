@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "a13292e6-708b-405e-9fa9-ff6b749321ba",
+  "id": "f51113f9-b118-4579-8289-f08bd28c5d04",
   "prevIds": [
-    "44f5a6d2-fd08-42ec-b202-d40ebe4d8bfe"
+    "217af67f-3d5e-463a-95e2-398b9a74107d"
   ],
   "ddl": [
     {
@@ -8440,6 +8440,19 @@
       "table": "deployment"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "no_cache",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "deployment"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -8851,6 +8864,19 @@
       "generated": null,
       "identity": null,
       "name": "environment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "build_server_id",
       "entityType": "columns",
       "schema": "public",
       "table": "project"
@@ -10086,6 +10112,19 @@
       "generated": null,
       "identity": null,
       "name": "build_config",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_resource"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "build_server_id",
       "entityType": "columns",
       "schema": "public",
       "table": "service_resource"
