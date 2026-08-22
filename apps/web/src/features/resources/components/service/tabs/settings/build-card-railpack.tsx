@@ -29,16 +29,51 @@ interface RailpackFormValues {
   turboPrune: boolean;
 }
 
-// Each row: [field name, label, hint, placeholder].
+// Each row: [field name, label, hint, placeholder, disabled when the runner
+// is "script"]. Table-driven so a new text knob is a row, not another copy of
+// the same BuildFieldRow + Input block.
 const RAILPACK_TEXT_FIELDS = [
   [
     "packageManager",
     "Package manager",
     "Override the repo's pin, e.g. bun@1.3.13 or pnpm@9.12.0.",
     "auto (repo's packageManager)",
+    false,
   ],
-  ["buildCommand", "Build command", "Overrides the detected build step.", "auto"],
-  ["staticRoot", "Static root", "Built-assets dir for static sites (default: dist).", "dist"],
+  ["buildCommand", "Build command", "Overrides the detected build step.", "auto", false],
+  [
+    "staticRoot",
+    "Static root",
+    "Built-assets dir for static sites (default: dist).",
+    "dist",
+    false,
+  ],
+  [
+    "turboFilter",
+    "Turbo filter",
+    "Overrides the derived --filter (the app's package name). Rarely needed.",
+    "auto (package name)",
+    true,
+  ],
+] as const;
+
+// Each row: [field name, title, hint, disabled when the runner is "script"].
+// Table-driven for the same reason RAILPACK_TEXT_FIELDS is: three hand-written
+// <form.Field><ToggleRow/></form.Field> blocks differ only in their strings.
+const RAILPACK_TOGGLES = [
+  ["spa", "Single-page app", "Serve via Caddy with history fallback to index.html.", false],
+  [
+    "turboRemoteCache",
+    "Turborepo Remote Cache",
+    "Reads TURBO_TOKEN (and TURBO_TEAM / TURBO_API) from this service's variables and passes them to the build as secrets.",
+    true,
+  ],
+  [
+    "turboPrune",
+    "Prune the workspace",
+    "Build from a turbo-pruned copy: only the packages this app reaches get copied and installed. Skipped automatically when the repo keeps shared config at its root.",
+    true,
+  ],
 ] as const;
 
 const RUNNER_OPTIONS = [
@@ -64,19 +99,24 @@ const toRailpackBuild = (
   turboPrune: value.turboPrune ? true : null,
 });
 
+/** The saved config as form values. ONE definition, used both to seed the form
+ *  and to diff against it: two copies would drift the moment a knob is added,
+ *  and the form would quietly stop reporting itself dirty for that field. */
+const formValuesFrom = (config: BuildRailpackConfig): RailpackFormValues => ({
+  packageManager: config.packageManager ?? "",
+  buildCommand: config.buildCommand ?? "",
+  staticRoot: config.staticRoot ?? "",
+  spa: config.spa ?? false,
+  buildRunner: config.buildRunner ?? "auto",
+  turboFilter: config.turboFilter ?? "",
+  turboRemoteCache: config.turboRemoteCache ?? false,
+  turboPrune: config.turboPrune ?? false,
+});
+
 /** Field-by-field comparison against the saved config. Expressed as a table so
  *  adding a knob doesn't grow one boolean expression past the complexity cap. */
 const railpackDirty = (config: BuildRailpackConfig, values: RailpackFormValues): boolean => {
-  const saved: RailpackFormValues = {
-    packageManager: config.packageManager ?? "",
-    buildCommand: config.buildCommand ?? "",
-    staticRoot: config.staticRoot ?? "",
-    spa: config.spa ?? false,
-    buildRunner: config.buildRunner ?? "auto",
-    turboFilter: config.turboFilter ?? "",
-    turboRemoteCache: config.turboRemoteCache ?? false,
-    turboPrune: config.turboPrune ?? false,
-  };
+  const saved = formValuesFrom(config);
   const keys: (keyof RailpackFormValues)[] = [
     "packageManager",
     "buildCommand",
@@ -125,16 +165,7 @@ export function RailpackBuildCard({
   const save = useSaveBuild(resource);
 
   const form = useForm({
-    defaultValues: {
-      packageManager: config.packageManager ?? "",
-      buildCommand: config.buildCommand ?? "",
-      staticRoot: config.staticRoot ?? "",
-      spa: config.spa ?? false,
-      buildRunner: config.buildRunner ?? "auto",
-      turboFilter: config.turboFilter ?? "",
-      turboRemoteCache: config.turboRemoteCache ?? false,
-      turboPrune: config.turboPrune ?? false,
-    },
+    defaultValues: formValuesFrom(config),
     onSubmit: ({ value }) => save.mutate(toRailpackBuild(config, value)),
   });
   const values = useSelector(form.store, (s) => s.values);
@@ -144,7 +175,7 @@ export function RailpackBuildCard({
       title="Build"
       description="Railpack reads these before building. Empty fields auto-detect from the repo. Saved changes apply on the next Deploy."
     >
-      {RAILPACK_TEXT_FIELDS.map(([name, label, hint, placeholder]) => (
+      {RAILPACK_TEXT_FIELDS.map(([name, label, hint, placeholder, runnerScoped]) => (
         <BuildFieldRow key={name} label={label} hint={hint}>
           <form.Field name={name}>
             {(field) => (
@@ -153,24 +184,12 @@ export function RailpackBuildCard({
                 onChange={(e) => field.handleChange(e.target.value)}
                 placeholder={placeholder}
                 className="h-8 font-mono text-[12.5px]"
-                disabled={save.isPending}
+                disabled={save.isPending || (runnerScoped && values.buildRunner === "script")}
               />
             )}
           </form.Field>
         </BuildFieldRow>
       ))}
-
-      <form.Field name="spa">
-        {(field) => (
-          <ToggleRow
-            title="Single-page app"
-            hint="Serve via Caddy with history fallback to index.html."
-            checked={field.state.value}
-            disabled={save.isPending}
-            onChange={field.handleChange}
-          />
-        )}
-      </form.Field>
 
       <BuildFieldRow
         label="Build runner"
@@ -188,46 +207,19 @@ export function RailpackBuildCard({
         </form.Field>
       </BuildFieldRow>
 
-      <BuildFieldRow
-        label="Turbo filter"
-        hint="Overrides the derived --filter (the app's package name). Rarely needed."
-      >
-        <form.Field name="turboFilter">
+      {RAILPACK_TOGGLES.map(([name, title, hint, runnerScoped]) => (
+        <form.Field key={name} name={name}>
           {(field) => (
-            <Input
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="auto (package name)"
-              className="h-8 font-mono text-[12.5px]"
-              disabled={save.isPending || values.buildRunner === "script"}
+            <ToggleRow
+              title={title}
+              hint={hint}
+              checked={field.state.value}
+              disabled={save.isPending || (runnerScoped && values.buildRunner === "script")}
+              onChange={field.handleChange}
             />
           )}
         </form.Field>
-      </BuildFieldRow>
-
-      <form.Field name="turboRemoteCache">
-        {(field) => (
-          <ToggleRow
-            title="Turborepo Remote Cache"
-            hint="Reads TURBO_TOKEN (and TURBO_TEAM / TURBO_API) from this service's variables and passes them to the build as secrets."
-            checked={field.state.value}
-            disabled={save.isPending || values.buildRunner === "script"}
-            onChange={field.handleChange}
-          />
-        )}
-      </form.Field>
-
-      <form.Field name="turboPrune">
-        {(field) => (
-          <ToggleRow
-            title="Prune the workspace"
-            hint="Build from a turbo-pruned copy: only the packages this app reaches get copied and installed. Skipped automatically when the repo keeps shared config at its root."
-            checked={field.state.value}
-            disabled={save.isPending || values.buildRunner === "script"}
-            onChange={field.handleChange}
-          />
-        )}
-      </form.Field>
+      ))}
 
       <SaveRow
         dirty={railpackDirty(config, values)}

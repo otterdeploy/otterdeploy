@@ -34,7 +34,7 @@ export function nodeBuildMaxOldSpaceMb(): number {
  *  in the Dockerfile (ARG RAILPACK_VERSION): the plan format and the frontend
  *  that runs it must agree, or BuildKit fails with cryptic errors like
  *  "secret RAILPACK_SPA_OUTPUT_DIR: not found". Bump both together. */
-export const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.35.0";
+const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.35.0";
 
 /**
  * Assemble the `railpack prepare` args. `--error-missing-start` fails the build

@@ -32,7 +32,7 @@ import { NO_TURBO_CACHE, type TurboCacheEnv } from "./buildx";
 /** Env keys forwarded to the build when the remote cache is enabled. Only
  *  turbo's own credentials; nothing else from the service env crosses into the
  *  build environment. */
-export const TURBO_CACHE_KEYS = ["TURBO_TOKEN", "TURBO_TEAM", "TURBO_API"] as const;
+const TURBO_CACHE_KEYS = ["TURBO_TOKEN", "TURBO_TEAM", "TURBO_API"] as const;
 
 /** Turbo refuses to use the remote cache without a token; team/api are
  *  optional (self-hosted caches often need only the API URL + token). */
