@@ -8,7 +8,7 @@
  */
 
 import { Button } from "@/shared/components/ui/button";
-import { Progress } from "@/shared/components/ui/progress";
+import { Meter } from "@/shared/components/ui/meter";
 
 const GB = 1024 * 1024 * 1024;
 
@@ -41,7 +41,11 @@ export function UsageRow({
           {detail}
         </span>
       </div>
-      <Progress value={Math.min(100, value)} />
+      {/* A meter, not a Progress bar. Progress reports how far along a task
+          is, in the accent colour; this reports how much headroom is left, so
+          its colour is a judgement about that — a disk at 94% has to look
+          unlike a disk at 12% before anyone has read either number. */}
+      <Meter value={value} label={label} showValue={false} />
     </div>
   );
 }

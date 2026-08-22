@@ -182,6 +182,13 @@
   --chart-3: #4a4a46;
   --chart-4: #2a2a26;
   --chart-5: #141412;
+  /* Categorical series colour. The ramp above stays the answer for a single
+     series; these two drive the hue wheel in shared/lib/chart-series.ts, where
+     hue carries series identity and the theme carries only how loud it is.
+     Light mode wants darker and more saturated to hold against the warm
+     canvas; dark mode wants lighter and calmer. */
+  --chart-series-s: 62%;
+  --chart-series-l: 44%;
   /* Sidebar matches `--background`: the demo's `os-sidebar` reads
        `var(--bg)`, so they're the same surface, not two tones. */
   --sidebar: #fbfbfa;
@@ -239,6 +246,8 @@
   --chart-3: #b8b8b0;
   --chart-4: #d5d5cf;
   --chart-5: #f5f5f0;
+  --chart-series-s: 58%;
+  --chart-series-l: 62%;
   --sidebar: #0c0c0b;
   --sidebar-foreground: #b8b8b0;
   --sidebar-primary: oklch(0.623 0.214 259.815);
