@@ -765,6 +765,13 @@ export const deployment = pgTable(
     // content identifier where there's no commit. Null for git / image-only
     // deployments (they carry gitSha or nothing).
     sourceSha: text("source_sha"),
+    // Per-deploy cache bypass ("Redeploy without cache"). A property of THIS
+    // build, not of the service, so it lives on the deployment rather than in
+    // buildConfig: the operator wants one clean rebuild, not a permanently
+    // slower service. Drops BuildKit's --cache-from (keeps --cache-to, so the
+    // run still repopulates), adds --no-cache, and sets TURBO_FORCE=1 so
+    // turbo re-runs its tasks instead of restoring cached outputs.
+    noCache: boolean("no_cache").notNull().default(false),
     // Populated when the deployment finalizes (terminal status reached).
     errorMessage: text("error_message"),
     completedAt: timestamp("completed_at"),

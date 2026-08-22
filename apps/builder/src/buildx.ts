@@ -89,16 +89,63 @@ export function builderFlags(builderName: string | null | undefined): string[] {
  * `--cache-from`/`--cache-to type=local` flags — emitted ONLY when both a
  * docker-container builder and a cache path are present (the default driver
  * rejects cache export, so we must not emit these without the builder). PURE.
+ *
+ * `noCache` is the per-deploy bypass ("Redeploy without cache"): it drops
+ * `--cache-from` so nothing stale is READ, but deliberately keeps `--cache-to`
+ * so the run repopulates the cache for the next build. A bypass that also
+ * stopped writing would make every subsequent build slow too, which is not what
+ * anyone means by "rebuild this one from scratch". The matching `--no-cache`
+ * (which invalidates BuildKit's own in-builder cache) is emitted by the
+ * callers alongside these flags.
  */
 export function cacheFlags(
   builderName: string | null | undefined,
   cachePath: string | null | undefined,
+  noCache = false,
 ): string[] {
   if (!builderName || !cachePath) return [];
-  return [
-    "--cache-from",
-    `type=local,src=${cachePath}`,
-    "--cache-to",
-    `type=local,dest=${cachePath},mode=max`,
-  ];
+  const write = ["--cache-to", `type=local,dest=${cachePath},mode=max`];
+  if (noCache) return write;
+  return ["--cache-from", `type=local,src=${cachePath}`, ...write];
+}
+
+/** `--no-cache` when the deploy asked to bypass the layer cache, else nothing.
+ *  Independent of `cacheFlags`: this one applies to the default driver too,
+ *  where there is no local cache to import or export. PURE. */
+export function noCacheFlags(noCache: boolean | null | undefined): string[] {
+  return noCache ? ["--no-cache"] : [];
+}
+
+/**
+ * Turbo credentials for one build: values to expose to the build process and
+ * the matching buildx `--secret` flags.
+ *
+ * The SHAPE lives here, next to the other cache flags, rather than in
+ * turbo-cache.ts. That module resolves the service's encrypted variables and
+ * therefore imports the db, and railpack.ts must not drag a database
+ * connection into its module graph just to name a type — doing so broke
+ * builder unit tests that have no DATABASE_URL.
+ */
+export interface TurboCacheEnv {
+  /** Keys → values to expose to the build process, empty when disabled. */
+  env: Record<string, string>;
+  /** `--secret id=KEY,env=KEY` flags for buildx. */
+  secretFlags: string[];
+}
+
+/** No turbo credentials: the shape every disabled/failed lookup returns. */
+export const NO_TURBO_CACHE: TurboCacheEnv = { env: {}, secretFlags: [] };
+
+/**
+ * `TURBO_FORCE=1` when the deploy asked to bypass caches.
+ *
+ * The per-deploy bypass is one flag across every layer: buildx gets
+ * `--no-cache` plus a dropped `--cache-from`, and turbo gets this, which makes
+ * it re-run every task instead of restoring outputs from the (local or remote)
+ * cache. Without it a "rebuild without cache" would still hydrate the app's
+ * build output straight out of the turbo cache, which is exactly what the
+ * operator was trying to rule out. PURE.
+ */
+export function turboForceEnv(noCache: boolean | null | undefined): Record<string, string> {
+  return noCache ? { TURBO_FORCE: "1" } : {};
 }

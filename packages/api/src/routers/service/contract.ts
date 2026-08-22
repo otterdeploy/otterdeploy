@@ -7,6 +7,7 @@ const basePath = "/projects/{projectId}/services";
 import {
   addDomainInput,
   addMountInput,
+  buildServiceInput,
   buildServiceOutput,
   bulkEnvInput,
   checkDomainInput,
@@ -148,7 +149,7 @@ export const serviceContract = {
       },
     })
     .meta({ path: `${basePath}/{resourceId}/build`, tag, method: "POST" })
-    .input(getServiceInput)
+    .input(buildServiceInput)
     .output(buildServiceOutput),
 
   // Pause: scale the service to zero replicas while remembering the desired

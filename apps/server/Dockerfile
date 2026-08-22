@@ -28,6 +28,11 @@ ARG RAILPACK_VERSION=0.35.0
 # backup subsystem shells out to it. Pin + literal-hash so the layer is
 # reproducible. Bump both together with the upstream release SHA256.
 ARG RUSTIC_VERSION=0.11.3
+# Turbo CLI (builder role): used ONLY for `turbo prune`, which runs on the host
+# before the build container exists, so it can't come from the repo's own
+# node_modules. Prune output is version-tolerant; this tracks the ecosystem
+# rather than any one repo's pin.
+ARG TURBO_VERSION=2.9.14
 
 # ── build stage: full toolchain, discarded from the final image ───────────────
 FROM oven/bun:${BUN_VERSION}-alpine AS build
@@ -110,6 +115,29 @@ RUN case "${TARGETARCH}" in \
  && install -m 0755 /tmp/rustic /usr/local/bin/rustic \
  && rm -f /tmp/rustic.tar.gz /tmp/rustic \
  && rustic --version
+# Turbo CLI (builder role): `turbo prune <app>` trims the clone to the packages
+# a service actually reaches before railpack analyses it, so the install skips
+# workspaces the app never imports (measured on this repo: 17 packages → 10,
+# context 48.9 MB → 23 MB). Opt-in per service via buildConfig.turboPrune.
+#
+# Installed from the pinned npm platform package rather than the `turbo`
+# wrapper: we want the bare binary, not a node_modules tree. Both published
+# Linux builds are STATICALLY linked (verified: `static-pie`/`statically
+# linked`), so they run on this musl/alpine base with no libc6-compat shim.
+# Same pinned + SHA-verified shape as railpack and rustic above.
+ARG TURBO_VERSION
+RUN case "${TARGETARCH}" in \
+      amd64) TURBO_PKG=linux-64   TURBO_DIR=turbo-linux-x64   TURBO_SHA=b1973fcb98ab43a1cc4d24474bee832e9c0e7fdd86eedb9869517f5a4472eb48 ;; \
+      arm64) TURBO_PKG=linux-arm64 TURBO_DIR=turbo-linux-arm64 TURBO_SHA=7cee908303bfd8ff3372b1cada7b4378a0476b9f59642014188ab62abdd99b39 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/turbo.tgz \
+      "https://registry.npmjs.org/@turbo/${TURBO_PKG}/-/${TURBO_PKG}-${TURBO_VERSION}.tgz" \
+ && echo "${TURBO_SHA}  /tmp/turbo.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/turbo.tgz -C /tmp "${TURBO_DIR}/bin/turbo" \
+ && install -m 0755 "/tmp/${TURBO_DIR}/bin/turbo" /usr/local/bin/turbo \
+ && rm -rf /tmp/turbo.tgz "/tmp/${TURBO_DIR}" \
+ && turbo --version
 
 WORKDIR /app
 # Bring the built app + scoped production node_modules across from the build

@@ -174,6 +174,14 @@ function staticSiteBuildConfig(input: ServiceSpecInput): BuildConfig {
   };
 }
 
+/** Attach derived watch patterns to a build config, if there are any. Kept
+ *  separate from the builder choice: `watchPatterns` is shared by every
+ *  variant, so it applies the same way whichever builder was picked. */
+function withWatchPatterns(build: BuildConfig, patterns: string[] | undefined): BuildConfig {
+  if (!patterns || patterns.length === 0) return build;
+  return { ...build, watchPatterns: patterns };
+}
+
 /** Builder picker id → manifest BuildConfig. Builders without a manifest
  *  variant (buildpack, static) fall back to auto-detect. */
 export function buildFromBuilderId(builderId: string): BuildConfig {
@@ -211,6 +219,12 @@ export interface ServiceSpecInput {
   healthRetries: number;
   /** Repo-relative root directory for git sources ("" = repo root). */
   root: string;
+  /** Server-derived watch patterns for a workspace app at `root` (from
+   *  `git.inspectRepo`): its own directory plus the directories of the
+   *  workspace packages it depends on, transitively, plus the root build
+   *  files. Empty outside a monorepo. Seeded onto the build config so a
+   *  monorepo service doesn't rebuild every app on every push. */
+  watchPatterns?: string[];
   /** Portable "owner/repo" of the bound repo (git sources). Emitted as the
    *  manifest's `repo` so apply resolves the git_repo binding. Without it the
    *  service stages unbound and its build fails "no git repo binding". */
@@ -260,8 +274,10 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
   // Static sites always build with railpack (which emits a Caddy image to
   // serve the assets); the SPA toggle becomes an index.html fallback.
   // Every other compute kind honors the picked builder.
-  const build =
-    input.kindId === "static" ? staticSiteBuildConfig(input) : buildFromBuilderId(input.builderId);
+  const build = withWatchPatterns(
+    input.kindId === "static" ? staticSiteBuildConfig(input) : buildFromBuilderId(input.builderId),
+    input.watchPatterns,
+  );
   return {
     source: "git",
     // Bind the repo so apply can resolve it. The whole point that was missing.

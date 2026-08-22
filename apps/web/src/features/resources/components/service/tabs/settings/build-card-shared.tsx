@@ -1,7 +1,7 @@
 // Shared plumbing for the service build cards: the resource shape, the
 // manifest stage/save path, query invalidation, and the two small layout
 // atoms (save row + labelled field row). The Railpack and Dockerfile cards in
-// `build-card-forms.tsx` build on these.
+// `build-card-railpack.tsx` and `build-card-dockerfile.tsx` build on these.
 
 import type {
   BuildConfig,

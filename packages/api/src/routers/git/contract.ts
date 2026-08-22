@@ -198,6 +198,10 @@ const inspectRepoOutput = z.object({
   framework: frameworkKindSchema,
   monorepo: monorepoKindSchema,
   monorepoPackages: z.array(z.string()),
+  /** Suggested `buildConfig.watchPatterns` for a workspace app at this path:
+   *  its own directory, the directories of the workspace packages it depends on
+   *  (transitively), and the root build files. Empty at the repo root. */
+  watchPatterns: z.array(z.string()),
 });
 
 // ─── GitHub App detail page (get / permissions / resources / delete) ───

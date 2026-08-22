@@ -32,12 +32,19 @@
 
 import type { Builder } from "@otterdeploy/shared/build-config";
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
-import { builderFlags, cacheFlags } from "./buildx";
+import { builderFlags, cacheFlags, noCacheFlags } from "./buildx";
+import {
+  type DockerfileContext,
+  contextFailureHint,
+  relativeToContext,
+  resolveDockerfileContext,
+  rootIsWorkspaceSync,
+} from "./dockerfile-context";
 import { runProcess } from "./run-process";
 
 /** Default Dockerfile name, relative to `appDir`, when no custom path is set. */
@@ -50,7 +57,9 @@ export type DockerfileResolution =
       kind: "dockerfile";
       /** Absolute path to the resolved Dockerfile. */
       dockerfilePath: string;
-      /** Build context + base for path resolution (= appDir). */
+      /** Build context handed to buildx. Usually `appDir`, but a monorepo
+       *  Dockerfile whose COPYs only resolve from the repo root escalates to
+       *  the root (see dockerfile-context.ts). */
       contextDir: string;
       /** Dockerfile path relative to `contextDir`, for logs. */
       relativePath: string;
@@ -156,6 +165,9 @@ export function resolveDockerfileBuild(opts: {
   dockerfilePath: string | null | undefined;
   workDir: string;
   sourceSubdir: string | null | undefined;
+  /** How to anchor the build context for a subdir Dockerfile. Default `auto`
+   *  (detect from the Dockerfile's COPY sources). */
+  dockerfileContext?: DockerfileContext | null;
 }): DockerfileResolution {
   const { builder } = opts;
   const subdir = opts.sourceSubdir?.trim();
@@ -209,13 +221,47 @@ export function resolveDockerfileBuild(opts: {
     return railpack(subdirWarnings);
   }
 
+  return dockerfileResolution(opts.workDir, appDir, resolvedPath, opts.dockerfileContext);
+}
+
+/**
+ * Build the successful resolution, picking the build context.
+ *
+ * The Dockerfile itself must live inside the app dir (guarded by the caller),
+ * but the CONTEXT it is built with may need to be the repo root: monorepo
+ * Dockerfiles COPY the root lockfile and the sibling packages they depend on.
+ * See dockerfile-context.ts for why that is detected rather than assumed.
+ */
+function dockerfileResolution(
+  workDir: string,
+  appDir: string,
+  resolvedPath: string,
+  mode: DockerfileContext | null | undefined,
+): DockerfileResolution {
+  const context = resolveDockerfileContext({
+    mode: mode ?? "auto",
+    workDir,
+    appDir,
+    dockerfileText: readFileIfPossible(resolvedPath),
+    rootIsWorkspace: rootIsWorkspaceSync(workDir),
+  });
   return {
     kind: "dockerfile",
     dockerfilePath: resolvedPath,
-    contextDir: appDir,
-    relativePath,
-    warnings: [],
+    contextDir: context.contextDir,
+    relativePath: relativeToContext(context.contextDir, resolvedPath),
+    warnings: context.note ? [context.note] : [],
   };
+}
+
+/** Read a file, or null when it can't be read. The caller degrades to the
+ *  pre-existing subdir context when the Dockerfile is unreadable. */
+function readFileIfPossible(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -235,6 +281,8 @@ export function dockerfileBuildArgs(opts: {
   builderName?: string | null;
   /** Local BuildKit cache dir; only honored alongside `builderName`. */
   cachePath?: string | null;
+  /** Per-deploy cache bypass ("Redeploy without cache"). */
+  noCache?: boolean | null;
 }): string[] {
   const buildArgs = opts.buildArgs ?? {};
   const buildArgFlags = Object.entries(buildArgs).flatMap(([key, value]) => [
@@ -245,6 +293,7 @@ export function dockerfileBuildArgs(opts: {
     "buildx",
     "build",
     ...builderFlags(opts.builderName),
+    ...noCacheFlags(opts.noCache),
     "-f",
     opts.dockerfilePath,
     "--load",
@@ -255,7 +304,7 @@ export function dockerfileBuildArgs(opts: {
     "-t",
     opts.latestTag,
     ...buildArgFlags,
-    ...cacheFlags(opts.builderName, opts.cachePath),
+    ...cacheFlags(opts.builderName, opts.cachePath, Boolean(opts.noCache)),
     opts.contextDir,
   ];
 }
@@ -280,6 +329,8 @@ export async function dockerfileBuild(opts: {
   /** Cache builder name + local cache dir (best-effort; both or neither). */
   builderName?: string | null;
   cachePath?: string | null;
+  /** Per-deploy cache bypass ("Redeploy without cache"). */
+  noCache?: boolean | null;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
@@ -296,11 +347,21 @@ export async function dockerfileBuild(opts: {
       buildArgs: opts.buildArgs ?? {},
       builderName: opts.builderName,
       cachePath: opts.cachePath,
+      noCache: opts.noCache,
     }),
     sink: opts.sink,
   });
   if (built.exitCode !== 0) {
-    throw new Error(`dockerfile build failed (exit ${built.exitCode})`);
+    // A COPY that can't be resolved is almost always the context anchor, not a
+    // broken Dockerfile. Say which knob fixes it instead of leaving the
+    // operator with buildx's raw "not found".
+    const hint = contextFailureHint({
+      tail: built.tail,
+      contextDir: opts.contextDir,
+      workDir: opts.workDir,
+      subdir: opts.sourceSubdir?.trim() || null,
+    });
+    throw new Error(`dockerfile build failed (exit ${built.exitCode})${hint ? `. ${hint}` : ""}`);
   }
 
   return { shaTag, latestTag, buildDir: opts.contextDir };

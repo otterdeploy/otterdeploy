@@ -8,7 +8,13 @@
  * job. Errors are returned as strings so the caller can fold them into
  * skipped[] without a typed-error taxonomy for every GitHub failure.
  */
-import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  DeploymentId,
+  GitRepoId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -25,12 +31,39 @@ import { inspectRepoTree } from "../git/inspect";
 import { emitDeployStarted } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
+/** An already-queued build for this resource at this exact SHA, or null.
+ *  Returns null unconditionally for a cache-bypass request: the whole point is
+ *  a fresh build, so reusing a cached in-flight one would defeat it. */
+async function findInflightBuild(
+  resourceId: ResourceId,
+  sha: string,
+  noCache: boolean,
+): Promise<{ id: DeploymentId } | null> {
+  if (noCache) return null;
+  const [row] = await db
+    .select({ id: deployment.id })
+    .from(deployment)
+    .where(
+      and(
+        eq(deployment.resourceId, resourceId),
+        eq(deployment.gitSha, sha),
+        inArray(deployment.status, ["pending", "building"]),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 export async function enqueueGitBuild(args: {
   projectId: ProjectId;
   organizationId: OrganizationId;
   resourceId: ResourceId;
+  /** Per-deploy cache bypass ("Redeploy without cache"). Persisted on the
+   *  deployment row so the builder sees it without a second lookup. */
+  noCache?: boolean;
   log: RequestLogger;
 }): Promise<Result<{ deploymentId: string }, string>> {
+  const noCache = args.noCache ?? false;
   // Git binding lives on the SERVICE now. Its own repo + branch, not the
   // project's. Registry/image are optional (the builder resolves them itself,
   // defaulting to a registry-less local image), so only the repo gates here.
@@ -100,17 +133,10 @@ export async function enqueueGitBuild(args: {
   // pending/building, reuse it, creating a second row only strands it (the
   // builder no-ops the redundant SHA, leaving a phantom `pending` with no
   // logs). Idempotent: repeated applies converge on the one live deployment.
-  const [inflight] = await db
-    .select({ id: deployment.id })
-    .from(deployment)
-    .where(
-      and(
-        eq(deployment.resourceId, args.resourceId),
-        eq(deployment.gitSha, sha),
-        inArray(deployment.status, ["pending", "building"]),
-      ),
-    )
-    .limit(1);
+  //
+  // A cache bypass is exempt: reusing an in-flight build that IS using the
+  // cache would silently ignore the one thing the operator asked for.
+  const inflight = await findInflightBuild(args.resourceId, sha, noCache);
   if (inflight) {
     args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref, reused: inflight.id } });
     return Result.ok({ deploymentId: inflight.id });
@@ -132,6 +158,7 @@ export async function enqueueGitBuild(args: {
       gitCommitMessage: head.message,
       gitCommitAuthor: head.authorName,
       gitCommitAuthorAvatar: head.authorAvatar,
+      noCache,
     })
     .returning({ id: deployment.id });
   if (!row) return Result.err("failed to insert deployment row");

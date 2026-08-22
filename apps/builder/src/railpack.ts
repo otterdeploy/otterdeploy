@@ -35,30 +35,20 @@ import * as z from "zod";
 
 import type { LogSink } from "./log-stream";
 
-import { builderFlags, cacheFlags } from "./buildx";
-import {
-  detectPackageManagerRun,
-  readJson,
-  rootIsWorkspace,
-  tanstackStartCommand,
-} from "./railpack-detect";
+import { NO_TURBO_CACHE, type TurboCacheEnv, turboForceEnv } from "./buildx";
+import { buildBuildxArgs, buildPrepareArgs, nodeBuildMaxOldSpaceMb } from "./railpack-args";
+import { readJson, tanstackStartCommand } from "./railpack-detect";
+import { type BuildLayout, resolveBuildLayout } from "./railpack-layout";
 import { applyPackageManager } from "./railpack-packagemanager";
+import { TURBO_CACHE_DIR, injectTurboCache } from "./railpack-plan";
 import { runProcess } from "./run-process";
-
-/** Frontend image that executes the BuildKit plan. Pinned to an explicit tag
- *  (NOT `latest`) and kept in lockstep with the railpack CLI version installed
- *  in the Dockerfile (ARG RAILPACK_VERSION): the plan format and the frontend
- *  that runs it must agree, or BuildKit fails with cryptic errors like
- *  "secret RAILPACK_SPA_OUTPUT_DIR: not found". Bump both together. */
-const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.35.0";
-
-/** Vite's default output dir; overridable via `config.staticRoot` for
- *  frameworks that emit elsewhere (e.g. CRA's `build`). */
-const DEFAULT_STATIC_ROOT = "dist";
-
-/** Filename railpack writes its `--info-out` analysis to, inside the clone
- *  dir. Read by `detect-framework.ts` after `prepare`. */
-export const RAILPACK_INFO_FILE = "railpack-info.json";
+import { pruneWorkspace } from "./turbo-prune";
+import {
+  type WorkspaceRunner,
+  assertTurboRanTasks,
+  resolveWorkspaceRunner,
+  workspaceBuildCommand,
+} from "./turbo-runner";
 
 export async function railpackBuild(opts: {
   workDir: string;
@@ -71,26 +61,34 @@ export async function railpackBuild(opts: {
   /** Cache builder name + local cache dir (best-effort; both or neither). */
   builderName?: string | null;
   cachePath?: string | null;
+  /** Per-deploy cache bypass ("Redeploy without cache"). */
+  noCache?: boolean | null;
+  /** Turbo remote-cache credentials, empty when disabled. */
+  turboCache?: TurboCacheEnv;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
   const latestTag = `${opts.imageRepository}:latest`;
+  const turboCache = opts.turboCache ?? NO_TURBO_CACHE;
 
-  const layout = await resolveBuildLayout(opts);
+  const plan = await resolveBuildPlan(opts);
+  const { layout, buildCmd, startCmd, runner } = plan;
+  const runnerUsesTurbo = runner?.kind === "turbo";
   const { buildDir, planPath, spaOutputDir } = layout;
-
-  const { buildCmd, startCmd } = await resolveBuildCommands({
-    workDir: opts.workDir,
-    layout,
-    configBuildCommand: opts.config?.buildCommand ?? null,
-    sink: opts.sink,
-  });
 
   opts.sink.system(`preparing railpack plan for ${shaTag}`);
   const prepareArgs = buildPrepareArgs({
     layout,
     buildCmd,
     startCmd,
+    // Declared to railpack by NAME only: `prepare --env K=V` records K in the
+    // plan's `secrets` list and never writes V to disk (verified against the
+    // pinned railpack), so the real value travels solely via buildx --secret.
+    extraEnv: {
+      ...turboCache.env,
+      ...turboForceEnv(opts.noCache),
+      ...(runnerUsesTurbo ? { TURBO_CACHE_DIR } : {}),
+    },
     sink: opts.sink,
   });
 
@@ -117,6 +115,11 @@ export async function railpackBuild(opts: {
   // against what we told railpack to serve BEFORE spending a build on it.
   assertProviderCanServeSpa({ layout });
 
+  // Turbo's own cache dir is cold on every build (fresh clone per deployment)
+  // unless it rides a BuildKit cache mount. Railpack has no flag for that, but
+  // the plan is ours to amend before buildx reads it. Best-effort.
+  if (runnerUsesTurbo) await injectTurboCache(planPath, opts.sink);
+
   opts.sink.system(`building image ${shaTag} with railpack`);
   const built = await runProcess({
     cmd: "docker",
@@ -128,20 +131,76 @@ export async function railpackBuild(opts: {
       spaOutputDir,
       builderName: opts.builderName,
       cachePath: opts.cachePath,
+      noCache: opts.noCache,
+      extraSecretFlags: [
+        ...turboCache.secretFlags,
+        ...(opts.noCache ? ["--secret", "id=TURBO_FORCE,env=TURBO_FORCE"] : []),
+        ...(runnerUsesTurbo ? ["--secret", "id=TURBO_CACHE_DIR,env=TURBO_CACHE_DIR"] : []),
+      ],
     }),
     env: {
       // Must match the value `prepare` baked into the plan (see
       // buildPrepareArgs): the secret mount reads it from this process env.
       NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
       ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
+      ...turboCache.env,
+      ...turboForceEnv(opts.noCache),
+      ...(runnerUsesTurbo ? { TURBO_CACHE_DIR } : {}),
     },
     sink: opts.sink,
   });
   if (built.exitCode !== 0) {
     throw new Error(buildFailureMessage(built.exitCode, built.tail));
   }
+  // A turbo build that matched nothing exits 0 having run no tasks. Catch it
+  // here rather than shipping an image with no build output.
+  if (runner) assertTurboRanTasks({ runner, buildLog: built.tail });
 
   return { shaTag, latestTag, buildDir };
+}
+
+/**
+ * Resolve the layout and the build/start commands, optionally re-resolving
+ * both against a pruned copy of the workspace.
+ *
+ * Pruning happens after the first pass because the turbo filter comes from the
+ * runner. The pruned tree is shaped exactly like the clone (same `apps/`,
+ * `packages/`, lockfile), so re-resolving against it yields the same
+ * subdir/SPA answers over a smaller context. `pruneWorkspace` returns null
+ * whenever pruning is impossible or unsafe, and then this is a single pass.
+ */
+async function resolveBuildPlan(opts: {
+  workDir: string;
+  sourceSubdir: string | null;
+  config: BuildRailpackConfig | null;
+  sink: LogSink;
+}): Promise<{
+  layout: BuildLayout;
+  buildCmd: string | null;
+  startCmd: string | null;
+  runner: WorkspaceRunner | null;
+}> {
+  const resolve = async (workDir: string) => {
+    const layout = await resolveBuildLayout({ ...opts, workDir });
+    const commands = await resolveBuildCommands({
+      workDir,
+      layout,
+      configBuildCommand: opts.config?.buildCommand ?? null,
+      config: opts.config,
+      sink: opts.sink,
+    });
+    return { layout, ...commands };
+  };
+
+  const first = await resolve(opts.workDir);
+  if (first.runner?.kind !== "turbo" || !opts.config?.turboPrune) return first;
+
+  const prunedDir = await pruneWorkspace({
+    workDir: opts.workDir,
+    filter: first.runner.filter,
+    sink: opts.sink,
+  });
+  return prunedDir ? await resolve(prunedDir) : first;
 }
 
 const OOM_SIGNATURE =
@@ -164,77 +223,6 @@ function buildFailureMessage(exitCode: number, tail: string): string {
   return `railpack build failed (exit ${exitCode})`;
 }
 
-interface BuildLayout {
-  /** Service subdir (monorepo), or null when building from the repo root. */
-  subdir: string | null;
-  /** Repo root declares a package workspace: a subdir service builds from root. */
-  isWorkspace: boolean;
-  /** Build context dir passed to railpack/buildx. */
-  buildDir: string;
-  /** Where railpack writes the BuildKit plan. */
-  planPath: string;
-  /** Where railpack writes its `--info-out` analysis (read by detect-framework). */
-  infoPath: string;
-  /** SPA output dir relative to the build context, or null for a non-SPA build. */
-  spaOutputDir: string | null;
-}
-
-/**
- * Resolve where (and how) railpack builds from the checked-out tree.
- *
- * Monorepo workspaces: when the service lives in a subdirectory of a workspace
- * repo (npm/yarn/bun `workspaces`, or pnpm-workspace.yaml), railpack MUST
- * analyse and build from the repo ROOT. That's where the lockfile, the
- * workspace catalog, and the sibling `packages/*` the app depends on live.
- * Pointed at the subdir alone it misdetects the package manager (no lockfile /
- * `packageManager` field there → falls back to npm) and the buildx context is
- * missing every workspace dependency, so install dies (e.g. `npm error
- * Unsupported URL Type "catalog:"`). We keep the root as the context and target
- * the app via cd-wrapped build/start commands (see `resolveBuildCommands`).
- * Railpack's own recommended monorepo flow (https://railpack.com/languages/node).
- *
- * A subdir NOT inside a workspace (a self-contained app folder with its own
- * lockfile) keeps building from the subdir, exactly as before.
- *
- * `infoPath` is railpack's `--info-out` analysis (providers, runtime/framework,
- * resolved versions) written next to the plan; `detect-framework.ts` reads it
- * back from the build dir before the pipeline removes the work tree.
- */
-async function resolveBuildLayout(opts: {
-  workDir: string;
-  sourceSubdir: string | null;
-  config: BuildRailpackConfig | null;
-}): Promise<BuildLayout> {
-  const subdir = opts.sourceSubdir?.trim() || null;
-  const isWorkspace = subdir ? await rootIsWorkspace(opts.workDir) : false;
-  const buildDir = subdir && !isWorkspace ? join(opts.workDir, subdir) : opts.workDir;
-
-  // SPA output dir is relative to the build context. For a workspace build the
-  // context is the repo root, so the app's output sits under its subdir.
-  const staticRoot = opts.config?.spa
-    ? opts.config.staticRoot?.trim() || DEFAULT_STATIC_ROOT
-    : null;
-  // For a workspace build the context is the repo root, so the app's output
-  // sits under its subdir. Prepend it. Guard against a staticRoot that ALREADY
-  // carries the subdir (older configs stored the repo-root-relative
-  // `<subdir>/dist`): prepending again produced `apps/web/apps/web/dist` and the
-  // COPY step failed. Only prepend when it isn't already subdir-qualified.
-  const spaOutputDir = staticRoot
-    ? isWorkspace && subdir && staticRoot !== subdir && !staticRoot.startsWith(`${subdir}/`)
-      ? `${subdir}/${staticRoot}`
-      : staticRoot
-    : null;
-
-  return {
-    subdir,
-    isWorkspace,
-    buildDir,
-    planPath: join(buildDir, "railpack-plan.json"),
-    infoPath: join(buildDir, RAILPACK_INFO_FILE),
-    spaOutputDir,
-  };
-}
-
 /**
  * Derive the build/start commands for the railpack `prepare` step.
  *
@@ -248,8 +236,9 @@ async function resolveBuildCommands(opts: {
   workDir: string;
   layout: BuildLayout;
   configBuildCommand: string | null;
+  config: BuildRailpackConfig | null;
   sink: LogSink;
-}): Promise<{ buildCmd: string | null; startCmd: string | null }> {
+}): Promise<{ buildCmd: string | null; startCmd: string | null; runner: WorkspaceRunner | null }> {
   const { subdir, isWorkspace, spaOutputDir } = opts.layout;
   const configBuild = opts.configBuildCommand?.trim() || null;
 
@@ -260,53 +249,46 @@ async function resolveBuildCommands(opts: {
     // app's own start script in that case (server deploy), else returns null and
     // leaves railpack's auto-detection alone.
     const startCmd = await tanstackStartCommand(opts.layout.buildDir, spaOutputDir, opts.sink);
-    return { buildCmd: configBuild, startCmd };
+    return { buildCmd: configBuild, startCmd, runner: null };
   }
 
   const appPkg = await readJson<{ scripts?: Record<string, string> }>(
     join(opts.workDir, subdir, "package.json"),
   );
   const scripts = appPkg?.scripts ?? {};
-  const pmRun = await detectPackageManagerRun(opts.workDir);
 
-  const rawBuild = configBuild ?? (scripts.build ? `${pmRun} build` : null);
-  const buildCmd = rawBuild ? `cd ${subdir} && ${rawBuild}` : null;
+  // Turbo is a task runner over the workspace we already established above; it
+  // decides only WHAT builds the app, never where the context is anchored.
+  const runner = await resolveWorkspaceRunner({
+    workDir: opts.workDir,
+    subdir,
+    configured: opts.config?.buildRunner,
+    configuredFilter: opts.config?.turboFilter,
+    sink: opts.sink,
+  });
+
+  // An explicit build command always wins; it is run from the repo root under
+  // turbo (which is where turbo must run) and cd-ed into the app otherwise,
+  // matching each runner's own convention.
+  const buildCmd = configBuild
+    ? runner.kind === "turbo"
+      ? configBuild
+      : `cd ${subdir} && ${configBuild}`
+    : workspaceBuildCommand({ runner, subdir, hasBuildScript: Boolean(scripts.build) });
+
   // SPA images are served by Caddy and need no start command. Otherwise wrap the
-  // app's own start script so the container boots the right workspace app.
-  const startCmd = !spaOutputDir && scripts.start ? `cd ${subdir} && ${pmRun} start` : null;
+  // app's own start script so the container boots the right workspace app. This
+  // is deliberately NOT routed through turbo: turbo belongs to the build, and a
+  // `turbo run start` in the runtime image would ship the whole toolchain.
+  const startCmd = !spaOutputDir && scripts.start ? `cd ${subdir} && ${runner.pmRun} start` : null;
 
   opts.sink.system(
-    `monorepo workspace build: context=repo root, app="${subdir}"` +
+    `monorepo workspace build: context=repo root, app="${subdir}", runner=${runner.kind}` +
       (buildCmd ? `, build="${buildCmd}"` : "") +
       (startCmd ? `, start="${startCmd}"` : ""),
   );
 
-  return { buildCmd, startCmd };
-}
-
-/**
- * Assemble the `railpack prepare` args. `--error-missing-start` fails the build
- * LOUDLY at analysis time when railpack can't find a way to start the app,
- * instead of emitting a runnable-less image that builds fine but exits on boot
- * (surfacing only as an opaque "swarm convergence failed" much later, railpack
- * instead prints an actionable message: add a `start` script, a `main` field, or
- * set RAILPACK_SPA_OUTPUT_DIR for a static site). A static SPA rides on the
- * `--env RAILPACK_SPA_OUTPUT_DIR` flag, which railpack reads at prepare time.
- */
-/** Cap V8's old-space heap for the JS build step so a heavy build
- *  (vite/webpack/next) GCs under pressure instead of ballooning and letting the
- *  host OOM-killer take down buildkitd (observed: a `vite build` OOM-killed the
- *  cache builder mid-run). Sized to ~60% of host RAM (from /proc/meminfo),
- *  clamped to a sane band; a conservative default when host RAM is unknown. */
-function nodeBuildMaxOldSpaceMb(): number {
-  try {
-    const kb = Number(/^MemTotal:\s+(\d+) kB/m.exec(readFileSync("/proc/meminfo", "utf8"))?.[1]);
-    const totalMb = Math.floor(kb / 1024);
-    if (totalMb > 0) return Math.max(1024, Math.min(Math.floor(totalMb * 0.6), 6144));
-  } catch {
-    // /proc unavailable (non-Linux, restricted): fall through to the default.
-  }
-  return 2048;
+  return { buildCmd, startCmd, runner };
 }
 
 /**
@@ -363,74 +345,4 @@ export function assertProviderCanServeSpa(opts: {
       `project manifest. Check that the root directory contains the package.json (or Dockerfile) ` +
       `for this app.`,
   );
-}
-
-function buildPrepareArgs(opts: {
-  layout: BuildLayout;
-  buildCmd: string | null;
-  startCmd: string | null;
-  sink: LogSink;
-}): string[] {
-  const { buildDir, planPath, infoPath, spaOutputDir } = opts.layout;
-  const args = [
-    "prepare",
-    buildDir,
-    "--plan-out",
-    planPath,
-    "--info-out",
-    infoPath,
-    "--error-missing-start",
-  ];
-  if (opts.buildCmd) args.push("--build-cmd", opts.buildCmd);
-  if (opts.startCmd) args.push("--start-cmd", opts.startCmd);
-  if (spaOutputDir) {
-    args.push("--env", `RAILPACK_SPA_OUTPUT_DIR=${spaOutputDir}`);
-    opts.sink.system(`SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`);
-  }
-  const maxOldSpaceMb = nodeBuildMaxOldSpaceMb();
-  args.push("--env", `NODE_OPTIONS=--max-old-space-size=${maxOldSpaceMb}`);
-  opts.sink.system(`build memory guard: NODE_OPTIONS max-old-space-size=${maxOldSpaceMb}MB`);
-  return args;
-}
-
-/**
- * Assemble the `docker buildx build` args: execute the railpack plan through the
- * pinned BuildKit frontend, `--load` the result into the local daemon, and tag
- * both `:<sha>` and `:latest`. A static SPA additionally forwards the output dir
- * as a build secret so the plan can resolve `RAILPACK_SPA_OUTPUT_DIR`.
- */
-function buildBuildxArgs(opts: {
-  planPath: string;
-  shaTag: string;
-  latestTag: string;
-  buildDir: string;
-  spaOutputDir: string | null;
-  builderName?: string | null;
-  cachePath?: string | null;
-}): string[] {
-  return [
-    "buildx",
-    "build",
-    ...builderFlags(opts.builderName),
-    "--build-arg",
-    `BUILDKIT_SYNTAX=${RAILPACK_FRONTEND}`,
-    ...(opts.spaOutputDir
-      ? ["--secret", "id=RAILPACK_SPA_OUTPUT_DIR,env=RAILPACK_SPA_OUTPUT_DIR"]
-      : []),
-    // prepare always injects NODE_OPTIONS (the build memory guard), which the
-    // generated plan consumes as a build secret. Same mechanism as the SPA
-    // output dir. Without this flag every railpack build fails with
-    // "failed to solve: secret NODE_OPTIONS: not found".
-    "--secret",
-    "id=NODE_OPTIONS,env=NODE_OPTIONS",
-    "-f",
-    opts.planPath,
-    "--load",
-    "-t",
-    opts.shaTag,
-    "-t",
-    opts.latestTag,
-    ...cacheFlags(opts.builderName, opts.cachePath),
-    opts.buildDir,
-  ];
 }

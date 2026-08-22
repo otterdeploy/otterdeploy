@@ -136,6 +136,13 @@ export const getServiceInput = z.object({
   resourceId: resourceIdField,
 });
 
+/** `build` accepts an optional per-deploy cache bypass on top of the plain
+ *  service identity: "Redeploy without cache" is a property of one build, not
+ *  a service setting, so it rides the trigger rather than buildConfig. */
+export const buildServiceInput = getServiceInput.extend({
+  noCache: z.boolean().optional(),
+});
+
 export const rollbackServiceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
