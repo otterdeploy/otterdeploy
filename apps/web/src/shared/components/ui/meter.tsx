@@ -82,28 +82,3 @@ export function Meter({
     </div>
   );
 }
-
-/**
- * The dot form, for a table cell too narrow for a bar or a status that has no
- * magnitude. Always rendered next to its own label by the caller.
- */
-export function MeterDot({
-  value,
-  thresholds,
-  className,
-}: {
-  value: number;
-  thresholds?: Thresholds;
-  className?: string;
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-block size-2 shrink-0 rounded-full",
-        FILL[meterState(value, thresholds)],
-        className,
-      )}
-    />
-  );
-}
