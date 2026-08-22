@@ -5,3 +5,5 @@
 export { startMetricsSampler, sampleAllContainers } from "./sampler";
 export { queryResourceMetrics } from "./query";
 export type { MetricPoint } from "./query";
+export { queryServerMetrics } from "./server-query";
+export type { ServerMetricPoint } from "./server-query";
