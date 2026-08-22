@@ -25,6 +25,10 @@ export interface PlatformEventDef {
  * `z.enum` in both this router's contract and the webhooks contract, and rows
  * subscribed to it may already exist in the database. Dropping the id would
  * turn every one of those rows into a validation failure on read.
+ *
+ * The matrix that honours this flag is client-side, and mirrors the catalog in
+ * apps/web/src/features/notifications/shared.ts — so keep the flag in step
+ * there too, exactly as the ids already have to be.
  */
 const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
@@ -54,10 +58,6 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
  *  `z.enum` in ./contract.ts and ../webhooks/contract.ts, so it must stay a
  *  superset of whatever is already stored. */
 export const EVENT_IDS = PLATFORM_EVENTS.map((e) => e.id);
-
-/** The ids a user may actually subscribe to: everything something can emit.
- *  This is what the settings matrix renders. */
-export const SUBSCRIBABLE_EVENTS = PLATFORM_EVENTS.filter((e) => e.wired !== false);
 
 const SEVERITY_BY_ID = new Map(PLATFORM_EVENTS.map((e) => [e.id, e.severity]));
 
