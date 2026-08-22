@@ -720,7 +720,16 @@
     "noDetail": "Keine weiteren Details.",
     "empty": "Noch keine Benachrichtigungen",
     "eventsLast7Days": "Ereignisse · letzte 7 Tage",
-    "recentDeliveries": "Letzte Zustellungen"
+    "recentDeliveries": "Letzte Zustellungen",
+    "emptyHint": "Fehlgeschlagene Deployments, Abstürze, Backups und Health-Änderungen erscheinen hier.",
+    "loadFailed": "Benachrichtigungen konnten nicht geladen werden",
+    "loadFailedHint": "Der Posteingang war nicht erreichbar. Er ist nicht leer.",
+    "retry": "Erneut versuchen",
+    "markAllRead": "Alle als gelesen markieren",
+    "settingsLink": "Benachrichtigungseinstellungen",
+    "olderNotShown": "{{count}} ältere ungelesene nicht angezeigt",
+    "markReadFailed": "Konnte nicht als gelesen markiert werden",
+    "markAllReadFailed": "Konnten nicht alle als gelesen markiert werden"
   },
   "certificates": {
     "noCustom": "Keine eigenen Zertifikate",

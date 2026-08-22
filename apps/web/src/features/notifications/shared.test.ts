@@ -2,11 +2,15 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { bellLabel } from "./bell-badge";
 import {
+  EVENTS,
+  SUBSCRIBABLE_EVENTS,
   channelTargetHint,
   eventLabel,
   eventSeverityOf,
+  hiddenUnreadCount,
   inboxDetailRows,
   inboxEventId,
+  inboxViewState,
   worstSeverity,
 } from "./shared";
 
@@ -192,5 +196,71 @@ describe("bellLabel", () => {
     expect(bellLabel({ unread: "Notifications: 3 unread", failure: "failure" })).toBe(
       "Notifications: 3 unread, failure",
     );
+  });
+});
+
+describe("inboxViewState", () => {
+  // The regression this exists for. A failed request leaves the item list
+  // empty, so an `items.length === 0` check that runs before the error check
+  // renders "No notifications yet" — the app stating that nothing happened
+  // when in fact it could not find out. Indistinguishable, to the operator,
+  // from a genuinely quiet inbox.
+  it("reports error, not empty, when the request failed", () => {
+    expect(inboxViewState({ isLoading: false, isError: true, itemCount: 0 })).toBe("error");
+  });
+
+  it("still reports error when a stale list is being shown", () => {
+    // react-query keeps the previous page on a background refetch failure, so
+    // a non-zero count must not mask the failure either.
+    expect(inboxViewState({ isLoading: false, isError: true, itemCount: 5 })).toBe("error");
+  });
+
+  it("prefers the skeleton over both while the first request is in flight", () => {
+    expect(inboxViewState({ isLoading: true, isError: false, itemCount: 0 })).toBe("loading");
+    expect(inboxViewState({ isLoading: true, isError: true, itemCount: 0 })).toBe("loading");
+  });
+
+  it("reports empty only for a request that actually succeeded with nothing", () => {
+    expect(inboxViewState({ isLoading: false, isError: false, itemCount: 0 })).toBe("empty");
+  });
+
+  it("reports the list when there is something to show", () => {
+    expect(inboxViewState({ isLoading: false, isError: false, itemCount: 1 })).toBe("list");
+  });
+});
+
+describe("hiddenUnreadCount", () => {
+  // "Mark all read" clears every unread row server-side, not just the rendered
+  // ones, so unrendered unread rows have to be announced or the button
+  // silently discards notifications the operator never saw.
+  it("reports unread rows the page could not carry", () => {
+    expect(hiddenUnreadCount({ unread: 45, itemCount: 20 })).toBe(25);
+  });
+
+  it("is zero when everything unread is on screen", () => {
+    expect(hiddenUnreadCount({ unread: 3, itemCount: 20 })).toBe(0);
+  });
+
+  // Read rows count toward `items` but not toward `unread`, so the difference
+  // goes negative in the ordinary case and must not render as "-17 older".
+  it("never goes negative when the page is mostly read rows", () => {
+    expect(hiddenUnreadCount({ unread: 3, itemCount: 20 })).toBe(0);
+    expect(hiddenUnreadCount({ unread: 0, itemCount: 50 })).toBe(0);
+  });
+});
+
+describe("the subscribable catalog", () => {
+  // A row you can subscribe to that nothing can ever emit is a promise the
+  // product cannot keep. `cert.expiring` is the one: Caddy logs obtain/renew/
+  // fail, never expiry (see packages/api/src/edge-logs/cert-promote.ts).
+  it("does not offer an event nothing emits", () => {
+    expect(SUBSCRIBABLE_EVENTS.map((e) => e.id)).not.toContain("cert.expiring");
+  });
+
+  // But the id stays in the catalog: it feeds a z.enum in two contracts, and
+  // subscription rows referencing it may already exist in the database.
+  it("keeps the id resolvable so stored rows still render", () => {
+    expect(EVENTS.map((e) => e.id)).toContain("cert.expiring");
+    expect(eventSeverityOf("cert.expiring")).toBe("warn");
   });
 });

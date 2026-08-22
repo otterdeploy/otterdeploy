@@ -720,7 +720,16 @@
     "noDetail": "No additional detail.",
     "empty": "No notifications yet",
     "eventsLast7Days": "Events · last 7 days",
-    "recentDeliveries": "Recent deliveries"
+    "recentDeliveries": "Recent deliveries",
+    "emptyHint": "Deploy failures, crashes, backups and health changes land here.",
+    "loadFailed": "Couldn't load notifications",
+    "loadFailedHint": "The inbox could not be reached. This is not an empty inbox.",
+    "retry": "Retry",
+    "markAllRead": "Mark all read",
+    "settingsLink": "Notification settings",
+    "olderNotShown": "{{count}} older unread not shown",
+    "markReadFailed": "Couldn't mark as read",
+    "markAllReadFailed": "Couldn't mark all as read"
   },
   "certificates": {
     "noCustom": "No custom certificates",

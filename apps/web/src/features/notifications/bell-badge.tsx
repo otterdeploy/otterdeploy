@@ -21,27 +21,40 @@ import { cn } from "@/shared/lib/utils";
  * (features/activity/activity-indicator.tsx), which is org-wide and says what is
  * building rather than just that something is.
  *
- * Two states, separated by SHAPE as well as hue: at 8px, and for a colour-blind
- * operator, colour alone says nothing (DESIGN.md; the same rule the brand mark
- * follows in otterdeploy-logo.tsx):
+ * It shows the COUNT, not just a dot. The number was already on the wire (the
+ * inbox list returns `unread` alongside its items) and already reached screen
+ * readers through {@link bellLabel}, while sighted users got an undifferentiated
+ * 8px dot: two unread and forty unread looked identical. Reporting one to
+ * assistive tech and withholding it from everyone else is the wrong way round.
  *
- *   failure → filled dot inside a matching halo, so it reads heavier than
- *             ordinary unread without relying on "red"
- *   unread  → plain filled dot in its severity colour
+ * Severity still separates by SHAPE as well as hue, because at this size, and
+ * for a colour-blind operator, colour alone says nothing (DESIGN.md; the same
+ * rule the brand mark follows in otterdeploy-logo.tsx):
+ *
+ *   failure → count inside a matching halo, so it reads heavier than ordinary
+ *             unread without relying on "red"
+ *   unread  → count in its severity colour
  */
-export function BellBadge({ severity }: { severity: Severity | null }) {
-  if (severity === null) return null;
+export function BellBadge({ severity, count }: { severity: Severity | null; count: number }) {
+  if (severity === null || count <= 0) return null;
+  // Past 9 the exact number stops being actionable and starts being a layout
+  // problem: the badge would grow wider than the button it sits on.
+  const shown = count > 9 ? "9+" : String(count);
   return (
     <span
       aria-hidden
       className={cn(
-        "absolute top-1.5 right-1.5 size-2 rounded-full ring-2 ring-background",
+        "absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1",
+        "font-mono text-[10px] leading-none font-medium text-background tabular-nums",
+        "ring-2 ring-background",
         SEVERITY_BADGE[severity],
         // The halo is the non-colour channel that separates a failure from
-        // ordinary unread; ring-background alone would just be a plain dot.
+        // ordinary unread; ring-background alone would just be a plain pill.
         severity === "err" && "ring-destructive/35",
       )}
-    />
+    >
+      {shown}
+    </span>
   );
 }
 
