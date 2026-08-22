@@ -12,13 +12,12 @@ import { useMemo } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
+import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
 import { orpc } from "@/shared/server/orpc";
 
-import type { ChartSeriesDef } from "./analytics-chart";
 import type { AnalyticsWindowSel } from "./range-picker";
 
-import { formatCount, seriesPoints } from "../analytics-model";
-import { AnalyticsChart } from "./analytics-chart";
+import { formatCount } from "../analytics-model";
 import {
   BreakdownPanels,
   ChartCard,
@@ -82,41 +81,30 @@ export function AnalyticsView({
   const dims = breakdowns.data;
   const wireSeries = data?.series;
 
-  const requestSeries: ChartSeriesDef[] = useMemo(
+  // Wide rows straight off the wire: the chart folds them per series itself.
+  const requestRows = useMemo(
     () =>
-      wireSeries
-        ? [
-            {
-              label: "Requests",
-              color: "var(--primary)",
-              data: seriesPoints(wireSeries, (b) => b.requests),
-            },
-            {
-              label: "4xx + 5xx",
-              color: "var(--destructive)",
-              data: seriesPoints(wireSeries, (b) => b.s4xx + b.s5xx),
-            },
-          ]
-        : [],
+      (wireSeries ?? []).map((b) => ({
+        ts: new Date(b.t).getTime(),
+        requests: b.requests,
+        errors: b.s4xx + b.s5xx,
+      })),
     [wireSeries],
   );
-  const latencySeries: ChartSeriesDef[] = useMemo(
+  const latencyRows = useMemo(
     () =>
-      wireSeries
-        ? [
-            { label: "p99", color: "var(--chart-1)", data: seriesPoints(wireSeries, (b) => b.p99) },
-            {
-              label: "p95",
-              color: "var(--primary)",
-              data: seriesPoints(wireSeries, (b) => b.p95),
-            },
-            { label: "p50", color: "var(--chart-5)", data: seriesPoints(wireSeries, (b) => b.p50) },
-          ]
-        : [],
+      (wireSeries ?? []).map((b) => ({
+        ts: new Date(b.t).getTime(),
+        p50: b.p50,
+        p95: b.p95,
+        p99: b.p99,
+      })),
     [wireSeries],
   );
 
-  const tickFace = (data?.bucketSeconds ?? 0) >= 86_400 ? "date" : "time";
+  // A bucket is the sampling cadence here, so a window with no traffic at all
+  // draws as a break rather than a floor of zeroes it never measured.
+  const bucketMs = (data?.bucketSeconds ?? 0) * 1000;
 
   return (
     <div className="flex flex-col gap-3">
@@ -159,13 +147,16 @@ export function AnalyticsView({
               {data.summary.requests === 0 ? (
                 <Note>No requests in this window.</Note>
               ) : (
-                <AnalyticsChart
-                  series={requestSeries}
-                  kind="area"
-                  format={formatCount}
-                  tickFace={tickFace}
+                <TimeSeriesChart
+                  data={requestRows}
                   ariaLabel="Requests and errors over time"
+                  format={formatCount}
                   height={280}
+                  sampleIntervalMs={bucketMs}
+                  series={[
+                    { dataKey: "requests", label: "Requests", color: "var(--primary)" },
+                    { dataKey: "errors", label: "4xx + 5xx", color: "var(--destructive)" },
+                  ]}
                 />
               )}
             </ChartCard>
@@ -179,17 +170,26 @@ export function AnalyticsView({
               />
             ) : null}
 
+            {/* Percentiles share an axis but not a baseline, so they draw as
+                lines: three overlapping fills read as one quantity rather than
+                three readings. The ramp runs light-to-dark with the percentile,
+                so the tail is the darkest line on the chart. */}
             <ChartCard title="Latency">
               {data.summary.p95 === null ? (
                 <Note>No requests in this window.</Note>
               ) : (
-                <AnalyticsChart
-                  series={latencySeries}
-                  kind="line"
-                  format={(v) => `${Math.round(v)} ms`}
-                  tickFace={tickFace}
+                <TimeSeriesChart
+                  data={latencyRows}
                   ariaLabel="Latency percentiles over time"
+                  format={(v) => `${Math.round(v)} ms`}
                   height={200}
+                  kind="line"
+                  sampleIntervalMs={bucketMs}
+                  series={[
+                    { dataKey: "p99", label: "p99", color: "var(--chart-5)" },
+                    { dataKey: "p95", label: "p95", color: "var(--chart-3)" },
+                    { dataKey: "p50", label: "p50", color: "var(--chart-1)" },
+                  ]}
                 />
               )}
             </ChartCard>
