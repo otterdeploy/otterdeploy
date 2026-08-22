@@ -21,6 +21,7 @@ import { removeServerNode } from "./remove-node";
 import { setServerRole } from "./role";
 import { getServerStats } from "./stats";
 import { listSwarmNodes } from "./swarm-nodes";
+import { getServerUnits } from "./units";
 
 export const serverRouter = {
   list: orgScopedProcedure.server.list.handler(async ({ context }) => {
@@ -180,6 +181,17 @@ export const serverRouter = {
       since,
     });
     return { points };
+  }),
+
+  // Latest state per unit on this node. Deliberately not a series: units are a
+  // status surface, and a row per unit per tick would be unbounded. Same
+  // org-scoping rule as `metrics` above.
+  units: orgScopedProcedure.server.units.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "server", id: input.id } });
+    return getServerUnits({
+      organizationId: context.activeOrganizationId,
+      serverId: input.id,
+    });
   }),
 
   ...serverEnrollmentRouter,
