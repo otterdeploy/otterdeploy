@@ -38,33 +38,48 @@ export function TemplatePicker() {
 
   return (
     <>
-      <div className="mb-3 flex items-baseline gap-2">
-        <span className="text-sm font-semibold">Deploy a template</span>
-        <span className="font-mono text-[10px] text-muted-foreground">
-          {visible.length}/{TEMPLATES.length}
-        </span>
-      </div>
+      {/*
+       * Pinned to the top of the wizard's scroll area (the `overflow-y-auto`
+       * in wizard-chrome.tsx). The catalog is 57 rows and grows: left in the
+       * flow, the one control that makes the list shorter scrolls away as soon
+       * as you look past the Bs, and narrowing means scrolling back up to
+       * reach the field. The live `visible/total` count goes with it, since a
+       * match count you can't see while scrolling results isn't telling you
+       * anything.
+       *
+       * The negative margins bleed the bar across the scroller's own p-4 so
+       * rows pass cleanly underneath instead of showing through the gap above
+       * it; bg-popover is the dialog's surface (see DialogContent).
+       */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 bg-popover px-4 pt-4 pb-3">
+        <div className="mb-3 flex items-baseline gap-2">
+          <span className="text-sm font-semibold">Deploy a template</span>
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {visible.length}/{TEMPLATES.length}
+          </span>
+        </div>
 
-      <div className="relative mb-3">
-        <HugeiconsIcon
-          icon={Search01Icon}
-          strokeWidth={2}
-          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          // The whole point of this view is typing a name: focus lands here.
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter = deploy the top match, so "type name, hit Enter" is the
-            // entire gesture.
-            if (e.key === "Enter" && visible[0]) deploy(visible[0]);
-          }}
-          placeholder="Search templates…"
-          aria-label="Search templates"
-          className="h-8 pl-8"
-        />
+        <div className="relative">
+          <HugeiconsIcon
+            icon={Search01Icon}
+            strokeWidth={2}
+            className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            // The whole point of this view is typing a name: focus lands here.
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter = deploy the top match, so "type name, hit Enter" is the
+              // entire gesture.
+              if (e.key === "Enter" && visible[0]) deploy(visible[0]);
+            }}
+            placeholder="Search templates…"
+            aria-label="Search templates"
+            className="h-8 pl-8"
+          />
+        </div>
       </div>
 
       {visible.length === 0 ? (
