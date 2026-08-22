@@ -5,6 +5,20 @@
  * the same getHostHealth() the local path uses and POSTs the snapshot to the
  * control-plane ingest route.
  *
+ * The report body is `{ hostname, health, capacity }`, where `health` is the
+ * whole HostHealth shape verbatim: CPU (total/breakdown/per-core), load,
+ * memory (+swap/+cache/+ARC), the data-root disk plus every mounted
+ * filesystem, per-device disk I/O, per-interface network throughput, docker
+ * df, the ZFS branch pool and the derived recommendations. Sections the node
+ * cannot read are null, never zero. The ingest schema pins only what
+ * attribution needs, so an agent one version ahead of (or behind) the control
+ * plane always ingests.
+ *
+ * CPU/disk/network rates are deltas against the PREVIOUS sample, so the first
+ * report of a fresh agent carries nulls there and the second one is the first
+ * with real rates. That is deliberate: a wrong first number is worse than a
+ * missing one.
+ *
  * Deliberately imports ONLY system-health/host-health (DB-free; raw
  * process.env): this process must boot with no DATABASE_URL, no validated
  * env, nothing but a docker socket and three env vars:
@@ -13,6 +27,10 @@
  *   OTTERDEPLOY_NODE_HOSTNAME  swarm-templated {{.Node.Hostname}}: the
  *     attribution key; falls back to os.hostname() (the container id in a
  *     container, so the template matters in swarm).
+ *   HOST_PROC_PATH           optional: where the HOST's /proc is bind-mounted
+ *     inside this container (the reconciler sets /host/proc). Without it the
+ *     agent would read its own container's mounts and network namespace and
+ *     report those as the node's.
  */
 import { getHostHealth } from "@otterdeploy/api/system-health/host-health";
 import { log } from "evlog";
