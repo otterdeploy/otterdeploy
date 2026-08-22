@@ -18,6 +18,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { type DeploymentInfo } from "@/features/resources/components/_shared/deployment-cards";
 import { shortImageRef } from "@/shared/lib/image-ref";
+import { relativeSeconds } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
 import { PANEL_STATE_LABEL, type ServicePanelState } from "../service-status";
@@ -42,17 +43,11 @@ const STATE_TEXT: Record<ServicePanelState, string> = {
   unknown: "text-muted-foreground",
 };
 
-/** Coarse relative timestamp, re-rendered on a 30s tick so it stays honest. */
+/** Coarse relative timestamp, re-rendered on a 30s tick so it stays honest.
+ *  `now` is passed rather than read so the tick, not Date.now(), decides when
+ *  the string changes. */
 export function relativeTime(iso: string, now: number): string {
-  const s = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
-  if (s < 45) return "just now";
-  if (s < 90) return "1m ago";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
+  return relativeSeconds((new Date(iso).getTime() - now) / 1000);
 }
 
 export function useNowTick(): number {

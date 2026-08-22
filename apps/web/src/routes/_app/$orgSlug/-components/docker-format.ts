@@ -9,6 +9,8 @@
 import { ABSENT, formatBytes } from "@otterdeploy/shared/format";
 import { DIGEST_ID, shortDigest } from "@otterdeploy/shared/image-ref";
 
+import { relativeMs } from "@/shared/lib/time";
+
 export { formatBytes };
 export { splitRef } from "@otterdeploy/shared/image-ref";
 
@@ -17,29 +19,11 @@ export function shortId(id: string): string {
   return shortDigest(id, DIGEST_ID) ?? ABSENT;
 }
 
-const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["year", 60 * 60 * 24 * 365],
-  ["month", 60 * 60 * 24 * 30],
-  ["day", 60 * 60 * 24],
-  ["hour", 60 * 60],
-  ["minute", 60],
-  ["second", 1],
-];
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
 function timeAgoMs(ms: number): string {
   // Some daemon resources report a missing/zero/garbage timestamp; guard so a
   // single bad row can't throw "value must be finite" out of Intl and crash
   // the whole route render.
-  if (!Number.isFinite(ms)) return ABSENT;
-  const diffSeconds = (ms - Date.now()) / 1000;
-  const abs = Math.abs(diffSeconds);
-  for (const [unit, secs] of RELATIVE_UNITS) {
-    if (abs >= secs || unit === "second") {
-      return rtf.format(Math.round(diffSeconds / secs), unit);
-    }
-  }
-  return "just now";
+  return Number.isFinite(ms) ? relativeMs(ms) : ABSENT;
 }
 
 /** Docker `Created`/`createdAt` is a unix timestamp in seconds across all resources. */

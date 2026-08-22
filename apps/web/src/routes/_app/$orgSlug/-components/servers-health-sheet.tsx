@@ -22,6 +22,7 @@ import {
 import { fmtBytes, UsageRow } from "./servers-health-pool";
 import { RemoveFromSwarmAction, RoleChangeAction } from "./servers-swarm-actions";
 import { ServerUnits } from "./servers-units";
+import { timeAgo } from "@/shared/lib/time";
 
 const SEVERITY_STYLES: Record<string, string> = {
   critical: "text-destructive ring-destructive/30",
@@ -29,13 +30,7 @@ const SEVERITY_STYLES: Record<string, string> = {
   info: "text-muted-foreground ring-border",
 };
 
-function relativeTime(iso: string): string {
-  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (seconds < 90) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 90) return `${minutes}m ago`;
-  return `${Math.round(minutes / 60)}h ago`;
-}
+
 
 export function ServerHealthSheet({
   server,
@@ -67,7 +62,7 @@ export function ServerHealthSheet({
           </SheetTitle>
           <SheetDescription>
             {entry
-              ? `Reported ${relativeTime(entry.receivedAt)} by ${entry.hostname ?? "unknown host"}.`
+              ? `Reported ${timeAgo(entry.receivedAt)} by ${entry.hostname ?? "unknown host"}.`
               : "No health report from this server yet. Remote nodes report once the health agent reaches them."}
           </SheetDescription>
         </SheetHeader>

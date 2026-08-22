@@ -7,6 +7,8 @@
  */
 import type { JsonObject } from "@otterdeploy/shared/json";
 
+import { timeAgo } from "@/shared/lib/time";
+
 import type { channelsCollection, subscriptionsCollection } from "./data/notifications";
 
 export type Channel = (typeof channelsCollection.toArray)[number];
@@ -185,16 +187,8 @@ export function worstSeverity(items: readonly { data: JsonObject | null }[]): Se
   return SEVERITY_RANK.find((s) => present.has(s)) ?? null;
 }
 
-/** Compact relative time from an ISO string. `null` → "never". */
+/** Compact relative time from an ISO string. `null` → "never", which is a
+ *  claim about the channel (it has never delivered) and not a timestamp. */
 export function relativeTime(iso: string | null): string {
-  if (!iso) return "never";
-  const then = new Date(iso).getTime();
-  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (secs < 45) return "just now";
-  const mins = Math.round(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
+  return iso === null ? "never" : timeAgo(iso);
 }
