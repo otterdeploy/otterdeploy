@@ -60,17 +60,37 @@ describe("relativeMs / timeAgo", () => {
   });
 });
 
+/**
+ * These assert that translation HAPPENS, not how CLDR spells it.
+ *
+ * The first version of this test pinned the exact German string and passed
+ * locally while failing CI: one ICU renders a narrow minute as "1min", another
+ * as "1 Min.". Both are correct German. Which one you get is a property of the
+ * runtime's ICU build, and pinning it makes the suite fail on a data update
+ * that broke nothing.
+ *
+ * So the checks are: the output MOVED when the language did (which is what
+ * catches the locale being dropped on the floor — the actual bug this file
+ * exists to prevent), and it carries the word that language uses.
+ */
 describe("the operator's language", () => {
+  const SPAN = 19 * 3600 + 64;
+  const THREE_DAYS = -3 * 86_400;
+
   it("follows the app's language, not the runtime's", async () => {
+    await i18n.changeLanguage("en");
+    const enSpan = humanizeSeconds(SPAN);
+    const enRelative = relativeSeconds(THREE_DAYS);
+
     await i18n.changeLanguage("de");
-    expect(humanizeSeconds(19 * 3600 + 64)).toBe("19h 1min");
-    expect(relativeSeconds(-3 * 86_400)).toBe("vor 3 Tagen");
+    expect(humanizeSeconds(SPAN)).not.toBe(enSpan);
+    expect(relativeSeconds(THREE_DAYS)).toContain("vor");
 
     await i18n.changeLanguage("es");
-    expect(humanizeSeconds(19 * 3600 + 64)).toBe("19 h 1 min");
-    expect(relativeSeconds(-3 * 86_400)).toBe("hace 3 días");
+    expect(humanizeSeconds(SPAN)).not.toBe(enSpan);
+    expect(relativeSeconds(THREE_DAYS)).toContain("hace");
 
     await i18n.changeLanguage("en");
-    expect(relativeSeconds(-3 * 86_400)).toBe("3 days ago");
+    expect(relativeSeconds(THREE_DAYS)).toBe(enRelative);
   });
 });
