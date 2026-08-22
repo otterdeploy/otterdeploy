@@ -67,17 +67,37 @@ export const edgeLogRetentionDaysField = z.number().int().min(1).max(365);
 export const geoipUrlField = z.url({ message: "must be a full URL, including https://" });
 export const builderConcurrencyField = z.number().int().min(1).max(32);
 
+/** Percentage at which a measurement reads as elevated / as critical.
+ *
+ *  Floored at 1 rather than 0 because a threshold of 0 would paint an idle box
+ *  critical, and capped at 100 because a threshold above full is unreachable —
+ *  both are ways of silently turning the signal off.
+ *
+ *  The pair is checked for order in the object schema below, not here: which of
+ *  the two is wrong depends on the other, and a per-field message cannot say
+ *  so.*/
+const thresholdPctField = z.number().int().min(1).max(100);
+
 /** The operator-editable half of the Runtime card, everything the Save button
  *  sends, minus the organization id the contract adds. The web form validates
  *  against exactly this. */
-export const runtimeSettingsDraftSchema = z.object({
-  egressAllowlist: egressAllowlistField,
-  previewIdleTeardownHours: previewIdleTeardownHoursField,
-  edgeLogPersist: z.boolean(),
-  edgeLogRetentionDays: edgeLogRetentionDaysField,
-  edgeLogGeoipUrl: geoipUrlField,
-  edgeLogGeoipAsnUrl: geoipUrlField,
-  builderConcurrency: builderConcurrencyField,
-});
+export const runtimeSettingsDraftSchema = z
+  .object({
+    egressAllowlist: egressAllowlistField,
+    previewIdleTeardownHours: previewIdleTeardownHoursField,
+    edgeLogPersist: z.boolean(),
+    edgeLogRetentionDays: edgeLogRetentionDaysField,
+    edgeLogGeoipUrl: geoipUrlField,
+    edgeLogGeoipAsnUrl: geoipUrlField,
+    builderConcurrency: builderConcurrencyField,
+    alertWarnPct: thresholdPctField,
+    alertCritPct: thresholdPctField,
+  })
+  .refine((draft) => draft.alertWarnPct <= draft.alertCritPct, {
+    // Named on the warn field so the form marks the one the operator can move
+    // without changing what "critical" means to everything already alerting.
+    path: ["alertWarnPct"],
+    message: "Elevated must be at or below critical",
+  });
 
 export type RuntimeSettingsDraft = z.infer<typeof runtimeSettingsDraftSchema>;

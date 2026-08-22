@@ -151,6 +151,18 @@ export const platformSettings = pgTable("platform_settings", {
   edgeLogGeoipUrl: text("edge_log_geoip_url"),
   edgeLogGeoipAsnUrl: text("edge_log_geoip_asn_url"),
 
+  // ─── Measurement thresholds ─────────────────────────────────────────
+  /** The percentages at which a measured value reads as elevated and as
+   *  critical. One pair drives BOTH the colour of every meter in the UI and
+   *  the level alert evaluation uses, so what an operator sees painted amber
+   *  and what wakes them up cannot disagree.
+   *
+   *  Operator-owned because there is no correct constant: 85% disk is
+   *  comfortable on a 4 TB archive box and an emergency on a 40 GB build host.
+   *  null ⇒ the DEFAULT_THRESHOLDS pair in @otterdeploy/shared/thresholds. */
+  alertWarnPct: integer("alert_warn_pct"),
+  alertCritPct: integer("alert_crit_pct"),
+
   // ─── Build pipeline ─────────────────────────────────────────────────
   /** Deploy jobs the builder pulls concurrently. null ⇒
    *  BUILDER_CONCURRENCY. Read at worker start, so a change needs the
