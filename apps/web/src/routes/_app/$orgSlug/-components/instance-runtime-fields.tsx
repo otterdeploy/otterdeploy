@@ -20,6 +20,8 @@ export interface Draft {
   edgeLogGeoipUrl: string;
   edgeLogGeoipAsnUrl: string;
   builderConcurrency: number;
+  alertWarnPct: number;
+  alertCritPct: number;
 }
 
 /** Placeholder shape for the pre-fetch render only. The server's values
@@ -32,6 +34,8 @@ export const EMPTY_DRAFT: Draft = {
   edgeLogGeoipUrl: "",
   edgeLogGeoipAsnUrl: "",
   builderConcurrency: 1,
+  alertWarnPct: 65,
+  alertCritPct: 90,
 };
 
 export type FieldErrors = Partial<Record<keyof Draft, string>>;
@@ -172,5 +176,51 @@ export function TextRow({
         </div>
       }
     />
+  );
+}
+
+/**
+ * The two measurement levels, kept together because they are one decision.
+ *
+ * These are the only settings on this card read by something other than the
+ * subsystem they configure: every meter in the app colours against them, and
+ * threshold alerts fire on them. That is deliberate — one number means what an
+ * operator sees painted amber and what wakes them at 3am cannot drift apart.
+ */
+export function ThresholdRows({
+  value,
+  errors,
+  busy,
+  patch,
+}: {
+  value: Draft;
+  errors: FieldErrors;
+  busy: boolean;
+  patch: (next: Partial<Draft>) => void;
+}) {
+  return (
+    <>
+      <NumberRow
+        title="Elevated at"
+        description="Percentage at which a measurement starts reading as elevated. Colours meters amber across the app and arms warning-level alerts."
+        value={value.alertWarnPct}
+        min={1}
+        max={100}
+        disabled={busy}
+        error={errors.alertWarnPct}
+        onChange={(next) => patch({ alertWarnPct: next })}
+      />
+
+      <NumberRow
+        title="Critical at"
+        description="Percentage at which a measurement reads as critical. Must sit at or above the elevated level. There is no correct default: 85% disk is comfortable on an archive box and an emergency on a build host."
+        value={value.alertCritPct}
+        min={1}
+        max={100}
+        disabled={busy}
+        error={errors.alertCritPct}
+        onChange={(next) => patch({ alertCritPct: next })}
+      />
+    </>
   );
 }

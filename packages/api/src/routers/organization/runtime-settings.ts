@@ -18,6 +18,7 @@ import { db } from "@otterdeploy/db";
 import { user as userTbl } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
+import { DEFAULT_THRESHOLDS, normalizeThresholds } from "@otterdeploy/shared/thresholds";
 import { eq } from "drizzle-orm";
 import { log } from "evlog";
 
@@ -134,6 +135,9 @@ export interface RuntimeSettingsView {
   edgeLogGeoipAsnUrl: string;
   builderConcurrency: number;
   edgeLogSinkConfigured: boolean;
+  /** One pair drives every meter's colour and every threshold alert. */
+  alertWarnPct: number;
+  alertCritPct: number;
 }
 
 /** The env-seeds/DB-owns rule in one place: a stored NULL defers to env, any
@@ -159,6 +163,8 @@ function toRuntimeView(row: PlatformRow | undefined): RuntimeSettingsView {
     edgeLogGeoipAsnUrl: resolve(row?.edgeLogGeoipAsnUrl, env.EDGE_LOG_GEOIP_ASN_URL),
     builderConcurrency: resolve(row?.builderConcurrency, env.BUILDER_CONCURRENCY),
     edgeLogSinkConfigured: Boolean(env.EDGE_LOG_SINK),
+    alertWarnPct: resolve(row?.alertWarnPct, DEFAULT_THRESHOLDS.warn),
+    alertCritPct: resolve(row?.alertCritPct, DEFAULT_THRESHOLDS.crit),
   };
 }
 
@@ -174,11 +180,18 @@ export interface SaveRuntimeSettingsInput {
   edgeLogGeoipUrl: string;
   edgeLogGeoipAsnUrl: string;
   builderConcurrency: number;
+  alertWarnPct: number;
+  alertCritPct: number;
 }
 
 export async function saveRuntimeSettings(
   input: SaveRuntimeSettingsInput,
 ): Promise<RuntimeSettingsView> {
+  // Normalised rather than trusted. The contract schema already rejects an
+  // inverted pair, but this is the last gate before the number that colours
+  // every meter AND the number alert evaluation reads — they are the same
+  // number precisely so they cannot drift apart.
+  const thresholds = normalizeThresholds({ warn: input.alertWarnPct, crit: input.alertCritPct });
   await persist({
     // Stored verbatim (including ""), because an empty allowlist is a real
     // choice: "allow nothing" has to be able to override a non-empty env.
@@ -189,6 +202,8 @@ export async function saveRuntimeSettings(
     edgeLogGeoipUrl: input.edgeLogGeoipUrl,
     edgeLogGeoipAsnUrl: input.edgeLogGeoipAsnUrl,
     builderConcurrency: input.builderConcurrency,
+    alertWarnPct: thresholds.warn,
+    alertCritPct: thresholds.crit,
   });
   return getRuntimeSettings();
 }
