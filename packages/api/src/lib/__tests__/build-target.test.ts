@@ -26,10 +26,7 @@ const limitRows = vi.fn<() => Promise<Array<Record<string, unknown>>>>();
 //   select().from().where().limit()        → the assignment + server lookups
 //   select().from().innerJoin().where()    → the legacy placement join
 const hasConsumer = vi.fn<() => Promise<boolean>>();
-vi.mock("@otterdeploy/jobs/lanes", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@otterdeploy/jobs/lanes")>()),
-  laneHasConsumer: () => hasConsumer(),
-}));
+vi.mock("@otterdeploy/jobs/queues", () => ({ laneHasConsumer: () => hasConsumer() }));
 
 vi.mock("@otterdeploy/db", () => ({
   db: {

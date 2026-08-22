@@ -32,7 +32,8 @@ import type { ProjectId, ResourceId, ServerId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { DEFAULT_DEPLOY_LANE, isDeployLaneName, laneHasConsumer } from "@otterdeploy/jobs/lanes";
+import { DEFAULT_DEPLOY_LANE, isDeployLaneName } from "@otterdeploy/jobs/lanes";
+import { laneHasConsumer } from "@otterdeploy/jobs/queues";
 import { and, eq, isNotNull } from "drizzle-orm";
 
 export interface BuildTarget {
