@@ -42,5 +42,6 @@ export {
   type OrphanResourceType,
   type RecordOrphanInput,
 } from "./orphan-gc";
+export { recordServerUnits } from "./unit-store";
 export { reclaimSpace, type ReclaimResult } from "./reclaim";
 export { deriveRecommendations } from "./recommendations";
