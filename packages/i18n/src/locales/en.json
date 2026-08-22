@@ -1092,5 +1092,17 @@
       "generate": "Generate token",
       "createFailed": "Failed to create token"
     }
+  },
+  "analytics": {
+    "collection": {
+      "offTitle": "Traffic collection is off",
+      "offBody": "No access logs are reaching this install, so nothing is being recorded. This is not an empty window — no window would have data. Set this variable on the server (the production compose file already does) and restart it to start collecting.",
+      "stalledTitle": "Collection is configured but not running",
+      "stalledBody": "The sink is set, but the analytics rollup refused to start — it does that deliberately when its day-row seed fails, rather than risk overwriting earlier totals. Check the server log for this key; the next restart retries.",
+      "noHostsTitle": "No public domains yet",
+      "noHostsBody": "Collection is running. Analytics starts recording as soon as a service is exposed on a domain.",
+      "quiet": "Collecting. No requests in this window yet.",
+      "geoOff": "GeoIP isn't configured on this install, so visitor countries can't be resolved and the map stays empty."
+    }
   }
 }

@@ -1,8 +1,27 @@
+/**
+ * Rendered against the REAL English bundle, not stubbed strings.
+ *
+ * A standalone i18next instance rather than the app singleton, matching
+ * shared/i18n/language-resolution.test.ts: these assertions must not disturb
+ * whatever another suite has set the language to. Going through the actual
+ * bundle also means a key deleted or renamed in en.json fails here rather than
+ * silently rendering its own key name in the UI.
+ */
+
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { describe, expect, it } from "vite-plus/test";
+import { createInstance } from "i18next";
+import { I18nextProvider } from "react-i18next";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 
+import { i18nOptions } from "../../../../../../packages/i18n/src/config";
 import { CollectionNotice } from "./collection-notice";
+
+const i18n = createInstance();
+
+beforeAll(async () => {
+  await i18n.init({ ...i18nOptions, lng: "en", initAsync: false });
+});
 
 /** Everything healthy and busy; each test turns one thing off. */
 const healthy = {
@@ -14,7 +33,11 @@ const healthy = {
 };
 
 function render(over: Partial<typeof healthy> = {}) {
-  return renderToStaticMarkup(<CollectionNotice {...healthy} {...over} />);
+  return renderToStaticMarkup(
+    <I18nextProvider i18n={i18n}>
+      <CollectionNotice {...healthy} {...over} />
+    </I18nextProvider>,
+  );
 }
 
 describe("CollectionNotice", () => {
@@ -34,6 +57,7 @@ describe("CollectionNotice", () => {
   it("separates 'configured' from 'actually running'", () => {
     const out = render({ collecting: false, requests: 0 });
     expect(out).toContain("not running");
+    expect(out).toContain("edgeLog.analytics");
     expect(out).not.toContain("Traffic collection is off");
   });
 
@@ -68,5 +92,20 @@ describe("CollectionNotice", () => {
     expect(render({ geoAvailable: false })).toContain("visitor countries");
     // Before any traffic, the missing map is not the operator's problem.
     expect(render({ geoAvailable: false, requests: 0 })).not.toContain("GeoIP");
+  });
+
+  // Guards the i18n wiring itself: a missing key renders as the raw key path,
+  // which looks like a bug to the user and passes any test that only checks
+  // "something rendered".
+  it("resolves every string through the bundle, never as a raw key", () => {
+    for (const over of [
+      { sinkConfigured: false },
+      { collecting: false },
+      { hasHosts: false },
+      { requests: 0 },
+      { geoAvailable: false },
+    ]) {
+      expect(render(over)).not.toContain("analytics.collection.");
+    }
   });
 });

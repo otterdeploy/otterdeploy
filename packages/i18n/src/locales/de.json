@@ -1092,5 +1092,17 @@
       "generate": "Token generieren",
       "createFailed": "Token konnte nicht erstellt werden"
     }
+  },
+  "analytics": {
+    "collection": {
+      "offTitle": "Datenerfassung ist deaktiviert",
+      "offBody": "Es erreichen keine Zugriffsprotokolle diese Installation, es wird also nichts aufgezeichnet. Das ist kein leeres Zeitfenster — kein Zeitfenster hätte Daten. Setze diese Variable auf dem Server (die Produktions-Compose-Datei tut das bereits) und starte ihn neu, um mit der Erfassung zu beginnen.",
+      "stalledTitle": "Erfassung ist konfiguriert, läuft aber nicht",
+      "stalledBody": "Der Sink ist gesetzt, aber die Analyse-Aggregation hat den Start verweigert — das tut sie bewusst, wenn ihr Tagesdaten-Seed fehlschlägt, statt frühere Summen zu überschreiben. Prüfe das Server-Log auf diesen Schlüssel; der nächste Neustart versucht es erneut.",
+      "noHostsTitle": "Noch keine öffentlichen Domains",
+      "noHostsBody": "Die Erfassung läuft. Analytics beginnt aufzuzeichnen, sobald ein Dienst über eine Domain veröffentlicht ist.",
+      "quiet": "Erfassung läuft. In diesem Zeitfenster bisher keine Anfragen.",
+      "geoOff": "GeoIP ist auf dieser Installation nicht konfiguriert, daher lassen sich Besucherländer nicht auflösen und die Karte bleibt leer."
+    }
   }
 }
