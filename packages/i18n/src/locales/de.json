@@ -111,7 +111,11 @@
       "retry": "⟳ Erneut versuchen",
       "returnHome": "↩ Zur Startseite"
     },
-    "generic": "Etwas ist schiefgelaufen"
+    "generic": "Etwas ist schiefgelaufen",
+    "connection": {
+      "unreachable": "Control-Plane nicht erreichbar",
+      "reconnecting": "Diese Seite versucht es weiter und macht von allein weiter, sobald der Server wieder antwortet. Meist ein Neustart."
+    }
   },
   "shell": {
     "search": "Suchen",
