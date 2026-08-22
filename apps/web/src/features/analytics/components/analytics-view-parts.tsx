@@ -51,12 +51,24 @@ export interface PreviousTotals {
   errorRate: number;
 }
 
+/**
+ * The five headline tiles.
+ *
+ * `measuring: false` blanks every value to an em dash instead of rendering
+ * zeros. This is not cosmetic. A tile reading "0 requests / 0.0% errors" is a
+ * measurement claim, and when nothing is being recorded no measurement was
+ * taken — the honest answer is "we don't know", not "none". Zero is only
+ * truthful once collection is actually running, which is exactly the
+ * distinction analytics-query.ts already draws for its zero-filled series
+ * ("0 requests is a real measurement, a gap is not").
+ */
 export function headlineStats(
   summary: OverviewSummary,
   series: readonly SparkBucket[],
   previous: PreviousTotals,
+  measuring = true,
 ): Stat[] {
-  return [
+  const tiles: Stat[] = [
     {
       label: "Requests",
       value: formatCount(summary.requests),
@@ -103,6 +115,11 @@ export function headlineStats(
       delta: { pct: deltaPct(summary.errorRate, previous.errorRate), goodWhenDown: true },
     },
   ];
+
+  if (measuring) return tiles;
+  // Keep the labels and the layout: the operator should still see WHAT this
+  // page reports, just not a number the install never took.
+  return tiles.map((tile) => ({ label: tile.label, value: "–", title: tile.title }));
 }
 
 function sumCounts(entries: readonly { count: number }[]): number {

@@ -26,6 +26,7 @@ import {
   Note,
   ViewSkeleton,
 } from "./analytics-view-parts";
+import { CollectionNotice } from "./collection-notice";
 import { RangePicker } from "./range-picker";
 import { StatStrip } from "./stat-strip";
 
@@ -131,16 +132,27 @@ export function AnalyticsView({
         if (overview.isLoading && !data) return <ViewSkeleton />;
         if (overview.isError && !data) return <Note>Couldn&apos;t load analytics. Retrying.</Note>;
         if (!data) return null;
-        if (data.summary.hostCount === 0) {
-          return installWide ? (
-            <Note>No traffic recorded in this window.</Note>
-          ) : (
-            <Note>No public domains yet. Analytics starts once a service is exposed.</Note>
-          );
-        }
+
+        // No blanket empty state. This used to replace the ENTIRE dashboard —
+        // all five tiles, both charts, the world map and six top-lists — with
+        // one centred line the moment hostCount hit zero. Every one of those
+        // panels already renders its own empty state, so the gate bought
+        // nothing and cost the operator any sense of what the page even is.
+        // Worse, install-wide derives hostCount from the rollup rows
+        // themselves, so "no data" became "no domains" became a page that
+        // blamed the selected window for a condition no window could fix.
+        const measuring = data.flags.sinkConfigured && data.flags.collecting;
         return (
           <>
-            <StatStrip stats={headlineStats(data.summary, data.series, data.previous)} />
+            <CollectionNotice
+              sinkConfigured={data.flags.sinkConfigured}
+              collecting={data.flags.collecting}
+              geoAvailable={data.flags.geoAvailable}
+              hasHosts={data.summary.hostCount > 0}
+              requests={data.summary.requests}
+            />
+
+            <StatStrip stats={headlineStats(data.summary, data.series, data.previous, measuring)} />
 
             {/* The hero: requests over the window, full width. */}
             <ChartCard title="Requests">

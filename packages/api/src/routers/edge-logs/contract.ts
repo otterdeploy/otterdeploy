@@ -242,6 +242,13 @@ const analyticsFlagsSchema = z.object({
   /** False ⇒ no GeoIP database configured: an empty countries list means
    *  "unknown", never "no visitors". */
   geoAvailable: z.boolean(),
+  /** False ⇒ EDGE_LOG_SINK is unset, so Caddy was never told to stream access
+   *  logs and NOTHING is being recorded. The page must say that rather than
+   *  reporting an empty window, which implies a measurement that was taken. */
+  sinkConfigured: z.boolean(),
+  /** False while configured ⇒ the rollup loop refused to start (its day-row
+   *  seed failed). Degraded, and previously silent. */
+  collecting: z.boolean(),
 });
 
 /** The previous window of equal length, for the tiles' trend deltas. */

@@ -93,6 +93,19 @@ export interface AnalyticsFlags {
   approximate: boolean;
   source: "rollup" | "rollup+live";
   geoAvailable: boolean;
+  /** Is EDGE_LOG_SINK set, i.e. is Caddy told to stream access logs at all?
+   *  False means nothing is being recorded and never was — the difference
+   *  between "no traffic in this window" and "no measurement in any window". */
+  sinkConfigured: boolean;
+  /** Is the rollup loop actually running? See `analyticsRunning`. */
+  collecting: boolean;
+}
+
+/** The collection half of the flags, resolved once at the router and threaded
+ *  down so both query paths report the same answer. */
+export interface CollectionStatus {
+  sinkConfigured: boolean;
+  collecting: boolean;
 }
 
 export interface TopEntry {
