@@ -16,7 +16,8 @@ import {
 import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
 import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
 import { agentHealthIngestHandler, checkReadiness } from "@otterdeploy/api/system-health";
-import { auth, enabledSocialProviderIds, getRegistrationMode } from "@otterdeploy/auth";
+import { auth, getRegistrationMode } from "@otterdeploy/auth";
+import { guardSignInMethod, publicAuthConfig } from "@otterdeploy/auth/public-config";
 import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
@@ -221,18 +222,20 @@ app.onError((error, c) => {
 //
 //   mode: bootstrap form / open sign-up / invitation-only.
 //   socialProviders: the ids actually registered on the live auth instance.
+//   signIn: which of password / passkey / enterprise-SSO the operator allows.
+//   ssoProviders: one "Continue with <IdP>" button each.
 //
-// The provider list has to be served at RUNTIME rather than baked into the
-// bundle (the old VITE_AUTH_SOCIAL_PROVIDERS): a self-hoster runs a prebuilt
-// image, so a build-time value meant they could never turn SSO on without
-// rebuilding the SPA. Advertising only live providers also means the page
-// cannot render a button that dead-ends on an unconfigured provider.
+// All of it has to be served at RUNTIME rather than baked into the bundle (the
+// old VITE_AUTH_SOCIAL_PROVIDERS): a self-hoster runs a prebuilt image, so a
+// build-time value meant they could never turn SSO on without rebuilding the
+// SPA. Reporting only what is LIVE also means the page cannot render a button
+// that dead-ends on an unconfigured provider or a disabled method.
+//
+// This shapes the page; it does not enforce anything. The gate below is what
+// enforces it. See packages/auth/src/public-config.ts, which owns both.
 app.get("/api/auth/public-config", async (c) => {
   c.header("Cache-Control", "no-store");
-  return c.json({
-    mode: await getRegistrationMode(),
-    socialProviders: enabledSocialProviderIds(),
-  });
+  return c.json(await publicAuthConfig());
 });
 
 // Superseded by /api/auth/public-config; kept so an SPA build cached by a
@@ -242,12 +245,21 @@ app.get("/api/auth/bootstrap-status", async (c) => {
   return c.json({ mode: await getRegistrationMode() });
 });
 
+// Every auth request passes the sign-in-method gate before better-auth sees
+// it. This is the enforcement point for the operator's "which sign-in methods
+// does this installation accept" setting: hiding a button on the sign-in page
+// is presentation, and presentation must never be load-bearing. The gate costs
+// nothing on non-sign-in paths (`/get-session`, the polled device-token loop):
+// it matches the path first and only then reads the setting.
+//
 // Device-code responses get their verification URLs rebased onto the canonical
 // control-plane origin on the way out: better-auth can only take a static
 // string for that option. See handlers/auth/device-origin.ts.
-app.on(["POST", "GET"], "/api/auth/*", async (c) =>
-  withCanonicalDeviceOrigin(c.req.path, await auth.handler(c.req.raw)),
-);
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const refused = await guardSignInMethod(c.req.path);
+  if (refused) return refused;
+  return withCanonicalDeviceOrigin(c.req.path, await auth.handler(c.req.raw));
+});
 
 function logRpcError(transport: "openapi" | "rpc") {
   return (error: unknown) => {

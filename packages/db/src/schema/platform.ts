@@ -80,6 +80,23 @@ export const platformSettings = pgTable("platform_settings", {
    *  grants install-admin. See packages/auth/src/registration-policy.ts. */
   registrationMode: text("registration_mode"),
 
+  // ─── Which sign-in methods this installation accepts ────────────────
+  // null ⇒ enabled, matching the "null means defer to the default" rule the
+  // rest of this block follows. Enforced at the server in front of the
+  // better-auth handler (packages/auth/src/sign-in-methods.ts), not by hiding
+  // a button: the sign-in page reads the same policy from
+  // /api/auth/public-config only so it never renders a control that dead-ends.
+  //
+  // Passwords may only be switched off while a federated method is live in
+  // their place, and are forced on until the first account exists, so neither
+  // this UI nor a restored pre-bootstrap dump can lock an operator out.
+  signInPasswordEnabled: boolean("sign_in_password_enabled"),
+  signInPasskeyEnabled: boolean("sign_in_passkey_enabled"),
+  /** Enterprise OIDC (per-workspace identity providers). Off gates only the
+   *  sign-in and callback paths; registering a provider stays available so an
+   *  operator can configure one before switching this on. */
+  signInSsoEnabled: boolean("sign_in_sso_enabled"),
+
   // ─── Social sign-in (SSO) ───────────────────────────────────────────
   // Seeded from {GITHUB,GOOGLE,GITLAB}_OAUTH_CLIENT_ID/_SECRET. A provider
   // is live only when enabled AND it has both a client id and a secret.
