@@ -38,8 +38,15 @@ function activeLocale(): string | undefined {
   return i18n.resolvedLanguage ?? i18n.language ?? undefined;
 }
 
+/** The three units `humanizeSeconds` ever prints, formatted per locale. */
+interface SpanUnits {
+  day: Intl.NumberFormat;
+  hour: Intl.NumberFormat;
+  minute: Intl.NumberFormat;
+}
+
 const relativeFormatters = new Map<string, Intl.RelativeTimeFormat>();
-const durationFormatters = new Map<string, Intl.DurationFormat>();
+const spanFormatters = new Map<string, SpanUnits>();
 
 function relativeFormatter(): Intl.RelativeTimeFormat {
   const locale = activeLocale();
@@ -54,16 +61,24 @@ function relativeFormatter(): Intl.RelativeTimeFormat {
   return made;
 }
 
-function durationFormatter(): Intl.DurationFormat {
+/**
+ * Composed from `Intl.NumberFormat` rather than `Intl.DurationFormat`, which
+ * would express this in one call and is the obvious reach — but is too new to
+ * rely on. It is absent from the CI runtime, and a self-hosted operator's
+ * browser is not something we get to choose. `style: "unit"` has shipped
+ * everywhere for years and, at `unitDisplay: "narrow"`, emits the identical
+ * strings: `29d` / `21h` / `1m` in English, `1min` in German, `1 min` in
+ * Spanish.
+ */
+function spanFormatter(): SpanUnits {
   const locale = activeLocale();
   const key = locale ?? "";
-  const cached = durationFormatters.get(key);
+  const cached = spanFormatters.get(key);
   if (cached) return cached;
-  // "narrow" is the register these surfaces already speak: `29d 21h`, not
-  // "29 days, 21 hours". In English it is byte-identical to what the
-  // hand-rolled versions produced.
-  const made = new Intl.DurationFormat(locale, { style: "narrow" });
-  durationFormatters.set(key, made);
+  const unit = (u: string) =>
+    new Intl.NumberFormat(locale, { style: "unit", unit: u, unitDisplay: "narrow" });
+  const made: SpanUnits = { day: unit("day"), hour: unit("hour"), minute: unit("minute") };
+  spanFormatters.set(key, made);
   return made;
 }
 
@@ -105,13 +120,19 @@ export function humanizeSeconds(seconds: number): string {
   const days = Math.floor(seconds / 86_400);
   const hours = Math.floor((seconds % 86_400) / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  const formatter = durationFormatter();
-  if (days > 0) return formatter.format(hours > 0 ? { days, hours } : { days });
-  if (hours > 0) return formatter.format(mins > 0 ? { hours, minutes: mins } : { hours });
-  if (mins > 0) return formatter.format({ minutes: mins });
+  const fmt = spanFormatter();
+  if (days > 0) {
+    return hours > 0 ? `${fmt.day.format(days)} ${fmt.hour.format(hours)}` : fmt.day.format(days);
+  }
+  if (hours > 0) {
+    return mins > 0
+      ? `${fmt.hour.format(hours)} ${fmt.minute.format(mins)}`
+      : fmt.hour.format(hours);
+  }
+  if (mins > 0) return fmt.minute.format(mins);
   // Sub-minute. "0m" would read as a stopped clock, and the exact seconds are
   // noise at this end of the scale.
-  return `<${formatter.format({ minutes: 1 })}`;
+  return `<${fmt.minute.format(1)}`;
 }
 
 /** Compact relative time from an ISO string, for surfaces that hand us one. */
