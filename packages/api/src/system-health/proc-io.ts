@@ -49,7 +49,7 @@ export function isVirtualDiskDevice(name: string): boolean {
 /** True for a partition of another device present in the same read: `sda1`
  *  under `sda`, `nvme0n1p2` under `nvme0n1`, `mmcblk0p1` under `mmcblk0`.
  *  Keeping both would double every byte the parent moved. */
-export function isPartitionName(name: string, devices: Iterable<string>): boolean {
+function isPartitionName(name: string, devices: Iterable<string>): boolean {
   const all = new Set(devices);
   const nvmeOrMmc = name.match(/^(.*?)p\d+$/);
   if (nvmeOrMmc?.[1] !== undefined && all.has(nvmeOrMmc[1])) return true;
