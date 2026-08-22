@@ -23,7 +23,7 @@ import { cn } from "@/shared/lib/utils";
 import { formatNumber } from "@otterdeploy/shared/format";
 
 import { ActionDot, ActorChip, AuditPending, OutcomeBadge, TargetKindIcon } from "./audit-parts";
-import { timeAgo } from "./audit-helpers";
+import { timeAgoOrDash } from "./audit-helpers";
 
 /**
  * Below `md` the six columns become a stacked entry per event: what happened
@@ -68,7 +68,7 @@ function AuditMobileList({
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <ActorChip event={e} />
             <span className="font-mono text-[11px] text-muted-foreground">
-              {timeAgo(e.timestamp)}
+              {timeAgoOrDash(e.timestamp)}
             </span>
             {e.ip ? (
               <span className="font-mono text-[11px] text-muted-foreground">· {e.ip}</span>
@@ -160,7 +160,7 @@ export function AuditTableSection({
               onClick={() => onOpen(e)}
             >
               <TableCell className="pl-4 font-mono text-[11px] text-muted-foreground">
-                {timeAgo(e.timestamp)}
+                {timeAgoOrDash(e.timestamp)}
               </TableCell>
               <TableCell>
                 <ActorChip event={e} />

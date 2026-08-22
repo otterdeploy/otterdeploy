@@ -13,7 +13,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
-import { timeAgo } from "./audit-helpers";
+import { timeAgoOrDash } from "./audit-helpers";
 import { ActionDot, ActorChip, OutcomeBadge, TargetKindIcon } from "./audit-parts";
 
 export function EventDrawer({
@@ -184,7 +184,7 @@ function CorrelatedEvents({
               {s.targetId ?? s.targetType ?? ""}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
-              {timeAgo(s.timestamp)}
+              {timeAgoOrDash(s.timestamp)}
             </span>
             <OutcomeBadge outcome={s.outcome} />
           </button>
