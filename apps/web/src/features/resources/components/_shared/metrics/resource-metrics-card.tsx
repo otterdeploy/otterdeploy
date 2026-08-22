@@ -19,12 +19,12 @@ import {
   type ProjectResource,
 } from "@/features/projects/components/graph/resource-to-node";
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
 import { Card } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 
 import { formatBytes, formatPercent, formatRate } from "./format";
-import { MetricAreaChart } from "./metric-area-chart";
 import { useResourceMetrics } from "./use-resource-metrics";
 
 const STATUS_DOT: Record<string, string> = {
@@ -83,11 +83,13 @@ export function ResourceMetricsCard({
             value={hasData ? formatPercent(latest?.cpuPct ?? 0) : "–"}
             loading={isLoading && !hasData}
             chart={
-              <MetricAreaChart
+              <TimeSeriesChart
                 compact
+                height={40}
                 data={rows}
+                ariaLabel="CPU sparkline"
                 format={(v) => formatPercent(v)}
-                series={[{ dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" }]}
+                series={[{ dataKey: "cpuPct", label: "CPU" }]}
               />
             }
           />
@@ -96,17 +98,13 @@ export function ResourceMetricsCard({
             value={hasData ? formatBytes(latest?.memBytes ?? 0) : "–"}
             loading={isLoading && !hasData}
             chart={
-              <MetricAreaChart
+              <TimeSeriesChart
                 compact
+                height={40}
                 data={rows}
+                ariaLabel="Memory sparkline"
                 format={(v) => formatBytes(v)}
-                series={[
-                  {
-                    dataKey: "memBytes",
-                    label: "Memory",
-                    color: "var(--chart-3)",
-                  },
-                ]}
+                series={[{ dataKey: "memBytes", label: "Memory" }]}
               />
             }
           />
@@ -138,13 +136,15 @@ export function ResourceMetricsCard({
             }
             loading={isLoading && !hasData}
             chart={
-              <MetricAreaChart
+              <TimeSeriesChart
                 compact
+                height={40}
                 data={rows}
+                ariaLabel="Network sparkline"
                 format={(v) => formatRate(v)}
                 series={[
-                  { dataKey: "netRxRate", label: "In", color: "var(--chart-3)" },
-                  { dataKey: "netTxRate", label: "Out", color: "var(--chart-1)" },
+                  { dataKey: "netRxRate", label: "In" },
+                  { dataKey: "netTxRate", label: "Out" },
                 ]}
               />
             }
