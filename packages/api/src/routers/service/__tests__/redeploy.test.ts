@@ -53,6 +53,7 @@ const fakeRecord: ServiceRecord = {
   },
   service: {
     resourceId,
+    buildServerId: null,
     image: "ghcr.io/acme/svc:latest",
     imageDigest: null,
     command: null,

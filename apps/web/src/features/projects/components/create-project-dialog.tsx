@@ -47,6 +47,9 @@ function newProjectRow(value: { name: string; slug: string }) {
   return {
     ...value,
     environmentId: null,
+    // No dedicated build server until one is assigned: a new project builds
+    // wherever its services run.
+    buildServerId: null,
     id: createId(ID_PREFIX.project),
     databaseCount: 0,
     // A brand-new project has nothing configured or running yet.

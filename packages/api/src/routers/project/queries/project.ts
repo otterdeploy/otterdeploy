@@ -3,6 +3,7 @@ import type {
   OrganizationId,
   ProjectId,
   ProxyRouteId,
+  ServerId,
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
@@ -37,6 +38,7 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       name: project.name,
       slug: project.slug,
       environmentId: project.environmentId,
+      buildServerId: project.buildServerId,
       stackFile: project.stackFile,
       stackFileVersion: project.stackFileVersion,
       lastAppliedFile: project.lastAppliedFile,
@@ -126,11 +128,13 @@ export async function updateProjectRecord(input: {
   containerRegistryId?: string | null;
   imageRepository?: string | null;
   nixpacksConfig?: NixpacksConfig | null;
+  buildServerId?: ServerId | null;
 }) {
   // Build the patch object incrementally so undefined fields stay
   // unset (drizzle/postgres treat undefined as "no column update").
   const patch: Partial<typeof project.$inferInsert> = {};
   if (input.name !== undefined) patch.name = input.name;
+  if (input.buildServerId !== undefined) patch.buildServerId = input.buildServerId;
   if (input.slug !== undefined) patch.slug = input.slug;
   if (input.customDomain !== undefined) {
     patch.customDomain = input.customDomain;

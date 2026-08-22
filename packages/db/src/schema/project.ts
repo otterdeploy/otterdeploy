@@ -84,6 +84,23 @@ export const project = pgTable(
     // extensions). Source of truth migration: Phase 1 ships the column
     // empty; subsequent phases populate + apply it. `stackFileVersion` is
     // a monotonic counter used for optimistic locking on writes.
+    // Dedicated build server for every service in this project, unless the
+    // service overrides it. NULL = build wherever the default builder runs
+    // (the shared lane), which is what every install starts on.
+    //
+    // Set = builds are enqueued onto that server's lane and the image is
+    // pushed to a registry for the run nodes to pull. See
+    // packages/api/src/lib/build-target.ts for the resolution order and
+    // docs/designs/server-onboarding.md for why the target is assigned
+    // explicitly rather than inferred from resource placement (placement
+    // cannot express "build here, run there").
+    //
+    // FK-less, like placementServerId (resource is org-scoped through project,
+    // server is org-scoped directly: no single parent to cascade from). The
+    // server-delete path clears it explicitly (routers/server/queries.ts):
+    // losing the build box must fall back to the default lane, never orphan
+    // the project's builds on a queue whose builder is gone.
+    buildServerId: text("build_server_id").$type<ServerId>(),
     stackFile: text("stack_file"),
     stackFileVersion: integer("stack_file_version").notNull().default(0),
     lastAppliedFile: text("last_applied_file"),
@@ -542,6 +559,22 @@ export const serviceResource = pgTable(
     // `@otterdeploy/shared/build-config` so the api/zod schema, the DB
     // type, and the service handler inputs all share one definition.
     buildConfig: jsonb("build_config").$type<BuildConfig>(),
+    // Per-service build-server override. NULL = inherit the project's
+    // `buildServerId`, which itself defaults to "build wherever the default
+    // builder runs". Set = THIS service builds on that server even when the
+    // rest of the project doesn't, which is the case for one heavy app that
+    // needs its own box.
+    //
+    // Distinct from `placementServerId`: that pins where the container RUNS.
+    // Separating them is the whole point of a dedicated builder - build on the
+    // 4 GB box, run on the node that serves traffic. Because they can differ,
+    // a build server requires a registry so the run node can pull the image
+    // (enforced in packages/api/src/lib/build-target.ts).
+    //
+    // FK-less and cleared on server delete, same as the project column: a
+    // removed build box falls back to the default lane rather than orphaning
+    // builds on a queue nothing drains.
+    buildServerId: text("build_server_id").$type<ServerId>(),
 
     // Per-service git source binding. A git-sourced service owns its own repo +
     // branch (NOT the project's) so two services in one project can build from

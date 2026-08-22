@@ -18,7 +18,7 @@ import { log } from "evlog";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
 
-import { resolveBuildLane } from "../lib/build-lane";
+import { groupDeploymentsByLane } from "../lib/build-target";
 import { markDeploymentFailed } from "../routers/project/deployments";
 import { emitDeployStarted } from "../routers/project/deployments-emit";
 import { detectAndPersistFramework } from "../routers/project/manifest-apply-git";
@@ -165,25 +165,37 @@ async function fanOutDeploys(
     }
 
     // Route to the project's build server lane, if it has a dedicated one.
-    const lane = await resolveBuildLane(projectId);
+    // One push can touch several services, and with per-service build servers
+    // they no longer all belong on the same queue: enqueue once per lane so an
+    // override is honoured instead of being swallowed by the first service's.
+    const laneGroups = await groupDeploymentsByLane(
+      projectId,
+      inserted.flatMap((dep, i) => {
+        const resourceId = resourceIds[i];
+        return dep && resourceId ? [{ deploymentId: dep.id, resourceId }] : [];
+      }),
+    );
     // Same insert-then-enqueue hazard as enqueueGitBuild: if the queue is down
     // the rows just inserted would strand as `pending` forever (no job ever
     // owns them). Mark them failed so the UI + notifications say what happened.
     const enqueued = await Result.tryPromise({
-      try: () =>
-        triggerDeploy(
-          {
-            projectId,
-            gitRepoId,
-            ref: ev.ref,
-            sha: ev.after,
-            commitMessage: ev.head_commit?.message,
-            commitAuthor: ev.head_commit?.author?.name,
-            deploymentIds: inserted.map((d) => d.id),
-          },
-          undefined,
-          lane,
-        ),
+      try: async () => {
+        for (const [lane, deploymentIds] of laneGroups) {
+          await triggerDeploy(
+            {
+              projectId,
+              gitRepoId,
+              ref: ev.ref,
+              sha: ev.after,
+              commitMessage: ev.head_commit?.message,
+              commitAuthor: ev.head_commit?.author?.name,
+              deploymentIds,
+            },
+            undefined,
+            lane,
+          );
+        }
+      },
       catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
     });
     if (enqueued.isErr()) {

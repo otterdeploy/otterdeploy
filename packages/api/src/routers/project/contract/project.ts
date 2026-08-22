@@ -3,7 +3,7 @@ import { project } from "@otterdeploy/db/schema";
 /**
  * Project CRUD: schemas + contract slice.
  */
-import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
+import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
@@ -34,6 +34,9 @@ export const projectSchema = createSelectSchema(project)
   .extend({
     id: projectIdField,
     environmentId: environmentIdField.nullable(),
+    // Dedicated build server for this project's services (nullable = build
+    // wherever they run). Branded so the id keeps its nominal type end-to-end.
+    buildServerId: zId(ID_PREFIX.server).nullable(),
     // drizzle-zod infers jsonb loosely; pin the wire shape explicitly so the
     // graph reads a typed `Record<nodeId, {x,y}>`.
     graphLayout: graphLayoutSchema,
@@ -104,6 +107,9 @@ const updateProjectInput = z.object({
   // Source card, staged into the manifest). The project update no longer
   // carries a repo/registry binding.
   nixpacksConfig: nixpacksConfigSchema.nullable().optional(),
+  // Dedicated build server for this project's services. `null` clears it
+  // (build wherever each service runs). A service can still override it.
+  buildServerId: zId(ID_PREFIX.server).nullable().optional(),
 });
 
 const deleteProjectInput = z.object({

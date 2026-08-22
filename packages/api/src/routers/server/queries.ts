@@ -2,7 +2,7 @@ import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id"
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
-import { project, resource } from "@otterdeploy/db/schema/project";
+import { project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import os from "node:os";
@@ -209,6 +209,36 @@ export async function deleteServerRecord(input: {
         ),
       )
       .returning({ id: resource.id });
+
+    // Same story for the BUILD assignment (build_server_id, also FK-less): a
+    // project or service still pointing at the removed machine would resolve
+    // to a lane whose builder is gone, and its deploys would sit `pending`
+    // with no consumer. Clearing it means "build wherever you run again",
+    // which is the only state that still works once the box is gone.
+    await tx
+      .update(project)
+      .set({ buildServerId: null })
+      .where(
+        and(
+          eq(project.buildServerId, input.serverId),
+          eq(project.organizationId, input.organizationId),
+        ),
+      );
+    await tx
+      .update(serviceResource)
+      .set({ buildServerId: null })
+      .where(
+        and(
+          eq(serviceResource.buildServerId, input.serverId),
+          inArray(
+            serviceResource.resourceId,
+            tx
+              .select({ id: resource.id })
+              .from(resource)
+              .where(inArray(resource.projectId, orgProjects)),
+          ),
+        ),
+      );
 
     const [deleted] = await tx
       .delete(server)
