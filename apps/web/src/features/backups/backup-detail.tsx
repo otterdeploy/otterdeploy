@@ -6,6 +6,7 @@ import { Alert02Icon, DatabaseRestoreIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
+import { classifyLogSeverity, SEVERITY_TEXT } from "@/features/logs/components/log-severity";
 import { Button } from "@/shared/components/ui/button";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn } from "@/shared/lib/utils";
@@ -114,10 +115,12 @@ function BackupLog({ backupId }: { backupId: string }) {
             <div className="text-muted-foreground">No log output.</div>
           ) : (
             logs.map((l) => (
-              <div
-                key={l.seq}
-                className={cn("text-foreground/80", l.stream === "stderr" && "text-destructive")}
-              >
+              // Colour by what the line SAYS, not which pipe it came down.
+              // rustic writes its whole `[INFO]`/`[WARN]` narration to stderr,
+              // so the old `stream === "stderr"` rule painted a successful
+              // backup entirely red — including the lines that named their own
+              // level as INFO. classifyLogSeverity honours that tag.
+              <div key={l.seq} className={SEVERITY_TEXT[classifyLogSeverity(l.line)]}>
                 {l.line}
               </div>
             ))

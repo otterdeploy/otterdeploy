@@ -86,6 +86,10 @@ function inferLevel(stream: "stdout" | "stderr" | "system", line: string): LogLe
   const severity = classifyLogSeverity(line);
   if (severity === "error") return "error";
   if (severity === "warn") return "warn";
+  // A line that declared itself INFO (or read as success) is not a warning just
+  // because the tool writes its narration to stderr; only genuinely unclassified
+  // stderr output gets the benefit of the doubt.
+  if (severity === "info" || severity === "success") return "info";
   return stream === "stderr" ? "warn" : "info";
 }
 
