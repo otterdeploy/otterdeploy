@@ -44,9 +44,36 @@ function link(href: string, children: ReactNode, key: number) {
   );
 }
 
+// GitHub's own renderer collapses a same-repo link to `#154`, but the raw body
+// from `gh release create --generate-notes` carries it in full: every entry
+// reads `… by @someone in https://github.com/owner/repo/pull/154`. Rendered
+// literally that is one wrapped line of accent-blue URL per merged PR, which on
+// a six-PR release makes the link the loudest thing in a panel that should read
+// as a quiet list. Only the LABEL is shortened — the href is untouched.
+const GH_PULL = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:pull|issues)\/(\d+)$/;
+const GH_COMPARE = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/compare\/(\S+)$/;
+const GH_COMMIT = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/commit\/([0-9a-f]{7,40})$/;
+
+/** Display label for a bare (auto-linked) URL.
+ *
+ *  `repo` is the "owner/name" the body belongs to: links INTO it shorten to
+ *  `#154`, links anywhere else keep the `owner/name#154` qualifier so a foreign
+ *  reference can never be misread as a local one. With no `repo` given every
+ *  reference stays qualified — ambiguity is worse than length. Anything that
+ *  isn't a recognized GitHub permalink renders as the URL itself. */
+function autolinkLabel(url: string, repo: string | undefined): string {
+  const pull = GH_PULL.exec(url);
+  if (pull) return pull[1] === repo ? `#${pull[2]}` : `${pull[1]}#${pull[2]}`;
+  const compare = GH_COMPARE.exec(url);
+  if (compare) return compare[2];
+  const commit = GH_COMMIT.exec(url);
+  if (commit) return commit[2].slice(0, 7);
+  return url;
+}
+
 /** Turn one line of markdown into inline React nodes. Recurses for emphasis so
  *  `**bold _and italic_**` nests; code and link URLs stay literal. */
-function parseInline(text: string, keyPrefix = ""): ReactNode[] {
+function parseInline(text: string, repo: string | undefined, keyPrefix = ""): ReactNode[] {
   const out: ReactNode[] = [];
   let rest = text;
   let i = 0;
@@ -72,27 +99,27 @@ function parseInline(text: string, keyPrefix = ""): ReactNode[] {
       const close = mdLink.indexOf("](");
       const label = mdLink.slice(1, close);
       const href = mdLink.slice(close + 2, -1);
-      out.push(link(href, parseInline(label, `${key}-`), i));
+      out.push(link(href, parseInline(label, repo, `${key}-`), i));
     } else if (bold) {
       out.push(
         <strong key={key} className="font-semibold text-foreground">
-          {parseInline(bold.slice(2, -2), `${key}-`)}
+          {parseInline(bold.slice(2, -2), repo, `${key}-`)}
         </strong>,
       );
     } else if (strike) {
       out.push(
         <s key={key} className="text-muted-foreground">
-          {parseInline(strike.slice(2, -2), `${key}-`)}
+          {parseInline(strike.slice(2, -2), repo, `${key}-`)}
         </s>,
       );
     } else if (italic) {
       out.push(
         <em key={key} className="italic">
-          {parseInline(italic.slice(1, -1), `${key}-`)}
+          {parseInline(italic.slice(1, -1), repo, `${key}-`)}
         </em>,
       );
     } else if (url) {
-      out.push(link(url, url, i));
+      out.push(link(url, autolinkLabel(url, repo), i));
     }
     rest = rest.slice(m.index + full.length);
   }
@@ -129,7 +156,7 @@ const hr = /^\s*(?:---+|\*\*\*+|___+)\s*$/;
 const fence = /^\s*```/;
 
 /** Parse the whole body into block-level React elements. */
-function parseBlocks(src: string): ReactNode[] {
+function parseBlocks(src: string, repo: string | undefined): ReactNode[] {
   const lines = src.replace(/\r\n?/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -167,7 +194,7 @@ function parseBlocks(src: string): ReactNode[] {
       const Tag = HEADING_TAG[level] ?? "h6";
       blocks.push(
         <Tag key={k()} className={HEADING_CLASS[level]}>
-          {parseInline(h[2])}
+          {parseInline(h[2], repo)}
         </Tag>,
       );
       i++;
@@ -189,7 +216,7 @@ function parseBlocks(src: string): ReactNode[] {
       }
       blocks.push(
         <blockquote key={k()} className="my-2 border-l-2 border-border pl-3 text-muted-foreground">
-          {parseInline(quote.join(" "))}
+          {parseInline(quote.join(" "), repo)}
         </blockquote>,
       );
       continue;
@@ -204,7 +231,7 @@ function parseBlocks(src: string): ReactNode[] {
       while (im) {
         items.push(
           <li key={items.length} className="pl-1">
-            {parseInline(ordered ? im[2] : im[1])}
+            {parseInline(ordered ? im[2] : im[1], repo)}
           </li>,
         );
         i++;
@@ -241,7 +268,7 @@ function parseBlocks(src: string): ReactNode[] {
     }
     blocks.push(
       <p key={k()} className="my-2 leading-relaxed text-foreground/90 first:mt-0 last:mb-0">
-        {parseInline(para.join(" "))}
+        {parseInline(para.join(" "), repo)}
       </p>,
     );
   }
@@ -259,11 +286,24 @@ function stripHtmlComments(src: string): string {
 /**
  * Render a markdown string as styled React elements. `className` is applied to
  * the wrapper. Empty / whitespace-only input renders nothing.
+ *
+ * `repo` ("owner/name") is the repository the body came from; pass it to get
+ * GitHub's own `#154` shorthand for links back into it. See `autolinkLabel`.
  */
-export function Markdown({ children, className }: { children: string; className?: string }) {
+export function Markdown({
+  children,
+  className,
+  repo,
+}: {
+  children: string;
+  className?: string;
+  repo?: string;
+}) {
   const trimmed = stripHtmlComments(children ?? "").trim();
   if (!trimmed) return null;
   return (
-    <div className={cn("text-[12.5px] text-foreground/90", className)}>{parseBlocks(trimmed)}</div>
+    <div className={cn("text-[12.5px] text-foreground/90", className)}>
+      {parseBlocks(trimmed, repo)}
+    </div>
   );
 }
