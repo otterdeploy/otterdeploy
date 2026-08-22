@@ -11,8 +11,21 @@ export interface PlatformEventDef {
   id: string;
   label: string;
   severity: EventSeverity;
+  /** Omitted means wired. See the catalog docblock for why `false` hides the
+   *  row from the matrix without removing the id. */
+  wired?: false;
 }
 
+/**
+ * The catalog. `wired: false` marks an event that EXISTS as an id but that
+ * nothing emits yet, so the subscription matrix must not offer it: a row you
+ * can subscribe to that can never fire is a promise the product cannot keep.
+ *
+ * Such an id stays in {@link EVENT_IDS} on purpose. That array becomes a
+ * `z.enum` in both this router's contract and the webhooks contract, and rows
+ * subscribed to it may already exist in the database. Dropping the id would
+ * turn every one of those rows into a validation failure on read.
+ */
 const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
   { id: "deploy.succeeded", label: "Deploy succeeded", severity: "ok" },
@@ -22,7 +35,10 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
   { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
-  { id: "cert.expiring", label: "Cert expiring soon", severity: "warn" },
+  // Not emitted anywhere. Caddy logs obtain/renew/fail, not expiry, so there is
+  // no source for it today: see src/edge-logs/cert-promote.ts. Kept as an id,
+  // hidden from the matrix, until something can actually raise it.
+  { id: "cert.expiring", label: "Cert expiring soon", severity: "warn", wired: false },
   { id: "cert.renewed", label: "Cert renewed", severity: "ok" },
   { id: "backup.failed", label: "Backup failed", severity: "err" },
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
@@ -34,7 +50,14 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },
 ] as const;
 
+/** Every id the system will accept, including the not-yet-wired ones. Feeds the
+ *  `z.enum` in ./contract.ts and ../webhooks/contract.ts, so it must stay a
+ *  superset of whatever is already stored. */
 export const EVENT_IDS = PLATFORM_EVENTS.map((e) => e.id);
+
+/** The ids a user may actually subscribe to: everything something can emit.
+ *  This is what the settings matrix renders. */
+export const SUBSCRIBABLE_EVENTS = PLATFORM_EVENTS.filter((e) => e.wired !== false);
 
 const SEVERITY_BY_ID = new Map(PLATFORM_EVENTS.map((e) => [e.id, e.severity]));
 

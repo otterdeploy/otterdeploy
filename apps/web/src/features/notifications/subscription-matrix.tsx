@@ -11,7 +11,13 @@ import { useTranslation } from "react-i18next";
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Switch } from "@/shared/components/ui/switch";
 
-import { type Channel, EVENTS, KIND_META, SEVERITY_DOT, channelTargetHint } from "./shared";
+import {
+  type Channel,
+  KIND_META,
+  SEVERITY_DOT,
+  SUBSCRIBABLE_EVENTS,
+  channelTargetHint,
+} from "./shared";
 
 interface SubscriptionMatrixProps {
   channels: Channel[];
@@ -75,7 +81,7 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
         </div>
 
         {/* Rows */}
-        {EVENTS.map((ev, i) => (
+        {SUBSCRIBABLE_EVENTS.map((ev, i) => (
           <div
             key={ev.id}
             className="grid min-w-[520px] items-center gap-2 px-3.5 py-2.5 text-[12px]"

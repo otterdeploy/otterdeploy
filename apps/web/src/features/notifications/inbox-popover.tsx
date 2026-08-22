@@ -10,35 +10,42 @@
  * since the app-status rollup it read is project-scoped. Live work belongs to
  * the activity indicator sitting next to it in the header.
  */
-import { useState } from "react";
-
-import { ArrowDown01Icon, BellDotIcon } from "@hugeicons/core-free-icons";
+import { BellDotIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { useDeployActivity } from "@/features/activity/use-deploy-activity";
 import { BellBadge, bellLabel } from "@/features/notifications/bell-badge";
-import {
-  SEVERITY_DOT,
-  eventLabel,
-  eventSeverityOf,
-  inboxDetailRows,
-  inboxEventId,
-  relativeTime,
-  worstSeverity,
-} from "@/features/notifications/shared";
+import { hiddenUnreadCount, inboxViewState, worstSeverity } from "@/features/notifications/shared";
 import { Button } from "@/shared/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { ErrorState } from "@/shared/components/ui/error-state";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-type InboxData = Awaited<ReturnType<typeof orpc.notifications.inbox.list.call>>;
-type InboxItem = InboxData["items"][number];
+import { InboxRow } from "./inbox-row";
 
-const inboxInput = { input: {} } as const;
+/**
+ * Ask for the largest page the contract allows rather than letting the server
+ * default to 20.
+ *
+ * With the default, a user holding 45 unread saw a lit badge, a "Mark all read"
+ * button, and twenty rows, with nothing anywhere saying the other twenty-five
+ * existed — and "Mark all read" clears every unread row, not just the rendered
+ * ones, so it silently discarded notifications they were never shown. 50 is the
+ * contract's ceiling; past it the footer says how many are still hidden.
+ */
+const INBOX_PAGE_SIZE = 50;
+
+const inboxInput = { input: { limit: INBOX_PAGE_SIZE } } as const;
 
 /** Idle cadence. The notification-inbox job pushes an `inbox` resync over the
  *  org event stream the moment rows land (use-org-events), so the idle tick
@@ -64,112 +71,6 @@ function invalidateInbox() {
   });
 }
 
-/**
- * One inbox entry. Collapsed it's a title + clamped message; clicking expands
- * it in place to reveal the full message and the notification's structured
- * context (event, resource, project, …) and marks it read on first open, so a
- * click actually shows something instead of just clearing the unread dot.
- */
-function InboxRow({ item, onRead }: { item: InboxItem; onRead: (id: InboxItem["id"]) => void }) {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-  const unread = item.readAt === null;
-
-  const eventId = inboxEventId(item.data);
-  const severity = eventId ? eventSeverityOf(eventId) : "info";
-  const eventName = eventId ? eventLabel(eventId) : null;
-  const detail = inboxDetailRows(item.data);
-
-  const toggle = () => {
-    setExpanded((v) => !v);
-    if (unread) onRead(item.id);
-  };
-
-  return (
-    <div className={cn("rounded-md transition-colors", expanded && "bg-muted/40")}>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={expanded}
-        className="flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent"
-      >
-        <span
-          aria-hidden
-          className={cn(
-            "mt-1.5 size-1.5 shrink-0 rounded-full",
-            unread ? SEVERITY_DOT[severity] : "bg-transparent ring-1 ring-border ring-inset",
-          )}
-        />
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex items-baseline justify-between gap-2">
-            <span
-              className={cn(
-                "truncate text-[13px]",
-                unread ? "font-medium text-foreground" : "text-foreground/75",
-              )}
-            >
-              {item.title}
-            </span>
-            <span className="flex shrink-0 items-center gap-1.5">
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {relativeTime(new Date(item.createdAt).toISOString())}
-              </span>
-              <HugeiconsIcon
-                icon={ArrowDown01Icon}
-                strokeWidth={2}
-                className={cn(
-                  "size-3.5 text-muted-foreground/60 transition-transform",
-                  expanded && "rotate-180",
-                )}
-              />
-            </span>
-          </span>
-          {item.message ? (
-            <span
-              className={cn(
-                "text-xs leading-relaxed text-muted-foreground",
-                !expanded && "line-clamp-2",
-              )}
-            >
-              {item.message}
-            </span>
-          ) : null}
-        </span>
-      </button>
-
-      {expanded ? (
-        <div className="flex flex-col gap-2 px-2 pb-2.5 pl-[1.75rem]">
-          {eventName ? (
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className={cn("size-1.5 shrink-0 rounded-full", SEVERITY_DOT[severity])} />
-              <span>{eventName}</span>
-              <span className="font-mono text-[10px] text-muted-foreground/70">{eventId}</span>
-            </div>
-          ) : null}
-          {detail.length > 0 ? (
-            <dl className="overflow-hidden rounded-md border">
-              {detail.map((r, i) => (
-                <div
-                  key={r.key}
-                  className="flex items-start gap-3 px-2.5 py-1.5 text-[11px]"
-                  style={{ borderTop: i > 0 ? "1px solid var(--border)" : undefined }}
-                >
-                  <dt className="w-24 shrink-0 text-muted-foreground">{r.label}</dt>
-                  <dd className="min-w-0 flex-1 font-mono break-words text-foreground">
-                    {r.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          ) : !item.message && !eventName ? (
-            <p className="text-[11px] text-muted-foreground/70">{t("notifications.noDetail")}</p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
   const { t } = useTranslation();
   // Shares the header pill's query (same key, so no second timer). Used only to
@@ -177,15 +78,30 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
   const { busy } = useDeployActivity();
   const inbox = useInbox(busy);
 
+  // Both mutations report failure. Without an onError they succeeded silently
+  // in the UI and then reverted on the next poll, which reads as the app
+  // undoing what you just asked for.
   const markRead = useMutation(
-    orpc.notifications.inbox.markRead.mutationOptions({ onSuccess: invalidateInbox }),
+    orpc.notifications.inbox.markRead.mutationOptions({
+      onSuccess: invalidateInbox,
+      onError: () => toast.error(t("notifications.markReadFailed")),
+    }),
   );
   const markAllRead = useMutation(
-    orpc.notifications.inbox.markAllRead.mutationOptions({ onSuccess: invalidateInbox }),
+    orpc.notifications.inbox.markAllRead.mutationOptions({
+      onSuccess: invalidateInbox,
+      onError: () => toast.error(t("notifications.markAllReadFailed")),
+    }),
   );
 
   const items = inbox.data?.items ?? [];
   const unread = inbox.data?.unread ?? 0;
+  const hiddenUnread = hiddenUnreadCount({ unread, itemCount: items.length });
+  const view = inboxViewState({
+    isLoading: inbox.isLoading,
+    isError: inbox.isError,
+    itemCount: items.length,
+  });
   // Only unread rows drive the badge. A failure you have already read is
   // history, and leaving it lit would make the bell permanently red.
   const severity = worstSeverity(items.filter((item) => item.readAt === null));
@@ -205,15 +121,17 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
         render={
           <Button variant="outline" size="icon" className="relative h-8 w-8" aria-label={label}>
             <HugeiconsIcon icon={BellDotIcon} strokeWidth={2} className="size-[1.1rem]" />
-            <BellBadge severity={unread > 0 ? severity : null} />
+            <BellBadge severity={unread > 0 ? severity : null} count={unread} />
           </Button>
         }
       />
       <PopoverContent align="end" className="w-96 max-w-[92vw] gap-0 p-0">
+        {/* PopoverTitle, not a bare span: it is what gives the popup its
+            accessible name. As a span the dialog announced as unlabelled. */}
         <div className="flex h-9 items-center justify-between border-b px-3">
-          <span className="text-[13px] font-medium">
+          <PopoverTitle className="text-[13px] font-medium">
             {t("common.notifications.title", "Notifications")}
-          </span>
+          </PopoverTitle>
           {unread > 0 ? (
             <Button
               variant="ghost"
@@ -222,19 +140,33 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
               disabled={markAllRead.isPending}
               onClick={() => markAllRead.mutate({})}
             >
-              Mark all read
+              {t("notifications.markAllRead")}
             </Button>
           ) : null}
         </div>
 
+        {/* Three distinct states, in this order. Error is checked BEFORE empty
+            and that ordering is the whole point: a failed fetch leaves
+            `items` empty, so without this branch a request that 500'd, timed
+            out, or lost its session rendered "No notifications yet" — the app
+            stating as fact that nothing had happened. Indistinguishable from a
+            genuinely empty inbox, and the likeliest thing an operator reports
+            as "the bell is broken". */}
         <div className="max-h-96 overflow-y-auto p-1">
-          {inbox.isLoading ? (
+          {view === "loading" ? (
             <div className="flex flex-col gap-1 p-1">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-12 rounded-md" />
               ))}
             </div>
-          ) : items.length === 0 ? (
+          ) : view === "error" ? (
+            <ErrorState
+              className="py-6"
+              title={t("notifications.loadFailed")}
+              message={inbox.error instanceof Error ? inbox.error.message : undefined}
+              onRetry={() => void inbox.refetch()}
+            />
+          ) : view === "empty" ? (
             <div className="flex flex-col items-center gap-1 px-4 py-8 text-center">
               <HugeiconsIcon
                 icon={BellDotIcon}
@@ -242,24 +174,41 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
                 className="mb-1 size-6 text-muted-foreground/40"
               />
               <p className="text-[13px] text-muted-foreground">{t("notifications.empty")}</p>
-              <p className="text-xs text-muted-foreground/70">
-                Deploy, build, and backup events land here.
-              </p>
+              {/* Names what actually reaches this list. It used to promise
+                  "Deploy, build, and backup events"; there is no
+                  build.succeeded event, so builds only ever appear when they
+                  fail, and health changes were never mentioned at all. */}
+              <p className="text-xs text-muted-foreground/70">{t("notifications.emptyHint")}</p>
             </div>
           ) : (
-            items.map((item) => (
-              <InboxRow key={item.id} item={item} onRead={(id) => markRead.mutate({ id })} />
-            ))
+            <ul role="list" className="contents">
+              {items.map((item) => (
+                <li key={item.id}>
+                  <InboxRow item={item} onRead={(id) => markRead.mutate({ id })} />
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
+        {/* Say so rather than letting the list quietly stop at the page size. */}
+        {hiddenUnread > 0 ? (
+          <p className="border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+            {t("notifications.olderNotShown", { count: hiddenUnread })}
+          </p>
+        ) : null}
+
         <div className="border-t p-1">
+          {/* Straight to the live route. The settings path this used to point
+              at is a redirect shim kept for old emails and bookmarks
+              (routes/_app/$orgSlug/settings/workspace/notifications.tsx), so
+              every click from here was paying a redirect hop. */}
           <Link
-            to="/$orgSlug/settings/workspace/notifications"
+            to="/$orgSlug/notifications"
             params={{ orgSlug }}
             className="block rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            Notification settings
+            {t("notifications.settingsLink")}
           </Link>
         </div>
       </PopoverContent>

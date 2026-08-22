@@ -701,7 +701,16 @@
     "noDetail": "Sin detalles adicionales.",
     "empty": "Todavía no hay notificaciones",
     "eventsLast7Days": "Eventos · últimos 7 días",
-    "recentDeliveries": "Entregas recientes"
+    "recentDeliveries": "Entregas recientes",
+    "emptyHint": "Los despliegues fallidos, caídas, copias de seguridad y cambios de estado aparecen aquí.",
+    "loadFailed": "No se pudieron cargar las notificaciones",
+    "loadFailedHint": "No se pudo acceder a la bandeja. No está vacía.",
+    "retry": "Reintentar",
+    "markAllRead": "Marcar todo como leído",
+    "settingsLink": "Ajustes de notificaciones",
+    "olderNotShown": "{{count}} no leídas más antiguas sin mostrar",
+    "markReadFailed": "No se pudo marcar como leída",
+    "markAllReadFailed": "No se pudieron marcar todas como leídas"
   },
   "certificates": {
     "noCustom": "Sin certificados personalizados",

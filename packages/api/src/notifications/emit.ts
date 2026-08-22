@@ -11,17 +11,27 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  * A failed backup must still record as failed even if Redis is down. Uses
  * `Result.tryPromise` rather than raw try/catch per the repo convention.
  *
- * Wired today:
+ * Wired today (every catalog event except the one noted below):
  *   - backup.succeeded / backup.failed  (src/backups/engine.ts)
+ *   - backup.verify-failed (src/backups/verify-restore.ts)
+ *   - backup.overdue   (src/backups/overdue.ts)
  *   - backup.orphaned  (src/backups/schedule-cleanup.ts, schedule disabled
  *     when its last source was deleted)
  *   - deploy.started   (emitDeployStarted, from all 3 deployment-insert paths)
  *   - deploy.succeeded (reconcileDeploySuccess, lazy detector in the list read)
  *   - deploy.failed    (markDeploymentFailed)
+ *   - deploy.crashed   (src/routers/project/deploy-crash-watcher.ts)
+ *   - build.failed     (apps/builder pipeline-steps.ts) — FAILURES ONLY;
+ *     there is no build.succeeded event, so "build events" means build
+ *     problems. The bell's empty-state copy has to say so.
+ *   - health.degraded / health.recovered (src/metrics/health-detector.ts)
+ *   - host.pressure    (src/metrics/sampler.ts)
+ *   - cert.renewed     (src/edge-logs/cert-promote.ts)
+ *   - ssh.rotated, audit.anomaly, edge.probe
  *
- * Ready to wire (call `emitPlatformEvent` from the outcome site when the
- * source feature lands): build.failed, health.*, cert.*, ssh.rotated,
- * audit.anomaly.
+ * NOT wired: `cert.expiring`. Caddy logs obtain/renew/fail, not expiry, so
+ * nothing can raise it (see src/edge-logs/cert-promote.ts). It is flagged
+ * `wired: false` in the catalog so the subscription matrix stops offering it.
  */
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
 import { Result } from "better-result";

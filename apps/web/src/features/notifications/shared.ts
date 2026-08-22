@@ -20,9 +20,14 @@ export interface EventRow {
   id: string;
   label: string;
   severity: Severity;
+  /** Mirrors the server's flag: an id nothing emits yet. Present in the
+   *  catalog so severity still resolves for any row already stored, absent
+   *  from {@link SUBSCRIBABLE_EVENTS} so the matrix never offers it. */
+  wired?: false;
 }
 
-/** Mirrors PLATFORM_EVENTS on the server: keep ids identical. */
+/** Mirrors PLATFORM_EVENTS on the server: keep ids AND the `wired` flag
+ *  identical (packages/api/src/routers/notifications/events.ts). */
 export const EVENTS: EventRow[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
   { id: "deploy.succeeded", label: "Deploy succeeded", severity: "ok" },
@@ -32,7 +37,7 @@ export const EVENTS: EventRow[] = [
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
   { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
-  { id: "cert.expiring", label: "Cert expiring soon", severity: "warn" },
+  { id: "cert.expiring", label: "Cert expiring soon", severity: "warn", wired: false },
   { id: "cert.renewed", label: "Cert renewed", severity: "ok" },
   { id: "backup.failed", label: "Backup failed", severity: "err" },
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
@@ -43,6 +48,11 @@ export const EVENTS: EventRow[] = [
   { id: "audit.anomaly", label: "Audit anomaly", severity: "warn" },
   { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },
 ];
+
+/** What the subscription matrix renders: only events something can actually
+ *  emit. Subscribing to a row that can never fire is a promise the product
+ *  cannot keep, so it is not offered. */
+export const SUBSCRIBABLE_EVENTS: EventRow[] = EVENTS.filter((e) => e.wired !== false);
 
 const EVENT_BY_ID = new Map(EVENTS.map((e) => [e.id, e]));
 
@@ -197,4 +207,40 @@ export function relativeTime(iso: string | null): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   return `${days}d ago`;
+}
+
+/**
+ * Which of the four bodies the inbox popover shows.
+ *
+ * A function rather than a chain of ternaries inline in the JSX, because the
+ * ORDER is the correctness property and it deserves a name and a test. A
+ * failed request leaves the item list empty, so checking `empty` before
+ * `error` renders "No notifications yet" for a request that 500'd, timed out,
+ * or lost its session: the app asserting nothing happened when in truth it
+ * could not find out. That is the bug this encodes against.
+ */
+export type InboxViewState = "loading" | "error" | "empty" | "list";
+
+export function inboxViewState(query: {
+  isLoading: boolean;
+  isError: boolean;
+  itemCount: number;
+}): InboxViewState {
+  if (query.isLoading) return "loading";
+  // Before `empty`, always.
+  if (query.isError) return "error";
+  return query.itemCount === 0 ? "empty" : "list";
+}
+
+/**
+ * Unread rows the page could not carry.
+ *
+ * `unread` is counted server-side across every unread row; `items` is capped at
+ * the requested page size. The difference is what the operator cannot see, and
+ * it matters because "Mark all read" clears ALL unread rows, not just the
+ * rendered ones — so without surfacing this, the button silently discards
+ * notifications that were never shown.
+ */
+export function hiddenUnreadCount(input: { unread: number; itemCount: number }): number {
+  return Math.max(0, input.unread - input.itemCount);
 }
