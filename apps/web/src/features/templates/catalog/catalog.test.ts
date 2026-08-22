@@ -8,6 +8,8 @@ import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
  */
 import { describe, expect, it } from "vite-plus/test";
 
+import { hasBrandMark } from "@/shared/components/brand/svgl-logo";
+
 import { TEMPLATES } from "./index";
 
 /** Keys whose bare value IS a hostname (`DB_HOST: db`). Without this, a
@@ -118,6 +120,14 @@ describe("template catalog", () => {
         expect(template.description.length).toBeGreaterThan(20);
         expect(template.docsUrl).toMatch(/^https:\/\//);
         expect(template.logoBrand.length).toBeGreaterThan(0);
+      });
+
+      // A `logoBrand` with no mark behind it doesn't fail anything at runtime:
+      // SvglLogo falls back to a grey initial, so the row still renders and the
+      // gap only shows up as a wall of `A`s and `B`s in the gallery. Assert the
+      // mark exists so a template can't land without one.
+      it("has a registered mark, not a letter fallback", () => {
+        expect(hasBrandMark(template.logoBrand)).toBe(true);
       });
     });
   }
