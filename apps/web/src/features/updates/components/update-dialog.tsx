@@ -31,6 +31,16 @@ import { UpdateProgress } from "./update-progress";
 import { deriveOutcome } from "./update-progress-model";
 
 /**
+ * The release's own repository, read off its html_url
+ * (`https://github.com/owner/name/releases/tag/v1.2.3`). Handed to the notes
+ * renderer so the generated "… in <pull URL>" lines collapse to `#154` the way
+ * they do on GitHub, instead of one full-width URL per merged PR.
+ */
+function repoFromReleaseUrl(url: string | null | undefined): string | undefined {
+  return /^https:\/\/github\.com\/([^/]+\/[^/]+)\//.exec(url ?? "")?.[1];
+}
+
+/**
  * Wraps the dialog's onOpenChange so a close attempt while `blockClose` holds
  * is refused with a transient hint instead of dismissing the dialog. Every
  * dismissal path (the ✕, the backdrop, Escape) funnels through onOpenChange,
@@ -187,7 +197,10 @@ export function UpdateDialog({
               <div className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
                 {t("updates.releaseNotes")}
               </div>
-              <Markdown className="max-h-[280px] overflow-auto rounded-md border bg-muted/40 px-3 py-1.5">
+              <Markdown
+                repo={repoFromReleaseUrl(status.url)}
+                className="max-h-[280px] overflow-auto rounded-md border bg-muted/40 px-3 py-1.5"
+              >
                 {status.notes}
               </Markdown>
             </div>

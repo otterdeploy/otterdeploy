@@ -1,9 +1,14 @@
 # Shapes the auto-generated release notes (`gh release create --generate-notes`,
 # run by the release job in workflows/images.yml). Generated notes list merged
 # PRs since the previous tag; this file groups them into sections BY PR LABEL:
-# GitHub only matches labels here, not title prefixes, so label PRs feat/fix/
-# perf/docs as they land and the changelog sorts itself. Unlabeled PRs fall
+# GitHub only matches labels here, not title prefixes. Unlabeled PRs fall
 # through to "Other changes" rather than being dropped.
+#
+# Labelling is NOT a manual step — workflows/pr-label.yml copies the
+# conventional-commit type out of the PR title on open/edit, so the vocabulary
+# below is exactly the set of types that workflow recognizes. Keep the two in
+# sync: a type it can apply but this file doesn't list silently lands in "Other
+# changes", which is the failure this whole arrangement exists to prevent.
 #
 # NOTE: direct-to-main commits never appear in generated notes (PRs only):
 # work meant for the changelog should land via a PR. See docs/guides/releasing.md.
@@ -13,8 +18,11 @@ changelog:
       - dependabot
       - github-actions
   categories:
+    # `polish` sits with Features on purpose: a polish(…) PR changes what the
+    # operator sees and does, which is the test for this section — not how much
+    # code moved.
     - title: Features
-      labels: [feat, feature, enhancement]
+      labels: [feat, feature, enhancement, polish]
     - title: Fixes
       labels: [fix, bug]
     - title: Performance
@@ -22,6 +30,6 @@ changelog:
     - title: Documentation
       labels: [docs, documentation]
     - title: Maintenance
-      labels: [chore, ci, refactor, dependencies]
+      labels: [chore, ci, refactor, build, style, test, dependencies]
     - title: Other changes
       labels: ["*"]

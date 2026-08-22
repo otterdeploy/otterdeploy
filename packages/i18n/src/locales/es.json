@@ -111,7 +111,11 @@
       "retry": "⟳ Reintentar",
       "returnHome": "↩ Volver al inicio"
     },
-    "generic": "Algo salió mal"
+    "generic": "Algo salió mal",
+    "connection": {
+      "unreachable": "Plano de control no disponible",
+      "reconnecting": "Esta página sigue intentándolo y continúa sola en cuanto el servidor vuelva a responder. Suele ser un reinicio."
+    }
   },
   "shell": {
     "search": "Buscar",

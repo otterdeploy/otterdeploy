@@ -111,7 +111,11 @@
       "retry": "⟳ Retry",
       "returnHome": "↩ Return home"
     },
-    "generic": "Something went wrong"
+    "generic": "Something went wrong",
+    "connection": {
+      "unreachable": "Control plane unreachable",
+      "reconnecting": "This page keeps trying and picks up on its own once the server answers again. Usually a restart."
+    }
   },
   "shell": {
     "search": "Search",

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { Markdown } from "./markdown";
 
 const html = (md: string) => renderToStaticMarkup(<Markdown>{md}</Markdown>);
+const withRepo = (md: string, repo: string) =>
+  renderToStaticMarkup(<Markdown repo={repo}>{md}</Markdown>);
 
 describe("Markdown", () => {
   it("renders headings by level", () => {
@@ -47,6 +49,50 @@ describe("Markdown", () => {
     expect(out).toContain(
       'href="https://github.com/otterdeploy/otterdeploy/compare/v0.4.2...v0.4.3"',
     );
+  });
+
+  describe("autolink labels", () => {
+    const REPO = "otterdeploy/otterdeploy";
+    const pullUrl = `https://github.com/${REPO}/pull/154`;
+
+    it("collapses a same-repo pull link to #154 without touching the href", () => {
+      const out = withRepo(`by @artzkaizen in ${pullUrl}`, REPO);
+      expect(out).toContain(`href="${pullUrl}"`);
+      expect(out).toContain(">#154</a>");
+      // The full URL must not survive as visible text, only as the href.
+      expect(out.replace(`href="${pullUrl}"`, "")).not.toContain(pullUrl);
+    });
+
+    it("keeps another repo's pull link qualified so it can't read as local", () => {
+      const foreign = "https://github.com/oven-sh/bun/pull/9";
+      const out = withRepo(`see ${foreign}`, REPO);
+      expect(out).toContain(`href="${foreign}"`);
+      expect(out).toContain(">oven-sh/bun#9</a>");
+    });
+
+    it("qualifies every reference when no repo is given", () => {
+      const out = html(pullUrl);
+      expect(out).toContain(`>${REPO}#154</a>`);
+    });
+
+    it("shortens the Full Changelog compare link to the version range", () => {
+      const url = `https://github.com/${REPO}/compare/v0.4.2...v0.4.3`;
+      const out = withRepo(`**Full Changelog**: ${url}`, REPO);
+      expect(out).toContain(`href="${url}"`);
+      expect(out).toContain(">v0.4.2...v0.4.3</a>");
+    });
+
+    it("shortens a commit link to a short sha", () => {
+      const url = `https://github.com/${REPO}/commit/191a8dbd0c0ffee1234567890abcdef123456789`;
+      const out = withRepo(url, REPO);
+      expect(out).toContain(`href="${url}"`);
+      expect(out).toContain(">191a8db</a>");
+    });
+
+    it("leaves an unrecognized URL as its own label", () => {
+      const url = "https://otterdeploy.dev/docs/updates";
+      expect(withRepo(url, REPO)).toContain(`>${url}</a>`);
+    });
   });
 
   it("refuses unsafe link schemes (no javascript: href)", () => {
