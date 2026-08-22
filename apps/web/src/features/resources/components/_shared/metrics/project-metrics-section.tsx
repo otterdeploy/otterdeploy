@@ -14,10 +14,10 @@ import { Activity03Icon, CpuIcon, RamMemoryIcon } from "@hugeicons/core-free-ico
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useParams } from "@tanstack/react-router";
 
+import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 import { formatBytes, formatPercent } from "./format";
-import { MetricAreaChart } from "./metric-area-chart";
 import { MetricCard, type MetricStat } from "./metric-card";
 import { useProjectAggregateMetrics } from "./use-project-metrics";
 
@@ -65,10 +65,11 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
           }
         >
           {aggBody(
-            <MetricAreaChart
+            <TimeSeriesChart
               data={agg.rows}
+              ariaLabel="Project CPU usage over the selected window"
               format={(v) => formatPercent(v)}
-              series={[{ dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" }]}
+              series={[{ dataKey: "cpuPct", label: "CPU" }]}
             />,
           )}
         </MetricCard>
@@ -81,10 +82,11 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
           stats={aggHasData ? [{ label: "peak", value: formatBytes(agg.summary.memPeak) }] : []}
         >
           {aggBody(
-            <MetricAreaChart
+            <TimeSeriesChart
               data={agg.rows}
+              ariaLabel="Project memory usage over the selected window"
               format={(v) => formatBytes(v)}
-              series={[{ dataKey: "memBytes", label: "Memory", color: "var(--chart-3)" }]}
+              series={[{ dataKey: "memBytes", label: "Memory" }]}
             />,
           )}
         </MetricCard>
