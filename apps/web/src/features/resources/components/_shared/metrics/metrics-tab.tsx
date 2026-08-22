@@ -18,14 +18,19 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 
 import { formatBytes, formatClockSeconds, formatPercent, formatRate } from "./format";
-import { MetricAreaChart } from "./metric-area-chart";
 import { MetricCard } from "./metric-card";
-import { METRIC_WINDOWS, useResourceMetrics, type MetricWindowLabel } from "./use-resource-metrics";
+import {
+  METRIC_WINDOWS,
+  SAMPLE_INTERVAL_MS,
+  useResourceMetrics,
+  type MetricWindowLabel,
+} from "./use-resource-metrics";
 
 interface MetricsTabProps {
   resourceId: string;
@@ -63,10 +68,12 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
               { label: "avg", value: formatPercent(summary.cpuAvg) },
             ]}
           >
-            <MetricAreaChart
+            <TimeSeriesChart
               data={rows}
+              ariaLabel="CPU usage over the selected window"
               format={(v) => formatPercent(v)}
-              series={[{ dataKey: "cpuPct", label: "CPU", color: "var(--chart-3)" }]}
+              sampleIntervalMs={SAMPLE_INTERVAL_MS}
+              series={[{ dataKey: "cpuPct", label: "CPU" }]}
             />
           </MetricCard>
 
@@ -82,16 +89,12 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
               { label: "limit", value: formatBytes(summary.memLimitBytes) },
             ]}
           >
-            <MetricAreaChart
+            <TimeSeriesChart
               data={rows}
+              ariaLabel="Memory usage over the selected window"
               format={(v) => formatBytes(v)}
-              series={[
-                {
-                  dataKey: "memBytes",
-                  label: "Memory",
-                  color: "var(--chart-3)",
-                },
-              ]}
+              sampleIntervalMs={SAMPLE_INTERVAL_MS}
+              series={[{ dataKey: "memBytes", label: "Memory" }]}
             />
           </MetricCard>
 
@@ -121,12 +124,16 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
               </div>
             }
           >
-            <MetricAreaChart
+            {/* In and out are not parts of one total, so they overlay rather
+                than stack; the wheel gives each a distinguishable hue. */}
+            <TimeSeriesChart
               data={rows}
+              ariaLabel="Network throughput over the selected window"
               format={(v) => formatRate(v)}
+              sampleIntervalMs={SAMPLE_INTERVAL_MS}
               series={[
-                { dataKey: "netRxRate", label: "In", color: "var(--chart-3)" },
-                { dataKey: "netTxRate", label: "Out", color: "var(--chart-1)" },
+                { dataKey: "netRxRate", label: "In" },
+                { dataKey: "netTxRate", label: "Out" },
               ]}
             />
           </MetricCard>

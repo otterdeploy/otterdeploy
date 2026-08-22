@@ -472,11 +472,12 @@
   }
 }
 
-/* ── TanStack Charts theming (Analytics) ──────────────────────────────────
-   Axis, grid, and tick text all default to currentColor, and the palette +
-   tooltip read CSS variables, so the whole chart follows the theme with no
-   JS theme object. */
-.analytics-chart {
+/* ── TanStack Charts theming ───────────────────────────────────────────────
+   One class for every chart in the product. Axis, grid, and tick text all
+   default to currentColor, and the palette + tooltip read CSS variables, so
+   the whole chart follows the theme with no JS theme object and no second
+   place to keep in sync. */
+.otter-chart {
   color: var(--muted-foreground);
   font-size: 11px;
   --ts-chart-tooltip-background: var(--popover);

@@ -148,11 +148,6 @@ export function AnalyticsChart({
   if (!hasData) return null;
 
   return (
-    <Chart
-      definition={definition}
-      height={height}
-      ariaLabel={ariaLabel}
-      className="analytics-chart"
-    />
+    <Chart definition={definition} height={height} ariaLabel={ariaLabel} className="otter-chart" />
   );
 }
