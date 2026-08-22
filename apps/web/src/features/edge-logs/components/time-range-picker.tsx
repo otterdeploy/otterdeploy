@@ -139,8 +139,17 @@ export function TimeRangePicker({
             </Button>
           }
         />
-        <PopoverContent align="start" className="w-auto p-0">
+        {/*
+         * Fixed width, not `w-auto`. Sized by content, the popover took its
+         * width from the FOOTER, and `input[type=time]` has a native intrinsic
+         * width that differs per browser -- wide enough on some to stretch the
+         * popover to twice the calendar's width and strand the grid in a third
+         * of it. A definite width makes the layout the same everywhere and
+         * lets the calendar fill it.
+         */}
+        <PopoverContent align="start" className="w-[19.5rem] p-0">
           <Calendar
+            className="w-full"
             mode="range"
             numberOfMonths={1}
             selected={days}
@@ -148,39 +157,54 @@ export function TimeRangePicker({
             disabled={bounds ? { before: bounds.min, after: bounds.max } : undefined}
             defaultMonth={days?.from ?? bounds?.max}
           />
-          <div className="flex items-center gap-2 border-t p-2">
-            <Input
-              type="time"
-              value={fromTime}
-              onChange={(e) => setFromTime(e.target.value)}
-              className="h-8 w-fit text-[12px]"
-              aria-label="Start time"
-            />
-            <span className="text-[11px] text-muted-foreground">to</span>
-            <Input
-              type="time"
-              value={toTime}
-              onChange={(e) => setToTime(e.target.value)}
-              className="h-8 w-fit text-[12px]"
-              aria-label="End time"
-            />
-            <div className="flex-1" />
-            {custom ? (
+          {/*
+           * Times and actions on separate rows. Sharing one row, the two
+           * fields and two buttons only fit if `input[type=time]` renders at
+           * its narrowest -- and it doesn't in a 12-hour locale, where the
+           * field carries an AM/PM segment as well. Stacked, the row can't
+           * clip whatever the browser and locale do to the field's width.
+           */}
+          <div className="flex flex-col gap-2 border-t p-2">
+            <div className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={fromTime}
+                onChange={(e) => setFromTime(e.target.value)}
+                className="h-8 min-w-0 flex-1 text-[12px]"
+                aria-label="Start time"
+              />
+              <span className="shrink-0 text-[11px] text-muted-foreground">to</span>
+              <Input
+                type="time"
+                value={toTime}
+                onChange={(e) => setToTime(e.target.value)}
+                className="h-8 min-w-0 flex-1 text-[12px]"
+                aria-label="End time"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-1.5">
+              {custom ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2.5 text-[12px]"
+                  onClick={() => {
+                    onChange({ preset: "1h" });
+                    setOpen(false);
+                  }}
+                >
+                  Clear
+                </Button>
+              ) : null}
               <Button
-                variant="ghost"
                 size="sm"
-                className="h-8 text-[12px]"
-                onClick={() => {
-                  onChange({ preset: "1h" });
-                  setOpen(false);
-                }}
+                className="h-8 px-3 text-[12px]"
+                disabled={!days?.from}
+                onClick={apply}
               >
-                Clear
+                Apply
               </Button>
-            ) : null}
-            <Button size="sm" className="h-8 text-[12px]" disabled={!days?.from} onClick={apply}>
-              Apply
-            </Button>
+            </div>
           </div>
         </PopoverContent>
       </Popover>
