@@ -221,13 +221,14 @@ function FederatedMethods({
   showDivider: boolean;
   onSignedIn: () => void;
 }) {
+  const { t } = useTranslation();
   const { signIn: methods, socialProviders, ssoProviders } = config;
   const any = methods.passkey || socialProviders.length > 0 || ssoProviders.length > 0;
   if (!any) return null;
 
   return (
     <>
-      {showDivider ? <AuthDivider label="or continue with" /> : null}
+      {showDivider ? <AuthDivider label={t("auth.signIn.dividerContinue")} /> : null}
 
       <SocialSignIn dividerLabel={null} providers={socialProviders} />
 

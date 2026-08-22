@@ -62,7 +62,9 @@
       "invalidEmail": "Please enter a valid email",
       "passwordMinLength": "Password must be at least 8 characters",
       "noAccount": "Don't have an account?",
-      "createAccount": "Create one"
+      "createAccount": "Create one",
+      "dividerContinue": "or continue with",
+      "noMethods": "No sign-in method is enabled on this installation. An administrator has to re-enable one in Settings → Instance → Sign-in methods."
     },
     "signUp": {
       "title": "Create an account",
@@ -81,7 +83,8 @@
       "signIn": "Sign in",
       "bootstrapToken": "Installation bootstrap token",
       "bootstrapTokenPlaceholder": "Paste the token printed by install.sh",
-      "bootstrapTokenHint": "This one-time token proves you control the VPS and makes this account the installation owner."
+      "bootstrapTokenHint": "This one-time token proves you control the VPS and makes this account the installation owner.",
+      "dividerSignUp": "or sign up with"
     },
     "logout": "Log out",
     "layoutFooter": "Otterdeploy Authentication",
@@ -89,7 +92,9 @@
       "verify": "Verify"
     },
     "sso": {
-      "enterWorkEmail": "Enter your work email address"
+      "continueWith": "Continue with {{provider}}",
+      "redirectingTo": "Redirecting to {{provider}}…",
+      "startFailed": "Couldn't start SSO sign-in"
     }
   },
   "errors": {
@@ -630,7 +635,21 @@
     "clientId": "Client ID",
     "clientSecret": "Client secret",
     "clientSecretHint": "Stored encrypted and never shown again. To rotate it, remove the provider and add it back.",
-    "deriveHint": "Leave blank to derive it from the issuer."
+    "deriveHint": "Leave blank to derive it from the issuer.",
+    "instanceDisabled": "Enterprise SSO is switched off for this installation, so these providers do not appear on the sign-in page and cannot sign anyone in. An install administrator can turn it back on in Settings → Instance → Sign-in methods. Providers registered here are kept either way.",
+    "methodsTitle": "Sign-in methods",
+    "methodsDescription": "How people prove who they are on this installation. The sign-in page shows exactly what is enabled here.",
+    "methodsSaved": "Sign-in methods updated",
+    "methodsSaveFailed": "Failed to save sign-in methods",
+    "passwordTitle": "Email and password",
+    "passwordOn": "On. People sign in with an email address and a password, and can reset it by email.",
+    "passwordLockedBootstrap": "The first account has to be created with a password and the installer's bootstrap token, so this stays on until someone signs up.",
+    "passwordLockedNoFederated": "Nothing else can sign anyone in yet. Configure a social provider below, or register an identity provider in Workspace → SSO, before turning passwords off.",
+    "passkeyTitle": "Passkeys",
+    "passkeyDescription": "Passwordless sign-in with a device biometric or a security key. Off also stops anyone registering a new passkey; existing ones are kept, not deleted, and start working again if you turn this back on.",
+    "enterpriseTitle": "Enterprise SSO",
+    "enterpriseNoProviders": "No identity provider is registered yet. Add one in Workspace → SSO; this switch controls whether its button appears on the sign-in page.",
+    "enterpriseDescription": "Per-workspace OIDC identity providers (Okta, Entra ID, Google Workspace, Authentik). Each registered provider gets its own button on the sign-in page. Turning this off leaves the providers configured but stops them signing anyone in."
   },
   "sshKeys": {
     "generateTitle": "Generate SSH key",
