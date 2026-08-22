@@ -66,6 +66,10 @@ interface TimeSeriesChartProps<Row extends TimeRow> {
   /** Stack the series and total them in the tooltip. Part-to-whole only —
    *  stacking series that are not parts of one total is a lie about the sum. */
   stacked?: boolean;
+  /** "area" fills under the line. "line" draws the stroke alone — right for
+   *  series that share an axis but not a baseline, like latency percentiles,
+   *  where overlapping fills read as a quantity rather than three readings. */
+  kind?: "area" | "line";
   /** Whitespace-separated terms. Matching series stay lit; the rest dim. */
   filter?: string;
   /** Upper Y bound. "auto" fits the data. */
@@ -105,6 +109,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
   format,
   ariaLabel,
   stacked = false,
+  kind = "area",
   filter = "",
   max = "auto",
   sampleIntervalMs = 0,
@@ -203,6 +208,18 @@ export function TimeSeriesChart<Row extends TimeRow>({
       });
     }
 
+    const line = lineY(long, {
+      id: "series-line",
+      x: "t",
+      y: "value",
+      z: "series",
+      strokeWidth: 1.75,
+    });
+
+    if (kind === "line") {
+      return defineChart({ marks: [line], x, y, color, ...interaction });
+    }
+
     // Overlaid: explicit y1/y2 endpoints opt out of the implicit stack, so the
     // fill is decoration under a line that owns interaction.
     return defineChart({
@@ -217,14 +234,14 @@ export function TimeSeriesChart<Row extends TimeRow>({
             fillOpacity: 0.14,
           }),
         ),
-        lineY(long, { id: "series-line", x: "t", y: "value", z: "series", strokeWidth: 1.75 }),
+        line,
       ],
       x,
       y,
       color,
       ...interaction,
     });
-  }, [data, series, format, stacked, filter, max, sampleIntervalMs, compact, legend]);
+  }, [data, series, format, stacked, kind, filter, max, sampleIntervalMs, compact, legend]);
 
   // Reserve the height before the chart exists so scrolling past an unread
   // chart does not shift everything below it.

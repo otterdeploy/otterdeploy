@@ -8,7 +8,7 @@ export const ANALYTICS_RANGES = ["24h", "7d", "30d", "90d"] as const;
 export type AnalyticsRangeKey = (typeof ANALYTICS_RANGES)[number];
 
 /** One overview series bucket as the API ships it. */
-export interface WireSeriesBucket {
+interface WireSeriesBucket {
   t: string;
   requests: number;
   botRequests: number;
@@ -21,19 +21,6 @@ export interface WireSeriesBucket {
   p50: number | null;
   p95: number | null;
   p99: number | null;
-}
-
-export interface SeriesPoint {
-  date: Date;
-  value: number | null;
-}
-
-/** One named series of chart points, picked off the wire buckets. */
-export function seriesPoints(
-  series: readonly WireSeriesBucket[],
-  pick: (bucket: WireSeriesBucket) => number | null,
-): SeriesPoint[] {
-  return series.map((b) => ({ date: new Date(b.t), value: pick(b) }));
 }
 
 export interface TopEntry {
