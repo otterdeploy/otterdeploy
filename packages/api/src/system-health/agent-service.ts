@@ -123,8 +123,17 @@ function buildAgentServiceSpec(
           // Swarm env templating: each task learns which node it's on.
           "OTTERDEPLOY_NODE_HOSTNAME={{.Node.Hostname}}",
           `HEALTH_AGENT_INTERVAL_MS=${HEALTH_SAMPLE_INTERVAL_MS}`,
+          // Read the HOST's procfs, not the container's. /proc/stat,
+          // /proc/loadavg and /proc/diskstats already show host values inside
+          // a container, but /proc/mounts and /proc/net/dev do NOT: without
+          // this the agent would report the container's overlay root and its
+          // own veth pair as the node's filesystems and interfaces.
+          "HOST_PROC_PATH=/host/proc",
         ],
-        Mounts: [{ Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock" }],
+        Mounts: [
+          { Type: "bind", Source: "/var/run/docker.sock", Target: "/var/run/docker.sock" },
+          { Type: "bind", Source: "/proc", Target: "/host/proc", ReadOnly: true },
+        ],
         Labels: { "otterdeploy.managed": "true", "otterdeploy.role": "health-agent" },
       },
       RestartPolicy: { Condition: "any", Delay: 5_000_000_000 },
