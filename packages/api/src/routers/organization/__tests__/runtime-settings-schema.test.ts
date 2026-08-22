@@ -21,6 +21,8 @@ const VALID_DRAFT = {
   edgeLogGeoipUrl: "https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-country.mmdb",
   edgeLogGeoipAsnUrl: "https://cdn.jsdelivr.net/npm/@ip-location-db/asn.mmdb",
   builderConcurrency: 1,
+  alertWarnPct: 65,
+  alertCritPct: 90,
 };
 
 const messageFor = (draft: typeof VALID_DRAFT, field: string): string | undefined => {
@@ -121,5 +123,40 @@ describe("runtimeSettingsDraftSchema", () => {
     expect(
       runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, previewIdleTeardownHours: 0 }).success,
     ).toBe(true);
+  });
+});
+
+describe("measurement thresholds", () => {
+  it("accepts a pair in order", () => {
+    expect(runtimeSettingsDraftSchema.safeParse(VALID_DRAFT).success).toBe(true);
+  });
+
+  it("accepts a single hard line where elevated equals critical", () => {
+    const draft = { ...VALID_DRAFT, alertWarnPct: 90, alertCritPct: 90 };
+    expect(runtimeSettingsDraftSchema.safeParse(draft).success).toBe(true);
+  });
+
+  it("rejects an inverted pair, and names the field the operator should move", () => {
+    // Flagging `warn` rather than `crit` matters: moving `crit` changes what
+    // "critical" means to everything already alerting on it.
+    const draft = { ...VALID_DRAFT, alertWarnPct: 95, alertCritPct: 80 };
+    expect(messageFor(draft, "alertWarnPct")).toBe("Elevated must be at or below critical");
+  });
+
+  it("rejects a threshold of zero", () => {
+    // Zero would paint a completely idle box critical, which is a way of
+    // turning the signal off that looks like turning it up.
+    const draft = { ...VALID_DRAFT, alertWarnPct: 0 };
+    expect(runtimeSettingsDraftSchema.safeParse(draft).success).toBe(false);
+  });
+
+  it("rejects a threshold above full", () => {
+    const draft = { ...VALID_DRAFT, alertCritPct: 120 };
+    expect(runtimeSettingsDraftSchema.safeParse(draft).success).toBe(false);
+  });
+
+  it("rejects a fractional threshold", () => {
+    const draft = { ...VALID_DRAFT, alertWarnPct: 65.5 };
+    expect(runtimeSettingsDraftSchema.safeParse(draft).success).toBe(false);
   });
 });

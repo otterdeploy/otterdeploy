@@ -225,6 +225,8 @@ export const platformSettingsRouter = {
           previewIdleTeardownHours: input.previewIdleTeardownHours,
           edgeLogRetentionDays: input.edgeLogRetentionDays,
           builderConcurrency: input.builderConcurrency,
+          alertWarnPct: input.alertWarnPct,
+          alertCritPct: input.alertCritPct,
         },
       });
       return saveRuntimeSettings({
@@ -235,6 +237,8 @@ export const platformSettingsRouter = {
         edgeLogGeoipUrl: input.edgeLogGeoipUrl,
         edgeLogGeoipAsnUrl: input.edgeLogGeoipAsnUrl,
         builderConcurrency: input.builderConcurrency,
+        alertWarnPct: input.alertWarnPct,
+        alertCritPct: input.alertCritPct,
       });
     },
   ),

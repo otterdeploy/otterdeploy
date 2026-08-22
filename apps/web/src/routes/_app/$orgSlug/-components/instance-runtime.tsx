@@ -23,6 +23,7 @@ import {
   FieldError,
   NumberRow,
   TextRow,
+  ThresholdRows,
   validate,
   type Draft,
   type FieldErrors,
@@ -175,6 +176,8 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         error={errors.builderConcurrency}
         onChange={(next) => patch({ builderConcurrency: next })}
       />
+
+      <ThresholdRows value={value} errors={errors} busy={busy} patch={patch} />
 
       <SettingsFooter>
         {draft !== null && (

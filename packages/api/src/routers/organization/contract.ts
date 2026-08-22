@@ -271,6 +271,10 @@ const runtimeSettingsSchema = z.object({
   /** Edge logging is off entirely unless EDGE_LOG_SINK is set, so the card can
    *  say why its toggles are inert instead of silently doing nothing. */
   edgeLogSinkConfigured: z.boolean(),
+  /** The two levels every meter colours against and every threshold alert
+   *  fires on. One pair, so the UI and the pager cannot disagree. */
+  alertWarnPct: z.number(),
+  alertCritPct: z.number(),
 });
 
 // The field rules live in ./runtime-settings-schema so the settings form can
