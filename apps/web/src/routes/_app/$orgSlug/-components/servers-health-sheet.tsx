@@ -21,6 +21,7 @@ import {
 
 import { fmtBytes, UsageRow } from "./servers-health-pool";
 import { RemoveFromSwarmAction, RoleChangeAction } from "./servers-swarm-actions";
+import { ServerUnits } from "./servers-units";
 
 const SEVERITY_STYLES: Record<string, string> = {
   critical: "text-destructive ring-destructive/30",
@@ -72,6 +73,10 @@ export function ServerHealthSheet({
         </SheetHeader>
 
         {health && <HealthDetail health={health} />}
+
+        {/* Mounted only while the sheet is open (the Sheet unmounts its body
+            on close), so the 30s poll can't outlive the surface reading it. */}
+        {server && <ServerUnits serverId={server.id} />}
 
         {server && swarm && (
           <ClusterMembership

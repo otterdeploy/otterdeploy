@@ -1,3 +1,23 @@
+/**
+ * A span of seconds as its two most significant units: "29d 21h", "19h 1m",
+ * "42m", "<1m".
+ *
+ * Two units, not one, because "29d" alone loses most of a day and "29d 21h
+ * 30m 27s" is not read, it is skipped. Callers own their own edge cases —
+ * this only formats a positive span, so "expired" vs "just started" vs "we
+ * don't know" stays each surface's decision rather than being smuggled in
+ * here as a magic string.
+ */
+export function humanizeSeconds(seconds: number): string {
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  if (mins > 0) return `${mins}m`;
+  return "<1m";
+}
+
 /** Compact relative time ("2m ago", "3d ago"), falling back to an absolute
  *  date past a month. Callers put the full timestamp in a `title`, so the cell
  *  stays scannable while the exact value is one hover away. */
