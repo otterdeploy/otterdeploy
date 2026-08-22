@@ -262,40 +262,41 @@ html > body[data-scroll-locked] {
 }
 
 /* ── Art fields ────────────────────────────────────────────────────────────
-   The showcase visuals sit on a deep Signal-Blue field with film grain, so a
+   The showcase visuals sit on a warm near-black field with film grain, so a
    panel of UI reads as a product shot rather than a card on a page.
 
-   This is a deliberate departure from DESIGN.md's ≤10%-accent rule, and it is
-   scoped to the marketing surface only: the dashboard's One Voice Rule exists
-   so a blue button means "do this", and there are no buttons in here. The
-   discipline that IS kept is the hue, one blue, no second accent, no gradient
-   text, nothing the product itself wouldn't recognise. */
+   The field is deliberately neutral: it restores DESIGN.md's ≤10%-accent rule
+   to the marketing surface, and the dark-navy visuals inside finally contrast
+   with their frame instead of dissolving into it. Blue exists on this page at
+   interaction scale only: buttons, links, the odd accent dot. */
 .od-field {
   position: relative;
   isolation: isolate;
-  background-color: #0a0f24;
-  background-image:
-    radial-gradient(115% 100% at 12% -10%, oklch(0.5 0.22 264 / 0.85), transparent 62%),
-    radial-gradient(90% 85% at 105% 108%, oklch(0.42 0.2 268 / 0.7), transparent 65%);
+  background-color: #161512;
+  background-image: radial-gradient(
+    115% 100% at 12% -10%,
+    rgba(255, 255, 250, 0.06),
+    transparent 62%
+  );
 
   /* Re-scope the palette so anything dropped inside, a visual, a heading, a
      state chip: inverts onto the field without knowing it's there. Panels
-     land as dark glass on blue, which is what makes them read as screens. */
-  --background: #0d1120;
-  --foreground: #f6f7fb;
-  --card: #0d1120;
-  --card-foreground: #f6f7fb;
-  --muted-foreground: #b6bfd8;
-  --muted: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.14);
+     land as dark glass on ink, which is what makes them read as screens. */
+  --background: #191813;
+  --foreground: #f5f5f0;
+  --card: #191813;
+  --card-foreground: #f5f5f0;
+  --muted-foreground: #a3a29a;
+  --muted: rgba(255, 255, 250, 0.06);
+  --border: rgba(255, 255, 250, 0.14);
   --success: #4ade80;
   --warning: #fbbf24;
   --info: #7ab5ff;
   --destructive: #f87171;
-  --od-accent: oklch(0.7 0.17 262);
+  --od-accent: oklch(0.623 0.214 259.815);
 }
 .dark .od-field {
-  background-color: #070a18;
+  background-color: #121110;
 }
 
 /* Film grain. An inline feTurbulence keeps the page self-contained, no image
@@ -310,16 +311,20 @@ html > body[data-scroll-locked] {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Light rays: two soft diagonal streaks, the trace of something moving fast. */
+/* One soft diagonal streak: the trace of something moving, kept neutral so
+   the field stays a stage rather than becoming the show. */
 .od-field::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  opacity: 0.5;
-  background-image:
-    linear-gradient(105deg, transparent 34%, oklch(0.75 0.14 220 / 0.35) 39%, transparent 44%),
-    linear-gradient(105deg, transparent 58%, oklch(0.8 0.12 200 / 0.22) 61%, transparent 65%);
+  opacity: 0.35;
+  background-image: linear-gradient(
+    105deg,
+    transparent 34%,
+    rgba(255, 255, 250, 0.09) 39%,
+    transparent 44%
+  );
 }
 
 /* ── Isometric platform diagram ────────────────────────────────────────────
