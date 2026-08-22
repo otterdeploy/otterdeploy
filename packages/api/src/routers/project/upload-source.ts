@@ -21,7 +21,7 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq } from "drizzle-orm";
 
-import { resolveBuildLane } from "../../lib/build-lane";
+import { resolveBuildLane } from "../../lib/build-target";
 import { emitDeployStarted } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
@@ -137,7 +137,7 @@ export async function triggerUploadBuild(args: {
   void publishResourceChanged(args.resourceId);
 
   // Route to the project's build server lane, if it has a dedicated one.
-  const lane = await resolveBuildLane(projectId);
+  const lane = await resolveBuildLane(projectId, args.resourceId);
   const enqueued = await Result.tryPromise({
     try: () =>
       triggerDeploy(

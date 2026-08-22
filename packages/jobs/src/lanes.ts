@@ -3,10 +3,10 @@
  *
  * One global `deploy.triggered` queue means a slow build blocks every project
  * on the install. Lanes split that: each builder process drains ONE lane
- * (env `BUILDER_LANE`), and the enqueue side routes a project to the lane of
- * its dedicated build server (`server.build_lane`: see
- * packages/api/src/lib/build-lane.ts). Installs that never configure a lane
- * resolve everything to "default" and behave exactly as before.
+ * (env `BUILDER_LANE`), and the enqueue side routes a service to the lane of
+ * its assigned build server (`server.build_lane`: see
+ * packages/api/src/lib/build-target.ts). Installs that never assign a build
+ * server resolve everything to "default" and behave exactly as before.
  *
  * Queue naming is deliberately asymmetric: the default lane keeps the
  * pre-lane queue name `deploy.triggered` VERBATIM, so jobs enqueued before

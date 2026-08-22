@@ -25,7 +25,7 @@ import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { fetchBranchHead } from "../../git/github-app";
-import { resolveBuildLane } from "../../lib/build-lane";
+import { resolveBuildLane } from "../../lib/build-target";
 import { type ServiceManifest } from "../../stack/manifest";
 import { inspectRepoTree } from "../git/inspect";
 import { emitDeployStarted } from "./deployments-emit";
@@ -181,7 +181,7 @@ export async function enqueueGitBuild(args: {
   // (a 500 to the user and a forever-pending badge). Same string-error channel
   // as the SHA lookup so apply folds it into skipped[].
   // Route to the project's build server lane, if it has a dedicated one.
-  const lane = await resolveBuildLane(args.projectId);
+  const lane = await resolveBuildLane(args.projectId, args.resourceId);
   const enqueueResult = await Result.tryPromise({
     try: () =>
       triggerDeploy(

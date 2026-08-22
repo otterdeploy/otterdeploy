@@ -37,6 +37,7 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       name: project.name,
       slug: project.slug,
       environmentId: project.environmentId,
+      buildServerId: project.buildServerId,
       stackFile: project.stackFile,
       stackFileVersion: project.stackFileVersion,
       lastAppliedFile: project.lastAppliedFile,

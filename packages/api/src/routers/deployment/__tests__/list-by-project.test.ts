@@ -105,6 +105,7 @@ const projectRow: ProjectRow = {
   organizationId,
   name: "test",
   slug: "test",
+  buildServerId: null,
   environmentId: null,
   stackFile: null,
   stackFileVersion: 0,
@@ -144,6 +145,7 @@ function serviceLookup(resourceId: ReturnType<typeof idSchema.resource.parse>): 
       },
       service: {
         resourceId,
+        buildServerId: null,
         image: "registry.local/app:abc",
         imageDigest: null,
         command: null,

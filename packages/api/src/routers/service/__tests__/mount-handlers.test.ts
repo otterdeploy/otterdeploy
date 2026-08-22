@@ -40,6 +40,7 @@ const projectRow: ProjectRow = {
   organizationId,
   name: "proj",
   slug: "proj",
+  buildServerId: null,
   environmentId: null,
   stackFile: null,
   stackFileVersion: 0,
@@ -74,6 +75,7 @@ const resourceRow: ResourceRow = {
 
 const serviceRow: ServiceResourceRow = {
   resourceId,
+  buildServerId: null,
   image: "nginx:latest",
   imageDigest: null,
   command: null,
