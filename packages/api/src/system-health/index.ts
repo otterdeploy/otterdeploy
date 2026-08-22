@@ -10,9 +10,16 @@ export {
   getHostHealth,
   type DockerUsage,
   type HealthRecommendation,
+  type HostCpu,
+  type HostCpuBreakdown,
+  type HostDiskIo,
+  type HostFilesystem,
   type HostHealth,
+  type HostLoad,
+  type HostNetworkInterface,
   type ReclaimTarget,
 } from "./host-health";
+export { deriveServerMetricValues, type ServerMetricValues } from "./metric-row";
 export { agentHealthIngestHandler, HEALTH_SAMPLE_INTERVAL_MS } from "./agent-ingest";
 export { checkReadiness, type ReadinessResult } from "./readiness";
 export { startHealthAgentReconciler, startLocalHealthSampler } from "./agent-service";
