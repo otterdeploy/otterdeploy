@@ -22,6 +22,17 @@ export {
 export { deriveServerMetricValues, type ServerMetricValues } from "./metric-row";
 export { agentHealthIngestHandler, HEALTH_SAMPLE_INTERVAL_MS } from "./agent-ingest";
 export { checkReadiness, type ReadinessResult } from "./readiness";
+export {
+  getSystemdUnits,
+  getUnitDetails,
+  UNIT_ACTIVE_STATES,
+  UNIT_SUB_STATES,
+  type SystemdSection,
+  type SystemdUnit,
+  type UnitActiveState,
+  type UnitProperties,
+  type UnitSubState,
+} from "./systemd";
 export { startHealthAgentReconciler, startLocalHealthSampler } from "./agent-service";
 export { startHostHealthMonitor } from "./monitor";
 export {
@@ -31,5 +42,7 @@ export {
   type OrphanResourceType,
   type RecordOrphanInput,
 } from "./orphan-gc";
+export { systemdReportField, systemdSectionSchema, systemdUnitSchema } from "./unit-report";
+export { recordServerUnits } from "./unit-store";
 export { reclaimSpace, type ReclaimResult } from "./reclaim";
 export { deriveRecommendations } from "./recommendations";

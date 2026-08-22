@@ -4,6 +4,9 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+// From the pure parse module, not the collector: the contract is imported
+// (type-only) by the web app, and it has no business pulling node:fs in.
+import { UNIT_ACTIVE_STATES, UNIT_SUB_STATES } from "../../system-health/systemd-parse";
 import { serverIdField } from "../project/contract/shared";
 import { hostHealthSchema } from "../system/contract";
 
@@ -258,6 +261,31 @@ const serverMetricPointSchema = z.object({
 });
 
 /**
+ * Latest per-unit systemd status for ONE server (server_unit): docker, sshd,
+ * the firewall, the log shipper. A status surface, not a series, so there is
+ * exactly one row per unit and no time range to ask for. Units a host stops
+ * reporting age out of the table on their own; `stale` flags the ones whose
+ * host has gone quiet in the meantime.
+ */
+const serverUnitEntrySchema = z.object({
+  unitName: z.string(),
+  activeState: z.enum(UNIT_ACTIVE_STATES),
+  subState: z.enum(UNIT_SUB_STATES),
+  /** Percent of one host's worth of CPU, derived across two reports. */
+  cpuPct: z.number(),
+  /** Null when the unit has no memory accounting on that host. */
+  memBytes: z.number().nullable(),
+  memPeakBytes: z.number().nullable(),
+  restartCount: z.number().int(),
+  activeEnterAt: z.string().nullable(),
+  updatedAt: z.string(),
+  /** Last report older than 3x the sample interval: the host went quiet. */
+  stale: z.boolean(),
+});
+
+const serverUnitsInput = z.object({ id: serverIdField });
+
+/**
  * Live swarm topology (`docker node ls`) enriched with each node's matching
  * server-row id: feeds the "Managers & quorum" card and the leader marker
  * on the servers table. `swarm: false` under the plain-docker runtime; the
@@ -442,6 +470,10 @@ export const serverContract = {
     .meta({ path: `${basePath}/{id}/metrics`, tag, method: "GET" })
     .input(serverMetricsInput)
     .output(z.object({ points: z.array(serverMetricPointSchema) })),
+  units: oc
+    .meta({ path: `${basePath}/{id}/units`, tag, method: "GET" })
+    .input(serverUnitsInput)
+    .output(z.array(serverUnitEntrySchema)),
   enrollments: oc
     .meta({ path: `${basePath}/enrollments`, tag, method: "GET" })
     .input(listEnrollmentsInput)
