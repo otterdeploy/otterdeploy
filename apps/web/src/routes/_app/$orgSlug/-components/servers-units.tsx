@@ -26,6 +26,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Input } from "@/shared/components/ui/input";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { orpc } from "@/shared/server/orpc";
+import { humanizeSeconds } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
 import { fmtBytes } from "./servers-health-pool";
@@ -63,18 +64,13 @@ const STATE_DOT: Record<Unit["activeState"], string> = {
   unknown: "bg-muted-foreground/40",
 };
 
-/** Uptime from the unit's last activation, to two significant units. */
+/** Uptime since the unit's last activation. Null when the host never told us
+ *  when that was, or when its clock puts it in the future — both are "we
+ *  can't say", which is not the same as "just started". */
 function since(iso: string | null): string | null {
   if (iso === null) return null;
   const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 0) return null;
-  const days = Math.floor(seconds / 86_400);
-  const hours = Math.floor((seconds % 86_400) / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
-  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  if (mins > 0) return `${mins}m`;
-  return "<1m";
+  return seconds < 0 ? null : humanizeSeconds(seconds);
 }
 
 /** `docker.service` → `docker`. The suffix is the same on almost every row,
