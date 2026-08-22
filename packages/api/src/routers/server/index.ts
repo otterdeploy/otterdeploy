@@ -2,6 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { queryServerMetrics } from "../../metrics/server-query";
 import { setServerAvailability } from "./availability";
 import { serverEnrollmentRouter } from "./enrollment-router";
 import {
@@ -164,6 +165,21 @@ export const serverRouter = {
 
   health: orgScopedProcedure.server.health.handler(async ({ context }) => {
     return getServerHealth({ organizationId: context.activeOrganizationId });
+  }),
+
+  // Per-node history. `health` is the latest snapshot (one upserted row per
+  // server); this is the append-only series behind it. An id the org does not
+  // own yields an empty series rather than an error: the join is the auth
+  // boundary and an empty chart leaks nothing.
+  metrics: orgScopedProcedure.server.metrics.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "server", id: input.id } });
+    const since = new Date(Date.now() - input.windowMinutes * 60 * 1000);
+    const points = await queryServerMetrics({
+      organizationId: context.activeOrganizationId,
+      serverId: input.id,
+      since,
+    });
+    return { points };
   }),
 
   ...serverEnrollmentRouter,

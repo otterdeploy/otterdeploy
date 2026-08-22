@@ -1,9 +1,12 @@
 /**
  * Host introspection: what the server the user deployed on actually looks
- * like right now: memory (+swap), disk at the data root, and Docker's disk
- * footprint (images/containers/volumes/build cache) with how much of it is
- * reclaimable. Feeds the Instance page "Server health" card, the monitor's
- * threshold alerts, and the reclaim recommendations.
+ * like right now: CPU (total, breakdown and per-core), load average, memory
+ * (+swap, +cache, +ZFS ARC), every mounted filesystem, per-device disk I/O,
+ * per-interface network throughput, and Docker's disk footprint
+ * (images/containers/volumes/build cache) with how much of it is reclaimable.
+ * Feeds the Instance page "Server health" card, the per-node metric history
+ * (server_metric), the monitor's threshold alerts, and the reclaim
+ * recommendations.
  *
  * Everything is best-effort per section: a Docker hiccup nulls the docker
  * block instead of failing the whole read (honest-about-system-state: the UI
@@ -13,10 +16,16 @@ import { Docker } from "@otterdeploy/docker";
 import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { existsSync } from "node:fs";
-import { readFile, statfs } from "node:fs/promises";
+import { statfs } from "node:fs/promises";
 import { freemem, totalmem } from "node:os";
 
+import type { HostDiskIo, HostNetworkInterface } from "./proc-io";
+
 import { getBranchPoolHealth, type BranchPoolHealth } from "./branch-pool";
+import { readProcTelemetry } from "./host-telemetry";
+import { parseArcSize, type HostCpu, type HostLoad } from "./proc-cpu";
+import { readFilesystems, type HostFilesystem } from "./proc-filesystems";
+import { procRoot, readProcFile } from "./proc-util";
 // Type-only in the other direction, so this is not a runtime cycle.
 import { deriveRecommendations } from "./recommendations";
 
@@ -29,7 +38,18 @@ export interface HostMemory {
   /** Null when the platform exposes no swap counters (e.g. macOS dev). */
   swapTotalBytes: number | null;
   swapFreeBytes: number | null;
+  /** Page cache and buffers, reported SEPARATELY so a consumer never counts
+   *  reclaimable cache as memory pressure. Null off Linux. */
+  buffersBytes: number | null;
+  cachedBytes: number | null;
+  /** ZFS ARC size. Cache too, but it lives outside meminfo's `Cached`, so a
+   *  ZFS host reads as permanently starved unless it is charted separately. */
+  zfsArcBytes: number | null;
 }
+
+export type { HostCpu, HostCpuBreakdown, HostLoad } from "./proc-cpu";
+export type { HostFilesystem } from "./proc-filesystems";
+export type { HostDiskIo, HostNetworkInterface } from "./proc-io";
 
 export interface HostDisk {
   path: string;
@@ -91,7 +111,17 @@ export interface HealthRecommendation {
 
 export interface HostHealth {
   memory: HostMemory;
+  /** The data-root filesystem. Kept as its own field for compatibility; the
+   *  full list is `filesystems`. */
   disk: HostDisk | null;
+  /** Every real mounted filesystem (pseudo filesystems filtered out). */
+  filesystems: HostFilesystem[] | null;
+  cpu: HostCpu | null;
+  load: HostLoad | null;
+  /** Per whole block device, rates over the interval since the last sample. */
+  diskIo: HostDiskIo[] | null;
+  /** Per interface (loopback excluded). */
+  network: HostNetworkInterface[] | null;
   docker: DockerUsage | null;
   /** ZFS database-branching pool, when this install provisioned one. */
   branchPool: BranchPoolHealth | null;
@@ -107,11 +137,11 @@ function meminfoBytes(text: string, key: string): number | null {
 
 async function readMemory(): Promise<HostMemory> {
   const total = totalmem();
-  const proc = await Result.tryPromise({
-    try: () => readFile("/proc/meminfo", "utf8"),
-    catch: () => null,
-  });
-  const text = proc.isOk() ? proc.value : null;
+  const root = procRoot();
+  const [text, arcText] = await Promise.all([
+    readProcFile(`${root}/meminfo`),
+    readProcFile(`${root}/spl/kstat/zfs/arcstats`),
+  ]);
   const available = (text ? meminfoBytes(text, "MemAvailable") : null) ?? freemem();
   return {
     totalBytes: total,
@@ -119,6 +149,9 @@ async function readMemory(): Promise<HostMemory> {
     usedPct: total > 0 ? Math.round(((total - available) / total) * 100) : 0,
     swapTotalBytes: text ? meminfoBytes(text, "SwapTotal") : null,
     swapFreeBytes: text ? meminfoBytes(text, "SwapFree") : null,
+    buffersBytes: text ? meminfoBytes(text, "Buffers") : null,
+    cachedBytes: text ? meminfoBytes(text, "Cached") : null,
+    zfsArcBytes: arcText ? parseArcSize(arcText) : null,
   };
 }
 
@@ -216,9 +249,11 @@ async function readDockerUsage(): Promise<DockerUsage | null> {
 }
 
 export async function getHostHealth(): Promise<HostHealth> {
-  const [memory, disk, dockerUsage, branchPool] = await Promise.all([
+  const [memory, disk, filesystems, telemetry, dockerUsage, branchPool] = await Promise.all([
     readMemory(),
     readDisk(),
+    readFilesystems(),
+    readProcTelemetry(),
     withTimeout(
       Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
         r.isOk() ? r.value : null,
@@ -235,6 +270,11 @@ export async function getHostHealth(): Promise<HostHealth> {
   return {
     memory,
     disk,
+    filesystems,
+    cpu: telemetry.cpu,
+    load: telemetry.load,
+    diskIo: telemetry.diskIo,
+    network: telemetry.network,
     docker: dockerUsage,
     branchPool,
     recommendations: deriveRecommendations(memory, disk, dockerUsage, branchPool),

@@ -85,8 +85,62 @@ const branchPoolSchema = z.object({
   suggestGrowBytes: z.number().nullable(),
 });
 
+const hostFilesystemSchema = z.object({
+  device: z.string(),
+  mountPoint: z.string(),
+  fsType: z.string(),
+  totalBytes: z.number(),
+  freeBytes: z.number(),
+  usedPct: z.number(),
+});
+
+const hostCpuSchema = z.object({
+  usedPct: z.number(),
+  coreCount: z.number(),
+  breakdown: z.object({
+    userPct: z.number(),
+    systemPct: z.number(),
+    iowaitPct: z.number(),
+    stealPct: z.number(),
+    idlePct: z.number(),
+  }),
+  perCorePct: z.array(z.number()),
+});
+
+const hostLoadSchema = z.object({
+  load1: z.number(),
+  load5: z.number(),
+  load15: z.number(),
+  runnableEntities: z.number().nullable(),
+  totalEntities: z.number().nullable(),
+});
+
+const hostDiskIoSchema = z.object({
+  device: z.string(),
+  readBytesPerSec: z.number(),
+  writeBytesPerSec: z.number(),
+  readAwaitMs: z.number(),
+  writeAwaitMs: z.number(),
+  utilPct: z.number(),
+});
+
+const hostNetworkInterfaceSchema = z.object({
+  name: z.string(),
+  rxBytesPerSec: z.number(),
+  txBytesPerSec: z.number(),
+  rxBytesTotal: z.number(),
+  txBytesTotal: z.number(),
+});
+
 // Exported for the server router: per-node health entries (server.health)
 // carry the same HostHealth shape, as reported by the health agents.
+//
+// Everything added after the original memory/disk/docker/branchPool set is
+// `.nullish()` (optional AND nullable) ON PURPOSE: a stored sample written by
+// an older agent has none of those keys, and this schema is what
+// getServerHealth re-parses persisted payloads with. A required field here
+// would turn every pre-upgrade node's card into "no data" during a rolling
+// platform update.
 export const hostHealthSchema = z.object({
   memory: z.object({
     totalBytes: z.number(),
@@ -94,6 +148,9 @@ export const hostHealthSchema = z.object({
     usedPct: z.number(),
     swapTotalBytes: z.number().nullable(),
     swapFreeBytes: z.number().nullable(),
+    buffersBytes: z.number().nullish(),
+    cachedBytes: z.number().nullish(),
+    zfsArcBytes: z.number().nullish(),
   }),
   disk: z
     .object({
@@ -103,6 +160,11 @@ export const hostHealthSchema = z.object({
       usedPct: z.number(),
     })
     .nullable(),
+  filesystems: z.array(hostFilesystemSchema).nullish(),
+  cpu: hostCpuSchema.nullish(),
+  load: hostLoadSchema.nullish(),
+  diskIo: z.array(hostDiskIoSchema).nullish(),
+  network: z.array(hostNetworkInterfaceSchema).nullish(),
   docker: z
     .object({
       images: usageSectionSchema,
