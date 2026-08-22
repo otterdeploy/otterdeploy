@@ -15,7 +15,11 @@ import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { organizationIdField } from "../project/contract/shared";
-import { runtimeSettingsDraftSchema } from "./runtime-settings-schema";
+import {
+  runtimeSettingsDraftSchema,
+  signInMethodsDraftSchema,
+  signInMethodsSchema,
+} from "./runtime-settings-schema";
 
 const tag = "organization";
 const basePath = "/organizations";
@@ -211,6 +215,10 @@ const accessSettingsSchema = z.object({
 const setAccessSettingsInput = z.object({
   organizationId: organizationIdField,
   registrationMode: registrationModeEnum,
+});
+
+const setSignInMethodsInput = signInMethodsDraftSchema.extend({
+  organizationId: organizationIdField,
 });
 
 const socialProviderIdEnum = z.enum(["github", "google", "gitlab"]);
@@ -461,6 +469,16 @@ export const organizationContract = {
     .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "PATCH" })
     .input(setAccessSettingsInput)
     .output(accessSettingsSchema),
+
+  getSignInMethods: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/sign-in-methods`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(signInMethodsSchema),
+
+  setSignInMethods: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/sign-in-methods`, tag, method: "PATCH" })
+    .input(setSignInMethodsInput)
+    .output(signInMethodsSchema),
 
   listSocialProviders: oc
     .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "GET" })

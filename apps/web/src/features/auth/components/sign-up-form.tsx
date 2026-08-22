@@ -8,19 +8,20 @@ import * as z from "zod";
 import { authClient } from "@/lib/auth-client";
 import { authQueryKeys } from "@/lib/auth-query-keys";
 
+import type { AuthPublicConfig } from "../data/registration-mode";
+
 import { AuthField, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
 
-export function SignUpForm({
-  bootstrap,
-  socialProviders,
-  onSwitchToSignIn,
-}: {
-  bootstrap: boolean;
-  /** Provider ids live on the server right now. See /api/auth/public-config. */
-  socialProviders: string[];
-  onSwitchToSignIn: () => void;
-}) {
+/**
+ * The mutation and the field state behind the sign-up form.
+ *
+ * Split out of the component so `SignUpForm` stays under the size cap and reads
+ * as what it is: markup that decides which methods to draw. The validators
+ * depend on `bootstrap` (the installer token is required only for the first
+ * account), so this takes it as an argument rather than reading it twice.
+ */
+function useSignUpForm(bootstrap: boolean) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { redirect } = useSearch({ from: "/sign-in" });
@@ -75,6 +76,24 @@ export function SignUpForm({
     },
   });
 
+  return form;
+}
+
+export function SignUpForm({
+  bootstrap,
+  config,
+  onSwitchToSignIn,
+}: {
+  bootstrap: boolean;
+  /** Which methods this installation offers. Served at runtime from
+   *  /api/auth/public-config; the server refuses a disabled method's requests
+   *  independently, so this only decides what is DRAWN. */
+  config: AuthPublicConfig;
+  onSwitchToSignIn: () => void;
+}) {
+  const { t } = useTranslation();
+  const form = useSignUpForm(bootstrap);
+
   return (
     <div>
       <div className="mb-8">
@@ -84,77 +103,91 @@ export function SignUpForm({
         <p className="mt-1.5 text-[13px] text-muted-foreground">{t("auth.signUp.subtitle")}</p>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void form.handleSubmit();
-        }}
-        className="space-y-5"
-      >
-        <form.Field name="name">
-          {(field) => (
-            <AuthField
-              field={field}
-              label={t("auth.signUp.nameLabel")}
-              autoComplete="name"
-              placeholder={t("auth.signUp.namePlaceholder")}
-            />
-          )}
-        </form.Field>
-
-        <form.Field name="email">
-          {(field) => (
-            <AuthField
-              field={field}
-              label={t("auth.signUp.emailLabel")}
-              type="email"
-              autoComplete="email"
-              placeholder={t("auth.signUp.emailPlaceholder")}
-            />
-          )}
-        </form.Field>
-
-        <form.Field name="password">
-          {(field) => (
-            <AuthField
-              field={field}
-              label={t("auth.signUp.passwordLabel")}
-              type="password"
-              autoComplete="new-password"
-              placeholder={t("auth.signUp.passwordPlaceholder")}
-            />
-          )}
-        </form.Field>
-
-        {bootstrap && (
-          <form.Field name="bootstrapToken">
+      {/* No password form when the operator has switched password sign-in off.
+          Bootstrap is the exception and the server forces `password` true for
+          it, because the first account can only be minted with the installer's
+          token through /sign-up/email. */}
+      {config.signIn.password ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void form.handleSubmit();
+          }}
+          className="space-y-5"
+        >
+          <form.Field name="name">
             {(field) => (
               <AuthField
                 field={field}
-                label={t("auth.signUp.bootstrapToken")}
-                type="password"
-                autoComplete="off"
-                placeholder={t("auth.signUp.bootstrapTokenPlaceholder")}
-                hint={t("auth.signUp.bootstrapTokenHint")}
+                label={t("auth.signUp.nameLabel")}
+                autoComplete="name"
+                placeholder={t("auth.signUp.namePlaceholder")}
               />
             )}
           </form.Field>
-        )}
 
-        <form.Subscribe selector={(state) => state}>
-          {(state) => (
-            <AuthSubmitButton
-              disabled={!state.canSubmit || state.isSubmitting}
-              pending={state.isSubmitting}
-              idleLabel={t("auth.signUp.submit")}
-              pendingLabel={t("auth.signUp.creatingAccount")}
-            />
+          <form.Field name="email">
+            {(field) => (
+              <AuthField
+                field={field}
+                label={t("auth.signUp.emailLabel")}
+                type="email"
+                autoComplete="email"
+                placeholder={t("auth.signUp.emailPlaceholder")}
+              />
+            )}
+          </form.Field>
+
+          <form.Field name="password">
+            {(field) => (
+              <AuthField
+                field={field}
+                label={t("auth.signUp.passwordLabel")}
+                type="password"
+                autoComplete="new-password"
+                placeholder={t("auth.signUp.passwordPlaceholder")}
+              />
+            )}
+          </form.Field>
+
+          {bootstrap && (
+            <form.Field name="bootstrapToken">
+              {(field) => (
+                <AuthField
+                  field={field}
+                  label={t("auth.signUp.bootstrapToken")}
+                  type="password"
+                  autoComplete="off"
+                  placeholder={t("auth.signUp.bootstrapTokenPlaceholder")}
+                  hint={t("auth.signUp.bootstrapTokenHint")}
+                />
+              )}
+            </form.Field>
           )}
-        </form.Subscribe>
-      </form>
 
-      {!bootstrap && <SocialSignIn dividerLabel="or sign up with" providers={socialProviders} />}
+          <form.Subscribe selector={(state) => state}>
+            {(state) => (
+              <AuthSubmitButton
+                disabled={!state.canSubmit || state.isSubmitting}
+                pending={state.isSubmitting}
+                idleLabel={t("auth.signUp.submit")}
+                pendingLabel={t("auth.signUp.creatingAccount")}
+              />
+            )}
+          </form.Subscribe>
+        </form>
+      ) : null}
+
+      {/* Never during bootstrap: the first account has to carry the installer's
+          bootstrap token, which an OAuth callback cannot safely bring back
+          across the provider. See packages/auth/src/registration-policy.ts. */}
+      {bootstrap ? null : (
+        <SocialSignIn
+          dividerLabel={config.signIn.password ? t("auth.signUp.dividerSignUp") : null}
+          providers={config.socialProviders}
+        />
+      )}
 
       <p className="mt-6 text-[13px] text-muted-foreground">
         {t("auth.signUp.hasAccount")}{" "}

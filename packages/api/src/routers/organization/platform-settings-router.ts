@@ -26,9 +26,11 @@ import {
   getAccessSettings,
   getCrowdsecSettings,
   getRuntimeSettings,
+  getSignInMethods,
   saveAccessSettings,
   saveCrowdsecSettings,
   saveRuntimeSettings,
+  saveSignInMethods,
 } from "./runtime-settings";
 import { listSocialProviders, saveSocialProvider } from "./social-providers";
 
@@ -160,6 +162,23 @@ export const platformSettingsRouter = {
         access: { registrationMode: input.registrationMode },
       });
       return saveAccessSettings(input.registrationMode);
+    },
+  ),
+
+  getSignInMethods: requireInstallAdmin().organization.getSignInMethods.handler(async () =>
+    getSignInMethods(),
+  ),
+
+  setSignInMethods: requireInstallAdmin().organization.setSignInMethods.handler(
+    async ({ input, context }) => {
+      // The whole set, never a partial patch: the lock-out check inside
+      // saveSignInMethods has to see the resulting state of all three.
+      const { organizationId: _scope, ...methods } = input;
+      context.log.set({
+        target: { type: "organization", id: context.activeOrganizationId },
+        access: methods,
+      });
+      return saveSignInMethods(methods);
     },
   ),
 

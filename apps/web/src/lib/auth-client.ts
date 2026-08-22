@@ -28,8 +28,11 @@ export const authClient = createAuthClient({
     // security page uses. The WebAuthn ceremony runs in the browser; the
     // server only ever sees public keys: see db/schema/auth.ts `passkey`.
     passkeyClient(),
-    // Enterprise SSO. Provides `signIn.sso({ email })` for the sign-in page and
-    // the `sso.*` provider-management calls the workspace settings page uses.
+    // Enterprise SSO. Provides `signIn.sso({ providerId })` for the sign-in
+    // page's per-provider buttons (it also accepts an email domain, which the
+    // page no longer uses: see features/auth/components/enterprise-sso-sign-in
+    // for why a button beats an address field), plus the `sso.*`
+    // provider-management calls the workspace settings page uses.
     // The list endpoint returns an already-redacted view (no client secret), so
     // the UI can read it directly. See db/schema/auth.ts `ssoProvider`.
     ssoClient(),

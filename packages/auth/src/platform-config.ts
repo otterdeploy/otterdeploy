@@ -18,11 +18,16 @@
  */
 
 import { db } from "@otterdeploy/db";
+import { user as userTbl } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode } from "@otterdeploy/shared/crypto";
 import { eq } from "drizzle-orm";
 import { log } from "evlog";
+
+import type { SignInMethods } from "./sign-in-methods";
+
+import { DEFAULT_SIGN_IN_METHODS } from "./sign-in-methods";
 
 const V1_FORMAT = "v1";
 const HKDF_INFO = "otterdeploy/secret-encryption/v1";
@@ -124,6 +129,67 @@ export async function registrationPolicy(): Promise<RegistrationPolicy> {
   }
 }
 
+/**
+ * Registration surface the sign-in page renders:
+ *   "bootstrap", no account exists yet; offer the bootstrap-token form.
+ *   "open": operator allows self-registration; offer plain sign-up.
+ *   "invite-only": sign-up only reachable through an invitation link.
+ */
+export type RegistrationMode = "bootstrap" | "invite-only" | "open";
+
+/**
+ * Reads its own columns rather than going through `readRow` because it also
+ * needs to know whether ANY account exists, and "no user rows and no
+ * bootstrap timestamp" is what distinguishes a fresh install from one whose
+ * operator has closed registration.
+ */
+export async function getRegistrationMode(): Promise<RegistrationMode> {
+  const [[existingUser], [installation]] = await Promise.all([
+    db.select({ id: userTbl.id }).from(userTbl).limit(1),
+    db
+      .select({
+        bootstrapCompletedAt: platformSettings.bootstrapCompletedAt,
+        registrationMode: platformSettings.registrationMode,
+      })
+      .from(platformSettings)
+      .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+      .limit(1),
+  ]);
+  if (!existingUser && !installation?.bootstrapCompletedAt) return "bootstrap";
+  return installation?.registrationMode === "open" ? "open" : "invite-only";
+}
+
+/**
+ * Which sign-in methods this installation currently accepts.
+ *
+ * Read fresh, uncached, for the same reason `registrationPolicy` above is: an
+ * operator who turns a method off is making a security decision and must have
+ * it take effect on the very next request, not after a TTL. The gate that
+ * calls this only runs on the sign-in paths themselves (see
+ * ./sign-in-methods.ts), so `/get-session` and the polled CLI token endpoint
+ * never pay for it.
+ *
+ * A null column means enabled, matching the rest of `platform_settings`. Fails
+ * OPEN on a database error: see DEFAULT_SIGN_IN_METHODS for why this is the
+ * opposite choice from `registrationPolicy`.
+ */
+export async function resolveSignInMethods(): Promise<SignInMethods> {
+  try {
+    const row = await readRow();
+    return {
+      password: row?.signInPasswordEnabled ?? DEFAULT_SIGN_IN_METHODS.password,
+      passkey: row?.signInPasskeyEnabled ?? DEFAULT_SIGN_IN_METHODS.passkey,
+      sso: row?.signInSsoEnabled ?? DEFAULT_SIGN_IN_METHODS.sso,
+    };
+  } catch (error) {
+    log.warn({
+      auth: { event: "sign-in-methods-read-failed", fallback: "all-enabled" },
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return DEFAULT_SIGN_IN_METHODS;
+  }
+}
+
 /** Column names per provider. Must stay identical to PROVIDER_COLUMNS in
  *  packages/api/src/lib/platform-runtime-settings.ts: that module writes these
  *  columns, this one reads them. */
@@ -149,10 +215,45 @@ const PROVIDER_COLUMNS = {
 >;
 
 const PROVIDER_ENV: Record<SocialProviderId, { clientId?: string; clientSecret?: string }> = {
-  github: { clientId: env.GITHUB_OAUTH_CLIENT_ID, clientSecret: env.GITHUB_OAUTH_CLIENT_SECRET },
-  google: { clientId: env.GOOGLE_OAUTH_CLIENT_ID, clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET },
-  gitlab: { clientId: env.GITLAB_OAUTH_CLIENT_ID, clientSecret: env.GITLAB_OAUTH_CLIENT_SECRET },
+  github: {
+    clientId: env.GITHUB_OAUTH_CLIENT_ID,
+    clientSecret: env.GITHUB_OAUTH_CLIENT_SECRET,
+  },
+  google: {
+    clientId: env.GOOGLE_OAUTH_CLIENT_ID,
+    clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
+  },
+  gitlab: {
+    clientId: env.GITLAB_OAUTH_CLIENT_ID,
+    clientSecret: env.GITLAB_OAUTH_CLIENT_SECRET,
+  },
 };
+
+/**
+ * Env-seeded social providers, in better-auth's own shape: the set used to
+ * build the FIRST auth instance, before the database is reachable.
+ *
+ * Derived from PROVIDER_ENV rather than spelled out a second time in
+ * ./index.ts, where it used to live. The two lists read the same six env vars,
+ * and a provider present in one but not the other would be a provider that
+ * works at boot and vanishes on the first `reloadAuth()`, or the reverse.
+ *
+ * A provider is included only when BOTH halves of its credential are present,
+ * so an unconfigured one is a clean no-op rather than a broken button.
+ */
+export function envSocialProviders(): Record<
+  string,
+  { clientId: string; clientSecret: string; issuer?: string }
+> {
+  const out: Record<string, { clientId: string; clientSecret: string; issuer?: string }> = {};
+  for (const id of SOCIAL_PROVIDER_IDS) {
+    const { clientId, clientSecret } = PROVIDER_ENV[id];
+    if (!clientId || !clientSecret) continue;
+    const issuer = id === "gitlab" ? env.GITLAB_OAUTH_ISSUER : undefined;
+    out[id] = { clientId, clientSecret, ...(issuer ? { issuer } : {}) };
+  }
+  return out;
+}
 
 function stored(row: PlatformRow | undefined, id: SocialProviderId) {
   const col = PROVIDER_COLUMNS[id];

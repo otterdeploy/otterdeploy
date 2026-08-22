@@ -20,6 +20,7 @@ import { env } from "@otterdeploy/env/web";
 import type { SsoProvider } from "@/features/sso/data/use-sso-providers";
 
 import { useDeleteSsoProvider, useSsoProviders } from "@/features/sso/data/use-sso-providers";
+import { InstanceSsoDisabledNotice } from "@/features/sso/instance-sso-notice";
 import { RegisterProviderDialog } from "@/features/sso/register-provider-dialog";
 import { useMembers } from "@/features/team/data/use-team";
 import { Page, PageHeader } from "@/shared/components/page";
@@ -183,6 +184,8 @@ function RouteComponent() {
           ) : null
         }
       />
+
+      <InstanceSsoDisabledNotice />
 
       {providers.isLoading ? (
         <div className="flex flex-col gap-2">

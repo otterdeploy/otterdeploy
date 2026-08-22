@@ -25,8 +25,13 @@ import { and, asc, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { log } from "evlog";
 
 import { createAuthAuditHook } from "./audit";
+import { enabledSocialProviderIds, setEnabledSocialProviderIds } from "./live-providers";
 import { ac, roles } from "./permissions";
-import { resolveSocialProviders, toBetterAuthSocialProviders } from "./platform-config";
+import {
+  envSocialProviders,
+  resolveSocialProviders,
+  toBetterAuthSocialProviders,
+} from "./platform-config";
 import {
   BOOTSTRAP_TOKEN_HEADER,
   decideRegistration,
@@ -93,67 +98,15 @@ async function hasSsoProviderForEmail(email: string): Promise<boolean> {
   return Boolean(found);
 }
 
-/**
- * Env-seeded social providers: the set used to build the FIRST auth instance,
- * before the database is reachable. Included only when both halves of a
- * credential are present, so an unconfigured provider is a clean no-op.
- * Distinct from the GitHub *App* used for git providers.
- *
- * Once the server has booted, `reloadAuth()` replaces this with the resolved
- * DB-or-env set (see ./platform-config.ts). The env values remain the
- * fallback for any provider the operator has not configured in the UI.
- */
-const envSocialProviders = {
-  ...(env.GITHUB_OAUTH_CLIENT_ID && env.GITHUB_OAUTH_CLIENT_SECRET
-    ? {
-        github: {
-          clientId: env.GITHUB_OAUTH_CLIENT_ID,
-          clientSecret: env.GITHUB_OAUTH_CLIENT_SECRET,
-        },
-      }
-    : {}),
-  ...(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET
-    ? {
-        google: {
-          clientId: env.GOOGLE_OAUTH_CLIENT_ID,
-          clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
-        },
-      }
-    : {}),
-  ...(env.GITLAB_OAUTH_CLIENT_ID && env.GITLAB_OAUTH_CLIENT_SECRET
-    ? {
-        gitlab: {
-          clientId: env.GITLAB_OAUTH_CLIENT_ID,
-          clientSecret: env.GITLAB_OAUTH_CLIENT_SECRET,
-          ...(env.GITLAB_OAUTH_ISSUER ? { issuer: env.GITLAB_OAUTH_ISSUER } : {}),
-        },
-      }
-    : {}),
-};
-
-/**
- * Registration surface the sign-in page renders:
- *   "bootstrap", no account exists yet; offer the bootstrap-token form.
- *   "open". Operator allows self-registration; offer plain sign-up.
- *   "invite-only": sign-up only reachable through an invitation link.
- */
-export type RegistrationMode = "bootstrap" | "invite-only" | "open";
-
-export async function getRegistrationMode(): Promise<RegistrationMode> {
-  const [[existingUser], [installation]] = await Promise.all([
-    db.select({ id: userTbl.id }).from(userTbl).limit(1),
-    db
-      .select({
-        bootstrapCompletedAt: platformSettings.bootstrapCompletedAt,
-        registrationMode: platformSettings.registrationMode,
-      })
-      .from(platformSettings)
-      .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-      .limit(1),
-  ]);
-  if (!existingUser && !installation?.bootstrapCompletedAt) return "bootstrap";
-  return installation?.registrationMode === "open" ? "open" : "invite-only";
-}
+// `RegistrationMode` / `getRegistrationMode` moved to ./platform-config.ts,
+// where every other read of the settings singleton already lives, and the live
+// provider list moved to ./live-providers.ts. Both so ./public-config.ts can
+// read them without importing THIS module: it describes the auth instance, and
+// a module that describes the instance importing the module that builds it is
+// a cycle waiting to bite. Re-exported here so every existing
+// `from "@otterdeploy/auth"` import keeps working unchanged.
+export { getRegistrationMode, type RegistrationMode } from "./platform-config";
+export { enabledSocialProviderIds } from "./live-providers";
 
 // Cookie security must track the scheme the platform is actually served over.
 // Hardcoding Secure + SameSite=None breaks the common self-hosted case of a
@@ -317,7 +270,9 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
     // Durable audit rows for the identity surface: better-auth owns these routes,
     // so the oRPC audit middleware never sees them. See ./audit-policy.ts.
     hooks: {
-      after: createAuthAuditHook({ resolveOrganizationId: resolveActiveOrganizationId }),
+      after: createAuthAuditHook({
+        resolveOrganizationId: resolveActiveOrganizationId,
+      }),
     },
     databaseHooks: {
       user: {
@@ -607,18 +562,11 @@ export type AuthInstance = ReturnType<typeof buildAuth>;
  * server calls `reloadAuth()` once during boot (and again after any social
  * sign-in setting is saved) to swap in the DB-resolved set.
  */
-let currentAuth: AuthInstance = buildAuth(envSocialProviders);
+let currentAuth: AuthInstance = buildAuth(envSocialProviders());
 
-/** Provider ids the live instance has registered. The sign-in page reads this
- *  through /api/auth/public-config so it renders exactly the buttons that
- *  actually work. It used to read the build-time VITE_AUTH_SOCIAL_PROVIDERS,
- *  which meant a self-hoster running the published image could never enable
- *  SSO without rebuilding the SPA. */
-export function enabledSocialProviderIds(): string[] {
-  return liveSocialProviderIds;
-}
-
-let liveSocialProviderIds: string[] = Object.keys(envSocialProviders);
+// The env-configured set describes the instance built above, until the server
+// calls `reloadAuth()` during boot and swaps in the DB-resolved one.
+setEnabledSocialProviderIds(Object.keys(envSocialProviders()));
 
 /**
  * Rebuild the auth instance against the current social-provider settings.
@@ -639,15 +587,17 @@ export async function reloadAuth(): Promise<{ providers: string[] }> {
     const resolved = await resolveSocialProviders();
     const providers = toBetterAuthSocialProviders(resolved);
     currentAuth = buildAuth(providers);
-    liveSocialProviderIds = resolved.map((p) => p.id);
-    log.info({ auth: { event: "reloaded", socialProviders: liveSocialProviderIds } });
-    return { providers: liveSocialProviderIds };
+    setEnabledSocialProviderIds(resolved.map((p) => p.id));
+    log.info({
+      auth: { event: "reloaded", socialProviders: enabledSocialProviderIds() },
+    });
+    return { providers: enabledSocialProviderIds() };
   } catch (error) {
     log.error({
-      auth: { event: "reload-failed", keeping: liveSocialProviderIds },
+      auth: { event: "reload-failed", keeping: enabledSocialProviderIds() },
       error: error instanceof Error ? error.message : String(error),
     });
-    return { providers: liveSocialProviderIds };
+    return { providers: enabledSocialProviderIds() };
   }
 }
 

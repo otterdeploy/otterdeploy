@@ -1,104 +1,79 @@
 /**
- * "Sign in with SSO": the enterprise-identity-provider entry point on the
+ * "Continue with <IdP>": the enterprise-identity-provider entry point on the
  * sign-in page.
  *
- * Distinct from `SocialSignIn` next to it: that renders a fixed set of buttons
- * for social providers the INSTALL has configured (GitHub, Google, GitLab).
- * This one is per-workspace and discovered at runtime. The user types an email,
- * the server matches its domain against a registered `sso_provider` row and
- * redirects to whichever IdP owns it. There is nothing to render a button for
- * up front, because the set of providers is a property of the address.
+ * One button per identity provider the installation has registered, discovered
+ * at runtime from /api/auth/public-config. Clicking one redirects straight to
+ * that IdP and the user comes back signed in.
  *
- * Collapsed to a single link by default. Most people on most installs sign in
- * with a password, and a permanently-expanded second email field on the sign-in
- * page would imply otherwise.
+ * This used to ask for a work email first, so the server could match its domain
+ * to a provider. That was the wrong shape. Every other federated method here is
+ * a single click, and a second email field under the password form made SSO
+ * look like another password prompt rather than a way past one. The domain
+ * lookup still exists on the server; the sign-in page just doesn't need to
+ * interview the visitor to reach it, because the provider handle is public
+ * (it is already in the IdP's redirect URI).
+ *
+ * Distinct from `SocialSignIn` next to it: that renders the INSTALL-wide social
+ * providers (GitHub, Google, GitLab) configured in Instance settings. These are
+ * per-workspace OIDC providers registered in Workspace → SSO.
+ *
+ * Renders nothing when the operator has switched enterprise SSO off, or when no
+ * provider is registered.
  */
 
 import { useState } from "react";
 
-import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 
-export function EnterpriseSsoSignIn() {
+import type { PublicSsoProvider } from "../data/registration-mode";
+
+export function EnterpriseSsoSignIn({ providers }: { providers: PublicSsoProvider[] }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState("");
+  // The id of the provider currently redirecting, so only the clicked button
+  // shows a pending state. A boolean would grey out all of them.
+  const [starting, setStarting] = useState<string | null>(null);
 
-  const start = useMutation({
-    mutationFn: async (address: string) => {
-      const result = await authClient.signIn.sso({
-        email: address,
-        callbackURL: `${window.location.origin}/`,
-        // Where the IdP sends someone whose domain resolves but whose sign-in
-        // the provider then rejects. Without it they land on a blank page with
-        // no way back to the form.
-        errorCallbackURL: `${window.location.origin}/sign-in`,
-      });
-      if (result.error) {
-        throw new Error(
-          result.error.message ?? result.error.statusText ?? "No SSO provider for that domain",
-        );
-      }
-      return result.data;
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Couldn't start SSO sign-in");
-    },
-  });
+  if (providers.length === 0) return null;
 
-  if (!open) {
-    return (
-      <div className="mt-4 text-center">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="text-[13px] text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-        >
-          Sign in with SSO
-        </button>
-      </div>
-    );
-  }
+  const start = async (providerId: string) => {
+    setStarting(providerId);
+    const result = await authClient.signIn.sso({
+      providerId,
+      callbackURL: `${window.location.origin}/`,
+      // Where the IdP sends someone whose provider resolves but whose sign-in
+      // it then rejects. Without it they land on a blank page with no way back
+      // to the form.
+      errorCallbackURL: `${window.location.origin}/sign-in`,
+    });
+    // Only reached when the redirect did NOT happen; on success the browser has
+    // already left the page.
+    if (result.error) {
+      setStarting(null);
+      toast.error(result.error.message ?? result.error.statusText ?? t("auth.sso.startFailed"));
+    }
+  };
 
   return (
-    <form
-      className="mt-4 space-y-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const trimmed = email.trim();
-        if (!trimmed.includes("@")) {
-          toast.error(t("auth.sso.enterWorkEmail"));
-          return;
-        }
-        start.mutate(trimmed);
-      }}
-    >
-      <Label htmlFor="sso-email" className="text-[13px]">
-        Work email
-      </Label>
-      <div className="flex gap-2">
-        <Input
-          id="sso-email"
-          type="email"
-          autoComplete="email"
-          autoFocus
-          placeholder="you@acme.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Button type="submit" disabled={start.isPending}>
-          {start.isPending ? "…" : "Continue"}
+    <div className="mt-3 space-y-3">
+      {providers.map((provider) => (
+        <Button
+          key={provider.providerId}
+          type="button"
+          variant="outline"
+          className="h-11 w-full rounded-lg"
+          disabled={starting !== null}
+          onClick={() => void start(provider.providerId)}
+        >
+          {starting === provider.providerId
+            ? t("auth.sso.redirectingTo", { provider: provider.label })
+            : t("auth.sso.continueWith", { provider: provider.label })}
         </Button>
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        You'll be redirected to your organization's identity provider.
-      </p>
-    </form>
+      ))}
+    </div>
   );
 }

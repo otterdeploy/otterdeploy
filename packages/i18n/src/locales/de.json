@@ -62,7 +62,9 @@
       "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein",
       "passwordMinLength": "Das Passwort muss mindestens 8 Zeichen lang sein",
       "noAccount": "Noch kein Konto?",
-      "createAccount": "Jetzt erstellen"
+      "createAccount": "Jetzt erstellen",
+      "dividerContinue": "oder weiter mit",
+      "noMethods": "Auf dieser Installation ist keine Anmeldemethode aktiviert. Eine Administratorin oder ein Administrator muss unter Einstellungen → Instanz → Anmeldemethoden wieder eine aktivieren."
     },
     "signUp": {
       "title": "Konto erstellen",
@@ -81,7 +83,8 @@
       "signIn": "Anmelden",
       "bootstrapToken": "Bootstrap-Token der Installation",
       "bootstrapTokenPlaceholder": "Füge den von install.sh ausgegebenen Token ein",
-      "bootstrapTokenHint": "Dieser Einmal-Token belegt, dass du den VPS kontrollierst, und macht dieses Konto zum Eigentümer der Installation."
+      "bootstrapTokenHint": "Dieser Einmal-Token belegt, dass du den VPS kontrollierst, und macht dieses Konto zum Eigentümer der Installation.",
+      "dividerSignUp": "oder registrieren mit"
     },
     "logout": "Abmelden",
     "layoutFooter": "Otterdeploy Authentifizierung",
@@ -89,7 +92,9 @@
       "verify": "Bestätigen"
     },
     "sso": {
-      "enterWorkEmail": "Gib deine geschäftliche E-Mail-Adresse ein"
+      "continueWith": "Weiter mit {{provider}}",
+      "redirectingTo": "Weiterleitung zu {{provider}}…",
+      "startFailed": "SSO-Anmeldung konnte nicht gestartet werden"
     }
   },
   "errors": {
@@ -630,7 +635,21 @@
     "clientId": "Client-ID",
     "clientSecret": "Client-Secret",
     "clientSecretHint": "Wird verschlüsselt gespeichert und nie wieder angezeigt. Zum Rotieren den Anbieter entfernen und neu anlegen.",
-    "deriveHint": "Leer lassen, um sie aus dem Issuer abzuleiten."
+    "deriveHint": "Leer lassen, um sie aus dem Issuer abzuleiten.",
+    "instanceDisabled": "Enterprise SSO ist für diese Installation deaktiviert. Diese Anbieter erscheinen daher nicht auf der Anmeldeseite und können niemanden anmelden. Eine Installationsadministration kann es unter Einstellungen → Instanz → Anmeldemethoden wieder aktivieren. Hier registrierte Anbieter bleiben in jedem Fall erhalten.",
+    "methodsTitle": "Anmeldemethoden",
+    "methodsDescription": "Wie Personen auf dieser Installation ihre Identität nachweisen. Die Anmeldeseite zeigt genau das, was hier aktiviert ist.",
+    "methodsSaved": "Anmeldemethoden aktualisiert",
+    "methodsSaveFailed": "Anmeldemethoden konnten nicht gespeichert werden",
+    "passwordTitle": "E-Mail und Passwort",
+    "passwordOn": "An. Personen melden sich mit E-Mail-Adresse und Passwort an und können es per E-Mail zurücksetzen.",
+    "passwordLockedBootstrap": "Das erste Konto muss mit einem Passwort und dem Bootstrap-Token des Installers angelegt werden. Diese Option bleibt daher an, bis sich jemand registriert hat.",
+    "passwordLockedNoFederated": "Sonst kann noch nichts jemanden anmelden. Richte unten einen Social-Anbieter ein oder registriere unter Arbeitsbereich → SSO einen Identitätsanbieter, bevor du Passwörter deaktivierst.",
+    "passkeyTitle": "Passkeys",
+    "passkeyDescription": "Passwortlose Anmeldung mit Gerätebiometrie oder Sicherheitsschlüssel. Aus verhindert auch das Registrieren neuer Passkeys; bestehende bleiben erhalten und funktionieren wieder, sobald du dies erneut aktivierst.",
+    "enterpriseTitle": "Enterprise SSO",
+    "enterpriseNoProviders": "Es ist noch kein Identitätsanbieter registriert. Füge unter Arbeitsbereich → SSO einen hinzu; dieser Schalter steuert, ob dessen Schaltfläche auf der Anmeldeseite erscheint.",
+    "enterpriseDescription": "OIDC-Identitätsanbieter pro Arbeitsbereich (Okta, Entra ID, Google Workspace, Authentik). Jeder registrierte Anbieter erhält eine eigene Schaltfläche auf der Anmeldeseite. Deaktivieren belässt die Anbieter konfiguriert, verhindert aber jede Anmeldung darüber."
   },
   "sshKeys": {
     "generateTitle": "SSH-Schlüssel erzeugen",
