@@ -37,29 +37,37 @@ export function TemplatePicker() {
     });
 
   return (
-    <>
-      {/*
-       * Pinned to the top of the wizard's scroll area (the `overflow-y-auto`
-       * in wizard-chrome.tsx). The catalog is 57 rows and grows: left in the
-       * flow, the one control that makes the list shorter scrolls away as soon
-       * as you look past the Bs, and narrowing means scrolling back up to
-       * reach the field. The live `visible/total` count goes with it, since a
-       * match count you can't see while scrolling results isn't telling you
-       * anything.
-       *
-       * The negative margins bleed the bar across the scroller's own p-4 so
-       * rows pass cleanly underneath instead of showing through the gap above
-       * it; bg-popover is the dialog's surface (see DialogContent).
-       */}
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 bg-popover px-4 pt-4 pb-3">
-        <div className="mb-3 flex items-baseline gap-2">
-          <span className="text-sm font-semibold">Deploy a template</span>
+    /*
+     * Two regions: a header that never moves, and the results scrolling under
+     * it. The catalog is 57 rows and grows, so leaving the search field in the
+     * flow put the one control that makes the list shorter off-screen as soon
+     * as you looked past the Bs — and narrowing meant scrolling back up to
+     * reach it. The live `visible/total` count stays with the field for the
+     * same reason: a match count you can't see while scrolling matches isn't
+     * reporting anything.
+     *
+     * The header is OUTSIDE the scroll container rather than `sticky` inside
+     * it. See the note in wizard-chrome.tsx: a sticky bar pins to the
+     * scroller's content box, which left a padding-sized band above it that
+     * rows were still painted into. Nothing can be painted in this header's
+     * band because the scrollport starts below it.
+     */
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+        {/*
+         * Label and count ride ON the search row rather than above it. Stacked,
+         * they cost a whole line of a bounded dialog to repeat what the dialog
+         * title and the stepper have already said, and pushed the first result
+         * further from the field that filters it.
+         */}
+        <div className="flex shrink-0 items-baseline gap-1.5">
+          <span className="text-sm font-semibold">Templates</span>
           <span className="font-mono text-[10px] text-muted-foreground">
             {visible.length}/{TEMPLATES.length}
           </span>
         </div>
 
-        <div className="relative">
+        <div className="relative min-w-0 flex-1">
           <HugeiconsIcon
             icon={Search01Icon}
             strokeWidth={2}
@@ -82,18 +90,24 @@ export function TemplatePicker() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No templates match "{query}".
-        </p>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          {visible.map((template) => (
-            <TemplateRow key={template.id} template={template} onDeploy={() => deploy(template)} />
-          ))}
-        </div>
-      )}
-    </>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        {visible.length === 0 ? (
+          <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            No templates match "{query}".
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {visible.map((template) => (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                onDeploy={() => deploy(template)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
