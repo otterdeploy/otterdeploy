@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { classifyLogSeverity, SEVERITY_TEXT } from "@/features/logs/components/log-severity";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -202,17 +203,20 @@ export function ContainerLogsDialog({
             <p className="font-mono text-xs text-terminal-foreground/40">No log output.</p>
           ) : (
             <pre className="font-mono text-[11px] leading-relaxed">
-              {lines.map((l, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "whitespace-pre-wrap break-all",
-                    l.stream === "stderr" ? "text-destructive" : "text-terminal-foreground/80",
-                  )}
-                >
-                  {l.line}
-                </div>
-              ))}
+              {lines.map((l, i) => {
+                // Content, not pipe: dockerd and the install script narrate
+                // ordinary progress on stderr, so the old `stream === "stderr"`
+                // rule painted a healthy install red. `normal` keeps this
+                // surface's own base colour rather than the page foreground.
+                const severity = classifyLogSeverity(l.line);
+                const tone =
+                  severity === "normal" ? "text-terminal-foreground/80" : SEVERITY_TEXT[severity];
+                return (
+                  <div key={i} className={cn("whitespace-pre-wrap break-all", tone)}>
+                    {l.line}
+                  </div>
+                );
+              })}
             </pre>
           )}
         </div>

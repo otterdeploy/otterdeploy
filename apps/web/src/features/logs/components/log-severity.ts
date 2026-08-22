@@ -145,6 +145,45 @@ function severityFromStructuredLevel(s: string): LogSeverity | null {
   return "normal";
 }
 
+/**
+ * A line that names its own level is telling us the answer; the keyword
+ * heuristic below is only a guess for lines that don't. Honour the declared
+ * tag so `[WARN] failed to get system time zone …` reads as the warning rustic
+ * marked it, instead of being repainted red by the word "failed" — the whole
+ * point of a level tag is that the tool already classified the event.
+ *
+ * Two accepted shapes, both allowing a leading timestamp/prefix:
+ *   `2026-08-22T10:00:00Z [warn] …`   bracketed tag
+ *   `warning: …`                       colon-suffixed tag
+ * A bracket that isn't a level name (`[Upstash Redis]`, `[cause]:`, `[plugin …]`)
+ * or a word that merely precedes a colon (`https:`, `cause:`) yields null, and
+ * the caller falls through to the content heuristic.
+ */
+const LEVEL_TAG = /^[^[\n]{0,64}\[([a-z]+)\]|^([a-z]+)\s*:/i;
+
+const LEVEL_NAMES: Record<string, LogSeverity> = {
+  fatal: "error",
+  critical: "error",
+  crit: "error",
+  panic: "error",
+  error: "error",
+  err: "error",
+  warn: "warn",
+  warning: "warn",
+  info: "info",
+  notice: "info",
+  debug: "normal",
+  trace: "normal",
+  verbose: "normal",
+};
+
+function severityFromLevelTag(s: string): LogSeverity | null {
+  const m = LEVEL_TAG.exec(s);
+  const tag = (m?.[1] ?? m?.[2])?.toLowerCase();
+  if (!tag) return null;
+  return LEVEL_NAMES[tag] ?? null;
+}
+
 export function classifyLogSeverity(line: string): LogSeverity {
   const s = line.trim();
   if (!s) return "normal";
@@ -156,6 +195,9 @@ export function classifyLogSeverity(line: string): LogSeverity {
   // Structured logs declare their own severity, authoritative when present.
   const structured = severityFromStructuredLevel(s);
   if (structured !== null) return structured;
+  // An explicit level tag outranks the keyword guesses below.
+  const tagged = severityFromLevelTag(s);
+  if (tagged !== null) return tagged;
   for (const [severity, patterns] of SEVERITY_PATTERNS) {
     if (patterns.some((re) => re.test(s))) return severity;
   }

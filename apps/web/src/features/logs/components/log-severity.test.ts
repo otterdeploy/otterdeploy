@@ -115,6 +115,36 @@ describe("classifyLogSeverity", () => {
     expect(classifyLogSeverity("Cloning into 'app'...")).toBe("normal");
   });
 
+  test("an explicit level tag outranks keywords in the message (rustic backups)", () => {
+    // rustic narrates a SUCCESSFUL backup on stderr with bracketed levels. The
+    // word "failed" inside a line the tool itself marked [WARN] used to win,
+    // so a healthy backup log rendered as a wall of red.
+    expect(
+      classifyLogSeverity(
+        "[WARN] failed to get system time zone, falling back to `Etc/Unknown` (which behaves like UTC): failed to find system time zone",
+      ),
+    ).toBe("warn");
+    expect(classifyLogSeverity("[INFO] backing up...: 105.4 MiB done in 28.86s")).toBe("info");
+    expect(classifyLogSeverity("[INFO] backup of - done.")).toBe("info");
+    expect(classifyLogSeverity("[ERROR] repository is locked")).toBe("error");
+    // Colon-suffixed tags too (pino-pretty, cargo, go tooling).
+    expect(classifyLogSeverity("warning: unused variable `x`")).toBe("warn");
+    expect(classifyLogSeverity("error: Config file already exists. Aborting.")).toBe("error");
+  });
+
+  test("bracketed non-levels still fall through to the content heuristic", () => {
+    // `[Upstash Redis]`, `[cause]`, `[plugin …]` are not level tags; the tag
+    // check must not swallow them or those regressions come straight back.
+    expect(
+      classifyLogSeverity(
+        "[Upstash Redis] Redis client was initialized without url or token. Failed to execute command.",
+      ),
+    ).toBe("error");
+    expect(classifyLogSeverity("[cause]: TypeError: Invalid URL")).toBe("error");
+    // A URL scheme is a word before a colon, not a level.
+    expect(classifyLogSeverity("Cloning into 'https://example.com/app'...")).toBe("normal");
+  });
+
   test("still short-circuits builder command echo to info", () => {
     expect(classifyLogSeverity("$ railpack prepare /src --error-missing-start")).toBe("info");
   });
