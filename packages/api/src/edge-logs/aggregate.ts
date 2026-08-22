@@ -181,6 +181,19 @@ export async function startEdgeAnalytics(): Promise<void> {
   log.info({ edgeLog: { analytics: "started", seededDays: state.days.size } });
 }
 
+/**
+ * Is the rollup loop live right now?
+ *
+ * Distinct from "is EDGE_LOG_SINK configured". `startEdgeAnalytics` refuses to
+ * enable when its day-row seed fails, precisely so a flush cannot clobber
+ * earlier totals, and that refusal is silent to anyone reading the Analytics
+ * page. Surfacing it lets the page say "configured but not running" instead of
+ * blaming an empty window.
+ */
+export function analyticsRunning(): boolean {
+  return state.enabled;
+}
+
 export async function stopEdgeAnalytics(): Promise<void> {
   state.enabled = false;
   if (state.flushTimer) clearInterval(state.flushTimer);

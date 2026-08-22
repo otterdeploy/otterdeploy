@@ -17,6 +17,7 @@ import type {
   AnalyticsBreakdowns,
   AnalyticsFlags,
   AnalyticsSummary,
+  CollectionStatus,
   ResolvedWindow,
   SeriesBucket,
   TopEntry,
@@ -82,6 +83,7 @@ export async function queryAnalyticsOverview(
   hosts: string[] | null,
   window: ResolvedWindow,
   geoConfigured: boolean,
+  collection: CollectionStatus,
 ): Promise<{
   series: SeriesBucket[];
   bucketSeconds: number;
@@ -153,6 +155,7 @@ export async function queryAnalyticsOverview(
       approximate,
       source: usedLiveMinute || liveDay ? "rollup+live" : "rollup",
       geoAvailable: geoConfigured,
+      ...collection,
     },
   };
 }
@@ -184,6 +187,7 @@ export async function queryAnalyticsBreakdowns(
   hosts: string[] | null,
   window: ResolvedWindow,
   geoConfigured: boolean,
+  collection: CollectionStatus,
 ): Promise<{ breakdowns: AnalyticsBreakdowns; flags: AnalyticsFlags }> {
   const { fromMs, toMs } = window;
   const dayKeys = coveringDayKeys(fromMs, toMs);
@@ -228,6 +232,7 @@ export async function queryAnalyticsBreakdowns(
       approximate,
       source: usedLive ? "rollup+live" : "rollup",
       geoAvailable: geoConfigured,
+      ...collection,
     },
   };
 }

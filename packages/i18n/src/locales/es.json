@@ -1120,5 +1120,17 @@
       "generate": "Generar token",
       "createFailed": "No se pudo crear el token"
     }
+  },
+  "analytics": {
+    "collection": {
+      "offTitle": "La recopilación de tráfico está desactivada",
+      "offBody": "No llegan registros de acceso a esta instalación, así que no se está registrando nada. No es una ventana vacía: ninguna ventana tendría datos. Define esta variable en el servidor (el archivo compose de producción ya lo hace) y reinícialo para empezar a recopilar.",
+      "stalledTitle": "La recopilación está configurada pero no se está ejecutando",
+      "stalledBody": "El sink está definido, pero la agregación de analítica se negó a arrancar: lo hace deliberadamente cuando falla la carga inicial de filas diarias, en lugar de arriesgarse a sobrescribir totales anteriores. Revisa el registro del servidor buscando esta clave; el siguiente reinicio lo reintenta.",
+      "noHostsTitle": "Aún no hay dominios públicos",
+      "noHostsBody": "La recopilación está activa. Analytics empezará a registrar en cuanto se exponga un servicio en un dominio.",
+      "quiet": "Recopilando. Todavía no hay solicitudes en esta ventana.",
+      "geoOff": "GeoIP no está configurado en esta instalación, así que no se pueden resolver los países de los visitantes y el mapa permanece vacío."
+    }
   }
 }
