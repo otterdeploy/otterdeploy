@@ -99,7 +99,11 @@ export function MeterDot({
   return (
     <span
       aria-hidden="true"
-      className={cn("inline-block size-2 shrink-0 rounded-full", FILL[meterState(value, thresholds)], className)}
+      className={cn(
+        "inline-block size-2 shrink-0 rounded-full",
+        FILL[meterState(value, thresholds)],
+        className,
+      )}
     />
   );
 }

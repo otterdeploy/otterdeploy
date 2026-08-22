@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  DEFAULT_THRESHOLDS,
-  meterState,
-  normalizeThresholds,
-} from "../thresholds";
+import { DEFAULT_THRESHOLDS, meterState, normalizeThresholds } from "../thresholds";
 
 describe("meterState", () => {
   it("classifies against the default levels", () => {
