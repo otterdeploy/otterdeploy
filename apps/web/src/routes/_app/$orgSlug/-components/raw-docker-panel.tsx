@@ -74,6 +74,26 @@ function PruneDanglingButton({
   );
 }
 
+/** What the prune actually removed. Helpers are swept in the same pass (see
+ *  pruneHelperContainers), so an operator who just reclaimed space sees
+ *  everything that went, not only the images they clicked for. */
+function pruneSummary(res: {
+  imagesDeleted: number;
+  reclaimedBytes: number;
+  helpersDeleted: number;
+}): string {
+  const plural = (n: number) => (n === 1 ? "" : "s");
+  const swept =
+    res.helpersDeleted > 0
+      ? `${res.helpersDeleted} stale helper container${plural(res.helpersDeleted)}`
+      : "";
+  if (res.imagesDeleted === 0) {
+    return swept ? `No dangling images. Removed ${swept}.` : "Nothing to prune. No dangling images.";
+  }
+  const images = `Pruned ${res.imagesDeleted} dangling image${plural(res.imagesDeleted)}, ${formatBytes(res.reclaimedBytes)} reclaimed`;
+  return swept ? `${images} · ${swept}` : images;
+}
+
 export function RawDockerPanel({
   orgSlug,
   initialTab,
@@ -138,11 +158,7 @@ export function RawDockerPanel({
   const prune = useMutation(
     orpc.docker.images.prune.mutationOptions({
       onSuccess: (res) => {
-        toast.success(
-          res.imagesDeleted > 0
-            ? `Pruned ${res.imagesDeleted} dangling image${res.imagesDeleted === 1 ? "" : "s"}, ${formatBytes(res.reclaimedBytes)} reclaimed`
-            : "Nothing to prune. No dangling images.",
-        );
+        toast.success(pruneSummary(res));
         setPruneOpen(false);
         void images.refetch();
       },

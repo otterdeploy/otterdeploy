@@ -14,6 +14,7 @@ import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { Writable } from "node:stream";
 
+import { HELPER_ROLES, helperLabels } from "../lib/helper-container";
 import { pullImage } from "../runtime/docker-driver-helpers";
 
 function helperImage(): string {
@@ -45,13 +46,16 @@ export async function runOnHost(script: string): Promise<Result<HostRun, Error>>
       // Tty merges stdout+stderr into one clean stream (no mux framing):
       // same trick as the firewall cscli exec.
       Tty: true,
-      Labels: { "otterdeploy.role": "host-helper" },
+      Labels: helperLabels(HELPER_ROLES.host),
       HostConfig: {
         Privileged: true,
         PidMode: "host",
         RestartPolicy: { Name: "no" as const },
+        // The DAEMON reaps this, not the client: a client-side cleanup only
+        // runs when the run finishes, so a container that was created and
+        // then failed to start would linger forever. See lib/helper-container.
+        AutoRemove: true,
       },
-      autoRemove: true,
     };
     const cmd = ["sh", "-c", script];
     let ran = await docker.run(helperImage(), cmd, sink, spec);
