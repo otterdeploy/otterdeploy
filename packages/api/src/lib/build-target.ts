@@ -32,7 +32,7 @@ import type { ProjectId, ResourceId, ServerId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { DEFAULT_DEPLOY_LANE, isDeployLaneName } from "@otterdeploy/jobs/lanes";
+import { DEFAULT_DEPLOY_LANE, isDeployLaneName, laneHasConsumer } from "@otterdeploy/jobs/lanes";
 import { and, eq, isNotNull } from "drizzle-orm";
 
 export interface BuildTarget {
@@ -110,7 +110,12 @@ async function targetForServer(
   reason: BuildTarget["reason"],
 ): Promise<BuildTarget | null> {
   const [row] = await db
-    .select({ id: server.id, name: server.name, lane: server.buildLane, isBuild: server.buildServer })
+    .select({
+      id: server.id,
+      name: server.name,
+      lane: server.buildLane,
+      isBuild: server.buildServer,
+    })
     .from(server)
     .where(eq(server.id, serverId))
     .limit(1);
@@ -229,4 +234,52 @@ export async function groupDeploymentsByLane(
     else groups.set(lane, [entry.deploymentId]);
   }
   return groups;
+}
+
+/**
+ * Why this build target cannot serve a build right now, or null when it can.
+ *
+ * Two failure modes, both of which used to end as a deployment stuck on
+ * `pending` with no logs and no error — the least debuggable state the product
+ * has, and the same one `enqueueGitBuild` already guards for a Redis outage:
+ *
+ *   - the assigned server isn't ready (still provisioning, failed, removed)
+ *   - nothing is draining its lane (no builder deployed there yet, or it died)
+ *
+ * Callers fail the deployment with this reason instead of enqueuing. Failing
+ * loudly beats falling back to the default lane silently: a build that lands
+ * on the wrong machine may not even have the registry credentials to ship its
+ * image, and the operator assigned a build server deliberately.
+ *
+ * Never throws; a check that can't run reports "ready" so a monitoring blip
+ * can't block a deploy that would have worked.
+ */
+export async function buildTargetUnavailable(target: BuildTarget): Promise<string | null> {
+  if (!target.serverId) return null;
+  const name = target.serverName ?? target.serverId;
+  try {
+    const [row] = await db
+      .select({ status: server.status, provisionStatus: server.provisionStatus })
+      .from(server)
+      .where(eq(server.id, target.serverId))
+      .limit(1);
+    if (!row) {
+      return `Build server "${name}" no longer exists. Clear it from the build settings to build where the service runs.`;
+    }
+    if (row.provisionStatus !== "ready" || row.status !== "ready") {
+      return (
+        `Build server "${name}" isn't ready (status: ${row.status}, provisioning: ${row.provisionStatus}), ` +
+        `so this build has nowhere to run. Fix the server, or clear it from the build settings.`
+      );
+    }
+    if (!(await laneHasConsumer(target.lane))) {
+      return (
+        `No builder is draining lane "${target.lane}" on build server "${name}", so this build would ` +
+        `queue forever. Check the builder is running there with BUILDER_LANE=${target.lane}.`
+      );
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

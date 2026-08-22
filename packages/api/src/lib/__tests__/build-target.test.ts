@@ -25,6 +25,12 @@ const limitRows = vi.fn<() => Promise<Array<Record<string, unknown>>>>();
 // Two chain shapes are used by the module:
 //   select().from().where().limit()        → the assignment + server lookups
 //   select().from().innerJoin().where()    → the legacy placement join
+const hasConsumer = vi.fn<() => Promise<boolean>>();
+vi.mock("@otterdeploy/jobs/lanes", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@otterdeploy/jobs/lanes")>()),
+  laneHasConsumer: () => hasConsumer(),
+}));
+
 vi.mock("@otterdeploy/db", () => ({
   db: {
     select: () => ({
@@ -36,7 +42,7 @@ vi.mock("@otterdeploy/db", () => ({
   },
 }));
 
-import { buildTargetBlocker, resolveBuildTarget } from "../build-target";
+import { buildTargetBlocker, buildTargetUnavailable, resolveBuildTarget } from "../build-target";
 
 const projectId = createId(ID_PREFIX.project);
 const resourceId = createId(ID_PREFIX.resource);
@@ -54,6 +60,8 @@ const buildServer = (over: Record<string, unknown> = {}) => [
 ];
 
 beforeEach(() => {
+  hasConsumer.mockReset();
+  hasConsumer.mockResolvedValue(true);
   placementRows.mockReset();
   placementRows.mockResolvedValue([]);
   limitRows.mockReset();
@@ -170,5 +178,55 @@ describe("buildTargetBlocker", () => {
     expect(
       buildTargetBlocker({ target: { serverId, serverName: "b" }, imageRepository: "   " }),
     ).not.toBeNull();
+  });
+});
+
+describe("buildTargetUnavailable", () => {
+  const target = {
+    serverId,
+    serverName: "builder-01",
+    lane: "fast",
+    reason: "service" as const,
+  };
+
+  test("the default lane is always available (there is no server to check)", async () => {
+    const reason = await buildTargetUnavailable({
+      serverId: null,
+      serverName: null,
+      lane: "default",
+      reason: "default",
+    });
+    expect(reason).toBeNull();
+  });
+
+  test("a ready server with a live builder is available", async () => {
+    queueLookups([{ status: "ready", provisionStatus: "ready" }]);
+    expect(await buildTargetUnavailable(target)).toBeNull();
+  });
+
+  test("a server still provisioning is reported, not queued into", async () => {
+    queueLookups([{ status: "ready", provisionStatus: "provisioning" }]);
+    const reason = await buildTargetUnavailable(target);
+    expect(reason).toContain("builder-01");
+    expect(reason).toContain("isn't ready");
+  });
+
+  test("a deleted server is reported", async () => {
+    queueLookups([]);
+    expect(await buildTargetUnavailable(target)).toContain("no longer exists");
+  });
+
+  test("a lane nobody drains is reported, naming BUILDER_LANE", async () => {
+    queueLookups([{ status: "ready", provisionStatus: "ready" }]);
+    hasConsumer.mockResolvedValue(false);
+    const reason = await buildTargetUnavailable(target);
+    expect(reason).toContain("queue forever");
+    expect(reason).toContain("BUILDER_LANE=fast");
+  });
+
+  test("a check that cannot run reports available, never blocking a good deploy", async () => {
+    limitRows.mockReset();
+    limitRows.mockRejectedValue(new Error("db down"));
+    expect(await buildTargetUnavailable(target)).toBeNull();
   });
 });

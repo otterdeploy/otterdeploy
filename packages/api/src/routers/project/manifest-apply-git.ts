@@ -9,6 +9,7 @@
  * skipped[] without a typed-error taxonomy for every GitHub failure.
  */
 import type {
+  GitInstallationId,
   DeploymentId,
   GitRepoId,
   OrganizationId,
@@ -25,7 +26,11 @@ import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { fetchBranchHead } from "../../git/github-app";
-import { resolveBuildLane } from "../../lib/build-target";
+import {
+  buildTargetBlocker,
+  buildTargetUnavailable,
+  resolveBuildTarget,
+} from "../../lib/build-target";
 import { type ServiceManifest } from "../../stack/manifest";
 import { inspectRepoTree } from "../git/inspect";
 import { emitDeployStarted } from "./deployments-emit";
@@ -54,6 +59,53 @@ async function findInflightBuild(
   return row ?? null;
 }
 
+/**
+ * The GitHub installation id for a repo binding, or null to work anonymously.
+ *
+ * A missing install row means the GitHub App was removed/reconnected and
+ * orphaned this FK. Don't hard-fail: anonymous access builds a public repo
+ * fine, and a genuinely private repo fails the SHA lookup later with a clear
+ * 404. Mirrors the builder's load.ts, which only requires the install for
+ * private repos.
+ */
+async function resolveInstallationId(
+  installationRowId: GitInstallationId | null,
+): Promise<string | null> {
+  if (!installationRowId) return null;
+  const [inst] = await db
+    .select({ installationId: gitInstallation.installationId })
+    .from(gitInstallation)
+    .where(eq(gitInstallation.id, installationRowId))
+    .limit(1);
+  return inst?.installationId ?? null;
+}
+
+/**
+ * Pick the lane this service builds on, or the reason it can't build at all.
+ *
+ * Two ways a dedicated build server sinks a deploy silently, both knowable
+ * before enqueue: it can't serve the build (not ready, or no builder draining
+ * its lane, which leaves the row `pending` forever with no logs), or it has no
+ * registry to ship through (the run nodes can't pull what it built).
+ */
+async function routeToBuildTarget(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+  imageRepository: string | null,
+): Promise<{ ok: true; lane: string } | { ok: false; blocked: string }> {
+  const target = await resolveBuildTarget(projectId, resourceId);
+  const blocked =
+    (await buildTargetUnavailable(target)) ?? buildTargetBlocker({ target, imageRepository });
+  return blocked ? { ok: false, blocked } : { ok: true, lane: target.lane };
+}
+
+/** Fail a deployment the build target can't serve, without letting a failure
+ *  to record that failure mask the original reason. */
+async function markBuildTargetFailure(deploymentId: DeploymentId, reason: string): Promise<void> {
+  const { markDeploymentFailed } = await import("./deployments");
+  await markDeploymentFailed(deploymentId, reason).catch(() => undefined);
+}
+
 export async function enqueueGitBuild(args: {
   projectId: ProjectId;
   organizationId: OrganizationId;
@@ -68,7 +120,11 @@ export async function enqueueGitBuild(args: {
   // project's. Registry/image are optional (the builder resolves them itself,
   // defaulting to a registry-less local image), so only the repo gates here.
   const [svc] = await db
-    .select({ gitRepoId: serviceResource.gitRepoId, branch: serviceResource.branch })
+    .select({
+      gitRepoId: serviceResource.gitRepoId,
+      branch: serviceResource.branch,
+      imageRepository: serviceResource.imageRepository,
+    })
     .from(serviceResource)
     .where(eq(serviceResource.resourceId, args.resourceId))
     .limit(1);
@@ -93,20 +149,7 @@ export async function enqueueGitBuild(args: {
   // fails the SHA lookup with a clear 404 below; we deliberately don't
   // pre-judge on the `is_private` flag, which defaults to true and is often
   // stale/wrong (a public repo can be recorded as private).
-  let installationId: string | null = null;
-  if (repo.installationRowId) {
-    const [inst] = await db
-      .select({ installationId: gitInstallation.installationId })
-      .from(gitInstallation)
-      .where(eq(gitInstallation.id, repo.installationRowId))
-      .limit(1);
-    // A missing install row means the GitHub App was removed/reconnected and
-    // orphaned this FK. Don't hard-fail. Fall back to anonymous access, which
-    // builds a public repo fine; a genuinely private repo just fails the SHA
-    // lookup below with a clear 404 (same as an unlinked private repo). Mirrors
-    // the builder's `load.ts`, which only requires the install for private repos.
-    if (inst) installationId = inst.installationId;
-  }
+  const installationId = await resolveInstallationId(repo.installationRowId);
 
   const branch = svc.branch || repo.defaultBranch || "main";
   const [owner, repoName] = repo.fullName.split("/");
@@ -180,8 +223,12 @@ export async function enqueueGitBuild(args: {
   // row failed, or it strands as a `pending` deployment no job will ever own
   // (a 500 to the user and a forever-pending badge). Same string-error channel
   // as the SHA lookup so apply folds it into skipped[].
-  // Route to the project's build server lane, if it has a dedicated one.
-  const lane = await resolveBuildLane(args.projectId, args.resourceId);
+  const routed = await routeToBuildTarget(args.projectId, args.resourceId, svc.imageRepository);
+  if (!routed.ok) {
+    await markBuildTargetFailure(row.id, routed.blocked);
+    return Result.err(routed.blocked);
+  }
+  const lane = routed.lane;
   const enqueueResult = await Result.tryPromise({
     try: () =>
       triggerDeploy(
