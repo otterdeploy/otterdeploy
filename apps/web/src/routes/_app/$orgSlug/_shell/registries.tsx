@@ -1,10 +1,15 @@
 import { useState } from "react";
 
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Database02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 
+import {
+  GhcrDerivedCard,
+  shouldShowDerivedGhcr,
+} from "@/features/registries/ghcr-derived-card";
 import { registryCollection } from "@/features/registries/data/registries";
 import { RegistryCard } from "@/features/registries/registry-card";
 import { RegistryDialog } from "@/features/registries/registry-dialog";
@@ -19,6 +24,7 @@ import {
   EmptyTitle,
 } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { orpc } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/registries")({
   staticData: { crumb: "Registries" },
@@ -34,6 +40,12 @@ function RegistriesRoute() {
   const { data: registries, isLoading } = useLiveQuery((q) =>
     q.from({ r: registryCollection }),
   );
+
+  // Whether GHCR is already covered by the workspace's GitHub App. Its own
+  // query rather than part of the collection: it describes an installation,
+  // not a stored row, and there is no row for it to live in.
+  const ghcr = useQuery(orpc.registry.ghcrCapability.queryOptions({ input: {} }));
+  const showGhcr = shouldShowDerivedGhcr(ghcr.data);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RegistryRow | null>(null);
@@ -66,7 +78,7 @@ function RegistriesRoute() {
 
       {isLoading ? (
         <Skeleton className="h-44 w-full rounded-md" />
-      ) : registries.length === 0 ? (
+      ) : registries.length === 0 && !showGhcr ? (
         <Empty className="flex-1 rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
             <HugeiconsIcon
@@ -89,6 +101,9 @@ function RegistriesRoute() {
         </Empty>
       ) : (
         <div className="flex flex-col gap-3">
+          {/* First: it needs no setup, so it is the answer to "do I even have
+              to add anything?" before the list of things someone added. */}
+          {showGhcr && ghcr.data ? <GhcrDerivedCard capability={ghcr.data} /> : null}
           {registries.map((r) => (
             <RegistryCard key={r.id} registry={r} onEdit={openEdit} />
           ))}
