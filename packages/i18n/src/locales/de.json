@@ -649,7 +649,8 @@
     "passkeyDescription": "Passwortlose Anmeldung mit Gerätebiometrie oder Sicherheitsschlüssel. Aus verhindert auch das Registrieren neuer Passkeys; bestehende bleiben erhalten und funktionieren wieder, sobald du dies erneut aktivierst.",
     "enterpriseTitle": "Enterprise SSO",
     "enterpriseNoProviders": "Es ist noch kein Identitätsanbieter registriert. Füge unter Arbeitsbereich → SSO einen hinzu; dieser Schalter steuert, ob dessen Schaltfläche auf der Anmeldeseite erscheint.",
-    "enterpriseDescription": "OIDC-Identitätsanbieter pro Arbeitsbereich (Okta, Entra ID, Google Workspace, Authentik). Jeder registrierte Anbieter erhält eine eigene Schaltfläche auf der Anmeldeseite. Deaktivieren belässt die Anbieter konfiguriert, verhindert aber jede Anmeldung darüber."
+    "enterpriseDescription": "OIDC-Identitätsanbieter pro Arbeitsbereich (Okta, Entra ID, Google Workspace, Authentik). Jeder registrierte Anbieter erhält eine eigene Schaltfläche auf der Anmeldeseite. Deaktivieren belässt die Anbieter konfiguriert, verhindert aber jede Anmeldung darüber.",
+    "registerFailed": "Anbieter konnte nicht registriert werden"
   },
   "sshKeys": {
     "generateTitle": "SSH-Schlüssel erzeugen",
