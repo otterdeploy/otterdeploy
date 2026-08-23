@@ -6,18 +6,17 @@ export const PUBLISHING_TEMPLATES: StackTemplate[] = [
   {
     id: "wordpress",
     name: "WordPress",
-    description:
-      "The most-deployed CMS there is: themes, plugins and a familiar admin. Bundled MariaDB; the whole site directory persists to a named volume so plugins survive redeploys.",
+    descriptionKey: "templates.catalog.wordpress.description",
     category: "cms",
     includes: ["wordpress", "db"],
     requiredEnv: [
       {
         key: "MYSQL_PASSWORD",
-        description: "Password for the bundled MariaDB user WordPress connects as.",
+        descriptionKey: "templates.catalog.wordpress.env.MYSQL_PASSWORD",
       },
       {
         key: "MYSQL_ROOT_PASSWORD",
-        description: "Root password for the bundled MariaDB.",
+        descriptionKey: "templates.catalog.wordpress.env.MYSQL_ROOT_PASSWORD",
       },
     ],
     logoBrand: "WordPress",
@@ -56,18 +55,17 @@ volumes:
   {
     id: "matomo",
     name: "Matomo",
-    description:
-      "Full-featured web analytics you host yourself: sessions, funnels, goals and heatmaps, with raw data that never leaves your server. Heavier than Plausible, and far more detailed.",
+    descriptionKey: "templates.catalog.matomo.description",
     category: "analytics",
     includes: ["matomo", "db"],
     requiredEnv: [
       {
         key: "MYSQL_PASSWORD",
-        description: "Password for the bundled MariaDB user Matomo connects as.",
+        descriptionKey: "templates.catalog.matomo.env.MYSQL_PASSWORD",
       },
       {
         key: "MYSQL_ROOT_PASSWORD",
-        description: "Root password for the bundled MariaDB.",
+        descriptionKey: "templates.catalog.matomo.env.MYSQL_ROOT_PASSWORD",
       },
     ],
     logoBrand: "Matomo",

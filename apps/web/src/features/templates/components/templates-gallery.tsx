@@ -48,7 +48,7 @@ export function TemplatesGallery({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const counts = categoryCounts(TEMPLATES);
-  const visible = sortTemplates(filterTemplates(TEMPLATES, { category, query }), sort);
+  const visible = sortTemplates(filterTemplates(TEMPLATES, { category, query }, t), sort);
   const open = openId ? (TEMPLATES.find((t) => t.id === openId) ?? null) : null;
 
   return (

@@ -6,8 +6,7 @@ export const DEVKIT_TEMPLATES: StackTemplate[] = [
   {
     id: "dozzle",
     name: "Dozzle",
-    description:
-      "Live log viewer for every container on the host. Tail, search and follow without SSH. Reads the Docker socket, so anyone who reaches it can read every container's logs: keep it behind Require login in the service's Deployment protection.",
+    descriptionKey: "templates.catalog.dozzle.description",
     category: "devtools",
     includes: ["dozzle"],
     requiredEnv: [],
@@ -33,8 +32,7 @@ services:
   {
     id: "verdaccio",
     name: "Verdaccio",
-    description:
-      "Private npm registry that proxies and caches the public one. Publish internal packages without paying for a private scope, and keep installing when npmjs is down.",
+    descriptionKey: "templates.catalog.verdaccio.description",
     category: "devtools",
     includes: ["verdaccio"],
     requiredEnv: [],
@@ -58,8 +56,7 @@ volumes:
   {
     id: "docker-registry",
     name: "Docker Registry",
-    description:
-      "The reference OCI registry: a private place to push images your services then pull. Pairs with a service's image target so builds never leave your own infrastructure.",
+    descriptionKey: "templates.catalog.docker-registry.description",
     category: "devtools",
     includes: ["registry"],
     requiredEnv: [],
@@ -83,8 +80,7 @@ volumes:
   {
     id: "hoppscotch",
     name: "Hoppscotch",
-    description:
-      "API client in the browser: REST, GraphQL and WebSocket requests with collections and environments. A self-hosted alternative to Postman that never syncs your tokens anywhere.",
+    descriptionKey: "templates.catalog.hoppscotch.description",
     category: "devtools",
     includes: ["hoppscotch"],
     requiredEnv: [],
@@ -103,14 +99,13 @@ services:
   {
     id: "code-server",
     name: "code-server",
-    description:
-      "VS Code running on the server, reached from a browser tab. The editor keeps its extensions and terminal on the machine, so a laptop or tablet is only a screen.",
+    descriptionKey: "templates.catalog.code-server.description",
     category: "devtools",
     includes: ["code-server"],
     requiredEnv: [
       {
         key: "CODE_SERVER_PASSWORD",
-        description: "Password for the web UI. Anyone with it gets a shell on this container.",
+        descriptionKey: "templates.catalog.code-server.env.CODE_SERVER_PASSWORD",
       },
     ],
     logoBrand: "Visual Studio Code",
@@ -139,8 +134,7 @@ volumes:
   {
     id: "jaeger",
     name: "Jaeger",
-    description:
-      "Distributed tracing. Send OpenTelemetry spans and follow one request across every service it touched. All-in-one image with in-memory storage, so it starts with no dependencies.",
+    descriptionKey: "templates.catalog.jaeger.description",
     category: "observability",
     includes: ["jaeger"],
     requiredEnv: [],
@@ -163,22 +157,21 @@ services:
   {
     id: "healthchecks",
     name: "Healthchecks",
-    description:
-      "Dead-man's-switch monitoring for cron jobs and backups. Each job pings a URL when it finishes, and you get alerted when a ping does not arrive on schedule.",
+    descriptionKey: "templates.catalog.healthchecks.description",
     category: "observability",
     includes: ["healthchecks", "db"],
     requiredEnv: [
       {
         key: "SITE_ROOT",
-        description: "Public base URL. Appears in ping URLs and alert emails.",
+        descriptionKey: "templates.catalog.healthchecks.env.SITE_ROOT",
       },
       {
         key: "SECRET_KEY",
-        description: "Django secret. Signs sessions and tokens.",
+        descriptionKey: "templates.catalog.healthchecks.env.SECRET_KEY",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.healthchecks.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Healthchecks",

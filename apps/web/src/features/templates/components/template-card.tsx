@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Button } from "@/shared/components/ui/button";
 
@@ -14,6 +16,7 @@ export function TemplateCard({
   template: StackTemplate;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       <div className="flex items-center gap-2.5">
@@ -27,7 +30,7 @@ export function TemplateCard({
       </div>
 
       <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-        {template.description}
+        {t(template.descriptionKey)}
       </p>
 
       <div className="flex flex-wrap gap-1">

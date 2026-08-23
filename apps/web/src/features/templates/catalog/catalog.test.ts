@@ -1,6 +1,7 @@
 import { allowedHostBind } from "@otterdeploy/api/lib/host-binds";
 import { collectVarRefs } from "@otterdeploy/api/routers/compose/env";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
+import en from "@otterdeploy/i18n/locales/en";
 /**
  * The catalog honesty gate: every template's compose YAML must round-trip the
  * repo's own compose parser. The exact code path the wizard's live preview
@@ -17,6 +18,18 @@ import { TEMPLATES } from "./index";
  *  username that happens to match a service name (`POSTGRES_USER: umami` in
  *  the umami stack) reads as a host reference. */
 const HOST_KEY = /(host|hostname|addr|address|seeds|endpoint)s?$/i;
+
+/**
+ * The English prose, keyed by template id.
+ *
+ * A widening ANNOTATION, not an assertion: `en.templates.catalog` is inferred
+ * as an object with 58 literal keys, and `template.id` is a `string`, so
+ * indexing it directly is a TS7053. Declaring the record shape is what lets a
+ * missing entry come back `undefined` and be asserted on, which is the whole
+ * point of the checks below.
+ */
+const PROSE: Record<string, { description: string; env?: Record<string, string> }> =
+  en.templates.catalog;
 
 /** Stack-relative form of a path, so a compose `./config.yaml` and a shipped
  *  `config.yaml` compare equal (both land at the same place in the tree). */
@@ -169,27 +182,19 @@ describe("template catalog", () => {
         }
       });
 
-      // A bind that isn't on the host allowlist is DROPPED at deploy, not
-      // honoured and not refused: `toMounts` (stack/compose/to-spec.ts) keeps
-      // the mount only when `allowedHostBind` grants it and otherwise skips
-      // it. So the container starts, without the file the compose file said
-      // it needed, and the failure surfaces as whatever that program does
-      // when its config is missing.
+      // A bind is only real if something puts a file at its source. Two ways
+      // that happens: the host allowlist grants the path outright
+      // (`/var/run/docker.sock`, for Dozzle), or the template ships the file
+      // itself and the deploy materializes it into the stack tree, where
+      // `resolveBindSource` (reconcile-map.ts) then resolves the bind.
       //
-      // A `StackTemplate` is a compose file and NOTHING else (types.ts: one
-      // `compose` string, no side files), so it cannot even write a
-      // `./config.yaml` for a bind to point at. Every other assertion here
-      // passes such a template — it parses clean, its services resolve, its
-      // env refs line up — and it fails only on the operator's server, which
-      // is the one place this contract exists to stop things reaching.
-      //
-      // This is the gate that rules out otherwise-attractive candidates whose
-      // upstream config is file-shaped rather than env-shaped: NetBird's
-      // combined server wants `/etc/netbird/config.yaml` and env vars cover
-      // only part of it, so it cannot be a template until `StackTemplate`
-      // carries files. The resource layer already models them (`ComposeFile[]`,
-      // written by `materializeComposeFiles`); it is the catalog type that
-      // stops short.
+      // Anything else names a path nothing writes, and `reconcile-map` drops
+      // it when the stack has no tree at all — so the container starts WITHOUT
+      // the file its compose said it needed and fails as whatever that program
+      // does with no config, on the operator's server, which is the one place
+      // this contract exists to stop things reaching. Every other assertion
+      // here would pass it: it parses clean, its services resolve, its env
+      // refs line up.
       it("binds only paths something actually provides", () => {
         const provided = new Set((template.files ?? []).map((f) => stackRel(f.path)));
         const unbacked = parsed.services.flatMap((s) =>
@@ -258,10 +263,26 @@ describe("template catalog", () => {
         expect(violations).toEqual([]);
       });
 
+      // The keys are `TranslationKey`s, so a typo is already a compile error.
+      // What tsc cannot see is an EMPTY or stub entry, which renders as blank
+      // space in the gallery rather than as anything anyone would notice.
       it("carries description, docs URL, and a logo brand", () => {
-        expect(template.description.length).toBeGreaterThan(20);
+        expect(PROSE[template.id]?.description.length ?? 0).toBeGreaterThan(20);
         expect(template.docsUrl).toMatch(/^https:\/\//);
         expect(template.logoBrand.length).toBeGreaterThan(0);
+      });
+
+      // Key paths are built from the template id and each env key, so they go
+      // stale the moment either is renamed — and a stale key renders its own
+      // dotted path at the operator, which is the failure this catches.
+      it("points every description key at prose that exists", () => {
+        const entry = PROSE[template.id];
+        expect(entry, `no templates.catalog.${template.id} in en.json`).toBeDefined();
+        expect(template.descriptionKey).toBe(`templates.catalog.${template.id}.description`);
+        for (const v of template.requiredEnv) {
+          expect(v.descriptionKey).toBe(`templates.catalog.${template.id}.env.${v.key}`);
+          expect(entry?.env?.[v.key], `no prose for ${template.id}.env.${v.key}`).toBeTruthy();
+        }
       });
 
       // A `logoBrand` with no mark behind it doesn't fail anything at runtime:

@@ -56,25 +56,22 @@ export const MESH_TEMPLATES: StackTemplate[] = [
   {
     id: "netbird",
     name: "NetBird",
-    description:
-      "WireGuard-based private network control plane: management, signal, relay and STUN in one container, with an embedded Dex identity provider so it needs no external IdP. Point otterdeploy's private networking at it to keep services off the public internet.",
+    descriptionKey: "templates.catalog.netbird.description",
     category: "security",
     includes: ["netbird", "dashboard"],
     requiredEnv: [
       {
         key: "NETBIRD_DOMAIN",
-        description:
-          "Public base URL of this install, scheme included (https://vpn.example.com). Peers and the dashboard's auth redirects are pinned to it, so changing it later re-enrols every peer.",
+        descriptionKey: "templates.catalog.netbird.env.NETBIRD_DOMAIN",
       },
       {
         key: "NETBIRD_AUTH_SECRET",
-        description: "Shared secret the relay authenticates peers with.",
+        descriptionKey: "templates.catalog.netbird.env.NETBIRD_AUTH_SECRET",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "NETBIRD_STORE_ENCRYPTION_KEY",
-        description:
-          "Encrypts peer records at rest. Unique per install, and losing it makes the store unreadable.",
+        descriptionKey: "templates.catalog.netbird.env.NETBIRD_STORE_ENCRYPTION_KEY",
         generateHint: "openssl rand -base64 32",
       },
     ],

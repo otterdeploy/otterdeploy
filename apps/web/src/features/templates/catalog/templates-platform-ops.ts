@@ -6,26 +6,25 @@ export const PLATFORM_OPS_TEMPLATES: StackTemplate[] = [
   {
     id: "glitchtip",
     name: "GlitchTip",
-    description:
-      "Error tracking that speaks the Sentry protocol. Point any Sentry SDK at it by changing the DSN. Web and worker share a bundled Postgres and Redis; uploads persist to a volume.",
+    descriptionKey: "templates.catalog.glitchtip.description",
     category: "observability",
     includes: ["glitchtip", "worker", "db", "redis"],
     requiredEnv: [
       {
         key: "GLITCHTIP_DOMAIN",
-        description: "Public base URL. Used in DSNs and links inside notification emails.",
+        descriptionKey: "templates.catalog.glitchtip.env.GLITCHTIP_DOMAIN",
       },
       {
         key: "SECRET_KEY",
-        description: "Django secret. Signs sessions and tokens.",
+        descriptionKey: "templates.catalog.glitchtip.env.SECRET_KEY",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.glitchtip.env.POSTGRES_PASSWORD",
       },
       {
         key: "DEFAULT_FROM_EMAIL",
-        description: "From-address on issue notification emails.",
+        descriptionKey: "templates.catalog.glitchtip.env.DEFAULT_FROM_EMAIL",
       },
     ],
     logoBrand: "GlitchTip",
@@ -86,14 +85,13 @@ volumes:
   {
     id: "ntfy",
     name: "ntfy",
-    description:
-      "Pub-sub notifications over plain HTTP. Curl a topic and your phone buzzes. No account or SDK needed, which makes it the shortest path from a cron job or alert to a human.",
+    descriptionKey: "templates.catalog.ntfy.description",
     category: "automation",
     includes: ["ntfy"],
     requiredEnv: [
       {
         key: "NTFY_BASE_URL",
-        description: "Public base URL. Clients subscribe against it, and it appears in links.",
+        descriptionKey: "templates.catalog.ntfy.env.NTFY_BASE_URL",
       },
     ],
     logoBrand: "ntfy",
@@ -126,14 +124,13 @@ volumes:
   {
     id: "listmonk",
     name: "Listmonk",
-    description:
-      "Newsletter and mailing-list manager: subscriber lists, segmentation, campaign templates and bounce handling, driven by your own SMTP. Single binary plus Postgres.",
+    descriptionKey: "templates.catalog.listmonk.description",
     category: "automation",
     includes: ["listmonk", "db"],
     requiredEnv: [
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres that stores subscribers and campaigns.",
+        descriptionKey: "templates.catalog.listmonk.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Listmonk",

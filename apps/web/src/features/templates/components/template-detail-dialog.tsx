@@ -91,7 +91,7 @@ function TemplateDetailBody({
             Docs ↗
           </a>
         </div>
-        <DialogDescription className="text-left">{template.description}</DialogDescription>
+        <DialogDescription className="text-left">{t(template.descriptionKey)}</DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">

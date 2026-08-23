@@ -6,7 +6,13 @@
  * compose must round-trip the repo's own parser (`parseCompose`) with zero
  * warnings, `includes` must equal the parsed service names, and `requiredEnv`
  * must equal the `${VAR}` refs the file actually declares without defaults.
+ *
+ * Operator-facing prose lives in the locale bundles under
+ * `templates.catalog.<id>`, referenced here as `TranslationKey`s. Product
+ * names, image tags, shell hints and the compose YAML itself stay inline:
+ * they read identically in every locale.
  */
+import type { TranslationKey } from "@otterdeploy/i18n";
 
 export type TemplateCategoryId =
   | "cms"
@@ -34,15 +40,22 @@ export const TEMPLATE_CATEGORIES: { id: TemplateCategoryId; label: string }[] = 
 export interface TemplateEnvVar {
   /** `${KEY}` ref in the compose file, required (no `:-default`). */
   key: string;
-  description: string;
-  /** How to produce a good value, e.g. `openssl rand -base64 32`. Shown mono. */
+  /** `templates.catalog.<template>.env.<KEY>`. A `TranslationKey`, so a typo
+   *  or a key the bundles don't carry is a compile error rather than a row
+   *  that renders its own key path at the operator. */
+  descriptionKey: TranslationKey;
+  /** How to produce a good value, e.g. `openssl rand -base64 32`. Shown mono.
+   *  Not translated: it is a shell command, identical in every locale. */
   generateHint?: string;
 }
 
 export interface StackTemplate {
   id: string;
+  /** Product name. NOT translated — "Ghost" is "Ghost" in every locale, and
+   *  the gallery is searched by it. */
   name: string;
-  description: string;
+  /** `templates.catalog.<id>.description`. See TemplateEnvVar.descriptionKey. */
+  descriptionKey: TranslationKey;
   category: TemplateCategoryId;
   /** Compose service names: unit-tested to match the parsed file exactly. */
   includes: string[];

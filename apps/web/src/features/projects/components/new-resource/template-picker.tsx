@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import type { StackTemplate } from "@/features/templates/catalog";
 
@@ -22,9 +23,10 @@ import { Input } from "@/shared/components/ui/input";
 const CATEGORY_LABEL = new Map(TEMPLATE_CATEGORIES.map((c) => [c.id, c.label]));
 
 export function TemplatePicker() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const visible = sortTemplates(filterTemplates(TEMPLATES, { category: "all", query }), "az");
+  const visible = sortTemplates(filterTemplates(TEMPLATES, { category: "all", query }, t), "az");
 
   // The compose handoff: writing the params is enough, the overlay provider
   // derives the prefill from the URL. `replace` so Back never lands on the
@@ -61,7 +63,7 @@ export function TemplatePicker() {
          * further from the field that filters it.
          */}
         <div className="flex shrink-0 items-baseline gap-1.5">
-          <span className="text-sm font-semibold">Templates</span>
+          <span className="text-sm font-semibold">{t("templates.pickerTitle")}</span>
           <span className="font-mono text-[10px] text-muted-foreground">
             {visible.length}/{TEMPLATES.length}
           </span>
@@ -83,8 +85,8 @@ export function TemplatePicker() {
               // entire gesture.
               if (e.key === "Enter" && visible[0]) deploy(visible[0]);
             }}
-            placeholder="Search templates…"
-            aria-label="Search templates"
+            placeholder={t("templates.searchPlaceholder")}
+            aria-label={t("templates.searchLabel")}
             className="h-8 pl-8"
           />
         </div>
@@ -93,7 +95,7 @@ export function TemplatePicker() {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {visible.length === 0 ? (
           <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No templates match "{query}".
+            {t("templates.noMatch", { query })}
           </p>
         ) : (
           <div className="flex flex-col gap-1.5">
@@ -112,6 +114,7 @@ export function TemplatePicker() {
 }
 
 function TemplateRow({ template, onDeploy }: { template: StackTemplate; onDeploy: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -126,13 +129,15 @@ function TemplateRow({ template, onDeploy }: { template: StackTemplate; onDeploy
             {CATEGORY_LABEL.get(template.category)}
           </span>
         </div>
-        <div className="truncate text-[11px] text-muted-foreground">{template.description}</div>
+        <div className="truncate text-[11px] text-muted-foreground">
+          {t(template.descriptionKey)}
+        </div>
       </div>
       <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-        {template.includes.length} service{template.includes.length === 1 ? "" : "s"}
+        {t("templates.serviceCount", { count: template.includes.length })}
       </span>
       <span className="shrink-0 text-[11px] font-medium text-foreground opacity-0 transition-opacity group-hover:opacity-100">
-        Deploy →
+        {t("templates.deployAction")}
       </span>
     </button>
   );

@@ -894,7 +894,372 @@
     "ports": "Puertos",
     "volumes": "Volúmenes",
     "description": "Descripción",
-    "suggestedValue": "Valor sugerido"
+    "suggestedValue": "Valor sugerido",
+    "catalog": {
+      "activepieces": {
+        "description": "Automatización no-code con más de 200 integraciones y un editor de flujos con ramificaciones: la alternativa abierta a Zapier. Postgres para el estado de los flujos, Redis para la cola de trabajos.",
+        "env": {
+          "AP_FRONTEND_URL": "URL base pública. Los endpoints de webhook y las llamadas de OAuth se construyen a partir de ella.",
+          "AP_ENCRYPTION_KEY": "Clave hexadecimal de 32 caracteres que cifra las credenciales de conexión almacenadas.",
+          "AP_JWT_SECRET": "Firma los tokens de sesión.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "anythingllm": {
+        "description": "Espacio de trabajo RAG todo en uno. Añade documentos, elige un modelo y conversa sobre ellos con citas. Incluye su propio almacén vectorial, así que no hay nada más que ejecutar.",
+        "env": {
+          "JWT_SECRET": "Firma los tokens de sesión del modo multiusuario."
+        }
+      },
+      "authentik": {
+        "description": "Proveedor de identidad autoalojado: SSO, OAuth2/OIDC, SAML y LDAP con un motor de políticas. El servidor y el worker comparten un Postgres y un Redis incluidos; ambos persisten en volúmenes con nombre.",
+        "env": {
+          "SECRET_KEY": "Clave de firma para sesiones y tokens. Mantenla estable entre reinicios.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres de authentik incluido."
+        }
+      },
+      "autumn": {
+        "description": "Capa de precios y facturación de código abierto sobre Stripe: modela productos y funciones una vez, luego mide el uso y controla el acceso con llamadas attach / check / track. Ejecuta el servidor de API, los workers de cola, cron y el panel desde una única imagen preconstruida, con Postgres, Valkey, Dragonfly y un emulador de DynamoDB incluidos. Las claves de Stripe se añaden por organización en el panel tras el despliegue.",
+        "env": {
+          "AUTUMN_API_URL": "Origen público en el que se expone el servidor de API (solo esquema y host, sin ruta). Expón el servicio `server` y usa esa URL.",
+          "CLIENT_URL": "Origen público en el que se expone el panel. Expón el servicio `dashboard` y usa esa URL.",
+          "BETTER_AUTH_SECRET": "Firma las sesiones de autenticación del panel.",
+          "ENCRYPTION_IV": "IV hexadecimal para cifrar las claves de Stripe almacenadas.",
+          "ENCRYPTION_PASSWORD": "Material de clave para cifrar las claves de Stripe almacenadas.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "baserow": {
+        "description": "Base de datos con forma de hoja de cálculo y API REST: un Airtable de código abierto. Una sola imagen que agrupa web, API y worker; los datos y las subidas persisten en un único volumen con nombre.",
+        "env": {
+          "BASEROW_PUBLIC_URL": "URL base pública. El frontend llama a la API en esta dirección.",
+          "SECRET_KEY": "Firma sesiones y tokens."
+        }
+      },
+      "beszel": {
+        "description": "Centro de monitorización ligero: CPU, memoria, disco, red y estadísticas por contenedor, con histórico y alertas, en un pequeño binario de Go. El hub solo muestra datos. Cada máquina que quieras graficar ejecuta un agente Beszel, y el hub te da su comando de instalación al añadir el sistema.",
+        "env": {
+          "APP_URL": "URL base pública del hub. Se usa en los correos de alerta y las redirecciones de OAuth."
+        }
+      },
+      "browserless": {
+        "description": "Chrome headless como servicio. Apunta Puppeteer o Playwright a él por websocket para capturas, PDF y scraping, sin incluir un navegador en tu propia imagen.",
+        "env": {
+          "BROWSERLESS_TOKEN": "Token bearer que todo cliente debe presentar al conectarse."
+        }
+      },
+      "cloudbeaver": {
+        "description": "DBeaver en el navegador: una consola SQL completa con navegación de esquemas, diagramas ER e historial de consultas sobre Postgres, MySQL, SQLite y más, compartida por un equipo."
+      },
+      "code-server": {
+        "description": "VS Code ejecutándose en el servidor, accesible desde una pestaña del navegador. El editor mantiene sus extensiones y su terminal en la máquina, así que un portátil o una tableta son solo una pantalla.",
+        "env": {
+          "CODE_SERVER_PASSWORD": "Contraseña de la interfaz web. Quien la tenga obtiene una shell en este contenedor."
+        }
+      },
+      "directus": {
+        "description": "CMS headless y API REST/GraphQL instantánea sobre una base de datos Postgres, con una aplicación de administración para editores. Las subidas persisten en un volumen con nombre.",
+        "env": {
+          "DIRECTUS_SECRET": "Secreto de firma para los tokens de autenticación.",
+          "ADMIN_EMAIL": "Correo electrónico del primer usuario administrador.",
+          "ADMIN_PASSWORD": "Contraseña del primer usuario administrador.",
+          "POSTGRES_PASSWORD": "Contraseña del usuario de Postgres de directus."
+        }
+      },
+      "docker-registry": {
+        "description": "El registro OCI de referencia: un lugar privado al que subir imágenes que tus servicios luego descargan. Se combina con el destino de imagen de un servicio para que las compilaciones nunca salgan de tu propia infraestructura."
+      },
+      "docmost": {
+        "description": "Wiki y documentación colaborativa con edición en tiempo real, espacios y permisos: una alternativa autoalojada a Confluence o Notion. Postgres para el contenido, Redis para la presencia.",
+        "env": {
+          "APP_URL": "URL base pública. Se usa para los enlaces de compartición y los correos de invitación.",
+          "APP_SECRET": "Firma sesiones y tokens.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "dozzle": {
+        "description": "Visor de registros en vivo para todos los contenedores del host. Sigue, busca y monitoriza sin SSH. Lee el socket de Docker, así que cualquiera que llegue a él puede leer los registros de todos los contenedores: mantenlo tras «Requerir inicio de sesión» en la protección de despliegue del servicio."
+      },
+      "drizzle-gateway": {
+        "description": "Drizzle Studio autoalojado. Explora y edita cualquier base de datos Postgres, MySQL o SQLite en el navegador, con el esquema mostrado tal y como lo ve Drizzle.",
+        "env": {
+          "GATEWAY_MASTERPASS": "Contraseña maestra que protege el estudio y sus conexiones guardadas."
+        }
+      },
+      "excalidraw": {
+        "description": "Pizarra virtual con estética dibujada a mano. Un único contenedor sin estado que sirve el editor. Los tableros viven en el navegador salvo que se exporten."
+      },
+      "flowise": {
+        "description": "Editor de arrastrar y soltar para cadenas y agentes LLM. Conecta prompts, herramientas, recuperadores y memoria en un lienzo y luego llama al resultado como una API. Los flujos persisten en un volumen con nombre.",
+        "env": {
+          "FLOWISE_PASSWORD": "Contraseña del inicio de sesión de administrador integrado."
+        }
+      },
+      "forgejo": {
+        "description": "El fork comunitario de Gitea: una forja Git autoalojada con incidencias, pull requests y un registro de paquetes. Los repositorios viven en un volumen con nombre y los metadatos en un Postgres incluido.",
+        "env": {
+          "FORGEJO_URL": "URL base pública. Se usa para las URL de clonado y las llamadas de webhook.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "ghost": {
+        "description": "Plataforma de publicación para boletines, membresías y un editor limpio. Ejecuta la imagen oficial de Ghost respaldada por MySQL 8, con volúmenes persistentes para contenido y base de datos.",
+        "env": {
+          "GHOST_URL": "URL pública desde la que se sirve el sitio (se usa en enlaces y redirecciones).",
+          "MYSQL_PASSWORD": "Contraseña del usuario de MySQL de ghost."
+        }
+      },
+      "gitea": {
+        "description": "Servicio Git autoalojado: repositorios, incidencias, pull requests y runners de CI. Respaldado por Postgres; los repositorios persisten en un volumen con nombre.",
+        "env": {
+          "ROOT_URL": "URL pública desde la que se sirve Gitea (URL de clonado, webhooks, OAuth).",
+          "POSTGRES_PASSWORD": "Contraseña del usuario de Postgres de gitea."
+        }
+      },
+      "glitchtip": {
+        "description": "Seguimiento de errores que habla el protocolo de Sentry. Apunta cualquier SDK de Sentry hacia él cambiando el DSN. Web y worker comparten un Postgres y un Redis incluidos; las subidas persisten en un volumen.",
+        "env": {
+          "GLITCHTIP_DOMAIN": "URL base pública. Se usa en los DSN y en los enlaces dentro de los correos de notificación.",
+          "SECRET_KEY": "Secreto de Django. Firma sesiones y tokens.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido.",
+          "DEFAULT_FROM_EMAIL": "Dirección de remitente en los correos de notificación de incidencias."
+        }
+      },
+      "gotenberg": {
+        "description": "API HTTP sin estado que convierte HTML, Markdown o documentos de Office en PDF. Chromium y LibreOffice viven en el contenedor para que tu aplicación no tenga que hacerlo."
+      },
+      "grafana-prometheus": {
+        "description": "La pila de métricas canónica: Prometheus recolecta y almacena series temporales, Grafana las representa en paneles. Añade objetivos de recolección en la configuración de Prometheus tras el despliegue.",
+        "env": {
+          "GF_ADMIN_PASSWORD": "Contraseña del usuario administrador de Grafana."
+        }
+      },
+      "hasura": {
+        "description": "GraphQL instantáneo sobre Postgres. Inspecciona el esquema y sirve consultas, mutaciones y suscripciones con permisos a nivel de fila, sin escribir resolvers.",
+        "env": {
+          "HASURA_ADMIN_SECRET": "Secreto de administración para la consola y el acceso sin restricciones a la API.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que Hasura expone."
+        }
+      },
+      "healthchecks": {
+        "description": "Monitorización tipo «hombre muerto» para tareas cron y copias de seguridad. Cada tarea hace ping a una URL al terminar, y recibes una alerta cuando un ping no llega a su hora.",
+        "env": {
+          "SITE_ROOT": "URL base pública. Aparece en las URL de ping y en los correos de alerta.",
+          "SECRET_KEY": "Secreto de Django. Firma sesiones y tokens.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "hoppscotch": {
+        "description": "Cliente de API en el navegador: peticiones REST, GraphQL y WebSocket con colecciones y entornos. Una alternativa autoalojada a Postman que nunca sincroniza tus tokens en ningún sitio."
+      },
+      "infisical": {
+        "description": "Gestor de secretos con valores por entorno, versionado y registros de auditoría, además de acceso por CLI y SDK. Postgres incluido para los secretos y Redis para sesiones y colas.",
+        "env": {
+          "SITE_URL": "URL base pública. Se usa para los enlaces de invitación y las llamadas de OAuth.",
+          "ENCRYPTION_KEY": "Cifra en reposo todos los secretos almacenados. Perderla los vuelve irrecuperables.",
+          "AUTH_SECRET": "Firma los tokens de autenticación.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "it-tools": {
+        "description": "El cajón de utilidades: decodificadores de hash y JWT, generadores de UUID y contraseñas, analizadores de cron, base64, probadores de expresiones regulares, conversores de color. Todo se ejecuta en el cliente una vez cargado."
+      },
+      "jaeger": {
+        "description": "Trazado distribuido. Envía spans de OpenTelemetry y sigue una petición por todos los servicios que atravesó. Imagen todo en uno con almacenamiento en memoria, así que arranca sin dependencias."
+      },
+      "keycloak": {
+        "description": "Proveedor de identidad con OIDC y SAML, federación de usuarios, inicio de sesión social y autorización de grano fino. La opción estándar cuando algo más abajo espera un SSO de verdad.",
+        "env": {
+          "KEYCLOAK_HOSTNAME": "Nombre de host público para el que Keycloak emite tokens. Debe coincidir con la forma en que los usuarios llegan a él.",
+          "KEYCLOAK_ADMIN_PASSWORD": "Contraseña de la cuenta `admin` inicial.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena los reinos y los usuarios."
+        }
+      },
+      "libretranslate": {
+        "description": "API de traducción automática autoalojada, sin facturación por carácter y sin que el texto salga de tu servidor. Descarga los modelos de idioma en el primer arranque a un volumen con nombre."
+      },
+      "listmonk": {
+        "description": "Gestor de boletines y listas de correo: listas de suscriptores, segmentación, plantillas de campaña y gestión de rebotes, con tu propio SMTP. Un único binario más Postgres.",
+        "env": {
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena los suscriptores y las campañas."
+        }
+      },
+      "litellm": {
+        "description": "Un único endpoint compatible con OpenAI por delante de cada proveedor de LLM: enrutado, presupuestos, claves y seguimiento del gasto. Respaldado por su propio Postgres para claves y registros de uso.",
+        "env": {
+          "LITELLM_MASTER_KEY": "Clave de administración del proxy. Emite y revoca todas las demás claves virtuales.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena las claves y el gasto."
+        }
+      },
+      "mailpit": {
+        "description": "Servidor SMTP que captura el correo en lugar de entregarlo, con una bandeja web para leerlo. Apunta el SMTP de una aplicación de staging hacia él y nada podrá llegar a un cliente real por accidente."
+      },
+      "matomo": {
+        "description": "Analítica web completa que alojas tú mismo: sesiones, embudos, objetivos y mapas de calor, con datos en bruto que nunca salen de tu servidor. Más pesado que Plausible y mucho más detallado.",
+        "env": {
+          "MYSQL_PASSWORD": "Contraseña del usuario de MariaDB incluido con el que se conecta Matomo.",
+          "MYSQL_ROOT_PASSWORD": "Contraseña de root del MariaDB incluido."
+        }
+      },
+      "meilisearch": {
+        "description": "Motor de búsqueda ultrarrápido y tolerante a erratas con una API REST sencilla. Un único servicio en el puerto 7700; el índice persiste en un volumen con nombre.",
+        "env": {
+          "MEILI_MASTER_KEY": "Clave maestra que protege la API. Al menos 16 bytes."
+        }
+      },
+      "metabase": {
+        "description": "BI de código abierto: paneles, preguntas y SQL sobre tus bases de datos existentes. El estado de la aplicación vive en un Postgres dedicado.",
+        "env": {
+          "POSTGRES_PASSWORD": "Contraseña del usuario de Postgres de metabase."
+        }
+      },
+      "minio": {
+        "description": "Almacenamiento de objetos compatible con S3. Expone la API de S3 en el 9000 y la consola web en el 9001; los buckets persisten en un volumen con nombre.",
+        "env": {
+          "MINIO_ROOT_USER": "Clave de acceso raíz (nombre de usuario). Al menos 3 caracteres.",
+          "MINIO_ROOT_PASSWORD": "Clave secreta raíz. Al menos 8 caracteres."
+        }
+      },
+      "mosquitto": {
+        "description": "El broker MQTT de referencia: diminuto, rápido y el que hablan la mayoría de flotas de IoT y dispositivos. Persiste los mensajes retenidos y las suscripciones en un volumen con nombre."
+      },
+      "n8n": {
+        "description": "Automatización de flujos de trabajo fair-code con más de 400 integraciones. Un único servicio; los flujos y las credenciales persisten en un volumen con nombre (SQLite).",
+        "env": {
+          "N8N_ENCRYPTION_KEY": "Cifra las credenciales almacenadas. Perderla te deja sin acceso a ellas.",
+          "WEBHOOK_URL": "URL base pública que se usa al registrar webhooks en servicios externos."
+        }
+      },
+      "nats": {
+        "description": "Mensajería para servicios: pub/sub, petición/respuesta y persistencia JetStream en un pequeño binario de Go. Una respuesta más ligera que Kafka cuando quieres una cola, no una plataforma de logs."
+      },
+      "netbird": {
+        "description": "Plano de control de red privada basado en WireGuard: gestión, señalización, relay y STUN en un solo contenedor, con un proveedor de identidad Dex integrado, así que no necesita un IdP externo. Apunta la red privada de otterdeploy hacia él para mantener los servicios fuera de la internet pública.",
+        "env": {
+          "NETBIRD_DOMAIN": "URL base pública de esta instalación, con esquema incluido (https://vpn.example.com). Los peers y las redirecciones de autenticación del panel quedan fijados a ella, así que cambiarla más tarde vuelve a dar de alta a todos los peers.",
+          "NETBIRD_AUTH_SECRET": "Secreto compartido con el que el relay autentica a los peers.",
+          "NETBIRD_STORE_ENCRYPTION_KEY": "Cifra en reposo los registros de los peers. Única por instalación; perderla deja el almacén ilegible."
+        }
+      },
+      "nocodb": {
+        "description": "Hoja de cálculo inteligente al estilo de Airtable sobre una base de datos real. Ejecuta la imagen oficial con un Postgres dedicado para sus metadatos y datos.",
+        "env": {
+          "POSTGRES_PASSWORD": "Contraseña del usuario de Postgres de nocodb.",
+          "NC_AUTH_JWT_SECRET": "Secreto de firma para los tokens de autenticación de NocoDB."
+        }
+      },
+      "ntfy": {
+        "description": "Notificaciones pub-sub sobre HTTP simple. Haz curl a un tema y tu teléfono vibra. Sin cuenta ni SDK, lo que lo convierte en el camino más corto de una tarea cron o una alerta hasta una persona.",
+        "env": {
+          "NTFY_BASE_URL": "URL base pública. Los clientes se suscriben contra ella y aparece en los enlaces."
+        }
+      },
+      "open-webui": {
+        "description": "Interfaz de chat autoalojada sobre un runtime local de Ollama. Los modelos, los prompts y el historial se quedan en tu servidor. Descarga modelos bajo demanda a un volumen con nombre; no hace falta ninguna clave de API externa.",
+        "env": {
+          "WEBUI_SECRET_KEY": "Firma las cookies de sesión. Cambiarla cierra la sesión de todo el mundo."
+        }
+      },
+      "plausible": {
+        "description": "Analítica web respetuosa con la privacidad (Community Edition). Postgres guarda el estado de la aplicación y ClickHouse almacena el flujo de eventos; las migraciones se ejecutan automáticamente al arrancar.",
+        "env": {
+          "BASE_URL": "URL pública desde la que se sirve el panel.",
+          "SECRET_KEY_BASE": "Base de clave secreta de Phoenix. Al menos 64 bytes.",
+          "TOTP_VAULT_KEY": "Clave que cifra en reposo los secretos 2FA/TOTP (obligatoria desde la v3). Debe tener 32 bytes.",
+          "POSTGRES_PASSWORD": "Contraseña del superusuario postgres."
+        }
+      },
+      "pocket-id": {
+        "description": "Proveedor OIDC construido en torno a las passkeys, así que no hay contraseñas que guardar ni restablecer. Lo bastante pequeño como para ponerlo delante de herramientas internas sin montar una plataforma de identidad completa.",
+        "env": {
+          "APP_URL": "URL base pública. Los tokens emitidos y el descubrimiento OIDC se construyen a partir de ella."
+        }
+      },
+      "pocketbase": {
+        "description": "Backend en un solo archivo: base de datos SQLite, autenticación, almacenamiento de archivos y una API en tiempo real, con interfaz de administración. Todo persiste en un único volumen con nombre; ninguna base de datos externa que ejecutar."
+      },
+      "rabbitmq": {
+        "description": "Broker de mensajes fiable que habla AMQP (y más). Incluye la imagen de gestión, así que la interfaz web está disponible en el 15672 junto al puerto AMQP 5672; el estado persiste en un volumen con nombre.",
+        "env": {
+          "RABBITMQ_USER": "Nombre de usuario predeterminado del broker.",
+          "RABBITMQ_PASSWORD": "Contraseña del usuario predeterminado del broker."
+        }
+      },
+      "rustfs": {
+        "description": "Almacenamiento de objetos de alto rendimiento compatible con S3 escrito en Rust: una alternativa a MinIO. API de S3 en el 9000; la consola web está en el 9001 en /rustfs/console. Los objetos persisten en un volumen con nombre.",
+        "env": {
+          "RUSTFS_ACCESS_KEY": "Clave de acceso raíz (ID de clave de acceso de S3).",
+          "RUSTFS_SECRET_KEY": "Clave secreta raíz (clave de acceso secreta de S3)."
+        }
+      },
+      "soketi": {
+        "description": "Servidor websocket compatible con Pusher. Conserva los SDK de cliente de Pusher y apúntalos aquí. Tiempo real directo para Laravel Echo, Rails y cualquier cosa que hable el protocolo.",
+        "env": {
+          "SOKETI_APP_KEY": "Clave pública de aplicación con la que se conectan los clientes.",
+          "SOKETI_APP_SECRET": "Secreto del lado del servidor que se usa para firmar la autorización de canales."
+        }
+      },
+      "temporal": {
+        "description": "Motor de flujos de trabajo duraderos. Los procesos de larga duración sobreviven a caídas, despliegues y reintentos porque el estado vive en el servidor, no en tu proceso. Incluye la interfaz web.",
+        "env": {
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que guarda el historial de los flujos de trabajo."
+        }
+      },
+      "twenty": {
+        "description": "CRM de código abierto: una alternativa moderna y orientada al teclado frente a Salesforce. La aplicación y el worker en segundo plano comparten un Postgres y un Redis incluidos; las subidas persisten en un volumen con nombre.",
+        "env": {
+          "SERVER_URL": "URL pública desde la que se sirve Twenty. Se usa para la base de la API y los enlaces del frontend.",
+          "APP_SECRET": "Secreto que se usa para firmar sesiones y tokens.",
+          "POSTGRES_PASSWORD": "Contraseña del superusuario del Postgres incluido."
+        }
+      },
+      "umami": {
+        "description": "Analítica web sencilla, rápida y centrada en la privacidad. Un único servicio Node sobre Postgres; el script de seguimiento se sirve desde la propia aplicación.",
+        "env": {
+          "APP_SECRET": "Secreto que se usa para calcular el hash de los tokens de sesión.",
+          "POSTGRES_PASSWORD": "Contraseña del usuario de Postgres de umami."
+        }
+      },
+      "unleash": {
+        "description": "Servicio de feature flags con despliegues graduales, reglas de segmentación y conmutadores por entorno. Basado en SDK, así que los flags se evalúan en tu aplicación y no por red en cada petición.",
+        "env": {
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena los flags y las estrategias."
+        }
+      },
+      "uptime-kuma": {
+        "description": "Monitorización de disponibilidad autoalojada con páginas de estado y notificaciones. Un único servicio, sin configuración obligatoria. La primera visita crea el usuario administrador."
+      },
+      "vaultwarden": {
+        "description": "Servidor de contraseñas ligero compatible con Bitwarden escrito en Rust. Funciona con las aplicaciones oficiales de Bitwarden y sus extensiones de navegador; los datos persisten en un volumen con nombre.",
+        "env": {
+          "DOMAIN": "URL pública desde la que se sirve la caja fuerte. Necesaria para WebAuthn y las aplicaciones.",
+          "ADMIN_TOKEN": "Token que protege el panel /admin."
+        }
+      },
+      "verdaccio": {
+        "description": "Registro npm privado que hace de proxy y caché del público. Publica paquetes internos sin pagar por un ámbito privado y sigue instalando cuando npmjs esté caído."
+      },
+      "wordpress": {
+        "description": "El CMS más desplegado que existe: temas, plugins y un panel familiar. MariaDB incluido; todo el directorio del sitio persiste en un volumen con nombre para que los plugins sobrevivan a los redespliegues.",
+        "env": {
+          "MYSQL_PASSWORD": "Contraseña del usuario de MariaDB incluido con el que se conecta WordPress.",
+          "MYSQL_ROOT_PASSWORD": "Contraseña de root del MariaDB incluido."
+        }
+      }
+    },
+    "pickerTitle": "Plantillas",
+    "searchPlaceholder": "Buscar plantillas…",
+    "searchLabel": "Buscar plantillas",
+    "noMatch": "Ninguna plantilla coincide con «{{query}}».",
+    "deployAction": "Desplegar →",
+    "serviceCount_one": "{{count}} servicio",
+    "serviceCount_other": "{{count}} servicios",
+    "key": "Clave",
+    "youSupply": "Tú aportas",
+    "valueYouChoose": "un valor que elijas",
+    "generatedForYou": "Generado por ti",
+    "filledWithAddress": "Se rellena con la dirección de esta pila",
+    "noRequiredVars": "No hay variables obligatorias. Esta plantilla se despliega con valores predeterminados seguros."
   },
   "compose": {
     "addResource": "Añadir recurso",
