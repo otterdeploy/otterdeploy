@@ -359,7 +359,22 @@ const composeInlineSchema = z.object({
   // Multi-file stack: compose file + supporting files (Dockerfiles/build
   // contexts, env_file targets, bind-mounted scripts). `composePath` names the
   // compose entry; `content` mirrors it.
-  files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+  //
+  // `interpolate` has to be declared HERE, not just on the compose contract:
+  // the wizard stages into the manifest first, so an undeclared key is
+  // stripped by this parse and the flag never reaches the deploy. The file
+  // then materializes with its `${VAR}` refs intact and the container starts
+  // against literal `${…}` text — which is exactly how the NetBird template
+  // shipped broken (crash loop on `parse "rels://${NETBIRD_DOMAIN}"`).
+  files: z
+    .array(
+      z.object({
+        path: z.string(),
+        content: z.string(),
+        interpolate: z.boolean().optional(),
+      }),
+    )
+    .optional(),
   composePath: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
