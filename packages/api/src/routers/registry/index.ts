@@ -7,6 +7,8 @@
 import { omitUndefined } from "@otterdeploy/shared/object";
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { orgGhcrCapability } from "../../git/ghcr-auth";
+import { GHCR_HOST, installationPermissionUrl } from "../../git/ghcr-policy";
 import { isUniqueViolation } from "../project/views";
 import { fetchRegistryTags, parseImageRef } from "./list-tags";
 import {
@@ -17,6 +19,7 @@ import {
   getRegistryCredentialForOrg,
   getRegistryCredentialForOrgByHost,
   getRegistryForOrg,
+  hasRegistryForHost,
   listRegistriesForOrg,
   updateRegistryRecord,
 } from "./queries";
@@ -25,6 +28,23 @@ import { probeRegistry } from "./test-connection";
 export const registryRouter = {
   list: orgScopedProcedure.registry.list.handler(async ({ context }) => {
     return listRegistriesForOrg(context.activeOrganizationId);
+  }),
+
+  ghcrCapability: orgScopedProcedure.registry.ghcrCapability.handler(async ({ context }) => {
+    const orgId = context.activeOrganizationId;
+    const [capability, stored] = await Promise.all([
+      orgGhcrCapability(orgId),
+      hasRegistryForHost(orgId, GHCR_HOST),
+    ]);
+    return {
+      available: capability.available,
+      reason: capability.reason,
+      accountLogin: capability.accountLogin,
+      // A stored credential wins over derivation (see shouldDeriveGhcr), so
+      // the card has to know before it claims GHCR is covered by the App.
+      storedCredentialExists: stored,
+      permissionUrl: installationPermissionUrl(capability),
+    };
   }),
 
   create: requirePermission({ registry: ["create"] }).registry.create.handler(

@@ -117,6 +117,27 @@ export async function getRegistryCredentialForOrg(organizationId: OrgId, id: Reg
  * authenticates exactly like the eventual pull will. Null when the org
  * has no credential for that host (anonymous is the honest fallback).
  */
+/**
+ * Does a stored credential exist for this host?
+ *
+ * Separate from `getRegistryCredentialForOrgByHost` because the caller only
+ * needs a yes/no and that one decrypts the password to answer it. Decrypting
+ * a secret to decide what to draw is not something to do casually.
+ */
+export async function hasRegistryForHost(organizationId: OrgId, host: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: containerRegistry.id })
+    .from(containerRegistry)
+    .where(
+      and(
+        eq(containerRegistry.organizationId, organizationId),
+        eq(containerRegistry.host, canonicalizeHost(host)),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
+}
+
 export async function getRegistryCredentialForOrgByHost(organizationId: OrgId, host: string) {
   const [row] = await db
     .select({

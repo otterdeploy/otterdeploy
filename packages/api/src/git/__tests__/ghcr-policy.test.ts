@@ -10,6 +10,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   GHCR_TOKEN_USERNAME,
   decideGhcrCapability,
+  installationPermissionUrl,
   looksLikeInstallationToken,
   shouldDeriveGhcr,
 } from "../ghcr-policy";
@@ -17,6 +18,7 @@ import {
 const installation = {
   installationId: "12345678",
   accountLogin: "acme",
+  accountType: "Organization",
   permissions: { contents: "read", packages: "write" },
 };
 
@@ -26,6 +28,7 @@ describe("decideGhcrCapability", () => {
       available: true,
       installationId: "12345678",
       accountLogin: "acme",
+      accountType: "Organization",
       reason: "ok",
     });
   });
@@ -118,5 +121,48 @@ describe("shouldDeriveGhcr", () => {
     for (const host of ["docker.io", "registry:5000", "quay.io", "localhost:5000"]) {
       expect(shouldDeriveGhcr({ host, storedCredentialCount: 0 })).toBe(false);
     }
+  });
+});
+
+describe("installationPermissionUrl", () => {
+  const base = { available: true, installationId: "42", accountLogin: "acme" } as const;
+
+  it("points an organization install at its org settings", () => {
+    expect(
+      installationPermissionUrl({
+        ...base,
+        accountType: "Organization",
+        reason: "missing-packages-permission",
+      }),
+    ).toBe("https://github.com/organizations/acme/settings/installations/42/permissions/update");
+  });
+
+  it("points a personal install at personal settings", () => {
+    expect(
+      installationPermissionUrl({
+        ...base,
+        accountType: "User",
+        reason: "missing-packages-permission",
+      }),
+    ).toBe("https://github.com/settings/installations/42/permissions/update");
+  });
+
+  // One thing for the UI to check rather than two.
+  it("is null when there is nothing to approve", () => {
+    for (const reason of ["ok", "no-app", "no-installation"] as const) {
+      expect(installationPermissionUrl({ ...base, accountType: "User", reason })).toBeNull();
+    }
+  });
+
+  it("is null without an installation to link to", () => {
+    expect(
+      installationPermissionUrl({
+        available: false,
+        installationId: null,
+        accountLogin: null,
+        accountType: null,
+        reason: "missing-packages-permission",
+      }),
+    ).toBeNull();
   });
 });

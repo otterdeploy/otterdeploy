@@ -623,7 +623,14 @@
     "edit": "Edit registry",
     "delete": "Delete registry",
     "removed": "Registry removed",
-    "removeConfirm": "Remove this registry?"
+    "removeConfirm": "Remove this registry?",
+    "ghcr": {
+      "badge": "via GitHub",
+      "description": "Covered by your GitHub App. Pushes and pulls are authorized per request, so there is nothing here to create or rotate.",
+      "descriptionAs": "Covered by your GitHub App, installed on {{account}}. Pushes and pulls are authorized per request, so there is nothing here to create or rotate.",
+      "needsPermission": "Your GitHub App needs access to packages before this works. GitHub asks an owner to approve the change — it is not granted automatically.",
+      "review": "Review on GitHub"
+    }
   },
   "sso": {
     "addProvider": "Add identity provider",

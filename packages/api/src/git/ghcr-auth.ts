@@ -49,6 +49,7 @@ export async function orgGhcrCapability(organizationId: OrganizationId): Promise
     .select({
       installationId: gitInstallation.installationId,
       accountLogin: gitInstallation.accountLogin,
+      accountType: gitInstallation.accountType,
       permissions: gitInstallation.permissions,
     })
     .from(gitInstallation)

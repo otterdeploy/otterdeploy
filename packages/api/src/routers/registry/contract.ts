@@ -118,7 +118,34 @@ const listTagsOutput = z.object({
   message: z.string().optional(),
 });
 
+/**
+ * Whether the org can reach GHCR through its GitHub App, and whether it still
+ * needs to say yes to the packages permission.
+ *
+ * `available` is what decides if the derived entry is drawn. `reason` only
+ * ever drives copy — see `decideGhcrCapability`, which explains why a stale
+ * permissions snapshot must not gate the auth path.
+ *
+ * `permissionUrl` is where an owner goes to approve the updated permissions.
+ * Null when there is nothing to approve, or when we cannot construct it.
+ */
+const ghcrCapabilitySchema = z.object({
+  available: z.boolean(),
+  reason: z.enum(["ok", "no-app", "no-installation", "missing-packages-permission"]),
+  /** The GitHub account the App is installed on, for copy ("as @acme"). */
+  accountLogin: z.string().nullable(),
+  /** True when a stored ghcr.io credential exists, which takes precedence. */
+  storedCredentialExists: z.boolean(),
+  permissionUrl: z.url().nullable(),
+});
+
 export const registryContract = {
+  /** Read-only; every member may see whether GHCR is covered by the App. */
+  ghcrCapability: oc
+    .meta({ path: `${basePath}/ghcr-capability`, tag, method: "GET" })
+    .input(listRegistriesInput)
+    .output(ghcrCapabilitySchema),
+
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
     .input(listRegistriesInput)

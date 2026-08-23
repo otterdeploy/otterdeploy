@@ -45,6 +45,9 @@ export interface GhcrCapability {
   reason: GhcrCapabilityReason;
   /** The account the App is installed on, for UI copy ("as @acme"). */
   accountLogin: string | null;
+  /** Organization installs live under a different settings path than personal
+   *  ones, which is the only reason this is carried. */
+  accountType: "Organization" | "User" | null;
 }
 
 /**
@@ -64,6 +67,7 @@ export function decideGhcrCapability(input: {
   installation: {
     installationId: string;
     accountLogin: string;
+    accountType: string;
     permissions: Record<string, string>;
   } | null;
   /** Whether a GitHub provider row exists at all for the org. */
@@ -76,6 +80,7 @@ export function decideGhcrCapability(input: {
       available: false,
       installationId: null,
       accountLogin: null,
+      accountType: null,
       reason: input.hasProvider ? "no-installation" : "no-app",
     };
   }
@@ -85,6 +90,7 @@ export function decideGhcrCapability(input: {
     available: true,
     installationId: input.installation.installationId,
     accountLogin: input.installation.accountLogin,
+    accountType: input.installation.accountType === "Organization" ? "Organization" : "User",
     reason: packages === "read" || packages === "write" ? "ok" : "missing-packages-permission",
   };
 }
@@ -100,4 +106,19 @@ export function decideGhcrCapability(input: {
  */
 export function shouldDeriveGhcr(input: { host: string; storedCredentialCount: number }): boolean {
   return input.host === GHCR_HOST && input.storedCredentialCount === 0;
+}
+
+/**
+ * Where an owner approves the App's updated permissions.
+ *
+ * Organization installs live under a different path than personal ones — the
+ * same split the git-providers card already handles. Null when there is
+ * nothing to approve, so the UI has one thing to check rather than two.
+ */
+export function installationPermissionUrl(capability: GhcrCapability): string | null {
+  if (capability.reason !== "missing-packages-permission") return null;
+  if (capability.installationId === null || capability.accountLogin === null) return null;
+  return capability.accountType === "Organization"
+    ? `https://github.com/organizations/${capability.accountLogin}/settings/installations/${capability.installationId}/permissions/update`
+    : `https://github.com/settings/installations/${capability.installationId}/permissions/update`;
 }
