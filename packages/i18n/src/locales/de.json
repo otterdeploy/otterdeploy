@@ -122,6 +122,23 @@
       "reconnecting": "Diese Seite versucht es weiter und macht von allein weiter, sobald der Server wieder antwortet. Meist ein Neustart."
     }
   },
+  "instanceNetwork": {
+    "title": "Öffentliche IP",
+    "descriptionBefore": "Die Adressen, unter denen dieser Server aus dem Internet erreichbar ist. Die IPv4 verankert die ",
+    "descriptionAfter": "-Fallback-Domains, die jede Ressource erhält, bevor du eine eigene Domain besitzt, und darauf zeigt die Cloudflare-Autokonfiguration die A-Records. IPv6 ist optional – viele Hosts haben keine. Wird beim ersten Start in der Produktion automatisch erkannt. Korrigiere sie hier, falls die Erkennung danebenlag (NAT, mehrfach angebundener Host).",
+    "addresses": "Adressen",
+    "reveal": "Einblenden",
+    "hide": "Ausblenden",
+    "revealLabel": "Adressen einblenden",
+    "hideLabel": "Adressen ausblenden",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "ipv6Placeholder": "2001:db8::1 (keine erkannt)",
+    "envOverride": "ENV-ÜBERSCHREIBUNG",
+    "pinnedBy": "Festgelegt durch {{vars}}, was bei jedem Start erneut angewendet wird – Änderungen hier hätten also keinen Bestand. Ändere oder entferne die Variable, um sie auf dieser Seite zu verwalten.",
+    "saved": "Öffentliche IP gespeichert",
+    "saveFailed": "Öffentliche IP konnte nicht gespeichert werden"
+  },
   "shell": {
     "search": "Suchen",
     "searchPlaceholder": "Ressourcen, Einstellungen suchen…",

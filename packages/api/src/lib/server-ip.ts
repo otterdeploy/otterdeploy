@@ -26,6 +26,7 @@ import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/p
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { networkInterfaces } from "node:os";
+import { z } from "zod";
 
 export type ServerIpSource = "override" | "existing" | "detected" | "local" | "none";
 
@@ -42,17 +43,30 @@ const IP_ECHO_SERVICES = [
   "https://icanhazip.com",
 ];
 
-const IPV4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+// IPv6-ONLY echo services: they answer over v6 or not at all, which is what
+// makes them a detector. A dual-stack endpoint would happily reply over v4
+// with the v4 address and we'd persist that as the host's "IPv6".
+const IPV6_ECHO_SERVICES = ["https://api6.ipify.org", "https://ipv6.icanhazip.com"];
 
-/** Loose check. Rejects HTML/error bodies, not a full RFC validation. */
+// Zod's address formats are the single definition of "is this an address"
+// across the codebase (the settings contract validates the same way), so an
+// echo service's answer is held to exactly the standard an operator's typed
+// value is. Rejects HTML/error bodies for free.
+const ipv4 = z.ipv4();
+const ipv6 = z.ipv6();
+
 function looksLikeIp(value: string): boolean {
-  if (IPV4.test(value)) return true;
-  // ipv6: only hex + colons, and at least one colon.
-  return value.includes(":") && /^[0-9a-fA-F:]+$/.test(value);
+  return ipv4.safeParse(value).success || ipv6.safeParse(value).success;
 }
 
-async function detectPublicIp(): Promise<string | null> {
-  for (const url of IP_ECHO_SERVICES) {
+/** v6 literals only: keeps a v4 answer from a mis-behaving "IPv6" endpoint
+ *  out of the v6 column. */
+function looksLikeIpv6(value: string): boolean {
+  return ipv6.safeParse(value).success;
+}
+
+async function detectFrom(services: readonly string[], accept: (v: string) => boolean) {
+  for (const url of services) {
     const fetched = await Result.tryPromise({
       try: async () => {
         const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
@@ -61,9 +75,21 @@ async function detectPublicIp(): Promise<string | null> {
       },
       catch: (cause) => cause,
     });
-    if (fetched.isOk() && looksLikeIp(fetched.value)) return fetched.value;
+    if (fetched.isOk() && accept(fetched.value)) return fetched.value;
   }
   return null;
+}
+
+async function detectPublicIp(): Promise<string | null> {
+  return detectFrom(IP_ECHO_SERVICES, looksLikeIp);
+}
+
+/** The host's public IPv6, or null when it has no v6 egress at all (the
+ *  common IPv4-only VPS). Never falls back to a local interface the way the
+ *  v4 path does: link-local/ULA addresses are unroutable, so publishing one
+ *  as "your IPv6" would be a worse answer than admitting there isn't one. */
+async function detectPublicIpv6(): Promise<string | null> {
+  return detectFrom(IPV6_ECHO_SERVICES, looksLikeIpv6);
 }
 
 /**
@@ -96,6 +122,16 @@ async function persist(ip: string): Promise<void> {
     .onConflictDoUpdate({
       target: platformSettings.id,
       set: { serverIp: ip },
+    });
+}
+
+async function persistIpv6(ip: string): Promise<void> {
+  await db
+    .insert(platformSettings)
+    .values({ id: PLATFORM_SETTINGS_ID, serverIpv6: ip })
+    .onConflictDoUpdate({
+      target: platformSettings.id,
+      set: { serverIpv6: ip },
     });
 }
 
@@ -132,6 +168,42 @@ export async function ensureServerIp(opts: {
   if (local) {
     await persist(local);
     return { ip: local, source: "local" };
+  }
+
+  return { ip: null, source: "none" };
+}
+
+/**
+ * IPv6 sibling of `ensureServerIp`, with one deliberate difference: there is
+ * no local-interface fallback. An IPv4-only host is an ordinary host, so
+ * `null` here means "this machine has no public IPv6" — which the Instance
+ * page states plainly rather than rendering as a gap the operator must fix.
+ *
+ * Precedence mirrors v4: env override (re-applied every boot) → persisted
+ * value → detection from an IPv6-only echo service in production.
+ */
+export async function ensureServerIpv6(opts: {
+  override?: string | null;
+  allowDetect: boolean;
+}): Promise<EnsureServerIpResult> {
+  const [row] = await db
+    .select({ serverIpv6: platformSettings.serverIpv6 })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+    .limit(1);
+
+  const override = opts.override?.trim();
+  if (override) {
+    if (row?.serverIpv6 !== override) await persistIpv6(override);
+    return { ip: override, source: "override" };
+  }
+
+  if (row?.serverIpv6) return { ip: row.serverIpv6, source: "existing" };
+
+  const detected = opts.allowDetect ? await detectPublicIpv6() : null;
+  if (detected) {
+    await persistIpv6(detected);
+    return { ip: detected, source: "detected" };
   }
 
   return { ip: null, source: "none" };

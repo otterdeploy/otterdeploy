@@ -84,6 +84,12 @@ export const env = createEnv({
     // isn't reachable on :443 anyway), so set this if you need it locally.
     SERVER_IP: z.string().min(1).optional(),
 
+    // Same override contract as SERVER_IP, for the host's public IPv6.
+    // Unset is not an error: an IPv4-only host detects nothing here and the
+    // Instance page shows "none", so this only needs setting when detection
+    // is wrong (multi-homed, tunnel-brokered v6) or absent.
+    SERVER_IPV6: z.string().min(1).optional(),
+
     // Dev-only local wildcard base domain (e.g. `otterdeploy.localhost`).
     // When set AND NODE_ENV=development, exposed services resolve to
     // `<resource>-<project>.<LOCAL_BASE_DOMAIN>` — which resolves to loopback

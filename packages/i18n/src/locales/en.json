@@ -122,6 +122,23 @@
       "reconnecting": "This page keeps trying and picks up on its own once the server answers again. Usually a restart."
     }
   },
+  "instanceNetwork": {
+    "title": "Public IP",
+    "descriptionBefore": "The addresses this server is reachable at from the internet. The IPv4 anchors the ",
+    "descriptionAfter": " fallback domains every resource gets before you own a real domain, and it's what Cloudflare auto-configure points A records at. IPv6 is optional — plenty of hosts have none. Auto-detected on first boot in production. Correct them here if detection got it wrong (NAT, multi-homed host).",
+    "addresses": "Addresses",
+    "reveal": "Reveal",
+    "hide": "Hide",
+    "revealLabel": "Reveal addresses",
+    "hideLabel": "Hide addresses",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "ipv6Placeholder": "2001:db8::1 (none detected)",
+    "envOverride": "ENV OVERRIDE",
+    "pinnedBy": "Pinned by {{vars}}, which re-applies on every boot, so edits here wouldn't stick. Change or unset it to manage from this page.",
+    "saved": "Public IP saved",
+    "saveFailed": "Failed to save public IP"
+  },
   "shell": {
     "search": "Search",
     "searchPlaceholder": "Search resources, settings…",

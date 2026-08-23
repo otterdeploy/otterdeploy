@@ -122,6 +122,23 @@
       "reconnecting": "Esta página sigue intentándolo y continúa sola en cuanto el servidor vuelva a responder. Suele ser un reinicio."
     }
   },
+  "instanceNetwork": {
+    "title": "IP pública",
+    "descriptionBefore": "Las direcciones en las que este servidor es accesible desde internet. La IPv4 ancla los dominios de reserva ",
+    "descriptionAfter": " que recibe cada recurso antes de que tengas un dominio propio, y es a donde la configuración automática de Cloudflare apunta los registros A. IPv6 es opcional: muchos hosts no tienen. Se detectan automáticamente en el primer arranque en producción. Corrígelas aquí si la detección se equivocó (NAT, host con varias interfaces).",
+    "addresses": "Direcciones",
+    "reveal": "Mostrar",
+    "hide": "Ocultar",
+    "revealLabel": "Mostrar direcciones",
+    "hideLabel": "Ocultar direcciones",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "ipv6Placeholder": "2001:db8::1 (ninguna detectada)",
+    "envOverride": "ANULACIÓN ENV",
+    "pinnedBy": "Fijado por {{vars}}, que se vuelve a aplicar en cada arranque, así que los cambios aquí no persistirían. Cambia o elimina la variable para gestionarla desde esta página.",
+    "saved": "IP pública guardada",
+    "saveFailed": "No se pudo guardar la IP pública"
+  },
   "shell": {
     "search": "Buscar",
     "searchPlaceholder": "Buscar recursos, ajustes…",
