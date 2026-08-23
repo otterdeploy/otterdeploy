@@ -16,9 +16,14 @@
  * group renders; the FormGroups own every "can this step advance?" decision.
  *
  * The wizard chrome lives in ./compose-wizard-body (+ ./compose-wizard-fields,
- * ./compose-preview); shared types/the form hook in ./compose-wizard-shared;
- * the parse hook in ./compose-wizard-parse; CodeMirror config in
- * ./compose-wizard-editor.
+ * ./compose-vars-step, ./compose-preview, ./compose-file-panel); shared
+ * types/the form hook in ./compose-wizard-shared; the parse hook in
+ * ./compose-wizard-parse; CodeMirror config in ./compose-wizard-editor.
+ *
+ * Layout is services-first: ComposePreview renders the parsed service list
+ * above ComposeFilePanel, which folds the file itself behind a disclosure
+ * whenever a template supplied it. `hasPrefill` is the one flag that says
+ * "the operator did not write this file", and it drives both.
  */
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
@@ -201,6 +206,7 @@ export function ComposeWizard({
       parsing={parsing}
       preview={preview}
       hasVars={hasVars}
+      hasPrefill={Boolean(prefill)}
       isPending={stage.isPending}
       onFileNext={handleFileNext}
       onStage={stageStack}
