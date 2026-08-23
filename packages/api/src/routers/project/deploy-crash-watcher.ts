@@ -40,6 +40,7 @@ import type { ContainerEvent, DockerEvent } from "../../swarm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
 import { subscribeDockerEvents } from "../../swarm";
+import { scaleSwarmServiceToZero } from "../../swarm/service";
 import { publishResourceChanged } from "./project-event-bus";
 
 /** Dies per deployment before we notify, absent a firmer signal (exhausted /
@@ -60,6 +61,9 @@ interface DieContext {
   /** Restart cap; null = unlimited, 0 = restart disabled. */
   maxAttempts: number | null;
   swarmManaged: boolean;
+  /** `com.docker.swarm.service.name`, when this die came from a swarm task.
+   *  The identity that SURVIVES task replacement — the container id does not. */
+  swarmServiceName: string | null;
   oomKilled: boolean;
 }
 
@@ -84,8 +88,13 @@ function bumpDieCount(deploymentId: string): number {
  * long-runner that crashes occasionally must keep its keep-alive) and stop
  * the container once the loop is undeniable. The driver maps condition "any"
  * to unless-stopped, so an explicit stop ends the loop for good; a redeploy
- * starts fresh. Plain docker only: swarm reschedules new tasks per die and
- * its exhaustion is covered by the failed-task threshold.
+ * starts fresh.
+ *
+ * Keyed by whatever identity SURVIVES a restart, which differs per runtime:
+ * plain docker restarts the same container (id stable, so key on it), swarm
+ * schedules a replacement task with a NEW id (so key on the service name).
+ * Keying swarm on the container is why the cap never bit there — the counter
+ * re-read 1 on every death. See breakSwarmRescheduleLoop.
  */
 const RAPID_DIE_WINDOW_MS = 60_000;
 const RAPID_DIE_CAP = 5;
@@ -110,6 +119,54 @@ async function stopCrashLoop(containerId: string): Promise<boolean> {
   } finally {
     docker.destroy();
   }
+}
+
+/**
+ * Stop a crash loop the runtime will not stop itself. True when the die was
+ * fully handled (service held down, line + alert emitted).
+ *
+ * Two runtimes, two different things looping, so two paths — mutually
+ * exclusive on `swarmManaged`.
+ */
+async function breakCrashLoop(ctx: DieContext, containerId: string): Promise<boolean> {
+  return ctx.swarmManaged
+    ? await breakSwarmRescheduleLoop(ctx)
+    : await breakUncappedLoop(ctx, containerId);
+}
+
+/**
+ * The enforcement path for a SWARM service whose replacement tasks keep dying.
+ *
+ * `RestartPolicy.MaxAttempts` (swarm/internals.ts) is per-TASK and works: five
+ * attempts, then that task is done. The orchestrator then schedules a fresh
+ * task to satisfy the replica count, with a fresh counter, and does that
+ * forever — a working cap that stops nothing. One stack booted ~1,150 times
+ * behind it and wrote 51k log lines.
+ *
+ * So this counts by SERVICE NAME, not container id. Keying on the container
+ * was the flaw in every previous attempt: swarm hands each replacement task a
+ * new id, so a per-container counter re-reads 1 on every death and can never
+ * reach a cap. `breakUncappedLoop` below also bails out for swarm entirely
+ * (`ctx.swarmManaged`), on the assumption that swarm's own exhaustion covers
+ * it. It does not; that assumption is what this function exists to correct.
+ *
+ * Scaling to zero (not removing) is what swarm actually honours, and it leaves
+ * the spec, volumes and routes intact for a redeploy.
+ */
+async function breakSwarmRescheduleLoop(ctx: DieContext): Promise<boolean> {
+  if (!ctx.swarmManaged || !ctx.swarmServiceName) return false;
+  if (bumpRapidDies(`svc:${ctx.swarmServiceName}`) < RAPID_DIE_CAP) return false;
+
+  const scaled = await scaleSwarmServiceToZero({ serviceName: ctx.swarmServiceName }).catch(
+    () => false,
+  );
+  if (!scaled) return false;
+
+  const line = `${exitPhrase(ctx)}: crash loop, scaled to 0 replicas after ${RAPID_DIE_CAP} rapid task failures. Swarm reschedules past its own restart cap, so the service is held down until redeployed`;
+  await appendSystemLine(ctx.deploymentId, line);
+  void publishResourceChanged(ctx.resourceId);
+  await notifyCrashed(ctx, line, "gave-up").catch(() => undefined);
+  return true;
 }
 
 /** The enforcement path for an uncapped policy in a tight loop. True when the
@@ -148,8 +205,10 @@ function exitPhrase(ctx: DieContext): string {
  *  moment the restart policy gave up. */
 function retryPhrase(ctx: DieContext): { line: string; gaveUp: boolean } {
   if (ctx.swarmManaged) {
-    // Swarm restarts by scheduling a NEW task: per-container counters don't
-    // apply; the derivation's failed-task threshold covers exhaustion.
+    // Swarm restarts by scheduling a NEW task, so per-container counters do
+    // not apply. Note this is NOT the give-up moment: swarm has no
+    // service-level exhaustion, it reschedules indefinitely.
+    // breakSwarmRescheduleLoop is what ends it.
     return { line: "swarm will reschedule a replacement task", gaveUp: false };
   }
   if (ctx.maxAttempts === 0) {
@@ -301,11 +360,12 @@ async function handleDie(event: ContainerEvent): Promise<void> {
     attemptsSoFar: restartState.attemptsSoFar,
     maxAttempts: restartState.maxAttempts,
     swarmManaged: event.labels["com.docker.swarm.service.id"] != null,
+    swarmServiceName: event.labels["com.docker.swarm.service.name"] ?? null,
     oomKilled: restartState.oomKilled,
   };
 
-  // Unlimited restart policy in a tight loop: enforce the cap docker can't.
-  if (await breakUncappedLoop(ctx, event.containerId)) return;
+  // A tight loop the runtime will not stop on its own: enforce it here.
+  if (await breakCrashLoop(ctx, event.containerId)) return;
 
   const retry = retryPhrase(ctx);
   const line = `${exitPhrase(ctx)}: ${retry.line}`;

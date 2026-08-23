@@ -238,6 +238,69 @@ export async function inspectSwarmServiceRuntime(
 // Destroy
 // ---------------------------------------------------------------------------
 
+/**
+ * Take a service to zero replicas: the ONLY thing that stops a swarm crash
+ * loop.
+ *
+ * `RestartPolicy.MaxAttempts` (internals.ts) caps how many times ONE TASK is
+ * retried, and it does that correctly. But when a task exhausts its attempts
+ * the orchestrator schedules a REPLACEMENT task to satisfy the replica count,
+ * with a fresh counter, forever — so from the outside the cap is invisible.
+ * One production stack booted ~1,150 times behind a working `MaxAttempts: 5`.
+ *
+ * Swarm has no service-level "give up", so the only lever is the desired state
+ * it converges on. Setting replicas to 0 is what actually ends it, and it is
+ * deliberately reversible: the spec, volumes and routes all survive, so a
+ * redeploy (or a manual scale-up) brings the service straight back. Removing
+ * the service would end the loop too and take the operator's stack with it.
+ *
+ * Returns false when there is nothing to scale (already gone, or not
+ * replicated), so callers can stay quiet rather than reporting an action they
+ * did not take.
+ */
+export async function scaleSwarmServiceToZero(
+  input: { serviceName: string },
+  rlog?: RequestLogger,
+): Promise<boolean> {
+  const log = asStepLogger(rlog);
+  const docker = Docker.fromEnv();
+
+  try {
+    const listResult = await docker.services.list({
+      filters: { name: [input.serviceName] },
+    });
+    if (listResult.isErr()) return false;
+
+    const service = listResult.value.find((s) => s.Spec?.Name === input.serviceName);
+    if (!service?.ID) return false;
+
+    const inspected = await docker.services.getService(service.ID).inspect();
+    if (inspected.isErr()) return false;
+
+    const version = inspected.value.Version?.Index;
+    const spec = inspected.value.Spec;
+    // A global service has no replica count to zero; leave it alone rather
+    // than writing a Mode it never had.
+    if (version === undefined || !spec?.Mode?.Replicated) return false;
+    if (spec.Mode.Replicated.Replicas === 0) return false;
+
+    log.info({ swarm: { step: "scale-to-zero", service: input.serviceName } });
+    const updated = await docker.services.getService(service.ID).update({
+      version,
+      Name: spec.Name,
+      Labels: spec.Labels,
+      TaskTemplate: spec.TaskTemplate,
+      Mode: { Replicated: { Replicas: 0 } },
+      UpdateConfig: spec.UpdateConfig,
+      RollbackConfig: spec.RollbackConfig,
+      EndpointSpec: spec.EndpointSpec,
+    });
+    return updated.isOk();
+  } finally {
+    docker.destroy();
+  }
+}
+
 export async function destroySwarmService(
   input: { serviceName: string },
   rlog?: RequestLogger,
