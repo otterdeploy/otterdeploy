@@ -27,11 +27,13 @@
  * installation that is the production database — there is no dry-run.
  */
 
-import { db } from "@otterdeploy/db";
 import { account, session, twoFactor, user } from "@otterdeploy/db/schema";
+import { env } from "@otterdeploy/env/server";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { hashPassword } from "better-auth/crypto";
+import { SQL } from "bun";
 import { and, eq, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/bun-sql";
 import { parseArgs } from "node:util";
 
 // better-auth's own default floor (`emailAndPassword.minPasswordLength`). The
@@ -78,6 +80,16 @@ const password = values.password ?? generatePassword();
 if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
   fail(`password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters`);
 }
+
+// Deliberately NOT the shared `db` from @otterdeploy/db. That client mounts a
+// GLOBAL Redis cache in front of every query, so on an installation whose
+// Redis is unreachable each statement below burns a 2s timeout and then prints
+// a multi-line warn with a full stack trace — burying the one line the
+// operator actually needs. And break-glass recovery is precisely the situation
+// where Redis may be the thing that's down. A direct, uncached connection has
+// no such dependency: this script needs Postgres and nothing else.
+const client = new SQL({ url: env.DATABASE_URL, max: 2 });
+const db = drizzle({ client });
 
 // Emails are stored as the user typed them at signup, so match
 // case-insensitively rather than guessing at normalisation.
@@ -156,4 +168,5 @@ if (values["clear-2fa"]) {
   console.log("        Re-run with --clear-2fa if the authenticator is also lost.");
 }
 
+await client.close();
 process.exit(0);
