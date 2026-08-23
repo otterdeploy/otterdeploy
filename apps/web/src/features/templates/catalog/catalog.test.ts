@@ -1,3 +1,4 @@
+import { allowedHostBind } from "@otterdeploy/api/lib/host-binds";
 import { collectVarRefs } from "@otterdeploy/api/routers/compose/env";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 /**
@@ -35,6 +36,54 @@ function hostsIn(key: string, value: string): string[] {
   if (bare?.[1] && HOST_KEY.test(key)) out.push(bare[1]);
   return out;
 }
+
+/**
+ * The bind gate, pinned against a real candidate.
+ *
+ * NetBird's combined server is the case that motivated the check: it is an
+ * obvious thing to want in the catalog (otterdeploy's private-networking
+ * feature otherwise needs a NetBird *cloud* account, which is a SaaS
+ * dependency inside a self-host-first product), and its compose file is
+ * short. But its combined server is configured by `/etc/netbird/config.yaml`,
+ * and environment variables override only part of it.
+ *
+ * A template shaped like the one below passes every other assertion in this
+ * file. Without this gate it would ship, the bind would be dropped at deploy,
+ * and the container would come up with no configuration. This test fails if
+ * the gate ever stops catching it.
+ */
+describe("bind gate", () => {
+  const netbirdShaped = `name: netbird
+services:
+  netbird:
+    image: netbirdio/netbird-server:latest
+    volumes:
+      - ./config.yaml:/etc/netbird/config.yaml
+      - netbird_data:/var/lib/netbird
+    ports:
+      - "80"
+      - "3478/udp"
+    restart: always
+volumes:
+  netbird_data:
+`;
+
+  it("a config-file bind is dropped by the deploy path, so the catalog must refuse it", () => {
+    const result = parseCompose(netbirdShaped);
+    expect(result.isOk(), result.isErr() ? result.error.message : "").toBe(true);
+    if (result.isErr()) return;
+
+    // It parses clean — that is the trap. Nothing about the file is malformed.
+    expect(result.value.warnings).toEqual([]);
+
+    const dropped = result.value.services.flatMap((s) =>
+      s.volumes
+        .filter((m) => m.type === "bind" && (!m.source || !allowedHostBind(m.source)))
+        .map((m) => m.target),
+    );
+    expect(dropped).toEqual(["/etc/netbird/config.yaml"]);
+  });
+});
 
 describe("template catalog", () => {
   it("has unique ids and a non-trivial catalog", () => {
@@ -84,6 +133,36 @@ describe("template catalog", () => {
           for (const dep of svc.dependsOn)
             expect(names.has(dep), `${svc.name} → ${dep}`).toBe(true);
         }
+      });
+
+      // A bind that isn't on the host allowlist is DROPPED at deploy, not
+      // honoured and not refused: `toMounts` (stack/compose/to-spec.ts) keeps
+      // the mount only when `allowedHostBind` grants it and otherwise skips
+      // it. So the container starts, without the file the compose file said
+      // it needed, and the failure surfaces as whatever that program does
+      // when its config is missing.
+      //
+      // A `StackTemplate` is a compose file and NOTHING else (types.ts: one
+      // `compose` string, no side files), so it cannot even write a
+      // `./config.yaml` for a bind to point at. Every other assertion here
+      // passes such a template — it parses clean, its services resolve, its
+      // env refs line up — and it fails only on the operator's server, which
+      // is the one place this contract exists to stop things reaching.
+      //
+      // This is the gate that rules out otherwise-attractive candidates whose
+      // upstream config is file-shaped rather than env-shaped: NetBird's
+      // combined server wants `/etc/netbird/config.yaml` and env vars cover
+      // only part of it, so it cannot be a template until `StackTemplate`
+      // carries files. The resource layer already models them (`ComposeFile[]`,
+      // written by `materializeComposeFiles`); it is the catalog type that
+      // stops short.
+      it("binds only host paths the deploy path actually grants", () => {
+        const dropped = parsed.services.flatMap((s) =>
+          s.volumes
+            .filter((m) => m.type === "bind" && (!m.source || !allowedHostBind(m.source)))
+            .map((m) => `${s.name}: ${m.source ?? "?"} → ${m.target}`),
+        );
+        expect(dropped).toEqual([]);
       });
 
       it("declares every named volume it mounts (and mounts every declared one)", () => {
