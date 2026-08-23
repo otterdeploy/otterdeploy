@@ -79,9 +79,18 @@ function buildInlineEntry(
       ? {
           files: [
             { path: "compose.yml", content: file.content },
-            ...file.files.flatMap((f) =>
-              f.path.trim() ? [{ path: f.path.trim(), content: f.content }] : [],
-            ),
+            ...file.files.flatMap((f) => {
+              const path = f.path.trim();
+              return path
+                ? [
+                    omitUndefined({
+                      path,
+                      content: f.content,
+                      interpolate: f.interpolate || undefined,
+                    }),
+                  ]
+                : [];
+            }),
           ],
           composePath: "compose.yml",
         }

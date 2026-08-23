@@ -5,18 +5,17 @@ export const CMS_TEMPLATES: StackTemplate[] = [
   {
     id: "ghost",
     name: "Ghost",
-    description:
-      "Publishing platform for newsletters, memberships, and a clean editor. Runs the official Ghost image backed by MySQL 8 with persistent content and database volumes.",
+    descriptionKey: "templates.catalog.ghost.description",
     category: "cms",
     includes: ["ghost", "db"],
     requiredEnv: [
       {
         key: "GHOST_URL",
-        description: "Public URL the site is served from (used in links and redirects).",
+        descriptionKey: "templates.catalog.ghost.env.GHOST_URL",
       },
       {
         key: "MYSQL_PASSWORD",
-        description: "Password for the ghost MySQL user.",
+        descriptionKey: "templates.catalog.ghost.env.MYSQL_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -63,25 +62,24 @@ volumes:
   {
     id: "directus",
     name: "Directus",
-    description:
-      "Headless CMS and instant REST/GraphQL API over a Postgres database, with an admin app for editors. Uploads persist to a named volume.",
+    descriptionKey: "templates.catalog.directus.description",
     category: "cms",
     includes: ["directus", "db"],
     requiredEnv: [
       {
         key: "DIRECTUS_SECRET",
-        description: "Signing secret for auth tokens.",
+        descriptionKey: "templates.catalog.directus.env.DIRECTUS_SECRET",
         generateHint: "openssl rand -base64 32",
       },
-      { key: "ADMIN_EMAIL", description: "Email for the first admin user." },
+      { key: "ADMIN_EMAIL", descriptionKey: "templates.catalog.directus.env.ADMIN_EMAIL" },
       {
         key: "ADMIN_PASSWORD",
-        description: "Password for the first admin user.",
+        descriptionKey: "templates.catalog.directus.env.ADMIN_PASSWORD",
         generateHint: "openssl rand -base64 18",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the directus Postgres user.",
+        descriptionKey: "templates.catalog.directus.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],

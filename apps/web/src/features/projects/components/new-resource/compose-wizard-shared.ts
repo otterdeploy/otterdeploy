@@ -10,6 +10,7 @@
  * `useComposeForm`, which wires the parent-form schema onto the form.
  */
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { revalidateLogic } from "@tanstack/react-form";
 
 import { composeDefaults, composeFormSchema, type ComposeFormValues } from "./compose-schema";
@@ -50,6 +51,10 @@ export interface ComposePrefill {
   /** SvglLogo search string from the template, persisted on the stack so the
    *  graph node shows the template's brand mark. */
   logoBrand?: string;
+  /** Supporting files the template ships alongside the compose file. Seeded
+   *  into the `file.files` rows so the wizard's normal multi-file path stages
+   *  them — the operator sees and can edit them before anything deploys. */
+  files?: Array<{ path: string; content: string; interpolate?: boolean }>;
 }
 
 /** Coerce a display name into a valid manifest resource key
@@ -84,12 +89,21 @@ export function toResourceName(raw: string): string {
 export function useComposeForm(prefill?: ComposePrefill) {
   // `composeDefaults` carries the full nested typed shape, so the spread infers
   // ComposeFormValues without a cast; a prefill only overrides the `file`
-  // group's name + content.
+  // group's name, content and supporting files.
+  //
+  // omitUndefined rather than a conditional spread: with no prefill every key
+  // is undefined and drops out, and a prefill that ships no `files` leaves
+  // `composeDefaults.file.files` standing on its own — so neither case needs a
+  // fallback written out.
   const defaultValues: ComposeFormValues = {
     ...composeDefaults,
     file: {
       ...composeDefaults.file,
-      ...(prefill ? { name: prefill.name, content: prefill.content } : {}),
+      ...omitUndefined({
+        name: prefill?.name,
+        content: prefill?.content,
+        files: prefill?.files,
+      }),
     },
   };
   return useAppForm({

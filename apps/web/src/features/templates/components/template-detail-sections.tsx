@@ -31,17 +31,18 @@ import type { TemplateEnvVar } from "../catalog";
  * platform genuinely cannot fill.
  */
 function SuppliedBy({ varKey, generateHint }: { varKey: string; generateHint?: string }) {
+  const { t } = useTranslation();
   const kind = classifyEnvVar(varKey);
   if (kind === "plain") {
     return (
       <span className="font-mono text-muted-foreground">
-        {generateHint ?? "a value you choose"}
+        {generateHint ?? t("templates.valueYouChoose")}
       </span>
     );
   }
   return (
     <span className="text-muted-foreground">
-      {kind === "secret" ? "Generated for you" : "Filled with this stack's address"}
+      {kind === "secret" ? t("templates.generatedForYou") : t("templates.filledWithAddress")}
     </span>
   );
 }
@@ -90,7 +91,7 @@ export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[
   if (requiredEnv.length === 0) {
     return (
       <p className="rounded-lg bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground ring-1 ring-foreground/10">
-        No required variables. This template deploys with safe defaults.
+        {t("templates.noRequiredVars")}
       </p>
     );
   }
@@ -99,16 +100,16 @@ export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Key</TableHead>
+            <TableHead>{t("templates.key")}</TableHead>
             <TableHead>{t("templates.description")}</TableHead>
-            <TableHead>You supply</TableHead>
+            <TableHead>{t("templates.youSupply")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {requiredEnv.map((v) => (
             <TableRow key={v.key}>
               <TableCell className="font-mono text-xs font-medium">{v.key}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">{v.description}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{t(v.descriptionKey)}</TableCell>
               <TableCell className="text-[11px]">
                 <SuppliedBy varKey={v.key} generateHint={v.generateHint} />
               </TableCell>

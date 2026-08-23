@@ -11,39 +11,36 @@ export const BILLING_TEMPLATES: StackTemplate[] = [
   {
     id: "autumn",
     name: "Autumn",
-    description:
-      "Open-source pricing and billing layer over Stripe: model products and features once, then meter usage and gate access with attach / check / track calls. Runs the API server, queue workers, cron, and dashboard from one prebuilt image, with bundled Postgres, Valkey, Dragonfly and a DynamoDB emulator. Stripe keys are added per-org in the dashboard after deploy.",
+    descriptionKey: "templates.catalog.autumn.description",
     category: "devtools",
     includes: ["server", "workers", "cron", "dashboard", "db", "redis", "dragonfly", "dynamodb"],
     requiredEnv: [
       {
         key: "AUTUMN_API_URL",
-        description:
-          "Public origin the API server is exposed on (scheme + host only, no path). Expose the `server` service and use that URL.",
+        descriptionKey: "templates.catalog.autumn.env.AUTUMN_API_URL",
       },
       {
         key: "CLIENT_URL",
-        description:
-          "Public origin the dashboard is exposed on. Expose the `dashboard` service and use that URL.",
+        descriptionKey: "templates.catalog.autumn.env.CLIENT_URL",
       },
       {
         key: "BETTER_AUTH_SECRET",
-        description: "Signs dashboard auth sessions.",
+        descriptionKey: "templates.catalog.autumn.env.BETTER_AUTH_SECRET",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "ENCRYPTION_IV",
-        description: "Hex IV for encrypting stored Stripe keys.",
+        descriptionKey: "templates.catalog.autumn.env.ENCRYPTION_IV",
         generateHint: "openssl rand -hex 16",
       },
       {
         key: "ENCRYPTION_PASSWORD",
-        description: "Key material for encrypting stored Stripe keys.",
+        descriptionKey: "templates.catalog.autumn.env.ENCRYPTION_PASSWORD",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.autumn.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],

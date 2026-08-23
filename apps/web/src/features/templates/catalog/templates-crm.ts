@@ -5,23 +5,22 @@ export const CRM_TEMPLATES: StackTemplate[] = [
   {
     id: "twenty",
     name: "Twenty",
-    description:
-      "Open-source CRM: a modern, keyboard-first alternative to Salesforce. App and background worker share a bundled Postgres and Redis; uploads persist to a named volume.",
+    descriptionKey: "templates.catalog.twenty.description",
     category: "crm",
     includes: ["twenty", "worker", "db", "redis"],
     requiredEnv: [
       {
         key: "SERVER_URL",
-        description: "Public URL Twenty is served from. Used for the API base and frontend links.",
+        descriptionKey: "templates.catalog.twenty.env.SERVER_URL",
       },
       {
         key: "APP_SECRET",
-        description: "Secret used to sign sessions and tokens.",
+        descriptionKey: "templates.catalog.twenty.env.APP_SECRET",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Superuser password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.twenty.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],

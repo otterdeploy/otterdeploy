@@ -5,29 +5,27 @@ export const ANALYTICS_TEMPLATES: StackTemplate[] = [
   {
     id: "plausible",
     name: "Plausible CE",
-    description:
-      "Privacy-friendly web analytics (Community Edition). Postgres holds app state, ClickHouse stores the event stream; migrations run automatically on boot.",
+    descriptionKey: "templates.catalog.plausible.description",
     category: "analytics",
     includes: ["plausible", "db", "events-db"],
     requiredEnv: [
       {
         key: "BASE_URL",
-        description: "Public URL the dashboard is served from.",
+        descriptionKey: "templates.catalog.plausible.env.BASE_URL",
       },
       {
         key: "SECRET_KEY_BASE",
-        description: "Phoenix secret key base. At least 64 bytes.",
+        descriptionKey: "templates.catalog.plausible.env.SECRET_KEY_BASE",
         generateHint: "openssl rand -base64 48",
       },
       {
         key: "TOTP_VAULT_KEY",
-        description:
-          "Key that encrypts 2FA/TOTP secrets at rest (required since v3). Must be 32 bytes.",
+        descriptionKey: "templates.catalog.plausible.env.TOTP_VAULT_KEY",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the postgres superuser.",
+        descriptionKey: "templates.catalog.plausible.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -83,19 +81,18 @@ volumes:
   {
     id: "umami",
     name: "Umami",
-    description:
-      "Simple, fast, privacy-focused website analytics. One Node service over Postgres; the tracking script is served from the app itself.",
+    descriptionKey: "templates.catalog.umami.description",
     category: "analytics",
     includes: ["umami", "db"],
     requiredEnv: [
       {
         key: "APP_SECRET",
-        description: "Secret used to hash session tokens.",
+        descriptionKey: "templates.catalog.umami.env.APP_SECRET",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the umami Postgres user.",
+        descriptionKey: "templates.catalog.umami.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -140,14 +137,13 @@ volumes:
   {
     id: "metabase",
     name: "Metabase",
-    description:
-      "Open-source BI: dashboards, questions, and SQL over your existing databases. Application state lives in a dedicated Postgres.",
+    descriptionKey: "templates.catalog.metabase.description",
     category: "analytics",
     includes: ["metabase", "db"],
     requiredEnv: [
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the metabase Postgres user.",
+        descriptionKey: "templates.catalog.metabase.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],

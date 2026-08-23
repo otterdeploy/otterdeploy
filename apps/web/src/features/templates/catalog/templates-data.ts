@@ -5,18 +5,17 @@ export const DATA_TEMPLATES: StackTemplate[] = [
   {
     id: "minio",
     name: "MinIO",
-    description:
-      "S3-compatible object storage. Exposes the S3 API on 9000 and the web console on 9001; buckets persist to a named volume.",
+    descriptionKey: "templates.catalog.minio.description",
     category: "data",
     includes: ["minio"],
     requiredEnv: [
       {
         key: "MINIO_ROOT_USER",
-        description: "Root access key (username). At least 3 characters.",
+        descriptionKey: "templates.catalog.minio.env.MINIO_ROOT_USER",
       },
       {
         key: "MINIO_ROOT_PASSWORD",
-        description: "Root secret key. At least 8 characters.",
+        descriptionKey: "templates.catalog.minio.env.MINIO_ROOT_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -53,19 +52,18 @@ volumes:
   {
     id: "nocodb",
     name: "NocoDB",
-    description:
-      "Airtable-style smart spreadsheet over a real database. Runs the official image with a dedicated Postgres for its metadata and data.",
+    descriptionKey: "templates.catalog.nocodb.description",
     category: "data",
     includes: ["nocodb", "db"],
     requiredEnv: [
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the nocodb Postgres user.",
+        descriptionKey: "templates.catalog.nocodb.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
       {
         key: "NC_AUTH_JWT_SECRET",
-        description: "Signing secret for NocoDB auth tokens.",
+        descriptionKey: "templates.catalog.nocodb.env.NC_AUTH_JWT_SECRET",
         generateHint: "openssl rand -base64 32",
       },
     ],
@@ -107,18 +105,17 @@ volumes:
   {
     id: "rustfs",
     name: "RustFS",
-    description:
-      "High-performance, S3-compatible object storage written in Rust: a MinIO alternative. S3 API on 9000; the web console is on 9001 at /rustfs/console. Objects persist to a named volume.",
+    descriptionKey: "templates.catalog.rustfs.description",
     category: "data",
     includes: ["rustfs"],
     requiredEnv: [
       {
         key: "RUSTFS_ACCESS_KEY",
-        description: "Root access key (S3 access key ID).",
+        descriptionKey: "templates.catalog.rustfs.env.RUSTFS_ACCESS_KEY",
       },
       {
         key: "RUSTFS_SECRET_KEY",
-        description: "Root secret key (S3 secret access key).",
+        descriptionKey: "templates.catalog.rustfs.env.RUSTFS_SECRET_KEY",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -153,18 +150,17 @@ volumes:
   {
     id: "rabbitmq",
     name: "RabbitMQ",
-    description:
-      "Reliable message broker speaking AMQP (and more). Ships the management image so the web UI is available on 15672 alongside the AMQP port 5672; state persists to a named volume.",
+    descriptionKey: "templates.catalog.rabbitmq.description",
     category: "data",
     includes: ["rabbitmq"],
     requiredEnv: [
       {
         key: "RABBITMQ_USER",
-        description: "Default broker username.",
+        descriptionKey: "templates.catalog.rabbitmq.env.RABBITMQ_USER",
       },
       {
         key: "RABBITMQ_PASSWORD",
-        description: "Password for the default broker user.",
+        descriptionKey: "templates.catalog.rabbitmq.env.RABBITMQ_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -195,14 +191,13 @@ volumes:
   {
     id: "meilisearch",
     name: "Meilisearch",
-    description:
-      "Lightning-fast, typo-tolerant search engine with a simple REST API. A single service on port 7700; the index persists to a named volume.",
+    descriptionKey: "templates.catalog.meilisearch.description",
     category: "data",
     includes: ["meilisearch"],
     requiredEnv: [
       {
         key: "MEILI_MASTER_KEY",
-        description: "Master key protecting the API. At least 16 bytes.",
+        descriptionKey: "templates.catalog.meilisearch.env.MEILI_MASTER_KEY",
         generateHint: "openssl rand -base64 32",
       },
     ],

@@ -5,14 +5,13 @@ export const AI_TEMPLATES: StackTemplate[] = [
   {
     id: "open-webui",
     name: "Open WebUI + Ollama",
-    description:
-      "Self-hosted chat UI over a local Ollama runtime. Models, prompts and history stay on your server. Pulls models on demand into a named volume; no external API key needed.",
+    descriptionKey: "templates.catalog.open-webui.description",
     category: "ai",
     includes: ["open-webui", "ollama"],
     requiredEnv: [
       {
         key: "WEBUI_SECRET_KEY",
-        description: "Signs session cookies. Changing it logs everyone out.",
+        descriptionKey: "templates.catalog.open-webui.env.WEBUI_SECRET_KEY",
       },
     ],
     logoBrand: "Ollama",
@@ -45,18 +44,17 @@ volumes:
   {
     id: "litellm",
     name: "LiteLLM",
-    description:
-      "One OpenAI-compatible endpoint in front of every LLM provider: routing, budgets, keys and spend tracking. Backed by its own Postgres for keys and usage records.",
+    descriptionKey: "templates.catalog.litellm.description",
     category: "ai",
     includes: ["litellm", "db"],
     requiredEnv: [
       {
         key: "LITELLM_MASTER_KEY",
-        description: "Admin key for the proxy. It issues and revokes every other virtual key.",
+        descriptionKey: "templates.catalog.litellm.env.LITELLM_MASTER_KEY",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres that stores keys and spend.",
+        descriptionKey: "templates.catalog.litellm.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "LiteLLM",
