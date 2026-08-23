@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "reset:password": "bun --env-file ../../.env scripts/reset-password.ts",
     "test": "bun test"
   },
   "dependencies": {
