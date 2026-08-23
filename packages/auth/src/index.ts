@@ -25,6 +25,7 @@ import { and, asc, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { log } from "evlog";
 
 import { createAuthAuditHook } from "./audit";
+import { ANY_HTTPS_ORIGIN, mayReachExternalIdp } from "./idp-trust";
 import { enabledSocialProviderIds, setEnabledSocialProviderIds } from "./live-providers";
 import { ac, roles } from "./permissions";
 import {
@@ -115,6 +116,10 @@ export { enabledSocialProviderIds } from "./live-providers";
 // get-session comes back null (the session cookie is never stored or sent) and
 // the app can never see a session. The user is stuck on the sign-in page.
 const servedOverHttps = env.BETTER_AUTH_URL.startsWith("https://");
+
+/** Where apps/server mounts the better-auth handler. Request URLs carry it;
+ *  the route paths the plugins declare do not. */
+const AUTH_MOUNT_PATH = "/api/auth";
 
 type SocialProvidersConfig = Record<
   string,
@@ -207,6 +212,25 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       // reads as "not same-origin", so it falls back to the configured origins.
       if (origin && host && Result.try(() => new URL(origin).host).unwrapOr(null) === host) {
         trusted.push(origin);
+      }
+
+      // The SSO plugin validates every IdP URL it is about to fetch against
+      // THIS list, which is otherwise the browser-origin list used for CSRF.
+      // An external identity provider is never in it, so registering one was
+      // impossible. Widen to any https origin, but only for the paths that
+      // actually fetch an IdP and only once the request has already been shown
+      // to come from us — the check below reads `trusted` as it stands here,
+      // before the widening, so the widened entry can never be what admitted
+      // the request. See ./idp-trust.ts for the attack this ordering prevents.
+      const path = request ? Result.try(() => new URL(request.url).pathname).unwrapOr("") : "";
+      if (
+        mayReachExternalIdp({
+          path: path.startsWith(AUTH_MOUNT_PATH) ? path.slice(AUTH_MOUNT_PATH.length) : path,
+          origin: origin ?? null,
+          trusted,
+        })
+      ) {
+        trusted.push(ANY_HTTPS_ORIGIN);
       }
       return trusted;
     },

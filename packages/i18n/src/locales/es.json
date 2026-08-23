@@ -649,7 +649,8 @@
     "passkeyDescription": "Acceso sin contraseña con biometría del dispositivo o una llave de seguridad. Desactivarlo también impide registrar nuevas claves; las existentes se conservan, no se eliminan, y vuelven a funcionar si lo reactivas.",
     "enterpriseTitle": "SSO empresarial",
     "enterpriseNoProviders": "Aún no hay ningún proveedor de identidad registrado. Añade uno en Espacio de trabajo → SSO; este interruptor controla si su botón aparece en la página de acceso.",
-    "enterpriseDescription": "Proveedores de identidad OIDC por espacio de trabajo (Okta, Entra ID, Google Workspace, Authentik). Cada proveedor registrado obtiene su propio botón en la página de acceso. Desactivarlo mantiene los proveedores configurados pero impide que autentiquen a nadie."
+    "enterpriseDescription": "Proveedores de identidad OIDC por espacio de trabajo (Okta, Entra ID, Google Workspace, Authentik). Cada proveedor registrado obtiene su propio botón en la página de acceso. Desactivarlo mantiene los proveedores configurados pero impide que autentiquen a nadie.",
+    "registerFailed": "No se pudo registrar el proveedor"
   },
   "sshKeys": {
     "generateTitle": "Generar clave SSH",

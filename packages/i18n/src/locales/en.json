@@ -649,7 +649,8 @@
     "passkeyDescription": "Passwordless sign-in with a device biometric or a security key. Off also stops anyone registering a new passkey; existing ones are kept, not deleted, and start working again if you turn this back on.",
     "enterpriseTitle": "Enterprise SSO",
     "enterpriseNoProviders": "No identity provider is registered yet. Add one in Workspace → SSO; this switch controls whether its button appears on the sign-in page.",
-    "enterpriseDescription": "Per-workspace OIDC identity providers (Okta, Entra ID, Google Workspace, Authentik). Each registered provider gets its own button on the sign-in page. Turning this off leaves the providers configured but stops them signing anyone in."
+    "enterpriseDescription": "Per-workspace OIDC identity providers (Okta, Entra ID, Google Workspace, Authentik). Each registered provider gets its own button on the sign-in page. Turning this off leaves the providers configured but stops them signing anyone in.",
+    "registerFailed": "Could not register provider"
   },
   "sshKeys": {
     "generateTitle": "Generate SSH key",
