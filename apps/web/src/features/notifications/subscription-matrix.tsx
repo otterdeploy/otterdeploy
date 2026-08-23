@@ -1,32 +1,46 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 /**
- * Event → channel routing grid. Rows are events, columns are channels; each
- * cell is a Switch that toggles whether that event delivers to that channel.
- * Column headers carry the channel's identity — name, kind mark, and a short
- * destination hint — so the grid reads as "which events → which destination",
- * not just "which kind". Backed by the server subscription matrix; paused /
- * disconnected channels render disabled.
+ * Event → channel routing grid.
+ *
+ * A real `<table>`, because that is what this is: a two-axis matrix whose
+ * cells are meaningless without both headers. A switch announced on its own
+ * says "off" — the operator needs "Deploy failed, #alerts, off". Column
+ * headers are `scope="col"`, the event name is `scope="row"`, and each
+ * severity band is its own `<tbody>` headed by `scope="rowgroup"`, so screen
+ * readers get the whole relationship from the markup instead of from labels
+ * we remembered to write. (The switches keep an explicit `aria-label` anyway:
+ * table-context announcement varies across AT, and the name is what every
+ * one of them reads.)
  *
  * Rows are GROUPED BY SEVERITY, worst-first, on the same rank order the bell
  * badge uses (shared.ts). Two reasons this beats one flat list of eighteen:
  *
  *   - Severity stops being a column. It was a static property of the event,
  *     never something you configure, so it spent a whole column restating
- *     what a dot already said. As a group header it costs one row per band
+ *     what a dot already said. As a rowgroup header it costs one row per band
  *     instead of eighteen cells, and the dead horizontal space it was holding
  *     open collapses.
  *   - Subscribing is a severity-shaped decision. Nobody wants "deploy.failed
  *     and backup.failed and build.failed" — they want "page me on failures,
- *     stay quiet otherwise". The group header's counter makes that one click
+ *     stay quiet otherwise". The band header's counter makes that one click
  *     per band per channel instead of eighteen.
  *
- * The channel columns are fixed-width and sit hard right, so with a single
- * channel the grid reads as an ordinary settings list (label left, control
- * right) rather than one lonely switch stranded mid-row.
+ * Channel columns are fixed-width, so with a single channel the table reads as
+ * an ordinary settings list (label left, control right) rather than one lonely
+ * switch stranded mid-row.
  */
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Switch } from "@/shared/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
 
 import {
   type Channel,
@@ -66,142 +80,141 @@ const GROUPS = SEVERITY_ORDER.map((severity) => ({
 
 export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMatrixProps) {
   const { t } = useTranslation();
-  // Event label flexes; channel columns are a fixed width pinned to the right
-  // edge. `1fr` on the channels was what opened the gap in the first place.
-  const gridCols = `minmax(0,1fr) repeat(${channels.length}, 148px)`;
+  const titleId = useId();
 
   return (
     <div className="flex flex-col gap-2.5">
       <div>
-        <h2 className="text-[14px] font-semibold tracking-tight">
+        <h2 id={titleId} className="text-[14px] font-semibold tracking-tight">
           {t("notifications.matrixTitle")}
         </h2>
-        <p className="text-[12.5px] text-muted-foreground">
-          {t("notifications.matrixHint")}
-        </p>
+        <p className="text-[12.5px] text-muted-foreground">{t("notifications.matrixHint")}</p>
       </div>
 
-      {/* overflow-x-auto, not overflow-hidden: this is a genuine 2-D matrix
-          (events × channels): it is the one shape on the page that cannot
-          stack into a list without losing the relationship it exists to show,
-          so on a phone it scrolls sideways instead of silently clipping the
-          right-hand channels. The min-width keeps the columns legible rather
-          than crushing switches together. */}
-      <div className="overflow-x-auto rounded-md border bg-card">
-        {/* Header */}
-        <div
-          className="grid min-w-[460px] items-end gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
-          style={{ gridTemplateColumns: gridCols }}
-        >
-          <span>{t("notifications.event")}</span>
-          {channels.map((c) => (
-            <span key={c.id} className="flex min-w-0 items-start gap-2">
-              <SvglLogo
-                search={KIND_META[c.kind].search}
-                fallback={KIND_META[c.kind].label}
-                size={18}
-              />
-              <span className="flex min-w-0 flex-col gap-0.5 tracking-normal normal-case">
-                <span className="truncate text-[11px] font-medium text-foreground" title={c.name}>
-                  {c.name}
-                </span>
-                <span
-                  className="truncate font-mono text-[10px] text-muted-foreground"
-                  title={c.target}
-                >
-                  {channelTargetHint(c.kind, c.target)}
-                </span>
-                <span className="text-[10px] text-muted-foreground/80">
-                  <span className="font-mono text-foreground/80">{c.events7d}</span>{" "}
-                  {t("notifications.sentIn7d")}
-                </span>
-              </span>
-            </span>
-          ))}
-        </div>
-
-        {GROUPS.map((group) => {
-          const groupName = t(SEVERITY_GROUP_KEY[group.severity]);
-          return (
-            <div key={group.severity}>
-              {/* Band header: carries the severity the column used to, plus a
-                  per-channel counter that doubles as the bulk control. */}
-              <div
-                className="grid min-w-[460px] items-center gap-2 border-b bg-muted/25 px-3.5 py-1.5"
-                style={{ gridTemplateColumns: gridCols }}
+      {/* `Table` supplies the overflow-x-auto container: this is the one shape
+          on the page that cannot stack into a list without losing the
+          relationship it exists to show, so on a phone it scrolls sideways
+          rather than silently clipping the right-hand channels. The min-width
+          keeps columns legible instead of crushing switches together. */}
+      <div className="rounded-md border bg-card">
+        <Table aria-labelledby={titleId} className="min-w-[460px]">
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead
+                scope="col"
+                className="px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
               >
-                <span className="flex items-center gap-2">
-                  <span className={`size-2 rounded-full ${SEVERITY_DOT[group.severity]}`} />
-                  <span className="text-[11px] font-medium tracking-wider text-foreground uppercase">
-                    {groupName}
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    {group.events.length}
-                  </span>
-                </span>
-                {channels.map((c) => {
-                  const set = subs[c.id];
-                  const on = group.events.filter((e) => set?.has(e.id) ?? false).length;
-                  const all = on === group.events.length;
-                  const disabled = c.status === "disconnected";
-                  return (
-                    <span key={c.id}>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        // All on → clear the band; anything else → fill it.
-                        // "Some on" filling rather than clearing means a
-                        // half-configured band is one click from complete,
-                        // which is the direction people actually want.
-                        onClick={() => {
-                          for (const e of group.events) {
-                            const isOn = set?.has(e.id) ?? false;
-                            if (isOn !== !all) onToggle(c.id, e.id, !all);
-                          }
-                        }}
-                        className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label={t("notifications.toggleGroup", {
-                          group: groupName,
-                          channel: c.name,
-                        })}
+                {t("notifications.event")}
+              </TableHead>
+              {channels.map((c) => (
+                <TableHead key={c.id} scope="col" className="w-[148px] px-3.5 py-2.5 font-normal">
+                  <span className="flex min-w-0 items-start gap-2">
+                    <SvglLogo
+                      search={KIND_META[c.kind].search}
+                      fallback={KIND_META[c.kind].label}
+                      size={18}
+                    />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate text-[11px] font-medium" title={c.name}>
+                        {c.name}
+                      </span>
+                      <span
+                        className="truncate font-mono text-[10px] font-normal text-muted-foreground"
+                        title={c.target}
                       >
-                        {on}/{group.events.length}
-                      </button>
+                        {channelTargetHint(c.kind, c.target)}
+                      </span>
+                      <span className="text-[10px] font-normal text-muted-foreground/80">
+                        <span className="font-mono text-foreground/80">{c.events7d}</span>{" "}
+                        {t("notifications.sentIn7d")}
+                      </span>
                     </span>
-                  );
-                })}
-              </div>
+                  </span>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
 
-              {group.events.map((ev, i) => (
-                <div
-                  key={ev.id}
-                  className="grid min-w-[460px] items-center gap-2 px-3.5 py-2 text-[12.5px]"
-                  style={{
-                    gridTemplateColumns: gridCols,
-                    borderTop: i > 0 ? "1px solid var(--border)" : undefined,
-                  }}
-                >
-                  <span className="text-foreground">{ev.label}</span>
+          {/* One <tbody> per severity band: the markup-level way to say "these
+              rows are a group", which is what `scope="rowgroup"` then heads. */}
+          {GROUPS.map((group) => {
+            const groupName = t(SEVERITY_GROUP_KEY[group.severity]);
+            return (
+              <TableBody key={group.severity}>
+                <TableRow className="bg-muted/25 hover:bg-muted/25">
+                  <TableHead scope="rowgroup" className="h-auto px-3.5 py-1.5">
+                    <span className="flex items-center gap-2">
+                      <span className={`size-2 rounded-full ${SEVERITY_DOT[group.severity]}`} />
+                      <span className="text-[11px] font-medium tracking-wider uppercase">
+                        {groupName}
+                      </span>
+                      <span className="font-mono text-[10px] font-normal text-muted-foreground">
+                        {group.events.length}
+                      </span>
+                    </span>
+                  </TableHead>
                   {channels.map((c) => {
-                    const on = subs[c.id]?.has(ev.id) ?? false;
+                    const set = subs[c.id];
+                    const on = group.events.filter((e) => set?.has(e.id) ?? false).length;
+                    const all = on === group.events.length;
                     const disabled = c.status === "disconnected";
                     return (
-                      <span key={c.id}>
-                        <Switch
-                          size="sm"
-                          checked={on}
+                      <TableCell key={c.id} className="px-3.5 py-1.5">
+                        <button
+                          type="button"
                           disabled={disabled}
-                          onCheckedChange={(next) => onToggle(c.id, ev.id, next)}
-                          aria-label={`${ev.label} → ${c.name}`}
-                        />
-                      </span>
+                          // All on → clear the band; anything else → fill it.
+                          // "Some on" filling rather than clearing means a
+                          // half-configured band is one click from complete,
+                          // which is the direction people actually want.
+                          onClick={() => {
+                            for (const e of group.events) {
+                              const isOn = set?.has(e.id) ?? false;
+                              if (isOn !== !all) onToggle(c.id, e.id, !all);
+                            }
+                          }}
+                          className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={t("notifications.toggleGroup", {
+                            group: groupName,
+                            channel: c.name,
+                          })}
+                        >
+                          {on}/{group.events.length}
+                        </button>
+                      </TableCell>
                     );
                   })}
-                </div>
-              ))}
-            </div>
-          );
-        })}
+                </TableRow>
+
+                {group.events.map((ev) => (
+                  <TableRow key={ev.id}>
+                    <TableHead
+                      scope="row"
+                      className="h-auto px-3.5 py-2 text-[12.5px] font-normal text-foreground"
+                    >
+                      {ev.label}
+                    </TableHead>
+                    {channels.map((c) => {
+                      const on = subs[c.id]?.has(ev.id) ?? false;
+                      const disabled = c.status === "disconnected";
+                      return (
+                        <TableCell key={c.id} className="px-3.5 py-2">
+                          <Switch
+                            size="sm"
+                            checked={on}
+                            disabled={disabled}
+                            onCheckedChange={(next) => onToggle(c.id, ev.id, next)}
+                            aria-label={`${ev.label} → ${c.name}`}
+                          />
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            );
+          })}
+        </Table>
       </div>
     </div>
   );
