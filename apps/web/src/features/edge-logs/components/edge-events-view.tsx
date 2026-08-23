@@ -152,6 +152,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
         expanded={expanded}
         setExpanded={setExpanded}
         isLoading={query.isLoading}
+        sinkConfigured={query.data?.sinkConfigured ?? true}
       />
     </div>
   );

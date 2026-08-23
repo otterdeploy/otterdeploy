@@ -122,6 +122,30 @@
       "reconnecting": "This page keeps trying and picks up on its own once the server answers again. Usually a restart."
     }
   },
+  "instanceNetwork": {
+    "title": "Public IP",
+    "descriptionBefore": "The addresses this server is reachable at from the internet. The IPv4 anchors the ",
+    "descriptionAfter": " fallback domains every resource gets before you own a real domain, and it's what Cloudflare auto-configure points A records at. IPv6 is optional — plenty of hosts have none. Auto-detected on first boot in production. Correct them here if detection got it wrong (NAT, multi-homed host).",
+    "addresses": "Addresses",
+    "reveal": "Reveal",
+    "hide": "Hide",
+    "revealLabel": "Reveal addresses",
+    "hideLabel": "Hide addresses",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "ipv6Placeholder": "2001:db8::1 (none detected)",
+    "envOverride": "ENV OVERRIDE",
+    "pinnedBy": "Pinned by {{vars}}, which re-applies on every boot, so edits here wouldn't stick. Change or unset it to manage from this page.",
+    "saved": "Public IP saved",
+    "saveFailed": "Failed to save public IP",
+    "certChecking": "Checking the certificate…",
+    "certLiveBefore": "Dashboard live at ",
+    "certLiveAfter": ", on a valid certificate from {{issuer}}.",
+    "certSelfSigned": "Verified, but the edge is still serving a self-signed certificate ({{issuer}}), so browsers will refuse this domain.",
+    "certMissing": "Verified, but the edge has no certificate for this domain yet, so https:// cannot load.",
+    "certBlockedHint": "Let's Encrypt validates over inbound port 80. Check that ports 80 and 443 reach this server from the internet — a cloud firewall or security group blocking them is the usual cause, and it is invisible from inside the machine.",
+    "certExpired": "Verified, but the certificate the edge serves for this domain has expired, so browsers will refuse it."
+  },
   "shell": {
     "search": "Search",
     "searchPlaceholder": "Search resources, settings…",
@@ -874,7 +898,9 @@
     "bannedIp": "This IP has an active CrowdSec ban: new requests are rejected at the edge.",
     "searchHosts": "Search hosts…",
     "noHosts": "No hosts found.",
-    "allHosts": "All hosts"
+    "allHosts": "All hosts",
+    "eventsEmpty": "No edge events in this window. Certificate activity and upstream errors for your domains appear here.",
+    "eventsSinkOff": "Edge event collection is off on this install (EDGE_LOG_SINK is unset), so nothing can appear here — Caddy's certificate and upstream logs are going to the edge container's own output instead."
   },
   "resources": {
     "variables": {

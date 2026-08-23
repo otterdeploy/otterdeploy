@@ -122,6 +122,30 @@
       "reconnecting": "Esta página sigue intentándolo y continúa sola en cuanto el servidor vuelva a responder. Suele ser un reinicio."
     }
   },
+  "instanceNetwork": {
+    "title": "IP pública",
+    "descriptionBefore": "Las direcciones en las que este servidor es accesible desde internet. La IPv4 ancla los dominios de reserva ",
+    "descriptionAfter": " que recibe cada recurso antes de que tengas un dominio propio, y es a donde la configuración automática de Cloudflare apunta los registros A. IPv6 es opcional: muchos hosts no tienen. Se detectan automáticamente en el primer arranque en producción. Corrígelas aquí si la detección se equivocó (NAT, host con varias interfaces).",
+    "addresses": "Direcciones",
+    "reveal": "Mostrar",
+    "hide": "Ocultar",
+    "revealLabel": "Mostrar direcciones",
+    "hideLabel": "Ocultar direcciones",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "ipv6Placeholder": "2001:db8::1 (ninguna detectada)",
+    "envOverride": "ANULACIÓN ENV",
+    "pinnedBy": "Fijado por {{vars}}, que se vuelve a aplicar en cada arranque, así que los cambios aquí no persistirían. Cambia o elimina la variable para gestionarla desde esta página.",
+    "saved": "IP pública guardada",
+    "saveFailed": "No se pudo guardar la IP pública",
+    "certChecking": "Comprobando el certificado…",
+    "certLiveBefore": "Panel disponible en ",
+    "certLiveAfter": ", con un certificado válido de {{issuer}}.",
+    "certSelfSigned": "Verificado, pero el proxy perimetral sigue sirviendo un certificado autofirmado ({{issuer}}), así que los navegadores rechazarán este dominio.",
+    "certMissing": "Verificado, pero el proxy perimetral aún no tiene certificado para este dominio, así que https:// no puede cargar.",
+    "certBlockedHint": "Let's Encrypt valida a través del puerto entrante 80. Comprueba que los puertos 80 y 443 lleguen a este servidor desde internet: lo habitual es que un firewall de la nube o un grupo de seguridad los bloquee, algo invisible desde dentro de la máquina.",
+    "certExpired": "Verificado, pero el certificado que el proxy perimetral sirve para este dominio ha caducado, así que los navegadores lo rechazarán."
+  },
   "shell": {
     "search": "Buscar",
     "searchPlaceholder": "Buscar recursos, ajustes…",
@@ -874,7 +898,9 @@
     "bannedIp": "Esta IP tiene un bloqueo activo de CrowdSec: las nuevas solicitudes se rechazan en el edge.",
     "searchHosts": "Buscar hosts…",
     "noHosts": "No se encontraron hosts.",
-    "allHosts": "Todos los hosts"
+    "allHosts": "Todos los hosts",
+    "eventsEmpty": "No hay eventos perimetrales en este intervalo. Aquí aparecen la actividad de certificados y los errores de upstream de tus dominios.",
+    "eventsSinkOff": "La recogida de eventos perimetrales está desactivada en esta instalación (EDGE_LOG_SINK no está definida), así que aquí no puede aparecer nada: los registros de certificados y upstream de Caddy van a la salida del propio contenedor perimetral."
   },
   "resources": {
     "variables": {

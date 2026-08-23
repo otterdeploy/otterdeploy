@@ -36,6 +36,13 @@ export const platformSettings = pgTable("platform_settings", {
    *  without the operator owning any domain. Detected on first boot
    *  and editable from the platform settings page. */
   serverIp: text("server_ip"),
+  /** Public IPv6 the host answers on, when it has one. Optional in a way
+   *  `serverIp` is not: an IPv4-only host is normal, so null here means
+   *  "no IPv6", never "not detected yet". Detected on first boot from an
+   *  IPv6-only echo service (a host without v6 egress simply gets null)
+   *  and editable alongside the v4 address. Surfaced so an operator can
+   *  publish AAAA records for the same install. */
+  serverIpv6: text("server_ipv6"),
   /** Email address Caddy registers with Let's Encrypt for ACME
    *  notifications + recovery. Required before any real (non-sslip)
    *  domain can be issued a public cert. */

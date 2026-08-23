@@ -327,6 +327,12 @@ const edgeEventTailInput = z.object({
 const edgeEventQueryResultSchema = z.object({
   rows: z.array(edgeEventLineSchema),
   total: z.number(),
+  /** False ⇒ EDGE_LOG_SINK is unset, so Caddy's default logger was never
+   *  pointed at us and its TLS/ACME lifecycle goes to the container's stderr
+   *  instead. An empty table then means "nothing is being collected", not
+   *  "nothing happened" — and the difference is the one that leaves an
+   *  operator staring at a blank pane while `docker logs` has the answer. */
+  sinkConfigured: z.boolean(),
 });
 
 export const edgeLogsContract = {

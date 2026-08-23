@@ -1,0 +1,1 @@
+ALTER TABLE "platform_settings" ADD COLUMN "server_ipv6" text;

@@ -276,7 +276,9 @@ export const edgeLogsRouter = {
         () => queryEdgeEventsDb(filter, now),
         () => queryEdgeEvents(filter, now),
       );
-      return result;
+      // Same distinction the Analytics page already draws: an empty table with
+      // no sink configured is an absence of measurement, not a measurement.
+      return { ...result, sinkConfigured: collectionStatus().sinkConfigured };
     }),
 
     tail: orgScopedProcedure.edgeLogs.events.tail.handler(async function* ({

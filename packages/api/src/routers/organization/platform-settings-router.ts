@@ -18,6 +18,7 @@ import { reconcile } from "../../caddy";
 import { getGlobalCaddyOptions, saveGlobalCaddyOptions } from "../project/proxy-routes";
 import {
   autoConfigureControlPlaneDomain,
+  getControlPlaneCertificate,
   getControlPlaneDomain,
   setControlPlaneDomain,
   verifyControlPlaneDomain,
@@ -35,14 +36,26 @@ import {
 import { listSocialProviders, saveSocialProvider } from "./social-providers";
 
 /** serverIp view for the Instance page. envOverride tells the UI the value
- *  is pinned by env SERVER_IP (re-applied every boot) so edits won't stick. */
-async function serverIpView(): Promise<{ serverIp: string | null; envOverride: boolean }> {
+ *  is pinned by env SERVER_IP (re-applied every boot) so edits won't stick.
+ *  The v6 half carries its own override flag: the two env vars are set
+ *  independently, so one address can be pinned while the other is editable. */
+async function serverIpView(): Promise<{
+  serverIp: string | null;
+  envOverride: boolean;
+  serverIpv6: string | null;
+  envOverrideIpv6: boolean;
+}> {
   const [row] = await db
-    .select({ serverIp: platformSettings.serverIp })
+    .select({ serverIp: platformSettings.serverIp, serverIpv6: platformSettings.serverIpv6 })
     .from(platformSettings)
     .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
     .limit(1);
-  return { serverIp: row?.serverIp ?? null, envOverride: Boolean(env.SERVER_IP) };
+  return {
+    serverIp: row?.serverIp ?? null,
+    envOverride: Boolean(env.SERVER_IP),
+    serverIpv6: row?.serverIpv6 ?? null,
+    envOverrideIpv6: Boolean(env.SERVER_IPV6),
+  };
 }
 
 export const platformSettingsRouter = {
@@ -52,6 +65,15 @@ export const platformSettingsRouter = {
         target: { type: "organization", id: context.activeOrganizationId },
       });
       return getControlPlaneDomain();
+    },
+  ),
+
+  controlPlaneCertificate: requireInstallAdmin().organization.controlPlaneCertificate.handler(
+    async ({ context }) => {
+      context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+      const probe = await getControlPlaneCertificate();
+      context.log.set({ certificate: { status: probe.status, issuer: probe.issuer } });
+      return probe;
     },
   ),
 
@@ -117,10 +139,18 @@ export const platformSettingsRouter = {
         instance: { serverIp: input.serverIp || null },
       });
       const value = input.serverIp.trim() || null;
+      // Omitted v6 means "don't touch it": a caller saving only the v4
+      // address must not blank an address it never sent. An explicit empty
+      // string is the clear.
+      const ipv6Patch =
+        input.serverIpv6 === undefined ? {} : { serverIpv6: input.serverIpv6.trim() || null };
       await db
         .insert(platformSettings)
-        .values({ id: PLATFORM_SETTINGS_ID, serverIp: value })
-        .onConflictDoUpdate({ target: platformSettings.id, set: { serverIp: value } });
+        .values({ id: PLATFORM_SETTINGS_ID, serverIp: value, ...ipv6Patch })
+        .onConflictDoUpdate({
+          target: platformSettings.id,
+          set: { serverIp: value, ...ipv6Patch },
+        });
       return serverIpView();
     },
   ),

@@ -122,6 +122,30 @@
       "reconnecting": "Diese Seite versucht es weiter und macht von allein weiter, sobald der Server wieder antwortet. Meist ein Neustart."
     }
   },
+  "instanceNetwork": {
+    "title": "Öffentliche IP",
+    "descriptionBefore": "Die Adressen, unter denen dieser Server aus dem Internet erreichbar ist. Die IPv4 verankert die ",
+    "descriptionAfter": "-Fallback-Domains, die jede Ressource erhält, bevor du eine eigene Domain besitzt, und darauf zeigt die Cloudflare-Autokonfiguration die A-Records. IPv6 ist optional – viele Hosts haben keine. Wird beim ersten Start in der Produktion automatisch erkannt. Korrigiere sie hier, falls die Erkennung danebenlag (NAT, mehrfach angebundener Host).",
+    "addresses": "Adressen",
+    "reveal": "Einblenden",
+    "hide": "Ausblenden",
+    "revealLabel": "Adressen einblenden",
+    "hideLabel": "Adressen ausblenden",
+    "ipv4": "IPv4",
+    "ipv6": "IPv6",
+    "ipv6Placeholder": "2001:db8::1 (keine erkannt)",
+    "envOverride": "ENV-ÜBERSCHREIBUNG",
+    "pinnedBy": "Festgelegt durch {{vars}}, was bei jedem Start erneut angewendet wird – Änderungen hier hätten also keinen Bestand. Ändere oder entferne die Variable, um sie auf dieser Seite zu verwalten.",
+    "saved": "Öffentliche IP gespeichert",
+    "saveFailed": "Öffentliche IP konnte nicht gespeichert werden",
+    "certChecking": "Zertifikat wird geprüft…",
+    "certLiveBefore": "Dashboard erreichbar unter ",
+    "certLiveAfter": ", mit einem gültigen Zertifikat von {{issuer}}.",
+    "certSelfSigned": "Verifiziert, aber der Edge-Proxy liefert weiterhin ein selbstsigniertes Zertifikat ({{issuer}}) aus – Browser werden diese Domain ablehnen.",
+    "certMissing": "Verifiziert, aber der Edge-Proxy hat noch kein Zertifikat für diese Domain, https:// kann also nicht laden.",
+    "certBlockedHint": "Let's Encrypt validiert über den eingehenden Port 80. Prüfe, ob die Ports 80 und 443 diesen Server aus dem Internet erreichen – meist blockiert eine Cloud-Firewall oder Security-Group sie, was von der Maschine aus nicht sichtbar ist.",
+    "certExpired": "Verifiziert, aber das Zertifikat, das der Edge-Proxy für diese Domain ausliefert, ist abgelaufen – Browser werden es ablehnen."
+  },
   "shell": {
     "search": "Suchen",
     "searchPlaceholder": "Ressourcen, Einstellungen suchen…",
@@ -874,7 +898,9 @@
     "bannedIp": "Für diese IP besteht eine aktive CrowdSec-Sperre: neue Anfragen werden am Edge abgewiesen.",
     "searchHosts": "Hosts suchen…",
     "noHosts": "Keine Hosts gefunden.",
-    "allHosts": "Alle Hosts"
+    "allHosts": "Alle Hosts",
+    "eventsEmpty": "Keine Edge-Ereignisse in diesem Zeitraum. Zertifikatsaktivität und Upstream-Fehler deiner Domains erscheinen hier.",
+    "eventsSinkOff": "Die Erfassung von Edge-Ereignissen ist auf dieser Installation deaktiviert (EDGE_LOG_SINK ist nicht gesetzt), daher kann hier nichts erscheinen – Caddys Zertifikats- und Upstream-Logs gehen stattdessen in die Ausgabe des Edge-Containers."
   },
   "resources": {
     "variables": {

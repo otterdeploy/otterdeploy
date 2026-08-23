@@ -133,6 +133,22 @@ const controlPlaneDomainSchema = z.object({
   serverIp: z.string().nullable(),
 });
 
+/** What the edge is actually serving for the control-plane domain. TXT
+ *  verification proves ownership; this proves TLS works, which is a separate
+ *  fact the UI used to imply rather than check.
+ *
+ *  Status vocabulary is `lib/cert-probe`'s, unchanged, so the control-plane
+ *  domain reads the same as every other domain in the certificate inventory —
+ *  plus `unset` for "no control-plane domain configured", which is the one
+ *  state a general cert probe has no opinion about. */
+const controlPlaneCertificateSchema = z.object({
+  status: z.enum(["valid", "expiring", "expired", "internal", "error", "unset"]),
+  issuer: z.string().nullable(),
+  notAfter: z.string().nullable(),
+  daysRemaining: z.number().nullable(),
+  error: z.string().nullable(),
+});
+
 const setControlPlaneDomainInput = z.object({
   organizationId: organizationIdField,
   /** Empty string clears the domain (and removes the edge site block). */
@@ -169,19 +185,38 @@ const serverIpSchema = z.object({
   /** True when env SERVER_IP is set. It re-applies on every boot, so a UI
    *  edit would be overwritten. The UI disables the input and says so. */
   envOverride: z.boolean(),
+  /** The host's public IPv6, or null when it hasn't got one. Null is a
+   *  legitimate steady state (IPv4-only VPS), not a pending detection. */
+  serverIpv6: z.string().nullable(),
+  /** Same env-pinning story as `envOverride`, for SERVER_IPV6. Tracked
+   *  separately because the two can be pinned independently. */
+  envOverrideIpv6: z.boolean(),
 });
 
-// Loose IP shape (v4 dotted-quad or v6 hex+colons): mirrors the boot-time
-// detector's sanity check, not a full RFC validation. Empty string clears.
-const IP_RE = /^((\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]*:[0-9a-fA-F:]*)$/;
+// Zod's own address formats (same primitives as `ipOrCidrField` in
+// runtime-settings-schema) rather than a hand-rolled regex: one parser for
+// what counts as an address, so the field can't drift from the rest of the
+// codebase. Trim first, then validate; empty string clears the field.
 const setServerIpInput = z.object({
   organizationId: organizationIdField,
   serverIp: z
     .string()
     .trim()
-    .refine((v) => v === "" || IP_RE.test(v), {
-      message: "must be an IPv4 or IPv6 address",
-    }),
+    .pipe(
+      z.union([z.literal(""), z.ipv4(), z.ipv6()], {
+        error: "must be an IPv4 or IPv6 address",
+      }),
+    ),
+  /** v6-only on purpose: accepting a dotted quad here would let the same
+   *  address sit in both columns, and every consumer (AAAA records, the
+   *  Instance card) would then publish a v4 address as this host's IPv6.
+   *  Absent ⇒ leave the stored v6 untouched (so a v4-only save can't wipe
+   *  it); empty string ⇒ clear it deliberately. */
+  serverIpv6: z
+    .string()
+    .trim()
+    .pipe(z.union([z.literal(""), z.ipv6()], { error: "must be an IPv6 address" }))
+    .optional(),
 });
 
 const edgeOptionsSchema = z.object({
@@ -404,6 +439,15 @@ export const organizationContract = {
     })
     .input(getOrganizationSettingsInput)
     .output(controlPlaneDomainSchema),
+
+  controlPlaneCertificate: oc
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain/certificate`,
+      tag,
+      method: "GET",
+    })
+    .input(getOrganizationSettingsInput)
+    .output(controlPlaneCertificateSchema),
 
   setControlPlaneDomain: oc
     .meta({

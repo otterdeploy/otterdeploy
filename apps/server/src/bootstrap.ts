@@ -15,7 +15,7 @@ import {
   stopThreatRollup,
 } from "@otterdeploy/api/edge-logs";
 import { edgeLogPersistEnabled } from "@otterdeploy/api/lib/platform-runtime-settings";
-import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
+import { ensureServerIp, ensureServerIpv6 } from "@otterdeploy/api/lib/server-ip";
 import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
 import { finalizeUpdateRunOnBoot } from "@otterdeploy/api/routers/system/apply";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
@@ -33,6 +33,48 @@ import { isTracingConfigured, shutdownTracing, startTracing } from "./lib/tracin
 let stopWorkers: (() => Promise<void>) | null = null;
 let stopBackgroundServices: (() => void) | null = null;
 let stopTracing: (() => Promise<void>) | null = null;
+
+/**
+ * Resolve the host's public addresses before the Caddy reconcile, so a fresh
+ * install publishes a reachable hostname instead of loopback.
+ *
+ * v4 anchors the sslip.io fallback domains (`<ip>.sslip.io`); v6 is
+ * informational (AAAA records, operator reference) and legitimately absent on
+ * an IPv4-only host. Neither is fatal: both are logged and stepped over, since
+ * a control plane that boots with a wrong address is still reachable and
+ * correctable from the Instance page, whereas one that refuses to boot is not.
+ */
+async function resolvePublicAddresses(): Promise<void> {
+  const resolvers = [
+    {
+      step: "server-ip",
+      run: () =>
+        ensureServerIp({
+          override: env.SERVER_IP ?? null,
+          allowDetect: env.NODE_ENV !== "development",
+        }),
+    },
+    {
+      step: "server-ipv6",
+      run: () =>
+        ensureServerIpv6({
+          override: env.SERVER_IPV6 ?? null,
+          allowDetect: env.NODE_ENV !== "development",
+        }),
+    },
+  ];
+
+  for (const { step, run } of resolvers) {
+    const resolved = await Result.tryPromise({
+      try: run,
+      catch: (cause) => new BootstrapError({ step, cause }),
+    });
+    resolved.match({
+      ok: (result) => log.info({ startup: { step, source: result.source, ip: result.ip } }),
+      err: (err) => log.error({ startup: { step, status: "failed" }, error: err.message }),
+    });
+  }
+}
 
 async function bootstrap() {
   // Apply any pending DB migrations BEFORE anything reads the schema. Idempotent
@@ -140,28 +182,7 @@ async function bootstrap() {
       }),
   });
 
-  // Resolve the public IP for sslip.io fallback domains before reconcile,
-  // so a fresh install publishes a reachable hostname instead of loopback.
-  // Override via SERVER_IP; auto-detected in production; skipped in dev.
-  const serverIp = await Result.tryPromise({
-    try: () =>
-      ensureServerIp({
-        override: env.SERVER_IP ?? null,
-        allowDetect: env.NODE_ENV !== "development",
-      }),
-    catch: (cause) => new BootstrapError({ step: "server-ip", cause }),
-  });
-  serverIp.match({
-    ok: (result) =>
-      log.info({
-        startup: { step: "server-ip", source: result.source, ip: result.ip },
-      }),
-    err: (err) =>
-      log.error({
-        startup: { step: "server-ip", status: "failed" },
-        error: err.message,
-      }),
-  });
+  await resolvePublicAddresses();
 
   const reconciled = await Result.tryPromise({
     try: () => reconcile(),

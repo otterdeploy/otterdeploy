@@ -74,6 +74,11 @@ LEGACY_INSTALL_DIR="/opt/otterdeploy"
 VERSION="${OTTERDEPLOY_VERSION:-}"
 RELEASE_REPO="${OTTERDEPLOY_UPDATE_REPO:-otterdeploy/otterdeploy}"
 COMPOSE_URL="${OTTERDEPLOY_COMPOSE_URL:-https://get.otterdeploy.com/docker-compose.yml}"
+# The install edge, used for the outside-in reachability check at the end of
+# the install (see check_inbound_reachability). Overridable so an air-gapped
+# or self-hosted mirror can point it somewhere reachable — or nowhere, which
+# simply makes the check silent.
+GET_ORIGIN="${OTTERDEPLOY_GET_ORIGIN:-https://get.otterdeploy.com}"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 ENV_FILE="$INSTALL_DIR/.env"
 EDGE_NETWORK="${OTTERDEPLOY_NETWORK:-otterdeploy}"
@@ -1486,6 +1491,62 @@ report_notes() {
   return 0
 }
 
+# ── inbound reachability (od-fyki) ──────────────────────────────────────────
+# A host cannot answer "are my ports open to the internet?" about itself.
+# Traffic it sends to its own public IP is delivered over loopback and never
+# leaves the box, so `curl http://<my-ip>/` succeeds while the world is being
+# dropped — which is exactly what a provider firewall (Hetzner Cloud Firewall,
+# AWS security group) does, and exactly what this script cannot see. It is not
+# ufw and it is not nftables; it lives outside the machine, so no amount of
+# local inspection finds it.
+#
+# The cost of missing it is not a broken port, it's a broken CERTIFICATE:
+# Let's Encrypt validates over inbound 80, so a blocked port means every
+# domain on this install silently stays on `tls internal` forever while the
+# dashboard reports the domain as verified. Asking an outside observer at the
+# end of the install turns that into one sentence, now, instead of a night of
+# debugging later.
+#
+# Best-effort and never fatal: no answer (no egress, air-gapped) is silence,
+# not a warning, because "we couldn't check" is not evidence of a problem.
+INBOUND_BLOCKED=""
+
+check_inbound_reachability() {
+  # `[ … ] && return 0` would be a failing && list under `set -e` whenever the
+  # test is false, aborting the install at the last step. Always an if block.
+  if [ "$DRY_RUN" = "true" ]; then return 0; fi
+
+  local probe
+  probe="$(curl -fsS --max-time 25 "$GET_ORIGIN/edge-probe?format=text" 2>/dev/null || true)"
+  case "$probe" in
+    *"80=blocked"*) INBOUND_BLOCKED="80" ;;
+  esac
+  case "$probe" in
+    *"443=blocked"*) INBOUND_BLOCKED="${INBOUND_BLOCKED:+$INBOUND_BLOCKED and }443" ;;
+  esac
+
+  # Unparseable/absent answer, or everything open: nothing worth saying.
+  if [ -z "$INBOUND_BLOCKED" ]; then return 0; fi
+
+  warn "Port(s) $INBOUND_BLOCKED are not reachable from the internet. Let's Encrypt validates over inbound port 80, so until this is fixed every domain on this install stays on a self-signed certificate. This is almost always a CLOUD firewall (Hetzner Cloud Firewall, AWS security group, GCP firewall rule) — it sits outside this machine, so ufw/nftables here cannot see or fix it. Open TCP 80 and 443 in your provider's console."
+  return 0
+}
+
+print_reachability_hint() {
+  if [ -z "$INBOUND_BLOCKED" ]; then return 0; fi
+  tsay ""
+  tsay "  Reachable  ports $INBOUND_BLOCKED are NOT reachable from the internet."
+  tsay "             Let's Encrypt validates over inbound 80, so every domain on"
+  tsay "             this install will stay on a self-signed certificate until"
+  tsay "             that changes. This is almost always a cloud firewall"
+  tsay "             (Hetzner Cloud Firewall, AWS security group, GCP rule) —"
+  tsay "             it lives outside this host, so ufw and nftables here can"
+  tsay "             neither see nor fix it. Open TCP 80 + 443 in the provider"
+  tsay "             console, then re-check:"
+  tsay "               curl -fsS $GET_ORIGIN/edge-probe"
+  return 0
+}
+
 print_firewall_hint() {
   if ufw_active; then
     tsay ""
@@ -2044,9 +2105,13 @@ main() {
     return
   fi
 
+  # Before report_notes: the check appends to NOTES, so it has to run first
+  # for its warning to appear in the summary rather than after it.
+  check_inbound_reachability
   report_notes
   report_access
   print_firewall_hint
+  print_reachability_hint
   tsay ""
   tsay "  Files      compose $COMPOSE_FILE"
   tsay "             data    $DATA_DIR"

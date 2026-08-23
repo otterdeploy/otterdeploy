@@ -20,8 +20,10 @@ import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
 import { reconcile } from "../../caddy";
+import { type CertStatus, probeCertificate } from "../../lib/cert-probe";
 import { upsertCloudflareDnsRecord } from "../../lib/cloudflare";
 import { VERIFY_TXT_PREFIX, verifyDomainTxt, type VerifyOutcome } from "../../lib/dns-verify";
+import { readEdgeHost } from "../../lib/edge-host";
 import { getOrganizationById } from "./queries";
 
 export interface ControlPlaneDomainView {
@@ -64,6 +66,45 @@ class ControlPlaneDomainError extends TaggedError("ControlPlaneDomainError")<{
 
 export async function getControlPlaneDomain(): Promise<ControlPlaneDomainView> {
   return toView(await readRow());
+}
+
+export interface ControlPlaneCertificateView {
+  status: CertStatus | "unset";
+  issuer: string | null;
+  notAfter: string | null;
+  daysRemaining: number | null;
+  error: string | null;
+}
+
+/**
+ * What the edge is actually serving for the control-plane domain.
+ *
+ * TXT verification proves OWNERSHIP; it says nothing about whether TLS works.
+ * The two were conflated in the UI, so a domain whose ACME challenge could
+ * never complete (inbound 80 blocked by a cloud firewall) still showed as
+ * verified with a link to an https:// URL that could not load. Probing the
+ * edge is the only way to know which of the two is true.
+ *
+ * Probes the edge DIRECTLY rather than the public domain, so a
+ * Cloudflare-proxied control plane reports the ORIGIN certificate Caddy
+ * serves instead of Cloudflare's.
+ */
+export async function getControlPlaneCertificate(): Promise<ControlPlaneCertificateView> {
+  const row = await readRow();
+  if (!row?.controlPlaneFqdn) {
+    return { status: "unset", issuer: null, notAfter: null, daysRemaining: null, error: null };
+  }
+  const probe = await probeCertificate({
+    domain: row.controlPlaneFqdn,
+    host: await readEdgeHost(),
+  });
+  return {
+    status: probe.status,
+    issuer: probe.issuer,
+    notAfter: probe.notAfter,
+    daysRemaining: probe.daysRemaining,
+    error: probe.error,
+  };
 }
 
 /** Set (or clear, via empty string) the control-plane domain. A NEW value
