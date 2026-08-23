@@ -137,7 +137,14 @@
     "envOverride": "ANULACIÓN ENV",
     "pinnedBy": "Fijado por {{vars}}, que se vuelve a aplicar en cada arranque, así que los cambios aquí no persistirían. Cambia o elimina la variable para gestionarla desde esta página.",
     "saved": "IP pública guardada",
-    "saveFailed": "No se pudo guardar la IP pública"
+    "saveFailed": "No se pudo guardar la IP pública",
+    "certChecking": "Comprobando el certificado…",
+    "certLiveBefore": "Panel disponible en ",
+    "certLiveAfter": ", con un certificado válido de {{issuer}}.",
+    "certSelfSigned": "Verificado, pero el proxy perimetral sigue sirviendo un certificado autofirmado ({{issuer}}), así que los navegadores rechazarán este dominio.",
+    "certMissing": "Verificado, pero el proxy perimetral aún no tiene certificado para este dominio, así que https:// no puede cargar.",
+    "certBlockedHint": "Let's Encrypt valida a través del puerto entrante 80. Comprueba que los puertos 80 y 443 lleguen a este servidor desde internet: lo habitual es que un firewall de la nube o un grupo de seguridad los bloquee, algo invisible desde dentro de la máquina.",
+    "certUnreachable": "No se pudo contactar con el proxy perimetral para comprobar el certificado."
   },
   "shell": {
     "search": "Buscar",

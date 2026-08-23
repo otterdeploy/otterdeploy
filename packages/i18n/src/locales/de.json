@@ -137,7 +137,14 @@
     "envOverride": "ENV-ÜBERSCHREIBUNG",
     "pinnedBy": "Festgelegt durch {{vars}}, was bei jedem Start erneut angewendet wird – Änderungen hier hätten also keinen Bestand. Ändere oder entferne die Variable, um sie auf dieser Seite zu verwalten.",
     "saved": "Öffentliche IP gespeichert",
-    "saveFailed": "Öffentliche IP konnte nicht gespeichert werden"
+    "saveFailed": "Öffentliche IP konnte nicht gespeichert werden",
+    "certChecking": "Zertifikat wird geprüft…",
+    "certLiveBefore": "Dashboard erreichbar unter ",
+    "certLiveAfter": ", mit einem gültigen Zertifikat von {{issuer}}.",
+    "certSelfSigned": "Verifiziert, aber der Edge-Proxy liefert weiterhin ein selbstsigniertes Zertifikat ({{issuer}}) aus – Browser werden diese Domain ablehnen.",
+    "certMissing": "Verifiziert, aber der Edge-Proxy hat noch kein Zertifikat für diese Domain, https:// kann also nicht laden.",
+    "certBlockedHint": "Let's Encrypt validiert über den eingehenden Port 80. Prüfe, ob die Ports 80 und 443 diesen Server aus dem Internet erreichen – meist blockiert eine Cloud-Firewall oder Security-Group sie, was von der Maschine aus nicht sichtbar ist.",
+    "certUnreachable": "Der Edge-Proxy war für die Zertifikatsprüfung nicht erreichbar."
   },
   "shell": {
     "search": "Suchen",

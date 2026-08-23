@@ -133,6 +133,16 @@ const controlPlaneDomainSchema = z.object({
   serverIp: z.string().nullable(),
 });
 
+/** What the edge is actually serving for the control-plane domain. TXT
+ *  verification proves ownership; this proves TLS works, which is a separate
+ *  fact the UI used to imply rather than check. */
+const controlPlaneCertificateSchema = z.object({
+  state: z.enum(["trusted", "untrusted", "none", "unreachable", "unset"]),
+  issuer: z.string().nullable(),
+  expiresAt: z.date().nullable(),
+  checkedAt: z.date().nullable(),
+});
+
 const setControlPlaneDomainInput = z.object({
   organizationId: organizationIdField,
   /** Empty string clears the domain (and removes the edge site block). */
@@ -423,6 +433,15 @@ export const organizationContract = {
     })
     .input(getOrganizationSettingsInput)
     .output(controlPlaneDomainSchema),
+
+  controlPlaneCertificate: oc
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain/certificate`,
+      tag,
+      method: "GET",
+    })
+    .input(getOrganizationSettingsInput)
+    .output(controlPlaneCertificateSchema),
 
   setControlPlaneDomain: oc
     .meta({

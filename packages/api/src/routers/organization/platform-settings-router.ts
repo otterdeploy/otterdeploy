@@ -15,6 +15,7 @@ import { log } from "evlog";
 
 import { requireInstallAdmin } from "../..";
 import { reconcile } from "../../caddy";
+import { probeDomainCertificate } from "../../caddy/cert-probe";
 import { getGlobalCaddyOptions, saveGlobalCaddyOptions } from "../project/proxy-routes";
 import {
   autoConfigureControlPlaneDomain,
@@ -64,6 +65,19 @@ export const platformSettingsRouter = {
         target: { type: "organization", id: context.activeOrganizationId },
       });
       return getControlPlaneDomain();
+    },
+  ),
+
+  controlPlaneCertificate: requireInstallAdmin().organization.controlPlaneCertificate.handler(
+    async ({ context }) => {
+      context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+      const settings = await getControlPlaneDomain();
+      if (!settings.domain) {
+        return { state: "unset", issuer: null, expiresAt: null, checkedAt: null } as const;
+      }
+      const probe = await probeDomainCertificate({ domain: settings.domain });
+      context.log.set({ certificate: { state: probe.state, issuer: probe.issuer } });
+      return probe;
     },
   ),
 

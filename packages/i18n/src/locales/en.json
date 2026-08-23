@@ -137,7 +137,14 @@
     "envOverride": "ENV OVERRIDE",
     "pinnedBy": "Pinned by {{vars}}, which re-applies on every boot, so edits here wouldn't stick. Change or unset it to manage from this page.",
     "saved": "Public IP saved",
-    "saveFailed": "Failed to save public IP"
+    "saveFailed": "Failed to save public IP",
+    "certChecking": "Checking the certificate…",
+    "certLiveBefore": "Dashboard live at ",
+    "certLiveAfter": ", on a valid certificate from {{issuer}}.",
+    "certSelfSigned": "Verified, but the edge is still serving a self-signed certificate ({{issuer}}), so browsers will refuse this domain.",
+    "certMissing": "Verified, but the edge has no certificate for this domain yet, so https:// cannot load.",
+    "certBlockedHint": "Let's Encrypt validates over inbound port 80. Check that ports 80 and 443 reach this server from the internet — a cloud firewall or security group blocking them is the usual cause, and it is invisible from inside the machine.",
+    "certUnreachable": "Couldn't reach the edge proxy to check the certificate."
   },
   "shell": {
     "search": "Search",
