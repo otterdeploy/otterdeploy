@@ -890,7 +890,9 @@
     "bannedIp": "Für diese IP besteht eine aktive CrowdSec-Sperre: neue Anfragen werden am Edge abgewiesen.",
     "searchHosts": "Hosts suchen…",
     "noHosts": "Keine Hosts gefunden.",
-    "allHosts": "Alle Hosts"
+    "allHosts": "Alle Hosts",
+    "eventsEmpty": "Keine Edge-Ereignisse in diesem Zeitraum. Zertifikatsaktivität und Upstream-Fehler deiner Domains erscheinen hier.",
+    "eventsSinkOff": "Die Erfassung von Edge-Ereignissen ist auf dieser Installation deaktiviert (EDGE_LOG_SINK ist nicht gesetzt), daher kann hier nichts erscheinen – Caddys Zertifikats- und Upstream-Logs gehen stattdessen in die Ausgabe des Edge-Containers."
   },
   "resources": {
     "variables": {

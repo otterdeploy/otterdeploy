@@ -890,7 +890,9 @@
     "bannedIp": "This IP has an active CrowdSec ban: new requests are rejected at the edge.",
     "searchHosts": "Search hosts…",
     "noHosts": "No hosts found.",
-    "allHosts": "All hosts"
+    "allHosts": "All hosts",
+    "eventsEmpty": "No edge events in this window. Certificate activity and upstream errors for your domains appear here.",
+    "eventsSinkOff": "Edge event collection is off on this install (EDGE_LOG_SINK is unset), so nothing can appear here — Caddy's certificate and upstream logs are going to the edge container's own output instead."
   },
   "resources": {
     "variables": {

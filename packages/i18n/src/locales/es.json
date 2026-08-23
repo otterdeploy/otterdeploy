@@ -890,7 +890,9 @@
     "bannedIp": "Esta IP tiene un bloqueo activo de CrowdSec: las nuevas solicitudes se rechazan en el edge.",
     "searchHosts": "Buscar hosts…",
     "noHosts": "No se encontraron hosts.",
-    "allHosts": "Todos los hosts"
+    "allHosts": "Todos los hosts",
+    "eventsEmpty": "No hay eventos perimetrales en este intervalo. Aquí aparecen la actividad de certificados y los errores de upstream de tus dominios.",
+    "eventsSinkOff": "La recogida de eventos perimetrales está desactivada en esta instalación (EDGE_LOG_SINK no está definida), así que aquí no puede aparecer nada: los registros de certificados y upstream de Caddy van a la salida del propio contenedor perimetral."
   },
   "resources": {
     "variables": {
