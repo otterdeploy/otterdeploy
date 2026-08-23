@@ -21,7 +21,7 @@ import { eq } from "drizzle-orm";
 /** Loopback fallback: in dev (and on a fresh install before detection) the
  *  edge is reachable at 127.0.0.1, which is a better guess than refusing to
  *  probe at all. */
-export const EDGE_HOST_FALLBACK = "127.0.0.1";
+const EDGE_HOST_FALLBACK = "127.0.0.1";
 
 export async function readEdgeHost(): Promise<string> {
   const [row] = await db
