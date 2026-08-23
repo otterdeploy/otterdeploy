@@ -4,15 +4,23 @@ import { useTranslation } from "react-i18next";
 /**
  * Event → channel routing grid.
  *
- * A real `<table>`, because that is what this is: a two-axis matrix whose
- * cells are meaningless without both headers. A switch announced on its own
- * says "off" — the operator needs "Deploy failed, #alerts, off". Column
- * headers are `scope="col"`, the event name is `scope="row"`, and each
- * severity band is its own `<tbody>` headed by `scope="rowgroup"`, so screen
- * readers get the whole relationship from the markup instead of from labels
- * we remembered to write. (The switches keep an explicit `aria-label` anyway:
- * table-context announcement varies across AT, and the name is what every
- * one of them reads.)
+ * Built on the shared Table primitives (shared/components/ui/table), because
+ * this is a two-axis matrix whose cells are meaningless without both headers.
+ * A switch announced on its own says "off" — the operator needs "Deploy
+ * failed, #alerts, off". `TableHead` carries `scope="col"` for channels and
+ * `scope="row"` for the event name, and each severity band is its own
+ * `TableBody` headed by `scope="rowgroup"`, so screen readers get the whole
+ * relationship from the semantics instead of from labels we remembered to
+ * write. (The switches keep an explicit `aria-label` anyway: table-context
+ * announcement varies across AT, and the name is what every one of them
+ * reads.)
+ *
+ * Not the data-grid (shared/components/data-grid): that is the TanStack-backed
+ * editable spreadsheet — cell variants, paste, presence — for the Postgres
+ * viewer and logs. This is a fixed, hand-authored settings matrix with no
+ * sorting, virtualization or column model, so the composed primitives are the
+ * right altitude and the grid would be several hundred lines of machinery
+ * around eighteen static rows.
  *
  * Rows are GROUPED BY SEVERITY, worst-first, on the same rank order the bell
  * badge uses (shared.ts). Two reasons this beats one flat list of eighteen:
@@ -135,7 +143,7 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
             </TableRow>
           </TableHeader>
 
-          {/* One <tbody> per severity band: the markup-level way to say "these
+          {/* One TableBody per severity band: the semantic way to say "these
               rows are a group", which is what `scope="rowgroup"` then heads. */}
           {GROUPS.map((group) => {
             const groupName = t(SEVERITY_GROUP_KEY[group.severity]);
