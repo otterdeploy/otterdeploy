@@ -8,9 +8,7 @@
  * stack will reference. Mirrors the pipeline's single-service builder.
  */
 
-import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { type ParsedBuild } from "@otterdeploy/api/stack/compose/types";
-import { containerRegistry } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
 import { readFileSync } from "node:fs";
 
@@ -22,6 +20,7 @@ import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { assertDockerfileValid } from "./dockerfile-validate";
 import { BuildStepError } from "./errors";
 import { railpackBuild } from "./railpack";
+import { type RegistryCredentialSource, resolvePushCredentials } from "./registry-credential";
 
 /** Build one compose `build:` service to its own image and push it when the
  *  stack binds an external registry. Resolves to the `:<sha>` tag. */
@@ -29,7 +28,7 @@ export function buildComposeService(args: {
   serviceName: string;
   build: ParsedBuild;
   imageRepository: string;
-  registry: typeof containerRegistry.$inferSelect | null;
+  registry: RegistryCredentialSource | null;
   workDir: string;
   gitSha: string;
   cacheBuilder: string | null;
@@ -84,21 +83,15 @@ export function buildComposeService(args: {
     });
 
     if (registry) {
-      const password = yield* await Result.tryPromise({
-        try: () => decryptSecret(registry.encryptedPassword),
-        catch: (cause) => new BuildStepError({ step: "decrypt-registry", cause }),
+      // Resolved immediately before the push: a GitHub-App-derived GHCR token
+      // expires in about an hour, and a compose stack builds one service at a
+      // time, so the last service may push long after the first.
+      const credentials = yield* await Result.tryPromise({
+        try: () => resolvePushCredentials(registry),
+        catch: (cause) => new BuildStepError({ step: "resolve-registry", cause }),
       });
       yield* await Result.tryPromise({
-        try: () =>
-          dockerPush({
-            tags: [image.shaTag, image.latestTag],
-            credentials: {
-              host: registry.host,
-              username: registry.username,
-              password,
-            },
-            sink,
-          }),
+        try: () => dockerPush({ tags: [image.shaTag, image.latestTag], credentials, sink }),
         catch: (cause) => new BuildStepError({ step: `push:${serviceName}`, cause }),
       });
     } else {

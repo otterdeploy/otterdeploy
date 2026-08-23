@@ -17,6 +17,7 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
+import { GHCR_HOST, orgGhcrCapability } from "@otterdeploy/api/git/ghcr-auth";
 import { db } from "@otterdeploy/db";
 import {
   containerRegistry,
@@ -27,8 +28,11 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { TaggedError } from "better-result";
 import { and, eq } from "drizzle-orm";
+
+import type { RegistryCredentialSource } from "./registry-credential";
 
 export interface PipelineContext {
   deployment: typeof deployment.$inferSelect;
@@ -37,9 +41,11 @@ export interface PipelineContext {
    *  tells the pipeline which builder to dispatch to (and its options). */
   service: typeof serviceResource.$inferSelect;
   project: typeof project.$inferSelect;
-  /** External registry row when the project binds one; `null` for the
-   *  default local-build path (image stays in the host daemon). */
-  registry: typeof containerRegistry.$inferSelect | null;
+  /** Where the push credential comes from when the project binds an external
+   *  registry; `null` for the default local-build path (image stays in the
+   *  host daemon). A descriptor, not a password: see ./registry-credential.ts
+   *  for why the resolution is deferred to the push itself. */
+  registry: RegistryCredentialSource | null;
   /** Resolved image repository, no tag. `<host>/<path>` when an external
    *  registry is bound, else a registry-less local name the build `--load`s
    *  into the host daemon and swarm runs directly. */
@@ -109,7 +115,10 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
   // imageRepository we build a registry-less local image: the builder shares the
   // host docker socket with the single-node swarm, so the `--load`ed image is
   // already present where the container runs, no push. This is the default.
-  let registry: typeof containerRegistry.$inferSelect | null = null;
+  // Branded once here rather than at each use. Parsed, not asserted: the
+  // column is a plain string and the derivation path is typed on the brand.
+  const orgId = idSchema.organization.parse(proj.organizationId);
+  let registry: RegistryCredentialSource | null = null;
   let imageRepository: string;
   if (svc.imageRepository) {
     const host = svc.imageRepository.split("/")[0] ?? "";
@@ -123,13 +132,30 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
         ),
       )
       .limit(1);
-    if (!reg) {
+    if (reg) {
+      // An explicitly stored credential always wins, including for ghcr.io:
+      // someone who typed one in meant it, perhaps a bot account that can see
+      // packages the App installation cannot.
+      registry = {
+        kind: "stored",
+        host: reg.host,
+        username: reg.username,
+        encryptedPassword: reg.encryptedPassword,
+      };
+    } else if (host === GHCR_HOST && (await orgGhcrCapability(orgId)).available) {
+      // No stored row, but the org's GitHub App can mint one. Only the
+      // capability is decided here; the token itself is minted at push time,
+      // because it expires in about an hour and this build has not started yet
+      // (see ./registry-credential.ts).
+      registry = { kind: "github-app", host: GHCR_HOST, organizationId: orgId };
+    } else {
       throw new PipelineLoadError(
         "registry",
-        `no registry credential for host ${host}. Add one in Registries or clear the image target`,
+        host === GHCR_HOST
+          ? `no credential for ${host}. Connect the GitHub App to this workspace, or add a ${host} credential in Registries`
+          : `no registry credential for host ${host}. Add one in Registries or clear the image target`,
       );
     }
-    registry = reg;
     imageRepository = svc.imageRepository;
   } else {
     imageRepository = localImageRepository(svc.serviceName);

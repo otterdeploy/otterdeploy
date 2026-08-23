@@ -12,10 +12,12 @@
  */
 import type { ContainerRegistryId, OrganizationId } from "@otterdeploy/shared/id";
 
+import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
 import { containerRegistry } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
 
+import { GHCR_HOST, looksLikeInstallationToken } from "../../git/ghcr-auth";
 import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 
 type OrgId = OrganizationId;
@@ -141,6 +143,21 @@ export async function getRegistryCredentialForOrgByHost(organizationId: OrgId, h
   };
 }
 
+/**
+ * Refuse a stored credential that is really a short-lived installation token.
+ *
+ * See `looksLikeInstallationToken`: it works for about an hour and then fails
+ * pulls far from where it was typed. The derived path (git/ghcr-auth.ts) is
+ * what such a token is FOR, and it mints a fresh one per use.
+ */
+function rejectInstallationTokenAtRest(host: string, plaintextPassword: string): void {
+  if (host !== GHCR_HOST || !looksLikeInstallationToken(plaintextPassword)) return;
+  throw new ORPCError("BAD_REQUEST", {
+    message:
+      "That is a GitHub installation access token (ghs_…). It expires in about an hour, so storing it here would break pulls shortly after it appears to work. Connect the GitHub App instead — otterdeploy mints a fresh token per pull — or paste a personal access token with read:packages.",
+  });
+}
+
 export async function createRegistryRecord(input: {
   organizationId: OrgId;
   displayName: string;
@@ -149,13 +166,15 @@ export async function createRegistryRecord(input: {
   plaintextPassword: string;
   authType: "password" | "token";
 }) {
+  const host = canonicalizeHost(input.host);
+  rejectInstallationTokenAtRest(host, input.plaintextPassword);
   const encrypted = await encryptForDomain(input.plaintextPassword, "registry-creds");
   const rows = await db
     .insert(containerRegistry)
     .values({
       organizationId: input.organizationId,
       displayName: input.displayName,
-      host: canonicalizeHost(input.host),
+      host,
       username: input.username,
       encryptedPassword: encrypted,
       authType: input.authType,
@@ -178,6 +197,13 @@ export async function updateRegistryRecord(input: {
   plaintextPassword?: string;
   authType?: "password" | "token";
 }) {
+  if (input.plaintextPassword) {
+    // The host is not editable, so it has to be read back to know whether this
+    // row is the one the guard applies to.
+    const existing = await getRegistryForOrg(input.organizationId, input.id);
+    if (existing) rejectInstallationTokenAtRest(existing.host, input.plaintextPassword);
+  }
+
   const patch: Partial<typeof containerRegistry.$inferInsert> = {};
   if (input.displayName !== undefined) patch.displayName = input.displayName;
   if (input.username !== undefined) patch.username = input.username;

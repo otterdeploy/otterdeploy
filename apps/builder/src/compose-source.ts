@@ -17,18 +17,13 @@ import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { resolveRepoCloneBinding } from "@otterdeploy/api/git/repo-binding";
 import { materializeComposeFiles } from "@otterdeploy/api/lib/compose-materialize";
 import { db } from "@otterdeploy/db";
-import {
-  composeResource,
-  containerRegistry,
-  deployment,
-  project,
-  resource,
-} from "@otterdeploy/db/schema";
+import { composeResource, deployment, project, resource } from "@otterdeploy/db/schema";
 import { buildDir } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
 import type { LogSink } from "./log-stream";
+import type { RegistryCredentialSource } from "./registry-credential";
 
 import { cloneRepoAtSha } from "./clone";
 import { BuildStepError } from "./errors";
@@ -39,7 +34,7 @@ export interface ComposeBuildContext {
   resource: typeof resource.$inferSelect;
   compose: typeof composeResource.$inferSelect;
   project: typeof project.$inferSelect;
-  registry: typeof containerRegistry.$inferSelect | null;
+  registry: RegistryCredentialSource | null;
   /** Base image repository (no tag, no per-service suffix). */
   imageRepository: string;
   /** Clone URL: the bound repo's clone URL, or the row's legacy public URL. */
@@ -98,7 +93,7 @@ export async function loadComposeBuildContext(
   // compose_resource binds no registry of its own, so every `build:` service
   // lands in the host daemon under a stack-derived repo. Image-only services
   // pass through untouched. See docs/designs/compose.md.
-  const registry: typeof containerRegistry.$inferSelect | null = null;
+  const registry: RegistryCredentialSource | null = null;
   const imageRepository = `otterdeploy-local/${comp.stackName.toLowerCase()}`;
 
   return {

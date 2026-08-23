@@ -125,6 +125,19 @@ export function buildManifestRequest(opts: {
       // `@otterdeploy preview` trigger only needs to see the body and the
       // author's association; it writes back through `pull_requests`.
       issues: "read",
+      // GHCR auth. An installation access token is accepted as a registry
+      // password (`docker login ghcr.io -u x-access-token`), which is what
+      // lets an org push and pull its own packages with no stored credential
+      // at all. `write` because the builder pushes; pulling alone needs only
+      // `read`, but asking for both once beats a second re-authorization
+      // prompt later.
+      //
+      // NOTE, same caveat as `issues` above: EXISTING installations must
+      // accept the updated permissions before this works for them. GitHub does
+      // not grant them retroactively. Until an owner approves, those orgs fall
+      // back to a stored credential, which is why the derivation path is a
+      // fallback-not-a-replacement everywhere it appears.
+      packages: "write",
     },
     // Only permission-backed events go here. `installation` and
     // `installation_repositories` are App-lifecycle events GitHub delivers to
