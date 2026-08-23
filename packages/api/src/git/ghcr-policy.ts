@@ -19,8 +19,9 @@ export const GHCR_HOST = "ghcr.io";
  */
 export const GHCR_TOKEN_USERNAME = "x-access-token";
 
-/** GitHub's prefix for installation access tokens. */
-export const GITHUB_INSTALLATION_TOKEN_PREFIX = "ghs_";
+/** GitHub's prefix for installation access tokens. Private: the check below
+ *  is the only thing that should ever need it. */
+const GITHUB_INSTALLATION_TOKEN_PREFIX = "ghs_";
 
 /**
  * Does this secret look like a GitHub installation access token?
@@ -36,11 +37,7 @@ export function looksLikeInstallationToken(secret: string): boolean {
   return secret.trim().startsWith(GITHUB_INSTALLATION_TOKEN_PREFIX);
 }
 
-export type GhcrCapabilityReason =
-  | "ok"
-  | "no-app"
-  | "no-installation"
-  | "missing-packages-permission";
+type GhcrCapabilityReason = "ok" | "no-app" | "no-installation" | "missing-packages-permission";
 
 export interface GhcrCapability {
   available: boolean;

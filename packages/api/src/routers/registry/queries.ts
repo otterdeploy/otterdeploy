@@ -17,7 +17,7 @@ import { db } from "@otterdeploy/db";
 import { containerRegistry } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
 
-import { GHCR_HOST, looksLikeInstallationToken } from "../../git/ghcr-auth";
+import { GHCR_HOST, looksLikeInstallationToken } from "../../git/ghcr-policy";
 import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 
 type OrgId = OrganizationId;

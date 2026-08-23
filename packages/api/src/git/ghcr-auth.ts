@@ -38,17 +38,6 @@ import {
 } from "./ghcr-policy";
 import { GithubInstallationInvalidError, getInstallationToken } from "./github-app-core";
 
-export {
-  GHCR_HOST,
-  GHCR_TOKEN_USERNAME,
-  GITHUB_INSTALLATION_TOKEN_PREFIX,
-  type GhcrCapability,
-  type GhcrCapabilityReason,
-  decideGhcrCapability,
-  looksLikeInstallationToken,
-  shouldDeriveGhcr,
-} from "./ghcr-policy";
-
 /**
  * Can this org authenticate to GHCR through its GitHub App?
  *

@@ -17,7 +17,8 @@
 
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
-import { GHCR_HOST, orgGhcrCapability } from "@otterdeploy/api/git/ghcr-auth";
+import { orgGhcrCapability } from "@otterdeploy/api/git/ghcr-auth";
+import { GHCR_HOST } from "@otterdeploy/api/git/ghcr-policy";
 import { db } from "@otterdeploy/db";
 import {
   containerRegistry,

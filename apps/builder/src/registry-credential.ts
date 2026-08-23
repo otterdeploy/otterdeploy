@@ -18,7 +18,8 @@
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
-import { GHCR_HOST, deriveGhcrCredential } from "@otterdeploy/api/git/ghcr-auth";
+import { deriveGhcrCredential } from "@otterdeploy/api/git/ghcr-auth";
+import { GHCR_HOST } from "@otterdeploy/api/git/ghcr-policy";
 import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 
 import type { PushCredentials } from "./docker-push";
@@ -46,7 +47,7 @@ export type RegistryCredentialSource =
  *  time — the installation was revoked mid-build, or GitHub is down. Named so
  *  the pipeline reports something an operator can act on instead of a
  *  `docker login` exit code. */
-export class RegistryCredentialError extends Error {
+class RegistryCredentialError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "RegistryCredentialError";

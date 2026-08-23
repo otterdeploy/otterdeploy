@@ -23,7 +23,8 @@ import { and, eq } from "drizzle-orm";
 
 import type { RegistryAuth } from "./image-pull";
 
-import { GHCR_HOST, deriveGhcrCredential, shouldDeriveGhcr } from "../git/ghcr-auth";
+import { deriveGhcrCredential } from "../git/ghcr-auth";
+import { GHCR_HOST, shouldDeriveGhcr } from "../git/ghcr-policy";
 import { decryptForDomain } from "../lib/crypto";
 
 /** The resolver's callers pass a plain string; the derivation path is typed on
