@@ -43,8 +43,10 @@ export interface ComposeFileValues {
   source: "inline" | "git";
   content: string;
   /** Inline supporting files (scripts, Dockerfiles, .env, configs) alongside the
-   *  compose file in `content`. Paths may be nested (`scripts/init.sh`). */
-  files: Array<{ path: string; content: string }>;
+   *  compose file in `content`. Paths may be nested (`scripts/init.sh`).
+   *  `interpolate` opts a file into `${VAR}` resolution at deploy (templates
+   *  set it; a pasted script must keep its own `${…}` intact). */
+  files: Array<{ path: string; content: string; interpolate?: boolean }>;
   /** Bound repo id from the picker (private-capable). Preferred over gitRepoUrl. */
   gitRepoId: string;
   /** `owner/repo` for the bound repo, display only. */
@@ -113,7 +115,9 @@ export const fileStepSchema = z
     name: z.string(),
     source: z.enum(["inline", "git"]),
     content: z.string(),
-    files: z.array(z.object({ path: z.string(), content: z.string() })),
+    files: z.array(
+      z.object({ path: z.string(), content: z.string(), interpolate: z.boolean().optional() }),
+    ),
     gitRepoId: z.string(),
     repoFullName: z.string(),
     gitRepoUrl: z.string(),

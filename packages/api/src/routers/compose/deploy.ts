@@ -65,9 +65,16 @@ async function materializeInlineTree(
   record: ComposeRecord,
   parsed: { services: Array<{ envFile: string[]; env: Record<string, string> }> },
   ref: ResourceRef,
+  projectVars: Record<string, string>,
 ): Promise<string | undefined> {
   if (record.compose.files.length === 0) return undefined;
-  const stackDir = await materializeComposeFiles(record.compose.files, resourceDir(ref));
+  // Only files that asked for it (ComposeFile.interpolate) get `${VAR}`
+  // resolved. Doing it to every file would empty the `${HOME}` out of a
+  // bind-mounted shell script, which `docker compose` never does either.
+  const files = record.compose.files.map((f) =>
+    f.interpolate ? { ...f, content: interpolate(f.content, projectVars) } : f,
+  );
+  const stackDir = await materializeComposeFiles(files, resourceDir(ref));
   for (const svc of parsed.services) {
     if (svc.envFile.length === 0) continue;
     const fromFiles = await readEnvFiles(svc.envFile, stackDir);
@@ -126,12 +133,17 @@ export async function deployCompose(
     : {};
 
   // The stack's on-disk home is env-keyed (null environmentId = main env).
-  const stackDir = await materializeInlineTree(record, parsed.value, {
-    organizationId,
-    projectId: input.projectId,
-    environmentId: record.resource.environmentId ?? null,
-    resourceId: input.resourceId,
-  });
+  const stackDir = await materializeInlineTree(
+    record,
+    parsed.value,
+    {
+      organizationId,
+      projectId: input.projectId,
+      environmentId: record.resource.environmentId ?? null,
+      resourceId: input.resourceId,
+    },
+    projectVars,
+  );
 
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then

@@ -18,6 +18,19 @@ import { TEMPLATES } from "./index";
  *  the umami stack) reads as a host reference. */
 const HOST_KEY = /(host|hostname|addr|address|seeds|endpoint)s?$/i;
 
+/** Stack-relative form of a path, so a compose `./config.yaml` and a shipped
+ *  `config.yaml` compare equal (both land at the same place in the tree). */
+function stackRel(path: string): string {
+  return path.replace(/^\.\/+/, "");
+}
+
+/** `${NAME}` refs in a file's content, in source order. */
+function varRefs(content: string): string[] {
+  return [...content.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g)].flatMap((m) =>
+    m[1] ? [m[1]] : [],
+  );
+}
+
 /**
  * Every hostname an env value points at: the authority of each `//…` URL
  * (userinfo stripped, so the `postgres` in `postgres://postgres:pw@db/x` is
@@ -38,25 +51,22 @@ function hostsIn(key: string, value: string): string[] {
 }
 
 /**
- * The bind gate, pinned against a real candidate.
+ * The bind gate, pinned against the case that motivated it.
  *
- * NetBird's combined server is the case that motivated the check: it is an
- * obvious thing to want in the catalog (otterdeploy's private-networking
- * feature otherwise needs a NetBird *cloud* account, which is a SaaS
- * dependency inside a self-host-first product), and its compose file is
- * short. But its combined server is configured by `/etc/netbird/config.yaml`,
- * and environment variables override only part of it.
+ * A config-file bind is fine ONLY when something puts a file there. The deploy
+ * path is explicit about this: `reconcile-map.ts` drops a non-allowlisted bind
+ * when the stack has no materialized tree (`if (!ctx.stackDir) continue`) and
+ * otherwise resolves it into the tree. So the same compose file is correct
+ * with `files` and broken without them, and the difference is invisible to
+ * every other assertion in this suite — it parses clean either way.
  *
- * A template shaped like the one below passes every other assertion in this
- * file. Without this gate it would ship, the bind would be dropped at deploy,
- * and the container would come up with no configuration. This test fails if
- * the gate ever stops catching it.
+ * Both directions are pinned here so a refactor can't collapse them into one.
  */
 describe("bind gate", () => {
-  const netbirdShaped = `name: netbird
+  const composeWithConfigBind = `name: netbird
 services:
   netbird:
-    image: netbirdio/netbird-server:latest
+    image: netbirdio/netbird-server:0.77.1
     volumes:
       - ./config.yaml:/etc/netbird/config.yaml
       - netbird_data:/var/lib/netbird
@@ -68,20 +78,37 @@ volumes:
   netbird_data:
 `;
 
-  it("a config-file bind is dropped by the deploy path, so the catalog must refuse it", () => {
-    const result = parseCompose(netbirdShaped);
+  const mounts = (compose: string) => {
+    const result = parseCompose(compose);
     expect(result.isOk(), result.isErr() ? result.error.message : "").toBe(true);
-    if (result.isErr()) return;
-
-    // It parses clean — that is the trap. Nothing about the file is malformed.
+    if (result.isErr()) return [];
+    // It parses clean either way — that is exactly why the gate is needed.
     expect(result.value.warnings).toEqual([]);
+    return result.value.services.flatMap((s) => s.volumes);
+  };
 
-    const dropped = result.value.services.flatMap((s) =>
-      s.volumes
-        .filter((m) => m.type === "bind" && (!m.source || !allowedHostBind(m.source)))
-        .map((m) => m.target),
-    );
-    expect(dropped).toEqual(["/etc/netbird/config.yaml"]);
+  it("refuses a config bind when the template ships no file for it", () => {
+    const provided = new Set<string>();
+    const unbacked = mounts(composeWithConfigBind)
+      .filter(
+        (m) =>
+          m.type === "bind" &&
+          (!m.source || (!allowedHostBind(m.source) && !provided.has(stackRel(m.source)))),
+      )
+      .map((m) => m.target);
+    expect(unbacked).toEqual(["/etc/netbird/config.yaml"]);
+  });
+
+  it("accepts the same bind once the template ships the file", () => {
+    const provided = new Set(["config.yaml"]);
+    const unbacked = mounts(composeWithConfigBind)
+      .filter(
+        (m) =>
+          m.type === "bind" &&
+          (!m.source || (!allowedHostBind(m.source) && !provided.has(stackRel(m.source)))),
+      )
+      .map((m) => m.target);
+    expect(unbacked).toEqual([]);
   });
 });
 
@@ -120,10 +147,17 @@ describe("template catalog", () => {
       });
 
       it("declares `requiredEnv` exactly matching the file's required ${VAR} refs", () => {
-        const required = collectVarRefs(parsed)
+        const fromCompose = collectVarRefs(parsed)
           .filter((ref) => ref.default === null)
-          .map((ref) => ref.name)
-          .sort();
+          .map((ref) => ref.name);
+        // Refs inside an interpolated file are prompted for exactly like the
+        // compose file's own — they resolve from the same variable bag at
+        // materialize time. Missing one renders it EMPTY, and an empty
+        // encryption key is a silently insecure install, not a loud failure.
+        const fromFiles = (template.files ?? [])
+          .filter((f) => f.interpolate)
+          .flatMap((f) => varRefs(f.content));
+        const required = [...new Set([...fromCompose, ...fromFiles])].sort();
         expect(template.requiredEnv.map((v) => v.key).sort()).toEqual(required);
       });
 
@@ -156,13 +190,42 @@ describe("template catalog", () => {
       // carries files. The resource layer already models them (`ComposeFile[]`,
       // written by `materializeComposeFiles`); it is the catalog type that
       // stops short.
-      it("binds only host paths the deploy path actually grants", () => {
-        const dropped = parsed.services.flatMap((s) =>
+      it("binds only paths something actually provides", () => {
+        const provided = new Set((template.files ?? []).map((f) => stackRel(f.path)));
+        const unbacked = parsed.services.flatMap((s) =>
           s.volumes
-            .filter((m) => m.type === "bind" && (!m.source || !allowedHostBind(m.source)))
+            .filter(
+              (m) =>
+                m.type === "bind" &&
+                (!m.source || (!allowedHostBind(m.source) && !provided.has(stackRel(m.source)))),
+            )
             .map((m) => `${s.name}: ${m.source ?? "?"} → ${m.target}`),
         );
-        expect(dropped).toEqual([]);
+        expect(unbacked).toEqual([]);
+      });
+
+      // A shipped file is inert unless the compose mounts it, and a stray one
+      // is how a template ends up looking configured while running on defaults.
+      it("mounts every file it ships", () => {
+        const mounted = new Set(
+          parsed.services.flatMap((s) =>
+            s.volumes.flatMap((m) => (m.type === "bind" && m.source ? [stackRel(m.source)] : [])),
+          ),
+        );
+        for (const f of template.files ?? []) {
+          expect(mounted.has(stackRel(f.path)), `unmounted file ${f.path}`).toBe(true);
+        }
+      });
+
+      // Interpolation is opt-in per file and has to stay that way — a script's
+      // literal `${HOME}` must survive. The corollary: a file carrying refs
+      // WITHOUT the flag ships them as the literal text `${VAR}`, which is its
+      // own quiet breakage.
+      it("does not ship un-flagged files containing ${VAR}", () => {
+        for (const f of template.files ?? []) {
+          if (f.interpolate) continue;
+          expect(varRefs(f.content), `${f.path} has refs but no interpolate flag`).toEqual([]);
+        }
       });
 
       it("declares every named volume it mounts (and mounts every declared one)", () => {

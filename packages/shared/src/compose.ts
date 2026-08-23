@@ -56,6 +56,26 @@ export type ComposeExposed = {
 export type ComposeFile = {
   path: string;
   content: string;
+  /**
+   * Resolve `${VAR}` refs in `content` against the project variables when the
+   * file is materialized, the same way the compose file's own refs resolve.
+   *
+   * OFF by default, and it has to stay that way: `docker compose` does not
+   * interpolate side files either, so a bind-mounted shell script holding
+   * `${HOME}` or an nginx.conf holding `${request_uri}` would have those
+   * emptied out from under it. Opting in per file keeps that from happening
+   * to files a user pasted.
+   *
+   * What it exists for: a catalog template ships its supporting files as
+   * literal text, so anything per-install inside one would be identical on
+   * every install that deployed it. For a config holding a secret — NetBird's
+   * combined server keeps `authSecret` and `store.encryptionKey` in
+   * `config.yaml` and reads neither from the environment — "identical on every
+   * install" means one shared key everywhere. Interpolating at materialize
+   * time instead lets the value live encrypted in the stack's env and only be
+   * rendered onto disk at deploy.
+   */
+  interpolate?: boolean;
 };
 
 /**

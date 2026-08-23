@@ -49,6 +49,7 @@ import { Metabase } from "@/shared/components/ui/svgs/metabase";
 import { Minio } from "@/shared/components/ui/svgs/minio";
 import { N8n } from "@/shared/components/ui/svgs/n8n";
 import { Nats } from "@/shared/components/ui/svgs/nats";
+import { Netbird } from "@/shared/components/ui/svgs/netbird";
 import { Nocodb } from "@/shared/components/ui/svgs/nocodb";
 import { Ntfy } from "@/shared/components/ui/svgs/ntfy";
 import { Ollama } from "@/shared/components/ui/svgs/ollama";
@@ -93,6 +94,7 @@ type BrandKey =
   | "Umami"
   | "Metabase"
   | "MinIO"
+  | "NetBird"
   | "NocoDB"
   | "n8n"
   | "Uptime Kuma"
@@ -217,6 +219,7 @@ const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   Umami,
   Metabase,
   MinIO: Minio,
+  NetBird: Netbird,
   NocoDB: Nocodb,
   n8n: N8n,
   "Uptime Kuma": UptimeKuma,

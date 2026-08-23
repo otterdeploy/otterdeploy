@@ -52,4 +52,19 @@ export interface StackTemplate {
   docsUrl: string;
   /** The deployable compose file: the exact YAML handed to the compose wizard. */
   compose: string;
+  /**
+   * Supporting files staged alongside the compose file, for upstreams whose
+   * configuration is file-shaped rather than env-shaped.
+   *
+   * `interpolate` is what makes this safe to ship: the file's `${VAR}` refs
+   * resolve at materialize time against the stack's variables, so a config
+   * holding a per-install secret stays a per-install secret. Without it a
+   * template could only ship literal text, and every install that deployed it
+   * would share whatever key was written into the catalog.
+   *
+   * A file whose refs are declared here must have them in `requiredEnv` too —
+   * catalog.test.ts checks both directions, so a template cannot ship a config
+   * with an unprompted `${VAR}` that would silently render empty.
+   */
+  files?: Array<{ path: string; content: string; interpolate?: boolean }>;
 }
