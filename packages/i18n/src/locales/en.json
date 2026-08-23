@@ -144,7 +144,7 @@
     "certSelfSigned": "Verified, but the edge is still serving a self-signed certificate ({{issuer}}), so browsers will refuse this domain.",
     "certMissing": "Verified, but the edge has no certificate for this domain yet, so https:// cannot load.",
     "certBlockedHint": "Let's Encrypt validates over inbound port 80. Check that ports 80 and 443 reach this server from the internet — a cloud firewall or security group blocking them is the usual cause, and it is invisible from inside the machine.",
-    "certUnreachable": "Couldn't reach the edge proxy to check the certificate."
+    "certExpired": "Verified, but the certificate the edge serves for this domain has expired, so browsers will refuse it."
   },
   "shell": {
     "search": "Search",

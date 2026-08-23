@@ -44,9 +44,12 @@ export function ControlPlaneCertificateNote({
     return <div className="text-[11.5px] text-muted-foreground">{t("instanceNetwork.certChecking")}</div>;
   }
 
-  const { state, issuer } = query.data;
+  const { status, issuer } = query.data;
 
-  if (state === "trusted") {
+  // A real, publicly-trusted certificate: the only case that earns the link.
+  // `expiring` still works today, and Caddy renews ~30d out, so it reads the
+  // same rather than crying wolf.
+  if (status === "valid" || status === "expiring") {
     return (
       <div className="text-[11.5px] text-muted-foreground">
         {t("instanceNetwork.certLiveBefore")}
@@ -56,23 +59,21 @@ export function ControlPlaneCertificateNote({
     );
   }
 
+  if (status === "unset") return null;
+
   // Everything below is the honest-about-system-state case: the domain is
   // verified but HTTPS does not work, and the operator needs the likely cause
   // named rather than a link that fails.
-  if (state === "untrusted" || state === "none") {
-    return (
-      <div className="rounded-sm border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11.5px] text-muted-foreground">
-        {state === "untrusted"
-          ? t("instanceNetwork.certSelfSigned", { issuer: issuer ?? "" })
-          : t("instanceNetwork.certMissing")}{" "}
-        {t("instanceNetwork.certBlockedHint")}
-      </div>
-    );
-  }
+  const message =
+    status === "internal"
+      ? t("instanceNetwork.certSelfSigned", { issuer: issuer ?? "" })
+      : status === "expired"
+        ? t("instanceNetwork.certExpired")
+        : t("instanceNetwork.certMissing");
 
   return (
-    <div className="text-[11.5px] text-muted-foreground">
-      {t("instanceNetwork.certUnreachable")}
+    <div className="rounded-sm border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11.5px] text-muted-foreground">
+      {message} {t("instanceNetwork.certBlockedHint")}
     </div>
   );
 }

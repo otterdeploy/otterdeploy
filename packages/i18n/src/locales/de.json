@@ -144,7 +144,7 @@
     "certSelfSigned": "Verifiziert, aber der Edge-Proxy liefert weiterhin ein selbstsigniertes Zertifikat ({{issuer}}) aus – Browser werden diese Domain ablehnen.",
     "certMissing": "Verifiziert, aber der Edge-Proxy hat noch kein Zertifikat für diese Domain, https:// kann also nicht laden.",
     "certBlockedHint": "Let's Encrypt validiert über den eingehenden Port 80. Prüfe, ob die Ports 80 und 443 diesen Server aus dem Internet erreichen – meist blockiert eine Cloud-Firewall oder Security-Group sie, was von der Maschine aus nicht sichtbar ist.",
-    "certUnreachable": "Der Edge-Proxy war für die Zertifikatsprüfung nicht erreichbar."
+    "certExpired": "Verifiziert, aber das Zertifikat, das der Edge-Proxy für diese Domain ausliefert, ist abgelaufen – Browser werden es ablehnen."
   },
   "shell": {
     "search": "Suchen",

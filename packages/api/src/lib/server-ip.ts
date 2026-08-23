@@ -115,96 +115,94 @@ function detectLocalIp(): string | null {
   return null;
 }
 
-async function persist(ip: string): Promise<void> {
+async function persistAddress(patch: { serverIp: string } | { serverIpv6: string }): Promise<void> {
   await db
     .insert(platformSettings)
-    .values({ id: PLATFORM_SETTINGS_ID, serverIp: ip })
-    .onConflictDoUpdate({
-      target: platformSettings.id,
-      set: { serverIp: ip },
-    });
+    .values({ id: PLATFORM_SETTINGS_ID, ...patch })
+    .onConflictDoUpdate({ target: platformSettings.id, set: patch });
 }
 
-async function persistIpv6(ip: string): Promise<void> {
-  await db
-    .insert(platformSettings)
-    .values({ id: PLATFORM_SETTINGS_ID, serverIpv6: ip })
-    .onConflictDoUpdate({
-      target: platformSettings.id,
-      set: { serverIpv6: ip },
-    });
-}
+/**
+ * The shared precedence both address families obey: operator override
+ * (re-applied every boot so an env change actually lands) → the value already
+ * on record (detected or typed, never silently overwritten) → detection →
+ * whatever last resort the family has.
+ *
+ * Parameterized rather than written twice: the two differ only in which
+ * column they touch, which detector they call, and whether a local-interface
+ * guess is acceptable at the end.
+ */
+async function resolveAddress(
+  opts: { override?: string | null; allowDetect: boolean },
+  family: {
+    read: () => Promise<string | null>;
+    write: (ip: string) => Promise<void>;
+    detect: () => Promise<string | null>;
+    lastResort?: () => string | null;
+  },
+): Promise<EnsureServerIpResult> {
+  const stored = await family.read();
 
-export async function ensureServerIp(opts: {
-  override?: string | null;
-  allowDetect: boolean;
-}): Promise<EnsureServerIpResult> {
-  const [row] = await db
-    .select({ serverIp: platformSettings.serverIp })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-    .limit(1);
-
-  // 1. Operator override wins, and is re-applied so an env change lands.
   const override = opts.override?.trim();
   if (override) {
-    if (row?.serverIp !== override) await persist(override);
+    if (stored !== override) await family.write(override);
     return { ip: override, source: "override" };
   }
 
-  // 2. Keep a value we already have. Detected or typed, it's trusted.
-  if (row?.serverIp) return { ip: row.serverIp, source: "existing" };
+  if (stored) return { ip: stored, source: "existing" };
 
-  // 3. Nothing on record: detect (production only) and persist.
-  const detected = opts.allowDetect ? await detectPublicIp() : null;
+  const detected = opts.allowDetect ? await family.detect() : null;
   if (detected) {
-    await persist(detected);
+    await family.write(detected);
     return { ip: detected, source: "detected" };
   }
 
-  // 4. No public answer: fall back to a local interface rather than let the
-  //    resolver silently mint loopback domains.
-  const local = opts.allowDetect ? detectLocalIp() : null;
+  const local = opts.allowDetect ? (family.lastResort?.() ?? null) : null;
   if (local) {
-    await persist(local);
+    await family.write(local);
     return { ip: local, source: "local" };
   }
 
   return { ip: null, source: "none" };
 }
 
+async function readColumn(column: "serverIp" | "serverIpv6"): Promise<string | null> {
+  const [row] = await db
+    .select({ serverIp: platformSettings.serverIp, serverIpv6: platformSettings.serverIpv6 })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+    .limit(1);
+  return row?.[column] ?? null;
+}
+
+export async function ensureServerIp(opts: {
+  override?: string | null;
+  allowDetect: boolean;
+}): Promise<EnsureServerIpResult> {
+  return resolveAddress(opts, {
+    read: () => readColumn("serverIp"),
+    write: (ip) => persistAddress({ serverIp: ip }),
+    detect: detectPublicIp,
+    // No public answer: a LAN address beats letting the domain resolver mint
+    // `127.0.0.1.sslip.io` for everything.
+    lastResort: detectLocalIp,
+  });
+}
+
 /**
  * IPv6 sibling of `ensureServerIp`, with one deliberate difference: there is
- * no local-interface fallback. An IPv4-only host is an ordinary host, so
+ * no local-interface last resort. An IPv4-only host is an ordinary host, so
  * `null` here means "this machine has no public IPv6" — which the Instance
- * page states plainly rather than rendering as a gap the operator must fix.
- *
- * Precedence mirrors v4: env override (re-applied every boot) → persisted
- * value → detection from an IPv6-only echo service in production.
+ * page states plainly rather than rendering as a gap the operator must fix,
+ * and a link-local/ULA guess would be unroutable anyway.
  */
 export async function ensureServerIpv6(opts: {
   override?: string | null;
   allowDetect: boolean;
 }): Promise<EnsureServerIpResult> {
-  const [row] = await db
-    .select({ serverIpv6: platformSettings.serverIpv6 })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-    .limit(1);
-
-  const override = opts.override?.trim();
-  if (override) {
-    if (row?.serverIpv6 !== override) await persistIpv6(override);
-    return { ip: override, source: "override" };
-  }
-
-  if (row?.serverIpv6) return { ip: row.serverIpv6, source: "existing" };
-
-  const detected = opts.allowDetect ? await detectPublicIpv6() : null;
-  if (detected) {
-    await persistIpv6(detected);
-    return { ip: detected, source: "detected" };
-  }
-
-  return { ip: null, source: "none" };
+  return resolveAddress(opts, {
+    read: () => readColumn("serverIpv6"),
+    write: (ip) => persistAddress({ serverIpv6: ip }),
+    detect: detectPublicIpv6,
+  });
 }

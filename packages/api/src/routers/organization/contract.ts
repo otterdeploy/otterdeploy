@@ -135,12 +135,18 @@ const controlPlaneDomainSchema = z.object({
 
 /** What the edge is actually serving for the control-plane domain. TXT
  *  verification proves ownership; this proves TLS works, which is a separate
- *  fact the UI used to imply rather than check. */
+ *  fact the UI used to imply rather than check.
+ *
+ *  Status vocabulary is `lib/cert-probe`'s, unchanged, so the control-plane
+ *  domain reads the same as every other domain in the certificate inventory —
+ *  plus `unset` for "no control-plane domain configured", which is the one
+ *  state a general cert probe has no opinion about. */
 const controlPlaneCertificateSchema = z.object({
-  state: z.enum(["trusted", "untrusted", "none", "unreachable", "unset"]),
+  status: z.enum(["valid", "expiring", "expired", "internal", "error", "unset"]),
   issuer: z.string().nullable(),
-  expiresAt: z.date().nullable(),
-  checkedAt: z.date().nullable(),
+  notAfter: z.string().nullable(),
+  daysRemaining: z.number().nullable(),
+  error: z.string().nullable(),
 });
 
 const setControlPlaneDomainInput = z.object({

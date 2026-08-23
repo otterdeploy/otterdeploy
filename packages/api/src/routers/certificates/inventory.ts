@@ -7,15 +7,13 @@
  */
 import type { CustomCertificateId, ProjectId } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
-import { eq } from "drizzle-orm";
 
 import type { OrgRef } from "../scopes";
 import type { OrgDomainRow } from "./queries";
 
 import { type CertProbe, probeCertificate } from "../../lib/cert-probe";
+import { readEdgeHost } from "../../lib/edge-host";
 import { listCustomCertsByOrg, listOrgEnabledHttpDomains } from "./queries";
 
 export interface InventoryProject {
@@ -33,17 +31,6 @@ export interface OrgCertificateInventory {
   edgeHost: string;
   probedAt: string;
   certificates: InventoryCertificate[];
-}
-
-/** The platform's configured public edge address; loopback in dev / before
- *  detection (same fallback as the per-project probe). */
-async function readEdgeHost(): Promise<string> {
-  const [row] = await db
-    .select({ serverIp: platformSettings.serverIp })
-    .from(platformSettings)
-    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-    .limit(1);
-  return row?.serverIp ?? "127.0.0.1";
 }
 
 function groupDomains(rows: OrgDomainRow[]): Map<string, InventoryProject[]> {
