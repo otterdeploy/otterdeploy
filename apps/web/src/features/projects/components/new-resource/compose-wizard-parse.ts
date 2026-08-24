@@ -11,6 +11,7 @@ import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useState } from "react";
 
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
+import { collectFileVarRefs } from "@otterdeploy/api/routers/compose/env";
 import { randomSecret } from "@otterdeploy/shared/crypto";
 import { autofillValue, isSecretKey } from "@otterdeploy/shared/env-var-kind";
 
@@ -19,6 +20,12 @@ import { orpc } from "@/shared/server/orpc";
 import type { Var } from "./form-fields/variables-field";
 
 import { type ComposeForm, type Preview } from "./compose-wizard-shared";
+
+/** Refs from several files, unique by name (first wins). */
+function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
+  const seen = new Set<string>();
+  return refs.filter((r) => (seen.has(r.name) ? false : (seen.add(r.name), true)));
+}
 
 /**
  * The FQDN a stack's address variables should point at, or null when there is
@@ -140,7 +147,19 @@ export function useComposeParse(
     // has to hand-type a password or paste back a hostname they can't know
     // yet. Both stay editable, so they can override or regenerate.
     const current = form.state.values.vars.variables;
-    const seeded: Var[] = res.vars.map((ref) => {
+    // A stack's variables are not only the compose file's. A supporting file
+    // flagged `interpolate` resolves from the SAME bag at materialize time, so
+    // a key living only in a shipped config.yaml has to be prompted for here
+    // too. It wasn't, and NetBird's `authSecret` — which exists nowhere in its
+    // compose — was therefore never asked for, rendered empty, and crash-looped
+    // the server on its own schema. Compose refs win a tie: `res.vars` carries
+    // the parser's own `:-default` handling.
+    const fileRefs = form.state.values.file.files
+      .filter((f) => f.interpolate)
+      .flatMap((f) => collectFileVarRefs(f.content))
+      .filter((ref) => !res.vars.some((v) => v.name === ref.name));
+    const refs = [...res.vars, ...dedupeByName(fileRefs)];
+    const seeded: Var[] = refs.map((ref) => {
       // No `:-default` in the compose → the operator MUST supply a value (we
       // auto-fill secrets; non-secrets still need input). Drives the required *.
       const required = ref.default === null;
@@ -157,7 +176,7 @@ export function useComposeParse(
       };
     });
     // Keep any extra rows the user added that aren't refs in the file.
-    const extra = current.filter((c) => !res.vars.some((ref) => ref.name === c.key));
+    const extra = current.filter((c) => !refs.some((ref) => ref.name === c.key));
     form.setFieldValue("vars.variables", [...seeded, ...extra]);
     if (!res.valid) return `line ${res.errorLine ?? "?"}: ${res.error ?? "Invalid YAML"}`;
     // A `build:` service can't deploy inline yet (those go through git), so make
