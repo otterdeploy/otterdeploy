@@ -55,13 +55,13 @@ describe("resolvePublicDomain", () => {
     expect(r.verified).toBe(false);
   });
 
-  it("uses org base with apps/db subdomain split", () => {
+  it("uses org base flat, same shape for services and databases", () => {
     const svc = resolvePublicDomain(ctx("service"), {
       ...empty,
       orgBaseDomain: "acme.com",
       orgBaseDomainVerifiedAt: new Date(),
     });
-    expect(svc.fqdn).toBe("web-myproj.apps.acme.com");
+    expect(svc.fqdn).toBe("web-myproj.acme.com");
     expect(svc.source).toBe("org-base");
 
     const db = resolvePublicDomain(ctx("database"), {
@@ -69,7 +69,7 @@ describe("resolvePublicDomain", () => {
       orgBaseDomain: "acme.com",
       orgBaseDomainVerifiedAt: new Date(),
     });
-    expect(db.fqdn).toBe("web-myproj.db.acme.com");
+    expect(db.fqdn).toBe("web-myproj.acme.com");
     expect(db.source).toBe("org-base");
   });
 
@@ -91,7 +91,7 @@ describe("resolvePublicDomain", () => {
       orgBaseDomainVerifiedAt: new Date(),
       localBaseDomain: "otterdeploy.localhost",
     });
-    expect(r.fqdn).toBe("web-myproj.apps.acme.com");
+    expect(r.fqdn).toBe("web-myproj.acme.com");
     expect(r.source).toBe("org-base");
   });
 
@@ -127,6 +127,6 @@ describe("resolvePublicDomain", () => {
       orgBaseDomain: "  ACME.com  ",
       orgBaseDomainVerifiedAt: new Date(),
     });
-    expect(r.fqdn).toBe("web-myproj.apps.acme.com");
+    expect(r.fqdn).toBe("web-myproj.acme.com");
   });
 });

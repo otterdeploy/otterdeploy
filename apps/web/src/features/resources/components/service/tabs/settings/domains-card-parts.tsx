@@ -11,7 +11,7 @@ import { Button } from "@/shared/components/ui/button";
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
 /** Verification state of the org's base domain. Generated hostnames are
- *  `<slug>.apps.<baseDomain>`, so a not-yet-verified custom base domain
+ *  `<slug>.<baseDomain>`, so a not-yet-verified custom base domain
  *  means the generated route isn't provably reachable yet either. `"unset"`
  *  is the sslip.io fallback, which needs no ownership proof and is always
  *  reachable once the route exists. */
