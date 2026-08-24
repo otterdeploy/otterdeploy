@@ -1199,6 +1199,13 @@
           "POSTGRES_PASSWORD": "Password for the bundled Postgres that stores keys and spend."
         }
       },
+      "livekit": {
+        "description": "The real-time media server behind live video, voice and AI agent apps: rooms, tracks and WebRTC routing, with a Redis coordinator. Runs all participant media on one UDP port so it works without host networking.",
+        "env": {
+          "LIVEKIT_API_KEY": "Identifier your application signs access tokens with. Not a secret on its own — it travels in every token — but it has to match on both sides.",
+          "LIVEKIT_API_SECRET": "The signing secret paired with the key above. Anything holding it can mint a token for any room, so it belongs on your server and never in a browser bundle."
+        }
+      },
       "mailpit": {
         "description": "SMTP server that captures mail instead of delivering it, with a web inbox to read it. Point a staging app's SMTP at it and nothing can reach a real customer by accident."
       },

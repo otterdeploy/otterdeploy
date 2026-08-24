@@ -1199,6 +1199,13 @@
           "POSTGRES_PASSWORD": "Passwort für das mitgelieferte Postgres, das Schlüssel und Ausgaben speichert."
         }
       },
+      "livekit": {
+        "description": "Der Echtzeit-Medienserver hinter Live-Video-, Sprach- und KI-Agent-Anwendungen: Räume, Tracks und WebRTC-Routing, mit Redis zur Koordination. Leitet die Medien aller Teilnehmenden über einen einzigen UDP-Port und kommt so ohne Host-Networking aus.",
+        "env": {
+          "LIVEKIT_API_KEY": "Kennung, mit der die Anwendung Zugriffstokens signiert. Für sich genommen kein Geheimnis — sie steckt in jedem Token — muss aber auf beiden Seiten übereinstimmen.",
+          "LIVEKIT_API_SECRET": "Das zum Schlüssel gehörende Signatur-Secret. Wer es besitzt, kann ein Token für jeden Raum ausstellen: es gehört auf den Server und niemals in ein Browser-Bundle."
+        }
+      },
       "mailpit": {
         "description": "SMTP-Server, der Mails abfängt statt zuzustellen, mit einem Web-Postfach zum Lesen. Den SMTP einer Staging-Anwendung darauf richten — dann erreicht versehentlich nichts einen echten Kunden."
       },
