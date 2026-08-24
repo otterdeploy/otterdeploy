@@ -87,10 +87,33 @@
   }
 }
 
+/* The update stepper's LIVE phase, filling rather than blinking.
+   (SegmentedPhases, features/updates/components/update-progress-parts.tsx.)
+
+   An update phase has no known duration — the server reports which phase it is
+   in, never how far through it is — so the curve is deliberately asymptotic:
+   it covers most of the segment early, then keeps creeping without ever
+   arriving. `to: 0.92` is the honest part. The fill can never reach the end of
+   its segment on its own, so the bar cannot claim a step finished before the
+   run actually said so; only a real phase change fills a segment to 1. That
+   makes the motion a "still working" signal, not a percentage. */
+@keyframes phase-fill {
+  from {
+    transform: scaleX(0.04);
+  }
+  to {
+    transform: scaleX(0.92);
+  }
+}
+
 @theme {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Slow, front-loaded ease: most of the travel lands in the first few seconds
+     so a fast phase still reads as filling, and a slow one (pull can run
+     minutes) keeps inching instead of parking. */
+  --animate-phase-fill: phase-fill 45s cubic-bezier(0, 0.55, 0.15, 1) forwards;
 }
 
 @theme inline {
