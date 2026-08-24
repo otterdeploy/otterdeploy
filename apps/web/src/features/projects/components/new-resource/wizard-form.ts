@@ -144,6 +144,7 @@ async function submitWizard(
     // which the portable manifest can't use); branch "" → repo default.
     repo: payload.repoFullName || undefined,
     branch: payload.branch || undefined,
+    gitRepoId: payload.repo || undefined,
     ...sizing,
   });
 }

@@ -50,10 +50,35 @@ export interface ServiceCreatePayload {
   // creating an unbuildable service).
   repo?: string;
   branch?: string;
+  // Opaque gitRepoId of the bound repo (the `repo` field above is the portable
+  // "owner/repo" the manifest needs). Used only to ask the server for this
+  // app's workspace-derived watch patterns before staging.
+  gitRepoId?: string;
   // Framework detected on the Source step (git.inspectRepo). Carried so the
   // ghost node can show its brand logo before the built resource lands with the
   // persisted value. Optional, undefined when nothing was detected.
   framework?: Framework | null;
+}
+
+/**
+ * Ask the server for this app's workspace-derived watch patterns.
+ *
+ * Only meaningful for a git service pinned to a subdirectory of a workspace;
+ * everything else returns nothing and the service keeps the default
+ * "rebuild on every push". Never throws: a failed lookup costs a slightly
+ * chattier rebuild, not a failed create.
+ */
+async function deriveWatchPatterns(payload: ServiceCreatePayload): Promise<string[] | undefined> {
+  if (payload.source !== "git" || !payload.gitRepoId || !payload.root) return undefined;
+  try {
+    const inspected = await orpc.git.inspectRepo.call({
+      gitRepoId: payload.gitRepoId,
+      path: payload.root,
+    });
+    return inspected.watchPatterns.length > 0 ? inspected.watchPatterns : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -148,12 +173,19 @@ export function useResourceProvisioner({
           return;
         }
       }
+      // Watch patterns for a service inside a workspace: its own directory
+      // plus the directories of the workspace packages it depends on. Derived
+      // server-side (the dependency graph lives in package.jsons the inspect
+      // endpoint already reads). Best-effort: without them the service simply
+      // rebuilds on every push, which is the pre-existing default.
+      const watchPatterns = await deriveWatchPatterns(payload);
+
       await stage.mutateAsync((current) => ({
         ...current,
         project: current.project || projectSlug,
         services: {
           ...current.services,
-          [payload.name]: buildServiceSpec({ ...payload, derivedPublicHost }),
+          [payload.name]: buildServiceSpec({ ...payload, derivedPublicHost, watchPatterns }),
         },
       }));
       // Seed the ghost node's brand logo from the framework the wizard already

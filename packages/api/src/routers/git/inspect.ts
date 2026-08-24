@@ -48,6 +48,7 @@ import {
   resolveRepoBinding,
   humanizeUpstreamBody,
 } from "./inspect-github";
+import { deriveWatchPatterns } from "./watch-patterns";
 
 // Canonical type lives in @otterdeploy/shared/framework (single source of
 // truth shared with the DB column, the resource contract, the builder's
@@ -63,6 +64,9 @@ export interface InspectResult {
   framework: FrameworkKind;
   monorepo: MonorepoKind;
   monorepoPackages: string[];
+  /** Suggested `buildConfig.watchPatterns` for a workspace app at this path.
+   *  Empty at the repo root or outside a workspace. */
+  watchPatterns: string[];
 }
 
 export async function inspectRepoTree(args: {
@@ -91,18 +95,33 @@ export async function inspectRepoTree(args: {
   const entries = listChildren(snap.value, path);
   const framework = await detectFrameworkForPath(binding, snap.value, path, args.gitRepoId);
 
-  let monorepo: MonorepoKind = null;
-  let monorepoPackages: string[] = [];
-  if (path === "") {
-    const rootPkg =
-      snap.value.pathTypes.get("package.json") === "file"
-        ? await fetchPackageJson(binding, "package.json", args.gitRepoId)
-        : null;
-    monorepo = detectMonorepoFromPaths(snap.value.paths, rootPkg);
-    if (monorepo) {
-      monorepoPackages = expandWorkspacePackages(snap.value, collectWorkspaceGlobs(rootPkg));
-    }
-  }
+  // The monorepo signals describe the REPO, so they're derived once at the
+  // root. `watchPatterns` describe one app inside it, so they're derived for a
+  // non-root path, from the workspace list the root scan produced.
+  const rootPkg =
+    snap.value.pathTypes.get("package.json") === "file"
+      ? await fetchPackageJson(binding, "package.json", args.gitRepoId)
+      : null;
+  const monorepoKind = detectMonorepoFromPaths(snap.value.paths, rootPkg);
+  const workspacePackages = monorepoKind
+    ? expandWorkspacePackages(snap.value, collectWorkspaceGlobs(rootPkg))
+    : [];
+
+  const monorepo: MonorepoKind = path === "" ? monorepoKind : null;
+  const monorepoPackages = path === "" ? workspacePackages : [];
+
+  // Suggested watch patterns for this app: its own dir, the dirs of every
+  // workspace package it depends on (transitively), and the root build files.
+  // Only meaningful inside a workspace, and only for a specific app.
+  const watchPatterns =
+    path !== "" && monorepoKind
+      ? await deriveWatchPatterns({
+          snapshot: snap.value,
+          subdir: path,
+          workspacePackages,
+          readPackageJson: (pkgPath) => fetchPackageJson(binding, pkgPath, args.gitRepoId),
+        })
+      : [];
 
   return Result.ok({
     fullName: `${binding.owner}/${binding.repo}`,
@@ -111,6 +130,7 @@ export async function inspectRepoTree(args: {
     framework,
     monorepo,
     monorepoPackages,
+    watchPatterns,
   });
 }
 
