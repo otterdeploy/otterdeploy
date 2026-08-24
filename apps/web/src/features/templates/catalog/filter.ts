@@ -21,7 +21,7 @@ export interface TemplateFilter {
  * i18next's `t`. It is a parameter rather than an import because search has to
  * match what the operator can actually READ: matching the raw key would mean
  * typing "newsletter" finds nothing in any locale, while typing "catalog"
- * finds all fifty-eight. Callers that only filter by category can leave it
+ * finds every template there is. Callers that only filter by category can leave it
  * out; an absent resolver just drops description from the haystack.
  */
 export function filterTemplates(

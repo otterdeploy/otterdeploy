@@ -17,6 +17,12 @@ import type { TranslationKey } from "@otterdeploy/i18n";
 export type TemplateCategoryId =
   | "cms"
   | "crm"
+  | "communication"
+  | "productivity"
+  | "media"
+  | "commerce"
+  | "lowcode"
+  | "design"
   | "analytics"
   | "ai"
   | "automation"
@@ -25,9 +31,23 @@ export type TemplateCategoryId =
   | "security"
   | "devtools";
 
+/**
+ * Declaration order is the gallery's category-sort order and the order of its
+ * filter pills, so it is a product decision, not an alphabetical accident.
+ *
+ * The relative order of `cms` → `analytics` → `data` is pinned by
+ * filter.test.ts: it is the fixture that proves the sort reads this array
+ * rather than sorting category ids as strings.
+ */
 export const TEMPLATE_CATEGORIES: { id: TemplateCategoryId; label: string }[] = [
   { id: "cms", label: "CMS" },
   { id: "crm", label: "CRM" },
+  { id: "communication", label: "Communication" },
+  { id: "productivity", label: "Productivity" },
+  { id: "media", label: "Media & files" },
+  { id: "commerce", label: "Commerce" },
+  { id: "lowcode", label: "Low-code" },
+  { id: "design", label: "Design" },
   { id: "analytics", label: "Analytics" },
   { id: "ai", label: "AI" },
   { id: "automation", label: "Automation" },

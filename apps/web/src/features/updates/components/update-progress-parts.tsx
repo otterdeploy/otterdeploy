@@ -70,8 +70,20 @@ export function UpdateHeadline({
 }
 
 /** The hairline progress bar: one segment per visible step, labels beneath.
- *  Done phases read success, the live one pulses warning, a failure marks the
- *  phase it died in. */
+ *  Done phases read success, the live one FILLS in warning, a failure marks the
+ *  phase it died in.
+ *
+ *  Each segment is a track with a fill inside it rather than a block that
+ *  changes colour. The live segment creeps toward its own end (`phase-fill`,
+ *  index.css) and never reaches it; a real phase change is what takes it to
+ *  full, and the transition on the done state means you watch that last stretch
+ *  close instead of seeing the bar teleport. The old version pulsed the whole
+ *  segment and then snapped it green, which read as five separate announcements
+ *  rather than one run making progress.
+ *
+ *  Under `prefers-reduced-motion` the creep and the sweep both drop out and the
+ *  live segment sits at a static half fill: the state stays legible, it just
+ *  stops moving (same contract as `.mark-arc`). */
 export function SegmentedPhases({ current, failed }: { current: number; failed: boolean }) {
   const { t } = useTranslation();
   return (
@@ -80,12 +92,21 @@ export function SegmentedPhases({ current, failed }: { current: number; failed: 
         {STEPS.map((step, i) => (
           <span
             key={step.key}
-            className={cn(
-              "h-0.75 flex-1 rounded-full bg-foreground/10",
-              i < current && "bg-success",
-              i === current && (failed ? "bg-destructive" : "bg-warning motion-safe:animate-pulse"),
-            )}
-          />
+            className="h-0.75 flex-1 overflow-hidden rounded-full bg-foreground/10"
+          >
+            <span
+              className={cn(
+                "block h-full origin-left rounded-full",
+                i < current &&
+                  "scale-x-100 bg-success motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out",
+                i === current &&
+                  (failed
+                    ? "scale-x-100 bg-destructive"
+                    : "scale-x-50 bg-warning motion-safe:animate-phase-fill"),
+                i > current && "scale-x-0",
+              )}
+            />
+          </span>
         ))}
       </div>
       <ol className="flex gap-1 text-[10px]">
