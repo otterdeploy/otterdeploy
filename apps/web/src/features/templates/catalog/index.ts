@@ -32,6 +32,7 @@ import { PLATFORM_ID_TEMPLATES } from "./templates-platform-id";
 import { PLATFORM_OPS_TEMPLATES } from "./templates-platform-ops";
 import { PRODUCTIVITY_TEMPLATES } from "./templates-productivity";
 import { PUBLISHING_TEMPLATES } from "./templates-publishing";
+import { REALTIME_TEMPLATES } from "./templates-realtime";
 import { SERVICES_TEMPLATES } from "./templates-services";
 import { WIKI_TEMPLATES } from "./templates-wiki";
 import { WORKSPACE_TEMPLATES } from "./templates-workspace";
@@ -45,6 +46,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...CRM_TEMPLATES,
   ...COMMUNICATION_TEMPLATES,
   ...CONFERENCING_TEMPLATES,
+  ...REALTIME_TEMPLATES,
   ...PRODUCTIVITY_TEMPLATES,
   ...WORKSPACE_TEMPLATES,
   ...MEDIA_TEMPLATES,

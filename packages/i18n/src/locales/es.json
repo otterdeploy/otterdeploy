@@ -1199,6 +1199,13 @@
           "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena las claves y el gasto."
         }
       },
+      "livekit": {
+        "description": "El servidor de medios en tiempo real detrás de las aplicaciones de vídeo, voz y agentes de IA en directo: salas, pistas y enrutado WebRTC, con Redis como coordinador. Envía los medios de todos los participantes por un único puerto UDP, así que no necesita red de host.",
+        "env": {
+          "LIVEKIT_API_KEY": "Identificador con el que tu aplicación firma los tokens de acceso. No es un secreto en sí mismo —viaja en cada token— pero debe coincidir en ambos lados.",
+          "LIVEKIT_API_SECRET": "El secreto de firma emparejado con la clave anterior. Quien lo tenga puede emitir un token para cualquier sala, así que vive en tu servidor y nunca en un paquete de navegador."
+        }
+      },
       "mailpit": {
         "description": "Servidor SMTP que captura el correo en lugar de entregarlo, con una bandeja web para leerlo. Apunta el SMTP de una aplicación de staging hacia él y nada podrá llegar a un cliente real por accidente."
       },

@@ -56,6 +56,7 @@ import { LibreChat } from "@/shared/components/ui/svgs/librechat";
 import { Libretranslate } from "@/shared/components/ui/svgs/libretranslate";
 import { Listmonk } from "@/shared/components/ui/svgs/listmonk";
 import { Litellm } from "@/shared/components/ui/svgs/litellm";
+import { LiveKit } from "@/shared/components/ui/svgs/livekit";
 import { Mailpit } from "@/shared/components/ui/svgs/mailpit";
 import { Matomo } from "@/shared/components/ui/svgs/matomo";
 import { Mattermost } from "@/shared/components/ui/svgs/mattermost";
@@ -195,6 +196,7 @@ type BrandKey =
   | "Karakeep"
   | "Kestra"
   | "LibreChat"
+  | "LiveKit"
   | "Mattermost"
   | "Mautic"
   | "Memos"
@@ -326,6 +328,7 @@ const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   Karakeep: Karakeep,
   Kestra: Kestra,
   LibreChat: LibreChat,
+  LiveKit: LiveKit,
   Mattermost: Mattermost,
   Mautic: Mautic,
   Memos: Memos,
