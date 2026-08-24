@@ -39,6 +39,17 @@ server:
   dataDir: "/var/lib/netbird/"
   stunPorts: [3478]
   auth:
+    # REQUIRED, and it gates the whole block: config.go's deriveManagement only
+    # copies server.auth onto the management config when issuer is non-empty
+    #   if c.Management.Auth.Issuer == "" && c.Server.Auth.Issuer != ""
+    # Leave it out and every key below is silently discarded too — the server
+    # then dies on "failed to create embedded IDP service: issuer is required"
+    # while logging an empty redirect-URI list that this file plainly sets.
+    #
+    # The /oauth2 suffix is load-bearing: the IdP derives the dashboard's base
+    # URL with strings.TrimSuffix(issuer, "/oauth2") (idp/embedded.go), and it
+    # has to equal the dashboard's own AUTH_AUTHORITY below.
+    issuer: "\${NETBIRD_DOMAIN}/oauth2"
     # Dex ships inside the server image, so a self-hosted install needs no
     # external IdP to get its first admin in.
     localAuthDisabled: false
