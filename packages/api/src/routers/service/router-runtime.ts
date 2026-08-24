@@ -37,6 +37,7 @@ export const serviceRuntimeRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         resourceId: input.resourceId,
+        noCache: input.noCache ?? false,
         log: context.log,
       });
       if (enqueued.isErr()) {

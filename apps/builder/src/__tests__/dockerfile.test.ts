@@ -373,3 +373,80 @@ describe("resolveDockerfileBuild: subdir diagnostics", () => {
     expect(text).toContain("Dockerfile at the repository root");
   });
 });
+
+describe("resolveDockerfileBuild — monorepo build context", () => {
+  /** A workspace root with a turbo-prune-shaped Dockerfile in the app subdir:
+   *  it COPYs the ROOT lockfile and sibling packages. */
+  function monorepo(): string {
+    const workDir = tempDir();
+    writeFile(workDir, "package.json", JSON.stringify({ workspaces: ["apps/*", "packages/*"] }));
+    writeFile(workDir, "bun.lock", "");
+    writeFile(workDir, "packages/ui/package.json", "{}");
+    writeFile(workDir, "apps/web/package.json", "{}");
+    writeFile(
+      workDir,
+      "apps/web/Dockerfile",
+      "FROM oven/bun\nCOPY package.json bun.lock ./\nCOPY packages/ ./packages/\nCOPY apps/web ./apps/web\n",
+    );
+    return workDir;
+  }
+
+  test("auto escalates the context to the repo root, and reports why", () => {
+    const workDir = monorepo();
+    const res = resolveDockerfileBuild({
+      builder: "dockerfile",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: "apps/web",
+    });
+    if (res.kind !== "dockerfile") throw new Error("unreachable");
+    expect(res.contextDir).toBe(workDir);
+    // The Dockerfile itself still resolves inside the subdir…
+    expect(res.dockerfilePath).toBe(join(workDir, "apps/web/Dockerfile"));
+    // …and its logged path is now relative to the widened context.
+    expect(res.relativePath).toBe("apps/web/Dockerfile");
+    expect(res.warnings.join(" ")).toContain("repository root");
+  });
+
+  test("dockerfileContext: subdir preserves the previous behavior exactly", () => {
+    const workDir = monorepo();
+    const res = resolveDockerfileBuild({
+      builder: "dockerfile",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: "apps/web",
+      dockerfileContext: "subdir",
+    });
+    if (res.kind !== "dockerfile") throw new Error("unreachable");
+    expect(res.contextDir).toBe(join(workDir, "apps/web"));
+    expect(res.relativePath).toBe("Dockerfile");
+    expect(res.warnings).toEqual([]);
+  });
+
+  test("a self-contained subdir app is not escalated", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "package.json", JSON.stringify({ workspaces: ["apps/*"] }));
+    writeFile(workDir, "apps/web/package.json", "{}");
+    writeFile(workDir, "apps/web/Dockerfile", "FROM node\nCOPY package.json ./\n");
+    const res = resolveDockerfileBuild({
+      builder: "dockerfile",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: "apps/web",
+    });
+    if (res.kind !== "dockerfile") throw new Error("unreachable");
+    expect(res.contextDir).toBe(join(workDir, "apps/web"));
+  });
+
+  test("the Dockerfile still may not escape the subdir, even with a root context", () => {
+    const workDir = monorepo();
+    expect(() =>
+      resolveDockerfileBuild({
+        builder: "dockerfile",
+        dockerfilePath: "../../Dockerfile",
+        workDir,
+        sourceSubdir: "apps/web",
+      }),
+    ).toThrow(/points outside the repository/);
+  });
+});

@@ -145,17 +145,28 @@ export function RepositoryField({
   );
 }
 
-/** PR-previews opt-in switch: per service, staged into the manifest like the
- *  rest of the source block. */
+/** PR-previews opt-in switch row: per service, staged into the manifest like
+ *  the rest of the source block. Renders its own full-width row — label + hint
+ *  spanning the row with the switch pinned right, the same shape as the build
+ *  card's "Single-page app" toggle — rather than sitting in BuildFieldRow's
+ *  narrow w-40 label column with the switch floating mid-row. */
 export function PreviewsField({
+  label,
+  hint,
   checked,
   onChange,
 }: {
+  label: string;
+  hint: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex h-8 items-center">
+    <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
+      <div className="flex flex-col">
+        <span className="text-[12px] text-foreground">{label}</span>
+        <span className="text-[11px] text-muted-foreground">{hint}</span>
+      </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );

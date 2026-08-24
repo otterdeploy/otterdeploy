@@ -42,12 +42,26 @@ export type BuildAutoConfig = BuildCommon & {
  *  `buildArgs` are passed to `docker build` as `--build-arg key=value`. Plain
  *  build-time variables (NOT secrets: they land in the image history, same as
  *  any `--build-arg`). Use them for non-sensitive build toggles; for secrets,
- *  prefer runtime env on the service. Unset = no build-args. */
+ *  prefer runtime env on the service. Unset = no build-args.
+ *
+ *  `dockerfileContext` anchors the BUILD CONTEXT, a separate question from
+ *  where the Dockerfile lives. A monorepo Dockerfile sits in the app's subdir
+ *  but COPYs the root lockfile and the sibling packages it depends on, so it
+ *  has to be built from the repo root. `auto` (default) reads the Dockerfile's
+ *  COPY sources and escalates to the root only when they demand it; `subdir`
+ *  and `root` pin the choice. Ignored when no `sourceSubdir` is set: there is
+ *  only one candidate context then. */
 export type BuildDockerfileConfig = BuildCommon & {
   builder: "dockerfile";
   dockerfilePath?: string | null;
   buildArgs?: Record<string, string> | null;
+  dockerfileContext?: DockerfileContextMode | null;
 };
+
+/** Build-context anchor for a Dockerfile that lives in a monorepo subdir. */
+export const DOCKERFILE_CONTEXT_MODES = ["auto", "subdir", "root"] as const;
+
+export type DockerfileContextMode = (typeof DOCKERFILE_CONTEXT_MODES)[number];
 
 /** Railpack: zero-config builder. `buildCommand` overrides the detected
  *  build step.
@@ -74,7 +88,34 @@ export type BuildRailpackConfig = BuildCommon & {
   spa?: boolean | null;
   staticRoot?: string | null;
   packageManager?: string | null;
+  buildRunner?: BuildRunner | null;
+  turboFilter?: string | null;
+  turboRemoteCache?: boolean | null;
+  turboPrune?: boolean | null;
 };
+
+/** Which command builds a workspace app.
+ *
+ *  Turbo is a task RUNNER over a workspace the package manager already defined;
+ *  it never creates the workspace. So this only applies once the repo root is
+ *  already known to be a workspace and the service lives in a subdir of it.
+ *
+ *  - `auto`   use turbo when the root has a turbo.json and depends on turbo,
+ *             else run the app's own build script (default)
+ *  - `turbo`  always `turbo run build --filter=<pkg>`; fails loudly if turbo
+ *             isn't usable, rather than silently degrading
+ *  - `script` always `cd <subdir> && <pm> run build`, turbo ignored
+ *
+ *  `turboPrune` builds from a `turbo prune`d copy of the workspace instead of
+ *  the whole clone: a smaller build context and, more usefully, an install
+ *  narrowed to the packages the app actually reaches. Opt-in, because prune
+ *  keeps only the root package.json / lockfile / turbo.json and drops every
+ *  other root-level file — a repo whose packages do `extends: "../../
+ *  tsconfig.json"` would break. The builder checks for that and silently
+ *  declines to prune rather than shipping a broken build. */
+export const BUILD_RUNNERS = ["auto", "turbo", "script"] as const;
+
+export type BuildRunner = (typeof BUILD_RUNNERS)[number];
 
 /** Compose: build/orchestrate from a docker-compose file. `composePath`
  *  defaults to `./docker-compose.yml` (relative to `sourceSubdir` if set). */

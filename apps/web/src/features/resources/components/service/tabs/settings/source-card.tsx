@@ -281,14 +281,16 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
           <RegistryHint image={image} registries={registries} />
         </BuildFieldRow>
 
-        <BuildFieldRow
-          label={t("resources.source.prPreviews")}
-          hint={t("resources.source.prPreviewsHint")}
-        >
-          <form.Field name="previews">
-            {(field) => <PreviewsField checked={field.state.value} onChange={field.handleChange} />}
-          </form.Field>
-        </BuildFieldRow>
+        <form.Field name="previews">
+          {(field) => (
+            <PreviewsField
+              label={t("resources.source.prPreviews")}
+              hint={t("resources.source.prPreviewsHint")}
+              checked={field.state.value}
+              onChange={field.handleChange}
+            />
+          )}
+        </form.Field>
       </div>
 
       <SaveRow dirty={dirty} pending={saveMut.isPending} onSave={() => void form.handleSubmit()} />

@@ -22,7 +22,10 @@
 # deployment's real URLs at container start (see serve-dist.ts + the template's
 # dashboard command). Building at container start instead OOM-killed on small
 # hosts.
-FROM oven/bun:1.3.14
+# ---------------------------------------------------------------- builder --
+# Full workspace install (devDependencies included) purely so the dashboard
+# can be built. None of this stage reaches the published image.
+FROM oven/bun:1.3.14 AS builder
 
 WORKDIR /app
 
@@ -80,6 +83,57 @@ RUN cd /app/vite \
      VITE_BACKEND_URL=http://__AUTUMN_API_URL__ \
      VITE_FRONTEND_URL=http://__AUTUMN_CLIENT_URL__ \
      bun run build
+
+# ---------------------------------------------------------------- runtime --
+# Only the server's dependency closure, production-only. The builder's 4.9 GB
+# node_modules never lands here; see the pruning notes on the install below.
+FROM oven/bun:1.3.14 AS runtime
+
+WORKDIR /app
+
+# No git in the runtime image: the source arrives via COPY --from=builder.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Source only. apps/ and vite/package.json are copied solely so bun can resolve
+# every workspace member named in bun.lock under --frozen-lockfile.
+COPY --from=builder /app/package.json /app/bun.lock /app/turbo.json /app/
+COPY --from=builder /app/server   /app/server
+COPY --from=builder /app/shared   /app/shared
+COPY --from=builder /app/packages /app/packages
+COPY --from=builder /app/scripts  /app/scripts
+COPY --from=builder /app/apps     /app/apps
+COPY --from=builder /app/vite/package.json /app/vite/package.json
+RUN find /app -maxdepth 3 -name node_modules -type d -exec rm -rf {} + 2>/dev/null; true
+
+# The size fix. Three separate problems, three separate remedies:
+#
+#   --production      upstream's devDependencies include artillery, playwright-core,
+#                     mocha, react-email and three TypeScript versions.
+#   --filter          a bare `bun install` resolves all ~23 workspaces. This image
+#                     runs the server and serves a prebuilt dashboard, so only the
+#                     server's workspace closure is needed. Filtering out apps/leaf,
+#                     apps/website, apps/docs and packages/{mcp,ui,render,openapi}
+#                     drops @mastra, monaco-editor, mermaid and node-sql-parser.
+#   rm next@*         autumn-js declares next as an OPTIONAL peerDependency, and bun
+#                     installs optional peers regardless. The server only imports
+#                     autumn-js's backend handler, never the next/react adapters, so
+#                     two Next.js copies plus four @next/swc native binaries (829 MB)
+#                     are dead weight. `--omit=peer` is NOT a valid substitute — it
+#                     also removes zod, which @autumn/shared resolves through a peer.
+#   rm *-musl@*       the base image is Debian (glibc); musl-targeted native builds
+#                     of duckdb et al. can never load.
+RUN bun install --ignore-scripts --frozen-lockfile --production \
+      --filter "./server" --filter "./shared" \
+      --filter "./packages/auth" --filter "./packages/env" \
+      --filter "./packages/ksuid" --filter "./packages/stripe-sync" \
+      --filter "./packages/autumn-js" --filter "./packages/sdk" \
+  && rm -rf /app/node_modules/.bun/next@* /app/node_modules/.bun/@next+swc-* \
+  && rm -rf /app/node_modules/.bun/*-musl@* \
+  && rm -rf /root/.bun/install/cache
+
+COPY --from=builder /app/vite/dist /app/vite/dist
 
 # Static server for the dashboard dist. Bun-native, no extra dependency
 # (upstream's `start` script wants a globally-installed `serve`, and vite

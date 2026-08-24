@@ -35,7 +35,7 @@ import * as z from "zod";
 
 import type { LogSink } from "./log-stream";
 
-import { RAILPACK_INFO_FILE } from "./railpack";
+import { RAILPACK_INFO_FILE } from "./railpack-layout";
 
 /** Shape of the bits of `railpack-info.json` we read. railpack emits more
  *  (plan, resolvedPackages, logs); we only need the detected providers and

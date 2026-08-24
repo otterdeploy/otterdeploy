@@ -11,12 +11,13 @@
 //     fails on Linux ARM64).
 //   - Dockerfile: the Dockerfile path + `--build-arg`s passed to the build.
 //
-// The two cards live in `build-card-forms.tsx`; image / compose / auto services
+// The two cards live in `build-card-railpack.tsx` / `build-card-dockerfile.tsx`; image / compose / auto services
 // have no build knobs and render nothing.
 
 import type { ServiceBuildResource } from "./build-card-shared";
 
-import { DockerfileBuildCard, RailpackBuildCard } from "./build-card-forms";
+import { DockerfileBuildCard } from "./build-card-dockerfile";
+import { RailpackBuildCard } from "./build-card-railpack";
 
 /** Dispatch on the builder: railpack and dockerfile each get their own card;
  *  everything else (image / compose / auto) renders nothing. Pure narrowing

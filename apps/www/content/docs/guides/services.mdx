@@ -37,6 +37,19 @@ Two builders are available:
   not wired.
 </Callout>
 
+### Monorepos
+
+Point the service's root directory at its app folder. If the repository root
+declares a workspace, the build runs from the root so the lockfile and the
+sibling packages the app imports resolve, and only the app is started.
+
+With a `turbo.json` at the root, the app is built through
+`turbo run build --filter=<package>`, so the internal packages it depends on
+are built first. Without one, its own `build` script runs alone. See
+[Monorepos in the manifest reference](/docs/reference/manifest) for the
+`buildRunner`, `turboFilter`, `turboRemoteCache`, and `dockerfileContext`
+fields.
+
 ### Push to deploy
 
 Once a service is bound to a branch, a push to that branch creates a
