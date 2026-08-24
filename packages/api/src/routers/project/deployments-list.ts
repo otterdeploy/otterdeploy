@@ -19,13 +19,12 @@ import { Result } from "better-result";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
-
-import { resolveListingScope } from "./deployments";
 import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-derive";
 
 import { loadPreviewScope } from "../../lib/environment/load";
 import { runtimeServiceName } from "../../lib/environment/scoping";
 import { backfillCommitMeta } from "./deployment-commit-backfill";
+import { resolveListingScope } from "./deployments";
 import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-derive";
 import {
   isBuildStillLogging,
