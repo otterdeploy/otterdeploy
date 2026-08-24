@@ -13,6 +13,7 @@ function deployment(status: Deployment["status"], over: Partial<Deployment> = {}
     id: createId(ID_PREFIX.deployment),
     projectId: createId(ID_PREFIX.project),
     resourceId: createId(ID_PREFIX.resource),
+    previewId: null,
     image: "registry.example.com/app:latest",
     reason: "create",
     status,

@@ -27,6 +27,7 @@ import type {
   DeploymentId,
   EnvironmentId,
   OrganizationId,
+  PreviewId,
   ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
@@ -65,6 +66,9 @@ export interface ProjectDeploymentItem {
   id: DeploymentId;
   projectId: ProjectId;
   resourceId: ResourceId;
+  /** Always null here: this listing filters to base rows. Present so the item
+   *  satisfies the shared deployment schema. */
+  previewId: PreviewId | null;
   resourceName: string;
   resourceKind: ResourceKind;
   environmentName: string;
@@ -99,6 +103,9 @@ interface ListInput {
 interface JoinedRow {
   id: DeploymentId;
   resourceId: ResourceId;
+  /** Always null here: this listing filters to base rows. Carried anyway so
+   *  the row satisfies the shared deployment schema. */
+  previewId: PreviewId | null;
   resourceName: string;
   resourceKind: ResourceKind;
   /** Joined environment name; null = NULL-stamped row (main environment). */
@@ -220,6 +227,7 @@ export async function listProjectDeployments(
     .select({
       id: deployment.id,
       resourceId: deployment.resourceId,
+      previewId: deployment.previewId,
       resourceName: resource.name,
       resourceKind: resource.type,
       environmentName: environment.name,
@@ -286,6 +294,7 @@ export async function listProjectDeployments(
     id: row.id,
     projectId: input.projectId,
     resourceId: row.resourceId,
+    previewId: row.previewId,
     resourceName: row.resourceName,
     resourceKind: row.resourceKind,
     environmentName: row.environmentName ?? mainEnvName,
