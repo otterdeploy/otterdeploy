@@ -15,7 +15,11 @@ import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { organizationIdField } from "../project/contract/shared";
-import { runtimeSettingsDraftSchema } from "./runtime-settings-schema";
+import {
+  runtimeSettingsDraftSchema,
+  signInMethodsDraftSchema,
+  signInMethodsSchema,
+} from "./runtime-settings-schema";
 
 const tag = "organization";
 const basePath = "/organizations";
@@ -213,6 +217,10 @@ const setAccessSettingsInput = z.object({
   registrationMode: registrationModeEnum,
 });
 
+const setSignInMethodsInput = signInMethodsDraftSchema.extend({
+  organizationId: organizationIdField,
+});
+
 const socialProviderIdEnum = z.enum(["github", "google", "gitlab"]);
 
 const socialProviderSchema = z.object({
@@ -349,7 +357,10 @@ export const organizationContract = {
 
   cloudflareListZones: oc
     .errors({
-      INVALID_INPUT: { status: 400, message: "Invalid Cloudflare token" as const },
+      INVALID_INPUT: {
+        status: 400,
+        message: "Invalid Cloudflare token" as const,
+      },
     })
     .meta({
       path: `${basePath}/cloudflare/zones`,
@@ -428,63 +439,129 @@ export const organizationContract = {
 
   // ── Instance network + edge defaults ───────────────────────────────
   getServerIp: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/server-ip`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/server-ip`,
+      tag,
+      method: "GET",
+    })
     .input(getOrganizationSettingsInput)
     .output(serverIpSchema),
 
   setServerIp: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/server-ip`, tag, method: "PATCH" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/server-ip`,
+      tag,
+      method: "PATCH",
+    })
     .input(setServerIpInput)
     .output(serverIpSchema),
 
   getEdgeOptions: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/edge-options`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/edge-options`,
+      tag,
+      method: "GET",
+    })
     .input(getOrganizationSettingsInput)
     .output(edgeOptionsSchema),
 
   setEdgeOptions: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/edge-options`, tag, method: "PATCH" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/edge-options`,
+      tag,
+      method: "PATCH",
+    })
     .input(setEdgeOptionsInput)
     .output(edgeOptionsSchema),
 
   // ── Runtime configuration ──────────────────────────────────────────
   getAccessSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/access`,
+      tag,
+      method: "GET",
+    })
     .input(getOrganizationSettingsInput)
     .output(accessSettingsSchema),
 
   setAccessSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "PATCH" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/access`,
+      tag,
+      method: "PATCH",
+    })
     .input(setAccessSettingsInput)
     .output(accessSettingsSchema),
 
+  getSignInMethods: oc
+    .meta({
+      path: `${basePath}/{organizationId}/instance/sign-in-methods`,
+      tag,
+      method: "GET",
+    })
+    .input(getOrganizationSettingsInput)
+    .output(signInMethodsSchema),
+
+  setSignInMethods: oc
+    .meta({
+      path: `${basePath}/{organizationId}/instance/sign-in-methods`,
+      tag,
+      method: "PATCH",
+    })
+    .input(setSignInMethodsInput)
+    .output(signInMethodsSchema),
+
   listSocialProviders: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/social-providers`,
+      tag,
+      method: "GET",
+    })
     .input(getOrganizationSettingsInput)
     .output(z.array(socialProviderSchema)),
 
   setSocialProvider: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "PATCH" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/social-providers`,
+      tag,
+      method: "PATCH",
+    })
     .input(setSocialProviderInput)
     .output(z.array(socialProviderSchema)),
 
   getCrowdsecSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/crowdsec`,
+      tag,
+      method: "GET",
+    })
     .input(getOrganizationSettingsInput)
     .output(crowdsecSettingsSchema),
 
   setCrowdsecSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "PATCH" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/crowdsec`,
+      tag,
+      method: "PATCH",
+    })
     .input(setCrowdsecSettingsInput)
     .output(crowdsecSettingsSchema),
 
   getRuntimeSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/runtime`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/runtime`,
+      tag,
+      method: "GET",
+    })
     .input(getOrganizationSettingsInput)
     .output(runtimeSettingsSchema),
 
   setRuntimeSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/runtime`, tag, method: "PATCH" })
+    .meta({
+      path: `${basePath}/{organizationId}/instance/runtime`,
+      tag,
+      method: "PATCH",
+    })
     .input(setRuntimeSettingsInput)
     .output(runtimeSettingsSchema),
 
@@ -495,19 +572,35 @@ export const organizationContract = {
     .output(z.array(memberViewSchema)),
 
   removeMember: oc
-    .errors({ NOT_FOUND: { status: 404, message: "Member not found" as const } })
-    .meta({ path: `${basePath}/{organizationId}/members`, tag, method: "DELETE" })
+    .errors({
+      NOT_FOUND: { status: 404, message: "Member not found" as const },
+    })
+    .meta({
+      path: `${basePath}/{organizationId}/members`,
+      tag,
+      method: "DELETE",
+    })
     .input(removeMemberInput)
     .output(z.object({ ok: z.boolean() })),
 
   updateMemberRole: oc
-    .errors({ NOT_FOUND: { status: 404, message: "Member not found" as const } })
-    .meta({ path: `${basePath}/{organizationId}/members/role`, tag, method: "PATCH" })
+    .errors({
+      NOT_FOUND: { status: 404, message: "Member not found" as const },
+    })
+    .meta({
+      path: `${basePath}/{organizationId}/members/role`,
+      tag,
+      method: "PATCH",
+    })
     .input(updateMemberRoleInput)
     .output(memberViewSchema),
 
   listInvitations: oc
-    .meta({ path: `${basePath}/{organizationId}/invitations`, tag, method: "GET" })
+    .meta({
+      path: `${basePath}/{organizationId}/invitations`,
+      tag,
+      method: "GET",
+    })
     .input(orgRef)
     .output(z.array(invitationViewSchema)),
 

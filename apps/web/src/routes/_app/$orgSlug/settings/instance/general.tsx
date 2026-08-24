@@ -24,6 +24,7 @@ import { AccessCard } from "../../-components/instance-access";
 import { CrowdsecCard } from "../../-components/instance-crowdsec";
 import { RuntimeSettingsCard } from "../../-components/instance-runtime";
 import { ServerIpCard } from "../../-components/instance-server-ip";
+import { SignInMethodsCard } from "../../-components/instance-sign-in-methods";
 import { SocialSignInCard } from "../../-components/instance-social-sign-in";
 import { EdgeDefaultsCard } from "../../-components/instance-edge";
 import { MigrationCard } from "../../-components/instance-migration";
@@ -50,6 +51,9 @@ function InstanceRoute() {
       {/* Identity before enforcement before knobs: who gets in is the setting
           an operator comes here for most often. */}
       <AccessCard organizationId={organization.id} />
+      {/* Who may create an account, then HOW anyone signs in, then the
+          per-provider credentials the SSO switch above depends on. */}
+      <SignInMethodsCard organizationId={organization.id} />
       <SocialSignInCard organizationId={organization.id} />
       <CrowdsecCard organizationId={organization.id} />
       <RuntimeSettingsCard organizationId={organization.id} />

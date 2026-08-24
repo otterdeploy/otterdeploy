@@ -36,25 +36,42 @@ const start = (provider: ProviderId) => {
     );
 };
 
+/**
+ * The hairline "or continue with" rule between the password form and the
+ * federated methods below it.
+ *
+ * Exported because the sign-in page has THREE federated blocks (social,
+ * passkey, enterprise SSO) and they need one shared rule, not one each. It
+ * lives here rather than in a shared/ui module because it is this page's
+ * typography, not a general-purpose separator.
+ */
+export function AuthDivider({ label }: { label: string }) {
+  return (
+    <div className="mt-6 flex items-center gap-3">
+      <span className="h-px flex-1 bg-border" />
+      <span className="font-mono text-[10px] tracking-[0.08em] text-muted-foreground uppercase">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 export function SocialSignIn({
   dividerLabel,
   providers: providerIds,
 }: {
-  dividerLabel: string;
+  /** Null when the caller has already drawn a rule above this block, which the
+   *  sign-in page does: it shares one across all its federated methods. */
+  dividerLabel: string | null;
   providers: string[];
 }) {
   const providers = knownProviders(providerIds);
   if (providers.length === 0) return null;
 
   return (
-    <div className="mt-6 space-y-3">
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-border" />
-        <span className="font-mono text-[10px] tracking-[0.08em] text-muted-foreground uppercase">
-          {dividerLabel}
-        </span>
-        <span className="h-px flex-1 bg-border" />
-      </div>
+    <div className="mt-3 space-y-3">
+      {dividerLabel === null ? null : <AuthDivider label={dividerLabel} />}
       {providers.map((provider) => (
         <Button
           key={provider}

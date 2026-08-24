@@ -14,11 +14,18 @@
  * returning a `*Configured` boolean instead of the value.
  */
 
+import { ORPCError } from "@orpc/server";
+import { enabledSocialProviderIds } from "@otterdeploy/auth";
+import {
+  DEFAULT_SIGN_IN_METHODS,
+  type SignInMethods,
+  wouldLockOut,
+} from "@otterdeploy/auth/sign-in-methods";
 import { db } from "@otterdeploy/db";
-import { user as userTbl } from "@otterdeploy/db/schema/auth";
+import { ssoProvider, user as userTbl } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { log } from "evlog";
 
 import { encryptSecret } from "../../lib/crypto";
@@ -75,6 +82,74 @@ export async function saveAccessSettings(
   // can create accounts, and the audit trail should show every flip.
   log.info({ platform: { setting: "registration-mode", value: mode } });
   return getAccessSettings();
+}
+
+// ─── Sign-in methods ──────────────────────────────────────────────────
+
+export interface SignInMethodsView extends SignInMethods {
+  bootstrapComplete: boolean;
+  liveSocialProviderCount: number;
+  registeredSsoProviderCount: number;
+}
+
+/** The two counts the lock-out floor depends on, read together so the check
+ *  and the view the operator is looking at cannot disagree. */
+async function federatedCounts(): Promise<{
+  liveSocialProviderCount: number;
+  registeredSsoProviderCount: number;
+}> {
+  const [ssoCount] = await db.select({ value: count() }).from(ssoProvider);
+  return {
+    // What the LIVE auth instance registered, not what the columns claim: a
+    // provider whose secret won't decrypt is not a way back in.
+    liveSocialProviderCount: enabledSocialProviderIds().length,
+    registeredSsoProviderCount: ssoCount?.value ?? 0,
+  };
+}
+
+export async function getSignInMethods(): Promise<SignInMethodsView> {
+  const [row, [anyUser], counts] = await Promise.all([
+    readRow(),
+    db.select({ id: userTbl.id }).from(userTbl).limit(1),
+    federatedCounts(),
+  ]);
+  return {
+    password: row?.signInPasswordEnabled ?? DEFAULT_SIGN_IN_METHODS.password,
+    passkey: row?.signInPasskeyEnabled ?? DEFAULT_SIGN_IN_METHODS.passkey,
+    sso: row?.signInSsoEnabled ?? DEFAULT_SIGN_IN_METHODS.sso,
+    bootstrapComplete: Boolean(anyUser || row?.bootstrapCompletedAt),
+    ...counts,
+  };
+}
+
+/**
+ * Save the method policy, refusing any save that would leave existing accounts
+ * with no way in.
+ *
+ * The floor is enforced HERE and not only in the switch's disabled state,
+ * because the disabled state is presentation: this endpoint is reachable with
+ * an API key. `wouldLockOut` is the rule and it lives in the auth package next
+ * to the request gate that reads the same columns, so there is one definition
+ * of "locked out" rather than one per caller.
+ */
+export async function saveSignInMethods(methods: SignInMethods): Promise<SignInMethodsView> {
+  const counts = await federatedCounts();
+  if (wouldLockOut({ methods, ...counts })) {
+    throw new ORPCError("BAD_REQUEST", {
+      message:
+        "Turning off password sign-in would lock everyone out. Configure a social provider or register an SSO identity provider first, then disable passwords.",
+    });
+  }
+
+  await persist({
+    signInPasswordEnabled: methods.password,
+    signInPasskeyEnabled: methods.passkey,
+    signInSsoEnabled: methods.sso,
+  });
+  // Worth a durable line for the same reason the registration mode is: this
+  // decides who can get into the installation at all.
+  log.info({ platform: { setting: "sign-in-methods", ...methods } });
+  return getSignInMethods();
 }
 
 // ─── SMS + push transports ────────────────────────────────────────────

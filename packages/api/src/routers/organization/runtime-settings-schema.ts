@@ -64,12 +64,45 @@ export const egressAllowlistField = z
 
 export const previewIdleTeardownHoursField = z.number().int().min(0).max(8760);
 export const edgeLogRetentionDaysField = z.number().int().min(1).max(365);
-export const geoipUrlField = z.url({ message: "must be a full URL, including https://" });
+export const geoipUrlField = z.url({
+  message: "must be a full URL, including https://",
+});
 export const builderConcurrencyField = z.number().int().min(1).max(32);
 
 /** The operator-editable half of the Runtime card, everything the Save button
  *  sends, minus the organization id the contract adds. The web form validates
  *  against exactly this. */
+/**
+ * Which sign-in methods the installation accepts, as the Instance → Access
+ * card reads them. Lives here rather than in ./contract.ts for the same reason
+ * the runtime fields do: the web app imports the shape without pulling the
+ * oRPC contract's transitive server surface into the browser bundle.
+ *
+ * Social providers are deliberately absent. They have their own card, and each
+ * is already off unless it carries a credential, so "enabled" means something
+ * different for them than for these three.
+ */
+export const signInMethodsSchema = z.object({
+  password: z.boolean(),
+  passkey: z.boolean(),
+  sso: z.boolean(),
+  /** Before the first account exists, password sign-up is forced on whatever
+   *  the columns say, so the card can explain why its switch is pinned. */
+  bootstrapComplete: z.boolean(),
+  /** Both counts exist so the card can explain WHY the password switch is
+   *  locked rather than just refusing the save. See `wouldLockOut` in
+   *  packages/auth/src/sign-in-methods.ts, which is the server's rule. */
+  liveSocialProviderCount: z.number().int().min(0),
+  registeredSsoProviderCount: z.number().int().min(0),
+});
+
+/** The three switches themselves, minus the read-only context above. */
+export const signInMethodsDraftSchema = signInMethodsSchema.pick({
+  password: true,
+  passkey: true,
+  sso: true,
+});
+
 export const runtimeSettingsDraftSchema = z.object({
   egressAllowlist: egressAllowlistField,
   previewIdleTeardownHours: previewIdleTeardownHoursField,

@@ -26,21 +26,29 @@ import {
   getAccessSettings,
   getCrowdsecSettings,
   getRuntimeSettings,
+  getSignInMethods,
   saveAccessSettings,
   saveCrowdsecSettings,
   saveRuntimeSettings,
+  saveSignInMethods,
 } from "./runtime-settings";
 import { listSocialProviders, saveSocialProvider } from "./social-providers";
 
 /** serverIp view for the Instance page. envOverride tells the UI the value
  *  is pinned by env SERVER_IP (re-applied every boot) so edits won't stick. */
-async function serverIpView(): Promise<{ serverIp: string | null; envOverride: boolean }> {
+async function serverIpView(): Promise<{
+  serverIp: string | null;
+  envOverride: boolean;
+}> {
   const [row] = await db
     .select({ serverIp: platformSettings.serverIp })
     .from(platformSettings)
     .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
     .limit(1);
-  return { serverIp: row?.serverIp ?? null, envOverride: Boolean(env.SERVER_IP) };
+  return {
+    serverIp: row?.serverIp ?? null,
+    envOverride: Boolean(env.SERVER_IP),
+  };
 }
 
 export const platformSettingsRouter = {
@@ -104,7 +112,9 @@ export const platformSettingsRouter = {
 
   // ─── Instance network + edge defaults ─────────────────────────────
   getServerIp: requireInstallAdmin().organization.getServerIp.handler(async ({ context }) => {
-    context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+    context.log.set({
+      target: { type: "organization", id: context.activeOrganizationId },
+    });
     return serverIpView();
   }),
 
@@ -118,13 +128,18 @@ export const platformSettingsRouter = {
       await db
         .insert(platformSettings)
         .values({ id: PLATFORM_SETTINGS_ID, serverIp: value })
-        .onConflictDoUpdate({ target: platformSettings.id, set: { serverIp: value } });
+        .onConflictDoUpdate({
+          target: platformSettings.id,
+          set: { serverIp: value },
+        });
       return serverIpView();
     },
   ),
 
   getEdgeOptions: requireInstallAdmin().organization.getEdgeOptions.handler(async ({ context }) => {
-    context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+    context.log.set({
+      target: { type: "organization", id: context.activeOrganizationId },
+    });
     return getGlobalCaddyOptions();
   }),
 
@@ -138,7 +153,10 @@ export const platformSettingsRouter = {
       // options can't produce invalid global syntax (same guarantee the
       // project-Networking editor relies on).
       return saveGlobalCaddyOptions(
-        { acmeEmail: input.acmeEmail, httpsAutoRedirect: input.httpsAutoRedirect },
+        {
+          acmeEmail: input.acmeEmail,
+          httpsAutoRedirect: input.httpsAutoRedirect,
+        },
         context.log,
       );
     },
@@ -160,6 +178,23 @@ export const platformSettingsRouter = {
         access: { registrationMode: input.registrationMode },
       });
       return saveAccessSettings(input.registrationMode);
+    },
+  ),
+
+  getSignInMethods: requireInstallAdmin().organization.getSignInMethods.handler(async () =>
+    getSignInMethods(),
+  ),
+
+  setSignInMethods: requireInstallAdmin().organization.setSignInMethods.handler(
+    async ({ input, context }) => {
+      // The whole set, never a partial patch: the lock-out check inside
+      // saveSignInMethods has to see the resulting state of all three.
+      const { organizationId: _scope, ...methods } = input;
+      context.log.set({
+        target: { type: "organization", id: context.activeOrganizationId },
+        access: methods,
+      });
+      return saveSignInMethods(methods);
     },
   ),
 

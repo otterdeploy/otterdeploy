@@ -5,7 +5,7 @@ import * as z from "zod";
 import { AuthLayout } from "@/features/auth/components/auth-layout";
 import { SignInForm } from "@/features/auth/components/sign-in-form";
 import { SignUpForm } from "@/features/auth/components/sign-up-form";
-import { fetchAuthPublicConfig } from "@/features/auth/data/registration-mode";
+import { fetchAuthPublicConfig, PENDING_AUTH_CONFIG } from "@/features/auth/data/registration-mode";
 
 // `mode` is the URL's source of truth for the sign-in/sign-up toggle (was a
 // local useState): otherwise sharing a "create an account" link or hitting
@@ -31,6 +31,7 @@ function SignInPage() {
     staleTime: 0,
     retry: false,
   });
+  const config = registration.data ?? PENDING_AUTH_CONFIG;
   const mode_ = registration.data?.mode;
   const invitationFlow = redirect?.startsWith("/accept-invite/") ?? false;
   // "open" is the operator opting into self-registration (Instance → Access);
@@ -40,7 +41,10 @@ function SignInPage() {
   const mode = modeParam === "signup" && allowSignUp ? "sign-up" : "sign-in";
   const setMode = (next: "sign-in" | "sign-up") =>
     void navigate({
-      search: (prev) => ({ ...prev, mode: next === "sign-up" ? "signup" : undefined }),
+      search: (prev) => ({
+        ...prev,
+        mode: next === "sign-up" ? "signup" : undefined,
+      }),
       replace: true,
     });
 
@@ -60,13 +64,13 @@ function SignInPage() {
       {mode === "sign-in" ? (
         <SignInForm
           allowSignUp={allowSignUp}
-          socialProviders={registration.data?.socialProviders ?? []}
+          config={config}
           onSwitchToSignUp={() => setMode("sign-up")}
         />
       ) : (
         <SignUpForm
           bootstrap={mode_ === "bootstrap"}
-          socialProviders={registration.data?.socialProviders ?? []}
+          config={config}
           onSwitchToSignIn={() => setMode("sign-in")}
         />
       )}
