@@ -1,10 +1,17 @@
 import type { SVGProps } from "react";
 
 /**
- * Memos mark (dashboard-icons). Colours are the brand's own.
+ * Memos mark (dashboard-icons). Monochrome: `currentColor` lets it take the tile's colour, so it stays
+ * legible on both canvases.
  */
 const Memos = (props: SVGProps<SVGSVGElement>) => (
-  <svg {...props} role="img" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <svg
+    {...props}
+    role="img"
+    viewBox="0 0 512 512"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="currentColor"
+  >
     <title>Memos</title>
     <image
       width="512"
