@@ -12,14 +12,14 @@ import { useState } from "react";
 
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import { collectFileVarRefs } from "@otterdeploy/api/routers/compose/env";
-import { randomSecret } from "@otterdeploy/shared/crypto";
+import { randomBase64, randomSecret } from "@otterdeploy/shared/crypto";
 import { autofillValue, isSecretKey } from "@otterdeploy/shared/env-var-kind";
 
 import { orpc } from "@/shared/server/orpc";
 
 import type { Var } from "./form-fields/variables-field";
 
-import { type ComposeForm, type Preview } from "./compose-wizard-shared";
+import { type ComposeForm, type ComposePrefill, type Preview } from "./compose-wizard-shared";
 
 /** Refs from several files, unique by name (first wins). */
 function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
@@ -81,6 +81,9 @@ export function useComposeParse(
   projectId: ProjectId,
   editorRef: React.RefObject<ReactCodeMirrorRef | null>,
   form: ComposeForm,
+  /** Wire formats declared by the template this stack came from, keyed by
+   *  variable name. Empty for a hand-pasted compose file. */
+  generate?: ComposePrefill["generate"],
 ) {
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -168,9 +171,15 @@ export function useComposeParse(
       // `required` from the current parse. Otherwise a row seeded before this
       // flag existed keeps `required: undefined` and never shows its marker.
       if (existing) return existing.required === required ? existing : { ...existing, required };
+      // A declared format wins over the generic fill: `randomSecret` is
+      // url-safe and unpadded, so an upstream that actually DECODES the value
+      // rejects it. NetBird's store key did, on every boot.
+      const spec = generate?.[ref.name];
+      const generated = spec ? randomBase64(spec.bytes) : null;
       return {
         key: ref.name,
-        value: ref.default ?? autofillValue(ref.name, { randomSecret, publicHost }) ?? "",
+        value:
+          ref.default ?? generated ?? autofillValue(ref.name, { randomSecret, publicHost }) ?? "",
         secret: isSecretKey(ref.name),
         required,
       };

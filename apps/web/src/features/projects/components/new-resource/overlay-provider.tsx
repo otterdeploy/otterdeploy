@@ -95,6 +95,9 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
                   content: template.compose,
                   logoBrand: template.logoBrand,
                   files: template.files,
+                  generate: Object.fromEntries(
+                    template.requiredEnv.flatMap((v) => (v.generate ? [[v.key, v.generate]] : [])),
+                  ),
                 }
               : null
           }
