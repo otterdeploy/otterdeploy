@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { base64UrlDecode, base64UrlEncode, randomSecret, sha256Hex } from "../crypto";
+import { base64UrlDecode, base64UrlEncode, randomBase64, randomSecret, sha256Hex } from "../crypto";
 
 describe("sha256Hex", () => {
   test("matches the frozen SHA-256 test vector", async () => {
@@ -62,6 +62,34 @@ describe("base64url codec", () => {
   test("empty input is a stable empty string", () => {
     expect(base64UrlEncode(new Uint8Array(0))).toBe("");
     expect(base64UrlDecode("")).toHaveLength(0);
+  });
+});
+
+describe("randomBase64", () => {
+  // The reason this exists rather than reusing randomSecret: a Go/Python/Java
+  // decoder on the far side runs the STANDARD alphabet and rejects `-`/`_`
+  // outright. NetBird's `base64.StdEncoding.DecodeString` did, at byte 2, on
+  // every boot. `atob` is that same strict decoder, so it is the assertion.
+  test("decodes under a standard-alphabet decoder at the exact byte length", () => {
+    for (const bytes of [16, 24, 32, 48]) {
+      const key = randomBase64(bytes);
+      expect(key).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+      expect(atob(key)).toHaveLength(bytes);
+    }
+  });
+
+  // NetBird's key is the worked example: 32 bytes, and `openssl rand -base64
+  // 32` is what its template shows the operator. Both must produce the same
+  // shape or the modal is teaching a value the wizard won't fill in.
+  test("matches `openssl rand -base64 32`'s shape for a 32-byte key", () => {
+    const key = randomBase64(32);
+    expect(key).toHaveLength(44);
+    expect(key.endsWith("=")).toBe(true);
+  });
+
+  test("does not repeat", () => {
+    const seen = new Set(Array.from({ length: 100 }, () => randomBase64(32)));
+    expect(seen.size).toBe(100);
   });
 });
 
