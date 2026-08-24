@@ -3,6 +3,7 @@ import { type CSSProperties, createElement, type ReactNode, type SVGProps } from
 import { useTheme } from "@/shared/components/theme-provider";
 import { Activepieces } from "@/shared/components/ui/svgs/activepieces";
 import { Anythingllm } from "@/shared/components/ui/svgs/anythingllm";
+import { Appsmith } from "@/shared/components/ui/svgs/appsmith";
 import { Authentik } from "@/shared/components/ui/svgs/authentik";
 import { Autumn } from "@/shared/components/ui/svgs/autumn";
 import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
@@ -11,7 +12,12 @@ import { Azure } from "@/shared/components/ui/svgs/azure";
 import { Baserow } from "@/shared/components/ui/svgs/baserow";
 import { Beszel } from "@/shared/components/ui/svgs/beszel";
 import { Bitbucket } from "@/shared/components/ui/svgs/bitbucket";
+import { BookStack } from "@/shared/components/ui/svgs/bookstack";
+import { Budibase } from "@/shared/components/ui/svgs/budibase";
+import { CalCom } from "@/shared/components/ui/svgs/cal-com";
+import { Chatwoot } from "@/shared/components/ui/svgs/chatwoot";
 import { Chromium } from "@/shared/components/ui/svgs/chromium";
+import { ClickHouse } from "@/shared/components/ui/svgs/clickhouse";
 import { Dbeaver } from "@/shared/components/ui/svgs/dbeaver";
 import { Directus } from "@/shared/components/ui/svgs/directus";
 import { Discord } from "@/shared/components/ui/svgs/discord";
@@ -31,45 +37,71 @@ import { Glitchtip } from "@/shared/components/ui/svgs/glitchtip";
 import { GoogleCloud } from "@/shared/components/ui/svgs/google-cloud";
 import { Gotenberg } from "@/shared/components/ui/svgs/gotenberg";
 import { Grafana } from "@/shared/components/ui/svgs/grafana";
+import { Grist } from "@/shared/components/ui/svgs/grist";
 import { Harbor } from "@/shared/components/ui/svgs/harbor";
 import { Hasura } from "@/shared/components/ui/svgs/hasura";
 import { Healthchecks } from "@/shared/components/ui/svgs/healthchecks";
+import { HomeAssistant } from "@/shared/components/ui/svgs/home-assistant";
 import { Hoppscotch } from "@/shared/components/ui/svgs/hoppscotch";
+import { Immich } from "@/shared/components/ui/svgs/immich";
 import { Infisical } from "@/shared/components/ui/svgs/infisical";
 import { ItTools } from "@/shared/components/ui/svgs/it-tools";
 import { Jaeger } from "@/shared/components/ui/svgs/jaeger";
+import { Jellyfin } from "@/shared/components/ui/svgs/jellyfin";
+import { JitsiMeet } from "@/shared/components/ui/svgs/jitsi-meet";
+import { Karakeep } from "@/shared/components/ui/svgs/karakeep";
+import { Kestra } from "@/shared/components/ui/svgs/kestra";
 import { Keycloak } from "@/shared/components/ui/svgs/keycloak";
+import { LibreChat } from "@/shared/components/ui/svgs/librechat";
 import { Libretranslate } from "@/shared/components/ui/svgs/libretranslate";
 import { Listmonk } from "@/shared/components/ui/svgs/listmonk";
 import { Litellm } from "@/shared/components/ui/svgs/litellm";
 import { Mailpit } from "@/shared/components/ui/svgs/mailpit";
 import { Matomo } from "@/shared/components/ui/svgs/matomo";
+import { Mattermost } from "@/shared/components/ui/svgs/mattermost";
+import { Mautic } from "@/shared/components/ui/svgs/mautic";
 import { Meilisearch } from "@/shared/components/ui/svgs/meilisearch";
+import { Memos } from "@/shared/components/ui/svgs/memos";
 import { Metabase } from "@/shared/components/ui/svgs/metabase";
 import { Minio } from "@/shared/components/ui/svgs/minio";
 import { N8n } from "@/shared/components/ui/svgs/n8n";
 import { Nats } from "@/shared/components/ui/svgs/nats";
 import { NetBird } from "@/shared/components/ui/svgs/netbird";
+import { Nextcloud } from "@/shared/components/ui/svgs/nextcloud";
+import { NocoBase } from "@/shared/components/ui/svgs/nocobase";
 import { Nocodb } from "@/shared/components/ui/svgs/nocodb";
 import { Ntfy } from "@/shared/components/ui/svgs/ntfy";
+import { Odoo } from "@/shared/components/ui/svgs/odoo";
 import { Ollama } from "@/shared/components/ui/svgs/ollama";
+import { Outline } from "@/shared/components/ui/svgs/outline";
 import { Pagerduty } from "@/shared/components/ui/svgs/pagerduty";
+import { PaperlessNgx } from "@/shared/components/ui/svgs/paperless-ngx";
+import { Penpot } from "@/shared/components/ui/svgs/penpot";
 import { Plausible } from "@/shared/components/ui/svgs/plausible";
 import { PocketId } from "@/shared/components/ui/svgs/pocket-id";
 import { Pocketbase } from "@/shared/components/ui/svgs/pocketbase";
+import { PrestaShop } from "@/shared/components/ui/svgs/prestashop";
+import { Qdrant } from "@/shared/components/ui/svgs/qdrant";
 import { Rabbitmq } from "@/shared/components/ui/svgs/rabbitmq";
 import { Rustfs } from "@/shared/components/ui/svgs/rustfs";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Soketi } from "@/shared/components/ui/svgs/soketi";
+import { StirlingPdf } from "@/shared/components/ui/svgs/stirling-pdf";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
 import { Temporal } from "@/shared/components/ui/svgs/temporal";
+import { ToolJet } from "@/shared/components/ui/svgs/tooljet";
 import { Twenty } from "@/shared/components/ui/svgs/twenty";
+import { Typesense } from "@/shared/components/ui/svgs/typesense";
 import { Umami } from "@/shared/components/ui/svgs/umami";
 import { Unleash } from "@/shared/components/ui/svgs/unleash";
 import { UptimeKuma } from "@/shared/components/ui/svgs/uptime-kuma";
+import { Valkey } from "@/shared/components/ui/svgs/valkey";
 import { Vaultwarden } from "@/shared/components/ui/svgs/vaultwarden";
 import { Verdaccio } from "@/shared/components/ui/svgs/verdaccio";
+import { Vikunja } from "@/shared/components/ui/svgs/vikunja";
 import { VisualStudioCode } from "@/shared/components/ui/svgs/vscode";
+import { WikiJs } from "@/shared/components/ui/svgs/wikijs";
+import { Windmill } from "@/shared/components/ui/svgs/windmill";
 import { Wordpress } from "@/shared/components/ui/svgs/wordpress";
 
 type BrandKey =
@@ -146,7 +178,41 @@ type BrandKey =
   | "Pocket ID"
   | "Soketi"
   | "Unleash"
-  | "Visual Studio Code";
+  | "Visual Studio Code"
+  // Fourth wave: the chat, project, media, commerce, low-code and design
+  // brands behind the categories the catalog opened (see catalog/types.ts).
+  | "Appsmith"
+  | "BookStack"
+  | "Budibase"
+  | "Cal.com"
+  | "Chatwoot"
+  | "Grist"
+  | "ClickHouse"
+  | "Home Assistant"
+  | "Immich"
+  | "Jellyfin"
+  | "Jitsi Meet"
+  | "Karakeep"
+  | "Kestra"
+  | "LibreChat"
+  | "Mattermost"
+  | "Mautic"
+  | "Memos"
+  | "Nextcloud"
+  | "NocoBase"
+  | "Odoo"
+  | "Outline"
+  | "Paperless-ngx"
+  | "Penpot"
+  | "PrestaShop"
+  | "Qdrant"
+  | "Stirling PDF"
+  | "ToolJet"
+  | "Typesense"
+  | "Valkey"
+  | "Vikunja"
+  | "Wiki.js"
+  | "Windmill";
 
 interface Props {
   search: string;
@@ -246,6 +312,38 @@ const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   Soketi,
   Unleash,
   "Visual Studio Code": VisualStudioCode,
+  Appsmith: Appsmith,
+  BookStack: BookStack,
+  Budibase: Budibase,
+  "Cal.com": CalCom,
+  Chatwoot: Chatwoot,
+  Grist: Grist,
+  ClickHouse: ClickHouse,
+  "Home Assistant": HomeAssistant,
+  Immich: Immich,
+  Jellyfin: Jellyfin,
+  "Jitsi Meet": JitsiMeet,
+  Karakeep: Karakeep,
+  Kestra: Kestra,
+  LibreChat: LibreChat,
+  Mattermost: Mattermost,
+  Mautic: Mautic,
+  Memos: Memos,
+  Nextcloud: Nextcloud,
+  NocoBase: NocoBase,
+  Odoo: Odoo,
+  Outline: Outline,
+  "Paperless-ngx": PaperlessNgx,
+  Penpot: Penpot,
+  PrestaShop: PrestaShop,
+  Qdrant: Qdrant,
+  "Stirling PDF": StirlingPdf,
+  ToolJet: ToolJet,
+  Typesense: Typesense,
+  Valkey: Valkey,
+  Vikunja: Vikunja,
+  "Wiki.js": WikiJs,
+  Windmill: Windmill,
 };
 
 export function SvglLogo({

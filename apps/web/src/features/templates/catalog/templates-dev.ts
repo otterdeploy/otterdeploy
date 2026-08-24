@@ -183,7 +183,9 @@ volumes:
     id: "excalidraw",
     name: "Excalidraw",
     descriptionKey: "templates.catalog.excalidraw.description",
-    category: "devtools",
+    // Moved out of `devtools` when the design category opened: a whiteboard
+    // belongs next to Penpot, not next to the container registry.
+    category: "design",
     includes: ["excalidraw"],
     requiredEnv: [],
     logoBrand: "Excalidraw",
