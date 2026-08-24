@@ -153,7 +153,7 @@ export function ComposeWizard({
   // Template prefill is seeded through defaultValues (no effect). See
   // useComposeForm; the content field's onMount runs the initial parse.
   const form = useComposeForm(prefill);
-  const { preview, parseContent } = useComposeParse(projectId, editorRef, form);
+  const { preview, parseContent } = useComposeParse(projectId, editorRef, form, prefill?.generate);
 
   // View facts read straight off the form store, no hand-rolled flags. `source`
   // and `gitRepoUrl`/`name` drive the derived name; `hasVars` decides whether

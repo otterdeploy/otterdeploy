@@ -73,6 +73,11 @@ export const MESH_TEMPLATES: StackTemplate[] = [
         key: "NETBIRD_STORE_ENCRYPTION_KEY",
         descriptionKey: "templates.catalog.netbird.env.NETBIRD_STORE_ENCRYPTION_KEY",
         generateHint: "openssl rand -base64 32",
+        // Not decorative: `crypt.NewFieldEncrypt` runs
+        // `base64.StdEncoding.DecodeString` over this and rejects anything
+        // that doesn't come out at exactly 32 bytes (util/crypt/crypt.go).
+        // The wizard's default url-safe 24-byte secret satisfies neither.
+        generate: { encoding: "base64", bytes: 32 },
       },
     ],
     logoBrand: "NetBird",

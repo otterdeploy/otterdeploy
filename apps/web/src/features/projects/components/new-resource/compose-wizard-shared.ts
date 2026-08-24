@@ -55,6 +55,11 @@ export interface ComposePrefill {
    *  into the `file.files` rows so the wizard's normal multi-file path stages
    *  them — the operator sees and can edit them before anything deploys. */
   files?: Array<{ path: string; content: string; interpolate?: boolean }>;
+  /** Per-variable wire formats, for the few upstreams that DECODE the secret
+   *  we generate for them rather than just storing it. Keyed by `${VAR}` name;
+   *  anything absent gets the wizard's default fill. See
+   *  `TemplateEnvVar.generate` for why this is opt-in per template. */
+  generate?: Record<string, { encoding: "base64"; bytes: number }>;
 }
 
 /** Coerce a display name into a valid manifest resource key

@@ -285,6 +285,20 @@ describe("template catalog", () => {
         }
       });
 
+      // `generateHint` is the command the operator is SHOWN; `generate` is what
+      // the wizard actually fills in. They describe the same requirement, so
+      // let them drift and the modal teaches a value the wizard won't produce.
+      // Bind them: a declared spec has to be the hint, parsed.
+      it("keeps every `generate` spec in step with its `generateHint`", () => {
+        for (const v of template.requiredEnv) {
+          if (!v.generate) continue;
+          expect(
+            v.generateHint,
+            `${template.id}.${v.key} declares a format but shows no hint`,
+          ).toBe(`openssl rand -${v.generate.encoding} ${v.generate.bytes}`);
+        }
+      });
+
       // A `logoBrand` with no mark behind it doesn't fail anything at runtime:
       // SvglLogo falls back to a grey initial, so the row still renders and the
       // gap only shows up as a wall of `A`s and `B`s in the gallery. Assert the

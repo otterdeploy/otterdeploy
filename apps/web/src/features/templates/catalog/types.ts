@@ -67,6 +67,26 @@ export interface TemplateEnvVar {
   /** How to produce a good value, e.g. `openssl rand -base64 32`. Shown mono.
    *  Not translated: it is a shell command, identical in every locale. */
   generateHint?: string;
+  /**
+   * The wire format the upstream REQUIRES, when it decodes this value rather
+   * than just storing it.
+   *
+   * Set this only where the requirement has been checked at the upstream's
+   * source. The wizard's default fill is a 24-byte URL-SAFE unpadded secret,
+   * which is right for a password and wrong for anything that runs a real
+   * base64 decoder over it: NetBird's `store.encryptionKey` goes through
+   * `base64.StdEncoding.DecodeString` and demands exactly 32 decoded bytes
+   * (util/crypt/crypt.go), so the default value failed on both the alphabet
+   * and the length and crash-looped the server on every boot.
+   *
+   * `bytes` is the DECODED byte count, matching the `openssl rand -base64 N`
+   * in `generateHint`. catalog.test.ts holds the two to each other, so the
+   * command an operator is shown always produces what the wizard fills in.
+   *
+   * A GUESSED format is worse than none — it looks authoritative and is
+   * silently wrong — so leaving this unset is the correct default.
+   */
+  generate?: { encoding: "base64"; bytes: number };
 }
 
 export interface StackTemplate {

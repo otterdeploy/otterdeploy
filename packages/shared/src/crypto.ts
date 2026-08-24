@@ -54,9 +54,22 @@ export async function sha256Hex(value: string): Promise<string> {
  * Node, where `Buffer` isn't guaranteed to exist.
  */
 export function base64UrlEncode(bytes: Uint8Array): string {
+  return btoa(toBinaryString(bytes)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/** Bytes → the latin-1 string `btoa` takes. Shared by both encoders so the
+ *  standard and URL-safe forms can never disagree about what they encoded. */
+function toBinaryString(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return bin;
+}
+
+/** `count` cryptographically-strong random bytes. */
+function randomBytes(count: number): Uint8Array {
+  const buf = new Uint8Array(count);
+  crypto.getRandomValues(buf);
+  return buf;
 }
 
 /** Inverse of {@link base64UrlEncode}. Re-pads before decoding. */
@@ -79,9 +92,26 @@ export function base64UrlDecode(s: string): Uint8Array {
  * and Node.
  */
 export function randomSecret(bytes = 24): string {
-  const buf = new Uint8Array(bytes);
-  crypto.getRandomValues(buf);
-  return base64UrlEncode(buf);
+  return base64UrlEncode(randomBytes(bytes));
+}
+
+/**
+ * Cryptographically-strong random secret as STANDARD base64 (RFC 4648 §4,
+ * padded) — byte-for-byte what `openssl rand -base64 <bytes>` produces.
+ *
+ * Deliberately not {@link randomSecret}. That one is URL-safe and unpadded,
+ * which is right for our own tokens and wrong for any upstream that DECODES
+ * the value it is handed: `-` and `_` are not in the standard alphabet, so a
+ * Go/Python/Java decoder rejects them outright. NetBird's store key is the
+ * worked example — `base64.StdEncoding.DecodeString` on a value that must come
+ * out at exactly 32 bytes (util/crypt/crypt.go) — and a url-safe secret failed
+ * it on both counts, crash-looping the server on every boot.
+ *
+ * `bytes` is the DECODED length, so it reads the same as the openssl command a
+ * template's `generateHint` shows the operator.
+ */
+export function randomBase64(bytes: number): string {
+  return btoa(toBinaryString(randomBytes(bytes)));
 }
 
 /**
