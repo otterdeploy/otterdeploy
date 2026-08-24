@@ -73,7 +73,7 @@ export function DomainCard({ organizationId }: { organizationId: OrganizationId 
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">myproj</code> lands
           at{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11.5px]">
-            web-myproj.apps.&lt;baseDomain&gt;
+            web-myproj.&lt;baseDomain&gt;
           </code>
           . Leave blank to use the platform default (sslip.io fallback when no domain is set).
         </>

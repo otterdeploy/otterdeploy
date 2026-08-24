@@ -23,8 +23,9 @@ export function GetStarted() {
   return (
     <Band id="start" tone="ink">
       <Container className="py-20 text-center lg:py-24">
-        <h2 className="mx-auto max-w-[20ch] text-[2rem] leading-[1.1] font-semibold tracking-[-0.03em] text-balance sm:text-[2.5rem]">
-          One VPS, one command, your own platform.
+        <h2 className="mx-auto max-w-[26ch] text-[2rem] leading-[1.1] font-semibold tracking-[-0.03em] text-balance sm:text-[2.5rem]">
+          One VPS, one command, your own platform.{" "}
+          <span className="text-muted-foreground">Before dinner.</span>
         </h2>
         <p className="mx-auto mt-5 max-w-[54ch] text-[1rem] leading-relaxed text-pretty text-muted-foreground">
           The installer provisions the host, pulls the published images, puts Docker into Swarm mode

@@ -84,11 +84,10 @@ export function DomainStep({
                 <>
                   A service <span className="font-mono text-foreground">web</span> in project{" "}
                   <span className="font-mono text-foreground">store</span> is published at{" "}
-                  <span className="font-mono text-foreground">web-store.apps.acme.com</span>. Point
-                  a wildcard <span className="font-mono text-foreground">*.apps.acme.com</span>{" "}
-                  record (and <span className="font-mono text-foreground">*.db.acme.com</span> for
-                  databases) at this server. You'll add a DNS TXT record to verify ownership next,
-                  from Workspace settings.
+                  <span className="font-mono text-foreground">web-store.acme.com</span>. Point a
+                  wildcard <span className="font-mono text-foreground">*.acme.com</span> record at
+                  this server: it covers services and databases alike. You'll add a DNS TXT record
+                  to verify ownership next, from Workspace settings.
                 </>
               }
               value={field.state.value}

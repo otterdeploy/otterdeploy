@@ -1,3 +1,5 @@
+import { Compare } from "./compare";
+import { Faq } from "./faq";
 import { Footer, GetStarted } from "./get-started";
 import { Hero } from "./hero";
 import { More } from "./more";
@@ -8,9 +10,10 @@ import { TopBar } from "./top-bar";
 /**
  * The landing page.
  *
- * Hero → five showcase panels → the rest as chips → close. Each panel is one
- * claim with the interface that backs it up; the reference material lives in
- * /docs, which is why nothing here enumerates an API.
+ * Hero → five showcase panels → the rest as chips → comparison → FAQ → close:
+ * promise, proof, context, objections, then the ask. Each showcase panel is
+ * one claim with the interface that backs it up; the reference material lives
+ * in /docs, which is why nothing here enumerates an API.
  *
  * Tone alternates canvas / ink down the showcase so the page has a spine you
  * can feel while scrolling, and the close lands on ink.
@@ -21,7 +24,7 @@ export function Landing() {
   return (
     <div className="od-landing bg-background text-foreground">
       <a
-        href="#deploy"
+        href="#features"
         className="sr-only rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
       >
         Skip to content
@@ -30,9 +33,11 @@ export function Landing() {
       <TopBar />
       <main>
         <Hero />
-        <Platform />
         <Showcase />
+        <Platform />
         <More />
+        <Compare />
+        <Faq />
         <GetStarted />
       </main>
       <Footer />

@@ -10,7 +10,7 @@
  *
  *   1. Resource override: service.publicDomain (literal FQDN)
  *   2. Project custom domain: project.customDomain ➜ `<resource>.<customDomain>`
- *   3. Org base domain: org.baseDomain ➜ `<resource>-<project>.<kindBase>.<baseDomain>`
+ *   3. Org base domain: org.baseDomain ➜ `<resource>-<project>.<baseDomain>`
  *   4. Local base domain: `<resource>-<project>.<localBaseDomain>` (dev)
  *   5. sslip.io fallback: `<resource>-<project>.<serverIp>.sslip.io`
  *
@@ -26,10 +26,11 @@
  * other install reaches sslip when nothing higher is set, which works
  * out of the box without any DNS the operator doesn't own.
  *
- * The "kindBase" subdomain (`apps` for services, `db` for databases)
- * keeps the two namespaces non-colliding under a shared org base.
- * Project-custom and resource-override paths skip kindBase. At that
- * level the operator has already picked a name and we trust it.
+ * Every generated level is FLAT: one label in front of whatever apex it
+ * resolves against, never an interposed kind subdomain. Services and
+ * databases share the namespace because `<resource>-<project>` is already
+ * unique per project across both, so the operator points ONE wildcard
+ * (`*.<baseDomain>`) at the edge and every resource lands under it.
  */
 
 export type ResourceKind = "service" | "database";
@@ -72,8 +73,6 @@ export interface ResolvedDomain {
   verified: boolean;
 }
 
-const kindBase = (kind: ResourceKind): string => (kind === "service" ? "apps" : "db");
-
 export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources): ResolvedDomain {
   // 1. Per-resource literal FQDN, verified-by-presence (the operator
   //    typed it themselves; we still expect their DNS to point here).
@@ -96,13 +95,13 @@ export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources):
     };
   }
 
-  // 3. Org base: `<resource>-<project>.<kindBase>.<baseDomain>`. Mirrors
-  //    the platform-default pattern (`*.apps.otterdeploy.dev` /
-  //    `*.db.otterdeploy.dev`) so service and database namespaces don't
-  //    collide under a shared org apex.
+  // 3. Org base: `<resource>-<project>.<baseDomain>`. Flat, one label under
+  //    the org apex: `<resource>-<project>` is already unique per project
+  //    across services AND databases, so nothing needs a namespace split.
+  //    One wildcard (`*.<baseDomain>`) covers the whole org.
   if (sources.orgBaseDomain && sources.orgBaseDomain.trim().length > 0) {
     return {
-      fqdn: `${ctx.resourceSlug}-${ctx.projectSlug}.${kindBase(ctx.kind)}.${sources.orgBaseDomain.trim().toLowerCase()}`,
+      fqdn: `${ctx.resourceSlug}-${ctx.projectSlug}.${sources.orgBaseDomain.trim().toLowerCase()}`,
       source: "org-base",
       verified: sources.orgBaseDomainVerifiedAt != null,
     };
@@ -110,8 +109,7 @@ export function resolvePublicDomain(ctx: DomainContext, sources: DomainSources):
 
   // 4. Local base domain: dev only. A configured wildcard (`otterdeploy.
   //    localhost`) that resolves to loopback, so exposed services reach the
-  //    Caddy edge on :443 under a clean name. Resource slugs are unique per
-  //    project across services + databases, so no kindBase split is needed.
+  //    Caddy edge on :443 under a clean name. Same flat shape as level 3.
   //    Unverified ➜ `tls internal` (a `.localhost` name can't get ACME).
   if (sources.localBaseDomain && sources.localBaseDomain.trim().length > 0) {
     return {

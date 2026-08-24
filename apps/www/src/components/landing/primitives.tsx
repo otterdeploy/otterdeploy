@@ -76,13 +76,32 @@ export function Band({
     <section
       id={id}
       className={cx(
-        "scroll-mt-14 border-t border-border",
+        "scroll-mt-24 border-t border-border",
         tone === "ink" && "od-ink bg-background text-foreground",
         className,
       )}
     >
       {children}
     </section>
+  );
+}
+
+// ── Section headline ───────────────────────────────────────────────────────
+
+/**
+ * A two-tone statement headline: the claim in ink, the payoff in the muted
+ * tone. Both halves are full sentences — the page argues, it doesn't label.
+ */
+export function TwoTone({ a, b, className }: { a: string; b: string; className?: string }) {
+  return (
+    <h2
+      className={cx(
+        "text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.03em] text-balance sm:text-[2.25rem]",
+        className,
+      )}
+    >
+      {a} <span className="text-muted-foreground">{b}</span>
+    </h2>
   );
 }
 
@@ -134,7 +153,7 @@ export function Field({ children, className }: { children: ReactNode; className?
       className={cx(
         "od-field overflow-hidden rounded-2xl p-5 sm:p-7 lg:p-9",
         // The one place this page uses a shadow: the field genuinely floats.
-        "shadow-[0_24px_60px_-30px_oklch(0.3_0.18_266_/_0.7)]",
+        "shadow-[0_24px_60px_-30px_rgba(20,20,18,0.55)]",
         className,
       )}
     >

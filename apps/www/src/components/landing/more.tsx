@@ -2,7 +2,7 @@ import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { CHIP_GROUPS } from "./content";
-import { Band, Container, Mono } from "./primitives";
+import { Band, Container, Mono, TwoTone } from "./primitives";
 
 /**
  * Everything the showcase didn't have room for, names only, grouped.
@@ -17,11 +17,13 @@ export function More() {
       <Container className="py-16 lg:py-20">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-10">
           <div className="max-w-[42ch]">
-            <h2 className="text-[1.625rem] leading-[1.15] font-semibold tracking-[-0.025em] text-balance sm:text-[1.875rem]">
-              And the rest of the self-hosted platform
-            </h2>
+            <TwoTone
+              a="The rest of the self-hosted platform."
+              b="All of it in the box you install."
+            />
             <p className="mt-3 text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-              No tiers, no add-ons, no seat pricing. All of it is in the box you install.
+              No tiers, no seats, no usage bill. The detail on every name below is one click away in
+              the docs.
             </p>
           </div>
           <a

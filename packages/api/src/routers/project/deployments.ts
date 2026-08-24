@@ -31,6 +31,8 @@ import { publishResourceChanged } from "./project-event-bus";
 export interface DeploymentRow {
   id: DeploymentId;
   resourceId: ResourceId;
+  /** The PR preview this row belongs to; null for base (production) rows. */
+  previewId: PreviewId | null;
   image: string;
   reason:
     | "create"
@@ -221,6 +223,20 @@ export async function getLatestDeploymentsForResources(
     .orderBy(deployment.resourceId, desc(deployment.createdAt));
   for (const row of rows) result.set(row.resourceId, row);
   return result;
+}
+
+/** The scope a deployment listing runs under: the given preview, or — for a
+ *  deep link that only knows a deployment id — the scope of that row itself
+ *  (its preview's listing when it belongs to one, the base listing otherwise). */
+export async function resolveListingScope(input: {
+  resourceId: ResourceId;
+  previewId?: PreviewId | null;
+  deploymentId?: DeploymentId | null;
+}): Promise<PreviewId | null> {
+  if (input.previewId) return input.previewId;
+  if (!input.deploymentId) return null;
+  const row = await getResourceDeploymentById(input.resourceId, input.deploymentId);
+  return row?.previewId ?? null;
 }
 
 /** Load one deployment by id, scoped to its resource. Returns null when the

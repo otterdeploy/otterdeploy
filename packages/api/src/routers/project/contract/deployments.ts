@@ -31,6 +31,9 @@ export const deploymentSchema = z.object({
   id: deploymentIdField,
   projectId: projectIdField,
   resourceId: resourceIdField,
+  /** The PR preview this row belongs to; null for base rows. A deep-linked
+   *  client uses it to recover the preview scope its URL lost. */
+  previewId: zId(ID_PREFIX.preview).nullable(),
   image: z.string(),
   reason: z.enum([
     "create",
@@ -88,6 +91,13 @@ const deploymentListInput = z.object({
   resourceId: resourceIdField,
   /** Scope to one PR preview's deployments. Omitted → base rows only. */
   previewId: zId(ID_PREFIX.preview).optional(),
+  /** Resolve the scope FROM this deployment: the listing this row belongs to
+   *  (its preview's rows, or the base rows when it has no preview). Lets a
+   *  deep link to a preview deployment load without knowing the preview id —
+   *  base rows deliberately exclude preview rows, so without this a shared /
+   *  reopened URL that lost its `previewId` spins forever. Ignored when
+   *  `previewId` is given. */
+  deploymentId: deploymentIdField.optional(),
 });
 
 const deploymentTasksInput = z.object({

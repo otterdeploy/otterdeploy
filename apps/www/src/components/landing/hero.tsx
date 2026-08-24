@@ -13,8 +13,10 @@ import {
 } from "./primitives";
 
 /**
- * The hero states the job in one sentence and then shows it: the claim on the
- * left, the deploy rail on the right actually making it.
+ * A centred hero: one claim at display scale, everything else stacked under
+ * it on the page's axis, then the deploy rail running full width as a product
+ * shot. Symmetry is the point — the page opens like a title card, and the
+ * first thing that breaks the axis is the product itself.
  *
  * No entrance choreography on the copy. The one thing that moves is the rail,
  * because it depicts something that moves.
@@ -29,69 +31,70 @@ export function Hero() {
         style={{
           backgroundImage: "radial-gradient(circle, var(--border) 1px, transparent 1px)",
           backgroundSize: "24px 24px",
-          maskImage: "radial-gradient(ellipse 70% 55% at 88% 18%, #000, transparent 70%)",
-          WebkitMaskImage: "radial-gradient(ellipse 70% 55% at 88% 18%, #000, transparent 70%)",
+          maskImage: "radial-gradient(ellipse 70% 42% at 50% 0%, #000, transparent 74%)",
+          WebkitMaskImage: "radial-gradient(ellipse 70% 42% at 50% 0%, #000, transparent 74%)",
         }}
       />
 
-      <Container className="relative grid gap-12 pt-14 pb-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center lg:gap-16 lg:pt-20 lg:pb-20">
-        {/* `min-w-0` is load-bearing: the install command below sets
-            `whitespace-nowrap`, and a grid item's default `min-width: auto`
-            would let that one line widen the whole column past the viewport. */}
-        <div className="max-w-[34rem] min-w-0">
-          <StateChip tone="warning">pre-1.0 · under active development</StateChip>
+      <Container className="relative flex flex-col items-center pt-32 pb-12 text-center lg:pt-36">
+        <StateChip tone="warning">pre-1.0 · under active development</StateChip>
 
-          <h1
-            className="mt-6 font-semibold text-balance"
-            style={{
-              fontSize: "clamp(2.35rem, 4.6vw, 3.35rem)",
-              lineHeight: 1.05,
-              letterSpacing: "-0.035em",
-            }}
-          >
-            Push to git.
-            <br />
-            Self-hosted deploys, on servers you own.
-          </h1>
+        <h1
+          className="mt-7 max-w-[18ch] font-semibold text-balance"
+          style={{
+            fontSize: "clamp(2.6rem, 5.6vw, 4.25rem)",
+            lineHeight: 1.03,
+            letterSpacing: "-0.045em",
+          }}
+        >
+          Push to git. Self-hosted deploys, on{" "}
+          <span className="text-primary">servers you own.</span>
+        </h1>
 
-          <p className="mt-6 max-w-[44ch] text-[1.0625rem] leading-relaxed text-pretty text-muted-foreground">
-            An open-source, self-hosted PaaS: the own-your-infra answer to Vercel and Railway,
-            running on one Linux VPS you control. Builds from a GitHub repo, managed Postgres and
-            Redis, automatic HTTPS, a preview environment for every pull request. No usage bill.
+        <p className="mt-6 max-w-[54ch] text-[1.0625rem] leading-relaxed text-pretty text-muted-foreground">
+          An open-source, self-hosted PaaS: the own-your-infra answer to Vercel and Railway, running
+          on one Linux VPS you control. Builds from a GitHub repo, managed Postgres and Redis,
+          automatic HTTPS, a preview environment for every pull request. No usage bill.
+        </p>
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <PrimaryButton href="/docs/start/first-deploy">
+            Get started
+            <HugeiconsIcon icon={ArrowRight01Icon} />
+          </PrimaryButton>
+          <OutlineButton href={GITHUB_URL} target="_blank" rel="noreferrer">
+            <HugeiconsIcon icon={GithubIcon} />
+            Read the source
+          </OutlineButton>
+        </div>
+
+        <div className="mt-9 w-full max-w-[38rem] min-w-0">
+          <p className="mb-2 font-mono text-[0.7rem] text-muted-foreground">
+            or run it on a server you already own
           </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <PrimaryButton href="/docs/start/first-deploy">
-              Get started
-              <HugeiconsIcon icon={ArrowRight01Icon} />
-            </PrimaryButton>
-            <OutlineButton href={GITHUB_URL} target="_blank" rel="noreferrer">
-              <HugeiconsIcon icon={GithubIcon} />
-              Read the source
-            </OutlineButton>
-          </div>
-
-          <CommandLine className="mt-7" command={INSTALL_CMD} />
-
-          <ul className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-border pt-7 sm:grid-cols-4">
-            {HERO_FACTS.map((fact) => (
-              <li key={fact.label}>
-                <span className="block text-[1.375rem] leading-none font-semibold tracking-tight tabular-nums">
-                  {fact.value}
-                </span>
-                <span className="mt-1.5 block text-[0.75rem] leading-snug text-muted-foreground">
-                  {fact.label}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <CommandLine command={INSTALL_CMD} />
         </div>
+      </Container>
 
-        <div className="min-w-0 lg:pl-4">
-          <Field>
+      <Container className="relative pb-16 lg:pb-20">
+        <Field>
+          <div className="mx-auto max-w-[64rem]">
             <DeployRail />
-          </Field>
-        </div>
+          </div>
+        </Field>
+
+        <ul className="mx-auto mt-10 grid max-w-[52rem] grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4">
+          {HERO_FACTS.map((fact) => (
+            <li key={fact.label} className="text-center">
+              <span className="block text-[1.5rem] leading-none font-semibold tracking-tight tabular-nums">
+                {fact.value}
+              </span>
+              <span className="mt-1.5 block text-[0.75rem] leading-snug text-muted-foreground">
+                {fact.label}
+              </span>
+            </li>
+          ))}
+        </ul>
       </Container>
     </header>
   );

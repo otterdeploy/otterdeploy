@@ -1,31 +1,30 @@
 import type { SVGProps } from "react";
 
 /**
- * NetBird mark. Monochrome, so it inherits the text color and stays legible on
- * both canvases: the brand orange would read as an accent here, and the accent
- * is spoken for (see DESIGN.md).
+ * NetBird mark, taken from the official art on netbird.io (netbird-icon.svg).
+ * Monochrome, so it inherits the text colour and stays legible on both
+ * canvases: the brand orange would read as an accent here, and the accent is
+ * spoken for (see DESIGN.md).
  *
- * The source art is two-tone (a lighter body over a darker inner wing). Flattening
- * both to one colour loses the fold entirely, so the inner shape keeps a reduced
- * opacity instead: that preserves the silhouette's depth at 16px.
+ * The source art is two-tone — two `#F68330` wings with a darker `#F35E32`
+ * fold where they cross. Flattening everything to one colour loses the fold,
+ * so the hierarchy is kept as opacity instead: the wings sit back and the fold
+ * is drawn at full weight over them. That holds the silhouette's depth at 16px.
  */
 const NetBird = (props: SVGProps<SVGSVGElement>) => (
   <svg
     {...props}
     role="img"
-    viewBox="0.02 69.9 512 372.2"
+    viewBox="0 0 41 30"
     xmlns="http://www.w3.org/2000/svg"
     fill="currentColor"
   >
     <title>NetBird</title>
-    <g transform="translate(-.385 1.9)">
-      <path d="M364.3 68c-61.8 5.7-92.5 41.3-104.1 59.3l-5.2 9.1c-.4.8-.6 1.3-.6 1.3l-.1-.1L79.5 440.2h218L512.4 68z" />
-      <path d="M297.5 440.2.4 125s336-90.2 368.7 191.4z" />
-      <path
-        d="m253.5 138.9-91.2 157.9 135.2 143.4 71.6-124c-11.3-96.9-58.5-149.7-115.6-177.3"
-        opacity="0.55"
-      />
+    <g opacity="0.55">
+      <path d="M28.5735 0C23.7203 0.445248 21.3049 3.23918 20.3921 4.65284L6.21094 29.2194H23.3196L40.1945 0H28.5735Z" />
+      <path d="M23.331 29.2198L0 4.47517C0 4.47517 26.381 -2.6154 28.9523 19.5023L23.331 29.2198Z" />
     </g>
+    <path d="M19.8683 5.56728L12.7109 17.9674L23.319 29.2211L28.9402 19.4813C28.0497 11.8787 24.343 7.72674 19.8683 5.55615" />
   </svg>
 );
 

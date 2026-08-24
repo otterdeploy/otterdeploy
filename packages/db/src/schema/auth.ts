@@ -213,11 +213,12 @@ export const organization = pgTable("organization", {
   logo: text("logo"),
   metadata: text("metadata"),
   // Apex domain the org's resources are published under. When set + verified,
-  // a service `web` in project `myproj` lands at `web-myproj.apps.<baseDomain>`
-  // and a database lands at `redis-myproj.db.<baseDomain>`. Falls back to
-  // PLATFORM.publicBaseDomain when null, or sslip.io for localhost dev. The
-  // verified flag gates ACME issuance: Caddy only tries Let's Encrypt for
-  // domains the operator has proven control of.
+  // a service `web` in project `myproj` lands at `web-myproj.<baseDomain>`
+  // and a database lands at `redis-myproj.<baseDomain>`, so one wildcard
+  // (`*.<baseDomain>`) covers the org. Falls back to the dev local base
+  // domain when null, then sslip.io. The verified flag gates ACME issuance:
+  // Caddy only tries Let's Encrypt for domains the operator has proven
+  // control of. See packages/api/src/lib/domains.ts for the full chain.
   baseDomain: text("base_domain"),
   baseDomainVerifiedAt: timestamp("base_domain_verified_at"),
   baseDomainVerifyToken: text("base_domain_verify_token"),
