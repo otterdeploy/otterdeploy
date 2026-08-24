@@ -19,6 +19,8 @@ import { Result } from "better-result";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
+
+import { resolveListingScope } from "./deployments";
 import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-derive";
 
 import { loadPreviewScope } from "../../lib/environment/load";
@@ -49,6 +51,8 @@ export interface DeploymentWithStats {
   id: DeploymentId;
   projectId: ProjectId;
   resourceId: ResourceId;
+  /** The PR preview this row belongs to; null for base rows. */
+  previewId: PreviewId | null;
   image: string;
   reason: DeploymentRow["reason"];
   /** Final status derived from underlying tasks. Falls back to the row's
@@ -192,6 +196,7 @@ function toDeploymentWithStats(
   const restartCount = dockerRestarts > 0 ? dockerRestarts : failed > 0 ? failed : null;
   return {
     id: row.id,
+    previewId: row.previewId,
     projectId,
     resourceId: row.resourceId,
     image: row.image,
@@ -220,6 +225,9 @@ interface ListInput {
   organizationId: OrgId;
   resourceId: ResourceId;
   previewId?: PreviewId | null;
+  /** Resolve the scope from this row instead (ignored when `previewId` is
+   *  given); see the contract note on `deploymentListInput.deploymentId`. */
+  deploymentId?: DeploymentId | null;
 }
 
 export async function listResourceDeployments(
@@ -238,14 +246,15 @@ export async function listResourceDeployments(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const rows = await listDeploymentsByResource(input.resourceId, input.previewId ?? null);
+  const previewId = await resolveListingScope(input);
+  const rows = await listDeploymentsByResource(input.resourceId, previewId);
   if (rows.length === 0) return Result.ok([]);
 
   let serviceName = await resolveDeploymentServiceName(found, input.projectId);
-  if (serviceName && input.previewId) {
+  if (serviceName && previewId) {
     // Preview deployments run under the pr-suffixed container. Derive task
     // states from THAT name or every preview row reads as zero tasks.
-    const scope = await loadPreviewScope(input.previewId);
+    const scope = await loadPreviewScope(previewId);
     if (scope) serviceName = runtimeServiceName(serviceName, scope);
   }
   // Compose stack rows have no task-level refinement (null serviceName).
@@ -288,7 +297,7 @@ export async function listResourceDeployments(
     // otherwise drive the base-styled deploy.succeeded notification over
     // preview rows; the builder's markRunning settles preview rows itself.
     if (
-      !input.previewId &&
+      !previewId &&
       stats.status === "running" &&
       (row.status === "building" || row.status === "pending")
     ) {
@@ -300,7 +309,7 @@ export async function listResourceDeployments(
     // forever-"pending" row. Base listings only: preview rows settle via the
     // builder.
     if (
-      !input.previewId &&
+      !previewId &&
       stats.status === "failed" &&
       states.length === 0 &&
       (row.status === "building" || row.status === "pending")

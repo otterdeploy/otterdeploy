@@ -1,0 +1,1 @@
+ALTER TABLE "deployment" ADD COLUMN "no_cache" boolean DEFAULT false NOT NULL;

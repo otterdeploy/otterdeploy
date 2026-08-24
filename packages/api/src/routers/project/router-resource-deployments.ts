@@ -15,6 +15,7 @@ export const deploymentsResourceRouter = {
         projectId: input.projectId,
         resourceId: input.resourceId,
         previewId: input.previewId ?? null,
+        deploymentId: input.deploymentId ?? null,
         organizationId: context.activeOrganizationId,
       });
       if (result.isErr()) {

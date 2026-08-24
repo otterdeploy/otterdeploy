@@ -6,7 +6,13 @@
 
 import { useState } from "react";
 
-import { PauseIcon, PlayIcon, RefreshIcon, RocketIcon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDown01Icon,
+  PauseIcon,
+  PlayIcon,
+  RefreshIcon,
+  RocketIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
@@ -20,6 +26,12 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 
 export interface HeaderResource {
   name: string;
@@ -118,7 +130,7 @@ export function HeaderActions({
   resource: HeaderResource;
   onRestart: () => void;
   restarting: boolean;
-  onBuild: () => void;
+  onBuild: (noCache?: boolean) => void;
   building: boolean;
   pause?: PauseControl | null;
 }) {
@@ -157,16 +169,47 @@ export function HeaderActions({
           (onRestart). Labelled Deploy the first time, Redeploy after.
           Hidden while paused: resume first, then deploy. */}
       {paused ? null : isGit ? (
-        <Button type="button" size="sm" onClick={onBuild} disabled={building}>
-          <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
-          {building
-            ? neverDeployed
-              ? "Deploying…"
-              : "Redeploying…"
-            : neverDeployed
-              ? "Deploy"
-              : "Redeploy"}
-        </Button>
+        <div className="flex items-center">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => onBuild()}
+            disabled={building}
+            className="rounded-r-none"
+          >
+            <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />
+            {building
+              ? neverDeployed
+                ? "Deploying…"
+                : "Redeploying…"
+              : neverDeployed
+                ? "Deploy"
+                : "Redeploy"}
+          </Button>
+          {/* The cache bypass is a per-deploy choice, not a service setting:
+              one clean rebuild, not a permanently slower service. Tucked
+              behind the split so the common path stays a single click. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={building}
+                  aria-label="More deploy options"
+                  className="rounded-l-none border-l border-primary-foreground/20 px-1.5"
+                />
+              }
+            >
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => onBuild(true)}>
+                Redeploy without cache
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ) : neverDeployed ? (
         <Button type="button" size="sm" onClick={onRestart} disabled={restarting}>
           <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="size-3.5" />

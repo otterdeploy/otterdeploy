@@ -66,13 +66,14 @@ async function announceAndWait(
 // `restart` / an image change instead of a raw error code.
 async function redeployService(
   ctx: ResourceContext,
-  opts: { wait: boolean; timeoutMs?: number; json: boolean },
+  opts: { wait: boolean; timeoutMs?: number; json: boolean; noCache?: boolean },
 ): Promise<void> {
   let deploymentId: string;
   try {
     ({ deploymentId } = await ctx.client.service.build({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,
+      ...(opts.noCache ? { noCache: true } : {}),
     }));
   } catch (error) {
     if (error instanceof ORPCError && error.code === "NOT_GIT_SOURCED") {
@@ -132,6 +133,10 @@ export const redeployCommand = defineCommand({
     slug: { type: "string", description: "Project slug (defaults to config)" },
     url: { type: "string", description: "Override control plane URL" },
     wait: { type: "boolean", description: "Wait for the deployment to settle" },
+    "no-cache": {
+      type: "boolean",
+      description: "Rebuild from scratch, ignoring every build cache (git services only)",
+    },
     timeout: { type: "string", description: "Wait timeout in minutes (default from wait)" },
     json: { type: "boolean", description: "Output as JSON" },
   },
@@ -140,7 +145,12 @@ export const redeployCommand = defineCommand({
     // No kind filter: resolve first, then dispatch on the resource type so a
     // stack and a service share one verb (the audit's missing `redeploy`).
     const ctx = await resolveResource(args, args.resource);
-    const opts = { wait: Boolean(args.wait), timeoutMs, json: Boolean(args.json) };
+    const opts = {
+      wait: Boolean(args.wait),
+      timeoutMs,
+      json: Boolean(args.json),
+      noCache: Boolean(args["no-cache"]),
+    };
 
     if (ctx.resourceType === "service") {
       await redeployService(ctx, opts);

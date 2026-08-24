@@ -169,10 +169,11 @@ export function ServiceResourcePanel({
           })
         }
         restarting={restartMut.isPending}
-        onBuild={() =>
+        onBuild={(noCache) =>
           buildMut.mutate({
             projectId: resource.projectId,
             resourceId: resource.resourceId,
+            ...(noCache ? { noCache: true } : {}),
           })
         }
         building={buildMut.isPending}
