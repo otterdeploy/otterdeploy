@@ -88,11 +88,16 @@ function useLogRows({
   );
 
   // Pin to the bottom as new lines arrive, unless the user scrolled up or is
-  // stepping through matches (that owns the scroll position).
+  // stepping through matches (that owns the scroll position). Also re-pin when
+  // `totalSize` changes: rows measure themselves after mount, so the first
+  // scrollToIndex lands at the *estimated* bottom and the real bottom moves as
+  // measurements replace the 18px estimate. Without this dep, "Jump to latest"
+  // stops one measurement-cycle short of the end and the tail never sticks.
+  const totalSize = virtualizer.getTotalSize();
   useEffect(() => {
     if (!autoScroll || navActive || visible.length === 0) return;
     virtualizer.scrollToIndex(visible.length - 1, { align: "end" });
-  }, [visible.length, autoScroll, navActive, virtualizer]);
+  }, [visible.length, totalSize, autoScroll, navActive, virtualizer]);
 
   // `visible` is read through a ref: depending on it directly would re-centre
   // the view on every appended line while you're stepping through matches.
@@ -108,9 +113,33 @@ function useLogRows({
 
   return {
     virtualRows: virtualizer.getVirtualItems(),
-    totalSize: virtualizer.getTotalSize(),
+    totalSize,
     measureRow,
   };
+}
+
+/**
+ * Follow-the-tail engagement, from a scroll event. Releases the tail only on
+ * an upward scroll that leaves the bottom — a user gesture; the pin only ever
+ * scrolls down. Judging "not at bottom" alone released it on the pin's own
+ * scrolls whenever a freshly-measured row moved the bottom, so "Jump to
+ * latest" disengaged itself one frame after the click and following never
+ * stuck. Reaching the bottom (by any means) re-engages.
+ */
+function handleTailScroll(
+  el: HTMLDivElement,
+  lastScrollTopRef: React.MutableRefObject<number>,
+  autoScroll: boolean,
+  setAutoScroll: (next: boolean) => void,
+): void {
+  const scrolledUp = el.scrollTop < lastScrollTopRef.current;
+  lastScrollTopRef.current = el.scrollTop;
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+  if (scrolledUp && !atBottom) {
+    if (autoScroll) setAutoScroll(false);
+  } else if (atBottom && !autoScroll) {
+    setAutoScroll(true);
+  }
 }
 
 export function LogViewer({
@@ -126,6 +155,9 @@ export function LogViewer({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  // Last observed scrollTop, to tell an upward USER scroll apart from the
+  // pin's own programmatic scrolls (which only ever move down).
+  const lastScrollTopRef = useRef(0);
   const [autoScroll, setAutoScroll] = useState(true);
   const [query, setQuery] = useState("");
   const [showTs, setShowTs] = useState(true);
@@ -244,11 +276,9 @@ export function LogViewer({
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={scrollerRef}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
-            if (atBottom !== autoScroll) setAutoScroll(atBottom);
-          }}
+          onScroll={(e) =>
+            handleTailScroll(e.currentTarget, lastScrollTopRef, autoScroll, setAutoScroll)
+          }
           className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
         >
           {!hasLines ? (
