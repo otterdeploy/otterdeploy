@@ -10,7 +10,7 @@ import * as m from "motion/react-client";
 
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 
-import { deploymentsCollection } from "@/features/resources/data/deployments";
+import { useResolvedDeployment } from "./-components/use-resolved-deployment";
 import { orpc } from "@/shared/server/orpc";
 import { cn } from "@/shared/lib/utils";
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -148,33 +148,12 @@ function RouteComponent() {
   const setTab = (next: DeploymentTab) =>
     void navigate({ search: (prev) => ({ ...prev, deploymentTab: next }), replace: true });
 
-  // Base rows come from the shared reactive collection. A preview row isn't in
-  // that collection (it's previewId-scoped), so fetch it directly when the
-  // panel was opened from a preview.
-  const { data: baseDeployment = null } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) =>
-          and(
-            eq(d.projectId, project.id),
-            eq(d.resourceId, resourceId),
-            eq(d.id, deploymentId),
-          ),
-        )
-        .findOne(),
-    [project.id, resourceId, deploymentId],
-  );
-  const previewDeployments = useQuery(
-    orpc.project.resource.deployments.list.queryOptions({
-      input: { projectId: project.id, resourceId, previewId: previewId ?? "" },
-      enabled: !!previewId,
-      refetchInterval: 5_000,
-    }),
-  );
-  const deployment = previewId
-    ? (previewDeployments.data?.find((d) => d.id === deploymentId) ?? null)
-    : baseDeployment;
+  const deployment = useResolvedDeployment({
+    projectId: project.id,
+    resourceId,
+    deploymentId,
+    previewId,
+  });
 
   const { data: resource } = useLiveQuery(
     (q) =>
