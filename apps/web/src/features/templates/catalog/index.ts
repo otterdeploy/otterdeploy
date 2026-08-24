@@ -16,6 +16,7 @@ import { DATA_TEMPLATES } from "./templates-data";
 import { DEV_TEMPLATES } from "./templates-dev";
 import { DEVKIT_TEMPLATES } from "./templates-devkit";
 import { DEVTOOLS_TEMPLATES } from "./templates-devtools";
+import { NETWORK_TEMPLATES } from "./templates-network";
 import { OPS_TEMPLATES } from "./templates-ops";
 import { PLATFORM_ID_TEMPLATES } from "./templates-platform-id";
 import { PLATFORM_OPS_TEMPLATES } from "./templates-platform-ops";
@@ -34,6 +35,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...OPS_TEMPLATES,
   ...PLATFORM_OPS_TEMPLATES,
   ...PLATFORM_ID_TEMPLATES,
+  ...NETWORK_TEMPLATES,
   ...DATA_TEMPLATES,
   ...DEV_TEMPLATES,
   ...DEVTOOLS_TEMPLATES,
