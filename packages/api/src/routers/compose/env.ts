@@ -54,6 +54,30 @@ export interface ComposeVarRef {
 }
 
 /**
+ * Every `${VAR}` ref in one raw file's text, unique by name, preferring a
+ * default if any occurrence supplies one. `$$`-escaped refs are ignored.
+ *
+ * The counterpart to `collectVarRefs` for a supporting file a stack ships
+ * (`ComposeFile.interpolate`). Those refs resolve from the same variable bag
+ * at materialize time, so the wizard has to prompt for them exactly like the
+ * compose file's own — otherwise a key that lives ONLY in a config file is
+ * never asked for, renders empty, and the container fails on its own schema.
+ * That is how NetBird's `authSecret` shipped blank and crash-looped.
+ */
+export function collectFileVarRefs(content: string): ComposeVarRef[] {
+  const found = new Map<string, string | null>();
+  for (const m of content.matchAll(REF)) {
+    if (m[1]) continue; // `$$` escape, not a real ref
+    const name = m[2];
+    if (!name) continue;
+    const def = m[3] ?? null;
+    const prev = found.get(name);
+    if (!found.has(name) || (prev == null && def != null)) found.set(name, def);
+  }
+  return [...found].map(([name, def]) => ({ name, default: def }));
+}
+
+/**
  * Every `${VAR}` ref across a parsed compose file's string fields (image,
  * command, entrypoint, env values): unique by name, preferring a default if
  * any occurrence supplies one. Drives the wizard's "fill in these variables"

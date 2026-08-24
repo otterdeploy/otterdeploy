@@ -66,21 +66,32 @@ async function materializeInlineTree(
   parsed: { services: Array<{ envFile: string[]; env: Record<string, string> }> },
   ref: ResourceRef,
   projectVars: Record<string, string>,
-): Promise<string | undefined> {
-  if (record.compose.files.length === 0) return undefined;
+): Promise<{ stackDir: string | undefined; missing: string[] }> {
+  if (record.compose.files.length === 0) return { stackDir: undefined, missing: [] };
   // Only files that asked for it (ComposeFile.interpolate) get `${VAR}`
   // resolved. Doing it to every file would empty the `${HOME}` out of a
   // bind-mounted shell script, which `docker compose` never does either.
+  //
+  // Unresolved refs are collected rather than left to render empty. A config
+  // file is not env: a service reading `authSecret: ""` fails deep inside its
+  // own startup with a message about ITS schema, so the operator learns their
+  // variable was blank from a stack trace in someone else's product. Worse,
+  // some keys (an encryption key, a signing secret) don't fail at all: they
+  // produce a silently insecure install. Refusing the deploy names the
+  // variable instead. See NETBIRD_AUTH_SECRET, which crash-looped exactly
+  // this way.
+  const missing = new Set<string>();
   const files = record.compose.files.map((f) =>
-    f.interpolate ? { ...f, content: interpolate(f.content, projectVars) } : f,
+    f.interpolate ? { ...f, content: interpolate(f.content, projectVars, missing) } : f,
   );
+  if (missing.size > 0) return { stackDir: undefined, missing: [...missing].sort() };
   const stackDir = await materializeComposeFiles(files, resourceDir(ref));
   for (const svc of parsed.services) {
     if (svc.envFile.length === 0) continue;
     const fromFiles = await readEnvFiles(svc.envFile, stackDir);
     svc.env = { ...fromFiles, ...svc.env };
   }
-  return stackDir;
+  return { stackDir, missing: [] };
 }
 
 export async function deployCompose(
@@ -133,7 +144,7 @@ export async function deployCompose(
     : {};
 
   // The stack's on-disk home is env-keyed (null environmentId = main env).
-  const stackDir = await materializeInlineTree(
+  const materialized = await materializeInlineTree(
     record,
     parsed.value,
     {
@@ -144,6 +155,15 @@ export async function deployCompose(
     },
     projectVars,
   );
+  if (materialized.missing.length > 0) {
+    return Result.err(
+      new ComposeDeployError(
+        `These stack variables have no value, and this stack's config files need them: ` +
+          `${materialized.missing.join(", ")}. Set them under Variables, then redeploy.`,
+      ),
+    );
+  }
+  const stackDir = materialized.stackDir;
 
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
