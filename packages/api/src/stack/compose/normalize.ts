@@ -148,6 +148,10 @@ function normalizePorts(v: unknown, service: string, warnings: string[]): Parsed
   return out;
 }
 
+/** `1000-2000`, compose's port-range form. Only used to make the drop warning
+ *  name the actual problem instead of "is not a number". */
+const RANGE = /^\d+-\d+$/;
+
 /** "host:container[/proto]" | "ip:host:container" | "container". */
 function parsePortString(raw: string, service: string, warnings: string[]): ParsedPort | null {
   const slash = raw.split("/");
@@ -159,7 +163,24 @@ function parsePortString(raw: string, service: string, warnings: string[]): Pars
   const targetStr = parts[parts.length - 1];
   const publishedStr = parts.length >= 2 ? parts[parts.length - 2] : undefined;
   const target = Number(targetStr);
-  if (!Number.isFinite(target)) return null;
+  if (!Number.isFinite(target)) {
+    // A port this function cannot read used to vanish without a word, and a
+    // MISSING port is invisible in a way a wrong one is not: the stack applies
+    // clean, the service shows green, and the traffic that port carried simply
+    // never arrives. `10000-20000/udp` (LiveKit SIP's RTP media) is the case
+    // that found this — a range parses to NaN here, so the whole media path
+    // disappeared while every other check passed. Same reasoning as
+    // `warnUnmountableBind` below: if the platform is going to drop it, it says
+    // so at parse time, where the wizard already renders warnings.
+    warnings.push(
+      RANGE.test(targetStr ?? "")
+        ? `service "${service}": port range "${raw}" is not supported and was dropped. ` +
+            `Publish a single port per entry, or use the upstream's single-port option ` +
+            `where it has one`
+        : `service "${service}": port "${raw}" is not a number and was dropped`,
+    );
+    return null;
+  }
   const published = publishedStr != null ? Number(publishedStr) : undefined;
   return {
     target,

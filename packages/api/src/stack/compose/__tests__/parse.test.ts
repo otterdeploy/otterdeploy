@@ -75,6 +75,37 @@ services:
     expect(c.warnings.some((w) => w.includes("host IP"))).toBe(true);
   });
 
+  // A port the parser cannot read is dropped, and a dropped port is invisible
+  // in a way a wrong one is not: the stack applies clean and the traffic simply
+  // never arrives. The warning is the only thing standing between that and an
+  // operator debugging their image.
+  it("warns rather than silently dropping a port it cannot parse", () => {
+    const c = ok(`
+services:
+  sip:
+    image: livekit/sip:v1.11.0
+    ports:
+      - "5060:5060/udp"
+      - "10000-20000/udp"
+      - "http/tcp"
+`);
+    const sip = c.services[0];
+    if (!sip) throw new Error("expected a service");
+    // The readable entry still lands; only the unreadable ones drop.
+    expect(sip.ports).toEqual([{ target: 5060, published: 5060, protocol: "udp" }]);
+
+    const range = c.warnings.find((w) => w.includes("10000-20000"));
+    expect(range, "a dropped port range must warn").toBeDefined();
+    // Named as a RANGE, not as "not a number": the operator's next move is to
+    // find the upstream's single-port option, and the message has to point there.
+    expect(range).toContain("port range");
+    expect(range).toContain("single port");
+
+    const nonNumeric = c.warnings.find((w) => w.includes('"http/tcp"'));
+    expect(nonNumeric, "a non-numeric port must warn too").toBeDefined();
+    expect(nonNumeric).toContain("is not a number");
+  });
+
   it("classifies build services and word-splits a string command", () => {
     const c = ok(`
 services:
