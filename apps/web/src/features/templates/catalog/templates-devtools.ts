@@ -6,8 +6,7 @@ export const DEVTOOLS_TEMPLATES: StackTemplate[] = [
   {
     id: "pocketbase",
     name: "PocketBase",
-    description:
-      "Backend in a single file: SQLite database, auth, file storage and a realtime API, with an admin UI. Everything persists to one named volume; no external database to run.",
+    descriptionKey: "templates.catalog.pocketbase.description",
     category: "devtools",
     includes: ["pocketbase"],
     requiredEnv: [],
@@ -32,8 +31,7 @@ volumes:
   {
     id: "mailpit",
     name: "Mailpit",
-    description:
-      "SMTP server that captures mail instead of delivering it, with a web inbox to read it. Point a staging app's SMTP at it and nothing can reach a real customer by accident.",
+    descriptionKey: "templates.catalog.mailpit.description",
     category: "devtools",
     includes: ["mailpit"],
     requiredEnv: [],
@@ -61,18 +59,17 @@ volumes:
   {
     id: "forgejo",
     name: "Forgejo",
-    description:
-      "The community fork of Gitea: a self-hosted Git forge with issues, pull requests and a package registry. Repositories live on a named volume, metadata in a bundled Postgres.",
+    descriptionKey: "templates.catalog.forgejo.description",
     category: "devtools",
     includes: ["forgejo", "db"],
     requiredEnv: [
       {
         key: "FORGEJO_URL",
-        description: "Public base URL. Used for clone URLs and webhook callbacks.",
+        descriptionKey: "templates.catalog.forgejo.env.FORGEJO_URL",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.forgejo.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Forgejo",
@@ -114,14 +111,13 @@ volumes:
   {
     id: "unleash",
     name: "Unleash",
-    description:
-      "Feature-flag service with gradual rollouts, targeting rules and per-environment toggles. SDK-driven, so flags evaluate in your app rather than over the network per request.",
+    descriptionKey: "templates.catalog.unleash.description",
     category: "devtools",
     includes: ["unleash", "db"],
     requiredEnv: [
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres that stores flags and strategies.",
+        descriptionKey: "templates.catalog.unleash.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Unleash",

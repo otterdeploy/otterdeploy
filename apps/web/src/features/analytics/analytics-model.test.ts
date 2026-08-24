@@ -1,39 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
-import {
-  countryName,
-  formatCount,
-  formatShare,
-  groupStatuses,
-  seriesPoints,
-} from "./analytics-model";
-
-describe("seriesPoints", () => {
-  const bucket = {
-    t: "2026-08-16T12:00:00.000Z",
-    requests: 100,
-    botRequests: 10,
-    s2xx: 90,
-    s3xx: 2,
-    s4xx: 5,
-    s5xx: 3,
-    sOther: 0,
-    resBytes: 1_000,
-    p50: 12,
-    p95: 80,
-    p99: 200,
-  };
-
-  test("picks values with real Date objects", () => {
-    const points = seriesPoints([bucket], (b) => b.s4xx + b.s5xx);
-    expect(points).toEqual([{ date: new Date(bucket.t), value: 8 }]);
-  });
-
-  test("keeps nulls (empty bucket = gap, not zero)", () => {
-    const points = seriesPoints([{ ...bucket, p95: null }], (b) => b.p95);
-    expect(points[0]?.value).toBeNull();
-  });
-});
+import { countryName, formatCount, formatShare, groupStatuses } from "./analytics-model";
 
 describe("groupStatuses", () => {
   test("groups codes into ordered classes, ranked within", () => {

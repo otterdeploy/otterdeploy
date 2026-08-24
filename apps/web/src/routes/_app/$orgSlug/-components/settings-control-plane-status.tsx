@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { ControlPlaneCertificateNote } from "./settings-control-plane-cert";
 import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -56,20 +57,9 @@ export function StatusFooter({
   const verifyToken = domainQuery.data?.verifyToken ?? null;
 
   if (status === "verified") {
-    return (
-      <div className="text-[11.5px] text-muted-foreground">
-        Dashboard live at{" "}
-        <a
-          href={`https://${current}`}
-          target="_blank"
-          rel="noreferrer"
-          className="font-mono text-foreground underline underline-offset-2"
-        >
-          https://{current}
-        </a>
-        .
-      </div>
-    );
+    // Ownership is proved; whether TLS actually works is a separate question
+    // the note answers by probing the edge.
+    return <ControlPlaneCertificateNote organizationId={organizationId} domain={current} />;
   }
   if (status !== "pending" || !verifyToken) return null;
   return (

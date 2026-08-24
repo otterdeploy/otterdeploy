@@ -1,5 +1,7 @@
 import type { AuditEvent } from "@/features/audit/data/audit";
 
+import { relativeMs } from "@/shared/lib/time";
+
 /**
  * Color family for an action's leading dot, keyed off the action's verb.
  * Actions are RPC paths (`<resource>.<verb>`, e.g. "projects.create",
@@ -29,25 +31,11 @@ export function actionTone(action: string): ActionTone {
   return "neutral";
 }
 
-const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["day", 86400],
-  ["hour", 3600],
-  ["minute", 60],
-  ["second", 1],
-];
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
-export function timeAgo(iso: string): string {
+/** An audit row's timestamp. The em dash is this surface's own sentinel for
+ *  an unparseable one; the formatting itself is shared. */
+export function timeAgoOrDash(iso: string): string {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "–";
-  const diff = (t - Date.now()) / 1000;
-  const abs = Math.abs(diff);
-  for (const [unit, secs] of RELATIVE_UNITS) {
-    if (abs >= secs || unit === "second") {
-      return rtf.format(Math.round(diff / secs), unit);
-    }
-  }
-  return "just now";
+  return Number.isNaN(t) ? "–" : relativeMs(t);
 }
 
 export function exportCsv(items: AuditEvent[]) {

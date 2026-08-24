@@ -184,7 +184,7 @@ export function SignUpForm({
           across the provider. See packages/auth/src/registration-policy.ts. */}
       {bootstrap ? null : (
         <SocialSignIn
-          dividerLabel={config.signIn.password ? "or sign up with" : null}
+          dividerLabel={config.signIn.password ? t("auth.signUp.dividerSignUp") : null}
           providers={config.socialProviders}
         />
       )}

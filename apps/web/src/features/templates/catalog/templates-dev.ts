@@ -5,19 +5,18 @@ export const DEV_TEMPLATES: StackTemplate[] = [
   {
     id: "authentik",
     name: "Authentik",
-    description:
-      "Self-hosted identity provider: SSO, OAuth2/OIDC, SAML, and LDAP with a policy engine. Server and worker share a bundled Postgres and Redis; both persist to named volumes.",
+    descriptionKey: "templates.catalog.authentik.description",
     category: "security",
     includes: ["server", "worker", "db", "redis"],
     requiredEnv: [
       {
         key: "SECRET_KEY",
-        description: "Signing key for sessions and tokens. Keep it stable across restarts.",
+        descriptionKey: "templates.catalog.authentik.env.SECRET_KEY",
         generateHint: "openssl rand -base64 60",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled authentik Postgres.",
+        descriptionKey: "templates.catalog.authentik.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -87,18 +86,17 @@ volumes:
   {
     id: "vaultwarden",
     name: "Vaultwarden",
-    description:
-      "Lightweight Bitwarden-compatible password server in Rust. Works with the official Bitwarden apps and browser extensions; data persists to a named volume.",
+    descriptionKey: "templates.catalog.vaultwarden.description",
     category: "security",
     includes: ["vaultwarden"],
     requiredEnv: [
       {
         key: "DOMAIN",
-        description: "Public URL the vault is served from. Required for WebAuthn and the apps.",
+        descriptionKey: "templates.catalog.vaultwarden.env.DOMAIN",
       },
       {
         key: "ADMIN_TOKEN",
-        description: "Token protecting the /admin panel.",
+        descriptionKey: "templates.catalog.vaultwarden.env.ADMIN_TOKEN",
         generateHint: "openssl rand -base64 48",
       },
     ],
@@ -128,18 +126,17 @@ volumes:
   {
     id: "gitea",
     name: "Gitea",
-    description:
-      "Self-hosted Git service: repos, issues, pull requests, and CI runners. Backed by Postgres; repositories persist to a named volume.",
+    descriptionKey: "templates.catalog.gitea.description",
     category: "devtools",
     includes: ["gitea", "db"],
     requiredEnv: [
       {
         key: "ROOT_URL",
-        description: "Public URL Gitea is served from (clone URLs, webhooks, OAuth).",
+        descriptionKey: "templates.catalog.gitea.env.ROOT_URL",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the gitea Postgres user.",
+        descriptionKey: "templates.catalog.gitea.env.POSTGRES_PASSWORD",
         generateHint: "openssl rand -base64 24",
       },
     ],
@@ -185,8 +182,7 @@ volumes:
   {
     id: "excalidraw",
     name: "Excalidraw",
-    description:
-      "Virtual whiteboard with a hand-drawn feel. A single stateless container serving the editor. Boards live in the browser unless exported.",
+    descriptionKey: "templates.catalog.excalidraw.description",
     category: "devtools",
     includes: ["excalidraw"],
     requiredEnv: [],

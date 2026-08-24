@@ -13,6 +13,8 @@
  * leak it.
  */
 
+import { useState } from "react";
+
 import { useForm } from "@tanstack/react-form";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -50,6 +52,19 @@ function normalizeDomain(raw: string): string {
  *  (`/sso/callback/<providerId>`), so it cannot contain anything that would
  *  need escaping there. */
 const providerIdPattern = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
+ * A client id is an opaque identifier the IdP issues. It is never a URL.
+ *
+ * Worth rejecting explicitly because the mistake is easy and its symptom is
+ * far away: the redirect URI and the client id sit next to each other in every
+ * IdP's setup screen, so pasting the redirect URI here is a common slip, and
+ * the resulting failure surfaces at the IdP during the first sign-in rather
+ * than in this form.
+ */
+function looksLikeUrl(value: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(value.trim());
+}
 
 /**
  * One labelled text field, rendered from a TanStack Form field API.
@@ -101,6 +116,32 @@ function ProviderField({
   );
 }
 
+/**
+ * What the form accepts, at module level so the component stays under the
+ * size cap and the rules are readable on their own.
+ */
+const registerProviderSchema = z.object({
+  providerId: z
+    .string()
+    .min(1, "Required")
+    .regex(providerIdPattern, "Lowercase letters, numbers and hyphens only"),
+  issuer: z.url("Must be a full URL, e.g. https://acme.okta.com"),
+  domain: z
+    .string()
+    .min(1, "Required")
+    .transform(normalizeDomain)
+    .refine((v) => domainPattern.test(v), "Enter a bare domain, e.g. acme.com"),
+  clientId: z
+    .string()
+    .min(1, "Required")
+    .refine(
+      (v) => !looksLikeUrl(v),
+      "That looks like a URL. The client ID is the opaque identifier your IdP issued, not the redirect URI.",
+    ),
+  clientSecret: z.string().min(1, "Required"),
+  discoveryEndpoint: z.union([z.literal(""), z.url("Must be a full URL")]),
+});
+
 export function RegisterProviderDialog({
   organizationId,
   open,
@@ -112,6 +153,12 @@ export function RegisterProviderDialog({
 }) {
   const { t } = useTranslation();
   const register = useRegisterSsoProvider(organizationId);
+  // Rendered inside the dialog rather than only as a toast. Discovery failures
+  // are long and the important half is at the END ("… is not trusted", "…
+  // resolves to a private address"), which a toast clips. The dialog also
+  // stays open on failure, so the operator can fix the field the message is
+  // actually about.
+  const [failure, setFailure] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -122,24 +169,9 @@ export function RegisterProviderDialog({
       clientSecret: "",
       discoveryEndpoint: "",
     },
-    validators: {
-      onSubmit: z.object({
-        providerId: z
-          .string()
-          .min(1, "Required")
-          .regex(providerIdPattern, "Lowercase letters, numbers and hyphens only"),
-        issuer: z.url("Must be a full URL, e.g. https://acme.okta.com"),
-        domain: z
-          .string()
-          .min(1, "Required")
-          .transform(normalizeDomain)
-          .refine((v) => domainPattern.test(v), "Enter a bare domain, e.g. acme.com"),
-        clientId: z.string().min(1, "Required"),
-        clientSecret: z.string().min(1, "Required"),
-        discoveryEndpoint: z.union([z.literal(""), z.url("Must be a full URL")]),
-      }),
-    },
+    validators: { onSubmit: registerProviderSchema },
     onSubmit: async ({ value }) => {
+      setFailure(null);
       try {
         await register.mutateAsync({
           providerId: value.providerId.trim(),
@@ -153,13 +185,19 @@ export function RegisterProviderDialog({
         form.reset();
         onOpenChange(false);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not register provider");
+        setFailure(error instanceof Error ? error.message : t("sso.registerFailed"));
       }
     },
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setFailure(null);
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{t("sso.addProvider")}</DialogTitle>
@@ -230,6 +268,8 @@ export function RegisterProviderDialog({
             )}
           </form.Field>
 
+          <RegistrationFailure message={failure} />
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -245,5 +285,30 @@ export function RegisterProviderDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The server's refusal, kept on the form instead of in a toast.
+ *
+ * Discovery failures are long and their important half is at the END ("… is
+ * not trusted by your trusted origins configuration", "… resolves to a private
+ * address"), which is exactly what a toast clips. Extracted from the dialog so
+ * that component stays under the size cap.
+ */
+function RegistrationFailure({ message }: { message: string | null }) {
+  const { t } = useTranslation();
+  if (message === null) return null;
+  return (
+    <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+      <p className="text-[13px] font-medium text-foreground">{t("sso.registerFailed")}</p>
+      {/* The server's own words, verbatim and in mono: it is machine output,
+          and it is what the operator pastes into a bug report (DESIGN.md).
+          Wrapped and height-capped so a long discovery error cannot push the
+          buttons off the dialog. */}
+      <p className="mt-1 max-h-32 overflow-y-auto font-mono text-[11px] leading-relaxed break-words text-muted-foreground">
+        {message}
+      </p>
+    </div>
   );
 }

@@ -30,6 +30,7 @@ import { Writable } from "node:stream";
 import type { VolumeDirEntry } from "./explore-parse";
 
 import { volumeMountSpec } from "../../backups/volume";
+import { HELPER_ROLES, helperLabels } from "../../lib/helper-container";
 import { parseVolumeDirListing, resolveVolumeExplorePath, STAT_LIST_FORMAT } from "./explore-parse";
 
 const docker = Docker.fromEnv();
@@ -84,8 +85,10 @@ async function runExploreHelper(
   const out = bufferSink();
   const err = bufferSink();
   const options = {
-    HostConfig: { Mounts: [mount], NetworkMode: "none" },
-    autoRemove: true,
+    // AutoRemove on HostConfig so the daemon reaps it even when the run never
+    // starts; the label makes any survivor sweepable. See lib/helper-container.
+    Labels: helperLabels(HELPER_ROLES.volumeExplore),
+    HostConfig: { Mounts: [mount], NetworkMode: "none", AutoRemove: true },
   };
   let result = await docker.run(EXPLORE_HELPER_IMAGE, cmd, [out.sink, err.sink], options);
   if (result.isErr() && result.error instanceof DockerNotFoundError) {

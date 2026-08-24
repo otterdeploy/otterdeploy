@@ -30,6 +30,7 @@ export interface ServiceView {
   /** Server this service is pinned to, or null when the scheduler places it.
    *  Pinned means no failover. The UI has to say so wherever it's shown. */
   placementServerId: string | null;
+  buildServerId: string | null;
 
   restart: {
     condition: "none" | "on-failure" | "any";
@@ -144,6 +145,7 @@ export async function mapServiceView(
     replicas: record.service.replicas,
     pausedReplicas: record.service.pausedReplicas,
     placementServerId: record.resource.placementServerId ?? null,
+    buildServerId: record.service.buildServerId ?? null,
     restart: {
       condition: record.service.restartCondition,
       maxAttempts: record.service.restartMaxAttempts,

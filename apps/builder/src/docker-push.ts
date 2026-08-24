@@ -39,18 +39,24 @@ export async function dockerPush(opts: {
   const loginHost = host === "docker.io" ? "" : host;
 
   opts.sink.system(`logging in to ${host} as ${username}`);
-  const login = await runProcess({
-    cmd: "docker",
-    args: ["login", ...(loginHost ? [loginHost] : []), "-u", username, "--password-stdin"],
-    sink: opts.sink,
-    secrets: [password],
-    stdin: password,
-  });
-  if (login.exitCode !== 0) {
-    throw new Error(`docker login ${host} failed (exit ${login.exitCode})`);
-  }
-
+  // The try starts BEFORE the login so the `finally` logout covers a FAILED
+  // login too. It used to start after, which left a partially-written entry in
+  // the builder host's shared credential store on the failure path — and that
+  // matters more now that the password can be a short-lived derived token:
+  // whatever is left behind is stale within the hour and would produce a
+  // confusing auth failure on some later, unrelated build.
   try {
+    const login = await runProcess({
+      cmd: "docker",
+      args: ["login", ...(loginHost ? [loginHost] : []), "-u", username, "--password-stdin"],
+      sink: opts.sink,
+      secrets: [password],
+      stdin: password,
+    });
+    if (login.exitCode !== 0) {
+      throw new Error(`docker login ${host} failed (exit ${login.exitCode})`);
+    }
+
     for (const tag of opts.tags) {
       opts.sink.system(`pushing ${tag}`);
       const push = await runProcess({

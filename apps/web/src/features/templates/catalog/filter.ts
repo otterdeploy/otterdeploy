@@ -13,11 +13,21 @@ export interface TemplateFilter {
   query: string;
 }
 
-/** Category pill + free-text search. The query matches name, description, and
- *  included service names, case-insensitively. */
+/**
+ * Category pill + free-text search. The query matches name, description, and
+ * included service names, case-insensitively.
+ *
+ * `describe` resolves a template's `descriptionKey` — the caller passes
+ * i18next's `t`. It is a parameter rather than an import because search has to
+ * match what the operator can actually READ: matching the raw key would mean
+ * typing "newsletter" finds nothing in any locale, while typing "catalog"
+ * finds all fifty-eight. Callers that only filter by category can leave it
+ * out; an absent resolver just drops description from the haystack.
+ */
 export function filterTemplates(
   templates: StackTemplate[],
   { category, query }: TemplateFilter,
+  describe?: (key: StackTemplate["descriptionKey"]) => string,
 ): StackTemplate[] {
   const needle = query.trim().toLowerCase();
   return templates.filter((t) => {
@@ -25,7 +35,7 @@ export function filterTemplates(
     if (!needle) return true;
     return (
       t.name.toLowerCase().includes(needle) ||
-      t.description.toLowerCase().includes(needle) ||
+      (describe?.(t.descriptionKey).toLowerCase().includes(needle) ?? false) ||
       t.includes.some((s) => s.toLowerCase().includes(needle))
     );
   });

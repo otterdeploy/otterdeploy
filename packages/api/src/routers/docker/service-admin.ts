@@ -1,3 +1,4 @@
+import { HELPER_LABEL } from "../../lib/helper-container";
 /**
  * Docker debug service: inspect passthroughs, bounded log tails, and the
  * guarded destructive operations (image/volume/network removal, prune).
@@ -137,6 +138,37 @@ export async function pruneImages(): Promise<
       reclaimedBytes: result.value.SpaceReclaimed ?? 0,
     },
   };
+}
+
+/**
+ * Sweep leaked control-plane helper containers.
+ *
+ * Helpers are one-shot containers the control plane spawns over the socket
+ * (see lib/helper-container). They set `AutoRemove`, so the daemon reaps them
+ * when they exit: but a container that is CREATED and then never starts (disk
+ * full is the classic trigger) never exits, so AutoRemove never fires and it
+ * sits there forever. That is how a host ends up with a pile of `Created`
+ * helpers on the very disk that was already full.
+ *
+ * Only non-running helpers are touched, matched by the helper label: a
+ * running one is doing work for a request in flight, and an unlabeled
+ * container is somebody's workload and is never ours to remove.
+ */
+export async function pruneHelperContainers(): Promise<Listed<{ containersDeleted: number }>> {
+  const listed = await docker.containers.list({
+    all: true,
+    filters: { label: [`${HELPER_LABEL}`], status: ["created", "exited", "dead"] },
+  });
+  if (listed.isErr()) return failure(listed.error);
+
+  let containersDeleted = 0;
+  for (const c of listed.value) {
+    const removed = await docker.containers.getContainer(c.Id).remove({ force: true });
+    // A helper that self-removed between the list and the remove is the
+    // expected race, not a failure: it is gone either way.
+    if (removed.isOk()) containersDeleted += 1;
+  }
+  return { ok: true, items: { containersDeleted } };
 }
 
 /** Names of containers (running or stopped) that mount this volume. */

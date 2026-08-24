@@ -29,6 +29,8 @@ export * from "./platform-metric";
 export * from "./proxy-route";
 export * from "./resource-metric";
 export * from "./server";
+export * from "./server-metric";
+export * from "./server-unit";
 export * from "./ssh-key";
 export * from "./vault-provider";
 export * from "./webhooks";

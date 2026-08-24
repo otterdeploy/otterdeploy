@@ -12,10 +12,9 @@ import type { Builder, BuildConfig } from "@otterdeploy/shared/build-config";
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
-import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
 import { db } from "@otterdeploy/db";
-import { containerRegistry, deployment, project, resource } from "@otterdeploy/db/schema";
+import { deployment, project, resource } from "@otterdeploy/db/schema";
 import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
@@ -34,6 +33,7 @@ import {
   SwarmUpdateError,
 } from "./errors";
 import { PipelineLoadError } from "./load";
+import { type RegistryCredentialSource, resolvePushCredentials } from "./registry-credential";
 import { markFailed } from "./state";
 
 /** Every way the build sequence can fail, as a tagged union. */
@@ -109,7 +109,7 @@ export async function mintInstallationToken(
  * registry (the local path has none).
  */
 export function pushImageIfRegistry(args: {
-  registry: typeof containerRegistry.$inferSelect | null;
+  registry: RegistryCredentialSource | null;
   image: { shaTag: string; latestTag: string };
   sink: LogSink;
 }): Promise<Result<string | null, BuildStepError>> {
@@ -119,19 +119,14 @@ export function pushImageIfRegistry(args: {
       sink.system(`local build; skipping registry push for ${image.shaTag}`);
       return Result.ok(null);
     }
-    const password = yield* await step("decrypt-registry", () =>
-      decryptSecret(registry.encryptedPassword),
+    // Resolved HERE, immediately before the push, never at load or enqueue: a
+    // GitHub-App-derived GHCR token expires in about an hour and this build
+    // may have queued or taken longer. See ./registry-credential.ts.
+    const credentials = yield* await step("resolve-registry", () =>
+      resolvePushCredentials(registry),
     );
     const pushed = yield* await step("push", () =>
-      dockerPush({
-        tags: [image.shaTag, image.latestTag],
-        credentials: {
-          host: registry.host,
-          username: registry.username,
-          password,
-        },
-        sink,
-      }),
+      dockerPush({ tags: [image.shaTag, image.latestTag], credentials, sink }),
     );
     return Result.ok(pushed.digest);
   });

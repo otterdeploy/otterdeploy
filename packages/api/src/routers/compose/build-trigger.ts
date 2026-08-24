@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 
 import { type BranchHead, fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
-import { resolveBuildLane } from "../../lib/build-lane";
+import { resolveBuildLane } from "../../lib/build-target";
 import { parseGitHubUrl } from "./util";
 
 /**
@@ -110,7 +110,7 @@ export async function enqueueComposeBuild(input: {
     },
     undefined,
     // Route to the project's build server lane, if it has a dedicated one.
-    await resolveBuildLane(input.projectId),
+    await resolveBuildLane(input.projectId, input.resourceId),
   );
   return Result.ok({ sha });
 }
@@ -152,7 +152,7 @@ export async function enqueueInlineComposeBuild(input: {
       deploymentIds: [dep?.id ?? ""],
     },
     undefined,
-    await resolveBuildLane(input.projectId),
+    await resolveBuildLane(input.projectId, input.resourceId),
   );
   return Result.ok({ sha });
 }

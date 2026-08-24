@@ -48,7 +48,7 @@ export function TemplatesGallery({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const counts = categoryCounts(TEMPLATES);
-  const visible = sortTemplates(filterTemplates(TEMPLATES, { category, query }), sort);
+  const visible = sortTemplates(filterTemplates(TEMPLATES, { category, query }, t), sort);
   const open = openId ? (TEMPLATES.find((t) => t.id === openId) ?? null) : null;
 
   return (
@@ -58,7 +58,20 @@ export function TemplatesGallery({
         description={`${TEMPLATES.length} curated stacks. Pick one, choose a project, review its variables, deploy.`}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/*
+       * Pinned under the shell header, the same way ProjectTabs is. The
+       * catalog is 57 cards over a three-column grid, so the filter row —
+       * every control that makes that grid shorter — was off-screen within one
+       * flick of the wheel, and changing category or query meant scrolling
+       * back to the top to reach it.
+       *
+       * `top-(--header-height)` rather than `top-0`: the page scrolls the
+       * document, and the banner + header are one pinned region whose height
+       * that variable carries (see the org _shell layout). The gutter bleed
+       * makes the bar span the content area so its rule reads as a divider
+       * between filters and results instead of a floating box.
+       */}
+      <div className="sticky top-(--header-height) z-30 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background px-4 py-3 sm:-mx-6 sm:px-6">
         <div className="inline-flex w-fit flex-wrap items-center gap-1 rounded-md border bg-muted/40 p-0.5">
           <CategoryChip
             active={category === "all"}

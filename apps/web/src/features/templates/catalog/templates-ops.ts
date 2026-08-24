@@ -5,19 +5,18 @@ export const OPS_TEMPLATES: StackTemplate[] = [
   {
     id: "n8n",
     name: "n8n",
-    description:
-      "Fair-code workflow automation with 400+ integrations. Single service; workflows and credentials persist to a named volume (SQLite).",
+    descriptionKey: "templates.catalog.n8n.description",
     category: "automation",
     includes: ["n8n"],
     requiredEnv: [
       {
         key: "N8N_ENCRYPTION_KEY",
-        description: "Encrypts stored credentials. Losing it locks you out of them.",
+        descriptionKey: "templates.catalog.n8n.env.N8N_ENCRYPTION_KEY",
         generateHint: "openssl rand -base64 32",
       },
       {
         key: "WEBHOOK_URL",
-        description: "Public base URL used when registering webhooks with external services.",
+        descriptionKey: "templates.catalog.n8n.env.WEBHOOK_URL",
       },
     ],
     logoBrand: "n8n",
@@ -42,8 +41,7 @@ volumes:
   {
     id: "uptime-kuma",
     name: "Uptime Kuma",
-    description:
-      "Self-hosted uptime monitoring with status pages and notifications. Single service, zero required configuration. The first visit creates the admin user.",
+    descriptionKey: "templates.catalog.uptime-kuma.description",
     category: "observability",
     includes: ["uptime-kuma"],
     requiredEnv: [],
@@ -69,14 +67,13 @@ volumes:
   {
     id: "beszel",
     name: "Beszel",
-    description:
-      "Lightweight monitoring hub: CPU, memory, disk, network and per-container stats, with history and alerts, in one small Go binary. The hub only displays data. Each machine you want charted runs a Beszel agent, and the hub hands you its install command when you add the system.",
+    descriptionKey: "templates.catalog.beszel.description",
     category: "observability",
     includes: ["beszel"],
     requiredEnv: [
       {
         key: "APP_URL",
-        description: "Public base URL of the hub. Used in alert emails and OAuth redirects.",
+        descriptionKey: "templates.catalog.beszel.env.APP_URL",
       },
     ],
     logoBrand: "Beszel",
@@ -99,14 +96,13 @@ volumes:
   {
     id: "grafana-prometheus",
     name: "Grafana + Prometheus",
-    description:
-      "The canonical metrics stack: Prometheus scrapes and stores time series, Grafana dashboards them. Add scrape targets via Prometheus config after deploy.",
+    descriptionKey: "templates.catalog.grafana-prometheus.description",
     category: "observability",
     includes: ["grafana", "prometheus"],
     requiredEnv: [
       {
         key: "GF_ADMIN_PASSWORD",
-        description: "Password for the Grafana admin user.",
+        descriptionKey: "templates.catalog.grafana-prometheus.env.GF_ADMIN_PASSWORD",
         generateHint: "openssl rand -base64 18",
       },
     ],

@@ -8,6 +8,7 @@ import { matchError } from "better-result";
 
 import { requirePermission } from "../..";
 import { enqueueGitBuild } from "../project/manifest-apply";
+import { setServiceBuildServer } from "./build-server";
 import { loadResource } from "./context";
 import { exposeService, unexposeService } from "./handlers";
 import { pauseService, resumeService } from "./pause";
@@ -76,6 +77,33 @@ export const serviceRuntimeRouter = {
           RefParseError: (e) => new Error(e.message),
           RefUnknownVarError: (e) => new Error(e.message),
           VaultResolveError: (e) => new Error(e.message),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  setBuildServer: requirePermission({ service: ["update"] }).service.setBuildServer.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await setServiceBuildServer(
+        {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+          serverId: input.serverId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+          // The reason is operator-facing and specific; surface it verbatim
+          // rather than replacing it with the generic contract message.
+          BuildServerInvalidError: (e) => errors.BUILD_SERVER_INVALID({ message: e.message }),
         });
       }
       return result.value;

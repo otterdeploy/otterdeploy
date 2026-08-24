@@ -37,6 +37,49 @@ behind it:
 - An enrolment that is redeemed but expires before the joining node reports
   completion is rotated out.
 
+## Build servers
+
+A server can be dedicated to **building** rather than running anything. Mark it
+as a build server when you add it (or in its settings) and builds get routed
+there instead of competing with production for CPU and memory. It is a good use
+for a small, cheap box: builds are bursty and memory-hungry, and they don't need
+to be near your traffic.
+
+Assign it at either level. The most specific one wins:
+
+| Setting | Effect |
+| --- | --- |
+| Service → Build server | Just this service builds there |
+| Project → Build server | Every service in the project, unless it overrides |
+| Neither | Builds run wherever the service runs (the default) |
+
+<Callout type="warn" title="A build server needs a registry">
+  When a service builds somewhere other than where it runs, the image has to
+  travel. Give the service an image repository (and a matching registry
+  credential) first — otherwise the image stays in the build server's Docker
+  daemon and the nodes running the service cannot pull it. Otterdeploy refuses
+  the assignment rather than letting you find out on the next deploy.
+</Callout>
+
+Otterdeploy also keeps build servers out of the placement picker, so a box
+sized for builds doesn't quietly start serving traffic. A server you have
+already pinned a service to stays available, so switching a server to a build
+server never strands what is on it.
+
+### Running the builder there
+
+A build server needs a builder process draining its queue. Give the server a
+**build lane** (a short name like `builds-fra`) and run the builder on that
+host with `BUILDER_LANE` set to the same value:
+
+```bash
+BUILDER_LANE=builds-fra bun run --cwd apps/builder start
+```
+
+Without one, a build assigned to that server has nowhere to go. Otterdeploy
+checks before enqueuing and fails the deployment with that reason, rather than
+leaving it pending forever with no logs.
+
 ## Private mesh
 
 Node-to-node traffic can go over a private mesh instead of the public

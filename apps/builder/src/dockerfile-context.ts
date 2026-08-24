@@ -23,6 +23,8 @@
  * DOES resolve from the repo root.
  */
 
+import type { DockerfileContextMode } from "@otterdeploy/shared/build-config";
+
 import { Result } from "better-result";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, normalize, resolve, sep } from "node:path";
@@ -35,7 +37,10 @@ const workspacePkgSchema = z.object({
     .optional(),
 });
 
-/** How the build context for a subdir Dockerfile is chosen.
+/** How the build context for a subdir Dockerfile is chosen. Re-exported from
+ *  the shared build-config rather than restated here: the manifest schema and
+ *  the DB column already key off that union, and a second copy would be a
+ *  second thing to keep in step.
  *
  *  - `auto`   inspect the Dockerfile's COPY sources and escalate to the repo
  *             root only when they demand it (default; see `analyzeCopySources`)
@@ -43,9 +48,7 @@ const workspacePkgSchema = z.object({
  *             behavior; the escape hatch when `auto` guesses wrong)
  *  - `root`   always anchor at the repo root (for a Dockerfile whose root-
  *             relative COPYs are all globs/optional and so can't be detected) */
-export const DOCKERFILE_CONTEXTS = ["auto", "subdir", "root"] as const;
-
-export type DockerfileContext = (typeof DOCKERFILE_CONTEXTS)[number];
+export type DockerfileContext = DockerfileContextMode;
 
 /**
  * Strip a Dockerfile down to logical instructions: comments removed, line

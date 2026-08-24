@@ -13,8 +13,8 @@ Measured at the start of the sweep. These are the numbers the sweep has to move.
 | --- | --- |
 | Source files in scope (excl. tests, generated, vendored) | 1626 |
 | Import cycles / files involved | 17 / 21 |
-| Clone groups / files touched | 368 / 338 |
-| fallow dead-code findings | 181 |
+| Clone groups / files touched | 364 / 338 |
+| fallow dead-code findings | 180 |
 | oxlint warnings | 196 |
 | Files with `try`/`catch` | 209 |
 | `as` assertions / `as unknown as` | 940 / 72 |

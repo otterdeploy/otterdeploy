@@ -46,3 +46,29 @@ export async function closeQueues(): Promise<void> {
   await Promise.all(Array.from(queueCache.values()).map((q) => q.close()));
   queueCache.clear();
 }
+
+/**
+ * Is anything actually draining this lane right now?
+ *
+ * A build routed to a lane with no builder doesn't fail — it sits in Redis
+ * forever while the deployment shows `pending` with no logs, which is the
+ * least debuggable state the product has. BullMQ tracks connected workers per
+ * queue, so this is a direct question rather than a heuristic.
+ *
+ * Lives here rather than in lanes.ts on purpose: lanes.ts owns lane NAMING and
+ * is imported by this module, so reaching back for a Queue from there would
+ * make lanes ⇄ queues a cycle (and drag three more job modules into it).
+ *
+ * Fails OPEN (returns true) when the check itself can't run: an unreachable
+ * Redis will surface on the `queue.add` immediately afterwards with a better
+ * message, and a monitoring blip must never block a deploy that would have
+ * worked.
+ */
+export async function laneHasConsumer(lane: string): Promise<boolean> {
+  try {
+    const workers = await getDeployQueue(lane).getWorkers();
+    return workers.length > 0;
+  } catch {
+    return true;
+  }
+}

@@ -10,19 +10,10 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { relativeMs } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
 import type { QueryHistoryEntry } from "../data/query-history";
-
-function timeAgo(at: number): string {
-  const s = Math.max(0, Math.round((Date.now() - at) / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
 
 export function HistoryPopover({
   entries,
@@ -83,7 +74,7 @@ export function HistoryPopover({
                   ) : (
                     <span className="truncate text-destructive/80">{e.error ?? "failed"}</span>
                   )}
-                  <span className="ml-auto shrink-0">{timeAgo(e.at)}</span>
+                  <span className="ml-auto shrink-0">{relativeMs(e.at)}</span>
                 </span>
               </button>
             ))

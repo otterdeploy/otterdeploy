@@ -2,6 +2,7 @@
  * Shared types + formatters for the Volumes feature. Row types are inferred
  * from the oRPC client so the UI can't drift from the contract.
  */
+import { relativeSeconds } from "@/shared/lib/time";
 import { client } from "@/shared/server/orpc";
 
 export type VolumesListOutput = Awaited<ReturnType<typeof client.volumes.list>>;
@@ -18,25 +19,8 @@ export function fmtBytes(n: number): string {
   return `${i === 0 ? v : v.toFixed(1)} ${units[i]}`;
 }
 
-const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["year", 60 * 60 * 24 * 365],
-  ["month", 60 * 60 * 24 * 30],
-  ["day", 60 * 60 * 24],
-  ["hour", 60 * 60],
-  ["minute", 60],
-  ["second", 1],
-];
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
 /** Unix seconds → relative time; guards non-finite/zero daemon timestamps. */
 export function timeAgoSeconds(seconds: number | null): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return "–";
-  const diffSeconds = seconds - Date.now() / 1000;
-  const abs = Math.abs(diffSeconds);
-  for (const [unit, secs] of RELATIVE_UNITS) {
-    if (abs >= secs || unit === "second") {
-      return rtf.format(Math.round(diffSeconds / secs), unit);
-    }
-  }
-  return "just now";
+  return relativeSeconds(seconds - Date.now() / 1000);
 }

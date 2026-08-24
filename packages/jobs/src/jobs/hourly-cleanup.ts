@@ -6,8 +6,10 @@ import {
   notification,
   platformMetric,
   resourceMetric,
+  serverMetric,
 } from "@otterdeploy/db/schema";
 import { session, verification } from "@otterdeploy/db/schema/auth";
+import { serverUnit, serverUnitStaleCutoff } from "@otterdeploy/db/schema/server-unit";
 import { and, inArray, isNotNull, lt } from "drizzle-orm";
 import * as z from "zod";
 
@@ -93,7 +95,17 @@ export const hourlyCleanupJob = defineJob({
       .where(lt(platformMetric.ts, daysAgo(METRIC_RETENTION_DAYS)))
       .returning({ seq: platformMetric.seq });
 
-    // 7. Build/deploy log lines for deployments past the retention window.
+    // 7. Aged-out per-node host metric samples. Same window and same reason
+    //    as the other two metric tables: this is the chart feed behind the
+    //    per-server history, not long-term observability. The latest snapshot
+    //    per server lives in server_health_sample and is never pruned (it is
+    //    upserted in place, so it cannot grow).
+    const prunedServerMetrics = await db
+      .delete(serverMetric)
+      .where(lt(serverMetric.ts, daysAgo(METRIC_RETENTION_DAYS)))
+      .returning({ seq: serverMetric.seq });
+
+    // 8. Build/deploy log lines for deployments past the retention window.
     //    Nothing pruned these before, and they are the highest-line-volume
     //    writer in the product: one row per line of every build ever run.
     //
@@ -117,6 +129,24 @@ export const hourlyCleanupJob = defineJob({
       prunedDeploymentLogs += deleted.length;
     }
 
+    // 8. Freshness sweep for per-host systemd unit rows.
+    //
+    //    NOT a retention window: server_unit holds one row per (server, unit)
+    //    and is upserted in place, so nothing here ages out by volume. This is
+    //    how a unit an operator REMOVED from a host disappears. The host simply
+    //    stops reporting it, the row's updatedAt stops moving, and after
+    //    SERVER_UNIT_STALE_AFTER_MS (five report intervals) it is deleted. No
+    //    reconcile step, no diff against a previous report, no way for the UI
+    //    to keep claiming a unit exists that the host has not mentioned in
+    //    minutes.
+    //
+    //    A whole server going quiet is the same mechanism: its units clear out
+    //    rather than sitting there frozen at their last-known state.
+    const prunedServerUnits = await db
+      .delete(serverUnit)
+      .where(lt(serverUnit.updatedAt, serverUnitStaleCutoff(now)))
+      .returning({ unitName: serverUnit.unitName });
+
     const summary = {
       sessions: expiredSessions.length,
       verifications: expiredVerifications.length,
@@ -124,7 +154,9 @@ export const hourlyCleanupJob = defineJob({
       notifications: prunedNotifications.length,
       metrics: prunedMetrics.length,
       platformMetrics: prunedPlatformMetrics.length,
+      serverMetrics: prunedServerMetrics.length,
       deploymentLogs: prunedDeploymentLogs,
+      serverUnits: prunedServerUnits.length,
     };
     log.info({ cleanup: { step: "done", ...summary } });
 

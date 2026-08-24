@@ -24,6 +24,7 @@
 
 import { useState } from "react";
 
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -32,6 +33,7 @@ import { Button } from "@/shared/components/ui/button";
 import type { PublicSsoProvider } from "../data/registration-mode";
 
 export function EnterpriseSsoSignIn({ providers }: { providers: PublicSsoProvider[] }) {
+  const { t } = useTranslation();
   // The id of the provider currently redirecting, so only the clicked button
   // shows a pending state. A boolean would grey out all of them.
   const [starting, setStarting] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function EnterpriseSsoSignIn({ providers }: { providers: PublicSsoProvide
     // already left the page.
     if (result.error) {
       setStarting(null);
-      toast.error(result.error.message ?? result.error.statusText ?? "Couldn't start SSO sign-in");
+      toast.error(result.error.message ?? result.error.statusText ?? t("auth.sso.startFailed"));
     }
   };
 
@@ -68,8 +70,8 @@ export function EnterpriseSsoSignIn({ providers }: { providers: PublicSsoProvide
           onClick={() => void start(provider.providerId)}
         >
           {starting === provider.providerId
-            ? `Redirecting to ${provider.label}…`
-            : `Continue with ${provider.label}`}
+            ? t("auth.sso.redirectingTo", { provider: provider.label })
+            : t("auth.sso.continueWith", { provider: provider.label })}
         </Button>
       ))}
     </div>

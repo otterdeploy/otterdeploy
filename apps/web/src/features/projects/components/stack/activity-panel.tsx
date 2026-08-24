@@ -14,7 +14,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import {
   actionTone,
-  timeAgo,
+  timeAgoOrDash,
   type ActionTone,
 } from "@/routes/_app/$orgSlug/-components/audit-helpers";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -118,7 +118,7 @@ function ActivityRow({ event }: { event: ProjectAuditEvent }) {
         </span>
       ) : null}
       <span className="ml-auto shrink-0 font-mono text-[10.5px] text-muted-foreground/70">
-        {timeAgo(event.timestamp)}
+        {timeAgoOrDash(event.timestamp)}
       </span>
     </div>
   );

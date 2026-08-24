@@ -261,3 +261,13 @@ export class PlacementVolumeLossError extends TaggedError("PlacementVolumeLossEr
     });
   }
 }
+
+/**
+ * The server picked as a service's builder can't serve that role: it isn't
+ * marked as a build server, it's gone, or assigning it would produce an image
+ * the run nodes can't pull (no registry). Carries the operator-facing reason
+ * so the handler can surface it verbatim instead of inventing one.
+ */
+export class BuildServerInvalidError extends TaggedError("BuildServerInvalidError")<{
+  message: string;
+}>() {}

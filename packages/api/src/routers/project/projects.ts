@@ -4,7 +4,7 @@
  * tagged `Result` values.
  */
 
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ServerId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -143,6 +143,7 @@ export async function updateProject(
     slug?: string;
     customDomain?: string | null;
     nixpacksConfig?: NixpacksConfig | null;
+    buildServerId?: ServerId | null;
   } & OrgRef,
 ): Promise<Result<Project, ProjectNotFoundError | ProjectConflictError>> {
   const name = input.name !== undefined ? input.name.trim() : undefined;
@@ -155,6 +156,7 @@ export async function updateProject(
       slug: input.slug,
       customDomain: normalizeCustomDomain(input.customDomain),
       nixpacksConfig: input.nixpacksConfig,
+      buildServerId: input.buildServerId,
     });
     if (!updated) {
       return Result.err(new ProjectNotFoundError({ projectId: input.id }));

@@ -5,6 +5,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
+import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -19,6 +20,7 @@ import {
   queryEdgeLogs,
   queryEdgeLogsDb,
 } from "../../edge-logs";
+import { analyticsRunning } from "../../edge-logs/aggregate";
 import {
   queryAnalyticsBreakdowns,
   queryAnalyticsOverview,
@@ -29,6 +31,20 @@ import { listProjectRoutes, listRouteUpstreams } from "./queries";
 import { bucketRequestSeries, coveringRange } from "./request-series";
 import { mergeRouteStats } from "./route-stats";
 import { resolveHosts, streamEdgeEvents, streamEdgeLogs } from "./streams";
+
+/**
+ * Whether this install is recording traffic at all, resolved once per request
+ * so both halves of a page report the same answer.
+ *
+ * This is the difference between "no requests in this window" (a measurement)
+ * and "nothing has ever been measured" (the absence of one). The Analytics
+ * page could not tell them apart before, so a dev install with EDGE_LOG_SINK
+ * unset — where the rollup loop is never even started (apps/server bootstrap)
+ * — blamed the time range for a condition no time range could fix.
+ */
+function collectionStatus(): { sinkConfigured: boolean; collecting: boolean } {
+  return { sinkConfigured: Boolean(env.EDGE_LOG_SINK), collecting: analyticsRunning() };
+}
 
 /** DB-backed when persistence is on (covers long windows + survives restarts),
  *  else the in-memory ring; on a DB error (e.g. the table missing before
@@ -212,9 +228,10 @@ export const edgeLogsRouter = {
           toMs: window.fromMs,
           bucketMinutes: window.bucketMinutes,
         };
+        const collection = collectionStatus();
         const [current, previous] = await Promise.all([
-          queryAnalyticsOverview(hosts, window, geoAvailable()),
-          queryAnalyticsOverview(hosts, previousWindow, geoAvailable()),
+          queryAnalyticsOverview(hosts, window, geoAvailable(), collection),
+          queryAnalyticsOverview(hosts, previousWindow, geoAvailable(), collection),
         ]);
         return {
           ...current,
@@ -235,7 +252,12 @@ export const edgeLogsRouter = {
           throw errors.FORBIDDEN({ message });
         });
         const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
-        const { breakdowns, flags } = await queryAnalyticsBreakdowns(hosts, window, geoAvailable());
+        const { breakdowns, flags } = await queryAnalyticsBreakdowns(
+          hosts,
+          window,
+          geoAvailable(),
+          collectionStatus(),
+        );
         return { ...breakdowns, flags };
       },
     ),
@@ -254,7 +276,9 @@ export const edgeLogsRouter = {
         () => queryEdgeEventsDb(filter, now),
         () => queryEdgeEvents(filter, now),
       );
-      return result;
+      // Same distinction the Analytics page already draws: an empty table with
+      // no sink configured is an absence of measurement, not a measurement.
+      return { ...result, sinkConfigured: collectionStatus().sinkConfigured };
     }),
 
     tail: orgScopedProcedure.edgeLogs.events.tail.handler(async function* ({

@@ -23,7 +23,7 @@ import type { ComposeManifest } from "../../stack/manifest";
 
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
-import { resolveBuildLane } from "../../lib/build-lane";
+import { resolveBuildLane } from "../../lib/build-target";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";

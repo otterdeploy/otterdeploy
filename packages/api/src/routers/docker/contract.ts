@@ -222,7 +222,14 @@ export const dockerContract = {
       // Dangling-only by design, pruning tagged-but-unused images from the
       // debug page would eat the deploy cache.
       .input(z.object({}))
-      .output(z.object({ imagesDeleted: z.number(), reclaimedBytes: z.number() })),
+      .output(
+        z.object({
+          imagesDeleted: z.number(),
+          reclaimedBytes: z.number(),
+          /** Leaked control-plane helper containers swept in the same pass. */
+          helpersDeleted: z.number(),
+        }),
+      ),
   },
   volumes: {
     list: oc

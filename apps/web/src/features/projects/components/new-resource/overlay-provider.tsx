@@ -90,7 +90,12 @@ export function ResourceOverlayProvider({ children }: { children: ReactNode }) {
           initialTemplateView={templatesFirst}
           composePrefill={
             template
-              ? { name: template.name, content: template.compose, logoBrand: template.logoBrand }
+              ? {
+                  name: template.name,
+                  content: template.compose,
+                  logoBrand: template.logoBrand,
+                  files: template.files,
+                }
               : null
           }
           onOpenChange={setOpen}

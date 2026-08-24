@@ -1,5 +1,7 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
+import { useTranslation } from "react-i18next";
+
 import { ResourceWizard } from "@/features/projects/components/new-resource/wizard";
 import {
   Dialog,
@@ -36,6 +38,7 @@ export function ResourceOverlayDialog({
   composePrefill,
   onOpenChange,
 }: ResourceOverlayDialogProps) {
+  const { t } = useTranslation();
   return (
     // `disablePointerDismissal`: a multi-step wizard must NOT close on an
     // outside/pointer press. Beyond the UX (you'd lose staged progress on a
@@ -49,31 +52,34 @@ export function ResourceOverlayDialog({
       <DialogContent className="flex h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-230">
         <DialogHeader className="border-b px-5 pt-4 pb-3">
           <DialogTitle>
-            {composePrefill ? `Deploy ${composePrefill.name}` : "Deploy a new service"}
+            {composePrefill
+              ? t("compose.dialogDeployTemplate", { name: composePrefill.name })
+              : t("compose.dialogDeployService")}
           </DialogTitle>
           <DialogDescription>
             {composePrefill ? (
               <>
-                Review the template's compose file and variables
+                {t("compose.dialogTemplateBefore")}
                 {projectName ? (
                   <>
                     {" "}
-                    for <span className="font-medium text-foreground">{projectName}</span>
+                    {t("compose.dialogForProject")}{" "}
+                    <span className="font-medium text-foreground">{projectName}</span>
                   </>
                 ) : null}
-                . Nothing deploys until you apply the staged change.
+                {t("compose.dialogTemplateAfter")}
               </>
             ) : (
               <>
-                Pick what you want to launch. Otterdeploy can build app code, pull images, import
-                compose stacks, or provision a database
+                {t("compose.dialogServiceBefore")}
                 {projectName ? (
                   <>
                     {" "}
-                    in <span className="font-medium text-foreground">{projectName}</span>
+                    {t("compose.dialogInProject")}{" "}
+                    <span className="font-medium text-foreground">{projectName}</span>
                   </>
                 ) : null}
-                .
+                {t("compose.dialogServiceAfter")}
               </>
             )}
           </DialogDescription>

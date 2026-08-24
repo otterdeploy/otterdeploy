@@ -79,17 +79,3 @@ export function invalidateCertificates(): void {
   void queryClient.invalidateQueries({ queryKey: orpc.certificates.inventory.queryKey() });
   void queryClient.invalidateQueries({ queryKey: orpc.certificates.listCustom.queryKey() });
 }
-
-/** Compact "X ago" for the uploaded column. */
-export function timeAgo(value: string | Date): string {
-  const d = value instanceof Date ? value : new Date(value);
-  const sec = Math.round((Date.now() - d.getTime()) / 1000);
-  if (!Number.isFinite(sec) || sec < 60) return "just now";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 365) return `${day}d ago`;
-  return `${Math.round(day / 365)}y ago`;
-}

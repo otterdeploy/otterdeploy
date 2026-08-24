@@ -30,7 +30,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { SshKey } from "./data/ssh-keys";
 
-import { timeAgo } from "./data/ssh-keys";
+import { timeAgoOrNull } from "./data/ssh-keys";
 import { DeleteButton, RotateButton } from "./key-card-actions";
 
 const USAGE_ICON = {
@@ -156,8 +156,8 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
 
       <div className="flex items-center gap-2 border-t pt-3">
         <span className="font-mono text-[11px] text-muted-foreground">
-          {timeAgo(sshKey.createdAt) && `generated ${timeAgo(sshKey.createdAt)}`}
-          {sshKey.lastUsedAt && ` · last used ${timeAgo(sshKey.lastUsedAt)}`}
+          {timeAgoOrNull(sshKey.createdAt) && `generated ${timeAgoOrNull(sshKey.createdAt)}`}
+          {sshKey.lastUsedAt && ` · last used ${timeAgoOrNull(sshKey.lastUsedAt)}`}
         </span>
         <div className="flex-1" />
         <Button

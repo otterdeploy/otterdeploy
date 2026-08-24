@@ -16,6 +16,7 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -25,22 +26,23 @@ import {
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-/** Why the password switch is pinned on, or null when it is free to move. */
-function passwordLockReason(view: {
+/** Translation key for why the password switch is pinned on, or null when it
+ *  is free to move. Returns a KEY rather than a sentence so the decision stays
+ *  a pure function the caller can translate. */
+function passwordLockKey(view: {
   bootstrapComplete: boolean;
   liveSocialProviderCount: number;
   registeredSsoProviderCount: number;
   sso: boolean;
-}): string | null {
-  if (!view.bootstrapComplete) {
-    return "The first account has to be created with a password and the installer's bootstrap token, so this stays on until someone signs up.";
-  }
+}): "sso.passwordLockedBootstrap" | "sso.passwordLockedNoFederated" | null {
+  if (!view.bootstrapComplete) return "sso.passwordLockedBootstrap";
   if (view.liveSocialProviderCount > 0) return null;
   if (view.sso && view.registeredSsoProviderCount > 0) return null;
-  return "Nothing else can sign anyone in yet. Configure a social provider below, or register an identity provider in Workspace → SSO, before turning passwords off.";
+  return "sso.passwordLockedNoFederated";
 }
 
 export function SignInMethodsCard({ organizationId }: { organizationId: OrganizationId }) {
+  const { t } = useTranslation();
   const query = useQuery(
     orpc.organization.getSignInMethods.queryOptions({ input: { organizationId } }),
   );
@@ -51,14 +53,17 @@ export function SignInMethodsCard({ organizationId }: { organizationId: Organiza
       await queryClient.invalidateQueries({
         queryKey: orpc.organization.getSignInMethods.queryKey({ input: { organizationId } }),
       });
-      toast.success("Sign-in methods updated");
+      toast.success(t("sso.methodsSaved"));
     },
-    onError: (err) => toast.error(err.message ?? "Failed to save sign-in methods"),
+    onError: (err) => toast.error(err.message ?? t("sso.methodsSaveFailed")),
   });
 
   const view = query.data;
   const busy = save.isPending || query.isLoading;
-  const lock = view ? passwordLockReason(view) : "Loading…";
+  const lockKey = view ? passwordLockKey(view) : null;
+  // Locked while the first read is still in flight too: flipping a switch
+  // before its floor is known could send a save the server would refuse.
+  const locked = lockKey !== null || !view;
 
   /** Send the whole set every time: the server's lock-out check has to see the
    *  resulting state, not a single field, so a partial patch would make it
@@ -80,27 +85,24 @@ export function SignInMethodsCard({ organizationId }: { organizationId: Organiza
   return (
     <SettingsSection
       icon={ShieldKeyIcon}
-      title="Sign-in methods"
-      description="How people prove who they are on this installation. The sign-in page shows exactly what is enabled here."
+      title={t("sso.methodsTitle")}
+      description={t("sso.methodsDescription")}
     >
       <SettingsRow
-        title="Email and password"
-        description={
-          lock ??
-          "On. People sign in with an email address and a password, and can reset it by email."
-        }
+        title={t("sso.passwordTitle")}
+        description={lockKey === null ? t("sso.passwordOn") : t(lockKey)}
         control={
           <Switch
             checked={view?.password ?? true}
-            disabled={busy || lock !== null}
+            disabled={busy || locked}
             onCheckedChange={(checked) => set({ password: checked })}
           />
         }
       />
 
       <SettingsRow
-        title="Passkeys"
-        description="Passwordless sign-in with a device biometric or a security key. Off also stops anyone registering a new passkey; existing ones are kept, not deleted, and start working again if you turn this back on."
+        title={t("sso.passkeyTitle")}
+        description={t("sso.passkeyDescription")}
         control={
           <Switch
             checked={view?.passkey ?? true}
@@ -111,11 +113,11 @@ export function SignInMethodsCard({ organizationId }: { organizationId: Organiza
       />
 
       <SettingsRow
-        title="Enterprise SSO"
+        title={t("sso.enterpriseTitle")}
         description={
           view && view.registeredSsoProviderCount === 0
-            ? "No identity provider is registered yet. Add one in Workspace → SSO; this switch controls whether its button appears on the sign-in page."
-            : "Per-workspace OIDC identity providers (Okta, Entra ID, Google Workspace, Authentik). Each registered provider gets its own button on the sign-in page. Turning this off leaves the providers configured but stops them signing anyone in."
+            ? t("sso.enterpriseNoProviders")
+            : t("sso.enterpriseDescription")
         }
         control={
           <Switch

@@ -147,6 +147,20 @@ A warm-neutral monochrome canvas with exactly one chromatic accent. The greys ca
 - **Hairline** (`rgba(20,20,18,0.09)`; dark `rgba(255,255,250,0.08)`): All borders and dividers. A transparency of the ink, never a separate grey.
 - Greyscale chart ramp runs from Muted Ink through to Warm Ink (`#a8a8a0 → #7a7a74 → #4a4a46 → #2a2a26 → #141412`). Data viz stays monochrome unless a category color is earned.
 
+### Data ink (charts and meters)
+
+The ≤10% accent budget governs **chrome** — buttons, nav, rails, badges, focus rings. It does not govern **data ink**. A chart is not decorated with color; in a categorical chart the color *is* the data, and eight series rendered in eight greys is not a restrained chart, it is a broken one. A categorical series set is what "a category color is earned" means.
+
+Three rules keep this from leaking into the rest of the interface:
+
+- **Single-series charts stay grey.** One line does not need a hue. The `--chart-1..5` ramp remains the answer for every single-series chart and sparkline.
+- **Hue is only ever identity or magnitude.** Never mood, never emphasis, never a gradient for its own sake. If a color is not distinguishing one series from another, or placing a value against a threshold, it does not appear.
+- **Chrome is untouched.** Cards, rails, badges, buttons and the project graph stay monochrome-plus-Signal-Blue. Data color lives inside the plot area and the meter track and nowhere else.
+
+**Categorical series scale.** A series color is never a literal. Hue comes from an evenly spaced wheel (origin 210°, `hue = 210 + i × 360/n`) assigned *after* sorting series by magnitude, so the largest contributor always holds the same slot and a small rank change never repaints the chart. Saturation and lightness come from `--chart-series-s` / `--chart-series-l`, which the theme redefines (`62%/44%` light, `58%/62%` dark) — a series keeps its identity across a theme switch while the theme alone sets how loud it is. Implementation: `shared/lib/chart-series.ts`. Filtering a chart **dims** non-matching series by dropping their alpha; it never removes them, because removing changes the axis domain and the height of a stack, so the shape being read moves while it is being read.
+
+**Threshold scale.** A measured percentage is a number *and* a proportional bar *and* a state color, from one shared helper (`@otterdeploy/shared/thresholds`) that the alert evaluator reads too — what the UI paints amber and what wakes someone up can never disagree. Warn and crit levels are operator-owned per organisation (defaults 65/90), because 85% disk is comfortable on an archive box and an emergency on a build host. The bar always sits beside the number it describes.
+
 ### Semantic (state, not decoration)
 - **Destructive** (`#b42318`; dark `#f87171`): Errors and dangerous actions. Rendered as a **tint** (`destructive/10` bg + destructive text), not a solid red fill, except on the most dangerous confirmations.
 - **Success** (`#1f7a3f`; dark `#4ade80`): Healthy/running/deployed.

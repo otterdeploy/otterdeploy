@@ -1,0 +1,22 @@
+import type { SVGProps } from "react";
+
+/**
+ * Unleash mark (getunleash.io). Colours are the brand's own.
+ */
+const Unleash = (props: SVGProps<SVGSVGElement>) => (
+  <svg {...props} role="img" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <title>Unleash</title>
+    <path
+      d="M29.8137 59.6273C46.2793 59.6273 59.6273 46.2793 59.6273 29.8137C59.6273 13.348 46.2793 0 29.8137 0C13.348 0 0 13.348 0 29.8137C0 46.2793 13.348 59.6273 29.8137 59.6273Z"
+      fill="#1A4049"
+    />
+    <path
+      d="M25.554 25.5541V17.0348H17.0348V25.5541V34.0733V42.5888H25.554H34.0733V34.0733H25.554V25.5541Z"
+      fill="white"
+    />
+    <path d="M34.0733 17.0348V25.5541V34.0733H42.5888V25.5541V17.0348H34.0733Z" fill="white" />
+    <path d="M42.5925 34.0735H34.0733V42.5928H42.5925V34.0735Z" fill="#817AFE" />
+  </svg>
+);
+
+export { Unleash };

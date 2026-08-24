@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5aa4cc2a-501e-4806-9481-a9eafbd7ea49",
+  "id": "a46525cb-c831-4e74-b8a5-874f84638b98",
   "prevIds": [
-    "60fb4f81-0c8d-4bf3-9148-448445340b6d"
+    "f51113f9-b118-4579-8289-f08bd28c5d04"
   ],
   "ddl": [
     {
@@ -997,6 +997,18 @@
     {
       "isRlsEnabled": false,
       "name": "swarm_join_rotation",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "server_metric",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "server_unit",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7551,6 +7563,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "alert_warn_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "platform_settings"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "alert_crit_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "platform_settings"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "builder_concurrency",
       "entityType": "columns",
       "schema": "public",
@@ -8877,6 +8915,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "build_server_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "stack_file",
       "entityType": "columns",
       "schema": "public",
@@ -10100,6 +10151,19 @@
       "generated": null,
       "identity": null,
       "name": "build_config",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_resource"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "build_server_id",
       "entityType": "columns",
       "schema": "public",
       "table": "service_resource"
@@ -11585,6 +11649,474 @@
       "entityType": "columns",
       "schema": "public",
       "table": "swarm_join_rotation"
+    },
+    {
+      "type": "bigserial",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "seq",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "server_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "ts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cpu_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cpu_user_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cpu_system_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cpu_iowait_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cpu_steal_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_used_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_available_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_total_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_cached_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_buffers_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "zfs_arc_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "swap_used_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "disk_used_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "disk_free_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "disk_read_bytes_per_sec",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "disk_write_bytes_per_sec",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "load_avg_1",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "load_avg_5",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "load_avg_15",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "net_rx_bytes_per_sec",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "net_tx_bytes_per_sec",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "server_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "organization_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unit_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "active_state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sub_state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "cpu_pct",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "mem_peak_bytes",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "restart_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "active_enter_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "server_unit"
     },
     {
       "type": "text",
@@ -15266,6 +15798,104 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "server_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "ts",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "server_metric_server_ts_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "ts",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "server_metric_org_ts_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "organization_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "server_unit_org_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "updated_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "server_unit_updated_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "organization_id",
           "isExpression": false,
           "asc": true,
@@ -16651,6 +17281,74 @@
     {
       "nameExplicit": false,
       "columns": [
+        "server_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "server",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "server_metric_server_id_server_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organization",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "server_metric_organization_id_organization_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "server_metric"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "server_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "server",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "server_unit_server_id_server_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "organization_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organization",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "server_unit_organization_id_organization_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "server_unit"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "organization_id"
       ],
       "schemaTo": "public",
@@ -16810,6 +17508,17 @@
       "entityType": "pks",
       "schema": "public",
       "table": "database_draft_credential"
+    },
+    {
+      "columns": [
+        "server_id",
+        "unit_name"
+      ],
+      "nameExplicit": false,
+      "name": "server_unit_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "server_unit"
     },
     {
       "columns": [
@@ -17399,6 +18108,16 @@
       "name": "swarm_join_rotation_pkey",
       "schema": "public",
       "table": "swarm_join_rotation",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "seq"
+      ],
+      "nameExplicit": false,
+      "name": "server_metric_pkey",
+      "schema": "public",
+      "table": "server_metric",
       "entityType": "pks"
     },
     {

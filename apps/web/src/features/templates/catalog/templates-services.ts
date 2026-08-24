@@ -7,14 +7,13 @@ export const SERVICES_TEMPLATES: StackTemplate[] = [
   {
     id: "browserless",
     name: "Browserless",
-    description:
-      "Headless Chrome as a service. Point Puppeteer or Playwright at it over websocket for screenshots, PDFs and scraping, without shipping a browser inside your own image.",
+    descriptionKey: "templates.catalog.browserless.description",
     category: "devtools",
     includes: ["browserless"],
     requiredEnv: [
       {
         key: "BROWSERLESS_TOKEN",
-        description: "Bearer token every connecting client must present.",
+        descriptionKey: "templates.catalog.browserless.env.BROWSERLESS_TOKEN",
       },
     ],
     logoBrand: "Chromium",
@@ -35,8 +34,7 @@ services:
   {
     id: "gotenberg",
     name: "Gotenberg",
-    description:
-      "Stateless HTTP API that turns HTML, Markdown or Office documents into PDFs. Chromium and LibreOffice live in the container so your app never has to.",
+    descriptionKey: "templates.catalog.gotenberg.description",
     category: "devtools",
     includes: ["gotenberg"],
     requiredEnv: [],
@@ -58,8 +56,7 @@ services:
   {
     id: "it-tools",
     name: "IT Tools",
-    description:
-      "The utility drawer: hash and JWT decoders, UUID and password generators, cron parsers, base64, regex testers, colour converters. Everything runs client-side once loaded.",
+    descriptionKey: "templates.catalog.it-tools.description",
     category: "devtools",
     includes: ["it-tools"],
     requiredEnv: [],
@@ -77,14 +74,13 @@ services:
   {
     id: "drizzle-gateway",
     name: "Drizzle Gateway",
-    description:
-      "Self-hosted Drizzle Studio. Browse and edit any Postgres, MySQL or SQLite database in the browser, with the schema rendered the way Drizzle sees it.",
+    descriptionKey: "templates.catalog.drizzle-gateway.description",
     category: "devtools",
     includes: ["drizzle-gateway"],
     requiredEnv: [
       {
         key: "GATEWAY_MASTERPASS",
-        description: "Master password guarding the studio and its saved connections.",
+        descriptionKey: "templates.catalog.drizzle-gateway.env.GATEWAY_MASTERPASS",
       },
     ],
     logoBrand: "Drizzle",
@@ -108,8 +104,7 @@ volumes:
   {
     id: "cloudbeaver",
     name: "CloudBeaver",
-    description:
-      "DBeaver in the browser: a full SQL console with schema navigation, ER diagrams and query history across Postgres, MySQL, SQLite and more, shared by a team.",
+    descriptionKey: "templates.catalog.cloudbeaver.description",
     category: "devtools",
     includes: ["cloudbeaver"],
     requiredEnv: [],
@@ -133,18 +128,17 @@ volumes:
   {
     id: "soketi",
     name: "Soketi",
-    description:
-      "Pusher-compatible websocket server. Keep the Pusher client SDKs and point them here instead. Drop-in realtime for Laravel Echo, Rails and anything speaking the protocol.",
+    descriptionKey: "templates.catalog.soketi.description",
     category: "data",
     includes: ["soketi"],
     requiredEnv: [
       {
         key: "SOKETI_APP_KEY",
-        description: "Public app key clients connect with.",
+        descriptionKey: "templates.catalog.soketi.env.SOKETI_APP_KEY",
       },
       {
         key: "SOKETI_APP_SECRET",
-        description: "Server-side secret used to sign channel authorization.",
+        descriptionKey: "templates.catalog.soketi.env.SOKETI_APP_SECRET",
       },
     ],
     logoBrand: "Soketi",
@@ -167,8 +161,7 @@ services:
   {
     id: "mosquitto",
     name: "Mosquitto",
-    description:
-      "The reference MQTT broker: tiny, fast, and what most IoT and device fleets speak. Persists retained messages and subscriptions to a named volume.",
+    descriptionKey: "templates.catalog.mosquitto.description",
     category: "data",
     includes: ["mosquitto"],
     requiredEnv: [],
@@ -194,14 +187,13 @@ volumes:
   {
     id: "pocket-id",
     name: "Pocket ID",
-    description:
-      "OIDC provider built around passkeys, so there are no passwords to store or reset. Small enough to put in front of internal tools without running a full identity platform.",
+    descriptionKey: "templates.catalog.pocket-id.description",
     category: "security",
     includes: ["pocket-id"],
     requiredEnv: [
       {
         key: "APP_URL",
-        description: "Public base URL. Issued tokens and OIDC discovery are built from it.",
+        descriptionKey: "templates.catalog.pocket-id.env.APP_URL",
       },
     ],
     logoBrand: "Pocket ID",

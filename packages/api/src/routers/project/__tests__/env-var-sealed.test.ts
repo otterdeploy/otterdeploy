@@ -42,6 +42,7 @@ const projectRow: NonNullable<Awaited<ReturnType<typeof queries.getProjectInOrg>
   organizationId,
   name: "p",
   slug: "p",
+  buildServerId: null,
   environmentId: null,
   stackFile: null,
   stackFileVersion: 0,

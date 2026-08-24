@@ -101,7 +101,18 @@ export const composeContract = {
         /** Multi-file inline stack: the compose file + supporting files
          *  (Dockerfiles/build contexts, env_file targets, bind-mounted scripts).
          *  When set, `composePath` names which entry is the compose file. */
-        files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+        files: z
+          .array(
+            z.object({
+              path: z.string(),
+              content: z.string(),
+              /** Resolve `${VAR}` in `content` at materialize time. Off by
+               *  default so a pasted script keeps its own `${…}`; templates
+               *  set it for configs holding per-install values. */
+              interpolate: z.boolean().optional(),
+            }),
+          )
+          .optional(),
         /** Bound repo id (git source). The repo picker's selection. Clones via
          *  the GitHub App installation token, so private repos work. Preferred
          *  over `gitRepoUrl`. */

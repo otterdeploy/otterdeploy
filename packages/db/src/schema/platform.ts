@@ -36,6 +36,13 @@ export const platformSettings = pgTable("platform_settings", {
    *  without the operator owning any domain. Detected on first boot
    *  and editable from the platform settings page. */
   serverIp: text("server_ip"),
+  /** Public IPv6 the host answers on, when it has one. Optional in a way
+   *  `serverIp` is not: an IPv4-only host is normal, so null here means
+   *  "no IPv6", never "not detected yet". Detected on first boot from an
+   *  IPv6-only echo service (a host without v6 egress simply gets null)
+   *  and editable alongside the v4 address. Surfaced so an operator can
+   *  publish AAAA records for the same install. */
+  serverIpv6: text("server_ipv6"),
   /** Email address Caddy registers with Let's Encrypt for ACME
    *  notifications + recovery. Required before any real (non-sslip)
    *  domain can be issued a public cert. */
@@ -167,6 +174,18 @@ export const platformSettings = pgTable("platform_settings", {
    *  null ⇒ EDGE_LOG_GEOIP_URL / EDGE_LOG_GEOIP_ASN_URL. */
   edgeLogGeoipUrl: text("edge_log_geoip_url"),
   edgeLogGeoipAsnUrl: text("edge_log_geoip_asn_url"),
+
+  // ─── Measurement thresholds ─────────────────────────────────────────
+  /** The percentages at which a measured value reads as elevated and as
+   *  critical. One pair drives BOTH the colour of every meter in the UI and
+   *  the level alert evaluation uses, so what an operator sees painted amber
+   *  and what wakes them up cannot disagree.
+   *
+   *  Operator-owned because there is no correct constant: 85% disk is
+   *  comfortable on a 4 TB archive box and an emergency on a 40 GB build host.
+   *  null ⇒ the DEFAULT_THRESHOLDS pair in @otterdeploy/shared/thresholds. */
+  alertWarnPct: integer("alert_warn_pct"),
+  alertCritPct: integer("alert_crit_pct"),
 
   // ─── Build pipeline ─────────────────────────────────────────────────
   /** Deploy jobs the builder pulls concurrently. null ⇒

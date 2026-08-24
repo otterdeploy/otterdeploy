@@ -91,9 +91,32 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
 // Props are literally "which step" + the renderers' context: reuse StepCtx
 // instead of restating its fields as a second, drift-prone list.
 export function WizardStepBody({ step, ...ctx }: { step: Step } & StepCtx) {
+  // The template picker is the one step that keeps a control pinned above a
+  // long list, so it scrolls its own results instead of riding this scroller.
+  //
+  // It has to own the scrolling rather than pin a `sticky` bar inside it:
+  // `sticky top-0` resolves against the scroll container's CONTENT box, so this
+  // element's `p-4` left a 16px band between the scrollport's top edge and the
+  // pinned bar, and rows stayed visible (clipped, but painted) in it as they
+  // passed. Bleeding the bar into the padding with negative margins fixes the
+  // resting layout and not that band, and a negative `top` stops it sticking at
+  // all. Taking the padding and the overflow off for this step removes the band
+  // instead of trying to cover it.
+  const ownsScroll = step === "kind" && ctx.templateView;
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <div className={cn("mx-auto max-w-205", { "max-w-275": step === "kind" })}>
+    <div
+      className={cn(
+        "min-h-0 flex-1",
+        ownsScroll ? "flex flex-col overflow-hidden" : "overflow-y-auto p-4",
+      )}
+    >
+      <div
+        className={cn(
+          "mx-auto w-full max-w-205",
+          { "max-w-275": step === "kind" },
+          ownsScroll && "flex min-h-0 flex-1 flex-col",
+        )}
+      >
         {STEP_RENDERERS[step](ctx)}
       </div>
     </div>

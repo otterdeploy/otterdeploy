@@ -28,7 +28,7 @@ export const METRIC_WINDOWS = [
 export type MetricWindowLabel = (typeof METRIC_WINDOWS)[number]["label"];
 
 /** Sampler cadence (apps/server `startMetricsSampler`): we refetch in step. */
-const SAMPLE_INTERVAL_MS = 30_000;
+export const SAMPLE_INTERVAL_MS = 30_000;
 
 /** One charted sample: server fields plus the derived ratio + rates. */
 export interface MetricRow {

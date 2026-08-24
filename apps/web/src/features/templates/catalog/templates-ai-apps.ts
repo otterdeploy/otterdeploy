@@ -6,14 +6,13 @@ export const AI_APPS_TEMPLATES: StackTemplate[] = [
   {
     id: "flowise",
     name: "Flowise",
-    description:
-      "Drag-and-drop builder for LLM chains and agents. Wire up prompts, tools, retrievers and memory on a canvas, then call the result as an API. Flows persist to a named volume.",
+    descriptionKey: "templates.catalog.flowise.description",
     category: "ai",
     includes: ["flowise"],
     requiredEnv: [
       {
         key: "FLOWISE_PASSWORD",
-        description: "Password for the built-in admin login.",
+        descriptionKey: "templates.catalog.flowise.env.FLOWISE_PASSWORD",
       },
     ],
     logoBrand: "Flowise",
@@ -42,14 +41,13 @@ volumes:
   {
     id: "anythingllm",
     name: "AnythingLLM",
-    description:
-      "All-in-one RAG workspace. Drop in documents, pick a model, and chat over them with citations. Bundles its own vector store, so there is nothing else to run.",
+    descriptionKey: "templates.catalog.anythingllm.description",
     category: "ai",
     includes: ["anythingllm"],
     requiredEnv: [
       {
         key: "JWT_SECRET",
-        description: "Signs session tokens for the multi-user mode.",
+        descriptionKey: "templates.catalog.anythingllm.env.JWT_SECRET",
       },
     ],
     logoBrand: "AnythingLLM",
@@ -74,8 +72,7 @@ volumes:
   {
     id: "libretranslate",
     name: "LibreTranslate",
-    description:
-      "Self-hosted machine translation API, with no per-character billing and no text leaving your server. Downloads language models on first start into a named volume.",
+    descriptionKey: "templates.catalog.libretranslate.description",
     category: "ai",
     includes: ["libretranslate"],
     requiredEnv: [],
@@ -100,26 +97,25 @@ volumes:
   {
     id: "activepieces",
     name: "Activepieces",
-    description:
-      "No-code automation with 200+ integrations and a branching flow builder: the open alternative to Zapier. Postgres for flow state, Redis for the job queue.",
+    descriptionKey: "templates.catalog.activepieces.description",
     category: "automation",
     includes: ["activepieces", "db", "redis"],
     requiredEnv: [
       {
         key: "AP_FRONTEND_URL",
-        description: "Public base URL. Webhook endpoints and OAuth callbacks are built from it.",
+        descriptionKey: "templates.catalog.activepieces.env.AP_FRONTEND_URL",
       },
       {
         key: "AP_ENCRYPTION_KEY",
-        description: "32-character hex key encrypting stored connection credentials.",
+        descriptionKey: "templates.catalog.activepieces.env.AP_ENCRYPTION_KEY",
       },
       {
         key: "AP_JWT_SECRET",
-        description: "Signs session tokens.",
+        descriptionKey: "templates.catalog.activepieces.env.AP_JWT_SECRET",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.activepieces.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Activepieces",

@@ -13,10 +13,12 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { fetchAuthPublicConfig } from "@/features/auth/data/registration-mode";
 
 export function InstanceSsoDisabledNotice() {
+  const { t } = useTranslation();
   const config = useQuery({
     // Same key as the sign-in page so the two share one cached answer.
     queryKey: ["auth", "public-config"],
@@ -30,10 +32,7 @@ export function InstanceSsoDisabledNotice() {
 
   return (
     <div className="mb-4 rounded-md border border-dashed p-3 text-[13px] text-muted-foreground">
-      Enterprise SSO is switched off for this installation, so these providers do not appear on the
-      sign-in page and cannot sign anyone in. An install administrator can turn it back on in
-      Settings &rarr; Instance &rarr; Sign-in methods. Providers registered here are kept either
-      way.
+      {t("sso.instanceDisabled")}
     </div>
   );
 }

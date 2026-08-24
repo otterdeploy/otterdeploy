@@ -1,7 +1,11 @@
 /**
  * Inner chrome for the Compose wizard, built on `<form.FormGroup>`: one group
- * per step. The `file` group owns the source toggle + source-specific fields;
- * the `vars` group owns the `${VAR}` editor. Each group renders its OWN inner
+ * per step. The `file` group owns the source-specific fields (and the source
+ * toggle, but only when no template prefilled the content: a template IS the
+ * source, so the toggle would only offer a way to discard it). The `vars`
+ * group owns the `${VAR}` editor, whose body is in ./compose-vars-step.
+ *
+ * Each group renders its OWN inner
  * `<form>` whose submit calls `group.handleSubmit()`, so validation is
  * per-step: the group runs its own `onDynamic` schema (compose-schema.ts) and
  * only fires `onGroupSubmit` when that step is valid. Split out of
@@ -15,87 +19,35 @@
 
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import type { TFunction } from "i18next";
 
 import { useSelector } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 
 import type { ComposeForm, Preview } from "./compose-wizard-shared";
 
 import { fileStepSchema, varsStepSchema } from "./compose-schema";
-import { ComposeGitFields, ComposeInlineFields } from "./compose-wizard-fields";
-import { noDuplicateKeysValidator } from "./form-fields/variables-field";
+import { ComposeVarsStep } from "./compose-vars-step";
+import {
+  ComposeGitFields,
+  ComposeInlineFields,
+  ComposeSourceToggle,
+} from "./compose-wizard-fields";
 
 // The file-step button's label. Git has no vars step, so its file step stages
 // directly ("Add resource"). Inline always routes through the vars step so env
 // is reviewed BEFORE deploy: "Next: variables" when the file declares any,
 // "Review & stage" when it declares none.
-function fileStepLabel(source: "inline" | "git", hasVars: boolean, isPending: boolean): string {
-  if (source === "git") return isPending ? "Adding…" : "Add resource";
-  return hasVars ? "Next: variables" : "Review & stage";
-}
-
-function ComposeVarsStep({
-  form,
-  projectId,
-  hasVars,
-  requiredUnset,
-}: {
-  form: ComposeForm;
-  projectId: ProjectId;
-  hasVars: boolean;
-  requiredUnset: boolean;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium">Environment variables</span>
-        <span className="text-xs text-muted-foreground">
-          {hasVars
-            ? "The compose file references these: secrets are auto-generated, defaults pre-filled. "
-            : "Set any variables this stack needs before it deploys. "}
-          A red marker flags a required value that's still empty; click the eye to reveal or edit a
-          secret. Saved as project variables.
-        </span>
-      </div>
-      {requiredUnset && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          Fill in the fields flagged in red: they're required and still empty. Secrets are already
-          generated; what's left is usually a URL or name only you know.
-        </div>
-      )}
-      <form.AppField name="vars.variables" validators={{ onChange: noDuplicateKeysValidator }}>
-        {(field) => <field.VariablesField projectId={projectId} />}
-      </form.AppField>
-    </div>
-  );
-}
-
-function ComposeSourceToggle({
-  source,
-  onSelect,
-}: {
-  source: "inline" | "git";
-  onSelect: (s: "inline" | "git") => void;
-}) {
-  return (
-    <div className="inline-flex w-fit items-center gap-1 rounded-md border bg-muted/40 p-0.5">
-      {(["inline", "git"] as const).map((s) => (
-        <button
-          key={s}
-          type="button"
-          onClick={() => onSelect(s)}
-          className={
-            source === s
-              ? "rounded bg-background px-2.5 py-1 text-xs text-foreground shadow-sm"
-              : "rounded px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-          }
-        >
-          {s === "inline" ? "Paste file" : "From repo"}
-        </button>
-      ))}
-    </div>
-  );
+function fileStepLabel(
+  t: TFunction,
+  source: "inline" | "git",
+  hasVars: boolean,
+  isPending: boolean,
+): string {
+  if (source === "git") return t(isPending ? "compose.adding" : "compose.addResource");
+  return t(hasVars ? "compose.nextVariables" : "compose.reviewStage");
 }
 
 // The `file` step. The FormGroup's `onDynamic` is `fileStepSchema` (its input
@@ -105,6 +57,7 @@ function ComposeFileGroup({
   form,
   source,
   hasVars,
+  hasPrefill,
   isPending,
   onNext,
   onCancel,
@@ -113,11 +66,13 @@ function ComposeFileGroup({
   form: ComposeForm;
   source: "inline" | "git";
   hasVars: boolean;
+  hasPrefill: boolean;
   isPending: boolean;
   onNext: (source: "inline" | "git") => void;
   onCancel?: () => void;
   fields: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <form.FormGroup
       name="file"
@@ -135,18 +90,30 @@ function ComposeFileGroup({
           noValidate
         >
           <div className="flex flex-1 flex-col gap-4 overflow-auto p-5">
-            <ComposeSourceToggle
-              source={source}
-              onSelect={(s) => form.setFieldValue("file.source", s)}
-            />
+            {/* A template IS the source. Offering "From repo" there is a dead
+                end wearing a tab: clicking it discards the prefilled YAML and
+                asks for a repo URL. The toggle is only a real choice when the
+                operator arrived with no file. */}
+            {hasPrefill ? null : (
+              <ComposeSourceToggle
+                source={source}
+                onSelect={(s) => form.setFieldValue("file.source", s)}
+              />
+            )}
             {fields}
           </div>
-          <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+          <div className="flex items-center gap-2 border-t px-5 py-3">
+            {hasVars && source === "inline" ? (
+              <span className="text-[11px] text-muted-foreground">
+                {t("compose.step", { current: 1, total: 2 })}
+              </span>
+            ) : null}
+            <div className="flex-1" />
             <Button variant="outline" size="sm" type="button" onClick={onCancel}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button size="sm" type="submit" disabled={!group.state.meta.isValid || isPending}>
-              {fileStepLabel(source, hasVars, isPending)}
+              {fileStepLabel(t, source, hasVars, isPending)}
             </Button>
           </div>
         </form>
@@ -173,6 +140,7 @@ function ComposeVarsGroup({
   onStage: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <form.FormGroup
       name="vars"
@@ -197,12 +165,16 @@ function ComposeVarsGroup({
               requiredUnset={!group.state.meta.isValid}
             />
           </div>
-          <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+          <div className="flex items-center gap-2 border-t px-5 py-3">
+            <span className="text-[11px] text-muted-foreground">
+              {t("compose.step", { current: 2, total: 2 })}
+            </span>
+            <div className="flex-1" />
             <Button variant="outline" size="sm" type="button" onClick={onBack}>
-              Back
+              {t("common.back")}
             </Button>
             <Button size="sm" type="submit" disabled={!group.state.meta.isValid || isPending}>
-              {isPending ? "Adding…" : "Add resource"}
+              {t(isPending ? "compose.adding" : "compose.addResource")}
             </Button>
           </div>
         </form>
@@ -219,6 +191,7 @@ export function ComposeWizardBody({
   parsing,
   preview,
   hasVars,
+  hasPrefill,
   isPending,
   onFileNext,
   onStage,
@@ -235,6 +208,8 @@ export function ComposeWizardBody({
   parsing: boolean;
   preview: Preview | null;
   hasVars: boolean;
+  /** A template seeded the compose content (the template handoff flow). */
+  hasPrefill: boolean;
   isPending: boolean;
   onFileNext: (source: "inline" | "git") => void;
   onStage: () => void;
@@ -273,6 +248,7 @@ export function ComposeWizardBody({
         parseContent={parseContent}
         parsing={parsing}
         preview={preview}
+        hasPrefill={hasPrefill}
       />
     );
 
@@ -281,6 +257,7 @@ export function ComposeWizardBody({
       form={form}
       source={source}
       hasVars={hasVars}
+      hasPrefill={hasPrefill}
       isPending={isPending}
       onNext={onFileNext}
       onCancel={onCancel}

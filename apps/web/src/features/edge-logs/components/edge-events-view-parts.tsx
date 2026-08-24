@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import {
   Table,
   TableBody,
@@ -38,13 +40,19 @@ export function EventsTable({
   expanded,
   setExpanded,
   isLoading,
+  sinkConfigured = true,
 }: {
   rows: EdgeEvent[];
   wrap: boolean;
   expanded: string | null;
   setExpanded: (id: string | null) => void;
   isLoading: boolean;
+  /** False ⇒ nothing is being collected, so an empty table is an absence of
+   *  measurement rather than a quiet window. Defaults true so a caller that
+   *  hasn't been updated can't accidentally claim collection is off. */
+  sinkConfigured?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
@@ -69,8 +77,10 @@ export function EventsTable({
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
                 {isLoading
-                  ? "Loading…"
-                  : "No edge events in this window. Certificate activity and upstream errors for your domains appear here."}
+                  ? t("common.loading")
+                  : sinkConfigured
+                    ? t("edgeLogs.eventsEmpty")
+                    : t("edgeLogs.eventsSinkOff")}
               </TableCell>
             </TableRow>
           ) : (

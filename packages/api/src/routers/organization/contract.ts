@@ -133,6 +133,22 @@ const controlPlaneDomainSchema = z.object({
   serverIp: z.string().nullable(),
 });
 
+/** What the edge is actually serving for the control-plane domain. TXT
+ *  verification proves ownership; this proves TLS works, which is a separate
+ *  fact the UI used to imply rather than check.
+ *
+ *  Status vocabulary is `lib/cert-probe`'s, unchanged, so the control-plane
+ *  domain reads the same as every other domain in the certificate inventory —
+ *  plus `unset` for "no control-plane domain configured", which is the one
+ *  state a general cert probe has no opinion about. */
+const controlPlaneCertificateSchema = z.object({
+  status: z.enum(["valid", "expiring", "expired", "internal", "error", "unset"]),
+  issuer: z.string().nullable(),
+  notAfter: z.string().nullable(),
+  daysRemaining: z.number().nullable(),
+  error: z.string().nullable(),
+});
+
 const setControlPlaneDomainInput = z.object({
   organizationId: organizationIdField,
   /** Empty string clears the domain (and removes the edge site block). */
@@ -169,19 +185,38 @@ const serverIpSchema = z.object({
   /** True when env SERVER_IP is set. It re-applies on every boot, so a UI
    *  edit would be overwritten. The UI disables the input and says so. */
   envOverride: z.boolean(),
+  /** The host's public IPv6, or null when it hasn't got one. Null is a
+   *  legitimate steady state (IPv4-only VPS), not a pending detection. */
+  serverIpv6: z.string().nullable(),
+  /** Same env-pinning story as `envOverride`, for SERVER_IPV6. Tracked
+   *  separately because the two can be pinned independently. */
+  envOverrideIpv6: z.boolean(),
 });
 
-// Loose IP shape (v4 dotted-quad or v6 hex+colons): mirrors the boot-time
-// detector's sanity check, not a full RFC validation. Empty string clears.
-const IP_RE = /^((\d{1,3}\.){3}\d{1,3}|[0-9a-fA-F:]*:[0-9a-fA-F:]*)$/;
+// Zod's own address formats (same primitives as `ipOrCidrField` in
+// runtime-settings-schema) rather than a hand-rolled regex: one parser for
+// what counts as an address, so the field can't drift from the rest of the
+// codebase. Trim first, then validate; empty string clears the field.
 const setServerIpInput = z.object({
   organizationId: organizationIdField,
   serverIp: z
     .string()
     .trim()
-    .refine((v) => v === "" || IP_RE.test(v), {
-      message: "must be an IPv4 or IPv6 address",
-    }),
+    .pipe(
+      z.union([z.literal(""), z.ipv4(), z.ipv6()], {
+        error: "must be an IPv4 or IPv6 address",
+      }),
+    ),
+  /** v6-only on purpose: accepting a dotted quad here would let the same
+   *  address sit in both columns, and every consumer (AAAA records, the
+   *  Instance card) would then publish a v4 address as this host's IPv6.
+   *  Absent ⇒ leave the stored v6 untouched (so a v4-only save can't wipe
+   *  it); empty string ⇒ clear it deliberately. */
+  serverIpv6: z
+    .string()
+    .trim()
+    .pipe(z.union([z.literal(""), z.ipv6()], { error: "must be an IPv6 address" }))
+    .optional(),
 });
 
 const edgeOptionsSchema = z.object({
@@ -279,6 +314,10 @@ const runtimeSettingsSchema = z.object({
   /** Edge logging is off entirely unless EDGE_LOG_SINK is set, so the card can
    *  say why its toggles are inert instead of silently doing nothing. */
   edgeLogSinkConfigured: z.boolean(),
+  /** The two levels every meter colours against and every threshold alert
+   *  fires on. One pair, so the UI and the pager cannot disagree. */
+  alertWarnPct: z.number(),
+  alertCritPct: z.number(),
 });
 
 // The field rules live in ./runtime-settings-schema so the settings form can
@@ -357,10 +396,7 @@ export const organizationContract = {
 
   cloudflareListZones: oc
     .errors({
-      INVALID_INPUT: {
-        status: 400,
-        message: "Invalid Cloudflare token" as const,
-      },
+      INVALID_INPUT: { status: 400, message: "Invalid Cloudflare token" as const },
     })
     .meta({
       path: `${basePath}/cloudflare/zones`,
@@ -404,6 +440,15 @@ export const organizationContract = {
     .input(getOrganizationSettingsInput)
     .output(controlPlaneDomainSchema),
 
+  controlPlaneCertificate: oc
+    .meta({
+      path: `${basePath}/{organizationId}/control-plane-domain/certificate`,
+      tag,
+      method: "GET",
+    })
+    .input(getOrganizationSettingsInput)
+    .output(controlPlaneCertificateSchema),
+
   setControlPlaneDomain: oc
     .meta({
       path: `${basePath}/{organizationId}/control-plane-domain`,
@@ -439,129 +484,73 @@ export const organizationContract = {
 
   // ── Instance network + edge defaults ───────────────────────────────
   getServerIp: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/server-ip`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/server-ip`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(serverIpSchema),
 
   setServerIp: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/server-ip`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/server-ip`, tag, method: "PATCH" })
     .input(setServerIpInput)
     .output(serverIpSchema),
 
   getEdgeOptions: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/edge-options`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/edge-options`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(edgeOptionsSchema),
 
   setEdgeOptions: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/edge-options`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/edge-options`, tag, method: "PATCH" })
     .input(setEdgeOptionsInput)
     .output(edgeOptionsSchema),
 
   // ── Runtime configuration ──────────────────────────────────────────
   getAccessSettings: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/access`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(accessSettingsSchema),
 
   setAccessSettings: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/access`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "PATCH" })
     .input(setAccessSettingsInput)
     .output(accessSettingsSchema),
 
   getSignInMethods: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/sign-in-methods`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/sign-in-methods`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(signInMethodsSchema),
 
   setSignInMethods: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/sign-in-methods`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/sign-in-methods`, tag, method: "PATCH" })
     .input(setSignInMethodsInput)
     .output(signInMethodsSchema),
 
   listSocialProviders: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/social-providers`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(z.array(socialProviderSchema)),
 
   setSocialProvider: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/social-providers`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "PATCH" })
     .input(setSocialProviderInput)
     .output(z.array(socialProviderSchema)),
 
   getCrowdsecSettings: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/crowdsec`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(crowdsecSettingsSchema),
 
   setCrowdsecSettings: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/crowdsec`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "PATCH" })
     .input(setCrowdsecSettingsInput)
     .output(crowdsecSettingsSchema),
 
   getRuntimeSettings: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/runtime`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/runtime`, tag, method: "GET" })
     .input(getOrganizationSettingsInput)
     .output(runtimeSettingsSchema),
 
   setRuntimeSettings: oc
-    .meta({
-      path: `${basePath}/{organizationId}/instance/runtime`,
-      tag,
-      method: "PATCH",
-    })
+    .meta({ path: `${basePath}/{organizationId}/instance/runtime`, tag, method: "PATCH" })
     .input(setRuntimeSettingsInput)
     .output(runtimeSettingsSchema),
 
@@ -572,35 +561,19 @@ export const organizationContract = {
     .output(z.array(memberViewSchema)),
 
   removeMember: oc
-    .errors({
-      NOT_FOUND: { status: 404, message: "Member not found" as const },
-    })
-    .meta({
-      path: `${basePath}/{organizationId}/members`,
-      tag,
-      method: "DELETE",
-    })
+    .errors({ NOT_FOUND: { status: 404, message: "Member not found" as const } })
+    .meta({ path: `${basePath}/{organizationId}/members`, tag, method: "DELETE" })
     .input(removeMemberInput)
     .output(z.object({ ok: z.boolean() })),
 
   updateMemberRole: oc
-    .errors({
-      NOT_FOUND: { status: 404, message: "Member not found" as const },
-    })
-    .meta({
-      path: `${basePath}/{organizationId}/members/role`,
-      tag,
-      method: "PATCH",
-    })
+    .errors({ NOT_FOUND: { status: 404, message: "Member not found" as const } })
+    .meta({ path: `${basePath}/{organizationId}/members/role`, tag, method: "PATCH" })
     .input(updateMemberRoleInput)
     .output(memberViewSchema),
 
   listInvitations: oc
-    .meta({
-      path: `${basePath}/{organizationId}/invitations`,
-      tag,
-      method: "GET",
-    })
+    .meta({ path: `${basePath}/{organizationId}/invitations`, tag, method: "GET" })
     .input(orgRef)
     .output(z.array(invitationViewSchema)),
 

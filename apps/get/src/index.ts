@@ -23,6 +23,8 @@
  * only reproduces on old installs.
  */
 
+import { connect } from "cloudflare:sockets";
+
 interface Env {
   ARTIFACTS: R2Bucket;
   ANALYTICS?: AnalyticsEngineDataset;
@@ -83,6 +85,11 @@ export default {
     if (route.kind === "root") {
       return Response.redirect(env.DOCS_URL, 302);
     }
+    // Never cached and never counted as an install: it's a per-caller
+    // measurement whose whole value is being current.
+    if (route.kind === "edge-probe") {
+      return edgeProbe(request, url);
+    }
     if (route.kind === "unknown") {
       return text("Not found\n", 404);
     }
@@ -113,6 +120,7 @@ type Route =
   | { kind: "root" }
   | { kind: "unknown" }
   | { kind: "manifest" }
+  | { kind: "edge-probe" }
   | { kind: "artifact"; version: string | null; name: ArtifactName; checksum: boolean };
 
 /**
@@ -122,6 +130,7 @@ type Route =
 function parse(pathname: string): Route {
   if (pathname === "/" || pathname === "") return { kind: "root" };
   if (pathname === `/${MANIFEST_KEY}`) return { kind: "manifest" };
+  if (pathname === "/edge-probe") return { kind: "edge-probe" };
 
   const segments = pathname.replace(/^\/+/, "").split("/");
   if (segments.length > 2) return { kind: "unknown" };
@@ -280,6 +289,72 @@ async function clientHash(request: Request): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+// ── edge probe ──────────────────────────────────────────────────────────────
+
+/**
+ * "Can the internet actually reach your ports 80 and 443?"
+ *
+ * A host cannot answer this about itself. Traffic it sends to its own public
+ * IP is delivered over loopback and never leaves the box, so `curl
+ * http://<my-ip>/` succeeds while the world is being dropped by a cloud
+ * firewall — which is precisely how an install can look healthy from the
+ * inside while Let's Encrypt can never validate it. Answering needs somebody
+ * outside; this Worker is somebody outside.
+ *
+ * It probes ONLY the caller's own address (`CF-Connecting-IP`), never an
+ * address from a parameter. That is deliberate and load-bearing: it makes the
+ * endpoint a self-test rather than an open port scanner, so there is no
+ * arbitrary target to point it at and nothing to abuse.
+ *
+ * TCP connect only. Nothing is sent, no response body is read, and no result
+ * is stored — the answer exists just long enough to be returned.
+ */
+async function edgeProbe(request: Request, url: URL): Promise<Response> {
+  const ip = request.headers.get("CF-Connecting-IP");
+  if (!ip) return text("Could not determine the caller's address\n", 400);
+
+  const ports = [80, 443];
+  const results = await Promise.all(ports.map(async (port) => [port, await probePort(ip, port)]));
+  const asText = url.searchParams.get("format") === "text";
+
+  if (asText) {
+    // Shell-friendly: the installer greps this without needing jq.
+    const line = results.map(([port, state]) => `${port}=${state}`).join(" ");
+    return text(`ip=${ip} ${line}\n`, 200, { "Cache-Control": "no-store" });
+  }
+
+  return new Response(`${JSON.stringify({ ip, ports: Object.fromEntries(results) }, null, 2)}\n`, {
+    status: 200,
+    headers: headers({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    }),
+  });
+}
+
+/** `open` when the TCP handshake completes, `blocked` when it is refused,
+ *  dropped, or too slow. The distinction the operator needs is binary; the
+ *  cause (firewall vs nothing listening) is theirs to chase. */
+async function probePort(ip: string, port: number): Promise<"open" | "blocked"> {
+  // A v6 literal has to be bracketed before it can carry a port.
+  const hostname = ip.includes(":") ? `[${ip}]` : ip;
+  const socket = connect({ hostname, port }, { allowHalfOpen: false });
+
+  const opened = socket.opened.then(() => "open" as const).catch(() => "blocked" as const);
+  const timedOut = new Promise<"blocked">((resolve) => {
+    setTimeout(() => resolve("blocked"), PROBE_TIMEOUT_MS);
+  });
+
+  const state = await Promise.race([opened, timedOut]);
+  // Best-effort: a socket that never opened has nothing to close.
+  await socket.close().catch(() => undefined);
+  return state;
+}
+
+/** Long enough for a slow transatlantic handshake, short enough that a
+ *  dropped SYN doesn't stall the end of an install. */
+const PROBE_TIMEOUT_MS = 5000;
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 

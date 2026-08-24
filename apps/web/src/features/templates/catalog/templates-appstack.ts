@@ -6,18 +6,17 @@ export const APPSTACK_TEMPLATES: StackTemplate[] = [
   {
     id: "hasura",
     name: "Hasura",
-    description:
-      "Instant GraphQL over Postgres. Introspects the schema and serves queries, mutations and subscriptions with row-level permissions, no resolvers to write.",
+    descriptionKey: "templates.catalog.hasura.description",
     category: "data",
     includes: ["hasura", "db"],
     requiredEnv: [
       {
         key: "HASURA_ADMIN_SECRET",
-        description: "Admin secret for the console and unrestricted API access.",
+        descriptionKey: "templates.catalog.hasura.env.HASURA_ADMIN_SECRET",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres that Hasura exposes.",
+        descriptionKey: "templates.catalog.hasura.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Hasura",
@@ -53,14 +52,13 @@ volumes:
   {
     id: "temporal",
     name: "Temporal",
-    description:
-      "Durable workflow engine. Long-running processes survive crashes, deploys and retries because state lives in the server, not your process. Ships with the web UI.",
+    descriptionKey: "templates.catalog.temporal.description",
     category: "automation",
     includes: ["temporal", "ui", "db"],
     requiredEnv: [
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres holding workflow history.",
+        descriptionKey: "templates.catalog.temporal.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Temporal",
@@ -106,8 +104,7 @@ volumes:
   {
     id: "nats",
     name: "NATS",
-    description:
-      "Messaging for services: pub/sub, request/reply and JetStream persistence in one small Go binary. A lighter answer than Kafka when you want a queue, not a log platform.",
+    descriptionKey: "templates.catalog.nats.description",
     category: "data",
     includes: ["nats"],
     requiredEnv: [],
@@ -134,18 +131,17 @@ volumes:
   {
     id: "baserow",
     name: "Baserow",
-    description:
-      "Spreadsheet-shaped database with a REST API: an open-source Airtable. Single image bundling web, API and worker; data and uploads persist to one named volume.",
+    descriptionKey: "templates.catalog.baserow.description",
     category: "data",
     includes: ["baserow"],
     requiredEnv: [
       {
         key: "BASEROW_PUBLIC_URL",
-        description: "Public base URL. The frontend calls the API at this address.",
+        descriptionKey: "templates.catalog.baserow.env.BASEROW_PUBLIC_URL",
       },
       {
         key: "SECRET_KEY",
-        description: "Signs sessions and tokens.",
+        descriptionKey: "templates.catalog.baserow.env.SECRET_KEY",
       },
     ],
     logoBrand: "Baserow",

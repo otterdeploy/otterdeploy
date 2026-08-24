@@ -18,6 +18,7 @@ import { Link } from "@tanstack/react-router";
 import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
 
 import { logTabForStatus } from "@/features/resources/lib/deployment-log-tab";
+import { timeAgo } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
 import { PanelIcon } from "./atoms";
@@ -35,22 +36,6 @@ const TRIGGER_LABEL: Record<DeploymentInfo["reason"], string> = {
   "git-push": "Git push",
   rollback: "Rollback",
 };
-
-const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-  ["day", 86_400_000],
-  ["hour", 3_600_000],
-  ["minute", 60_000],
-];
-
-/** "2 minutes ago" from an ISO timestamp; falls back to "just now". */
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  for (const [unit, ms] of UNITS) {
-    if (diff >= ms) return RELATIVE.format(-Math.floor(diff / ms), unit);
-  }
-  return "just now";
-}
 
 /** Subject line of a commit message. The body belongs on the detail page. The
  *  card gets one line, so a multi-paragraph message must not wreck the layout. */
@@ -176,7 +161,7 @@ export function StagedDeploymentCard({
       ),
     });
   }
-  meta.push({ key: "when", node: relativeTime(deployment.createdAt) });
+  meta.push({ key: "when", node: timeAgo(deployment.createdAt) });
   if (deployment.gitCommitAuthor) meta.push({ key: "who", node: deployment.gitCommitAuthor });
 
   return (

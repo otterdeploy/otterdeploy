@@ -14,13 +14,25 @@
  * rather than caching plaintext.
  */
 
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { containerRegistry } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 
 import type { RegistryAuth } from "./image-pull";
 
+import { deriveGhcrCredential } from "../git/ghcr-auth";
+import { GHCR_HOST, shouldDeriveGhcr } from "../git/ghcr-policy";
 import { decryptForDomain } from "../lib/crypto";
+
+/** The resolver's callers pass a plain string; the derivation path is typed on
+ *  the branded id. Parsed rather than asserted, per the repo's no-assertions
+ *  rule, and it throws only on an id that was never an organization id. */
+function brandOrgId(value: string): OrganizationId {
+  return idSchema.organization.parse(value);
+}
 
 /** Extract the registry hostname from an image ref. */
 function imageRegistry(image: string): string {
@@ -62,6 +74,27 @@ export async function resolveRegistryAuth(input: {
         eq(containerRegistry.host, host),
       ),
     );
+
+  // GHCR can be authenticated from the org's GitHub App instead of a stored
+  // credential. Checked only when the operator has NOT typed one in: someone
+  // who entered a credential for ghcr.io meant it — perhaps a bot account with
+  // access to packages the App installation cannot see — and silently
+  // preferring a derived token over their explicit choice would be the kind of
+  // surprise that is very hard to debug from the deploy log.
+  //
+  // Derivation returns null on every failure, so this can only ever turn an
+  // anonymous pull into an authenticated one, never break a working one.
+  if (shouldDeriveGhcr({ host, storedCredentialCount: rows.length })) {
+    const derived = await deriveGhcrCredential(brandOrgId(input.organizationId));
+    if (derived) {
+      return {
+        username: derived.username,
+        password: derived.password,
+        serveraddress: GHCR_HOST,
+      };
+    }
+  }
+
   if (rows.length === 0) return null;
 
   // Pick the most-recently-updated credential as the active one.

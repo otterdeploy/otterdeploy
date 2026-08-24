@@ -6,26 +6,25 @@ export const PLATFORM_ID_TEMPLATES: StackTemplate[] = [
   {
     id: "infisical",
     name: "Infisical",
-    description:
-      "Secrets manager with per-environment values, versioning and audit logs, plus CLI and SDK access. Bundled Postgres for secrets and Redis for sessions and queues.",
+    descriptionKey: "templates.catalog.infisical.description",
     category: "security",
     includes: ["infisical", "db", "redis"],
     requiredEnv: [
       {
         key: "SITE_URL",
-        description: "Public base URL. Used for invite links and OAuth callbacks.",
+        descriptionKey: "templates.catalog.infisical.env.SITE_URL",
       },
       {
         key: "ENCRYPTION_KEY",
-        description: "Encrypts every stored secret at rest. Losing it makes them unrecoverable.",
+        descriptionKey: "templates.catalog.infisical.env.ENCRYPTION_KEY",
       },
       {
         key: "AUTH_SECRET",
-        description: "Signs auth tokens.",
+        descriptionKey: "templates.catalog.infisical.env.AUTH_SECRET",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.infisical.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Infisical",
@@ -69,23 +68,21 @@ volumes:
   {
     id: "keycloak",
     name: "Keycloak",
-    description:
-      "Identity provider with OIDC and SAML, user federation, social login and fine-grained authorization. The standard choice when something downstream expects real SSO.",
+    descriptionKey: "templates.catalog.keycloak.description",
     category: "security",
     includes: ["keycloak", "db"],
     requiredEnv: [
       {
         key: "KEYCLOAK_HOSTNAME",
-        description:
-          "Public hostname Keycloak issues tokens for. It must match how users reach it.",
+        descriptionKey: "templates.catalog.keycloak.env.KEYCLOAK_HOSTNAME",
       },
       {
         key: "KEYCLOAK_ADMIN_PASSWORD",
-        description: "Password for the bootstrap `admin` account.",
+        descriptionKey: "templates.catalog.keycloak.env.KEYCLOAK_ADMIN_PASSWORD",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres that stores realms and users.",
+        descriptionKey: "templates.catalog.keycloak.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Keycloak",
@@ -128,22 +125,21 @@ volumes:
   {
     id: "docmost",
     name: "Docmost",
-    description:
-      "Collaborative wiki and documentation with real-time editing, spaces and permissions: a self-hosted alternative to Confluence or Notion. Postgres for content, Redis for presence.",
+    descriptionKey: "templates.catalog.docmost.description",
     category: "cms",
     includes: ["docmost", "db", "redis"],
     requiredEnv: [
       {
         key: "APP_URL",
-        description: "Public base URL. Used for share links and invite emails.",
+        descriptionKey: "templates.catalog.docmost.env.APP_URL",
       },
       {
         key: "APP_SECRET",
-        description: "Signs sessions and tokens.",
+        descriptionKey: "templates.catalog.docmost.env.APP_SECRET",
       },
       {
         key: "POSTGRES_PASSWORD",
-        description: "Password for the bundled Postgres.",
+        descriptionKey: "templates.catalog.docmost.env.POSTGRES_PASSWORD",
       },
     ],
     logoBrand: "Docmost",

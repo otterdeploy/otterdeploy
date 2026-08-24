@@ -14,6 +14,7 @@ import {
   listNodes,
   listTasks,
   listVolumes,
+  pruneHelperContainers,
   pruneImages,
   removeImage,
   removeNetwork,
@@ -103,7 +104,15 @@ export const dockerRouter = {
     prune: requireInstallAdmin().docker.images.prune.handler(async ({ errors }) => {
       const result = await pruneImages();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
-      return result.items;
+      // Sweep leaked control-plane helpers in the same pass. They are our own
+      // droppings (see lib/helper-container), so an operator reclaiming space
+      // should never have to know they exist, let alone hand-remove them. A
+      // sweep failure must not fail the prune the operator actually asked for.
+      const swept = await pruneHelperContainers();
+      return {
+        ...result.items,
+        helpersDeleted: swept.ok ? swept.items.containersDeleted : 0,
+      };
     }),
   },
   volumes: {

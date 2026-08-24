@@ -74,6 +74,11 @@ LEGACY_INSTALL_DIR="/opt/otterdeploy"
 VERSION="${OTTERDEPLOY_VERSION:-}"
 RELEASE_REPO="${OTTERDEPLOY_UPDATE_REPO:-otterdeploy/otterdeploy}"
 COMPOSE_URL="${OTTERDEPLOY_COMPOSE_URL:-https://get.otterdeploy.com/docker-compose.yml}"
+# The install edge, used for the outside-in reachability check at the end of
+# the install (see check_inbound_reachability). Overridable so an air-gapped
+# or self-hosted mirror can point it somewhere reachable — or nowhere, which
+# simply makes the check silent.
+GET_ORIGIN="${OTTERDEPLOY_GET_ORIGIN:-https://get.otterdeploy.com}"
 COMPOSE_FILE="$INSTALL_DIR/docker-compose.yml"
 ENV_FILE="$INSTALL_DIR/.env"
 EDGE_NETWORK="${OTTERDEPLOY_NETWORK:-otterdeploy}"
@@ -127,6 +132,17 @@ DOCKER_VER=""
 exec 3>&1
 TERM_IS_TTY=false
 if [ -t 1 ]; then TERM_IS_TTY=true; fi
+
+# Colour is a terminal affordance, not content: it is set only when we are
+# actually writing to a terminal, and honours NO_COLOR (no-color.org) so a
+# piped or CI run gets plain text. Empty strings mean every use site collapses
+# to plain output with no branching at the call.
+if [ "$TERM_IS_TTY" = true ] && [ -z "${NO_COLOR:-}" ]; then
+  C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'; C_ACCENT=$'\033[36m'
+  C_OK=$'\033[32m';  C_WARN=$'\033[33m'; C_OFF=$'\033[0m'
+else
+  C_BOLD=""; C_DIM=""; C_ACCENT=""; C_OK=""; C_WARN=""; C_OFF=""
+fi
 # True once main() has pointed stdout/stderr at the log. Until then fd 3 and
 # stdout are the same terminal, so error paths must not write to both.
 LOG_ACTIVE=false
@@ -217,6 +233,18 @@ else
   SUDO="sudo"
 fi
 
+# ── privileged file I/O ──────────────────────────────────────────────────
+# The install tree is root-owned and 0700 the whole way down (see prepare_tree),
+# so a non-root invoker cannot even traverse into it — every read and write of
+# it goes through these. Reads matter as much as writes: a bare
+# `[ -f "$ENV_FILE" ]` that fails on permissions is indistinguishable from a
+# fresh install, and the re-run would then regenerate every secret out from
+# under a live stack.
+have_file()   { $SUDO test -f "$1"; }
+read_file()   { $SUDO cat "$1" 2>/dev/null || true; }
+write_file()  { $SUDO tee    "$1" >/dev/null; }   # stdin → file, truncating
+append_file() { $SUDO tee -a "$1" >/dev/null; }
+
 random_secret() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
@@ -227,8 +255,8 @@ random_secret() {
 
 # Read an existing key from .env so re-runs preserve generated values.
 env_value() {
-  [ -f "$ENV_FILE" ] || return 0
-  grep "^$1=" "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | sed "s/^[\"']//;s/[\"']\$//" || true
+  have_file "$ENV_FILE" || return 0
+  read_file "$ENV_FILE" | grep "^$1=" | tail -n1 | cut -d= -f2- | sed "s/^[\"']//;s/[\"']\$//" || true
 }
 
 # Keep an existing value if present, else use the generated one.
@@ -680,10 +708,21 @@ prepare_tree() {
   step "Preparing $INSTALL_DIR and $DATA_DIR"
   # DATA_DIR is secret-bearing (dumps, keys, branch pool) → 0700; platform/ —
   # the load-bearing subtree (install source, self-update backups, caddy,
-  # geoip, branch pool) — is 0700 too.
+  # geoip, branch pool) — is 0700 too, as is the install source itself, which
+  # holds .env.
+  #
+  # The tree stays ROOT-OWNED whether the installer ran as root or under sudo.
+  # .env carries the Postgres password, the auth secret and the first-account
+  # bootstrap token; the operator running this already has sudo and the Docker
+  # socket (both root-equivalent), so handing them ownership takes no privilege
+  # away from anyone — it only lets anything running as that account read those
+  # secrets with no escalation and no sudo trail. Nothing needs unprivileged
+  # writes here: every later touch of the tree goes through $SUDO.
   run $SUDO mkdir -p "$INSTALL_DIR" "$DATA_DIR/platform"
-  run $SUDO chmod 700 "$DATA_DIR" "$DATA_DIR/platform"
-  [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
+  run $SUDO chmod 700 "$DATA_DIR" "$DATA_DIR/platform" "$INSTALL_DIR"
+  # Re-runs normalize: installs made while the tree was chowned to the invoking
+  # user hand ownership back to root here.
+  run $SUDO chown -R 0:0 "$INSTALL_DIR"
 
   say " - Fetching $COMPOSE_URL"
   if dry; then
@@ -720,7 +759,11 @@ prepare_tree() {
   : > "$tmpd/.env"
   $SUDO docker compose -f "$tmp" --env-file /dev/null config -q >/dev/null 2>&1 \
     || { rm -rf "$tmpd"; fail "Downloaded compose file is not valid — refusing to continue."; }
-  mv "$tmp" "$COMPOSE_FILE"
+  # chown before the move: a same-filesystem mv is a rename, which would
+  # otherwise carry the temp file's (invoking user's) ownership into the tree.
+  $SUDO chown 0:0 "$tmp"
+  $SUDO chmod 644 "$tmp"
+  $SUDO mv "$tmp" "$COMPOSE_FILE"
   rm -rf "$tmpd"
   say " - Compose file validated"
 }
@@ -799,7 +842,7 @@ CROWDSEC_FIREWALL_BOUNCER_KEY=$crowdsec_firewall_bouncer_key"
   fi
 
   umask 077
-  cat > "$ENV_FILE" <<EOF
+  write_file "$ENV_FILE" <<EOF
 # Generated by scripts/install.sh on $DATE. Secrets are preserved on re-run.
 OTTERDEPLOY_VERSION=$VERSION
 OTTERDEPLOY_DATA_DIR=$DATA_DIR
@@ -853,6 +896,7 @@ BRANCH_ZFS_POOL=$pool_line
 # and the "firewall" compose profile starts as soon as these are set.
 $crowdsec_env_lines
 EOF
+  $SUDO chmod 600 "$ENV_FILE"
   say " - Secrets generated (and preserved across re-runs)"
   if [ "$IS_UPDATE" = true ]; then chip "secrets preserved"; else chip "secrets generated"; fi
 }
@@ -978,10 +1022,10 @@ provision_branching() {
   $SUDO zfs set recordsize=16k atime=off logbias=throughput "$ZFS_POOL/pg" 2>/dev/null || true
 
   # Record the pool so the control plane knows the ZFS tier is available.
-  if grep -q '^BRANCH_ZFS_POOL=' "$ENV_FILE"; then
-    sed -i "s|^BRANCH_ZFS_POOL=.*|BRANCH_ZFS_POOL=$ZFS_POOL|" "$ENV_FILE"
+  if read_file "$ENV_FILE" | grep -q '^BRANCH_ZFS_POOL='; then
+    $SUDO sed -i "s|^BRANCH_ZFS_POOL=.*|BRANCH_ZFS_POOL=$ZFS_POOL|" "$ENV_FILE"
   else
-    printf 'BRANCH_ZFS_POOL=%s\n' "$ZFS_POOL" >> "$ENV_FILE"
+    printf 'BRANCH_ZFS_POOL=%s\n' "$ZFS_POOL" | append_file "$ENV_FILE"
   fi
   say " - Instant CoW branching enabled (pool '$ZFS_POOL', dataset '$ZFS_POOL/pg')"
   chip "instant branching (ZFS $ZFS_POOL)"
@@ -1305,9 +1349,9 @@ compose_f_args() {
   COMPOSE_F=(-f "$COMPOSE_FILE")
   local o
   for o in "$INSTALL_DIR/docker-compose.override.yml" "$INSTALL_DIR/docker-compose.override.yaml"; do
-    [ -f "$o" ] && COMPOSE_F+=(-f "$o")
+    have_file "$o" && COMPOSE_F+=(-f "$o")
   done
-  # The loop's last `[ -f … ]` test returns non-zero when the (usually absent)
+  # The loop's last file test returns non-zero when the (usually absent)
   # override file isn't there, which would make this function exit 1 and trip
   # the `set -e` ERR trap at every call site (start_stack, wait_for_health).
   return 0
@@ -1404,9 +1448,9 @@ resolve_version() {
 # helper makes — so what `compose pull` fetches and what the dashboard reports
 # as its version can't drift apart.
 pin_version_in_env() {
-  [ -f "$ENV_FILE" ] || return 0
+  have_file "$ENV_FILE" || return 0
   [ "$(env_value OTTERDEPLOY_VERSION)" = "$VERSION" ] && return 0
-  if grep -q '^OTTERDEPLOY_VERSION=' "$ENV_FILE" 2>/dev/null; then
+  if read_file "$ENV_FILE" | grep -q '^OTTERDEPLOY_VERSION='; then
     run $SUDO sed -i "s|^OTTERDEPLOY_VERSION=.*|OTTERDEPLOY_VERSION=$VERSION|" "$ENV_FILE"
   else
     run $SUDO sh -c "printf 'OTTERDEPLOY_VERSION=%s\n' '$VERSION' >> '$ENV_FILE'"
@@ -1417,7 +1461,7 @@ pin_version_in_env() {
 # `install.sh update` — re-fetch the compose, pin the newest release tag, pull,
 # restart. Skips host setup entirely and never touches secrets.
 update_stack() {
-  [ -f "$COMPOSE_FILE" ] || fail "No existing install at $COMPOSE_FILE — run the installer first."
+  have_file "$COMPOSE_FILE" || fail "No existing install at $COMPOSE_FILE — run the installer first."
   say "Updating otterdeploy (pull + restart) — secrets preserved…"
   phase Update "Updating otterdeploy"
   resolve_version
@@ -1444,6 +1488,62 @@ report_notes() {
   for n in "${NOTES[@]}"; do
     printf '   · %s\n' "$n" | fold -s -w 74 | sed -e 's/[[:space:]]*$//' -e '2,$s/^/     /' >&3
   done
+  return 0
+}
+
+# ── inbound reachability (od-fyki) ──────────────────────────────────────────
+# A host cannot answer "are my ports open to the internet?" about itself.
+# Traffic it sends to its own public IP is delivered over loopback and never
+# leaves the box, so `curl http://<my-ip>/` succeeds while the world is being
+# dropped — which is exactly what a provider firewall (Hetzner Cloud Firewall,
+# AWS security group) does, and exactly what this script cannot see. It is not
+# ufw and it is not nftables; it lives outside the machine, so no amount of
+# local inspection finds it.
+#
+# The cost of missing it is not a broken port, it's a broken CERTIFICATE:
+# Let's Encrypt validates over inbound 80, so a blocked port means every
+# domain on this install silently stays on `tls internal` forever while the
+# dashboard reports the domain as verified. Asking an outside observer at the
+# end of the install turns that into one sentence, now, instead of a night of
+# debugging later.
+#
+# Best-effort and never fatal: no answer (no egress, air-gapped) is silence,
+# not a warning, because "we couldn't check" is not evidence of a problem.
+INBOUND_BLOCKED=""
+
+check_inbound_reachability() {
+  # `[ … ] && return 0` would be a failing && list under `set -e` whenever the
+  # test is false, aborting the install at the last step. Always an if block.
+  if [ "$DRY_RUN" = "true" ]; then return 0; fi
+
+  local probe
+  probe="$(curl -fsS --max-time 25 "$GET_ORIGIN/edge-probe?format=text" 2>/dev/null || true)"
+  case "$probe" in
+    *"80=blocked"*) INBOUND_BLOCKED="80" ;;
+  esac
+  case "$probe" in
+    *"443=blocked"*) INBOUND_BLOCKED="${INBOUND_BLOCKED:+$INBOUND_BLOCKED and }443" ;;
+  esac
+
+  # Unparseable/absent answer, or everything open: nothing worth saying.
+  if [ -z "$INBOUND_BLOCKED" ]; then return 0; fi
+
+  warn "Port(s) $INBOUND_BLOCKED are not reachable from the internet. Let's Encrypt validates over inbound port 80, so until this is fixed every domain on this install stays on a self-signed certificate. This is almost always a CLOUD firewall (Hetzner Cloud Firewall, AWS security group, GCP firewall rule) — it sits outside this machine, so ufw/nftables here cannot see or fix it. Open TCP 80 and 443 in your provider's console."
+  return 0
+}
+
+print_reachability_hint() {
+  if [ -z "$INBOUND_BLOCKED" ]; then return 0; fi
+  tsay ""
+  tsay "  Reachable  ports $INBOUND_BLOCKED are NOT reachable from the internet."
+  tsay "             Let's Encrypt validates over inbound 80, so every domain on"
+  tsay "             this install will stay on a self-signed certificate until"
+  tsay "             that changes. This is almost always a cloud firewall"
+  tsay "             (Hetzner Cloud Firewall, AWS security group, GCP rule) —"
+  tsay "             it lives outside this host, so ufw and nftables here can"
+  tsay "             neither see nor fix it. Open TCP 80 + 443 in the provider"
+  tsay "             console, then re-check:"
+  tsay "               curl -fsS $GET_ORIGIN/edge-probe"
   return 0
 }
 
@@ -1538,8 +1638,8 @@ migrate_legacy_install() {
   # is already populated (migration done, or a genuinely fresh install).
   [ -n "${OTTERDEPLOY_INSTALL_DIR:-}" ] && return 0
   [ "$INSTALL_DIR" = "$LEGACY_INSTALL_DIR" ] && return 0
-  [ -f "$LEGACY_INSTALL_DIR/.env" ] || return 0
-  [ -f "$ENV_FILE" ] && return 0
+  have_file "$LEGACY_INSTALL_DIR/.env" || return 0
+  have_file "$ENV_FILE" && return 0
 
   step "Migrating install $LEGACY_INSTALL_DIR → $INSTALL_DIR"
   if dry; then
@@ -1560,7 +1660,9 @@ migrate_legacy_install() {
     run $SUDO mv "$f" "$INSTALL_DIR/$base"
   done
   eval "$restore_glob"
-  [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
+  # /opt/otterdeploy installs were chowned to the operator; a same-filesystem mv
+  # carries that ownership across, so hand the tree back to root.
+  run $SUDO chown -R 0:0 "$INSTALL_DIR"
   # Drop the now-empty legacy dir so all platform state sits under the data tree.
   run $SUDO rmdir "$LEGACY_INSTALL_DIR" 2>/dev/null || true
   say " - Moved install files (compose, .env, override, logs) into $INSTALL_DIR; removed $LEGACY_INSTALL_DIR"
@@ -1574,34 +1676,240 @@ migrate_legacy_install() {
 # installs are unchanged. An option already set via its OTTERDEPLOY_* env var is
 # taken as-is with no prompt. Runs before the log capture so a changed DATA_DIR
 # repoints the derived paths.
+#
+# This is the only moment the install asks for anything, and it is the first
+# thing anyone sees of the product, so it is a real selector rather than a wall
+# of prose over a text prompt: ↑↓ moves, enter picks, ? opens the detail inline.
+# Answered questions collapse to one ✓ line, so the screen always shows where
+# you are instead of growing a transcript. Everything is drawn by moving the
+# cursor over our own block — no clear, no alternate screen — so whatever the
+# operator had in their scrollback is still there afterwards.
+
+# One line to the terminal. This whole screen runs before the log capture, and
+# it is a conversation, not a record, so none of it goes near the log.
+_p() { printf '%s\n' "$*" > "$SEL_TTY"; }
+
+# Trim a plain string to what fits after `indent` columns. The redraw walks the
+# cursor back by the number of lines it printed, so a line that WRAPS makes it
+# walk back too few and smear the screen on every keypress — on a narrow
+# terminal that is the difference between a UI and a mess. Only ever called on
+# raw text, never on a composed line, so it cannot cut an escape sequence in half.
+_fit() {
+  local text="$1" w=$((SEL_COLS - $2 - 1))
+  [ "$w" -lt 4 ] && w=4
+  if [ "${#text}" -gt "$w" ]; then printf '%s…' "${text:0:$((w - 1))}"; else printf '%s' "$text"; fi
+}
+
+# Reflow a paragraph to the width left after `indent` columns, one output line
+# per printed line. Prose is the one thing worth wrapping rather than cutting:
+# help text exists to be read, and a sentence that ends in "…" has failed at
+# the only job it had.
+_wrap() {
+  local w=$((SEL_COLS - $2 - 1)) line="" word words=()
+  # Cap the measure as well as floor it: prose set to the full width of a
+  # 200-column terminal is a worse read than prose set to 76.
+  [ "$w" -gt 76 ] && w=76
+  [ "$w" -lt 8 ] && w=8
+  read -ra words <<< "$1"
+  for word in "${words[@]}"; do
+    if [ -z "$line" ]; then
+      line="$word"
+    elif [ "$((${#line} + 1 + ${#word}))" -le "$w" ]; then
+      line="$line $word"
+    else
+      printf '%s\n' "$line"; line="$word"
+    fi
+  done
+  [ -n "$line" ] && printf '%s\n' "$line"
+  return 0
+}
+
+# One question. In: SEL_TITLE, SEL_BLURB, SEL_KEYS, SEL_DESC, SEL_HELP, SEL_IDX,
+# SEL_TOTAL, SEL (the index the cursor starts on). Out: SEL, left on the chosen
+# index. Everything is drawn to $SEL_TTY.
+_select() {
+  local n=${#SEL_KEYS[@]} height=0 show_help=false i key rest
+
+  _draw() {
+    local i pad line
+    _p ""
+    _p "  ${C_DIM}$SEL_IDX/$SEL_TOTAL${C_OFF}  ${C_BOLD}$SEL_TITLE${C_OFF}"
+    height=2
+    while IFS= read -r line; do
+      _p "       ${C_DIM}${line}${C_OFF}"
+      height=$((height + 1))
+    done < <(_wrap "$SEL_BLURB" 7)
+    _p ""
+    height=$((height + 1))
+    for ((i = 0; i < n; i++)); do
+      pad="$(printf '%-7s' "${SEL_KEYS[$i]}")"
+      if [ "$i" -eq "$SEL" ]; then
+        # The selected row is the only lit thing on the screen: accent caret,
+        # accent key, description at full strength. No highlight bar — it would
+        # have to be padded to a width we do not know, and the caret already
+        # says which row you are on.
+        _p "  ${C_ACCENT}▸${C_OFF} ${C_ACCENT}${C_BOLD}${pad}${C_OFF}  $(_fit "${SEL_DESC[$i]}" 13)"
+      else
+        _p "    ${C_DIM}${pad}  $(_fit "${SEL_DESC[$i]}" 13)${C_OFF}"
+      fi
+      height=$((height + 1))
+    done
+    if [ "$show_help" = true ]; then
+      _p ""
+      height=$((height + 1))
+      for i in "${SEL_HELP[@]}"; do
+        if [ -z "$i" ]; then
+          _p ""; height=$((height + 1)); continue
+        fi
+        while IFS= read -r line; do
+          _p "       ${C_DIM}${line}${C_OFF}"
+          height=$((height + 1))
+        done < <(_wrap "$i" 7)
+      done
+    fi
+    _p ""
+    if [ "$show_help" = true ]; then
+      _p "  ${C_DIM}↑↓ move · enter select · ? less${C_OFF}"
+    else
+      _p "  ${C_DIM}↑↓ move · enter select · ? details${C_OFF}"
+    fi
+    height=$((height + 2))
+  }
+
+  _draw
+  while :; do
+    # One keypress. -s keeps it off the screen, -n1 returns without waiting for
+    # a newline. EOF (a closed terminal) takes the current selection rather than
+    # spinning the loop.
+    IFS= read -rsn1 key <&4 || break
+    case "$key" in
+      "") break ;;                                  # enter: read -n1 eats the \n
+      $'\x1b')
+        # An arrow key is ESC [ A/B. Read the two bytes that follow; a bare ESC
+        # is not a key we offer, so it simply waits for the next one.
+        IFS= read -rsn2 rest <&4 || rest=""
+        case "$rest" in
+          '[A') [ "$SEL" -gt 0 ] && SEL=$((SEL - 1)) ;;
+          '[B') [ "$SEL" -lt $((n - 1)) ] && SEL=$((SEL + 1)) ;;
+        esac ;;
+      k|K) [ "$SEL" -gt 0 ] && SEL=$((SEL - 1)) ;;
+      j|J) [ "$SEL" -lt $((n - 1)) ] && SEL=$((SEL + 1)) ;;
+      '?') if [ "$show_help" = true ]; then show_help=false; else show_help=true; fi ;;
+      *)
+        # Typing the first letter of an option jumps to it (a/o/f here), which
+        # is how anyone who already knows the answer will use this.
+        for ((i = 0; i < n; i++)); do
+          case "${SEL_KEYS[$i]}" in "$key"*) SEL=$i; break ;; esac
+        done ;;
+    esac
+    # Redraw in place: back to the top of our block, clear from there down.
+    printf '\033[%dA\033[J' "$height" > "$SEL_TTY"
+    _draw
+  done
+  # Collapse the whole question to a single answered line.
+  printf '\033[%dA\033[J' "$height" > "$SEL_TTY"
+  _p "  ${C_OK}✓${C_OFF} ${C_DIM}$(printf '%-20s' "$SEL_TITLE")${C_OFF} ${SEL_KEYS[$SEL]}"
+  return 0
+}
+
+# The same question without a usable terminal for cursor control (TERM=dumb, a
+# terminal that refuses raw mode): type the answer, validated the same way.
+_select_typed() {
+  local n=${#SEL_KEYS[@]} i ans allowed=""
+  for ((i = 0; i < n; i++)); do
+    [ -n "$allowed" ] && allowed="$allowed|"
+    allowed="$allowed${SEL_KEYS[$i]}"
+  done
+  _p ""
+  _p "  $SEL_IDX/$SEL_TOTAL  $SEL_TITLE"
+  _p "       $SEL_BLURB"
+  for ((i = 0; i < n; i++)); do
+    _p "       $(printf '%-7s' "${SEL_KEYS[$i]}")  ${SEL_DESC[$i]}"
+  done
+  while :; do
+    printf '     > %s [%s]: ' "$allowed" "${SEL_KEYS[$SEL]}" > "$SEL_TTY"
+    IFS= read -r ans <&4 || ans=""
+    ans="$(printf '%s' "$ans" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    [ -z "$ans" ] && return 0
+    for ((i = 0; i < n; i++)); do
+      if [ "$ans" = "${SEL_KEYS[$i]}" ]; then SEL=$i; return 0; fi
+    done
+    if [ "$ans" = '?' ]; then
+      for i in "${SEL_HELP[@]}"; do
+        if [ -z "$i" ]; then _p ""; else _wrap "$i" 7 | sed 's/^/       /'; fi
+      done
+    else
+      _p "     · Not one of $allowed."
+    fi
+  done
+}
+
 configure() {
   local tty=""; [ -r /dev/tty ] && tty=/dev/tty
   if [ "$ASSUME_YES" = "true" ] || dry || [ -z "$tty" ]; then
     return
   fi
 
-  step "Configure otterdeploy  (Enter = keep the [default])"
+  # Count only the questions that will actually be asked — an OTTERDEPLOY_* var
+  # that is already set answers one without a prompt, so "1/2" never counts a
+  # question the operator never sees, and if both are set there is no screen at
+  # all rather than a header over nothing.
+  local total=0
+  [ -z "${OTTERDEPLOY_BRANCHING:-}" ] && total=$((total + 1))
+  [ -z "${OTTERDEPLOY_FIREWALL:-}" ]  && total=$((total + 1))
+  [ "$total" -eq 0 ] && return 0
 
-  _ctx() { printf '   %s\n' "$*" > "$tty"; }        # explanatory context → terminal
-  _ask() {                                          # _ask VAR OTTERDEPLOY_ENV "prompt" "default"
-    local var="$1" envname="$2" q="$3" def="$4" ans
-    [ -n "${!envname:-}" ] && return 0              # explicit env var wins, no prompt
-    printf '   \033[1m%s\033[0m [%s]: ' "$q" "$def" > "$tty"
-    IFS= read -r ans < "$tty" || ans=""
-    printf -v "$var" '%s' "${ans:-$def}"
-  }
+  SEL_TTY="$tty"
+  SEL_TOTAL="$total"
+  # Measured off the terminal itself rather than $COLUMNS (unset in a
+  # non-interactive shell) or `tput cols` (reads stdout, which may be the log).
+  local size
+  SEL_COLS=80
+  if size="$(stty size < "$tty" 2>/dev/null)"; then SEL_COLS="${size#* }"; fi
+  case "$SEL_COLS" in ''|*[!0-9]*|0) SEL_COLS=80 ;; esac
+  [ "$SEL_COLS" -lt 24 ] && SEL_COLS=24
+  local idx=0 interactive=true
+  [ "${TERM:-dumb}" = dumb ] && interactive=false
+  [ "$TERM_IS_TTY" = true ] || interactive=false
+
+  # One handle on the terminal for the whole screen, rather than reopening it
+  # for every keystroke.
+  exec 4< "$tty"
+  # The cursor is noise while a selector is up, but it must come back even if
+  # the operator interrupts mid-question.
+  if [ "$interactive" = true ]; then
+    trap 'printf "\033[?25h" > /dev/tty 2>/dev/null || true; exit 130' INT
+    printf '\033[?25l' > "$tty"
+  fi
+
+  _p ""
+  _p "  ${C_BOLD}otterdeploy${C_OFF}   ${C_DIM}setup${C_OFF}"
 
   # 1) Database branching — first, because it decides a HOST-level capability
   #    (whether we set up a ZFS pool) rather than a simple app setting.
-  _ctx ""
-  _ctx "Database branching — spin up instant, throwaway COPIES of a database"
-  _ctx "(for preview environments / tests) instead of a slow dump-and-restore."
-  _ctx "  auto : use copy-on-write ZFS if this host supports it, else fall back"
-  _ctx "         to the logical tier (works anywhere, but makes full pg_dump copies)."
-  _ctx "  on   : require ZFS for instant branches; abort if it isn't available."
-  _ctx "  off  : logical tier only — no ZFS pool is created on this host."
-  _ctx "Leave it on 'auto' unless you have a reason not to."
-  _ask BRANCHING OTTERDEPLOY_BRANCHING "Database branching (auto|on|off)" "$BRANCHING"
+  if [ -z "${OTTERDEPLOY_BRANCHING:-}" ]; then
+    idx=$((idx + 1))
+    SEL_IDX=$idx
+    SEL_TITLE="Database branching"
+    SEL_BLURB="Throwaway copies of a database, for preview envs and tests."
+    SEL_KEYS=(auto on off)
+    SEL_DESC=(
+      "ZFS snapshots where the host allows it, else pg_dump copies"
+      "require ZFS — abort the install if it isn't available"
+      "never use ZFS on this host"
+    )
+    SEL_HELP=(
+      "Preview environments and tests want a copy of a real database. The logical tier makes that copy with pg_dump and restore: it works on any host, but a large database takes minutes and the disk carries a second full copy of it."
+      ""
+      "ZFS makes it a copy-on-write snapshot instead — the branch is ready in about a second and costs only the blocks it changes. That needs a ZFS pool, which the installer creates on a sparse image file when the host has no spare disk to give it."
+      ""
+      "Either way the logical tier keeps working, so 'off' costs branch speed, never the feature."
+    )
+    SEL=0
+    case "$BRANCHING" in on) SEL=1 ;; off) SEL=2 ;; esac
+    if [ "$interactive" = true ]; then _select; else _select_typed; fi
+    BRANCHING="${SEL_KEYS[$SEL]}"
+  fi
 
   # NOT prompted: the compose source. Where the stack definition is fetched
   # from is our packaging detail, not an operator's decision — asking made
@@ -1612,18 +1920,34 @@ configure() {
   # 2) Firewall — od-5j8.11: ON by default (the product's headline
   #    differentiator). Community IP-reputation blocking (CrowdSec) at both
   #    the Caddy edge AND the host, plus a default-deny nftables baseline.
-  _ctx ""
-  _ctx "Firewall — CrowdSec IP-reputation blocking (edge + host) and a default-deny"
-  _ctx "nftables baseline, protecting SSH/edge traffic on this host out of the box."
-  _ctx "Recommended to leave ON; you can disable it later (OTTERDEPLOY_FIREWALL=false)."
   if [ -z "${OTTERDEPLOY_FIREWALL:-}" ]; then
-    local fw
-    printf '   \033[1mEnable the bundled firewall (CrowdSec + nftables)?\033[0m [Y/n]: ' > "$tty"
-    IFS= read -r fw < "$tty" || fw=""
-    case "$fw" in [Nn]*) FIREWALL=false ;; *) FIREWALL=true ;; esac
+    idx=$((idx + 1))
+    SEL_IDX=$idx
+    SEL_TITLE="Firewall"
+    SEL_BLURB="CrowdSec IP-reputation blocking, and deny-by-default nftables."
+    SEL_KEYS=(on off)
+    SEL_DESC=(
+      "recommended — SSH, 80 and 443 stay open"
+      "leave this host's firewall alone"
+    )
+    SEL_HELP=(
+      "CrowdSec blocks addresses with a bad reputation in the community feed, at the Caddy edge and on the host itself. Alongside it the installer applies an nftables baseline that drops inbound traffic except loopback, established flows, SSH, 80 and 443 — so a service you did not publish is not reachable just because its container bound a port."
+      ""
+      "An existing ufw or firewalld setup is detected and left alone: that step is skipped and reported, never silently overridden. Turn it off later with OTTERDEPLOY_FIREWALL=false and re-run, and 'firewall-rollback' removes the nftables table if it ever locks you out."
+    )
+    SEL=0
+    [ "$FIREWALL" = "true" ] || SEL=1
+    if [ "$interactive" = true ]; then _select; else _select_typed; fi
+    [ "${SEL_KEYS[$SEL]}" = on ] && FIREWALL=true || FIREWALL=false
   fi
 
-  printf '\n   Config → branching=%s  firewall=%s\n' "$BRANCHING" "$FIREWALL" > "$tty"
+  if [ "$interactive" = true ]; then
+    printf '\033[?25h' > "$tty"
+    trap - INT
+  fi
+  exec 4<&-
+  _p ""
+  return 0
 }
 
 usage() {
@@ -1700,13 +2024,15 @@ main() {
   # the phase summary; --verbose tees it to both. If the log can't be opened we
   # fall back to narrating on screen rather than silently losing the record.
   if [ "$DRY_RUN" != "true" ]; then
-    mkdir -p "$INSTALL_DIR" 2>/dev/null || $SUDO mkdir -p "$INSTALL_DIR" || true
-    if [ -w "$INSTALL_DIR" ]; then
+    $SUDO mkdir -p "$INSTALL_DIR" || true
+    # Piped through `sudo tee`: the tree is root-owned, so a plain `>>` would be
+    # opened by the (possibly non-root) shell itself and fail.
+    if $SUDO test -w "$INSTALL_DIR"; then
       LOG_ACTIVE=true
       if [ "$VERBOSE" = "true" ]; then
-        exec > >(tee -a "$LOG_FILE") 2>&1
+        exec > >($SUDO tee -a "$LOG_FILE") 2>&1
       else
-        exec >>"$LOG_FILE" 2>&1
+        exec > >($SUDO tee -a "$LOG_FILE" >/dev/null) 2>&1
       fi
     else
       VERBOSE=true
@@ -1715,7 +2041,7 @@ main() {
     VERBOSE=true   # a dry run IS the detail; there's nothing to summarize
   fi
   trap 'on_error $?' ERR
-  [ -f "$ENV_FILE" ] && IS_UPDATE=true
+  have_file "$ENV_FILE" && IS_UPDATE=true
 
   say "=========================================="
   say "  otterdeploy installer — $DATE"
@@ -1779,9 +2105,13 @@ main() {
     return
   fi
 
+  # Before report_notes: the check appends to NOTES, so it has to run first
+  # for its warning to appear in the summary rather than after it.
+  check_inbound_reachability
   report_notes
   report_access
   print_firewall_hint
+  print_reachability_hint
   tsay ""
   tsay "  Files      compose $COMPOSE_FILE"
   tsay "             data    $DATA_DIR"

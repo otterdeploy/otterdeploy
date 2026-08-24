@@ -29,13 +29,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
+import { relativeMs } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import type { CertificateInventory, CustomCertificate } from "./data/certificates";
 
 import { CustomStatusBadge, DeleteCertButton } from "./custom-table-parts";
-import { daysUntil, expiryLabel, invalidateCertificates, timeAgo } from "./data/certificates";
+import { daysUntil, expiryLabel, invalidateCertificates } from "./data/certificates";
 import { UploadCertDialog } from "./upload-cert-dialog";
 
 export function CustomCertsTable({
@@ -181,7 +182,7 @@ function CustomRow({
         <CustomStatusBadge cert={cert} inventory={inventory} />
       </TableCell>
       <TableCell className="whitespace-nowrap text-muted-foreground">
-        {timeAgo(cert.updatedAt)}
+        {relativeMs(cert.updatedAt.getTime())}
         {cert.uploadedBy ? (
           <span className="text-muted-foreground/70"> · {cert.uploadedBy}</span>
         ) : null}
