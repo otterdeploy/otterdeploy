@@ -54,8 +54,29 @@ export interface ComposeVarRef {
 }
 
 /**
- * Every `${VAR}` ref in one raw file's text, unique by name, preferring a
- * default if any occurrence supplies one. `$$`-escaped refs are ignored.
+ * Accumulate one string's `${VAR}` refs into `found`, keyed by name and
+ * preferring a default if any occurrence supplies one. `$$`-escaped refs are
+ * ignored. Shared by both collectors below so the two cannot drift on what
+ * counts as a ref.
+ */
+function scanRefs(value: string | null | undefined, found: Map<string, string | null>): void {
+  if (!value) return;
+  for (const m of value.matchAll(REF)) {
+    if (m[1]) continue; // `$$` escape, not a real ref
+    const name = m[2];
+    if (!name) continue;
+    const def = m[3] ?? null;
+    const prev = found.get(name);
+    // First sighting, or fill in a default we didn't have yet.
+    if (!found.has(name) || (prev == null && def != null)) found.set(name, def);
+  }
+}
+
+const toRefs = (found: Map<string, string | null>): ComposeVarRef[] =>
+  [...found].map(([name, def]) => ({ name, default: def }));
+
+/**
+ * Every `${VAR}` ref in one raw file's text.
  *
  * The counterpart to `collectVarRefs` for a supporting file a stack ships
  * (`ComposeFile.interpolate`). Those refs resolve from the same variable bag
@@ -66,22 +87,14 @@ export interface ComposeVarRef {
  */
 export function collectFileVarRefs(content: string): ComposeVarRef[] {
   const found = new Map<string, string | null>();
-  for (const m of content.matchAll(REF)) {
-    if (m[1]) continue; // `$$` escape, not a real ref
-    const name = m[2];
-    if (!name) continue;
-    const def = m[3] ?? null;
-    const prev = found.get(name);
-    if (!found.has(name) || (prev == null && def != null)) found.set(name, def);
-  }
-  return [...found].map(([name, def]) => ({ name, default: def }));
+  scanRefs(content, found);
+  return toRefs(found);
 }
 
 /**
  * Every `${VAR}` ref across a parsed compose file's string fields (image,
- * command, entrypoint, env values): unique by name, preferring a default if
- * any occurrence supplies one. Drives the wizard's "fill in these variables"
- * step. `$$`-escaped refs are ignored.
+ * command, entrypoint, env values). Drives the wizard's "fill in these
+ * variables" step.
  */
 export function collectVarRefs(parsed: {
   services: Array<{
@@ -92,25 +105,12 @@ export function collectVarRefs(parsed: {
   }>;
 }): ComposeVarRef[] {
   const found = new Map<string, string | null>();
-  const scan = (value: string | null | undefined) => {
-    if (!value) return;
-    for (const m of value.matchAll(REF)) {
-      if (m[1]) continue; // `$$` escape, not a real ref
-      const name = m[2];
-      if (!name) continue;
-      const def = m[3] ?? null;
-      const prev = found.get(name);
-      // First sighting, or fill in a default we didn't have yet.
-      if (!found.has(name) || (prev == null && def != null)) {
-        found.set(name, def);
-      }
-    }
-  };
+  const scan = (value: string | null | undefined) => scanRefs(value, found);
   for (const svc of parsed.services) {
     scan(svc.image);
     svc.command?.forEach(scan);
     svc.entrypoint?.forEach(scan);
     Object.values(svc.env).forEach(scan);
   }
-  return [...found].map(([name, def]) => ({ name, default: def }));
+  return toRefs(found);
 }
