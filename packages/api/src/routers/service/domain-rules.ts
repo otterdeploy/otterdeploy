@@ -145,6 +145,43 @@ export function acmeFor(domain: string, dnsState: DnsState): boolean {
 }
 
 /**
+ * The ACME decision for a host the platform MINTS or RENAMES under one of its
+ * own apexes, as opposed to {@link acmeFor}, which judges a custom host on
+ * DNS alone.
+ *
+ * Two ways to qualify. The apex is TXT-verified, so it vouches for every label
+ * beneath it; or DNS was measured landing on this server, which is the same
+ * control the TXT challenge — and ACME's own HTTP-01 — establishes.
+ *
+ * The union matters in both directions, which is why neither half alone was
+ * right:
+ *
+ *   - Requiring only `apexVerified` left a host whose DNS already pointed here
+ *     on a self-signed cert. The mint path did exactly that while the rename
+ *     path accepted DNS proof, so the same host got a different answer
+ *     depending on which one last touched it.
+ *   - Requiring only `pointed` would drop a verified apex sitting behind
+ *     Cloudflare (which reads `proxied`) onto `tls internal` — the downgrade
+ *     acme-downgrade.test.ts exists to prevent.
+ *
+ * Both exclusions outrank both tests. `isLocalBase` is the dev-only wildcard,
+ * which never gets a public cert whatever it is named (LOCAL_BASE_DOMAIN is
+ * env-configurable and need not end in `.localhost`). `canHoldPublicCert`
+ * catches sslip and `.localhost` names, which a mint stamps `pointed` by
+ * construction rather than by measurement — so DNS "proof" means nothing for
+ * them, and no CA would issue anyway.
+ */
+export function acmeForPlatformHost(args: {
+  domain: string;
+  isLocalBase: boolean;
+  apexVerified: boolean;
+  dnsState: DnsState;
+}): boolean {
+  if (args.isLocalBase || !canHoldPublicCert(args.domain)) return false;
+  return args.apexVerified || provenByDns(args.dnsState);
+}
+
+/**
  * The ACME decision for a route that ALREADY EXISTS, as opposed to
  * {@link acmeFor}, which decides for a brand-new one.
  *
@@ -283,7 +320,12 @@ export function domainRewritePatch(args: {
       source: "generated" as const,
       dnsState,
       dnsCheckedAt: new Date(),
-      usesAcme: apex.source !== "local-base" && (apex.verified || provenByDns(dnsState)),
+      usesAcme: acmeForPlatformHost({
+        domain,
+        isLocalBase: apex.source === "local-base",
+        apexVerified: apex.verified,
+        dnsState,
+      }),
       upstreamHost: serviceName,
     };
   }
