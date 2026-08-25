@@ -14,8 +14,11 @@ export interface TimeRow {
 }
 
 export interface LongRow {
-  /** A real Date, not epoch ms: the time scale needs calendar-aware spacing,
-   *  and a compact scale would treat numbers as equally spaced categories. */
+  /** A `Date`, because d3's time scale speaks nothing else: it needs a
+   *  calendar-aware value for tick spacing, and a bare number would read as
+   *  equally spaced categories. This is the one seam where a `Date` is
+   *  built; every formatter takes it straight back into Temporal
+   *  (`shared/lib/clock.ts`). */
   t: Date;
   series: string;
   /** Null renders as a break in the path rather than a line drawn across it. */

@@ -101,6 +101,13 @@ otterdeploy/
   scheduler math. Do not reintroduce `cron-parser`.
 - **Patch payloads**: build with `omitUndefined` from `@otterdeploy/shared/object`,
   never chains of `...(x !== undefined && { x })`.
+- **Time is Temporal, not `Date`.** Import `Temporal` / `Intl` / `toTemporalInstant`
+  from `@otterdeploy/shared/temporal` (backed by `temporal-polyfill`; the one swap
+  point for native Temporal). In `apps/web`, format clocks through
+  `@/shared/lib/clock.ts` (`clockFormatter`, `instantOf`, `epochMsOf`, `CLOCK_*`).
+  No `new Date(...)`, `toLocaleTimeString`, or bare `Intl.DateTimeFormat` in new
+  code. A `Date` may exist only at a library seam that demands one (d3 time-scale
+  ticks, oRPC `z.date()` fields) and is converted with `instantOf` immediately.
 
 ## Design Context
 

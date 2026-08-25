@@ -2,7 +2,7 @@ import type { Column, Table } from "@tanstack/react-table";
 
 import type * as React from "react";
 
-import { Temporal } from "@js-temporal/polyfill";
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { Result } from "better-result";
 
 import type {

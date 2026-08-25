@@ -212,6 +212,11 @@
      canvas; dark mode wants lighter and calmer. */
   --chart-series-s: 62%;
   --chart-series-l: 44%;
+  /* Resource metrics take a fixed hue per metric, so CPU is the same blue and
+     memory the same teal on every surface that draws them — the sparkline
+     tile, the resource tab, the project total. Identity, not decoration. */
+  --chart-cpu: #2f6fd1;
+  --chart-memory: #0f8f88;
   /* Sidebar matches `--background`: the demo's `os-sidebar` reads
        `var(--bg)`, so they're the same surface, not two tones. */
   --sidebar: #fbfbfa;
@@ -271,6 +276,8 @@
   --chart-5: #f5f5f0;
   --chart-series-s: 58%;
   --chart-series-l: 62%;
+  --chart-cpu: #5b9cf6;
+  --chart-memory: #2dd4bf;
   --sidebar: #0c0c0b;
   --sidebar-foreground: #b8b8b0;
   --sidebar-primary: oklch(0.623 0.214 259.815);
@@ -508,4 +515,10 @@
   --ts-chart-tooltip-border: 1px solid var(--border);
   --ts-chart-tooltip-border-radius: 0.5rem;
   --ts-chart-tooltip-font: 500 0.75rem/1.35 var(--font-mono, ui-monospace, monospace);
+}
+
+/* Gridlines are a reading aid, not a frame: dashed hairlines sit behind the
+   series without reading as a second set of edges. */
+.otter-chart .ts-chart__grid line {
+  stroke-dasharray: 3 3;
 }

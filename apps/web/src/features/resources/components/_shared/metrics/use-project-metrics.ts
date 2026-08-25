@@ -2,8 +2,8 @@
  * React-Query layer for the project metrics overview: `metrics.projectAggregate`
  * (CPU/memory summed across every container in the project) and
  * `edgeLogs.requestSeries` (bucketed rps + per-bucket p95 across the project's
- * public hosts). Both poll on the 30s sampler cadence like the per-resource
- * hook (`use-resource-metrics`).
+ * public hosts). Both poll on the same window-aware cadence as the
+ * per-resource hook (`use-resource-metrics`): sampler-locked while live.
  *
  * Honesty notes carried through from the server:
  * - Aggregate buckets nobody sampled are OMITTED by the server; this hook
@@ -18,22 +18,24 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { epochMsOf } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
 
-import { METRIC_WINDOWS } from "./use-resource-metrics";
+import { METRIC_WINDOWS, refetchIntervalFor } from "./use-resource-metrics";
 
 /** Metrics-page look-back windows. Extends the per-resource list with 7d.
  *  The real retention bound (`resource_metric` and the edge-log partitions
  *  are both pruned after 7 days). */
-export const PROJECT_METRIC_WINDOWS = [...METRIC_WINDOWS, { label: "7d", minutes: 10080 }] as const;
+export const PROJECT_METRIC_WINDOWS = [
+  ...METRIC_WINDOWS,
+  { label: "7d", title: "Last 7 days", minutes: 10080, live: false },
+] as const;
 
 export type ProjectMetricWindowLabel = (typeof PROJECT_METRIC_WINDOWS)[number]["label"];
 
 /** The per-resource detail query (`metrics.query`) caps at 24h; the grid
  *  clamps to this when a longer window is selected. */
 export const RESOURCE_DETAIL_MAX_MINUTES = 1440;
-
-const SAMPLE_INTERVAL_MS = 30_000;
 
 // ─── Project CPU/memory aggregate ──────────────────────────────────────────
 
@@ -84,7 +86,7 @@ export function useProjectAggregateMetrics(
     ...orpc.metrics.projectAggregate.queryOptions({
       input: { projectId, windowMinutes },
     }),
-    refetchInterval: SAMPLE_INTERVAL_MS,
+    refetchInterval: refetchIntervalFor(windowMinutes),
     placeholderData: (prev) => prev,
   });
 
@@ -103,7 +105,7 @@ export function useProjectAggregateMetrics(
     const rows: AggregateRow[] = [];
     let prevTs: number | null = null;
     for (const p of points) {
-      const ts = new Date(p.ts).getTime();
+      const ts = epochMsOf(p.ts);
       if (prevTs !== null && ts - prevTs > bucketMs) {
         rows.push({ ts: prevTs + bucketMs, cpuPct: null, memBytes: null, containers: 0 });
       }

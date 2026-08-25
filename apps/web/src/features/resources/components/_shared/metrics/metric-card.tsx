@@ -1,15 +1,16 @@
 /**
- * Card shell for a single metric: an icon + title on the left, the current
- * value and a couple of window-level stats on the right, and the time-series
- * chart below. Presentational: the metrics tab feeds it the headline string,
- * stat chips, and chart element.
+ * Section shell for one metric: a hairline-ringed panel whose header names
+ * the series (title plus a swatch in the series colour) and carries the
+ * current reading with a couple of window-level stats, over a full-width
+ * chart. Presentational: the metrics surfaces feed it the strings and the
+ * chart element.
+ *
+ * The header is deliberately quiet — one line, small type — so the chart is
+ * the thing you look at. The reading sits at the right edge in mono, where
+ * the eye lands after following the line to its newest point.
  */
 
 import type { ReactNode } from "react";
-
-import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-
-import { Card } from "@/shared/components/ui/card";
 
 export interface MetricStat {
   label: string;
@@ -17,54 +18,49 @@ export interface MetricStat {
 }
 
 interface MetricCardProps {
-  icon: IconSvgElement;
   title: string;
-  /** The big current reading, e.g. `18%`, `412 MB`. A node for multi-value
+  /** Series colour, drawn as a dot before the title so the header names the
+   *  line without a legend. Omit for multi-series panels that carry one. */
+  swatch?: string;
+  /** The current reading, e.g. `18%`, `412 MB`. A node for multi-value
    *  metrics such as network in/out. */
   value: ReactNode;
-  /** Muted secondary readings shown under the headline (peak / avg / limit). */
+  /** Muted window-level readings shown before the headline (peak / avg /
+   *  limit). Labelled, so `18%` next to `peak 24%` reads as two facts rather
+   *  than one bug. */
   stats?: MetricStat[];
-  /** Caption over the headline, e.g. "current": disambiguates the big number
-   *  from the peak/avg stats below it (both live in the same units, so
-   *  without a label "0%" next to "peak 2%" reads like a bug rather than a
-   *  point-in-time reading). Omit when the headline is self-explanatory. */
-  valueLabel?: string;
   children: ReactNode;
 }
 
-export function MetricCard({ icon, title, value, stats, valueLabel, children }: MetricCardProps) {
+export function MetricCard({ title, swatch, value, stats, children }: MetricCardProps) {
   return (
-    <Card className="gap-0 overflow-hidden p-0">
-      <div className="flex items-start justify-between gap-4 px-4 pt-4">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-7 items-center justify-center rounded-md bg-muted text-foreground">
-            <HugeiconsIcon icon={icon} strokeWidth={2} className="size-4" />
-          </span>
-          <span className="text-sm font-medium">{title}</span>
-        </div>
-        <div className="flex flex-col items-end gap-0.5">
-          {valueLabel ? (
-            <span className="text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
-              {valueLabel}
-            </span>
+    <section className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border px-4 py-2.5">
+        <h3 className="flex items-center gap-2 text-sm font-medium">
+          {swatch ? (
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ background: swatch }}
+            />
           ) : null}
-          <div className="font-mono text-2xl leading-none font-semibold tabular-nums">{value}</div>
+          {title}
+        </h3>
+        <div className="flex items-baseline gap-3">
           {stats && stats.length > 0 ? (
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              {stats.map((s, i) => (
-                <span key={s.label} className="flex items-center gap-1.5">
-                  {i > 0 ? <span className="text-muted-foreground/40">·</span> : null}
-                  <span>
-                    {s.label}{" "}
-                    <span className="font-mono text-foreground/80 tabular-nums">{s.value}</span>
-                  </span>
+            <div className="flex items-baseline gap-2.5 text-[11px] text-muted-foreground">
+              {stats.map((s) => (
+                <span key={s.label}>
+                  {s.label}{" "}
+                  <span className="font-mono text-foreground/80 tabular-nums">{s.value}</span>
                 </span>
               ))}
             </div>
           ) : null}
+          <div className="font-mono text-sm font-medium tabular-nums">{value}</div>
         </div>
       </div>
-      <div className="px-1 pt-3 pb-1">{children}</div>
-    </Card>
+      <div className="px-2 pt-4 pb-1">{children}</div>
+    </section>
   );
 }

@@ -13,22 +13,47 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { epochMsOf } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
 
-/** Look-back windows offered in the toolbar. Minutes feed `metrics.query`. */
+/**
+ * Look-back windows offered in the toolbar. Minutes feed `metrics.query`.
+ *
+ * The short windows are **live**: they poll in step with the sampler so the
+ * newest sample lands within one tick. A day-long window has nothing to gain
+ * from a refresh every half minute (one new point on a 2,880-point axis), so
+ * it refreshes on a slower cadence and spares the query.
+ */
 export const METRIC_WINDOWS = [
-  { label: "30m", minutes: 30 },
-  { label: "1h", minutes: 60 },
-  { label: "3h", minutes: 180 },
-  { label: "6h", minutes: 360 },
-  { label: "12h", minutes: 720 },
-  { label: "24h", minutes: 1440 },
+  { label: "10m", title: "Last 10 minutes", minutes: 10, live: true },
+  { label: "30m", title: "Last 30 minutes", minutes: 30, live: true },
+  { label: "1h", title: "Last hour", minutes: 60, live: false },
+  { label: "3h", title: "Last 3 hours", minutes: 180, live: false },
+  { label: "6h", title: "Last 6 hours", minutes: 360, live: false },
+  { label: "12h", title: "Last 12 hours", minutes: 720, live: false },
+  { label: "24h", title: "Last 24 hours", minutes: 1440, live: false },
 ] as const;
 
 export type MetricWindowLabel = (typeof METRIC_WINDOWS)[number]["label"];
 
-/** Sampler cadence (apps/server `startMetricsSampler`): we refetch in step. */
+/** Sampler cadence (apps/server `startMetricsSampler`): live windows refetch
+ *  in step with it. */
 export const SAMPLE_INTERVAL_MS = 30_000;
+
+/** Refetch cadence for the non-live windows. */
+export const HISTORY_REFETCH_MS = 5 * 60_000;
+
+/** Widest window that still counts as live. */
+export const LIVE_WINDOW_MAX_MINUTES = 30;
+
+export function isLiveWindow(windowMinutes: number): boolean {
+  return windowMinutes <= LIVE_WINDOW_MAX_MINUTES;
+}
+
+/** Poll cadence for a window: sampler-locked while live, relaxed otherwise. */
+export function refetchIntervalFor(windowMinutes: number): number {
+  return isLiveWindow(windowMinutes) ? SAMPLE_INTERVAL_MS : HISTORY_REFETCH_MS;
+}
 
 /** One charted sample: server fields plus the derived ratio + rates. */
 export interface MetricRow {
@@ -80,10 +105,11 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
     ...orpc.metrics.query.queryOptions({
       input: { resourceId, windowMinutes },
     }),
-    // Poll in lockstep with the sampler so the panel trails real time by at
-    // most one tick. `placeholderData` holds the previous series on screen
-    // while a window change refetches, avoiding a flash to the empty state.
-    refetchInterval: SAMPLE_INTERVAL_MS,
+    // Live windows poll in lockstep with the sampler so the panel trails real
+    // time by at most one tick. `placeholderData` holds the previous series on
+    // screen while a window change refetches, avoiding a flash to the empty
+    // state.
+    refetchInterval: refetchIntervalFor(windowMinutes),
     placeholderData: (prev) => prev,
   });
 
@@ -96,14 +122,14 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
     }
 
     const rows: MetricRow[] = points.map((p, i) => {
-      const ts = new Date(p.ts).getTime();
+      const ts = epochMsOf(p.ts);
       const memPct = p.memLimitBytes > 0 ? (p.memBytes / p.memLimitBytes) * 100 : 0;
 
       let netRxRate: number | null = null;
       let netTxRate: number | null = null;
       if (i > 0) {
         const prev = points[i - 1];
-        const dtSec = (ts - new Date(prev.ts).getTime()) / 1000;
+        const dtSec = (ts - epochMsOf(prev.ts)) / 1000;
         if (dtSec > 0) {
           const rx = (p.netRxBytes - prev.netRxBytes) / dtSec;
           const tx = (p.netTxBytes - prev.netTxBytes) / dtSec;
