@@ -22,7 +22,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { ComposeService } from "./panel-parts";
 
-import { resolvePanelTab } from "../_shared/panel-tab";
+import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
 import { ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
 import { StackVariablesTab } from "./stack-variables-tab";
@@ -188,8 +188,8 @@ export function ComposeResourcePanel({
 
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
-            <div className="relative">
-              <TabsContent value="deployments" className="px-4 pt-5 pb-6 sm:px-6">
+            <div className={PANEL_TAB_BODY_CLASS}>
+              <TabsContent value="deployments" className="px-4 pt-5 sm:px-6">
                 <ResourceTasksTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
@@ -198,7 +198,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="services" className="px-4 pt-5 pb-6 sm:px-6">
+              <TabsContent value="services" className="px-4 pt-5 sm:px-6">
                 <ComposeServicesTab
                   services={resource.services}
                   source={resource.source}
@@ -206,14 +206,14 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="variables" className="px-4 pt-5 pb-6 sm:px-6">
+              <TabsContent value="variables" className="px-4 pt-5 sm:px-6">
                 <StackVariablesTab
                   projectId={resource.projectId}
                   stackResourceId={resource.resourceId}
                 />
               </TabsContent>
 
-              <TabsContent value="file" className="px-4 pt-5 pb-6 sm:px-6">
+              <TabsContent value="file" className="px-4 pt-5 sm:px-6">
                 <ComposeFileTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
@@ -223,7 +223,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="settings" className="px-4 pt-5 pb-8 sm:px-6">
+              <TabsContent value="settings" className="px-4 pt-5 sm:px-6">
                 <ComposeSettingsTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
