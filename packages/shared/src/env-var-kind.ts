@@ -42,13 +42,18 @@ const AUTH_RE = /(^|_)AUTH($|_)/i;
  * `TOTP_VAULT_KEY` all went unfilled because the pattern above only knows
  * `API_KEY`/`ACCESS_KEY`.
  *
+ * Plural counts. LiveKit hands its whole credential set to `LIVEKIT_KEYS`
+ * (`key: secret`), and the singular-only pattern classified that `plain`, so
+ * an API secret rendered in the clear in the variables editor while
+ * `MEILI_MASTER_KEY` beside it was masked.
+ *
  * The exclusions matter more than the rule. A `LICENSE_KEY` comes from a
  * vendor and a `PUBLIC_KEY`/`SSH_KEY` from the operator's own keyring;
  * generating random bytes for those would produce a field that LOOKS filled
  * and is guaranteed invalid, which is worse than leaving it blank. Blank at
  * least tells the truth.
  */
-const KEY_RE = /(^|_)KEY($|_)|[A-Z0-9]_KEY$/i;
+const KEY_RE = /(^|_)KEYS?($|_)|[A-Z0-9]_KEYS?$/i;
 
 /**
  * Password spellings the main pattern misses: `MASTERPASS`, `DB_PASS`,
