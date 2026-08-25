@@ -153,7 +153,7 @@ The ≤10% accent budget governs **chrome** — buttons, nav, rails, badges, foc
 
 Three rules keep this from leaking into the rest of the interface:
 
-- **Single-series charts stay grey.** One line does not need a hue. The `--chart-1..5` ramp remains the answer for every single-series chart and sparkline.
+- **Single-series charts stay grey, unless the hue is a name.** One line does not need a hue. The `--chart-1..5` ramp remains the answer for a single-series chart and sparkline. The one exception is a metric that is drawn on several surfaces: resource CPU is always `--chart-cpu` (blue) and memory always `--chart-memory` (teal), on the sparkline tile, the resource tab and the project total alike, so the colour identifies the metric the way a series colour identifies a series. Under a smooth line the fill is a vertical gradient of the same hue fading to the baseline, never a solid block; gridlines are dashed hairlines and the axes draw no baseline.
 - **Hue is only ever identity or magnitude.** Never mood, never emphasis, never a gradient for its own sake. If a color is not distinguishing one series from another, or placing a value against a threshold, it does not appear.
 - **Chrome is untouched.** Cards, rails, badges, buttons and the project graph stay monochrome-plus-Signal-Blue. Data color lives inside the plot area and the meter track and nowhere else.
 

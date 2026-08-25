@@ -13,14 +13,11 @@
 
 import type { ChartPoint } from "@tanstack/charts";
 
+import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+
 import type { LongRow } from "./series-rows";
 
-const stamp = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+const stamp = clockFormatter(CLOCK_STAMP);
 
 interface TooltipBodyProps {
   points: readonly ChartPoint<LongRow, Date, number>[];
@@ -37,8 +34,10 @@ export function TooltipBody({ points, format, showTotal }: TooltipBodyProps) {
 
   return (
     <div className="flex min-w-44 flex-col gap-1.5">
+      {/* The x value is a Date because d3's time scale speaks Date; `stamp`
+          takes it across into Temporal. */}
       <div className="font-mono text-[11px] text-muted-foreground">
-        {heading instanceof Date ? stamp.format(heading) : String(heading)}
+        {heading instanceof Date ? stamp(heading) : String(heading)}
       </div>
 
       <div className="flex flex-col gap-1">

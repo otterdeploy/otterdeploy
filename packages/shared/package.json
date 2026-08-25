@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",
+    "temporal-polyfill": "^1.0.4",
     "zod": "catalog:"
   },
   "devDependencies": {

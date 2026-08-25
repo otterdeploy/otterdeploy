@@ -135,7 +135,6 @@
         "@hugeicons/core-free-icons": "^4.1.4",
         "@hugeicons/react": "^1.1.6",
         "@journeyapps/wa-sqlite": "^1.4.1",
-        "@js-temporal/polyfill": "^0.5.1",
         "@lezer/highlight": "^1.2.3",
         "@orpc/client": "^1.14.3",
         "@orpc/server": "^1.14.3",
@@ -170,6 +169,7 @@
         "cmdk": "^1.1.1",
         "country-flag-icons": "^1.6.20",
         "d3-scale": "^4.0.2",
+        "d3-shape": "^3.2.0",
         "dagre": "^0.8.5",
         "driver.js": "^1.8.0",
         "i18next": "^26.2.0",
@@ -193,6 +193,7 @@
         "@tanstack/router-plugin": "catalog:",
         "@types/babel__core": "^7.20.5",
         "@types/d3-scale": "^4.0.9",
+        "@types/d3-shape": "^3.1.8",
         "@types/dagre": "^0.7.54",
         "@types/node": "^25.9.1",
         "@types/react": "^19.2.15",
@@ -407,6 +408,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@paralleldrive/cuid2": "^3.3.0",
+        "temporal-polyfill": "^1.0.4",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -3160,6 +3162,12 @@
     "tar-stream": ["tar-stream@3.2.0", "", { "dependencies": { "b4a": "^1.6.4", "bare-fs": "^4.5.5", "fast-fifo": "^1.2.0", "streamx": "^2.15.0" } }, "sha512-ojzvCvVaNp6aOTFmG7jaRD0meowIAuPc3cMMhSgKiVWws1GyHbGd/xvnyuRKcKlMpt3qvxx6r0hreCNITP9hIg=="],
 
     "teex": ["teex@1.0.1", "", { "dependencies": { "streamx": "^2.12.5" } }, "sha512-eYE6iEI62Ni1H8oIa7KlDU6uQBtqr4Eajni3wX7rpfXD8ysFx8z0+dri+KWEPWpBsxXfxu58x/0jvTVT1ekOSg=="],
+
+    "temporal-polyfill": ["temporal-polyfill@1.0.4", "", { "dependencies": { "temporal-spec": "1.0.1", "temporal-utils": "1.0.2" } }, "sha512-MLEU0qOD2uXlz24oINNtdLZQl8RgmMxSnRtKEGZGGetTJjlRwQJjk+VsJ4EREaUoiaTb8NJOcUiKtoAiWn9EBg=="],
+
+    "temporal-spec": ["temporal-spec@1.0.1", "", {}, "sha512-wxVoanmDeavXie1vu2JaQ3WIc3JZnWAOYFBsJyATaVsXsycKYUflGsyBmrRSnoCpZJpwPyr38VpgSUlQ8CbFxg=="],
+
+    "temporal-utils": ["temporal-utils@1.0.2", "", {}, "sha512-1B8Dl4KzrOvsNUlpoWGno2VLQlxroLjDgc5NBjVC9ax9ymdo+ezfyvhyjEMx+IVfhINr6CIG2gcnlP95iRrybQ=="],
 
     "text-decoder": ["text-decoder@1.2.7", "", { "dependencies": { "b4a": "^1.6.4" } }, "sha512-vlLytXkeP4xvEq2otHeJfSQIRyWxo/oZGEbXrtEEF9Hnmrdly59sUbzZ/QgyWuLYHctCHxFF4tRQZNQ9k60ExQ=="],
 

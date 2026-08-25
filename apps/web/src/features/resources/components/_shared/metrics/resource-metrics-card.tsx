@@ -25,6 +25,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 
 import { formatBytes, formatPercent, formatRate } from "./format";
+import { CPU_COLOR, MEMORY_COLOR } from "./metric-panels";
 import { useResourceMetrics } from "./use-resource-metrics";
 
 const STATUS_DOT: Record<string, string> = {
@@ -85,11 +86,12 @@ export function ResourceMetricsCard({
             chart={
               <TimeSeriesChart
                 compact
+                smooth
                 height={40}
                 data={rows}
                 ariaLabel="CPU sparkline"
                 format={(v) => formatPercent(v)}
-                series={[{ dataKey: "cpuPct", label: "CPU" }]}
+                series={[{ dataKey: "cpuPct", label: "CPU", color: CPU_COLOR }]}
               />
             }
           />
@@ -100,11 +102,12 @@ export function ResourceMetricsCard({
             chart={
               <TimeSeriesChart
                 compact
+                smooth
                 height={40}
                 data={rows}
                 ariaLabel="Memory sparkline"
                 format={(v) => formatBytes(v)}
-                series={[{ dataKey: "memBytes", label: "Memory" }]}
+                series={[{ dataKey: "memBytes", label: "Memory", color: MEMORY_COLOR }]}
               />
             }
           />
@@ -138,6 +141,7 @@ export function ResourceMetricsCard({
             chart={
               <TimeSeriesChart
                 compact
+                smooth
                 height={40}
                 data={rows}
                 ariaLabel="Network sparkline"

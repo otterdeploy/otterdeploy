@@ -27,19 +27,28 @@
  *   reaches the viewport.
  */
 
-import type { ChartPoint } from "@tanstack/charts";
+import type { ChartLinearGradient, ChartPoint } from "@tanstack/charts";
 
 import { useMemo } from "react";
 
 import { colorLegend, defineChart, areaY, lineY } from "@tanstack/charts";
+import { d3Curve } from "@tanstack/charts/d3/shape";
 import { decorative } from "@tanstack/charts/mark/decorative";
 import { Chart } from "@tanstack/charts/react/tooltip";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { scaleUtc } from "d3-scale";
+import { curveMonotoneX } from "d3-shape";
 
 import { dimmedSeriesColor, rankSeries, seriesColor } from "@/shared/lib/chart-series";
+import {
+  CLOCK_DAY,
+  CLOCK_MINUTES,
+  CLOCK_SECONDS,
+  clockFormatter,
+  type ClockFormat,
+} from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
 import type { LongRow, TimeRow } from "./series-rows";
@@ -80,20 +89,106 @@ interface TimeSeriesChartProps<Row extends TimeRow> {
   compact?: boolean;
   /** Legend under the plot. Defaults on above one series, off at one. */
   legend?: boolean;
+  /** Monotone interpolation between samples. Right for a continuously
+   *  varying quantity read at intervals (CPU, memory, throughput), where the
+   *  true signal between two ticks is smooth. Wrong for bucketed counts, where
+   *  a curve invents values a bucket never held; those keep straight segments. */
+  smooth?: boolean;
   height?: number;
   className?: string;
 }
 
-const timeTick = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
-const dayTick = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+const timeTick = clockFormatter(CLOCK_MINUTES);
+const secondTick = clockFormatter(CLOCK_SECONDS);
+const dayTick = clockFormatter(CLOCK_DAY);
 
 /** A window wider than about two days reads better as dates than as clock
  *  times; an axis of "02:00" repeated eleven times is noise, not a scale. */
 const DAY_TICK_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000;
+/** Under this span the ticks land between whole minutes, so a label without
+ *  seconds would repeat itself along the axis. */
+const SECOND_TICK_THRESHOLD_MS = 15 * 60 * 1000;
 
 /** Hoisted so their literal types survive into the definition. */
 const GROUP_X = "group-x" as const;
 const TOOLTIP_PLACEMENT = ["top", "right", "left", "bottom"] as const;
+
+const MONOTONE = d3Curve(curveMonotoneX);
+
+/** Fill under an overlaid line: strongest at the line, fading toward the
+ *  baseline. Reads as "the area under this curve" without a solid block
+ *  competing with the line that carries the reading. */
+const FILL_TOP_OPACITY = 0.32;
+const FILL_BOTTOM_OPACITY = 0.02;
+
+const gradientId = (index: number) => `series-fill-${index}`;
+
+/** Clock labels for the span in view: dates past two days, seconds under
+ *  fifteen minutes, minutes between. */
+function tickFormatFor(spanMs: number): ClockFormat {
+  if (spanMs >= DAY_TICK_THRESHOLD_MS) return dayTick;
+  if (spanMs <= SECOND_TICK_THRESHOLD_MS) return secondTick;
+  return timeTick;
+}
+
+/**
+ * No axis lines: the dashed grid already frames the plot, and a solid baseline
+ * under a zero-hugging series hides the series. The x axis keeps its tick
+ * stubs so a label reads as "at this instant", not "around here".
+ */
+function buildAxes(
+  spanMs: number,
+  format: (value: number) => string,
+  max: number | "auto",
+  compact: boolean,
+) {
+  const tick = tickFormatFor(spanMs);
+  const x = {
+    scale: scaleUtc,
+    nice: true,
+    axis: compact
+      ? false
+      : {
+          line: false,
+          // d3's time scale hands us Date ticks; `tick` crosses them into
+          // Temporal before formatting.
+          ticks: { spacing: 90, size: 4, format: (value: Date) => tick(value) },
+        },
+  } as const;
+  const y = {
+    scale: scaleLinear,
+    nice: true,
+    grid: !compact,
+    domain: max === "auto" ? undefined : [0, max],
+    axis: compact
+      ? false
+      : { line: false, ticks: { count: 4, size: 0, format: (value: number) => format(value) } },
+  } as const;
+  return { x, y };
+}
+
+/** One vertical gradient per series in its own paint, so the fill fades from
+ *  the line down to the baseline. Ids are scoped per chart instance by the
+ *  renderer, so two charts on a page never share a definition. */
+function buildGradients(
+  ordered: readonly string[],
+  paint: (label: string) => string,
+): ChartLinearGradient[] {
+  return ordered.map((label, index) => {
+    const paintColor = paint(label);
+    return {
+      id: gradientId(index),
+      x1: 0,
+      y1: 0,
+      x2: 0,
+      y2: 1,
+      stops: [
+        { offset: 0, color: paintColor, opacity: FILL_TOP_OPACITY },
+        { offset: 1, color: paintColor, opacity: FILL_BOTTOM_OPACITY },
+      ],
+    };
+  });
+}
 
 /** Descending by value, nulls last. The ordering is the information. */
 function rankedByValue(
@@ -115,6 +210,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
   sampleIntervalMs = 0,
   compact = false,
   legend,
+  smooth = false,
   height = 160,
   className,
 }: TimeSeriesChartProps<Row>) {
@@ -157,23 +253,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
     };
 
     const span = data.length > 1 ? data[data.length - 1].ts - data[0].ts : 0;
-    const tick = span >= DAY_TICK_THRESHOLD_MS ? dayTick : timeTick;
-
-    const x = {
-      scale: scaleUtc,
-      nice: true,
-      axis: compact
-        ? false
-        : { ticks: { spacing: 90, format: (value: Date) => tick.format(value) } },
-    } as const;
-
-    const y = {
-      scale: scaleLinear,
-      nice: true,
-      grid: !compact,
-      domain: max === "auto" ? undefined : [0, max],
-      axis: compact ? false : { ticks: { count: 4, format: (value: number) => format(value) } },
-    } as const;
+    const { x, y } = buildAxes(span, format, max, compact);
 
     // One uniform shape whatever the mode. Branching the *shape* rather than
     // the values gives `defineChart` a union to infer through, and it declines.
@@ -195,12 +275,16 @@ export function TimeSeriesChart<Row extends TimeRow>({
           },
     } as const;
 
+    const curve = smooth ? MONOTONE : undefined;
+
     if (stacked) {
       // Implicit stacking: repeated x positions stack by series when no
       // explicit y1/y2 is given. A stacked segment reports its own value in the
       // tooltip, not the cumulative endpoint.
       return defineChart({
-        marks: [areaY(long, { id: "series", x: "t", y: "value", z: "series", fillOpacity: 0.55 })],
+        marks: [
+          areaY(long, { id: "series", x: "t", y: "value", z: "series", fillOpacity: 0.55, curve }),
+        ],
         x,
         y,
         color,
@@ -214,6 +298,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
       y: "value",
       z: "series",
       strokeWidth: 1.75,
+      curve,
     });
 
     if (kind === "line") {
@@ -231,17 +316,20 @@ export function TimeSeriesChart<Row extends TimeRow>({
             y1: 0,
             y2: "value",
             z: "series",
-            fillOpacity: 0.14,
+            fill: (row: LongRow) => `url(#${gradientId(ordered.indexOf(row.series))})`,
+            fillOpacity: 1,
+            curve,
           }),
         ),
         line,
       ],
+      gradients: buildGradients(ordered, paint),
       x,
       y,
       color,
       ...interaction,
     });
-  }, [data, series, format, stacked, kind, filter, max, sampleIntervalMs, compact, legend]);
+  }, [data, series, format, stacked, kind, filter, max, sampleIntervalMs, compact, legend, smooth]);
 
   // Reserve the height before the chart exists so scrolling past an unread
   // chart does not shift everything below it.
