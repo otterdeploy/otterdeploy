@@ -5,6 +5,8 @@
  * Handlers and busy flags come in as props.
  */
 
+import { useTranslation } from "react-i18next";
+
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 
@@ -43,15 +45,16 @@ export interface DomainView {
  *  this instead of a whole {@link DomainView}. */
 export type DomainStatusView = Pick<
   DomainView,
-  "domain" | "source" | "status" | "dnsState" | "usesAcme" | "ownershipVerified"
+  "domain" | "source" | "status" | "dnsState" | "dnsCheckedAt" | "usesAcme" | "ownershipVerified"
 >;
 
-/** Connection chip. Generated hosts route under the org's base domain, so
- *  they only read Live once that domain is provably owned (verified, or the
- *  no-verification-needed sslip.io fallback). Otherwise the route exists
- *  but nothing has confirmed it resolves, so the chip says so. Custom hosts
- *  surface their own DNS reachability: pointed → cert issues here, proxied →
- *  Cloudflare serves TLS, unpointed → needs the A record below. */
+/** Connection chip. Generated hosts whose DNS has actually been measured
+ *  (minted under a real apex, or Recheck was run) surface that observation:
+ *  pointed → Live, unpointed → the wildcard/A record is missing. Ones never
+ *  measured (sslip/localhost resolve by construction; legacy rows) fall back
+ *  to the org base domain's verification signal. Custom hosts surface their
+ *  own DNS reachability: pointed → cert issues here, proxied → Cloudflare
+ *  serves TLS, unpointed → needs the A record below. */
 export function StatusBadge({
   domain,
   baseDomainStatus,
@@ -59,32 +62,51 @@ export function StatusBadge({
   domain: DomainStatusView;
   baseDomainStatus?: BaseDomainStatus;
 }) {
+  const { t } = useTranslation();
   // The operator's own switch: distinct from system "Disabled" so nobody
   // goes hunting for a DNS problem that isn't there.
   if (domain.status === "paused") {
-    return <Badge variant="secondary">Paused</Badge>;
+    return <Badge variant="secondary">{t("domains.statusPaused")}</Badge>;
   }
   if (domain.status === "disabled") {
     if (domain.source === "custom" && !domain.ownershipVerified) {
-      return <Badge variant="secondary">Ownership pending</Badge>;
+      return <Badge variant="secondary">{t("domains.statusOwnershipPending")}</Badge>;
     }
-    return <Badge variant="outline">Disabled</Badge>;
+    return <Badge variant="outline">{t("domains.statusDisabled")}</Badge>;
   }
   if (domain.source === "generated") {
-    if (baseDomainStatus === "pending") {
-      return <Badge variant="secondary">Pending DNS</Badge>;
+    // A measured answer beats inference from the base domain's paperwork.
+    if (domain.dnsCheckedAt) {
+      if (domain.dnsState === "pointed") {
+        return <Badge variant="outline">{t("domains.statusLive")}</Badge>;
+      }
+      if (domain.dnsState === "proxied") {
+        return <Badge variant="secondary">{t("domains.statusCloudflare")}</Badge>;
+      }
+      if (domain.dnsState === "unpointed") {
+        return <Badge variant="destructive">{t("domains.statusNotPointed")}</Badge>;
+      }
+      // "unknown": the lookup couldn't classify; fall through to the base
+      // domain signal rather than asserting either way.
     }
-    return <Badge variant="outline">Live</Badge>;
+    if (baseDomainStatus === "pending") {
+      return <Badge variant="secondary">{t("domains.statusPendingDns")}</Badge>;
+    }
+    return <Badge variant="outline">{t("domains.statusLive")}</Badge>;
   }
   switch (domain.dnsState) {
     case "pointed":
-      return <Badge variant="outline">{domain.usesAcme ? "Connected" : "Live"}</Badge>;
+      return (
+        <Badge variant="outline">
+          {domain.usesAcme ? t("domains.statusConnected") : t("domains.statusLive")}
+        </Badge>
+      );
     case "proxied":
-      return <Badge variant="secondary">Cloudflare</Badge>;
+      return <Badge variant="secondary">{t("domains.statusCloudflare")}</Badge>;
     case "unpointed":
-      return <Badge variant="destructive">DNS not pointed</Badge>;
+      return <Badge variant="destructive">{t("domains.statusNotPointed")}</Badge>;
     default:
-      return <Badge variant="secondary">Checking…</Badge>;
+      return <Badge variant="secondary">{t("domains.statusChecking")}</Badge>;
   }
 }
 
@@ -105,12 +127,14 @@ export function DnsHint({
   /** Opens the shared DNS dialog. Omitted where the surface can't offer it. */
   onConfigure?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[11.5px]">
       <div className="mb-2 flex items-start justify-between gap-3">
         <p className="text-muted-foreground">
-          Add the ownership TXT record and point the host at this server, then Recheck. The route
-          stays disabled until ownership is verified.
+          {domain.source === "generated"
+            ? t("domains.dnsHintGenerated")
+            : t("domains.dnsHintCustom")}
         </p>
         {onConfigure ? (
           <Button
@@ -119,7 +143,7 @@ export function DnsHint({
             className="h-6 shrink-0 px-2 text-[11px]"
             onClick={onConfigure}
           >
-            Configure DNS
+            {t("domains.configureDns")}
           </Button>
         ) : null}
       </div>

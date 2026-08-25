@@ -12,11 +12,11 @@ import {
   recheckServiceDomain,
   removeServiceDomain,
   setPrimaryServiceDomain,
-  updateServiceDomain,
 } from "./domains";
 import { autoConfigureServiceDomainDns } from "./domains-autoconfigure";
 import { checkServiceDomain, listServiceDomains } from "./domains-check";
 import { setServiceDomainEnabled } from "./domains-enabled";
+import { updateServiceDomain } from "./domains-update";
 import { generateServiceDomain } from "./expose";
 
 /**

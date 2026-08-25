@@ -12,6 +12,7 @@ import { useState } from "react";
 import { GlobalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLoaderData } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { Badge } from "@/shared/components/ui/badge";
@@ -53,6 +54,7 @@ export function DomainRow({
   /** Container ports this service publishes: the edit row's port options. */
   ports: PortChoice[];
 }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(domain.domain);
   const [port, setPort] = useState(domain.port);
@@ -72,9 +74,13 @@ export function DomainRow({
   });
 
   // A custom host that isn't confirmed pointed here still needs a DNS record.
+  // A generated host earns the hint only on a MEASURED miss: sslip/localhost
+  // names resolve by construction and never carry a dnsCheckedAt.
   const needsDns =
-    domain.source === "custom" &&
-    (!domain.ownershipVerified || (domain.dnsState !== "pointed" && domain.dnsState !== "proxied"));
+    domain.source === "custom"
+      ? !domain.ownershipVerified ||
+        (domain.dnsState !== "pointed" && domain.dnsState !== "proxied")
+      : domain.dnsCheckedAt != null && domain.dnsState === "unpointed";
 
   const onCopy = () => {
     void copyToClipboard(url).then((ok) => {
@@ -157,10 +163,7 @@ export function DomainRow({
           asking permission to be it: sslip.io resolves without any DNS setup
           but can't hold a public certificate, so browsers will warn. */}
       {domain.source === "generated" && domain.domain.endsWith(".sslip.io") && (
-        <p className="text-[11.5px] text-muted-foreground">
-          Temporary address with a self-signed certificate, so browsers will warn. Add a domain of
-          your own for a trusted URL.
-        </p>
+        <p className="text-[11.5px] text-muted-foreground">{t("domains.sslipNote")}</p>
       )}
 
       {needsDns && <DnsHint domain={domain} onConfigure={() => setDnsOpen(true)} />}

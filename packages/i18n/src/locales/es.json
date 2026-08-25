@@ -1660,7 +1660,20 @@
     "setPrimary": "Establecer como principal",
     "copyUrl": "Copiar URL",
     "editDomain": "Editar dominio",
-    "removeDomain": "Eliminar dominio"
+    "removeDomain": "Eliminar dominio",
+    "statusPaused": "En pausa",
+    "statusOwnershipPending": "Propiedad pendiente",
+    "statusDisabled": "Desactivado",
+    "statusPendingDns": "DNS pendiente",
+    "statusLive": "Activo",
+    "statusConnected": "Conectado",
+    "statusCloudflare": "Cloudflare",
+    "statusNotPointed": "El DNS no apunta aquí",
+    "statusChecking": "Comprobando…",
+    "dnsHintGenerated": "Este host aún no resuelve a este servidor. Apúntalo aquí con el registro A de abajo (un comodín en el dominio base cubre todos los hosts generados) y vuelve a comprobar.",
+    "dnsHintCustom": "Añade el registro TXT de verificación de propiedad y apunta el host a este servidor; luego vuelve a comprobar. La ruta permanece desactivada hasta verificar la propiedad.",
+    "configureDns": "Configurar DNS",
+    "sslipNote": "Dirección temporal con certificado autofirmado; los navegadores mostrarán una advertencia. Añade tu propio dominio para una URL de confianza."
   },
   "backups": {
     "restoreDialogTitle": "Restaurar · {{source}}",

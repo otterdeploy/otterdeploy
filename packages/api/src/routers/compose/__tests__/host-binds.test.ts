@@ -47,7 +47,7 @@ function fixtureId<P extends string>(value: string, prefix: P): Id<P> {
 const ctx: StackReconcileContext = {
   projectId: fixtureId("project_1", "prj"),
   organizationId: fixtureId("org_1", "org"),
-  exposedSeedServiceNames: new Set<string>(),
+  exposedSeeds: new Map<string, string>(),
   stackResourceId: fixtureId("resource_1", "res"),
   projectSlug: "store",
   stackName: "dozzle",

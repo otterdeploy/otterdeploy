@@ -20,8 +20,9 @@ import type { ParsedComposeService } from "../../stack/compose";
 import type { SwarmServiceRuntime } from "../../swarm";
 
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
+import { normalizePublicHostInput } from "../service/domain-rules";
 import { exposeService } from "../service/expose";
-import { getServiceRecord } from "../service/queries";
+import { getServiceRecord, setServicePublicDomain } from "../service/queries";
 import { provisionFresh, redeployOne } from "../service/redeploy";
 import { friendlyServiceCollisionMessage } from "./queries";
 
@@ -36,7 +37,9 @@ export interface RolloutContext {
   organizationId: OrganizationId;
   projectSlug: string;
   stackResourceId: ResourceId;
-  exposedSeedServiceNames: ReadonlySet<string>;
+  /** Compose-service name → seed domain ("" = generated host). See
+   *  StackReconcileContext.exposedSeeds. */
+  exposedSeeds: ReadonlyMap<string, string>;
 }
 
 /** One service that pass 1 committed a row for, ready to roll out. */
@@ -77,8 +80,26 @@ async function seedServiceExposure(
   log: RequestLogger | undefined,
   progress: (line: string) => void,
 ): Promise<void> {
-  if (!isCreate || !ctx.exposedSeedServiceNames.has(svcName)) return;
+  if (!isCreate) return;
+  const seedDomain = ctx.exposedSeeds.get(svcName);
+  if (seedDomain === undefined) return;
   const seedLog = log ?? createLogger({ operation: "compose.seed-expose" });
+
+  // The wizard/manifest named an explicit public domain for this service
+  // (e.g. the template's edited address variable). Record it as the child's
+  // own domain override BEFORE exposing: `exposeService` resolves the host
+  // through that override, so the route is minted at exactly the domain the
+  // operator chose instead of the name-derived generated one.
+  if (seedDomain !== "") {
+    const host = normalizePublicHostInput(seedDomain);
+    if (host) {
+      await setServicePublicDomain(resourceId, host);
+    } else {
+      progress(
+        `Service ${svcName}: exposed domain "${seedDomain}" isn't a usable hostname; using the generated host instead.`,
+      );
+    }
+  }
   const seeded = await Result.tryPromise({
     try: () =>
       exposeService(
