@@ -29,6 +29,55 @@ function SecretValue({ value }: { value: string }) {
   );
 }
 
+/**
+ * A value carrying newlines: a whole YAML/JSON document stuffed into one
+ * variable, which several templates do (LiveKit ships its entire config that
+ * way as LIVEKIT_CONFIG).
+ *
+ * `truncate` is `white-space: nowrap` — it collapsed such a value onto one
+ * clipped line, so the structure that makes it readable was exactly what got
+ * thrown away. Preserve the newlines, cap the height so one big config can't
+ * push the rest of the stack off the tab, and let it scroll in place.
+ */
+function MultilineValue({ value }: { value: string }) {
+  return (
+    <pre className="max-h-56 overflow-auto rounded-md bg-muted/40 px-2 py-1.5 text-[11px] leading-relaxed break-words whitespace-pre-wrap text-foreground/85">
+      {value}
+    </pre>
+  );
+}
+
+/**
+ * One key/value row. Single-line values keep the compact two-column shape;
+ * a multi-line one stacks so the value gets the full width it needs, with the
+ * line count next to the key so the row still reads at a glance.
+ *
+ * Secrets stay masked either way — a multi-line secret is still a secret, and
+ * its shape is not worth leaking to a screen share.
+ */
+function VarRow({ name, value, secret }: { name: string; value: string; secret: boolean }) {
+  if (secret || !value.includes("\n")) {
+    return (
+      <div className="flex items-baseline gap-3 px-3 py-1.5 font-mono text-[11.5px]">
+        <span className="w-56 shrink-0 truncate text-foreground/85">{name}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {secret ? <SecretValue value={value} /> : value}
+        </span>
+      </div>
+    );
+  }
+  const lines = value.replace(/\n$/, "").split("\n").length;
+  return (
+    <div className="flex flex-col gap-1.5 px-3 py-2 font-mono text-[11.5px]">
+      <div className="flex items-baseline gap-2">
+        <span className="truncate text-foreground/85">{name}</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground">{lines} lines</span>
+      </div>
+      <MultilineValue value={value} />
+    </div>
+  );
+}
+
 function ServiceVars({
   name,
   env,
@@ -60,12 +109,7 @@ function ServiceVars({
       ) : (
         <div className="divide-y divide-border/40">
           {keys.map((k) => (
-            <div key={k} className="flex items-baseline gap-3 px-3 py-1.5 font-mono text-[11.5px]">
-              <span className="w-56 shrink-0 truncate text-foreground/85">{k}</span>
-              <span className="min-w-0 flex-1 truncate">
-                {isSecret(k) ? <SecretValue value={env[k] ?? ""} /> : (env[k] ?? "")}
-              </span>
-            </div>
+            <VarRow key={k} name={k} value={env[k] ?? ""} secret={isSecret(k)} />
           ))}
         </div>
       )}
