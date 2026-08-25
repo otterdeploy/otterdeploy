@@ -225,8 +225,9 @@ export async function deployCompose(
     // service's own Settings tab). reconcileStackServices applies this seed
     // via the normal per-service `exposeService` primitive, ONLY the first
     // time each service is materialized, so it never overwrites an operator's
-    // later imperative expose/unexpose.
-    const exposedSeedServiceNames = new Set(record.compose.exposed.map((e) => e.service));
+    // later imperative expose/unexpose. An entry's `domain` (when the
+    // wizard/manifest named one) is the public host the seed publishes at.
+    const exposedSeeds = new Map(record.compose.exposed.map((e) => [e.service, e.domain]));
 
     const reconciled = await Result.tryPromise({
       try: () =>
@@ -235,7 +236,7 @@ export async function deployCompose(
           {
             projectId: input.projectId,
             organizationId,
-            exposedSeedServiceNames,
+            exposedSeeds,
             stackResourceId: input.resourceId,
             projectSlug: project.slug,
             stackName: record.compose.stackName,

@@ -42,12 +42,13 @@ export interface StackReconcileContext {
   /** Owning org, needed to seed public exposure via the same `exposeService`
    *  path a standalone service's Settings toggle calls. */
   organizationId: OrganizationId;
-  /** Compose-service names (the file's `service:` key) to auto-expose the
-   *  FIRST time each is materialized. The wizard/manifest's `exposed` seed.
-   *  Seed only: applied once per service on create, never again, so an
-   *  operator's later imperative expose/unexpose on the child's own Settings
-   *  tab is the single source of truth from then on. */
-  exposedSeedServiceNames: ReadonlySet<string>;
+  /** Compose services (keyed by the file's `service:` key) to auto-expose the
+   *  FIRST time each is materialized, mapped to the public domain the seed
+   *  names for it ("" = mint the generated host). The wizard/manifest's
+   *  `exposed` seed. Seed only: applied once per service on create, never
+   *  again, so an operator's later imperative expose/unexpose on the child's
+   *  own Settings tab is the single source of truth from then on. */
+  exposedSeeds: ReadonlyMap<string, string>;
   /** The compose resource id: written as `service_resource.stackId`. */
   stackResourceId: ResourceId;
   projectSlug: string;

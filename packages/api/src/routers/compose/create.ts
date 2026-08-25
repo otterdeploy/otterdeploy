@@ -33,7 +33,7 @@ export interface ComposeCreateInput {
   composePath?: string;
   sourceSubdir?: string;
   variables: Array<{ key: string; value: string; secret?: boolean }>;
-  exposed: Array<{ service: string; port: number }>;
+  exposed: Array<{ service: string; port: number; domain?: string }>;
   deploy: boolean;
 }
 
@@ -213,7 +213,7 @@ export async function createComposeResource(args: {
   const exposed: ExposedSeed[] = input.exposed.map((e) => ({
     service: e.service,
     port: e.port,
-    domain: "",
+    domain: e.domain ?? "",
   }));
 
   return input.source === "git"

@@ -25,6 +25,12 @@ export interface Var {
    *  set before it can deploy. Drives the required/optional indicator. Absent =
    *  operator-added / optional. */
   required?: boolean;
+  /** The address the wizard auto-filled this URL/host-shaped var with (the
+   *  stack's resolved public host). When the operator EDITS such a value, the
+   *  stage step reads the new hostname back as the exposed service's public
+   *  domain, so the URL they typed is the URL the route actually publishes
+   *  at. Absent on secrets, defaults, and operator-added rows. */
+  seedValue?: string;
 }
 
 /**

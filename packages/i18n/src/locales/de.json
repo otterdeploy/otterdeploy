@@ -1660,7 +1660,20 @@
     "setPrimary": "Als primär festlegen",
     "copyUrl": "URL kopieren",
     "editDomain": "Domain bearbeiten",
-    "removeDomain": "Domain entfernen"
+    "removeDomain": "Domain entfernen",
+    "statusPaused": "Pausiert",
+    "statusOwnershipPending": "Inhaberschaft ausstehend",
+    "statusDisabled": "Deaktiviert",
+    "statusPendingDns": "DNS ausstehend",
+    "statusLive": "Live",
+    "statusConnected": "Verbunden",
+    "statusCloudflare": "Cloudflare",
+    "statusNotPointed": "DNS zeigt nicht hierher",
+    "statusChecking": "Prüfe…",
+    "dnsHintGenerated": "Dieser Host löst noch nicht zu diesem Server auf. Richte ihn mit dem A-Record unten hierher (ein Wildcard-Eintrag auf der Basisdomain deckt alle generierten Hosts ab) und prüfe dann erneut.",
+    "dnsHintCustom": "Füge den TXT-Record zum Inhaberschaftsnachweis hinzu und richte den Host auf diesen Server, dann erneut prüfen. Die Route bleibt deaktiviert, bis die Inhaberschaft bestätigt ist.",
+    "configureDns": "DNS konfigurieren",
+    "sslipNote": "Temporäre Adresse mit selbstsigniertem Zertifikat – Browser zeigen eine Warnung. Füge eine eigene Domain für eine vertrauenswürdige URL hinzu."
   },
   "backups": {
     "restoreDialogTitle": "Wiederherstellen · {{source}}",

@@ -43,6 +43,7 @@ import {
   type ComposePrefill,
   useComposeForm,
 } from "./compose-wizard-shared";
+import { editedExposedHost } from "./exposed-host";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values: split from the
@@ -60,7 +61,7 @@ function buildComposeEntry(value: ComposeFormValues, logoBrand: string | undefin
   const envEntry = Object.keys(env).length > 0 ? { env } : {};
   const file = value.file;
   return file.source === "inline"
-    ? buildInlineEntry(file, brand, envEntry)
+    ? buildInlineEntry(file, brand, envEntry, editedExposedHost(value.vars.variables))
     : buildGitEntry(file, brand, envEntry);
 }
 
@@ -68,6 +69,8 @@ function buildInlineEntry(
   file: ComposeFileValues,
   brand: { logoBrand?: string },
   envEntry: { env?: Record<string, string> },
+  /** Operator-edited public host for the front (first exposed) service. */
+  exposedHost: string | null,
 ) {
   return {
     source: "inline" as const,
@@ -96,9 +99,16 @@ function buildInlineEntry(
         }
       : {}),
     ...envEntry,
-    exposed: file.exposed.map((k) => {
+    // The first exposed entry is the stack's front door (the same rule that
+    // picked the host the address vars were seeded from), so an edited
+    // address lands on it.
+    exposed: file.exposed.map((k, i) => {
       const [service, port] = k.split(":");
-      return { service: service ?? "", port: Number(port) };
+      return {
+        service: service ?? "",
+        port: Number(port),
+        ...(i === 0 && exposedHost ? { domain: exposedHost } : {}),
+      };
     }),
   };
 }

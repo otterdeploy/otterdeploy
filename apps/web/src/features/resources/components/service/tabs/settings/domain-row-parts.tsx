@@ -123,6 +123,9 @@ export function DomainEditRow({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") onCancel();
+          // Enter commits, same as the add form's submit. Without this the
+          // universal "type, press Enter" gesture silently discarded the edit.
+          if (e.key === "Enter" && !saving && value.trim().length > 0) onSave();
         }}
         className="h-8 min-w-0 flex-1 basis-48 font-mono text-[12.5px]"
         spellCheck={false}
@@ -183,7 +186,11 @@ export function DomainRowActions({
         aria-label={t("domains.serveDomain", { domain: domain.domain })}
         className="mr-1"
       />
-      {domain.source === "custom" && (
+      {/* Custom hosts always offer it; generated hosts too once they carry a
+          real (non-sslip/localhost) name, so "does my wildcard actually reach
+          this server?" has an answer instead of an unverifiable badge. */}
+      {(domain.source === "custom" ||
+        (!domain.domain.endsWith(".sslip.io") && !domain.domain.endsWith(".localhost"))) && (
         <Button
           size="xs"
           variant={needsDns ? "secondary" : "ghost"}

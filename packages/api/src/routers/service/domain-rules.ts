@@ -14,6 +14,7 @@ import { randomBytes } from "node:crypto";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { DnsState } from "../../lib/domain-reachability";
+import type { DomainSources } from "../../lib/domains";
 import type { ResourceRef } from "./inputs";
 
 import { VERIFY_TXT_PREFIX } from "../../lib/dns-verify";
@@ -183,6 +184,66 @@ export async function serverIpFor(ref: ResourceRef): Promise<string | null> {
   const sources = await loadDomainSourcesForProject(ref.projectId);
   return sources?.serverIp ?? null;
 }
+
+/**
+ * Is this host a subdomain of an apex the platform already vouches for (the
+ * project's custom domain or the org base domain)?
+ *
+ * Renaming a generated host WITHIN such an apex must stay in the generated
+ * trust model: the apex has its own ownership flow (org/project TXT
+ * verification) and one wildcard record covers every label under it, so
+ * demanding a per-route TXT proof for `netbird.<base>` after the platform
+ * itself minted `netbird-shared.<base>` is a verification of something
+ * already established. That demand is also what made an edited generated
+ * domain silently go dark: the rename flipped the route to an unverified
+ * custom host, disabled it, and the edit read as "didn't apply".
+ */
+export function platformApexFor(
+  domain: string,
+  sources: Pick<
+    DomainSources,
+    | "projectCustomDomain"
+    | "projectCustomDomainVerifiedAt"
+    | "orgBaseDomain"
+    | "orgBaseDomainVerifiedAt"
+    | "localBaseDomain"
+  > | null,
+): { source: "project-custom" | "org-base" | "local-base"; verified: boolean } | null {
+  if (!sources) return null;
+  const under = (apex: string | null) => {
+    const a = apex?.trim().toLowerCase().replace(/\.$/, "");
+    return Boolean(a) && domain.endsWith(`.${a}`);
+  };
+  if (under(sources.projectCustomDomain)) {
+    return { source: "project-custom", verified: sources.projectCustomDomainVerifiedAt != null };
+  }
+  if (under(sources.orgBaseDomain)) {
+    return { source: "org-base", verified: sources.orgBaseDomainVerifiedAt != null };
+  }
+  // Dev wildcard: same trust-by-construction as a generated mint, never ACME.
+  if (under(sources.localBaseDomain)) {
+    return { source: "local-base", verified: false };
+  }
+  return null;
+}
+
+/**
+ * Normalize an operator-supplied "public URL" into a bare hostname, or null
+ * when nothing host-like survives. Tolerates the shapes people actually type
+ * or paste into a URL-ish field: a scheme, a path, a port, trailing dots.
+ * The compose wizard's exposed-domain seed goes through this, because its
+ * value often starts life as an address env var (`https://netbird.acme.com`).
+ */
+export function normalizePublicHostInput(input: string): string | null {
+  let s = input.trim().toLowerCase();
+  s = s.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+  const cut = s.search(/[/?#]/);
+  if (cut !== -1) s = s.slice(0, cut);
+  // Strip a :port suffix, but leave IPv6 literals (not valid hosts here) to
+  // fail normalizeDomain on their own.
+  s = s.replace(/:\d+$/, "");
+  return normalizeDomain(s);
+}
 /**
  * The route fields a domain rewrite implies. Re-verification resets the route
  * to unverified-and-disabled: a host that has to prove itself again must not
@@ -196,6 +257,41 @@ export async function serverIpFor(ref: ResourceRef): Promise<string | null> {
  */
 export function provenByDns(state: DnsState): boolean {
   return state === "pointed";
+}
+
+/**
+ * The route fields a domain edit writes, choosing between the two rewrite
+ * models:
+ *
+ * A GENERATED route renamed WITHIN a platform apex stays generated: the
+ * apex's own verification vouches for every label under it, so the route
+ * keeps its enabled state and verification through the rename (see
+ * {@link platformApexFor}). ACME mirrors the mint/recheck rules: a verified
+ * apex is trusted, and DNS observed pointing here is proof on its own.
+ *
+ * Everything else goes through {@link domainUpdatePatch}, the custom-domain
+ * rewrite with its re-verification rules.
+ */
+export function domainRewritePatch(args: {
+  domain: string;
+  route: ProxyRouteRecord;
+  serviceName: string;
+  dnsState: DnsState;
+  requiresVerification: boolean;
+  apex: ReturnType<typeof platformApexFor>;
+}) {
+  const { domain, route, serviceName, dnsState, requiresVerification, apex } = args;
+  if (apex && route.source === "generated") {
+    return {
+      domain,
+      source: "generated" as const,
+      dnsState,
+      dnsCheckedAt: new Date(),
+      usesAcme: apex.source !== "local-base" && (apex.verified || provenByDns(dnsState)),
+      upstreamHost: serviceName,
+    };
+  }
+  return domainUpdatePatch({ domain, route, serviceName, dnsState, requiresVerification });
 }
 
 export function domainUpdatePatch(args: {

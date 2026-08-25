@@ -138,8 +138,17 @@ export const composeContract = {
             }),
           )
           .default([]),
-        /** `service:port` pairs to publish a domain for. */
-        exposed: z.array(z.object({ service: z.string(), port: z.number().int() })).default([]),
+        /** `service:port` pairs to publish a domain for. `domain` names the
+         *  public host to publish at; omitted = mint the generated one. */
+        exposed: z
+          .array(
+            z.object({
+              service: z.string(),
+              port: z.number().int(),
+              domain: z.string().optional(),
+            }),
+          )
+          .default([]),
         /** Deploy immediately after create (default true). */
         deploy: z.boolean().default(true),
       }),

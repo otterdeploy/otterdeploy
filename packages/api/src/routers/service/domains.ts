@@ -48,7 +48,6 @@ import { loadResource } from "./context";
 import {
   acmeFor,
   acmeForExistingRoute,
-  domainUpdatePatch,
   isReservedControlPlaneDomain,
   normalizeDomain,
   serverIpFor,
@@ -214,73 +213,6 @@ export async function recheckServiceDomain(
   }
 
   log.set({ domain: { action: "recheck", domain: route.domain, dnsState: reachability.state } });
-  return Result.ok(toDomainView(updated, serverIp));
-}
-
-export async function updateServiceDomain(
-  input: ResourceRef & { routeId: ProxyRouteId; domain: string; port?: number },
-  log: RequestLogger,
-): Promise<
-  Result<ServiceDomainView, NotFound | DomainNotFoundError | DomainConflictError | UnknownPortError>
-> {
-  const owned = await loadOwnedRoute(input);
-  if (owned.isErr()) return Result.err(owned.error);
-  const { route, record } = owned.value;
-
-  const domain = normalizeDomain(input.domain);
-  if (!domain || (await isReservedControlPlaneDomain(domain))) {
-    return Result.err(new DomainConflictError({ domain: input.domain }));
-  }
-
-  // An omitted port keeps the one this host already routes to. Editing the
-  // hostname alone must not silently re-point the route at the primary. (So
-  // this path can't hit "service has no HTTP port": there's always the port
-  // the route is already using to fall back on.)
-  let upstreamPort = route.upstreamPort;
-  if (input.port != null) {
-    const match = record.ports.find((p) => p.containerPort === input.port);
-    if (!match) {
-      return Result.err(new UnknownPortError({ resourceId: input.resourceId, port: input.port }));
-    }
-    upstreamPort = match.containerPort;
-  }
-
-  if (domain !== route.domain) {
-    const clash = await getProxyRouteByDomain(domain);
-    if (clash) return Result.err(new DomainConflictError({ domain }));
-  }
-
-  const serverIp = await serverIpFor(input);
-  const reachability = await checkDomainReachability({ domain, serverIp });
-  const changed = domain !== route.domain;
-  const requiresVerification = changed || route.source !== "custom";
-
-  let updated: ProxyRouteRecord | undefined;
-  try {
-    updated = await updateProxyRoute(input.routeId, {
-      ...domainUpdatePatch({
-        domain,
-        route,
-        serviceName: record.service.serviceName,
-        dnsState: reachability.state,
-        requiresVerification,
-      }),
-      upstreamPort,
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) return Result.err(new DomainConflictError({ domain }));
-    throw error;
-  }
-  if (!updated) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
-
-  // Keep the mirror in step if we rewrote the primary host.
-  if (updated.isPrimary) {
-    await setServicePublicDomain(input.resourceId, updated.domain);
-  }
-  // Re-render so the old host stops being served and the new one takes over.
-  if (route.enabled || updated.enabled) await reconcile(log);
-
-  log.set({ domain: { action: "update", from: route.domain, to: domain } });
   return Result.ok(toDomainView(updated, serverIp));
 }
 

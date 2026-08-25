@@ -38,6 +38,9 @@ function toDomainView(publicDomain: string): DomainStatusView {
     source: "generated",
     status: "live",
     dnsState: "pointed",
+    // Never measured here: the summary only knows the denormalized domain, so
+    // the badge falls back to the base-domain signal, same as before.
+    dnsCheckedAt: null,
     usesAcme: false,
     ownershipVerified: true,
   };

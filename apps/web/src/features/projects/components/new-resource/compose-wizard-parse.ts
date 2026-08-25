@@ -13,7 +13,7 @@ import { useState } from "react";
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import { collectFileVarRefs } from "@otterdeploy/api/routers/compose/env";
 import { randomBase64, randomSecret } from "@otterdeploy/shared/crypto";
-import { autofillValue, isSecretKey } from "@otterdeploy/shared/env-var-kind";
+import { autofillValue, classifyEnvVar, isSecretKey } from "@otterdeploy/shared/env-var-kind";
 
 import { orpc } from "@/shared/server/orpc";
 
@@ -176,12 +176,22 @@ export function useComposeParse(
       // rejects it. NetBird's store key did, on every boot.
       const spec = generate?.[ref.name];
       const generated = spec ? randomBase64(spec.bytes) : null;
+      const autofilled =
+        ref.default == null && generated == null
+          ? autofillValue(ref.name, { randomSecret, publicHost })
+          : null;
+      const kind = classifyEnvVar(ref.name);
       return {
         key: ref.name,
-        value:
-          ref.default ?? generated ?? autofillValue(ref.name, { randomSecret, publicHost }) ?? "",
+        value: ref.default ?? generated ?? autofilled ?? "",
         secret: isSecretKey(ref.name),
         required,
+        // Remember which rows we seeded with the resolved public address:
+        // if the operator edits one, the stage step publishes the exposed
+        // route on the hostname they typed (see editedExposedHost).
+        ...(autofilled != null && (kind === "url" || kind === "host")
+          ? { seedValue: autofilled }
+          : {}),
       };
     });
     // Keep any extra rows the user added that aren't refs in the file.

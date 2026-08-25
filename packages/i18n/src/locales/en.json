@@ -1660,7 +1660,20 @@
     "setPrimary": "Set primary",
     "copyUrl": "Copy URL",
     "editDomain": "Edit domain",
-    "removeDomain": "Remove domain"
+    "removeDomain": "Remove domain",
+    "statusPaused": "Paused",
+    "statusOwnershipPending": "Ownership pending",
+    "statusDisabled": "Disabled",
+    "statusPendingDns": "Pending DNS",
+    "statusLive": "Live",
+    "statusConnected": "Connected",
+    "statusCloudflare": "Cloudflare",
+    "statusNotPointed": "DNS not pointed",
+    "statusChecking": "Checking…",
+    "dnsHintGenerated": "This host doesn't resolve to this server yet. Point it here with the A record below (a wildcard on the base domain covers every generated host), then Recheck.",
+    "dnsHintCustom": "Add the ownership TXT record and point the host at this server, then Recheck. The route stays disabled until ownership is verified.",
+    "configureDns": "Configure DNS",
+    "sslipNote": "Temporary address with a self-signed certificate, so browsers will warn. Add a domain of your own for a trusted URL."
   },
   "backups": {
     "restoreDialogTitle": "Restore · {{source}}",
