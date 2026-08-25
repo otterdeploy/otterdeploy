@@ -18,6 +18,7 @@ import {
 import { checkDomainReachability, type DnsState } from "../../lib/domain-reachability";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
+import { acmeForPlatformHost } from "./domain-rules";
 import { DomainConflictError } from "./errors";
 import { type ResourceRef } from "./inputs";
 import { type ServiceRecord } from "./queries";
@@ -138,9 +139,17 @@ export async function insertGeneratedRoute(
   const fields = {
     upstreamHost: record.service.serviceName,
     upstreamPort,
-    // ACME only when the resolver decided the domain is verified and not
-    // a sslip fallback: same gate as the DB path.
-    usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
+    // One rule with the rename path (domainRewritePatch), so a host does not
+    // get a different answer depending on which one last touched it. We just
+    // MEASURED this name's DNS on the line above; requiring only
+    // `resolved.verified` threw that away and left a host already pointing
+    // here on a self-signed cert until something else happened to rewrite it.
+    usesAcme: acmeForPlatformHost({
+      domain: resolved.fqdn,
+      isLocalBase: resolved.source === "local-base",
+      apexVerified: resolved.verified,
+      dnsState: dns.dnsState,
+    }),
     enabled: true,
     dnsState: dns.dnsState,
     dnsCheckedAt: dns.dnsCheckedAt,

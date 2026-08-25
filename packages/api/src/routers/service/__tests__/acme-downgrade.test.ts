@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { acmeFor, acmeForExistingRoute } from "../domain-rules";
+import { acmeFor, acmeForExistingRoute, acmeForPlatformHost } from "../domain-rules";
 
 describe("acmeFor (new route)", () => {
   it("only issues for a host that points at us", () => {
@@ -85,5 +85,56 @@ describe("acmeForExistingRoute", () => {
         certState: "valid",
       }),
     ).toBe(false);
+  });
+});
+
+/**
+ * The mint path and the rename path must answer identically for the same host.
+ * They did not: a generated host under an unverified apex whose DNS already
+ * pointed here got `tls internal` on first expose and a real certificate only
+ * if something later renamed it. Observed as livekit.dr34mw0rk5.com serving
+ * "Caddy Local Authority - ECC Intermediate" with a 12-hour validity.
+ */
+describe("acmeForPlatformHost", () => {
+  const base = {
+    domain: "livekit.example.com",
+    isLocalBase: false,
+    apexVerified: false,
+    dnsState: "pointed",
+  } as const;
+
+  it("issues when DNS already lands here, even under an unverified apex", () => {
+    // The bug, stated directly.
+    expect(acmeForPlatformHost(base)).toBe(true);
+  });
+
+  it("issues on a verified apex whatever DNS currently reads", () => {
+    // A verified apex behind Cloudflare reads `proxied`. Requiring `pointed`
+    // alone would put a working site back on a self-signed cert.
+    for (const dnsState of ["pointed", "proxied", "unpointed", "unknown"] as const) {
+      expect(acmeForPlatformHost({ ...base, apexVerified: true, dnsState })).toBe(true);
+    }
+  });
+
+  it("withholds when the apex is unverified and DNS does not point here", () => {
+    for (const dnsState of ["proxied", "unpointed", "unknown"] as const) {
+      expect(acmeForPlatformHost({ ...base, dnsState })).toBe(false);
+    }
+  });
+
+  it("never issues for the dev wildcard, whatever it is named", () => {
+    // LOCAL_BASE_DOMAIN is env-configurable, so the guard is the SOURCE, not
+    // the name: a dev apex called `dev.example.com` still gets no public cert.
+    expect(acmeForPlatformHost({ ...base, isLocalBase: true })).toBe(false);
+    expect(acmeForPlatformHost({ ...base, isLocalBase: true, apexVerified: true })).toBe(false);
+  });
+
+  it("never issues for names no CA can sign, which a mint calls pointed by construction", () => {
+    expect(acmeForPlatformHost({ ...base, domain: "app.127.0.0.1.sslip.io" })).toBe(false);
+    expect(acmeForPlatformHost({ ...base, domain: "app.localhost" })).toBe(false);
+    // Even a verified apex cannot rescue those.
+    expect(acmeForPlatformHost({ ...base, domain: "app.localhost", apexVerified: true })).toBe(
+      false,
+    );
   });
 });
