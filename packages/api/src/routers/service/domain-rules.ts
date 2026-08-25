@@ -9,6 +9,7 @@
 
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { stripToHostname } from "@otterdeploy/shared/public-host";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
@@ -229,20 +230,15 @@ export function platformApexFor(
 
 /**
  * Normalize an operator-supplied "public URL" into a bare hostname, or null
- * when nothing host-like survives. Tolerates the shapes people actually type
- * or paste into a URL-ish field: a scheme, a path, a port, trailing dots.
- * The compose wizard's exposed-domain seed goes through this, because its
- * value often starts life as an address env var (`https://netbird.acme.com`).
+ * when nothing host-like survives. The loose stripping (scheme, path, port)
+ * is shared with the wizard via `stripToHostname`; this adds the API's real
+ * FQDN validation on top. The compose wizard's exposed-domain seed goes
+ * through this, because its value often starts life as an address env var
+ * (`https://netbird.acme.com`).
  */
 export function normalizePublicHostInput(input: string): string | null {
-  let s = input.trim().toLowerCase();
-  s = s.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
-  const cut = s.search(/[/?#]/);
-  if (cut !== -1) s = s.slice(0, cut);
-  // Strip a :port suffix, but leave IPv6 literals (not valid hosts here) to
-  // fail normalizeDomain on their own.
-  s = s.replace(/:\d+$/, "");
-  return normalizeDomain(s);
+  const host = stripToHostname(input);
+  return host ? normalizeDomain(host) : null;
 }
 /**
  * The route fields a domain rewrite implies. Re-verification resets the route
@@ -294,7 +290,7 @@ export function domainRewritePatch(args: {
   return domainUpdatePatch({ domain, route, serviceName, dnsState, requiresVerification });
 }
 
-export function domainUpdatePatch(args: {
+function domainUpdatePatch(args: {
   domain: string;
   route: ProxyRouteRecord;
   serviceName: string;
