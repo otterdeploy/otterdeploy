@@ -6,6 +6,7 @@
  */
 
 import { Docker } from "@otterdeploy/docker";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import type { SwarmServiceResources, SwarmServiceRuntime, SwarmServiceSpec } from "./service";
@@ -174,13 +175,34 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     if (resources) taskTemplate.Resources = resources;
   }
 
+  // Omitting `PublishedPort` makes swarm assign one from the ingress range
+  // (30000-32767). For a TCP port that is harmless: the edge reaches it over
+  // the overlay by service name, so the host port is never the address anyone
+  // uses (see caddy/layer4.ts, which emits `proxy <serviceName>:<port>`).
+  //
+  // UDP has no such path. Caddy's layer4 proxy is TCP, and the HTTP edge
+  // obviously is too, so for UDP the published HOST port IS the address
+  // clients dial. Letting swarm pick it at random meant every UDP port the
+  // platform has ever published landed somewhere unpredictable, with nothing
+  // in the UI naming it — declared, bound, billed for, and unreachable.
+  // NetBird's STUN (3478/udp) and LiveKit's media (7882/udp) both die this
+  // way: the client is told to talk to 3478 and nothing is listening there.
+  //
+  // Pinning it to the container port is what `ports: ["3478/udp"]` plainly
+  // means to an operator. Two stacks claiming the same UDP port now collide
+  // and the second deploy fails loudly, which is the honest outcome: one host
+  // port cannot serve two services, and failing beats both being silently
+  // unreachable.
   const publishedPorts = spec.ports
     .filter((p) => p.appProtocol === "tcp")
-    .map((p) => ({
-      Protocol: p.protocol,
-      TargetPort: p.containerPort,
-      PublishMode: "ingress",
-    }));
+    .map((p) =>
+      omitUndefined({
+        Protocol: p.protocol,
+        TargetPort: p.containerPort,
+        PublishedPort: p.protocol === "udp" ? p.containerPort : undefined,
+        PublishMode: "ingress" as const,
+      }),
+    );
 
   return {
     Name: spec.serviceName,
