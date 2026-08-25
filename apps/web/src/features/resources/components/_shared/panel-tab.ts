@@ -28,3 +28,15 @@ export function resolvePanelTab<T extends string>(
   if (!raw) return fallback;
   return allowed.find((tab) => tab === raw) ?? fallback;
 }
+
+/**
+ * The scrolling tab body inside a resource detail panel.
+ *
+ * The bottom padding lives HERE — on the one wrapper every `TabsContent` sits
+ * inside — rather than on the tabs themselves, so a tab cannot ship without it.
+ * Per-tab was the old arrangement and it drifted: fifteen tab bodies across the
+ * three panels carried five different `pb-*` values, and the Compose tab's
+ * Reset/Save row still ended up flush against the panel's bottom edge with
+ * nothing under it. One owner, every tab, including ones not written yet.
+ */
+export const PANEL_TAB_BODY_CLASS = "relative pb-12";

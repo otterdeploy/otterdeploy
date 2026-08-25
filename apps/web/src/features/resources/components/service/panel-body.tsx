@@ -12,6 +12,7 @@ import { Activity } from "react";
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
+import { PANEL_TAB_BODY_CLASS } from "@/features/resources/components/_shared/panel-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 import { TabsContent } from "@/shared/components/ui/tabs";
@@ -77,14 +78,14 @@ export function ServicePanelBody({
         {/* Plain container, not the animated <TabsContents>: panels snap to
             their content instead of the height-spring "drop-in" on every
             tab switch. */}
-        <div className="relative">
+        <div className={PANEL_TAB_BODY_CLASS}>
           {/* Runtime tabs only mount their live components once deployed.
               They query tasks/metrics by resourceId, which doesn't exist
               for a staged create. Overview/Deployments/Metrics stay
               unmount-on-leave. They're pollers; unmounting stops their
               intervals while hidden. */}
           {!pending && (
-            <TabsContent value="overview" className="px-6 pt-5 pb-6">
+            <TabsContent value="overview" className="px-6 pt-5">
               <ServiceOverviewTab
                 resource={resource}
                 service={service}
@@ -96,7 +97,7 @@ export function ServicePanelBody({
           )}
 
           {!pending && (
-            <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+            <TabsContent value="deployments" className="px-6 pt-5">
               <ResourceTasksTab
                 projectId={resource.projectId}
                 resourceId={resource.resourceId}
@@ -120,7 +121,7 @@ export function ServicePanelBody({
           )}
 
           {!pending && (
-            <TabsContent value="metrics" className="px-6 pt-5 pb-6">
+            <TabsContent value="metrics" className="px-6 pt-5">
               <MetricsTab resourceId={resource.resourceId} />
             </TabsContent>
           )}
@@ -128,7 +129,7 @@ export function ServicePanelBody({
           {/* keepMounted: panels stay in the DOM (hidden) across tab
               switches, so half-edited env values and settings forms don't
               reset. */}
-          <TabsContent value="variables" keepMounted className="px-6 pt-5 pb-6">
+          <TabsContent value="variables" keepMounted className="px-6 pt-5">
             <ServiceVariablesTabBody
               resource={resource}
               pending={pending}
@@ -136,7 +137,7 @@ export function ServicePanelBody({
             />
           </TabsContent>
 
-          <TabsContent value="settings" keepMounted className="px-6 pt-5 pb-8">
+          <TabsContent value="settings" keepMounted className="px-6 pt-5">
             <ServiceSettingsBody resource={resource} onDeleted={onClose} pending={pending} />
           </TabsContent>
         </div>

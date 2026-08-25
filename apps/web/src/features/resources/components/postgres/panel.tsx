@@ -22,7 +22,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { PostgresBodyProps } from "./types";
 
-import { resolvePanelTab } from "../_shared/panel-tab";
+import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
 import { DatabaseDataTab, DatabasePanelHeader, DatabaseStatusBar } from "./panel-parts";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
@@ -155,11 +155,11 @@ export function RealResourcePanel({
 
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
-            <div className="relative">
+            <div className={PANEL_TAB_BODY_CLASS}>
               {/* Runtime tabs query tasks/data/metrics by resourceId, which
                   doesn't exist for a staged create. Only mount once deployed. */}
               {!pending && (
-                <TabsContent value="deployments" className="px-4 pt-5 pb-6 sm:px-6">
+                <TabsContent value="deployments" className="px-4 pt-5 sm:px-6">
                   <ResourceTasksTab
                     projectId={resource.projectId}
                     resourceId={resource.resourceId}
@@ -181,22 +181,22 @@ export function RealResourcePanel({
                   unmount-on-leave: they're pollers; unmounting stops their
                   intervals while hidden. */}
               {!pending && (
-                <TabsContent value="data" keepMounted className="min-h-0 px-4 pt-5 pb-6 sm:px-6">
+                <TabsContent value="data" keepMounted className="min-h-0 px-4 pt-5 sm:px-6">
                   <DatabaseDataTab resource={resource} />
                 </TabsContent>
               )}
 
               {!pending && (
-                <TabsContent value="metrics" className="px-4 pt-5 pb-6 sm:px-6">
+                <TabsContent value="metrics" className="px-4 pt-5 sm:px-6">
                   <MetricsTab resourceId={resource.resourceId} />
                 </TabsContent>
               )}
 
-              <TabsContent value="variables" keepMounted className="px-4 pt-5 pb-6 sm:px-6">
+              <TabsContent value="variables" keepMounted className="px-4 pt-5 sm:px-6">
                 <PostgresVariablesTabBody resource={resource} pending={pending} dbName={dbName} />
               </TabsContent>
 
-              <TabsContent value="settings" keepMounted className="px-4 pt-5 pb-8 sm:px-6">
+              <TabsContent value="settings" keepMounted className="px-4 pt-5 sm:px-6">
                 <PostgresSettingsBody
                   resource={resource}
                   onDeleted={onClose}
