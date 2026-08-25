@@ -52,6 +52,13 @@ services:
     depends_on:
       - redis
     environment:
+      # Credentials ride their own variable rather than the config blob.
+      # LiveKit reads them from LIVEKIT_KEYS ("key: secret"), verified against
+      # v1.13.5: a config carrying no keys section boots fine when this is
+      # set, and exits "one of key-file or keys must be provided" when it is
+      # not. Inside LIVEKIT_CONFIG the secret was part of a value the
+      # classifier reads as plain, so it rendered unmasked in the editor.
+      LIVEKIT_KEYS: "\${LIVEKIT_API_KEY}: \${LIVEKIT_API_SECRET}"
       LIVEKIT_CONFIG: |
         port: 7880
         log_level: info
@@ -61,8 +68,6 @@ services:
           use_external_ip: true
         redis:
           address: "\${{stack.redis.HOST}}:6379"
-        keys:
-          \${LIVEKIT_API_KEY}: \${LIVEKIT_API_SECRET}
     ports:
       - "7880"
       - "7881"
