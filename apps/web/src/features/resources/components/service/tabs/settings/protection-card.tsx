@@ -4,26 +4,37 @@
  * the Networking page uses. Only meaningful once the service is exposed.
  * Protection gates the public Caddy HTTP route. See
  * docs/designs/deployment-protection.md.
+ *
+ * Reads through `proxyRoutesCollection`, NOT a bare
+ * `orpc.project.proxyRoute.list` query, because that is what the toggle
+ * writes to. The collection namespaces its cache key (`["proxyRoutes", …]`)
+ * so a bare orpc key is a different entry entirely: reading one while writing
+ * the other left the switch wired to a store nothing was updating, and it sat
+ * there unmoved while the mutation succeeded on the server. Same store for the
+ * read and the write is what makes the optimistic flip show up.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 
 import { DeploymentProtectionCell } from "@/features/projects/components/networking/deployment-protection-cell";
+import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
-import { orpc } from "@/shared/server/orpc";
 
 export function ServiceProtectionCard({
   resource,
 }: {
   resource: { projectId: string; resourceId: string; publicEnabled: boolean };
 }) {
-  const routes = useQuery(
-    orpc.project.proxyRoute.list.queryOptions({
-      input: { projectId: resource.projectId },
-    }),
+  // Only `projectId` goes in the `where`: the OPFS persistence subset parser
+  // handles simple comparisons only, so this resource's own route is picked
+  // out in JS below rather than with a second clause.
+  const { data: routes } = useLiveQuery(
+    (q) =>
+      q.from({ r: proxyRoutesCollection }).where(({ r }) => eq(r.projectId, resource.projectId)),
+    [resource.projectId],
   );
 
-  const route = (routes.data ?? []).find(
+  const route = (routes ?? []).find(
     (r) => r.resourceId === resource.resourceId && r.type === "http",
   );
 

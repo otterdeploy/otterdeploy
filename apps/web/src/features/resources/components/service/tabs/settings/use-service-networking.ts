@@ -14,6 +14,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { SERVICE_DOMAINS_COLLECTION_KEY } from "@/features/resources/data/service-domains";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -37,12 +38,11 @@ export function useServiceNetworking({
       queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
       queryClient.invalidateQueries({ queryKey: orpc.service.get.queryKey({ input }) }),
       // The Protection card gates on this resource's proxy routes ("expose
-      // first" copy), so it goes stale the moment the host set changes.
-      queryClient.invalidateQueries({
-        queryKey: orpc.project.proxyRoute.list.queryKey({
-          input: { projectId: input.projectId },
-        }),
-      }),
+      // first" copy), so it goes stale the moment the host set changes. It
+      // reads the COLLECTION, whose cache key is namespaced (`["proxyRoutes",
+      // …]`); invalidating the bare orpc key here would refresh an entry
+      // nothing renders from.
+      proxyRoutesCollection.utils.refetch(),
     ]);
   };
 

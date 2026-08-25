@@ -83,9 +83,11 @@ function RouteComponent() {
   const probe = certificatesQuery.data;
 
   const refreshAll = () => {
-    void queryClient.invalidateQueries({
-      queryKey: orpc.project.proxyRoute.list.queryKey({ input: { projectId } }),
-    });
+    // The routes table reads the COLLECTION (live query above), whose cache
+    // key is namespaced `["proxyRoutes", …]`. Invalidating the bare orpc key
+    // matched nothing, so this button refreshed everything on the page except
+    // the routes it is sitting on top of.
+    void proxyRoutesCollection.utils.refetch();
     void resourcesQuery.refetch();
     void caddyfileQuery.refetch();
     void certificatesQuery.refetch();
