@@ -34,6 +34,7 @@ import { PRODUCTIVITY_TEMPLATES } from "./templates-productivity";
 import { PUBLISHING_TEMPLATES } from "./templates-publishing";
 import { REALTIME_TEMPLATES } from "./templates-realtime";
 import { SERVICES_TEMPLATES } from "./templates-services";
+import { SOCIAL_TEMPLATES } from "./templates-social";
 import { WIKI_TEMPLATES } from "./templates-wiki";
 import { WORKSPACE_TEMPLATES } from "./templates-workspace";
 
@@ -71,6 +72,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...BILLING_TEMPLATES,
   ...APPSTACK_TEMPLATES,
   ...PUBLISHING_TEMPLATES,
+  ...SOCIAL_TEMPLATES,
   ...SERVICES_TEMPLATES,
 ];
 

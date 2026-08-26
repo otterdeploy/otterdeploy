@@ -81,6 +81,7 @@ import { Penpot } from "@/shared/components/ui/svgs/penpot";
 import { Plausible } from "@/shared/components/ui/svgs/plausible";
 import { PocketId } from "@/shared/components/ui/svgs/pocket-id";
 import { Pocketbase } from "@/shared/components/ui/svgs/pocketbase";
+import { Postiz } from "@/shared/components/ui/svgs/postiz";
 import { PrestaShop } from "@/shared/components/ui/svgs/prestashop";
 import { Qdrant } from "@/shared/components/ui/svgs/qdrant";
 import { Rabbitmq } from "@/shared/components/ui/svgs/rabbitmq";
@@ -153,6 +154,7 @@ type BrandKey =
   | "NATS"
   | "Ollama"
   | "PocketBase"
+  | "Postiz"
   | "RabbitMQ"
   | "RustFS"
   | "Temporal"
@@ -262,6 +264,7 @@ const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   NATS: Nats,
   Ollama: Ollama,
   PocketBase: Pocketbase,
+  Postiz: Postiz,
   RabbitMQ: Rabbitmq,
   RustFS: Rustfs,
   Temporal: Temporal,
