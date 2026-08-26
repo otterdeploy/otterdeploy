@@ -58,6 +58,7 @@ export function BreakdownCard({
   mono = true,
   formatValue,
   onRowClick,
+  selectedKey,
   body,
 }: {
   title: string;
@@ -74,6 +75,8 @@ export function BreakdownCard({
   /** Right column; defaults to the visitors count. */
   formatValue?: (row: BreakdownRowData) => string;
   onRowClick?: (key: string) => void;
+  /** The row currently applied as a filter (toggle-style cards). */
+  selectedKey?: string;
   /** Replaces the row list entirely (the Locations map). */
   body?: ReactNode;
 }) {
@@ -138,6 +141,7 @@ export function BreakdownCard({
                   label={displayKey ? displayKey(row.key) : row.key}
                   mono={mono}
                   value={formatValue ? formatValue(row) : undefined}
+                  selected={selectedKey !== undefined && row.key === selectedKey}
                   onClick={
                     onRowClick && row.key !== "(none)" ? () => onRowClick(row.key) : undefined
                   }
@@ -168,6 +172,7 @@ function BreakdownRow({
   label,
   mono,
   value,
+  selected,
   onClick,
 }: {
   row: BreakdownRowData;
@@ -176,6 +181,7 @@ function BreakdownRow({
   label: string;
   mono: boolean;
   value: string | undefined;
+  selected: boolean;
   onClick: (() => void) | undefined;
 }) {
   const barWidth = maxShare > 0 ? `${Math.max((row.share / maxShare) * 100, 2)}%` : "0%";
@@ -204,11 +210,17 @@ function BreakdownRow({
   if (!onClick) {
     return <div className="flex h-9 flex-col justify-center gap-1 px-1.5">{content}</div>;
   }
+  // The applied row keeps a resting tint, the way a chip in the filter bar
+  // does: the selection is a fact about the page, not a hover.
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex h-9 flex-col justify-center gap-1 rounded-md px-1.5 transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+      aria-pressed={selected}
+      className={cn(
+        "flex h-9 flex-col justify-center gap-1 rounded-md px-1.5 transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+        selected && "bg-muted",
+      )}
     >
       {content}
     </button>

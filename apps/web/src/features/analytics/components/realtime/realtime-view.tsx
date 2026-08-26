@@ -5,6 +5,7 @@
  * across rows without anything being stored about them. Polls every 10 s.
  */
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { Temporal } from "@otterdeploy/shared/temporal";
@@ -19,6 +20,7 @@ import { type AnalyticsScope, useRealtime } from "../../hooks/use-web-analytics"
 import { formatAgo } from "../../lib/format-duration";
 import { isoMs } from "../../lib/iso-ms";
 import { visitorDotColor, visitorIdentity } from "../../lib/visitor-name";
+import { UaIcon } from "../ua-icon";
 import { TopPathsList } from "./top-paths-list";
 import { VisitorSheet } from "./visitor-sheet";
 
@@ -75,7 +77,14 @@ export function RealtimeView({ scope }: { scope: AnalyticsScope }) {
                   visitorId={entry.visitorId}
                   path={entry.path}
                   country={entry.country}
-                  meta={`${entry.browser} · ${entry.os} · ${entry.device}`}
+                  meta={
+                    <>
+                      <UaIcon kind="device" value={entry.device} />
+                      <span className="truncate">
+                        {`${entry.browser} · ${entry.os} · ${entry.device}`}
+                      </span>
+                    </>
+                  }
                   agoMs={agoOf(entry.lastSeenAt, nowMs)}
                   live
                   onOpen={() => setOpenVisitor(entry.visitorId)}
@@ -103,10 +112,14 @@ export function RealtimeView({ scope }: { scope: AnalyticsScope }) {
                     visitorId={session.visitorId}
                     path={session.exitPath}
                     country={session.country}
-                    meta={t("analytics.realtime.sessionMeta", {
-                      pageviews: session.pageviews,
-                      referrer: session.referrerHost ?? t("analytics.realtime.direct"),
-                    })}
+                    meta={
+                      <span className="truncate">
+                        {t("analytics.realtime.sessionMeta", {
+                          pageviews: session.pageviews,
+                          referrer: session.referrerHost ?? t("analytics.realtime.direct"),
+                        })}
+                      </span>
+                    }
                     agoMs={agoOf(session.lastAt, nowMs)}
                     live={false}
                     onOpen={() => setOpenVisitor(session.visitorId)}
@@ -145,7 +158,7 @@ function VisitorRow({
   visitorId: string;
   path: string;
   country: string | null;
-  meta: string;
+  meta: ReactNode;
   agoMs: number | null;
   live: boolean;
   onOpen: () => void;
@@ -168,7 +181,7 @@ function VisitorRow({
           {path}
         </span>
         {country ? <CountryFlag code={country} /> : null}
-        <span className="hidden max-w-44 shrink-0 truncate text-xs text-muted-foreground sm:block">
+        <span className="hidden max-w-48 shrink-0 items-center gap-1.5 text-xs text-muted-foreground sm:flex">
           {meta}
         </span>
         <span className="w-16 shrink-0 text-right font-mono text-[11px] text-muted-foreground tabular-nums">

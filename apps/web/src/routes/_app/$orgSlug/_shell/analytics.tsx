@@ -1,7 +1,7 @@
 /**
  * Analytics: one page, six search-param views. Overview / Realtime / Events /
  * Setup read the tracker plane (`analytics.*`); Traffic mounts the edge-plane
- * view (`edgeLogs.analytics.*`) unchanged; Funnels is a placeholder until
+ * view (`edgeLogs.analytics.*`) under this header's range; Funnels is a placeholder until
  * Phase 3. Scope, window, filters, hero metric and compare all ride the URL,
  * so any reading is a shareable link. Install admins see the whole install
  * unless they pick a project; everyone else sees their org.
@@ -223,7 +223,6 @@ function AnalyticsRoute() {
             BROWSER_TZ,
             Temporal.Now.instant().epochMilliseconds,
           )}
-          onWindowChange={(next) => patch({ range: next.range, from: next.from, to: next.to })}
           hostFilter={search.host}
           onHostFilterChange={(next) => patch({ host: next })}
         />

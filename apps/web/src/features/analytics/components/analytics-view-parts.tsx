@@ -1,27 +1,21 @@
 /**
- * Presentational pieces of the Analytics surface: headline-stat derivation,
- * the breakdown grids, and the small shared chrome (chart card, notes,
- * skeleton). Split from analytics-view.tsx so the view stays the small
- * orchestrator over queries and range state.
+ * Presentational pieces of the Traffic tab: the headline-tile derivation
+ * (pure, table-testable), and the small chrome around the dashboard (host
+ * chip, honesty notes, skeleton, error). Split from analytics-view.tsx so the
+ * view stays the small orchestrator over the two queries.
  */
 
-import type { ReactNode } from "react";
-
-import { Activity03Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { formatBytes } from "@/features/resources/components/_shared/metrics/format";
-import { Card } from "@/shared/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
-import type { TopEntry } from "../analytics-model";
-import type { Stat } from "./stat-strip";
-
 import { formatCount, formatShare } from "../analytics-model";
-import { deltaPct } from "./stat-strip";
-import { StatusMix } from "./status-mix";
-import { TopList } from "./top-list";
-import { VisitorMap } from "./visitor-map";
+import { isoMs } from "../lib/iso-ms";
+import { type ChartRow, type Delta, metricDelta } from "../lib/overview-metrics";
 
 export interface OverviewSummary {
   requests: number;
@@ -36,6 +30,7 @@ export interface OverviewSummary {
 }
 
 interface SparkBucket {
+  t: string;
   requests: number;
   s4xx: number;
   s5xx: number;
@@ -51,6 +46,42 @@ export interface PreviousTotals {
   errorRate: number;
 }
 
+export type TrafficTileKey = "requests" | "visitorDays" | "bandwidth" | "latency" | "errorRate";
+
+/** The muted qualifier under a value, as data: the tile translates it. */
+export type TileSub =
+  | { kind: "bots"; share: string }
+  | { kind: "peakDay"; count: string }
+  | { kind: "avg"; ms: number }
+  | { kind: "errorClasses" };
+
+export interface TrafficTile {
+  key: TrafficTileKey;
+  value: string;
+  sub?: TileSub;
+  /** Labels that carry semantics ("visitor-days") explain themselves on hover. */
+  help?: "visitorDays" | "latency";
+  /** Per-bucket shape over the window; omitted = no spark. */
+  spark?: ChartRow[];
+  delta: Delta | null;
+}
+
+/** Wire buckets → sparkline rows; a null reading is a break, never a zero. */
+function sparkRows(series: readonly SparkBucket[], pick: (b: SparkBucket) => number | null) {
+  const rows: ChartRow[] = [];
+  for (const bucket of series) {
+    const ts = isoMs(bucket.t);
+    const value = pick(bucket);
+    if (ts === null || value === null) continue;
+    rows.push({ ts, value });
+  }
+  return rows;
+}
+
+function formatErrorRate(rate: number): string {
+  return `${(rate * 100).toFixed(rate < 0.01 ? 2 : 1)}%`;
+}
+
 /**
  * The five headline tiles.
  *
@@ -62,161 +93,84 @@ export interface PreviousTotals {
  * distinction analytics-query.ts already draws for its zero-filled series
  * ("0 requests is a real measurement, a gap is not").
  */
-export function headlineStats(
+export function trafficTiles(
   summary: OverviewSummary,
   series: readonly SparkBucket[],
   previous: PreviousTotals,
   measuring = true,
-): Stat[] {
-  const tiles: Stat[] = [
+): TrafficTile[] {
+  const tiles: TrafficTile[] = [
     {
-      label: "Requests",
+      key: "requests",
       value: formatCount(summary.requests),
       sub:
         summary.requests > 0
-          ? `${formatShare(summary.botRequests, summary.requests)} bots`
+          ? { kind: "bots", share: formatShare(summary.botRequests, summary.requests) }
           : undefined,
-      spark: series.map((b) => b.requests),
-      delta: { pct: deltaPct(summary.requests, previous.requests) },
+      spark: sparkRows(series, (b) => b.requests),
+      delta: metricDelta(summary.requests, previous.requests, false),
     },
     {
-      label: "Visitor-days",
+      key: "visitorDays",
       value: formatCount(summary.visitorDays),
       sub:
         summary.peakDayVisitors > 0
-          ? `peak day ${formatCount(summary.peakDayVisitors)}`
+          ? { kind: "peakDay", count: formatCount(summary.peakDayVisitors) }
           : undefined,
-      title:
-        "Distinct visitors summed per UTC day (bots excluded). Per-day counts can't be merged into unique visitors for the whole window.",
-      delta: { pct: deltaPct(summary.visitorDays, previous.visitorDays) },
+      help: "visitorDays",
+      delta: metricDelta(summary.visitorDays, previous.visitorDays, false),
     },
     {
-      label: "Bandwidth out",
+      key: "bandwidth",
       value: formatBytes(summary.bytesOut),
-      spark: series.map((b) => b.resBytes),
-      delta: { pct: deltaPct(summary.bytesOut, previous.bytesOut) },
+      spark: sparkRows(series, (b) => b.resBytes),
+      delta: metricDelta(summary.bytesOut, previous.bytesOut, false),
     },
     {
-      label: "Latency",
+      key: "latency",
       value: summary.p95 === null ? "–" : `${summary.p95} ms`,
-      sub: summary.avgLatencyMs === null ? undefined : `avg ${summary.avgLatencyMs} ms`,
-      title: "p95 over the window, from merged latency histograms.",
-      spark: series.map((b) => b.p95 ?? 0),
-      delta:
-        summary.p95 !== null && previous.p95 !== null
-          ? { pct: deltaPct(summary.p95, previous.p95), goodWhenDown: true }
-          : undefined,
+      sub: summary.avgLatencyMs === null ? undefined : { kind: "avg", ms: summary.avgLatencyMs },
+      help: "latency",
+      spark: sparkRows(series, (b) => b.p95),
+      delta: metricDelta(summary.p95, previous.p95, true),
     },
     {
-      label: "Error rate",
-      value: `${(summary.errorRate * 100).toFixed(summary.errorRate < 0.01 ? 2 : 1)}%`,
-      sub: "4xx + 5xx",
-      spark: series.map((b) => b.s4xx + b.s5xx),
-      delta: { pct: deltaPct(summary.errorRate, previous.errorRate), goodWhenDown: true },
+      key: "errorRate",
+      value: formatErrorRate(summary.errorRate),
+      sub: { kind: "errorClasses" },
+      spark: sparkRows(series, (b) => b.s4xx + b.s5xx),
+      delta: metricDelta(summary.errorRate, previous.errorRate, true),
     },
   ];
 
   if (measuring) return tiles;
   // Keep the labels and the layout: the operator should still see WHAT this
   // page reports, just not a number the install never took.
-  return tiles.map((tile) => ({ label: tile.label, value: "–", title: tile.title }));
+  return tiles.map((tile) => ({ key: tile.key, value: "–", help: tile.help, delta: null }));
 }
 
-function sumCounts(entries: readonly { count: number }[]): number {
-  return entries.reduce((s, e) => s + e.count, 0);
-}
+// ─── Chrome ────────────────────────────────────────────────────────────────
 
-export interface BreakdownDims {
-  hosts: TopEntry[];
-  statuses: TopEntry[];
-  paths: TopEntry[];
-  referrers: TopEntry[];
-  countries: TopEntry[];
-  browsers: TopEntry[];
-  oses: TopEntry[];
-  deviceTypes: TopEntry[];
-  flags: { geoAvailable: boolean };
-}
-
-export function BreakdownPanels({
-  dims,
-  visitorDays,
-  hostFilter,
-  onHostFilterChange,
-}: {
-  dims: BreakdownDims;
-  visitorDays: number;
-  hostFilter: string | undefined;
-  /** Toggle-style: clicking the active host clears the filter. */
-  onHostFilterChange: (host: string | undefined) => void;
-}) {
+/** The applied single-domain filter, in the filter bar's chip idiom. */
+export function HostFilterChip({ host, onClear }: { host: string; onClear: () => void }) {
+  const { t } = useTranslation();
   return (
-    <>
-      <VisitorMap
-        countries={dims.countries}
-        visitorDays={visitorDays}
-        geoAvailable={dims.flags.geoAvailable}
-      />
-      <div className="grid gap-3 md:grid-cols-2">
-        <TopList
-          title="Domains"
-          entries={dims.hosts}
-          total={sumCounts(dims.hosts)}
-          emptyNote="No domains saw traffic in this window."
-          selectedKey={hostFilter}
-          onSelectKey={(host) => onHostFilterChange(host === hostFilter ? undefined : host)}
-        />
-        <StatusMix entries={dims.statuses} />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <TopList
-          title="Top paths"
-          entries={dims.paths}
-          total={sumCounts(dims.paths)}
-          emptyNote="No paths recorded in this window."
-        />
-        <TopList
-          title="Referrers"
-          entries={dims.referrers}
-          total={sumCounts(dims.referrers)}
-          emptyNote="No external referrers in this window."
-        />
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        <TopList
-          title="Browsers"
-          entries={dims.browsers}
-          total={sumCounts(dims.browsers)}
-          visibleRows={5}
-          emptyNote="No browser traffic in this window."
-        />
-        <TopList
-          title="Operating systems"
-          entries={dims.oses}
-          total={sumCounts(dims.oses)}
-          visibleRows={5}
-          emptyNote="No OS data in this window."
-        />
-        <TopList
-          title="Devices"
-          entries={dims.deviceTypes}
-          total={sumCounts(dims.deviceTypes)}
-          visibleRows={5}
-          emptyNote="No device data in this window."
-        />
-      </div>
-    </>
-  );
-}
-
-export function ChartCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Card className="gap-0 overflow-hidden p-0">
-      <div className="px-4 pt-3 pb-2">
-        <span className="text-sm font-medium">{title}</span>
-      </div>
-      <div className="px-3 pb-3">{children}</div>
-    </Card>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="inline-flex h-7 items-center gap-1.5 rounded-md bg-muted py-0 pr-1 pl-2.5 text-xs">
+        <span className="text-muted-foreground">
+          {t("analytics.filters.dims.host")} {t("analytics.filters.is").toLowerCase()}
+        </span>
+        <span className="max-w-64 truncate font-mono">{host}</span>
+        <button
+          type="button"
+          aria-label={t("analytics.traffic.clearHostFilter")}
+          onClick={onClear}
+          className="grid size-5 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+        >
+          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
+        </button>
+      </span>
+    </div>
   );
 }
 
@@ -230,49 +184,62 @@ export function HonestyNotes({
   /** Sub-day buckets: the day-granular breakdowns cover more than the series. */
   shortWindow: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-0.5">
       {approximate ? (
-        <p className="text-xs text-muted-foreground">
-          Visitor counts in this window are approximate: the visitor set was rebuilt after a restart
-          or hit its memory cap, so some days undercount or double-count returning visitors.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("analytics.traffic.approximate")}</p>
       ) : null}
       {shortWindow && breakdownDays !== undefined ? (
         <p className="text-xs text-muted-foreground">
-          Breakdowns (statuses, paths, countries, devices) are per UTC day and cover the{" "}
-          {breakdownDays} calendar day{breakdownDays === 1 ? "" : "s"} touching this window.
+          {t("analytics.traffic.breakdownDays", { count: breakdownDays })}
         </p>
       ) : null}
     </div>
   );
 }
 
-export function Note({ children }: { children: ReactNode }) {
+/** Centred one-liner inside a chart card whose series is empty. */
+export function QuietNote({ children }: { children: string }) {
   return (
-    <div className="flex h-32 items-center justify-center gap-2 px-4 text-xs text-muted-foreground">
-      <HugeiconsIcon
-        icon={Activity03Icon}
-        strokeWidth={1.5}
-        className="size-4 text-muted-foreground/60"
-      />
+    <p className="flex h-32 items-center justify-center text-xs text-muted-foreground">
       {children}
+    </p>
+  );
+}
+
+/** Skeleton in the shape of the loaded page: tiles, chart, grid. */
+export function TrafficSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-lg" />
+        ))}
+      </div>
+      <Skeleton className="h-[22.5rem] w-full rounded-lg" />
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-64 w-full rounded-lg" />
+        ))}
+      </div>
     </div>
   );
 }
 
-export function ViewSkeleton() {
+export function TrafficError() {
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-col gap-3">
-      <Skeleton className="h-20 w-full rounded-xl" />
-      <div className="grid gap-3 md:grid-cols-2">
-        <Skeleton className="h-52 w-full rounded-xl" />
-        <Skeleton className="h-52 w-full rounded-xl" />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <Skeleton className="h-40 w-full rounded-xl" />
-        <Skeleton className="h-40 w-full rounded-xl" />
-      </div>
-    </div>
+    <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
+      <EmptyHeader>
+        <HugeiconsIcon
+          icon={Alert02Icon}
+          strokeWidth={1.5}
+          className="size-10 text-muted-foreground/50"
+        />
+        <EmptyTitle>{t("analytics.traffic.errorTitle")}</EmptyTitle>
+        <EmptyDescription>{t("analytics.traffic.errorBody")}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
