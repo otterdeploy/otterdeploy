@@ -751,6 +751,18 @@
     "event": "Ereignis",
     "severity": "Schweregrad",
     "sentIn7d": "gesendet · 7 T",
+    "stats": {
+      "delivered7d": "Zugestellt, letzte 7 Tage",
+      "failed24h": "Fehlgeschlagen, letzte 24 Stunden",
+      "lastDelivery": "Letzte Zustellung",
+      "never": "nie",
+      "status": "Status",
+      "statusActive": "Aktiv",
+      "statusPaused": "Pausiert",
+      "statusDisconnected": "Getrennt",
+      "statusWarn": "Beeinträchtigt — letzte Zustellungen fehlgeschlagen",
+      "hint": "Zählt jedes an diesen Kanal zugestellte Ereignis über alle Abonnements."
+    },
     "groupErr": "Fehler",
     "groupWarn": "Warnungen",
     "groupInfo": "Aktivität",

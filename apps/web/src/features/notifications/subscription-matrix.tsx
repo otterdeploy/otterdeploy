@@ -51,6 +51,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 
+import { ChannelHeadStats } from "./channel-head-stats";
 import {
   type Channel,
   KIND_META,
@@ -133,10 +134,7 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
                       >
                         {channelTargetHint(c.kind, c.target)}
                       </span>
-                      <span className="text-[10px] font-normal text-muted-foreground/80">
-                        <span className="font-mono text-foreground/80">{c.events7d}</span>{" "}
-                        {t("notifications.sentIn7d")}
-                      </span>
+                      <ChannelHeadStats channel={c} />
                     </span>
                   </span>
                 </TableHead>
