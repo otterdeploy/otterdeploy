@@ -1,15 +1,26 @@
 /**
- * Presentational pieces for {@link RealResourcePanel}, pulled into a sibling
- * module so the panel component stays small. The header (back / restart /
- * close), the status row, the runtime badge, and the engine-specific data
- * browser switch all live here.
+ * Presentational pieces for {@link RealResourcePanel}, in a sibling module so
+ * the panel component stays small: the header's database-specific parts and
+ * the engine-specific data-browser switch.
+ *
+ * The status bar this file used to export is gone — runtime state rides the
+ * header's meta line now (see _shared/panel-header), next to the name it
+ * describes rather than on a second full-width row.
  */
 
-import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
+import type { ReactNode } from "react";
+
+import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+
+import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { UnsupportedDataViewer } from "@/features/resources/components/_shared/data/unsupported-data-viewer";
+import {
+  PanelStatusPill,
+  ResourcePanelHeader,
+} from "@/features/resources/components/_shared/panel-header";
 import { MariadbDataTabBody } from "@/features/resources/components/mariadb/tabs/data";
 import { MongoDataTabBody } from "@/features/resources/components/mongo/tabs/data";
 import { RedisDataTabBody } from "@/features/resources/components/redis/tabs/data";
@@ -24,31 +35,30 @@ type DbResource = PostgresBodyProps["resource"];
 export function DatabasePanelHeader({
   resource,
   pending,
+  crumb,
   onClose,
   onRestart,
   restarting,
+  canRestart = true,
+  metaTrailing,
 }: {
   resource: DbResource;
   pending: boolean;
+  crumb: PanelCrumb;
   onClose: () => void;
   onRestart: () => void;
   restarting: boolean;
+  /** False for a database inside a shared server: it owns no container, so
+   *  there is nothing here that could be restarted without restarting its
+   *  neighbours. */
+  canRestart?: boolean;
+  /** Live connections chip (postgres only): information, not an action, so it
+   *  rides the meta line rather than the button cluster. */
+  metaTrailing?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
-      {/* min-w-0 so the name below can actually truncate instead of forcing
-          this row wider than the panel and pushing the close button off-screen. */}
-      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back to graph"
-          onClick={onClose}
-          className="mt-1"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
-        </Button>
+    <ResourcePanelHeader
+      icon={
         <PanelIcon
           node={{
             kind: "database",
@@ -57,25 +67,36 @@ export function DatabasePanelHeader({
             engine: resource.engine,
           }}
         />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
-            {resource.name}
-          </span>
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            {resource.engine}
-            {!pending && (
-              <>
-                {" "}
-                <span className="text-muted-foreground/50">·</span> {resource.databaseName}
-              </>
-            )}
-          </span>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {/* Restart needs a running container. Omit it while the database is
-            still a staged create (Deploy from the pending bar). */}
-        {!pending && (
+      }
+      name={resource.name}
+      crumb={crumb}
+      status={
+        pending ? (
+          <PanelStatusPill tone="pending" label="pending" />
+        ) : (
+          <DatabaseStatusPill
+            runtime={resource.runtime}
+            latestDeploymentStatus={resource.latestDeploymentStatus}
+          />
+        )
+      }
+      meta={
+        <>
+          {resource.engine}
+          {!pending && (
+            <>
+              {" "}
+              <span className="text-muted-foreground/50">·</span> {resource.databaseName}
+            </>
+          )}
+        </>
+      }
+      metaTrailing={metaTrailing}
+      actions={
+        // Restart needs a running container of its own. Omitted while the
+        // database is a staged create (Deploy from the pending bar), and for
+        // one inside a shared server (see canRestart).
+        !pending && canRestart ? (
           <Button
             type="button"
             variant="outline"
@@ -89,87 +110,53 @@ export function DatabasePanelHeader({
                 leave room for the resource name. */}
             <span className="hidden sm:inline">{restarting ? "Restarting…" : "Restart"}</span>
           </Button>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close panel"
-          onClick={onClose}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
-        </Button>
-      </div>
-    </div>
+        ) : null
+      }
+      onClose={onClose}
+    />
   );
 }
 
-export function DatabaseStatusBar({
-  pending,
+/**
+ * The pill that used to be the status bar's whole left half.
+ *
+ * A container that's missing/stopped while a deploy is in flight isn't broken:
+ * the image is still pulling or docker hasn't created it yet. That window says
+ * "deploying" rather than wearing a scary MISSING badge.
+ */
+export function DatabaseStatusPill({
   runtime,
   latestDeploymentStatus,
-  trailing,
 }: {
-  pending: boolean;
-  /** Absent on a staged create, no container (and so no runtime) exists
-   *  until the first apply, so this must never be read in pending mode. */
   runtime: DbResource["runtime"] | undefined;
   latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
-  /** Right-edge extras (e.g. the live connections chip). Only rendered for a
-   *  provisioned database: a staged create has nothing to connect to. */
-  trailing?: React.ReactNode;
 }) {
-  return (
-    // flex-wrap: the badge + explanatory sentence is ~420px and must be allowed
-    // to break onto a second line rather than force the panel to scroll sideways.
-    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
-      {pending || !runtime ? (
-        <>
-          <span className="shrink-0 rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
-            PENDING
-          </span>
-          <span className="min-w-0 text-[13px] text-muted-foreground">
-            Staged. Deploy the pending changes to create it
-          </span>
-        </>
-      ) : (
-        <>
-          <ProvisionedStatus runtime={runtime} latestDeploymentStatus={latestDeploymentStatus} />
-          {trailing && <span className="ml-auto">{trailing}</span>}
-        </>
-      )}
-    </div>
-  );
-}
-
-/** Split out so `runtime` is narrowed to present by the caller's guard. The
- *  status computation reads it unconditionally and a staged database has none. */
-function ProvisionedStatus({
-  runtime,
-  latestDeploymentStatus,
-}: {
-  runtime: NonNullable<DbResource["runtime"]>;
-  latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
-}) {
-  // A container that's missing/stopped while a deploy is in flight isn't
-  // broken: the image is still pulling or docker hasn't created it yet.
-  // Say "deploying" instead of a scary MISSING/ERROR badge for that window.
+  // A staged create has no container, so the draft the graph panel builds
+  // from the manifest carries no `runtime`. Reading the deploy-in-flight
+  // flag before this guard is what took the whole graph route down to the
+  // error boundary once; it stays the first branch.
+  if (!runtime) return <PanelStatusPill tone="pending" label="pending" />;
   const deploying =
     runtime.status !== "running" &&
     runtime.status !== "starting" &&
     (latestDeploymentStatus === "building" ||
       latestDeploymentStatus === "pending" ||
       latestDeploymentStatus === "starting");
-  return (
-    <>
-      <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
-      <span className="min-w-0 text-[13px] text-muted-foreground">
-        {deploying
-          ? "Deploy in progress. Pulling the image can take a few minutes."
-          : (runtime.health ?? "Provisioned")}
-      </span>
-    </>
-  );
+  if (deploying) return <PanelStatusPill tone="building" label="deploying" />;
+  switch (runtime.status) {
+    case "running":
+      return runtime.health === "unhealthy" ? (
+        <PanelStatusPill tone="error" label="unhealthy" />
+      ) : (
+        <PanelStatusPill tone="running" label="running" />
+      );
+    case "starting":
+      return <PanelStatusPill tone="building" label="starting" />;
+    case "stopped":
+      return <PanelStatusPill tone="paused" label="stopped" />;
+    default:
+      return <PanelStatusPill tone="error" label={runtime.status} />;
+  }
 }
 
 /** Each engine gets its native browser; unsupported engines say so plainly
@@ -180,22 +167,4 @@ export function DatabaseDataTab({ resource }: { resource: DbResource }) {
   if (resource.engine === "mariadb") return <MariadbDataTabBody resource={resource} />;
   if (resource.engine === "mongodb") return <MongoDataTabBody resource={resource} />;
   return <UnsupportedDataViewer engine={resource.engine} />;
-}
-
-function RuntimeStatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "running"
-      ? "bg-success/12 text-success"
-      : status === "starting" || status === "deploying"
-        ? "bg-warning/12 text-warning"
-        : status === "error"
-          ? "bg-destructive/12 text-destructive"
-          : "bg-muted text-muted-foreground";
-  return (
-    <span
-      className={`rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] ${tone}`}
-    >
-      {status.toUpperCase()}
-    </span>
-  );
 }

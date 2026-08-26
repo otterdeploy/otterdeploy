@@ -1,16 +1,25 @@
 /**
- * Header, status row, and status helpers for {@link ComposeResourcePanel},
- * pulled into a sibling module so the panel component stays small. The content
- * tabs (Services / Compose / Settings) live in {@link ./panel-tabs}.
+ * Header + status helpers for {@link ComposeResourcePanel}, in a sibling
+ * module so the panel component stays small. The content tabs live in
+ * {@link ./panel-tabs}.
+ *
+ * The status bar this file used to export is gone: `2/2 RUNNING` now rides the
+ * header's meta line (see _shared/panel-header), which is where the count sits
+ * next to the name it counts instead of on a second full-width row that also
+ * reprinted the stack name.
  */
 
-import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useTranslation } from "react-i18next";
+
+import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import {
+  PanelStatusPill,
+  ResourcePanelHeader,
+} from "@/features/resources/components/_shared/panel-header";
 import { Button } from "@/shared/components/ui/button";
-import { cn } from "@/shared/lib/utils";
 
 export type StackServiceStatus =
   | "running"
@@ -71,6 +80,8 @@ export function ComposePanelHeader({
   serviceCount,
   source,
   logoBrand,
+  crumb,
+  running,
   onClose,
   onRedeploy,
   redeploying,
@@ -79,94 +90,75 @@ export function ComposePanelHeader({
   serviceCount: number;
   source: "inline" | "git";
   logoBrand?: string | null;
+  crumb: PanelCrumb;
+  /** Rolled-up child state for the status pill: null while the stack is a
+   *  staged create and nothing is running yet. */
+  running: { up: number; total: number; anyError: boolean } | null;
   onClose: () => void;
   onRedeploy: () => void;
   redeploying: boolean;
 }) {
-  const { t } = useTranslation();
   return (
-    <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
-      {/* min-w-0 so the stack name and its summary line truncate instead of
-          forcing this row wider than the panel. */}
-      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("resources.backToGraph")}
-          onClick={onClose}
-          className="mt-1 shrink-0"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
-        </Button>
+    <ResourcePanelHeader
+      icon={
         <PanelIcon
           node={{ kind: "compose", name, description: "", logoBrand: logoBrand ?? undefined }}
         />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
-            {name}
-          </span>
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            Stack · {serviceCount} {serviceCount === 1 ? "service" : "services"} ·{" "}
-            {source === "git" ? "from repo" : "inline file"}
-          </span>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onRedeploy}
-          disabled={redeploying}
-          aria-label={redeploying ? "Redeploying" : "Redeploy"}
-        >
-          <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-          <span className="hidden sm:inline">{redeploying ? "Redeploying…" : "Redeploy"}</span>
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("resources.closePanel")}
-          onClick={onClose}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
-        </Button>
-      </div>
-    </div>
+      }
+      name={name}
+      crumb={crumb}
+      status={running ? <ComposeStatusPill running={running} /> : null}
+      // The stack's own name is the title directly above this line, so the
+      // old status bar's copy of it is gone rather than moved.
+      meta={
+        <>
+          Stack · {serviceCount} {serviceCount === 1 ? "service" : "services"} ·{" "}
+          {source === "git" ? "from repo" : "inline file"}
+        </>
+      }
+      actions={<ComposeRedeployButton onRedeploy={onRedeploy} redeploying={redeploying} />}
+      onClose={onClose}
+    />
   );
 }
 
-export function ComposeStatusBar({
-  services,
-  serviceStatus,
-  stackName,
+function ComposeRedeployButton({
+  onRedeploy,
+  redeploying,
 }: {
-  services: ComposeService[];
-  serviceStatus: (serviceName: string) => StackServiceStatus;
-  stackName: string;
+  onRedeploy: () => void;
+  redeploying: boolean;
 }) {
-  const runningCount = services.filter((s) => serviceStatus(s.serviceName) === "running").length;
-  const allRunning = runningCount === services.length && services.length > 0;
-  const anyError = services.some((s) => serviceStatus(s.serviceName) === "error");
   return (
-    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
-      <span
-        className={cn(
-          "shrink-0 rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em]",
-          allRunning
-            ? "bg-success/12 text-success"
-            : anyError
-              ? "bg-destructive/12 text-destructive"
-              : "bg-muted text-muted-foreground",
-        )}
-      >
-        {runningCount}/{services.length} RUNNING
-      </span>
-      <span className="min-w-0 truncate font-mono text-[12px] text-muted-foreground">
-        {stackName}
-      </span>
-    </div>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={onRedeploy}
+      disabled={redeploying}
+      aria-label={redeploying ? "Redeploying" : "Redeploy"}
+    >
+      <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
+      {/* Label drops below `sm`: the icon carries it, and the row has to
+          leave room for the stack name. */}
+      <span className="hidden sm:inline">{redeploying ? "Redeploying…" : "Redeploy"}</span>
+    </Button>
+  );
+}
+
+/** `2/2 running`, or `1/2 running` in destructive red when a child failed.
+ *  Folded out of the old status bar: the count belongs next to the name it
+ *  counts, not on a row of its own. */
+function ComposeStatusPill({
+  running,
+}: {
+  running: { up: number; total: number; anyError: boolean };
+}) {
+  const allRunning = running.up === running.total && running.total > 0;
+  return (
+    <PanelStatusPill
+      tone={allRunning ? "running" : running.anyError ? "error" : "building"}
+      label={`${running.up}/${running.total} running`}
+    />
   );
 }

@@ -114,6 +114,27 @@ function serviceDescription(r: Extract<ProjectResource, { type: "service" }>): s
   return r.framework ? `${frameworkLabel(r.framework)} · built from source` : "Built from source";
 }
 
+/**
+ * The node pill's status for any resource, without building the whole node.
+ *
+ * Exported so surfaces that list resources outside the canvas (the panel's
+ * resource switcher) show the SAME state the graph does. A second mapping
+ * would drift the first time one of these rules changed, and a switcher that
+ * says "running" over a node that says "error" is worse than no dot at all.
+ */
+export function resourceStatus(r: ProjectResource): ResourceStatus | undefined {
+  switch (r.type) {
+    case "database":
+      return databaseStatus(r);
+    case "service":
+      return serviceDeploymentStatus(r.latestDeploymentStatus);
+    case "compose":
+      // A stack has no single status of its own: the graph rolls its
+      // children up (stackRollup) and the children aren't in this row.
+      return undefined;
+  }
+}
+
 export function resourceToNode(r: ProjectResource): ResourceFlowNode {
   switch (r.type) {
     case "database":
