@@ -14,23 +14,32 @@
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+import type { PanelRailChild } from "@/features/resources/components/_shared/panel-tabs-layout";
 
+import { PanelTabsLayout } from "@/features/resources/components/_shared/panel-tabs-layout";
+import { PANE_MEASURE_CLASS } from "@/features/resources/components/_shared/panel-width";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { TabsContent } from "@/shared/components/ui/tabs";
+import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import type { ComposeService, StackServiceStatus } from "./panel-parts";
 
-import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
+import { resolvePanelTab } from "../_shared/panel-tab";
 import { ComposePanelHeader } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
 import { StackVariablesTab } from "./stack-variables-tab";
 import { useComposeServiceStatus } from "./use-compose-service-status";
 
 type ComposeTab = "deployments" | "services" | "file" | "settings" | "variables";
+
+/** One row of `project.resource.list`: the same union the graph reads. */
+type ProjectResourceRow = ProjectResource;
 
 interface ComposeResourcePanelProps {
   resource: {
@@ -108,6 +117,55 @@ function rollUpChildren(
   };
 }
 
+/** Rail dot per child state, in the graph's own vocabulary. `pending` and
+ *  `offline` get no colour: neither has earned one. */
+const RAIL_DOT: Partial<Record<StackServiceStatus, string>> = {
+  running: "bg-success",
+  building: "bg-warning",
+  deploying: "bg-info",
+  error: "bg-destructive",
+};
+
+/**
+ * The stack's children as rail entries.
+ *
+ * Each member is a real service resource, so opening one is the same
+ * navigation the canvas does (compose-group-node) rather than local state. The
+ * join key is `serviceName`: a child's `name` is collision-suffixed, so it
+ * would match the wrong row for a second copy of the same stack. A member with
+ * no materialized resource yet (a staged stack) is left out rather than
+ * rendered as a dead entry.
+ */
+function buildRailChildren(input: {
+  services: ComposeService[];
+  siblings: ProjectResourceRow[] | undefined;
+  stackResourceId: string;
+  serviceStatus: (serviceName: string) => StackServiceStatus;
+  open: (resourceId: string) => void;
+}): PanelRailChild[] {
+  const childIds = new Map(
+    (input.siblings ?? []).flatMap((row) =>
+      row.type === "service" && row.stackId === input.stackResourceId
+        ? [[row.serviceName, row.resourceId]]
+        : [],
+    ),
+  );
+  return input.services.flatMap((service) => {
+    const child = childIds.get(service.serviceName);
+    if (!child) return [];
+    return [
+      {
+        id: service.name,
+        label: service.name,
+        dotClass: RAIL_DOT[input.serviceStatus(service.serviceName)],
+        onOpen: () => {
+          input.open(child);
+        },
+      },
+    ];
+  });
+}
+
 export function ComposeResourcePanel({
   crumb,
   resource,
@@ -128,6 +186,11 @@ export function ComposeResourcePanel({
   // same source the graph node does, so the node and this panel can never
   // disagree about what's running.
   const serviceStatus = useComposeServiceStatus(resource);
+  const navigate = useNavigate();
+  // Already warmed by the graph page; this is a cache read, not a request.
+  const siblings = useQuery(
+    orpc.project.resource.list.queryOptions({ input: { projectId: resource.projectId } }),
+  );
 
   // The raw compose file (inline source) for the read-only viewer. Skipped
   // while pending: there's no resourceId yet to fetch it by.
@@ -161,6 +224,19 @@ export function ComposeResourcePanel({
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to delete"),
   });
 
+  const railChildren = buildRailChildren({
+    services: resource.services,
+    siblings: siblings.data,
+    stackResourceId: resource.resourceId,
+    serviceStatus,
+    open: (resourceId) => {
+      void navigate({
+        to: "/$orgSlug/$projectSlug/graph/$resourceId",
+        params: { orgSlug, projectSlug, resourceId },
+      });
+    },
+  });
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <ComposePanelHeader
@@ -180,91 +256,73 @@ export function ComposeResourcePanel({
         running={rollUpChildren(resource.services, serviceStatus, pending)}
       />
 
-      <Tabs
+      <PanelTabsLayout
         value={tab}
-        onValueChange={(v: ComposeTab) => {
-          if (v) onTabChange(v);
-        }}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        onValueChange={onTabChange}
+        tabs={[
+          { value: "deployments", label: "Deployments", disabled: pending },
+          { value: "services", label: "Services", count: resource.services.length },
+          { value: "variables", label: "Variables", disabled: pending },
+          { value: "file", label: "Compose", disabled: pending },
+          { value: "settings", label: "Settings", disabled: pending },
+        ]}
+        // Expanded, the stack's children hang off its Services tab, so moving
+        // between the stack and one of its services is one click rather than a
+        // trip back to the canvas. Each is a real resource with its own URL.
+        nested={{ under: "services", items: railChildren }}
       >
-        <div className="border-b border-border/60 px-4 sm:px-6">
-          <TabsList variant="line" className="h-auto bg-transparent p-0">
-            <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
-              Deployments
-            </TabsTrigger>
-            <TabsTrigger value="services" className="px-2.5 py-2.5">
-              Services
-            </TabsTrigger>
-            <TabsTrigger value="variables" className="px-2.5 py-2.5" disabled={pending}>
-              Variables
-            </TabsTrigger>
-            <TabsTrigger value="file" className="px-2.5 py-2.5" disabled={pending}>
-              Compose
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="px-2.5 py-2.5" disabled={pending}>
-              Settings
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsContent value="deployments" className="px-4 pt-5 sm:px-6">
+          <ResourceTasksTab
+            projectId={resource.projectId}
+            resourceId={resource.resourceId}
+            orgSlug={orgSlug}
+            projectSlug={projectSlug}
+          />
+        </TabsContent>
 
-        <div className="relative min-h-0 flex-1">
-          <div className="h-full overflow-y-auto">
-            <div className={PANEL_TAB_BODY_CLASS}>
-              <TabsContent value="deployments" className="px-4 pt-5 sm:px-6">
-                <ResourceTasksTab
-                  projectId={resource.projectId}
-                  resourceId={resource.resourceId}
-                  orgSlug={orgSlug}
-                  projectSlug={projectSlug}
-                />
-              </TabsContent>
+        <TabsContent value="services" className="px-4 pt-5 sm:px-6">
+          <ComposeServicesTab
+            services={resource.services}
+            source={resource.source}
+            serviceStatus={serviceStatus}
+          />
+        </TabsContent>
 
-              <TabsContent value="services" className="px-4 pt-5 sm:px-6">
-                <ComposeServicesTab
-                  services={resource.services}
-                  source={resource.source}
-                  serviceStatus={serviceStatus}
-                />
-              </TabsContent>
+        <TabsContent value="variables" className="px-4 pt-5 sm:px-6">
+          <StackVariablesTab projectId={resource.projectId} stackResourceId={resource.resourceId} />
+        </TabsContent>
 
-              <TabsContent value="variables" className="px-4 pt-5 sm:px-6">
-                <StackVariablesTab
-                  projectId={resource.projectId}
-                  stackResourceId={resource.resourceId}
-                />
-              </TabsContent>
+        <TabsContent value="file" className="px-4 pt-5 sm:px-6">
+          <ComposeFileTab
+            projectId={resource.projectId}
+            resourceId={resource.resourceId}
+            source={resource.source}
+            isLoading={fileQuery.isLoading}
+            composeContent={fileQuery.data?.composeContent}
+          />
+        </TabsContent>
 
-              <TabsContent value="file" className="px-4 pt-5 sm:px-6">
-                <ComposeFileTab
-                  projectId={resource.projectId}
-                  resourceId={resource.resourceId}
-                  source={resource.source}
-                  isLoading={fileQuery.isLoading}
-                  composeContent={fileQuery.data?.composeContent}
-                />
-              </TabsContent>
-
-              <TabsContent value="settings" className="px-4 pt-5 sm:px-6">
-                <ComposeSettingsTab
-                  projectId={resource.projectId}
-                  resourceId={resource.resourceId}
-                  orgSlug={orgSlug}
-                  projectSlug={projectSlug}
-                  name={resource.name}
-                  serviceCount={resource.services.length}
-                  onDelete={() =>
-                    remove.mutate({
-                      projectId: resource.projectId,
-                      resourceId: resource.resourceId,
-                    })
-                  }
-                  deleting={remove.isPending}
-                />
-              </TabsContent>
-            </div>
-          </div>
-        </div>
-      </Tabs>
+        {/* Settings caps at a reading measure: a form stretched across a
+            full-width panel puts each label at one end and its control at the
+            other. The width buys the compose file room, not this. */}
+        <TabsContent value="settings" className={cn("px-4 pt-5 sm:px-6", PANE_MEASURE_CLASS)}>
+          <ComposeSettingsTab
+            projectId={resource.projectId}
+            resourceId={resource.resourceId}
+            orgSlug={orgSlug}
+            projectSlug={projectSlug}
+            name={resource.name}
+            serviceCount={resource.services.length}
+            onDelete={() =>
+              remove.mutate({
+                projectId: resource.projectId,
+                resourceId: resource.resourceId,
+              })
+            }
+            deleting={remove.isPending}
+          />
+        </TabsContent>
+      </PanelTabsLayout>
     </div>
   );
 }

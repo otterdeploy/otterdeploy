@@ -61,10 +61,16 @@ export function ComposeServicesTab({
     );
   }
   return (
-    <div className="flex flex-col gap-2.5">
-      {services.map((s) => (
-        <ServiceRow key={s.name} service={s} status={serviceStatus(s.serviceName)} />
-      ))}
+    // One column normally; two once the pane is wide enough that a single
+    // column of ~90px cards would be a stripe of whitespace. Container
+    // queries, not viewport ones: what matters is how wide the PANE is, which
+    // depends on the drawer's expanded state, not on the window.
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-2.5 @3xl:grid-cols-2">
+        {services.map((s) => (
+          <ServiceRow key={s.name} service={s} status={serviceStatus(s.serviceName)} />
+        ))}
+      </div>
     </div>
   );
 }

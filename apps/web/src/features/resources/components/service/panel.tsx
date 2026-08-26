@@ -16,9 +16,11 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 
 import { PublicHostLink } from "@/shared/components/public-host-link";
-import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+
+import type { PanelTabDef } from "../_shared/panel-tabs-layout";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
+import { PanelTabsChrome } from "../_shared/panel-tabs-layout";
 import { ServicePanelBody } from "./panel-body";
 import { ServicePanelHeader } from "./panel-parts";
 import { replicaSummary } from "./service-status";
@@ -88,37 +90,18 @@ const SERVICE_TABS: readonly ServiceTab[] = [
 // ServicePanelTabsList) and a URL naming one of them must not select it.
 const SERVICE_PENDING_TABS: readonly ServiceTab[] = ["variables", "settings"];
 
-/** The panel's tab strip. Runtime tabs are disabled until the service is
- *  deployed. There are no tasks, metrics, logs, or container to attach to
- *  yet. */
-function ServicePanelTabsList({ pending }: { pending: boolean }) {
-  return (
-    <div className="border-b border-border/60 px-4 sm:px-6">
-      <TabsList variant="line" className="h-auto bg-transparent p-0">
-        <TabsTrigger value="overview" className="px-2.5 py-2.5" disabled={pending}>
-          Overview
-        </TabsTrigger>
-        <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
-          Deployments
-        </TabsTrigger>
-        <TabsTrigger value="metrics" className="px-2.5 py-2.5" disabled={pending}>
-          Metrics
-        </TabsTrigger>
-        <TabsTrigger value="logs" className="px-2.5 py-2.5" disabled={pending}>
-          Logs
-        </TabsTrigger>
-        <TabsTrigger value="variables" className="px-2.5 py-2.5">
-          Variables
-        </TabsTrigger>
-        <TabsTrigger value="terminal" className="px-2.5 py-2.5" disabled={pending}>
-          Terminal
-        </TabsTrigger>
-        <TabsTrigger value="settings" className="px-2.5 py-2.5">
-          Settings
-        </TabsTrigger>
-      </TabsList>
-    </div>
-  );
+/** Runtime tabs are disabled until the service is deployed: there are no
+ *  tasks, metrics, logs, or container to attach to yet. */
+function serviceTabs(pending: boolean): PanelTabDef[] {
+  return [
+    { value: "overview", label: "Overview", disabled: pending },
+    { value: "deployments", label: "Deployments", disabled: pending },
+    { value: "metrics", label: "Metrics", disabled: pending },
+    { value: "logs", label: "Logs", disabled: pending },
+    { value: "variables", label: "Variables" },
+    { value: "terminal", label: "Terminal", disabled: pending },
+    { value: "settings", label: "Settings" },
+  ];
 }
 
 export function ServiceResourcePanel({
@@ -211,17 +194,14 @@ export function ServiceResourcePanel({
         }
       />
 
-      <Tabs
+      <PanelTabsChrome
         value={tab}
-        onValueChange={(v) => {
-          if (!v) return;
-          if (v === "logs") setLogsVisited(true);
-          onTabChange(v);
+        onValueChange={(next) => {
+          if (next === "logs") setLogsVisited(true);
+          onTabChange(next);
         }}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        tabs={serviceTabs(pending)}
       >
-        <ServicePanelTabsList pending={pending} />
-
         <ServicePanelBody
           resource={resource}
           framework={framework}
@@ -234,7 +214,7 @@ export function ServiceResourcePanel({
           onGoTab={onTabChange}
           logsVisited={logsVisited}
         />
-      </Tabs>
+      </PanelTabsChrome>
     </div>
   );
 }

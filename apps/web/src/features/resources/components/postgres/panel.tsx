@@ -19,12 +19,15 @@ import { DbConnectionsChip } from "@/features/databases/connections-popover";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { TabsContent } from "@/shared/components/ui/tabs";
+import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import type { PostgresBodyProps } from "./types";
 
 import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
+import { PanelTabsChrome } from "../_shared/panel-tabs-layout";
+import { PANE_MEASURE_CLASS } from "../_shared/panel-width";
 import { DatabaseDataTab, DatabasePanelHeader } from "./panel-parts";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
@@ -122,39 +125,21 @@ export function RealResourcePanel({
         }
       />
 
-      <Tabs
+      <PanelTabsChrome
         value={tab}
-        onValueChange={(v) => {
-          if (v) onTabChange(v);
-        }}
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        onValueChange={onTabChange}
+        tabs={[
+          // Runtime tabs are disabled until the database is deployed: no
+          // tasks, data, metrics, or container exist yet.
+          { value: "deployments", label: "Deployments", disabled: pending },
+          { value: "data", label: "Data", disabled: pending },
+          { value: "metrics", label: "Metrics", disabled: pending },
+          { value: "variables", label: "Variables" },
+          { value: "terminal", label: "Terminal", disabled: pending },
+          { value: "settings", label: "Settings" },
+        ]}
       >
-        <div className="border-b border-border/60 px-4 sm:px-6">
-          <TabsList variant="line" className="h-auto bg-transparent p-0">
-            {/* Runtime tabs are disabled until the database is deployed:
-                no tasks, data, metrics, or container exist yet. */}
-            <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
-              Deployments
-            </TabsTrigger>
-            <TabsTrigger value="data" className="px-2.5 py-2.5" disabled={pending}>
-              Data
-            </TabsTrigger>
-            <TabsTrigger value="metrics" className="px-2.5 py-2.5" disabled={pending}>
-              Metrics
-            </TabsTrigger>
-            <TabsTrigger value="variables" className="px-2.5 py-2.5">
-              Variables
-            </TabsTrigger>
-            <TabsTrigger value="terminal" className="px-2.5 py-2.5" disabled={pending}>
-              Terminal
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="px-2.5 py-2.5">
-              Settings
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 min-w-0 flex-1">
           <div className="h-full overflow-y-auto">
             <div className={PANEL_TAB_BODY_CLASS}>
               {/* Runtime tabs query tasks/data/metrics by resourceId, which
@@ -193,11 +178,22 @@ export function RealResourcePanel({
                 </TabsContent>
               )}
 
-              <TabsContent value="variables" keepMounted className="px-4 pt-5 sm:px-6">
+              <TabsContent
+                value="variables"
+                keepMounted
+                className={cn("px-4 pt-5 sm:px-6", PANE_MEASURE_CLASS)}
+              >
                 <PostgresVariablesTabBody resource={resource} pending={pending} dbName={dbName} />
               </TabsContent>
 
-              <TabsContent value="settings" keepMounted className="px-4 pt-5 sm:px-6">
+              {/* Forms cap at a reading measure; the width is for the Data
+                  browser and the terminal, not for stretching a label away
+                  from its input. */}
+              <TabsContent
+                value="settings"
+                keepMounted
+                className={cn("px-4 pt-5 sm:px-6", PANE_MEASURE_CLASS)}
+              >
                 <PostgresSettingsBody
                   resource={resource}
                   onDeleted={onClose}
@@ -228,7 +224,7 @@ export function RealResourcePanel({
             </Activity>
           )}
         </div>
-      </Tabs>
+      </PanelTabsChrome>
     </div>
   );
 }
