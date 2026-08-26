@@ -9,6 +9,7 @@ import { authorizeCapability } from "./authz/capability";
 import { isReadAction, isReadMethod } from "./authz/procedure-mode";
 import { procedureTimeout } from "./authz/procedure-timeout";
 import { traceProcedure } from "./authz/procedure-trace";
+import { analyticsContract } from "./routers/analytics/contract";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
@@ -41,6 +42,7 @@ import { volumesContract } from "./routers/volumes/contract";
 import { webhooksContract } from "./routers/webhooks/contract";
 
 export const publicProcedure = implement({
+  analytics: analyticsContract,
   apiKeys: apiKeysContract,
   audit: auditContract,
   backups: backupsContract,

@@ -44,9 +44,14 @@ export const MAX_SOURCE_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MiB
  *  prefix so neither needs its own rule. */
 const MAX_WEBHOOK_BYTES = 25 * 1024 * 1024; // 25 MiB
 
+/** The analytics collect batch is capped at 64 KB on the wire (design §3);
+ *  matching it here rejects an oversized beacon before any handler buffers it. */
+const MAX_ANALYTICS_COLLECT_BYTES = 64 * 1024; // 64 KiB
+
 export const CONTROL_PLANE_BODY_LIMIT_RULES: BodyLimitRule[] = [
   { prefix: "/api/services/", maxBytes: MAX_SOURCE_UPLOAD_BYTES }, // POST /:resourceId/source
   { prefix: "/api/webhooks/", maxBytes: MAX_WEBHOOK_BYTES },
+  { prefix: "/a/", maxBytes: MAX_ANALYTICS_COLLECT_BYTES }, // POST /a/c (web analytics)
 ];
 
 export function resolveBodyLimitBytes(

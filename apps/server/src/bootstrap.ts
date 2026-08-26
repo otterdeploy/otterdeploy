@@ -5,6 +5,7 @@
  * handles captured here are drained by the SIGTERM/SIGINT hooks so in-flight
  * jobs finish before the process exits.
  */
+import { startAnalyticsIngest, stopAnalyticsIngest } from "@otterdeploy/api/analytics";
 import { reconcile } from "@otterdeploy/api/caddy";
 import {
   startEdgeLogPersistence,
@@ -169,6 +170,22 @@ async function bootstrap() {
     });
   }
 
+  // Web-analytics ingest (tracker plane): always on, independent of the
+  // Caddy edge-log sink. Creates the partitioned analytics_event table, then
+  // runs the 1 s writer flush and the hourly retention sweep. The collect
+  // route answers before this is ready; events buffer until the first flush.
+  Result.try({
+    try: () => startAnalyticsIngest(),
+    catch: (cause) => new BootstrapError({ step: "analytics-ingest", cause }),
+  }).match({
+    ok: () => log.info({ startup: { step: "analytics-ingest" } }),
+    err: (err) =>
+      log.error({
+        startup: { step: "analytics-ingest", status: "failed" },
+        error: err.message,
+      }),
+  });
+
   const swarm = await Result.tryPromise({
     try: () => initializeSwarm(),
     catch: (cause) => new BootstrapError({ step: "swarm", cause }),
@@ -261,6 +278,10 @@ export function runBootstrap(): void {
       // Flush the last few seconds of probe counters before exit: they're
       // all-time totals, so a dropped buffer is history lost for good.
       await stopThreatRollup().catch(() => undefined);
+      // Final analytics flush: dirty sessions/events are seconds of data at
+      // most, but liveness reads last_at, so land them. Best-effort by
+      // construction (Result, not a raw catch).
+      await Result.tryPromise({ try: () => stopAnalyticsIngest(), catch: () => undefined });
       if (stopTracing) await stopTracing().catch(() => undefined);
       if (stopWorkers) await stopWorkers().catch(() => undefined);
       process.exit(0);

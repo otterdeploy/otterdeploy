@@ -53,6 +53,7 @@ import {
   terminalWebSocketHandler,
   withCanonicalDeviceOrigin,
 } from "./handlers";
+import { registerAnalyticsRoutes } from "./handlers/analytics";
 import { completeNodeEnrollmentHandler, redeemNodeEnrollmentHandler } from "./handlers/enrollment";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
@@ -123,6 +124,9 @@ app.use(async (c, next) => {
   await next();
 });
 app.use(bodyLimitMiddleware());
+
+// Web-analytics tracker routes (/a/*): above evlog + credentialed CORS by design (hot public path).
+registerAnalyticsRoutes(app);
 
 const identify = createAuthMiddleware(auth, {
   exclude: [

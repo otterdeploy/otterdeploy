@@ -175,6 +175,11 @@ export const platformSettings = pgTable("platform_settings", {
   edgeLogGeoipUrl: text("edge_log_geoip_url"),
   edgeLogGeoipAsnUrl: text("edge_log_geoip_asn_url"),
 
+  // ─── Web analytics ──────────────────────────────────────────────────
+  /** Days of analytics_event partitions (and analytics_session rows) to
+   *  keep. null ⇒ 400. Design: docs/designs/web-analytics.md. */
+  analyticsRetentionDays: integer("analytics_retention_days"),
+
   // ─── Measurement thresholds ─────────────────────────────────────────
   /** The percentages at which a measured value reads as elevated and as
    *  critical. One pair drives BOTH the colour of every meter in the UI and

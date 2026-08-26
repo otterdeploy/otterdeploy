@@ -77,6 +77,12 @@ export type OrphanedResourceId = Id<typeof ID_PREFIX.orphanedResource>;
 // Private networking (NetBird / Tailscale): docs/designs/vpn-mesh.md
 export type MeshNetworkId = Id<typeof ID_PREFIX.meshNetwork>;
 
+// Web analytics (tracker plane): docs/designs/web-analytics.md
+export type AnalyticsSiteId = Id<typeof ID_PREFIX.analyticsSite>;
+export type AnalyticsSessionId = Id<typeof ID_PREFIX.analyticsSession>;
+export type AnalyticsEventDefinitionId = Id<typeof ID_PREFIX.analyticsEventDefinition>;
+export type AnalyticsFunnelId = Id<typeof ID_PREFIX.analyticsFunnel>;
+
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;
 export type NotificationSubscriptionId = Id<typeof ID_PREFIX.notificationSubscription>;
