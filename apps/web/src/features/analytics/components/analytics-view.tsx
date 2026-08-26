@@ -1,34 +1,31 @@
 /**
- * The one traffic-analytics surface: install-wide on the top-level Analytics
- * page (admins), org- or project-scoped via the page's filters. Rollup-backed
- * (`edgeLogs.analytics.*`), so every range costs the same and the numbers
- * outlive the raw log's retention.
+ * The Traffic tab: the edge plane (Caddy access log) read through the
+ * rollups (`edgeLogs.analytics.*`), so every range costs the same and the
+ * numbers outlive the raw log's retention. Install-wide for admins,
+ * org- or project-scoped via the page header's filters; the header owns the
+ * range and maps it onto this plane's four presets.
  *
- * Layout follows the Plausible shape: stat cards with trend deltas, one
- * full-width hero chart, then the map and the breakdowns.
+ * Layout is the Overview's vocabulary: stat tiles with deltas and sparks,
+ * the requests chart, the latency chart, then the breakdown grid.
  */
-
-import { useMemo } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
 import { orpc } from "@/shared/server/orpc";
 
-import type { AnalyticsWindowSel } from "./range-picker";
+import type { EdgeWindow } from "../lib/range";
 
-import { formatCount } from "../analytics-model";
 import {
-  BreakdownPanels,
-  ChartCard,
-  headlineStats,
   HonestyNotes,
-  Note,
-  ViewSkeleton,
+  HostFilterChip,
+  TrafficError,
+  TrafficSkeleton,
+  trafficTiles,
 } from "./analytics-view-parts";
 import { CollectionNotice } from "./collection-notice";
-import { RangePicker } from "./range-picker";
-import { StatStrip } from "./stat-strip";
+import { TrafficBreakdowns } from "./traffic-breakdowns";
+import { TrafficCharts } from "./traffic-charts";
+import { TrafficStatTiles } from "./traffic-stat-tiles";
 
 const POLL_MS = 30_000;
 
@@ -38,9 +35,8 @@ interface AnalyticsViewProps {
   /** Every host on the install, control plane included. Install-admin only:
    *  the server verifies; pass it only when the route context says admin. */
   installWide?: boolean;
-  window: AnalyticsWindowSel;
-  onWindowChange: (next: AnalyticsWindowSel) => void;
-  /** Single-domain filter, toggled from the Domains panel. URL-owned. */
+  window: EdgeWindow;
+  /** Single-domain filter, toggled from the Domains card. URL-owned. */
   hostFilter?: string;
   onHostFilterChange: (host: string | undefined) => void;
 }
@@ -49,7 +45,6 @@ export function AnalyticsView({
   projectId,
   installWide,
   window: win,
-  onWindowChange,
   hostFilter,
   onHostFilterChange,
 }: AnalyticsViewProps) {
@@ -80,68 +75,26 @@ export function AnalyticsView({
 
   const data = overview.data;
   const dims = breakdowns.data;
-  const wireSeries = data?.series;
-
-  // Wide rows straight off the wire: the chart folds them per series itself.
-  const requestRows = useMemo(
-    () =>
-      (wireSeries ?? []).map((b) => ({
-        ts: new Date(b.t).getTime(),
-        requests: b.requests,
-        errors: b.s4xx + b.s5xx,
-      })),
-    [wireSeries],
-  );
-  const latencyRows = useMemo(
-    () =>
-      (wireSeries ?? []).map((b) => ({
-        ts: new Date(b.t).getTime(),
-        p50: b.p50,
-        p95: b.p95,
-        p99: b.p99,
-      })),
-    [wireSeries],
-  );
-
-  // A bucket is the sampling cadence here, so a window with no traffic at all
-  // draws as a break rather than a floor of zeroes it never measured.
-  const bucketMs = (data?.bucketSeconds ?? 0) * 1000;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          {hostFilter !== undefined ? (
-            <button
-              type="button"
-              onClick={() => onHostFilterChange(undefined)}
-              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs hover:bg-muted/60"
-              title="Clear the domain filter"
-            >
-              {hostFilter}
-              <span aria-hidden className="text-muted-foreground">
-                ×
-              </span>
-            </button>
-          ) : null}
-        </div>
-        <RangePicker value={win} onChange={onWindowChange} />
-      </div>
+      {hostFilter !== undefined ? (
+        <HostFilterChip host={hostFilter} onClear={() => onHostFilterChange(undefined)} />
+      ) : null}
 
       {((): React.ReactNode => {
-        if (overview.isLoading && !data) return <ViewSkeleton />;
-        if (overview.isError && !data) return <Note>Couldn&apos;t load analytics. Retrying.</Note>;
+        if (overview.isLoading && !data) return <TrafficSkeleton />;
+        if (overview.isError && !data) return <TrafficError />;
         if (!data) return null;
 
-        // No blanket empty state. This used to replace the ENTIRE dashboard —
-        // all five tiles, both charts, the world map and six top-lists — with
-        // one centred line the moment hostCount hit zero. Every one of those
-        // panels already renders its own empty state, so the gate bought
-        // nothing and cost the operator any sense of what the page even is.
-        // Worse, install-wide derives hostCount from the rollup rows
-        // themselves, so "no data" became "no domains" became a page that
-        // blamed the selected window for a condition no window could fix.
+        // No blanket empty state: every panel renders its own, and the
+        // CollectionNotice above says why the page is quiet when the reason
+        // is not "nobody visited".
         const measuring = data.flags.sinkConfigured && data.flags.collecting;
+        // A bucket is the sampling cadence here, so a window with no traffic
+        // at all draws as a break rather than a floor of zeroes it never
+        // measured.
+        const bucketMs = data.bucketSeconds * 1000;
         return (
           <>
             <CollectionNotice
@@ -152,59 +105,24 @@ export function AnalyticsView({
               requests={data.summary.requests}
             />
 
-            <StatStrip stats={headlineStats(data.summary, data.series, data.previous, measuring)} />
+            <TrafficStatTiles
+              tiles={trafficTiles(data.summary, data.series, data.previous, measuring)}
+              bucketMs={bucketMs}
+            />
 
-            {/* The hero: requests over the window, full width. */}
-            <ChartCard title="Requests">
-              {data.summary.requests === 0 ? (
-                <Note>No requests in this window.</Note>
-              ) : (
-                <TimeSeriesChart
-                  data={requestRows}
-                  ariaLabel="Requests and errors over time"
-                  format={formatCount}
-                  height={280}
-                  sampleIntervalMs={bucketMs}
-                  series={[
-                    { dataKey: "requests", label: "Requests", color: "var(--primary)" },
-                    { dataKey: "errors", label: "4xx + 5xx", color: "var(--destructive)" },
-                  ]}
-                />
-              )}
-            </ChartCard>
+            <TrafficCharts
+              series={data.series}
+              bucketMs={bucketMs}
+              totalRequests={data.summary.requests}
+              p95={data.summary.p95}
+              avgLatencyMs={data.summary.avgLatencyMs}
+            />
 
-            {dims ? (
-              <BreakdownPanels
-                dims={dims}
-                visitorDays={data.summary.visitorDays}
-                hostFilter={hostFilter}
-                onHostFilterChange={onHostFilterChange}
-              />
-            ) : null}
-
-            {/* Percentiles share an axis but not a baseline, so they draw as
-                lines: three overlapping fills read as one quantity rather than
-                three readings. The ramp runs light-to-dark with the percentile,
-                so the tail is the darkest line on the chart. */}
-            <ChartCard title="Latency">
-              {data.summary.p95 === null ? (
-                <Note>No requests in this window.</Note>
-              ) : (
-                <TimeSeriesChart
-                  data={latencyRows}
-                  ariaLabel="Latency percentiles over time"
-                  format={(v) => `${Math.round(v)} ms`}
-                  height={200}
-                  kind="line"
-                  sampleIntervalMs={bucketMs}
-                  series={[
-                    { dataKey: "p99", label: "p99", color: "var(--chart-5)" },
-                    { dataKey: "p95", label: "p95", color: "var(--chart-3)" },
-                    { dataKey: "p50", label: "p50", color: "var(--chart-1)" },
-                  ]}
-                />
-              )}
-            </ChartCard>
+            <TrafficBreakdowns
+              dims={dims}
+              hostFilter={hostFilter}
+              onHostFilterChange={onHostFilterChange}
+            />
 
             <HonestyNotes
               approximate={data.flags.approximate}

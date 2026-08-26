@@ -4,25 +4,6 @@
  * the interesting logic is table-testable.
  */
 
-export const ANALYTICS_RANGES = ["24h", "7d", "30d", "90d"] as const;
-export type AnalyticsRangeKey = (typeof ANALYTICS_RANGES)[number];
-
-/** One overview series bucket as the API ships it. */
-interface WireSeriesBucket {
-  t: string;
-  requests: number;
-  botRequests: number;
-  s2xx: number;
-  s3xx: number;
-  s4xx: number;
-  s5xx: number;
-  sOther: number;
-  resBytes: number;
-  p50: number | null;
-  p95: number | null;
-  p99: number | null;
-}
-
 export interface TopEntry {
   key: string;
   count: number;

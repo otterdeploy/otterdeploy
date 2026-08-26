@@ -1,135 +1,101 @@
 /**
- * "See all" drill-in for a breakdown card: the full ranked table with the
- * per-dimension extra columns, a client-side search over what's loaded, and
- * offset paging. Rows are the same affordance as card rows — click to filter
- * the whole page — so the dialog is a bigger lens, not a different tool.
+ * "See all" drill-in for a breakdown card: the full ranked table with a
+ * client-side filter over what's loaded and a Load-more footer. Rows are the
+ * same affordance as card rows — click to narrow the page — so the dialog is
+ * a bigger lens, not a different tool.
+ *
+ * Data-agnostic on purpose: rows and column config come in, picks go out, so
+ * the tracker plane (Overview) and the edge plane (Traffic) share one dialog
+ * instead of two tables that drift apart.
  */
 
-import type { BreakdownDimension, FilterDimension } from "@otterdeploy/shared/analytics-filters";
-
+import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { Search01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/components/ui/input-group";
 
-import { countryName, formatCount, formatShare } from "../../analytics-model";
-import {
-  type AnalyticsScope,
-  type AnalyticsWindowState,
-  useBreakdown,
-} from "../../hooks/use-web-analytics";
-import { formatDurationMs } from "../../lib/format-duration";
+import { formatCount } from "../../analytics-model";
+import { SeeAllTable, type SeeAllColumn, type SeeAllRowBase } from "./see-all-table";
 
-const PAGE_SIZE = 50;
-const MAX_LIMIT = 500;
+export type { SeeAllColumn, SeeAllRowBase } from "./see-all-table";
 
-interface Row {
-  key: string;
-  visitors: number;
-  pageviews?: number;
-  sessions?: number;
-  bounceRate?: number | null;
-  avgDurationMs?: number | null;
-  conversions?: number;
-}
-
-/** Which optional columns the loaded rows actually carry: the API only
- *  sends the metrics that exist for a dimension, and the table follows. */
-type OptionalColumn = "pageviews" | "sessions" | "bounceRate" | "avgDurationMs" | "conversions";
-const OPTIONAL_COLUMNS: readonly OptionalColumn[] = [
-  "pageviews",
-  "sessions",
-  "bounceRate",
-  "avgDurationMs",
-  "conversions",
-];
-const COLUMN_LABEL_KEYS = {
-  pageviews: "analytics.overview.pageviews",
-  sessions: "analytics.overview.sessions",
-  bounceRate: "analytics.overview.bounce",
-  avgDurationMs: "analytics.overview.duration",
-  conversions: "analytics.overview.conversions",
-} as const;
-
-function presentColumns(rows: readonly Row[]): OptionalColumn[] {
-  return OPTIONAL_COLUMNS.filter((col) => rows.some((row) => row[col] !== undefined));
-}
-
-function formatCell(row: Row, col: OptionalColumn): string {
-  const value = row[col];
-  if (value === undefined || value === null) return "–";
-  if (col === "bounceRate") return `${Math.round(value * 100)}%`;
-  if (col === "avgDurationMs") return formatDurationMs(value);
-  return formatCount(value);
-}
-
-export function SeeAllDialog({
-  target,
-  scope,
-  win,
-  onClose,
-  onAddFilter,
-}: {
-  target: { title: string; dimension: BreakdownDimension } | null;
-  scope: AnalyticsScope;
-  win: AnalyticsWindowState;
+export interface SeeAllDialogProps<Row extends SeeAllRowBase> {
+  open: boolean;
   onClose: () => void;
-  onAddFilter: (dim: FilterDimension, key: string) => void;
-}) {
+  /** The card's title. */
+  title: string;
+  /** "Country", "Browser": names the key column and the summary line. */
+  dimensionLabel: string;
+  /** Denominator for the share column. */
+  total: number;
+  /** "visitors in range" / "requests in range". */
+  unitLabel: string;
+  rows: readonly Row[];
+  loading: boolean;
+  /** Header of the primary numeric column (Visitors / Requests). */
+  valueLabel: string;
+  valueOf: (row: Row) => number;
+  /** Extra numeric columns the rows carry, between the value and the share. */
+  columns?: readonly SeeAllColumn<Row>[];
+  displayKey?: (key: string) => string;
+  renderLeading?: (key: string) => ReactNode;
+  mono?: boolean;
+  /** Row click; omitted ⇒ rows are read-only. Closes the dialog after. */
+  onPick?: (key: string) => void;
+  selectedKey?: string;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
+}
+
+export function SeeAllDialog<Row extends SeeAllRowBase>(props: SeeAllDialogProps<Row>) {
   return (
-    <Dialog open={target !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
+    <Dialog open={props.open} onOpenChange={(open) => (open ? undefined : props.onClose())}>
       <DialogContent className="sm:max-w-2xl">
-        {target ? (
-          <SeeAllContent
-            key={target.dimension}
-            target={target}
-            scope={scope}
-            win={win}
-            onPick={(key) => {
-              if (target.dimension !== "goal") onAddFilter(target.dimension, key);
-              onClose();
-            }}
-          />
-        ) : null}
+        {/* Keyed on the title so the search resets when a different card
+            opens the dialog, without a sync effect. */}
+        <SeeAllContent key={props.title} {...props} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function SeeAllContent({
-  target,
-  scope,
-  win,
+function SeeAllContent<Row extends SeeAllRowBase>({
+  onClose,
+  title,
+  dimensionLabel,
+  total,
+  unitLabel,
+  rows,
+  loading,
+  valueLabel,
+  valueOf,
+  columns = [],
+  displayKey,
+  renderLeading,
+  mono = true,
   onPick,
-}: {
-  target: { title: string; dimension: BreakdownDimension };
-  scope: AnalyticsScope;
-  win: AnalyticsWindowState;
-  onPick: (key: string) => void;
-}) {
+  selectedKey,
+  hasMore = false,
+  onLoadMore,
+  loadingMore = false,
+}: SeeAllDialogProps<Row>) {
   const { t } = useTranslation();
-  const [pages, setPages] = useState(1);
   const [search, setSearch] = useState("");
 
-  const limit = Math.min(pages * PAGE_SIZE, MAX_LIMIT);
-  const query = useBreakdown(scope, win, target.dimension, { limit });
-  const rows: Row[] = query.data?.rows ?? [];
-  const total = query.data?.total ?? 0;
-  const isCountry = target.dimension === "country";
-  const labelOf = (key: string) => (isCountry ? countryName(key) : key);
-
+  const labelOf = (key: string) => (displayKey ? displayKey(key) : key);
   const needle = search.trim().toLowerCase();
   const visible =
     needle === ""
@@ -139,87 +105,69 @@ function SeeAllContent({
             row.key.toLowerCase().includes(needle) ||
             labelOf(row.key).toLowerCase().includes(needle),
         );
-  const columns = presentColumns(rows);
-  const keyHeader = target.dimension === "goal" ? "event" : target.dimension;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <DialogHeader>
-        <DialogTitle>{target.title}</DialogTitle>
+        <DialogTitle>{title}</DialogTitle>
+        <DialogDescription className="text-xs">
+          {dimensionLabel}
+          <span aria-hidden="true"> · </span>
+          <span className="font-mono tabular-nums">{formatCount(total)}</span> {unitLabel}
+        </DialogDescription>
       </DialogHeader>
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder={t("analytics.overview.searchPlaceholder")}
-        aria-label={t("analytics.overview.searchPlaceholder")}
-        className="h-8"
+
+      <InputGroup className="h-8">
+        <InputGroupAddon>
+          <HugeiconsIcon icon={Search01Icon} strokeWidth={1.5} className="size-3.5" />
+        </InputGroupAddon>
+        <InputGroupInput
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t("analytics.overview.searchPlaceholder")}
+          aria-label={t("analytics.overview.searchPlaceholder")}
+          className="h-8 text-sm"
+        />
+      </InputGroup>
+
+      <SeeAllTable
+        rows={visible}
+        total={total}
+        loading={loading}
+        keyLabel={dimensionLabel}
+        valueLabel={valueLabel}
+        valueOf={valueOf}
+        columns={columns}
+        displayKey={labelOf}
+        renderLeading={renderLeading}
+        mono={mono}
+        selectedKey={selectedKey}
+        onPick={
+          onPick
+            ? (key) => {
+                onPick(key);
+                onClose();
+              }
+            : undefined
+        }
       />
-      <div className="max-h-[60vh] overflow-y-auto rounded-md ring-1 ring-foreground/10">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t(`analytics.filters.dims.${keyHeader}`)}</TableHead>
-              <TableHead className="text-right">{t("analytics.overview.visitors")}</TableHead>
-              {columns.map((col) => (
-                <TableHead key={col} className="text-right">
-                  {t(COLUMN_LABEL_KEYS[col])}
-                </TableHead>
-              ))}
-              <TableHead className="text-right">{t("analytics.overview.share")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {query.isPending ? (
-              <TableRow>
-                <TableCell colSpan={8}>
-                  <Skeleton className="h-4 w-full" />
-                </TableCell>
-              </TableRow>
-            ) : visible.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
-                  {t("analytics.overview.noData")}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visible.map((row) => (
-                <TableRow
-                  key={row.key}
-                  onClick={row.key === "(none)" ? undefined : () => onPick(row.key)}
-                  className={row.key === "(none)" ? undefined : "cursor-pointer"}
-                >
-                  <TableCell className="max-w-64 truncate font-mono text-xs" title={row.key}>
-                    {labelOf(row.key)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums">
-                    {formatCount(row.visitors)}
-                  </TableCell>
-                  {columns.map((col) => (
-                    <TableCell key={col} className="text-right font-mono text-xs tabular-nums">
-                      {formatCell(row, col)}
-                    </TableCell>
-                  ))}
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground tabular-nums">
-                    {formatShare(row.visitors, total)}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {query.data?.hasMore && limit < MAX_LIMIT ? (
-        <div className="flex justify-center">
+
+      <div className="flex min-h-7 items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span className="tabular-nums">
+          {t("analytics.overview.showing", { shown: visible.length, loaded: rows.length })}
+        </span>
+        {hasMore && onLoadMore ? (
           <Button
             variant="ghost"
             size="sm"
-            disabled={query.isFetching}
-            onClick={() => setPages((p) => p + 1)}
+            className="h-7 text-xs"
+            disabled={loadingMore}
+            onClick={onLoadMore}
           >
             {t("analytics.overview.loadMore")}
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

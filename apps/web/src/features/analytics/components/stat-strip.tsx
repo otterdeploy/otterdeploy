@@ -31,12 +31,6 @@ export interface Stat {
   delta?: StatDelta;
 }
 
-/** Fractional change, null when there is no previous baseline to compare. */
-export function deltaPct(current: number, previous: number): number | null {
-  if (previous === 0) return null;
-  return (current - previous) / previous;
-}
-
 function DeltaBadge({ delta }: { delta: StatDelta }) {
   if (delta.pct === null) return null;
   const pct = delta.pct * 100;

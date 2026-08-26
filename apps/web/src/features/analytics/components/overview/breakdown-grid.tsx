@@ -11,8 +11,6 @@ import { useState } from "react";
 
 import { useTranslation } from "react-i18next";
 
-import { CountryFlag } from "@/features/analytics/components/country-flag";
-
 import { countryName, formatCount } from "../../analytics-model";
 import {
   type AnalyticsScope,
@@ -20,26 +18,13 @@ import {
   useBreakdown,
 } from "../../hooks/use-web-analytics";
 import { BreakdownCard, type DimensionOption } from "./breakdown-card";
+import { isMonoDimension, leadingFor } from "./dimension-leading";
+import { ListMapToggle, type LocationsMode } from "./list-map-toggle";
 import { LocationsMap } from "./locations-map";
+import { OverviewSeeAll, type SeeAllTarget } from "./overview-see-all";
 import { RealtimeMiniCard } from "./realtime-mini-card";
-import { SeeAllDialog } from "./see-all-dialog";
 
 const CARD_LIMIT = 6;
-
-/** Dimensions rendered in sans: their keys are names, not machine strings. */
-const SANS_DIMENSIONS: ReadonlySet<BreakdownDimension> = new Set([
-  "channel",
-  "country",
-  "browser",
-  "os",
-  "device",
-  "language",
-]);
-
-interface SeeAllTarget {
-  title: string;
-  dimension: BreakdownDimension;
-}
 
 export function BreakdownGrid({
   scope,
@@ -94,7 +79,7 @@ export function BreakdownGrid({
         <GoalsCard scope={scope} win={win} onAddFilter={onAddFilter} onShowEvents={onShowEvents} />
         <RealtimeMiniCard scope={scope} onShowRealtime={onShowRealtime} />
       </div>
-      <SeeAllDialog
+      <OverviewSeeAll
         target={seeAll}
         scope={scope}
         win={win}
@@ -131,7 +116,8 @@ function SwitchedCard({
       onSeeAll={() => onSeeAll({ title, dimension })}
       loading={query.isPending}
       rows={query.data?.rows ?? []}
-      mono={!SANS_DIMENSIONS.has(dimension)}
+      mono={isMonoDimension(dimension)}
+      renderLeading={leadingFor(dimension)}
       onRowClick={
         dimension === "goal"
           ? undefined
@@ -156,7 +142,7 @@ function LocationsCard({
   onSeeAll: (target: SeeAllTarget) => void;
 }) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<"list" | "map">("list");
+  const [mode, setMode] = useState<LocationsMode>("list");
   const list = useBreakdown(scope, win, "country", { limit: CARD_LIMIT });
   // The map needs the full spread of countries, not the top six; only paid
   // for while the map is showing.
@@ -168,29 +154,10 @@ function LocationsCard({
     <BreakdownCard
       title={t("analytics.overview.locations")}
       onSeeAll={() => onSeeAll({ title: t("analytics.overview.locations"), dimension: "country" })}
-      headerExtra={
-        <div className="flex items-center rounded-md bg-muted p-0.5 text-xs" role="tablist">
-          {(["list", "map"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={mode === value}
-              onClick={() => setMode(value)}
-              className={
-                mode === value
-                  ? "rounded-[5px] bg-background px-2 py-0.5 font-medium shadow-none ring-1 ring-foreground/10"
-                  : "rounded-[5px] px-2 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
-              }
-            >
-              {t(value === "list" ? "analytics.overview.listMode" : "analytics.overview.mapMode")}
-            </button>
-          ))}
-        </div>
-      }
+      headerExtra={<ListMapToggle mode={mode} onChange={setMode} />}
       loading={list.isPending}
       rows={list.data?.rows ?? []}
-      renderLeading={(key) => <CountryFlag code={key} />}
+      renderLeading={leadingFor("country")}
       displayKey={countryName}
       mono={false}
       onRowClick={(key) => onAddFilter("country", key)}
