@@ -751,6 +751,18 @@
     "event": "Event",
     "severity": "Severity",
     "sentIn7d": "sent · 7d",
+    "stats": {
+      "delivered7d": "Delivered, last 7 days",
+      "failed24h": "Failed, last 24 hours",
+      "lastDelivery": "Last delivery",
+      "never": "never",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusPaused": "Paused",
+      "statusDisconnected": "Disconnected",
+      "statusWarn": "Degraded — recent deliveries failed",
+      "hint": "Counts every event delivered to this channel, across all subscriptions."
+    },
     "groupErr": "Failures",
     "groupWarn": "Warnings",
     "groupInfo": "Activity",

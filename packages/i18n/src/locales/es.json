@@ -751,6 +751,18 @@
     "event": "Evento",
     "severity": "Gravedad",
     "sentIn7d": "enviados · 7 d",
+    "stats": {
+      "delivered7d": "Entregados, últimos 7 días",
+      "failed24h": "Fallidos, últimas 24 horas",
+      "lastDelivery": "Última entrega",
+      "never": "nunca",
+      "status": "Estado",
+      "statusActive": "Activo",
+      "statusPaused": "Pausado",
+      "statusDisconnected": "Desconectado",
+      "statusWarn": "Degradado — entregas recientes fallidas",
+      "hint": "Cuenta cada evento entregado a este canal, en todas las suscripciones."
+    },
     "groupErr": "Fallos",
     "groupWarn": "Avisos",
     "groupInfo": "Actividad",
