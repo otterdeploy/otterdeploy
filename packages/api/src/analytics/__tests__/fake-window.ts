@@ -15,7 +15,7 @@ const payloadSchema = z.object({
 });
 export type Payload = z.infer<typeof payloadSchema>;
 
-export interface Request {
+interface Request {
   url: string;
   via: "fetch" | "beacon";
   contentType: string | undefined;

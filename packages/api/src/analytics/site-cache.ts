@@ -22,8 +22,8 @@ import { normalizeHost } from "../edge-logs/host";
 import { listProjectDomains } from "../routers/edge-logs/queries";
 import { compileExcludePaths } from "./enrich";
 
-export const SITE_CACHE_TTL_MS = 60_000;
-export const SITE_NEGATIVE_TTL_MS = 10_000;
+const SITE_CACHE_TTL_MS = 60_000;
+const SITE_NEGATIVE_TTL_MS = 10_000;
 
 export interface SiteContext {
   site: AnalyticsSiteRow;

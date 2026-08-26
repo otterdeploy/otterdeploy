@@ -16,7 +16,7 @@ import * as z from "zod";
 
 import { executeRows, isoOf, siteIdIn } from "./sql-utils";
 
-export const REALTIME_WINDOW_MS = 5 * 60_000;
+const REALTIME_WINDOW_MS = 5 * 60_000;
 const RECENT_WINDOW_MS = 24 * 60 * 60_000;
 const LIST_LIMIT = 50;
 const BY_PATH_LIMIT = 20;

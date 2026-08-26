@@ -1,14 +1,16 @@
 /**
  * Small SQL plumbing shared by the analytics readers: instant formatting,
  * site-scope IN lists, half-open time-range predicates, and the row-array
- * unwrap for `db.execute` (bun-sql returns a plain array; tolerate a
- * `{ rows }` wrapper like edge-logs' loaders do, without asserting either).
+ * unwrap for `db.execute` (the same one edge-logs' loaders use, re-exported
+ * so the readers have one import for their SQL helpers).
  */
 
 import type { AnalyticsSiteId } from "@otterdeploy/shared/id";
 
 import { Temporal } from "@otterdeploy/shared/temporal";
 import { sql, type SQL } from "drizzle-orm";
+
+export { executeRows } from "../../edge-logs/analytics-query-buckets";
 
 export function isoOf(epochMs: number): string {
   return Temporal.Instant.fromEpochMilliseconds(epochMs).toString();
@@ -32,13 +34,4 @@ export function tsRange(col: SQL | SQL.Aliased, fromMs: number, toMs: number): S
  *  convert back so the label is a real instant. */
 export function bucketMsExpr(col: SQL | SQL.Aliased, bucket: string, tz: string): SQL {
   return sql`(extract(epoch FROM date_trunc(${bucket}, ${col} AT TIME ZONE ${tz}) AT TIME ZONE ${tz}) * 1000)::float8`;
-}
-
-export function executeRows(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  if (value !== null && typeof value === "object" && "rows" in value) {
-    const rows = value.rows;
-    if (Array.isArray(rows)) return rows;
-  }
-  return [];
 }

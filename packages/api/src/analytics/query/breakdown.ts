@@ -7,6 +7,7 @@
  * `share` is each row's visitors over that same total.
  */
 
+import type { BreakdownDimension } from "@otterdeploy/shared/analytics-filters";
 import type { AnalyticsSiteId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
@@ -18,7 +19,6 @@ import * as z from "zod";
 import {
   type AnalyticsFilter,
   applyFilters,
-  type BreakdownDimension,
   DIRECT_KEY,
   eventDimensionExpr,
   NONE_KEY,
@@ -27,7 +27,7 @@ import {
 import { executeRows, siteIdIn, tsRange } from "./sql-utils";
 import { type ResolvedWindow } from "./window";
 
-export const BREAKDOWN_MAX_LIMIT = 500;
+const BREAKDOWN_MAX_LIMIT = 500;
 
 export interface BreakdownRow {
   key: string;

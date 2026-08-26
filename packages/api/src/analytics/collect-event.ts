@@ -16,6 +16,7 @@ import type { SiteContext } from "./site-cache";
 import { sanitizeProps } from "./collect-schema";
 import { languageOf, parsePageUrl, referrerHostOf, screenWidthOf } from "./enrich";
 import { externalUserHash, utcDayOf, visitorHash } from "./identity";
+import { pickDimensions } from "./session-store";
 import { applySignal, identifySession, sidHashOf } from "./sessionizer";
 import { bumpStat } from "./stats";
 
@@ -46,7 +47,7 @@ export interface CollectDeps {
 const MAX_EVENT_AGE_MS = 24 * 60 * 60 * 1_000;
 const MAX_EVENT_FUTURE_MS = 60_000;
 
-export function clampTs(ts: number, now: number): number {
+function clampTs(ts: number, now: number): number {
   if (ts > now + MAX_EVENT_FUTURE_MS || ts < now - MAX_EVENT_AGE_MS) return now;
   return ts;
 }
@@ -129,6 +130,7 @@ function toEventRow(
   s: OpenSession,
 ): NewAnalyticsEventRow {
   return {
+    ...pickDimensions(s),
     id: e.id,
     // `Date` at the drizzle seam only.
     ts: new Date(at),
@@ -140,18 +142,6 @@ function toEventRow(
     props: e.t === "ev" ? sanitizeProps(e.p) : null,
     path: page.path,
     host: page.host,
-    referrerHost: s.referrerHost,
-    utmSource: s.utmSource,
-    utmMedium: s.utmMedium,
-    utmCampaign: s.utmCampaign,
-    utmTerm: s.utmTerm,
-    utmContent: s.utmContent,
-    country: s.country,
-    browser: s.browser,
-    os: s.os,
-    device: s.device,
-    screenW: s.screenW,
-    language: s.language,
   };
 }
 

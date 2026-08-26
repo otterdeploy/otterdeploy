@@ -6,6 +6,7 @@
  */
 
 import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { db } from "@otterdeploy/db";
@@ -73,6 +74,38 @@ async function siteResult(
   };
 }
 
+interface SiteHandlerContext {
+  activeOrganizationId: OrganizationId;
+  log: RequestLogger;
+}
+
+interface SiteErrors {
+  NOT_FOUND(): Error;
+}
+
+/** The mutating handlers' prologue: audit target, then the project's site
+ *  row, which must already exist (ensure is the only lazy path). */
+async function requireSite(
+  context: SiteHandlerContext,
+  projectId: ProjectId,
+  errors: SiteErrors,
+): Promise<AnalyticsSiteRow> {
+  context.log.set({ target: { type: "project", id: projectId } });
+  const site = await getSiteForProject(context.activeOrganizationId, projectId);
+  if (!site) throw errors.NOT_FOUND();
+  return site;
+}
+
+/** Re-read the row after a write, so the response carries what was stored
+ *  (defaults, normalisation) rather than what was sent. */
+async function siteResponse(
+  context: SiteHandlerContext,
+  projectId: ProjectId,
+): Promise<SiteResult> {
+  const site = await getSiteForProject(context.activeOrganizationId, projectId);
+  return siteResult(context.activeOrganizationId, projectId, site);
+}
+
 const HOST_RE = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
 
 /** Normalize + dedupe extra hosts; null = something wasn't a hostname. */
@@ -119,9 +152,7 @@ export const analyticsSiteRouter = {
 
   update: requirePermission({ project: ["update"] }).analytics.site.update.handler(
     async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "project", id: input.projectId } });
-      const site = await getSiteForProject(context.activeOrganizationId, input.projectId);
-      if (!site) throw errors.NOT_FOUND();
+      const site = await requireSite(context, input.projectId, errors);
 
       const extraHosts =
         input.extraHosts === undefined ? undefined : normalizeExtraHosts(input.extraHosts);
@@ -147,25 +178,20 @@ export const analyticsSiteRouter = {
         // The collector caches sites by public key for 60 s; settle now.
         invalidateSiteCache(site.publicKey);
       }
-      const updated = await getSiteForProject(context.activeOrganizationId, input.projectId);
-      return siteResult(context.activeOrganizationId, input.projectId, updated);
+      return siteResponse(context, input.projectId);
     },
   ),
 
   rotateKey: requirePermission({ project: ["update"] }).analytics.site.rotateKey.handler(
     async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "project", id: input.projectId } });
-      const site = await getSiteForProject(context.activeOrganizationId, input.projectId);
-      if (!site) throw errors.NOT_FOUND();
-
+      const site = await requireSite(context, input.projectId, errors);
       await db
         .update(analyticsSite)
         .set({ publicKey: mintPublicKey(), keyRotatedAt: sql`now()` })
         .where(eq(analyticsSite.id, site.id));
       // The old key must stop being accepted immediately, not at cache TTL.
       invalidateSiteCache(site.publicKey);
-      const rotated = await getSiteForProject(context.activeOrganizationId, input.projectId);
-      return siteResult(context.activeOrganizationId, input.projectId, rotated);
+      return siteResponse(context, input.projectId);
     },
   ),
 };

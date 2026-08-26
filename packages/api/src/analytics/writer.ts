@@ -32,8 +32,6 @@ import {
   writeSessions,
 } from "./writer-flush";
 
-export { collectStats } from "./stats";
-
 const FLUSH_INTERVAL_MS = 1_000;
 const SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
 const MAX_BATCH = 500;

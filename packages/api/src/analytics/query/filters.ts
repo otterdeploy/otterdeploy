@@ -7,43 +7,13 @@
  * event", and vice versa). Values are always bound parameters.
  */
 
+import type { FilterDimension, FilterOp } from "@otterdeploy/shared/analytics-filters";
+
 import { analyticsSession } from "@otterdeploy/db/schema/analytics";
 import { analyticsEvent } from "@otterdeploy/db/schema/analytics-event";
 import { and, sql, type SQL } from "drizzle-orm";
 
 import { channelCase } from "./channel-sql";
-
-export const FILTER_DIMENSIONS = [
-  "path",
-  "entryPath",
-  "exitPath",
-  "host",
-  "referrer",
-  "channel",
-  "utmSource",
-  "utmMedium",
-  "utmCampaign",
-  "utmTerm",
-  "utmContent",
-  "country",
-  "device",
-  "browser",
-  "os",
-  "language",
-  "event",
-  "screen",
-] as const;
-
-export type FilterDimension = (typeof FILTER_DIMENSIONS)[number];
-
-export const FILTER_OPS = ["is", "isNot", "contains"] as const;
-export type FilterOp = (typeof FILTER_OPS)[number];
-
-/** Everything filterable is also breakdownable, plus `goal` (conversion
- *  definitions only). Lives here — not in breakdown.ts — so the oRPC contract
- *  can import the vocabulary without touching the db client. */
-export const BREAKDOWN_DIMENSIONS = [...FILTER_DIMENSIONS, "goal"] as const;
-export type BreakdownDimension = (typeof BREAKDOWN_DIMENSIONS)[number];
 
 export interface AnalyticsFilter {
   dim: FilterDimension;
@@ -60,8 +30,6 @@ export const DIRECT_KEY = "Direct / none";
 export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
-
-export const SCREEN_BUCKETS = ["Mobile", "Tablet", "Laptop", "Desktop", "Unknown"] as const;
 
 /** Bucketed screen width. Never null: unknown widths get an honest label. */
 export function screenCase(screenW: SQL | SQL.Aliased): SQL {

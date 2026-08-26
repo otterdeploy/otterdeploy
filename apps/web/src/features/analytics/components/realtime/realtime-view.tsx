@@ -19,6 +19,7 @@ import { type AnalyticsScope, useRealtime } from "../../hooks/use-web-analytics"
 import { formatAgo } from "../../lib/format-duration";
 import { isoMs } from "../../lib/iso-ms";
 import { visitorDotColor, visitorIdentity } from "../../lib/visitor-name";
+import { TopPathsList } from "./top-paths-list";
 import { VisitorSheet } from "./visitor-sheet";
 
 export function RealtimeView({ scope }: { scope: AnalyticsScope }) {
@@ -50,22 +51,7 @@ export function RealtimeView({ scope }: { scope: AnalyticsScope }) {
           <h3 className="text-xs font-medium text-muted-foreground">
             {t("analytics.realtime.topPages")}
           </h3>
-          {data.byPath.length === 0 ? (
-            <p className="py-1 text-xs text-muted-foreground">{t("analytics.realtime.nobody")}</p>
-          ) : (
-            <ul className="flex flex-col">
-              {data.byPath.map((entry) => (
-                <li key={entry.path} className="flex items-center gap-2 py-1">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs" title={entry.path}>
-                    {entry.path}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {formatCount(entry.visitors)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <TopPathsList entries={data.byPath} empty={t("analytics.realtime.nobody")} />
         </div>
       </section>
 

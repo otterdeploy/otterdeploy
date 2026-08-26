@@ -7,10 +7,14 @@
  */
 
 import { oc } from "@orpc/contract";
+import {
+  BREAKDOWN_DIMENSIONS,
+  FILTER_DIMENSIONS,
+  FILTER_OPS,
+} from "@otterdeploy/shared/analytics-filters";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
-import { BREAKDOWN_DIMENSIONS, FILTER_DIMENSIONS, FILTER_OPS } from "../../analytics/query/filters";
 import { BUCKETS, RANGE_PRESETS } from "../../analytics/query/window";
 import { zJsonObject } from "../../lib/z-json";
 import { projectIdField } from "../project/contract/shared";
@@ -39,7 +43,7 @@ const definitionNotFoundErrors = {
 
 // ─── Shared query input ────────────────────────────────────────────────────
 
-export const analyticsFilterSchema = z.object({
+const analyticsFilterSchema = z.object({
   dim: z.enum(FILTER_DIMENSIONS),
   op: z.enum(FILTER_OPS),
   value: z.string().min(1).max(512),

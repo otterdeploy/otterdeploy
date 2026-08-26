@@ -86,9 +86,3 @@ export function utcDayOf(epochMs: number): string {
     .toPlainDate()
     .toString();
 }
-
-/** Test seam: forget the derived keys (e.g. after changing the secret). */
-export function __resetIdentityKeys(): void {
-  visitorKey = null;
-  externalUserKey = null;
-}

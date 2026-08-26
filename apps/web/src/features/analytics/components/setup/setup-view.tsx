@@ -29,20 +29,16 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
-import { orpc, queryClient } from "@/shared/server/orpc";
+import { orpc } from "@/shared/server/orpc";
 
 import type { NudgeProject } from "../overview/setup-nudge";
 
 import { useSite } from "../../hooks/use-web-analytics";
 import { isoMs } from "../../lib/iso-ms";
 import { HealthSection, TrackingApiDoc } from "./setup-health-doc";
-import { HostsSection, PrivacySection } from "./setup-view-parts";
+import { HostsSection, PrivacySection, invalidateSite } from "./setup-view-parts";
 
 const stamp = clockFormatter(CLOCK_STAMP);
-
-export function invalidateSite() {
-  return queryClient.invalidateQueries({ queryKey: orpc.analytics.site.get.key() });
-}
 
 export function SetupView({
   project,

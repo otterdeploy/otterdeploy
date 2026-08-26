@@ -49,6 +49,27 @@ export interface OpenSession extends SessionDimensions {
   dirty: boolean;
 }
 
+/** The dimension fields alone, copied out of anything that carries them
+ *  (an open session, a session row) — the one list every row shape that
+ *  stores first-touch attribution is built from. */
+export function pickDimensions(s: SessionDimensions): SessionDimensions {
+  return {
+    host: s.host,
+    referrerHost: s.referrerHost,
+    utmSource: s.utmSource,
+    utmMedium: s.utmMedium,
+    utmCampaign: s.utmCampaign,
+    utmTerm: s.utmTerm,
+    utmContent: s.utmContent,
+    country: s.country,
+    browser: s.browser,
+    os: s.os,
+    device: s.device,
+    screenW: s.screenW,
+    language: s.language,
+  };
+}
+
 /** `Date` only at the drizzle seam (timestamp columns take one). */
 function toDate(epochMs: number): Date {
   return new Date(epochMs);
@@ -68,19 +89,7 @@ export function toSessionRow(s: OpenSession): NewAnalyticsSessionRow {
     scroll: s.scroll,
     entryPath: s.entryPath,
     exitPath: s.exitPath,
-    host: s.host,
-    referrerHost: s.referrerHost,
-    utmSource: s.utmSource,
-    utmMedium: s.utmMedium,
-    utmCampaign: s.utmCampaign,
-    utmTerm: s.utmTerm,
-    utmContent: s.utmContent,
-    country: s.country,
-    browser: s.browser,
-    os: s.os,
-    device: s.device,
-    screenW: s.screenW,
-    language: s.language,
+    ...pickDimensions(s),
   };
 }
 
@@ -119,19 +128,7 @@ export const lookupOpenSessionDb: LookupOpenSession = async (siteId, visitorId, 
     scroll: row.scroll,
     entryPath: row.entryPath,
     exitPath: row.exitPath,
-    host: row.host,
-    referrerHost: row.referrerHost,
-    utmSource: row.utmSource,
-    utmMedium: row.utmMedium,
-    utmCampaign: row.utmCampaign,
-    utmTerm: row.utmTerm,
-    utmContent: row.utmContent,
-    country: row.country,
-    browser: row.browser,
-    os: row.os,
-    device: row.device,
-    screenW: row.screenW,
-    language: row.language,
+    ...pickDimensions(row),
     dirty: false,
   };
 };

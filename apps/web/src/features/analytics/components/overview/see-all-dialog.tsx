@@ -5,6 +5,8 @@
  * the whole page — so the dialog is a bigger lens, not a different tool.
  */
 
+import type { BreakdownDimension, FilterDimension } from "@otterdeploy/shared/analytics-filters";
+
 import { useState } from "react";
 
 import { useTranslation } from "react-i18next";
@@ -28,7 +30,6 @@ import {
   type AnalyticsWindowState,
   useBreakdown,
 } from "../../hooks/use-web-analytics";
-import { type BreakdownDimension, type FilterDimension } from "../../lib/filter-codec";
 import { formatDurationMs } from "../../lib/format-duration";
 
 const PAGE_SIZE = 50;

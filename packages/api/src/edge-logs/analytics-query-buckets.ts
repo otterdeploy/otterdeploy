@@ -105,8 +105,9 @@ export function addIntoBucket(
 }
 
 /** bun-sql's `db.execute` returns a plain row array; tolerate a `{ rows }`
- *  wrapper like partition.ts does, without asserting either shape. */
-function executeRows(value: unknown): unknown[] {
+ *  wrapper like partition.ts does, without asserting either shape. Shared
+ *  with the web-analytics readers (analytics/query/sql-utils.ts). */
+export function executeRows(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
   if (value !== null && typeof value === "object" && "rows" in value) {
     const rows = value.rows;

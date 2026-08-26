@@ -10,6 +10,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 
 import { formatCount } from "../../analytics-model";
 import { type AnalyticsScope, useRealtime } from "../../hooks/use-web-analytics";
+import { TopPathsList } from "../realtime/top-paths-list";
 
 export function RealtimeMiniCard({
   scope,
@@ -48,28 +49,16 @@ export function RealtimeMiniCard({
           </span>
         </div>
         <p className="text-xs text-muted-foreground">{t("analytics.overview.topPathsNow")}</p>
-        <ul className="flex flex-col">
-          {data === undefined ? (
-            <li className="py-1">
-              <Skeleton className="h-3.5 w-full" />
-            </li>
-          ) : data.byPath.length === 0 ? (
-            <li className="py-1 text-xs text-muted-foreground">
-              {t("analytics.overview.nobodyNow")}
-            </li>
-          ) : (
-            data.byPath.slice(0, 5).map((entry) => (
-              <li key={entry.path} className="flex items-center gap-2 py-1">
-                <span className="min-w-0 flex-1 truncate font-mono text-xs" title={entry.path}>
-                  {entry.path}
-                </span>
-                <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                  {formatCount(entry.visitors)}
-                </span>
-              </li>
-            ))
-          )}
-        </ul>
+        {data === undefined ? (
+          <div className="py-1">
+            <Skeleton className="h-3.5 w-full" />
+          </div>
+        ) : (
+          <TopPathsList
+            entries={data.byPath.slice(0, 5)}
+            empty={t("analytics.overview.nobodyNow")}
+          />
+        )}
       </div>
     </section>
   );

@@ -75,7 +75,7 @@ function mapKey(key: SessionKey): string {
   return `${key.siteId}|${key.visitorId}|${key.sidHash}`;
 }
 
-export function isExpired(session: OpenSession, at: number): boolean {
+function isExpired(session: OpenSession, at: number): boolean {
   return at - session.lastAt > SESSION_IDLE_MS || at - session.startedAt > SESSION_MAX_MS;
 }
 
@@ -191,10 +191,6 @@ export function sweepIdleSessions(now: number): number {
     dropped++;
   }
   return dropped;
-}
-
-export function openSessionCount(): number {
-  return store().size;
 }
 
 /** Test / hot-reload helper. */

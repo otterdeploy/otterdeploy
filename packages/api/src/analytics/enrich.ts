@@ -12,8 +12,8 @@ import { classifyUa } from "../edge-logs/analytics-ua";
 import { normalizeHost } from "../edge-logs/host";
 
 export const MAX_PATH_LENGTH = 512;
-export const MAX_UTM_LENGTH = 200;
-export const MAX_LANGUAGE_LENGTH = 8;
+const MAX_UTM_LENGTH = 200;
+const MAX_LANGUAGE_LENGTH = 8;
 /** Postgres smallint ceiling. */
 const SMALLINT_MAX = 32_767;
 

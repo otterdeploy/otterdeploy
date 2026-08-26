@@ -5,6 +5,8 @@
  * the URL through the parent.
  */
 
+import type { BreakdownDimension, FilterDimension } from "@otterdeploy/shared/analytics-filters";
+
 import { useState } from "react";
 
 import { useTranslation } from "react-i18next";
@@ -17,7 +19,6 @@ import {
   type AnalyticsWindowState,
   useBreakdown,
 } from "../../hooks/use-web-analytics";
-import { type BreakdownDimension, type FilterDimension } from "../../lib/filter-codec";
 import { BreakdownCard, type DimensionOption } from "./breakdown-card";
 import { LocationsMap } from "./locations-map";
 import { RealtimeMiniCard } from "./realtime-mini-card";

@@ -42,6 +42,28 @@ import { project } from "./project";
 
 export const analyticsFunnelScopeEnum = pgEnum("analytics_funnel_scope", ["visitor", "session"]);
 
+/** The `created_at` / `updated_at` pair every owner-managed table carries.
+ *  A factory (not a const) so each table gets fresh builder instances. */
+function auditColumns() {
+  return {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  };
+}
+
+/** The owning site, cascading: a site's data goes with it. */
+function siteRef() {
+  return {
+    siteId: text("site_id")
+      .notNull()
+      .$type<AnalyticsSiteId>()
+      .references(() => analyticsSite.id, { onDelete: "cascade" }),
+  };
+}
+
 export const analyticsSite = pgTable(
   "analytics_site",
   {
@@ -75,11 +97,7 @@ export const analyticsSite = pgTable(
     /** Set once by the writer when the first event lands; drives the
      *  Setup checklist ("snippet verified"). */
     firstEventAt: timestamp("first_event_at", { withTimezone: true }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
+    ...auditColumns(),
   },
   (t) => [
     uniqueIndex("analytics_site_project_unique").on(t.projectId),
@@ -120,10 +138,7 @@ export const analyticsSession = pgTable(
       .primaryKey()
       .$type<AnalyticsSessionId>()
       .$defaultFn(() => createId(ID_PREFIX.analyticsSession)),
-    siteId: text("site_id")
-      .notNull()
-      .$type<AnalyticsSiteId>()
-      .references(() => analyticsSite.id, { onDelete: "cascade" }),
+    ...siteRef(),
     /** Daily-rotating salted hash, 32 hex. Never an IP. */
     visitorId: text("visitor_id").notNull(),
     /** HMAC of the `identify()` id, site-scoped; null for anonymous visits. */
@@ -153,10 +168,7 @@ export const analyticsEventDefinition = pgTable(
       .primaryKey()
       .$type<AnalyticsEventDefinitionId>()
       .$defaultFn(() => createId(ID_PREFIX.analyticsEventDefinition)),
-    siteId: text("site_id")
-      .notNull()
-      .$type<AnalyticsSiteId>()
-      .references(() => analyticsSite.id, { onDelete: "cascade" }),
+    ...siteRef(),
     name: text("name").notNull(),
     displayName: text("display_name"),
     /** A conversion event is a goal: it gets a conversion rate and appears in
@@ -165,11 +177,7 @@ export const analyticsEventDefinition = pgTable(
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
+    ...auditColumns(),
   },
   (t) => [uniqueIndex("analytics_event_definition_site_name_unique").on(t.siteId, t.name)],
 );
@@ -189,21 +197,14 @@ export const analyticsFunnel = pgTable(
       .primaryKey()
       .$type<AnalyticsFunnelId>()
       .$defaultFn(() => createId(ID_PREFIX.analyticsFunnel)),
-    siteId: text("site_id")
-      .notNull()
-      .$type<AnalyticsSiteId>()
-      .references(() => analyticsSite.id, { onDelete: "cascade" }),
+    ...siteRef(),
     name: text("name").notNull(),
     steps: jsonb("steps").$type<AnalyticsFunnelStep[]>().notNull(),
     scope: analyticsFunnelScopeEnum("scope").notNull().default("visitor"),
     /** Max time between first and last step, ≤ 720 (30 days). */
     windowHours: integer("window_hours").notNull().default(24),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
+    ...auditColumns(),
   },
   (t) => [index("analytics_funnel_site_idx").on(t.siteId)],
 );

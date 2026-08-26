@@ -1,42 +1,15 @@
 /**
  * URL codec for the web-analytics filter bar: the `f` search param carries
  * `dim:op:value;dim:op:value`, values URI-encoded so `;` and `:` inside a
- * path or referrer can never split a segment. The vocabulary is restated here
- * (rather than imported from the API package) because the server's constant
- * lives next to drizzle schema; assignability into the oRPC input keeps the
- * two lists honest at compile time.
+ * path or referrer can never split a segment. The vocabulary is the shared
+ * one the oRPC contract builds its enums from, so a decoded filter is an
+ * accepted filter by construction.
  */
 
+import type { FilterDimension, FilterOp } from "@otterdeploy/shared/analytics-filters";
+
+import { FILTER_DIMENSIONS, FILTER_OPS } from "@otterdeploy/shared/analytics-filters";
 import { Result } from "better-result";
-
-export const FILTER_DIMENSIONS = [
-  "path",
-  "entryPath",
-  "exitPath",
-  "host",
-  "referrer",
-  "channel",
-  "utmSource",
-  "utmMedium",
-  "utmCampaign",
-  "utmTerm",
-  "utmContent",
-  "country",
-  "device",
-  "browser",
-  "os",
-  "language",
-  "event",
-  "screen",
-] as const;
-
-export type FilterDimension = (typeof FILTER_DIMENSIONS)[number];
-
-export const FILTER_OPS = ["is", "isNot", "contains"] as const;
-export type FilterOp = (typeof FILTER_OPS)[number];
-
-/** Everything filterable is breakdownable, plus conversion goals. */
-export type BreakdownDimension = FilterDimension | "goal";
 
 export interface WebAnalyticsFilter {
   dim: FilterDimension;

@@ -9,6 +9,12 @@ import { useState } from "react";
 
 import { Add01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  FILTER_DIMENSIONS,
+  FILTER_OPS,
+  type FilterDimension,
+  type FilterOp,
+} from "@otterdeploy/shared/analytics-filters";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
@@ -27,18 +33,9 @@ import {
   type AnalyticsWindowState,
   useBreakdown,
 } from "../hooks/use-web-analytics";
-import {
-  FILTER_DIMENSIONS,
-  FILTER_OPS,
-  type FilterDimension,
-  type FilterOp,
-  type WebAnalyticsFilter,
-  withoutFilter,
-} from "../lib/filter-codec";
+import { type WebAnalyticsFilter, withoutFilter } from "../lib/filter-codec";
 
-export function dimensionLabelKey(
-  dim: FilterDimension,
-): `analytics.filters.dims.${FilterDimension}` {
+function dimensionLabelKey(dim: FilterDimension): `analytics.filters.dims.${FilterDimension}` {
   return `analytics.filters.dims.${dim}`;
 }
 

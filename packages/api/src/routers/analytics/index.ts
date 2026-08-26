@@ -5,7 +5,8 @@
  * (analytics/query/scope.ts); an empty scope answers with honest zeros.
  */
 
-import type { AnalyticsSiteId } from "@otterdeploy/shared/id";
+import type { AnalyticsEventDefinitionId, AnalyticsSiteId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { projectScopedProcedure, requirePermission } from "../..";
 import { breakdownQuery } from "../../analytics/query/breakdown";
@@ -31,6 +32,18 @@ import {
 } from "../../analytics/query/window";
 import { analyticsSiteRouter } from "./router-site";
 
+type QueryContext = Parameters<typeof resolveSiteScope>[0] & { log: RequestLogger };
+type WindowedInput = SiteScopeInput & {
+  range: RangePreset;
+  from?: number;
+  to?: number;
+  tz: string;
+};
+
+interface ScopeErrors {
+  FORBIDDEN(input: { message: string }): Error;
+}
+
 interface ScopedWindow {
   siteIds: AnalyticsSiteId[];
   window: ResolvedWindow;
@@ -39,17 +52,35 @@ interface ScopedWindow {
 }
 
 /**
- * Shared front half of every windowed read: resolve the site scope (the
- * authz decision), resolve the window, and clamp an `all` range to the
- * earliest site's creation — data cannot precede its site, and pretending
- * the window starts in 2020 would flatten every "all time" chart.
+ * Shared prologue of every read: stamp the audit target (the project, or the
+ * org when the read spans it) and resolve the site scope — the authz
+ * decision, with its refusal surfaced as the contract's FORBIDDEN.
+ */
+async function resolveScope(
+  context: QueryContext,
+  input: SiteScopeInput,
+  errors: ScopeErrors,
+): Promise<AnalyticsSiteId[]> {
+  context.log.set({
+    target: { type: "analytics", id: input.projectId ?? context.activeOrganizationId },
+  });
+  return resolveSiteScope(context, input, (message) => {
+    throw errors.FORBIDDEN({ message });
+  });
+}
+
+/**
+ * The windowed reads' prologue: the scope above, then the window, clamping
+ * an `all` range to the earliest site's creation — data cannot precede its
+ * site, and pretending the window starts in 2020 would flatten every "all
+ * time" chart.
  */
 async function resolveScopedWindow(
-  context: Parameters<typeof resolveSiteScope>[0],
-  input: SiteScopeInput & { range: RangePreset; from?: number; to?: number; tz: string },
-  forbid: (message: string) => never,
+  context: QueryContext,
+  input: WindowedInput,
+  errors: ScopeErrors,
 ): Promise<ScopedWindow> {
-  const siteIds = await resolveSiteScope(context, input, forbid);
+  const siteIds = await resolveScope(context, input, errors);
   const now = Date.now();
   let window = resolveWindow({
     range: input.range,
@@ -73,17 +104,30 @@ async function resolveScopedWindow(
   return { siteIds, window, tz: safeTimeZone(input.tz), now };
 }
 
+/** Mutations on one definition: the audit target is the definition itself,
+ *  the scope is still the caller's (a definition outside it reads as absent). */
+async function resolveDefinitionScope(
+  context: QueryContext,
+  input: SiteScopeInput & { id: AnalyticsEventDefinitionId },
+  errors: ScopeErrors,
+): Promise<AnalyticsSiteId[]> {
+  context.log.set({ target: { type: "analytics-event-definition", id: input.id } });
+  return resolveSiteScope(context, input, (message) => {
+    throw errors.FORBIDDEN({ message });
+  });
+}
+
+function definitionOr404<T>(definition: T | null, errors: { NOT_FOUND(): Error }): T {
+  if (!definition) throw errors.NOT_FOUND();
+  return definition;
+}
+
 export const analyticsRouter = {
   site: analyticsSiteRouter,
 
   overview: projectScopedProcedure.analytics.overview.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "analytics", id: input.projectId ?? context.activeOrganizationId },
-      });
-      const { siteIds, window, tz, now } = await resolveScopedWindow(context, input, (message) => {
-        throw errors.FORBIDDEN({ message });
-      });
+      const { siteIds, window, tz, now } = await resolveScopedWindow(context, input, errors);
       const [result, liveVisitors] = await Promise.all([
         overviewQuery({
           siteIds,
@@ -105,12 +149,7 @@ export const analyticsRouter = {
 
   breakdown: projectScopedProcedure.analytics.breakdown.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "analytics", id: input.projectId ?? context.activeOrganizationId },
-      });
-      const { siteIds, window } = await resolveScopedWindow(context, input, (message) => {
-        throw errors.FORBIDDEN({ message });
-      });
+      const { siteIds, window } = await resolveScopedWindow(context, input, errors);
       return breakdownQuery({
         siteIds,
         window,
@@ -124,35 +163,20 @@ export const analyticsRouter = {
 
   realtime: projectScopedProcedure.analytics.realtime.handler(
     async ({ input, context, errors }) => {
-      context.log.set({
-        target: { type: "analytics", id: input.projectId ?? context.activeOrganizationId },
-      });
-      const siteIds = await resolveSiteScope(context, input, (message) => {
-        throw errors.FORBIDDEN({ message });
-      });
+      const siteIds = await resolveScope(context, input, errors);
       return realtimeQuery({ siteIds, now: Date.now() });
     },
   ),
 
   visitor: projectScopedProcedure.analytics.visitor.handler(async ({ input, context, errors }) => {
-    context.log.set({
-      target: { type: "analytics", id: input.projectId ?? context.activeOrganizationId },
-    });
-    const siteIds = await resolveSiteScope(context, input, (message) => {
-      throw errors.FORBIDDEN({ message });
-    });
+    const siteIds = await resolveScope(context, input, errors);
     return visitorTrail({ siteIds, visitorId: input.visitorId, now: Date.now() });
   }),
 
   events: {
     list: projectScopedProcedure.analytics.events.list.handler(
       async ({ input, context, errors }) => {
-        context.log.set({
-          target: { type: "analytics", id: input.projectId ?? context.activeOrganizationId },
-        });
-        const { siteIds, window } = await resolveScopedWindow(context, input, (message) => {
-          throw errors.FORBIDDEN({ message });
-        });
+        const { siteIds, window } = await resolveScopedWindow(context, input, errors);
         return {
           definitions: await listEventDefinitions({ siteIds, window, filters: input.filters }),
         };
@@ -161,34 +185,26 @@ export const analyticsRouter = {
 
     update: requirePermission({ project: ["update"] }).analytics.events.update.handler(
       async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "analytics-event-definition", id: input.id } });
-        const siteIds = await resolveSiteScope(context, input, (message) => {
-          throw errors.FORBIDDEN({ message });
-        });
+        const siteIds = await resolveDefinitionScope(context, input, errors);
         const definition = await updateEventDefinition({
           siteIds,
           id: input.id,
           displayName: input.displayName,
           conversion: input.conversion,
         });
-        if (!definition) throw errors.NOT_FOUND();
-        return { definition };
+        return { definition: definitionOr404(definition, errors) };
       },
     ),
 
     archive: requirePermission({ project: ["update"] }).analytics.events.archive.handler(
       async ({ input, context, errors }) => {
-        context.log.set({ target: { type: "analytics-event-definition", id: input.id } });
-        const siteIds = await resolveSiteScope(context, input, (message) => {
-          throw errors.FORBIDDEN({ message });
-        });
+        const siteIds = await resolveDefinitionScope(context, input, errors);
         const definition = await setEventDefinitionArchived({
           siteIds,
           id: input.id,
           archived: input.archived,
         });
-        if (!definition) throw errors.NOT_FOUND();
-        return { definition };
+        return { definition: definitionOr404(definition, errors) };
       },
     ),
   },

@@ -9,8 +9,9 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 import { Result, TaggedError } from "better-result";
 import * as z from "zod";
 
-export const PUBLIC_KEY_RE = /^od_[0-9a-f]{32}$/;
-export const EVENT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _.:-]*$/;
+import { PUBLIC_KEY_RE } from "./keys";
+
+const EVENT_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 _.:-]*$/;
 export const MAX_EVENTS_PER_BATCH = 50;
 export const MAX_BODY_BYTES = 64 * 1024;
 
@@ -51,7 +52,7 @@ const heartbeat = z.object({ ...base, t: z.literal("hb"), u: pageUrl });
 
 const identify = z.object({ ...base, t: z.literal("id"), uid: z.string().min(1).max(128) });
 
-export const collectEventSchema = z.discriminatedUnion("t", [
+const collectEventSchema = z.discriminatedUnion("t", [
   pageview,
   customEvent,
   engagement,
@@ -59,7 +60,7 @@ export const collectEventSchema = z.discriminatedUnion("t", [
   identify,
 ]);
 
-export const collectBatchSchema = z.object({
+const collectBatchSchema = z.object({
   k: z.string().regex(PUBLIC_KEY_RE),
   v: z.literal(1),
   sid: z.string().min(1).max(64),
@@ -68,10 +69,8 @@ export const collectBatchSchema = z.object({
 
 export type CollectBatch = z.infer<typeof collectBatchSchema>;
 export type CollectEvent = z.infer<typeof collectEventSchema>;
-export type CollectPageview = z.infer<typeof pageview>;
-export type CollectCustomEvent = z.infer<typeof customEvent>;
 
-export class CollectParseError extends TaggedError("CollectParseError")<{
+class CollectParseError extends TaggedError("CollectParseError")<{
   message: string;
 }>() {}
 
@@ -87,12 +86,11 @@ export function parseCollectBody(text: string): Result<CollectBatch, CollectPars
 
 /** Prop keys that look like credentials or PII are dropped at collect
  *  (design §8), regardless of what the page put in them. */
-export const SECRET_KEY_RE =
-  /token|secret|password|passwd|authorization|api[-_]?key|email|ssn|card/i;
+const SECRET_KEY_RE = /token|secret|password|passwd|authorization|api[-_]?key|email|ssn|card/i;
 
 export const MAX_PROP_KEYS = 32;
-export const MAX_PROP_KEY_LENGTH = 40;
-export const MAX_PROP_STRING_LENGTH = 256;
+const MAX_PROP_KEY_LENGTH = 40;
+const MAX_PROP_STRING_LENGTH = 256;
 
 /**
  * Reduce a custom event's props to a small, flat, jsonb-safe object: at most

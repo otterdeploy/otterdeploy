@@ -111,7 +111,7 @@ async function totalsFor(
   };
 }
 
-export function emptyTotals(): OverviewTotals {
+function emptyTotals(): OverviewTotals {
   return {
     visitors: 0,
     pageviews: 0,

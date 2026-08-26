@@ -26,11 +26,16 @@ const PRUNE_CHUNK = 5_000;
 /** Bound one sweep's prune loop; the next hourly sweep continues. */
 const PRUNE_MAX_CHUNKS = 100;
 
-function logFailure(step: string, count: number, cause: unknown): void {
+/** Run one statement; on failure log it (with the batch size, never per
+ *  row) and yield null so the caller moves on to the next chunk. */
+async function attempt<T>(step: string, count: number, run: () => Promise<T>): Promise<T | null> {
+  const res = await Result.tryPromise({ try: run, catch: (cause) => cause });
+  if (res.isOk()) return res.value;
   log.error({
     analytics: { ingest: step, count },
-    error: cause instanceof Error ? cause.message : String(cause),
+    error: res.error instanceof Error ? res.error.message : String(res.error),
   });
+  return null;
 }
 
 /** Raw event rows; `ON CONFLICT DO NOTHING` on (id, ts) dedupes a retried
@@ -38,37 +43,32 @@ function logFailure(step: string, count: number, cause: unknown): void {
 export async function writeEvents(rows: readonly NewAnalyticsEventRow[]): Promise<void> {
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);
-    const res = await Result.tryPromise({
-      try: () => db.insert(analyticsEvent).values(chunk).onConflictDoNothing(),
-      catch: (cause) => cause,
-    });
-    if (res.isErr()) logFailure("events-flush-failed", chunk.length, res.error);
+    await attempt("events-flush-failed", chunk.length, () =>
+      db.insert(analyticsEvent).values(chunk).onConflictDoNothing(),
+    );
   }
 }
 
 export async function writeSessions(rows: readonly NewAnalyticsSessionRow[]): Promise<void> {
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);
-    const res = await Result.tryPromise({
-      try: () =>
-        db
-          .insert(analyticsSession)
-          .values(chunk)
-          .onConflictDoUpdate({
-            target: analyticsSession.id,
-            set: {
-              lastAt: sql`GREATEST(${analyticsSession.lastAt}, excluded.last_at)`,
-              pageviews: sql`excluded.pageviews`,
-              events: sql`excluded.events`,
-              activeMs: sql`excluded.active_ms`,
-              scroll: sql`GREATEST(${analyticsSession.scroll}, excluded.scroll)`,
-              exitPath: sql`excluded.exit_path`,
-              externalUserId: sql`COALESCE(excluded.external_user_id, ${analyticsSession.externalUserId})`,
-            },
-          }),
-      catch: (cause) => cause,
-    });
-    if (res.isErr()) logFailure("sessions-flush-failed", chunk.length, res.error);
+    await attempt("sessions-flush-failed", chunk.length, () =>
+      db
+        .insert(analyticsSession)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: analyticsSession.id,
+          set: {
+            lastAt: sql`GREATEST(${analyticsSession.lastAt}, excluded.last_at)`,
+            pageviews: sql`excluded.pageviews`,
+            events: sql`excluded.events`,
+            activeMs: sql`excluded.active_ms`,
+            scroll: sql`GREATEST(${analyticsSession.scroll}, excluded.scroll)`,
+            exitPath: sql`excluded.exit_path`,
+            externalUserId: sql`COALESCE(excluded.external_user_id, ${analyticsSession.externalUserId})`,
+          },
+        }),
+    );
   }
 }
 
@@ -82,27 +82,24 @@ export interface PendingDefinition {
 /** Auto-register custom event names; a replay only ratchets `last_seen_at`. */
 export async function writeDefinitions(defs: readonly PendingDefinition[]): Promise<void> {
   if (defs.length === 0) return;
-  const res = await Result.tryPromise({
-    try: () =>
-      db
-        .insert(analyticsEventDefinition)
-        .values(
-          defs.map((d) => ({
-            siteId: d.siteId,
-            name: d.name,
-            firstSeenAt: new Date(d.at),
-            lastSeenAt: new Date(d.at),
-          })),
-        )
-        .onConflictDoUpdate({
-          target: [analyticsEventDefinition.siteId, analyticsEventDefinition.name],
-          set: {
-            lastSeenAt: sql`GREATEST(${analyticsEventDefinition.lastSeenAt}, excluded.last_seen_at)`,
-          },
-        }),
-    catch: (cause) => cause,
-  });
-  if (res.isErr()) logFailure("definitions-flush-failed", defs.length, res.error);
+  await attempt("definitions-flush-failed", defs.length, () =>
+    db
+      .insert(analyticsEventDefinition)
+      .values(
+        defs.map((d) => ({
+          siteId: d.siteId,
+          name: d.name,
+          firstSeenAt: new Date(d.at),
+          lastSeenAt: new Date(d.at),
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [analyticsEventDefinition.siteId, analyticsEventDefinition.name],
+        set: {
+          lastSeenAt: sql`GREATEST(${analyticsEventDefinition.lastSeenAt}, excluded.last_seen_at)`,
+        },
+      }),
+  );
 }
 
 /** Stamp `first_event_at` once per site ("snippet verified" checklist). */
@@ -110,15 +107,12 @@ export async function writeFirstEvents(
   firsts: ReadonlyMap<AnalyticsSiteId, number>,
 ): Promise<void> {
   for (const [siteId, at] of firsts) {
-    const res = await Result.tryPromise({
-      try: () =>
-        db
-          .update(analyticsSite)
-          .set({ firstEventAt: new Date(at) })
-          .where(and(eq(analyticsSite.id, siteId), isNull(analyticsSite.firstEventAt))),
-      catch: (cause) => cause,
-    });
-    if (res.isErr()) logFailure("first-event-flush-failed", 1, res.error);
+    await attempt("first-event-flush-failed", 1, () =>
+      db
+        .update(analyticsSite)
+        .set({ firstEventAt: new Date(at) })
+        .where(and(eq(analyticsSite.id, siteId), isNull(analyticsSite.firstEventAt))),
+    );
   }
 }
 
@@ -126,27 +120,21 @@ export async function writeFirstEvents(
  *  never holds a long transaction (events age out by partition DROP). */
 export async function pruneExpiredSessions(cutoffMs: number): Promise<void> {
   for (let i = 0; i < PRUNE_MAX_CHUNKS; i++) {
-    const res = await Result.tryPromise({
-      try: () =>
-        db
-          .delete(analyticsSession)
-          .where(
-            inArray(
-              analyticsSession.id,
-              db
-                .select({ id: analyticsSession.id })
-                .from(analyticsSession)
-                .where(lt(analyticsSession.lastAt, new Date(cutoffMs)))
-                .limit(PRUNE_CHUNK),
-            ),
-          )
-          .returning({ id: analyticsSession.id }),
-      catch: (cause) => cause,
-    });
-    if (res.isErr()) {
-      logFailure("session-prune-failed", 0, res.error);
-      return;
-    }
-    if (res.value.length < PRUNE_CHUNK) return;
+    const deleted = await attempt("session-prune-failed", 0, () =>
+      db
+        .delete(analyticsSession)
+        .where(
+          inArray(
+            analyticsSession.id,
+            db
+              .select({ id: analyticsSession.id })
+              .from(analyticsSession)
+              .where(lt(analyticsSession.lastAt, new Date(cutoffMs)))
+              .limit(PRUNE_CHUNK),
+          ),
+        )
+        .returning({ id: analyticsSession.id }),
+    );
+    if (deleted === null || deleted.length < PRUNE_CHUNK) return;
   }
 }

@@ -6,6 +6,8 @@
  * to that value.
  */
 
+import type { BreakdownDimension } from "@otterdeploy/shared/analytics-filters";
+
 import type { ReactNode } from "react";
 
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
@@ -22,8 +24,6 @@ import {
 } from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
-
-import type { BreakdownDimension } from "../../lib/filter-codec";
 
 import { formatCount } from "../../analytics-model";
 

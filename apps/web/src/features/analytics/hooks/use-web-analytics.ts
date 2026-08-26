@@ -6,11 +6,13 @@
  * agree on cache keys.
  */
 
+import type { BreakdownDimension } from "@otterdeploy/shared/analytics-filters";
+
 import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
-import type { BreakdownDimension, WebAnalyticsFilter } from "../lib/filter-codec";
+import type { WebAnalyticsFilter } from "../lib/filter-codec";
 import type { RangeKey } from "../lib/range";
 
 /** One tz lookup for the whole surface — the permitted use of the bare
@@ -55,7 +57,7 @@ function windowInput(win: AnalyticsWindowState) {
 
 /** Overview always compares: the tiles' delta chips are part of the reading,
  *  and the extra totals query is cheap next to the series. */
-export function overviewInput(scope: AnalyticsScope, win: AnalyticsWindowState) {
+function overviewInput(scope: AnalyticsScope, win: AnalyticsWindowState) {
   return { ...scopeInput(scope), ...windowInput(win), compare: true };
 }
 

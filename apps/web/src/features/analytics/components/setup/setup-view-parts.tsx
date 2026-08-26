@@ -27,7 +27,7 @@ export interface SiteRowLike {
   requireConsent: boolean;
 }
 
-const invalidateSite = () =>
+export const invalidateSite = () =>
   queryClient.invalidateQueries({ queryKey: orpc.analytics.site.get.key() });
 
 export function HostsSection({

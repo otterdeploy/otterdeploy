@@ -32,8 +32,8 @@ import { enqueueEvent, noteEventDefinition, noteFirstEvent } from "./writer";
 
 export type { CollectDeps, CollectInput, CollectStatus } from "./collect-event";
 
-export const COLLECT_RATE_LIMIT = 600;
-export const COLLECT_RATE_WINDOW_MS = 60_000;
+const COLLECT_RATE_LIMIT = 600;
+const COLLECT_RATE_WINDOW_MS = 60_000;
 
 declare global {
   var __analyticsCollectLimiter: RateLimiter | undefined;

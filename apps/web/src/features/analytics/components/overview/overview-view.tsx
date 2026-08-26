@@ -5,6 +5,8 @@
  * badge can never disagree.
  */
 
+import type { FilterDimension } from "@otterdeploy/shared/analytics-filters";
+
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Temporal } from "@otterdeploy/shared/temporal";
@@ -19,7 +21,7 @@ import {
   BROWSER_TZ,
   useOverview,
 } from "../../hooks/use-web-analytics";
-import { type FilterDimension, type WebAnalyticsFilter, withFilter } from "../../lib/filter-codec";
+import { type WebAnalyticsFilter, withFilter } from "../../lib/filter-codec";
 import { formatAgo } from "../../lib/format-duration";
 import { type OverviewMetricKey } from "../../lib/overview-metrics";
 import { FilterBar } from "../filter-bar";
