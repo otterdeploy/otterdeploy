@@ -29,6 +29,7 @@ export {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
   getDatabaseResourceRecord,
+  getHostForRuntime,
   listDatabaseResourceRecords,
   setDatabaseResourceExtensions,
   setDatabaseResourceExtraEnv,

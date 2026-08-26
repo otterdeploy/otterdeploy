@@ -227,6 +227,10 @@ export const resourceRouter = {
           // The message carries the PR numbers. Surface it rather than the
           // generic contract string, or the operator learns nothing actionable.
           DatabaseHasBranchesError: (e) => errors.CONFLICT({ message: e.message }),
+          // Same reasoning: the message names the databases still living on
+          // this server, which is the only thing that tells the operator what
+          // to do next.
+          DatabaseHasTenantsError: (e) => errors.CONFLICT({ message: e.message }),
         });
       }
       return result.value;

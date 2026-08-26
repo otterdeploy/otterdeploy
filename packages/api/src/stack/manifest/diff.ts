@@ -12,8 +12,9 @@ import type { ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type { JsonValue } from "@otterdeploy/shared/json";
 
-import type { Manifest, ServiceManifest, DatabaseManifest, ComposeManifest } from "./schema";
+import type { Manifest, ServiceManifest, ComposeManifest } from "./schema";
 
+import { diffDatabase } from "./diff-database";
 import {
   diffEnv,
   diffServiceFields,
@@ -104,6 +105,10 @@ export interface CurrentDatabase {
   // only when the manifest declares `previews`: same convention as services.
   previewBranching: boolean;
   extraEnv: Record<string, string>;
+  /** Name of the server this database lives inside, or null when it has a
+   *  container of its own. Carried so a manifest that declares `host` diffs
+   *  as a no-op once applied, instead of restaging the same change forever. */
+  host: string | null;
 }
 
 /**
@@ -305,76 +310,6 @@ function diffService(
 
   if (out.length === 0) {
     out.push({ kind: "no-op", resource: "service", name });
-  }
-  return out;
-}
-
-// ── Database diff ──────────────────────────────────────────────────────
-
-function diffDatabase(
-  name: string,
-  desired: DatabaseManifest,
-  current: CurrentDatabase,
-  opts: DiffOptions,
-): Change[] {
-  if (desired.engine !== current.engine) {
-    return [
-      { kind: "delete", resource: "database", name, details: { reason: "engine-changed" } },
-      {
-        kind: "create",
-        resource: "database",
-        name,
-        details: { engine: desired.engine, ...summarizeDatabase(desired) },
-      },
-    ];
-  }
-
-  const fieldChanges: FieldChanges = {};
-  // publicEnabled is manifest-managed only when the manifest declares it.
-  // Omitted → the toggle is live-managed (same convention as service
-  // publicEnabled, which diffServiceFields skips entirely); defaulting the
-  // absent key to `false` here used to stage a phantom update that REVERTED
-  // a live public-toggle on the next Apply.
-  if (desired.publicEnabled !== undefined && desired.publicEnabled !== current.publicEnabled) {
-    fieldChanges.publicEnabled = { from: current.publicEnabled, to: desired.publicEnabled };
-  }
-
-  // Same declared-only convention: `previews` opts the database into PR
-  // branching; omitted leaves the live toggle alone.
-  if (desired.previews !== undefined && desired.previews !== current.previewBranching) {
-    fieldChanges.previews = { from: current.previewBranching, to: desired.previews };
-  }
-
-  // Same declared-only convention as publicEnabled: an absent extraEnv means
-  // the live env editor owns the keys. Diffing an absent map as `{}` used to
-  // stage a phantom delete for every live-added key, and Apply wiped them
-  // (rolling the container for good measure).
-  const envChanges =
-    desired.extraEnv === undefined
-      ? []
-      : diffEnv(desired.extraEnv, current.extraEnv, opts.resolveEnvValue);
-  const out: Change[] = [];
-
-  if (Object.keys(fieldChanges).length > 0) {
-    out.push({
-      kind: "update",
-      resource: "database",
-      name,
-      details: { fields: fieldChanges },
-    });
-  }
-
-  for (const change of envChanges) {
-    out.push({
-      kind: change.action,
-      resource: "env",
-      name: `${name}.${change.key}`,
-      details: { ...change.details, parent: "database", key: change.key, owner: name },
-    });
-  }
-
-  if (out.length === 0) {
-    out.push({ kind: "no-op", resource: "database", name });
   }
   return out;
 }

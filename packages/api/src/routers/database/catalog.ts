@@ -77,6 +77,31 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
 
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.resource.id);
+  // Container coordinates for every row: a database on a shared server has
+  // none of its own, so it is probed (and its volume reported) under its
+  // host's names. Built once here rather than per row so the catalog stays
+  // one query plus the bounded probe sweep.
+  const naming = new Map(
+    rows.map((r) => [
+      r.resource.id,
+      { name: r.resource.name, projectSlug: r.projectSlug, engine: r.database.engine },
+    ]),
+  );
+  const hostNaming = (row: (typeof rows)[number]) => {
+    const hostId = row.database.hostResourceId;
+    const own = {
+      engine: row.database.engine,
+      projectSlug: row.projectSlug,
+      resourceName: row.resource.name,
+    };
+    if (!hostId) return own;
+    const host = naming.get(hostId);
+    // A host outside this org's catalog can't be named here; probing the
+    // tenant's own (nonexistent) service would report a confident "missing",
+    // so fall back to its own names and let the probe say `unreachable`.
+    if (!host) return own;
+    return { engine: host.engine, projectSlug: host.projectSlug, resourceName: host.name };
+  };
 
   const [backupRows, deploymentRows] = await Promise.all([
     db
@@ -118,13 +143,9 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
   return Promise.all(
     rows.map(async (row): Promise<OrgCatalogItem> => {
       const engine = row.database.engine;
-      const naming = {
-        engine,
-        projectSlug: row.projectSlug,
-        resourceName: row.resource.name,
-      };
-      const serviceName = buildContainerName(naming);
-      const volumeName = buildVolumeName(naming);
+      const containerNaming = hostNaming(row);
+      const serviceName = buildContainerName(containerNaming);
+      const volumeName = buildVolumeName(containerNaming);
 
       const runtimeStatus = await probeRuntime({
         serviceName,
@@ -139,8 +160,8 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
         username: row.database.username,
         password: row.database.password,
         databaseName: row.database.databaseName,
-        projectSlug: row.projectSlug,
-        resourceName: row.resource.name,
+        projectSlug: containerNaming.projectSlug,
+        resourceName: containerNaming.resourceName,
         resourceId: row.resource.id,
       };
       const stats = runtimeStatus === "running" ? await probeStats(conn) : null;
@@ -161,6 +182,7 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
         status: row.resource.status,
         runtimeStatus,
         volumeName,
+        hostResourceId: row.database.hostResourceId,
         internalHostname: row.database.internalHostname,
         internalPort: row.database.internalPort,
         internalConnectionString: row.database.internalConnectionString,

@@ -37,6 +37,7 @@ import {
 import { buildContainerName, buildVolumeName } from "../routers/project/view-helpers";
 import { runtime } from "../runtime";
 import { resolveSnapshotDriverFor } from "../runtime/snapshot";
+import { copyDriver } from "../runtime/snapshot/copy";
 import { getEngineAdapter } from "../swarm";
 import { serviceRefGraph } from "./preview-refs";
 
@@ -145,13 +146,20 @@ export async function branchProjectDatabases(input: {
   for (const base of bases) {
     if (await branchExists(input.projectId, input.previewId, base.resource.name)) continue;
 
-    const driver = await resolveSnapshotDriverFor(
-      buildVolumeName({
-        engine: "postgres",
-        projectSlug: input.projectSlug,
-        resourceName: base.resource.name,
-      }),
-    );
+    // A database on a shared server has no volume of its own: the host's holds
+    // every tenant's bytes, so a ZFS clone of it would branch the neighbours
+    // too — and hand the preview a copy of data that isn't its to see. The
+    // logical `copy` driver dumps and restores exactly one database, which is
+    // the only correct answer here, so it is forced rather than resolved.
+    const driver = base.database.hostResourceId
+      ? copyDriver
+      : await resolveSnapshotDriverFor(
+          buildVolumeName({
+            engine: "postgres",
+            projectSlug: input.projectSlug,
+            resourceName: base.resource.name,
+          }),
+        );
     const done = await Result.tryPromise({
       try: () => branchOne(input, base, driver.kind),
       catch: (cause) => cause,

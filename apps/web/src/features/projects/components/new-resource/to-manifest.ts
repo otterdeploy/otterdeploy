@@ -294,6 +294,10 @@ export interface DatabaseSpecInput {
   publicEnabled: boolean;
   extensions: string[];
   version: string | null;
+  /** Name of the server this database runs inside, or null for a dedicated
+   *  container. Engines that can't host tenants ignore it. */
+  hostName: string | null;
+  connectionLimit: number | null;
   presetId: string;
   customCpu: number;
   customMem: number;
@@ -315,6 +319,13 @@ export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
     ...(resources ? { resources } : {}),
     ...(input.version ? { version: input.version } : {}),
   };
+  // Only the engines whose manifest variant accepts them. Redis has no
+  // isolated-tenant model, so its schema carries neither key and spreading
+  // them in would fail validation rather than being ignored.
+  const hosted = {
+    ...(input.hostName ? { host: input.hostName } : {}),
+    ...(input.hostName && input.connectionLimit ? { connectionLimit: input.connectionLimit } : {}),
+  };
   // Exhaustive per-engine branches: each returns with a literal discriminant,
   // which is what lets the union type check without a cast.
   switch (input.engine) {
@@ -322,13 +333,14 @@ export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
       return {
         engine: "postgres",
         ...base,
+        ...hosted,
         ...(input.extensions.length > 0 ? { extensions: input.extensions } : {}),
       };
     case "redis":
       return { engine: "redis", ...base };
     case "mariadb":
-      return { engine: "mariadb", ...base };
+      return { engine: "mariadb", ...base, ...hosted };
     case "mongodb":
-      return { engine: "mongodb", ...base };
+      return { engine: "mongodb", ...base, ...hosted };
   }
 }

@@ -31,26 +31,36 @@ export function deriveInternalDbCredentials(input: {
   /** Raw resource (database) name, sanitized here. */
   resourceName: string;
   password: string;
+  /** Set when this database lives on a SHARED SERVER. The database name and
+   *  username stay the resource's own (they are already namespaced by project
+   *  slug, so two tenants can never collide on one server); only the address
+   *  changes, because a tenant answers on its host's hostname and port. */
+  host?: { internalHostname: string; internalPort: number } | null;
 }): InternalDbCredentials {
   const adapter = getEngineAdapter(input.engine);
   const resourceSlug = sanitizeDatabaseName(input.resourceName);
   const projectSlug = sanitizeProjectSlug(input.projectSlug);
   const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
   const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
-  const internalHostname = `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
+  const internalHostname =
+    input.host?.internalHostname ??
+    `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
+  const internalPort = input.host?.internalPort ?? adapter.port;
   const internalConnectionString = adapter.buildConnectionString({
     username,
     password: input.password,
     host: internalHostname,
-    port: adapter.port,
+    port: internalPort,
     databaseName,
+    // Mongo tenants authenticate against their own database (see the adapter).
+    ...(input.host && input.engine === "mongodb" ? { authSource: databaseName } : {}),
   });
   return {
     databaseName,
     username,
     password: input.password,
     internalHostname,
-    internalPort: adapter.port,
+    internalPort,
     internalConnectionString,
   };
 }

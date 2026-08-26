@@ -3,7 +3,7 @@
  * Adapter only: pure diff logic lives in stack/manifest/diff.ts.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema/git";
@@ -174,6 +174,16 @@ export async function loadCurrentState(
     }
   }
 
+  // A hosted database's manifest declares its server by NAME, so the current
+  // state has to resolve ids back to names or every apply would restage the
+  // same `host` change. The host may live in another project, so this is its
+  // own lookup rather than a filter over `databaseRows`.
+  const hostNames = await resolveHostNames(
+    databaseRows.flatMap((row) =>
+      row.database.hostResourceId ? [row.database.hostResourceId] : [],
+    ),
+  );
+
   const databases: Record<string, CurrentDatabase> = {};
   for (const row of databaseRows) {
     databases[row.resource.name] = {
@@ -182,6 +192,9 @@ export async function loadCurrentState(
       publicEnabled: row.database.publicEnabled,
       previewBranching: row.database.previewBranching,
       extraEnv: row.database.extraEnv,
+      host: row.database.hostResourceId
+        ? (hostNames.get(row.database.hostResourceId) ?? null)
+        : null,
     };
   }
 
@@ -191,4 +204,16 @@ export async function loadCurrentState(
   }
 
   return { services, databases, composes };
+}
+
+/** Resource names for a set of host ids, keyed by id. Empty in for empty out:
+ *  the common case is a project with no hosted databases at all. */
+async function resolveHostNames(hostIds: ResourceId[]): Promise<Map<string, string>> {
+  const unique = [...new Set(hostIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .select({ id: resource.id, name: resource.name })
+    .from(resource)
+    .where(inArray(resource.id, unique));
+  return new Map(rows.map((row) => [row.id, row.name]));
 }

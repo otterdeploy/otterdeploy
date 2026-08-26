@@ -114,6 +114,78 @@ export class DatabaseHasBranchesError extends TaggedError("DatabaseHasBranchesEr
 }
 
 /**
+ * Raised for any operation that would recreate the CONTAINER of a database
+ * that lives inside a shared server: restart, an env change, an extension
+ * image swap. It has no container of its own, so the roll would restart its
+ * host and take every other database on that server down with it.
+ *
+ * The honest answer is that these are host-level operations: run them on the
+ * server, where the blast radius is visible, or give this database a dedicated
+ * container.
+ */
+export class HostedDatabaseNotRollableError extends TaggedError("HostedDatabaseNotRollableError")<{
+  message: string;
+  resourceId: string;
+}>() {
+  constructor(args: { resourceId: string; name: string }) {
+    super({
+      resourceId: args.resourceId,
+      message:
+        `"${args.name}" runs inside a shared database server, so it has no container of ` +
+        `its own to restart or re-roll. Do it on the server itself — it affects every ` +
+        `database on it.`,
+    });
+  }
+}
+
+/**
+ * Raised when public exposure is requested for a database inside a shared
+ * server. The proxy's layer4 route maps one hostname to one upstream, and on a
+ * shared server that upstream serves every tenant — so publishing one database
+ * publishes the server, reachable with any tenant's credentials.
+ */
+export class HostedDatabaseNotPublishableError extends TaggedError(
+  "HostedDatabaseNotPublishableError",
+)<{
+  message: string;
+  resourceId: string;
+}>() {
+  constructor(args: { resourceId: string; name: string }) {
+    super({
+      resourceId: args.resourceId,
+      message:
+        `"${args.name}" runs inside a shared database server, which can't be exposed for one ` +
+        `database at a time: the route would serve every database on that server. Move it to a ` +
+        `dedicated container to publish it.`,
+    });
+  }
+}
+
+/**
+ * Raised when a database server is deleted while logical databases still live
+ * inside it. Deleting the container would take their data with it, and they
+ * are separate resources — quite possibly in other projects — so the operator
+ * has to decide what happens to each one rather than losing them as a side
+ * effect of tearing down the server.
+ */
+export class DatabaseHasTenantsError extends TaggedError("DatabaseHasTenantsError")<{
+  message: string;
+  resourceId: string;
+  tenants: string[];
+}>() {
+  constructor(args: { resourceId: string; tenants: string[] }) {
+    super({
+      resourceId: args.resourceId,
+      tenants: args.tenants,
+      message:
+        `This server still hosts ${args.tenants.length} database` +
+        `${args.tenants.length === 1 ? "" : "s"} (${args.tenants.join(", ")}). ` +
+        `Delete or move them first.`,
+    });
+  }
+}
+
+/**
  * Raised when the requested extension set needs two different bundled
  * images (e.g. postgis + timescaledb): a single service runs a single
  * image, so the combination is rejected rather than silently dropping one.

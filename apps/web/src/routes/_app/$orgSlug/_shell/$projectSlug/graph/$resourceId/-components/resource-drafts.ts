@@ -75,6 +75,12 @@ export function draftDatabaseFromManifest(
     latestDeploymentFinishedAt: null,
     engine: spec.engine,
     placementServerId: null,
+    // A staged database can declare a server by name; the id only exists once
+    // it is applied, so the draft carries null and the panel reads the name
+    // from the manifest spec instead.
+    hostResourceId: null,
+    hostName: "host" in spec ? (spec.host ?? null) : null,
+    connectionLimit: "connectionLimit" in spec ? (spec.connectionLimit ?? null) : null,
     // Inert credential/endpoint placeholders: unused while pending.
     databaseName: "",
     username: "",

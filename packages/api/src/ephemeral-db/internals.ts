@@ -22,9 +22,15 @@ export class EphemeralDbError extends Error {
 export interface EphemeralTarget {
   resourceId: ResourceId;
   engine: string;
-  /** The owning app role: psql runs as it, and read-write grants membership in it. */
+  /** The owning app role. `read-write` grants membership in it. */
   ownerUsername: string;
   ownerPassword: string;
+  /** The role psql actually connects as, which is the owner for a dedicated
+   *  database and the HOST's superuser for one on a shared server. They
+   *  differ because minting a credential needs CREATE ROLE, and a tenant's
+   *  own role deliberately has no role attributes at all. */
+  loginUsername: string;
+  loginPassword: string;
   databaseName: string;
   publicEnabled: boolean;
   publicHostname: string;
@@ -47,6 +53,7 @@ export async function getTarget(input: {
       publicHostname: databaseResource.publicHostname,
       internalHostname: databaseResource.internalHostname,
       internalPort: databaseResource.internalPort,
+      hostResourceId: databaseResource.hostResourceId,
     })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
@@ -57,6 +64,27 @@ export async function getTarget(input: {
         eq(project.organizationId, input.organizationId),
       ),
     )
+    .limit(1);
+  if (!row) return null;
+  // A tenant's own role has LOGIN and nothing else, so the credential has to
+  // be minted by the server's superuser — connected to the TENANT's database,
+  // which is what keeps the grants scoped to it.
+  const admin = row.hostResourceId ? await getHostAdmin(row.hostResourceId) : null;
+  return {
+    ...row,
+    loginUsername: admin?.username ?? row.ownerUsername,
+    loginPassword: admin?.password ?? row.ownerPassword,
+  };
+}
+
+/** The host server's own credentials, which are superuser on its container. */
+async function getHostAdmin(
+  hostResourceId: ResourceId,
+): Promise<{ username: string; password: string } | null> {
+  const [row] = await db
+    .select({ username: databaseResource.username, password: databaseResource.password })
+    .from(databaseResource)
+    .where(eq(databaseResource.resourceId, hostResourceId))
     .limit(1);
   return row ?? null;
 }
@@ -71,7 +99,7 @@ export function literal(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-/** Run `sql` in the resource's container as the owning app role. */
+/** Run `sql` in the resource's container, against the resource's database. */
 export async function runAsOwner(target: EphemeralTarget, sql: string): Promise<void> {
   const docker = Docker.fromEnv();
   try {
@@ -85,7 +113,7 @@ export async function runAsOwner(target: EphemeralTarget, sql: string): Promise<
       [
         "psql",
         "-U",
-        target.ownerUsername,
+        target.loginUsername,
         "-d",
         target.databaseName,
         "-v",
@@ -93,7 +121,7 @@ export async function runAsOwner(target: EphemeralTarget, sql: string): Promise<
         "-c",
         sql,
       ],
-      { env: [`PGPASSWORD=${target.ownerPassword}`], allowNonZero: true },
+      { env: [`PGPASSWORD=${target.loginPassword}`], allowNonZero: true },
     );
     if (result.exitCode !== 0) {
       throw new EphemeralDbError(result.stderr.trim() || "statement failed");

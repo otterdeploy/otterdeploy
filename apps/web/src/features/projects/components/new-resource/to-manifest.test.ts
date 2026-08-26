@@ -345,6 +345,8 @@ describe("buildDatabaseSpec", () => {
         publicEnabled: true,
         extensions: ["uuid-ossp"],
         version: "18",
+        hostName: null,
+        connectionLimit: null,
         presetId: "small",
         customCpu: 0,
         customMem: 0,
@@ -364,6 +366,8 @@ describe("buildDatabaseSpec", () => {
       publicEnabled: false,
       extensions: ["should-be-ignored"],
       version: "7.4",
+      hostName: null,
+      connectionLimit: null,
       presetId: "nope",
       customCpu: 0,
       customMem: 0,
@@ -381,6 +385,8 @@ describe("buildDatabaseSpec", () => {
       publicEnabled: false,
       extensions: [],
       version: "18",
+      hostName: null,
+      connectionLimit: null,
       presetId: "small",
       customCpu: 0,
       customMem: 0,
@@ -397,5 +403,50 @@ describe("buildDatabaseSpec", () => {
     ]) {
       expect(spec).not.toHaveProperty(key);
     }
+  });
+});
+
+describe("buildDatabaseSpec placement", () => {
+  const base = {
+    publicEnabled: false,
+    extensions: [],
+    version: "18",
+    presetId: "small",
+    customCpu: 0,
+    customMem: 0,
+  };
+
+  it("declares the server by name so the manifest stays portable", () => {
+    // Ids are per-install; a manifest checked into a repo and applied
+    // elsewhere has to name what it means.
+    const spec = buildDatabaseSpec({
+      ...base,
+      engine: "postgres",
+      hostName: "pg",
+      connectionLimit: 20,
+    });
+    expect(spec).toMatchObject({ engine: "postgres", host: "pg", connectionLimit: 20 });
+  });
+
+  it("emits neither key for a dedicated database", () => {
+    const spec = buildDatabaseSpec({
+      ...base,
+      engine: "postgres",
+      hostName: null,
+      connectionLimit: 20,
+    });
+    expect(spec).not.toHaveProperty("host");
+    // A cap without a server to share is meaningless, so it isn't written.
+    expect(spec).not.toHaveProperty("connectionLimit");
+  });
+
+  it("never puts a host on redis, whose schema has no such field", () => {
+    const spec = buildDatabaseSpec({
+      ...base,
+      engine: "redis",
+      hostName: "should-be-dropped",
+      connectionLimit: 5,
+    });
+    expect(spec).not.toHaveProperty("host");
   });
 });

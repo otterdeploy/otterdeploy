@@ -411,6 +411,31 @@ export const databaseResource = pgTable(
     // Pre-migration Docker `local` volume name, for rows whose bytes still live
     // in /var/lib/docker/volumes/<name>. NULL once on the managed volumeDir path.
     legacyVolumeName: text("legacy_volume_name"),
+    // ── Shared servers ──────────────────────────────────────────────────
+    //
+    // NULL  = this row IS its own server: one container, one volume, the
+    //         shape every database had before hosting existed. Untouched.
+    // Set   = this row is a logical database living INSIDE another
+    //         database_resource's container. It has no container, no volume
+    //         and no placement of its own; `internalHostname` / `internalPort`
+    //         are copies of the host's, and `databaseName` / `username` /
+    //         `password` are its own credentials on that server.
+    //
+    // Deliberately NOT a foreign key, matching `branchedFromResourceId`
+    // above. A RESTRICT here would fire during an ordinary project delete
+    // (resource → database_resource cascades don't promise an order), and a
+    // CASCADE would silently drop a tenant row while its database is still
+    // live on the host. The invariant that matters — a host cannot be
+    // deleted while it still has tenants — is enforced in resource-delete.ts,
+    // where it can be reported to the operator instead of aborting a
+    // transaction.
+    hostResourceId: text("host_resource_id").$type<ResourceId>(),
+    // Per-tenant cap on concurrent connections, applied at the engine
+    // (`ALTER DATABASE … CONNECTION LIMIT` / `ALTER USER … MAX_USER_CONNECTIONS`).
+    // NULL = uncapped, which is right for a dedicated server and wrong for a
+    // busy one: on a shared host one runaway pool can starve every other
+    // tenant of the server's ~100 connection slots.
+    connectionLimit: integer("connection_limit"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -425,6 +450,9 @@ export const databaseResource = pgTable(
     index("database_resource_database_name_idx").on(table.databaseName),
     index("database_resource_username_idx").on(table.username),
     // Hostnames stay globally unique. Branches get distinct ones.
+    // Tenant lookup by host: the host page lists them, and delete refuses
+    // while any exist, so this is read on every host teardown.
+    index("database_resource_host_resource_id_idx").on(table.hostResourceId),
     uniqueIndex("database_resource_public_hostname_unique").on(table.publicHostname),
     uniqueIndex("database_resource_internal_hostname_unique").on(table.internalHostname),
   ],

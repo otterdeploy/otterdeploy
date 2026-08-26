@@ -58,6 +58,10 @@ export const orgCatalogItemSchema = z.object({
   projectSlug: z.string(),
   engine: catalogEngineSchema,
   engineLabel: z.string(),
+  /** The database server this one lives inside, or null for a database with a
+   *  container of its own. A tenant's runtime status and volume are its
+   *  host's, because that is what actually backs it. */
+  hostResourceId: zId(ID_PREFIX.resource).nullable(),
   /** Image the latest deployment ran (falls back to the engine's catalog
    *  default when the database has never deployed). */
   image: z.string(),

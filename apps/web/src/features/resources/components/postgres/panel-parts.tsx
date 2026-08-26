@@ -89,6 +89,15 @@ export function DatabasePanelHeader({
               <span className="text-muted-foreground/50">·</span> {resource.databaseName}
             </>
           )}
+          {/* Where it lives changes what every control here means: the status
+              above is the SERVER's, and restarting it would take every other
+              database on that server with it. */}
+          {resource.hostName && (
+            <>
+              {" "}
+              <span className="text-muted-foreground/50">·</span> inside {resource.hostName}
+            </>
+          )}
         </>
       }
       metaTrailing={metaTrailing}

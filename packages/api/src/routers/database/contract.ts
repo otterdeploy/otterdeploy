@@ -18,6 +18,7 @@ import {
   ephemeralRevokeResultSchema,
   makeNotEphemeral,
 } from "./contract-ephemeral";
+import { hostListInput, hostListResultSchema } from "./contract-hosts";
 
 const tag = "database";
 const basePath = "/database";
@@ -251,6 +252,14 @@ export const databaseContract = {
     .meta({ path: `${basePath}/catalog`, tag, method: "GET" })
     .input(orgCatalogInput)
     .output(orgCatalogResultSchema),
+
+  // Database servers that can host another logical database, with the live
+  // connection budget and the tenants already on each. Backs the create
+  // flow's "put this on an existing server" step.
+  listHosts: oc
+    .meta({ path: `${basePath}/hosts`, tag, method: "GET" })
+    .input(hostListInput)
+    .output(hostListResultSchema),
 
   // List user tables in the database (excludes catalog/system schemas).
   tables: oc

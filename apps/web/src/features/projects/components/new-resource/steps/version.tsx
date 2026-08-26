@@ -21,6 +21,7 @@ import {
   builderPopClass,
   SectionHeader,
 } from "../form-primitives";
+import { DatabasePlacementSection } from "./database-placement-section";
 import { PostgresExtensionsSection } from "./postgres-extensions-section";
 
 interface StepVersionProps {
@@ -148,6 +149,9 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
           </form.AppField>
         </CardContent>
       </Card>
+
+      <div className="h-4.5" />
+      <DatabasePlacementSection engine={kind.id} projectId={projectId} />
 
       {kind.id === "postgres" && (
         <>

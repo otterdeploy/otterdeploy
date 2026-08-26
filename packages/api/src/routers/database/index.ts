@@ -4,6 +4,7 @@ import { requirePermission } from "../..";
 import { enforceResourceScope } from "../../authz/project-scope-guards";
 import { catalogDatabaseHandlers } from "./catalog";
 import { ephemeralDatabaseHandlers } from "./ephemeral";
+import { hostDatabaseHandlers } from "./hosts";
 import { nosqlDatabaseHandlers } from "./nosql-handlers";
 import {
   QueryError,
@@ -252,4 +253,6 @@ export const databaseRouter = {
   ...ephemeralDatabaseHandlers,
   // Org-wide catalog (the /$org/databases page).
   ...catalogDatabaseHandlers,
+  // Shared servers: which ones can take another logical database.
+  ...hostDatabaseHandlers,
 };

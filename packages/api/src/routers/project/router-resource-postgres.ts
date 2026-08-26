@@ -1,5 +1,6 @@
 import { matchError } from "better-result";
 
+import { DatabaseHostingError } from "../../database-hosting";
 import { orgScopedProcedure, requirePermission } from "../../index";
 import {
   createPostgresResourceStream,
@@ -42,8 +43,15 @@ export const postgresResourceRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         name: input.name,
+        hostResourceId: input.hostResourceId,
+        engine: input.engine,
       });
       if (validation.isErr()) {
+        // DatabaseHostingError is a plain Error subclass, not a TaggedError,
+        // so it can't ride matchError's tag map: check it first.
+        if (validation.error instanceof DatabaseHostingError) {
+          throw errors.HOST_UNUSABLE({ data: { reason: validation.error.message } });
+        }
         throw matchError(validation.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           PostgresResourceConflictError: () => errors.CONFLICT(),
@@ -58,6 +66,8 @@ export const postgresResourceRouter = {
           ...input,
           projectId: input.projectId,
           organizationId: context.activeOrganizationId,
+          host: validation.value.host,
+          connectionLimit: input.connectionLimit ?? null,
           project: validation.value.project,
         },
         context.log,
@@ -115,6 +125,9 @@ export const postgresResourceRouter = {
       throw matchError(result.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
         PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+        // The message explains WHY a shared server can't be published for one
+        // database, which is the part the operator needs.
+        HostedDatabaseNotPublishableError: (e) => errors.NOT_PUBLISHABLE({ message: e.message }),
       });
     }
     return result.value;

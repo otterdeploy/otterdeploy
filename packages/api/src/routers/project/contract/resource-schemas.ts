@@ -57,6 +57,18 @@ const databaseResourceSchema = z.object({
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),
+  /** The database server this one lives inside, or null when it has a
+   *  container of its own. A tenant has no volume, no placement and no
+   *  restart of its own: every one of those belongs to the host. */
+  hostResourceId: z.string().nullable(),
+  /** That server's name, resolved for display. Null for a dedicated database,
+   *  and also when the id points at a row that no longer exists — which the
+   *  panel renders as "no server" rather than a broken reference. */
+  hostName: z.string().nullable(),
+  /** Cap on this database's concurrent connections, or null for uncapped.
+   *  Only meaningful on a shared server, where the budget is finite and
+   *  shared. */
+  connectionLimit: z.number().int().positive().nullable(),
   /** When false, the public hostname exists but isn't wired through Caddy.
    *  The DB is only reachable on the internal network. */
   publicEnabled: z.boolean(),

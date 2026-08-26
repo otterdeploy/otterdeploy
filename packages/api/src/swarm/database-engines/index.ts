@@ -23,6 +23,11 @@ export interface ConnectionStringInput {
   /** Postgres-style SSL controls. Ignored by engines that don't speak it. */
   sslmode?: "require" | "prefer" | "disable";
   sslnegotiation?: "direct";
+  /** Mongo's authentication database. Omitted → `admin`, where the container's
+   *  root user lives. A database hosted on a shared mongo server passes its own
+   *  name here: `db.createUser` puts the tenant's credential in the tenant's
+   *  database, so authenticating against `admin` would fail. */
+  authSource?: string;
 }
 
 export interface DatabaseEngineAdapter {

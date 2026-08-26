@@ -115,6 +115,11 @@ export function RealResourcePanel({
           })
         }
         restarting={restartMut.isPending}
+        // A database inside a shared server has no container of its own, so a
+        // restart would roll the SERVER and every other database on it. The
+        // API refuses it; hiding the button is the honest version of that
+        // rather than an action that always errors.
+        canRestart={!resource.hostResourceId}
         metaTrailing={
           !pending && resource.engine === "postgres" ? (
             <DbConnectionsChip resourceId={resource.resourceId} />

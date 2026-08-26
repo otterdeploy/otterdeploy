@@ -21,12 +21,18 @@ import type { ResourceRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { listTenantRows } from "../../database-hosting";
 import { branchDependencyConflict } from "../../lib/environment/branch-dependents";
 import { reclaimDatabaseVolume, reclaimServiceHostArtifacts } from "../service/teardown";
-import { DatabaseHasBranchesError, PostgresResourceNotFoundError } from "./errors";
+import {
+  DatabaseHasBranchesError,
+  DatabaseHasTenantsError,
+  PostgresResourceNotFoundError,
+} from "./errors";
 import { removeDatabaseFromManifest, removeServiceFromManifest } from "./manifest";
 import { getDatabaseProvisioner } from "./provisioners";
 import { deleteResourceById, getProjectInOrg, getResourceById } from "./queries";
+import { deleteHostedDatabase } from "./resource-delete-hosted";
 import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "./views";
 
 /**
@@ -130,7 +136,12 @@ async function teardownDatabaseRuntime(
 export async function deleteProjectResource(
   input: ResourceRef,
   log: RequestLogger,
-): Promise<Result<{ ok: true }, PostgresResourceNotFoundError | DatabaseHasBranchesError>> {
+): Promise<
+  Result<
+    { ok: true },
+    PostgresResourceNotFoundError | DatabaseHasBranchesError | DatabaseHasTenantsError
+  >
+> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -166,6 +177,30 @@ export async function deleteProjectResource(
       }
 
       const { engine } = found.record.database;
+
+      // A server cannot be torn down under the databases living in it: its
+      // volume holds their bytes, and they are separate resources (possibly in
+      // other projects) whose fate is the operator's call, not a side effect.
+      const tenants = await listTenantRows(input.resourceId);
+      if (tenants.length > 0) {
+        log.set({ resource: { outcome: "has_tenants" } });
+        return Result.err(
+          new DatabaseHasTenantsError({
+            resourceId: input.resourceId,
+            tenants: tenants.map((t) => t.name),
+          }),
+        );
+      }
+
+      // A database that lives INSIDE a server owns no container and no volume,
+      // so the teardown is the inverse of its create: drop the database and
+      // its role on the host. Everything else (manifest strip, routes, row)
+      // is identical, which is why this returns into the same tail below.
+      const hostResourceId = found.record.database.hostResourceId;
+      if (hostResourceId) {
+        return deleteHostedDatabase({ hostResourceId, record: found.record, input }, log);
+      }
+
       const projectSlug = sanitizeProjectSlug(project.slug);
       const serviceName = buildContainerName({
         engine,

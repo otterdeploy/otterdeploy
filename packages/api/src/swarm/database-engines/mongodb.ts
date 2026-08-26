@@ -24,12 +24,14 @@ export const mongodbAdapter: DatabaseEngineAdapter = {
     // `mongosh` ships in mongo:6+. The `--quiet` keeps boot-log spam out
     // when the engine is up; non-zero exit when not reachable yet.
     `mongosh --quiet --eval "db.adminCommand({ ping: 1 }).ok" | grep -q 1`,
-  buildConnectionString: ({ username, password, host, port, databaseName }) => {
+  buildConnectionString: ({ username, password, host, port, databaseName, authSource }) => {
     // authSource=admin because MONGO_INITDB_ROOT_* creates the root user
     // in the `admin` db regardless of MONGO_INITDB_DATABASE, connecting
-    // to the app db with that user requires this override.
+    // to the app db with that user requires this override. A tenant on a
+    // shared server overrides it with its own database, where its user was
+    // created.
     const hostPort = port == null ? host : `${host}:${port}`;
-    return `${meta.scheme}://${username}:${password}@${hostPort}/${databaseName}?authSource=admin`;
+    return `${meta.scheme}://${username}:${password}@${hostPort}/${databaseName}?authSource=${authSource ?? "admin"}`;
   },
   // Mongo 6/7 print this once the listener is bound on every host.
   readyPattern: /Waiting for connections/i,
