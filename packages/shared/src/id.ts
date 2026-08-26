@@ -92,6 +92,13 @@ export const ID_PREFIX = {
   // external secret managers: org-scoped provider connections whose secrets
   // are referenced from env vars as `${{vault.<provider>.<ref>}}`
   vaultProvider: "vlt",
+  // web analytics (tracker plane): docs/designs/web-analytics.md. One site per
+  // project; sessions are high-volume rows keyed by the same prefix scheme so
+  // a session id is recognisable in logs.
+  analyticsSite: "asite",
+  analyticsSession: "ases",
+  analyticsEventDefinition: "aevd",
+  analyticsFunnel: "afun",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -363,6 +370,10 @@ export const idSchema: IdSchemaMap = {
   orphanedResource: zId(ID_PREFIX.orphanedResource),
   meshNetwork: zId(ID_PREFIX.meshNetwork),
   vaultProvider: zId(ID_PREFIX.vaultProvider),
+  analyticsSite: zId(ID_PREFIX.analyticsSite),
+  analyticsSession: zId(ID_PREFIX.analyticsSession),
+  analyticsEventDefinition: zId(ID_PREFIX.analyticsEventDefinition),
+  analyticsFunnel: zId(ID_PREFIX.analyticsFunnel),
 };
 
 /**

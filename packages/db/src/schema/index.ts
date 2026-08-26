@@ -1,3 +1,9 @@
+// analytics_site / analytics_session / analytics_event_definition /
+// analytics_funnel (web analytics, tracker plane) are drizzle-managed.
+export * from "./analytics";
+// analytics_event is intentionally NOT re-exported: RANGE-partitioned like
+// edge_log, owned by packages/api/src/analytics/partition.ts. Import it from
+// "@otterdeploy/db/schema/analytics-event".
 export * from "./audit";
 export * from "./auth";
 export * from "./backup";

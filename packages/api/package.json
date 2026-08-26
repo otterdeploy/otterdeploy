@@ -36,6 +36,12 @@
     },
     "./ephemeral-db": {
       "default": "./src/ephemeral-db/index.ts"
+    },
+    "./analytics/tracker": {
+      "default": "./src/analytics/tracker/index.ts"
+    },
+    "./analytics": {
+      "default": "./src/analytics/index.ts"
     }
   },
   "scripts": {

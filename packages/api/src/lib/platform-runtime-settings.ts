@@ -277,6 +277,18 @@ export async function edgeLogRetentionDays(): Promise<number> {
   return row?.edgeLogRetentionDays ?? DEFAULT_EDGE_LOG_RETENTION_DAYS;
 }
 
+// ─── Web analytics ────────────────────────────────────────────────────
+
+export const DEFAULT_ANALYTICS_RETENTION_DAYS = 400;
+
+/** Days of raw web-analytics events/sessions to keep before the daily
+ *  partition is dropped. Read per sweep so a settings change applies
+ *  without a restart. */
+export async function analyticsRetentionDays(): Promise<number> {
+  const row = await loadRow();
+  return row?.analyticsRetentionDays ?? DEFAULT_ANALYTICS_RETENTION_DAYS;
+}
+
 export async function edgeLogGeoipUrls(): Promise<{ country: string; asn: string }> {
   const row = await loadRow();
   return {

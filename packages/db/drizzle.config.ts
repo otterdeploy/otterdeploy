@@ -20,5 +20,7 @@ export default defineConfig({
   // children, so the separate child DROP then fails with "table ... does not
   // exist" and aborts the push. Excluding them leaves the runtime-managed table
   // untouched. ("*" keeps every other table in drizzle-kit's purview.)
-  tablesFilter: ["*", "!edge_log", "!edge_log_*"],
+  // `analytics_event` (web-analytics event stream) is partitioned the same
+  // way and owned by packages/api/src/analytics/partition.ts.
+  tablesFilter: ["*", "!edge_log", "!edge_log_*", "!analytics_event", "!analytics_event_*"],
 });

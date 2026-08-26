@@ -1,5 +1,6 @@
 import { type RouterClient } from "@orpc/server";
 
+import { analyticsRouter } from "./analytics";
 import { apiKeysRouter } from "./apiKeys";
 import { auditRouter } from "./audit";
 import { backupsRouter } from "./backups";
@@ -32,6 +33,7 @@ import { volumesRouter } from "./volumes";
 import { webhooksRouter } from "./webhooks";
 
 export const appRouter = {
+  analytics: analyticsRouter,
   apiKeys: apiKeysRouter,
   audit: auditRouter,
   backups: backupsRouter,
