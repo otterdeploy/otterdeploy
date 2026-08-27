@@ -5,9 +5,9 @@
  * instrument layout as those views: header + status pill, a hairline toolbar,
  * then a full-bleed table that fills the remaining height.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -15,22 +15,27 @@ import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { decisionsQuery, prefetchFirewall, statusQuery } from "../data";
 import { BlockIpForm } from "./block-ip-form";
 import { BlocklistsPanel } from "./blocklists-panel";
 import { DecisionsTable, FirewallDisabledCard } from "./firewall-view-parts";
 import { FlaggedPanel } from "./flagged-panel";
+import { HistoryPanel } from "./history-panel";
 
-type View = "decisions" | "flagged" | "sources";
+type View = "decisions" | "history" | "flagged" | "sources";
 
 export function FirewallView() {
-  const status = useQuery({
-    ...orpc.firewall.status.queryOptions(),
-    refetchInterval: 15_000,
-  });
-  const decisions = useQuery({
-    ...orpc.firewall.decisions.queryOptions(),
-    refetchInterval: 15_000,
-  });
+  // Shared query options (see ../data): staleTime + keepPreviousData are what
+  // stop a tab switch flashing an empty table before the rows arrive.
+  const status = useQuery(statusQuery());
+  const decisions = useQuery(decisionsQuery());
+  const queryClient = useQueryClient();
+
+  // Warm every tab on mount as well as in the route loader: a direct
+  // navigation (paste a URL, reload) has no hover to preload from.
+  useEffect(() => {
+    prefetchFirewall(queryClient);
+  }, [queryClient]);
 
   const s = status.data;
   const rows = decisions.data ?? [];
@@ -89,6 +94,8 @@ export function FirewallView() {
 
       {view === "sources" ? (
         <BlocklistsPanel />
+      ) : view === "history" ? (
+        <HistoryPanel />
       ) : view === "flagged" ? (
         <FlaggedPanel />
       ) : !usable ? (
@@ -128,13 +135,23 @@ function FirewallHeader({ configured, reachable }: { configured: boolean; reacha
           </span>
         )}
       </div>
+      {/* The old line said "at the Caddy edge", which made an SSH ban look
+          misfiled. CrowdSec watches the host's auth log AND Caddy's access
+          log, and two different bouncers enforce what it decides. */}
       <p className="mt-0.5 text-[13px] text-muted-foreground">
-        CrowdSec IP-reputation decisions enforced at the Caddy edge: banned IPs, ranges, and the
-        community blocklist. Identity-blind; runs before the auth wall.
+        CrowdSec watches your SSH auth log and Caddy's access log, then bans what it doesn't like —
+        at the host firewall and at the edge. Identity-blind; runs before the auth wall.
       </p>
     </div>
   );
 }
+
+const TAB_LABEL: Record<View, string> = {
+  decisions: "Enforcing now",
+  history: "History",
+  flagged: "Flagged IPs",
+  sources: "Sources",
+};
 
 function FirewallToolbar({
   view,
@@ -158,7 +175,9 @@ function FirewallToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
       <div className="flex items-center gap-0.5 rounded-md border p-0.5">
-        {(["decisions", "flagged", "sources"] as const).map((v) => (
+        {/* Ordered as the question an operator asks: what is blocked now →
+            what has been blocked → who is probing → what we import. */}
+        {(["decisions", "history", "flagged", "sources"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -170,14 +189,17 @@ function FirewallToolbar({
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
             )}
           >
-            {v === "decisions" ? "Decisions" : v === "flagged" ? "Flagged IPs" : "Sources"}
+            {TAB_LABEL[v]}
           </button>
         ))}
       </div>
       {view === "decisions" ? (
         <span className="text-[12px] text-muted-foreground">
           {usable
-            ? `${decisionCount} active decision${decisionCount === 1 ? "" : "s"}`
+            ? // "enforcing right now" rather than "active": the number drops
+              // when a ban expires, and the old wording made that read as
+              // something going missing.
+              `${decisionCount} enforcing now`
             : "Not enabled"}
         </span>
       ) : null}

@@ -11,6 +11,7 @@ import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
 import { startMetricsSampler } from "@otterdeploy/api/metrics";
 import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anomaly";
 import { startEdgeThreatScan } from "@otterdeploy/api/notifications/edge-anomaly";
+import { startFirewallRecorder } from "@otterdeploy/api/routers/firewall/recorder";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import { startNodeEnrollmentReaper } from "@otterdeploy/api/routers/server/enrollment";
@@ -85,6 +86,13 @@ export function startBackgroundServices(): () => void {
   // Managed blocklists: re-import enabled public/custom lists into CrowdSec on
   // their interval so the imported decisions refresh before they expire.
   start("blocklist-scheduler", startBlocklistScheduler);
+
+  // Firewall decision recorder: CrowdSec deletes a decision the moment its TTL
+  // elapses, so without this an expired ban leaves no trace anywhere in the
+  // product. Each pass diffs the live LAPI set against our open rows and
+  // stamps the ones that have gone. Read-only against CrowdSec; enforcement is
+  // entirely the bouncers'.
+  start("firewall-recorder", startFirewallRecorder);
 
   // Data-folder orphan sweep: reclaims artifact dirs (resources/projects/
   // backups) whose owning DB row is gone, e.g. after a crashed teardown

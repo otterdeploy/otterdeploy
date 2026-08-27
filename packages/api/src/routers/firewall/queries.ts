@@ -2,11 +2,12 @@ import type { BlocklistId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { blocklist } from "@otterdeploy/db/schema/blocklist";
+import { firewallDecision } from "@otterdeploy/db/schema/firewall-decision";
 /**
  * Blocklist row CRUD + the "which lists are due for a re-sync" query the
- * recurring job uses.
+ * recurring job uses, and the recorded-decision reads behind the History tab.
  */
-import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 
 export type BlocklistRow = typeof blocklist.$inferSelect;
 
@@ -111,4 +112,35 @@ export async function listBlocklistsDue(now: Date): Promise<BlocklistRow[]> {
         ),
       ),
     );
+}
+
+/**
+ * Recorded decisions, live ones first, then most recently ended.
+ *
+ * `since` filters on `lastSeenAt` rather than `firstSeenAt`: a ban that opened
+ * two days ago and is still being enforced belongs in the "last hour" view —
+ * it is active right now — while one that opened and ended before the window
+ * does not.
+ */
+export async function listRecordedDecisions(input: {
+  since: Date | null;
+  state: "all" | "active" | "ended";
+  limit: number;
+}) {
+  const filters = [
+    input.since ? gte(firewallDecision.lastSeenAt, input.since) : undefined,
+    input.state === "active" ? isNull(firewallDecision.endedAt) : undefined,
+    input.state === "ended" ? isNotNull(firewallDecision.endedAt) : undefined,
+  ].filter((f) => f !== undefined);
+
+  return (
+    db
+      .select()
+      .from(firewallDecision)
+      .where(filters.length > 0 ? and(...filters) : undefined)
+      // Live rows first (endedAt NULL sorts last under DESC in postgres, so
+      // NULLS FIRST is explicit), then newest activity.
+      .orderBy(sql`${firewallDecision.endedAt} desc nulls first`, desc(firewallDecision.lastSeenAt))
+      .limit(input.limit)
+  );
 }

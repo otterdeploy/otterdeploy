@@ -74,6 +74,40 @@ const flaggedIpSchema = z.object({
  */
 const flaggedWindowSchema = z.enum(["1h", "6h", "24h", "7d", "all"]);
 
+/** Same vocabulary as the flagged windows, so the two tabs read alike. */
+const historyWindowSchema = z.enum(["1h", "6h", "24h", "7d", "all"]);
+
+/** A decision as WE recorded it, which is what lets it outlive its own TTL. */
+const recordedDecisionSchema = z.object({
+  id: z.string(),
+  value: z.string(),
+  scope: z.string(),
+  type: z.string(),
+  scenario: z.string(),
+  origin: z.string(),
+  duration: z.string().nullable(),
+  country: z.string().nullable(),
+  asNumber: z.string().nullable(),
+  asName: z.string().nullable(),
+  eventsCount: z.number().nullable(),
+  firstSeenAt: z.string(),
+  lastSeenAt: z.string(),
+  /** Null = still being enforced right now. */
+  endedAt: z.string().nullable(),
+});
+
+/** One alert behind a decision: the WHY, read from CrowdSec on demand. */
+const alertEventSchema = z.object({
+  id: z.number().nullable(),
+  scenario: z.string(),
+  message: z.string(),
+  eventsCount: z.number().nullable(),
+  startedAt: z.string().nullable(),
+  stoppedAt: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  origin: z.string(),
+});
+
 const firewallStatusSchema = z.object({
   /** Both LAPI url + bouncer key are configured (enforcement wired into Caddy). */
   configured: z.boolean(),
@@ -171,6 +205,25 @@ export const firewallContract = {
     .meta({ path: "/firewall/decisions/unblock", tag, method: "POST" })
     .input(z.object({ ip: ipValue }))
     .output(blockResultSchema),
+  /** Every decision we have recorded, live and expired. Our own table, not the
+   *  LAPI: a CrowdSec decision is deleted when its TTL runs out, so this is
+   *  the only place an expired ban still exists. */
+  history: oc
+    .meta({ path: "/firewall/history", tag, method: "GET" })
+    .input(
+      z.object({
+        window: historyWindowSchema.default("7d"),
+        /** `active` = still enforced, `ended` = expired or lifted. */
+        state: z.enum(["all", "active", "ended"]).default("all"),
+      }),
+    )
+    .output(z.array(recordedDecisionSchema)),
+  /** The events behind one banned value: which scenario fired and when.
+   *  Fetched per row on demand — see alerts-read for why it is never bulk. */
+  alerts: oc
+    .meta({ path: "/firewall/alerts", tag, method: "GET" })
+    .input(z.object({ value: ipValue }))
+    .output(z.object({ available: z.boolean(), alerts: z.array(alertEventSchema) })),
   /** Client IPs probing the org's domains with scanner-style paths, the
    *  "review these IPs" panel, one-click blockable. */
   flagged: oc

@@ -31,6 +31,7 @@ import { orpc } from "@/shared/server/orpc";
 import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
 import { Segmented } from "../../edge-logs/components/edge-logs-shared";
 import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
+import { flaggedQuery } from "../data";
 
 /** `all` first: it's the default, and it's the only one that answers "has this
  *  IP ever touched us". The rest are the same windows the edge-log views use. */
@@ -53,10 +54,9 @@ function isFlaggedWindow(v: string): v is FlaggedWindow {
 export function FlaggedPanel() {
   const { t } = useTranslation();
   const [range, setRange] = useState<FlaggedWindow>("all");
-  const flagged = useQuery({
-    ...orpc.firewall.flagged.queryOptions({ input: { window: range } }),
-    refetchInterval: 15_000,
-  });
+  // Shared options (../data): keepPreviousData is what stops a window change
+  // blanking the table before the new rows land.
+  const flagged = useQuery(flaggedQuery(range));
   // Active bans flip already-blocked rows to a passive "Blocked" state; the
   // hook refreshes both after each block.
   const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());

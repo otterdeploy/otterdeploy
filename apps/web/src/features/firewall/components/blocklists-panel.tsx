@@ -23,6 +23,7 @@ import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { blocklistsQuery } from "../data";
 import { AddCustomForm, ConsoleEnrollCard } from "./blocklists-panel-parts";
 
 type Lists = Awaited<ReturnType<typeof orpc.firewall.blocklists.list.call>>;
@@ -31,10 +32,9 @@ type CatalogEntry = Lists["catalog"][number];
 
 export function BlocklistsPanel() {
   const { t } = useTranslation();
-  const listQuery = useQuery({
-    ...orpc.firewall.blocklists.list.queryOptions(),
-    refetchInterval: 10_000,
-  });
+  // Shared options (../data). Lists change only when an operator changes
+  // them, so this holds rather than polling; mutations refetch explicitly.
+  const listQuery = useQuery(blocklistsQuery());
   const refetch = () => void listQuery.refetch();
 
   const lists = listQuery.data?.lists ?? [];

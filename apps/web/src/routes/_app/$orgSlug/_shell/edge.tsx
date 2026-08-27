@@ -33,6 +33,7 @@ import { EdgeEventsView } from "@/features/edge-logs/components/edge-events-view
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
 import { FirewallView } from "@/features/firewall/components/firewall-view";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
+import { prefetchEdge } from "./-edge-prefetch";
 import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
@@ -106,16 +107,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
   // Non-blocking + best-effort: a permission-gated or failed prefetch just
   // falls back to fetch-on-mount.
   loader: ({ context }) => {
-    // Install-admin only, and this runs on plain NAVIGATION. An unconditional
-    // prefetch is a 403 for every member who so much as hovers the Edge link,
-    // whether or not they can ever open the plane. `enabled: false` on the
-    // tab's own query would not cover this.
-    if (context.isInstallAdmin) {
-      void queryClient.prefetchQuery(orpc.system.caddyfile.queryOptions()).catch(() => undefined);
-    }
-    void queryClient.prefetchQuery(orpc.certificates.inventory.queryOptions()).catch(() => undefined);
-    void queryClient.prefetchQuery(orpc.certificates.listCustom.queryOptions()).catch(() => undefined);
-    void queryClient.prefetchQuery(orpc.certificates.listCas.queryOptions()).catch(() => undefined);
+    prefetchEdge(queryClient, context.isInstallAdmin);
   },
 });
 
