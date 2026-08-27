@@ -3,6 +3,8 @@
  * ./views.ts (same shape as the ./view-helpers split) so the view mappers
  * stay focused on row → API-shape translation.
  */
+import type { ResourceId } from "@otterdeploy/shared/id";
+
 import { reconcile } from "../../caddy";
 import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
@@ -22,6 +24,7 @@ import {
   updateDatabaseResourceStatus,
   type DatabaseResourceRecord,
 } from "./queries";
+import { getHostForRuntime } from "./queries";
 import { buildContainerName, buildVolumeName } from "./view-helpers";
 
 // A freshly-created (or restarting) swarm service is INVISIBLE to `docker
@@ -70,6 +73,40 @@ async function deployStillConverging(
 }
 
 /**
+ * The runtime a hosted database reports: its host's container, inspected under
+ * the host's own names. A host that has been deleted out from under a tenant
+ * (which delete refuses, but a hand-edited database could still produce)
+ * reports `missing` rather than throwing, so the resource page renders the
+ * problem instead of erroring.
+ */
+async function hostedRuntime(hostResourceId: ResourceId): Promise<SwarmDatabaseRuntime> {
+  const host = await getHostForRuntime(hostResourceId);
+  if (!host) {
+    return {
+      serviceId: null,
+      serviceName: "",
+      volumeName: "",
+      networkName: "",
+      status: "missing",
+      health: null,
+    };
+  }
+  return inspectSwarmDatabaseRuntime({
+    serviceName: buildContainerName({
+      engine: host.engine,
+      projectSlug: host.projectSlug,
+      resourceName: host.name,
+    }),
+    volumeName: buildVolumeName({
+      engine: host.engine,
+      projectSlug: host.projectSlug,
+      resourceName: host.name,
+    }),
+    projectSlug: host.projectSlug,
+  });
+}
+
+/**
  * Inspects the live Swarm service for a database record and re-provisions it
  * if missing. Keeps the proxy route and DB status in sync with whatever the
  * Caddy reconciler reports.
@@ -84,6 +121,17 @@ export async function ensureSwarmRuntimeForRecord(
   // created. That's how a "redis" resource ended up running
   // `postgres:17-alpine` after its first page load.
   const engine = record.database.engine;
+
+  // A database on a shared server has no service of its own. Reporting its
+  // HOST's runtime is the honest answer — that container is what serves it —
+  // and returning before the recovery block below is what stops this read
+  // path from "self-healing" a container that was never supposed to exist.
+  // Without this, every page load of a tenant would provision a duplicate
+  // engine against an empty volume.
+  if (record.database.hostResourceId) {
+    return { record, runtime: await hostedRuntime(record.database.hostResourceId) };
+  }
+
   const serviceName = buildContainerName({
     engine,
     projectSlug,

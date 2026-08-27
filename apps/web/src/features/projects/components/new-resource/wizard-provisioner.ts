@@ -19,6 +19,9 @@ export interface DatabaseCreatePayload {
   publicEnabled: boolean;
   extensions: string[];
   version: string | null;
+  /** Existing server to run inside, by name, or null for a dedicated one. */
+  hostName: string | null;
+  connectionLimit: number | null;
   presetId: string;
   customCpu: number;
   customMem: number;

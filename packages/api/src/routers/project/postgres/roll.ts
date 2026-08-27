@@ -12,6 +12,13 @@
  *  - `ensureSwarmRuntimeForRecord` (runtime recovery): that path *provisions*
  *    a missing container and has its own race close-out (wasCreated) + grace
  *    logic around the deployment row.
+ *
+ * Being the single choke point is also what makes it the right place to refuse
+ * a database that lives on a SHARED SERVER: it owns no container, so every
+ * roll here would restart its HOST — taking every other database on that
+ * server down to apply one tenant's env change. One guard covers restart,
+ * env-change and the extension image swap at once, instead of three call sites
+ * that can drift apart.
  */
 import type { RequestLogger } from "evlog";
 
@@ -19,6 +26,7 @@ import { updateSwarmDatabase } from "../../../runtime/db";
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import { reconcileDeploySuccess } from "../deployments-reconcile";
+import { HostedDatabaseNotRollableError } from "../errors";
 import { type DatabaseResourceRecord } from "../queries";
 import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "../views";
 import { snapshotForPostgresCreate } from "./snapshot";
@@ -42,6 +50,12 @@ export async function rollDatabaseContainer(
 ): Promise<Awaited<ReturnType<typeof updateSwarmDatabase>>> {
   const { record, projectSlug, image, reason } = args;
   const db = record.database;
+  if (db.hostResourceId) {
+    throw new HostedDatabaseNotRollableError({
+      resourceId: record.resource.id,
+      name: record.resource.name,
+    });
+  }
   const engine = db.engine;
   const extraEnv = args.extraEnv ?? db.extraEnv ?? {};
 

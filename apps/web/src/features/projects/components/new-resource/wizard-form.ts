@@ -94,6 +94,11 @@ async function submitWizard(
       // Extensions are postgres-only; other engines ignore the field.
       extensions: payload.kindId === "postgres" ? payload.extensions : [],
       version: payload.version,
+      // Redis can't host isolated tenants, so a stale pick from switching
+      // engines mid-wizard is dropped here rather than staged into a
+      // manifest its schema would reject.
+      hostName: payload.kindId === "redis" ? null : payload.hostName,
+      connectionLimit: payload.kindId === "redis" ? null : payload.connectionLimit,
       ...sizing,
     });
     return;

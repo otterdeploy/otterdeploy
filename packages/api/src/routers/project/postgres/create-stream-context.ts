@@ -4,7 +4,7 @@
  * resolution, container/volume names) and builds the early hand-off resource
  * view. Pulled out of the stages so each file stays readable.
  */
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import {
@@ -12,6 +12,8 @@ import {
   resolvePostgresImage,
 } from "@otterdeploy/shared/postgres-extensions";
 import { randomBytes } from "node:crypto";
+
+import type { HostRow } from "../../../database-hosting";
 
 import { PLATFORM } from "../../../constants";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
@@ -25,6 +27,7 @@ import {
   type PostgresResource,
 } from "../views";
 import { deriveInternalDbCredentials } from "./credentials";
+import { hostContainerName, hostVolumeName } from "./hosted-names";
 
 export type CreatedRecord = Awaited<ReturnType<typeof createDatabaseResourceRecord>>;
 
@@ -46,11 +49,24 @@ export interface CreateStreamInput {
   /** User env vars to bake into the create. Staged env + staged create
    *  deploy as ONE container instead of create-then-env-roll. */
   extraEnv?: Record<string, string>;
+  /** Put this database INSIDE an existing server rather than giving it a
+   *  container of its own. Resolved and validated by the caller
+   *  (`resolveHostForTenant`) so the context builder can trust it. */
+  host?: HostRow | null;
+  /** Cap on the tenant's concurrent connections. Only meaningful with `host`:
+   *  a dedicated server's connections are already its own. */
+  connectionLimit?: number | null;
   project: { id: string; slug: string };
 }
 
 export interface CreateContext {
   engine: DatabaseEngine;
+  /** The server this database lives inside, or null when it gets its own
+   *  container. Set → the create skips the image pull, the swarm provision,
+   *  the boot-log tail and the volume entirely. */
+  host: HostRow | null;
+  hostResourceId: ResourceId | null;
+  connectionLimit: number | null;
   adapter: DatabaseEngineAdapter;
   extensions: string[];
   extraEnv: Record<string, string>;
@@ -62,6 +78,7 @@ export interface CreateContext {
   databaseName: string;
   username: string;
   internalHostname: string;
+  internalPort: number;
   internalConnectionString: string;
   resolved: ReturnType<typeof resolvePublicDomain>;
   publicHostname: string;
@@ -71,30 +88,50 @@ export interface CreateContext {
   dbImage: string;
 }
 
+/**
+ * The image the container will run and the extension set baked into it.
+ *
+ * Extensions decide the image (pgvector / PostGIS / TimescaleDB each pin their
+ * own), so they resolve together: doing it up-front is what makes a staged
+ * create + staged extensions deploy as ONE container instead of a create
+ * followed by an image-swap redeploy.
+ */
+function resolveImageAndExtensions(
+  input: CreateStreamInput,
+  engine: DatabaseEngine,
+  adapter: DatabaseEngineAdapter,
+): { extensions: string[]; dbImage: string } {
+  // Unknown names are dropped (catalog-validated); an image conflict
+  // (e.g. pgvector + timescaledb) falls back to the default, and the
+  // post-create extensions pass surfaces it as a typed error.
+  const extensions =
+    engine === "postgres" ? [...new Set(knownPostgresExtensions(input.extensions ?? []))] : [];
+  // Honour the operator's version pick (manifest `version` / wizard tag): it
+  // becomes the base `<repo>:<tag>` the extension resolver refines. Omitted →
+  // the catalog default.
+  const baseImage = input.version
+    ? `${DATABASE_ENGINES[engine].dockerImage}:${input.version}`
+    : adapter.defaultImage;
+  const resolved = resolvePostgresImage(extensions, baseImage);
+  return { extensions, dbImage: resolved.ok ? resolved.image : baseImage };
+}
+
 /** Compute every derived value the create stream needs before any docker work:
  *  credentials, public-domain resolution, container/volume names. */
 export async function prepareCreateContext(input: CreateStreamInput): Promise<CreateContext> {
   const engine: DatabaseEngine = input.engine ?? "postgres";
   const adapter = getEngineAdapter(engine);
-  // Bake extensions into the create so the container starts on the right
-  // image immediately. Unknown names are dropped (catalog-validated); an
-  // image conflict (e.g. pgvector + timescaledb) falls back to the default:
-  // the post-create extensions pass surfaces the conflict as a typed error.
-  const extensions =
-    engine === "postgres" ? [...new Set(knownPostgresExtensions(input.extensions ?? []))] : [];
-  // Honour the operator's version pick (manifest `version` / wizard tag): it
-  // becomes the base `<repo>:<tag>` the extension resolver refines. Omitted →
-  // the catalog default. Extension-specific images (pgvector/postgis/…) still
-  // win, mirroring the review step's rendering in the create wizard.
-  const baseImage = input.version
-    ? `${DATABASE_ENGINES[engine].dockerImage}:${input.version}`
-    : adapter.defaultImage;
-  const resolvedImage = resolvePostgresImage(extensions, baseImage);
-  const dbImage = resolvedImage.ok ? resolvedImage.image : baseImage;
+  const host = input.host ?? null;
+  const { extensions, dbImage } = resolveImageAndExtensions(input, engine, adapter);
   // Caddy layer4 ALPN routing is engine-specific; only postgres has a wired
   // ALPN today. Other engines stay internal-only until we plumb their TCP
   // proxy path (redis raw TCP, mariadb mysql ALPN, etc.).
-  const publicEnabled = engine === "postgres" ? (input.publicEnabled ?? false) : false;
+  // Public exposure is per-CONTAINER: the layer4 route SNI-routes a hostname
+  // to one upstream, and every tenant on a server shares that upstream, so a
+  // route for one would answer for its neighbours' credentials too. Tenants
+  // are internal-only until the proxy can route by database, and the create
+  // path forces it rather than accepting a flag it would silently ignore.
+  const publicEnabled = engine === "postgres" && !host ? (input.publicEnabled ?? false) : false;
   const resourceSlug = sanitizeDatabaseName(input.name);
   const projectSlug = sanitizeProjectSlug(input.project.slug);
   // Reuse the password minted at stage time (so the credentials the operator
@@ -103,12 +140,17 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   // Internal identity is the shared deriver's output. The SAME function the
   // draft-credentials endpoint uses, so pending-panel display and deployed
   // reality can't drift.
-  const { databaseName, username, internalHostname, internalConnectionString } =
+  const { databaseName, username, internalHostname, internalPort, internalConnectionString } =
     deriveInternalDbCredentials({
       engine,
       projectSlug: input.project.slug,
       resourceName: input.name,
       password,
+      // A tenant answers on its host's address. Its database name and user
+      // stay its own, so the credentials the operator sees are the tenant's.
+      host: host
+        ? { internalHostname: host.internalHostname, internalPort: host.internalPort }
+        : null,
     });
   // Walk the org/project/sslip chain to pick the public hostname. The org and
   // project rows may not exist yet for the first project, so a null sources
@@ -148,6 +190,9 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   });
   return {
     engine,
+    host,
+    hostResourceId: host?.resourceId ?? null,
+    connectionLimit: input.connectionLimit ?? null,
     adapter,
     extensions,
     extraEnv: input.extraEnv ?? {},
@@ -159,6 +204,7 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
     databaseName,
     username,
     internalHostname,
+    internalPort,
     internalConnectionString,
     resolved,
     publicHostname: resolved.fqdn,
@@ -198,6 +244,9 @@ export function buildCreatedResourceView(
     databaseName: created.database.databaseName,
     username: created.database.username,
     password: created.database.password,
+    hostResourceId: created.database.hostResourceId,
+    hostName: ctx.host?.name ?? null,
+    connectionLimit: created.database.connectionLimit,
     publicEnabled: created.database.publicEnabled,
     publicHostname: created.database.publicHostname,
     publicPort: created.database.publicPort,
@@ -218,8 +267,11 @@ export function buildCreatedResourceView(
     upstreamPort: created.database.upstreamPort,
     runtime: {
       serviceId: null,
-      serviceName: ctx.containerName,
-      volumeName: ctx.volumeName,
+      // A tenant has no container or volume of its own: the honest answer for
+      // both is its host's, which is what every runtime read resolves to once
+      // the row is persisted (see ensureSwarmRuntimeForRecord).
+      serviceName: ctx.host ? hostContainerName(ctx.host) : ctx.containerName,
+      volumeName: ctx.host ? hostVolumeName(ctx.host) : ctx.volumeName,
       networkName: `otterdeploy-${ctx.projectSlug}`,
       status: "starting",
       health: "starting",

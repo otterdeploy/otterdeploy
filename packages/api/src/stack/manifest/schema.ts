@@ -290,7 +290,25 @@ const databaseCommonSchema = z.object({
   extraEnv: envMap.optional(),
 });
 
-const postgresSchema = databaseCommonSchema.extend({
+/**
+ * Fields only a database that can SHARE a server carries.
+ *
+ * `host` names another database resource by name — the same way `${{name.VAR}}`
+ * refs address one — rather than by id, because a manifest has to survive being
+ * checked into a repo and applied to a different install. Declaring it means
+ * "this is a logical database inside that server", so no container, no volume
+ * and no placement of its own.
+ *
+ * Create-time only. Moving a live database between servers means copying its
+ * data, which a manifest apply must never do implicitly, so a changed `host` is
+ * refused rather than silently re-homed.
+ */
+const hostableSchema = z.object({
+  host: z.string().min(1).optional(),
+  connectionLimit: z.number().int().positive().max(10_000).optional(),
+});
+
+const postgresSchema = databaseCommonSchema.extend(hostableSchema.shape).extend({
   engine: z.literal("postgres"),
   version: z.string().min(1).optional(),
   extensions: z.array(z.string()).optional(),
@@ -313,12 +331,12 @@ const redisSchema = databaseCommonSchema.extend({
     .optional(),
 });
 
-const mariadbSchema = databaseCommonSchema.extend({
+const mariadbSchema = databaseCommonSchema.extend(hostableSchema.shape).extend({
   engine: z.literal("mariadb"),
   version: z.string().min(1).optional(),
 });
 
-const mongodbSchema = databaseCommonSchema.extend({
+const mongodbSchema = databaseCommonSchema.extend(hostableSchema.shape).extend({
   engine: z.literal("mongodb"),
   version: z.string().min(1).optional(),
 });

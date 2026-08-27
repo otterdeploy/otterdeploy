@@ -13,6 +13,8 @@ import type { Readable } from "node:stream";
  */
 import { Docker, demuxStream } from "@otterdeploy/docker";
 
+import { containerResourceId } from "../database-hosting/container-id";
+
 export interface ExecResult {
   exitCode: number;
   stdout: string;
@@ -30,9 +32,16 @@ export async function findResourceContainerId(
   docker: Docker,
   resourceId: string,
 ): Promise<string | null> {
+  // A database hosted on a shared server has no container of its own: its
+  // bytes live inside its HOST's. Resolving that here, at the one point every
+  // exec path already funnels through, is what lets the data viewer, the
+  // backup engine and ephemeral credentials work on a tenant without any of
+  // them learning that tenants exist. A dedicated database (and every service)
+  // resolves to itself, so this is a no-op for them.
+  const effectiveId = await containerResourceId(resourceId);
   const result = await docker.containers.list({
     all: false, // running only
-    filters: { label: [`otterdeploy.resource.id=${resourceId}`] },
+    filters: { label: [`otterdeploy.resource.id=${effectiveId}`] },
   });
   if (result.isErr()) throw result.error;
   const running = result.value.find((c) => c.State === "running");

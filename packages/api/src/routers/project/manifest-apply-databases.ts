@@ -1,179 +1,28 @@
 /**
- * Database create/update for the manifest reconciler. Create drains the
- * postgres create stream to completion (the apply path doesn't surface
- * per-step progress yet). Staged extensions + extraEnv are BAKED into the
- * create (image + env resolved up-front) so everything deploys as one
- * container: the only follow-up is running CREATE EXTENSION against the
- * live database.
+ * Database UPDATE for the manifest reconciler: the declared-only field
+ * reconciliations (public exposure, preview branching, extra env, extensions)
+ * plus the refusal that keeps a live database from being re-homed by a
+ * one-line manifest edit. Create lives in ./manifest-apply-database-create.
  */
-import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log } from "evlog";
 
 import { branchPlacementConflictForResource } from "../../lib/environment/branch-placement";
-import { destroySwarmDatabase } from "../../runtime/db";
 import { type DatabaseManifest } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
-import { createPostgresResourceStream, validatePostgresCreate } from "./postgres/create-stream";
 import { applyPostgresExtraEnv, setPostgresPublic } from "./postgres/env";
-import { ensurePersistedExtensionsLive, setPostgresExtensions } from "./postgres/extensions";
-import {
-  deleteDraftCredential,
-  deleteResourceById,
-  getDraftCredentialPassword,
-  setDatabaseResourcePreviewBranching,
-} from "./queries";
-import { buildContainerName } from "./views";
+import { setPostgresExtensions } from "./postgres/extensions";
+import { setDatabaseResourcePreviewBranching } from "./queries";
 
 type OrgId = OrganizationId;
 
-interface CreateDatabaseArgs {
-  projectId: ProjectId;
-  /** Environment the database is created in. Scopes the name check and gets
-   *  stamped on the row. */
-  environmentId: EnvironmentId;
-  organizationId: OrgId;
-  name: string;
-  spec: DatabaseManifest;
-  log: RequestLogger;
-}
-
-interface DrainedCreate {
-  success: boolean;
-  errorMessage: string | null;
-  createdResourceId: ResourceId | null;
-}
-
-// Drain the create stream, capturing the terminal outcome + the created
-// resource id so a failure can roll the draft row back.
-async function drainCreateStream(
-  stream: ReturnType<typeof createPostgresResourceStream>,
-): Promise<DrainedCreate> {
-  let success = false;
-  let errorMessage: string | null = null;
-  let createdResourceId: ResourceId | null = null;
-  for await (const event of stream) {
-    // The mapped view types `resourceId` as plain string; narrow with the
-    // real prefix guard instead of asserting.
-    if (event.type === "created" && hasPrefix(event.resource.resourceId, ID_PREFIX.resource)) {
-      createdResourceId = event.resource.resourceId;
-    }
-    if (event.type === "done") success = true;
-    if (event.type === "error") errorMessage = event.message;
-  }
-  return { success, errorMessage, createdResourceId };
-}
-
-export async function createDatabase(
-  args: CreateDatabaseArgs,
-): Promise<Result<{ name: string }, ManifestApplySkipError>> {
-  const validation = await validatePostgresCreate({
-    projectId: args.projectId,
-    organizationId: args.organizationId,
-    name: args.name,
-    environmentId: args.environmentId,
-  });
-  if (validation.isErr()) {
-    return Result.err(
-      new ManifestApplySkipError({
-        resource: "database",
-        name: args.name,
-        reason: `validation failed: ${validation.error.message}`,
-      }),
-    );
-  }
-
-  // Reuse the password minted when the database was staged (shown in the
-  // pending panel), so the connection details the operator copied pre-deploy
-  // keep working. Null → the create stream generates a fresh one.
-  const draftPassword = (await getDraftCredentialPassword(args.projectId, args.name)) ?? undefined;
-
-  const stream = createPostgresResourceStream(
-    {
-      projectId: args.projectId,
-      // Stamp the row into the environment the apply runs in. Dropping this
-      // left environment_id NULL, and NULL rows only render because the main
-      // environment owns them by convention. A create in a non-main
-      // environment would land in the wrong one entirely (od-lqm).
-      environmentId: args.environmentId,
-      organizationId: args.organizationId,
-      name: args.name,
-      engine: args.spec.engine,
-      // The wizard's version pick rides the manifest. Without this the
-      // create silently deployed the catalog default tag (e.g. 17-alpine
-      // when the operator chose 18).
-      version: args.spec.version,
-      publicEnabled: args.spec.publicEnabled ?? false,
-      password: draftPassword,
-      // Staged extensions + env deploy as part of THIS create: the stream
-      // resolves the image from the extension set and bakes the env into the
-      // container, so no follow-up image-swap or env-roll redeploy runs.
-      extensions: manifestExtensions(args.spec),
-      extraEnv: args.spec.extraEnv ?? {},
-      project: validation.value.project,
-    },
-    args.log,
-  );
-
-  const { success, errorMessage, createdResourceId } = await drainCreateStream(stream);
-  if (success && createdResourceId && args.spec.previews) {
-    // Manifest declared preview branching at create time, flag the fresh row.
-    await setDatabaseResourcePreviewBranching(createdResourceId, true);
-  }
-  if (!success) {
-    // Roll back the draft row a failed create left behind. Otherwise the
-    // half-created database lands in loadCurrentState, the next diff sees
-    // the manifest entry as already-existing and flips create → no-op: the
-    // ghost vanishes and the operator can never cleanly retry.
-    if (createdResourceId) await deleteResourceById(createdResourceId);
-    // And tear down whatever container the failed create may have started.
-    // A leftover holding the name would 409 every retry. Best-effort: the
-    // volume stays (data safety), only the container goes.
-    await Result.tryPromise({
-      try: () =>
-        destroySwarmDatabase(
-          {
-            serviceName: buildContainerName({
-              engine: args.spec.engine,
-              projectSlug: validation.value.project.slug,
-              resourceName: args.name,
-            }),
-          },
-          args.log,
-        ),
-      catch: (e) => e,
-    });
-    return Result.err(
-      new ManifestApplySkipError({
-        resource: "database",
-        name: args.name,
-        reason: errorMessage ?? "create stream ended without done event",
-      }),
-    );
-  }
-
-  // Provisioned: the real database_resource row now owns the password, so the
-  // staged draft credential is redundant. Drop it.
-  await deleteDraftCredential(args.projectId, args.name);
-
-  // Image + env were baked into the create above; the persisted extension
-  // list still needs its CREATE EXTENSION statements against the live DB.
-  if (createdResourceId) {
-    await ensurePersistedExtensionsLive(
-      { projectId: args.projectId, resourceId: createdResourceId },
-      args.log,
-    );
-  }
-
-  return Result.ok({ name: args.name });
-}
-
 /** Extensions only exist on the postgres manifest variant. Read them off
- *  the spec without assuming the discriminant has been narrowed. */
-function manifestExtensions(spec: DatabaseManifest): string[] {
+ *  the spec without assuming the discriminant has been narrowed. Shared with
+ *  the create half, which bakes them into the image. */
+export function manifestExtensions(spec: DatabaseManifest): string[] {
   const value = "extensions" in spec ? spec.extensions : undefined;
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
@@ -186,12 +35,34 @@ interface UpdateDatabaseArgs {
   spec: DatabaseManifest;
   currentExtraEnv: Record<string, string>;
   currentPublicEnabled: boolean;
+  /** Name of the server this database currently lives on, null when it has a
+   *  container of its own. */
+  currentHost: string | null;
+  /** What the manifest declares, or undefined when it declares nothing (in
+   *  which case placement is live-managed and left alone). */
+  declaredHost: string | null | undefined;
   log: RequestLogger;
 }
 
 export async function updateDatabaseFromManifest(
   args: UpdateDatabaseArgs,
 ): Promise<Result<{ name: string }, ManifestApplySkipError>> {
+  // Moving a live database onto (or off) a server means copying its data
+  // between engines and cutting over every consumer's connection string. An
+  // apply must not do that because one line of a manifest changed, so the
+  // diff shows the drift and this refuses it with the reason.
+  if (args.declaredHost !== undefined && args.currentHost !== args.declaredHost) {
+    return Result.err(
+      new ManifestApplySkipError({
+        resource: "database",
+        name: args.name,
+        reason:
+          `"${args.name}" already lives ${args.currentHost ? `on server "${args.currentHost}"` : "on its own container"}. ` +
+          `Moving it copies data, so create a new database on "${args.declaredHost}" and migrate instead.`,
+      }),
+    );
+  }
+
   // Only touch public exposure when the manifest explicitly declares it AND
   // it differs. The old unconditional `spec.publicEnabled ?? false` call
   // meant every env-only apply re-rolled the container and silently turned

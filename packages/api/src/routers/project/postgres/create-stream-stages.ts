@@ -78,6 +78,8 @@ export async function* persistDbRecordStage(
       caddyLayer4Snippet: "",
       extensions: ctx.extensions,
       extraEnv: ctx.extraEnv,
+      hostResourceId: ctx.hostResourceId,
+      connectionLimit: ctx.connectionLimit,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {

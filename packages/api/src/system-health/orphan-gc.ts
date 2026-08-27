@@ -27,7 +27,13 @@ import * as z from "zod";
 import { runtime } from "../runtime";
 import { removeComposeStack, removeProjectNetwork } from "../swarm";
 
-export type OrphanResourceType = "service" | "volume" | "network" | "image" | "compose_stack";
+export type OrphanResourceType =
+  | "service"
+  | "volume"
+  | "network"
+  | "image"
+  | "compose_stack"
+  | "hosted_database";
 
 export interface RecordOrphanInput {
   organizationId: OrganizationId;
@@ -152,6 +158,39 @@ async function destroyImageOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   return "gone";
 }
 
+/** Payload a leftover hosted database carries: everything the drop plan needs
+ *  that the `ref` (the database name) doesn't already say. */
+const hostedDatabaseOrphanPayload = z.object({
+  hostResourceId: zId(ID_PREFIX.resource),
+  username: z.string(),
+});
+
+/**
+ * Retry the drop of a logical database whose server was unreachable when its
+ * resource was deleted. Unlike a container, nothing else will ever clean this
+ * up: the row is gone, so this record is the only thing that remembers the
+ * bytes are there.
+ */
+async function destroyHostedDatabaseOrphan(row: OrphanRow): Promise<DestroyOutcome> {
+  const payload = hostedDatabaseOrphanPayload.safeParse(row.payload ?? {});
+  // A payload that doesn't parse can never succeed later, so clearing it is
+  // the honest outcome — retrying it forever would only hide the record.
+  if (!payload.success) return "gone";
+  const { dropTenant, getHostRow } = await import("../database-hosting");
+  const host = await getHostRow({
+    organizationId: row.organizationId,
+    resourceId: payload.data.hostResourceId,
+  });
+  // The server itself is gone: its volume took the database with it.
+  if (!host) return "gone";
+  return attemptDestroy(() =>
+    dropTenant({
+      host,
+      tenant: { databaseName: row.ref, username: payload.data.username, password: "" },
+    }),
+  );
+}
+
 async function destroyOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   switch (row.resourceType) {
     case "service":
@@ -164,6 +203,8 @@ async function destroyOrphan(row: OrphanRow): Promise<DestroyOutcome> {
       return destroyVolumeOrphan(row);
     case "image":
       return destroyImageOrphan(row);
+    case "hosted_database":
+      return destroyHostedDatabaseOrphan(row);
     case "network":
       // removeProjectNetwork is best-effort (logs, never throws), so we can't
       // distinguish "removed" from "daemon down". Attempt once and clear: a

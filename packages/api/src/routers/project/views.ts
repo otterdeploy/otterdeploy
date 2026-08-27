@@ -27,6 +27,7 @@ import {
   type ComposeResourceJoined,
   type DatabaseResourceRecord,
   type ServiceResourceJoined,
+  getHostForRuntime,
   getProjectRecord,
 } from "./queries";
 import { buildConnectionString } from "./view-helpers";
@@ -189,6 +190,13 @@ export async function mapDatabaseResource(
     databaseName: databaseRecord.databaseName,
     username: databaseRecord.username,
     password: databaseRecord.password,
+    hostResourceId: databaseRecord.hostResourceId,
+    // Resolved only for a hosted row: one extra query for the databases that
+    // have a server, none at all for the ones that don't.
+    hostName: databaseRecord.hostResourceId
+      ? ((await getHostForRuntime(databaseRecord.hostResourceId))?.name ?? null)
+      : null,
+    connectionLimit: databaseRecord.connectionLimit,
     publicEnabled: databaseRecord.publicEnabled,
     publicHostname: databaseRecord.publicHostname,
     publicPort: databaseRecord.publicPort,

@@ -271,6 +271,7 @@ describe("diffManifest", () => {
           publicEnabled: true,
           previewBranching: false,
           extraEnv: { B: "2" },
+          host: null,
         },
       },
       composes: {},
@@ -336,6 +337,7 @@ describe("diffDatabase declared-only fields", () => {
           publicEnabled: false,
           previewBranching: false,
           extraEnv: {},
+          host: null,
           ...over,
         },
       },
@@ -517,6 +519,7 @@ describe("declared-only service fields and env", () => {
         publicEnabled: false,
         previewBranching: false,
         extraEnv: {},
+        host: null,
       },
     };
     // Apply stores the RESOLVED value. The resolver makes the diff compare
@@ -542,5 +545,75 @@ describe("declared-only service fields and env", () => {
         owner: "web",
       },
     });
+  });
+});
+
+/**
+ * Where a database LIVES is create-time only.
+ *
+ * Re-homing one means copying its data between servers and cutting over every
+ * consumer's connection string, so the diff's job here is to make the drift
+ * visible (staged as a field change) while apply refuses it. The failure this
+ * guards against is the opposite of a phantom change: a manifest that declares
+ * the server a database is ALREADY on must diff as a no-op, or every apply
+ * restages the same move forever.
+ */
+describe("diffDatabase host placement", () => {
+  const current = (host: string | null): CurrentState => ({
+    services: {},
+    composes: {},
+    databases: {
+      blog: {
+        name: "blog",
+        engine: "postgres" as const,
+        publicEnabled: false,
+        previewBranching: false,
+        extraEnv: {},
+        host,
+      },
+    },
+  });
+
+  const declared = (host?: string) =>
+    manifest({
+      project: "acme",
+      services: {},
+      databases: { blog: { engine: "postgres", ...(host ? { host } : {}) } },
+    });
+
+  it("is a no-op once the database already lives on the declared server", () => {
+    const changes = diffManifest(declared("pg"), current("pg"));
+    expect(changes).toEqual([{ kind: "no-op", resource: "database", name: "blog" }]);
+  });
+
+  it("stages the move when the manifest names a different server", () => {
+    const changes = diffManifest(declared("pg-2"), current("pg"));
+    expect(changes).toEqual([
+      {
+        kind: "update",
+        resource: "database",
+        name: "blog",
+        details: { fields: { host: { from: "pg", to: "pg-2" } } },
+      },
+    ]);
+  });
+
+  it("stages the move off a dedicated container onto a server", () => {
+    const changes = diffManifest(declared("pg"), current(null));
+    expect(changes).toEqual([
+      {
+        kind: "update",
+        resource: "database",
+        name: "blog",
+        details: { fields: { host: { from: null, to: "pg" } } },
+      },
+    ]);
+  });
+
+  it("an omitted host leaves a hosted database alone, like every other declared-only field", () => {
+    // The phantom-revert rule: absent means "not manifest-managed", never
+    // "move it back onto its own container".
+    const changes = diffManifest(declared(), current("pg"));
+    expect(changes).toEqual([{ kind: "no-op", resource: "database", name: "blog" }]);
   });
 });

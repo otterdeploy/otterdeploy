@@ -80,6 +80,16 @@ export interface ResourceFormState {
   /** Postgres-only: enabled extensions (canonical CREATE EXTENSION names).
    *  Staged into the manifest at create time. */
   extensions: string[];
+  /** Database-only: put this database inside an existing server instead of
+   *  giving it a container of its own. Null = dedicated, which is the
+   *  default and what every database was before servers could be shared.
+   *  The NAME (not the id) is what the manifest declares, so it stays
+   *  portable across installs. */
+  hostName: string | null;
+  /** Cap on this database's connections when it shares a server. Null =
+   *  uncapped. Meaningless on a dedicated server, where the whole budget is
+   *  already its own. */
+  connectionLimit: number | null;
 }
 
 export const resourceDefaults: ResourceFormState = {
@@ -118,4 +128,6 @@ export const resourceDefaults: ResourceFormState = {
   pinnedNodeId: null,
   publicEnabled: false,
   extensions: [],
+  hostName: null,
+  connectionLimit: null,
 };

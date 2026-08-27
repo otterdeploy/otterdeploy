@@ -2,7 +2,7 @@ import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { databaseResource, resource } from "@otterdeploy/db/schema/project";
+import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -105,6 +105,11 @@ export async function createDatabaseResourceRecord(input: {
   /** User env vars the create bakes into the container, so no post-create
    *  env-roll redeploy is needed. */
   extraEnv?: Record<string, string>;
+  /** The server this database lives inside, when it isn't its own. See
+   *  `database_resource.host_resource_id`. */
+  hostResourceId?: ResourceId | null;
+  /** Cap on the tenant's concurrent connections (shared servers only). */
+  connectionLimit?: number | null;
 }): Promise<DatabaseResourceRecord> {
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
@@ -148,6 +153,8 @@ export async function createDatabaseResourceRecord(input: {
         upstreamHost: input.upstreamHost,
         upstreamPort: input.upstreamPort,
         caddyLayer4Snippet: input.caddyLayer4Snippet,
+        hostResourceId: input.hostResourceId ?? null,
+        connectionLimit: input.connectionLimit ?? null,
         ...(input.extensions && input.extensions.length > 0
           ? { extensions: input.extensions }
           : {}),
@@ -261,4 +268,30 @@ export async function setDatabaseResourceExtensions(resourceId: ResourceId, exte
     .where(eq(databaseResource.resourceId, resourceId))
     .returning();
   return updated;
+}
+
+/**
+ * Minimal host lookup for the runtime path: the coordinates needed to inspect
+ * the server's container. Not org-scoped on purpose — the caller already holds
+ * an org-scoped record, and the host id on it was written by a create that WAS
+ * scoped, so a second check here would only turn a legitimate cross-project
+ * host into a phantom "missing" runtime.
+ */
+export async function getHostForRuntime(hostResourceId: ResourceId): Promise<{
+  name: string;
+  engine: DatabaseEngine;
+  projectSlug: string;
+} | null> {
+  const [row] = await db
+    .select({
+      name: resource.name,
+      engine: databaseResource.engine,
+      projectSlug: project.slug,
+    })
+    .from(databaseResource)
+    .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(eq(databaseResource.resourceId, hostResourceId))
+    .limit(1);
+  return row ?? null;
 }

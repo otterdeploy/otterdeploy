@@ -63,6 +63,14 @@ const createPostgresDatabaseInput = z.object({
   /** Image tag for the engine (the wizard's version pick, e.g. "18" or
    *  "17-alpine"). Omitted → the catalog default tag. */
   version: z.string().min(1).optional(),
+  /** Create this database INSIDE an existing server instead of starting a
+   *  container for it. The server must run the same engine and must not
+   *  itself be hosted. Omitted → a dedicated container, which is the
+   *  behaviour every existing caller gets. */
+  hostResourceId: resourceIdField.optional(),
+  /** Cap on the new database's concurrent connections. Shared-server only:
+   *  a dedicated server's connections are already its own. */
+  connectionLimit: z.number().int().positive().max(10_000).optional(),
 });
 
 /**
@@ -192,6 +200,14 @@ export const postgresContractSlice = {
         status: 409,
         message: "Database resource already exists" as const,
       },
+      // The chosen server can't take this database: it runs another engine,
+      // it is itself hosted, or its engine has no isolated-tenant model at
+      // all. Distinct from NOT_FOUND so the wizard can point at the field.
+      HOST_UNUSABLE: {
+        status: 422,
+        message: "That database server can't host this database" as const,
+        data: z.object({ reason: z.string() }),
+      },
     })
     .meta({
       path: `${basePath}/{projectId}/resources/database/postgres`,
@@ -217,7 +233,15 @@ export const postgresContractSlice = {
     .output(draftCredentialsOutput),
 
   setPublic: oc
-    .errors(resourceNotFoundErrors)
+    .errors({
+      ...resourceNotFoundErrors,
+      // A database inside a shared server can't be published on its own: the
+      // route would serve every database on that server.
+      NOT_PUBLISHABLE: {
+        status: 422 as const,
+        message: "This database can't be exposed on its own" as const,
+      },
+    })
     .meta({
       path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/public`,
       tag,

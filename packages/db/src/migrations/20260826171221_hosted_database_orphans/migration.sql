@@ -1,0 +1,1 @@
+ALTER TYPE "orphaned_resource_type" ADD VALUE 'hosted_database';

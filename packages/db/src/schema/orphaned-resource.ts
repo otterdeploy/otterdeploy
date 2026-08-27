@@ -39,6 +39,10 @@ export const orphanedResourceTypeEnum = pgEnum("orphaned_resource_type", [
   "network",
   "image",
   "compose_stack",
+  // A logical database left behind on a shared server when its drop failed
+  // (the server was down at delete time). `ref` is the database name; the
+  // payload carries the host and role the retry needs.
+  "hosted_database",
 ]);
 
 export const orphanedResource = pgTable(

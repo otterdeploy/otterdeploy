@@ -19,7 +19,11 @@ import { reconcile } from "../../../caddy";
 import { deleteProxyRoutesByResource, insertProxyRoute } from "../../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
-import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
+import {
+  HostedDatabaseNotPublishableError,
+  PostgresResourceNotFoundError,
+  ProjectNotFoundError,
+} from "../errors";
 import { syncManifestDatabasePublic } from "../manifest";
 import { getDatabaseResourceRecord, getProjectInOrg, setDatabaseResourcePublic } from "../queries";
 import { mapDatabaseResource, type PostgresResource } from "../views";
@@ -33,7 +37,12 @@ export {
 export async function setPostgresPublic(
   input: ProjectRef & { resourceId: ResourceId; publicEnabled: boolean },
   log: RequestLogger,
-): Promise<Result<PostgresResource, ProjectNotFoundError | PostgresResourceNotFoundError>> {
+): Promise<
+  Result<
+    PostgresResource,
+    ProjectNotFoundError | PostgresResourceNotFoundError | HostedDatabaseNotPublishableError
+  >
+> {
   log.set({
     resource: { kind: "postgres", projectId: input.projectId, id: input.resourceId },
     setPublic: { requested: input.publicEnabled },
@@ -50,6 +59,19 @@ export async function setPostgresPublic(
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
+  }
+
+  // A layer4 route SNI-routes one hostname to one upstream, and on a shared
+  // server that upstream is every tenant at once. Publishing one database
+  // would put the whole server on the internet, reachable with any tenant's
+  // credentials, so the toggle is refused rather than half-honoured.
+  if (record.database.hostResourceId && input.publicEnabled) {
+    return Result.err(
+      new HostedDatabaseNotPublishableError({
+        resourceId: input.resourceId,
+        name: record.resource.name,
+      }),
+    );
   }
 
   // Drop existing routes either way. On disable we want them gone; on

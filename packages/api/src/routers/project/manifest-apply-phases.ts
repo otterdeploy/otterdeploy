@@ -14,7 +14,8 @@ import { type Change, type CurrentState, type Manifest } from "../../stack/manif
 import { createComposeFromManifest } from "../compose/manifest-reconcile";
 import { deleteService } from "../service/handlers";
 import { ManifestApplySkipError } from "./errors";
-import { createDatabase, updateDatabaseFromManifest } from "./manifest-apply-databases";
+import { createDatabase } from "./manifest-apply-database-create";
+import { updateDatabaseFromManifest } from "./manifest-apply-databases";
 import { enqueueGitBuild } from "./manifest-apply-git";
 import { lookupDatabaseId, lookupServiceId } from "./manifest-apply-support";
 import { deleteProjectResource } from "./resources";
@@ -122,6 +123,8 @@ export async function runDatabaseUpdates(
         spec,
         currentExtraEnv: ctx.current.databases[change.name]?.extraEnv ?? {},
         currentPublicEnabled: ctx.current.databases[change.name]?.publicEnabled ?? false,
+        currentHost: ctx.current.databases[change.name]?.host ?? null,
+        declaredHost: "host" in spec ? spec.host : undefined,
         log: ctx.log,
       });
     }),
