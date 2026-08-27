@@ -68,7 +68,10 @@ export function DecisionsTable({
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
                 {reachable
-                  ? "No active decisions. Nothing is currently blocked."
+                  ? // Says where the past went, because an empty table here
+                    // after an attack is exactly when someone assumes the
+                    // product forgot something.
+                    "Nothing is blocked right now. Bans expire on their own — see History for the ones that have."
                   : "Can't reach the CrowdSec agent. Is the firewall profile running?"}
               </TableCell>
             </TableRow>

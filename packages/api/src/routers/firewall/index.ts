@@ -28,12 +28,14 @@ import {
   setBlocklistEnabled,
   type BlocklistRow,
 } from "./queries";
+import { recordedHandlers } from "./recorded-handlers";
 import { clearBlocklist, syncBlocklist, validateBlocklistSource } from "./sync";
 
 const globalFirewallRead = requireInstallAdmin();
 const globalFirewallWrite = requireInstallAdminPermission({ firewall: ["update"] });
 
 export const firewallRouter = {
+  ...recordedHandlers,
   status: globalFirewallRead.firewall.status.handler(async () => {
     // Reachable = the agent answered `cscli lapi status` over the Docker exec.
     const lapi = await cscliRead("cscli lapi status");

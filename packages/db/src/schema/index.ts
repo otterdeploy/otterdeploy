@@ -8,6 +8,7 @@ export * from "./audit";
 export * from "./auth";
 export * from "./backup";
 export * from "./blocklist";
+export * from "./firewall-decision";
 export * from "./build";
 export * from "./certificates";
 export * from "./database-ephemeral";

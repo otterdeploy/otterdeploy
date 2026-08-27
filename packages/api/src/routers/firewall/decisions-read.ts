@@ -16,6 +16,7 @@ import { Result } from "better-result";
 import { initGeo, lookupAsn, lookupCountry } from "../../edge-logs/geo";
 import { crowdsecConfig } from "../../lib/platform-runtime-settings";
 import { cscliRead } from "./cscli";
+import { lapiGetArray } from "./lapi-fetch";
 
 export interface Decision {
   id: number | null;
@@ -91,23 +92,10 @@ const DECISION_ORIGINS = ["cscli", "crowdsec"];
 /** Primary read path. LAPI decisions endpoint. Returns null when
  *  unconfigured or unreachable (caller falls back to cscli). */
 async function fetchDecisionsViaLapi(): Promise<Decision[] | null> {
-  const crowdsec = await crowdsecConfig();
-  if (!crowdsec) return null;
-  const url = `${crowdsec.apiUrl}/v1/decisions?origins=${DECISION_ORIGINS.join(",")}`;
-  const res = await Result.tryPromise({
-    try: () =>
-      fetch(url, {
-        headers: { "X-Api-Key": crowdsec.apiKey },
-        signal: AbortSignal.timeout(10_000),
-      }),
-    catch: (cause) => cause,
-  });
-  if (res.isErr() || !res.value.ok) return null;
-  // The endpoint returns a literal `null` body when nothing matches.
-  const body: unknown = await res.value.json().catch(() => null);
-  const rows = (Array.isArray(body) ? body.filter(isJsonObject) : []).map((d) =>
-    toDecision(d, {}, {}),
-  );
+  const rows = (
+    await lapiGetArray(`/v1/decisions?origins=${DECISION_ORIGINS.join(",")}`, 10_000)
+  )?.map((d) => toDecision(d, {}, {}));
+  if (!rows) return null;
   // Newest first (decision ids are monotonic). A just-placed ban is on top.
   return rows.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
 }

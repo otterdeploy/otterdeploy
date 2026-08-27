@@ -60,6 +60,7 @@ export type BackupRestoreId = Id<typeof ID_PREFIX.backupRestore>;
 
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
 export type BlocklistId = Id<typeof ID_PREFIX.blocklist>;
+export type FirewallDecisionId = Id<typeof ID_PREFIX.firewallDecision>;
 export type SshKeyId = Id<typeof ID_PREFIX.sshKey>;
 export type CustomCertificateId = Id<typeof ID_PREFIX.customCertificate>;
 export type TrustedCaId = Id<typeof ID_PREFIX.trustedCa>;

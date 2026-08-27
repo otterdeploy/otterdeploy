@@ -72,6 +72,8 @@ export const ID_PREFIX = {
   notificationDelivery: "ntfd",
   // firewall, managed IP blocklists synced into CrowdSec
   blocklist: "blk",
+  // firewall, a CrowdSec decision recorded so it outlives its own TTL
+  firewallDecision: "fwd",
   // SSH keys: org-scoped keypairs for Git auth + node management
   sshKey: "ssh",
   // TLS: operator-uploaded custom certificates + trusted CA inventory
@@ -360,6 +362,7 @@ export const idSchema: IdSchemaMap = {
   notificationSubscription: zId(ID_PREFIX.notificationSubscription),
   notificationDelivery: zId(ID_PREFIX.notificationDelivery),
   blocklist: zId(ID_PREFIX.blocklist),
+  firewallDecision: zId(ID_PREFIX.firewallDecision),
   sshKey: zId(ID_PREFIX.sshKey),
   customCertificate: zId(ID_PREFIX.customCertificate),
   trustedCa: zId(ID_PREFIX.trustedCa),
