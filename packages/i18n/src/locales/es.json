@@ -655,7 +655,8 @@
       "needsPermission": "Tu App de GitHub necesita acceso a packages para que esto funcione. GitHub pide la aprobación de un propietario — no se concede automáticamente.",
       "review": "Revisar en GitHub",
       "needsGrant": "falta acceso a paquetes",
-      "authValue": "GitHub App"
+      "authValue": "GitHub App",
+      "nothingToRotate": "Autorizado por solicitud: nada que rotar"
     },
     "project": "proyecto",
     "projects": "proyectos",

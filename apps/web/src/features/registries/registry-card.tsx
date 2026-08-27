@@ -123,35 +123,35 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
           />
         }
         title={registry.displayName}
+        badge={registry.authType}
         subtitle={`${registry.username}@${registry.host}`}
         tone={used ? "ok" : "idle"}
-        stat={
-          used ? (
-            <>
-              <span className="font-mono text-foreground tabular-nums">
-                {registry.projectCount}
-              </span>{" "}
-              {t(registry.projectCount === 1 ? "registries.project" : "registries.projects")}
-            </>
-          ) : (
-            <span className="text-amber-600 dark:text-amber-500">{t("registries.unused")}</span>
-          )
+        meta={
+          <>
+            {used ? (
+              <span>
+                <span className="font-mono text-foreground tabular-nums">
+                  {registry.projectCount}
+                </span>{" "}
+                {t(registry.projectCount === 1 ? "registries.project" : "registries.projects")}
+              </span>
+            ) : (
+              <span className="text-amber-600 dark:text-amber-500">{t("registries.unused")}</span>
+            )}
+            <span aria-hidden>·</span>
+            <span>
+              {t("registries.detail.added")} {formatRelative(registry.createdAt)}
+            </span>
+            {edited && (
+              <>
+                <span aria-hidden>·</span>
+                <span>
+                  {t("registries.detail.updated")} {formatRelative(registry.updatedAt)}
+                </span>
+              </>
+            )}
+          </>
         }
-        detail={[
-          { label: t("registries.detail.host"), value: registry.host, mono: true },
-          { label: t("registries.detail.auth"), value: registry.authType },
-          { label: t("registries.detail.username"), value: registry.username, mono: true },
-          {
-            label: t("registries.detail.projects"),
-            value: String(registry.projectCount),
-            mono: true,
-          },
-          { label: t("registries.detail.added"), value: formatRelative(registry.createdAt) },
-          ...(edited
-            ? [{ label: t("registries.detail.updated"), value: formatRelative(registry.updatedAt) }]
-            : []),
-        ]}
-        note={used ? t("registries.noteUsed") : t("registries.noteUnused")}
         actions={
           <>
             <Button

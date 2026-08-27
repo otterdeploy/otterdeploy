@@ -58,32 +58,23 @@ export function GhcrDerivedCard({ capability }: { capability: GhcrCapabilityView
         />
       }
       title="ghcr.io"
-      subtitle={account ?? t("registries.ghcr.badge")}
+      badge={t("registries.ghcr.badge")}
+      // The account IS the identity line here, the way `user@host` is on a
+      // stored credential. There is no username and no secret to name.
+      subtitle={account ?? t("registries.ghcr.authValue")}
       // Amber while the packages grant is missing: the App is installed but
       // pushes will fail, which is a state to act on rather than a healthy one.
       tone={needsPermission ? "idle" : "ok"}
-      stat={
+      meta={
         needsPermission ? (
           <span className="text-amber-600 dark:text-amber-500">
             {t("registries.ghcr.needsGrant")}
           </span>
         ) : (
-          t("registries.ghcr.badge")
+          // Says the one thing the face can't otherwise: there is no secret
+          // here to create, rotate, or leak.
+          <span>{t("registries.ghcr.nothingToRotate")}</span>
         )
-      }
-      detail={[
-        { label: t("registries.detail.host"), value: "ghcr.io", mono: true },
-        { label: t("registries.detail.auth"), value: t("registries.ghcr.authValue") },
-        ...(account === null
-          ? []
-          : [{ label: t("registries.detail.account"), value: account, mono: true }]),
-      ]}
-      note={
-        needsPermission
-          ? t("registries.ghcr.needsPermission")
-          : account === null
-            ? t("registries.ghcr.description")
-            : t("registries.ghcr.descriptionAs", { account })
       }
       actions={
         needsPermission && capability.permissionUrl !== null ? (

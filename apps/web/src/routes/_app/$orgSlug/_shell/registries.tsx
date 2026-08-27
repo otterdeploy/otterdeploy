@@ -107,7 +107,7 @@ function RegistriesRoute() {
         // size on every breakpoint. Full-bleed rows spent a 1960px page on
         // eighty characters of content and put the actions a corridor away
         // from the name they belonged to.
-        <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {/* First: it needs no setup, so it is the answer to "do I even have
               to add anything?" before the list of things someone added. */}
           {showGhcr && ghcr.data ? <GhcrDerivedCard capability={ghcr.data} /> : null}
