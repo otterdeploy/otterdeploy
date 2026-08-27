@@ -9,6 +9,8 @@ import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+
 import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
 import { orpc } from "@/shared/server/orpc";
 
@@ -39,6 +41,30 @@ interface PanelChromeProps {
   onTabChange: (tab: string) => void;
 }
 
+/**
+ * Where the open resource sits, built once here because this is the only place
+ * that knows all three parts: the project, the resource, and (for a compose
+ * child) the stack above it. Every panel kind renders the same crumb from it,
+ * so "where am I" can't answer differently per resource type.
+ */
+function buildCrumb(input: {
+  project: { id: ProjectId; name: string };
+  orgSlug: string;
+  projectSlug: ProjectSlug;
+  resourceId?: string;
+  /** A compose child's parent stack; null for everything else. */
+  stackId?: string | null;
+}): PanelCrumb {
+  return {
+    orgSlug: input.orgSlug,
+    projectSlug: input.projectSlug,
+    projectId: input.project.id,
+    projectName: input.project.name,
+    parentResourceId: input.stackId ?? null,
+    ...(input.resourceId ? { currentResourceId: input.resourceId } : {}),
+  };
+}
+
 /** An applied (real, already-provisioned) resource. Dispatches to its own
  *  kind's panel. Split out of ResourcePanel so each dispatcher stays under
  *  the complexity cap. */
@@ -55,6 +81,7 @@ function AppliedResourcePanel({
     return (
       <RealResourcePanel
         resource={resource}
+        crumb={buildCrumb({ project, orgSlug, projectSlug, resourceId: resource.resourceId })}
         projectName={project.name}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
@@ -68,6 +95,16 @@ function AppliedResourcePanel({
     return (
       <ServiceResourcePanel
         resource={resource}
+        // A stack member carries `stackId`, which is what puts the stack in
+        // its crumb. Until this, a service opened from inside a stack said
+        // nothing about the stack it belonged to.
+        crumb={buildCrumb({
+          project,
+          orgSlug,
+          projectSlug,
+          resourceId: resource.resourceId,
+          stackId: resource.stackId,
+        })}
         // Framework brand mark for the drawer header tile: same value the
         // graph node uses, read straight off the stored resource record
         // (detected at build time). No git-API call when the panel opens.
@@ -83,6 +120,7 @@ function AppliedResourcePanel({
   return (
     <ComposeResourcePanel
       resource={resource}
+      crumb={buildCrumb({ project, orgSlug, projectSlug, resourceId: resource.resourceId })}
       orgSlug={orgSlug}
       projectSlug={projectSlug}
       onClose={onClose}
@@ -119,6 +157,7 @@ function DraftResourcePanel({
     return (
       <ServiceResourcePanel
         resource={draftService}
+        crumb={buildCrumb({ project, orgSlug, projectSlug })}
         framework={null}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
@@ -134,6 +173,7 @@ function DraftResourcePanel({
     return (
       <RealResourcePanel
         resource={draftDatabase}
+        crumb={buildCrumb({ project, orgSlug, projectSlug })}
         projectName={project.name}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
@@ -150,6 +190,7 @@ function DraftResourcePanel({
     return (
       <ComposeResourcePanel
         resource={draftCompose}
+        crumb={buildCrumb({ project, orgSlug, projectSlug })}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}

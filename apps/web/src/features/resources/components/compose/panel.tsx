@@ -16,14 +16,16 @@ import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
-import type { ComposeService } from "./panel-parts";
+import type { ComposeService, StackServiceStatus } from "./panel-parts";
 
 import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
-import { ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
+import { ComposePanelHeader } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
 import { StackVariablesTab } from "./stack-variables-tab";
 import { useComposeServiceStatus } from "./use-compose-service-status";
@@ -69,6 +71,9 @@ interface ComposeResourcePanelProps {
   tab?: string;
   /** Report a tab click so the route can write it to the URL. */
   onTabChange: (tab: string) => void;
+  /** Where this resource sits, built once by the panel dispatcher so every
+   *  kind renders the same crumb. */
+  crumb: PanelCrumb;
 }
 
 const COMPOSE_TABS: readonly ComposeTab[] = [
@@ -84,7 +89,27 @@ const COMPOSE_TABS: readonly ComposeTab[] = [
 // URL naming one of them must not select it.
 const COMPOSE_PENDING_TABS: readonly ComposeTab[] = ["services"];
 
+/**
+ * The header pill's `2/2 running`, rolled up from the children.
+ *
+ * A staged stack has no children running yet, so it reports null and gets no
+ * pill at all — `0/2` on something that was never deployed reads as an outage.
+ */
+function rollUpChildren(
+  services: { serviceName: string }[],
+  serviceStatus: (serviceName: string) => StackServiceStatus,
+  pending: boolean,
+): { up: number; total: number; anyError: boolean } | null {
+  if (pending) return null;
+  return {
+    up: services.filter((s) => serviceStatus(s.serviceName) === "running").length,
+    total: services.length,
+    anyError: services.some((s) => serviceStatus(s.serviceName) === "error"),
+  };
+}
+
 export function ComposeResourcePanel({
+  crumb,
   resource,
   orgSlug,
   projectSlug,
@@ -151,12 +176,8 @@ export function ComposeResourcePanel({
           })
         }
         redeploying={pending || redeploy.isPending}
-      />
-
-      <ComposeStatusBar
-        services={resource.services}
-        serviceStatus={serviceStatus}
-        stackName={resource.stackName}
+        crumb={crumb}
+        running={rollUpChildren(resource.services, serviceStatus, pending)}
       />
 
       <Tabs

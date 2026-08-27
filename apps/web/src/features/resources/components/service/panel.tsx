@@ -13,12 +13,15 @@ import type { ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id"
 import { useState } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
+import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 
+import { PublicHostLink } from "@/shared/components/public-host-link";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
 import { ServicePanelBody } from "./panel-body";
-import { ServicePanelHeader, ServiceStatusBar } from "./panel-parts";
+import { ServicePanelHeader } from "./panel-parts";
+import { replicaSummary } from "./service-status";
 import { useLiveService, usePauseControl } from "./use-live-service";
 import { useServiceRuntimeActions } from "./use-service-runtime-actions";
 
@@ -65,6 +68,9 @@ interface ServiceResourcePanelProps {
   tab?: string;
   /** Report a tab click so the route can write it to the URL. */
   onTabChange: (tab: string) => void;
+  /** Where this resource sits, built once by the panel dispatcher so every
+   *  kind renders the same crumb. */
+  crumb: PanelCrumb;
 }
 
 const SERVICE_TABS: readonly ServiceTab[] = [
@@ -116,6 +122,7 @@ function ServicePanelTabsList({ pending }: { pending: boolean }) {
 }
 
 export function ServiceResourcePanel({
+  crumb,
   resource,
   framework,
   orgSlug,
@@ -159,6 +166,7 @@ export function ServiceResourcePanel({
     <div className="flex h-full flex-col overflow-hidden">
       <ServicePanelHeader
         resource={resource}
+        status={resource.status}
         framework={framework}
         pending={pending}
         onClose={onClose}
@@ -178,14 +186,29 @@ export function ServiceResourcePanel({
         }
         building={buildMut.isPending}
         pause={pending ? null : pause}
-      />
-
-      <ServiceStatusBar
-        status={resource.status}
-        replicas={resource.replicas}
-        publicEnabled={resource.publicEnabled}
-        publicDomain={resource.publicDomain}
-        pausedReplicas={service?.pausedReplicas}
+        crumb={crumb}
+        // Replicas and the public domain used to be a row of their own. They
+        // are facts about this service's identity, so they continue the meta
+        // line instead — and the domain stays the one clickable thing on it.
+        replicaLine={
+          pending ? null : (
+            <>
+              {" · "}
+              {replicaSummary({
+                replicas: resource.replicas,
+                pausedReplicas: service?.pausedReplicas ?? null,
+              })}
+              {resource.publicEnabled &&
+              resource.publicDomain &&
+              service?.pausedReplicas == null ? (
+                <>
+                  {" · "}
+                  <PublicHostLink host={resource.publicDomain} className="text-foreground/90" />
+                </>
+              ) : null}
+            </>
+          )
+        }
       />
 
       <Tabs

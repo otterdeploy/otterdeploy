@@ -8,8 +8,12 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
  * Placeholder for the resource drawer while its contents are still resolving.
  * The route's code-split chunk, the `service.get` runtime view, a cold resource
  * collection, or a just-staged ghost whose manifest hasn't landed. Mirrors the
- * real panel's layout (header tile + title, status bar, tab row, body cards)
- * so the drawer slides in with shape rather than blank.
+ * real panel's layout (header tile + crumb + title + meta, tab row, body
+ * cards) so the drawer slides in with shape rather than blank.
+ *
+ * The separate status-bar block is gone, matching the loaded header: state
+ * folded onto the meta line, so the skeleton no longer promises a row that
+ * never arrives.
  *
  * `onClose` renders the header's close button, so a panel that is slow to load
  * is still escapable at the same spot as the loaded one.
@@ -17,11 +21,13 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 export function ResourcePanelSkeleton({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-5 p-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <Skeleton className="size-10 shrink-0 rounded-lg" />
         <div className="flex flex-1 flex-col gap-2">
+          {/* crumb, name, meta line: the three rows the real header has. */}
+          <Skeleton className="h-2.5 w-24" />
           <Skeleton className="h-4 w-44" />
-          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-3 w-36" />
         </div>
         {onClose ? (
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close panel">
@@ -29,8 +35,6 @@ export function ResourcePanelSkeleton({ onClose }: { onClose?: () => void }) {
           </Button>
         ) : null}
       </div>
-
-      <Skeleton className="h-9 w-full rounded-md" />
 
       <div className="flex gap-2">
         <Skeleton className="h-7 w-24 rounded-md" />

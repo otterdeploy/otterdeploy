@@ -13,6 +13,8 @@ import { Activity } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+
 import { DbConnectionsChip } from "@/features/databases/connections-popover";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
@@ -23,7 +25,7 @@ import { orpc } from "@/shared/server/orpc";
 import type { PostgresBodyProps } from "./types";
 
 import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
-import { DatabaseDataTab, DatabasePanelHeader, DatabaseStatusBar } from "./panel-parts";
+import { DatabaseDataTab, DatabasePanelHeader } from "./panel-parts";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
 
@@ -48,6 +50,9 @@ interface RealResourcePanelProps {
   tab?: string;
   /** Report a tab click so the route can write it to the URL. */
   onTabChange: (tab: string) => void;
+  /** Where this resource sits, built once by the panel dispatcher so every
+   *  kind renders the same crumb. */
+  crumb: PanelCrumb;
 }
 
 const DATABASE_TABS: readonly ResourceTab[] = [
@@ -65,6 +70,7 @@ const DATABASE_TABS: readonly ResourceTab[] = [
 const DATABASE_PENDING_TABS: readonly ResourceTab[] = ["variables", "settings"];
 
 export function RealResourcePanel({
+  crumb,
   resource,
   orgSlug,
   projectSlug,
@@ -100,6 +106,7 @@ export function RealResourcePanel({
       <DatabasePanelHeader
         resource={resource}
         pending={pending}
+        crumb={crumb}
         onClose={onClose}
         onRestart={() =>
           restartMut.mutate({
@@ -108,14 +115,8 @@ export function RealResourcePanel({
           })
         }
         restarting={restartMut.isPending}
-      />
-
-      <DatabaseStatusBar
-        pending={pending}
-        runtime={resource.runtime}
-        latestDeploymentStatus={resource.latestDeploymentStatus}
-        trailing={
-          resource.engine === "postgres" ? (
+        metaTrailing={
+          !pending && resource.engine === "postgres" ? (
             <DbConnectionsChip resourceId={resource.resourceId} />
           ) : undefined
         }
