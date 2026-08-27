@@ -1,0 +1,16 @@
+{
+  "$comment": "Read by the seo-check gate in .github/workflows/seo-check.yml. Must stay in sync with the otterdeploy entry in dr34mw0rk5/seo-ops/sites.json — the gate reads this file, the weekly hub reads that one. Collector-only fields (gscProperty, bingSiteUrl, ga4PropertyId, posthogProjectId) live there and are deliberately not repeated here.",
+  "project": "otterdeploy",
+  "repo": "otterdeploy/otterdeploy",
+  "origin": "https://otterdeploy.com",
+  "locales": [],
+  "contentLanguage": "en",
+  "nonIndexablePaths": [],
+  "localeExemptPaths": [],
+  "ignore": ["^/api/", "^/assets/", "^/_serverFn/"],
+  "fixAllowlist": [
+    "apps/www/content/**",
+    "apps/www/src/lib/seo.ts",
+    "apps/www/src/components/landing/content.ts"
+  ]
+}

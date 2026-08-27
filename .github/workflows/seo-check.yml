@@ -1,0 +1,94 @@
+# The Tier 1 SEO gate.
+#
+# Runs the same rule engine as the weekly hub in dr34mw0rk5/seo-ops, so a
+# defect that was fixed once cannot come back through a later pull request.
+# Without it the weekly run reports the same findings forever.
+#
+# seo-ops is private (it holds Search Console query data), so the engine is
+# checked out with a read-only token rather than installed from a registry.
+#
+# WHY A LOCAL WORKER AND NOT A dist DIRECTORY: apps/www is TanStack Start with
+# `prerender: { enabled: false }` (see apps/www/vite.config.ts), so a build
+# produces a Worker in .output/server and no static HTML to read. The nearest
+# honest substitute for a preview deployment is the same Worker, served by
+# `wrangler dev` on this runner. That needs no Cloudflare credentials and
+# blocks the pull request before anything reaches production.
+#
+# The build deliberately does NOT set VITE_SITE_URL: the canonical links and
+# sitemap must stay in production space so they compare equal to seo.config.json's
+# `origin`. `--base` fetches from localhost and reports every URL as production,
+# which is exactly the case it exists for. Building against the local origin
+# instead makes every canonical read as off-origin, which is 17 false findings.
+name: seo-check
+
+on:
+  pull_request:
+    paths:
+      - "apps/www/**"
+      - "seo.config.json"
+      - ".github/workflows/seo-check.yml"
+  merge_group:
+
+concurrency:
+  group: seo-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  seo-check:
+    # Forks get no secrets, so the seo-ops checkout below cannot work there.
+    # Skipping is right: a contributor's pull request must not fail on a gate
+    # it has no way to run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the shared rule engine
+        uses: actions/checkout@v4
+        with:
+          repository: dr34mw0rk5/seo-ops
+          token: ${{ secrets.SEO_OPS_READ_TOKEN }}
+          path: .seo-ops
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Build the marketing site
+        run: bunx turbo -F www build --cache-dir=.turbo
+
+      # Backgrounded, then polled: `wrangler dev` never exits on its own, and
+      # the build output is large enough that the first request would otherwise
+      # race the server coming up.
+      - name: Serve the build
+        working-directory: apps/www
+        env:
+          CI: "true"
+        run: |
+          bunx wrangler dev --port 8787 > "$RUNNER_TEMP/wrangler.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null --max-time 3 http://localhost:8787/; then
+              echo "worker is answering"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the worker never answered on :8787" >&2
+          cat "$RUNNER_TEMP/wrangler.log" >&2
+          exit 1
+
+      # Only tier 1 ERRORS fail the build. Warnings and opportunities are
+      # printed and left to the weekly run: a gate that blocks because a title
+      # is 62 characters long gets switched off within a fortnight.
+      - name: Check SEO invariants
+        run: |
+          bun run .seo-ops/bin/seo-check.ts \
+            --config seo.config.json \
+            --base http://localhost:8787

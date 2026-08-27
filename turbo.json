@@ -10,6 +10,7 @@
     "www#build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["VITE_SITE_URL"],
       "outputs": [".output/**", ".wrangler/deploy/**"]
     },
     "lint": {
