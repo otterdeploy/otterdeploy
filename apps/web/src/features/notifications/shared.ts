@@ -56,6 +56,44 @@ export const EVENTS: EventRow[] = [
  *  cannot keep, so it is not offered. */
 export const SUBSCRIBABLE_EVENTS: EventRow[] = EVENTS.filter((e) => e.wired !== false);
 
+/**
+ * Worst-first severity order, the same rank the bell badge resolves ties on
+ * (SEVERITY_RANK below). A failure band is never listed under the successes.
+ */
+export const SEVERITY_ORDER: readonly Severity[] = ["err", "warn", "info", "ok"];
+
+/**
+ * The subscribable catalog grouped into severity bands, worst-first.
+ *
+ * Severity is a static property of an event, never something you configure, so
+ * it earns a band header rather than a column: one row per band instead of one
+ * cell per event. It also matches how the decision is actually made — nobody
+ * wants "deploy.failed and build.failed and backup.failed", they want "page me
+ * on failures, stay quiet otherwise" — which is what makes a per-band toggle
+ * worth having.
+ *
+ * Computed once at module load: the catalog is a frozen literal, so there is
+ * nothing to recompute per render.
+ */
+export const EVENT_BANDS: ReadonlyArray<{
+  severity: Severity;
+  events: readonly EventRow[];
+}> = SEVERITY_ORDER.map((severity) => ({
+  severity,
+  events: SUBSCRIBABLE_EVENTS.filter((e) => e.severity === severity),
+})).filter((band) => band.events.length > 0);
+
+/** i18n key per band, named for what the band MEANS to an operator deciding
+ *  whether to be woken up, not for the enum value. `as const` keeps these as
+ *  literal types: `t()` takes a union of known key paths and a widened
+ *  `string` fails to match it. */
+export const SEVERITY_GROUP_KEY = {
+  err: "notifications.groupErr",
+  warn: "notifications.groupWarn",
+  info: "notifications.groupInfo",
+  ok: "notifications.groupOk",
+} as const satisfies Record<Severity, string>;
+
 const EVENT_BY_ID = new Map(EVENTS.map((e) => [e.id, e]));
 
 /** Human label for a delivery-log event id. Test sends log as "test.ping"

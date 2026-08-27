@@ -1,177 +1,169 @@
 /**
- * A single notification channel row: brand mark, delivery stats, status pill,
- * and inline actions (deliveries / test / edit / pause-resume / delete). The
- * stats row is a button too. Both open the per-channel delivery-history
- * dialog owned by the page. Mirrors the
- * registries card idiom: `rounded-md border bg-card` shell + outline button
- * cluster. Stats + status come from the server (live delivery log).
+ * A notification channel as a compact grid card, deliberately the same shape as
+ * a project card (features/projects/components/project-card.tsx): the same
+ * `rounded-xl border bg-card p-4`, the same `gap-3` internal rhythm, the same
+ * identity → preview → stats-footer stack, dropped into the same
+ * `md:grid-cols-2 xl:grid-cols-3` grid. One card vocabulary across the app.
  *
- * Delete rides `channelsCollection` (optimistic). Test and pause stay direct
- * `client.notifications.channels.*` calls: `test` has no row to mutate and
- * `pause` flips a server-computed status (active ⇆ paused) that isn't a plain
- * settable field: both refetch the list on success.
+ * Where a project card shows MiniCanvasPreview, this shows {@link CoverageStrip}
+ * — one tick per subscribable event, lit when the channel is subscribed,
+ * grouped into severity bands. Same job as the canvas thumbnail: a shape you
+ * read instead of a number you parse. An all-grey strip is the honest picture
+ * of a channel that was added and then never routed anything, which the old
+ * matrix could only say as "0/17" buried in a table header.
+ *
+ * The card SELECTS; it does not navigate and it carries no action cluster. Its
+ * five outline buttons (deliveries / test / edit / pause / delete) moved to the
+ * routing panel's header, where there is one set for the selected channel
+ * instead of one set per card competing with every other card's.
  */
 
-import { useState } from "react";
-
-import {
-  Alert02Icon,
-  Clock01Icon,
-  Delete01Icon,
-  FlashIcon,
-  PencilEdit01Icon,
-} from "@hugeicons/core-free-icons";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
-import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
-import { client, orpc, queryClient } from "@/shared/server/orpc";
+import { cn } from "@/shared/lib/utils";
 
-import { channelsCollection } from "./data/notifications";
-import { type Channel, type ChannelStatus, KIND_META, relativeTime } from "./shared";
+import { ChannelHeadStats } from "./channel-head-stats";
+import {
+  type Channel,
+  EVENT_BANDS,
+  KIND_META,
+  SEVERITY_DOT,
+  SEVERITY_GROUP_KEY,
+  SUBSCRIBABLE_EVENTS,
+  channelTargetHint,
+} from "./shared";
 
-function StatusPill({ status }: { status: ChannelStatus }) {
-  const meta: Record<ChannelStatus, { label: string; dot: string }> = {
-    active: { label: "active", dot: "bg-emerald-500" },
-    warn: { label: "degraded", dot: "bg-amber-500" },
-    paused: { label: "paused", dot: "bg-muted-foreground" },
-    disconnected: { label: "disconnected", dot: "bg-muted-foreground" },
-  };
-  const { label, dot } = meta[status];
+/**
+ * Per-band routing coverage: a tick per event, lit when subscribed, under a
+ * band label. Purely a readout — the toggles live in the routing panel, so
+ * this stays non-interactive and doesn't compete with the card's own click
+ * target.
+ */
+function CoverageStrip({ subscribed }: { subscribed: Set<string> | undefined }) {
+  const { t } = useTranslation();
   return (
-    <Badge variant="outline" className="gap-1.5 font-normal">
-      <span className={`size-1.5 rounded-full ${dot}`} />
-      {label}
-    </Badge>
+    <div className="flex items-end gap-1.5" aria-hidden>
+      {EVENT_BANDS.map((band) => {
+        const on = band.events.filter((e) => subscribed?.has(e.id) ?? false).length;
+        return (
+          <div key={band.severity} className="min-w-0 flex-1">
+            <div className="flex gap-0.5">
+              {band.events.map((e) => (
+                <span
+                  key={e.id}
+                  className={cn(
+                    "h-1.5 flex-1 rounded-[1px]",
+                    subscribed?.has(e.id) ? SEVERITY_DOT[band.severity] : "bg-foreground/10",
+                  )}
+                />
+              ))}
+            </div>
+            <div className="mt-1.5 flex items-center gap-1">
+              <span
+                className={cn(
+                  "size-1 shrink-0 rounded-full",
+                  on > 0 ? SEVERITY_DOT[band.severity] : "bg-foreground/25",
+                )}
+              />
+              <span className="truncate text-[10px] text-muted-foreground">
+                {t(SEVERITY_GROUP_KEY[band.severity])}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
 export function ChannelCard({
   channel,
-  onEdit,
-  onViewDeliveries,
+  subscribed,
+  selected,
+  onSelect,
 }: {
   channel: Channel;
-  onEdit: (c: Channel) => void;
-  /** Opens the per-channel delivery-history dialog. */
-  onViewDeliveries: (c: Channel) => void;
+  /** Event ids this channel is subscribed to. */
+  subscribed: Set<string> | undefined;
+  selected: boolean;
+  onSelect: (c: Channel) => void;
 }) {
   const { t } = useTranslation();
   const meta = KIND_META[channel.kind];
-  const [busy, setBusy] = useState(false);
+  const routed = subscribed?.size ?? 0;
 
-  const test = () => {
-    setBusy(true);
-    client.notifications.channels
-      .test({ id: channel.id })
-      .then((res) => toast.success(res.message))
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't send test"),
-      )
-      .finally(() => setBusy(false));
-  };
-
-  const pause = () => {
-    setBusy(true);
-    client.notifications.channels
-      .pause({ id: channel.id })
-      .then(() =>
-        queryClient.invalidateQueries({
-          queryKey: orpc.notifications.channels.list.queryKey(),
-        }),
-      )
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't update channel"),
-      )
-      .finally(() => setBusy(false));
-  };
-
-  const remove = () => {
-    setBusy(true);
-    channelsCollection
-      .delete(channel.id)
-      .isPersisted.promise.then(() => toast.success(t("notifications.channelRemoved")))
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't remove channel"),
-      )
-      .finally(() => setBusy(false));
-  };
+  // A channel that routes nothing delivers nothing. That is a state worth
+  // showing on the card rather than leaving the operator to infer it from a
+  // grey strip, so it gets the warning dot and its own footer line.
+  const unrouted = routed === 0;
+  const paused = channel.status === "paused";
+  const broken = channel.status === "disconnected" || channel.status === "warn";
 
   return (
-    <div className="rounded-md border bg-card p-3.5">
-      <div className="flex items-start gap-3">
-        <SvglLogo search={meta.search} fallback={meta.label} size={28} />
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-semibold">{channel.name}</span>
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
-              {meta.label}
-            </span>
-            <span className="text-[11px] text-muted-foreground">{channel.transport}</span>
-            <StatusPill status={channel.status} />
+    <button
+      type="button"
+      // `aria-pressed` rather than a radio/tab: this is a toggle-selection in a
+      // plain grid, and the routing panel below is `aria-live`-free static
+      // content that simply re-renders, not a tabpanel.
+      aria-pressed={selected}
+      onClick={() => onSelect(channel)}
+      className={cn(
+        "flex flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors",
+        "hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+        selected && "border-primary/60 ring-1 ring-primary/30",
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <SvglLogo search={meta.search} fallback={meta.label} size={20} />
+        <div className="grid min-w-0 flex-1 gap-0.5">
+          <div className="truncate text-sm font-semibold">{channel.name}</div>
+          <div className="truncate font-mono text-xs text-muted-foreground">
+            {channelTargetHint(channel.kind, channel.target)}
           </div>
-
-          <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
-            {channel.target}
-          </div>
-
-          {/* Stats double as the entry point to the delivery history. */}
-          <button
-            type="button"
-            onClick={() => onViewDeliveries(channel)}
-            className="-mx-1 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm px-1 py-0.5 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/60"
-            aria-label={`View deliveries for ${channel.name}`}
-          >
-            <span>
-              <span className="font-mono text-foreground">{channel.events7d}</span> events · 7d
-            </span>
-            <span>
-              last delivery{" "}
-              <span className="font-mono text-foreground">
-                {relativeTime(channel.lastDelivery)}
-              </span>
-            </span>
-            {channel.note && (
-              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3" />
-                {channel.note}
-              </span>
-            )}
-          </button>
         </div>
-
-        <div className="flex shrink-0 items-center gap-1.5 self-center">
-          <Button size="sm" variant="outline" onClick={() => onViewDeliveries(channel)}>
-            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
-            Deliveries
-          </Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={test}>
-            <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3.5" />
-            Test
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => onEdit(channel)}>
-            <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} className="size-3.5" />
-            Edit
-          </Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={pause}>
-            {channel.status === "paused" ? "Resume" : "Pause"}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={remove}
-            aria-label={t("notifications.deleteChannel")}
-            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          >
-            <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        </div>
+        <span
+          className={cn(
+            "mt-1 size-1.5 shrink-0 rounded-full",
+            broken
+              ? "bg-destructive"
+              : paused
+                ? "bg-muted-foreground"
+                : unrouted
+                  ? "bg-amber-500"
+                  : "bg-emerald-500",
+          )}
+          // The dot repeats what the footer says in words; the words are the
+          // accessible name, so the dot stays out of the tree.
+          aria-hidden
+        />
       </div>
-    </div>
+
+      <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+        <CoverageStrip subscribed={subscribed} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {unrouted ? (
+          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-3" />
+            {t("notifications.unrouted")}
+          </span>
+        ) : (
+          <span>
+            <b className="font-medium text-foreground">
+              {routed}/{SUBSCRIBABLE_EVENTS.length}
+            </b>{" "}
+            {t("notifications.routedOf")}
+          </span>
+        )}
+        {/* The delivery reading keeps its hover breakdown (failures in the last
+            day, last delivery, status, degraded note) rather than being
+            flattened back into a bare count — see channel-head-stats.tsx. */}
+        <ChannelHeadStats channel={channel} />
+      </div>
+    </button>
   );
 }
