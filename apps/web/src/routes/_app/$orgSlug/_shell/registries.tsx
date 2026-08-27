@@ -77,7 +77,10 @@ function RegistriesRoute() {
       />
 
       {isLoading ? (
-        <Skeleton className="h-44 w-full rounded-md" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Skeleton className="h-[124px] rounded-xl" />
+          <Skeleton className="h-[124px] rounded-xl" />
+        </div>
       ) : registries.length === 0 && !showGhcr ? (
         <Empty className="flex-1 rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
@@ -100,13 +103,26 @@ function RegistriesRoute() {
           </EmptyContent>
         </Empty>
       ) : (
-        <div className="flex flex-col gap-3">
+        // The same grid as the projects index and the notification channels, so
+        // a registry, a channel and a project are one kind of object at one
+        // size on every breakpoint. Full-bleed rows spent a 1960px page on
+        // eighty characters of content and put the actions a corridor away
+        // from the name they belonged to.
+        <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
           {/* First: it needs no setup, so it is the answer to "do I even have
               to add anything?" before the list of things someone added. */}
           {showGhcr && ghcr.data ? <GhcrDerivedCard capability={ghcr.data} /> : null}
           {registries.map((r) => (
             <RegistryCard key={r.id} registry={r} onEdit={openEdit} />
           ))}
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex min-h-[124px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-5" />
+            <span className="text-[13px]">Add registry</span>
+          </button>
         </div>
       )}
 

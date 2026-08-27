@@ -1,14 +1,35 @@
 /**
- * A single row in the registries list. Inline actions: edit (opens the
- * dialog pre-filled), delete (confirm + mutate). The delete handler
- * relies on the API setting `project.containerRegistryId := NULL` for
- * any projects pointing at the credential, so deletion never leaves
- * dangling FKs.
+ * A stored registry credential as a compact grid card, on the same vocabulary
+ * as a project card (features/projects/components/project-card.tsx) and a
+ * notification channel card: `rounded-xl border bg-card p-4`, identity block,
+ * hairline-divided footer, dropped into the same
+ * `md:grid-cols-2 xl:grid-cols-3` grid.
+ *
+ * It was a full-bleed row. A registry has a name, a host, a username and two
+ * timestamps to its name — roughly eighty characters — and stretching that
+ * across a 1960px page put the action cluster about 1800px from the name it
+ * belonged to, with a corridor of nothing in between. Cards give the content
+ * the width it actually needs and use the horizontal room for more registries
+ * instead of more gap.
+ *
+ * Unlike a project or channel card there is NO preview block, because there is
+ * nothing honest to preview: connection health is an on-demand `testConnection`
+ * probe, not stored state, so a status dot here would be inventing a reading
+ * the product does not have. The card says what it knows and no more.
+ *
+ * Actions carry a hierarchy rather than three identical outlines: Test is the
+ * one thing you press to answer "does this credential still work", so it keeps
+ * the outline; edit and delete fold into an overflow menu, which also stops
+ * delete from sitting at the same weight as edit.
+ *
+ * Delete relies on the API setting `project.containerRegistryId := NULL` for
+ * any projects pointing at the credential, so deletion never leaves dangling
+ * FKs.
  */
 
 import { useState } from "react";
 
-import { Delete01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
+import { Delete01Icon, MoreHorizontalIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -26,9 +47,17 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { orpc } from "@/shared/server/orpc";
 
 import { registryCollection } from "./data/registries";
+import { RegistryCardShell, RegistryCardFooter } from "./registry-card-shell";
 import { REGISTRY_KIND_META, kindForHost } from "./registry-kinds";
 import { formatRelative, type RegistryRow } from "./shared";
 
@@ -73,60 +102,69 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
       .finally(() => setBusy(false));
   };
 
+  const edited = registry.updatedAt.getTime() !== registry.createdAt.getTime();
+
   return (
-    <div className="rounded-md border bg-card p-4">
-      <div className="flex items-start gap-3">
+    <RegistryCardShell
+      logo={
         <SvglLogo
           search={REGISTRY_KIND_META[kindForHost(registry.host)].brand}
           fallback={registry.host}
-          size={32}
+          size={20}
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13.5px] font-semibold">{registry.displayName}</span>
-            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10.5px] font-medium tracking-wider text-muted-foreground uppercase">
-              {registry.authType}
-            </span>
-          </div>
-          <div className="mt-0.5 font-mono text-[11.5px] text-muted-foreground">
-            {registry.username}@{registry.host}
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={runTest}
-            disabled={testConnection.isPending}
-            aria-label={`Test connection to ${registry.host}`}
+      }
+      title={registry.displayName}
+      badge={registry.authType}
+      subtitle={`${registry.username}@${registry.host}`}
+      action={
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="-mt-1 -mr-1 text-muted-foreground"
+                aria-label={t("common.more")}
+              />
+            }
           >
-            {testConnection.isPending ? "Testing…" : "Test"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onEdit(registry)}
-            aria-label={t("registries.edit")}
-          >
-            <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setConfirmOpen(true)}
-            aria-label={t("registries.delete")}
-          >
-            <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="mt-3.5 flex items-center gap-6 border-t pt-3 text-[12px] text-muted-foreground">
-        <span>Added {formatRelative(registry.createdAt)}</span>
-        {registry.updatedAt.getTime() !== registry.createdAt.getTime() && (
-          <span>Updated {formatRelative(registry.updatedAt)}</span>
-        )}
-      </div>
+            <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onClick={() => onEdit(registry)}>
+              <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
+              {t("registries.edit")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setConfirmOpen(true)}
+            >
+              <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} />
+              {t("registries.delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      }
+    >
+      <RegistryCardFooter
+        meta={
+          <>
+            <span>Added {formatRelative(registry.createdAt)}</span>
+            {edited && <span>Updated {formatRelative(registry.updatedAt)}</span>}
+          </>
+        }
+      >
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={runTest}
+          disabled={testConnection.isPending}
+          aria-label={`Test connection to ${registry.host}`}
+        >
+          {testConnection.isPending ? "Testing…" : "Test"}
+        </Button>
+      </RegistryCardFooter>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
@@ -152,6 +190,6 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </RegistryCardShell>
   );
 }

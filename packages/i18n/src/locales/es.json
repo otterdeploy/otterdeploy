@@ -653,7 +653,8 @@
       "description": "Cubierto por tu App de GitHub. Los envíos y descargas se autorizan por solicitud, así que aquí no hay nada que crear ni rotar.",
       "descriptionAs": "Cubierto por tu App de GitHub, instalada en {{account}}. Los envíos y descargas se autorizan por solicitud, así que aquí no hay nada que crear ni rotar.",
       "needsPermission": "Tu App de GitHub necesita acceso a packages para que esto funcione. GitHub pide la aprobación de un propietario — no se concede automáticamente.",
-      "review": "Revisar en GitHub"
+      "review": "Revisar en GitHub",
+      "noCredential": "Sin credencial almacenada"
     }
   },
   "sso": {

@@ -653,7 +653,8 @@
       "description": "Abgedeckt durch deine GitHub App. Pushes und Pulls werden pro Anfrage autorisiert, es gibt hier also nichts anzulegen oder zu rotieren.",
       "descriptionAs": "Abgedeckt durch deine GitHub App, installiert auf {{account}}. Pushes und Pulls werden pro Anfrage autorisiert, es gibt hier also nichts anzulegen oder zu rotieren.",
       "needsPermission": "Deine GitHub App benötigt Zugriff auf Packages, damit das funktioniert. GitHub bittet eine Besitzerin oder einen Besitzer um Zustimmung — sie wird nicht automatisch erteilt.",
-      "review": "Auf GitHub prüfen"
+      "review": "Auf GitHub prüfen",
+      "noCredential": "Keine Zugangsdaten gespeichert"
     }
   },
   "sso": {
