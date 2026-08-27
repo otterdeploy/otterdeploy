@@ -1,35 +1,42 @@
 /**
- * A stored registry credential as a compact grid card, on the same vocabulary
- * as a project card (features/projects/components/project-card.tsx) and a
- * notification channel card: `rounded-xl border bg-card p-4`, identity block,
- * hairline-divided footer, dropped into the same
- * `md:grid-cols-2 xl:grid-cols-3` grid.
+ * A registry as a compact card in the registries grid.
  *
- * It was a full-bleed row. A registry has a name, a host, a username and two
- * timestamps to its name — roughly eighty characters — and stretching that
- * across a 1960px page put the action cluster about 1800px from the name it
- * belonged to, with a corridor of nothing in between. Cards give the content
- * the width it actually needs and use the horizontal room for more registries
- * instead of more gap.
+ * ONE CARD FOR TWO THINGS. A stored credential and the GHCR entry derived from
+ * the workspace's GitHub App are both drawn by {@link RegistryCardShell} at the
+ * same size, in the same order, with the same footer. They differ in what they
+ * SAY — a managed entry has nothing to test and nothing to rotate — not in how
+ * they're built. Before this they were two hand-rolled shells that had drifted
+ * apart, and read as two kinds of object in one list.
  *
- * Unlike a project or channel card there is NO preview block, because there is
- * nothing honest to preview: connection health is an on-demand `testConnection`
- * probe, not stored state, so a status dot here would be inventing a reading
- * the product does not have. The card says what it knows and no more.
+ * WHAT'S ON THE FACE is the minimum that distinguishes one registry from
+ * another at a glance: mark, name, the `user@host` line, and how many projects
+ * push there. Everything else — auth type, when it was added, when it last
+ * changed, what the registry is for — lives in the tooltip, because a card
+ * that prints all of it is a paragraph, and a column of paragraphs is not
+ * scannable.
  *
- * Actions carry a hierarchy rather than three identical outlines: Test is the
- * one thing you press to answer "does this credential still work", so it keeps
- * the outline; edit and delete fold into an overflow menu, which also stops
- * delete from sitting at the same weight as edit.
+ * NO STATUS DOT FOR HEALTH, and no image or tag count. Connection health is an
+ * on-demand `testConnection` probe, never stored, so a green dot claiming
+ * "reachable" would be inventing a reading. Docker Registry v2 has no portable
+ * repository listing (`_catalog` is optional; neither Docker Hub nor GHCR
+ * serves it), so an image count can't be had honestly either. The dot here
+ * means something we DO know: whether anything actually pushes here.
  *
- * Delete relies on the API setting `project.containerRegistryId := NULL` for
- * any projects pointing at the credential, so deletion never leaves dangling
- * FKs.
+ * Actions stay hidden until hover or keyboard focus, so a grid of registries
+ * isn't three identical button clusters competing at rest.
+ *
+ * Delete relies on the API clearing any binding, so deletion never leaves a
+ * dangling reference.
  */
 
 import { useState } from "react";
 
-import { Delete01Icon, MoreHorizontalIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
+import {
+  Delete01Icon,
+  FlashIcon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -57,7 +64,7 @@ import {
 import { orpc } from "@/shared/server/orpc";
 
 import { registryCollection } from "./data/registries";
-import { RegistryCardShell, RegistryCardFooter } from "./registry-card-shell";
+import { RegistryCardShell } from "./registry-card-shell";
 import { REGISTRY_KIND_META, kindForHost } from "./registry-kinds";
 import { formatRelative, type RegistryRow } from "./shared";
 
@@ -102,78 +109,107 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
       .finally(() => setBusy(false));
   };
 
+  const used = registry.projectCount > 0;
   const edited = registry.updatedAt.getTime() !== registry.createdAt.getTime();
 
   return (
-    <RegistryCardShell
-      logo={
-        <SvglLogo
-          search={REGISTRY_KIND_META[kindForHost(registry.host)].brand}
-          fallback={registry.host}
-          size={20}
-        />
-      }
-      title={registry.displayName}
-      badge={registry.authType}
-      subtitle={`${registry.username}@${registry.host}`}
-      action={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className="-mt-1 -mr-1 text-muted-foreground"
-                aria-label={t("common.more")}
-              />
-            }
-          >
-            <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem onClick={() => onEdit(registry)}>
-              <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
-              {t("registries.edit")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => setConfirmOpen(true)}
-            >
-              <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} />
-              {t("registries.delete")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
-    >
-      <RegistryCardFooter
-        meta={
+    <>
+      <RegistryCardShell
+        logo={
+          <SvglLogo
+            search={REGISTRY_KIND_META[kindForHost(registry.host)].brand}
+            fallback={registry.host}
+            size={18}
+          />
+        }
+        title={registry.displayName}
+        subtitle={`${registry.username}@${registry.host}`}
+        tone={used ? "ok" : "idle"}
+        stat={
+          used ? (
+            <>
+              <span className="font-mono text-foreground tabular-nums">
+                {registry.projectCount}
+              </span>{" "}
+              {t(registry.projectCount === 1 ? "registries.project" : "registries.projects")}
+            </>
+          ) : (
+            <span className="text-amber-600 dark:text-amber-500">{t("registries.unused")}</span>
+          )
+        }
+        detail={[
+          { label: t("registries.detail.host"), value: registry.host, mono: true },
+          { label: t("registries.detail.auth"), value: registry.authType },
+          { label: t("registries.detail.username"), value: registry.username, mono: true },
+          {
+            label: t("registries.detail.projects"),
+            value: String(registry.projectCount),
+            mono: true,
+          },
+          { label: t("registries.detail.added"), value: formatRelative(registry.createdAt) },
+          ...(edited
+            ? [{ label: t("registries.detail.updated"), value: formatRelative(registry.updatedAt) }]
+            : []),
+        ]}
+        note={used ? t("registries.noteUsed") : t("registries.noteUnused")}
+        actions={
           <>
-            <span>Added {formatRelative(registry.createdAt)}</span>
-            {edited && <span>Updated {formatRelative(registry.updatedAt)}</span>}
+            <Button
+              size="xs"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={runTest}
+              disabled={testConnection.isPending}
+              aria-label={`Test connection to ${registry.host}`}
+            >
+              <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3" />
+              {testConnection.isPending ? "Testing…" : "Test"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    aria-label={t("common.more")}
+                  />
+                }
+              >
+                <HugeiconsIcon icon={MoreHorizontalIcon} strokeWidth={2} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => onEdit(registry)}>
+                  <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} />
+                  {t("registries.edit")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} />
+                  {t("registries.delete")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
-      >
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={runTest}
-          disabled={testConnection.isPending}
-          aria-label={`Test connection to ${registry.host}`}
-        >
-          {testConnection.isPending ? "Testing…" : "Test"}
-        </Button>
-      </RegistryCardFooter>
+      />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("registries.removeConfirm")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Any projects pointing at <span className="font-mono">{registry.host}</span> via this
-              credential will have their registry binding cleared. Builds for those projects will
-              fail until a new credential is wired up.
+              {/* The count makes the blast radius concrete instead of hypothetical:
+                  "2 projects" is a decision, "any projects" is a shrug. */}
+              {used
+                ? t("registries.removeBody", {
+                    count: registry.projectCount,
+                    host: registry.host,
+                  })
+                : t("registries.removeBodyUnused", { host: registry.host })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -190,6 +226,6 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </RegistryCardShell>
+    </>
   );
 }

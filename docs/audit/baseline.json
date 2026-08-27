@@ -4,7 +4,7 @@
   "totals": {
     "deadCodeIssues": 180,
     "circularDependencies": 17,
-    "cloneGroups": 364,
-    "duplicationPercentage": 3.5
+    "cloneGroups": 363,
+    "duplicationPercentage": 3.47
   }
 }

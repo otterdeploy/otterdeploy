@@ -6,11 +6,10 @@
  * (registry-card-shell.tsx) rather than a lookalike that had drifted — they
  * share a list, so they share a silhouette. What differs is what the card
  * SAYS: there is no row behind this one, so there is nothing to edit, nothing
- * to rotate, and no password field to render, which is why it carries no
- * overflow menu and no Test button. Showing it as a normal entry with disabled
- * buttons would imply a credential exists somewhere; showing nothing at all
- * would leave an operator wondering why GHCR works without an entry. The
- * footer states the absence in words instead.
+ * to rotate, and no password field to render, which is why it passes no
+ * `actions`. Showing it as a normal entry with disabled buttons would imply a
+ * credential exists somewhere; showing nothing at all would leave an operator
+ * wondering why GHCR works without an entry.
  *
  * Copy rule from the plan: never call it a token. The user's model is "my
  * GitHub is connected", and the whole selling point is that no secret exists
@@ -23,7 +22,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 
-import { RegistryCardFooter, RegistryCardShell } from "./registry-card-shell";
+import { RegistryCardShell } from "./registry-card-shell";
 
 export interface GhcrCapabilityView {
   available: boolean;
@@ -46,6 +45,7 @@ export function shouldShowDerivedGhcr(capability: GhcrCapabilityView | undefined
 export function GhcrDerivedCard({ capability }: { capability: GhcrCapabilityView }) {
   const { t } = useTranslation();
   const needsPermission = capability.reason === "missing-packages-permission";
+  const account = capability.accountLogin;
 
   return (
     <RegistryCardShell
@@ -54,44 +54,51 @@ export function GhcrDerivedCard({ capability }: { capability: GhcrCapabilityView
         <HugeiconsIcon
           icon={GithubIcon}
           strokeWidth={1.5}
-          className="size-5 text-muted-foreground"
+          className="size-[18px] text-muted-foreground"
         />
       }
       title="ghcr.io"
-      badge={t("registries.ghcr.badge")}
-      // The account is the machine-readable identity line, matching
-      // `user@host` on a stored credential; the explanation is prose below it.
-      subtitle={capability.accountLogin ?? undefined}
-      description={
-        capability.accountLogin === null
-          ? t("registries.ghcr.description")
-          : t("registries.ghcr.descriptionAs", { account: capability.accountLogin })
+      subtitle={account ?? t("registries.ghcr.badge")}
+      // Amber while the packages grant is missing: the App is installed but
+      // pushes will fail, which is a state to act on rather than a healthy one.
+      tone={needsPermission ? "idle" : "ok"}
+      stat={
+        needsPermission ? (
+          <span className="text-amber-600 dark:text-amber-500">
+            {t("registries.ghcr.needsGrant")}
+          </span>
+        ) : (
+          t("registries.ghcr.badge")
+        )
       }
-    >
-      <RegistryCardFooter
-        meta={
-          needsPermission ? (
-            <span className="text-amber-600 dark:text-amber-500">
-              {t("registries.ghcr.needsPermission")}
-            </span>
-          ) : (
-            <span>{t("registries.ghcr.noCredential")}</span>
-          )
-        }
-      >
-        {needsPermission && capability.permissionUrl !== null ? (
+      detail={[
+        { label: t("registries.detail.host"), value: "ghcr.io", mono: true },
+        { label: t("registries.detail.auth"), value: t("registries.ghcr.authValue") },
+        ...(account === null
+          ? []
+          : [{ label: t("registries.detail.account"), value: account, mono: true }]),
+      ]}
+      note={
+        needsPermission
+          ? t("registries.ghcr.needsPermission")
+          : account === null
+            ? t("registries.ghcr.description")
+            : t("registries.ghcr.descriptionAs", { account })
+      }
+      actions={
+        needsPermission && capability.permissionUrl !== null ? (
           <Button
-            variant="outline"
+            variant="ghost"
             size="xs"
-            className="shrink-0"
+            className="text-muted-foreground"
             render={
               <a href={capability.permissionUrl} target="_blank" rel="noreferrer">
                 {t("registries.ghcr.review")}
               </a>
             }
           />
-        ) : null}
-      </RegistryCardFooter>
-    </RegistryCardShell>
+        ) : undefined
+      }
+    />
   );
 }

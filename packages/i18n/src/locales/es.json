@@ -654,7 +654,24 @@
       "descriptionAs": "Cubierto por tu App de GitHub, instalada en {{account}}. Los envíos y descargas se autorizan por solicitud, así que aquí no hay nada que crear ni rotar.",
       "needsPermission": "Tu App de GitHub necesita acceso a packages para que esto funcione. GitHub pide la aprobación de un propietario — no se concede automáticamente.",
       "review": "Revisar en GitHub",
-      "noCredential": "Sin credencial almacenada"
+      "needsGrant": "falta acceso a paquetes",
+      "authValue": "GitHub App"
+    },
+    "project": "proyecto",
+    "projects": "proyectos",
+    "unused": "sin usar",
+    "noteUsed": "Lo usan el builder (docker push) y el demonio de swarm (docker pull).",
+    "noteUnused": "Ningún proyecto publica aquí todavía. Indícalo como destino de imagen de un servicio.",
+    "removeBody": "{{count}} proyecto(s) publican en {{host}} con esta credencial. Sus builds fallarán hasta configurar otra.",
+    "removeBodyUnused": "Nada publica en {{host}} ahora mismo, así que eliminarlo no afecta a ningún build.",
+    "detail": {
+      "host": "Host",
+      "auth": "Auth",
+      "username": "Usuario",
+      "projects": "Proyectos",
+      "added": "Añadido",
+      "updated": "Actualizado",
+      "account": "Cuenta"
     }
   },
   "sso": {
@@ -908,6 +925,7 @@
   "templates": {
     "search": "Buscar plantillas",
     "sort": "Ordenar plantillas",
+    "category": "Categorías",
     "architecture": "Arquitectura",
     "includedServices": "Servicios incluidos",
     "requiredVariables": "Variables obligatorias",
@@ -1536,7 +1554,14 @@
     "valueYouChoose": "un valor que elijas",
     "generatedForYou": "Generado por ti",
     "filledWithAddress": "Se rellena con la dirección de esta pila",
-    "noRequiredVars": "No hay variables obligatorias. Esta plantilla se despliega con valores predeterminados seguros."
+    "noRequiredVars": "No hay variables obligatorias. Esta plantilla se despliega con valores predeterminados seguros.",
+    "noMatchIn": "Ninguna plantilla coincide con «{{query}}» en {{category}}",
+    "noMatchQuery": "Ninguna plantilla coincide con «{{query}}»",
+    "noMatchCategory": "No hay plantillas en {{category}}",
+    "noMatchHint": "{{count}} coinciden en otras categorías: {{category}} las está excluyendo.",
+    "noMatchHintPlain": "Prueba otro término o elige una categoría en la barra.",
+    "clearCategory": "Buscar en todas las categorías ({{count}})",
+    "clearSearch": "Borrar búsqueda ({{count}})"
   },
   "compose": {
     "addResource": "Añadir recurso",

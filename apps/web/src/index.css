@@ -9,6 +9,7 @@
 @import "@otterdeploy/ui/error-screen.css";
 /* ::selection, shared so the two surfaces highlight identically. */
 @import "@otterdeploy/ui/selection.css";
+@import "./shared/components/illustrations/illustrations.css";
 
 @custom-variant dark (&:is(.dark *));
 

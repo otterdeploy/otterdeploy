@@ -654,7 +654,24 @@
       "descriptionAs": "Covered by your GitHub App, installed on {{account}}. Pushes and pulls are authorized per request, so there is nothing here to create or rotate.",
       "needsPermission": "Your GitHub App needs access to packages before this works. GitHub asks an owner to approve the change — it is not granted automatically.",
       "review": "Review on GitHub",
-      "noCredential": "No credential stored"
+      "needsGrant": "needs packages access",
+      "authValue": "GitHub App"
+    },
+    "project": "project",
+    "projects": "projects",
+    "unused": "unused",
+    "noteUsed": "Used by the builder (docker push) and the swarm daemon (docker pull).",
+    "noteUnused": "No project pushes here yet. Name it as a service's image target to start using it.",
+    "removeBody": "{{count}} project(s) push to {{host}} through this credential. Their builds will fail until a new one is wired up.",
+    "removeBodyUnused": "Nothing currently pushes to {{host}}, so removing this affects no builds.",
+    "detail": {
+      "host": "Host",
+      "auth": "Auth",
+      "username": "Username",
+      "projects": "Projects",
+      "added": "Added",
+      "updated": "Updated",
+      "account": "Account"
     }
   },
   "sso": {
@@ -908,6 +925,7 @@
   "templates": {
     "search": "Search templates",
     "sort": "Sort templates",
+    "category": "Categories",
     "architecture": "Architecture",
     "includedServices": "Included services",
     "requiredVariables": "Required variables",
@@ -1536,7 +1554,14 @@
     "valueYouChoose": "a value you choose",
     "generatedForYou": "Generated for you",
     "filledWithAddress": "Filled with this stack's address",
-    "noRequiredVars": "No required variables. This template deploys with safe defaults."
+    "noRequiredVars": "No required variables. This template deploys with safe defaults.",
+    "noMatchIn": "No templates match “{{query}}” in {{category}}",
+    "noMatchQuery": "No templates match “{{query}}”",
+    "noMatchCategory": "No templates in {{category}}",
+    "noMatchHint": "{{count}} match in other categories — {{category}} is what's excluding them.",
+    "noMatchHintPlain": "Try a different term, or browse a category from the rail.",
+    "clearCategory": "Search all categories ({{count}})",
+    "clearSearch": "Clear search ({{count}})"
   },
   "compose": {
     "addResource": "Add resource",
