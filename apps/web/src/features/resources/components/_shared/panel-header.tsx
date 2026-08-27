@@ -15,11 +15,15 @@
  * Everything panel-specific arrives as a prop: the icon tile, the meta text,
  * the action cluster. This component owns the ROW — its spacing, its
  * truncation behaviour, and the guarantee that ✕ is always in the same place.
+ *
+ * The expand control lives here too, next to ✕: both act on the WINDOW, and
+ * keeping them together (behind a hairline) is what stops "make this bigger"
+ * reading as another thing you can do to the resource.
  */
 
 import type { ReactNode } from "react";
 
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { ArrowExpand02Icon, ArrowShrink02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
@@ -29,6 +33,7 @@ import { cn } from "@/shared/lib/utils";
 import type { PanelCrumb } from "./panel-breadcrumb";
 
 import { PanelBreadcrumb } from "./panel-breadcrumb";
+import { usePanelWidth } from "./panel-width";
 
 export interface ResourcePanelHeaderProps {
   /** The 40px brand/kind tile. Panels build their own because the precedence
@@ -91,6 +96,7 @@ export function ResourcePanelHeader({
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {actions}
+        <PanelWidthToggle />
         <Button
           type="button"
           variant="ghost"
@@ -102,6 +108,41 @@ export function ResourcePanelHeader({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Expand / collapse the drawer.
+ *
+ * Grouped with ✕ and separated from the panel's own verbs by a hairline: one
+ * cluster acts on the THING (redeploy, restart), one on the WINDOW. That is
+ * where every app the operator already uses puts it.
+ *
+ * Renders nothing when the panel isn't in a resizable container, so a panel in
+ * a test or a preview doesn't grow a control that can't do anything.
+ */
+function PanelWidthToggle() {
+  const width = usePanelWidth();
+  if (!width) return null;
+  return (
+    <>
+      <span aria-hidden className="mx-0.5 hidden h-4 w-px bg-border sm:block" />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={width.expanded ? "Collapse panel" : "Expand panel"}
+        aria-pressed={width.expanded}
+        onClick={width.toggle}
+        className="text-muted-foreground"
+      >
+        <HugeiconsIcon
+          icon={width.expanded ? ArrowShrink02Icon : ArrowExpand02Icon}
+          strokeWidth={2}
+          className="size-4"
+        />
+      </Button>
+    </>
   );
 }
 

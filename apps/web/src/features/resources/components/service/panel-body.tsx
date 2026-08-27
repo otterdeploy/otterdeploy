@@ -13,6 +13,7 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { PANEL_TAB_BODY_CLASS } from "@/features/resources/components/_shared/panel-tab";
+import { PANE_MEASURE_CLASS } from "@/features/resources/components/_shared/panel-width";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 import { TabsContent } from "@/shared/components/ui/tabs";
@@ -73,7 +74,7 @@ export function ServicePanelBody({
   logsVisited: boolean;
 }) {
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative min-h-0 min-w-0 flex-1">
       <div className="h-full overflow-y-auto">
         {/* Plain container, not the animated <TabsContents>: panels snap to
             their content instead of the height-spring "drop-in" on every
@@ -129,7 +130,13 @@ export function ServicePanelBody({
           {/* keepMounted: panels stay in the DOM (hidden) across tab
               switches, so half-edited env values and settings forms don't
               reset. */}
-          <TabsContent value="variables" keepMounted className="px-6 pt-5">
+          {/* Forms cap at a reading measure. Expanding buys room for logs and
+              the terminal, not for stretching a label away from its input. */}
+          <TabsContent
+            value="variables"
+            keepMounted
+            className={cn("px-6 pt-5", PANE_MEASURE_CLASS)}
+          >
             <ServiceVariablesTabBody
               resource={resource}
               pending={pending}
@@ -137,7 +144,7 @@ export function ServicePanelBody({
             />
           </TabsContent>
 
-          <TabsContent value="settings" keepMounted className="px-6 pt-5">
+          <TabsContent value="settings" keepMounted className={cn("px-6 pt-5", PANE_MEASURE_CLASS)}>
             <ServiceSettingsBody resource={resource} onDeleted={onClose} pending={pending} />
           </TabsContent>
         </div>

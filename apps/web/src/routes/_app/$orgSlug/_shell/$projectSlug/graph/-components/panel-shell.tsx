@@ -15,6 +15,10 @@
  * bottom-right corner of the canvas where nobody notices it. The panel then
  * animated in *after* the wait, which read as "click, nothing, jump".
  *
+ * It also owns the drawer's WIDTH (see _shared/panel-width): the expand
+ * control lives in the panel header, but the element that gets wider is this
+ * one, so the state is provided here and the header consumes it.
+ *
  * The shell also owns the close choreography, because that has to outlive the
  * child: `close()` animates the drawer out and pans the graph back to its
  * overview at the same time, and only navigates once the slide-out finishes.
@@ -32,6 +36,8 @@ import { useReactFlow } from "@xyflow/react";
 import * as m from "motion/react-client";
 
 import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
+import { PanelWidthProvider } from "@/features/resources/components/_shared/panel-width";
+import { cn } from "@/shared/lib/utils";
 
 const noop = () => {};
 
@@ -83,24 +89,43 @@ export function GraphPanelShell({
   };
 
   return (
-    <m.div
-      initial={{ x: "100%" }}
+    <PanelWidthProvider
+      render={(expanded, inner) => (
+        <m.div
+          initial={{ x: "100%" }}
       animate={{ x: closing ? "100%" : 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      onAnimationComplete={() => {
-        // Only the close (slide-out) navigates; the mount slide-in completes
-        // with closing=false and is a no-op. By now the drawer is fully
-        // off-screen, so the route unmount is invisible.
-        if (closing) void navigate({ to: "/$orgSlug/$projectSlug/graph", params: { orgSlug, projectSlug } });
-      }}
-      // Below `sm` the drawer IS the screen: no rounding, no border, so the
-      // panel's own content gets the full 375px rather than losing 2px to a
-      // frame it can't afford. The rounded/bordered right-hand sheet returns
-      // at `sm`, where the canvas is still visible beside it.
-      className="pointer-events-auto relative h-full w-full border-border bg-card sm:rounded-lg sm:rounded-tr-none sm:border sm:border-r-0 lg:w-4/5 xl:w-3/5"
+          onAnimationComplete={() => {
+            // Only the close (slide-out) navigates; the mount slide-in
+            // completes with closing=false and is a no-op. By now the drawer
+            // is fully off-screen, so the route unmount is invisible.
+            if (closing) {
+              void navigate({
+                to: "/$orgSlug/$projectSlug/graph",
+                params: { orgSlug, projectSlug },
+              });
+            }
+          }}
+          // Below `sm` the drawer IS the screen: no rounding, no border, so the
+          // panel's own content gets the full 375px rather than losing 2px to a
+          // frame it can't afford. The rounded/bordered right-hand sheet returns
+          // at `sm`, where the canvas is still visible beside it.
+          className={cn(
+            "pointer-events-auto relative h-full w-full border-border bg-card",
+            "sm:rounded-lg sm:rounded-tr-none sm:border sm:border-r-0",
+            // Expanded takes the canvas: the graph is one collapse away, and
+            // the width only pays for itself if the pane actually gets it.
+            // Width is a plain class change, so the drawer's own spring
+            // animates the resize rather than a second transition of its own.
+            expanded ? "lg:w-full xl:w-full" : "lg:w-4/5 xl:w-3/5",
+          )}
+        >
+          <GraphPanelCloseContext.Provider value={close}>{inner}</GraphPanelCloseContext.Provider>
+        </m.div>
+      )}
     >
-      <GraphPanelCloseContext.Provider value={close}>{children}</GraphPanelCloseContext.Provider>
-    </m.div>
+      {children}
+    </PanelWidthProvider>
   );
 }

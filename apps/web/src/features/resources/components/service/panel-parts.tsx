@@ -114,7 +114,15 @@ function ServiceStatusPill({ status, paused }: { status: string; paused: boolean
         : status === "invalid"
           ? "error"
           : "paused";
-  // `valid` is schema-speak; the operator's word for it is "running".
-  const label = status === "valid" ? "running" : status === "draft" ? "pending" : status;
+  // `valid`/`invalid`/`draft` is schema-speak. Say what the graph node says,
+  // so a node and its panel read the same on the same screen.
+  const label =
+    status === "valid"
+      ? "running"
+      : status === "draft"
+        ? "pending"
+        : status === "invalid"
+          ? "error"
+          : status;
   return <PanelStatusPill tone={tone} label={label} />;
 }
