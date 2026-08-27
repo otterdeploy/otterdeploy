@@ -201,10 +201,13 @@ function AlertDetail({ value }: { value: string }) {
           <p className="text-[12.5px] text-muted-foreground">Loading events…</p>
         ) : !alerts.data?.available ? (
           // Not an error: the decision record stands on its own, we just
-          // can't reach the agent for the detail behind it right now.
+          // couldn't read the detail behind it. Says "couldn't read" rather
+          // than "unreachable" — the agent may be perfectly reachable and
+          // simply not answering this query, and a flat contradiction of the
+          // header's own reachable pill is worse than a vaguer sentence.
           <p className="text-[12.5px] text-muted-foreground">
-            CrowdSec isn't reachable, so the events behind this decision can't be read. The record
-            above is ours and stays either way.
+            Couldn't read the events behind this decision. The record above is ours and stays either
+            way.
           </p>
         ) : alerts.data.alerts.length === 0 ? (
           <p className="text-[12.5px] text-muted-foreground">

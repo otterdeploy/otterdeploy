@@ -17,11 +17,19 @@
  *
  * There is no polling here on purpose. Nothing calls this on a timer; it is a
  * per-row lookup, which is what keeps the expensive endpoint bounded.
+ *
+ * Two transports, same as the decisions read: the LAPI when the control plane
+ * has bouncer credentials, and `cscli` over the Docker socket otherwise. That
+ * fallback is not optional — an install can have a perfectly reachable agent
+ * (which is what the header's "LAPI reachable" reports, via `cscli lapi
+ * status`) while the server process has no CROWDSEC_* env at all. Without it
+ * this said "CrowdSec isn't reachable" directly under a green reachable pill.
  */
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { isJsonObject } from "@otterdeploy/shared/json";
 
+import { cscliRun, parseCscliJson } from "./cscli";
 import { lapiGetArray } from "./lapi-fetch";
 
 export interface AlertEvent {
@@ -63,11 +71,17 @@ function toAlert(alert: JsonObject): AlertEvent {
  * since the history row itself is still perfectly good without it.
  */
 export async function fetchAlertsForValue(value: string, limit = 20): Promise<AlertEvent[] | null> {
+  const capped = Math.min(limit, 50);
+  return (await viaLapi(value, capped)) ?? viaCscli(value, capped);
+}
+
+/** LAPI path: needs bouncer credentials. Null when unconfigured or unread. */
+async function viaLapi(value: string, limit: number): Promise<AlertEvent[] | null> {
   const params = new URLSearchParams({
     ip: value,
     // Bounded on purpose (see the file header): a scoped, capped query is what
     // makes this endpoint usable at all.
-    limit: String(Math.min(limit, 50)),
+    limit: String(limit),
     // The community blocklist arrives as one alert with an enormous source
     // list. Excluding it is the difference between a fast response and the
     // CPU spin this endpoint is known for.
@@ -76,6 +90,24 @@ export async function fetchAlertsForValue(value: string, limit = 20): Promise<Al
   // 6s, not the decisions read's 10: this sits behind a disclosure, so a slow
   // answer should give up rather than leave a row looking stuck.
   const rows = await lapiGetArray(`/v1/alerts?${params.toString()}`, 6_000);
-  if (!rows) return null;
-  return rows.map(toAlert);
+  return rows?.map(toAlert) ?? null;
+}
+
+/**
+ * `cscli` path: works with no credentials at all, because it execs inside the
+ * agent's own container.
+ *
+ * Still scoped to one IP and still capped — that is what keeps this away from
+ * the unbounded alert list that pins the LAPI at full CPU. The value is passed
+ * as a positional arg, never interpolated, so it cannot inject shell.
+ */
+async function viaCscli(value: string, limit: number): Promise<AlertEvent[] | null> {
+  const text = await cscliRun(`cscli alerts list -o json --ip "$1" --limit "$2" 2>/dev/null`, [
+    value,
+    String(limit),
+  ]);
+  // `null` from the exec means we could not read at all; an empty parse means
+  // we read fine and CrowdSec holds no alerts for this value.
+  if (text === null) return null;
+  return parseCscliJson(text).map(toAlert);
 }

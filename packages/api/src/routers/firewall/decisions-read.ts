@@ -11,11 +11,10 @@
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { isJsonObject } from "@otterdeploy/shared/json";
-import { Result } from "better-result";
 
 import { initGeo, lookupAsn, lookupCountry } from "../../edge-logs/geo";
 import { crowdsecConfig } from "../../lib/platform-runtime-settings";
-import { cscliRead } from "./cscli";
+import { cscliRead, parseCscliJson } from "./cscli";
 import { lapiGetArray } from "./lapi-fetch";
 
 export interface Decision {
@@ -39,19 +38,6 @@ export interface Decision {
  *  can currently read decisions, and of whether the agent container is up. */
 export async function configured(): Promise<boolean> {
   return (await crowdsecConfig()) !== null;
-}
-
-/** Parse `cscli … -o json` output. Empty result is printed as `null`. */
-function parseJsonArray(text: string | null): JsonObject[] {
-  if (!text) return [];
-  const trimmed = text.trim();
-  if (!trimmed || trimmed === "null") return [];
-  const parsed = Result.try({
-    try: (): unknown => JSON.parse(trimmed),
-    catch: () => null,
-  });
-  if (parsed.isErr() || !Array.isArray(parsed.value)) return [];
-  return parsed.value.filter(isJsonObject);
 }
 
 /** Stringify a JSON field when it is a primitive; objects/arrays (which would
@@ -117,7 +103,7 @@ async function fetchDecisionsViaCscli(): Promise<Decision[] | null> {
   if (texts.every((t) => t === null)) return null; // agent unreachable
   const rows: Decision[] = [];
   for (const text of texts) {
-    for (const alert of parseJsonArray(text)) {
+    for (const alert of parseCscliJson(text)) {
       const source = isJsonObject(alert.source) ? alert.source : {};
       const decisions = Array.isArray(alert.decisions) ? alert.decisions.filter(isJsonObject) : [];
       for (const d of decisions) {

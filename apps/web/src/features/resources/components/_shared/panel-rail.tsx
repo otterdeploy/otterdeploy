@@ -41,7 +41,7 @@ export function PanelRail<T extends string>({
   nested?: { under: T; items: PanelRailChild[] };
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  const { sections, activeId, goTo } = usePanelSections();
+  const { sections, activeId, goTo } = usePanelSections(value);
   const indicator = useRailIndicator(listRef, [
     value,
     activeId,
