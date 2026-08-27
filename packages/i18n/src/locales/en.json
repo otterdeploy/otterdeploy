@@ -1376,6 +1376,14 @@
       "pocketbase": {
         "description": "Backend in a single file: SQLite database, auth, file storage and a realtime API, with an admin UI. Everything persists to one named volume; no external database to run."
       },
+      "postiz": {
+        "description": "Schedule and publish to X, LinkedIn, Instagram, Mastodon, Discord and a dozen more from one calendar, with per-channel previews and an AI-assisted editor. Scheduling runs on a bundled Temporal server, so queued posts survive a restart.",
+        "env": {
+          "POSTIZ_URL": "The public URL you open Postiz at, scheme included. Every social account's OAuth callback and every uploaded image URL is built from it, so changing it later breaks both.",
+          "JWT_SECRET": "Signs the session tokens. Rotating it signs everyone out; anything holding it can mint a session, so it never leaves the server.",
+          "POSTGRES_PASSWORD": "Password for the bundled Postgres. It carries Postiz's own schema and the two databases Temporal creates for workflow state."
+        }
+      },
       "prestashop": {
         "description": "A full storefront and back office: catalogue, checkout, taxes, shipping and a theme system, backed by MySQL.",
         "env": {
