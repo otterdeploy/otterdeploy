@@ -63,11 +63,27 @@ describe("ResourcePanelHeader", () => {
     expect(out).toContain("shrink-0");
   });
 
-  it("renders actions before the close button", () => {
+  it("separates window controls from the resource's own actions", () => {
+    // The two clusters are different rows on purpose: ✕ (and expand) act on
+    // the WINDOW and sit up with the breadcrumb, while Redeploy acts on the
+    // THING and sits with its name. The close control therefore comes FIRST
+    // in the markup — the inverse of the single-row header this replaced.
     const out = renderToStaticMarkup(
       <ResourcePanelHeader {...base} actions={<button type="button">Redeploy</button>} />,
     );
-    expect(out.indexOf("Redeploy")).toBeLessThan(out.indexOf('aria-label="Close panel"'));
+    expect(out.indexOf('aria-label="Close panel"')).toBeLessThan(out.indexOf("Redeploy"));
+    expect(out.match(/aria-label="Close panel"/g)?.length ?? 0).toBe(1);
+  });
+
+  it("states status as a dot and a word, not a shouting chip", () => {
+    // Same treatment the service rows, graph nodes and rail children use. The
+    // uppercase tinted chip was the loudest thing in the header for the fact
+    // least likely to have changed since it opened.
+    const out = renderToStaticMarkup(
+      <ResourcePanelHeader {...base} status={<PanelStatusPill tone="running" label="running" />} />,
+    );
+    expect(out).toContain("rounded-full");
+    expect(out).not.toContain("uppercase");
   });
 });
 

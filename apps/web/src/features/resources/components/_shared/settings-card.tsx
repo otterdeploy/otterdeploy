@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { sectionId, usePanelSection } from "@/features/resources/components/_shared/panel-sections";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
@@ -21,8 +22,12 @@ export function SettingsCard({
   description?: string;
   children: React.ReactNode;
 }) {
+  // Registering here is what puts this card in the rail's table of contents
+  // when the panel is expanded. Every settings surface gets it without
+  // per-tab wiring; a card added later appears on its own.
+  const register = usePanelSection(title);
   return (
-    <section className="flex flex-col gap-2.5">
+    <section id={sectionId(title)} ref={register} className="flex scroll-mt-6 flex-col gap-2.5">
       <div>
         <div className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
           {title}
