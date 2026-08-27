@@ -79,23 +79,26 @@ export interface DatabaseTenancy {
   parseUsage(stdout: string): ConnectionUsage | null;
 }
 
+// The quoting helpers below are internal to the plans in this file. They are
+// not exported: every statement that needs them is built here, and an exported
+// quoting helper invites a caller to build SQL somewhere the plans can't see.
 /** Quote a SQL identifier for postgres (embedded double quotes doubled). */
-export function quoteIdent(name: string): string {
+function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
 /** Quote a SQL text literal (embedded single quotes doubled). */
-export function literal(value: string): string {
+function literal(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
 /** Quote a MySQL/MariaDB identifier (embedded backticks doubled). */
-export function quoteBacktick(name: string): string {
+function quoteBacktick(name: string): string {
   return `\`${name.replace(/`/g, "``")}\``;
 }
 
 /** A JS string literal safe to embed in a `mongosh --eval` script. */
-export function jsLiteral(value: string): string {
+function jsLiteral(value: string): string {
   return JSON.stringify(value);
 }
 

@@ -13,7 +13,7 @@ import type { Readable } from "node:stream";
  */
 import { Docker, demuxStream } from "@otterdeploy/docker";
 
-import { containerResourceId } from "../database-hosting/internals";
+import { containerResourceId } from "../database-hosting/container-id";
 
 export interface ExecResult {
   exitCode: number;

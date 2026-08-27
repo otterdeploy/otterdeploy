@@ -13,7 +13,7 @@ import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { Docker } from "@otterdeploy/docker";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import type { HostAdmin, TenantStatement } from "../swarm/database-engines/tenancy";
 
@@ -98,24 +98,6 @@ export async function getHostRow(input: {
     internalPort: row.internalPort,
     hostResourceId: row.hostResourceId,
   };
-}
-
-/** The id of the resource whose CONTAINER backs this resource: itself for a
- *  dedicated database, its host for a tenant. The one lookup every exec path
- *  needs — see `backups/exec.findResourceContainerId`, which calls it so the
- *  data viewer, backups and ephemeral credentials all resolve tenants without
- *  knowing tenants exist. */
-export async function containerResourceId(resourceId: string): Promise<string> {
-  // The caller (findResourceContainerId) is deliberately untyped here: it
-  // resolves SERVICE ids too, which never match a database row. Compare on the
-  // text column via sql`` rather than the branded `.$type<ResourceId>()`
-  // column, so a plain string id doesn't need an assertion to be looked up.
-  const [row] = await db
-    .select({ hostResourceId: databaseResource.hostResourceId })
-    .from(databaseResource)
-    .where(sql`${databaseResource.resourceId} = ${resourceId}`)
-    .limit(1);
-  return row?.hostResourceId ?? resourceId;
 }
 
 /** Every tenant living on a host, base rows only (a preview branch of a

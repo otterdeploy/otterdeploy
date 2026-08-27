@@ -22,7 +22,7 @@ import type { HostRow } from "./internals";
 import { engineSupportsHosting, getTenancy } from "../swarm/database-engines/tenancy";
 import { DatabaseHostingError, getHostRow, runAdminStatement } from "./internals";
 
-export { containerResourceId, DatabaseHostingError, getHostRow, listTenantRows } from "./internals";
+export { DatabaseHostingError, getHostRow, listTenantRows } from "./internals";
 export type { HostRow } from "./internals";
 
 /**
