@@ -746,10 +746,7 @@
     "keepStoredHint": "Leave the destination or secret blank to keep the stored value.",
     "deleteChannel": "Delete channel",
     "channelRemoved": "Channel removed",
-    "matrixTitle": "Event subscription matrix",
-    "matrixHint": "Toggle which events deliver to which channel.",
     "event": "Event",
-    "severity": "Severity",
     "sentIn7d": "sent · 7d",
     "stats": {
       "delivered7d": "Delivered, last 7 days",
@@ -780,7 +777,20 @@
     "settingsLink": "Notification settings",
     "olderNotShown": "{{count}} older unread not shown",
     "markReadFailed": "Couldn't mark as read",
-    "markAllReadFailed": "Couldn't mark all as read"
+    "markAllReadFailed": "Couldn't mark all as read",
+    "channels": "Channels",
+    "routedOf": "routed",
+    "routeAll": "Route all",
+    "clearBand": "Clear",
+    "deliveredTo": "Events delivered to {{channel}}",
+    "unrouted": "unrouted",
+    "nothingRouted": "This channel isn't receiving anything yet.",
+    "routeFailures": "Route failures",
+    "addChannel": "Add channel",
+    "selectChannel": "Select {{channel}}",
+    "coverage": "Coverage",
+    "deleteConfirmTitle": "Delete {{channel}}?",
+    "deleteConfirmBody": "Its event routing is removed with it. Delivery history is kept."
   },
   "certificates": {
     "noCustom": "No custom certificates",

@@ -746,10 +746,7 @@
     "keepStoredHint": "Deja el destino o el secreto en blanco para conservar el valor guardado.",
     "deleteChannel": "Eliminar el canal",
     "channelRemoved": "Canal eliminado",
-    "matrixTitle": "Matriz de suscripción a eventos",
-    "matrixHint": "Elige qué eventos se entregan en cada canal.",
     "event": "Evento",
-    "severity": "Gravedad",
     "sentIn7d": "enviados · 7 d",
     "stats": {
       "delivered7d": "Entregados, últimos 7 días",
@@ -780,7 +777,20 @@
     "settingsLink": "Ajustes de notificaciones",
     "olderNotShown": "{{count}} no leídas más antiguas sin mostrar",
     "markReadFailed": "No se pudo marcar como leída",
-    "markAllReadFailed": "No se pudieron marcar todas como leídas"
+    "markAllReadFailed": "No se pudieron marcar todas como leídas",
+    "channels": "Canales",
+    "routedOf": "enrutados",
+    "routeAll": "Enrutar todo",
+    "clearBand": "Limpiar",
+    "deliveredTo": "Eventos enviados a {{channel}}",
+    "unrouted": "sin enrutar",
+    "nothingRouted": "Este canal aún no recibe nada.",
+    "routeFailures": "Enrutar fallos",
+    "addChannel": "Añadir canal",
+    "selectChannel": "Seleccionar {{channel}}",
+    "coverage": "Cobertura",
+    "deleteConfirmTitle": "¿Eliminar {{channel}}?",
+    "deleteConfirmBody": "Su enrutamiento de eventos se elimina con él. El historial de entregas se conserva."
   },
   "certificates": {
     "noCustom": "Sin certificados personalizados",

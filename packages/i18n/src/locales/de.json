@@ -746,10 +746,7 @@
     "keepStoredHint": "Ziel oder Secret leer lassen, um den gespeicherten Wert zu behalten.",
     "deleteChannel": "Kanal löschen",
     "channelRemoved": "Kanal entfernt",
-    "matrixTitle": "Matrix der Ereignis-Abonnements",
-    "matrixHint": "Lege fest, welche Ereignisse an welchen Kanal gehen.",
     "event": "Ereignis",
-    "severity": "Schweregrad",
     "sentIn7d": "gesendet · 7 T",
     "stats": {
       "delivered7d": "Zugestellt, letzte 7 Tage",
@@ -780,7 +777,20 @@
     "settingsLink": "Benachrichtigungseinstellungen",
     "olderNotShown": "{{count}} ältere ungelesene nicht angezeigt",
     "markReadFailed": "Konnte nicht als gelesen markiert werden",
-    "markAllReadFailed": "Konnten nicht alle als gelesen markiert werden"
+    "markAllReadFailed": "Konnten nicht alle als gelesen markiert werden",
+    "channels": "Kanäle",
+    "routedOf": "weitergeleitet",
+    "routeAll": "Alle aktivieren",
+    "clearBand": "Leeren",
+    "deliveredTo": "Ereignisse an {{channel}}",
+    "unrouted": "nicht zugeordnet",
+    "nothingRouted": "Dieser Kanal empfängt noch nichts.",
+    "routeFailures": "Fehler weiterleiten",
+    "addChannel": "Kanal hinzufügen",
+    "selectChannel": "{{channel}} auswählen",
+    "coverage": "Abdeckung",
+    "deleteConfirmTitle": "{{channel}} löschen?",
+    "deleteConfirmBody": "Das Ereignis-Routing wird mit entfernt. Der Zustellverlauf bleibt erhalten."
   },
   "certificates": {
     "noCustom": "Keine eigenen Zertifikate",

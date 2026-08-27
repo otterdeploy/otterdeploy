@@ -1,7 +1,7 @@
 /**
- * Notifications: channel list and the event subscription matrix, backed by the
- * `channelsCollection` / `subscriptionsCollection` (oRPC `notifications`
- * router). Channels and the grid are live collection state; the matrix toggles
+ * Notifications: the channel grid and the selected channel's event routing,
+ * backed by `channelsCollection` / `subscriptionsCollection` (oRPC
+ * `notifications` router). Both are live collection state; routing toggles
  * optimistically by inserting/deleting subscription rows.
  *
  * Lives in the OPERATIONAL shell, not the settings zone. Routing events to a
@@ -9,6 +9,16 @@
  * event, check why a delivery failed) rather than one-time configuration.
  * The same reasoning that moved git providers, registries and SSH keys out of
  * Settings → Workspace and into the sidebar.
+ *
+ * SHAPE: a grid of channel cards on the project-card vocabulary, then one
+ * routing panel for whichever card is selected. It replaces a global
+ * event×channel matrix that only worked at two-or-more channels: at one
+ * channel — the common case — its single fixed-width column pinned every
+ * switch to the right edge of a full-bleed page, roughly 1800px from the event
+ * label it belonged to. Per-channel routing puts the control back beside its
+ * label; the cross-channel comparison the matrix was for now lives in each
+ * card's coverage strip, which shows every channel at once. See
+ * routing-panel.tsx and channel-card.tsx for the full rationale.
  *
  * The platform-wide transport cards (email provider, Twilio, FCM) that used to
  * sit at the bottom of this page are gone: per-channel delivery credentials are
@@ -23,6 +33,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { BellDotIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { ChannelCard } from "@/features/notifications/channel-card";
@@ -35,8 +46,8 @@ import {
   subscriptionsCollection,
 } from "@/features/notifications/data/notifications";
 import { DeliveryHistoryDialog } from "@/features/notifications/delivery-history-dialog";
+import { RoutingPanel } from "@/features/notifications/routing-panel";
 import { type Channel } from "@/features/notifications/shared";
-import { SubscriptionMatrix } from "@/features/notifications/subscription-matrix";
 import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -60,7 +71,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/notifications")({
 function toggleSub(channelId: string, eventId: string, enabled: boolean) {
   const tx = enabled
     ? subscriptionsCollection.insert({
-        // The matrix hands the id back as a plain string; re-brand it at the
+        // The panel hands the id back as a plain string; re-brand it at the
         // boundary the same way route params are (idSchema, a real parse).
         channelId: idSchema.notificationChannel.parse(channelId),
         eventId,
@@ -72,12 +83,18 @@ function toggleSub(channelId: string, eventId: string, enabled: boolean) {
 }
 
 function RouteComponent() {
+  const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Channel | null>(null);
   // Delivery-history dialog target; kept on close so the exit animation
   // doesn't collapse the content.
   const [historyChannel, setHistoryChannel] = useState<Channel | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Which card's routing is shown. Held as an id, not a channel object, and
+  // RESOLVED against the live list on every render: deleting the selected
+  // channel then falls through to the first remaining one on its own, with no
+  // effect syncing state to state.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: channels } = useLiveQuery((q) =>
     q.from({ c: channelsCollection }),
@@ -86,7 +103,7 @@ function RouteComponent() {
     q.from({ s: subscriptionsCollection }),
   );
 
-  // channelId → set of subscribed event ids, for the matrix grid.
+  // channelId → set of subscribed event ids, for the cards and the panel.
   const subs = useMemo(() => {
     const out: Record<string, Set<string>> = {};
     for (const s of subscriptions) {
@@ -94,6 +111,8 @@ function RouteComponent() {
     }
     return out;
   }, [subscriptions]);
+
+  const active = channels.find((c) => c.id === selectedId) ?? channels[0] ?? null;
 
   const openCreate = () => {
     setEditing(null);
@@ -158,22 +177,45 @@ function RouteComponent() {
         actions={
           <Button size="sm" onClick={openCreate}>
             <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
-            Add channel
+            {t("notifications.addChannel")}
           </Button>
         }
       />
 
       {channels.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          {channels.map((c) => (
-            <ChannelCard
-              key={c.id}
-              channel={c}
+        <>
+          {/* Same grid as the projects index, so a channel card and a project
+              card are the same object at the same size on every breakpoint. */}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {channels.map((c) => (
+              <ChannelCard
+                key={c.id}
+                channel={c}
+                subscribed={subs[c.id]}
+                selected={c.id === active?.id}
+                onSelect={(next) => setSelectedId(next.id)}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-5" />
+              <span className="text-[13px]">{t("notifications.addChannel")}</span>
+            </button>
+          </div>
+
+          {active && (
+            <RoutingPanel
+              channel={active}
+              subscribed={subs[active.id]}
+              onToggle={toggleSub}
               onEdit={openEdit}
               onViewDeliveries={openHistory}
             />
-          ))}
-        </div>
+          )}
+        </>
       ) : (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
@@ -189,14 +231,6 @@ function RouteComponent() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-      )}
-
-      {channels.length > 0 && (
-        <SubscriptionMatrix
-          channels={channels}
-          subs={subs}
-          onToggle={toggleSub}
-        />
       )}
 
       <ChannelDialog
