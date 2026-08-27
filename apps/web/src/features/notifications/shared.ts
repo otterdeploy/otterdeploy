@@ -60,7 +60,7 @@ export const SUBSCRIBABLE_EVENTS: EventRow[] = EVENTS.filter((e) => e.wired !== 
  * Worst-first severity order, the same rank the bell badge resolves ties on
  * (SEVERITY_RANK below). A failure band is never listed under the successes.
  */
-export const SEVERITY_ORDER: readonly Severity[] = ["err", "warn", "info", "ok"];
+const SEVERITY_ORDER: readonly Severity[] = ["err", "warn", "info", "ok"];
 
 /**
  * The subscribable catalog grouped into severity bands, worst-first.
