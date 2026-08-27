@@ -18,6 +18,20 @@ type MetaTag =
 export interface SeoInput {
   /** Page title, without the site suffix. Omit on the home page. */
   title?: string;
+  /**
+   * The docs section the page sits in, e.g. "Guides". Rendered between the
+   * page title and the suffix, so a result reads "Databases · Guides ·
+   * otterdeploy docs" rather than a bare noun that looks the same on every
+   * page of the reference. Dropped when it would only repeat the title, which
+   * is what a section's own index page would otherwise produce.
+   */
+  section?: string;
+  /**
+   * What follows the title. Defaults to the site name; the docs pass
+   * `docsTitleSuffix`. Never applies to the home page, which carries its own
+   * full title.
+   */
+  suffix?: string;
   description?: string;
   /** Site-relative path, e.g. "/docs/start/first-deploy". */
   path: string;
@@ -32,16 +46,19 @@ export interface SeoInput {
 
 export function seo({
   title,
+  section,
+  suffix = appName,
   description = siteDescription,
   path,
   image = "/og.png",
   imageAlt = "otterdeploy: calm, confident infrastructure. Self-hostable deployments: build, ship, and operate your services on your own servers.",
   type = "website",
 }: SeoInput): MetaTag[] {
-  // "otterdeploy" alone on the home page, "Getting started · otterdeploy"
-  // elsewhere. Repeating the site name in front of itself reads as a bug.
+  // "otterdeploy" alone on the home page, "Databases · Guides · otterdeploy
+  // docs" elsewhere. Repeating the site name in front of itself reads as a
+  // bug, and so does a section that only repeats the page's own title.
   const fullTitle = title
-    ? `${title} · otterdeploy`
+    ? [title, section === title ? undefined : section, suffix].filter(Boolean).join(" · ")
     : `${appName} · self-hosted PaaS: git push, your own servers`;
   const imageUrl = absoluteUrl(image);
 

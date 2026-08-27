@@ -19,7 +19,7 @@ import { getMDXComponents } from "@/components/mdx";
 import { SiteBar } from "@/components/site-bar";
 import { baseOptions } from "@/lib/layout.shared";
 import { breadcrumbJsonLd, canonical, seo } from "@/lib/seo";
-import { docsRoute } from "@/lib/shared";
+import { docsRoute, docsSection, docsTitleSuffix } from "@/lib/shared";
 import { source } from "@/lib/source";
 
 export const Route = createFileRoute("/docs/$")({
@@ -40,6 +40,11 @@ export const Route = createFileRoute("/docs/$")({
     return {
       meta: seo({
         title: loaderData?.title,
+        // "Install · Start here · otterdeploy docs" rather than "Install ·
+        // otterdeploy": the section is the difference between a result that
+        // says where it belongs and one that could be any page on the site.
+        section: docsSection(path),
+        suffix: docsTitleSuffix,
         description: loaderData?.description,
         path,
         type: "article",

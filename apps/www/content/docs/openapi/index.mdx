@@ -1,0 +1,47 @@
+---
+title: Overview
+description: "One page per API operation, generated from the live OpenAPI document your control plane serves, each with a request playground you can send from."
+---
+
+Everything under this section is generated from the OpenAPI document your
+control plane serves at `/api/reference/spec.json`, one page per operation,
+grouped by route. Each page carries a playground that sends a real request
+against a real server, so the parameters you read are the parameters the API
+accepts today rather than a copy that drifted.
+
+<Callout title="The list below is built from a live server">
+  Pages appear only for the operations in the spec that was reachable when this
+  site was built. When the control plane could not be reached, the section is
+  empty and this page is all there is. Point
+  `OTTERSTACK_OPENAPI_SPEC_URL` at your own API's
+  `/api/reference/spec.json` to generate the reference against it.
+</Callout>
+
+## Before you send anything
+
+Every operation needs a token. Mint one with the CLI and send it as a bearer
+token:
+
+```bash
+otterdeploy tokens create --name reference --expires 1d --read-only
+```
+
+```http
+Authorization: Bearer otter_...
+```
+
+A read-only key is the right one for exploring: the playground sends what the
+page describes, including the operations that delete things.
+
+<Cards>
+  <Card
+    title="How the reference is generated"
+    href="/docs/reference/api"
+    description="oRPC contracts, the OpenAPI document, and the pipeline between them."
+  />
+  <Card
+    title="CLI"
+    href="/docs/cli"
+    description="The same API, driven from a terminal instead of a browser."
+  />
+</Cards>

@@ -11,9 +11,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { canonical, seo } from "../seo";
-import { absoluteUrl, isCanonicalHost, siteUrl } from "../shared";
+import {
+  absoluteUrl,
+  DOCS_SECTIONS,
+  docsSection,
+  docsTitleSuffix,
+  isCanonicalHost,
+  siteUrl,
+} from "../shared";
 
 const content = (tags: ReturnType<typeof seo>, key: string): string | undefined => {
   const tag = tags.find(
@@ -83,6 +92,44 @@ describe("seo", () => {
     expect(content(sub, "og:url")).toBe("https://otterdeploy.com/docs");
   });
 
+  test("puts the docs section between the page and the site name", () => {
+    // "Install · otterdeploy" is 21 characters: Google shows about 60, so most
+    // of the slot went unused and every reference page read the same way.
+    const page = seo({
+      title: "Install",
+      section: "Start here",
+      suffix: docsTitleSuffix,
+      path: "/docs/start/install",
+    });
+    expect(content(page, "og:title")).toBe("Install · Start here · otterdeploy docs");
+  });
+
+  test("drops a section that would only repeat the page title", () => {
+    // A section's own index page is titled after the section in the sidebar.
+    // Without this it renders "HTTP API · HTTP API · otterdeploy docs".
+    const page = seo({
+      title: "HTTP API",
+      section: "HTTP API",
+      suffix: docsTitleSuffix,
+      path: "/docs/openapi",
+    });
+    expect(content(page, "og:title")).toBe("HTTP API · otterdeploy docs");
+  });
+
+  test("the home page keeps its own full title, section or not", () => {
+    expect(content(seo({ path: "/" }), "og:title")).toBe(
+      "otterdeploy · self-hosted PaaS: git push, your own servers",
+    );
+  });
+
+  test("the description fits the snippet Google actually renders", () => {
+    // 186 characters shipped here once and lost its last clause in every
+    // result. 160 is where the snippet is cut.
+    const description = content(seo({ path: "/" }), "description");
+    expect(description).toBeDefined();
+    expect(description?.length).toBeLessThanOrEqual(160);
+  });
+
   test("a per-page image override still resolves absolute", () => {
     const custom = seo({ path: "/docs", image: "/og-dark.png" });
     expect(content(custom, "og:image")).toBe("https://otterdeploy.com/og-dark.png");
@@ -119,5 +166,37 @@ describe("isCanonicalHost", () => {
     // answer under uncertainty is the restrictive one.
     expect(isCanonicalHost("not a url")).toBe(false);
     expect(isCanonicalHost("")).toBe(false);
+  });
+});
+
+describe("docsSection", () => {
+  test("names the section a docs path sits in", () => {
+    expect(docsSection("/docs/start/install")).toBe("Start here");
+    expect(docsSection("/docs/guides/databases")).toBe("Guides");
+    expect(docsSection("/docs/openapi/projects/create")).toBe("HTTP API");
+  });
+
+  test("has no section for the docs root or for anything outside the docs", () => {
+    expect(docsSection("/docs")).toBeUndefined();
+    expect(docsSection("/")).toBeUndefined();
+    expect(docsSection("/pricing")).toBeUndefined();
+  });
+
+  test("stays in step with the section titles in content/docs", () => {
+    // DOCS_SECTIONS is a copy of what each section's meta.json calls itself,
+    // kept because the head tags are built from the URL before the page tree
+    // exists. This is the assertion that stops the copy drifting: rename a
+    // section in meta.json without touching the map and the titles would
+    // quietly keep the old name.
+    const root = join(import.meta.dir, "../../../content/docs");
+    const onDisk: Record<string, string> = {};
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const meta: { title?: string } = JSON.parse(
+        readFileSync(join(root, entry.name, "meta.json"), "utf8"),
+      );
+      if (meta.title) onDisk[entry.name] = meta.title;
+    }
+    expect(DOCS_SECTIONS).toEqual(onDisk);
   });
 });

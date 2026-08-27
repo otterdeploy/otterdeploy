@@ -1,1 +1,1 @@
-{ "title": "HTTP API", "icon": "Api" }
+{ "title": "HTTP API", "icon": "Api", "pages": ["index", "..."] }

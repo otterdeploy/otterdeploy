@@ -2,6 +2,43 @@ export const appName = "otterdeploy";
 export const docsRoute = "/docs";
 
 /**
+ * What follows the page title in a docs `<title>`.
+ *
+ * "Install · otterdeploy" is 21 characters and leaves most of the result slot
+ * empty; the extra word says which half of the site the result belongs to,
+ * which is the question a searcher landing on a reference page actually has.
+ * Marketing pages keep the bare `appName`.
+ */
+export const docsTitleSuffix = `${appName} docs`;
+
+/**
+ * Section labels for the docs, keyed by the first path segment under /docs.
+ *
+ * These mirror the `title` in each `content/docs/<section>/meta.json`. They
+ * live here rather than being read from the page tree because the head tags
+ * are built from the URL alone, before any of the tree is loaded. A test in
+ * `lib/__tests__/seo.test.ts` reads those meta.json files and asserts this map
+ * still matches them, so the copy cannot drift silently.
+ */
+export const DOCS_SECTIONS: Record<string, string> = {
+  start: "Start here",
+  guides: "Guides",
+  reference: "Reference",
+  cli: "CLI",
+  openapi: "HTTP API",
+};
+
+/**
+ * The docs section a path sits in, or undefined for `/docs` itself and for
+ * anything outside the reference.
+ */
+export function docsSection(path: string): string | undefined {
+  const [, docs, section] = path.split("/");
+  if (docs !== "docs" || section === undefined) return undefined;
+  return DOCS_SECTIONS[section];
+}
+
+/**
  * The canonical origin, with no trailing slash.
  *
  * Read from `import.meta.env` rather than `process.env` on purpose: Vite
@@ -57,5 +94,11 @@ export function isCanonicalHost(requestUrl: string): boolean {
   }
 }
 
+/**
+ * The site's own meta description, and the fallback for every page without one.
+ *
+ * Kept under 160 characters: Google truncates the snippet there, and the
+ * previous 186-character version lost its last clause in every result.
+ */
 export const siteDescription =
-  "Open-source, self-hosted PaaS: an alternative to Vercel and Railway that runs on your own VPS. Git-push builds, managed databases, automatic HTTPS, preview environments per pull request.";
+  "Open-source, self-hosted PaaS and an alternative to Vercel and Railway: git-push builds, managed databases, automatic HTTPS and previews on servers you own.";

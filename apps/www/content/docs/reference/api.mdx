@@ -1,6 +1,6 @@
 ---
 title: API reference
-description: The Otterdeploy oRPC API and its interactive reference.
+description: The Otterdeploy oRPC API and its interactive reference, generated from the same Zod-typed contracts that power the dashboard.
 ---
 
 The Otterdeploy API is built on [oRPC](https://orpc.unnoq.com). The server emits an
@@ -24,3 +24,43 @@ The reference is generated from the **live** spec at `/api/reference/spec.json`,
 so it always tracks the deployed contracts. Point `OTTERSTACK_OPENAPI_SPEC_URL`
 at your API to build the reference against a specific environment (it defaults to
 the local dev server).
+
+## Two transports, one router
+
+The same `appRouter` is served twice, so the choice is about the wire format
+rather than about what you can reach:
+
+| Prefix | Transport | Who uses it |
+| --- | --- | --- |
+| `/api/reference` | OpenAPI over HTTP: paths, verbs and JSON bodies | Anything that speaks HTTP, and the playground on these pages |
+| `/rpc` | The oRPC wire protocol, typed end to end | The dashboard and the `otterdeploy` CLI |
+
+Everything the dashboard can do is therefore reachable over plain HTTP too.
+There is no second, smaller "public" API to be surprised by.
+
+## Authentication
+
+Every operation takes a bearer token, either a session token or an `otter_` API
+key. Mint one with the CLI and scope it to what the caller actually needs:
+
+```bash
+otterdeploy tokens create --name ci --expires 90d --read-only
+```
+
+```http
+Authorization: Bearer otter_...
+```
+
+## Version headers
+
+Every RPC and OpenAPI response carries two headers, so a client can tell it is
+talking to a control plane it no longer understands without spending a round
+trip asking:
+
+| Header | Meaning |
+| --- | --- |
+| `x-otterdeploy-version` | The generation of the control plane that answered |
+| `x-otterdeploy-min-cli-version` | The oldest CLI this control plane still supports |
+
+A client that sees neither is talking to a server older than the headers, which
+is itself the answer.
