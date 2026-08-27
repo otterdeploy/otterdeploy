@@ -21,6 +21,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -116,8 +117,24 @@ export function usePanelSection(title: string): (element: HTMLElement | null) =>
   );
 }
 
-/** The sections of the open tab, the one in view, and how to reach one. */
-export function usePanelSections(): {
+/**
+ * A section only counts while its own tab is on screen.
+ *
+ * Settings and Variables are `keepMounted`, so their cards stay in the DOM
+ * after you leave — and kept reporting themselves, which put the Settings
+ * sections under whatever tab was open ("Deployments → Identity, Scaling…").
+ * A hidden Base UI panel carries `hidden`, so this asks the DOM rather than
+ * tracking which tab each card was rendered under.
+ */
+function isOnScreen(element: HTMLElement): boolean {
+  return element.closest("[hidden]") === null;
+}
+
+/** The sections of the open tab, the one in view, and how to reach one.
+ *
+ *  `activeTab` is not read — it is the signal that the visible set may have
+ *  changed, so the filter and the observer re-run on a tab switch. */
+export function usePanelSections(activeTab: string): {
   sections: PanelSection[];
   activeId: string | null;
   goTo: (id: string) => void;
@@ -126,46 +143,97 @@ export function usePanelSections(): {
   const registry = ctx?.registry;
   useSyncExternalStore(registry?.subscribe ?? noopSubscribe, registry?.getSnapshot ?? zero, zero);
 
-  // Mark the section nearest the top of the pane. `rootMargin` pulls the
-  // trigger line down from the very top so a heading counts as "here" while
-  // its body is still what fills the view, which is how a reader thinks about
-  // it — and the bottom inset stops the last short section from never winning.
+  // Recomputed on every registry change AND every tab switch, because a tab
+  // switch changes which panels are `hidden` without touching the registry.
+  const sections = useMemo(
+    () => (ctx?.registry.sections ?? []).filter((section) => isOnScreen(section.element)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- version + tab are the change signals
+    [ctx, ctx?.registry.version, activeTab],
+  );
+
+  // Which section is "here" as you scroll.
+  //
+  // The trigger line sits below the top of the pane so a heading counts as
+  // current while its body still fills the view. That alone can never mark the
+  // LAST section — a short Danger zone at the end of the scroll cannot reach a
+  // line 12% down the pane — so hitting the bottom marks it explicitly. Without
+  // that, the final entry is permanently unreachable, which is exactly what it
+  // looked like: clicking it appeared to do nothing.
   useEffect(() => {
     if (!ctx) return;
     const root = ctx.scrollRef.current;
+
+    const markLastIfAtBottom = (): boolean => {
+      if (!root) return false;
+      const atBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 4;
+      const last = sections.at(-1);
+      if (atBottom && last) {
+        ctx.registry.setActive(last.id);
+        return true;
+      }
+      return false;
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
+        if (markLastIfAtBottom()) return;
         const visible = entries
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         const first = visible[0]?.target;
         if (!(first instanceof HTMLElement)) return;
-        const match = ctx.registry.sections.find((section) => section.element === first);
+        const match = sections.find((section) => section.element === first);
         if (match) ctx.registry.setActive(match.id);
       },
       { root, rootMargin: "-12% 0px -70% 0px", threshold: 0 },
     );
-    for (const section of ctx.registry.sections) observer.observe(section.element);
+    for (const section of sections) observer.observe(section.element);
+
+    // The observer fires on crossings, and the bottom of a scroll is not a
+    // crossing — so the last-section case needs its own listener.
+    root?.addEventListener("scroll", markLastIfAtBottom, { passive: true });
     return () => {
       observer.disconnect();
+      root?.removeEventListener("scroll", markLastIfAtBottom);
     };
-    // Re-observe whenever the section set changes (a tab switch replaces them).
-  }, [ctx, ctx?.registry.version]);
+    // Re-observe whenever the VISIBLE set changes: a tab switch swaps which
+    // panels are hidden, and observing a hidden one would mark it active.
+  }, [ctx, sections]);
 
   const goTo = useCallback(
     (id: string) => {
-      const section = ctx?.registry.sections.find((s) => s.id === id);
+      const section = sections.find((s) => s.id === id);
       if (!section) return;
-      section.element.scrollIntoView({ behavior: "smooth", block: "start" });
-      // Mark it immediately: the observer will confirm, but a table of
-      // contents that lags a click by the length of a smooth scroll feels
-      // broken.
+      const root = ctx?.scrollRef.current;
+      if (root) {
+        // Scroll the PANE by offset rather than `scrollIntoView`. Two reasons:
+        // scrollIntoView also scrolls every ancestor (it yanked the drawer),
+        // and it silently does nothing for the last section, which cannot be
+        // brought to the top of a container already scrolled to its end. This
+        // always moves as far as it can, which is what a reader expects.
+        const top =
+          section.element.getBoundingClientRect().top -
+          root.getBoundingClientRect().top +
+          root.scrollTop;
+        root.scrollTo({ top: top - 12, behavior: "smooth" });
+      } else {
+        section.element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      // Mark it now: the observer will confirm, but a table of contents that
+      // lags a click by the length of a smooth scroll feels broken — and for
+      // the last section the observer may never fire at all.
       ctx?.registry.setActive(id);
     },
-    [ctx],
+    [ctx, sections],
   );
 
-  return { sections: ctx?.registry.sections ?? [], activeId: ctx?.registry.activeId ?? null, goTo };
+  // The marked section must be one of the VISIBLE ones: a stale id from the
+  // tab you just left would light nothing, or worse, the wrong row.
+  const activeId = sections.some((s) => s.id === ctx?.registry.activeId)
+    ? (ctx?.registry.activeId ?? null)
+    : (sections[0]?.id ?? null);
+
+  return { sections, activeId, goTo };
 }
 
 const noopSubscribe = () => () => {};

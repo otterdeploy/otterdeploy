@@ -14,7 +14,11 @@
  * instead of a forever-pending RPC that piles stuck cscli processes into the
  * container.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { Docker } from "@otterdeploy/docker";
+import { isJsonObject } from "@otterdeploy/shared/json";
+import { Result } from "better-result";
 
 /** Generous for a healthy agent (reads are <2s); small enough that a wedged
  *  agent reads as unreachable instead of hanging the Firewall view. */
@@ -185,4 +189,28 @@ export function cscliRun(
     opts?.timeoutMs,
     opts?.input,
   );
+}
+
+/**
+ * Parse `cscli … -o json` output into rows.
+ *
+ * Lives here rather than in either reader because both need the same three
+ * concessions to how cscli prints: an empty result is the literal string
+ * `null`, malformed output must not throw into a request, and anything that
+ * isn't an array of objects is "nothing", not an error.
+ *
+ * The caller distinguishes "could not read" (a `null` from `cscliRead` /
+ * `cscliRun`) from "read fine, nothing matched" (an empty array from here).
+ * Collapsing those would let a wedged agent read as "no decisions".
+ */
+export function parseCscliJson(text: string | null): JsonObject[] {
+  if (!text) return [];
+  const trimmed = text.trim();
+  if (!trimmed || trimmed === "null") return [];
+  const parsed = Result.try({
+    try: (): unknown => JSON.parse(trimmed),
+    catch: () => null,
+  });
+  if (parsed.isErr() || !Array.isArray(parsed.value)) return [];
+  return parsed.value.filter(isJsonObject);
 }

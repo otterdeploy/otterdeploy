@@ -71,7 +71,12 @@ export function ResourcePanelHeader({
 }: ResourcePanelHeaderProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col gap-2 px-4 pt-3 pb-4 sm:px-6">
+    // A hairline and a faint lift, because the header is chrome and the pane
+    // below it is content. Without the separation the title, the rail and the
+    // first section heading all read as one column of text starting at the top
+    // of the panel — the identity of the thing you opened blends into the body
+    // of what you opened it to see.
+    <div className="flex flex-col gap-2 border-b bg-muted/20 px-4 pt-3 pb-3.5 sm:px-6">
       {/* Chrome row: where you are, and what you can do to the WINDOW. It
           exists partly to use the band above the title, which was 24px of
           nothing above a 12px crumb — the panel opened with a gap and no
