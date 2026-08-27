@@ -71,41 +71,51 @@ export function ResourcePanelHeader({
 }: ResourcePanelHeaderProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
-      {/* min-w-0 so the name and meta line truncate instead of forcing this
-          row wider than the panel and pushing ✕ off-screen. */}
-      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
-        {icon}
-        <div className="flex min-w-0 flex-col gap-0.5">
-          {crumb && <PanelBreadcrumb crumb={crumb} />}
-          <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
-            {name}
-          </span>
-          {(status || meta || metaTrailing) && (
-            <div className="flex min-w-0 items-center gap-2">
-              {status}
-              {meta && (
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
-                  {meta}
-                </span>
-              )}
-              {metaTrailing && <span className="shrink-0">{metaTrailing}</span>}
-            </div>
-          )}
+    <div className="flex flex-col gap-2 px-4 pt-3 pb-4 sm:px-6">
+      {/* Chrome row: where you are, and what you can do to the WINDOW. It
+          exists partly to use the band above the title, which was 24px of
+          nothing above a 12px crumb — the panel opened with a gap and no
+          reason for it. */}
+      <div className="flex h-7 items-center justify-between gap-3">
+        <div className="min-w-0">{crumb && <PanelBreadcrumb crumb={crumb} />}</div>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <PanelWidthToggle />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("resources.closePanel")}
+            onClick={onClose}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
+          </Button>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {actions}
-        <PanelWidthToggle />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("resources.closePanel")}
-          onClick={onClose}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />
-        </Button>
+
+      {/* Identity row: what this IS, and what you can do to the THING. The
+          tile is centred against the two-line block rather than pinned to the
+          top of a three-line one, which is what left it looking dropped in. */}
+      <div className="flex items-center justify-between gap-3 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          {icon}
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate text-lg leading-none font-semibold tracking-tight sm:text-xl">
+              {name}
+            </span>
+            {(status || meta || metaTrailing) && (
+              <div className="flex min-w-0 items-center gap-2 leading-none">
+                {status}
+                {meta && (
+                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                    {meta}
+                  </span>
+                )}
+                {metaTrailing && <span className="shrink-0">{metaTrailing}</span>}
+              </div>
+            )}
+          </div>
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-1 sm:gap-2">{actions}</div>}
       </div>
     </div>
   );
@@ -149,17 +159,29 @@ function PanelWidthToggle() {
 export type PanelStatusTone = "running" | "building" | "error" | "paused" | "pending";
 
 const TONE_CLASS: Record<PanelStatusTone, string> = {
-  running: "bg-success/12 text-success",
-  building: "bg-warning/12 text-warning",
-  error: "bg-destructive/12 text-destructive",
-  paused: "bg-muted text-muted-foreground",
-  pending: "bg-info/12 text-info",
+  running: "text-success",
+  building: "text-warning",
+  error: "text-destructive",
+  paused: "text-muted-foreground",
+  pending: "text-info",
+};
+
+const DOT_CLASS: Record<PanelStatusTone, string> = {
+  running: "bg-success",
+  building: "bg-warning",
+  error: "bg-destructive",
+  paused: "bg-muted-foreground/60",
+  pending: "bg-info",
 };
 
 /**
- * The status chip that folded up out of the old status bar. Same vocabulary
- * the graph nodes use (running / building / error / paused / pending), so a
- * node and its panel can never disagree about what a resource is doing.
+ * Status as a dot and a word.
+ *
+ * It used to be an uppercase chip with a tinted background — the loudest thing
+ * in the header, for the one fact least likely to have changed since you
+ * opened it. A dot and a word is the SAME pattern the service rows, the graph
+ * nodes and the rail's children already use, so one vocabulary now has one
+ * look wherever it appears.
  */
 export function PanelStatusPill({
   tone,
@@ -173,11 +195,12 @@ export function PanelStatusPill({
   return (
     <span
       className={cn(
-        "shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-[0.14em] uppercase",
+        "inline-flex shrink-0 items-center gap-1.5 text-xs leading-none whitespace-nowrap",
         TONE_CLASS[tone],
         className,
       )}
     >
+      <span aria-hidden className={cn("size-1.5 rounded-full", DOT_CLASS[tone])} />
       {label}
     </span>
   );
