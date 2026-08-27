@@ -67,6 +67,10 @@ export function RegistryDialog({ open, onOpenChange, existing }: RegistryDialogP
               authType: "password",
               createdAt: new Date(),
               updatedAt: new Date(),
+              // A registry nothing has been pointed at yet. Not a placeholder:
+              // it is the true count until a service names it as an image
+              // target, and the refetch after create confirms it.
+              projectCount: 0,
             },
             { metadata: { password: value.password } },
           );

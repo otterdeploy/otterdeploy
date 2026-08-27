@@ -46,6 +46,22 @@ const containerRegistryViewSchema = z.object({
   updatedAt: z.date(),
 });
 
+/**
+ * The list row: a stored credential plus how many projects push to its host.
+ *
+ * Only `list` carries the count. `create` and `update` return the record they
+ * just wrote, and a count is a property of the whole org's wiring rather than
+ * of that row, so computing one there would be a second query answering a
+ * question nobody asked at that moment.
+ */
+const containerRegistryListItemSchema = containerRegistryViewSchema.extend({
+  /** Distinct projects whose build pushes to this registry's host. Derived
+   *  through the same image-ref parser the builder uses to pick a credential,
+   *  so it can't disagree with where images actually land. 0 = nothing points
+   *  here yet. */
+  projectCount: z.number().int().nonnegative(),
+});
+
 // GET input must be object/any/unknown for the OpenAPI generator; optional
 // empty object keeps "no input" valid.
 const listRegistriesInput = z.object({}).optional();
@@ -149,7 +165,7 @@ export const registryContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
     .input(listRegistriesInput)
-    .output(z.array(containerRegistryViewSchema)),
+    .output(z.array(containerRegistryListItemSchema)),
   create: oc
     .errors({
       CONFLICT: {

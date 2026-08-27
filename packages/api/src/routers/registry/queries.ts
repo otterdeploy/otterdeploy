@@ -14,11 +14,12 @@ import type { ContainerRegistryId, OrganizationId } from "@otterdeploy/shared/id
 
 import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
-import { containerRegistry } from "@otterdeploy/db/schema";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { containerRegistry, project, resource, serviceResource } from "@otterdeploy/db/schema";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 
 import { GHCR_HOST, looksLikeInstallationToken } from "../../git/ghcr-policy";
 import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
+import { parseImageRef } from "./tag-parse";
 
 type OrgId = OrganizationId;
 type RegistryId = ContainerRegistryId;
@@ -50,12 +51,63 @@ export function canonicalizeHost(input: string): string {
   return s;
 }
 
+/**
+ * host → number of distinct projects whose build pushes there.
+ *
+ * There is no FK to count. A service names its push target as a plain image
+ * string (`serviceResource.imageRepository`) and the credential is matched by
+ * that string's HOST at build time — see the column comment on project.ts and
+ * `resolveRegistryAuth`. So the count has to be derived the same way the
+ * builder derives auth, through {@link parseImageRef}, which is the one parser
+ * both paths share. Deriving it any other way (a LIKE on the host, say) would
+ * let the card's number disagree with where images actually land.
+ *
+ * Parsed in JS rather than SQL for exactly that reason: the rule for "is the
+ * first segment a host" (a dot, a colon, or `localhost`) lives in one function
+ * and is not worth reimplementing in a query.
+ *
+ * DISTINCT PROJECTS, not services: two services in one project pushing to the
+ * same registry is one project depending on that credential, which is what an
+ * operator is deciding about when they consider deleting it.
+ */
+async function countProjectsByRegistryHost(organizationId: OrgId): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ projectId: resource.projectId, image: serviceResource.imageRepository })
+    .from(serviceResource)
+    .innerJoin(resource, eq(serviceResource.resourceId, resource.id))
+    .innerJoin(project, eq(resource.projectId, project.id))
+    .where(
+      and(eq(project.organizationId, organizationId), isNotNull(serviceResource.imageRepository)),
+    );
+
+  const byHost = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (row.image === null) continue;
+    const ref = parseImageRef(row.image);
+    // An unparseable target pushes nowhere we can name, so it counts for no
+    // registry rather than being attributed to a guess.
+    if (ref === null) continue;
+    let projects = byHost.get(ref.host);
+    if (projects === undefined) {
+      projects = new Set();
+      byHost.set(ref.host, projects);
+    }
+    projects.add(row.projectId);
+  }
+
+  return new Map([...byHost].map(([host, projects]) => [host, projects.size]));
+}
+
 export async function listRegistriesForOrg(organizationId: OrgId) {
-  return db
-    .select(VIEW_COLUMNS)
-    .from(containerRegistry)
-    .where(eq(containerRegistry.organizationId, organizationId))
-    .orderBy(asc(containerRegistry.createdAt));
+  const [rows, counts] = await Promise.all([
+    db
+      .select(VIEW_COLUMNS)
+      .from(containerRegistry)
+      .where(eq(containerRegistry.organizationId, organizationId))
+      .orderBy(asc(containerRegistry.createdAt)),
+    countProjectsByRegistryHost(organizationId),
+  ]);
+  return rows.map((row) => ({ ...row, projectCount: counts.get(row.host) ?? 0 }));
 }
 
 export async function findRegistryByOrgHostUser(

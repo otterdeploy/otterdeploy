@@ -654,7 +654,24 @@
       "descriptionAs": "Abgedeckt durch deine GitHub App, installiert auf {{account}}. Pushes und Pulls werden pro Anfrage autorisiert, es gibt hier also nichts anzulegen oder zu rotieren.",
       "needsPermission": "Deine GitHub App benötigt Zugriff auf Packages, damit das funktioniert. GitHub bittet eine Besitzerin oder einen Besitzer um Zustimmung — sie wird nicht automatisch erteilt.",
       "review": "Auf GitHub prüfen",
-      "noCredential": "Keine Zugangsdaten gespeichert"
+      "needsGrant": "Paketzugriff fehlt",
+      "authValue": "GitHub App"
+    },
+    "project": "Projekt",
+    "projects": "Projekte",
+    "unused": "ungenutzt",
+    "noteUsed": "Wird vom Builder (docker push) und vom Swarm-Daemon (docker pull) verwendet.",
+    "noteUnused": "Noch kein Projekt pusht hierher. Als Image-Ziel eines Dienstes eintragen.",
+    "removeBody": "{{count}} Projekt(e) pushen über diese Zugangsdaten nach {{host}}. Deren Builds schlagen fehl, bis neue eingerichtet sind.",
+    "removeBodyUnused": "Aktuell pusht nichts nach {{host}}; das Entfernen betrifft keine Builds.",
+    "detail": {
+      "host": "Host",
+      "auth": "Auth",
+      "username": "Benutzername",
+      "projects": "Projekte",
+      "added": "Hinzugefügt",
+      "updated": "Geändert",
+      "account": "Konto"
     }
   },
   "sso": {
@@ -908,6 +925,7 @@
   "templates": {
     "search": "Vorlagen suchen",
     "sort": "Vorlagen sortieren",
+    "category": "Kategorien",
     "architecture": "Architektur",
     "includedServices": "Enthaltene Services",
     "requiredVariables": "Erforderliche Variablen",
@@ -1536,7 +1554,14 @@
     "valueYouChoose": "ein Wert deiner Wahl",
     "generatedForYou": "Wird für dich erzeugt",
     "filledWithAddress": "Wird mit der Adresse dieses Stacks gefüllt",
-    "noRequiredVars": "Keine erforderlichen Variablen. Diese Vorlage wird mit sicheren Standardwerten bereitgestellt."
+    "noRequiredVars": "Keine erforderlichen Variablen. Diese Vorlage wird mit sicheren Standardwerten bereitgestellt.",
+    "noMatchIn": "Keine Vorlagen für „{{query}}“ in {{category}}",
+    "noMatchQuery": "Keine Vorlagen für „{{query}}“",
+    "noMatchCategory": "Keine Vorlagen in {{category}}",
+    "noMatchHint": "{{count}} passen in anderen Kategorien – {{category}} schließt sie aus.",
+    "noMatchHintPlain": "Anderen Begriff versuchen oder eine Kategorie aus der Leiste wählen.",
+    "clearCategory": "Alle Kategorien durchsuchen ({{count}})",
+    "clearSearch": "Suche zurücksetzen ({{count}})"
   },
   "compose": {
     "addResource": "Ressource hinzufügen",

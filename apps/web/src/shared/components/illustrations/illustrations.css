@@ -1,0 +1,75 @@
+/**
+ * Motion for `shared/components/illustrations`.
+ *
+ * Lives beside the components rather than in index.css for the same reason
+ * error-screen.css does: the marks are inert without it, and a reader looking
+ * at an animated `className` should find the keyframes one directory away.
+ * Imported once from the app's Tailwind entry.
+ *
+ * Everything here animates `stroke-dashoffset`, `opacity`, or `transform`
+ * only — never a layout property — so an illustration idling in a corner of
+ * the viewport costs no reflow.
+ *
+ * The opacity keyframes have a FLOOR, never reaching 0. Motion is meant to
+ * modulate a mark, not erase it: an element that animates to invisible reads
+ * as a rendering bug for the half-second it's gone.
+ */
+
+@keyframes ill-ants {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+@keyframes ill-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+@keyframes ill-breathe {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+@keyframes ill-sweep {
+  0%,
+  100% {
+    opacity: 0.26;
+  }
+  45% {
+    opacity: 0.55;
+  }
+}
+
+.ill-ants {
+  animation: ill-ants 1.6s linear infinite;
+}
+.ill-flow {
+  animation: ill-flow 2.2s linear infinite;
+}
+.ill-breathe {
+  animation: ill-breathe 3.2s ease-in-out infinite;
+}
+.ill-sweep {
+  animation: ill-sweep 4.4s ease-in-out infinite;
+}
+/* Negative delays start a sibling mid-cycle, so a row of identical marks
+   doesn't pulse in lockstep. */
+.ill-d1 {
+  animation-delay: -0.9s;
+}
+.ill-d2 {
+  animation-delay: -1.8s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ill-ants,
+  .ill-flow,
+  .ill-breathe,
+  .ill-sweep {
+    animation: none !important;
+  }
+}

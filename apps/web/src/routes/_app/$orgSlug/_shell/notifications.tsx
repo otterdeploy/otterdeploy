@@ -30,7 +30,7 @@
 import { useMemo, useState } from "react";
 import { createId, ID_PREFIX, idSchema } from "@otterdeploy/shared/id";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { BellDotIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useTranslation } from "react-i18next";
@@ -48,6 +48,7 @@ import {
 import { DeliveryHistoryDialog } from "@/features/notifications/delivery-history-dialog";
 import { RoutingPanel } from "@/features/notifications/routing-panel";
 import { type Channel } from "@/features/notifications/shared";
+import { EmptyCollection, IllustrationPlate } from "@/shared/components/illustrations";
 import { Page, PageHeader } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -196,14 +197,6 @@ function RouteComponent() {
                 onSelect={(next) => setSelectedId(next.id)}
               />
             ))}
-            <button
-              type="button"
-              onClick={openCreate}
-              className="flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-5" />
-              <span className="text-[13px]">{t("notifications.addChannel")}</span>
-            </button>
           </div>
 
           {active && (
@@ -219,11 +212,9 @@ function RouteComponent() {
       ) : (
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
-            <HugeiconsIcon
-              icon={BellDotIcon}
-              strokeWidth={1.5}
-              className="size-10 text-muted-foreground/50"
-            />
+            <IllustrationPlate className="h-[140px]">
+              <EmptyCollection />
+            </IllustrationPlate>
             <EmptyTitle>No channels yet</EmptyTitle>
             <EmptyDescription>
               Add a Slack, Discord, email, webhook, Telegram, or PagerDuty
