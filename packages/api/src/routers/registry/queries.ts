@@ -70,9 +70,7 @@ export function canonicalizeHost(input: string): string {
  * same registry is one project depending on that credential, which is what an
  * operator is deciding about when they consider deleting it.
  */
-async function countProjectsByRegistryHost(
-  organizationId: OrgId,
-): Promise<Map<string, number>> {
+async function countProjectsByRegistryHost(organizationId: OrgId): Promise<Map<string, number>> {
   const rows = await db
     .select({ projectId: resource.projectId, image: serviceResource.imageRepository })
     .from(serviceResource)
