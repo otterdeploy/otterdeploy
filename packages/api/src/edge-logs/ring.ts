@@ -18,8 +18,14 @@ import type {
   EdgeTimeRange,
 } from "./types";
 
+import { isSuspiciousPath } from "./threat";
+
 /** ~last hour at a few hundred rps, or a hard cap: whichever is smaller. */
 const MAX_ENTRIES = 50_000;
+
+/** Matches the `blockMany` contract cap: handing back more offender IPs than
+ *  one block call can take would just be a set the UI has to silently trim. */
+export const SUSPICIOUS_IP_CAP = 100;
 
 export const RANGE_MS: Record<EdgeTimeRange, number> = {
   "5m": 5 * 60_000,
@@ -83,19 +89,50 @@ export function resolveEdgeWindow(
   return { startMs, endMs };
 }
 
+/** Free-text match across the fields the search box advertises. Split out of
+ *  `matches` so that predicate stays under the complexity cap. */
+function matchesSearch(line: EdgeLogLine, search: string): boolean {
+  const hay = `${line.path} ${line.clientIp} ${line.status} ${line.method}`.toLowerCase();
+  return hay.includes(search.toLowerCase());
+}
+
+/** The multi-select chips: host subset, method, status. Each is a no-op while
+ *  its list is empty. Split out of `matches` to stay under the complexity cap. */
+function matchesChips(line: EdgeLogLine, f: EdgeLogFilter): boolean {
+  if (f.selectedHosts?.length && !f.selectedHosts.includes(line.host)) return false;
+  if (f.methods?.length && !f.methods.includes(line.method)) return false;
+  if (f.statuses?.length && !f.statuses.includes(bucketOf(line.status))) return false;
+  return true;
+}
+
 function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number, untilMs: number): boolean {
   const ts = Date.parse(line.ts);
   if (ts < sinceMs || ts > untilMs) return false;
   if (!f.hosts.includes(line.host)) return false;
-  if (f.selectedHosts?.length && !f.selectedHosts.includes(line.host)) return false;
-  if (f.methods?.length && !f.methods.includes(line.method)) return false;
-  if (f.statuses?.length && !f.statuses.includes(bucketOf(line.status))) return false;
-  if (f.search) {
-    const q = f.search.toLowerCase();
-    const hay = `${line.path} ${line.clientIp} ${line.status} ${line.method}`.toLowerCase();
-    if (!hay.includes(q)) return false;
-  }
+  if (!matchesChips(line, f)) return false;
+  if (f.search && !matchesSearch(line, f.search)) return false;
+  if (f.suspicious && !isSuspiciousPath(line.path)) return false;
   return true;
+}
+
+/** Probe totals over an already-filtered set: the count and the offender IPs
+ *  the toolbar acts on. Computed over every matched line, never over the
+ *  `limit` slice — the row cap is a paging concern and must not silently
+ *  become the answer to "how many probes are in this window". */
+function suspiciousSummary(matched: EdgeLogLine[]): {
+  suspiciousTotal: number;
+  suspiciousIps: string[];
+} {
+  let suspiciousTotal = 0;
+  // Newest-first so the cap keeps the most recent offenders when it bites.
+  const ips = new Set<string>();
+  for (let i = matched.length - 1; i >= 0; i--) {
+    const line = matched[i];
+    if (!line || !isSuspiciousPath(line.path)) continue;
+    suspiciousTotal++;
+    if (ips.size < SUSPICIOUS_IP_CAP) ips.add(line.clientIp);
+  }
+  return { suspiciousTotal, suspiciousIps: [...ips] };
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -181,6 +218,7 @@ export function summarizeEdgeLogs(
     histogram: [...buckets.values()],
     hostStats,
     total: matched.length,
+    ...suspiciousSummary(matched),
   };
 }
 

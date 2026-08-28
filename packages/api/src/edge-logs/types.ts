@@ -52,6 +52,11 @@ export interface EdgeLogFilter {
   selectedHosts?: string[];
   /** Free-text match across path / client IP / status. */
   search?: string;
+  /** Restrict to scanner probes (path matches a threat rule; see threat.ts).
+   *  Server-side on purpose: the count and the offender set must be computed
+   *  over the whole window, not over the `limit` rows the page happens to
+   *  return. */
+  suspicious?: boolean;
   limit?: number;
 }
 
@@ -77,7 +82,15 @@ export interface EdgeLogQueryResult {
   rows: EdgeLogLine[];
   histogram: EdgeHistogramBucket[];
   hostStats: EdgeHostStat[];
+  /** Requests matching the filter across the WHOLE window. Independent of
+   *  `rows.length`, which is capped by `limit`. */
   total: number;
+  /** Of those, how many are scanner probes. Drives the "Suspicious (N)"
+   *  toolbar count, which must not shrink when the window widens. */
+  suspiciousTotal: number;
+  /** Distinct client IPs behind those probes, newest-first, capped at 100 (the
+   *  blockMany contract cap). The mass-block target set. */
+  suspiciousIps: string[];
 }
 
 // ─── Operational log plane (Phase 3) ──────────────────────────────────────

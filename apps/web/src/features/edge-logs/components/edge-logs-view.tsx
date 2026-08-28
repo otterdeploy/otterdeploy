@@ -11,9 +11,15 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { useEdgeBans } from "../data/use-edge-bans";
-import { classifyThreat } from "../threat";
 import { BlockAllButton } from "./edge-logs-block-ip";
-import { BUCKETS, BUCKET_TEXT, METHOD_TEXT, METHODS, type Bucket } from "./edge-logs-constants";
+import {
+  BUCKETS,
+  BUCKET_TEXT,
+  type Bucket,
+  type EdgeLogsData,
+  METHOD_TEXT,
+  METHODS,
+} from "./edge-logs-constants";
 import { Chips, LiveBadge, toggleSet, useStickyHostOptions } from "./edge-logs-shared";
 
 // `Chips` traffics in plain strings, but only ever hands back one of the
@@ -58,6 +64,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         statuses: statuses.size ? [...statuses].filter(isBucket) : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
+        suspicious: suspiciousOnly || undefined,
       },
     }),
     refetchInterval: live && isLiveWindow ? 2000 : false,
@@ -71,18 +78,10 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const { bannedIps, block, blockMany, canBlock } = useEdgeBans();
 
   const data = query.data;
-  const allRows = data?.rows ?? [];
-  // Client-side narrow to scanner probes. Classification is a pure path check
-  // (see threat.ts); it scopes the visible rows within the fetched window.
-  const suspiciousCount = allRows.filter((r) => classifyThreat(r.path)).length;
-  const rows = suspiciousOnly ? allRows.filter((r) => classifyThreat(r.path)) : allRows;
-  // Distinct offender IPs behind the suspicious rows that aren't banned yet.
-  // The mass-block target set (contract caps one call at 100).
-  const suspiciousIps = [
-    ...new Set(allRows.flatMap((r) => (classifyThreat(r.path) ? [r.clientIp] : []))),
-  ]
-    .filter((ip) => !bannedIps.has(ip))
-    .slice(0, 100);
+  // Already narrowed server-side when the filter is on: the row list IS the
+  // suspicious list, so nothing is re-filtered here.
+  const rows = data?.rows ?? [];
+  const probes = probeFacts(data, bannedIps);
   const hostOptions = useStickyHostOptions(hostStatHosts(data));
 
   return (
@@ -124,13 +123,13 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         <div className="flex-1" />
         <SuspiciousControls
           active={suspiciousOnly}
-          count={suspiciousCount}
-          ips={suspiciousIps}
+          count={probes.count}
+          ips={probes.ips}
           onToggle={() => setSuspiciousOnly((v) => !v)}
           blocking={blockMany.isPending}
           // Blocking is install-scoped; without the action the filter toggle
           // still works, so the control stays and only the button goes.
-          onBlockAll={canBlock ? () => blockMany.mutate({ ips: suspiciousIps }) : undefined}
+          onBlockAll={canBlock ? () => blockMany.mutate({ ips: probes.ips }) : undefined}
         />
         <Button
           variant="outline"
@@ -166,6 +165,27 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
       <HostFooter data={data} />
     </div>
   );
+}
+
+/**
+ * The probe count + offender set the toolbar acts on, straight from the
+ * server, which computes both over the WHOLE window.
+ *
+ * Deriving them here from `data.rows` counted one capped page instead: rows
+ * are the newest `limit` (200) of the window, so widening 1h → 7d left the
+ * page unchanged while time pushed a probe burst off the end of it, and the
+ * count FELL from 71 to 8. A window that contains another can never hold
+ * fewer probes; only the server sees enough to say so.
+ */
+function probeFacts(
+  data: EdgeLogsData | undefined,
+  bannedIps: Set<string>,
+): { count: number; ips: string[] } {
+  return {
+    count: data?.suspiciousTotal ?? 0,
+    // The mass-block target set; the server caps it at the blockMany limit.
+    ips: (data?.suspiciousIps ?? []).filter((ip) => !bannedIps.has(ip)),
+  };
 }
 
 /** The hosts the current window saw traffic for, per the query's hostStats. */
