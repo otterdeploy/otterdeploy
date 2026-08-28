@@ -133,7 +133,19 @@ export function draftComposeFromManifest(
     latestDeploymentStatus: "pending" as const,
     source: spec.source,
     stackName: pendingName,
+    // Left empty on purpose: the panel parses `composeContent` and fills this
+    // in. Parsing is a server round-trip (`compose.parse`) and this builder is
+    // sync, so the panel owns it. Hardcoding `[]` and stopping there is what
+    // made every staged stack claim "No services parsed" no matter what its
+    // compose file declared.
     services: [],
     logoBrand: spec.logoBrand ?? null,
+    /** Staged compose YAML, for the draft panel's Services/Compose tabs.
+     *  Inline stacks carry it in the manifest; a git stack has none until it
+     *  is cloned, so the draft shows the file only after deploy. */
+    composeContent: spec.source === "inline" ? spec.content : null,
+    /** Staged stack variables, the values the operator can still edit before
+     *  the first deploy (a template's domain lands here). */
+    stageEnv: spec.env ?? {},
   };
 }

@@ -85,6 +85,7 @@ export function ComposePanelHeader({
   onClose,
   onRedeploy,
   redeploying,
+  draft,
 }: {
   name: string;
   serviceCount: number;
@@ -97,6 +98,9 @@ export function ComposePanelHeader({
   onClose: () => void;
   onRedeploy: () => void;
   redeploying: boolean;
+  /** Staged create: nothing has deployed yet, so the action is Deploy and the
+   *  in-flight state belongs to the apply, not to a redeploy. */
+  draft: boolean;
 }) {
   return (
     <ResourcePanelHeader
@@ -116,32 +120,49 @@ export function ComposePanelHeader({
           {source === "git" ? "from repo" : "inline file"}
         </>
       }
-      actions={<ComposeRedeployButton onRedeploy={onRedeploy} redeploying={redeploying} />}
+      actions={
+        <ComposeDeployButton onRedeploy={onRedeploy} redeploying={redeploying} draft={draft} />
+      }
       onClose={onClose}
     />
   );
 }
 
-function ComposeRedeployButton({
+/**
+ * Deploy (staged create) or Redeploy (live stack), plus the in-flight state of
+ * whichever one this is.
+ *
+ * `draft` and `redeploying` used to be the same prop. A staged stack passed
+ * `pending` straight into `redeploying`, so it rendered a spinner reading
+ * "Redeploying…" — on a stack that had never deployed — and `disabled` made
+ * that the one control in the panel nobody could click. The two states are
+ * separate now: a draft gets an enabled Deploy, and only a real in-flight
+ * mutation disables anything.
+ */
+function ComposeDeployButton({
   onRedeploy,
   redeploying,
+  draft,
 }: {
   onRedeploy: () => void;
   redeploying: boolean;
+  draft: boolean;
 }) {
+  const label = draft ? "Deploy" : "Redeploy";
+  const busyLabel = draft ? "Deploying…" : "Redeploying…";
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={draft ? "default" : "outline"}
       size="sm"
       onClick={onRedeploy}
       disabled={redeploying}
-      aria-label={redeploying ? "Redeploying" : "Redeploy"}
+      aria-label={redeploying ? busyLabel : label}
     >
       <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
       {/* Label drops below `sm`: the icon carries it, and the row has to
           leave room for the stack name. */}
-      <span className="hidden sm:inline">{redeploying ? "Redeploying…" : "Redeploy"}</span>
+      <span className="hidden sm:inline">{redeploying ? busyLabel : label}</span>
     </Button>
   );
 }
