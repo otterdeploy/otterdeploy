@@ -13,7 +13,6 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { JoinCommandBlock } from "@/features/servers/components/join-command-block";
 import { SettingsRow, SettingsSection } from "@/shared/components/settings-section";
 import {
   AlertDialog,
@@ -37,6 +36,7 @@ import { useSite } from "../../hooks/use-web-analytics";
 import { isoMs } from "../../lib/iso-ms";
 import { HealthSection, TrackingApiDoc } from "./setup-health-doc";
 import { HostsSection, PrivacySection, invalidateSite } from "./setup-view-parts";
+import { SnippetBlock } from "./snippet-block";
 
 const stamp = clockFormatter(CLOCK_STAMP);
 
@@ -114,7 +114,7 @@ function ProjectSetup({ project }: { project: NudgeProject }) {
         description={t("analytics.setup.installationDesc", { project: project.name })}
       >
         <div className="flex flex-col gap-3 px-4 py-3.5">
-          {data.snippet !== null ? <JoinCommandBlock command={data.snippet} /> : null}
+          {data.snippet !== null ? <SnippetBlock snippet={data.snippet} /> : null}
           <div className="flex items-center gap-2 text-xs">
             {verifiedMs !== null ? (
               <>
