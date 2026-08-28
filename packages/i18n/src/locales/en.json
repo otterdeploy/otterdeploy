@@ -1730,7 +1730,13 @@
     "dnsHintGenerated": "This host doesn't resolve to this server yet. Point it here with the A record below (a wildcard on the base domain covers every generated host), then Recheck.",
     "dnsHintCustom": "Add the ownership TXT record and point the host at this server, then Recheck. The route stays disabled until ownership is verified.",
     "configureDns": "Configure DNS",
-    "sslipNote": "Temporary address with a self-signed certificate, so browsers will warn. Add a domain of your own for a trusted URL."
+    "sslipNote": "Temporary address with a self-signed certificate, so browsers will warn. Add a domain of your own for a trusted URL.",
+    "certSelfSigned": "Self-signed",
+    "certIssuing": "Issuing…",
+    "certFailed": "Cert failed",
+    "certSelfSignedHint": "Serving a self-signed certificate — browsers will reject it. Run Recheck DNS once this host resolves to this server.",
+    "certSelfSignedProxiedHint": "Cloudflare serves a trusted certificate to visitors, but the origin here is self-signed. Keep Cloudflare SSL mode on Full (not Full strict), or grey-cloud the record briefly so a real certificate can issue.",
+    "certFailedHint": "Certificate issuance failed."
   },
   "backups": {
     "restoreDialogTitle": "Restore · {{source}}",
