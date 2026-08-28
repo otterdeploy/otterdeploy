@@ -15,6 +15,7 @@ import { startFirewallRecorder } from "@otterdeploy/api/routers/firewall/recorde
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import { startNodeEnrollmentReaper } from "@otterdeploy/api/routers/server/enrollment";
+import { startCertRecheckSweep } from "@otterdeploy/api/routers/service/cert-recheck-sweep";
 import {
   startHealthAgentReconciler,
   startHostHealthMonitor,
@@ -86,6 +87,12 @@ export function startBackgroundServices(): () => void {
   // Managed blocklists: re-import enabled public/custom lists into CrowdSec on
   // their interval so the imported decisions refresh before they expire.
   start("blocklist-scheduler", startBlocklistScheduler);
+
+  // Certificate re-probe: a route created before its DNS record propagated was
+  // written with `usesAcme: false` and nothing ever re-evaluated it, so it
+  // served a self-signed cert until an operator noticed and pressed Recheck.
+  // Upgrade-only; the downgrade guard owns the other direction.
+  start("cert-recheck-sweep", startCertRecheckSweep);
 
   // Firewall decision recorder: CrowdSec deletes a decision the moment its TTL
   // elapses, so without this an expired ban leaves no trace anywhere in the

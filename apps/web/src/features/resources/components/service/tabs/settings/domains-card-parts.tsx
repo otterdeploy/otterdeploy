@@ -11,6 +11,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
+type CertState = "unknown" | "obtaining" | "valid" | "failed";
 
 /** Verification state of the org's base domain. Generated hostnames are
  *  `<slug>.<baseDomain>`, so a not-yet-verified custom base domain
@@ -33,6 +34,10 @@ export interface DomainView {
   dnsState: DnsState;
   dnsCheckedAt: string | null;
   usesAcme: boolean;
+  /** TLS lifecycle, promoted from Caddy's own ACME log events
+   *  (packages/api/src/edge-logs/cert-promote.ts). */
+  certState: CertState;
+  certError: string | null;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -47,6 +52,76 @@ export type DomainStatusView = Pick<
   DomainView,
   "domain" | "source" | "status" | "dnsState" | "dnsCheckedAt" | "usesAcme" | "ownershipVerified"
 >;
+
+/** Just the fields the TLS chip reads. */
+type DomainCertView = Pick<
+  DomainView,
+  "domain" | "status" | "dnsState" | "usesAcme" | "certState" | "certError"
+>;
+
+/** A name no public CA will ever issue for, so "self-signed" is its correct
+ *  and permanent state rather than a problem to report. Mirrors
+ *  `canHoldPublicCert` in packages/api/src/routers/service/domain-rules.ts. */
+function canHoldPublicCert(domain: string): boolean {
+  return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
+}
+
+/**
+ * Whether TLS is actually trusted, which {@link StatusBadge} does NOT say.
+ *
+ * That chip answers "does DNS reach this host", and the two facts come apart:
+ * a domain proxied through Cloudflare reads `Cloudflare` there while its
+ * ORIGIN still serves a self-signed certificate. A route showed `Live` while
+ * browsers rejected it with ERR_CERT_AUTHORITY_INVALID, and nothing on the
+ * page said otherwise — the operator found out by visiting the site.
+ *
+ * Keyed off `usesAcme`, NOT off `certState` alone. A route on `tls internal`
+ * makes Caddy emit no ACME events at all, so its `certState` stays `unknown`
+ * forever — indistinguishable from "issued, just not logged yet". `usesAcme`
+ * is the decision the reconciler actually wrote into the Caddyfile, so it is
+ * the only field that can tell those apart.
+ *
+ * Silent on the healthy path: a badge on every working row is noise, and
+ * StatusBadge already says Live. This speaks only when something is wrong or
+ * in flight.
+ */
+export function CertBadge({ domain }: { domain: DomainCertView }) {
+  const { t } = useTranslation();
+
+  // Nothing is being served, so TLS is not the operator's current problem.
+  if (domain.status !== "live") return null;
+  if (!canHoldPublicCert(domain.domain)) return null;
+
+  if (!domain.usesAcme) {
+    return (
+      <Badge
+        variant="secondary"
+        className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500"
+        title={
+          domain.dnsState === "proxied"
+            ? t("domains.certSelfSignedProxiedHint")
+            : t("domains.certSelfSignedHint")
+        }
+      >
+        {t("domains.certSelfSigned")}
+      </Badge>
+    );
+  }
+
+  if (domain.certState === "failed") {
+    return (
+      <Badge variant="destructive" title={domain.certError ?? t("domains.certFailedHint")}>
+        {t("domains.certFailed")}
+      </Badge>
+    );
+  }
+
+  if (domain.certState === "obtaining") {
+    return <Badge variant="outline">{t("domains.certIssuing")}</Badge>;
+  }
+
+  return null;
+}
 
 /** Connection chip. Generated hosts whose DNS has actually been measured
  *  (minted under a real apex, or Recheck was run) surface that observation:

@@ -22,7 +22,7 @@ import type { PortChoice } from "./domain-row-parts";
 import type { BaseDomainStatus, DomainView } from "./domains-card-parts";
 
 import { DomainEditRow, DomainRowActions } from "./domain-row-parts";
-import { DnsHint, StatusBadge } from "./domains-card-parts";
+import { CertBadge, DnsHint, StatusBadge } from "./domains-card-parts";
 import { useDomainRow } from "./use-domain-row";
 
 /** Same pair the server derives (packages/api/src/lib/dns-records.ts). Built
@@ -142,6 +142,10 @@ export function DomainRow({
           )}
           {domain.isPrimary && <Badge variant="default">Primary</Badge>}
           <StatusBadge domain={domain} baseDomainStatus={baseDomainStatus} />
+          {/* Separate chip: DNS reachability and TLS trust are different facts,
+              and a proxied host is "Cloudflare" for one and self-signed for the
+              other. */}
+          <CertBadge domain={domain} />
         </div>
 
         <DomainRowActions
