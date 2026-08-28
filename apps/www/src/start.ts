@@ -1,6 +1,6 @@
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
 
-import { trailingSlashMiddleware } from "./trailing-slash";
+import { canonicalUrlMiddleware } from "./canonical-url";
 
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === "serverFn",
@@ -8,8 +8,8 @@ const csrfMiddleware = createCsrfMiddleware({
 
 export const startInstance = createStart(() => {
   return {
-    // Trailing-slash first: it answers with a redirect and never reaches the
+    // Canonical URL first: it answers with a redirect and never reaches the
     // router, so there is nothing for CSRF to validate on those requests.
-    requestMiddleware: [trailingSlashMiddleware, csrfMiddleware],
+    requestMiddleware: [canonicalUrlMiddleware, csrfMiddleware],
   };
 });
