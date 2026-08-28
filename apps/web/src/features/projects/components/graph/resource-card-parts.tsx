@@ -17,7 +17,7 @@ import { cn } from "@/shared/lib/utils";
 import type { ReplicaInfo, ResourceNodeData, VolumeAttachment } from "./resource-node-types";
 
 import { engineLogos, kindMeta, statusMeta } from "./resource-node-meta";
-import { MountRow, ReplicaRow } from "./resource-node-parts";
+import { MountRow, PendingBadge, ReplicaRow } from "./resource-node-parts";
 import { VisitPill } from "./visit-pill";
 
 const badgeBase =
@@ -39,21 +39,7 @@ function HeaderStatus({ data }: { data: ResourceNodeData }) {
   return (
     <div className="flex flex-col items-end gap-1">
       {data.pending ? (
-        <span
-          className={cn(
-            badgeBase,
-            // Match the node's comet border: create/update = blue, delete = yellow.
-            data.pending === "delete" ? "bg-warning/15 text-warning" : "bg-info/15 text-info",
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              data.pending === "delete" ? "bg-warning" : "bg-info",
-            )}
-          />
-          pending {data.pending}
-        </span>
+        <PendingBadge pending={data.pending} />
       ) : status ? (
         <span className={cn(badgeBase, status.pillClass)}>
           <span className={cn("size-1.5 rounded-full", status.dotClass)} />

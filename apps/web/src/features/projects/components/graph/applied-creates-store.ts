@@ -19,22 +19,40 @@
  * records, so its ghosts drop the instant diff drops them.
  *
  * Keys are `${resource}:${name}`. The same id the graph node carries.
+ *
+ * Each key carries the change's `details` payload alongside it. Without that
+ * the bridged ghost was rebuilt from the key string ALONE, so a stack that had
+ * been showing its four member cards and its template logo degraded, the
+ * instant Deploy was pressed, into an empty "No services parsed yet" box under
+ * a generic icon: the graph appearing to forget what it had just been told.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { useSyncExternalStore } from "react";
+
+/** A recorded create: when it stops being bridged, and what the ghost should
+ *  render meanwhile. */
+interface Recorded {
+  expiry: number;
+  details: JsonObject | undefined;
+}
 
 /** Safety net: evict a recorded key after this long even if the resource never
  *  lands (failed reconcile, out-of-band deletion), so a ghost can't get stuck. */
 const TTL_MS = 30_000;
 
-// projectId → (key → expiry timestamp)
-const store = new Map<string, Map<string, number>>();
+// projectId → (key → what was recorded for it)
+const store = new Map<string, Map<string, Recorded>>();
 // Cached immutable snapshots so useSyncExternalStore's getSnapshot is stable
 // between mutations (returning a fresh Set each call would loop forever).
-const snapshots = new Map<string, ReadonlySet<string>>();
+const snapshots = new Map<string, AppliedCreates>();
 const listeners = new Set<() => void>();
 
-const EMPTY: ReadonlySet<string> = new Set();
+/** key → the create's `details`, or undefined when the change carried none. */
+export type AppliedCreates = ReadonlyMap<string, JsonObject | undefined>;
+
+const EMPTY: AppliedCreates = new Map();
 
 function rebuild(projectId: string) {
   const m = store.get(projectId);
@@ -43,8 +61,8 @@ function rebuild(projectId: string) {
     return;
   }
   const now = Date.now();
-  const out = new Set<string>();
-  for (const [k, exp] of m) if (exp > now) out.add(k);
+  const out = new Map<string, JsonObject | undefined>();
+  for (const [k, rec] of m) if (rec.expiry > now) out.set(k, rec.details);
   snapshots.set(projectId, out.size === 0 ? EMPTY : out);
 }
 
@@ -53,16 +71,21 @@ function emit(projectId: string) {
   for (const l of listeners) l();
 }
 
-/** Record create keys the operator just Deployed for this project. */
-export function markAppliedCreates(projectId: string, keys: string[]) {
-  if (keys.length === 0) return;
+/** Record the creates the operator just Deployed for this project, each with
+ *  the `details` its ghost was rendering, so the bridged ghost stays the node
+ *  the operator was already looking at. */
+export function markAppliedCreates(
+  projectId: string,
+  entries: ReadonlyArray<{ key: string; details: JsonObject | undefined }>,
+) {
+  if (entries.length === 0) return;
   let m = store.get(projectId);
   if (!m) {
     m = new Map();
     store.set(projectId, m);
   }
   const expiry = Date.now() + TTL_MS;
-  for (const k of keys) m.set(k, expiry);
+  for (const e of entries) m.set(e.key, { expiry, details: e.details });
   emit(projectId);
   // Safety eviction so a ghost can't outlive a reconcile that never lands.
   setTimeout(() => {
@@ -70,8 +93,8 @@ export function markAppliedCreates(projectId: string, keys: string[]) {
     if (!cur) return;
     const now = Date.now();
     let changed = false;
-    for (const [k, exp] of cur) {
-      if (exp <= now) {
+    for (const [k, rec] of cur) {
+      if (rec.expiry <= now) {
         cur.delete(k);
         changed = true;
       }
@@ -102,12 +125,12 @@ export function clearAppliedCreatesForProject(projectId: string) {
   }
 }
 
-function getSnapshot(projectId: string): ReadonlySet<string> {
+function getSnapshot(projectId: string): AppliedCreates {
   return snapshots.get(projectId) ?? EMPTY;
 }
 
-/** Subscribe a graph to the create keys awaiting their resource to land. */
-export function useAppliedCreates(projectId: string): ReadonlySet<string> {
+/** Subscribe a graph to the creates awaiting their resource to land. */
+export function useAppliedCreates(projectId: string): AppliedCreates {
   return useSyncExternalStore(
     (cb) => {
       listeners.add(cb);

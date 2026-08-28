@@ -22,6 +22,7 @@ export type {
   ComposeServiceInfo,
   GitInfo,
   IconType,
+  PendingMark,
   ReplicaInfo,
   ResourceEngine,
   ResourceFlowNode,

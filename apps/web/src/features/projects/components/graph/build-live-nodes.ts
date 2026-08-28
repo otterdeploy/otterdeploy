@@ -3,12 +3,14 @@ import type { Node } from "@xyflow/react";
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type {
   ComposeServiceInfo,
+  PendingMark,
   ResourceNodeData,
   ResourceStatus,
   StackServiceStatus,
 } from "@/features/projects/components/graph/resource-node";
 
 import {
+  baseStackServiceStatus,
   resourceToNode,
   type ProjectResource,
 } from "@/features/projects/components/graph/resource-to-node";
@@ -77,19 +79,32 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode => {
  *  service with no running task (the exact failure a single stack pill hides).
  *  Exported so the compose DETAIL panel derives per-service status identically
  *  to the graph node: they read the same child resources + tasks and must
- *  never disagree. */
+ *  never disagree.
+ *
+ *  `stackBase` answers for a child that has no deployment of its own yet: pass
+ *  `memberBase()` for it. A stack deploy materializes every child row up front
+ *  but deploys them one at a time, so without this the members the rollout has
+ *  not reached read "Pending" — the word for a staged resource — underneath a
+ *  header that says "Deploying…". They are not staged; the deploy simply has
+ *  not got to them. Only a stack that never deployed leaves its members
+ *  pending. */
 export const childServiceStatus = (
   // Structural: the one field this reads. Lets the compose panel's lookup pass
   // its own row shape without reconstructing the full resource wire type.
   child: Pick<ServiceResource, "latestDeploymentStatus">,
   tasks: Task[],
+  stackBase?: StackServiceStatus,
 ): StackServiceStatus => {
   if (tasks.length > 0) return rollupStatus(tasks);
   switch (child.latestDeploymentStatus) {
-    case "starting":
     case "building":
-    case "pending":
       return "building";
+    case "starting":
+      // Rolling out, not compiling (see StackServiceStatus).
+      return "deploying";
+    case "pending":
+      // Its deployment is enqueued; nothing has started on it.
+      return "queued";
     case "crashed":
     case "failed":
       return "error";
@@ -97,9 +112,29 @@ export const childServiceStatus = (
       // Deployed, but no live task right now → down.
       return "offline";
     default:
-      return child.latestDeploymentStatus == null ? "pending" : "offline";
+      return child.latestDeploymentStatus == null ? (stackBase ?? "pending") : "offline";
   }
 };
+
+/**
+ * What a stack member with no deployment of its own should read, given the
+ * STACK's own state.
+ *
+ * While the stack's deploy is in flight the member is waiting its turn, so it
+ * reads `queued`: not `building` (nothing is being built for it) and not
+ * `pending` (it is not merely staged). Any other stack state answers for
+ * itself: never deployed stays pending, and a failed stack marks its members
+ * failed (a failed build never creates them at all).
+ *
+ * Exported so the compose panel applies the identical rule; the two surfaces
+ * must never disagree about one deploy.
+ */
+export const memberBase = (
+  stackBase: StackServiceStatus | undefined,
+): StackServiceStatus | undefined =>
+  stackBase === "building" || stackBase === "deploying" || stackBase === "queued"
+    ? "queued"
+    : stackBase;
 
 /** Roll a compose stack's tasks up PER SERVICE, so each service card shows its
  *  own state. A service with no live task while the stack is up reads "offline"
@@ -155,9 +190,10 @@ export interface PendingByName {
      *  logo before the first deploy persists it. */
     logoBrand?: string;
   }>;
-  /** Lookup keyed by `${resource}:${name}` (the node id) → pending
-   *  update/delete marker for an already-applied resource. */
-  marker: Map<string, "update" | "delete">;
+  /** Lookup keyed by `${resource}:${name}` (the node id) → the marker an
+   *  already-applied resource wears: a staged update/delete, or the teardown
+   *  that is running on it right now. */
+  marker: Map<string, PendingMark>;
 }
 
 /**
@@ -169,7 +205,8 @@ export interface PendingByName {
  *
  * `pending` overlays staged manifest changes onto the result:
  *   - creates are appended as ghost nodes with `pending: "create"`
- *   - existing nodes are tagged with `pending: "update" | "delete"`
+ *   - existing nodes are tagged with `pending` (staged update/delete, or the
+ *     `deleting` teardown already in flight)
  */
 export const buildLiveNodes = (
   resources: Resource[],
@@ -216,6 +253,8 @@ export const buildLiveNodes = (
       // child resource "excalidraw-service"), which diverges from the
       // compose file's declared key and makes the join below miss forever.
       const childByServiceName = new Map(children.map((c) => [c.serviceName, c] as const));
+      // The fallback for a child with no deployment yet (see memberBase).
+      const stackBase = memberBase(baseStackServiceStatus(r.latestDeploymentStatus));
       const liveCard = (c: ServiceResource, volumes: string[]): ComposeServiceInfo => {
         const all = tasksByResourceId.get(c.resourceId) ?? [];
         const live = all.filter((t) => !isRetired(t));
@@ -230,7 +269,7 @@ export const buildLiveNodes = (
           // The stack has no single host. Each member answers for itself, so
           // the Visit affordance lives on the member row.
           publicUrl: c.publicEnabled ? c.publicDomain : null,
-          status: childServiceStatus(c, live.length > 0 ? live : all),
+          status: childServiceStatus(c, live.length > 0 ? live : all, stackBase),
           ...(restarts > 0 ? { restarts } : {}),
         };
       };

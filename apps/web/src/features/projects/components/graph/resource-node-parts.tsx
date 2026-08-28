@@ -13,9 +13,14 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ServiceImageTile } from "@/shared/components/brand/service-image-icon";
 import { cn } from "@/shared/lib/utils";
 
-import type { ComposeServiceInfo, ReplicaInfo, VolumeAttachment } from "./resource-node-types";
+import type {
+  ComposeServiceInfo,
+  PendingMark,
+  ReplicaInfo,
+  VolumeAttachment,
+} from "./resource-node-types";
 
-import { stackStatusMeta, statusMeta } from "./resource-node-meta";
+import { pendingBadge, stackStatusMeta, statusMeta } from "./resource-node-meta";
 import { VisitPill } from "./visit-pill";
 
 /** The comet's colour is a CSS custom property, which React's CSSProperties
@@ -23,15 +28,40 @@ import { VisitPill } from "./visit-pill";
  *  typed instead of asserted. */
 type CometStyle = CSSProperties & { "--comet-color": string };
 
-/** Comet border: a light travels the edge while a resource has a staged
- *  change. Blue for a pending create (new resource), yellow for a pending
- *  delete. Decorative: sits above content but never eats clicks. */
-export function PendingComet({ pending }: { pending?: "create" | "update" | "delete" }) {
+/** Comet border: a light travels the edge while something is happening to a
+ *  resource. Blue for a pending create, yellow for a pending delete, red while
+ *  a teardown actually runs. Decorative: above content, never eats clicks. */
+export function PendingComet({ pending }: { pending?: PendingMark }) {
+  // Staged reads calm (blue/amber); a teardown already in flight reads
+  // destructive, because it is destructive and it is happening now.
   const color =
-    pending === "create" ? "var(--info)" : pending === "delete" ? "var(--warning)" : null;
+    pending === "create"
+      ? "var(--info)"
+      : pending === "delete"
+        ? "var(--warning)"
+        : pending === "deleting"
+          ? "var(--destructive)"
+          : null;
   if (!color) return null;
   const style: CometStyle = { "--comet-color": color };
   return <span aria-hidden className="comet-border z-20 rounded-2xl" style={style} />;
+}
+
+/** The pending/deleting badge, shared by the resource card and the stack group
+ *  header so one marker can never render two different ways. */
+export function PendingBadge({ pending }: { pending: PendingMark }) {
+  const badge = pendingBadge(pending);
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
+        badge.pillClass,
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", badge.dotClass)} />
+      {badge.label}
+    </span>
+  );
 }
 
 /** Mount row. Name + optional mount-path on the left, size aligned right.

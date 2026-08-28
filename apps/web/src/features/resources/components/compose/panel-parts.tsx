@@ -25,6 +25,7 @@ export type StackServiceStatus =
   | "running"
   | "building"
   | "deploying"
+  | "queued"
   | "error"
   | "offline"
   | "pending";
@@ -63,8 +64,11 @@ export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefine
     case "building":
       return "building";
     case "starting":
-    case "pending":
       return "deploying";
+    // Enqueued: the rollout hasn't started. Distinct from `deploying` for the
+    // same reason `deploying` is distinct from `building`.
+    case "pending":
+      return "queued";
     case "crashed":
     case "failed":
       return "error";

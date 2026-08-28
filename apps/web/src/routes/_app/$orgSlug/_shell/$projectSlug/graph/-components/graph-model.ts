@@ -19,13 +19,18 @@ import {
 import {
   clearAppliedCreate,
   useAppliedCreates,
+  type AppliedCreates,
 } from "@/features/projects/components/graph/applied-creates-store";
+import { clearDeleting, useDeleting } from "@/features/projects/components/graph/deleting-store";
 import {
   clearPendingFramework,
   usePendingFrameworks,
 } from "@/features/projects/components/graph/pending-framework-store";
 import { buildPreviewSatellites } from "@/features/projects/components/graph/preview-satellites";
-import { type ComposeServiceInfo } from "@/features/projects/components/graph/resource-node";
+import {
+  type ComposeServiceInfo,
+  type PendingMark,
+} from "@/features/projects/components/graph/resource-node";
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
@@ -119,22 +124,21 @@ function ghostCreate(
  * branch budget.
  */
 function bridgeAppliedCreates(
-  appliedCreates: ReadonlySet<string>,
+  appliedCreates: AppliedCreates,
   createKeys: ReadonlySet<string>,
   idByName: ReadonlyMap<string, string>,
   frameworks: ReadonlyMap<string, Framework>,
 ): PendingCreate[] {
   const bridged: PendingCreate[] = [];
-  for (const key of appliedCreates) {
+  for (const [key, details] of appliedCreates) {
     if (createKeys.has(key) || idByName.has(key)) continue;
     const sep = key.indexOf(":");
     const resource = key.slice(0, sep);
     if (!isNodeResourceKind(resource)) continue;
-    bridged.push({
-      resource,
-      name: key.slice(sep + 1),
-      ...(resource === "service" ? { framework: frameworks.get(key) } : {}),
-    });
+    // Same builder the diff path uses, on the details recorded at Deploy time:
+    // the bridged ghost is the node the operator was already looking at, not a
+    // stripped stand-in that forgets the stack's services and logo.
+    bridged.push(ghostCreate(resource, key.slice(sep + 1), details, frameworks));
   }
   return bridged;
 }
@@ -158,11 +162,12 @@ function resourceIdByName(
 function computePendingByName(
   resources: readonly ResourceLike[],
   changes: readonly ManifestChange[],
-  appliedCreates: ReadonlySet<string>,
+  appliedCreates: AppliedCreates,
   frameworks: ReadonlyMap<string, Framework>,
+  deleting: ReadonlySet<string>,
 ): PendingByName {
   const creates: PendingByName["creates"] = [];
-  const marker = new Map<string, "update" | "delete">();
+  const marker = new Map<string, PendingMark>();
   const idByName = resourceIdByName(resources);
   const createKeys = new Set<string>();
   for (const c of changes) {
@@ -182,6 +187,9 @@ function computePendingByName(
     }
   }
   creates.push(...bridgeAppliedCreates(appliedCreates, createKeys, idByName, frameworks));
+  // A teardown already running outranks any staged marker: the resource is on
+  // its way out, and that is the more urgent thing to say about it.
+  for (const key of deleting) if (idByName.has(key)) marker.set(key, "deleting");
   return { creates, marker };
 }
 
@@ -245,6 +253,9 @@ export function useGraphModel(
   // resource lands in the collection so the node doesn't blink out and back
   // across the diff/collection refetch gap. See applied-creates-store.ts.
   const appliedCreates = useAppliedCreates(project.id);
+  // Resources being torn down right now: marked the moment the operator
+  // confirms, so the node shows the work instead of a modal spinner.
+  const deleting = useDeleting(project.id);
   // Wizard-detected frameworks for staged service ghosts (instant brand logo).
   const pendingFrameworks = usePendingFrameworks(project.id);
 
@@ -252,15 +263,20 @@ export function useGraphModel(
   // store doesn't pin a ghost over the now-real node: and drop its framework
   // hint, since the real row now carries the persisted value.
   useEffect(() => {
-    if (appliedCreates.size === 0 && pendingFrameworks.size === 0) return;
+    if (appliedCreates.size === 0 && pendingFrameworks.size === 0 && deleting.size === 0) return;
+    const live = new Set<string>();
     for (const r of resources) {
       if (r.type !== "service" && r.type !== "database" && r.type !== "compose")
         continue;
       const key = `${r.type}:${r.name}`;
       if (appliedCreates.has(key)) clearAppliedCreate(project.id, key);
       if (pendingFrameworks.has(key)) clearPendingFramework(project.id, key);
+      live.add(key);
     }
-  }, [appliedCreates, pendingFrameworks, resources, project.id]);
+    // The mirror image for deletes: the mark is intent, the collection is
+    // truth. Once a row is gone its node is gone with it, so stop marking it.
+    for (const key of deleting) if (!live.has(key)) clearDeleting(project.id, key);
+  }, [appliedCreates, pendingFrameworks, deleting, resources, project.id]);
 
   // Open PR previews: satellite cards hanging off the service they preview.
   // The PR webhook handlers push a `previews` resync over the event stream,
@@ -307,6 +323,7 @@ export function useGraphModel(
       diff.data?.changes ?? [],
       appliedCreates,
       pendingFrameworks,
+      deleting,
     );
 
     const base = buildLiveNodes(resources, tasksByResourceId, pendingByName);
@@ -324,6 +341,7 @@ export function useGraphModel(
     previews.data,
     appliedCreates,
     pendingFrameworks,
+    deleting,
   ]);
 
   // Corner chip rollup: null (chip omitted) when no host saw traffic.

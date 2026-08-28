@@ -47,8 +47,45 @@ export interface ReplicaInfo {
  * single-pill model can't express: `offline` (deployed but no running task,
  * "which one is down?") and `pending` (staged, never deployed). This is the
  * whole point of rendering a stack as a group: each service answers for itself.
+ *
+ * `deploying` is the rollout phase, distinct from `building`: an image-only
+ * service never builds anything, so labelling its pull/start "Building" was a
+ * lie the compose PANEL already stopped telling (panel-parts.baseStatus). The
+ * two vocabularies are now the same one, which is the point: the node and the
+ * panel describe one deploy in one set of words.
+ *
+ * `queued` is the member a running deploy has not started yet. A stack deploy
+ * materializes every child row up front and then works through them one at a
+ * time, so its untouched members are neither building nor staged: they are
+ * waiting their turn. Calling that `pending` (the word for a resource that was
+ * never deployed at all) read as "this will not happen" under a header that
+ * said "Deploying…". Same word the top-level pill already uses for an enqueued
+ * deployment.
  */
-export type StackServiceStatus = "running" | "building" | "error" | "offline" | "pending";
+export type StackServiceStatus =
+  | "running"
+  | "building"
+  | "deploying"
+  | "queued"
+  | "error"
+  | "offline"
+  | "pending";
+
+/**
+ * What is happening to a node that isn't just "it exists".
+ *
+ * `create`/`update`/`delete` are STAGED manifest changes: nothing has happened
+ * yet and the next Deploy is what makes them real. `deleting` is the opposite —
+ * the teardown is running right now, on a resource that is on its way out. They
+ * read differently on purpose: staged is calm amber/blue, `deleting` is
+ * destructive red, because one is a plan and the other is already happening.
+ */
+export type PendingMark = "create" | "update" | "delete" | "deleting";
+
+/** Is this node on its way out (staged for deletion, or being torn down)?
+ *  Both states must refuse navigation: there is nothing to open. */
+export const isRemoving = (pending: PendingMark | undefined): boolean =>
+  pending === "delete" || pending === "deleting";
 
 /** One service inside a compose stack's group card. */
 export interface ComposeServiceInfo {
@@ -172,11 +209,10 @@ export interface ResourceNodeData extends UnknownRecord {
   /** Compose-only: the stack's parsed services. Renders an inset SERVICES
    *  tray so the operator sees every container the stack will create. */
   services?: ComposeServiceInfo[];
-  /** Pending manifest change. Set when the node represents a staged
-   *  create/update/delete that hasn't been applied yet. Rendered with
-   *  reduced opacity + a dashed border so it's visually distinct from
-   *  an applied resource. */
-  pending?: "create" | "update" | "delete";
+  /** Pending manifest change, or a teardown already running. See
+   *  {@link PendingMark}. Rendered with reduced opacity + a dashed border so
+   *  it's visually distinct from an applied resource. */
+  pending?: PendingMark;
   /** Public host for a service node, when exposed. See ComposeServiceInfo's
    *  field of the same name: a stack's members carry their own. */
   publicUrl?: string | null;

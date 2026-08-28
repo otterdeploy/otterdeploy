@@ -18,6 +18,7 @@ import {
   ResourceCardHeader,
 } from "./resource-card-parts";
 import { PendingComet } from "./resource-node-parts";
+import { isRemoving } from "./resource-node-types";
 
 export function ResourceCardNode({ data, selected }: NodeProps<ResourceFlowNode>) {
   return (
@@ -37,7 +38,7 @@ export function ResourceCardNode({ data, selected }: NodeProps<ResourceFlowNode>
           // opening the pending-changes bar. Create/delete both get the
           // animated comet border (PendingComet); delete additionally reads as
           // disabled (dimmed + not-allowed cursor).
-          data.pending === "delete" && "cursor-not-allowed opacity-80",
+          isRemoving(data.pending) && "cursor-not-allowed opacity-80",
           data.pending === "update" && "border-dashed border-info/60",
         )}
       >

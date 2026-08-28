@@ -29,7 +29,8 @@ import { orpc } from "@/shared/server/orpc";
 import type { ResourceFlowNode, ResourceNodeData } from "./resource-node-types";
 
 import { kindMeta, stackRollup, stackToneClass, useToolbarHover } from "./resource-node-meta";
-import { PendingComet, StackServiceCard } from "./resource-node-parts";
+import { PendingBadge, PendingComet, StackServiceCard } from "./resource-node-parts";
+import { isRemoving } from "./resource-node-types";
 
 function ComposeGroupHeader({
   data,
@@ -75,20 +76,7 @@ function ComposeGroupHeader({
         </div>
       </div>
       {data.pending ? (
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
-            data.pending === "delete" ? "bg-warning/15 text-warning" : "bg-info/15 text-info",
-          )}
-        >
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              data.pending === "delete" ? "bg-warning" : "bg-info",
-            )}
-          />
-          pending {data.pending}
-        </span>
+        <PendingBadge pending={data.pending} />
       ) : hasServices ? (
         <span
           className={cn(
@@ -216,7 +204,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
           // bleed through the stack shell.
           "w-92 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
           selected && "ring-2 ring-ring/40",
-          data.pending === "delete" && "cursor-not-allowed opacity-80",
+          isRemoving(data.pending) && "cursor-not-allowed opacity-80",
           data.pending === "update" && "border-dashed border-info/60",
         )}
       >
@@ -249,7 +237,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
       />
 
       <ComposeToolbar
-        visible={(selected || isHovered) && data.pending !== "delete"}
+        visible={(selected || isHovered) && !isRemoving(data.pending)}
         pending={redeploy.isPending}
         disabled={redeploy.isPending || !data.projectId || !data.resourceId}
         onRedeploy={onRedeploy}
