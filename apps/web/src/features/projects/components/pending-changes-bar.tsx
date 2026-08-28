@@ -1,43 +1,72 @@
 /**
- * Floating "Apply N change(s)" pill. Sits below the top nav whenever
- * the saved manifest diverges from current resources.
+ * Floating "N changes" pill. Sits below the top nav whenever the saved
+ * manifest diverges from current resources.
  *
- * Reads from manifest.diff (same diff CLI `status` uses), so the UI
- * and CLI agree on what "pending" means:
- *   - wizard create staged (no apply)
- *   - postgres delete staged (no apply)
- *   - CLI `sync --preview` saved without apply
- *   - resources drifted out-of-band
+ * Reads from manifest.diff (the same diff CLI `status` uses), so the UI and
+ * CLI agree on what "pending" means: a staged wizard create, a staged delete,
+ * a CLI `sync --preview` saved without apply, or resources drifted
+ * out-of-band.
  *
- * Click the count to expand into a per-resource diff view that names
- * the change (create / update / delete), lists the field-level
- * current → new values for updates, and surfaces per-resource discard.
- * Apply = manifest.apply. Discard = manifest.discard.
+ * Click the count to expand into the staged-change list: one selectable row
+ * per resource, expandable into the field-level diff. Apply reconciles the
+ * TICKED rows and leaves the rest pending; Discard drops a change entirely.
+ *
+ * ── THE MORPH, AND WHY THERE IS NO LAYOUT PROJECTION HERE ──────────────────
+ * Three attempts got this wrong before the shape below, and each failure came
+ * from the same root: something other than the panel was deciding the panel's
+ * height.
+ *
+ *   `layout` + `height: 0 → auto` — two competing layout animations.
+ *   Projection measures a box whose height is itself mid-flight.
+ *
+ *   `layout` + `mode="popLayout"` — popLayout pulls the exiting body out of
+ *   flow so the box can shrink, but the body is still inside
+ *   `overflow-hidden` and gets clipped away mid-fade.
+ *
+ *   `layout` + a duplicated exit copy — closer, but projection still animates
+ *   by SCALING the box and counter-scaling children, so the final settle
+ *   shifted, and every row that opened re-measured the container and nudged
+ *   its neighbours.
+ *
+ * The panel now owns its own height, via Base UI's Collapsible and the
+ * `--collapsible-panel-height` it publishes. One element, one animation, no
+ * measurement of a moving target, and nothing else on screen participates.
+ * Rows do the same thing independently (pending-changes-rows.tsx), so opening
+ * one leaves the others exactly where they were.
+ *
+ * ── THE WIDTH, AND THE REFLOW THAT WAS THE JUMP ────────────────────────────
+ * Width morphs 360 → 640, and BOTH ENDPOINTS ARE LENGTHS. The collapsed pill
+ * was once `w-max` (`width: max-content`), and CSS cannot interpolate an
+ * intrinsic keyword to a length — the width did not animate at all while the
+ * height did, so it snapped.
+ *
+ * The remaining jump was RELAYOUT, not easing. The panel content sized itself
+ * to the container, so every frame of a 640 → 360 collapse re-ran the rows'
+ * flex layout: summaries re-truncated, columns re-solved, text re-wrapped,
+ * ~15 times over the close. That is not something a curve can smooth — the
+ * content was genuinely being re-laid-out while it left.
+ *
+ * So the panel content is PINNED to the expanded width. It stays laid out
+ * exactly as you last saw it and the shrinking container simply clips it —
+ * one stable picture sliding behind a smaller window, instead of a live
+ * relayout. Nothing inside the panel reflows during the morph.
+ *
+ * Width and height also share a duration per direction (260ms open, 240ms
+ * close) so neither axis is still travelling after the other has landed; that
+ * trailing 20ms was its own small settle at the end of the close.
  */
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { AnimatePresence, type Transition, useReducedMotion } from "motion/react";
-import * as m from "motion/react-client";
-import { toast } from "sonner";
+import { Collapsible, CollapsiblePanel } from "@/shared/components/ui/collapsible";
+import { cn } from "@/shared/lib/utils";
 
-import {
-  clearAppliedCreatesForProject,
-  markAppliedCreates,
-} from "@/features/projects/components/graph/applied-creates-store";
-import { clearPendingFrameworksForProject } from "@/features/projects/components/graph/pending-framework-store";
-import { invalidateManifestConsumers } from "@/features/projects/hooks/use-manifest-stage";
-import { Button } from "@/shared/components/ui/button";
-import { Spinner } from "@/shared/components/ui/spinner";
-import { toastMessage } from "@/shared/lib/errors";
-import { orpc } from "@/shared/server/orpc";
-
-import type { GroupedChange } from "./pending-changes-groups";
-
-import { ChangeGroupCard, type DiffChange, groupChanges } from "./pending-changes-diff";
+import { type DiffChange, groupChanges } from "./pending-changes-diff";
+import { PendingBarHeader } from "./pending-changes-header";
+import { ChangeRow, changeKey } from "./pending-changes-rows";
+import { usePendingChanges } from "./use-pending-changes";
 
 interface PendingChangesBarProps {
   projectId: ProjectId;
@@ -45,246 +74,107 @@ interface PendingChangesBarProps {
 }
 
 export function PendingChangesBar({ projectId, environment }: PendingChangesBarProps) {
+  const { diff, applyMut, discardMut } = usePendingChanges(projectId, environment);
   const [expanded, setExpanded] = useState(false);
-
-  // Calm, fast morph (DESIGN: 150–250ms). Framer's JS animations aren't covered
-  // by the CSS prefers-reduced-motion reset, so collapse to instant ourselves.
-  const reduce = useReducedMotion();
-  const morph: Transition = reduce ? { duration: 0 } : { duration: 0.28, ease: [0.2, 0.7, 0.2, 1] };
-
-  // Manifest writes push a `manifest` resync over the event stream, and local
-  // staging invalidates via invalidateManifestConsumers: the interval is only
-  // a dead-stream backstop. Input + interval MUST stay in sync with the
-  // graph's diff query (graph-model.ts). Same input means one shared cache
-  // entry instead of two parallel pollers.
-  // 60s is the dead-stream backstop; while an apply is in flight we poll
-  // hard so the bar observes "manifest applied" (empty diff) within a couple
-  // of seconds of the rows landing: that empty diff is the close signal.
-  const [applying, setApplying] = useState(false);
-  const diff = useQuery(
-    orpc.project.manifest.diff.queryOptions({
-      input: { projectId, environment },
-      refetchInterval: applying ? 2_000 : 60_000,
-    }),
-  );
-
-  // Shared post-manifest-write refresh (diff / manifest / stack yaml + the
-  // prefix-keyed resource, dependency and task collections the graph and
-  // detail panels read). The previous local version invalidated the bare
-  // `orpc.project.resource.list` key, which NEVER matches the resource
-  // collection's ["resource", …] prefix key, so a freshly applied resource
-  // stayed missing from the graph/panel until a hard reload.
-  const refreshAll = () => invalidateManifestConsumers(projectId);
-
-  const applyMut = useMutation({
-    mutationFn: () => orpc.project.manifest.apply.call({ projectId, environment }),
-    // Bridge the graph's ghost nodes BEFORE kicking off apply, not after.
-    // apply() drains each resource's create stream, so the call runs for
-    // seconds, and manifest.diff keeps polling on its 5s cadence the whole
-    // time. The instant a create's DB row inserts (mid-stream), the next diff
-    // poll stops reporting it as a create; if the resource-list poll hasn't
-    // landed the row yet, the node belongs to neither source and blinks out,
-    // then back when the row arrives. Recording the create keys up front keeps
-    // those ghosts pinned across the entire apply + the post-apply refetch gap.
-    onMutate: () => {
-      const changes = diff.data?.changes ?? [];
-      const appliedCreateKeys = changes.flatMap((c) =>
-        c.kind === "create" && c.resource !== "env" ? [`${c.resource}:${c.name}`] : [],
-      );
-      markAppliedCreates(projectId, appliedCreateKeys);
-      setApplying(true);
-    },
-    onSuccess: async (result) => {
-      setApplying(false);
-      await refreshAll();
-      // The reconciler reports per-resource failures in `skipped[]` rather
-      // than throwing: a create that hits a missing build binding or an
-      // unresolved ${secret} lands here, not in the catch. Whatever was
-      // skipped is still in the diff, so the bar re-surfaces by itself.
-      if (result.skipped.length > 0) {
-        const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
-        if (result.appliedCount === 0) {
-          toast.error(`Nothing applied: ${detail}`);
-          return;
-        }
-        toast.warning(
-          `Applied ${result.appliedCount}, skipped ${result.skipped.length}: ${detail}`,
-        );
-      } else {
-        toast.success(`Applied ${result.appliedCount} change(s)`);
-      }
-    },
-    onError: (err) => {
-      setApplying(false);
-      toast.error(toastMessage(err, "Apply failed"));
-    },
-  });
-
-  const discardMut = useMutation({
-    mutationFn: (only?: Array<{ resource: "service" | "database" | "compose"; name: string }>) =>
-      orpc.project.manifest.discard.call({ projectId, only }),
-    // Clear the graph's ghost-bridge stores up front so a create-ghost recorded
-    // by a prior Apply (whose resource never landed) vanishes THE INSTANT the
-    // operator discards: otherwise `computePendingByName` keeps re-synthesizing
-    // it from applied-creates until the 30s TTL, the "ghost that won't die". The
-    // diff (the other ghost source) is refreshed in onSuccess. Safe optimistic:
-    // Discard is disabled while an Apply is in flight, and if discard itself
-    // fails the still-pending change re-renders its ghost from the diff.
-    onMutate: () => {
-      clearAppliedCreatesForProject(projectId);
-      clearPendingFrameworksForProject(projectId);
-    },
-    onSuccess: async (_res, only) => {
-      toast.success(
-        only?.length ? `Discarded the change to ${only[0].name}` : "Pending changes discarded",
-      );
-      await refreshAll();
-      // A single-change discard leaves the others staged, so keep the list
-      // open. Collapsing it would hide the work still waiting to be applied.
-      if (!only?.length) setExpanded(false);
-    },
-    onError: (err) => toast.error(toastMessage(err, "Discard failed")),
-  });
+  const [openRows, setOpenRows] = useState<ReadonlySet<string>>(new Set());
+  /** Rows the operator UNTICKED. Deferred, not discarded — tracking exclusions
+   *  rather than inclusions means a change that appears while the panel is
+   *  open is selected by default, which is the safe direction. */
+  const [deferred, setDeferred] = useState<ReadonlySet<string>>(new Set());
 
   const busy = applyMut.isPending || discardMut.isPending;
   const meaningful = (diff.data?.changes ?? []).filter((c): c is DiffChange => c.kind !== "no-op");
-  // The bar's lifetime is the MANIFEST's divergence. Nothing else. apply()
-  // keeps running while services provision and build, so gating on isPending
-  // held the spinner hostage to the BUILD, long after the manifest itself was
-  // applied. Instead the fast diff poll above is the close signal: the moment
-  // the server reports the changes applied (empty diff) the bar unmounts,
-  // mid-RPC or not. The loading toast carries the call to its real end, the
-  // graph's node badges carry deploy/build progress, and a failed or partial
-  // apply re-surfaces the bar here because its changes are still in the diff.
+  // The bar's lifetime is the MANIFEST's divergence, nothing else: apply()
+  // keeps running while services build, so gating on isPending would hold the
+  // bar hostage to the build long after the manifest itself was applied.
   if (meaningful.length === 0) return null;
 
-  // Group by (resource kind + name). One named resource may produce
-  // multiple `env` rows; they all roll up under the parent service for
-  // display so the user sees "service api will be updated · 2 vars".
   const groups = groupChanges(meaningful);
+  const chosen = groups.filter((g) => !deferred.has(changeKey(g)));
+  const partial = chosen.length !== groups.length;
+
+  const flip = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  };
 
   return (
-    // Own layer below the site header AND the project tab row (h-10), never
-    // on top of either: the pill used to sit at a fixed `top-20` that fell
-    // inside the tab row's band and covered Deployments/Logs/Metrics.
+    // Own layer below the site header AND the project tab row, never on top of
+    // either. px-3 so the pill can't overrun a phone's edges.
     <div
-      // px-3 so the pill can never touch (or overrun) the screen edges. The
-      // collapsed bar is ~290px of content and a phone is 375px.
       className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3"
       style={{ top: "calc(var(--header-height) + 2.5rem + 0.75rem)" }}
     >
-      {/* `layout` morphs the pill↔panel width; the body handles its own height
-          reveal below. No backdrop-blur: it flickers while the box resizes and
-          is invisible at bg-card/95 anyway. */}
-      <m.div
-        layout
-        transition={morph}
-        className={`pointer-events-auto flex max-w-full flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg ${
-          expanded ? "w-[min(640px,calc(100vw-2rem))]" : ""
-        }`}
-      >
-        <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:opacity-80"
-            aria-expanded={expanded}
-          >
-            <span
-              className={`inline-block transition-transform ${expanded ? "rotate-90" : ""}`}
-              aria-hidden
-            >
-              ▸
-            </span>
-            <span className="truncate">
-              {applyMut.isPending
-                ? "Applying…"
-                : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
-            </span>
-          </button>
-          {/* ml-auto pins the actions to the trailing end once the bar widens. */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto shrink-0"
-            onClick={() => discardMut.mutate(undefined)}
-            disabled={busy}
-          >
-            Discard
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            className="shrink-0"
-            onClick={() => applyMut.mutate()}
-            disabled={busy}
-            aria-label={applyMut.isPending ? "Applying" : undefined}
-          >
-            {/* Header already reads "Applying…". The button is spinner-only. */}
-            {applyMut.isPending ? <Spinner className="size-3.5" /> : "Apply"}
-          </Button>
-        </div>
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <m.div
-              key="diff"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={morph}
-              className="overflow-hidden border-t bg-muted/30"
-            >
-              <div className="max-h-[60vh] overflow-auto">
-                <ChangeList
-                  groups={groups}
-                  morph={morph}
-                  reduce={reduce}
-                  busy={busy}
-                  discarding={discardMut.isPending}
-                  onDiscardOne={(g) => discardMut.mutate([{ resource: g.resource, name: g.name }])}
-                />
-              </div>
-            </m.div>
-          )}
-        </AnimatePresence>
-      </m.div>
-    </div>
-  );
-}
-
-/** The expanded per-resource change list. Split out of PendingChangesBar to
- *  keep that function inside the length cap; purely presentational. */
-function ChangeList({
-  groups,
-  morph,
-  reduce,
-  busy,
-  discarding,
-  onDiscardOne,
-}: {
-  groups: GroupedChange[];
-  morph: Transition;
-  reduce: boolean | null;
-  busy: boolean;
-  discarding: boolean;
-  onDiscardOne: (group: GroupedChange) => void;
-}) {
-  return (
-    <ul className="flex flex-col gap-3 p-3">
-      {groups.map((g, i) => (
-        <m.li
-          key={`${g.resource}-${g.name}`}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ ...morph, delay: reduce ? 0 : 0.03 + i * 0.04 }}
-        >
-          <ChangeGroupCard
-            group={g}
-            discarding={discarding}
-            onDiscard={busy ? undefined : () => onDiscardOne(g)}
+      <Collapsible
+        open={expanded}
+        onOpenChange={setExpanded}
+        render={
+          <div
+            className={cn(
+              "pointer-events-auto flex max-w-full flex-col overflow-hidden",
+              "rounded-2xl border bg-card/95 shadow-lg",
+              "transition-[width] ease-[cubic-bezier(0.32,0.72,0,1)]",
+              "motion-reduce:transition-none",
+              // Same duration as the panel's height keyframe, per direction.
+              expanded
+                ? "w-[min(640px,calc(100vw-2rem))] duration-[260ms]"
+                : "w-[min(360px,calc(100vw-2rem))] duration-[240ms]",
+            )}
           />
-        </m.li>
-      ))}
-    </ul>
+        }
+      >
+        <PendingBarHeader
+          groups={groups}
+          chosenCount={chosen.length}
+          partial={partial}
+          expanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          applying={applyMut.isPending}
+          busy={busy}
+          onDiscardAll={() => {
+            discardMut.mutate(undefined);
+            setExpanded(false);
+          }}
+          onApply={() => {
+            applyMut.mutate(
+              partial ? chosen.map((g) => ({ resource: g.resource, name: g.name })) : undefined,
+            );
+            setDeferred(new Set());
+          }}
+        />
+
+        <CollapsiblePanel>
+          {/* Pinned to the EXPANDED width, not the container's current one, so
+              the closing morph clips a stable picture rather than re-running
+              the rows' layout on every frame. */}
+          <div className="w-[min(640px,calc(100vw-2rem))] border-t bg-muted/30">
+            <ul className="max-h-[60vh] divide-y divide-border/40 overflow-auto py-0.5">
+              {groups.map((g) => {
+                const key = changeKey(g);
+                return (
+                  <ChangeRow
+                    key={key}
+                    group={g}
+                    selected={!deferred.has(key)}
+                    expanded={openRows.has(key)}
+                    busy={busy}
+                    discarding={discardMut.isPending}
+                    onToggleSelected={() => setDeferred((p) => flip(p, key))}
+                    onToggleExpanded={() => setOpenRows((p) => flip(p, key))}
+                    onDiscard={
+                      busy
+                        ? undefined
+                        : () => discardMut.mutate([{ resource: g.resource, name: g.name }])
+                    }
+                  />
+                );
+              })}
+            </ul>
+          </div>
+        </CollapsiblePanel>
+      </Collapsible>
+    </div>
   );
 }

@@ -158,6 +158,7 @@ export const manifestRouter = {
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
         environmentId: await environmentIdForSlug(input.projectId, input.environment),
+        only: input.only,
         log: context.log,
       });
     },

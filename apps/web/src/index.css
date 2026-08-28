@@ -115,6 +115,37 @@
      so a fast phase still reads as filling, and a slow one (pull can run
      minutes) keeps inching instead of parking. */
   --animate-phase-fill: phase-fill 45s cubic-bezier(0, 0.55, 0.15, 1) forwards;
+  /* Disclosure panels (shared/components/ui/collapsible.tsx). HEIGHT ONLY, on
+     the Ionic drawer curve — a panel unfolding from an edge is drawer-shaped
+     motion. The content deliberately does not fade or scale: it holds still at
+     full opacity and the panel edge clips it. Earlier versions animated the
+     content too and it was the wrong instinct twice over — first desynced from
+     the height, then synced to it and still unnecessary. Closing is slightly
+     faster than opening; you have already read the content by then. */
+  --animate-collapsible-down: collapsible-down 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-collapsible-up: collapsible-up 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* `--collapsible-panel-height` is published by Base UI on the panel itself, so
+   the keyframe animates to a real measured pixel height with no JS of ours.
+   Opacity rides along so content fades rather than being guillotined by the
+   clip on the way out. */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--collapsible-panel-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--collapsible-panel-height);
+  }
+  to {
+    height: 0;
+  }
 }
 
 @theme inline {
