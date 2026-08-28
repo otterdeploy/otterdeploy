@@ -19,6 +19,8 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AnimatePresence, type Transition, useReducedMotion } from "motion/react";
 import * as m from "motion/react-client";
@@ -47,10 +49,16 @@ interface PendingChangesBarProps {
 export function PendingChangesBar({ projectId, environment }: PendingChangesBarProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Calm, fast morph (DESIGN: 150–250ms). Framer's JS animations aren't covered
-  // by the CSS prefers-reduced-motion reset, so collapse to instant ourselves.
+  // Framer's JS animations aren't covered by the CSS prefers-reduced-motion
+  // reset, so collapse to instant ourselves.
   const reduce = useReducedMotion();
-  const morph: Transition = reduce ? { duration: 0 } : { duration: 0.28, ease: [0.2, 0.7, 0.2, 1] };
+  // The Ionic drawer curve. This is a box growing from an anchor, which is
+  // drawer-shaped motion, not a generic fade — and the drawer/modal band is
+  // 200–500ms, so 260 sits where a size change this large reads as deliberate
+  // without feeling slow.
+  const morph: Transition = reduce ? { duration: 0 } : { duration: 0.26, ease: [0.32, 0.72, 0, 1] };
+  // Content is a crossfade, not a movement: shorter, and a strong ease-out.
+  const fade: Transition = reduce ? { duration: 0 } : { duration: 0.16, ease: [0.23, 1, 0.32, 1] };
 
   // Manifest writes push a `manifest` resync over the event stream, and local
   // staging invalidates via invalidateManifestConsumers: the interval is only
@@ -176,68 +184,53 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       {/* `layout` morphs the pill↔panel width; the body handles its own height
           reveal below. No backdrop-blur: it flickers while the box resizes and
           is invisible at bg-card/95 anyway. */}
+      {/* ONE layout animation, and children that only ever fade.
+       *
+       * The previous version ran `layout` here AND `height: 0 → auto` on the
+       * body, which is two competing layout animations: projection measures a
+       * box whose height is itself mid-flight, so every frame corrects against
+       * a moving target. That was the jank. `height` is also a layout property,
+       * so it forced layout → paint → composite on the whole subtree each
+       * frame. The body now animates opacity only and this container owns the
+       * size change, which projection does with transforms.
+       *
+       * `borderRadius` moves to `style` because projection SCALES the box, and
+       * Motion can only counter-scale a radius it owns — as a class it stretched
+       * into an ellipse mid-morph. */}
       <m.div
         layout
         transition={morph}
-        className={`pointer-events-auto flex max-w-full flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg ${
+        style={{ borderRadius: 16 }}
+        className={`pointer-events-auto flex max-w-full flex-col items-stretch overflow-hidden border bg-card/95 shadow-lg ${
           expanded ? "w-[min(640px,calc(100vw-2rem))]" : ""
         }`}
       >
-        <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:opacity-80"
-            aria-expanded={expanded}
-          >
-            <span
-              className={`inline-block transition-transform ${expanded ? "rotate-90" : ""}`}
-              aria-hidden
-            >
-              ▸
-            </span>
-            <span className="truncate">
-              {applyMut.isPending
-                ? "Applying…"
-                : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
-            </span>
-          </button>
-          {/* ml-auto pins the actions to the trailing end once the bar widens. */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto shrink-0"
-            onClick={() => discardMut.mutate(undefined)}
-            disabled={busy}
-          >
-            Discard
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            className="shrink-0"
-            onClick={() => applyMut.mutate()}
-            disabled={busy}
-            aria-label={applyMut.isPending ? "Applying" : undefined}
-          >
-            {/* Header already reads "Applying…". The button is spinner-only. */}
-            {applyMut.isPending ? <Spinner className="size-3.5" /> : "Apply"}
-          </Button>
-        </div>
-        <AnimatePresence initial={false}>
+        <PendingBarHeader
+          count={meaningful.length}
+          expanded={expanded}
+          onToggle={() => setExpanded((v) => !v)}
+          applying={applyMut.isPending}
+          busy={busy}
+          morph={morph}
+          onDiscardAll={() => discardMut.mutate(undefined)}
+          onApply={() => applyMut.mutate()}
+        />
+        {/* `popLayout` pops the exiting body out of flow immediately, so the box
+            collapses WHILE the content fades instead of waiting for it. */}
+        <AnimatePresence initial={false} mode="popLayout">
           {expanded && (
             <m.div
               key="diff"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={morph}
-              className="overflow-hidden border-t bg-muted/30"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={fade}
+              className="border-t bg-muted/30"
             >
               <div className="max-h-[60vh] overflow-auto">
                 <ChangeList
                   groups={groups}
-                  morph={morph}
+                  morph={fade}
                   reduce={reduce}
                   busy={busy}
                   discarding={discardMut.isPending}
@@ -249,6 +242,81 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
         </AnimatePresence>
       </m.div>
     </div>
+  );
+}
+
+/** The always-visible row: label, chevron, Discard, Apply. Split out of
+ *  PendingChangesBar to stay inside the file's function-length cap, and it
+ *  reads better alone — this is the part the operator sees whether or not the
+ *  panel is open. */
+function PendingBarHeader({
+  count,
+  expanded,
+  onToggle,
+  applying,
+  busy,
+  morph,
+  onDiscardAll,
+  onApply,
+}: {
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  applying: boolean;
+  busy: boolean;
+  morph: Transition;
+  onDiscardAll: () => void;
+  onApply: () => void;
+}) {
+  return (
+    // `layout="position"` — the header TRANSLATES to its new spot instead of
+    // being scaled with the box. Without it the label and buttons are stretched
+    // by the projection, which is the blur during the morph.
+    <m.div
+      layout="position"
+      transition={morph}
+      className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4"
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:opacity-80"
+        aria-expanded={expanded}
+      >
+        <m.span
+          animate={{ rotate: expanded ? 90 : 0 }}
+          transition={morph}
+          className="inline-flex size-3.5 shrink-0 items-center justify-center"
+          aria-hidden
+        >
+          <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+        </m.span>
+        <span className="truncate">
+          {applying ? "Applying…" : `Apply ${count} change${count === 1 ? "" : "s"}`}
+        </span>
+      </button>
+      {/* ml-auto pins the actions to the trailing end once the bar widens. */}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="ml-auto shrink-0"
+        onClick={onDiscardAll}
+        disabled={busy}
+      >
+        Discard
+      </Button>
+      <Button
+        size="sm"
+        variant="default"
+        className="shrink-0"
+        onClick={onApply}
+        disabled={busy}
+        aria-label={applying ? "Applying" : undefined}
+      >
+        {/* Header already reads "Applying…". The button is spinner-only. */}
+        {applying ? <Spinner className="size-3.5" /> : "Apply"}
+      </Button>
+    </m.div>
   );
 }
 
@@ -274,8 +342,10 @@ function ChangeList({
       {groups.map((g, i) => (
         <m.li
           key={`${g.resource}-${g.name}`}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
+          // Full transform string, not the `y` shorthand: the shorthands are
+          // not hardware-accelerated and drop frames while the page is busy.
+          initial={reduce ? false : { opacity: 0, transform: "translateY(6px)" }}
+          animate={{ opacity: 1, transform: "translateY(0px)" }}
           transition={{ ...morph, delay: reduce ? 0 : 0.03 + i * 0.04 }}
         >
           <ChangeGroupCard
