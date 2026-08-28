@@ -119,7 +119,7 @@ function matches(line: EdgeLogLine, f: EdgeLogFilter, sinceMs: number, untilMs: 
  *  the toolbar acts on. Computed over every matched line, never over the
  *  `limit` slice — the row cap is a paging concern and must not silently
  *  become the answer to "how many probes are in this window". */
-export function suspiciousSummary(matched: EdgeLogLine[]): {
+function suspiciousSummary(matched: EdgeLogLine[]): {
   suspiciousTotal: number;
   suspiciousIps: string[];
 } {
