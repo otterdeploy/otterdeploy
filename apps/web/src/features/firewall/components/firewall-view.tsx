@@ -104,6 +104,7 @@ export function FirewallView() {
         <DecisionsTable
           rows={rows}
           reachable={reachable}
+          loading={decisions.isLoading}
           onUnblock={(ip) => unblock.mutate({ ip })}
           unblocking={unblock.isPending}
         />

@@ -32,6 +32,7 @@ import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
 import { Segmented } from "../../edge-logs/components/edge-logs-shared";
 import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
 import { flaggedQuery } from "../data";
+import { TableSkeletonRows } from "./table-skeleton";
 
 /** `all` first: it's the default, and it's the only one that answers "has this
  *  IP ever touched us". The rest are the same windows the edge-log views use. */
@@ -109,15 +110,15 @@ export function FlaggedPanel() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.length === 0 ? (
+          {flagged.isLoading && rows.length === 0 ? (
+            <TableSkeletonRows columns={7} />
+          ) : rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell
                 colSpan={7}
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
-                {flagged.isLoading
-                  ? "Loading…"
-                  : `No suspicious probing ${WINDOW_LABEL[range]}. Scanner traffic to your domains appears here.`}
+                {`No suspicious probing ${WINDOW_LABEL[range]}. Scanner traffic to your domains appears here.`}
               </TableCell>
             </TableRow>
           ) : (
@@ -180,15 +181,6 @@ export function FlaggedPanel() {
           )}
         </TableBody>
       </Table>
-      {/* Say where the numbers come from. A bounded window can only see as far
-          back as raw access logs are kept, so an empty 7d table is not evidence
-          of a quiet 7 days on an install with 3-day retention. */}
-      {range !== "all" && (
-        <p className="px-4 py-3 text-[11px] text-muted-foreground/70">
-          Bounded windows aggregate raw access logs, so they reach back only as far as the edge-log
-          retention window. Switch to all time for the full record.
-        </p>
-      )}
     </div>
   );
 }

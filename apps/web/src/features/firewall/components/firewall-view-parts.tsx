@@ -19,6 +19,7 @@ import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
 
 import { humanizeGoDuration } from "../duration";
+import { TableSkeletonRows } from "./table-skeleton";
 
 type Decision = Awaited<ReturnType<typeof orpc.firewall.decisions.call>>[number];
 
@@ -27,11 +28,15 @@ type Decision = Awaited<ReturnType<typeof orpc.firewall.decisions.call>>[number]
 export function DecisionsTable({
   rows,
   reachable,
+  loading,
   onUnblock,
   unblocking,
 }: {
   rows: Decision[];
   reachable: boolean;
+  /** First load, nothing cached. Distinct from "resolved and empty": this
+   *  table must not claim nothing is blocked until it has been told. */
+  loading: boolean;
   onUnblock: (ip: string) => void;
   unblocking: boolean;
 }) {
@@ -61,7 +66,9 @@ export function DecisionsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.length === 0 ? (
+          {loading && rows.length === 0 ? (
+            <TableSkeletonRows columns={9} />
+          ) : rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell
                 colSpan={9}
