@@ -13,6 +13,7 @@
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
+import { ID_PREFIX, hasPrefix } from "@otterdeploy/shared/id";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ import type { ProjectResource } from "@/features/projects/components/graph/resou
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 import type { PanelRailChild } from "@/features/resources/components/_shared/panel-tabs-layout";
 
+import { clearDeleting, markDeleting } from "@/features/projects/components/graph/deleting-store";
+import { invalidateManifestConsumers } from "@/features/projects/hooks/use-manifest-stage";
 import { orpc } from "@/shared/server/orpc";
 
 import type { ComposeService, StackServiceStatus } from "./panel-parts";
@@ -224,13 +227,28 @@ export function ComposeResourcePanel({
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
   });
 
+  // The panel closes the moment the operator confirms, and the graph node
+  // carries the teardown from there (marked `deleting`, gone when the resource
+  // is). Waiting here for every container to come down held the operator in
+  // front of a spinner for a decision they had already made.
+  const nodeKey = `compose:${resource.name}`;
   const remove = useMutation({
     ...orpc.compose.delete.mutationOptions(),
     onSuccess: () => {
       toast.success(`Deleted ${resource.name}`);
-      onClose();
+      // Drop the row now rather than waiting out the graph's poll: the node's
+      // `deleting` mark ends when the resource leaves the collection. (The id
+      // arrives here as a bare string from the panel's structural prop, so it
+      // is narrowed, not asserted.)
+      if (hasPrefix(resource.projectId, ID_PREFIX.project)) {
+        void invalidateManifestConsumers(resource.projectId);
+      }
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to delete"),
+    onError: (err) => {
+      // Nothing was torn down, so the node must stop looking doomed.
+      clearDeleting(resource.projectId, nodeKey);
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    },
   });
 
   const railChildren = buildRailChildren({
@@ -281,12 +299,14 @@ export function ComposeResourcePanel({
         draftContent={draftContent}
         fileLoading={fileQuery.isLoading}
         fileContent={fileQuery.data?.composeContent}
-        onDelete={() =>
+        onDelete={() => {
+          markDeleting(resource.projectId, [nodeKey]);
+          onClose();
           remove.mutate({
             projectId: resource.projectId,
             resourceId: resource.resourceId,
-          })
-        }
+          });
+        }}
         deleting={remove.isPending}
       />
     </div>

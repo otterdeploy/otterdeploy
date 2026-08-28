@@ -18,6 +18,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { useCancelUpdate, useUpdateState } from "../data/use-update-status";
 import { CutoverPane } from "./update-cutover-pane";
+import { SegmentedPhases } from "./update-phase-bar";
 import { useElapsedSince } from "./update-progress-clock";
 import {
   STEPS,
@@ -31,13 +32,7 @@ import {
   type Outcome,
   type UpdatePhase,
 } from "./update-progress-model";
-import {
-  HeartbeatRow,
-  LogPane,
-  SegmentedPhases,
-  UpdateFooter,
-  UpdateHeadline,
-} from "./update-progress-parts";
+import { HeartbeatRow, LogPane, UpdateFooter, UpdateHeadline } from "./update-progress-parts";
 
 interface ProgressEvent {
   seq: number;

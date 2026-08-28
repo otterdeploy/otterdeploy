@@ -25,6 +25,7 @@ import type {
   BrandSvg,
   ComposeServiceInfo,
   IconType,
+  PendingMark,
   ResourceEngine,
   ResourceKind,
   ResourceStatus,
@@ -46,6 +47,21 @@ export const stackStatusMeta: Record<
     label: "Building",
     dotClass: "bg-warning shadow-[0_0_0_3px] shadow-warning/20",
     textClass: "text-warning",
+  },
+  // Rolling out (pulling / starting), not compiling. Same word and colour the
+  // compose panel uses for this phase.
+  deploying: {
+    label: "Deploying",
+    dotClass: "bg-info shadow-[0_0_0_3px] shadow-info/20",
+    textClass: "text-info",
+  },
+  // The deploy hasn't reached this member yet. Amber like building (both belong
+  // to work in flight) but with no glow and a muted label, since nothing is
+  // happening to it right now.
+  queued: {
+    label: "Queued",
+    dotClass: "bg-warning/60",
+    textClass: "text-muted-foreground",
   },
   error: {
     label: "Failed",
@@ -141,6 +157,35 @@ export const statusMeta: Record<
   },
 };
 
+/** The badge a marked node wears: what is happening, in the present tense for
+ *  a teardown already running and as a staged plan otherwise. Shared so the
+ *  stack group and the resource card cannot drift apart. */
+export function pendingBadge(pending: PendingMark): {
+  label: string;
+  pillClass: string;
+  dotClass: string;
+} {
+  if (pending === "deleting") {
+    return {
+      label: "deleting…",
+      pillClass: "bg-destructive/15 text-destructive",
+      dotClass: "bg-destructive",
+    };
+  }
+  if (pending === "delete") {
+    return {
+      label: "pending delete",
+      pillClass: "bg-warning/15 text-warning",
+      dotClass: "bg-warning",
+    };
+  }
+  return {
+    label: `pending ${pending}`,
+    pillClass: "bg-info/15 text-info",
+    dotClass: "bg-info",
+  };
+}
+
 /**
  * Roll a stack's per-service states up to one header summary. WITHOUT
  * collapsing them. The summary says "2/3 running"; the cards below say which 2.
@@ -153,7 +198,15 @@ export function stackRollup(services: ComposeServiceInfo[]): {
   const total = services.length;
   const running = services.filter((s) => s.status === "running").length;
   const anyError = services.some((s) => s.status === "error");
-  const anyBuilding = services.some((s) => s.status === "building" || s.status === "pending");
+  // Anything in flight, including the members this deploy has not reached yet:
+  // a stack whose services are all queued is still deploying, not "0/4 running".
+  const anyBuilding = services.some(
+    (s) =>
+      s.status === "building" ||
+      s.status === "deploying" ||
+      s.status === "queued" ||
+      s.status === "pending",
+  );
   if (anyError) return { summary: `${running}/${total} running`, tone: "error" };
   if (anyBuilding) return { summary: "Deploying…", tone: "building" };
   if (total > 0 && running === total) return { summary: "All running", tone: "running" };

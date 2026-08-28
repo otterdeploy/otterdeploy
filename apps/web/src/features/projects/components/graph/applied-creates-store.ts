@@ -19,71 +19,46 @@
  * records, so its ghosts drop the instant diff drops them.
  *
  * Keys are `${resource}:${name}`. The same id the graph node carries.
+ *
+ * Each key carries the change's `details` payload alongside it. Without that
+ * the bridged ghost was rebuilt from the key string ALONE, so a stack that had
+ * been showing its four member cards and its template logo degraded, the
+ * instant Deploy was pressed, into an empty "No services parsed yet" box under
+ * a generic icon: the graph appearing to forget what it had just been told.
+ *
+ * The store mechanics (snapshots, TTL sweep, subscription) live in
+ * ./intent-store, shared with the deleting store.
  */
 
-import { useSyncExternalStore } from "react";
+import type { JsonObject } from "@otterdeploy/shared/json";
+
+import { createIntentStore, type IntentMap } from "./intent-store";
 
 /** Safety net: evict a recorded key after this long even if the resource never
  *  lands (failed reconcile, out-of-band deletion), so a ghost can't get stuck. */
 const TTL_MS = 30_000;
 
-// projectId → (key → expiry timestamp)
-const store = new Map<string, Map<string, number>>();
-// Cached immutable snapshots so useSyncExternalStore's getSnapshot is stable
-// between mutations (returning a fresh Set each call would loop forever).
-const snapshots = new Map<string, ReadonlySet<string>>();
-const listeners = new Set<() => void>();
+/** key → the create's `details`, or undefined when the change carried none. */
+export type AppliedCreates = IntentMap<JsonObject | undefined>;
 
-const EMPTY: ReadonlySet<string> = new Set();
+const store = createIntentStore<JsonObject | undefined>(TTL_MS);
 
-function rebuild(projectId: string) {
-  const m = store.get(projectId);
-  if (!m || m.size === 0) {
-    snapshots.set(projectId, EMPTY);
-    return;
-  }
-  const now = Date.now();
-  const out = new Set<string>();
-  for (const [k, exp] of m) if (exp > now) out.add(k);
-  snapshots.set(projectId, out.size === 0 ? EMPTY : out);
-}
-
-function emit(projectId: string) {
-  rebuild(projectId);
-  for (const l of listeners) l();
-}
-
-/** Record create keys the operator just Deployed for this project. */
-export function markAppliedCreates(projectId: string, keys: string[]) {
-  if (keys.length === 0) return;
-  let m = store.get(projectId);
-  if (!m) {
-    m = new Map();
-    store.set(projectId, m);
-  }
-  const expiry = Date.now() + TTL_MS;
-  for (const k of keys) m.set(k, expiry);
-  emit(projectId);
-  // Safety eviction so a ghost can't outlive a reconcile that never lands.
-  setTimeout(() => {
-    const cur = store.get(projectId);
-    if (!cur) return;
-    const now = Date.now();
-    let changed = false;
-    for (const [k, exp] of cur) {
-      if (exp <= now) {
-        cur.delete(k);
-        changed = true;
-      }
-    }
-    if (changed) emit(projectId);
-  }, TTL_MS + 100);
+/** Record the creates the operator just Deployed for this project, each with
+ *  the `details` its ghost was rendering, so the bridged ghost stays the node
+ *  the operator was already looking at. */
+export function markAppliedCreates(
+  projectId: string,
+  entries: ReadonlyArray<{ key: string; details: JsonObject | undefined }>,
+) {
+  store.mark(
+    projectId,
+    entries.map((e) => ({ key: e.key, value: e.details })),
+  );
 }
 
 /** Drop a key once its real resource has landed in the collection. */
 export function clearAppliedCreate(projectId: string, key: string) {
-  const m = store.get(projectId);
-  if (m?.delete(key)) emit(projectId);
+  store.clear(projectId, key);
 }
 
 /**
@@ -95,25 +70,10 @@ export function clearAppliedCreate(projectId: string, key: string) {
  * vanish the instant the operator discards, not "eventually".
  */
 export function clearAppliedCreatesForProject(projectId: string) {
-  const m = store.get(projectId);
-  if (m && m.size > 0) {
-    m.clear();
-    emit(projectId);
-  }
+  store.clearAll(projectId);
 }
 
-function getSnapshot(projectId: string): ReadonlySet<string> {
-  return snapshots.get(projectId) ?? EMPTY;
-}
-
-/** Subscribe a graph to the create keys awaiting their resource to land. */
-export function useAppliedCreates(projectId: string): ReadonlySet<string> {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => getSnapshot(projectId),
-    () => EMPTY,
-  );
+/** Subscribe a graph to the creates awaiting their resource to land. */
+export function useAppliedCreates(projectId: string): AppliedCreates {
+  return store.use(projectId);
 }

@@ -8,9 +8,11 @@
  */
 
 import type { ProjectId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -30,6 +32,25 @@ interface ChangeRef {
   name: string;
 }
 
+/** The creates in a diff, as the ghost store records them: node key + the
+ *  `details` the ghost renders from. `env` changes never get a node. */
+function createEntries(
+  changes:
+    | readonly { kind: string; resource: string; name: string; details?: unknown }[]
+    | undefined,
+): Array<{ key: string; details: JsonObject | undefined }> {
+  return (changes ?? []).flatMap((c) =>
+    c.kind === "create" && c.resource !== "env"
+      ? [
+          {
+            key: `${c.resource}:${c.name}`,
+            details: isJsonObject(c.details) ? c.details : undefined,
+          },
+        ]
+      : [],
+  );
+}
+
 export function usePendingChanges(projectId: ProjectId, environment: string | undefined) {
   // While an apply is in flight we poll hard so the bar observes "manifest
   // applied" (an empty diff) within a couple of seconds of the rows landing —
@@ -38,6 +59,8 @@ export function usePendingChanges(projectId: ProjectId, environment: string | un
   // interval MUST stay in sync with the graph's diff query (graph-model.ts) so
   // the two share one cache entry instead of running parallel pollers.
   const [applying, setApplying] = useState(false);
+  // Create keys this apply is still waiting to see land as real resources.
+  const awaitingRef = useRef<ReadonlySet<string>>(new Set());
 
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
@@ -53,6 +76,27 @@ export function usePendingChanges(projectId: ProjectId, environment: string | un
   // applied resource stayed missing from the graph until a hard reload.
   const refreshAll = () => invalidateManifestConsumers(projectId);
 
+  /**
+   * Refresh the collections the moment a create's row exists, not when apply()
+   * finally returns.
+   *
+   * apply() drains every resource's create stream, so it can run for minutes on
+   * a stack; `refreshAll` in its onSuccess is far too late. The diff, polling
+   * at 2s, stops reporting a create as soon as that row inserts — and in the
+   * window between those two the node hangs on nothing but the ghost store's
+   * 30s TTL. Let the TTL win that race and the node the operator staged
+   * vanishes off the canvas mid-deploy. The dropped create IS the evidence its
+   * row exists, so that is the moment to go and fetch it.
+   */
+  useEffect(() => {
+    if (!applying || awaitingRef.current.size === 0) return;
+    const stillStaged = new Set(createEntries(diff.data?.changes).map((e) => e.key));
+    const landed = [...awaitingRef.current].filter((k) => !stillStaged.has(k));
+    if (landed.length === 0) return;
+    awaitingRef.current = new Set([...awaitingRef.current].filter((k) => stillStaged.has(k)));
+    void refreshAll();
+  }, [applying, diff.data, projectId]);
+
   const applyMut = useMutation({
     mutationFn: (only?: ChangeRef[]) =>
       orpc.project.manifest.apply.call({ projectId, environment, only }),
@@ -63,17 +107,17 @@ export function usePendingChanges(projectId: ProjectId, environment: string | un
     // node belongs to neither source and blinks out. Recording the create keys
     // up front pins those ghosts across the whole apply.
     onMutate: () => {
-      const changes = diff.data?.changes ?? [];
-      markAppliedCreates(
-        projectId,
-        changes.flatMap((c) =>
-          c.kind === "create" && c.resource !== "env" ? [`${c.resource}:${c.name}`] : [],
-        ),
-      );
+      const entries = createEntries(diff.data?.changes);
+      // The ghost keeps its `details` (a stack's member cards, its template
+      // logo) while it's bridged, so pressing Deploy doesn't visibly strip the
+      // node back to an empty box.
+      markAppliedCreates(projectId, entries);
+      awaitingRef.current = new Set(entries.map((e) => e.key));
       setApplying(true);
     },
     onSuccess: async (result) => {
       setApplying(false);
+      awaitingRef.current = new Set();
       await refreshAll();
       // The reconciler reports per-resource failures in `skipped[]` rather than
       // throwing, and a deliberately deferred row arrives on that same channel.
@@ -94,6 +138,7 @@ export function usePendingChanges(projectId: ProjectId, environment: string | un
     },
     onError: (err) => {
       setApplying(false);
+      awaitingRef.current = new Set();
       toast.error(toastMessage(err, "Apply failed"));
     },
   });

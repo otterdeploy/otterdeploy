@@ -13,7 +13,11 @@ import { ReactFlowProvider, useReactFlow, type NodeChange } from "@xyflow/react"
 
 import { GraphContextMenu } from "@/features/projects/components/graph/graph-context-menu";
 import { type XY } from "@/features/projects/components/graph/layout-graph";
-import { isResourceFlowNode, type ResourceFlowNode } from "@/features/projects/components/graph/resource-node-types";
+import {
+  isRemoving,
+  isResourceFlowNode,
+  type ResourceFlowNode,
+} from "@/features/projects/components/graph/resource-node-types";
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import {
   PANEL_COLLAPSED_HEIGHT,
@@ -276,7 +280,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // Shared by the node click handler and the context menu's "Open" item.
   // Same navigation, same pending-delete guard, same preview-satellite branch.
   const openNode = (node: ResourceFlowNode) => {
-    if (node.data.pending === "delete") return;
+    if (isRemoving(node.data.pending)) return;
     if (node.data.kind === "preview") {
       const preview = node.data.preview;
       if (typeof preview?.id === "string" && preview.id.length > 0) {

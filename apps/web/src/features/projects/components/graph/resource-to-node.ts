@@ -85,14 +85,18 @@ function serviceDeploymentStatus(
  * build-live-nodes overrides each service with its own task rollup once tasks
  * exist (so a running stack with one dead service shows that service offline).
  */
-function baseStackServiceStatus(
+export function baseStackServiceStatus(
   dep: Extract<ProjectResource, { type: "compose" }>["latestDeploymentStatus"],
 ): StackServiceStatus | undefined {
   switch (dep) {
-    case "starting":
     case "building":
-    case "pending":
       return "building";
+    case "starting":
+      // Rolling out, not compiling: an image-only stack never builds.
+      return "deploying";
+    case "pending":
+      // The deploy is enqueued; nothing has started.
+      return "queued";
     case "crashed":
     case "failed":
       return "error";

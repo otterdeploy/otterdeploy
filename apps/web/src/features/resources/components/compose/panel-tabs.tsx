@@ -27,6 +27,9 @@ const stackStatusMeta: Record<StackServiceStatus, { label: string; dot: string; 
   running: { label: "Running", dot: "bg-success", text: "text-success" },
   building: { label: "Building", dot: "bg-warning", text: "text-warning" },
   deploying: { label: "Deploying", dot: "bg-info", text: "text-info" },
+  // Waiting its turn inside a running deploy: in flight, but nothing is
+  // happening to it yet, so no active colour on the label.
+  queued: { label: "Queued", dot: "bg-warning/60", text: "text-muted-foreground" },
   error: { label: "Failed", dot: "bg-destructive", text: "text-destructive" },
   offline: {
     label: "Offline",

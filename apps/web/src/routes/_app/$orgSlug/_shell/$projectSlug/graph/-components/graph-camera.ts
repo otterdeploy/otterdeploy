@@ -53,7 +53,10 @@ export function preloadNodeRoute(
   router: Router,
   params: { orgSlug: string; projectSlug: string },
 ): void {
-  if (node.data.pending === "delete") return;
+  // `node.data` is React Flow's loose record here, so this compares the marker
+  // as text rather than through `isRemoving`. Both values mean the same thing:
+  // the node is on its way out, there is nothing to open.
+  if (node.data.pending === "delete" || node.data.pending === "deleting") return;
   if (node.data.kind === "preview") {
     const previewId = previewIdOf(node.data);
     if (previewId !== null && previewId.length > 0) {

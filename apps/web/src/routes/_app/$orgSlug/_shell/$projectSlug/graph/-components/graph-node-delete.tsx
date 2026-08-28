@@ -13,7 +13,9 @@
  *     Deploy like every other pending change, which is why the copy says
  *     "staged", not "destroyed".
  *   - compose  → `orpc.compose.delete`, which IS immediate, with the same
- *                `Deleted <name>` toast the compose panel shows.
+ *                `Deleted <name>` toast the compose panel shows. The dialog
+ *                does not wait for it: the node is marked `deleting` and the
+ *                dialog closes (see deleting-store).
  *
  * Rendered by GraphCanvas as a SIBLING of the menu, not inside it: the
  * DropdownMenu unmounts the instant Delete is clicked, and a dialog nested in
@@ -27,7 +29,14 @@ import { toast } from "sonner";
 
 import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 
-import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
+import {
+  invalidateManifestConsumers,
+  useStageManifestChange,
+} from "@/features/projects/hooks/use-manifest-stage";
+import {
+  clearDeleting,
+  markDeleting,
+} from "@/features/projects/components/graph/deleting-store";
 import type {
   ResourceFlowNode,
   ResourceKind,
@@ -110,13 +119,25 @@ export function GraphNodeDeleteDialog({
 
     if (kind === "compose") {
       if (!node.data.projectId || !node.data.resourceId) return;
+      // Fire and let go. Tearing a stack down takes as long as it takes, and
+      // the operator decided the moment they typed the name — holding them in
+      // a modal until every container is gone makes them wait on a machine
+      // that no longer needs them. The node carries the state instead: marked
+      // `deleting` (destructive comet) until its resource is gone, then gone.
+      markDeleting(projectId, [node.id]);
+      finish(node);
       removeCompose.mutate(
         { projectId: node.data.projectId, resourceId: node.data.resourceId },
         {
           onSuccess: () => {
             toast.success(`Deleted ${name}`);
-            finish(node);
+            // Drop the row now rather than waiting out the poll: the mark is
+            // cleared by the node disappearing, so this is what ends it.
+            void invalidateManifestConsumers(projectId);
           },
+          // Nothing was destroyed, so the node must stop looking doomed. The
+          // mutation's own onError carries the toast.
+          onError: () => clearDeleting(projectId, node.id),
         },
       );
       return;

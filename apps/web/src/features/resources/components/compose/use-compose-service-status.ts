@@ -9,6 +9,7 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import {
   childServiceStatus,
+  memberBase,
   type Task,
 } from "@/features/projects/components/graph/build-live-nodes";
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -92,7 +93,14 @@ export function composeStatusLookup(input: {
     if (c.type !== "service" || c.stackId !== input.stackResourceId || !c.serviceName) continue;
     byServiceName.set(
       c.serviceName,
-      childServiceStatus(c, input.tasksByResourceId.get(c.resourceId) ?? []),
+      // A child with no deployment of its own falls back to the stack's state
+      // through the SAME rule the graph node uses (memberBase): a member the
+      // rollout hasn't reached is queued, not "Pending".
+      childServiceStatus(
+        c,
+        input.tasksByResourceId.get(c.resourceId) ?? [],
+        memberBase(input.base),
+      ),
     );
   }
   return (serviceName: string) => byServiceName.get(serviceName) ?? input.base ?? "offline";
