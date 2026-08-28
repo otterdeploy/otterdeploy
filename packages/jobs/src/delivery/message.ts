@@ -131,6 +131,48 @@ export function dedupKey(eventId: string, subject: string | undefined): string {
   return `otterdeploy/${family}/${subject ?? "instance"}`;
 }
 
+/**
+ * What the alert's one action should be called.
+ *
+ * Derived from the event family, because that is all this module knows. It is
+ * deliberately NOT event-specific beyond the family: "View build log" is right
+ * for every deploy and build event and wrong for none of them, whereas a
+ * per-event label would have to live with the emitters.
+ */
+export function actionLabel(eventId: string): string {
+  switch (eventId.split(".")[0]) {
+    case "deploy":
+    case "build":
+      return "View build log";
+    case "backup":
+      return "Open backups";
+    case "health":
+    case "host":
+      return "Open service";
+    case "cert":
+      return "Open domains";
+    case "edge":
+      return "Review and block";
+    case "audit":
+      return "Review audit log";
+    default:
+      return "Open in otterdeploy";
+  }
+}
+
+/**
+ * Where that action points.
+ *
+ * An emitter that knows the exact page passes `url` and it wins. Nothing does
+ * yet — `ChannelEvent.url` is new and additive — so the fallback is the app
+ * root, which is always a true destination even when it is not a precise one.
+ * Returns undefined when the install has no public URL configured, and the
+ * caller then renders no button rather than a dead one.
+ */
+export function actionUrl(url: string | undefined, webUrl: string | undefined): string | undefined {
+  return url ?? webUrl ?? undefined;
+}
+
 /** ISO-8601 instant. Temporal per the repo's time rule; no `new Date()`. */
 export function nowIso(): string {
   return Temporal.Now.instant().toString();

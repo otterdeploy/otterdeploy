@@ -42,6 +42,9 @@ export interface ChannelEvent {
   message: string;
   /** Display context (already-formatted strings) shown as key/value rows. */
   data?: Record<string, string>;
+  /** Deep link to the page that explains the event. Optional and additive:
+   *  no emitter passes one yet, and transports fall back to the app root. */
+  url?: string;
 }
 
 export interface DeliveryResult {

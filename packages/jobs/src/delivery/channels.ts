@@ -1,4 +1,5 @@
 import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
+import { env } from "@otterdeploy/env/server";
 
 /**
  * Notification-channel transports. Given a resolved channel (secret already
@@ -27,7 +28,7 @@ import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/em
 import type { ChannelEvent, DeliveryResult, ResolvedChannel } from "./types";
 
 import { deliverDiscord, deliverSlack, deliverTelegram } from "./chat-transports";
-import { SEVERITY, dedupKey, nowIso, subjectOf, titleOf } from "./message";
+import { SEVERITY, actionLabel, actionUrl, dedupKey, nowIso, subjectOf, titleOf } from "./message";
 import { fcmServerKey } from "./platform-transports";
 import { post } from "./post";
 
@@ -78,15 +79,26 @@ async function deliverWebhook(c: ResolvedChannel, e: ChannelEvent): Promise<Deli
 
 async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const from = typeof c.config.from === "string" ? c.config.from : undefined;
-  const subject = `[otterdeploy] ${e.title}`;
+  const s = SEVERITY[e.severity];
+  const subject = subjectOf(e.data);
+  // The emoji leads the SUBJECT because an inbox lists subject lines and
+  // nothing else: it is the only severity signal available before the mail is
+  // opened, and the one place it decides whether the mail gets opened at all.
+  // "[otterdeploy]" moves to the end — a prefix every message shares spends the
+  // first characters of every row saying nothing.
+  const emailSubject = `${s.emoji} ${titleOf(e.title, subject)} — otterdeploy`;
+  const href = actionUrl(e.url, env.PUBLIC_WEB_URL);
   // Every channel email is the same React Email component, never a raw HTML
   // string. The SMTP branch renders it here (it uses the channel's own server,
   // so it can't go through sendEmail); the Resend branch hands the element off.
   const notification = NotificationEmail({
-    title: e.title,
+    title: titleOf(e.title, subject),
     message: e.message,
     severity: e.severity,
     data: e.data,
+    eventId: e.eventId,
+    actionUrl: href,
+    actionLabel: actionLabel(e.eventId),
   });
   // `client` picks the transport: "smtp" uses the channel's own SMTP server
   // (config host/port/user + secret password); anything else uses Resend.
@@ -102,14 +114,20 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
       // else. 465 = implicit TLS; 587/25 = STARTTLS.
       await sendViaSmtpServer(
         { host, port, secure: port === 465, user, pass: c.secret ?? undefined },
-        { to: c.target, subject, react: notification, text: e.message, from: from ?? user ?? "" },
+        {
+          to: c.target,
+          subject: emailSubject,
+          react: notification,
+          text: e.message,
+          from: from ?? user ?? "",
+        },
       );
       return { ok: true };
     }
     // Resend: per-channel API key (secret) overrides the env key; blank = env.
     await sendEmail({
       to: c.target,
-      subject,
+      subject: emailSubject,
       react: notification,
       text: e.message,
       from,
