@@ -1,7 +1,11 @@
 /**
- * Per-resource diff cards for the pending-changes bar. Grouping/formatting
- * lives in `pending-changes-groups.ts`; the bar imports `groupChanges` +
- * `ChangeGroupCard`.
+ * The field-level diff body for one staged change. Grouping/formatting lives
+ * in `pending-changes-groups.ts`; `pending-changes-rows.tsx` renders this
+ * inside each row's disclosure.
+ *
+ * This was `ChangeGroupCard`, a self-contained card with its own header and
+ * discard button. The rows now own the header (verb, name, summary, discard)
+ * and the identity that used to be on the card, so only the body survives.
  *
  * Renders the FULL server diff, not just a verb:
  *   - create  → spec list of what the resource will be created with
@@ -18,70 +22,14 @@ import { clip, renderValue } from "./pending-changes-groups";
 
 export { groupChanges, type DiffChange } from "./pending-changes-groups";
 
-export function ChangeGroupCard({
-  group,
-  onDiscard,
-  discarding,
-}: {
-  group: GroupedChange;
-  /** Drop just this change, keeping the rest staged. Omitted = no control
-   *  (the card stays read-only wherever discard isn't available). */
-  onDiscard?: () => void;
-  discarding?: boolean;
-}) {
-  const verb = {
-    create: "will be created",
-    update: "will be updated",
-    delete: "will be deleted",
-  }[group.kind];
-  const tint = {
-    create: "text-success",
-    update: "text-info",
-    delete: "text-destructive",
-  }[group.kind];
-  const changeCount = group.fields.length + group.env.length;
-  const hasBody = group.spec.length > 0 || changeCount > 0 || group.reason !== undefined;
+export function ChangeGroupBody({ group }: { group: GroupedChange }) {
   return (
-    <div className="rounded-lg border bg-card">
-      <div className="flex items-center justify-between gap-3 px-3 py-2">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
-            {group.resource}
-          </span>
-          <span className="font-mono font-medium text-foreground">{group.name}</span>
-          <span className={tint}>{verb}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {group.kind === "update" && changeCount > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {changeCount} {changeCount === 1 ? "change" : "changes"}
-            </span>
-          )}
-          {onDiscard && (
-            <button
-              type="button"
-              onClick={onDiscard}
-              disabled={discarding}
-              // "Discard", not a bare ✕: on a delete card the row already says
-              // "will be deleted", and an unlabelled cross there reads as
-              // "delete it now" rather than "drop this pending change".
-              title={`Discard this change to ${group.name}`}
-              className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-            >
-              {discarding ? "Discarding…" : "Discard"}
-            </button>
-          )}
-        </div>
-      </div>
-      {hasBody && (
-        <div className="flex flex-col gap-2 border-t px-3 py-2">
-          {group.spec.length > 0 && <SpecTable spec={group.spec} />}
-          {group.fields.length > 0 && <FieldTable fields={group.fields} />}
-          {group.env.length > 0 && <EnvChangeTable rows={group.env} />}
-          {group.reason !== undefined && (
-            <div className="text-xs text-muted-foreground">{group.reason}</div>
-          )}
-        </div>
+    <div className="flex flex-col gap-2">
+      {group.spec.length > 0 && <SpecTable spec={group.spec} />}
+      {group.fields.length > 0 && <FieldTable fields={group.fields} />}
+      {group.env.length > 0 && <EnvChangeTable rows={group.env} />}
+      {group.reason !== undefined && (
+        <div className="text-xs text-muted-foreground">{group.reason}</div>
       )}
     </div>
   );

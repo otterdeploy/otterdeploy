@@ -62,6 +62,24 @@ const manifestDiffOutput = z.object({
 const manifestApplyInput = z.object({
   projectId: getProjectInput.shape.id,
   environment: z.string().min(1).optional(),
+  // Apply only these resources, leaving every other staged edit PENDING.
+  // Omitted = apply everything, the original behaviour.
+  //
+  // Deliberately not the same as `discard({ only })`, which throws the other
+  // changes away. Cherry-picking an apply must leave what you didn't pick
+  // still staged — a checkbox that silently destroys the unticked rows is how
+  // someone loses work they only meant to defer. The excluded changes are fed
+  // to the same `skipped` channel a failed create uses, and
+  // `snapshotAfterApply` already reverts anything skipped, so they survive
+  // into the next diff with no extra bookkeeping.
+  only: z
+    .array(
+      z.object({
+        resource: z.enum(["service", "database", "env", "compose"]),
+        name: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 const manifestApplyOutput = z.object({

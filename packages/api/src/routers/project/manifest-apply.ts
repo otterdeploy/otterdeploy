@@ -68,6 +68,10 @@ export interface ApplyInput {
    *  passed in has ALREADY been resolved for this environment; this is what
    *  scopes the deployed state it gets diffed against, so the two agree. */
   environmentId?: EnvironmentId | null;
+  /** Apply only these resources; every other staged change stays PENDING.
+   *  Omitted = apply everything. See the contract for why this is not the
+   *  same as a selective discard. */
+  only?: ReadonlyArray<{ resource: "service" | "database" | "env" | "compose"; name: string }>;
   log: ApplyContext["log"];
 }
 
@@ -93,7 +97,7 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 }
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
-  const { projectId, organizationId, manifest, environmentId, log } = input;
+  const { projectId, organizationId, manifest, environmentId, only, log } = input;
   // Load state inside the queue slot. A snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
   // Resolve to a concrete scope before diffing. A project with no environment
@@ -130,6 +134,37 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const skipped: ApplyResult["skipped"] = [];
   const gitBuilds: GitBuild[] = [];
 
+  // Cherry-pick. Split each planned list into "run now" and "leave staged"
+  // BEFORE any phase executes, and route the deferred half into `skipped`.
+  //
+  // `skipped` is the right channel rather than a parallel concept:
+  // `snapshotAfterApply` already reverts every skipped resource to the
+  // previous manifest (manifest-applied-snapshot.ts), which is exactly
+  // "stays pending". A failed create and a deliberately-deferred create want
+  // the same treatment in the snapshot, so they share the path.
+  const selected = only === undefined ? null : new Set(only.map((o) => `${o.resource}:${o.name}`));
+  const pick = <T extends { name: string }>(
+    items: T[],
+    resource: "service" | "database" | "compose",
+  ): T[] => {
+    if (selected === null) return items;
+    const run: T[] = [];
+    for (const item of items) {
+      if (selected.has(`${resource}:${item.name}`)) run.push(item);
+      else skipped.push({ resource, name: item.name, reason: "not selected for this apply" });
+    }
+    return run;
+  };
+  const plan = {
+    databaseCreates: pick(byKind.databaseCreates, "database"),
+    databaseUpdates: pick(byKind.databaseUpdates, "database"),
+    databaseDeletes: pick(byKind.databaseDeletes, "database"),
+    serviceCreates: pick(byKind.serviceCreates, "service"),
+    serviceUpdates: pick(byKind.serviceUpdates, "service"),
+    serviceDeletes: pick(byKind.serviceDeletes, "service"),
+    composeCreates: pick(byKind.composeCreates, "compose"),
+  };
+
   const fold = (c: PhaseContribution): void => {
     appliedCount += c.applied;
     for (const e of c.skipped)
@@ -138,7 +173,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   };
 
   // 1. Database creates first. Services may reference them.
-  fold(await runDatabaseCreates(ctx, byKind.databaseCreates));
+  fold(await runDatabaseCreates(ctx, plan.databaseCreates));
   // 2. Build the ${database:…}/${service:…} ref table now the rows exist.
   const refTable = await loadRefTable(projectId);
   // A source change diffs to delete+create of the SAME name (see diff.ts) and
@@ -147,18 +182,18 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // service torn down and never recreated. Split those replace-deletes out and
   // run them first; unrelated deletes stay last (frees their ports/domains
   // without tearing anything down early).
-  const createdServiceNames = new Set(byKind.serviceCreates.map((c) => c.name));
-  const replaceDeletes = byKind.serviceDeletes.filter((c) => createdServiceNames.has(c.name));
-  const standaloneDeletes = byKind.serviceDeletes.filter((c) => !createdServiceNames.has(c.name));
+  const createdServiceNames = new Set(plan.serviceCreates.map((c) => c.name));
+  const replaceDeletes = plan.serviceDeletes.filter((c) => createdServiceNames.has(c.name));
+  const standaloneDeletes = plan.serviceDeletes.filter((c) => !createdServiceNames.has(c.name));
 
   // 3-7. Same-name replace-deletes, then creates, updates, then deletes.
   fold(await runServiceDeletes(ctx, replaceDeletes));
-  fold(await runServiceCreates(ctx, byKind.serviceCreates, refTable));
-  fold(await runServiceUpdates(ctx, byKind.serviceUpdates, refTable));
-  fold(await runComposeCreates(ctx, byKind.composeCreates));
-  fold(await runDatabaseUpdates(ctx, byKind.databaseUpdates));
+  fold(await runServiceCreates(ctx, plan.serviceCreates, refTable));
+  fold(await runServiceUpdates(ctx, plan.serviceUpdates, refTable));
+  fold(await runComposeCreates(ctx, plan.composeCreates));
+  fold(await runDatabaseUpdates(ctx, plan.databaseUpdates));
   fold(await runServiceDeletes(ctx, standaloneDeletes));
-  fold(await runDatabaseDeletes(ctx, byKind.databaseDeletes));
+  fold(await runDatabaseDeletes(ctx, plan.databaseDeletes));
 
   // 8. Enqueue builds for the git-sourced services collected above. A failure
   // means the resource exists but won't build, so it joins skipped[].

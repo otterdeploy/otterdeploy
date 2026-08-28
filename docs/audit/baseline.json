@@ -1,10 +1,10 @@
 {
   "fallowVersion": "3.10.0",
-  "measured": "2026-08-27",
+  "measured": "2026-08-28",
   "totals": {
     "deadCodeIssues": 180,
     "circularDependencies": 17,
-    "cloneGroups": 363,
-    "duplicationPercentage": 3.47
+    "cloneGroups": 362,
+    "duplicationPercentage": 3.43
   }
 }
