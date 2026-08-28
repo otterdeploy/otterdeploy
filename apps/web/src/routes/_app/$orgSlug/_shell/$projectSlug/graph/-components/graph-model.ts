@@ -21,7 +21,11 @@ import {
   useAppliedCreates,
   type AppliedCreates,
 } from "@/features/projects/components/graph/applied-creates-store";
-import { clearDeleting, useDeleting } from "@/features/projects/components/graph/deleting-store";
+import {
+  clearDeleting,
+  useDeleting,
+  type DeletingMarks,
+} from "@/features/projects/components/graph/deleting-store";
 import {
   clearPendingFramework,
   usePendingFrameworks,
@@ -164,7 +168,7 @@ function computePendingByName(
   changes: readonly ManifestChange[],
   appliedCreates: AppliedCreates,
   frameworks: ReadonlyMap<string, Framework>,
-  deleting: ReadonlySet<string>,
+  deleting: DeletingMarks,
 ): PendingByName {
   const creates: PendingByName["creates"] = [];
   const marker = new Map<string, PendingMark>();
@@ -189,7 +193,7 @@ function computePendingByName(
   creates.push(...bridgeAppliedCreates(appliedCreates, createKeys, idByName, frameworks));
   // A teardown already running outranks any staged marker: the resource is on
   // its way out, and that is the more urgent thing to say about it.
-  for (const key of deleting) if (idByName.has(key)) marker.set(key, "deleting");
+  for (const key of deleting.keys()) if (idByName.has(key)) marker.set(key, "deleting");
   return { creates, marker };
 }
 
@@ -275,7 +279,7 @@ export function useGraphModel(
     }
     // The mirror image for deletes: the mark is intent, the collection is
     // truth. Once a row is gone its node is gone with it, so stop marking it.
-    for (const key of deleting) if (!live.has(key)) clearDeleting(project.id, key);
+    for (const key of deleting.keys()) if (!live.has(key)) clearDeleting(project.id, key);
   }, [appliedCreates, pendingFrameworks, deleting, resources, project.id]);
 
   // Open PR previews: satellite cards hanging off the service they preview.

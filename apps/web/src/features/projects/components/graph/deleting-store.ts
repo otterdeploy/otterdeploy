@@ -14,10 +14,12 @@
  * (the real signal), when the delete fails (nothing was destroyed, so the node
  * must look alive again), and by a TTL for the response that never comes.
  *
- * Keys are `${kind}:${name}`. The same id the graph node carries.
+ * Keys are `${kind}:${name}`. The same id the graph node carries. There is no
+ * payload: a marked key is the whole message. Mechanics come from
+ * ./intent-store, shared with the applied-creates bridge.
  */
 
-import { useSyncExternalStore } from "react";
+import { createIntentStore, type IntentMap } from "./intent-store";
 
 /** Backstop for a delete whose result never arrives (a dropped connection, a
  *  closed laptop). Generous: a real stack teardown can run for minutes, and a
@@ -25,76 +27,26 @@ import { useSyncExternalStore } from "react";
  *  worse lie. */
 const TTL_MS = 600_000;
 
-// projectId → (key → expiry timestamp)
-const store = new Map<string, Map<string, number>>();
-// Cached immutable snapshots so useSyncExternalStore's getSnapshot is stable
-// between mutations (returning a fresh Set each call would loop forever).
-const snapshots = new Map<string, ReadonlySet<string>>();
-const listeners = new Set<() => void>();
-
-const EMPTY: ReadonlySet<string> = new Set();
-
-function rebuild(projectId: string) {
-  const m = store.get(projectId);
-  if (!m || m.size === 0) {
-    snapshots.set(projectId, EMPTY);
-    return;
-  }
-  const now = Date.now();
-  const out = new Set<string>();
-  for (const [k, exp] of m) if (exp > now) out.add(k);
-  snapshots.set(projectId, out.size === 0 ? EMPTY : out);
-}
-
-function emit(projectId: string) {
-  rebuild(projectId);
-  for (const l of listeners) l();
-}
+const store = createIntentStore<undefined>(TTL_MS);
 
 /** Mark node keys as being torn down right now. */
 export function markDeleting(projectId: string, keys: readonly string[]) {
-  if (keys.length === 0) return;
-  let m = store.get(projectId);
-  if (!m) {
-    m = new Map();
-    store.set(projectId, m);
-  }
-  const expiry = Date.now() + TTL_MS;
-  for (const k of keys) m.set(k, expiry);
-  emit(projectId);
-  setTimeout(() => {
-    const cur = store.get(projectId);
-    if (!cur) return;
-    const now = Date.now();
-    let changed = false;
-    for (const [k, exp] of cur) {
-      if (exp <= now) {
-        cur.delete(k);
-        changed = true;
-      }
-    }
-    if (changed) emit(projectId);
-  }, TTL_MS + 100);
+  store.mark(
+    projectId,
+    keys.map((key) => ({ key, value: undefined })),
+  );
 }
 
 /** Drop a mark: the resource is gone, or the delete failed and it isn't. */
 export function clearDeleting(projectId: string, key: string) {
-  const m = store.get(projectId);
-  if (m?.delete(key)) emit(projectId);
+  store.clear(projectId, key);
 }
 
-function getSnapshot(projectId: string): ReadonlySet<string> {
-  return snapshots.get(projectId) ?? EMPTY;
-}
+/** The marks, keyed by node id. The values carry nothing: a key's presence is
+ *  the whole message, so read this with `has`/`size`/`keys()`. */
+export type DeletingMarks = IntentMap<undefined>;
 
 /** Subscribe a graph to the resources currently being torn down. */
-export function useDeleting(projectId: string): ReadonlySet<string> {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => getSnapshot(projectId),
-    () => EMPTY,
-  );
+export function useDeleting(projectId: string): DeletingMarks {
+  return store.use(projectId);
 }

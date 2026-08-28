@@ -32,7 +32,7 @@ import { useEffect, useState } from "react";
 export type SegmentState = "idle" | "active" | "sealing" | "done" | "failed";
 
 /** How long a segment takes to close from wherever its creep had reached. */
-export const SEAL_MS = 420;
+const SEAL_MS = 420;
 
 /** The machine's step interval: the walk advances one segment per seal, so a
  *  five-step jump reads as five beats rather than one simultaneous flash. The
