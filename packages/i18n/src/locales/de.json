@@ -1669,7 +1669,10 @@
     "varsShared": "Eine rote Markierung kennzeichnet einen erforderlichen Wert, der noch leer ist. Klicke auf das Auge, um ein Geheimnis anzuzeigen oder zu bearbeiten. Wird als Projektvariable gespeichert.",
     "varsTitle": "Umgebungsvariablen",
     "varsWithRefs": "Die Compose-Datei verweist auf diese: Geheimnisse werden automatisch erzeugt, Standardwerte sind vorausgefüllt.",
-    "view": "Ansehen"
+    "view": "Ansehen",
+    "domainLabel": "Domain",
+    "domainPlaceholder": "automatisch erzeugt",
+    "domainHelp": "Unter welcher Adresse dieser Stack erreichbar ist. Vorbelegt mit der Adresse, die er ohnehin bekäme — ändern, um ihn unter einem eigenen Hostnamen zu veröffentlichen."
   },
   "edgeLogs": {
     "events": "Edge-Ereignisse",

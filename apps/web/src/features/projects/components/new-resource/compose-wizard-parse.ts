@@ -20,6 +20,7 @@ import { orpc } from "@/shared/server/orpc";
 import type { Var } from "./form-fields/variables-field";
 
 import { type ComposeForm, type ComposePrefill, type Preview } from "./compose-wizard-shared";
+import { AUTO_WRITE } from "./form-context";
 
 /** Refs from several files, unique by name (first wins). */
 function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
@@ -143,6 +144,13 @@ export function useComposeParse(
     // service actually gets, not a guess. Best-effort: a failure just leaves
     // address vars blank, exactly as before.
     const publicHost = await previewStackHost(projectId, res);
+    // Seed the domain field with that same resolved host, so the wizard shows
+    // the address the stack will actually publish at and the operator can
+    // overwrite it. Only when untouched: re-parsing on every keystroke must not
+    // stomp a hostname they typed.
+    if (publicHost && form.state.values.vars.domain.trim() === "") {
+      form.setFieldValue("vars.domain", publicHost, AUTO_WRITE);
+    }
     // Seed the variables editor with the file's `${VAR}` refs, preserving any
     // rows the user already added/edited. A credential-looking key with no
     // `:-default` is AUTO-GENERATED (strong random, locked) and an address-

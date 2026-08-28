@@ -1669,7 +1669,10 @@
     "varsShared": "A red marker flags a required value that's still empty; click the eye to reveal or edit a secret. Saved as project variables.",
     "varsTitle": "Environment variables",
     "varsWithRefs": "The compose file references these: secrets are auto-generated, defaults pre-filled.",
-    "view": "View"
+    "view": "View",
+    "domainLabel": "Domain",
+    "domainPlaceholder": "auto-generated",
+    "domainHelp": "Where this stack will be reachable. Pre-filled with the address it would get anyway — change it to publish on your own hostname."
   },
   "edgeLogs": {
     "events": "Edge events",

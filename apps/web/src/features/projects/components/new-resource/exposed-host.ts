@@ -11,6 +11,24 @@
 
 import { stripToHostname } from "@otterdeploy/shared/public-host";
 
+/**
+ * The hostname to publish the exposed front service on.
+ *
+ * The explicit domain field wins: it is seeded with the host the server would
+ * generate, so sending it is a no-op until the operator edits it, and it is the
+ * only control a template without an address-shaped variable has.
+ * `editedExposedHost` stays as the fallback for the templates that do declare
+ * one, where editing the variable is still the natural gesture.
+ */
+export function exposedHostFor(vars: {
+  variables: Array<{ value: string; seedValue?: string }>;
+  domain: string;
+}): string | null {
+  const typed = stripToHostname(vars.domain);
+  if (typed) return typed;
+  return editedExposedHost(vars.variables);
+}
+
 /** The hostname the operator typed over a seeded address variable, or null
  *  when every seed is untouched (the generated host stays canonical). The
  *  server re-normalizes and falls back to the generated host if nothing
