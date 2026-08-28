@@ -11,7 +11,14 @@ function stat(host: string, over: Partial<EdgeHostStat> = {}): EdgeHostStat {
 }
 
 function render(hostStats: EdgeHostStat[]) {
-  const data: EdgeLogsData = { rows: [], histogram: [], hostStats, total: hostStats.length };
+  const data: EdgeLogsData = {
+    rows: [],
+    histogram: [],
+    hostStats,
+    total: hostStats.length,
+    suspiciousTotal: 0,
+    suspiciousIps: [],
+  };
   return renderToStaticMarkup(<HostFooter data={data} />);
 }
 

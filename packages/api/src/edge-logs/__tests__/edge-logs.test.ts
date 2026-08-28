@@ -151,6 +151,48 @@ describe("ring buffer", () => {
     expect(res.total).toBe(10);
   });
 
+  test("suspicious totals count the window, not the returned page", () => {
+    // 30 probes, then 10 ordinary requests, with a page cap of 5. The cap
+    // leaves the newest 5 (all ordinary) in `rows`, so a count derived from
+    // `rows` would say zero. The window still holds 30.
+    for (let i = 0; i < 30; i++) pushEdgeLog(line({ path: "/.env", clientIp: "9.9.9.9" }));
+    for (let i = 0; i < 10; i++) pushEdgeLog(line({ path: "/" }));
+    const res = queryEdgeLogs({ hosts: ["plane.com"], range: "1h", limit: 5 }, Date.now());
+    expect(res.rows).toHaveLength(5);
+    expect(res.rows.every((r) => r.path === "/")).toBe(true);
+    expect(res.suspiciousTotal).toBe(30);
+    expect(res.suspiciousIps).toEqual(["9.9.9.9"]);
+  });
+
+  test("a wider window never reports fewer probes than a narrower one", () => {
+    // The bug this pins: 1h → 7d made the toolbar count FALL, because it was
+    // read off the capped page instead of the window. 7d contains 1h, so its
+    // count must be >= the 1h count for any data.
+    const now = Date.now();
+    for (let i = 0; i < 40; i++) {
+      pushEdgeLog(line({ path: "/.git/config", ts: new Date(now - 30 * 60_000).toISOString() }));
+    }
+    for (let i = 0; i < 300; i++) {
+      pushEdgeLog(line({ path: "/", ts: new Date(now - 60_000).toISOString() }));
+    }
+    const oneHour = queryEdgeLogs({ hosts: ["plane.com"], range: "1h" }, now);
+    const sevenDays = queryEdgeLogs({ hosts: ["plane.com"], range: "7d" }, now);
+    expect(oneHour.suspiciousTotal).toBe(40);
+    expect(sevenDays.suspiciousTotal).toBeGreaterThanOrEqual(oneHour.suspiciousTotal);
+    // And the older probes are outside the default page either way.
+    expect(sevenDays.rows.some((r) => r.path === "/.git/config")).toBe(false);
+  });
+
+  test("the suspicious filter narrows rows server-side", () => {
+    pushEdgeLog(line({ path: "/" }));
+    pushEdgeLog(line({ path: "/actuator/env", clientIp: "5.5.5.5" }));
+    pushEdgeLog(line({ path: "/.well-known/security.txt" }));
+    const res = queryEdgeLogs({ hosts: ["plane.com"], range: "1h", suspicious: true }, Date.now());
+    expect(res.total).toBe(1);
+    expect(first(res.rows).path).toBe("/actuator/env");
+    expect(res.suspiciousIps).toEqual(["5.5.5.5"]);
+  });
+
   test("status filter narrows the result (multi-select)", () => {
     pushEdgeLog(line({ status: 200 }));
     pushEdgeLog(line({ status: 404 }));

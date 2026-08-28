@@ -16,9 +16,14 @@ import { and, desc, gte, inArray, lt, lte, or, ilike, sql } from "drizzle-orm";
 
 import type { EdgeLogFilter, EdgeLogLine, EdgeLogQueryResult } from "./types";
 
-import { resolveEdgeWindow, summarizeEdgeLogs } from "./ring";
+import { resolveEdgeWindow, summarizeEdgeLogs, SUSPICIOUS_IP_CAP } from "./ring";
+import { THREAT_SQL_REGEX } from "./threat";
 
 const MAX_FETCH = 10_000;
+
+/** Postgres-side twin of `isSuspiciousPath`: same rule bodies, so the set the
+ *  SQL counts is the set the UI badges. See edge-logs/threat.ts. */
+const threatMatch = sql`${edgeLog.path} ~* ${THREAT_SQL_REGEX}`;
 
 const STATUS_RANGE: Record<string, [number, number]> = {
   "2xx": [200, 300],
@@ -66,7 +71,40 @@ function buildConditions(filter: EdgeLogFilter, now: number): SQL[] {
     const cond = searchCondition(filter.search);
     if (cond) conds.push(cond);
   }
+  if (filter.suspicious) conds.push(threatMatch);
   return conds;
+}
+
+/**
+ * Exact window totals when the row fetch hit MAX_FETCH and so can't be counted
+ * in memory. Two cheap aggregates over the same predicate rather than a
+ * multi-megabyte read: the counts must describe the whole window, because the
+ * "Suspicious (N)" badge and the mass-block set are read as facts about it.
+ */
+async function windowTotals(
+  conds: SQL[],
+): Promise<{ total: number; suspiciousTotal: number; suspiciousIps: string[] }> {
+  const [counts] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      suspiciousTotal: sql<number>`count(*) filter (where ${threatMatch})::int`,
+    })
+    .from(edgeLog)
+    .where(and(...conds));
+  const suspiciousTotal = counts?.suspiciousTotal ?? 0;
+  if (suspiciousTotal === 0) {
+    return { total: counts?.total ?? 0, suspiciousTotal: 0, suspiciousIps: [] };
+  }
+  const ips = await db
+    .selectDistinct({ clientIp: edgeLog.clientIp })
+    .from(edgeLog)
+    .where(and(...conds, threatMatch))
+    .limit(SUSPICIOUS_IP_CAP);
+  return {
+    total: counts?.total ?? 0,
+    suspiciousTotal,
+    suspiciousIps: ips.map((r) => r.clientIp),
+  };
 }
 
 export async function queryEdgeLogsDb(
@@ -74,7 +112,14 @@ export async function queryEdgeLogsDb(
   now: number,
 ): Promise<EdgeLogQueryResult> {
   if (filter.hosts.length === 0) {
-    return { rows: [], histogram: [], hostStats: [], total: 0 };
+    return {
+      rows: [],
+      histogram: [],
+      hostStats: [],
+      total: 0,
+      suspiciousTotal: 0,
+      suspiciousIps: [],
+    };
   }
 
   const conds = buildConditions(filter, now);
@@ -88,7 +133,11 @@ export async function queryEdgeLogsDb(
 
   // summarize expects ascending order (it slices the newest tail).
   const lines: EdgeLogLine[] = records.reverse().map(rowToLine);
-  return summarizeEdgeLogs(lines, resolveEdgeWindow(filter, now), filter.limit ?? 200);
+  const summary = summarizeEdgeLogs(lines, resolveEdgeWindow(filter, now), filter.limit ?? 200);
+  // Under the cap the fetch IS the window, so the in-memory counts are exact
+  // and cost nothing. Only a capped fetch needs the aggregate round-trip.
+  if (records.length < MAX_FETCH) return summary;
+  return { ...summary, ...(await windowTotals(conds)) };
 }
 
 function rowToLine(r: typeof edgeLog.$inferSelect): EdgeLogLine {

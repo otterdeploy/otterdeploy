@@ -50,6 +50,9 @@ export const edgeLogQueryInput = z
     statuses: z.array(statusBucket).optional(),
     hosts: z.array(z.string()).optional(),
     search: z.string().optional(),
+    /** Narrow to scanner probes. Applied in SQL/the ring, not on the returned
+     *  page: the row cap would otherwise decide the answer. */
+    suspicious: z.boolean().optional(),
     limit: z.number().int().positive().max(1000).optional(),
   })
   .refine((v) => (v.from === undefined) === (v.to === undefined), {
@@ -89,7 +92,10 @@ const edgeLogQueryResultSchema = z.object({
   rows: z.array(edgeLogLineSchema),
   histogram: z.array(edgeHistogramBucketSchema),
   hostStats: z.array(edgeHostStatSchema),
+  /** Over the whole window, not `rows.length` (which `limit` caps). */
   total: z.number(),
+  suspiciousTotal: z.number(),
+  suspiciousIps: z.array(z.string()),
 });
 
 // ─── Per-route traffic stats (graph edges + stack Traffic tab) ─────────────
