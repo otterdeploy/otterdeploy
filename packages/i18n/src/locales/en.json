@@ -1736,7 +1736,8 @@
     "certFailed": "Cert failed",
     "certSelfSignedHint": "Serving a self-signed certificate — browsers will reject it. Run Recheck DNS once this host resolves to this server.",
     "certSelfSignedProxiedHint": "Cloudflare serves a trusted certificate to visitors, but the origin here is self-signed. Keep Cloudflare SSL mode on Full (not Full strict), or grey-cloud the record briefly so a real certificate can issue.",
-    "certFailedHint": "Certificate issuance failed."
+    "certFailedHint": "Certificate issuance failed.",
+    "certOriginSelfSigned": "Self-signed origin"
   },
   "backups": {
     "restoreDialogTitle": "Restore · {{source}}",
