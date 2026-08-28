@@ -1736,7 +1736,8 @@
     "certFailed": "Zertifikat fehlgeschlagen",
     "certSelfSignedHint": "Es wird ein selbstsigniertes Zertifikat ausgeliefert – Browser lehnen es ab. DNS erneut prüfen, sobald dieser Host auf diesen Server zeigt.",
     "certSelfSignedProxiedHint": "Cloudflare liefert Besuchern ein gültiges Zertifikat, der Ursprung hier ist jedoch selbstsigniert. SSL-Modus auf Full (nicht Full strict) belassen oder den Eintrag kurz auf grau stellen, damit ein echtes Zertifikat ausgestellt werden kann.",
-    "certFailedHint": "Ausstellung des Zertifikats fehlgeschlagen."
+    "certFailedHint": "Ausstellung des Zertifikats fehlgeschlagen.",
+    "certOriginSelfSigned": "Ursprung selbstsigniert"
   },
   "backups": {
     "restoreDialogTitle": "Wiederherstellen · {{source}}",

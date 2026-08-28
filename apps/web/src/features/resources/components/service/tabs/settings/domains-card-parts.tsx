@@ -93,17 +93,25 @@ export function CertBadge({ domain }: { domain: DomainCertView }) {
   if (!canHoldPublicCert(domain.domain)) return null;
 
   if (!domain.usesAcme) {
+    // A proxied host is NOT the same failure as a pointed one, and painting
+    // both amber said it was. Behind Cloudflare, visitors get a valid edge
+    // certificate — the self-signed origin only bites on SSL mode Full
+    // (strict). Pointed and self-signed means every visitor gets a browser
+    // warning right now. One is a caution to read, the other is an outage, so
+    // the proxied case states the fact quietly and lets the Cloudflare chip
+    // beside it carry the context.
+    const proxied = domain.dnsState === "proxied";
     return (
       <Badge
-        variant="secondary"
-        className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500"
-        title={
-          domain.dnsState === "proxied"
-            ? t("domains.certSelfSignedProxiedHint")
-            : t("domains.certSelfSignedHint")
+        variant={proxied ? "outline" : "secondary"}
+        className={
+          proxied
+            ? "text-muted-foreground"
+            : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500"
         }
+        title={proxied ? t("domains.certSelfSignedProxiedHint") : t("domains.certSelfSignedHint")}
       >
-        {t("domains.certSelfSigned")}
+        {proxied ? t("domains.certOriginSelfSigned") : t("domains.certSelfSigned")}
       </Badge>
     );
   }

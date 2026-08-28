@@ -111,7 +111,12 @@ export function DomainRow({
 
   return (
     <div className="flex flex-col gap-2 px-3 py-2.5">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {/* `sm:flex-nowrap`: the badge cluster grew a third chip and pushed the
+          controls onto their own line. The name is the shrinkable thing here —
+          it already truncates — so the row keeps its controls beside it and
+          gives up domain characters instead. Below `sm` wrapping is still
+          right: there isn't room for both. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap">
         <HugeiconsIcon
           icon={GlobalIcon}
           strokeWidth={2}

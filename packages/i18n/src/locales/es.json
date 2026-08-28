@@ -1736,7 +1736,8 @@
     "certFailed": "Error de certificado",
     "certSelfSignedHint": "Se sirve un certificado autofirmado: los navegadores lo rechazarán. Vuelve a comprobar el DNS cuando este host resuelva a este servidor.",
     "certSelfSignedProxiedHint": "Cloudflare sirve un certificado válido a los visitantes, pero el origen aquí es autofirmado. Mantén el modo SSL en Full (no Full strict), o desactiva el proxy brevemente para poder emitir un certificado real.",
-    "certFailedHint": "Fallo al emitir el certificado."
+    "certFailedHint": "Fallo al emitir el certificado.",
+    "certOriginSelfSigned": "Origen autofirmado"
   },
   "backups": {
     "restoreDialogTitle": "Restaurar · {{source}}",
