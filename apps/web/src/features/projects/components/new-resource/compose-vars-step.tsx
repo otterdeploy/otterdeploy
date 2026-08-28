@@ -38,6 +38,21 @@ export function ComposeVarsStep({
           {t("compose.varsRequiredBanner")}
         </div>
       )}
+      {/* The stack's public address. Seeded with the host the server would
+          generate, so leaving it alone changes nothing — but a template that
+          declares no address-shaped variable (Authentik: SECRET_KEY and
+          POSTGRES_PASSWORD, nothing else) previously had no domain control
+          anywhere, and deployed on the generated host with no way to say
+          otherwise. */}
+      <form.AppField name="vars.domain">
+        {(field) => (
+          <field.TextField
+            label={t("compose.domainLabel")}
+            placeholder={t("compose.domainPlaceholder")}
+            description={t("compose.domainHelp")}
+          />
+        )}
+      </form.AppField>
       <form.AppField name="vars.variables" validators={{ onChange: noDuplicateKeysValidator }}>
         {(field) => <field.VariablesField projectId={projectId} />}
       </form.AppField>

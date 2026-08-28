@@ -43,7 +43,7 @@ import {
   type ComposePrefill,
   useComposeForm,
 } from "./compose-wizard-shared";
-import { editedExposedHost } from "./exposed-host";
+import { exposedHostFor } from "./exposed-host";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values: split from the
@@ -61,7 +61,7 @@ function buildComposeEntry(value: ComposeFormValues, logoBrand: string | undefin
   const envEntry = Object.keys(env).length > 0 ? { env } : {};
   const file = value.file;
   return file.source === "inline"
-    ? buildInlineEntry(file, brand, envEntry, editedExposedHost(value.vars.variables))
+    ? buildInlineEntry(file, brand, envEntry, exposedHostFor(value.vars))
     : buildGitEntry(file, brand, envEntry);
 }
 

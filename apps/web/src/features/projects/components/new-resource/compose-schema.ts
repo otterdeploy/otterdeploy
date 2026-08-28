@@ -60,9 +60,22 @@ export interface ComposeFileValues {
   exposed: string[];
 }
 
-/** The `vars` group: the `${VAR}` rows the second step edits. */
+/** The `vars` group: the `${VAR}` rows the second step edits, plus the public
+ *  hostname the stack publishes at. */
 export interface ComposeVarsValues {
   variables: Var[];
+  /**
+   * Public hostname for the stack's exposed service, seeded with the host the
+   * server would generate anyway.
+   *
+   * It is a field of its own because the old route to a custom domain went
+   * through `editedExposedHost`: edit an ADDRESS-SHAPED variable and the
+   * hostname you typed becomes the route. That only works for a template that
+   * declares one. Authentik's declares `SECRET_KEY` and `POSTGRES_PASSWORD`
+   * and nothing address-shaped, so it had no domain control anywhere in the
+   * wizard and deployed on a generated host with no way to say otherwise.
+   */
+  domain: string;
 }
 
 /** The full nested form value. Every field reference in the wizard is a nested
@@ -89,6 +102,7 @@ export const composeDefaults: ComposeFormValues = {
   },
   vars: {
     variables: [],
+    domain: "",
   },
 };
 
@@ -160,6 +174,7 @@ export const fileStepSchema = z
 export const varsStepSchema = z
   .object({
     variables: z.array(varRowSchema),
+    domain: z.string(),
   })
   .superRefine((v, ctx) => {
     v.variables.forEach((row, i) => {

@@ -1612,7 +1612,10 @@
     "varsShared": "Una marca roja señala un valor obligatorio que sigue vacío; haz clic en el ojo para revelar o editar un secreto. Se guardan como variables del proyecto.",
     "varsTitle": "Variables de entorno",
     "varsWithRefs": "El archivo compose hace referencia a estas: los secretos se generan automáticamente y los valores por defecto vienen rellenados.",
-    "view": "Ver"
+    "view": "Ver",
+    "domainLabel": "Dominio",
+    "domainPlaceholder": "generado automáticamente",
+    "domainHelp": "Dónde estará disponible este stack. Se rellena con la dirección que recibiría de todos modos; cámbiala para publicarlo en tu propio nombre de host."
   },
   "edgeLogs": {
     "events": "Eventos del edge",
