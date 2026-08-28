@@ -20,8 +20,10 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { and, eq } from "drizzle-orm";
 import * as z from "zod";
 
+import type { ResolvedChannel } from "../delivery/types";
+
 import { defineJob } from "../define";
-import { type ResolvedChannel, deliverToChannel } from "../delivery/channels";
+import { deliverToChannel } from "../delivery/channels";
 import { decryptSecret } from "../delivery/secret-crypto";
 import { shouldFanOutInApp, writeInboxRows } from "./notification-inbox";
 
