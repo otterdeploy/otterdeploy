@@ -2,9 +2,11 @@ import { type CSSProperties, createElement, type ReactNode, type SVGProps } from
 
 import { useTheme } from "@/shared/components/theme-provider";
 import { Activepieces } from "@/shared/components/ui/svgs/activepieces";
+import { Affine } from "@/shared/components/ui/svgs/affine";
 import { Anythingllm } from "@/shared/components/ui/svgs/anythingllm";
 import { Appsmith } from "@/shared/components/ui/svgs/appsmith";
 import { Authentik } from "@/shared/components/ui/svgs/authentik";
+import { Autobase } from "@/shared/components/ui/svgs/autobase";
 import { Autumn } from "@/shared/components/ui/svgs/autumn";
 import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
 import { AwsLight } from "@/shared/components/ui/svgs/aws-light";
@@ -14,6 +16,8 @@ import { Beszel } from "@/shared/components/ui/svgs/beszel";
 import { Bitbucket } from "@/shared/components/ui/svgs/bitbucket";
 import { BookStack } from "@/shared/components/ui/svgs/bookstack";
 import { Budibase } from "@/shared/components/ui/svgs/budibase";
+import { BuzzDark } from "@/shared/components/ui/svgs/buzz-dark";
+import { BuzzLight } from "@/shared/components/ui/svgs/buzz-light";
 import { CalCom } from "@/shared/components/ui/svgs/cal-com";
 import { Chatwoot } from "@/shared/components/ui/svgs/chatwoot";
 import { Chromium } from "@/shared/components/ui/svgs/chromium";
@@ -22,13 +26,16 @@ import { Dbeaver } from "@/shared/components/ui/svgs/dbeaver";
 import { Directus } from "@/shared/components/ui/svgs/directus";
 import { Discord } from "@/shared/components/ui/svgs/discord";
 import { Docker } from "@/shared/components/ui/svgs/docker";
+import { Docling } from "@/shared/components/ui/svgs/docling";
 import { Docmost } from "@/shared/components/ui/svgs/docmost";
+import { Documenso } from "@/shared/components/ui/svgs/documenso";
 import { Drizzle } from "@/shared/components/ui/svgs/drizzle";
 import { EclipseMosquitto } from "@/shared/components/ui/svgs/eclipse-mosquitto";
 import { Excalidraw } from "@/shared/components/ui/svgs/excalidraw";
 import { Firebase } from "@/shared/components/ui/svgs/firebase";
 import { Flowise } from "@/shared/components/ui/svgs/flowise";
 import { Forgejo } from "@/shared/components/ui/svgs/forgejo";
+import { Formbricks } from "@/shared/components/ui/svgs/formbricks";
 import { Ghost } from "@/shared/components/ui/svgs/ghost";
 import { Gitea } from "@/shared/components/ui/svgs/gitea";
 import { Github } from "@/shared/components/ui/svgs/github";
@@ -45,6 +52,8 @@ import { HomeAssistant } from "@/shared/components/ui/svgs/home-assistant";
 import { Hoppscotch } from "@/shared/components/ui/svgs/hoppscotch";
 import { Immich } from "@/shared/components/ui/svgs/immich";
 import { Infisical } from "@/shared/components/ui/svgs/infisical";
+import { InngestDark } from "@/shared/components/ui/svgs/inngest-dark";
+import { InngestLight } from "@/shared/components/ui/svgs/inngest-light";
 import { ItTools } from "@/shared/components/ui/svgs/it-tools";
 import { Jaeger } from "@/shared/components/ui/svgs/jaeger";
 import { Jellyfin } from "@/shared/components/ui/svgs/jellyfin";
@@ -85,6 +94,7 @@ import { Postiz } from "@/shared/components/ui/svgs/postiz";
 import { PrestaShop } from "@/shared/components/ui/svgs/prestashop";
 import { Qdrant } from "@/shared/components/ui/svgs/qdrant";
 import { Rabbitmq } from "@/shared/components/ui/svgs/rabbitmq";
+import { Rivet } from "@/shared/components/ui/svgs/rivet";
 import { Rustfs } from "@/shared/components/ui/svgs/rustfs";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Soketi } from "@/shared/components/ui/svgs/soketi";
@@ -92,11 +102,13 @@ import { StirlingPdf } from "@/shared/components/ui/svgs/stirling-pdf";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
 import { Temporal } from "@/shared/components/ui/svgs/temporal";
 import { ToolJet } from "@/shared/components/ui/svgs/tooljet";
+import { TriggerDev } from "@/shared/components/ui/svgs/trigger-dev";
 import { Twenty } from "@/shared/components/ui/svgs/twenty";
 import { Typesense } from "@/shared/components/ui/svgs/typesense";
 import { Umami } from "@/shared/components/ui/svgs/umami";
 import { Unleash } from "@/shared/components/ui/svgs/unleash";
 import { UptimeKuma } from "@/shared/components/ui/svgs/uptime-kuma";
+import { UseSend } from "@/shared/components/ui/svgs/usesend";
 import { Valkey } from "@/shared/components/ui/svgs/valkey";
 import { Vaultwarden } from "@/shared/components/ui/svgs/vaultwarden";
 import { Verdaccio } from "@/shared/components/ui/svgs/verdaccio";
@@ -216,7 +228,24 @@ type BrandKey =
   | "Valkey"
   | "Vikunja"
   | "Wiki.js"
-  | "Windmill";
+  | "Windmill"
+  // Productivity/ops wave: marks from dashboard-icons.
+  | "AFFiNE"
+  | "Documenso"
+  | "Formbricks"
+  // Agent/AI-ops wave. Buzz and Inngest ship as themed pairs: both upstream
+  // assets flip ink on `prefers-color-scheme`, which ignores the app's own
+  // theme toggle.
+  | "Buzz"
+  | "Docling"
+  | "Inngest"
+  // Marks taken from each project's own repo: absent from dashboard-icons,
+  // svgl and selfh.st. useSend and Trigger.dev are monochrome, so they paint
+  // with `currentColor` and inherit the tile ink.
+  | "Autobase"
+  | "Rivet"
+  | "Trigger.dev"
+  | "useSend";
 
 interface Props {
   search: string;
@@ -237,17 +266,27 @@ type SvgComponent = (props: SVGProps<SVGSVGElement>) => ReactNode;
  * `resolvedTheme` also tracks the OS when theme="system".
  */
 const themedBrands: Record<
-  Extract<BrandKey, "AWS">,
+  Extract<BrandKey, "AWS" | "Buzz" | "Inngest">,
   { dark: SvgComponent; light: SvgComponent }
 > = {
   AWS: { dark: AwsDark, light: AwsLight },
+  Buzz: { dark: BuzzDark, light: BuzzLight },
+  Inngest: { dark: InngestDark, light: InngestLight },
 };
 
 /**
  * Theme-stable marks: either colorful in any theme, or monochrome via
  * `currentColor` (GitHub) so they inherit the tile's `color`.
  */
-const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
+const staticBrands: Record<Exclude<BrandKey, "AWS" | "Buzz" | "Inngest">, SvgComponent> = {
+  AFFiNE: Affine,
+  Autobase: Autobase,
+  Docling: Docling,
+  Rivet: Rivet,
+  "Trigger.dev": TriggerDev,
+  useSend: UseSend,
+  Documenso: Documenso,
+  Formbricks: Formbricks,
   Baserow: Baserow,
   DBeaver: Dbeaver,
   Drizzle: Drizzle,

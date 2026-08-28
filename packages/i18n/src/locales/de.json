@@ -1541,6 +1541,63 @@
           "MYSQL_PASSWORD": "Passwort des mitgelieferten MariaDB-Benutzers, mit dem sich WordPress verbindet.",
           "MYSQL_ROOT_PASSWORD": "Root-Passwort für das mitgelieferte MariaDB."
         }
+      },
+      "documenso": {
+        "description": "Selbst gehostetes Signieren von Dokumenten: PDF hochladen, Signaturfelder setzen und zur Unterschrift versenden, ohne Verträge über einen SaaS-Anbieter zu leiten.",
+        "env": {
+          "DOCUMENSO_URL": "Öffentliche URL dieser Instanz. Sie steckt in jedem versendeten Signaturlink, ein falscher Wert erzeugt also Links, die niemand öffnen kann.",
+          "NEXTAUTH_SECRET": "Signiert Sitzungen.",
+          "NEXT_PRIVATE_ENCRYPTION_KEY": "Verschlüsselt Dokument- und Kontodaten im Ruhezustand. Geht er verloren, sind gespeicherte Dokumente nicht mehr lesbar.",
+          "NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY": "Zweiter Schlüssel für die Schlüsselrotation. Sein Verlust wirkt wie der Verlust des primären Schlüssels.",
+          "POSTGRES_PASSWORD": "Passwort für das mitgelieferte Postgres.",
+          "SMTP_HOST": "Mailserver, über den Documenso Signatureinladungen verschickt. Der Ablauf läuft komplett über E-Mail, ohne Server ist die Anwendung unbrauchbar.",
+          "SMTP_USERNAME": "Benutzername für den Mailserver.",
+          "SMTP_PASSWORD": "Passwort für den Mailserver.",
+          "SMTP_FROM_ADDRESS": "Absenderadresse der Einladungen. Sie muss vom Mailserver versendet werden dürfen, sonst werden die Mails abgewiesen."
+        }
+      },
+      "affine": {
+        "description": "Ein Local-First-Arbeitsbereich, in dem Dokumente, Whiteboards und Datenbanken dasselbe Objekt sind: Eine Seite schreiben und denselben Inhalt anschließend auf einer unendlichen Leinwand bearbeiten.",
+        "env": {
+          "AFFINE_URL": "Öffentliche URL dieses Arbeitsbereichs. AFFiNE nutzt sie für Freigabelinks und Einladungen.",
+          "POSTGRES_PASSWORD": "Passwort für das mitgelieferte Postgres."
+        }
+      },
+      "docling": {
+        "description": "Wandelt PDFs, DOCX, Folien und Bilder über eine HTTP-API in sauberes, strukturiertes Markdown oder JSON um. Der Parsing-Schritt vor einer RAG- oder Agenten-Pipeline, auf eigener Hardware statt bei einem fremden Dienst.",
+        "env": {
+          "DOCLING_API_KEY": "Wert, den Aufrufer im Header X-Api-Key mitschicken müssen. Docling bringt keinerlei Authentifizierung mit; ohne diesen Schlüssel stehen API und Demo-UI jedem offen, der die URL erreicht."
+        }
+      },
+      "inngest": {
+        "description": "Dauerhafte Workflow-Orchestrierung: Funktionen laufen als wiederholbare Schritte mit Zustand, ein Absturz setzt also mitten im Workflow fort statt neu zu starten. Selbst gehostet, gestützt auf das mitgelieferte Postgres und Redis.",
+        "env": {
+          "INNGEST_EVENT_KEY": "Zugangsdaten, mit denen Anwendungen Events senden. Wer sie besitzt, kann Workflows auslösen.",
+          "INNGEST_SIGNING_KEY": "Signiert Anfragen zwischen Inngest und der Anwendung. Muss hexadezimal mit gerader Zeichenzahl sein, genau das erzeugt der vorgeschlagene Befehl.",
+          "POSTGRES_PASSWORD": "Passwort für das mitgelieferte Postgres, in dem Verlauf und Zustand der Workflows liegen."
+        }
+      },
+      "buzz": {
+        "description": "Blocks quelloffener Arbeitsbereich, in dem Menschen und KI-Agenten dieselben Kanäle, Threads und Git-Repositories teilen, sodass die Arbeit eines Agenten im Gespräch stattfindet statt daneben. Mit Postgres, Redis und MinIO für Medien.",
+        "env": {
+          "POSTGRES_PASSWORD": "Passwort für das mitgelieferte Postgres.",
+          "REDIS_PASSWORD": "Passwort für das mitgelieferte Redis. Buzz startet ohne Passwort nicht, und die Queue ist aus dem Stack-Netzwerk erreichbar.",
+          "BUZZ_S3_ACCESS_KEY": "Zugriffsschlüssel für das mitgelieferte MinIO. Er ist zugleich der MinIO-Root-Benutzer, also eher Zugangsdatum als Name.",
+          "BUZZ_S3_SECRET_KEY": "Geheimer Schlüssel für das mitgelieferte MinIO, in dem hochgeladene Medien liegen."
+        }
+      },
+      "usesend": {
+        "description": "Quelloffene Alternative zu Resend: Sende-API, Dashboard und Vorlagen vor dem eigenen Amazon-SES-Konto, damit Transaktionsmails über die eigene Domain und Reputation hinausgehen statt über einen Anbieter.",
+        "env": {
+          "USESEND_URL": "Öffentliche URL dieser Instanz. Sie ist die Basis des OAuth-Callbacks und muss exakt dem in der GitHub-App hinterlegten Callback entsprechen.",
+          "NEXTAUTH_SECRET": "Signiert Sitzungen.",
+          "POSTGRES_PASSWORD": "Passwort für das mitgelieferte Postgres.",
+          "AWS_DEFAULT_REGION": "SES-Region für den Versand, z. B. us-east-1. Dort muss die SES-Identität verifiziert und aus der Sandbox freigeschaltet sein.",
+          "AWS_ACCESS_KEY_ID": "Zugriffsschlüssel des IAM-Benutzers, der über SES versendet.",
+          "AWS_SECRET_ACCESS_KEY": "Geheimer Schlüssel dieses IAM-Benutzers. Er darf als verifizierte Domain Mails versenden, die Policy also auf SES beschränken.",
+          "GITHUB_ID": "Client-ID einer GitHub-OAuth-App. GitHub ist die einzige Anmeldemethode, ohne sie ist die Instanz nicht erreichbar.",
+          "GITHUB_SECRET": "Client-Secret dieser GitHub-OAuth-App."
+        }
       }
     },
     "pickerTitle": "Vorlagen",
