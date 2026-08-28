@@ -1,3 +1,5 @@
+import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
+
 /**
  * Notification-channel transports. Given a resolved channel (secret already
  * decrypted) and a platform event, push the message to the destination. Pure
@@ -22,57 +24,12 @@
  * PagerDuty) go through the same helper for consistency. Harmless, since
  * they always resolve to a public address.
  */
-import type { JsonObject } from "@otterdeploy/shared/json";
+import type { ChannelEvent, DeliveryResult, ResolvedChannel } from "./types";
 
-import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
-import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
-
-import { controlPlaneEgressDenylist, egressAllowlist } from "./egress-denylist";
+import { deliverDiscord, deliverSlack, deliverTelegram } from "./chat-transports";
+import { SEVERITY, dedupKey, nowIso, subjectOf, titleOf } from "./message";
 import { fcmServerKey } from "./platform-transports";
-
-export type ChannelKind =
-  | "slack"
-  | "discord"
-  | "email"
-  | "webhook"
-  | "telegram"
-  | "pagerduty"
-  | "push";
-
-export interface ResolvedChannel {
-  id: string;
-  kind: ChannelKind;
-  name: string;
-  target: string;
-  /** Free-form provider config (jsonb-backed; shape varies by `kind`). */
-  config: JsonObject;
-  /** Decrypted secret (bot token / HMAC key / routing key), or null. */
-  secret: string | null;
-}
-
-export interface ChannelEvent {
-  eventId: string;
-  /** Severity hint for providers that style by level (info|ok|warn|err). */
-  severity: "info" | "ok" | "warn" | "err";
-  title: string;
-  message: string;
-  /** Display context (already-formatted strings) shown as key/value rows. */
-  data?: Record<string, string>;
-}
-
-export interface DeliveryResult {
-  ok: boolean;
-  error?: string;
-}
-
-/** Per-severity presentation for rich Slack/Discord messages. `discord` is a
- * decimal color int (embed sidebar); `slack` is a hex string (attachment bar). */
-const STYLE: Record<ChannelEvent["severity"], { discord: number; slack: string; emoji: string }> = {
-  err: { discord: 0xef4444, slack: "#ef4444", emoji: "🔴" },
-  warn: { discord: 0xf59e0b, slack: "#f59e0b", emoji: "🟠" },
-  ok: { discord: 0x10b981, slack: "#10b981", emoji: "🟢" },
-  info: { discord: 0x0ea5e9, slack: "#0ea5e9", emoji: "🔵" },
-};
+import { post } from "./post";
 
 export async function deliverToChannel(
   channel: ResolvedChannel,
@@ -96,117 +53,20 @@ export async function deliverToChannel(
   }
 }
 
-const CHANNEL_DELIVERY_TIMEOUT_MS = 10_000;
-const CHANNEL_MAX_RESPONSE_BYTES = 1024 * 1024;
-
-/** Guarded POST. Resolves+validates the destination via the shared egress
- *  policy, pins the connection, and turns a thrown/network/policy error
- *  into a {@link DeliveryResult} rather than a throw (so one dead/blocked
- *  channel can't fail the whole fan-out). */
-async function post(
-  url: string,
-  init: { method?: string; headers?: Record<string, string>; body?: string },
-): Promise<DeliveryResult> {
-  let statusCode: number;
-  let text: () => Promise<string>;
-  try {
-    const denylist = await controlPlaneEgressDenylist();
-    const res = await egressFetch(
-      url,
-      { method: "POST", headers: init.headers, body: init.body },
-      {
-        // Channel receivers (self-hosted webhook sinks, internal relays)
-        // are commonly plain http. The address checks are the actual SSRF
-        // defense, not the scheme.
-        allowHttp: true,
-        timeoutMs: CHANNEL_DELIVERY_TIMEOUT_MS,
-        maxBytes: CHANNEL_MAX_RESPONSE_BYTES,
-        maxRedirects: 5,
-        denyHosts: denylist.blockedHosts,
-        denyAddresses: denylist.blockedAddresses,
-        allowAddresses: await egressAllowlist(),
-      },
-    );
-    if (res.ok) return { ok: true };
-    statusCode = res.status;
-    text = () => res.text();
-  } catch (err) {
-    if (err instanceof EgressPolicyError) {
-      return { ok: false, error: `blocked by outbound egress policy: ${err.message}` };
-    }
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-  const body = await text().catch(() => "");
-  return { ok: false, error: `HTTP ${statusCode}${body ? `: ${body.slice(0, 200)}` : ""}` };
-}
-
-function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
-  const s = STYLE[e.severity];
-  const fieldParts: string[] = [];
-  if (typeof e.data?.project === "string") fieldParts.push(`*Project*\n${e.data.project}`);
-  if (typeof e.data?.resource === "string") fieldParts.push(`*Resource*\n${e.data.resource}`);
-
-  const blocks: unknown[] = [
-    {
-      type: "section",
-      text: { type: "mrkdwn", text: `${s.emoji} *${e.title}*\n${e.message}` },
-    },
-  ];
-  if (fieldParts.length)
-    blocks.push({
-      type: "section",
-      fields: fieldParts.map((text) => ({ type: "mrkdwn", text })),
-    });
-  blocks.push({
-    type: "context",
-    elements: [{ type: "mrkdwn", text: `otterdeploy · \`${e.eventId}\`` }],
-  });
-
-  return post(c.target, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    // `username` posts under the channel's display name; a colored attachment
-    // gives the message a severity sidebar instead of a bare line of text.
-    body: JSON.stringify({ username: c.name, attachments: [{ color: s.slack, blocks }] }),
-  });
-}
-
-function deliverDiscord(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
-  const s = STYLE[e.severity];
-  // Surface project/resource (when the emitter provided them) as inline fields.
-  const fields: Array<{ name: string; value: string; inline: boolean }> = [];
-  if (typeof e.data?.project === "string")
-    fields.push({ name: "Project", value: e.data.project, inline: true });
-  if (typeof e.data?.resource === "string")
-    fields.push({ name: "Resource", value: e.data.resource, inline: true });
-
-  return post(c.target, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      username: c.name,
-      embeds: [
-        {
-          title: `${s.emoji} ${e.title}`,
-          description: e.message,
-          color: s.discord,
-          ...(fields.length ? { fields } : {}),
-          footer: { text: `otterdeploy · ${e.eventId}` },
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    }),
-  });
-}
-
 async function deliverWebhook(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
+  const subject = subjectOf(e.data);
   const body = JSON.stringify({
     event: e.eventId,
     severity: e.severity,
+    severityLabel: SEVERITY[e.severity].word,
     title: e.title,
     message: e.message,
+    // The resource the event is about, lifted out of `data` so a consumer can
+    // route on it without knowing which key this event family happens to use.
+    subject,
     data: e.data ?? {},
     channel: c.name,
+    occurredAt: nowIso(),
   });
   const headers: Record<string, string> = { "content-type": "application/json" };
   // Optional HMAC-SHA256 over the raw body so receivers can verify origin.
@@ -272,41 +132,56 @@ async function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<Deliver
     headers: { Authorization: `key=${key}`, "content-type": "application/json" },
     body: JSON.stringify({
       to: c.target,
-      notification: { title: e.title, body: e.message },
+      // A tray truncates around 40 characters, so the subject goes in the
+      // title: "Deploy failed" on its own does not say which service.
+      notification: { title: titleOf(e.title, subjectOf(e.data)), body: e.message },
       data: e.data ?? {},
     }),
   });
 }
 
-function deliverTelegram(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
-  if (!c.secret) return Promise.resolve({ ok: false, error: "no bot token" });
-  return post(`https://api.telegram.org/bot${c.secret}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id: c.target,
-      text: `${e.title}\n${e.message}`,
-    }),
-  });
-}
-
+/**
+ * PagerDuty Events API v2.
+ *
+ * Two fixes here, both defects rather than presentation:
+ *
+ *   `dedup_key` — without one every occurrence opened a NEW incident, so a
+ *   service flapping every two minutes produced an incident every two minutes.
+ *   Keyed on the event family, so `health.degraded` and `health.recovered`
+ *   address the same incident.
+ *
+ *   `resolve` — no recovery event ever sent one, so incidents could only be
+ *   closed by hand. An `ok` severity is a recovery by definition, and a resolve
+ *   needs no payload.
+ */
 function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const routingKey = c.secret ?? c.target;
-  // PagerDuty only accepts critical/warning/error/info as severities.
-  const pdSeverity = e.severity === "err" ? "error" : e.severity === "ok" ? "info" : e.severity;
+  const s = SEVERITY[e.severity];
+  const subject = subjectOf(e.data);
+  const key = dedupKey(e.eventId, subject);
+
+  const body =
+    e.severity === "ok"
+      ? { routing_key: routingKey, event_action: "resolve", dedup_key: key }
+      : {
+          routing_key: routingKey,
+          event_action: "trigger",
+          dedup_key: key,
+          payload: {
+            summary: titleOf(e.title, subject),
+            source: subject ?? "otterdeploy",
+            severity: s.pd,
+            component: e.data?.project ?? "instance",
+            group: e.eventId.split(".")[0],
+            class: e.eventId,
+            custom_details: e.data ?? {},
+          },
+        };
+
   return post("https://events.pagerduty.com/v2/enqueue", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      routing_key: routingKey,
-      event_action: "trigger",
-      payload: {
-        summary: `${e.title}: ${e.message}`,
-        source: "otterdeploy",
-        severity: pdSeverity,
-        custom_details: e.data ?? {},
-      },
-    }),
+    body: JSON.stringify(body),
   });
 }
 
