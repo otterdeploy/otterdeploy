@@ -20,6 +20,7 @@ import { useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -100,11 +101,15 @@ export function HistoryPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {rows.length === 0 ? (
+        {history.isLoading && rows.length === 0 ? (
+          <div className="flex flex-col gap-2.5 px-4 py-4">
+            {[70, 45, 60, 38].map((w, i) => (
+              <Skeleton key={i} className="h-3.5" style={{ width: `${w}%` }} />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
           <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">
-            {history.isLoading
-              ? "Loading…"
-              : `No decisions recorded ${WINDOW_LABEL[range]}. Bans appear here as CrowdSec makes them, and stay after they expire.`}
+            {`No decisions recorded ${WINDOW_LABEL[range]}. Bans appear here as CrowdSec makes them, and stay after they expire.`}
           </p>
         ) : (
           <Table>
