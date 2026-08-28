@@ -20,7 +20,14 @@ export function JoinCommandBlock({ command }: { command: string }) {
 
   return (
     <div className="relative rounded-md border bg-muted/50 p-3 pr-11 font-mono text-[12px] leading-relaxed text-foreground/90">
-      <code className="block break-all whitespace-pre-wrap">{command}</code>
+      {/* `break-words`, not `break-all`. `break-all` breaks at whatever
+          character reaches the edge, so a snippet split mid-token — an install
+          key came out as `od_7e5dae55b3449e` / `dcfc824029e708c2ff` across two
+          lines, which reads as corrupted and is unverifiable by eye against
+          the value it is supposed to match. `break-words` breaks at spaces
+          first and only splits a token when that token alone is wider than the
+          line, so `data-key="…"` moves down whole. */}
+      <code className="block break-words whitespace-pre-wrap">{command}</code>
       <Button
         type="button"
         variant="outline"

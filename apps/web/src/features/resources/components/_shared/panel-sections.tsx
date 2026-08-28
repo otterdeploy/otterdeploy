@@ -132,8 +132,8 @@ function isOnScreen(element: HTMLElement): boolean {
 
 /** The sections of the open tab, the one in view, and how to reach one.
  *
- *  `activeTab` is not read — it is the signal that the visible set may have
- *  changed, so the filter and the observer re-run on a tab switch. */
+ *  `activeTab` is one signal that the visible set may have changed, but it is
+ *  NOT sufficient on its own — see `domVersion` below. */
 export function usePanelSections(activeTab: string): {
   sections: PanelSection[];
   activeId: string | null;
@@ -143,12 +143,41 @@ export function usePanelSections(activeTab: string): {
   const registry = ctx?.registry;
   useSyncExternalStore(registry?.subscribe ?? noopSubscribe, registry?.getSnapshot ?? zero, zero);
 
+  /**
+   * Which panels are `hidden` is DOM state this hook does not own, and it
+   * settles a frame after the tab value changes — Base UI marks both the
+   * outgoing and the incoming panel hidden in one tick (see ui/tabs.tsx).
+   * Filtering during the render that follows a tab switch therefore reads the
+   * PREVIOUS tab's visibility, and nothing re-runs afterwards, so the rail kept
+   * showing the old tab's sections hanging off the new tab: Settings' contents
+   * listed under Terminal.
+   *
+   * So observe the attribute instead of guessing when it lands. This is a
+   * subscription to an external system, which is what an effect is for; the
+   * filter still runs during render, just with a signal that fires when the
+   * DOM it reads actually changes.
+   */
+  const [domVersion, setDomVersion] = useState(0);
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDomVersion((v) => v + 1);
+    });
+    observer.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["hidden"],
+    });
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   // Recomputed on every registry change AND every tab switch, because a tab
   // switch changes which panels are `hidden` without touching the registry.
   const sections = useMemo(
     () => (ctx?.registry.sections ?? []).filter((section) => isOnScreen(section.element)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- version + tab are the change signals
-    [ctx, ctx?.registry.version, activeTab],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- version + tab + DOM are the change signals
+    [ctx, ctx?.registry.version, activeTab, domVersion],
   );
 
   // Which section is "here" as you scroll.
