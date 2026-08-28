@@ -5,6 +5,7 @@
  */
 import type { StackTemplate, TemplateCategoryId } from "./types";
 
+import { AGENT_INFRA_TEMPLATES } from "./templates-agent-infra";
 import { AI_TEMPLATES } from "./templates-ai";
 import { AI_APPS_TEMPLATES } from "./templates-ai-apps";
 import { AI_CHAT_TEMPLATES } from "./templates-ai-chat";
@@ -13,6 +14,7 @@ import { APPSTACK_TEMPLATES } from "./templates-appstack";
 import { AUTOMATION_TEMPLATES } from "./templates-automation";
 import { BILLING_TEMPLATES } from "./templates-billing";
 import { CMS_TEMPLATES } from "./templates-cms";
+import { COLLAB_TEMPLATES } from "./templates-collab";
 import { COMMERCE_TEMPLATES } from "./templates-commerce";
 import { COMMUNICATION_TEMPLATES } from "./templates-communication";
 import { CONFERENCING_TEMPLATES } from "./templates-conferencing";
@@ -23,6 +25,7 @@ import { DESIGN_TEMPLATES } from "./templates-design";
 import { DEV_TEMPLATES } from "./templates-dev";
 import { DEVKIT_TEMPLATES } from "./templates-devkit";
 import { DEVTOOLS_TEMPLATES } from "./templates-devtools";
+import { EMAIL_TEMPLATES } from "./templates-email";
 import { FILES_TEMPLATES } from "./templates-files";
 import { LOWCODE_TEMPLATES } from "./templates-lowcode";
 import { MEDIA_TEMPLATES } from "./templates-media";
@@ -50,6 +53,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...REALTIME_TEMPLATES,
   ...PRODUCTIVITY_TEMPLATES,
   ...WORKSPACE_TEMPLATES,
+  ...COLLAB_TEMPLATES,
   ...MEDIA_TEMPLATES,
   ...FILES_TEMPLATES,
   ...COMMERCE_TEMPLATES,
@@ -57,6 +61,8 @@ export const TEMPLATES: StackTemplate[] = [
   ...DESIGN_TEMPLATES,
   ...ANALYTICS_TEMPLATES,
   ...AI_TEMPLATES,
+  ...AGENT_INFRA_TEMPLATES,
+  ...EMAIL_TEMPLATES,
   ...AI_APPS_TEMPLATES,
   ...AI_CHAT_TEMPLATES,
   ...AUTOMATION_TEMPLATES,

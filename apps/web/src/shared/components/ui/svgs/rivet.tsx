@@ -1,0 +1,35 @@
+import type { SVGProps } from "react";
+
+/**
+ * Rivet mark (dashboard-icons). Colours are the brand's own.
+ */
+const Rivet = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    role="img"
+    xmlns="http://www.w3.org/2000/svg"
+    width="128"
+    height="128"
+    fill="none"
+  >
+    <title>Rivet</title>
+    <rect width="126" height="126" x="1" y="1" fill="#0F0F0F" rx="44" />
+    <rect
+      width="91.5"
+      height="91.5"
+      x="18.25"
+      y="18.25"
+      stroke="#F0F0F0"
+      strokeWidth="8.5"
+      rx="25.75"
+    />
+    <path
+      fill="#F0F0F0"
+      fillRule="evenodd"
+      d="M57.694 43.098c0-.622-.505-1.126-1.127-1.126h-8.444a5.114 5.114 0 0 0-5.112 5.111v33.824a5.114 5.114 0 0 0 5.112 5.112h8.444c.622 0 1.127-.505 1.127-1.127zm24.424 27.869c-1.238-2.222-4.047-4.026-6.27-4.026H62.923c-.684 0-.93.555-.549 1.239l7.703 13.822c1.239 2.223 4.048 4.026 6.27 4.026h12.927c.683 0 .93-.555.548-1.239l-7.703-13.822Zm.538-18.718c0-5.672-4.605-10.277-10.277-10.277H63.31a1.21 1.21 0 0 0-1.209 1.209v18.137a1.21 1.21 0 0 0 1.21 1.209h9.068c5.672 0 10.277-4.605 10.277-10.278"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+export { Rivet };

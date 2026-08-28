@@ -1541,6 +1541,63 @@
           "MYSQL_PASSWORD": "Contraseña del usuario de MariaDB incluido con el que se conecta WordPress.",
           "MYSQL_ROOT_PASSWORD": "Contraseña de root del MariaDB incluido."
         }
+      },
+      "documenso": {
+        "description": "Firma de documentos autoalojada: sube un PDF, coloca los campos de firma y envíalo a firmar sin hacer pasar tus contratos por un SaaS de terceros.",
+        "env": {
+          "DOCUMENSO_URL": "URL pública de esta instancia. Se incrusta en cada enlace de firma que se envía por correo, así que un valor erróneo genera enlaces que nadie puede abrir.",
+          "NEXTAUTH_SECRET": "Firma las sesiones.",
+          "NEXT_PRIVATE_ENCRYPTION_KEY": "Cifra los documentos y secretos de cuenta en reposo. Si se pierde, los documentos almacenados quedan ilegibles.",
+          "NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY": "Segunda clave de cifrado, usada para la rotación. Perderla equivale a perder la principal.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido.",
+          "SMTP_HOST": "Servidor de correo por el que Documenso envía las invitaciones de firma. Todo el flujo depende del correo, sin él la aplicación no sirve.",
+          "SMTP_USERNAME": "Usuario del servidor de correo.",
+          "SMTP_PASSWORD": "Contraseña del servidor de correo.",
+          "SMTP_FROM_ADDRESS": "Dirección desde la que se envían las invitaciones. Debe ser una que el servidor tenga permitido usar, o se rechazarán."
+        }
+      },
+      "affine": {
+        "description": "Un espacio de trabajo local-first donde documentos, pizarras y bases de datos son el mismo objeto: escribe una página y edita ese mismo contenido en un lienzo infinito.",
+        "env": {
+          "AFFINE_URL": "URL pública de este espacio de trabajo. AFFiNE la usa para los enlaces compartidos y las invitaciones.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
+      },
+      "docling": {
+        "description": "Convierte PDF, DOCX, presentaciones e imágenes en Markdown o JSON estructurado a través de una API HTTP. El paso de análisis previo a una canalización RAG o de agentes, ejecutándose en tu propio hardware.",
+        "env": {
+          "DOCLING_API_KEY": "Valor que quien llame debe enviar en la cabecera X-Api-Key. Docling no incluye autenticación alguna, así que sin esta clave la API de conversión y su interfaz de demostración quedan abiertas a cualquiera que alcance la URL."
+        }
+      },
+      "inngest": {
+        "description": "Orquestación duradera de flujos de trabajo: tus funciones se ejecutan como pasos reintentables con estado, de modo que un fallo reanuda el flujo en lugar de reiniciarlo. Autoalojado, sobre el Postgres y el Redis incluidos.",
+        "env": {
+          "INNGEST_EVENT_KEY": "Credencial que presentan tus aplicaciones al enviar eventos. Quien la tenga puede disparar tus flujos.",
+          "INNGEST_SIGNING_KEY": "Firma las peticiones entre Inngest y tu aplicación. Debe ser hexadecimal con un número par de caracteres, que es justo lo que produce el comando sugerido.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido, donde vive el historial y el estado de los flujos."
+        }
+      },
+      "buzz": {
+        "description": "El espacio de trabajo de código abierto de Block donde personas y agentes de IA comparten los mismos canales, hilos y repositorios git, de modo que el trabajo del agente ocurre dentro de la conversación y no al margen. Incluye Postgres, Redis y MinIO para el contenido.",
+        "env": {
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido.",
+          "REDIS_PASSWORD": "Contraseña del Redis incluido. Buzz no arranca sin ella, y la cola es accesible desde la red del stack.",
+          "BUZZ_S3_ACCESS_KEY": "Clave de acceso del MinIO incluido. También es el usuario root de MinIO, así que trátala como una credencial y no como un nombre.",
+          "BUZZ_S3_SECRET_KEY": "Clave secreta del MinIO incluido, donde se almacena el contenido subido."
+        }
+      },
+      "usesend": {
+        "description": "Alternativa de código abierto a Resend: API de envío, panel y plantillas por delante de tu propia cuenta de Amazon SES, para que el correo transaccional salga con tu dominio y tu reputación en lugar de los de un proveedor.",
+        "env": {
+          "USESEND_URL": "URL pública de esta instancia. Es la base del callback de OAuth, así que debe coincidir exactamente con el registrado en la aplicación de GitHub.",
+          "NEXTAUTH_SECRET": "Firma las sesiones.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido.",
+          "AWS_DEFAULT_REGION": "Región de SES por la que enviar, por ejemplo us-east-1. Tu identidad de SES debe estar verificada allí y fuera del entorno de pruebas.",
+          "AWS_ACCESS_KEY_ID": "Clave de acceso del usuario IAM que envía a través de SES.",
+          "AWS_SECRET_ACCESS_KEY": "Secreto de ese usuario IAM. Puede enviar correo como tus dominios verificados, así que limita la política a SES.",
+          "GITHUB_ID": "ID de cliente de una aplicación OAuth de GitHub. GitHub es el único método de acceso, sin él la instancia es inalcanzable.",
+          "GITHUB_SECRET": "Secreto de cliente de esa aplicación OAuth de GitHub."
+        }
       }
     },
     "pickerTitle": "Plantillas",

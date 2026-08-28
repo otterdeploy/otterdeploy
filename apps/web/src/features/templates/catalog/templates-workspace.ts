@@ -32,7 +32,7 @@ export const WORKSPACE_TEMPLATES: StackTemplate[] = [
     compose: `name: cal-com
 services:
   calcom:
-    image: calcom/cal.com:v6.2.0
+    image: ghcr.io/dr34mw0rk5/calcom-web:latest
     depends_on:
       - db
     environment:
