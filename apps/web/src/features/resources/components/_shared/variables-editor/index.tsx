@@ -10,9 +10,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import type { EnvSuggestion } from "@/features/resources/env-catalog";
-
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
+import { issueFor, type EnvSuggestion } from "@/features/resources/env-catalog";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { BulkEditDialog } from "./bulk-edit-dialog";
@@ -133,10 +132,17 @@ export function VariablesEditor({
     }),
   );
 
+  // Rows whose value fails a REQUIRED schema check. Same standing as a
+  // duplicate key: saving would persist a value the app cannot start on.
+  const blockingIssueCount = editor.rows.filter(
+    (r) => !r.deleted && issueFor(suggestions, r.key, r.value)?.level === "block",
+  ).length;
+
   const save = () => {
     // Belt-and-braces behind the disabled Save button: env is keyed by name,
     // so a duplicate would silently drop all but one row server-side.
     if (editor.duplicateKeys.size > 0) return;
+    if (blockingIssueCount > 0) return;
     // Drop empty-keyed rows here rather than at the server so the operator
     // sees the row disappear instead of a silent server-side filter.
     const env = editor.rows.flatMap((r) =>
@@ -179,6 +185,7 @@ export function VariablesEditor({
         hasPending={editor.hasPending}
         diff={editor.diff}
         duplicateCount={editor.duplicateKeys.size}
+        blockingIssueCount={blockingIssueCount}
         saving={onSave ? stagingSave : saveMut.isPending}
         onBulkEdit={() => setBulkOpen(true)}
         onDiscard={editor.discard}

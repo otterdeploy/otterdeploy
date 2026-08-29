@@ -1,15 +1,35 @@
+import { ENV_SCHEMAS } from "@/features/templates/catalog/env-schemas";
+
 /**
  * Image → known-env lookup for the variables editors' key autocomplete.
  * See ./types.ts for the honesty contract.
  */
-import type { EnvSuggestion, ImageEnvCatalogEntry } from "./types";
+import type { EnvIssue, EnvSuggestion, ImageEnvCatalogEntry } from "./types";
 
 import { APP_ENV_CATALOG } from "./catalog-apps";
 import { DATABASE_ENV_CATALOG } from "./catalog-databases";
+import { suggestionsFromEnvSpec } from "./from-env-spec";
 
-export type { EnvSuggestion } from "./types";
+export type { EnvIssue, EnvSuggestion } from "./types";
 
-const ENTRIES: ImageEnvCatalogEntry[] = [...DATABASE_ENV_CATALOG, ...APP_ENV_CATALOG];
+/**
+ * Template `.env.schema`s, projected into catalog entries. Listed LAST so a
+ * schema wins over a hand-written entry for the same image: the schema is
+ * gated against the compose file and the hand-written one is not.
+ */
+const SCHEMA_ENTRIES: ImageEnvCatalogEntry[] = Object.entries(ENV_SCHEMAS).map(
+  ([templateId, schema]) => ({
+    images: schema.images,
+    verifiedAgainst: `templates/catalog/env-schemas/${templateId}.env.schema`,
+    vars: suggestionsFromEnvSpec(schema.source),
+  }),
+);
+
+const ENTRIES: ImageEnvCatalogEntry[] = [
+  ...DATABASE_ENV_CATALOG,
+  ...APP_ENV_CATALOG,
+  ...SCHEMA_ENTRIES,
+];
 
 /**
  * Reduce an image ref to the catalog's repo key: drop digest and tag,
@@ -63,4 +83,35 @@ export function matchEnvSuggestions(
     else if (key.includes(q)) contains.push(s);
   }
   return [...starts, ...contains];
+}
+
+/** Suggestions for every image in a stack, deduped by key (first wins). */
+export function envSuggestionsForImages(
+  images: ReadonlyArray<string | null | undefined>,
+): EnvSuggestion[] {
+  const seen = new Set<string>();
+  const out: EnvSuggestion[] = [];
+  for (const image of images) {
+    for (const s of envSuggestionsForImage(image)) {
+      if (seen.has(s.key)) continue;
+      seen.add(s.key);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+/**
+ * The issue to show under a row, if its key is a known variable with a shape
+ * check. Unknown keys and reference values are never flagged.
+ */
+export function issueFor(
+  suggestions: ReadonlyArray<EnvSuggestion>,
+  key: string,
+  value: string,
+): EnvIssue | null {
+  const k = key.trim();
+  if (k === "") return null;
+  const match = suggestions.find((s) => s.key === k);
+  return match?.validate?.(value) ?? null;
 }

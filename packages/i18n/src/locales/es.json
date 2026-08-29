@@ -1691,7 +1691,10 @@
       "duplicateNote": "Clave duplicada: otra fila también se llama {{key}}. Renombra o elimina una para guardar.",
       "duplicateCount_one": "{{count}} clave duplicada",
       "duplicateCount_other": "{{count}} claves duplicadas",
-      "duplicateBlocksSave": "Resuelve las claves duplicadas para guardar"
+      "duplicateBlocksSave": "Resuelve las claves duplicadas para guardar",
+      "schemaIssueCount_one": "{{count}} valor necesita atención",
+      "schemaIssueCount_other": "{{count}} valores necesitan atención",
+      "schemaIssueBlocksSave": "Corrige los valores obligatorios para guardar"
     },
     "source": {
       "title": "Origen",

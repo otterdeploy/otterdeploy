@@ -14,7 +14,7 @@ import { AlertDiamondIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
-import type { EnvSuggestion } from "@/features/resources/env-catalog";
+import type { EnvIssue, EnvSuggestion } from "@/features/resources/env-catalog";
 
 import { ReferencePicker } from "@/features/projects/components/variables";
 import { EnvKeyCombobox } from "@/features/resources/components/_shared/env-key-combobox";
@@ -137,6 +137,9 @@ interface VariableRowProps {
   /** Another row shares this (trimmed) key. Renders the inline warning; the
    *  mount sites' field validator blocks the deploy on the same predicate. */
   duplicate?: boolean;
+  /** The value doesn't fit its schema. `block` also fails the field validator
+   *  so the deploy waits on it; `warn` is advisory. */
+  issue?: EnvIssue | null;
   projectId?: string;
   /** Known env vars for the typed image (env catalog); empty = plain input. */
   suggestions?: EnvSuggestion[];
@@ -159,13 +162,14 @@ interface VariableRowProps {
 function VariableKeyCell({
   v,
   duplicate,
+  issue = null,
   suggestions,
   takenKeys,
   onKeyChange,
   onSuggestionPick,
 }: Pick<
   VariableRowProps,
-  "v" | "suggestions" | "takenKeys" | "onKeyChange" | "onSuggestionPick"
+  "v" | "suggestions" | "takenKeys" | "onKeyChange" | "onSuggestionPick" | "issue"
 > & { duplicate: boolean }) {
   const { t } = useTranslation();
   return (
@@ -195,6 +199,16 @@ function VariableKeyCell({
           {t("resources.variables.duplicateNote", { key: v.key.trim() })}
         </p>
       )}
+      {!duplicate && issue && (
+        <p
+          className={cn(
+            "mt-1 text-[10.5px]",
+            issue.level === "block" ? "text-destructive" : "text-warning",
+          )}
+        >
+          {issue.message}
+        </p>
+      )}
     </TableCell>
   );
 }
@@ -202,6 +216,7 @@ function VariableKeyCell({
 export function VariableRow({
   v,
   duplicate = false,
+  issue = null,
   projectId,
   suggestions,
   takenKeys,
@@ -221,6 +236,7 @@ export function VariableRow({
         <VariableKeyCell
           v={v}
           duplicate={duplicate}
+          issue={issue}
           suggestions={suggestions}
           takenKeys={takenKeys}
           onKeyChange={onKeyChange}

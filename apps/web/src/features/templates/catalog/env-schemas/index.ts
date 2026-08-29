@@ -22,9 +22,26 @@
  * compose interpolation and env-spec's own `ref()`; double-brace `${{…}}` is
  * otterdeploy's cross-resource ref, which the env-spec parser preserves
  * verbatim as a static value rather than trying to resolve.
+ *
+ * `images` is how the schema reaches a RUNNING service. Template identity is
+ * not persisted on a stack — only its brand mark is — but the env-catalog
+ * already keys autocomplete by image repo, so listing the app image here is
+ * what lights up the service's Variables tab after install. The gate checks
+ * each listed repo is one the compose actually runs.
  */
 import postiz from "./postiz.env.schema?raw";
 
-/** Template id → its `.env.schema` source. Templates absent from this map are
- *  simply not covered by the gate yet; adding one opts it in. */
-export const ENV_SCHEMAS: Record<string, string> = { postiz };
+export interface TemplateEnvSchema {
+  /** The `.env.schema` text. */
+  source: string;
+  /** Image repos (tagless, lowercase; see `normalizeImageRepo`) whose
+   *  variables this schema describes. Usually the app image alone: the
+   *  bundled Postgres/Redis are covered by the database catalog. */
+  images: string[];
+}
+
+/** Template id → schema. Templates absent from this map are simply not
+ *  covered by the gate or the editors yet; adding one opts it in. */
+export const ENV_SCHEMAS: Record<string, TemplateEnvSchema> = {
+  postiz: { source: postiz, images: ["ghcr.io/gitroomhq/postiz-app"] },
+};

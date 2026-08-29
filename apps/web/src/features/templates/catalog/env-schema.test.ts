@@ -15,6 +15,8 @@ import { parseEnvSpecDotEnvFile } from "@env-spec/parser";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { describe, expect, it } from "vite-plus/test";
 
+import { normalizeImageRepo } from "@/features/resources/env-catalog";
+
 import { ENV_SCHEMAS } from "./env-schemas";
 import { TEMPLATES } from "./index";
 
@@ -64,9 +66,10 @@ function itemsOf(source: string): SchemaItem[] {
 }
 
 describe("template env schemas", () => {
-  for (const [templateId, source] of Object.entries(ENV_SCHEMAS)) {
+  for (const [templateId, schema] of Object.entries(ENV_SCHEMAS)) {
     describe(templateId, () => {
       const template = TEMPLATES.find((t) => t.id === templateId);
+      const { source } = schema;
       const items = itemsOf(source);
       const byKey = new Map(items.map((i) => [i.key, i]));
 
@@ -112,6 +115,20 @@ describe("template env schemas", () => {
           }
         }
         expect(frozen).toEqual([]);
+      });
+
+      // `images` is the schema's handle on a running service (the Variables
+      // tab keys autocomplete by image repo). A repo the compose never runs
+      // would light up nothing, or worse, the wrong stack's variables.
+      it("lists only image repos the compose actually runs", () => {
+        if (!template) return;
+        const parsed = parseCompose(template.compose);
+        if (!parsed.isOk()) return;
+        const running = new Set(
+          parsed.value.services.flatMap((s) => (s.image ? [normalizeImageRepo(s.image)] : [])),
+        );
+        expect(schema.images.length).toBeGreaterThan(0);
+        expect(schema.images.filter((i) => !running.has(i))).toEqual([]);
       });
 
       // requiredEnv is what the wizard PROMPTS for. Anything it asks the

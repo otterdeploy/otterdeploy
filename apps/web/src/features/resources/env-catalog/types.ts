@@ -17,6 +17,28 @@ export interface EnvSuggestion {
   secret?: boolean;
   /** The image refuses to start (or the feature hard-fails) without it. */
   required?: boolean;
+  /** Where to get this value (a provider's developer console, a setup guide). */
+  docsUrl?: string;
+  /**
+   * Shape check for a typed value, from a template's `.env.schema` `@type`.
+   * Returns the issue to show under the row, or null when the value is fine
+   * — or when it cannot be judged: a `${{…}}` / `${…}` reference resolves at
+   * deploy, so its shape is unknowable here and never flagged.
+   */
+  validate?: (value: string) => EnvIssue | null;
+}
+
+/**
+ * What the editor shows under a row whose value doesn't fit its schema.
+ *
+ *   warn:  shown, never blocks. An optional value that looks wrong.
+ *   block: Save / deploy refuses until it is fixed. A REQUIRED value that is
+ *          empty or malformed — the JWT_SECRET-is-blank class of failure,
+ *          caught here instead of as a crash-looping container.
+ */
+export interface EnvIssue {
+  level: "warn" | "block";
+  message: string;
 }
 
 export interface ImageEnvCatalogEntry {

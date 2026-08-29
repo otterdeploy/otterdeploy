@@ -9,20 +9,27 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useTranslation } from "react-i18next";
 
+import type { EnvSuggestion } from "@/features/resources/env-catalog";
+
 import type { ComposeForm } from "./compose-wizard-shared";
 
-import { noDuplicateKeysValidator } from "./form-fields/variables-field";
+import { variablesValidatorFor } from "./form-fields/variables-field";
 
 export function ComposeVarsStep({
   form,
   projectId,
   hasVars,
   requiredUnset,
+  suggestions = [],
 }: {
   form: ComposeForm;
   projectId: ProjectId;
   hasVars: boolean;
   requiredUnset: boolean;
+  /** Known variables for the stack's images — a template's `.env.schema`
+   *  projected through the env-catalog. Drives key autocomplete and the
+   *  per-row shape checks. */
+  suggestions?: EnvSuggestion[];
 }) {
   const { t } = useTranslation();
   return (
@@ -53,8 +60,11 @@ export function ComposeVarsStep({
           />
         )}
       </form.AppField>
-      <form.AppField name="vars.variables" validators={{ onChange: noDuplicateKeysValidator }}>
-        {(field) => <field.VariablesField projectId={projectId} />}
+      <form.AppField
+        name="vars.variables"
+        validators={{ onChange: variablesValidatorFor(suggestions) }}
+      >
+        {(field) => <field.VariablesField projectId={projectId} suggestions={suggestions} />}
       </form.AppField>
     </div>
   );

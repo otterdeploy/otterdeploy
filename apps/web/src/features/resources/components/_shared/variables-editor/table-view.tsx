@@ -3,8 +3,7 @@ import { useState } from "react";
 import { ArrowReloadHorizontalIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import type { EnvSuggestion } from "@/features/resources/env-catalog";
-
+import { issueFor, type EnvSuggestion } from "@/features/resources/env-catalog";
 import { Button } from "@/shared/components/ui/button";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 
@@ -87,6 +86,7 @@ export function TableView({
                 )
               }
               duplicate={duplicateKeys.has(row.key.trim())}
+              issue={issueFor(suggestions, row.key, row.value)}
               revealed={revealed.has(row.id)}
               copied={copiedId === row.id}
               pickerOpen={pickerOpen === row.id}
