@@ -6,6 +6,15 @@
  * SIBLING'S row while THIS service deploys, so every row in the stack has to
  * exist before any of them rolls out. Interleaving the two would make a
  * reference to a service defined later in the file fail on first deploy.
+ *
+ * Public exposure is seeded in that same pre-rollout pass, for the same
+ * reason one step further: `${{stack.<svc>.PUBLIC_URL}}` answers from the
+ * sibling's PROXY ROUTES, and `serviceExports` omits DOMAIN/PUBLIC_URL/DOMAINS
+ * entirely when a service has none. Seeding exposure after the rollout (where
+ * it used to live) meant the routes did not exist while env was resolving, so
+ * a stack that points its own `MAIN_URL` at its public address failed its
+ * FIRST deploy with an unknown-variable error and succeeded only on the
+ * second. See [[seedServiceExposure]], called from reconcile.ts's pass 1.5.
  */
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
@@ -72,7 +81,7 @@ export function describeReconcileFailure(e: unknown, svcName: string): string {
  * failure is logged to the deploy progress but never fails the service's
  * otherwise-successful rollout.
  */
-async function seedServiceExposure(
+export async function seedServiceExposure(
   ctx: RolloutContext,
   isCreate: boolean,
   svcName: string,
@@ -229,8 +238,6 @@ export async function rolloutMaterialized(input: {
         continue;
       }
       deployed++;
-
-      await seedServiceExposure(ctx, isCreate, svc.name, resourceId, log, progress);
     } catch (e) {
       const detail = describeReconcileFailure(e, svc.name);
       progress(`Service ${svc.name}: failed, ${detail}`);

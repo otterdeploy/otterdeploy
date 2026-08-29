@@ -2,6 +2,48 @@
 // ./types.ts for the honesty contract.
 import type { StackTemplate } from "./types";
 
+/**
+ * Temporal's dynamic config, carried verbatim from upstream's own
+ * `dynamicconfig/development-sql.yaml`.
+ *
+ * This file and `SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES` are two halves of keeping
+ * Postiz's boot-time search-attribute registration from killing the backend.
+ *
+ * Postiz registers two CUSTOM search attributes (`organizationId`, `postId`,
+ * both Text) from `TemporalRegister.onModuleInit` on every backend boot: it
+ * lists the namespace's attributes, diffs, and adds whatever is missing. With
+ * `ENABLE_ES=false` visibility is the SQL store, whose schema has a FIXED
+ * three reserved columns per type — and `auto-setup` spends two of the three
+ * Text columns before Postiz ever connects, registering `CustomStringField`
+ * and `CustomTextField` (demo scaffolding for its own tutorials, flagged
+ * `add-custom-search-attributes-for-testing` and a standing TODO to delete
+ * upstream). One free Text column, two wanted: every install failed with
+ * "cannot have more than 3 search attribute of type Text", `onModuleInit`
+ * threw, Nest never listened on 3000, and the bundled nginx answered every
+ * /api call with 502 while the frontend kept serving normally — a stack that
+ * looks healthy and cannot authenticate. `SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES`
+ * declines the scaffolding and leaves all three columns for the app.
+ *
+ * `forceSearchAttributesCacheRefreshOnRead` closes the second half. Temporal's
+ * frontend serves the attribute list from a cache, so a backend restarting
+ * inside the refresh window reads a STALE list, believes both attributes are
+ * still missing, and re-adds them — which now fails as "already exists"
+ * instead, the same crash loop wearing a different message. Upstream mounts
+ * this file for exactly that reason.
+ *
+ * Upstream also pairs the two with Elasticsearch, which removes the column
+ * limit outright. That is a JVM and ~1 GB of RAM for a visibility surface
+ * Postiz never queries (it starts and signals workflows; it never searches
+ * them), so this stack keeps `ENABLE_ES=false` and fixes the cause instead.
+ */
+const TEMPORAL_DYNAMIC_CONFIG = `limit.maxIDLength:
+  - value: 255
+    constraints: {}
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+`;
+
 export const SOCIAL_TEMPLATES: StackTemplate[] = [
   {
     id: "postiz",
@@ -10,7 +52,6 @@ export const SOCIAL_TEMPLATES: StackTemplate[] = [
     category: "automation",
     includes: ["postiz", "db", "redis", "temporal"],
     requiredEnv: [
-      { key: "POSTIZ_URL", descriptionKey: "templates.catalog.postiz.env.POSTIZ_URL" },
       {
         key: "JWT_SECRET",
         descriptionKey: "templates.catalog.postiz.env.JWT_SECRET",
@@ -24,6 +65,7 @@ export const SOCIAL_TEMPLATES: StackTemplate[] = [
     ],
     logoBrand: "Postiz",
     docsUrl: "https://docs.postiz.com/installation/docker-compose",
+    files: [{ path: "dynamicconfig.yaml", content: TEMPORAL_DYNAMIC_CONFIG }],
     /*
      * One container running the whole app under pm2, with nginx in front of it
      * on 5000: `/api` to the NestJS backend (3000), `/uploads` straight off
@@ -48,7 +90,11 @@ export const SOCIAL_TEMPLATES: StackTemplate[] = [
      * advanced-visibility search over workflow history: with `ENABLE_ES=false`
      * (auto-setup's own default) visibility lands in SQL instead, which is
      * supported and is a JVM and ~1 GB of RAM the operator does not pay for.
-     * Postiz never queries that surface; it starts and signals workflows.
+     * Postiz never QUERIES that surface — but it does WRITE to it, registering
+     * two custom search attributes at every boot, and SQL visibility caps each
+     * type at three columns. That is why `SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES`
+     * and the mounted dynamic config are not optional here; see
+     * TEMPORAL_DYNAMIC_CONFIG for the whole failure.
      *
      * `RUN_CRON` registers the recurring "missing post" workflow at boot — the
      * sweep that republishes anything the scheduler dropped. On a single
@@ -67,9 +113,9 @@ services:
       - redis
       - temporal
     environment:
-      MAIN_URL: \${POSTIZ_URL}
-      FRONTEND_URL: \${POSTIZ_URL}
-      NEXT_PUBLIC_BACKEND_URL: "\${POSTIZ_URL}/api"
+      MAIN_URL: \${{stack.postiz.PUBLIC_URL}}
+      FRONTEND_URL: \${{stack.postiz.PUBLIC_URL}}
+      NEXT_PUBLIC_BACKEND_URL: "\${{stack.postiz.PUBLIC_URL}}/api"
       BACKEND_INTERNAL_URL: "http://localhost:3000"
       JWT_SECRET: \${JWT_SECRET}
       DATABASE_URL: "postgresql://postiz:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/postiz"
@@ -118,6 +164,10 @@ services:
       POSTGRES_PWD: \${POSTGRES_PASSWORD}
       ENABLE_ES: "false"
       TEMPORAL_NAMESPACE: default
+      SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES: "true"
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+    volumes:
+      - ./dynamicconfig.yaml:/etc/temporal/config/dynamicconfig/development-sql.yaml
     restart: always
 volumes:
   postiz-config:

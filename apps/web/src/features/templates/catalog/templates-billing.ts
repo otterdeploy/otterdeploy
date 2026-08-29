@@ -171,8 +171,8 @@ services:
       - >-
         cp -r /app/vite/dist /tmp/dist &&
         find /tmp/dist -type f \\( -name '*.js' -o -name '*.html' -o -name '*.css' \\)
-        -exec sed -i "s|http://__AUTUMN_API_URL__|\$AUTUMN_API_URL|g;
-        s|http://__AUTUMN_CLIENT_URL__|\$CLIENT_URL|g" {} + &&
+        -exec sed -i "s|http://__AUTUMN_API_URL__|$AUTUMN_API_URL|g;
+        s|http://__AUTUMN_CLIENT_URL__|$CLIENT_URL|g" {} + &&
         bun /app/vite/serve-dist.ts /tmp/dist
     environment:
       AUTUMN_API_URL: \${AUTUMN_API_URL}
