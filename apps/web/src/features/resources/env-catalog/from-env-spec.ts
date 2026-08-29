@@ -48,13 +48,24 @@ function docsUrlOf(decorator: unknown): string | undefined {
   return typeof url === "string" && /^https?:\/\//.test(url) ? url : undefined;
 }
 
-/** The `@type` expression as text: `url`, `enum(a, b)`, `string(minLength=32)`. */
+/**
+ * The `@type` expression as text: `url`, `enum(a, b)`, `string(minLength=32)`.
+ *
+ * A bare type arrives pre-simplified; a parameterized one is a parsed node
+ * whose own `toString` renders the call back out. Only that override is
+ * trusted — falling through to `Object.prototype.toString` would yield
+ * "[object Object]" and a validator for a type that doesn't exist.
+ */
 function typeExprOf(decorator: unknown): string | undefined {
   if (typeof decorator !== "object" || decorator === null) return undefined;
   const simplified: unknown = Reflect.get(decorator, "simplifiedValue");
   if (typeof simplified === "string") return simplified;
   const value: unknown = Reflect.get(decorator, "value");
-  return value === undefined || value === null ? undefined : String(value);
+  if (typeof value !== "object" || value === null) return undefined;
+  const render: unknown = Reflect.get(value, "toString");
+  if (typeof render !== "function" || render === Object.prototype.toString) return undefined;
+  const text: unknown = Reflect.apply(render, value, []);
+  return typeof text === "string" ? text : undefined;
 }
 
 function validatorFor(required: boolean, typeExpr: string | undefined) {
