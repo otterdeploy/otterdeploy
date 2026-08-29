@@ -29,7 +29,19 @@
  * what lights up the service's Variables tab after install. The gate checks
  * each listed repo is one the compose actually runs.
  */
+import beszel from "./beszel.env.schema?raw";
+import docker_registry from "./docker-registry.env.schema?raw";
+import dozzle from "./dozzle.env.schema?raw";
+import excalidraw from "./excalidraw.env.schema?raw";
+import gotenberg from "./gotenberg.env.schema?raw";
+import it_tools from "./it-tools.env.schema?raw";
+import minio from "./minio.env.schema?raw";
+import mosquitto from "./mosquitto.env.schema?raw";
+import nats from "./nats.env.schema?raw";
 import postiz from "./postiz.env.schema?raw";
+import qdrant from "./qdrant.env.schema?raw";
+import typesense from "./typesense.env.schema?raw";
+import uptime_kuma from "./uptime-kuma.env.schema?raw";
 
 export interface TemplateEnvSchema {
   /** The `.env.schema` text. */
@@ -43,5 +55,17 @@ export interface TemplateEnvSchema {
 /** Template id → schema. Templates absent from this map are simply not
  *  covered by the gate or the editors yet; adding one opts it in. */
 export const ENV_SCHEMAS: Record<string, TemplateEnvSchema> = {
+  beszel: { source: beszel, images: ["henrygd/beszel"] },
+  "docker-registry": { source: docker_registry, images: ["registry"] },
+  dozzle: { source: dozzle, images: ["amir20/dozzle"] },
+  excalidraw: { source: excalidraw, images: ["excalidraw/excalidraw"] },
+  gotenberg: { source: gotenberg, images: ["gotenberg/gotenberg"] },
+  "it-tools": { source: it_tools, images: ["corentinth/it-tools"] },
+  minio: { source: minio, images: ["minio/minio"] },
+  mosquitto: { source: mosquitto, images: ["eclipse-mosquitto"] },
+  nats: { source: nats, images: ["nats"] },
+  qdrant: { source: qdrant, images: ["qdrant/qdrant"] },
+  typesense: { source: typesense, images: ["typesense/typesense"] },
+  "uptime-kuma": { source: uptime_kuma, images: ["louislam/uptime-kuma"] },
   postiz: { source: postiz, images: ["ghcr.io/gitroomhq/postiz-app"] },
 };
