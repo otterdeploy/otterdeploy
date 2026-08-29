@@ -74,6 +74,17 @@ export async function listProjectEnvVars(scope: Scope): Promise<ProjectEnvVarRow
  * to unsealed by omitting `sealed: true` on a later write. `value` is
  * encrypted with the "env-vars" domain key whenever the final state is
  * sealed, whether or not THIS call's input already knew that.
+ *
+ * `onlyIfAbsent` makes the write a SEED: an existing key keeps its value and
+ * is returned unchanged. Project variables are one flat namespace shared by
+ * every stack in the project, and template variable names are generic
+ * (`POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRET_KEY`), so an unconditional
+ * write from one stack's install silently rotates a credential another
+ * stack is running on. Worse, the rotation is invisible: a database that
+ * already has a data directory ignores `POSTGRES_PASSWORD` entirely
+ * ("Skipping initialization"), so every config surface shows the new value
+ * and the only authority — the volume — still holds the old one. See
+ * od-esjx; this flag is the half of the fix that does not need a migration.
  */
 export async function upsertProjectEnvVar(input: {
   scope: Scope;
@@ -81,6 +92,8 @@ export async function upsertProjectEnvVar(input: {
   value: string;
   isSecret?: boolean;
   sealed?: boolean;
+  /** Seed semantics: leave an existing key alone. Default false (replace). */
+  onlyIfAbsent?: boolean;
 }): Promise<ProjectEnvVarRow> {
   return db.transaction(async (tx) => {
     const [existing] = await tx
@@ -94,6 +107,27 @@ export async function upsertProjectEnvVar(input: {
         ),
       )
       .limit(1);
+
+    // Seed-only and the key is already there: hand back what is stored rather
+    // than replacing it. Read through the same decrypt path the list query
+    // uses, so the caller cannot tell a seed-skip from a seed-write.
+    if (input.onlyIfAbsent && existing) {
+      const [current] = await tx
+        .select()
+        .from(projectEnvVar)
+        .where(
+          and(
+            eq(projectEnvVar.projectId, input.scope.projectId),
+            eq(projectEnvVar.environmentId, input.scope.environmentId),
+            eq(projectEnvVar.key, input.key),
+          ),
+        )
+        .limit(1);
+      if (current) {
+        const [decrypted] = await decryptUnsealedEnvRows([current]);
+        if (decrypted) return decrypted;
+      }
+    }
 
     const sealed = Boolean(existing?.sealed) || Boolean(input.sealed);
     // Encrypt-at-rest for every row (od-3pp7), not just sealed ones. The
