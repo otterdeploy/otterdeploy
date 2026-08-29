@@ -114,6 +114,14 @@ export const MESH_TEMPLATES: StackTemplate[] = [
     // file, so this shape is the one an operator can paste into a stack that
     // was created before the fix. STUN stays a direct UDP publish: the edge
     // speaks HTTP and has no UDP path.
+    //
+    // AUTH_CLIENT_ID is `netbird-dashboard`, not `netbird`: the embedded Dex
+    // registers exactly two clients, `netbird-dashboard` and `netbird-cli`.
+    // With `netbird` the dashboard sent an id the IdP had never heard of, and
+    // every sign-in ended on Dex's own "Bad Request: Invalid client_id
+    // provided" while management logged
+    // `ERRO [client_id: netbird] invalid client_id provided`. AUTH_AUDIENCE
+    // matches it because Dex mints the id token with `aud` = the client id.
     compose: `name: netbird
 services:
   netbird:
@@ -131,8 +139,8 @@ services:
     environment:
       NETBIRD_MGMT_API_ENDPOINT: "\${NETBIRD_DOMAIN}"
       NETBIRD_MGMT_GRPC_API_ENDPOINT: "\${NETBIRD_DOMAIN}"
-      AUTH_AUDIENCE: "netbird"
-      AUTH_CLIENT_ID: "netbird"
+      AUTH_AUDIENCE: "netbird-dashboard"
+      AUTH_CLIENT_ID: "netbird-dashboard"
       AUTH_AUTHORITY: "\${NETBIRD_DOMAIN}/oauth2"
       USE_AUTH0: "false"
       AUTH_SUPPORTED_SCOPES: "openid profile email offline_access api"
