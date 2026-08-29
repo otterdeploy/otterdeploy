@@ -20,6 +20,7 @@ import {
   updateComposeContent,
 } from "./queries";
 import { removeStackServices } from "./reconcile";
+import { reclaimStackVolumes, stackVolumeNames } from "./volumes";
 
 function toView(rec: ComposeRecord) {
   return {
@@ -245,6 +246,16 @@ export const composeRouter = {
         },
         context.log,
       );
+      // Last, after the services are gone: the named volumes. Deterministic
+      // names mean a stack re-created under this name would otherwise adopt
+      // them, old database password included. Best-effort and retried; the
+      // outcome is logged, never raised (the stack is already deleted).
+      const volumeNames = stackVolumeNames(rec.compose.services, rec.compose.stackName);
+      if (input.keepVolumes) {
+        context.log.set({ composeVolumes: { kept: volumeNames } });
+      } else {
+        await reclaimStackVolumes(volumeNames, context.log);
+      }
       return { ok: true };
     },
   ),

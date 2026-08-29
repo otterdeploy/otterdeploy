@@ -1736,6 +1736,8 @@
     "deleteStackBlurb": "Elimina todos los servicios de este stack del swarm, sus rutas y el registro del recurso. No se puede deshacer.",
     "deleteStackTitle": "¿Eliminar el stack {{name}}?",
     "deleteStackDescription": "Los {{n}} servicios se eliminan del swarm junto con sus rutas y el registro del recurso. No se puede deshacer.",
+    "deleteStackVolumes": "Eliminar también sus {{count}} volumen(es) de datos",
+    "deleteStackVolumesHint": "Sin marcar, los volúmenes permanecen en el host y un stack creado después con el mismo nombre los adopta, incluida cualquier contraseña de base de datos ya establecida dentro.",
     "variablesStaged": "Variables preparadas: revisa y aplica los cambios pendientes.",
     "variablesSavedRedeploy": "Variables guardadas. Se aplican en el próximo redespliegue",
     "variablesSaveFailed": "No se pudo guardar",

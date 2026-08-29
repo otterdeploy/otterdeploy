@@ -1736,6 +1736,8 @@
     "deleteStackBlurb": "Entfernt jeden Service dieses Stacks aus dem Swarm, seine Routen und den Ressourcen-Eintrag. Das kann nicht rückgängig gemacht werden.",
     "deleteStackTitle": "Den Stack {{name}} löschen?",
     "deleteStackDescription": "Alle {{n}} Services werden aus dem Swarm entfernt, samt ihrer Routen und des Ressourcen-Eintrags. Das kann nicht rückgängig gemacht werden.",
+    "deleteStackVolumes": "Auch die {{count}} Daten-Volume(s) löschen",
+    "deleteStackVolumesHint": "Ohne Häkchen bleiben die Volumes auf dem Host und ein später unter demselben Namen erstellter Stack übernimmt sie, samt einem bereits darin gesetzten Datenbank-Passwort.",
     "variablesStaged": "Variablen vorgemerkt. Prüfe und wende die ausstehenden Änderungen an.",
     "variablesSavedRedeploy": "Variablen gespeichert. Sie greifen beim nächsten Redeploy",
     "variablesSaveFailed": "Speichern fehlgeschlagen",

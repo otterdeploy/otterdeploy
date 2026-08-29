@@ -299,12 +299,13 @@ export function ComposeResourcePanel({
         draftContent={draftContent}
         fileLoading={fileQuery.isLoading}
         fileContent={fileQuery.data?.composeContent}
-        onDelete={() => {
+        onDelete={({ keepVolumes }) => {
           markDeleting(resource.projectId, [nodeKey]);
           onClose();
           remove.mutate({
             projectId: resource.projectId,
             resourceId: resource.resourceId,
+            keepVolumes,
           });
         }}
         deleting={remove.isPending}

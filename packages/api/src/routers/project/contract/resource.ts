@@ -177,7 +177,12 @@ export const resourceContractSlice = {
       .output(z.array(resourceEnvEntrySchema)),
 
     bulkSet: oc
-      .errors(resourceNotFoundErrors)
+      .errors({
+        ...resourceNotFoundErrors,
+        // A value the resolver could never satisfy (a service reading its own
+        // env bag). The handler's message names the offending key and token.
+        INVALID_INPUT: { status: 422, message: "Invalid variable value" as const },
+      })
       .meta({
         path: `${basePath}/{projectId}/resources/{resourceId}/env`,
         tag,

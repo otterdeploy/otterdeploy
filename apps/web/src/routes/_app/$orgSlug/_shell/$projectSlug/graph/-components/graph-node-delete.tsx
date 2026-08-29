@@ -25,6 +25,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useMatch, useNavigate } from "@tanstack/react-router";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
@@ -41,6 +42,10 @@ import type {
   ResourceFlowNode,
   ResourceKind,
 } from "@/features/projects/components/graph/resource-node-types";
+import {
+  StackVolumesChoice,
+  stackVolumeCount,
+} from "@/features/resources/components/compose/stack-volumes-choice";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { toastMessage } from "@/shared/lib/errors";
 import { orpc } from "@/shared/server/orpc";
@@ -94,6 +99,13 @@ export function GraphNodeDeleteDialog({
   });
 
   const stage = useStageManifestChange(projectId);
+  // Compose only: whether the delete also reclaims the stack's named volumes.
+  // Same default and copy as the panel's danger zone (StackVolumesChoice), so
+  // the two delete entry points cannot disagree about what a delete removes.
+  // A non-compose target has no services, so the count is 0 and the row hides.
+  const [deleteVolumes, setDeleteVolumes] = useState(true);
+  const volumesId = useId();
+  const volumeCount = stackVolumeCount(target?.data.services);
   const removeCompose = useMutation({
     ...orpc.compose.delete.mutationOptions(),
     onError: (err) => toast.error(toastMessage(err, "Failed to delete")),
@@ -127,7 +139,11 @@ export function GraphNodeDeleteDialog({
       markDeleting(projectId, [node.id]);
       finish(node);
       removeCompose.mutate(
-        { projectId: node.data.projectId, resourceId: node.data.resourceId },
+        {
+          projectId: node.data.projectId,
+          resourceId: node.data.resourceId,
+          keepVolumes: !deleteVolumes,
+        },
         {
           onSuccess: () => {
             toast.success(`Deleted ${name}`);
@@ -176,6 +192,13 @@ export function GraphNodeDeleteDialog({
       pendingLabel={copy?.pendingLabel}
       pending={pending}
       onConfirm={confirmDelete}
-    />
+    >
+      <StackVolumesChoice
+        id={volumesId}
+        count={volumeCount}
+        checked={deleteVolumes}
+        onCheckedChange={setDeleteVolumes}
+      />
+    </TypedConfirmDialog>
   );
 }

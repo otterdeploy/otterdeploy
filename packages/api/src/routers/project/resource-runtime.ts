@@ -16,8 +16,10 @@ import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
 import type { ResourceRef } from "../scopes";
+import type { RefSelfReferenceError } from "../service/errors";
 import type { ServiceTaskInfo } from "./service-tasks";
 
+import { rejectSelfReferences } from "../service/env-self-ref";
 import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
 import { rollDatabaseEnv } from "./database-env-roll";
@@ -185,7 +187,9 @@ export async function listResourceEnv(
 export async function bulkSetResourceEnv(
   input: ResourceRef & { env: EnvEntry[]; secretKeys?: string[]; redeploy?: boolean },
   log: RequestLogger,
-): Promise<Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
+): Promise<
+  Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError | RefSelfReferenceError>
+> {
   // Env is baked into a container at creation, so the write only takes effect
   // on a re-apply. `redeploy: false` (the Variables tab) persists the diff and
   // leaves the running container untouched until an explicit Deploy; the next
@@ -243,6 +247,11 @@ export async function bulkSetResourceEnv(
   // service: reuse the existing service env path which handles bulk
   // replace + ref fan-out. Redeploy is best-effort: we've already saved
   // the env and the next normal deploy picks it up.
+  // A value that reads this service's own env bag can never resolve. Refuse
+  // it here, where the answer reaches the Variables tab as the save's error,
+  // instead of persisting it and failing the next redeploy with a cycle.
+  const guarded = await rejectSelfReferences(input.projectId, found.record, input.env);
+  if (guarded.isErr()) return Result.err(guarded.error);
   const secretSet = new Set(input.secretKeys ?? []);
   await bulkReplaceServiceEnvVars(
     input.resourceId,

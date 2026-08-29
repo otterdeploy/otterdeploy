@@ -7,6 +7,8 @@
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
+import { useId, useState } from "react";
+
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +18,7 @@ import {
   ComposeViewer,
 } from "@/features/resources/components/compose/compose-yaml-editor";
 import { ComposeExposedSummary } from "@/features/resources/components/compose/exposed-summary";
+import { StackVolumesChoice } from "@/features/resources/components/compose/stack-volumes-choice";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
@@ -141,6 +144,7 @@ export function ComposeSettingsTab({
   projectSlug,
   name,
   serviceCount,
+  volumeCount,
   onDelete,
   deleting,
 }: {
@@ -150,10 +154,16 @@ export function ComposeSettingsTab({
   projectSlug: ProjectSlug;
   name: string;
   serviceCount: number;
-  onDelete: () => void;
+  /** Distinct named volumes the stack mounts. Drives the delete dialog's
+   *  "also delete its data" choice; 0 hides it. */
+  volumeCount: number;
+  onDelete: (opts: { keepVolumes: boolean }) => void;
   deleting: boolean;
 }) {
   const { t } = useTranslation();
+  // Default ON; see StackVolumesChoice for why.
+  const [deleteVolumes, setDeleteVolumes] = useState(true);
+  const volumesId = useId();
   return (
     <>
       <div className="mb-4">
@@ -188,8 +198,15 @@ export function ComposeSettingsTab({
           confirmLabel={t("resources.deleteStack")}
           pendingLabel={t("common.deleting")}
           pending={deleting}
-          onConfirm={onDelete}
-        />
+          onConfirm={() => onDelete({ keepVolumes: !deleteVolumes })}
+        >
+          <StackVolumesChoice
+            id={volumesId}
+            count={volumeCount}
+            checked={deleteVolumes}
+            onCheckedChange={setDeleteVolumes}
+          />
+        </TypedConfirmDialog>
       </div>
     </>
   );
