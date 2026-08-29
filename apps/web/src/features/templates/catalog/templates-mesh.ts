@@ -69,7 +69,7 @@ export const MESH_TEMPLATES: StackTemplate[] = [
     name: "NetBird",
     descriptionKey: "templates.catalog.netbird.description",
     category: "security",
-    includes: ["netbird", "dashboard"],
+    includes: ["netbird", "dashboard", "proxy"],
     requiredEnv: [
       {
         key: "NETBIRD_DOMAIN",
@@ -94,10 +94,26 @@ export const MESH_TEMPLATES: StackTemplate[] = [
     logoBrand: "NetBird",
     docsUrl: "https://docs.netbird.io/selfhosted/selfhosted-quickstart",
     files: [{ path: "config.yaml", content: NETBIRD_CONFIG, interpolate: true }],
-    // No reverse proxy of their own: otterdeploy's edge owns 80/443 and would
-    // collide with the Traefik their installer offers. STUN is the exception —
-    // 3478/udp is published directly, because the edge speaks HTTP and has no
-    // UDP path.
+    // NetBird is one hostname with a PATH split: the dashboard at `/`, the
+    // server (API, embedded IdP at /oauth2, relay, gRPC) underneath it. Its
+    // own quickstart hands that split to Traefik/Caddy/nginx on the host.
+    // otterdeploy's edge routes a domain to ONE service and has no path
+    // rules, so the first version of this template exposed BOTH `netbird`
+    // and `dashboard` on port 80: whichever got the domain ate the other's
+    // traffic. With the domain on the dashboard, `${NETBIRD_DOMAIN}/oauth2`
+    // resolved to a Next.js page, OIDC discovery came back as HTML, and every
+    // login ended on "Oops, something went wrong: Unauthenticated".
+    //
+    // `proxy` is the stack's own path router, on the overlay only (no host
+    // ports; the edge still owns 80/443). It is the ONE service to expose:
+    // the four rules are NetBird's documented Caddy config verbatim
+    // (docs.netbird.io/selfhosted/external-reverse-proxy), including h2c for
+    // gRPC so peers reach management/signal through it. The Caddyfile rides
+    // in `command` rather than `files` on purpose: an existing stack can only
+    // have its compose file replaced through the editor, not gain a second
+    // file, so this shape is the one an operator can paste into a stack that
+    // was created before the fix. STUN stays a direct UDP publish: the edge
+    // speaks HTTP and has no UDP path.
     compose: `name: netbird
 services:
   netbird:
@@ -106,7 +122,6 @@ services:
       - ./config.yaml:/etc/netbird/config.yaml
       - netbird_data:/var/lib/netbird
     ports:
-      - "80"
       - "3478/udp"
     restart: always
   dashboard:
@@ -122,6 +137,29 @@ services:
       USE_AUTH0: "false"
       AUTH_SUPPORTED_SCOPES: "openid profile email offline_access api"
       NETBIRD_TOKEN_SOURCE: "idToken"
+    restart: always
+  proxy:
+    image: caddy:2-alpine
+    depends_on:
+      - netbird
+      - dashboard
+    command:
+      - sh
+      - -c
+      - |
+        printf '%s\\n' \\
+          '{' \\
+          '  admin off' \\
+          '  auto_https off' \\
+          '}' \\
+          ':80 {' \\
+          '  @grpc header Content-Type application/grpc*' \\
+          '  reverse_proxy @grpc h2c://netbird:80' \\
+          '  @backend path /relay* /ws-proxy/* /api/* /oauth2/*' \\
+          '  reverse_proxy @backend netbird:80' \\
+          '  reverse_proxy /* dashboard:80' \\
+          '}' > /etc/caddy/Caddyfile
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     ports:
       - "80"
     restart: always
