@@ -564,6 +564,30 @@ describe("resolveServiceEnv: stack-scoped references", () => {
     expect(result.value.URL).toBe("http://autumn-db:5432");
   });
 
+  // A stack child addressing ITSELF by its own compose key. This is what the
+  // templates seed for `MAIN_URL` / `SERVER_URL`: the app service is normally
+  // the stack's front door, so the var it needs is its own public address.
+  // The by-resource-name form (`${{api.PUBLIC_URL}}`) is covered above; this
+  // is the stack-scoped path, which reaches the same resource by a different
+  // lookup and must land on the same computed exports rather than recursing.
+  it("serves a stack-scoped self-reference to PUBLIC_URL", async () => {
+    stackFixture("${{stack.api.PUBLIC_URL}}");
+    asMock(getStackChildByComposeService).mockImplementation(
+      async (_pid: string, stackId: string, key: string) =>
+        stackId === "resource_stack" && key === "api"
+          ? mockResource({ id: "resource_api", name: "autumn-api", type: "service" })
+          : undefined,
+    );
+    asMock(listProxyRoutesByResourceId).mockResolvedValue([
+      { domain: "api.example.com", isPrimary: true },
+    ]);
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isOk(), `resolve failed: ${result.isErr() ? result.error._tag : ""}`).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.URL).toBe("https://api.example.com");
+  });
+
   it("resolves ${{autumn.db.HOST}} through the stack's resource name", async () => {
     stackFixture("http://${{autumn.db.HOST}}:5432");
     asMock(getComposeStackByName).mockImplementation(async (_pid: string, name: string) =>

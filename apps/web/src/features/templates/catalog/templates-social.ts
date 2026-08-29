@@ -103,6 +103,20 @@ export const SOCIAL_TEMPLATES: StackTemplate[] = [
      * `NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY` carries no leading slash on
      * purpose: Postiz builds media URLs as `FRONTEND_URL + "/" + <this> +
      * path` (posts.service.ts), so a slash here produces a doubled one.
+     *
+     * The healthcheck goes THROUGH nginx to the backend (`/api/` on 5000 is
+     * the backend's `GET /`, which answers "App is running!"), so it proves
+     * the whole path a browser takes rather than that a process exists.
+     * That distinction is load-bearing: the backend intermittently wedges at
+     * boot — pm2 reports it online, it emits nothing, and never binds 3000
+     * while the frontend serves normally. Without a healthcheck Swarm treats
+     * the new task as healthy the instant the process starts and retires the
+     * old one, so every wedge was an outage; with one it holds the previous
+     * task until the new one actually answers. The 180s start_period covers
+     * `prisma db push` plus the orchestrator compiling one ~3 MB workflow
+     * bundle per provider queue (33 of them) before the backend gets CPU.
+     * The image is bookworm-slim with neither curl nor wget, so the probe is
+     * node's own fetch.
      */
     compose: `name: postiz
 services:
@@ -132,6 +146,16 @@ services:
     volumes:
       - postiz-config:/config
       - postiz-uploads:/uploads
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5000/api/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 180s
     restart: always
   db:
     image: postgres:17-alpine
