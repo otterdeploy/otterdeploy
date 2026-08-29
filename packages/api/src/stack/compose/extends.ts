@@ -1,3 +1,5 @@
+import type { JsonValue } from "@otterdeploy/shared/json";
+
 /**
  * Compose `extends` resolution, run before `normalizeService` ever sees a
  * service (see `./parse.ts`).
@@ -22,11 +24,12 @@
 import { Result, TaggedError } from "better-result";
 import { parse as parseYaml } from "yaml";
 
-import type { JsonValue } from "@otterdeploy/shared/json";
-
 import { isObj, type Obj } from "./normalize";
 
-export class ComposeExtendsError extends TaggedError("ComposeExtendsError")<{
+/** Not exported: `parseCompose` is the only consumer and it reads `.message`
+ *  to build its own `ComposeParseError`. Widening the surface would just add
+ *  an export nothing imports. */
+class ComposeExtendsError extends TaggedError("ComposeExtendsError")<{
   message: string;
 }>() {
   constructor(message: string) {
@@ -66,7 +69,14 @@ const CONCATENATED = new Set([
  * bare list entry (`- FOO`, "inherit from the host") reads as an empty value in
  * either spelling.
  */
-const KEY_VALUE = new Set(["environment", "labels", "sysctls", "extra_hosts", "annotations", "args"]);
+const KEY_VALUE = new Set([
+  "environment",
+  "labels",
+  "sysctls",
+  "extra_hosts",
+  "annotations",
+  "args",
+]);
 
 /** Mappings merged key-by-key rather than replaced wholesale. */
 const MERGED_MAPPINGS = new Set([
