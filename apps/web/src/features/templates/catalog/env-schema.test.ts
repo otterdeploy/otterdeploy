@@ -16,6 +16,7 @@ import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { describe, expect, it } from "vite-plus/test";
 
 import { normalizeImageRepo } from "@/features/resources/env-catalog";
+import { rawValues } from "@/features/resources/env-catalog/from-env-spec";
 
 import { ENV_SCHEMAS } from "./env-schemas";
 import { TEMPLATES } from "./index";
@@ -36,17 +37,6 @@ interface SchemaItem {
    *  source fidelity. */
   value: string;
   required: boolean;
-}
-
-/** Raw `KEY=value` text, by key. Single-line values only, which is all any
- *  template schema uses; a multi-line value would simply not be covered. */
-function rawValues(source: string): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const line of source.split("\n")) {
-    const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
-    if (m?.[1] !== undefined) out.set(m[1], (m[2] ?? "").trim());
-  }
-  return out;
 }
 
 function itemsOf(source: string): SchemaItem[] {

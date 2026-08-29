@@ -9,8 +9,10 @@ import type { EnvIssue, EnvSuggestion, ImageEnvCatalogEntry } from "./types";
 import { APP_ENV_CATALOG } from "./catalog-apps";
 import { DATABASE_ENV_CATALOG } from "./catalog-databases";
 import { suggestionsFromEnvSpec } from "./from-env-spec";
+import { normalizeImageRepo } from "./image-repo";
 
 export type { EnvIssue, EnvSuggestion } from "./types";
+export { normalizeImageRepo } from "./image-repo";
 
 /**
  * Template `.env.schema`s, projected into catalog entries. Listed LAST so a
@@ -30,23 +32,6 @@ const ENTRIES: ImageEnvCatalogEntry[] = [
   ...APP_ENV_CATALOG,
   ...SCHEMA_ENTRIES,
 ];
-
-/**
- * Reduce an image ref to the catalog's repo key: drop digest and tag,
- * lowercase, and strip the implicit `docker.io/` + `library/` prefixes so
- * `postgres:17-alpine`, `library/postgres` and `docker.io/library/postgres@…`
- * all resolve to `postgres`.
- */
-export function normalizeImageRepo(image: string): string {
-  const noDigest = image.split("@")[0] ?? image;
-  const slash = noDigest.lastIndexOf("/");
-  const colon = noDigest.lastIndexOf(":");
-  const repo = colon > slash ? noDigest.slice(0, colon) : noDigest;
-  return repo
-    .toLowerCase()
-    .replace(/^docker\.io\//, "")
-    .replace(/^library\//, "");
-}
 
 const BY_REPO = new Map<string, EnvSuggestion[]>();
 for (const entry of ENTRIES) {

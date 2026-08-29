@@ -24,7 +24,7 @@ const HAS_REF = /\$\{\{[^}]+\}\}|\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}/;
 /** Raw `KEY=value` text by key — the value as WRITTEN. The parser normalises
  *  a mixed value into `concat(…)`, which is right for evaluation and wrong
  *  for "is this a static default I can prefill". */
-function rawValues(source: string): Map<string, string> {
+export function rawValues(source: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const line of source.split("\n")) {
     const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
