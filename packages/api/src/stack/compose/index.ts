@@ -3,7 +3,8 @@
  * raw compose file; this module turns it into the platform's normal shapes.
  * See docs/designs/compose.md.
  */
-export { parseCompose } from "./parse";
+export { parseCompose, type ParseComposeOptions } from "./parse";
+export { extendsFileRefs, resolveSiblingPath } from "./extends";
 export { summarizeCompose } from "./summary";
 export { composeSwarmServiceName, durationMs } from "./to-spec";
 export type { ComposeSpecContext } from "./to-spec";

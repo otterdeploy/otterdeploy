@@ -12,6 +12,7 @@ import { parse as parseYaml } from "yaml";
 
 import type { ParsedCompose, ParsedComposeService } from "./types";
 
+import { resolveExtends } from "./extends";
 import { isObj, normalizeService, type Obj } from "./normalize";
 
 class ComposeParseError extends Error {
@@ -56,7 +57,24 @@ function collectServices(servicesMap: Obj, warnings: string[]): ParsedComposeSer
   return services;
 }
 
-export function parseCompose(yaml: string): Result<ParsedCompose, ComposeParseError> {
+export interface ParseComposeOptions {
+  /**
+   * Sibling compose files from the same tree, keyed by path RELATIVE to this
+   * file's directory, supplying `extends: { file: ... }` targets.
+   *
+   * Optional because most callers have exactly one file and nothing to resolve
+   * against: the wizard's live preview parses pasted text, and a template ships
+   * a single self-contained document. Those callers pass nothing and a
+   * cross-file `extends` comes back as an error naming the file it wanted,
+   * which is the honest answer — that file cannot deploy on its own.
+   */
+  files?: Record<string, string>;
+}
+
+export function parseCompose(
+  yaml: string,
+  options: ParseComposeOptions = {},
+): Result<ParsedCompose, ComposeParseError> {
   // The `yaml` package resolves anchors + `<<` merge keys (which compose uses
   // and Bun.YAML mishandles) and gives ACCURATE line/column on errors (Bun's
   // are bogus, constant regardless of input).
@@ -72,8 +90,16 @@ export function parseCompose(yaml: string): Result<ParsedCompose, ComposeParseEr
     return Result.err(new ComposeParseError("Compose file has no `services` map"));
   }
 
+  // Before anything else: a service that `extends` another carries almost none
+  // of its own definition, so every check below (image-or-build, ports, mounts)
+  // would be reading a fragment rather than what actually deploys.
+  const resolved = resolveExtends(doc.services, options.files ?? {});
+  if (resolved.isErr()) {
+    return Result.err(new ComposeParseError(resolved.error.message));
+  }
+
   const warnings: string[] = [];
-  const services = collectServices(doc.services, warnings);
+  const services = collectServices(resolved.value, warnings);
 
   if (services.length === 0) {
     return Result.err(new ComposeParseError("No services defined"));
