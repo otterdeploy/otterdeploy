@@ -24,6 +24,7 @@ import type { TFunction } from "i18next";
 import { useSelector } from "@tanstack/react-form";
 import { useTranslation } from "react-i18next";
 
+import { envSuggestionsForImages, type EnvSuggestion } from "@/features/resources/env-catalog";
 import { Button } from "@/shared/components/ui/button";
 
 import type { ComposeForm, Preview } from "./compose-wizard-shared";
@@ -130,6 +131,7 @@ function ComposeVarsGroup({
   projectId,
   hasVars,
   isPending,
+  suggestions,
   onStage,
   onBack,
 }: {
@@ -137,6 +139,8 @@ function ComposeVarsGroup({
   projectId: ProjectId;
   hasVars: boolean;
   isPending: boolean;
+  /** Known variables for every image the parsed file runs. */
+  suggestions: EnvSuggestion[];
   onStage: () => void;
   onBack: () => void;
 }) {
@@ -163,6 +167,7 @@ function ComposeVarsGroup({
               projectId={projectId}
               hasVars={hasVars}
               requiredUnset={!group.state.meta.isValid}
+              suggestions={suggestions}
             />
           </div>
           <div className="flex items-center gap-2 border-t px-5 py-3">
@@ -230,6 +235,11 @@ export function ComposeWizardBody({
         projectId={projectId}
         hasVars={hasVars}
         isPending={isPending}
+        // Every image the parsed file runs, so a template's `.env.schema`
+        // (keyed by its app image) reaches the editor as autocomplete and
+        // shape checks, and the bundled Postgres/Redis get the database
+        // catalog's. Empty for a file that hasn't parsed yet.
+        suggestions={envSuggestionsForImages(preview?.services.map((svc) => svc.image) ?? [])}
         onStage={onStage}
         onBack={onBack}
       />

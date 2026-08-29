@@ -1691,7 +1691,10 @@
       "duplicateNote": "Doppelter Schlüssel: eine andere Zeile heißt ebenfalls {{key}}. Zum Speichern eine der Zeilen umbenennen oder löschen.",
       "duplicateCount_one": "{{count}} doppelter Schlüssel",
       "duplicateCount_other": "{{count}} doppelte Schlüssel",
-      "duplicateBlocksSave": "Doppelte Schlüssel auflösen, um zu speichern"
+      "duplicateBlocksSave": "Doppelte Schlüssel auflösen, um zu speichern",
+      "schemaIssueCount_one": "{{count}} Wert braucht Aufmerksamkeit",
+      "schemaIssueCount_other": "{{count}} Werte brauchen Aufmerksamkeit",
+      "schemaIssueBlocksSave": "Pflichtwerte korrigieren, um zu speichern"
     },
     "source": {
       "title": "Quelle",

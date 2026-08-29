@@ -1,8 +1,7 @@
 import { useState } from "react";
 
-import type { EnvSuggestion } from "@/features/resources/env-catalog";
-
 import { hasOpenRefToken, insertRefToken } from "@/features/resources/components/_shared/ref-token";
+import { issueFor, type EnvSuggestion } from "@/features/resources/env-catalog";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table";
@@ -55,6 +54,23 @@ export function duplicateEnvKeys(vars: Var[]): Set<string> {
  *  never rendered. */
 export function noDuplicateKeysValidator({ value }: { value: Var[] }): string | undefined {
   return duplicateEnvKeys(value).size > 0 ? "duplicate keys" : undefined;
+}
+
+/**
+ * The wizard's field validator once a schema is in play: duplicates, plus any
+ * row whose value fails a REQUIRED schema check. Warn-level issues render
+ * under the row and do not fail the field. Built per mount because the
+ * suggestion set is per template; falls back to the duplicate check alone
+ * when there are none.
+ */
+export function variablesValidatorFor(suggestions: ReadonlyArray<EnvSuggestion>) {
+  return ({ value }: { value: Var[] }): string | undefined => {
+    const dup = noDuplicateKeysValidator({ value });
+    if (dup) return dup;
+    return value.some((v) => issueFor(suggestions, v.key, v.value)?.level === "block")
+      ? "required values missing or malformed"
+      : undefined;
+  };
 }
 
 export function VariablesField({
@@ -136,6 +152,7 @@ export function VariablesField({
               key={i}
               v={v}
               duplicate={duplicateKeys.has(v.key.trim())}
+              issue={issueFor(suggestions, v.key, v.value)}
               projectId={projectId}
               suggestions={suggestions}
               takenKeys={

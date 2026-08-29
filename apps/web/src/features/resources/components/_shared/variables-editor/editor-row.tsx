@@ -11,7 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { useTranslation } from "react-i18next";
 
-import type { EnvSuggestion } from "@/features/resources/env-catalog";
+import type { EnvIssue, EnvSuggestion } from "@/features/resources/env-catalog";
 
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
@@ -49,6 +49,10 @@ interface EditorRowProps {
    *  and blocks Save until resolved: env is keyed by name, so saving both
    *  would silently keep one and drop the other. */
   duplicate: boolean;
+  /** The value doesn't fit its schema (`EnvSuggestion.validate`). A `block`
+   *  issue disables Save the same way a duplicate does; a `warn` is shown
+   *  and never stands in the way. */
+  issue?: EnvIssue | null;
   revealed: boolean;
   copied: boolean;
   pickerOpen: boolean;
@@ -66,6 +70,7 @@ export function EditorRow({
   suggestions,
   takenKeys,
   duplicate,
+  issue = null,
   revealed,
   copied,
   pickerOpen,
@@ -139,6 +144,7 @@ export function EditorRow({
         </div>
       </div>
       {duplicate && <DuplicateNote keyName={row.key.trim()} />}
+      {!duplicate && issue && <IssueNote issue={issue} />}
       {showPickerHint(row.value, pickerOpen) && (
         <p className="text-[10.5px] text-muted-foreground sm:pl-[5.5rem]">
           Tip: press the {"{ }"} button to finish this reference.
@@ -150,6 +156,23 @@ export function EditorRow({
 
 function showPickerHint(value: string, pickerOpen: boolean) {
   return value.length > 0 && !pickerOpen && hasOpenRefToken(value);
+}
+
+/** Schema verdict under the row: warnings in the warning tone, blockers in
+ *  the destructive tone — the same visual grammar as the duplicate note, so
+ *  "this stops Save" reads identically whatever the cause. */
+function IssueNote({ issue }: { issue: EnvIssue }) {
+  return (
+    <p
+      className={
+        issue.level === "block"
+          ? "text-[10.5px] text-destructive sm:pl-[5.5rem]"
+          : "text-[10.5px] text-warning sm:pl-[5.5rem]"
+      }
+    >
+      {issue.message}
+    </p>
+  );
 }
 
 function DuplicateNote({ keyName }: { keyName: string }) {

@@ -15,6 +15,11 @@ interface ToolbarProps {
   /** Distinct keys duplicated across rows. Non-zero blocks Save: env is
    *  keyed by name, so saving would silently drop all but one row. */
   duplicateCount: number;
+  /** Rows failing a REQUIRED schema check (see `EnvSuggestion.validate`).
+   *  Non-zero blocks Save: the value would deploy and the app would not
+   *  start on it. Warn-level issues are shown under rows and never counted
+   *  here. */
+  blockingIssueCount?: number;
   saving: boolean;
   onBulkEdit: () => void;
   onDiscard: () => void;
@@ -27,6 +32,7 @@ export function Toolbar({
   hasPending,
   diff,
   duplicateCount,
+  blockingIssueCount = 0,
   saving,
   onBulkEdit,
   onDiscard,
@@ -52,6 +58,11 @@ export function Toolbar({
             · {t("resources.variables.duplicateCount", { count: duplicateCount })}
           </span>
         )}
+        {blockingIssueCount > 0 && (
+          <span className="text-[11.5px] font-normal text-destructive">
+            · {t("resources.variables.schemaIssueCount", { count: blockingIssueCount })}
+          </span>
+        )}
       </div>
 
       <div className="flex-1" />
@@ -73,8 +84,14 @@ export function Toolbar({
       <Button
         size="sm"
         className="h-7 text-[12px]"
-        disabled={!hasPending || saving || duplicateCount > 0}
-        title={duplicateCount > 0 ? t("resources.variables.duplicateBlocksSave") : undefined}
+        disabled={!hasPending || saving || duplicateCount > 0 || blockingIssueCount > 0}
+        title={
+          duplicateCount > 0
+            ? t("resources.variables.duplicateBlocksSave")
+            : blockingIssueCount > 0
+              ? t("resources.variables.schemaIssueBlocksSave")
+              : undefined
+        }
         onClick={onSave}
       >
         {saving ? "Saving…" : "Save changes"}

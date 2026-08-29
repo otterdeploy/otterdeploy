@@ -1691,7 +1691,10 @@
       "duplicateNote": "Duplicate key: another row is also named {{key}}. Rename or delete one to save.",
       "duplicateCount_one": "{{count}} duplicate key",
       "duplicateCount_other": "{{count}} duplicate keys",
-      "duplicateBlocksSave": "Resolve duplicate keys to save"
+      "duplicateBlocksSave": "Resolve duplicate keys to save",
+      "schemaIssueCount_one": "{{count}} value needs attention",
+      "schemaIssueCount_other": "{{count}} values need attention",
+      "schemaIssueBlocksSave": "Fix required values to save"
     },
     "source": {
       "title": "Source",
