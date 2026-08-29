@@ -107,19 +107,45 @@ export function isAutofilledKey(key: string): boolean {
   return classifyEnvVar(key) !== "plain";
 }
 
-/** The value to seed, given the public FQDN the stack will publish at.
- *  `null` when the platform can't fill this one, or when the host isn't known
- *  yet (no exposed service): the caller falls back to leaving it blank. */
+/**
+ * The value to seed, given the public FQDN the stack will publish at.
+ * `null` when the platform can't fill this one, or when the host isn't known
+ * yet (no exposed service): the caller falls back to leaving it blank.
+ *
+ * When `frontService` names the stack's exposed front door, an address is
+ * seeded as a REFERENCE to that service's public address rather than as the
+ * hostname itself. This is the difference between a value that tracks the
+ * stack and one that freezes at install time. A literal is resolved once, at
+ * create, and then nothing updates it: rename the domain in Settings and the
+ * route moves while the app goes on advertising the host it was born with —
+ * a frontend served on the new domain calling an API on the old one, which
+ * fails as CORS in the browser and looks like a networking bug rather than a
+ * stale string. `${{stack.<svc>.PUBLIC_URL}}` re-resolves on every deploy, and
+ * the domain mutations fan a redeploy out to everything that reads it, so the
+ * address the operator sets is the address the app is told, always.
+ *
+ * `publicHost` remains the fallback for a stack with no identified front
+ * service, where there is nothing to reference and a literal is all we have.
+ */
 export function autofillValue(
   key: string,
-  ctx: { randomSecret: () => string; publicHost: string | null },
+  ctx: {
+    randomSecret: () => string;
+    publicHost: string | null;
+    /** Compose service key of the exposed front door, when it is actually
+     *  being exposed. Omitted → seed the literal host. */
+    frontService?: string | null;
+  },
 ): string | null {
+  const ref = ctx.frontService;
   switch (classifyEnvVar(key)) {
     case "secret":
       return ctx.randomSecret();
     case "url":
+      if (ref) return `\${{stack.${ref}.PUBLIC_URL}}`;
       return ctx.publicHost ? `https://${ctx.publicHost}` : null;
     case "host":
+      if (ref) return `\${{stack.${ref}.DOMAIN}}`;
       return ctx.publicHost;
     case "plain":
       return null;

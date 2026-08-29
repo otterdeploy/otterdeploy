@@ -34,6 +34,7 @@ import { materializeServiceRow } from "./reconcile-materialize";
 import {
   describeReconcileFailure,
   rolloutMaterialized,
+  seedServiceExposure,
   type MaterializedService,
 } from "./reconcile-rollout";
 
@@ -185,6 +186,31 @@ export async function reconcileStackServices(
       const detail = describeReconcileFailure(e, svc.name);
       progress(`Service ${svc.name}: failed, ${detail}`);
       failed.push(svc.name);
+    }
+  }
+
+  // ── Pass 1.5: every new service's PUBLIC ROUTE, before anything deploys.
+  //
+  // Same argument as the pass 1/pass 2 split, one step further out.
+  // `${{stack.<svc>.PUBLIC_URL}}` (and DOMAIN / DOMAINS) answer from the
+  // sibling's proxy_route rows, and `serviceExports` OMITS those keys —
+  // deliberately, rather than emitting a blank — while a service has no route.
+  // Exposure used to be seeded after each service rolled out, so on a stack's
+  // first deploy the routes did not exist yet while env was resolving: a stack
+  // that addresses its own public URL (the normal shape for a self-hosted app
+  // that has to know the hostname it serves) failed with an unknown-variable
+  // error and only came up on a second, manual deploy. Route first, then roll.
+  // Best-effort per service: seeding a route is not worth failing a rollout
+  // over, and a throw here would strand every service after it in the file.
+  for (const { svc, resourceId, isCreate } of materialized) {
+    const seeded = await Result.tryPromise({
+      try: () => seedServiceExposure(ctx, isCreate, svc.name, resourceId, log, progress),
+      catch: (e) => e,
+    });
+    if (seeded.isErr()) {
+      progress(
+        `Service ${svc.name}: seed expose failed, ${describeReconcileFailure(seeded.error, svc.name)}`,
+      );
     }
   }
 

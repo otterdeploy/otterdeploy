@@ -47,13 +47,13 @@ function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
 async function previewStackHost(
   projectId: ProjectId,
   preview: { services: { name: string; ports: number[] }[] },
-): Promise<string | null> {
+): Promise<{ fqdn: string | null; front: string | null }> {
   const front = preview.services.find((s) => s.ports.length > 0);
-  if (!front) return null;
+  if (!front) return { fqdn: null, front: null };
   const resolved = await orpc.project.resource.publicHostPreview
     .call({ projectId, name: front.name })
     .catch(() => null);
-  return resolved?.fqdn ?? null;
+  return { fqdn: resolved?.fqdn ?? null, front: front.name };
 }
 
 /**
@@ -143,7 +143,16 @@ export function useComposeParse(
     // chain the expose path walks, so an address we seed is the address the
     // service actually gets, not a guess. Best-effort: a failure just leaves
     // address vars blank, exactly as before.
-    const publicHost = await previewStackHost(projectId, res);
+    const { fqdn: publicHost, front } = await previewStackHost(projectId, res);
+    // Address variables are seeded as a REFERENCE to the front service's public
+    // URL, not as the hostname itself, so renaming the domain later updates
+    // them instead of stranding the app on the host it was created with.
+    // Gated on that service actually being exposed: `PUBLIC_URL` is omitted
+    // from a service's exports while it has no route, so referencing an
+    // unexposed service would fail the deploy outright — worse than the stale
+    // literal it replaces. Unticked front door → fall back to the literal.
+    const exposedFront =
+      front && form.state.values.file.exposed.some((e) => e.split(":")[0] === front) ? front : null;
     // Seed the domain field with that same resolved host, so the wizard shows
     // the address the stack will actually publish at and the operator can
     // overwrite it. Only when untouched: re-parsing on every keystroke must not
@@ -186,7 +195,7 @@ export function useComposeParse(
       const generated = spec ? randomBase64(spec.bytes) : null;
       const autofilled =
         ref.default == null && generated == null
-          ? autofillValue(ref.name, { randomSecret, publicHost })
+          ? autofillValue(ref.name, { randomSecret, publicHost, frontService: exposedFront })
           : null;
       const kind = classifyEnvVar(ref.name);
       return {

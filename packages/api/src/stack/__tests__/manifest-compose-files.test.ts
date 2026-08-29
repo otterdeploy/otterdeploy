@@ -12,7 +12,7 @@
  * the interpolation unit test checks the mapper in isolation. Neither crosses
  * this boundary, which is where the value was actually lost. These do.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { composeSchema } from "../manifest/schema";
 

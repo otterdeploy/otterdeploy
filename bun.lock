@@ -47,7 +47,7 @@
     },
     "apps/cli": {
       "name": "@otterdeploy/cli",
-      "version": "0.14.6",
+      "version": "0.19.0",
       "bin": {
         "otterdeploy": "dist/index.js",
       },
@@ -130,6 +130,7 @@
         "@codemirror/lint": "^6.9.7",
         "@codemirror/state": "^6.6.0",
         "@codemirror/view": "^6.43.1",
+        "@env-spec/parser": "^0.5.1",
         "@fontsource-variable/geist": "^5.2.9",
         "@fontsource-variable/geist-mono": "^5.2.8",
         "@hugeicons/core-free-icons": "^4.1.4",
@@ -648,6 +649,8 @@
     "@emnapi/runtime": ["@emnapi/runtime@1.10.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA=="],
 
     "@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.2.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w=="],
+
+    "@env-spec/parser": ["@env-spec/parser@0.5.1", "", {}, "sha512-/MdmtpCu53QwCpyjmyFxAkB2odBBxIUmNQEQcWYG8KZxUgd7K720/ZDw8Nq7YsCQAtQ60H7OYqMhnhXSK1UPJw=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
 

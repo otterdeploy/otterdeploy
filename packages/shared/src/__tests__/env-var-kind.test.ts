@@ -97,6 +97,34 @@ describe("autofillValue", () => {
     expect(autofillValue("TZ", ctx)).toBeNull();
   });
 
+  // The whole point of the ref: the seeded value has to survive a domain
+  // rename. A literal is correct exactly once, at install, and then silently
+  // wrong for the rest of the stack's life.
+  test("a known front service makes urls a reference, not a snapshot", () => {
+    expect(autofillValue("SERVER_URL", { ...ctx, frontService: "twenty" })).toBe(
+      "${{stack.twenty.PUBLIC_URL}}",
+    );
+  });
+
+  test("a known front service makes hosts a reference too", () => {
+    expect(autofillValue("SERVER_HOST", { ...ctx, frontService: "twenty" })).toBe(
+      "${{stack.twenty.DOMAIN}}",
+    );
+  });
+
+  test("secrets are unaffected by the front service", () => {
+    expect(autofillValue("APP_SECRET", { ...ctx, frontService: "twenty" })).toBe("R4ND0M");
+  });
+
+  // No front door to point at (nothing exposed, or no service publishes a
+  // port) → there is no `PUBLIC_URL` to resolve and referencing one would fail
+  // the deploy. The literal is the honest fallback there.
+  test("falls back to the literal host when no front service is exposed", () => {
+    expect(autofillValue("SERVER_URL", { ...ctx, frontService: null })).toBe(
+      "https://twenty-acme.1.2.3.4.sslip.io",
+    );
+  });
+
   test("an unknown host leaves address vars blank rather than guessing", () => {
     const noHost = { randomSecret: () => "R4ND0M", publicHost: null };
     expect(autofillValue("SERVER_URL", noHost)).toBeNull();

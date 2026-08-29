@@ -44,7 +44,7 @@ import {
 } from "../../caddy/queries";
 import { verifyDomainTxt } from "../../lib/dns-verify";
 import { checkDomainReachability } from "../../lib/domain-reachability";
-import { loadResource } from "./context";
+import { loadProject, loadResource } from "./context";
 import {
   acmeFor,
   acmeForExistingRoute,
@@ -64,9 +64,42 @@ import {
 } from "./errors";
 import { type ResourceRef } from "./inputs";
 import { setPublicExposure, setServicePublicDomain, type ServiceRecord } from "./queries";
+import { redeployAndFanOut } from "./redeploy";
 import { isUniqueViolation } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
+
+/**
+ * Re-deploy this service and everything that references it, because its
+ * public identity just changed.
+ *
+ * `DOMAIN` / `PUBLIC_URL` / `DOMAINS` are computed exports derived from the
+ * proxy routes (see `serviceExports`), so adding, removing, or re-pointing a
+ * host changes what `${{stack.<svc>.PUBLIC_URL}}` resolves to for this service
+ * AND for every sibling that addresses it. Rendering Caddy alone moved the
+ * route but left the containers holding the old address: an app told its own
+ * URL at boot (MAIN_URL, NEXTAUTH_URL, a NEXT_PUBLIC_* baked into a bundle)
+ * kept advertising the hostname it was first deployed with, so the operator
+ * renamed a domain and got a site that loaded on the new host while its own
+ * API calls went to the old one. Caddy render + redeploy, always together.
+ *
+ * Best-effort by design: the domain write has already been committed and the
+ * route is already serving. A swarm that cannot roll right now must not turn
+ * a successful domain change into an error the operator has to undo.
+ */
+async function republishAddressDependents(input: ResourceRef, log: RequestLogger): Promise<void> {
+  const project = await loadProject(input);
+  if (project.isErr()) return;
+  const rolled = await redeployAndFanOut(
+    input.projectId,
+    input.resourceId,
+    project.value.slug,
+    log,
+  );
+  if (rolled.isErr()) {
+    log.set({ domainRepublish: { resourceId: input.resourceId, error: rolled.error.message } });
+  }
+}
 
 export async function addServiceDomain(
   input: ResourceRef & { domain: string; port?: number },
@@ -133,6 +166,7 @@ export async function addServiceDomain(
     });
   }
   if (route.enabled) await reconcile(log);
+  await republishAddressDependents(input, log);
 
   log.set({
     domain: { action: "add", domain, dnsState: reachability.state, port: upstreamPort.value, live },
@@ -229,7 +263,10 @@ export async function setPrimaryServiceDomain(
   await setServicePublicDomain(input.resourceId, updated.domain);
 
   // No reconcile: the routed host set is unchanged, only which one we
-  // advertise as canonical.
+  // advertise as canonical. A redeploy IS needed even so — `PUBLIC_URL` and
+  // `DOMAIN` export the PRIMARY host, so promoting a different route changes
+  // the address every dependent resolves.
+  await republishAddressDependents(input, log);
   log.set({ domain: { action: "set-primary", domain: updated.domain } });
   return Result.ok(toDomainView(updated, await serverIpFor(input)));
 }
@@ -263,6 +300,7 @@ export async function removeServiceDomain(
 
   // The removed host was (possibly) live; re-render to stop serving it.
   await reconcile(log);
+  await republishAddressDependents(input, log);
   log.set({ domain: { action: "remove", domain: route.domain } });
   return Result.ok({ ok: true });
 }
