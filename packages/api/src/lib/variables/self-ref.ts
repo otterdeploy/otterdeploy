@@ -19,7 +19,7 @@ import { extractRefs, type RefToken } from "./parser";
 
 /** Exports a service can read about ITSELF without touching its env bag.
  *  Kept in step with `serviceExports` in ./exporters.ts. */
-export const COMPUTED_SERVICE_EXPORTS: ReadonlySet<string> = new Set([
+const COMPUTED_SERVICE_EXPORTS: ReadonlySet<string> = new Set([
   "HOST",
   "PORT",
   "URL",
