@@ -1,6 +1,7 @@
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
+import { extendsFileRefs, resolveSiblingPath } from "@otterdeploy/api/stack/compose/extends";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
 import { db } from "@otterdeploy/db";
@@ -99,7 +100,13 @@ export async function runComposeBuild(
       catch: (cause) => new BuildStepError({ step: "read-compose", cause }),
     });
 
-    const parsed = parseCompose(content);
+    // `extends: { file: ... }` bases live next to the compose file in the same
+    // checkout, so unlike the wizard's preview this call CAN resolve them.
+    // Upstream stacks that are almost entirely `extends` (PostHog's hobby file)
+    // parse to nothing without this.
+    const siblings = await readExtendsFiles(join(workDir, subdir), { path: found, content }, sink);
+
+    const parsed = parseCompose(content, { files: siblings });
     if (parsed.isErr()) {
       return Result.err(
         new BuildStepError({
@@ -118,6 +125,22 @@ export async function runComposeBuild(
     const builtImages: Record<string, string> = {};
     for (const svc of parsed.value.services) {
       if (!svc.build) continue;
+      // A service may declare BOTH a published `image` and a `build` context —
+      // upstream projects do it so contributors can build locally while
+      // everyone else pulls. When the context isn't in this checkout the build
+      // cannot run at all, and failing the deploy would be the wrong answer
+      // while a perfectly good image ref sits right there. Compose behaves the
+      // same way on `up`: the image wins when it resolves.
+      //
+      // Deliberately narrow. A context that DOES exist is still built, so an
+      // app repo that names its own output image (`image: myapp:latest`,
+      // `build: .`) keeps deploying its own code.
+      if (svc.image && !existsSync(join(workDir, subdir, svc.build.context))) {
+        sink.system(
+          `${svc.name}: build context "${svc.build.context}" not in this repo; using declared image ${svc.image}`,
+        );
+        continue;
+      }
       builtImages[svc.name] = yield* await buildComposeService({
         serviceName: svc.name,
         build: svc.build,
@@ -196,4 +219,53 @@ export async function runComposeBuild(
 
     return Result.ok(ctx.compose.stackName);
   });
+}
+
+/**
+ * Load every compose file reachable from the entry file through
+ * `extends: { file }`, keyed by path relative to the entry file's own
+ * directory — the spelling `parseCompose`'s `files` option looks them up by.
+ *
+ * Breadth-first because a base file may extend a third; `seen` keeps a diamond
+ * (twenty services extending one base, which extends another) to one read each
+ * and stops a cyclic include from looping here rather than in the resolver.
+ *
+ * Best-effort by design: an unreadable base is skipped, and `parseCompose` then
+ * reports it as the precise "extends the file X, which was not provided" error
+ * against the service that wanted it. That names the service and the path,
+ * which a bare read failure surfaced from here could not.
+ */
+async function readExtendsFiles(
+  dir: string,
+  entry: { path: string; content: string },
+  sink: LogSink,
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const seen = new Set<string>([entry.path]);
+  let frontier = [entry];
+
+  while (frontier.length > 0) {
+    const next: Array<{ path: string; content: string }> = [];
+    for (const file of frontier) {
+      for (const ref of extendsFileRefs(file.content)) {
+        const path = resolveSiblingPath(file.path, ref);
+        if (seen.has(path)) continue;
+        seen.add(path);
+        // A missing base is not this walker's error to raise (see above), so
+        // the Result is inspected and dropped rather than propagated.
+        const read = await Result.tryPromise({
+          try: () => readFile(join(dir, path), "utf8"),
+          catch: (cause) => cause,
+        });
+        if (read.isErr()) {
+          sink.system(`compose: could not read extends target "${path}"`);
+          continue;
+        }
+        out[path] = read.value;
+        next.push({ path, content: read.value });
+      }
+    }
+    frontier = next;
+  }
+  return out;
 }
