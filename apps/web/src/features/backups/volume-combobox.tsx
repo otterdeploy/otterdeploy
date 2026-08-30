@@ -93,13 +93,13 @@ export function VolumeCombobox({
                 }}
                 className="gap-2"
               >
-                <span className="truncate font-mono text-[13px]">{v.name}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{v.name}</span>
                 {v.sizeBytes >= 0 && (
                   <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                     {fmtBytes(v.sizeBytes)}
                   </span>
                 )}
-                <Badge variant="secondary" className="ml-auto shrink-0 font-normal">
+                <Badge variant="secondary" className="shrink-0 font-normal">
                   {volumeTag(v)}
                 </Badge>
               </CommandItem>

@@ -90,8 +90,14 @@ export function DatabaseCombobox({
                 }}
                 className="gap-2"
               >
-                <span className="truncate font-mono text-[13px]">{db.name}</span>
-                <Badge variant="secondary" className="ml-auto shrink-0 font-normal">
+                {/* `flex-1` and NOT `ml-auto` on the badge. CommandItem
+                    appends its checkmark with `ml-auto` after these children,
+                    so a second `ml-auto` here made TWO auto margins split the
+                    free space between them — the badges landed at a different
+                    x on every row, tracking name length. Letting the name take
+                    the slack puts every badge in one column. */}
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{db.name}</span>
+                <Badge variant="secondary" className="shrink-0 font-normal">
                   {db.projectName}
                 </Badge>
               </CommandItem>
