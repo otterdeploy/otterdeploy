@@ -120,9 +120,11 @@ export function MultiSelectCombobox({
                 className="gap-2"
               >
                 <Checkbox checked={selected.has(o.value)} className="pointer-events-none" />
-                <span className={cn("truncate text-[13px]", o.mono && "font-mono")}>{o.label}</span>
+                <span className={cn("min-w-0 flex-1 truncate text-[13px]", o.mono && "font-mono")}>
+                  {o.label}
+                </span>
                 {o.tag ? (
-                  <Badge variant="secondary" className="ml-auto shrink-0 font-normal">
+                  <Badge variant="secondary" className="shrink-0 font-normal">
                     {o.tag}
                   </Badge>
                 ) : null}
