@@ -17,6 +17,7 @@ import {
   verifyBackup,
 } from "../../backups";
 import { activeDestinationIdsFor } from "../../backups/destination-availability";
+import { resolveStackDumpTarget } from "../../backups/stack";
 import { inspectVolume } from "../volumes/service";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
@@ -76,8 +77,21 @@ export const backupsRouter = {
           organizationId: context.activeOrganizationId,
           resourceId: input.resourceId,
         });
-        if (!dbResource) throw errors.INVALID();
-        source = { kind: "database", resourceId: input.resourceId };
+        if (dbResource) {
+          source = { kind: "database", resourceId: input.resourceId };
+        } else {
+          // Not a MANAGED database — but a compose stack's `db` service is a
+          // real database too, and on most installs it is the ONLY one. The
+          // whole dump path already handles it: `resolveStackDumpTarget` reads
+          // the engine off the image and the credentials out of the service's
+          // resolved env, and the engine execs the child's container by
+          // resource-id label exactly as it does for a managed DB. Rejecting
+          // it here was the only thing standing between an operator and a
+          // backup of the data they actually have.
+          const stackTarget = await resolveStackDumpTarget(input.resourceId);
+          if (!stackTarget) throw errors.INVALID();
+          source = { kind: "stack", resourceId: input.resourceId };
+        }
       } else if (input.volumeName) {
         // Volumes are daemon objects with no org column; existence is the
         // gate here, matching the (host-scoped) volumes surface.
