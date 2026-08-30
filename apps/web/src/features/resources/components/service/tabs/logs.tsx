@@ -103,10 +103,11 @@ function useTailFollow(
 
 export function ServiceLogsTab({
   projectId,
-  resourceId,
+  resourceIds,
 }: {
   projectId: string;
-  resourceId: string;
+  /** One id for a service or database; every member's id for a stack. */
+  resourceIds: string[];
 }) {
   const { t } = useTranslation();
   const [paused, setPaused] = useState(false);
@@ -115,7 +116,6 @@ export function ServiceLogsTab({
   const [query, setQuery] = useState("");
   const [lvlFilter, setLvlFilter] = useState<Set<LogLevel>>(() => new Set(LOG_LEVELS));
 
-  const resourceIds = [resourceId];
   const { lines, status, clear } = useProjectLogStream({ projectId, resourceIds, paused });
 
   const needle = query.trim().toLowerCase();
@@ -245,7 +245,15 @@ export function ServiceLogsTab({
               {t("logs.noMatches")}
             </div>
           ) : (
-            visible.map((l) => <LogRow key={l.id} line={l} wrap={wrap} showTs={showTs} />)
+            visible.map((l) => (
+              <LogRow
+                key={l.id}
+                line={l}
+                wrap={wrap}
+                showTs={showTs}
+                showSvc={resourceIds.length > 1}
+              />
+            ))
           )}
         </div>
         {!follow && hasOutput && <JumpToLatest onClick={resume} />}

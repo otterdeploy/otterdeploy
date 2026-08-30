@@ -106,6 +106,9 @@ export interface ComposeServiceInfo {
   resourceId?: string;
   /** How many times this service has restarted (0/undefined → hide the badge). */
   restarts?: number;
+  /** The word + why for this member, in the app's one vocabulary. */
+  statusLabel?: string;
+  statusWhy?: string;
 }
 
 export interface GitInfo {
@@ -191,6 +194,13 @@ export interface ResourceNodeData extends UnknownRecord {
    *  the stack header renders the brand tile in place of the generic icon. */
   logoBrand?: string;
   status?: ResourceStatus;
+  /** The word for `status` in the app's one vocabulary ("crashed", "queued",
+   *  "unhealthy"), when it is more specific than the status itself. */
+  statusLabel?: string;
+  /** Why: "exited 1 · 3 restarts". The line the card was missing. */
+  statusWhy?: string;
+  /** Deploy in flight: which phase, and how far along, for the progress bar. */
+  buildPhase?: { label: string; fraction: number };
   /** Latest deployment timestamps: the header shows the live build/deploy
    *  duration while the node is building (`finishedAt` null = still in flight). */
   latestDeploymentStartedAt?: string | null;

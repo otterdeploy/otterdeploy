@@ -27,17 +27,19 @@
  * Children reach it via {@link useGraphPanelClose}.
  */
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useReactFlow } from "@xyflow/react";
 import * as m from "motion/react-client";
 
 import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
-import { PanelWidthProvider } from "@/features/resources/components/_shared/panel-width";
+import { PanelWidthProvider, usePanelWidth } from "@/features/resources/components/_shared/panel-width";
 import { cn } from "@/shared/lib/utils";
+
+import { focusNodeInView } from "./graph-camera";
 
 const noop = () => {};
 
@@ -61,6 +63,62 @@ export function useGraphPanelClose(): () => void {
 export function GraphPanelPending() {
   const close = useGraphPanelClose();
   return <ResourcePanelSkeleton onClose={close} />;
+}
+
+/** Keys pressed inside a field belong to the field. */
+function inEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT")
+  );
+}
+
+/**
+ * Expand is a morph, not a mode you get lost in.
+ *
+ * `\` toggles the width (the header's ⤢ does the same). Collapsing re-centres
+ * the open resource's card in the strip of canvas that comes back, so the
+ * thing you were operating on is where you left it, not wherever the camera
+ * drifted while the drawer covered it. Expanding hides the graph on purpose:
+ * logs, terminal and the compose editor get everything, one keystroke from
+ * having it back.
+ */
+function WidthBehaviour() {
+  const width = usePanelWidth();
+  const { getNodes, setCenter } = useReactFlow();
+  const params = useParams({ strict: false });
+  const resourceId = params.resourceId;
+  const wasExpanded = useRef(width?.expanded ?? false);
+
+  useEffect(() => {
+    if (!width) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "\\" || e.metaKey || e.ctrlKey || e.altKey || inEditable(e.target)) return;
+      e.preventDefault();
+      width.toggle();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [width]);
+
+  useEffect(() => {
+    const expanded = width?.expanded ?? false;
+    if (wasExpanded.current && !expanded && resourceId) {
+      // The node whose panel is open: by real id, or by the ghost's node id.
+      const node = getNodes().find(
+        (n) => n.data.resourceId === resourceId || n.id === resourceId,
+      );
+      // After the width transition, so the centre is measured against the
+      // strip that is actually there.
+      if (node) window.setTimeout(() => focusNodeInView(node, setCenter), 320);
+    }
+    wasExpanded.current = expanded;
+  }, [width?.expanded, resourceId, getNodes, setCenter]);
+
+  return null;
 }
 
 export function GraphPanelShell({
@@ -116,12 +174,16 @@ export function GraphPanelShell({
             "sm:rounded-lg sm:rounded-tr-none sm:border sm:border-r-0",
             // Expanded takes the canvas: the graph is one collapse away, and
             // the width only pays for itself if the pane actually gets it.
-            // Width is a plain class change, so the drawer's own spring
-            // animates the resize rather than a second transition of its own.
+            // The width MORPHS: same panel, same URL, nothing re-mounts. The
+            // slide-in/out is the spring above; the resize is this transition.
+            "transition-[width] duration-300 ease-out motion-reduce:transition-none",
             expanded ? "lg:w-full xl:w-full" : "lg:w-4/5 xl:w-3/5",
           )}
         >
-          <GraphPanelCloseContext.Provider value={close}>{inner}</GraphPanelCloseContext.Provider>
+          <GraphPanelCloseContext.Provider value={close}>
+            <WidthBehaviour />
+            {inner}
+          </GraphPanelCloseContext.Provider>
         </m.div>
       )}
     >

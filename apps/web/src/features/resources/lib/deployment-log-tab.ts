@@ -26,3 +26,8 @@ export function logTabForStatus(status: string | null | undefined): DeploymentLo
       return "deploy-logs";
   }
 }
+
+/** The same choice as the panel's Logs-tab source. */
+export function logSourceForStatus(status: string | null | undefined): "build" | "deploy" {
+  return logTabForStatus(status) === "build-logs" ? "build" : "deploy";
+}

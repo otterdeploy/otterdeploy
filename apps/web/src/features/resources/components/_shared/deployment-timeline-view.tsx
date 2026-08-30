@@ -12,8 +12,6 @@
  * placeholder that points at the build logs.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import {
   Alert02Icon,
   ArrowRight01Icon,
@@ -22,7 +20,6 @@ import {
   InformationCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Link } from "@tanstack/react-router";
 
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
@@ -54,19 +51,16 @@ const PHASE_TEXT: Record<PhaseState, string> = {
   pending: "text-muted-foreground/55",
 };
 
-interface LinkCtx {
-  orgSlug: string;
-  projectSlug: ProjectSlug;
-  resourceId: string;
-  deploymentId: string;
-}
+/** Open this deployment's build or deploy log: a tab switch in the panel
+ *  (the Logs tab with the source + deployment focused), not a route change. */
+type OpenLogs = (source: "build" | "deploy") => void;
 
 export function DeploymentTimelineView({
   deployment,
-  link,
+  onOpenLogs,
 }: {
   deployment: TimelineInput;
-  link: LinkCtx;
+  onOpenLogs: OpenLogs;
 }) {
   const { title, tone, phases, totalMs } = buildTimeline(deployment);
   return (
@@ -89,14 +83,14 @@ export function DeploymentTimelineView({
         )}
       </div>
       {phases.map((phase) => (
-        <PhaseRow key={phase.key} phase={phase} link={link} />
+        <PhaseRow key={phase.key} phase={phase} onOpenLogs={onOpenLogs} />
       ))}
-      {(tone === "failed" || tone === "degraded") && <DiagnoseRow link={link} />}
+      {(tone === "failed" || tone === "degraded") && <DiagnoseRow onOpenLogs={onOpenLogs} />}
     </div>
   );
 }
 
-function PhaseRow({ phase, link }: { phase: Phase; link: LinkCtx }) {
+function PhaseRow({ phase, onOpenLogs }: { phase: Phase; onOpenLogs: OpenLogs }) {
   return (
     <div
       className={cn(
@@ -114,20 +108,14 @@ function PhaseRow({ phase, link }: { phase: Phase; link: LinkCtx }) {
             <div className="font-mono text-[11.5px] break-all whitespace-pre-wrap text-destructive/90">
               {phase.detail}
             </div>
-            <Link
-              to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
-              params={{
-                orgSlug: link.orgSlug,
-                projectSlug: link.projectSlug,
-                resourceId: link.resourceId,
-                deploymentId: link.deploymentId,
-              }}
-              search={(prev) => ({ ...prev, deploymentTab: "build-logs" })}
+            <button
+              type="button"
+              onClick={() => onOpenLogs(phase.key === "run" || phase.key === "deploy" ? "deploy" : "build")}
               className="inline-flex w-fit items-center gap-1 text-[11.5px] text-primary underline-offset-2 hover:underline"
             >
-              View the build logs for more detail
+              View the {phase.key === "run" || phase.key === "deploy" ? "deploy" : "build"} logs for more detail
               <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
-            </Link>
+            </button>
           </div>
         )}
       </div>
@@ -141,7 +129,7 @@ function PhaseRow({ phase, link }: { phase: Phase; link: LinkCtx }) {
 /** Diagnose affordance. Honest placeholder until the diagnose endpoint lands
  *  (bd od-y64.13): it names the action and routes to the real build logs, the
  *  best failure signal we have today, rather than faking an AI result. */
-function DiagnoseRow({ link }: { link: LinkCtx }) {
+function DiagnoseRow({ onOpenLogs }: { onOpenLogs: OpenLogs }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-2.5">
       <div className="flex items-center gap-2.5">
@@ -154,19 +142,13 @@ function DiagnoseRow({ link }: { link: LinkCtx }) {
           Read the build logs to understand why this deployment failed.
         </span>
       </div>
-      <Link
-        to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
-        params={{
-          orgSlug: link.orgSlug,
-          projectSlug: link.projectSlug,
-          resourceId: link.resourceId,
-          deploymentId: link.deploymentId,
-        }}
-        search={(prev) => ({ ...prev, deploymentTab: "build-logs" })}
+      <button
+        type="button"
+        onClick={() => onOpenLogs("build")}
         className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         View build logs
-      </Link>
+      </button>
     </div>
   );
 }

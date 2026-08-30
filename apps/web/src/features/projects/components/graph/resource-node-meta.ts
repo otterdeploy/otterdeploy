@@ -14,6 +14,7 @@ import {
   ServerStack01Icon,
 } from "@hugeicons/core-free-icons";
 
+import { memberState, stackState } from "@/features/resources/lib/resource-state";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
 import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
@@ -194,23 +195,23 @@ export function pendingBadge(pending: PendingMark): {
 export function stackRollup(services: ComposeServiceInfo[]): {
   summary: string;
   tone: "running" | "building" | "error" | "offline";
+  /** The members that are not running, by name: "postiz-app crashed,
+   *  temporal offline". The count says how many; this says which. */
+  why: string | null;
 } {
-  const total = services.length;
-  const running = services.filter((s) => s.status === "running").length;
-  const anyError = services.some((s) => s.status === "error");
-  // Anything in flight, including the members this deploy has not reached yet:
-  // a stack whose services are all queued is still deploying, not "0/4 running".
-  const anyBuilding = services.some(
-    (s) =>
-      s.status === "building" ||
-      s.status === "deploying" ||
-      s.status === "queued" ||
-      s.status === "pending",
+  // The same rollup the stack panel header and the member strip show
+  // (resource-state.ts stackState), so the three cannot disagree.
+  const state = stackState(
+    services.map((s) => ({
+      name: s.name,
+      state: memberState(s.status, { hasBuild: s.hasBuild }),
+    })),
   );
-  if (anyError) return { summary: `${running}/${total} running`, tone: "error" };
-  if (anyBuilding) return { summary: "Deploying…", tone: "building" };
-  if (total > 0 && running === total) return { summary: "All running", tone: "running" };
-  return { summary: `${running}/${total} running`, tone: "offline" };
+  const tone =
+    state.tone === "running" || state.tone === "building" || state.tone === "error"
+      ? state.tone
+      : "offline";
+  return { summary: state.label, tone, why: state.why };
 }
 
 export const stackToneClass: Record<

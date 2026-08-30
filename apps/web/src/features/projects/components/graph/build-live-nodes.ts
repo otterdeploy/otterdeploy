@@ -14,6 +14,7 @@ import {
   resourceToNode,
   type ProjectResource,
 } from "@/features/projects/components/graph/resource-to-node";
+import { memberState, taskWhy } from "@/features/resources/lib/resource-state";
 
 type Resource = ProjectResource;
 type ServiceResource = Extract<Resource, { type: "service" }>;
@@ -31,6 +32,9 @@ export interface Task {
    *  plain Docker → the container's own `RestartCount`; swarm → 1 for each
    *  retired task (each restart spawns a fresh one). Summed per service. */
   restarts?: number;
+  /** What the container said when it died: the why line reads these. */
+  exitCode?: number | null;
+  error?: string | null;
 }
 
 /** A swarm task the scheduler has retired. Excluded from the live status/replica
@@ -62,14 +66,25 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode => {
   if (tasks.length === 0) return node;
   const live = tasks.filter((t) => !isRetired(t));
   const restarts = restartCount(tasks);
+  // Fall back to all tasks when everything's retired (the service is down).
+  const status = rollupStatus(live.length > 0 ? live : tasks);
+  const why = taskWhy(tasks);
+  // A deploy in flight keeps its phase word and bar; otherwise the tasks
+  // decide: a dead task with an exit code is "crashed", and says so.
+  const inFlight = node.data.buildPhase != null;
   return {
     ...node,
     data: {
       ...node.data,
-      // Fall back to all tasks when everything's retired (the service is down).
-      status: rollupStatus(live.length > 0 ? live : tasks),
+      status,
       replicas: live.map((t) => ({ label: t.label, status: t.state })),
       ...(restarts > 0 ? { restarts } : {}),
+      ...(inFlight
+        ? {}
+        : {
+            statusLabel: status === "error" ? "crashed" : status,
+            ...(why ? { statusWhy: why } : {}),
+          }),
     },
   };
 };
@@ -259,17 +274,23 @@ export const buildLiveNodes = (
         const all = tasksByResourceId.get(c.resourceId) ?? [];
         const live = all.filter((t) => !isRetired(t));
         const restarts = restartCount(all);
+        const hasBuild = c.source === "git";
+        const status = childServiceStatus(c, live.length > 0 ? live : all, stackBase);
+        // The same word + why the member strip and the stack panel show.
+        const state = memberState(status, { hasBuild, tasks: all });
         return {
           name: c.name,
           image: c.image,
-          hasBuild: c.source === "git",
+          hasBuild,
           volumes,
           // Real resource id → the card opens that service's full panel.
           resourceId: c.resourceId,
           // The stack has no single host. Each member answers for itself, so
           // the Visit affordance lives on the member row.
           publicUrl: c.publicEnabled ? c.publicDomain : null,
-          status: childServiceStatus(c, live.length > 0 ? live : all, stackBase),
+          status,
+          statusLabel: state.label,
+          ...(state.why ? { statusWhy: state.why } : {}),
           ...(restarts > 0 ? { restarts } : {}),
         };
       };

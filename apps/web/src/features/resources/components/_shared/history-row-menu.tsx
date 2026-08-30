@@ -4,17 +4,14 @@
  * built image). Split out of `deployment-cards.tsx` for file size.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { useState } from "react";
 
 import { MoreHorizontalCircle01Icon, PlayIcon, RotateLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import { logTabForStatus } from "@/features/resources/lib/deployment-log-tab";
+import { logSourceForStatus } from "@/features/resources/lib/deployment-log-tab";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -26,6 +23,7 @@ import {
 import { orpc } from "@/shared/server/orpc";
 
 import type { DeploymentInfo } from "./deployment-cards";
+import type { PanelFocus } from "./panel-tab";
 
 /** A past deployment can be rolled back to when it's a settled successful
  *  deploy with a real built image (not a `pending:` placeholder). */
@@ -39,20 +37,19 @@ function isRollbackable(d: DeploymentInfo): boolean {
 
 export function HistoryRowMenu({
   deployment,
-  orgSlug,
-  projectSlug,
   projectId,
   resourceId,
   canRollback,
+  focus,
 }: {
   deployment: DeploymentInfo;
-  orgSlug: string;
-  projectSlug: ProjectSlug;
   projectId: string;
   resourceId: string;
   canRollback: boolean;
+  /** "View logs" switches the panel to its Logs tab with this deployment's
+   *  build or deploy log focused. */
+  focus: PanelFocus;
 }) {
-  const navigate = useNavigate();
   const deploymentId = deployment.id;
   // Styled confirm (not typed, rollback is recoverable: roll forward again
   // from this same history). Controlled state because selecting the menu item
@@ -96,18 +93,10 @@ export function HistoryRowMenu({
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem
             onClick={() =>
-              navigate({
-                to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
-                params: {
-                  orgSlug,
-                  projectSlug,
-                  resourceId,
-                  deploymentId,
-                },
-                search: (prev) => ({
-                  ...prev,
-                  deploymentTab: logTabForStatus(deployment.status),
-                }),
+              focus.set({
+                tab: "logs",
+                deployment: deploymentId,
+                logSource: logSourceForStatus(deployment.status),
               })
             }
           >

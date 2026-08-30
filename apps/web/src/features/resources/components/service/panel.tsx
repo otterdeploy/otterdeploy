@@ -14,6 +14,7 @@ import { useState } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 
 import { PublicHostLink } from "@/shared/components/public-host-link";
 
@@ -21,11 +22,14 @@ import type { PanelTabDef } from "../_shared/panel-tabs-layout";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
 import { PanelTabsChrome } from "../_shared/panel-tabs-layout";
+import { StackMemberStrip } from "../_shared/stack-member-strip";
+import { useStackMembers } from "../_shared/use-stack-members";
 import { ServicePanelBody } from "./panel-body";
 import { ServicePanelHeader } from "./panel-parts";
 import { replicaSummary } from "./service-status";
 import { useLiveService, usePauseControl } from "./use-live-service";
 import { useServiceRuntimeActions } from "./use-service-runtime-actions";
+import { useServiceState } from "./use-service-state";
 
 type ServiceTab =
   | "overview"
@@ -52,7 +56,12 @@ interface ServiceResourcePanelProps {
     // Stored build config (railpack/dockerfile/…), as the contract's
     // discriminated union; the Settings tab's build card switches on `builder`.
     buildConfig?: BuildConfig | null;
+    /** The stack this service belongs to, when it is a compose member. Drives
+     *  the member strip (siblings, one click away). */
+    stackId?: string | null;
   };
+  /** For the strip's switcher ("Go to… in <project>"). */
+  projectName: string;
   /** Detected framework for git-sourced services: drives the header tile's
    *  brand mark so the drawer matches the graph node. Null when undetected
    *  or for image-sourced services. */
@@ -73,16 +82,21 @@ interface ServiceResourcePanelProps {
   /** Where this resource sits, built once by the panel dispatcher so every
    *  kind renders the same crumb. */
   crumb: PanelCrumb;
+  /** Deployment focus + log source, also from the URL. */
+  focus: PanelFocus;
 }
 
+// ONE order for every kind: overview · deployments · logs · variables ·
+// settings, then whatever this kind appends. A stack, a service and a database
+// used to each have their own order and their own names for the same tab.
 const SERVICE_TABS: readonly ServiceTab[] = [
   "overview",
   "deployments",
-  "metrics",
   "logs",
   "variables",
-  "terminal",
   "settings",
+  "metrics",
+  "terminal",
 ];
 
 // Tabs that mean anything for a staged-create ghost: no container, tasks,
@@ -96,17 +110,18 @@ function serviceTabs(pending: boolean): PanelTabDef[] {
   return [
     { value: "overview", label: "Overview", disabled: pending },
     { value: "deployments", label: "Deployments", disabled: pending },
-    { value: "metrics", label: "Metrics", disabled: pending },
     { value: "logs", label: "Logs", disabled: pending },
     { value: "variables", label: "Variables" },
-    { value: "terminal", label: "Terminal", disabled: pending },
     { value: "settings", label: "Settings" },
+    { value: "metrics", label: "Metrics", disabled: pending },
+    { value: "terminal", label: "Terminal", disabled: pending },
   ];
 }
 
 export function ServiceResourcePanel({
   crumb,
   resource,
+  projectName,
   framework,
   orgSlug,
   projectSlug,
@@ -114,6 +129,7 @@ export function ServiceResourcePanel({
   pending = false,
   tab: tabParam,
   onTabChange,
+  focus,
 }: ServiceResourcePanelProps) {
   const tab = resolvePanelTab(
     tabParam,
@@ -144,12 +160,24 @@ export function ServiceResourcePanel({
     resourceId: resource.resourceId,
     service,
   });
+  // The one state every surface in this panel reads. Runtime-derived, never
+  // the schema row (see use-service-state).
+  const state = useServiceState({
+    projectId: resource.projectId,
+    resourceId: resource.resourceId,
+    service,
+    pending,
+  });
+  const stack = useStackMembers({
+    projectId: resource.projectId,
+    stackResourceId: pending ? null : resource.stackId,
+  });
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <ServicePanelHeader
         resource={resource}
-        status={resource.status}
+        state={state}
         framework={framework}
         pending={pending}
         onClose={onClose}
@@ -194,6 +222,15 @@ export function ServiceResourcePanel({
         }
       />
 
+      <StackMemberStrip
+        orgSlug={orgSlug}
+        projectSlug={projectSlug}
+        projectId={resource.projectId}
+        projectName={projectName}
+        current={{ resourceId: resource.resourceId, name: resource.name, state }}
+        stack={stack}
+      />
+
       <PanelTabsChrome
         value={tab}
         onValueChange={(next) => {
@@ -205,11 +242,12 @@ export function ServiceResourcePanel({
         <ServicePanelBody
           resource={resource}
           framework={framework}
-          orgSlug={orgSlug}
           projectSlug={projectSlug}
           onClose={onClose}
           pending={pending}
           service={service}
+          state={state}
+          focus={focus}
           tab={tab}
           onGoTab={onTabChange}
           logsVisited={logsVisited}

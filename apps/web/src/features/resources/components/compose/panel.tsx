@@ -1,10 +1,15 @@
 /**
  * Detail panel for a `type: compose` stack. A stack is N services deployed as
- * one unit, so the panel answers the three questions a single node can't:
+ * one unit, so the panel answers the questions a single node can't:
+ *   - Overview    → which member is up/down and why, the latest stack deploy.
  *   - Deployments → is it building / did the build fail / where are the logs.
- *   - Services    → how many services, what's in each, which one is up/down.
+ *   - Logs        → every member's output in one tail.
  *   - Compose     → the exact file being deployed (editable for inline stacks).
- *   - Settings    → redeploy the whole stack / delete it.
+ *   - Settings    → delete it.
+ *
+ * A stack and its members are ONE panel: the member strip under the header
+ * moves between them with a `replace` navigation that keeps the tab, so the
+ * stack never has to be found again on the canvas to get back to it.
  *
  * Build progress reuses the same ResourceTasksTab as services/databases.
  * Compose deployments are stored under the compose resourceId, so the
@@ -18,26 +23,25 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
-import type { PanelRailChild } from "@/features/resources/components/_shared/panel-tabs-layout";
+import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
+import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import { clearDeleting, markDeleting } from "@/features/projects/components/graph/deleting-store";
 import { invalidateManifestConsumers } from "@/features/projects/hooks/use-manifest-stage";
 import { orpc } from "@/shared/server/orpc";
 
-import type { ComposeService, StackServiceStatus } from "./panel-parts";
+import type { StackMember } from "../_shared/use-stack-members";
+import type { ComposeService } from "./panel-parts";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
+import { StackMemberStrip } from "../_shared/stack-member-strip";
+import { useStackMembers } from "../_shared/use-stack-members";
 import { ComposePanelHeader } from "./panel-parts";
 import { ComposePanelTabs } from "./panel-tabs-body";
 import { useComposeDraft } from "./use-compose-draft";
-import { useComposeServiceStatus } from "./use-compose-service-status";
 
-type ComposeTab = "deployments" | "services" | "file" | "settings" | "variables";
-
-/** One row of `project.resource.list`: the same union the graph reads. */
-type ProjectResourceRow = ProjectResource;
+type ComposeTab = "overview" | "deployments" | "logs" | "variables" | "settings" | "compose";
 
 interface ComposeResourcePanelProps {
   resource: {
@@ -63,12 +67,14 @@ interface ComposeResourcePanelProps {
     /** Template brand mark (e.g. "Authentik") so the header shows the stack's
      *  logo instead of the generic container icon. */
     logoBrand?: string | null;
-    /** Draft only: the staged compose YAML, so Services/Compose/Variables can
+    /** Draft only: the staged compose YAML, so Overview/Compose/Variables can
      *  show what is about to deploy instead of an empty panel. */
     composeContent?: string | null;
     /** Draft only: staged stack variables, editable before the first deploy. */
     stageEnv?: Record<string, string>;
   };
+  /** For the strip's switcher ("Go to… in <project>"). */
+  projectName: string;
   orgSlug: string;
   projectSlug: ProjectSlug;
   onClose: () => void;
@@ -83,117 +89,82 @@ interface ComposeResourcePanelProps {
   tab?: string;
   /** Report a tab click so the route can write it to the URL. */
   onTabChange: (tab: string) => void;
+  /** Deployment focus + log source, also from the URL. */
+  focus: PanelFocus;
   /** Where this resource sits, built once by the panel dispatcher so every
    *  kind renders the same crumb. */
   crumb: PanelCrumb;
 }
 
+// ONE order for every kind: overview · deployments · logs · variables ·
+// settings, then what a stack appends (its file).
 const COMPOSE_TABS: readonly ComposeTab[] = [
+  "overview",
   "deployments",
-  "services",
+  "logs",
   "variables",
-  "file",
   "settings",
+  "compose",
 ];
 
-// The only tab that means anything for a staged-create ghost: the stack isn't
-// parsed or deployed yet, so deployments/file/settings are disabled below and a
-// URL naming one of them must not select it.
-const COMPOSE_PENDING_TABS: readonly ComposeTab[] = ["services"];
+// What a staged-create ghost can show: the parsed members, the variables it
+// needs before its first deploy, and the file. Deployments/Logs/Settings need a
+// resource row, so a URL naming one of them must not select it.
+const COMPOSE_PENDING_TABS: readonly ComposeTab[] = ["overview", "variables", "compose"];
 
-/**
- * The header pill's `2/2 running`, rolled up from the children.
- *
- * A staged stack has no children running yet, so it reports null and gets no
- * pill at all — `0/2` on something that was never deployed reads as an outage.
- */
-function rollUpChildren(
-  services: { serviceName: string }[],
-  serviceStatus: (serviceName: string) => StackServiceStatus,
-  pending: boolean,
-): { up: number; total: number; anyError: boolean } | null {
-  if (pending) return null;
-  return {
-    up: services.filter((s) => serviceStatus(s.serviceName) === "running").length,
-    total: services.length,
-    anyError: services.some((s) => serviceStatus(s.serviceName) === "error"),
-  };
-}
-
-/** Rail dot per child state, in the graph's own vocabulary. `pending` and
- *  `offline` get no colour: neither has earned one. */
-const RAIL_DOT: Partial<Record<StackServiceStatus, string>> = {
-  running: "bg-success",
-  building: "bg-warning",
-  deploying: "bg-info",
-  error: "bg-destructive",
+const DRAFT_STATE: ResourceState = {
+  tone: "pending",
+  label: "pending",
+  why: "deploys with the next apply",
 };
 
-/**
- * The stack's children as rail entries.
- *
- * Each member is a real service resource, so opening one is the same
- * navigation the canvas does (compose-group-node) rather than local state. The
- * join key is `serviceName`: a child's `name` is collision-suffixed, so it
- * would match the wrong row for a second copy of the same stack. A member with
- * no materialized resource yet (a staged stack) is left out rather than
- * rendered as a dead entry.
- */
-function buildRailChildren(input: {
-  services: ComposeService[];
-  siblings: ProjectResourceRow[] | undefined;
-  stackResourceId: string;
-  serviceStatus: (serviceName: string) => StackServiceStatus;
-  open: (resourceId: string) => void;
-}): PanelRailChild[] {
-  const childIds = new Map(
-    (input.siblings ?? []).flatMap((row) =>
-      row.type === "service" && row.stackId === input.stackResourceId
-        ? [[row.serviceName, row.resourceId]]
-        : [],
-    ),
-  );
-  return input.services.flatMap((service) => {
-    const child = childIds.get(service.serviceName);
-    if (!child) return [];
-    return [
-      {
-        id: service.name,
-        label: service.name,
-        dotClass: RAIL_DOT[input.serviceStatus(service.serviceName)],
-        onOpen: () => {
-          input.open(child);
-        },
-      },
-    ];
-  });
+/** The members of a stack that has never deployed: what the file declares,
+ *  each one pending. */
+function draftMembers(services: ComposeService[]): StackMember[] {
+  return services.map((s) => ({
+    name: s.name,
+    serviceName: s.serviceName,
+    resourceId: null,
+    hasBuild: s.hasBuild,
+    image: s.image,
+    state: DRAFT_STATE,
+  }));
 }
 
 export function ComposeResourcePanel({
   crumb,
   resource,
+  projectName,
   orgSlug,
   projectSlug,
   onClose,
   pending = false,
   tab: tabParam,
   onTabChange,
+  focus,
 }: ComposeResourcePanelProps) {
-  const tab = resolvePanelTab(
-    tabParam,
-    pending ? COMPOSE_PENDING_TABS : COMPOSE_TABS,
-    pending ? "services" : "deployments",
-  );
-
-  // Per-service status: see use-compose-service-status.ts. Reads the EXACT
-  // same source the graph node does, so the node and this panel can never
-  // disagree about what's running.
-  const serviceStatus = useComposeServiceStatus(resource);
+  const tab = resolvePanelTab(tabParam, pending ? COMPOSE_PENDING_TABS : COMPOSE_TABS, "overview");
   const navigate = useNavigate();
-  // Already warmed by the graph page; this is a cache read, not a request.
-  const siblings = useQuery(
-    orpc.project.resource.list.queryOptions({ input: { projectId: resource.projectId } }),
-  );
+
+  // The stack and its members, with each member's state, from the SAME
+  // collections the graph node reads (see use-stack-members). Null while
+  // staged: nothing has a row yet.
+  const stack = useStackMembers({
+    projectId: resource.projectId,
+    stackResourceId: pending ? null : resource.resourceId,
+  });
+  const state: ResourceState | null = pending ? DRAFT_STATE : (stack?.state ?? null);
+
+  // Open a member. `replace`: the drawer is already open, and one history
+  // entry per open is the rule. The tab is kept (Logs → Logs).
+  const openMember = (resourceId: string) => {
+    void navigate({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: { orgSlug, projectSlug, resourceId },
+      search: (prev) => ({ tab: prev.tab }),
+      replace: true,
+    });
+  };
 
   // The raw compose file (inline source) for the read-only viewer. Skipped
   // while pending: there's no resourceId yet to fetch it by.
@@ -215,6 +186,7 @@ export function ComposeResourcePanel({
     composeContent: draftContent,
     liveServices: resource.services,
   });
+  const members: StackMember[] = pending ? draftMembers(services) : (stack?.members ?? []);
 
   const redeploy = useMutation({
     ...orpc.compose.redeploy.mutationOptions(),
@@ -251,19 +223,6 @@ export function ComposeResourcePanel({
     },
   });
 
-  const railChildren = buildRailChildren({
-    services: resource.services,
-    siblings: siblings.data,
-    stackResourceId: resource.resourceId,
-    serviceStatus,
-    open: (resourceId) => {
-      void navigate({
-        to: "/$orgSlug/$projectSlug/graph/$resourceId",
-        params: { orgSlug, projectSlug, resourceId },
-      });
-    },
-  });
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <ComposePanelHeader
@@ -283,7 +242,16 @@ export function ComposeResourcePanel({
         draft={pending}
         redeploying={pending ? applyStaged.isPending : redeploy.isPending}
         crumb={crumb}
-        running={rollUpChildren(services, serviceStatus, pending)}
+        state={state}
+      />
+
+      <StackMemberStrip
+        orgSlug={orgSlug}
+        projectSlug={projectSlug}
+        projectId={resource.projectId}
+        projectName={projectName}
+        current={{ resourceId: resource.resourceId, name: resource.name, state }}
+        stack={stack}
       />
 
       <ComposePanelTabs
@@ -292,10 +260,12 @@ export function ComposeResourcePanel({
         pending={pending}
         resource={resource}
         services={services}
-        serviceStatus={serviceStatus}
-        railChildren={railChildren}
+        members={members}
+        state={state}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
+        focus={focus}
+        onOpenMember={openMember}
         draftContent={draftContent}
         fileLoading={fileQuery.isLoading}
         fileContent={fileQuery.data?.composeContent}

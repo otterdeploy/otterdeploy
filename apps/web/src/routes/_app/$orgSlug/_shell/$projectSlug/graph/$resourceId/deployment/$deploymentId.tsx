@@ -1,7 +1,7 @@
 // oxlint-disable-next-line unicorn/filename-case -- TanStack route-param file; the `$deploymentId.tsx` name is a framework requirement, not a style choice.
 import { useState } from "react";
 
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -17,7 +17,7 @@ import { resourceCollection } from "@/features/resources/data/resource";
 
 import { CancelDeploymentButton } from "@/features/deployments/components/cancel-deployment-button";
 import { useEscapeKey } from "@/shared/hooks/use-escape-key";
-import { DeploymentStatusDot } from "./-components/deployment-detail";
+import { DeploymentStatusDot } from "@/features/resources/components/_shared/deployment-detail";
 import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-components/deployment-tabs";
 
 import * as z from "zod";
@@ -37,11 +37,43 @@ const searchSchema = z.object({
 
 
 
+/**
+ * Deployments live INSIDE the resource panel now (expanded on its Deployments
+ * tab, with the build/deploy log as a source of its Logs tab), so this overlay
+ * is retired for base deployments: an old link redirects to the panel with the
+ * deployment focused. Preview deployments still come here. A preview row is
+ * `previewId`-scoped and not in the panel's collection, so the overlay stays
+ * their home until the panel learns preview scope.
+ */
+function panelSearchFor(deploymentTab: DeploymentTab, deploymentId: string) {
+  switch (deploymentTab) {
+    case "build-logs":
+      return { tab: "logs", deployment: deploymentId, logSource: "build" as const };
+    case "deploy-logs":
+      return { tab: "logs", deployment: deploymentId, logSource: "deploy" as const };
+    default:
+      return { tab: "deployments", deployment: deploymentId };
+  }
+}
+
 export const Route = createFileRoute(
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/$deploymentId",
 )({
   staticData: { crumb: "Deployment" },
   validateSearch: searchSchema,
+  beforeLoad: ({ params, search }) => {
+    if (search.previewId) return;
+    throw redirect({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: {
+        orgSlug: params.orgSlug,
+        projectSlug: params.projectSlug,
+        resourceId: params.resourceId,
+      },
+      search: panelSearchFor(search.deploymentTab, params.deploymentId),
+      replace: true,
+    });
+  },
   component: RouteComponent,
 });
 

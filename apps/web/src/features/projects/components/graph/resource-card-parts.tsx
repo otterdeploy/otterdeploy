@@ -23,32 +23,70 @@ import { VisitPill } from "./visit-pill";
 const badgeBase =
   "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium";
 
-/** Header: brand/framework/kind tile, name + kind label, and the pending or
- *  status pill on the right. */
-/** Right-side column of the card header: the pending or runtime status pill,
- *  and (while a build/deploy is in flight) the live elapsed duration under it. */
-function HeaderStatus({ data }: { data: ResourceNodeData }) {
+/** A deploy in flight: which phase, how far, how long. Progress on the
+ *  canvas, not three layers deep in a panel. */
+function BuildProgress({
+  phase,
+  duration,
+}: {
+  phase: { label: string; fraction: number };
+  duration: string | null;
+}) {
+  return (
+    <div className="flex w-full flex-col items-end gap-1">
+      <span className="font-mono text-[10.5px] text-muted-foreground tabular-nums">
+        {phase.label}
+        {duration ? ` · ${duration}` : ""}
+      </span>
+      <span aria-hidden className="block h-[3px] w-24 overflow-hidden rounded-full bg-muted">
+        <span
+          className="block h-full rounded-full bg-warning transition-[width] duration-500"
+          style={{ width: `${Math.round(phase.fraction * 100)}%` }}
+        />
+      </span>
+    </div>
+  );
+}
+
+/** The pending badge, or the status pill with its word. */
+function HeaderPill({ data }: { data: ResourceNodeData }) {
+  if (data.pending) return <PendingBadge pending={data.pending} />;
   const status = data.status ? statusMeta[data.status] : null;
+  if (!status) return null;
+  return (
+    <span className={cn(badgeBase, status.pillClass)}>
+      <span className={cn("size-1.5 rounded-full", status.dotClass)} />
+      {data.statusLabel ?? status.label}
+    </span>
+  );
+}
+
+/** Right-side column of the card header: the pending or runtime status pill,
+ *  then either the deploy's progress or the why ("exited 1 · 3 restarts"). */
+function HeaderStatus({ data }: { data: ResourceNodeData }) {
   // Live build/deploy duration. Ticks while the node is building.
   const buildDuration = useLiveDuration(
     data.latestDeploymentStartedAt,
     data.latestDeploymentFinishedAt,
   );
-  const showDuration = data.status === "building" && buildDuration;
+  const phase =
+    !data.pending && (data.status === "building" || data.status === "queued")
+      ? data.buildPhase
+      : undefined;
+  const why = !phase && !data.pending ? data.statusWhy : undefined;
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      {data.pending ? (
-        <PendingBadge pending={data.pending} />
-      ) : status ? (
-        <span className={cn(badgeBase, status.pillClass)}>
-          <span className={cn("size-1.5 rounded-full", status.dotClass)} />
-          {status.label}
-        </span>
-      ) : null}
-      {showDuration && (
-        <span className="font-mono text-[10.5px] text-muted-foreground tabular-nums">
-          {buildDuration}
+    <div className="flex max-w-[55%] flex-col items-end gap-1">
+      <HeaderPill data={data} />
+      {phase && (
+        <BuildProgress phase={phase} duration={data.status === "building" ? buildDuration : null} />
+      )}
+      {why && (
+        <span
+          className="max-w-full truncate text-right text-[10.5px] text-muted-foreground"
+          title={why}
+        >
+          {why}
         </span>
       )}
       {data.restarts != null && data.restarts > 0 && (

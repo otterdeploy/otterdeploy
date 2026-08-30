@@ -10,6 +10,7 @@ import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import { useQuery } from "@tanstack/react-query";
 
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 
 import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
 import { orpc } from "@/shared/server/orpc";
@@ -39,6 +40,8 @@ interface PanelChromeProps {
    *  the URL rather than owning tab state: see _shared/panel-tab.ts. */
   tab?: string;
   onTabChange: (tab: string) => void;
+  /** Deployment focus + log source from the URL. See _shared/panel-tab.ts. */
+  focus: PanelFocus;
 }
 
 /**
@@ -75,6 +78,7 @@ function AppliedResourcePanel({
   projectSlug,
   tab,
   onTabChange,
+  focus,
   onClose,
 }: PanelChromeProps & { resource: LiveResource }) {
   if (resource.type === "database") {
@@ -88,6 +92,7 @@ function AppliedResourcePanel({
         onClose={onClose}
         tab={tab}
         onTabChange={onTabChange}
+        focus={focus}
       />
     );
   }
@@ -109,11 +114,13 @@ function AppliedResourcePanel({
         // graph node uses, read straight off the stored resource record
         // (detected at build time). No git-API call when the panel opens.
         framework={resource.framework ?? null}
+        projectName={project.name}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
         tab={tab}
         onTabChange={onTabChange}
+        focus={focus}
       />
     );
   }
@@ -121,11 +128,13 @@ function AppliedResourcePanel({
     <ComposeResourcePanel
       resource={resource}
       crumb={buildCrumb({ project, orgSlug, projectSlug, resourceId: resource.resourceId })}
+      projectName={project.name}
       orgSlug={orgSlug}
       projectSlug={projectSlug}
       onClose={onClose}
       tab={tab}
       onTabChange={onTabChange}
+      focus={focus}
     />
   );
 }
@@ -143,6 +152,7 @@ function DraftResourcePanel({
   projectSlug,
   tab,
   onTabChange,
+  focus,
   onClose,
 }: PanelChromeProps & { resourceId: string }) {
   const manifest = useQuery(
@@ -159,11 +169,13 @@ function DraftResourcePanel({
         resource={draftService}
         crumb={buildCrumb({ project, orgSlug, projectSlug })}
         framework={null}
+        projectName={project.name}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
         tab={tab}
         onTabChange={onTabChange}
+        focus={focus}
         pending
       />
     );
@@ -180,6 +192,7 @@ function DraftResourcePanel({
         onClose={onClose}
         tab={tab}
         onTabChange={onTabChange}
+        focus={focus}
         pending
         dbName={pendingName}
       />
@@ -191,11 +204,13 @@ function DraftResourcePanel({
       <ComposeResourcePanel
         resource={draftCompose}
         crumb={buildCrumb({ project, orgSlug, projectSlug })}
+        projectName={project.name}
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
         tab={tab}
         onTabChange={onTabChange}
+        focus={focus}
         pending
       />
     );
@@ -215,6 +230,7 @@ export function ResourcePanel({
   projectSlug,
   tab,
   onTabChange,
+  focus,
   onClose,
 }: {
   resource: LiveResource | null;
@@ -232,9 +248,10 @@ export function ResourcePanel({
    *  puts a clicked tab back into the URL. */
   tab?: string;
   onTabChange: (tab: string) => void;
+  focus: PanelFocus;
   onClose: () => void;
 }) {
-  const chrome = { project, orgSlug, projectSlug, onClose, tab, onTabChange };
+  const chrome = { project, orgSlug, projectSlug, onClose, tab, onTabChange, focus };
   if (resource) {
     return <AppliedResourcePanel resource={resource} {...chrome} />;
   }

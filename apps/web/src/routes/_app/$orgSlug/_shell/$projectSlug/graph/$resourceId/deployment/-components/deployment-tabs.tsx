@@ -12,12 +12,12 @@ import {
 import {
   DeploymentDetailsBody,
   type DeploymentRow,
-} from "./deployment-detail";
+} from "@/features/resources/components/_shared/deployment-detail";
 import {
   BuildLogsBody,
   DeploymentLogsBody,
   NotImplementedTab,
-} from "./deployment-logs";
+} from "@/features/resources/components/_shared/deployment-logs";
 
 
 export  const DEPLOYMENT_TABS = [

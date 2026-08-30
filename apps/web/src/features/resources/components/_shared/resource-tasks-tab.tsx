@@ -6,13 +6,13 @@
  * task progression + container logs. The cards/rows live in `deployment-cards`.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { ContainerIcon, EarthIcon, Layers01Icon, ViewOffIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
+
+import type { PanelFocus } from "./panel-tab";
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
@@ -34,14 +34,15 @@ export interface DeploymentStatusHeader {
 interface ResourceTasksTabProps {
   projectId: string;
   resourceId: string;
-  orgSlug: string;
-  projectSlug: ProjectSlug;
   /** Services support one-click image rollback from a past deployment; other
    *  resource kinds (databases, compose) don't. Off by default. */
   canRollback?: boolean;
   statusHeader?: DeploymentStatusHeader;
   /** Resource node data so the active card shows the real service/engine logo. */
   logoNode?: ResourceNodeData;
+  /** Which deployment is focused (expanded), and how to switch the panel to
+   *  its logs. Rides the URL, so a "View logs" link is shareable. */
+  focus: PanelFocus;
 }
 
 function ExposureRow({ header }: { header: DeploymentStatusHeader }) {
@@ -72,11 +73,10 @@ function ExposureRow({ header }: { header: DeploymentStatusHeader }) {
 export function ResourceTasksTab({
   projectId,
   resourceId,
-  orgSlug,
-  projectSlug,
   canRollback = false,
   statusHeader,
   logoNode,
+  focus,
 }: ResourceTasksTabProps) {
   const { data: deployments, status } = useLiveQuery(
     (q) =>
@@ -112,11 +112,10 @@ export function ResourceTasksTab({
             <StagedDeploymentCard
               deployment={active}
               logoNode={logoNode}
-              orgSlug={orgSlug}
-              projectSlug={projectSlug}
               projectId={projectId}
               resourceId={resourceId}
               canRollback={canRollback}
+              focus={focus}
             />
           ) : (
             <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
@@ -145,11 +144,14 @@ export function ResourceTasksTab({
                 <HistoryRow
                   key={d.id}
                   deployment={d}
-                  orgSlug={orgSlug}
-                  projectSlug={projectSlug}
                   projectId={projectId}
                   resourceId={resourceId}
                   canRollback={canRollback}
+                  focus={focus}
+                  expanded={focus.deploymentId === d.id}
+                  onToggle={() =>
+                    focus.set({ deployment: focus.deploymentId === d.id ? null : d.id })
+                  }
                 />
               ))}
             </div>
