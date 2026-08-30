@@ -21,8 +21,10 @@ import { TableCell, TableHead, TableRow } from "@/shared/components/ui/table";
 import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
 
-/** Column header: the one heading style every firewall table uses. */
-export const TH_CLASS =
+/** Column header: the one heading style every firewall table uses. Private,
+ *  because `HeadCells` below is the only way to build a header row — a caller
+ *  reaching for the raw class is a caller about to drift from it. */
+const TH_CLASS =
   "h-9 text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase";
 
 /** Machine-readable cell text (IPs, ASNs, scenarios, origins, paths). */
