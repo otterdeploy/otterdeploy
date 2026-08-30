@@ -37,8 +37,12 @@ export const METRIC_WINDOWS = [
 export type MetricWindowLabel = (typeof METRIC_WINDOWS)[number]["label"];
 
 /** Sampler cadence (apps/server `startMetricsSampler`): live windows refetch
- *  in step with it. */
-export const SAMPLE_INTERVAL_MS = 30_000;
+ *  in step with it.
+ *
+ *  This is the REFETCH cadence only. It is not the spacing of the series —
+ *  the server buckets, and a pass that overruns its tick skips one — so the
+ *  charts take `bucketMs` off the response instead of assuming this. */
+const SAMPLE_INTERVAL_MS = 30_000;
 
 /** Refetch cadence for the non-live windows. */
 export const HISTORY_REFETCH_MS = 5 * 60_000;
@@ -83,6 +87,9 @@ export interface MetricSummary {
 export interface ResourceMetrics {
   rows: MetricRow[];
   summary: MetricSummary;
+  /** Server-side bucket width. Feeds the charts' gap detection: anything
+   *  wider than this is genuinely missing data, not the sampler's cadence. */
+  bucketMs: number;
   isLoading: boolean;
   isError: boolean;
   /** Epoch ms of the last successful fetch. Drives the "updated" caption. */
@@ -114,6 +121,9 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
   });
 
   const points = query.data?.points;
+  // Until the first response lands there is nothing to draw, so the nominal
+  // cadence is a fine stand-in for the bucket width.
+  const bucketMs = (query.data?.bucketSeconds ?? 30) * 1000;
 
   const { rows, summary } = (() => {
     if (!points || points.length === 0) {
@@ -170,6 +180,7 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
   return {
     rows,
     summary,
+    bucketMs,
     isLoading: query.isLoading,
     isError: query.isError,
     updatedAt: query.dataUpdatedAt,

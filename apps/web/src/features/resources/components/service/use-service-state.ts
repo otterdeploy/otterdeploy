@@ -36,9 +36,7 @@ export function useServiceState(input: {
   return serviceState({
     pausedReplicas: service?.pausedReplicas,
     runtime: service?.runtime,
-    latestDeployment: latest
-      ? { status: latest.status, errorMessage: latest.errorMessage }
-      : undefined,
+    latestDeployment: latest ? { status: latest.status } : undefined,
     tasks: taskRows.flatMap((row) => row.tasks),
   });
 }

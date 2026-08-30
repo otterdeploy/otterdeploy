@@ -25,14 +25,44 @@ export interface LongRow {
   value: number | null;
 }
 
+/** Deltas needed before the data's own spacing is worth trusting. Below this,
+ *  an outage IS most of the sample, and reading the cadence off it would
+ *  explain the outage away — a two-point series would never break at all. */
+const MIN_DELTAS_FOR_CADENCE = 4;
+/** A quantile below the middle. A window holding several outages drags the
+ *  median up with it but leaves the lower quarter sitting on the real
+ *  cadence, which is the number we are after. */
+const CADENCE_QUANTILE = 0.25;
+
+/** The series' own spacing between consecutive samples, or 0 when there is
+ *  not enough of it to tell. */
+function observedCadenceMs(rows: readonly TimeRow[]): number {
+  const deltas: number[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const d = rows[i].ts - rows[i - 1].ts;
+    if (d > 0) deltas.push(d);
+  }
+  if (deltas.length < MIN_DELTAS_FOR_CADENCE) return 0;
+  deltas.sort((a, b) => a - b);
+  return deltas[Math.floor(deltas.length * CADENCE_QUANTILE)];
+}
+
 /**
  * Insert an explicit break wherever consecutive samples are further apart than
- * the sampler could have produced.
+ * the series' own cadence could have produced.
  *
  * A straight line across an outage is a measurement we never took. The window
- * is 1.5× the expected interval: tight enough to catch a missed tick, loose
- * enough that ordinary scheduling jitter does not shred the line into
- * fragments.
+ * is 1.5× the interval: tight enough to catch a missed tick, loose enough that
+ * ordinary scheduling jitter does not shred the line into fragments.
+ *
+ * The interval is the LARGER of what the caller expects and what the data
+ * actually shows. A caller's figure is the nominal cadence, and a sampler that
+ * runs slower than nominal made every single pair look like an outage: a
+ * break between every point, each point then its own one-point segment, and a
+ * line renderer draws nothing for those. That is how a working series rendered
+ * as a field of loose dots. Taking the observed median instead keeps genuine
+ * outages breaking — they are far longer than the median, not equal to it —
+ * while a uniformly slow cadence draws as the continuous line it is.
  *
  * Exported for the tests; `toLongRows` applies it.
  */
@@ -42,7 +72,7 @@ export function withGaps<Row extends TimeRow>(
 ): Array<Row | { ts: number; gap: true }> {
   if (expectedIntervalMs <= 0 || rows.length < 2) return [...rows];
 
-  const threshold = expectedIntervalMs * 1.5;
+  const threshold = Math.max(expectedIntervalMs, observedCadenceMs(rows)) * 1.5;
   const out: Array<Row | { ts: number; gap: true }> = [];
   let previous: number | null = null;
 

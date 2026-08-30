@@ -4,7 +4,7 @@ import {
   queryDeployThroughput,
   queryPlatformSeries,
 } from "../../metrics/platform";
-import { queryResourceMetrics } from "../../metrics/query";
+import { chooseResourceBucketSeconds, queryResourceMetrics } from "../../metrics/query";
 import {
   chooseBucketSeconds,
   mergeAggregateBuckets,
@@ -14,13 +14,15 @@ import {
 export const metricsRouter = {
   query: orgScopedProcedure.metrics.query.handler(async ({ input, context }) => {
     context.log.set({ target: { type: "resource", id: input.resourceId } });
+    const bucketSeconds = chooseResourceBucketSeconds(input.windowMinutes);
     const since = new Date(Date.now() - input.windowMinutes * 60 * 1000);
     const points = await queryResourceMetrics({
       organizationId: context.activeOrganizationId,
       resourceId: input.resourceId,
       since,
+      bucketSeconds,
     });
-    return { points };
+    return { points, bucketSeconds };
   }),
 
   // Project-wide CPU/memory series: per-container bucket averages (SQL)

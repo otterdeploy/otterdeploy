@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef } from "react";
 
-import { useMatch, type useRouter } from "@tanstack/react-router";
+import { useMatch, useParams, type useRouter } from "@tanstack/react-router";
 import { useReactFlow, type Node } from "@xyflow/react";
 
 import { CARD_W } from "./laid-out-nodes";
@@ -50,6 +50,44 @@ export function focusNodeInView(node: Node, setCenter: SetCenter): void {
   const shiftRatio = panelWidthRatio() / 2;
   const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
   void setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
+}
+
+/**
+ * Keep the camera on whichever resource the drawer is showing.
+ *
+ * Focusing used to live in the canvas's click handler alone, so the camera
+ * only moved when you clicked a card. Every other way into the panel — the
+ * resource switcher, the stack member strip, the breadcrumb, an activity
+ * link, browser back/forward, a reloaded deep link — left it parked wherever
+ * the last click had put it, showing one resource while the panel described
+ * another.
+ *
+ * Watching the route param covers all of those at once, the click included:
+ * the click navigates, this pans.
+ */
+export function useFocusOpenResource(nodes: Node[], setCenter: SetCenter): void {
+  const params = useParams({ strict: false });
+  const resourceId = params.resourceId;
+  // What we last panned to, so a poll re-rendering `nodes` every five seconds
+  // doesn't re-pan (and fight an operator who has since scrolled away).
+  const focused = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!resourceId) {
+      // Panel closed. Forget, so reopening the same resource pans again
+      // rather than sitting still because it was the last one focused.
+      focused.current = undefined;
+      return;
+    }
+    if (resourceId === focused.current) return;
+    // A staged-create ghost has no resource id yet and is addressed by node id.
+    const node = nodes.find((n) => n.data.resourceId === resourceId || n.id === resourceId);
+    // Not laid out yet (deep link: the panel's route resolves before the
+    // canvas has nodes). Leave `focused` unset so the next render retries,
+    // instead of recording a pan that never happened.
+    if (!node) return;
+    focused.current = resourceId;
+    focusNodeInView(node, setCenter);
+  }, [resourceId, nodes, setCenter]);
 }
 
 /** Preload a node's target route's code-split chunk (and float its data
