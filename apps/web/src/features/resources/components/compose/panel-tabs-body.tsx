@@ -123,9 +123,7 @@ export function ComposePanelTabs({
               focus={focus}
             />
           ) : (
-            <p className="text-[12.5px] text-muted-foreground">
-              No member has a container yet.
-            </p>
+            <p className="text-[12.5px] text-muted-foreground">No member has a container yet.</p>
           )}
         </TabsContent>
       )}

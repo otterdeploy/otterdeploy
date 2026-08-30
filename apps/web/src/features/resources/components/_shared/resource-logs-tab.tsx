@@ -9,15 +9,13 @@
  * one place, and the panel stays where it is.
  */
 
-import { and, eq, useLiveQuery } from "@tanstack/react-db";
-
-import { deploymentsCollection } from "@/features/resources/data/deployments";
+import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
 import { cn } from "@/shared/lib/utils";
 
 import type { LogSource, PanelFocus } from "./panel-tab";
 
-import { BuildLogsBody, DeploymentLogsBody } from "./deployment-logs";
 import { ServiceLogsTab } from "../service/tabs/logs";
+import { BuildLogsBody, DeploymentLogsBody } from "./deployment-logs";
 
 const SOURCES: Array<{ value: LogSource; label: string }> = [
   { value: "runtime", label: "Runtime" },
@@ -42,15 +40,7 @@ export function ResourceLogsTab({
   const source: LogSource = focus.logSource ?? "runtime";
   // Newest first, so a build/deploy source with no explicit deployment shows
   // the latest one rather than nothing.
-  const { data: deployments } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) => and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)))
-        .orderBy(({ d }) => d.createdAt, "desc")
-        .limit(20),
-    [projectId, resourceId],
-  );
+  const { deployments } = useResourceDeployments(projectId, resourceId, 20);
   const focused =
     (focus.deploymentId ? deployments.find((d) => d.id === focus.deploymentId) : undefined) ??
     deployments.at(0);
@@ -94,7 +84,11 @@ export function ResourceLogsTab({
       ) : !focused ? (
         <p className="text-[12.5px] text-muted-foreground">No deployment to show logs for.</p>
       ) : source === "build" ? (
-        <BuildLogsBody key={focused.id} deploymentId={focused.id} deploymentStatus={focused.status} />
+        <BuildLogsBody
+          key={focused.id}
+          deploymentId={focused.id}
+          deploymentStatus={focused.status}
+        />
       ) : (
         <DeploymentLogsBody
           key={focused.id}

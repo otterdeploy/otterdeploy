@@ -1,8 +1,9 @@
+import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
+import type { Builder } from "@otterdeploy/shared/build-config";
+
 import type { ReactNode } from "react";
 
 import {
-  Cancel01Icon,
-  CheckmarkCircle02Icon,
   CloudServerIcon,
   GitBranchIcon,
   PackageIcon,
@@ -12,24 +13,18 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
-import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
-import type { Builder } from "@otterdeploy/shared/build-config";
-
 import type {
   DeploymentRow,
-  Phase,
-  PhaseState,
   Tone,
 } from "@/features/resources/components/_shared/deployment-timeline-model";
 
 import { buildTimeline } from "@/features/resources/components/_shared/deployment-timeline-model";
+import { DeploymentTimelineView } from "@/features/resources/components/_shared/deployment-timeline-view";
 import { deploymentTasksCollection } from "@/features/resources/data/deployments";
-import { useLiveDuration } from "@/shared/lib/duration";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
 
 export type { DeploymentRow };
-
 
 export function DeploymentDetailsBody({
   deployment,
@@ -74,98 +69,36 @@ export function DeploymentDetailsBody({
 
 // ─── Timeline (the deployment "story") ───────────────────────────────────────
 
-
 const TONE_STYLE: Record<Tone, { border: string; head: string; text: string }> = {
   success: { border: "border-success/25", head: "bg-success/[0.06]", text: "text-success" },
-  failed: { border: "border-destructive/30", head: "bg-destructive/[0.07]", text: "text-destructive" },
+  failed: {
+    border: "border-destructive/30",
+    head: "bg-destructive/[0.07]",
+    text: "text-destructive",
+  },
   active: { border: "border-warning/30", head: "bg-warning/[0.06]", text: "text-warning" },
   neutral: { border: "border-border", head: "bg-muted/40", text: "text-foreground/90" },
   // Live, but not every replica is up, warning, not success and not error.
   degraded: { border: "border-warning/30", head: "bg-warning/[0.06]", text: "text-warning" },
 };
 
+/**
+ * The phase stepper. The rows themselves are the SHARED view
+ * (deployment-timeline-view), so the panel's inline deployments and this
+ * overlay cannot drift into two different renderings of one deploy; this only
+ * adds the tone-coloured card around them. No `onOpenLogs`: the overlay
+ * carries its own Build/Deploy log tabs, so the rows state the failure
+ * without a link that would go nowhere.
+ */
 function DeploymentTimeline({ deployment }: { deployment: DeploymentRow }) {
-  const { title, tone, phases } = buildTimeline(deployment);
-  const style = TONE_STYLE[tone];
-  // Live while in flight (no completedAt → ticks every second), final once done.
-  const duration = useLiveDuration(deployment.createdAt, deployment.completedAt);
+  const { tone } = buildTimeline(deployment);
   return (
-    <div className={cn("overflow-hidden rounded-lg border", style.border)}>
-      <div className={cn("flex items-center justify-between gap-3 px-4 py-3", style.head)}>
-        <div className="flex items-center gap-2.5">
-          <TimelineHeaderIcon tone={tone} />
-          <span className={cn("text-[13.5px] font-medium", style.text)}>{title}</span>
-        </div>
-        {duration && (
-          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-            {duration}
-          </span>
-        )}
-      </div>
-      <div className="divide-y divide-border/40">
-        {phases.map((phase) => (
-          <PhaseRow key={phase.key} phase={phase} />
-        ))}
-      </div>
+    <div className={cn("overflow-hidden rounded-lg border", TONE_STYLE[tone].border)}>
+      <DeploymentTimelineView deployment={deployment} />
     </div>
   );
 }
 
-function TimelineHeaderIcon({ tone }: { tone: Tone }) {
-  if (tone === "active") return <Spinner className="size-4 text-warning" />;
-  if (tone === "success")
-    return <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 text-success" />;
-  if (tone === "failed")
-    return <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2.5} className="size-4 text-destructive" />;
-  return <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 text-muted-foreground" />;
-}
-
-const PHASE_TEXT: Record<PhaseState, string> = {
-  done: "text-foreground/85",
-  active: "text-warning",
-  failed: "text-destructive",
-  pending: "text-muted-foreground/55",
-};
-
-function PhaseRow({ phase }: { phase: Phase }) {
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-3 px-4 py-2.5",
-        phase.state === "failed" && "bg-destructive/[0.05]",
-      )}
-    >
-      <span className="mt-px grid size-4 shrink-0 place-items-center">
-        <PhaseIcon state={phase.state} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <span className={cn("text-[13px]", PHASE_TEXT[phase.state])}>{phase.label}</span>
-        {phase.detail && (
-          <div className="mt-1 font-mono text-[11.5px] break-all whitespace-pre-wrap text-destructive/90">
-            {phase.detail}
-          </div>
-        )}
-      </div>
-      {phase.state === "pending" && (
-        <span className="shrink-0 text-[11px] text-muted-foreground/50">Not started</span>
-      )}
-    </div>
-  );
-}
-
-function PhaseIcon({ state }: { state: PhaseState }) {
-  if (state === "active") return <Spinner className="size-3.5 text-warning" />;
-  if (state === "done")
-    return <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 text-success" />;
-  if (state === "failed")
-    return <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2.5} className="size-3.5 text-destructive" />;
-  return <span className="size-2.5 rounded-full border-[1.5px] border-muted-foreground/30" />;
-}
-
-// ─── "Deployed from" (source provenance) ─────────────────────────────────────
-
-/** Plain branch name out of a ref (`refs/heads/x` → `x`). The qualified form
- *  is an internal detail; nobody thinks of their branch as "refs/heads/main". */
 function branchOf(ref: string | null): string | null {
   if (!ref) return null;
   return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
@@ -379,8 +312,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-
-
 // ─── Tasks (containers under this deployment) ────────────────────────────────
 
 function DeploymentTasksList({
@@ -434,9 +365,7 @@ function DeploymentTaskRow({ task }: { task: ServiceTaskInfo }) {
   return (
     <div className="grid grid-cols-[100px_80px_140px_1fr_140px] items-center gap-3 px-3 py-2.5 font-mono text-[11.5px]">
       <TaskStateBadge state={task.state} />
-      <span className="text-muted-foreground">
-        {task.slot != null ? `slot.${task.slot}` : "–"}
-      </span>
+      <span className="text-muted-foreground">{task.slot != null ? `slot.${task.slot}` : "–"}</span>
       <span className="text-foreground/75">
         {task.containerId ? task.containerId.slice(0, 12) : "–"}
       </span>
@@ -459,9 +388,9 @@ function TaskStateBadge({ state }: { state: ServiceTaskInfo["state"] }) {
       className={cn(
         "inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px] font-medium uppercase",
         {
-          "bg-success/15 text-success border-success/30": state === "running",
-          "bg-warning/15 text-warning border-warning/30": state === "building",
-          "bg-destructive/15 text-destructive border-destructive/30": state === "error",
+          "border-success/30 bg-success/15 text-success": state === "running",
+          "border-warning/30 bg-warning/15 text-warning": state === "building",
+          "border-destructive/30 bg-destructive/15 text-destructive": state === "error",
         },
       )}
     >

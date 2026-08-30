@@ -14,9 +14,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import { useProjectLogStream } from "@/features/logs/data/use-project-log-stream";
+import { StagedDeploymentCard } from "@/features/resources/components/_shared/staged-deployment-card";
 import { TONE_DOT, TONE_TEXT } from "@/features/resources/lib/resource-state";
 import { relativeSeconds } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
+
+import type { DeploymentInfo } from "./deployment-cards";
+import type { PanelFocus } from "./panel-tab";
 
 /** Coarse relative timestamp, re-rendered on a 30s tick so it stays honest.
  *  `now` is passed rather than read so the tick, not Date.now(), decides when
@@ -168,6 +172,62 @@ export function LogTail({
           <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The "Latest deployment" section every Overview ends up wanting: the newest
+ * deployment as the expandable staged card, and a way to the rest. One
+ * component so a stack, a service and a database cannot render this three
+ * slightly different ways.
+ */
+export function LatestDeploymentSection({
+  deployments,
+  projectId,
+  resourceId,
+  focus,
+  onSeeAll,
+  heading = "Latest deployment",
+  emptyLabel = "Nothing has been deployed yet.",
+}: {
+  /** Newest first (see useResourceDeployments). */
+  deployments: DeploymentInfo[];
+  projectId: string;
+  resourceId: string;
+  focus: PanelFocus;
+  onSeeAll: () => void;
+  heading?: string;
+  emptyLabel?: string;
+}) {
+  const latest = deployments.at(0) ?? null;
+  return (
+    <div>
+      <SectionHeading>{heading}</SectionHeading>
+      {latest ? (
+        <div className="mt-2">
+          <StagedDeploymentCard
+            deployment={latest}
+            projectId={projectId}
+            resourceId={resourceId}
+            canRollback={false}
+            focus={focus}
+          />
+          {deployments.length > 1 && (
+            <button
+              type="button"
+              onClick={onSeeAll}
+              className="mt-2 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              {deployments.length - 1} earlier →
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-[12px] text-muted-foreground">
+          {emptyLabel}
+        </p>
+      )}
     </div>
   );
 }

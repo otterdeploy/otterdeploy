@@ -74,9 +74,9 @@ describe("serviceState", () => {
     ).toBeNull();
   });
   it("is not-deployed when nothing ever ran", () => {
-    expect(serviceState({ ...base, runtime: undefined, latestDeployment: { status: null } })).toEqual(
-      { tone: "pending", label: "not deployed", why: null },
-    );
+    expect(
+      serviceState({ ...base, runtime: undefined, latestDeployment: { status: null } }),
+    ).toEqual({ tone: "pending", label: "not deployed", why: null });
   });
 });
 
@@ -156,7 +156,10 @@ describe("databaseState", () => {
   });
   it("keeps a genuinely dead container an error, not a deploy", () => {
     expect(
-      databaseState({ runtime: { status: "error", health: null }, latestDeploymentStatus: "running" }),
+      databaseState({
+        runtime: { status: "error", health: null },
+        latestDeploymentStatus: "running",
+      }),
     ).toEqual({ tone: "error", label: "error", why: null });
   });
   it("is deploying when the container is gone during a deploy", () => {

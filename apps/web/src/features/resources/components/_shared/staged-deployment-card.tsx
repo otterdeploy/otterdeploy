@@ -21,7 +21,11 @@ import { cn } from "@/shared/lib/utils";
 import type { PanelFocus } from "./panel-tab";
 
 import { PanelIcon } from "./atoms";
-import { type DeploymentInfo, DeploymentStatusBadge, deploymentStatusLabel } from "./deployment-cards";
+import {
+  type DeploymentInfo,
+  DeploymentStatusBadge,
+  deploymentStatusLabel,
+} from "./deployment-cards";
 import { DeploymentTimelineView } from "./deployment-timeline-view";
 import { HistoryRowMenu } from "./history-row-menu";
 

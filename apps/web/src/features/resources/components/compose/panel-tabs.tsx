@@ -19,7 +19,6 @@ import { ComposeExposedSummary } from "@/features/resources/components/compose/e
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 
-
 export function ComposeFileTab({
   projectId,
   resourceId,
@@ -136,4 +135,3 @@ export function ComposeSettingsTab({
     </>
   );
 }
-

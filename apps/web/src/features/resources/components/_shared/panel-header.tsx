@@ -209,5 +209,7 @@ export function PanelStatusPill({
 
 /** The pill for a {@link ResourceState}. */
 export function StatePill({ state, className }: { state: ResourceState; className?: string }) {
-  return <PanelStatusPill tone={state.tone} label={state.label} why={state.why} className={className} />;
+  return (
+    <PanelStatusPill tone={state.tone} label={state.label} why={state.why} className={className} />
+  );
 }

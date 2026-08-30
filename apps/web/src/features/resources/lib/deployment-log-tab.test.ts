@@ -1,21 +1,21 @@
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
-import { logTabForStatus } from "./deployment-log-tab";
+import { logSourceForStatus } from "./deployment-log-tab";
 
-describe("logTabForStatus", () => {
-  test("a running deployment opens its container output", () => {
-    expect(logTabForStatus("running")).toBe("deploy-logs");
+describe("logSourceForStatus", () => {
+  it("sends a live/settled deployment to its container output", () => {
+    expect(logSourceForStatus("running")).toBe("deploy");
+    expect(logSourceForStatus("superseded")).toBe("deploy");
   });
 
-  test("in-flight and failed deployments open the build log", () => {
+  it("sends anything that failed or never built to the build log", () => {
     for (const s of ["pending", "building", "failed", "crashed", "cancelled"]) {
-      expect(logTabForStatus(s)).toBe("build-logs");
+      expect(logSourceForStatus(s)).toBe("build");
     }
   });
 
-  test("never returns the details tab; this control is labelled View logs", () => {
-    for (const s of ["running", "superseded", "removed", "weird-new-status", null, undefined]) {
-      expect(logTabForStatus(s)).not.toBe("details");
-    }
+  it("treats an unknown status as settled rather than building", () => {
+    expect(logSourceForStatus(undefined)).toBe("deploy");
+    expect(logSourceForStatus(null)).toBe("deploy");
   });
 });

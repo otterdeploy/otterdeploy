@@ -8,25 +8,37 @@
 
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 import type { ResourceState } from "@/features/resources/lib/resource-state";
 
-import { LogTail, SectionHeading, StateBanner } from "@/features/resources/components/_shared/overview-atoms";
-import { StagedDeploymentCard } from "@/features/resources/components/_shared/staged-deployment-card";
-import { deploymentsCollection } from "@/features/resources/data/deployments";
+import {
+  LatestDeploymentSection,
+  LogTail,
+  SectionHeading,
+  StateBanner,
+} from "@/features/resources/components/_shared/overview-atoms";
+import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
 import { TONE_DOT, TONE_TEXT } from "@/features/resources/lib/resource-state";
 import { shortImageRef } from "@/shared/lib/image-ref";
 import { cn } from "@/shared/lib/utils";
 
 import type { StackMember } from "../_shared/use-stack-members";
 
-function MemberRow({ member, onOpen }: { member: StackMember; onOpen: (resourceId: string) => void }) {
+function MemberRow({
+  member,
+  onOpen,
+}: {
+  member: StackMember;
+  onOpen: (resourceId: string) => void;
+}) {
   const id = member.resourceId;
   const body = (
     <>
-      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[member.state.tone])} />
+      <span
+        aria-hidden
+        className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[member.state.tone])}
+      />
       <span className="w-28 shrink-0 truncate text-[13px] font-medium" title={member.name}>
         {member.name}
       </span>
@@ -34,7 +46,10 @@ function MemberRow({ member, onOpen }: { member: StackMember; onOpen: (resourceI
         {member.state.label}
       </span>
       {member.state.why && (
-        <span className="min-w-0 truncate text-[12px] text-muted-foreground" title={member.state.why}>
+        <span
+          className="min-w-0 truncate text-[12px] text-muted-foreground"
+          title={member.state.why}
+        >
           {member.state.why}
         </span>
       )}
@@ -86,16 +101,7 @@ export function StackOverviewTab({
   onOpenMember: (resourceId: string) => void;
   onGoTab: (tab: "deployments" | "logs") => void;
 }) {
-  const { data: deployments } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) => and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)))
-        .orderBy(({ d }) => d.createdAt, "desc")
-        .limit(2),
-    [projectId, resourceId],
-  );
-  const latest = pending ? null : (deployments.at(0) ?? null);
+  const { deployments } = useResourceDeployments(projectId, resourceId, 2);
   const memberIds = members.flatMap((m) => (m.resourceId ? [m.resourceId] : []));
 
   return (
@@ -125,33 +131,14 @@ export function StackOverviewTab({
       </div>
 
       {!pending && (
-        <div>
-          <SectionHeading>Latest stack deployment</SectionHeading>
-          {latest ? (
-            <div className="mt-2">
-              <StagedDeploymentCard
-                deployment={latest}
-                projectId={projectId}
-                resourceId={resourceId}
-                canRollback={false}
-                focus={focus}
-              />
-              {deployments.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => onGoTab("deployments")}
-                  className="mt-2 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
-                >
-                  Earlier deployments →
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-[12px] text-muted-foreground">
-              Nothing has been deployed yet.
-            </p>
-          )}
-        </div>
+        <LatestDeploymentSection
+          deployments={deployments}
+          projectId={projectId}
+          resourceId={resourceId}
+          focus={focus}
+          onSeeAll={() => onGoTab("deployments")}
+          heading="Latest stack deployment"
+        />
       )}
 
       {!pending && memberIds.length > 0 && (

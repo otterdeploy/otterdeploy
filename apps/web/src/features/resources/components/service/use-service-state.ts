@@ -8,8 +8,8 @@
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
-import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
 import { serviceState, type ResourceState } from "@/features/resources/lib/resource-state";
 
 import type { LiveServiceView } from "./use-live-service";
@@ -23,15 +23,7 @@ export function useServiceState(input: {
   pending: boolean;
 }): ResourceState | null {
   const { projectId, resourceId, service, pending } = input;
-  const { data: deployments } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) => and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)))
-        .orderBy(({ d }) => d.createdAt, "desc")
-        .limit(1),
-    [projectId, resourceId],
-  );
+  const { deployments } = useResourceDeployments(projectId, resourceId, 1);
   const { data: taskRows } = useLiveQuery(
     (q) =>
       q

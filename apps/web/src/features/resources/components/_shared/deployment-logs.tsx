@@ -20,10 +20,7 @@ function isBuildFinished(status: string | null | undefined): boolean {
  *  purpose: its tail is live. */
 function isSupersededDeployment(status: string | null | undefined): boolean {
   return (
-    status === "failed" ||
-    status === "cancelled" ||
-    status === "superseded" ||
-    status === "removed"
+    status === "failed" || status === "cancelled" || status === "superseded" || status === "removed"
   );
 }
 
@@ -168,23 +165,15 @@ export function BuildLogsBody({
 // Distinct components rather than a generic message so each can grow its
 // own real-data wiring without changing the page layout.
 
-export function NotImplementedTab({
-  title,
-  hint,
-}: {
-  title: string;
-  hint: string;
-}) {
+export function NotImplementedTab({ title, hint }: { title: string; hint: string }) {
   return <EmptyTab title={title} hint={hint} />;
 }
 
 function EmptyTab({ title, hint }: { title: string; hint: string }) {
   return (
-    <div className="grid h-full place-items-center rounded-md border bg-terminal text-terminal-foreground p-6 text-center">
+    <div className="grid h-full place-items-center rounded-md border bg-terminal p-6 text-center text-terminal-foreground">
       <div className="flex max-w-md flex-col items-center gap-2">
-        <div className="text-[14px] font-medium text-foreground/80">
-          {title}
-        </div>
+        <div className="text-[14px] font-medium text-foreground/80">{title}</div>
         <div className="text-[12px] text-muted-foreground">{hint}</div>
       </div>
     </div>

@@ -8,14 +8,13 @@
 
 import { ContainerIcon, EarthIcon, Layers01Icon, ViewOffIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
 
-import type { PanelFocus } from "./panel-tab";
-
-import { deploymentsCollection } from "@/features/resources/data/deployments";
+import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
+
+import type { PanelFocus } from "./panel-tab";
 
 import { SectionLabel } from "./atoms";
 import { HistoryRow } from "./deployment-cards";
@@ -78,19 +77,9 @@ export function ResourceTasksTab({
   logoNode,
   focus,
 }: ResourceTasksTabProps) {
-  const { data: deployments, status } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) => and(eq(d.projectId, projectId), eq(d.resourceId, resourceId)))
-        // Newest first. The collection isn't intrinsically ordered (it's a
-        // keyed map), so without this the hero/history split below is
-        // arbitrary and HISTORY rows render out of time order. createdAt is
-        // an ISO-8601 string, so lexicographic desc == chronological desc.
-        .orderBy(({ d }) => d.createdAt, "desc"),
-    [projectId, resourceId],
-  );
-  const isLoading = status === "loading" && deployments.length === 0;
+  // Newest first (see useResourceDeployments): the hero is the most recent
+  // deployment and HISTORY is everything older, so the order is load-bearing.
+  const { deployments, isLoading } = useResourceDeployments(projectId, resourceId);
 
   // Active = the single most-recent deployment (the hero card). Everything
   // older is HISTORY. We intentionally pick the newest regardless of status:

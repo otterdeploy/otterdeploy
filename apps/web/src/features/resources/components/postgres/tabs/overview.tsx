@@ -5,19 +5,16 @@
  * stack overviews, so landing on any panel reads the same way.
  */
 
-import { and, eq, useLiveQuery } from "@tanstack/react-db";
-
 import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import {
+  LatestDeploymentSection,
   LogTail,
-  SectionHeading,
   StateBanner,
   StatTile,
 } from "@/features/resources/components/_shared/overview-atoms";
-import { StagedDeploymentCard } from "@/features/resources/components/_shared/staged-deployment-card";
-import { deploymentsCollection } from "@/features/resources/data/deployments";
+import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
 
 export function DatabaseOverviewTab({
   resource,
@@ -37,18 +34,7 @@ export function DatabaseOverviewTab({
   focus: PanelFocus;
   onGoTab: (tab: "deployments" | "logs") => void;
 }) {
-  const { data: deployments } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) =>
-          and(eq(d.projectId, resource.projectId), eq(d.resourceId, resource.resourceId)),
-        )
-        .orderBy(({ d }) => d.createdAt, "desc")
-        .limit(2),
-    [resource.projectId, resource.resourceId],
-  );
-  const latest = deployments.at(0) ?? null;
+  const { deployments } = useResourceDeployments(resource.projectId, resource.resourceId, 2);
 
   return (
     <div className="flex flex-col gap-5">
@@ -75,33 +61,13 @@ export function DatabaseOverviewTab({
         />
       </div>
 
-      <div>
-        <SectionHeading>Latest deployment</SectionHeading>
-        {latest ? (
-          <div className="mt-2">
-            <StagedDeploymentCard
-              deployment={latest}
-              projectId={resource.projectId}
-              resourceId={resource.resourceId}
-              canRollback={false}
-              focus={focus}
-            />
-            {deployments.length > 1 && (
-              <button
-                type="button"
-                onClick={() => onGoTab("deployments")}
-                className="mt-2 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
-              >
-                Earlier deployments →
-              </button>
-            )}
-          </div>
-        ) : (
-          <p className="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-[12px] text-muted-foreground">
-            Nothing has been deployed yet.
-          </p>
-        )}
-      </div>
+      <LatestDeploymentSection
+        deployments={deployments}
+        projectId={resource.projectId}
+        resourceId={resource.resourceId}
+        focus={focus}
+        onSeeAll={() => onGoTab("deployments")}
+      />
 
       <LogTail
         projectId={resource.projectId}

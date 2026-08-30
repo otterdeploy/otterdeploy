@@ -56,7 +56,3 @@ export interface PanelFocus {
   logSource: LogSource | null;
   set: (next: { tab?: string; deployment?: string | null; logSource?: LogSource | null }) => void;
 }
-
-/** A focus that goes nowhere, for panels rendered outside the graph route
- *  (tests, previews). */
-export const NO_FOCUS: PanelFocus = { deploymentId: null, logSource: null, set: () => {} };

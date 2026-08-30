@@ -11,7 +11,6 @@ import type { ReactNode } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
-
 import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";

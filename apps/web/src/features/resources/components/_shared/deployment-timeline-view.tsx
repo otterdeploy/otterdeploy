@@ -52,7 +52,10 @@ const PHASE_TEXT: Record<PhaseState, string> = {
 };
 
 /** Open this deployment's build or deploy log: a tab switch in the panel
- *  (the Logs tab with the source + deployment focused), not a route change. */
+ *  (the Logs tab with the source + deployment focused), not a route change.
+ *  Omitted where the logs are not one switch away (the preview overlay, which
+ *  carries its own log tabs); the phase rows then state the failure without
+ *  offering a link that would go nowhere. */
 type OpenLogs = (source: "build" | "deploy") => void;
 
 export function DeploymentTimelineView({
@@ -60,7 +63,7 @@ export function DeploymentTimelineView({
   onOpenLogs,
 }: {
   deployment: TimelineInput;
-  onOpenLogs: OpenLogs;
+  onOpenLogs?: OpenLogs;
 }) {
   const { title, tone, phases, totalMs } = buildTimeline(deployment);
   return (
@@ -85,12 +88,14 @@ export function DeploymentTimelineView({
       {phases.map((phase) => (
         <PhaseRow key={phase.key} phase={phase} onOpenLogs={onOpenLogs} />
       ))}
-      {(tone === "failed" || tone === "degraded") && <DiagnoseRow onOpenLogs={onOpenLogs} />}
+      {(tone === "failed" || tone === "degraded") && onOpenLogs && (
+        <DiagnoseRow onOpenLogs={onOpenLogs} />
+      )}
     </div>
   );
 }
 
-function PhaseRow({ phase, onOpenLogs }: { phase: Phase; onOpenLogs: OpenLogs }) {
+function PhaseRow({ phase, onOpenLogs }: { phase: Phase; onOpenLogs?: OpenLogs }) {
   return (
     <div
       className={cn(
@@ -108,14 +113,19 @@ function PhaseRow({ phase, onOpenLogs }: { phase: Phase; onOpenLogs: OpenLogs })
             <div className="font-mono text-[11.5px] break-all whitespace-pre-wrap text-destructive/90">
               {phase.detail}
             </div>
-            <button
-              type="button"
-              onClick={() => onOpenLogs(phase.key === "run" || phase.key === "deploy" ? "deploy" : "build")}
-              className="inline-flex w-fit items-center gap-1 text-[11.5px] text-primary underline-offset-2 hover:underline"
-            >
-              View the {phase.key === "run" || phase.key === "deploy" ? "deploy" : "build"} logs for more detail
-              <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
-            </button>
+            {onOpenLogs && (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenLogs(phase.key === "run" || phase.key === "deploy" ? "deploy" : "build")
+                }
+                className="inline-flex w-fit items-center gap-1 text-[11.5px] text-primary underline-offset-2 hover:underline"
+              >
+                View the {phase.key === "run" || phase.key === "deploy" ? "deploy" : "build"} logs
+                for more detail
+                <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
+              </button>
+            )}
           </div>
         )}
       </div>

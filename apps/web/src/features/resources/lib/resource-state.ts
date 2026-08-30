@@ -160,7 +160,9 @@ export function memberState(
  * reads "2/4 running · postiz-app crashed, temporal offline" instead of an
  * amber "2/4" that left the operator to open every member to find out which.
  */
-export function stackState(members: readonly { name: string; state: ResourceState }[]): ResourceState {
+export function stackState(
+  members: readonly { name: string; state: ResourceState }[],
+): ResourceState {
   const total = members.length;
   if (total === 0) return { tone: "pending", label: "no services", why: null };
   const up = members.filter((m) => m.state.tone === "running").length;
@@ -209,7 +211,9 @@ export interface RuntimeFacts {
 export function serviceState(input: {
   pausedReplicas: number | null | undefined;
   runtime: RuntimeFacts | undefined;
-  latestDeployment: { status: DeploymentLifecycle | null; errorMessage?: string | null } | undefined;
+  latestDeployment:
+    | { status: DeploymentLifecycle | null; errorMessage?: string | null }
+    | undefined;
   tasks: readonly TaskFacts[];
 }): ResourceState | null {
   if (input.pausedReplicas != null) {
@@ -243,7 +247,11 @@ function deploymentOwnedState(
     case "starting":
       return { tone: "building", label: "starting", why: null };
     case "failed":
-      return { tone: "error", label: "failed", why: errorMessage?.trim() || "build did not complete" };
+      return {
+        tone: "error",
+        label: "failed",
+        why: errorMessage?.trim() || "build did not complete",
+      };
     case "crashed":
       return { tone: "error", label: "crashed", why: tasks ?? "container keeps exiting" };
     default:
@@ -259,8 +267,10 @@ function runtimeState(
   if (!rt) return dep === null ? { tone: "pending", label: "not deployed", why: null } : null;
   switch (rt.status) {
     case "running":
-      if (rt.health === "unhealthy") return { tone: "error", label: "unhealthy", why: "healthcheck failing" };
-      if (rt.health === "starting") return { tone: "building", label: "starting", why: "healthcheck pending" };
+      if (rt.health === "unhealthy")
+        return { tone: "error", label: "unhealthy", why: "healthcheck failing" };
+      if (rt.health === "starting")
+        return { tone: "building", label: "starting", why: "healthcheck pending" };
       return { tone: "running", label: "running", why: tasks };
     case "starting":
       return { tone: "building", label: "starting", why: null };
@@ -308,13 +318,3 @@ export function databaseState(input: {
       return { tone: "error", label: "error", why: null };
   }
 }
-
-/** The state to show for a top-level resource row in a list (switcher,
- *  strip head) when only the graph's coarse status is known. */
-export function stateOfNodeStatus(status: ResourceStatus | undefined): ResourceState {
-  if (!status) return { tone: "pending", label: "not deployed", why: null };
-  return { tone: toneOfNodeStatus(status), label: status, why: null };
-}
-
-/** "3 restarts" for the ↻ badge and the why line, shared so the two agree. */
-export const restartsWhy = (n: number): string => plural(n, "restart");

@@ -8,8 +8,6 @@
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-
-
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 
