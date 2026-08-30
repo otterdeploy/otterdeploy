@@ -24,26 +24,37 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import { blocklistsQuery } from "../data";
+import { filterRows } from "../search";
 import { AddCustomForm, ConsoleEnrollCard } from "./blocklists-panel-parts";
 
 type Lists = Awaited<ReturnType<typeof orpc.firewall.blocklists.list.call>>;
 type BlockList = Lists["lists"][number];
 type CatalogEntry = Lists["catalog"][number];
 
-export function BlocklistsPanel() {
+export function BlocklistsPanel({ search }: { search: string }) {
   const { t } = useTranslation();
   // Shared options (../data). Lists change only when an operator changes
   // them, so this holds rather than polling; mutations refetch explicitly.
   const listQuery = useQuery(blocklistsQuery());
   const refetch = () => void listQuery.refetch();
 
-  const lists = listQuery.data?.lists ?? [];
-  const catalog = listQuery.data?.catalog ?? [];
+  // The toolbar's search box is one box for the whole view, so it narrows
+  // these two sections too rather than going inert on this tab.
+  const lists = filterRows(listQuery.data?.lists ?? [], search, (l) => [l.name, l.url]);
+  const catalog = filterRows(listQuery.data?.catalog ?? [], search, (c) => [
+    c.name,
+    c.description,
+    c.url,
+  ]);
+  const searching = search.trim().length > 0;
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4">
-        <ConsoleEnrollCard />
+        {/* Enrollment is setup, not a list — it has nothing to match, so a
+            search that is narrowing lists hides it rather than leaving an
+            unrelated card floating above the results. */}
+        {searching ? null : <ConsoleEnrollCard />}
 
         {/* Active lists */}
         <section className="flex flex-col gap-3">
@@ -53,7 +64,9 @@ export function BlocklistsPanel() {
           />
           {lists.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
-              No lists yet. Add a public one below, or your own URL.
+              {searching
+                ? "No list matches that search."
+                : "No lists yet. Add a public one below, or your own URL."}
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border">
@@ -64,7 +77,7 @@ export function BlocklistsPanel() {
               </div>
             </div>
           )}
-          <AddCustomForm onAdded={refetch} />
+          {searching ? null : <AddCustomForm onAdded={refetch} />}
         </section>
 
         {/* Catalog */}
@@ -73,11 +86,15 @@ export function BlocklistsPanel() {
             title={t("firewall.publicLists")}
             subtitle={t("firewall.publicListsSubtitle")}
           />
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {catalog.map((c) => (
-              <CatalogCard key={c.slug} entry={c} onAdded={refetch} />
-            ))}
-          </div>
+          {catalog.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground">No public list matches that search.</p>
+          ) : (
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {catalog.map((c) => (
+                <CatalogCard key={c.slug} entry={c} onAdded={refetch} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -142,11 +159,16 @@ function ListRow({ list, onChanged }: { list: BlockList; onChanged: () => void }
         disabled={toggle.isPending}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="truncate text-[13px] font-medium">{list.name}</span>
           {syncBadge(list)}
         </div>
-        <div className="truncate font-mono text-[11px] text-muted-foreground">{list.url}</div>
+        {/* Blocklist URLs are long and share a prefix, so a truncated one can
+            read identically for two different lists; the full value stays
+            recoverable on hover. */}
+        <div className="truncate font-mono text-xs text-muted-foreground" title={list.url}>
+          {list.url}
+        </div>
       </div>
       <Button
         variant="ghost"

@@ -1,35 +1,61 @@
 /**
  * Firewall view: CrowdSec IP-reputation decisions, rendered as a tab inside
- * the Edge Logs page (an edge-level concern: cluster-wide / identity-blind, so
- * it sits beside Access + Events at the org scope). Follows the same full-height
- * instrument layout as those views: header + status pill, a hairline toolbar,
- * then a full-bleed table that fills the remaining height.
+ * the Edge page (an edge-level concern: cluster-wide and identity-blind, so it
+ * sits beside Access logs at the org scope).
+ *
+ * Layout, and the reason for it: a title row that also carries every ACTION
+ * (block, refresh, mass-block) so the buttons never move as you switch tabs,
+ * then one toolbar carrying every FILTER and the single search box, then the
+ * table. Each tab used to own a second toolbar with its own prose and its own
+ * controls, which is what made four tabs read as four different products.
  */
 import { useEffect, useState } from "react";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { RefreshIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
-import { orpc } from "@/shared/server/orpc";
 
-import { decisionsQuery, prefetchFirewall, statusQuery } from "../data";
-import { BlockIpForm } from "./block-ip-form";
+import type { BlockedRange, BlockedState, FirewallWindow } from "../data";
+import type { FirewallTab } from "../tabs";
+
+import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
+import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
+import { flaggedFields, flaggedQuery, prefetchFirewall, statusQuery } from "../data";
+import { filterRows } from "../search";
+import { useFirewallActions } from "../use-firewall-actions";
+import { BlockIpAction } from "./block-ip-action";
+import { BlockedPanel, useBlockedRows } from "./blocked-panel";
 import { BlocklistsPanel } from "./blocklists-panel";
-import { DecisionsTable, FirewallDisabledCard } from "./firewall-view-parts";
+import { FirewallDisabledCard } from "./firewall-disabled-card";
+import { FirewallFilters } from "./firewall-filters";
+import { FirewallHeader } from "./firewall-header";
+import { FirewallToolbar } from "./firewall-toolbar";
 import { FlaggedPanel } from "./flagged-panel";
-import { HistoryPanel } from "./history-panel";
 
-type View = "decisions" | "history" | "flagged" | "sources";
+/** One placeholder per tab, naming fields that tab actually has: a search box
+ *  that says "Search" teaches nobody what it will match. */
+const SEARCH_PLACEHOLDER: Record<FirewallTab, string> = {
+  blocked: "Search IP, country, network, scenario…",
+  flagged: "Search IP, country, path…",
+  sources: "Search lists…",
+};
+
+/** The batch block endpoint caps a call at 100 IPs. */
+const BLOCK_MANY_LIMIT = 100;
 
 export function FirewallView() {
-  // Shared query options (see ../data): staleTime + keepPreviousData are what
-  // stop a tab switch flashing an empty table before the rows arrive.
-  const status = useQuery(statusQuery());
-  const decisions = useQuery(decisionsQuery());
   const queryClient = useQueryClient();
+  const status = useQuery(statusQuery());
+
+  const [tab, setTab] = useState<FirewallTab>("blocked");
+  const [range, setRange] = useState<BlockedRange>("now");
+  const [state, setState] = useState<BlockedState>("all");
+  const [flaggedWindow, setFlaggedWindow] = useState<FirewallWindow>("all");
+  const [search, setSearch] = useState("");
 
   // Warm every tab on mount as well as in the route loader: a direct
   // navigation (paste a URL, reload) has no hover to preload from.
@@ -37,182 +63,133 @@ export function FirewallView() {
     prefetchFirewall(queryClient);
   }, [queryClient]);
 
-  const s = status.data;
-  const rows = decisions.data ?? [];
-  const reachable = Boolean(s?.reachable);
-  const configured = Boolean(s?.configured);
+  const blocked = useBlockedRows(range, state, search);
+  const flagged = useQuery(flaggedQuery(flaggedWindow));
+  const flaggedRows = flagged.data ?? [];
+  const flaggedShown = filterRows(flaggedRows, search, flaggedFields);
+
+  // Active bans flip already-blocked rows to a passive "Blocked" state; the
+  // hook refreshes both after each block.
+  const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());
+  const actions = useFirewallActions();
+
+  // Mass-block acts on what is ON SCREEN, not on the whole window: an operator
+  // who has narrowed to one country must not silently ban the rest as well.
+  const blockTargets = flaggedShown
+    .reduce<string[]>((acc, r) => {
+      if (!bannedIps.has(r.ip)) acc.push(r.ip);
+      return acc;
+    }, [])
+    .slice(0, BLOCK_MANY_LIMIT);
+
+  const reachable = Boolean(status.data?.reachable);
+  const configured = Boolean(status.data?.configured);
   // The firewall is usable whenever the agent answers over the Docker socket
   // (reachable) OR the bouncer env is set (configured). Decisions are read AND
   // written purely via `cscli` exec, independent of the CROWDSEC_* env, so a
   // running agent must surface its blocked IPs even when the server process
-  // lacks those vars. Gating the Decisions view on `configured` alone hid every
-  // blocked IP: a block from the edge landed in CrowdSec but never showed here.
+  // lacks those vars. Gating on `configured` alone hid every blocked IP.
   const usable = configured || reachable;
-  const [view, setView] = useState<View>("decisions");
+  const searching = search.trim().length > 0;
 
-  const block = useMutation({
-    ...orpc.firewall.block.mutationOptions(),
-    onSuccess: (r, vars) => {
-      if (r.ok) {
-        toast.success(`Blocked ${vars.ip}`);
-        void decisions.refetch();
-      } else {
-        toast.error(r.error ?? "Block failed");
-      }
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Block failed"),
-  });
-  const unblock = useMutation({
-    ...orpc.firewall.unblock.mutationOptions(),
-    onSuccess: (r, vars) => {
-      if (r.ok) {
-        toast.success(`Unblocked ${vars.ip}`);
-        void decisions.refetch();
-      } else {
-        toast.error(r.error ?? "Unblock failed");
-      }
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Unblock failed"),
-  });
+  // Tracked explicitly rather than read off `isFetching`: the decisions query
+  // polls every 15s, so a fetching-derived flag made the button spin and go
+  // disabled twice a minute on its own, which reads as the page doing
+  // something the operator didn't ask for.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = () => {
+    setRefreshing(true);
+    // `allSettled` never rejects, so the spinner always stops — including when
+    // the control plane is the thing that's down.
+    void Promise.allSettled([status.refetch(), actions.refresh()]).then(() => setRefreshing(false));
+  };
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
-      <FirewallHeader configured={configured} reachable={reachable} />
+      <FirewallHeader configured={configured} reachable={reachable}>
+        {tab === "flagged" && blockTargets.length > 0 ? (
+          <BlockAllButton
+            count={blockTargets.length}
+            blocking={blockMany.isPending}
+            onConfirm={() => blockMany.mutate({ ips: blockTargets })}
+          />
+        ) : null}
+        {usable ? (
+          <BlockIpAction
+            onBlock={(ip, durationHours) => actions.block.mutate({ ip, durationHours })}
+            blocking={actions.block.isPending}
+          />
+        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={onRefresh}
+          disabled={refreshing}
+        >
+          <HugeiconsIcon
+            icon={RefreshIcon}
+            strokeWidth={2}
+            className={cn("size-3.5", refreshing && "animate-spin")}
+          />
+          <span className="hidden sm:inline">Refresh</span>
+        </Button>
+      </FirewallHeader>
+
       <FirewallToolbar
-        view={view}
-        onViewChange={setView}
-        usable={usable}
-        decisionCount={rows.length}
-        refreshing={decisions.isFetching}
-        onRefresh={() => {
-          void status.refetch();
-          void decisions.refetch();
-        }}
-        onBlock={(ip, durationHours) => block.mutate({ ip, durationHours })}
-        blocking={block.isPending}
+        tab={tab}
+        onTabChange={setTab}
+        counts={{ blocked: blocked.liveCount, flagged: flaggedRows.length }}
+        filters={
+          <FirewallFilters
+            tab={tab}
+            range={range}
+            onRangeChange={setRange}
+            state={state}
+            onStateChange={setState}
+            stateCounts={blocked.stateCounts}
+            flaggedWindow={flaggedWindow}
+            onFlaggedWindowChange={setFlaggedWindow}
+          />
+        }
+        search={
+          <Input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={SEARCH_PLACEHOLDER[tab]}
+            aria-label={SEARCH_PLACEHOLDER[tab]}
+            className="w-full text-xs lg:w-64"
+          />
+        }
       />
 
-      {view === "sources" ? (
-        <BlocklistsPanel />
-      ) : view === "history" ? (
-        <HistoryPanel />
-      ) : view === "flagged" ? (
-        <FlaggedPanel />
-      ) : !usable ? (
-        <FirewallDisabledCard />
-      ) : (
-        <DecisionsTable
-          rows={rows}
-          reachable={reachable}
-          loading={decisions.isLoading}
-          onUnblock={(ip) => unblock.mutate({ ip })}
-          unblocking={unblock.isPending}
+      {tab === "sources" ? (
+        <BlocklistsPanel search={search} />
+      ) : tab === "flagged" ? (
+        <FlaggedPanel
+          rows={flaggedShown}
+          total={flaggedRows.length}
+          loading={flagged.isLoading}
+          searching={searching}
+          bannedIps={bannedIps}
+          onBlock={(ip) => block.mutate({ ip })}
+          blocking={block.isPending}
         />
+      ) : usable ? (
+        <BlockedPanel
+          rows={blocked.rows}
+          total={blocked.total}
+          loading={blocked.loading}
+          range={range}
+          state={state}
+          searching={searching}
+          onUnblock={(ip) => actions.unblock.mutate({ ip })}
+          unblocking={actions.unblock.isPending}
+        />
+      ) : (
+        <FirewallDisabledCard />
       )}
-    </div>
-  );
-}
-
-function FirewallHeader({ configured, reachable }: { configured: boolean; reachable: boolean }) {
-  const { t } = useTranslation();
-  return (
-    <div className="px-4 pt-4">
-      <div className="flex items-center gap-2">
-        <h1 className="text-base font-semibold">{t("firewall.title")}</h1>
-        {reachable ? (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-success">
-            <span className="size-1.5 animate-pulse rounded-full bg-success" />
-            LAPI reachable
-          </span>
-        ) : configured ? (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-destructive">
-            <span className="size-1.5 rounded-full bg-destructive" />
-            LAPI unreachable
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-muted-foreground" />
-            disabled
-          </span>
-        )}
-      </div>
-      {/* The old line said "at the Caddy edge", which made an SSH ban look
-          misfiled. CrowdSec watches the host's auth log AND Caddy's access
-          log, and two different bouncers enforce what it decides. */}
-      <p className="mt-0.5 text-[13px] text-muted-foreground">
-        CrowdSec watches your SSH auth log and Caddy's access log, then bans what it doesn't like —
-        at the host firewall and at the edge. Identity-blind; runs before the auth wall.
-      </p>
-    </div>
-  );
-}
-
-const TAB_LABEL: Record<View, string> = {
-  decisions: "Enforcing now",
-  history: "History",
-  flagged: "Flagged IPs",
-  sources: "Sources",
-};
-
-function FirewallToolbar({
-  view,
-  onViewChange,
-  usable,
-  decisionCount,
-  refreshing,
-  onRefresh,
-  onBlock,
-  blocking,
-}: {
-  view: View;
-  onViewChange: (v: View) => void;
-  usable: boolean;
-  decisionCount: number;
-  refreshing: boolean;
-  onRefresh: () => void;
-  onBlock: (ip: string, durationHours: number) => void;
-  blocking: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-      <div className="flex items-center gap-0.5 rounded-md border p-0.5">
-        {/* Ordered as the question an operator asks: what is blocked now →
-            what has been blocked → who is probing → what we import. */}
-        {(["decisions", "history", "flagged", "sources"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => onViewChange(v)}
-            className={cn(
-              "rounded px-2.5 py-1 text-[11px] font-medium capitalize transition-colors",
-              view === v
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            )}
-          >
-            {TAB_LABEL[v]}
-          </button>
-        ))}
-      </div>
-      {view === "decisions" ? (
-        <span className="text-[12px] text-muted-foreground">
-          {usable
-            ? // "enforcing right now" rather than "active": the number drops
-              // when a ban expires, and the old wording made that read as
-              // something going missing.
-              `${decisionCount} enforcing now`
-            : "Not enabled"}
-        </span>
-      ) : null}
-      <div className="flex-1" />
-      {view === "decisions" ? (
-        <>
-          {usable ? <BlockIpForm onBlock={onBlock} blocking={blocking} /> : null}
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing}>
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </Button>
-        </>
-      ) : null}
     </div>
   );
 }
