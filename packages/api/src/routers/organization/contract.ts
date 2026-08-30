@@ -219,15 +219,39 @@ const setServerIpInput = z.object({
     .optional(),
 });
 
+/**
+ * Hops in front of Caddy, whitespace/comma separated CIDRs.
+ *
+ * Validated per entry rather than as one blob so a single typo names itself.
+ * The charset is the boundary: the value is written verbatim into a Caddyfile
+ * directive, so anything that isn't an address or CIDR is refused here rather
+ * than escaped downstream.
+ */
+const trustedProxiesField = z
+  .string()
+  .trim()
+  .max(4000)
+  .refine(
+    (raw) =>
+      raw
+        .split(/[\s,]+/)
+        .filter((entry) => entry.length > 0)
+        .every((entry) => /^[0-9a-fA-F.:]+(\/\d{1,3})?$/.test(entry)),
+    { error: "each entry must be an IP address or CIDR range" },
+  );
+
 const edgeOptionsSchema = z.object({
   acmeEmail: z.string().nullable(),
   httpsAutoRedirect: z.boolean(),
+  /** Empty string ⇒ trust nothing, Caddy attributes requests to the TCP peer. */
+  trustedProxies: z.string(),
 });
 
 const setEdgeOptionsInput = z.object({
   organizationId: organizationIdField,
   acmeEmail: z.email().nullable(),
   httpsAutoRedirect: z.boolean(),
+  trustedProxies: trustedProxiesField,
 });
 
 // ─── Runtime configuration (platform-wide, od-gfg) ───────────────────

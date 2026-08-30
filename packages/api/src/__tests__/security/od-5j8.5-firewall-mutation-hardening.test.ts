@@ -29,15 +29,37 @@ function source(relativePath: string): string {
 }
 
 describe("[od-5j8.5] every firewall mutation requires install-admin AND firewall:update", () => {
-  test("block/unblock/blockMany/console.enroll all use the write-gated procedure, not the read-only one", () => {
+  // The three decision writes moved to their own file when index.ts hit the
+  // line cap; the gate they must use did not change.
+  test("block/unblock/blockMany all use the write-gated procedure, not the read-only one", () => {
+    const handlers = source("packages/api/src/routers/firewall/decision-handlers.ts");
+    expect(handlers).toContain(
+      'const globalFirewallWrite = requireInstallAdminPermission({ firewall: ["update"] });',
+    );
+    for (const handler of ["block:", "blockMany:", "unblock:"]) {
+      const line = handlers.slice(handlers.indexOf(handler));
+      expect(line.slice(0, line.indexOf("\n"))).toContain("globalFirewallWrite");
+    }
+  });
+
+  test("console.enroll uses the write-gated procedure", () => {
     const router = source("packages/api/src/routers/firewall/index.ts");
     expect(router).toContain(
       'const globalFirewallWrite = requireInstallAdminPermission({ firewall: ["update"] });',
     );
-    for (const handler of ["block:", "blockMany:", "unblock:"]) {
-      const line = router.slice(router.indexOf(handler));
-      expect(line.slice(0, line.indexOf("\n"))).toContain("globalFirewallWrite");
-    }
+    const line = router.slice(router.indexOf("enroll:"));
+    expect(line.slice(0, line.indexOf("\n"))).toContain("globalFirewallWrite");
+  });
+
+  // Both write paths have to consult the guard, and they consult it
+  // differently on purpose: a single deliberate block refuses only the
+  // caller's own address, a sweep silently drops every signed-in one. A
+  // regression here bans the operator off their own panel.
+  test("neither block path can ban the people operating the firewall", () => {
+    const handlers = source("packages/api/src/routers/firewall/decision-handlers.ts");
+    expect(handlers).toContain("blocksCaller(input.ip, context.headers)");
+    expect(handlers).toContain("errors.SELF_BLOCK()");
+    expect(handlers).toContain("sweepBlockTargets(input.ips)");
   });
 
   test("every blocklists.* write handler (addCustom/enableCatalog/toggle/remove/syncNow) uses the write gate", () => {
