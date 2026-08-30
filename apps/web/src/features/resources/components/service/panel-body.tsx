@@ -10,10 +10,13 @@ import type { ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id"
 import { Activity } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
+import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
+import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { PANEL_TAB_BODY_CLASS } from "@/features/resources/components/_shared/panel-tab";
 import { PANE_MEASURE_CLASS } from "@/features/resources/components/_shared/panel-width";
+import { ResourceLogsTab } from "@/features/resources/components/_shared/resource-logs-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 import { TabsContent } from "@/shared/components/ui/tabs";
@@ -21,7 +24,6 @@ import { cn } from "@/shared/lib/utils";
 
 import type { LiveServiceView } from "./use-live-service";
 
-import { ServiceLogsTab } from "./tabs/logs";
 import { ServiceOverviewTab } from "./tabs/overview";
 import { ServiceSettingsBody } from "./tabs/settings";
 import { ServiceVariablesTabBody } from "./tabs/variables";
@@ -53,22 +55,25 @@ export interface ServicePanelResource {
 export function ServicePanelBody({
   resource,
   framework,
-  orgSlug,
   projectSlug,
   onClose,
   pending,
   service,
+  state,
+  focus,
   tab,
   onGoTab,
   logsVisited,
 }: {
   resource: ServicePanelResource;
   framework?: FrameworkKind | null;
-  orgSlug: string;
   projectSlug: ProjectSlug;
   onClose: () => void;
   pending: boolean;
   service: LiveServiceView | undefined;
+  /** The one service state (see use-service-state). */
+  state: ResourceState | null;
+  focus: PanelFocus;
   tab: ServiceTab;
   onGoTab: (t: ServiceTab) => void;
   logsVisited: boolean;
@@ -90,8 +95,8 @@ export function ServicePanelBody({
               <ServiceOverviewTab
                 resource={resource}
                 service={service}
-                orgSlug={orgSlug}
-                projectSlug={projectSlug}
+                state={state}
+                focus={focus}
                 onGoTab={onGoTab}
               />
             </TabsContent>
@@ -102,8 +107,7 @@ export function ServicePanelBody({
               <ResourceTasksTab
                 projectId={resource.projectId}
                 resourceId={resource.resourceId}
-                orgSlug={orgSlug}
-                projectSlug={projectSlug}
+                focus={focus}
                 canRollback
                 logoNode={{
                   kind: "service",
@@ -164,7 +168,12 @@ export function ServicePanelBody({
             tab !== "logs" && "hidden",
           )}
         >
-          <ServiceLogsTab projectId={resource.projectId} resourceId={resource.resourceId} />
+          <ResourceLogsTab
+            projectId={resource.projectId}
+            resourceId={resource.resourceId}
+            resourceIds={[resource.resourceId]}
+            focus={focus}
+          />
         </div>
       )}
       {!pending && (

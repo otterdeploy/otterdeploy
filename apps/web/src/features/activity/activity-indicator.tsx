@@ -78,16 +78,15 @@ function ActivityRow({
       />
 
       <Link
-        to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
+        to="/$orgSlug/$projectSlug/graph/$resourceId"
         params={{
           orgSlug,
           projectSlug: item.projectSlug,
           resourceId: item.resourceId,
-          deploymentId: item.id,
         }}
         // Straight to the build log. Every row here is a build you are waiting
         // on, and "what is it doing right now" is the only reason to click.
-        search={{ deploymentTab: "build-logs" }}
+        search={{ tab: "logs", deployment: item.id, logSource: "build" }}
         className="flex min-w-0 flex-1 flex-col gap-0.5"
       >
         <span className="flex items-baseline justify-between gap-2">

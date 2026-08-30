@@ -16,7 +16,18 @@ type Router = ReturnType<typeof useRouter>;
 const CARD_H = 200;
 // Side panel covers the right N/D of the canvas. Keep in sync with the panel's
 // Tailwind width class in graph/$resourceId.tsx.
-const PANEL_WIDTH_RATIO = 3 / 7;
+/** The drawer's share of the canvas at the current viewport: `xl:w-3/5`, `lg:w-4/5`
+ *  (see panel-shell.tsx). Read live rather than fixed, so the card lands in the
+ *  strip that is actually left beside the drawer. The old constant (3/7) belonged
+ *  to a width the drawer no longer has, and the card it "kept visible" ended up
+ *  under the panel. */
+function panelWidthRatio(): number {
+  if (typeof window === "undefined") return 3 / 5;
+  const w = window.innerWidth;
+  if (w >= 1280) return 3 / 5;
+  if (w >= 1024) return 4 / 5;
+  return 1;
+}
 const FOCUS_ZOOM = 1.15;
 
 type SetCenter = ReturnType<typeof useReactFlow>["setCenter"];
@@ -36,7 +47,7 @@ export function focusNodeInView(node: Node, setCenter: SetCenter): void {
     void setCenter(targetX, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
     return;
   }
-  const shiftRatio = PANEL_WIDTH_RATIO / 2;
+  const shiftRatio = panelWidthRatio() / 2;
   const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
   void setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
 }

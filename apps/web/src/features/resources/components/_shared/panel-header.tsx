@@ -27,6 +27,9 @@ import { ArrowExpand02Icon, ArrowShrink02Icon, Cancel01Icon } from "@hugeicons/c
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
+import type { ResourceState, StatusTone } from "@/features/resources/lib/resource-state";
+
+import { TONE_DOT, TONE_TEXT } from "@/features/resources/lib/resource-state";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
@@ -161,52 +164,52 @@ function PanelWidthToggle() {
   );
 }
 
-export type PanelStatusTone = "running" | "building" | "error" | "paused" | "pending";
-
-const TONE_CLASS: Record<PanelStatusTone, string> = {
-  running: "text-success",
-  building: "text-warning",
-  error: "text-destructive",
-  paused: "text-muted-foreground",
-  pending: "text-info",
-};
-
-const DOT_CLASS: Record<PanelStatusTone, string> = {
-  running: "bg-success",
-  building: "bg-warning",
-  error: "bg-destructive",
-  paused: "bg-muted-foreground/60",
-  pending: "bg-info",
-};
+/** The five tones every status in the app is drawn in. See resource-state.ts. */
+export type PanelStatusTone = StatusTone;
 
 /**
- * Status as a dot and a word.
+ * Status as a dot, a word, and the reason.
  *
  * It used to be an uppercase chip with a tinted background — the loudest thing
  * in the header, for the one fact least likely to have changed since you
  * opened it. A dot and a word is the SAME pattern the service rows, the graph
- * nodes and the rail's children already use, so one vocabulary now has one
- * look wherever it appears.
+ * nodes and the member strip use, so one vocabulary has one look wherever it
+ * appears. The `why` is the part that was missing everywhere: "crashed" is a
+ * word; "exited 1 · 3 restarts" is what you do next.
  */
 export function PanelStatusPill({
   tone,
   label,
+  why,
   className,
 }: {
   tone: PanelStatusTone;
   label: string;
+  why?: string | null;
   className?: string;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 text-xs leading-none whitespace-nowrap",
-        TONE_CLASS[tone],
+        "inline-flex min-w-0 shrink items-center gap-1.5 text-xs leading-none whitespace-nowrap",
+        TONE_TEXT[tone],
         className,
       )}
     >
-      <span aria-hidden className={cn("size-1.5 rounded-full", DOT_CLASS[tone])} />
-      {label}
+      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", TONE_DOT[tone])} />
+      <span className="shrink-0">{label}</span>
+      {why && (
+        <span className="min-w-0 truncate text-muted-foreground" title={why}>
+          {why}
+        </span>
+      )}
     </span>
+  );
+}
+
+/** The pill for a {@link ResourceState}. */
+export function StatePill({ state, className }: { state: ResourceState; className?: string }) {
+  return (
+    <PanelStatusPill tone={state.tone} label={state.label} why={state.why} className={className} />
   );
 }

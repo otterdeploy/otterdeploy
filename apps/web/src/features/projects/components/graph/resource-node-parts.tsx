@@ -174,11 +174,24 @@ function StackServiceStatusLine({ service }: { service: ComposeServiceInfo }) {
   // `error` reads as "Build failed" only for from-source services; a pulled
   // image that won't run is a runtime error, not a build one.
   const status = stackStatusMeta[service.status ?? "offline"];
-  const label = service.status === "error" && service.hasBuild ? "Build failed" : status.label;
+  // The member's word + why, computed once in build-live-nodes in the same
+  // vocabulary the strip and the panel use; the old per-card wording is the
+  // fallback for a ghost with no live data.
+  const label =
+    service.statusLabel ??
+    (service.status === "error" && service.hasBuild ? "Build failed" : status.label);
   return (
     <div className="mt-2 flex items-center gap-2">
       <span className={cn("size-1.5 shrink-0 rounded-full", status.dotClass)} aria-hidden />
-      <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>{label}</span>
+      <span className={cn("shrink-0 text-[12.5px] leading-none", status.textClass)}>{label}</span>
+      {service.statusWhy && (
+        <span
+          className="min-w-0 truncate text-[11.5px] leading-none text-muted-foreground"
+          title={service.statusWhy}
+        >
+          · {service.statusWhy}
+        </span>
+      )}
       {service.restarts != null && service.restarts > 0 && (
         <span
           className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-medium text-warning tabular-nums"

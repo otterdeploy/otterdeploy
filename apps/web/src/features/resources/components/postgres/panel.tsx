@@ -1,38 +1,41 @@
 /**
  * Detail panel for a real (provisioned) database resource. Header carries
- * the brand icon + name + runtime status; the body renders five tabs
- * (Deployments / Metrics / Variables / Terminal / Settings) backed by
- * the per-tab panel modules. Terminal stays mounted via Activity so its
+ * the brand icon + name + runtime state; the body renders the tabs in the
+ * order every kind shares (Overview / Deployments / Logs / Variables /
+ * Settings) plus what a database appends (Data / Metrics / Terminal). Terminal stays mounted via Activity so its
  * PTY + scrollback survive tab switches.
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-import { Activity } from "react";
-
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
-
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 
 import { DbConnectionsChip } from "@/features/databases/connections-popover";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
+import { databaseState } from "@/features/resources/lib/resource-state";
 import { TabsContent } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
-import { orpc } from "@/shared/server/orpc";
 
 import type { PostgresBodyProps } from "./types";
 
 import { PANEL_TAB_BODY_CLASS, resolvePanelTab } from "../_shared/panel-tab";
 import { PanelTabsChrome } from "../_shared/panel-tabs-layout";
 import { PANE_MEASURE_CLASS } from "../_shared/panel-width";
+import { StackMemberStrip } from "../_shared/stack-member-strip";
 import { DatabaseDataTab, DatabasePanelHeader } from "./panel-parts";
+import {
+  DatabaseSurfaces,
+  databaseTabs,
+  useDatabaseRestart,
+  type DatabaseTab,
+} from "./panel-surfaces";
+import { DatabaseOverviewTab } from "./tabs/overview";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
 
-type ResourceTab = "deployments" | "data" | "metrics" | "variables" | "terminal" | "settings";
+type ResourceTab = DatabaseTab;
 
 interface RealResourcePanelProps {
   resource: PostgresBodyProps["resource"];
@@ -53,18 +56,24 @@ interface RealResourcePanelProps {
   tab?: string;
   /** Report a tab click so the route can write it to the URL. */
   onTabChange: (tab: string) => void;
+  /** Deployment focus + log source, also from the URL. */
+  focus: PanelFocus;
   /** Where this resource sits, built once by the panel dispatcher so every
    *  kind renders the same crumb. */
   crumb: PanelCrumb;
 }
 
+// ONE order for every kind: overview · deployments · logs · variables ·
+// settings, then what a database appends.
 const DATABASE_TABS: readonly ResourceTab[] = [
+  "overview",
   "deployments",
+  "logs",
+  "variables",
+  "settings",
   "data",
   "metrics",
-  "variables",
   "terminal",
-  "settings",
 ];
 
 // Tabs that mean anything for a staged-create ghost: nothing is provisioned
@@ -75,6 +84,7 @@ const DATABASE_PENDING_TABS: readonly ResourceTab[] = ["variables", "settings"];
 export function RealResourcePanel({
   crumb,
   resource,
+  projectName,
   orgSlug,
   projectSlug,
   onClose,
@@ -82,33 +92,28 @@ export function RealResourcePanel({
   dbName,
   tab: tabParam,
   onTabChange,
+  focus,
 }: RealResourcePanelProps) {
   const tab = resolvePanelTab(
     tabParam,
     pending ? DATABASE_PENDING_TABS : DATABASE_TABS,
-    pending ? "variables" : "deployments",
+    pending ? "variables" : "overview",
   );
-
-  // Re-roll the running container with its current spec: same image, env,
-  // and public flag. Distinct from the wizard's create; this just bounces the
-  // swarm task (and re-applies container labels, so a DB created before a
-  // label change starts reporting metrics).
-  const restartMut = useMutation({
-    ...orpc.project.resource.database.postgres.restart.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Restarting database", {
-        description: "Track progress in the Deployments tab.",
-      });
-      onTabChange("deployments");
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
+  // The one state every surface in this panel reads. A staged create has no
+  // runtime; the draft the dispatcher builds carries none, and that reads as
+  // pending here without touching the deploy flag first.
+  const state = databaseState({
+    runtime: pending ? undefined : resource.runtime,
+    latestDeploymentStatus: resource.latestDeploymentStatus,
   });
+
+  const restartMut = useDatabaseRestart(() => onTabChange("deployments"));
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <DatabasePanelHeader
         resource={resource}
-        pending={pending}
+        state={state}
         crumb={crumb}
         onClose={onClose}
         onRestart={() =>
@@ -130,23 +135,30 @@ export function RealResourcePanel({
         }
       />
 
-      <PanelTabsChrome
-        value={tab}
-        onValueChange={onTabChange}
-        tabs={[
-          // Runtime tabs are disabled until the database is deployed: no
-          // tasks, data, metrics, or container exist yet.
-          { value: "deployments", label: "Deployments", disabled: pending },
-          { value: "data", label: "Data", disabled: pending },
-          { value: "metrics", label: "Metrics", disabled: pending },
-          { value: "variables", label: "Variables" },
-          { value: "terminal", label: "Terminal", disabled: pending },
-          { value: "settings", label: "Settings" },
-        ]}
-      >
+      <StackMemberStrip
+        orgSlug={orgSlug}
+        projectSlug={projectSlug}
+        projectId={resource.projectId}
+        projectName={projectName}
+        current={{ resourceId: resource.resourceId, name: resource.name, state }}
+        stack={null}
+      />
+
+      <PanelTabsChrome value={tab} onValueChange={onTabChange} tabs={databaseTabs(pending)}>
         <div className="relative min-h-0 min-w-0 flex-1">
           <div className="h-full overflow-y-auto">
             <div className={PANEL_TAB_BODY_CLASS}>
+              {!pending && (
+                <TabsContent value="overview" className="px-4 pt-5 sm:px-6">
+                  <DatabaseOverviewTab
+                    resource={resource}
+                    state={state}
+                    focus={focus}
+                    onGoTab={onTabChange}
+                  />
+                </TabsContent>
+              )}
+
               {/* Runtime tabs query tasks/data/metrics by resourceId, which
                   doesn't exist for a staged create. Only mount once deployed. */}
               {!pending && (
@@ -154,8 +166,7 @@ export function RealResourcePanel({
                   <ResourceTasksTab
                     projectId={resource.projectId}
                     resourceId={resource.resourceId}
-                    orgSlug={orgSlug}
-                    projectSlug={projectSlug}
+                    focus={focus}
                     logoNode={{
                       kind: "database",
                       name: resource.name,
@@ -209,24 +220,13 @@ export function RealResourcePanel({
             </div>
           </div>
 
-          {/* Terminal lives OUTSIDE the height-animated <div className="relative"> (which
-              sizes to its content) so it can absolutely fill this region
-              instead of collapsing. keepMounted via Activity keeps the PTY +
-              scrollback alive across tab switches. */}
           {!pending && (
-            <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
-              <div className="absolute inset-0 flex flex-col p-px">
-                <ResourceTerminal
-                  match={{
-                    kind: "database",
-                    engine: resource.engine,
-                    serviceName: resource.runtime.serviceName,
-                  }}
-                  fallbackLabel={resource.runtime.serviceName}
-                  projectSlug={projectSlug}
-                />
-              </div>
-            </Activity>
+            <DatabaseSurfaces
+              resource={resource}
+              tab={tab}
+              projectSlug={projectSlug}
+              focus={focus}
+            />
           )}
         </div>
       </PanelTabsChrome>

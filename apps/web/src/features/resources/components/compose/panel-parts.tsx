@@ -13,11 +13,12 @@ import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import {
-  PanelStatusPill,
   ResourcePanelHeader,
+  StatePill,
 } from "@/features/resources/components/_shared/panel-header";
 import { Button } from "@/shared/components/ui/button";
 
@@ -85,7 +86,7 @@ export function ComposePanelHeader({
   source,
   logoBrand,
   crumb,
-  running,
+  state,
   onClose,
   onRedeploy,
   redeploying,
@@ -96,9 +97,9 @@ export function ComposePanelHeader({
   source: "inline" | "git";
   logoBrand?: string | null;
   crumb: PanelCrumb;
-  /** Rolled-up child state for the status pill: null while the stack is a
-   *  staged create and nothing is running yet. */
-  running: { up: number; total: number; anyError: boolean } | null;
+  /** The stack's rollup: "2/4 running · postiz-app crashed, temporal offline".
+   *  Null while the members are still resolving. */
+  state: ResourceState | null;
   onClose: () => void;
   onRedeploy: () => void;
   redeploying: boolean;
@@ -115,7 +116,7 @@ export function ComposePanelHeader({
       }
       name={name}
       crumb={crumb}
-      status={running ? <ComposeStatusPill running={running} /> : null}
+      status={state ? <StatePill state={state} /> : null}
       // The stack's own name is the title directly above this line, so the
       // old status bar's copy of it is gone rather than moved.
       meta={
@@ -168,22 +169,5 @@ function ComposeDeployButton({
           leave room for the stack name. */}
       <span className="hidden sm:inline">{redeploying ? busyLabel : label}</span>
     </Button>
-  );
-}
-
-/** `2/2 running`, or `1/2 running` in destructive red when a child failed.
- *  Folded out of the old status bar: the count belongs next to the name it
- *  counts, not on a row of its own. */
-function ComposeStatusPill({
-  running,
-}: {
-  running: { up: number; total: number; anyError: boolean };
-}) {
-  const allRunning = running.up === running.total && running.total > 0;
-  return (
-    <PanelStatusPill
-      tone={allRunning ? "running" : running.anyError ? "error" : "building"}
-      label={`${running.up}/${running.total} running`}
-    />
   );
 }

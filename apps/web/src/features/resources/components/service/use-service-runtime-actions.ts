@@ -24,18 +24,21 @@ export function useServiceRuntimeActions({
   projectSlug: ProjectSlug;
 }) {
   const navigate = useNavigate();
-  const toDeployment = (deploymentId: string, logTab: "build-logs" | "deploy-logs") =>
+  // Straight into the panel's Logs tab with the new deployment focused: the
+  // build/deploy log is a log SOURCE of the panel now, not an overlay route.
+  const toDeployment = (deploymentId: string, logSource: "build" | "deploy") =>
     navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
-      params: { orgSlug, projectSlug, resourceId, deploymentId },
-      search: (prev) => ({ ...prev, deploymentTab: logTab }),
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: { orgSlug, projectSlug, resourceId },
+      search: { tab: "logs", deployment: deploymentId, logSource },
+      replace: true,
     });
 
   const buildMut = useMutation({
     ...orpc.service.build.mutationOptions(),
     // Drop straight into the new deployment's Build Logs (Railway-style). The
     // whole point of hitting Deploy is to watch it build.
-    onSuccess: ({ deploymentId }) => void toDeployment(deploymentId, "build-logs"),
+    onSuccess: ({ deploymentId }) => void toDeployment(deploymentId, "build"),
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to start build"),
   });
 

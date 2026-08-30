@@ -23,11 +23,28 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
-export function LogRow({ line, wrap, showTs }: { line: LogLine; wrap: boolean; showTs: boolean }) {
+export function LogRow({
+  line,
+  wrap,
+  showTs,
+  showSvc = false,
+}: {
+  line: LogLine;
+  wrap: boolean;
+  showTs: boolean;
+  /** Prefix each line with the member it came from: a stack's tail is N
+   *  containers wide and the lines would otherwise be indistinguishable. */
+  showSvc?: boolean;
+}) {
   return (
     <div className="flex items-stretch gap-2.5">
       <span className={cn("w-[3px] shrink-0 rounded-full", LEVEL_STRIPE[line.level])} />
       {showTs && <span className="shrink-0 text-muted-foreground/50">{line.ts}</span>}
+      {showSvc && (
+        <span className="w-24 shrink-0 truncate text-muted-foreground/70" title={line.svc}>
+          {line.svc}
+        </span>
+      )}
       <span
         className={cn(
           LEVEL_ROW_TEXT[line.level],

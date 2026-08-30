@@ -109,6 +109,44 @@ export function baseStackServiceStatus(
   }
 }
 
+/** Which phase a deploy in flight is in, for the card's progress bar. The
+ *  fractions are the stepper's four checkpoints, not measured progress: we
+ *  have no per-phase timings yet (bd od-y64.12). Honest about that: the bar
+ *  says "Build", not "45%". */
+export function buildPhaseOf(
+  status: Extract<ProjectResource, { type: "service" }>["latestDeploymentStatus"],
+): { label: string; fraction: number } | undefined {
+  switch (status) {
+    case "pending":
+      return { label: "Queued", fraction: 0.1 };
+    case "building":
+      return { label: "Build", fraction: 0.45 };
+    case "starting":
+      return { label: "Deploy", fraction: 0.8 };
+    default:
+      return undefined;
+  }
+}
+
+/** The word for a service's deployment status, where the coarse pill status
+ *  loses it: a crashed service is "crashed", not "error". */
+function serviceStatusLabel(
+  status: Extract<ProjectResource, { type: "service" }>["latestDeploymentStatus"],
+): string | undefined {
+  switch (status) {
+    case "crashed":
+      return "crashed";
+    case "failed":
+      return "failed";
+    case "starting":
+      return "starting";
+    case "pending":
+      return "queued";
+    default:
+      return undefined;
+  }
+}
+
 /** One calm sentence for the service card body. A git-built service's image
  *  ref is an internal artifact. Say what the thing IS (framework + origin)
  *  and leave the machine ref to the muted footer. A pulled image IS the
@@ -162,6 +200,9 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           engine: r.engine,
           internalHostname: r.internalHostname,
           status: databaseStatus(r),
+          ...(r.runtime.status === "running" && r.runtime.health === "unhealthy"
+            ? { statusLabel: "unhealthy", statusWhy: "healthcheck failing" }
+            : {}),
         },
       };
     case "service":
@@ -192,6 +233,8 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // for build failures, which never schedule tasks) this is what
           // surfaces, so a failed build shows "error" instead of nothing.
           status: serviceDeploymentStatus(r.latestDeploymentStatus),
+          statusLabel: serviceStatusLabel(r.latestDeploymentStatus),
+          buildPhase: buildPhaseOf(r.latestDeploymentStatus),
           // Gated on publicEnabled, not just a non-null domain: a service can
           // retain the host it used to serve on after being unexposed, and
           // offering "Visit" for that would link to a 404.

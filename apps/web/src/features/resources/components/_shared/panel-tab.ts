@@ -40,3 +40,19 @@ export function resolvePanelTab<T extends string>(
  * nothing under it. One owner, every tab, including ones not written yet.
  */
 export const PANEL_TAB_BODY_CLASS = "relative pb-12";
+
+/** Which log the Logs tab shows. `runtime` is the container's live output;
+ *  `build` and `deploy` are a specific deployment's pipeline / rollout logs. */
+export type LogSource = "runtime" | "build" | "deploy";
+
+/**
+ * The deployment focus the URL carries alongside `?tab=`: which deployment
+ * row is expanded, and which log the Logs tab shows. Deployments used to open
+ * a third overlay over the panel with its own tab strip; they expand in place
+ * now, and "View logs" is a tab switch with this focus set.
+ */
+export interface PanelFocus {
+  deploymentId: string | null;
+  logSource: LogSource | null;
+  set: (next: { tab?: string; deployment?: string | null; logSource?: LogSource | null }) => void;
+}

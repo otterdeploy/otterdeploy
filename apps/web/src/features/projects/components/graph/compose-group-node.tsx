@@ -6,12 +6,10 @@
  * resource-node.tsx to keep that file + this component under the line caps.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { toast } from "sonner";
 
@@ -83,6 +81,7 @@ function ComposeGroupHeader({
             "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium",
             tone.pill,
           )}
+          title={roll.why ?? undefined}
         >
           <span className={cn("size-1.5 rounded-full", tone.dot)} />
           {roll.summary}
@@ -156,6 +155,11 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
   // gets (deployments/logs/terminal/variables/settings).
   const navigate = useNavigate();
   const params = useParams({ strict: false });
+  // One history entry per open: replace while a panel is already showing.
+  const panelOpen = !!useMatch({
+    from: "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
+    shouldThrow: false,
+  });
   const openService = (resourceId: string) => {
     if (!params.orgSlug || !params.projectSlug) return;
     void navigate({
@@ -165,6 +169,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
         projectSlug: params.projectSlug,
         resourceId,
       },
+      replace: panelOpen,
     });
   };
 

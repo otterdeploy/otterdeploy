@@ -1,28 +1,30 @@
 /**
- * Overview tab for a deployed service. The panel's landing surface.
+ * Overview tab for a deployed service. The panel's landing surface, and it is
+ * CONTENT: the state and why, four facts, the latest deployment with its
+ * phases inline, and the last lines the service wrote.
  *
- * Four stat tiles (runtime state, replicas, last deploy, public reach), nav
- * cards that jump to the other panel tabs, and the three most recent
- * deployments (see {@link OverviewStatTiles} & friends in ./overview-parts).
- * Everything shown is real data the panel already loads: the live
- * `service.get` view, the resource row, and the shared deployments
- * collection, no invented numbers.
+ * It used to be four tiles plus three cards that linked to the other tabs —
+ * navigation about navigation, on the one tab that should answer "what is
+ * going on" by itself. Everything shown is real data the panel already loads:
+ * the one service state, the resource row, and the shared deployments
+ * collection. No invented numbers.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
-import { and, eq, useLiveQuery } from "@tanstack/react-db";
-import { Link } from "@tanstack/react-router";
+import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
+import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import {
-  DeploymentStatusBadge,
-  type DeploymentInfo,
-} from "@/features/resources/components/_shared/deployment-cards";
-import { deploymentsCollection } from "@/features/resources/data/deployments";
+  LatestDeploymentSection,
+  LogTail,
+  relativeTime,
+  StateBanner,
+  StatTile,
+  useNowTick,
+} from "@/features/resources/components/_shared/overview-atoms";
+import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
 import { shortImageRef } from "@/shared/lib/image-ref";
 
-import { deriveServicePanelState, type ServiceRuntimeStatus } from "../service-status";
-import { OverviewNavCards, OverviewStatTiles, relativeTime, useNowTick } from "./overview-parts";
+import type { DeploymentInfo } from "../../_shared/deployment-cards";
 
 export interface OverviewResource {
   resourceId: string;
@@ -33,64 +35,90 @@ export interface OverviewResource {
   replicas: number;
   publicEnabled: boolean;
   publicDomain: string | null;
-  extraEnv: Record<string, string>;
-  secretKeys: string[];
 }
 
 /** The slice of the live `service.get` view the overview reads. Undefined
  *  while loading: tiles show an honest "–" instead of a guess. */
 export interface OverviewLiveService {
   pausedReplicas: number | null;
-  runtime: { status: ServiceRuntimeStatus };
 }
 
-/** The three most recent deployments: each links straight to that
- *  deployment's detail (not just the Deployments tab). */
-function RecentDeployments({
-  recent,
+/** What the state asks you to do next. A failure wants its logs; a build
+ *  wants to be watched; a healthy service asks nothing. */
+function nextAction(
+  state: ResourceState | null,
+  onGoTab: (tab: "logs") => void,
+): { label: string; onClick: () => void } | null {
+  if (!state) return null;
+  if (state.tone === "error") return { label: "See logs", onClick: () => onGoTab("logs") };
+  if (state.tone === "building")
+    return { label: "Watch the build", onClick: () => onGoTab("logs") };
+  return null;
+}
+
+/** "main @ a1b2c3d · fix: cache headers" for a git service; the pinned image
+ *  ref otherwise. */
+function sourceTile(resource: OverviewResource, latest: DeploymentInfo | null) {
+  if (resource.source === "git" && latest?.gitSha) {
+    return {
+      label: "Source",
+      value: latest.gitSha.slice(0, 7),
+      sub: latest.gitCommitMessage?.split("\n", 1)[0]?.trim() || "built from source",
+      mono: true,
+    };
+  }
+  return {
+    label: resource.source === "git" ? "Source" : "Image",
+    value: shortImageRef(resource.image),
+    sub: resource.source === "git" ? "built from source" : "pinned image",
+    mono: true,
+  };
+}
+
+/** The four facts. Split out so the tab itself stays under the complexity cap. */
+function OverviewTiles({
+  resource,
+  service,
+  paused,
+  latest,
   now,
-  orgSlug,
-  projectSlug,
-  resourceId,
 }: {
-  recent: DeploymentInfo[];
+  resource: OverviewResource;
+  service: OverviewLiveService | undefined;
+  paused: boolean;
+  latest: DeploymentInfo | null;
   now: number;
-  orgSlug: string;
-  projectSlug: ProjectSlug;
-  resourceId: string;
 }) {
+  const desired = paused ? 0 : resource.replicas;
+  const running = latest ? latest.runningTaskCount : null;
+  const source = sourceTile(resource, latest);
+  const exposed = resource.publicEnabled && !!resource.publicDomain;
   return (
-    <div>
-      <div className="text-[10.5px] font-medium tracking-[0.16em] text-muted-foreground/70 uppercase">
-        Recent deployments
-      </div>
-      {recent.length === 0 ? (
-        <p className="mt-2 rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-[12px] text-muted-foreground">
-          Nothing has been deployed yet. Deployments will appear here.
-        </p>
-      ) : (
-        <div className="mt-2 overflow-hidden rounded-md border bg-card">
-          <div className="divide-y divide-border/40">
-            {recent.map((d) => (
-              <Link
-                key={d.id}
-                to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
-                params={{ orgSlug, projectSlug, resourceId, deploymentId: d.id }}
-                search={(prev) => ({ ...prev, deploymentTab: "details" })}
-                className="grid w-full grid-cols-[92px_1fr_auto] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20"
-              >
-                <DeploymentStatusBadge status={d.status} compact />
-                <span className="truncate font-mono text-[12px] text-foreground/80" title={d.image}>
-                  {shortImageRef(d.image)}
-                </span>
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {relativeTime(d.createdAt, now)}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+      <StatTile
+        label="Replicas"
+        value={running != null ? `${running} / ${desired}` : `${desired} desired`}
+        sub={
+          paused && service?.pausedReplicas
+            ? "resume restores replicas"
+            : running != null
+              ? "running / desired"
+              : "no deployments yet"
+        }
+        mono
+      />
+      <StatTile
+        label="Last deploy"
+        value={latest ? relativeTime(latest.createdAt, now) : "never"}
+        sub={latest ? `${latest.reason} · ${latest.status}` : "waiting on first deploy"}
+      />
+      <StatTile {...source} />
+      <StatTile
+        label="Public"
+        value={exposed && resource.publicDomain ? resource.publicDomain : "internal only"}
+        mono={exposed}
+        sub={exposed ? "via the Caddy edge" : "project network only"}
+      />
     </div>
   );
 }
@@ -98,57 +126,45 @@ function RecentDeployments({
 export function ServiceOverviewTab({
   resource,
   service,
-  orgSlug,
-  projectSlug,
+  state,
+  focus,
   onGoTab,
 }: {
   resource: OverviewResource;
   service: OverviewLiveService | undefined;
-  orgSlug: string;
-  projectSlug: ProjectSlug;
-  onGoTab: (tab: "deployments" | "variables" | "settings") => void;
+  state: ResourceState | null;
+  focus: PanelFocus;
+  onGoTab: (tab: "deployments" | "logs") => void;
 }) {
   const now = useNowTick();
-  const { data: deployments } = useLiveQuery(
-    (q) =>
-      q
-        .from({ d: deploymentsCollection })
-        .where(({ d }) =>
-          and(eq(d.projectId, resource.projectId), eq(d.resourceId, resource.resourceId)),
-        )
-        .orderBy(({ d }) => d.createdAt, "desc"),
-    [resource.projectId, resource.resourceId],
-  );
-
+  const { deployments } = useResourceDeployments(resource.projectId, resource.resourceId);
   const latest: DeploymentInfo | null = deployments.at(0) ?? null;
-  const recent: DeploymentInfo[] = deployments.slice(0, 3);
-
-  const state = deriveServicePanelState({
-    pausedReplicas: service?.pausedReplicas ?? null,
-    runtimeStatus: service?.runtime.status,
-  });
 
   return (
     <div className="flex flex-col gap-5">
-      <OverviewStatTiles
+      <StateBanner state={state} action={nextAction(state, onGoTab)} />
+
+      <OverviewTiles
         resource={resource}
         service={service}
-        state={state}
+        paused={state?.tone === "paused"}
         latest={latest}
         now={now}
       />
-      <OverviewNavCards
-        resource={resource}
-        deploymentsCount={deployments.length}
-        latest={latest}
-        onGoTab={onGoTab}
-      />
-      <RecentDeployments
-        recent={recent}
-        now={now}
-        orgSlug={orgSlug}
-        projectSlug={projectSlug}
+
+      <LatestDeploymentSection
+        deployments={deployments}
+        projectId={resource.projectId}
         resourceId={resource.resourceId}
+        focus={focus}
+        onSeeAll={() => onGoTab("deployments")}
+        emptyLabel="Nothing has been deployed yet. Deployments will appear here."
+      />
+
+      <LogTail
+        projectId={resource.projectId}
+        resourceIds={[resource.resourceId]}
+        onOpenLogs={() => onGoTab("logs")}
       />
     </div>
   );

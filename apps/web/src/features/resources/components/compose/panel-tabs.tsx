@@ -1,7 +1,7 @@
 /**
- * Content tabs for {@link ComposeResourcePanel}: the Services list, the
- * read-only Compose file viewer, and the Settings (exposed-services summary +
- * delete) pane. Pulled into a sibling module so the panel component stays
+ * Content tabs for {@link ComposeResourcePanel}: the Compose file viewer /
+ * editor and the Settings (exposed-services summary + delete) pane. The member
+ * list lives on the Overview tab (see stack-overview-tab.tsx). Pulled into a sibling module so the panel component stays
  * small.
  */
 
@@ -18,65 +18,6 @@ import {
 import { ComposeExposedSummary } from "@/features/resources/components/compose/exposed-summary";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
-import { cn } from "@/shared/lib/utils";
-
-import type { ComposeService, StackServiceStatus } from "./panel-parts";
-
-const stackStatusMeta: Record<StackServiceStatus, { label: string; dot: string; text: string }> = {
-  running: { label: "Running", dot: "bg-success", text: "text-success" },
-  building: { label: "Building", dot: "bg-warning", text: "text-warning" },
-  deploying: { label: "Deploying", dot: "bg-info", text: "text-info" },
-  // Waiting its turn inside a running deploy: in flight, but nothing is
-  // happening to it yet, so no active colour on the label.
-  queued: { label: "Queued", dot: "bg-warning/60", text: "text-muted-foreground" },
-  error: { label: "Failed", dot: "bg-destructive", text: "text-destructive" },
-  offline: {
-    label: "Offline",
-    dot: "bg-muted-foreground/40",
-    text: "text-muted-foreground",
-  },
-  pending: { label: "Pending", dot: "bg-info", text: "text-info" },
-};
-
-export function ComposeServicesTab({
-  services,
-  source,
-  serviceStatus,
-}: {
-  services: ComposeService[];
-  source: "inline" | "git";
-  serviceStatus: (serviceName: string) => StackServiceStatus;
-}) {
-  const { t } = useTranslation();
-  if (services.length === 0) {
-    return (
-      <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
-        <EmptyHeader>
-          <EmptyTitle>{t("resources.stackNoServices")}</EmptyTitle>
-          <EmptyDescription>
-            {source === "git"
-              ? t("resources.stackNoServicesGit")
-              : t("resources.stackNoServicesInline")}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-  return (
-    // One column normally; two once the pane is wide enough that a single
-    // column of ~90px cards would be a stripe of whitespace. Container
-    // queries, not viewport ones: what matters is how wide the PANE is, which
-    // depends on the drawer's expanded state, not on the window.
-    <div className="@container">
-      <div className="grid grid-cols-1 gap-2.5 @3xl:grid-cols-2">
-        {services.map((s) => (
-          <ServiceRow key={s.name} service={s} status={serviceStatus(s.serviceName)} />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function ComposeFileTab({
   projectId,
@@ -192,48 +133,5 @@ export function ComposeSettingsTab({
         />
       </div>
     </>
-  );
-}
-
-function ServiceRow({ service, status }: { service: ComposeService; status: StackServiceStatus }) {
-  const meta = stackStatusMeta[status];
-  // Task-derived "building" covers swarm's pre-running phases (pulling,
-  // starting): for an image-only service nothing builds, so say "Deploying".
-  const label =
-    status === "error" && service.hasBuild
-      ? "Build failed"
-      : status === "building" && !service.hasBuild
-        ? "Deploying"
-        : meta.label;
-  return (
-    <div className="rounded-lg border bg-card px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="truncate text-[14px] font-semibold text-card-foreground">
-          {service.name}
-        </span>
-        <span className="inline-flex shrink-0 items-center gap-1.5">
-          <span className={cn("size-1.5 rounded-full", meta.dot)} aria-hidden />
-          <span className={cn("text-[12px] leading-none", meta.text)}>{label}</span>
-        </span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
-        <span className="truncate">
-          {service.image ?? (service.hasBuild ? "built from source" : "–")}
-        </span>
-        {service.ports.length > 0 && <span>· ports {service.ports.join(", ")}</span>}
-      </div>
-      {service.volumes.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {service.volumes.map((v) => (
-            <span
-              key={v}
-              className="rounded-md bg-muted/60 px-1.5 py-1 font-mono text-[11px] leading-none text-muted-foreground"
-            >
-              {v}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

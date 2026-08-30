@@ -11,11 +11,12 @@ import type { ReactNode } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
+import type { ResourceState } from "@/features/resources/lib/resource-state";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import {
-  PanelStatusPill,
   ResourcePanelHeader,
+  StatePill,
 } from "@/features/resources/components/_shared/panel-header";
 import { shortImageRef } from "@/shared/lib/image-ref";
 
@@ -25,7 +26,7 @@ export type { PauseControl };
 
 export function ServicePanelHeader({
   resource,
-  status,
+  state,
   framework,
   pending,
   crumb,
@@ -38,9 +39,10 @@ export function ServicePanelHeader({
   replicaLine,
 }: {
   resource: HeaderResource;
-  /** Resource-row status (`valid` / `draft` / `invalid`). Not on
-   *  HeaderResource, which is only what the action cluster needs. */
-  status: string;
+  /** The service's ONE state (runtime-derived, see use-service-state). Null
+   *  while genuinely unknown: the header then shows no pill rather than a
+   *  guess. */
+  state: ResourceState | null;
   framework?: FrameworkKind | null;
   pending: boolean;
   crumb: PanelCrumb;
@@ -71,7 +73,7 @@ export function ServicePanelHeader({
       }
       name={resource.name}
       crumb={crumb}
-      status={<ServiceStatusPill status={status} paused={pause?.paused === true} />}
+      status={state ? <StatePill state={state} /> : null}
       meta={
         <span title={resource.image}>
           {shortImageRef(resource.image)}
@@ -95,34 +97,4 @@ export function ServicePanelHeader({
       onClose={onClose}
     />
   );
-}
-
-/**
- * Status for a service, folded out of the old bar.
- *
- * Paused is deliberately muted rather than destructive: it is an operator
- * choice, not a failure, and it must never wear the green a running service
- * has.
- */
-function ServiceStatusPill({ status, paused }: { status: string; paused: boolean }) {
-  if (paused) return <PanelStatusPill tone="paused" label="paused" />;
-  const tone =
-    status === "valid"
-      ? "running"
-      : status === "draft"
-        ? "pending"
-        : status === "invalid"
-          ? "error"
-          : "paused";
-  // `valid`/`invalid`/`draft` is schema-speak. Say what the graph node says,
-  // so a node and its panel read the same on the same screen.
-  const label =
-    status === "valid"
-      ? "running"
-      : status === "draft"
-        ? "pending"
-        : status === "invalid"
-          ? "error"
-          : status;
-  return <PanelStatusPill tone={tone} label={label} />;
 }

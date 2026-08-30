@@ -279,6 +279,10 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
 
   // Shared by the node click handler and the context menu's "Open" item.
   // Same navigation, same pending-delete guard, same preview-satellite branch.
+  //
+  // ONE history entry per open: the first click pushes, every click while the
+  // drawer is already open replaces. Back then closes the panel, rather than
+  // walking every card you looked at (tabs and member switches replace too).
   const openNode = (node: ResourceFlowNode) => {
     if (isRemoving(node.data.pending)) return;
     if (node.data.kind === "preview") {
@@ -288,6 +292,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
         void navigate({
           to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
           params: { orgSlug, projectSlug, previewId: preview.id },
+          replace: panelOpen,
         });
       }
       return;
@@ -297,6 +302,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     void navigate({
       to: "/$orgSlug/$projectSlug/graph/$resourceId",
       params: { resourceId, orgSlug, projectSlug },
+      replace: panelOpen,
     });
   };
 

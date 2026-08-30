@@ -6,23 +6,26 @@
  * detail page used to hide behind a click now live inline where you land.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import type React from "react";
 import { useState } from "react";
 
 import { ArrowDown01Icon, GitBranchIcon, GitCommitIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Link } from "@tanstack/react-router";
 
 import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
 
-import { logTabForStatus } from "@/features/resources/lib/deployment-log-tab";
+import { logSourceForStatus } from "@/features/resources/lib/deployment-log-tab";
 import { timeAgo } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
+import type { PanelFocus } from "./panel-tab";
+
 import { PanelIcon } from "./atoms";
-import { type DeploymentInfo, DeploymentStatusBadge } from "./deployment-cards";
+import {
+  type DeploymentInfo,
+  DeploymentStatusBadge,
+  deploymentStatusLabel,
+} from "./deployment-cards";
 import { DeploymentTimelineView } from "./deployment-timeline-view";
 import { HistoryRowMenu } from "./history-row-menu";
 
@@ -123,25 +126,26 @@ function DeploymentMark({
 export function StagedDeploymentCard({
   deployment,
   logoNode,
-  orgSlug,
-  projectSlug,
   projectId,
   resourceId,
   canRollback,
+  focus,
 }: {
   deployment: DeploymentInfo;
   /** The resource's node data (framework/engine/logoBrand). Only used as the
    *  mark of last resort: a deployment with a commit behind it leads with its
    *  author instead. See [[DeploymentMark]]. */
   logoNode?: ResourceNodeData;
-  orgSlug: string;
-  projectSlug: ProjectSlug;
   projectId: string;
   resourceId: string;
   canRollback: boolean;
+  /** "View logs" and the timeline's log links switch the panel to its Logs
+   *  tab with this deployment focused: no overlay, no route change. */
+  focus: PanelFocus;
 }) {
   const [open, setOpen] = useState(true);
-  const link = { orgSlug, projectSlug, resourceId, deploymentId: deployment.id };
+  const openLogs = (source: "build" | "deploy") =>
+    focus.set({ tab: "logs", deployment: deployment.id, logSource: source });
   const failed = deployment.status === "failed" || deployment.status === "crashed";
 
   // The commit subject is the headline when there is one. "what changed" beats
@@ -190,6 +194,9 @@ export function StagedDeploymentCard({
               title={subject ?? undefined}
             >
               {subject ?? TRIGGER_LABEL[deployment.reason]}
+              <span className="ml-2 font-mono text-[11px] font-normal text-muted-foreground">
+                {deploymentStatusLabel(deployment.status)}
+              </span>
             </span>
             <span className="truncate text-[11.5px] text-muted-foreground">
               {meta.map((part, i) => (
@@ -210,30 +217,25 @@ export function StagedDeploymentCard({
           />
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Link
-            to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
-            params={{ orgSlug, projectSlug, resourceId, deploymentId: deployment.id }}
-            search={(prev) => ({
-              ...prev,
-              deploymentTab: logTabForStatus(deployment.status),
-            })}
+          <button
+            type="button"
+            onClick={() => openLogs(logSourceForStatus(deployment.status))}
             className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] text-foreground/80 transition-colors hover:bg-muted/50"
           >
             View logs
-          </Link>
+          </button>
           <HistoryRowMenu
             deployment={deployment}
-            orgSlug={orgSlug}
-            projectSlug={projectSlug}
             projectId={projectId}
             resourceId={resourceId}
             canRollback={canRollback}
+            focus={focus}
           />
         </div>
       </div>
       {open && (
         <div className="border-t border-border/60">
-          <DeploymentTimelineView deployment={deployment} link={link} />
+          <DeploymentTimelineView deployment={deployment} onOpenLogs={openLogs} />
         </div>
       )}
     </div>

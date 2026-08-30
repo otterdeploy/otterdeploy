@@ -45,6 +45,13 @@ import { ResourcePanel } from "./-components/resource-panel";
 // separate `deploymentTab` key so the two can never overwrite each other.
 const resourceSearchSchema = z.object({
   tab: z.string().optional(),
+  /** A deployment to focus: the expanded row on Deployments, and the one whose
+   *  build/deploy log the Logs tab shows. Deployments live inline in the panel
+   *  now; the old `/deployment/$deploymentId` overlay redirects here. */
+  deployment: z.string().optional(),
+  /** Which log the Logs tab shows: the running container (default), the
+   *  build pipeline, or the deploy-time container output of `deployment`. */
+  logSource: z.enum(["runtime", "build", "deploy"]).optional(),
 });
 
 export const Route = createFileRoute(
@@ -145,6 +152,19 @@ function RouteComponent() {
   // Same choice the deployment overlay's own tab makes.
   const onTabChange = (next: string) =>
     void navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true });
+  // The deployment focus + log source ride the URL too (see the schema), so a
+  // "View logs" link is shareable and Back still closes the panel.
+  const { deployment: focusDeploymentId, logSource } = Route.useSearch();
+  const onFocus = (next: { tab?: string; deployment?: string | null; logSource?: "runtime" | "build" | "deploy" | null }) =>
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        ...(next.tab !== undefined ? { tab: next.tab } : {}),
+        ...(next.deployment !== undefined ? { deployment: next.deployment ?? undefined } : {}),
+        ...(next.logSource !== undefined ? { logSource: next.logSource ?? undefined } : {}),
+      }),
+      replace: true,
+    });
   // Owned by the parent's drawer: animates the slide-out and pans the camera
   // back before the route change lands.
   const close = useGraphPanelClose();
@@ -193,6 +213,7 @@ function RouteComponent() {
         projectSlug={projectSlug}
         tab={tab}
         onTabChange={onTabChange}
+        focus={{ deploymentId: focusDeploymentId ?? null, logSource: logSource ?? null, set: onFocus }}
         onClose={close}
       />
 

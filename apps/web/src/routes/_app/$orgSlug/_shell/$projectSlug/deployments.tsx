@@ -32,12 +32,11 @@ import {
   viewFromSearch,
 } from "@/features/deployments/hooks/use-deployments-page";
 import { projectIdBySlug } from "@/features/projects/data/project";
-import { logTabForStatus } from "@/features/resources/lib/deployment-log-tab";
+import { logSourceForStatus } from "@/features/resources/lib/deployment-log-tab";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { Page, PageHeader } from "@/shared/components/page";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import type { DeploymentTab } from "./graph/$resourceId/deployment/-components/deployment-tabs";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/deployments")({
   staticData: { crumb: "Deployments" },
@@ -109,16 +108,20 @@ function RouteComponent() {
 
   const [rollbackTarget, setRollbackTarget] = useState<ProjectDeployment | null>(null);
 
-  const openDetail = (d: ProjectDeployment, deploymentTab: DeploymentTab = "details") => {
+  // Into the resource panel with this deployment focused: expanded on the
+  // Deployments tab, or its build/deploy log on the Logs tab. Deployments no
+  // longer have an overlay of their own.
+  const openDetail = (d: ProjectDeployment, logSource?: "build" | "deploy") => {
     void rootNavigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
       params: {
         orgSlug,
         projectSlug,
         resourceId: d.resourceId,
-        deploymentId: d.id,
       },
-      search: { deploymentTab, tab: "deployments" },
+      search: logSource
+        ? { tab: "logs", deployment: d.id, logSource }
+        : { tab: "deployments", deployment: d.id },
     });
   };
 
@@ -158,7 +161,7 @@ function RouteComponent() {
         emptyVariant={view.emptyVariant}
         onRetry={() => void query.refetch()}
         onOpen={(d) => openDetail(d)}
-        onViewLogs={(d) => openDetail(d, logTabForStatus(d.status))}
+        onViewLogs={(d) => openDetail(d, logSourceForStatus(d.status))}
         onRollback={setRollbackTarget}
         onPageChange={(next) =>
           patchSearch({ page: next === 1 ? undefined : next }, { keepPage: true })
