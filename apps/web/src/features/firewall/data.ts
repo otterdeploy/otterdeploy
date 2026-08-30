@@ -1,5 +1,5 @@
 /**
- * One place that knows how the Firewall's four reads behave.
+ * One place that knows how the Firewall's reads behave.
  *
  * The tabs used to fetch on mount, so every switch showed an empty table for a
  * beat and then filled in — and the same trip happened again on the way back,
@@ -13,9 +13,11 @@
  *                   dropping to a skeleton. This is what removes the flash on
  *                   a window change, where the shape of the answer is the same
  *                   and only its contents move.
- *   prefetch      — warm all four on hover of the Edge nav item and on mount
+ *   prefetch      — warm every read on hover of the Edge nav item and on mount
  *                   of the page, so a tab click renders from cache.
  */
+import type { InferRouterOutputs } from "@orpc/server";
+import type { AppRouter } from "@otterdeploy/api/routers/index";
 import type { QueryClient } from "@tanstack/react-query";
 
 import { keepPreviousData } from "@tanstack/react-query";
@@ -24,6 +26,46 @@ import { orpc } from "@/shared/server/orpc";
 
 export type FirewallWindow = "1h" | "6h" | "24h" | "7d" | "all";
 export type HistoryState = "all" | "active" | "ended";
+
+/**
+ * The Blocked tab's one axis: how far back to look.
+ *
+ * This was two controls — a tense (`enforcing` / `expired`) and, only when the
+ * tense was `expired`, a window. Which meant the window picker appeared and
+ * vanished as you switched tense, moving every control beside it. Two controls
+ * for what an operator experiences as one question ("what is blocked, and how
+ * far back do I care") is one too many.
+ *
+ * `now` is the live LAPI read: what is being enforced this second, which is
+ * the only thing that can answer that honestly. Every other option is our
+ * recorder's table over that window, which is the only place a ban CrowdSec
+ * has already dropped still exists — and it returns BOTH tenses, because the
+ * Status column already says which each row is.
+ */
+export const BLOCKED_RANGES = ["now", "1h", "6h", "24h", "7d", "all"] as const;
+export type BlockedRange = (typeof BLOCKED_RANGES)[number];
+
+/** Ascending, then `all` — reads as a scale rather than a shuffled set. */
+export const WINDOWS = ["1h", "6h", "24h", "7d", "all"] as const;
+
+/**
+ * Enforced right now, or over and done with.
+ *
+ * A filter and not just a column, because "show me only the ones that ended"
+ * was previously answerable only by typing `expired` into the search box —
+ * true, and completely invisible. It is meaningful at every range: under `now`
+ * it simply reports that nothing in a live snapshot has expired, which is a
+ * fact rather than a broken control, and the counts on it say so out loud.
+ */
+export const BLOCKED_STATES = ["all", "enforcing", "expired"] as const;
+export type BlockedState = (typeof BLOCKED_STATES)[number];
+
+export type FlaggedRow = InferRouterOutputs<AppRouter>["firewall"]["flagged"][number];
+
+/** Everything the search box matches a Flagged row on. */
+export function flaggedFields(row: FlaggedRow): ReadonlyArray<string | number | null | undefined> {
+  return [row.ip, row.country, row.count, ...row.samplePaths];
+}
 
 /**
  * Live decisions. Polled, because this is the one view that answers "what is
@@ -49,7 +91,7 @@ export const statusQuery = () => ({
  * Recorded history. Our own table, and the past does not change — a decision
  * that ended yesterday will still have ended yesterday in a minute's time. So
  * it holds for a minute and never polls; the only thing that moves is the
- * live rows at the top, which the recorder updates on its own schedule.
+ * live set, which the Blocked tab reads from the LAPI instead.
  */
 export const historyQuery = (window: FirewallWindow, state: HistoryState) => ({
   ...orpc.firewall.history.queryOptions({ input: { window, state } }),
@@ -59,7 +101,7 @@ export const historyQuery = (window: FirewallWindow, state: HistoryState) => ({
 
 /**
  * Flagged IPs. Aggregated from edge logs at read time, so it is the most
- * expensive of the four; a minute of staleness costs nothing because the
+ * expensive of the reads; a minute of staleness costs nothing because the
  * rollup it reads is itself written at ingest.
  */
 export const flaggedQuery = (window: FirewallWindow) => ({

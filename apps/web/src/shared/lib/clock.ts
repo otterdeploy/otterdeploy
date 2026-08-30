@@ -57,3 +57,25 @@ export const CLOCK_STAMP = {
   ...CLOCK_DAY,
   ...CLOCK_MINUTES,
 } as const satisfies Intl.DateTimeFormatOptions;
+
+/** Full date + time. For a hover that has to stay unambiguous months later,
+ *  where `CLOCK_STAMP`'s month/day alone would not say which year. */
+export const CLOCK_EXACT = {
+  year: "numeric",
+  ...CLOCK_DAY,
+  ...CLOCK_MINUTES,
+} as const satisfies Intl.DateTimeFormatOptions;
+
+/**
+ * An ISO-8601 string off the wire as epoch milliseconds, or null when it isn't
+ * a time at all.
+ *
+ * `Date.parse` rather than `Temporal.Instant.from`: the wire carries whatever
+ * the server sent, and a malformed value has to become a null the caller can
+ * render a dash for, not a throw inside a table row. It yields a NUMBER, which
+ * is the app's own time type, so no `Date` object is created here.
+ */
+export function epochMsFromIso(iso: string): number | null {
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : ms;
+}
