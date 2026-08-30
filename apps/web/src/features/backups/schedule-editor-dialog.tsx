@@ -68,7 +68,7 @@ function ScheduleEditorBody({
   const form = useScheduleForm({ initial, organizationId, destinations, onClose, presetSources });
 
   return (
-    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
+    <DialogContent className="gap-0 p-0 [--dlg-pad:0px] sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
           {editing ? `Edit schedule · ${initial.name}` : "New backup schedule"}

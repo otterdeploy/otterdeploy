@@ -107,7 +107,7 @@ export function AddRecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="flex max-h-[86vh] flex-col gap-0 p-0 sm:max-w-lg">
+      <DialogContent className="flex max-h-[86vh] flex-col gap-0 p-0 [--dlg-pad:0px] sm:max-w-lg">
         <DialogHeader className="border-b px-4 py-3">
           <DialogTitle className="flex items-center gap-2 text-sm">
             Add record

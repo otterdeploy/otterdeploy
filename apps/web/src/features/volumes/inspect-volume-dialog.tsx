@@ -53,7 +53,7 @@ function InspectBody({ name }: { name: string }) {
   };
 
   return (
-    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
+    <DialogContent className="gap-0 p-0 [--dlg-pad:0px] sm:max-w-3xl">
       <DialogHeader className="flex-row items-center justify-between gap-3 border-b px-5 py-4">
         <div className="min-w-0">
           <DialogTitle className="text-base font-semibold">{t("volumes.inspect")}</DialogTitle>
