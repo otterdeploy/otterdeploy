@@ -80,7 +80,7 @@ function CreateNetworkBody({ swarm, onClose }: { swarm: boolean; onClose: () => 
   };
 
   return (
-    <DialogContent className="gap-0 p-0 sm:max-w-lg">
+    <DialogContent className="gap-0 [--dlg-pad:0px] p-0 sm:max-w-lg">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">Create network</DialogTitle>
         <p className="text-xs text-muted-foreground">

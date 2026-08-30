@@ -120,7 +120,7 @@ function BulkEditBody({
   };
 
   return (
-    <DialogContent className="gap-0 p-0 sm:max-w-4xl">
+    <DialogContent className="gap-0 [--dlg-pad:0px] p-0 sm:max-w-4xl">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="flex items-baseline gap-2 text-sm font-semibold">
           {t("variables.bulkTitle")}

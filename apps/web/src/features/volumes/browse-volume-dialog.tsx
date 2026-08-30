@@ -57,7 +57,7 @@ function BrowseBody({ name }: { name: string }) {
   };
 
   return (
-    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
+    <DialogContent className="gap-0 p-0 [--dlg-pad:0px] sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-4">
         <DialogTitle className="text-base font-semibold">Browse files</DialogTitle>
         <DialogDescription className="mt-0.5 truncate font-mono text-xs">{name}</DialogDescription>

@@ -17,9 +17,11 @@ import {
   verifyBackup,
 } from "../../backups";
 import { activeDestinationIdsFor } from "../../backups/destination-availability";
+import { listStackDatabaseResources, resolveStackDumpTarget } from "../../backups/stack";
 import { inspectVolume } from "../volumes/service";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
+import { listManagedDatabaseSources } from "./queries";
 import { backupSchedulesRouter } from "./schedules-router";
 import { getBackup, listBackups } from "./service";
 
@@ -54,6 +56,29 @@ export const backupsRouter = {
     return rows.map(presentBackup);
   }),
 
+  /** The picker's list: managed databases AND compose-stack database
+   *  services, in one shape. Deliberately NOT `terminal.targets`, which the
+   *  dialog used to read — that is the terminal feature's inventory, built
+   *  from `database_resource` alone, so an install whose only databases live
+   *  in stacks saw "No databases found" while holding live data. */
+  sources: orgScopedProcedure.backups.sources.handler(async ({ context }) => {
+    const [managed, stack] = await Promise.all([
+      listManagedDatabaseSources(context.activeOrganizationId),
+      listStackDatabaseResources(context.activeOrganizationId),
+    ]);
+    return [
+      ...managed.map((m) => ({ ...m, origin: "managed" as const })),
+      ...stack.map((r) => ({
+        resourceId: r.id,
+        name: r.name,
+        engine: r.engine,
+        projectSlug: r.projectSlug,
+        projectName: r.projectName,
+        origin: "stack" as const,
+      })),
+    ].sort((a, b) => a.projectSlug.localeCompare(b.projectSlug) || a.name.localeCompare(b.name));
+  }),
+
   get: orgScopedProcedure.backups.get.handler(async ({ input, context, errors }) => {
     const backup = await requireBackup(context, input.id, () => errors.NOT_FOUND());
     return presentBackup(backup);
@@ -76,8 +101,21 @@ export const backupsRouter = {
           organizationId: context.activeOrganizationId,
           resourceId: input.resourceId,
         });
-        if (!dbResource) throw errors.INVALID();
-        source = { kind: "database", resourceId: input.resourceId };
+        if (dbResource) {
+          source = { kind: "database", resourceId: input.resourceId };
+        } else {
+          // Not a MANAGED database — but a compose stack's `db` service is a
+          // real database too, and on most installs it is the ONLY one. The
+          // whole dump path already handles it: `resolveStackDumpTarget` reads
+          // the engine off the image and the credentials out of the service's
+          // resolved env, and the engine execs the child's container by
+          // resource-id label exactly as it does for a managed DB. Rejecting
+          // it here was the only thing standing between an operator and a
+          // backup of the data they actually have.
+          const stackTarget = await resolveStackDumpTarget(input.resourceId);
+          if (!stackTarget) throw errors.INVALID();
+          source = { kind: "stack", resourceId: input.resourceId };
+        }
       } else if (input.volumeName) {
         // Volumes are daemon objects with no org column; existence is the
         // gate here, matching the (host-scoped) volumes surface.

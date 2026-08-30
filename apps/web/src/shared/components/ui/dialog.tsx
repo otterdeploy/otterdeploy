@@ -56,7 +56,7 @@ function DialogContent({
           // grid-cols-[minmax(0,1fr)], not grid-cols-1: a bare `1fr` track
           // takes its automatic minimum from content, so wide children (a long
           // title, a code block, a table) stretch the dialog past max-w-sm.
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-[50ms] outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-xl bg-popover p-[var(--dlg-pad)] text-sm text-popover-foreground ring-1 ring-foreground/10 duration-[50ms] outline-none [--dlg-pad:1rem] sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           // A tall form (Add server runs ~1200px) in a centred dialog with no
           // height cap hangs off BOTH ends of a phone screen. Half the fields
           // above the top edge, the submit buttons below the bottom, and no way
@@ -91,7 +91,19 @@ function DialogContent({
               render={
                 <Button
                   variant="ghost"
-                  className="pointer-events-auto -mt-2 -mr-2"
+                  // Inset from the DIALOG's corner, not from wherever the
+                  // content happens to start. The margin cancels the popup's
+                  // own padding and re-applies a fixed 0.5rem, so the button
+                  // lands in the same place whether a dialog keeps the default
+                  // padding or zeroes it to run full-bleed headers.
+                  //
+                  // It used to be a flat `-mt-2 -mr-2`, which silently assumed
+                  // `p-4`. Eighteen dialogs override that with `p-0` (every
+                  // full-bleed one: volumes, templates, terminal, the data
+                  // browsers, all four backup dialogs), and in those the
+                  // negative margin had nothing to pull back into — it pushed
+                  // the button outside the rounded corner entirely.
+                  className="pointer-events-auto mt-[calc(0.5rem-var(--dlg-pad))] mr-[calc(0.5rem-var(--dlg-pad))]"
                   size="icon-sm"
                 />
               }

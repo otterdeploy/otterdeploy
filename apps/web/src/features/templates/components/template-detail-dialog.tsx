@@ -49,7 +49,7 @@ export function TemplateDetailDialog({
 }) {
   return (
     <Dialog open={template !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[86vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      <DialogContent className="flex max-h-[86vh] flex-col gap-0 overflow-hidden p-0 [--dlg-pad:0px] sm:max-w-3xl">
         {template && (
           <TemplateDetailBody
             template={template}

@@ -78,6 +78,23 @@ export const scheduleSchema = createSelectSchema(backupSchedule).extend({
   missingSources: z.array(z.string()),
 });
 
+/**
+ * One thing an operator can back up.
+ *
+ * `origin` distinguishes the two primitives that both really are databases:
+ * a managed `database_resource`, and a compose stack's `db` service. On most
+ * installs every database is the latter, so a picker that offers only the
+ * former offers nothing at all.
+ */
+export const backupSourceSchema = z.object({
+  resourceId: resourceIdField,
+  name: z.string(),
+  engine: z.string(),
+  projectSlug: z.string(),
+  projectName: z.string(),
+  origin: z.enum(["managed", "stack"]),
+});
+
 /** Destination, never exposes `encryptedSecret`; adds computed usage. */
 export const destinationSchema = createSelectSchema(backupDestination)
   .omit({ encryptedSecret: true })
@@ -449,6 +466,13 @@ export const backupsContract = {
       .input(scheduleIdInput)
       .output(z.object({ queued: z.number() })),
   },
+
+  /** Everything backup-able in the org: managed databases AND compose-stack
+   *  database services. The picker's list; see `backupSourceSchema`. */
+  sources: oc
+    .meta({ path: `${basePath}/sources`, tag, method: "GET" })
+    .input(z.object({}).optional())
+    .output(z.array(backupSourceSchema)),
 
   destinations: {
     list: oc

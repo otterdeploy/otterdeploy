@@ -84,7 +84,10 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-2xl" showCloseButton={false}>
+      <DialogContent
+        className="gap-0 overflow-hidden p-0 [--dlg-pad:0px] sm:max-w-2xl"
+        showCloseButton={false}
+      >
         <DialogTitle className="sr-only">{t("terminal.openTerminal")}</DialogTitle>
         <DialogDescription className="sr-only">
           Search every service, database, and server you can open a shell on.

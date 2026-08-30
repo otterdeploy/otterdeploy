@@ -49,7 +49,7 @@ export function ResourceOverlayDialog({
     // That's the bug where the template wizard vanished before the vars step.
     // Close is still available via the ✕, Cancel, or Escape.
     <Dialog open={open} onOpenChange={onOpenChange} disablePointerDismissal>
-      <DialogContent className="flex h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-230">
+      <DialogContent className="flex h-[80vh] flex-col gap-0 overflow-hidden p-0 [--dlg-pad:0px] sm:max-w-230">
         <DialogHeader className="border-b px-5 pt-4 pb-3">
           <DialogTitle>
             {composePrefill

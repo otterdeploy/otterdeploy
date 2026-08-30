@@ -80,7 +80,7 @@ export function InspectDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-3xl">
+      <DialogContent className="gap-0 [--dlg-pad:0px] p-0 sm:max-w-3xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
             <DialogTitle className="text-base font-semibold">{title}</DialogTitle>
@@ -147,7 +147,7 @@ export function ContainerLogsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-3xl">
+      <DialogContent className="gap-0 [--dlg-pad:0px] p-0 sm:max-w-3xl">
         <DialogHeader className="flex-row items-center justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
             <DialogTitle className="text-base font-semibold">Container logs</DialogTitle>

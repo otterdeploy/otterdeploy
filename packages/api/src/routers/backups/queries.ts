@@ -8,12 +8,13 @@ import type {
   BackupId,
   OrganizationId,
   ProjectId,
+  ResourceId,
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schema";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
-import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
 
 import { listStackDatabaseResources } from "../../backups/stack";
 
@@ -163,6 +164,34 @@ export async function listSchedulesByOrg(organizationId: OrganizationId): Promis
       .filter((n): n is string => Boolean(n)),
     missingSources: schedule.sources.filter((s) => !liveRefs.has(s)),
   }));
+}
+
+/** Managed databases in the org, in the picker's shape. The stack half comes
+ *  from `listStackDatabaseResources`; the router concatenates them. */
+export async function listManagedDatabaseSources(organizationId: OrganizationId): Promise<
+  Array<{
+    resourceId: ResourceId;
+    name: string;
+    engine: string;
+    projectSlug: string;
+    projectName: string;
+  }>
+> {
+  return (
+    db
+      .select({
+        resourceId: resource.id,
+        name: resource.name,
+        engine: databaseResource.engine,
+        projectSlug: project.slug,
+        projectName: project.name,
+      })
+      .from(databaseResource)
+      .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
+      .innerJoin(project, eq(project.id, resource.projectId))
+      // Base databases only: a PR preview's branch DB is not a backup source.
+      .where(and(eq(project.organizationId, organizationId), isNull(resource.previewId)))
+  );
 }
 
 // Backup-destination queries live in a sibling module; re-exported here so the

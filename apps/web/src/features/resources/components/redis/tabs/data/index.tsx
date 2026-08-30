@@ -46,7 +46,7 @@ export function RedisDataTabBody({ resource }: RedisDataTabBodyProps) {
       <RedisStudio resource={resource} boxClassName="h-[calc(100dvh-20rem)] min-h-[460px]" />
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="top-0 left-0 flex h-[100svh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+        <DialogContent className="top-0 left-0 flex h-[100svh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 [--dlg-pad:0px] sm:max-w-none">
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2 text-sm">
               <RedisIdentity />

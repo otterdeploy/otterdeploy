@@ -1,17 +1,17 @@
-import { useLiveQuery } from "@tanstack/react-db";
 /**
  * Run a backup now. The engine backs up database resources (logical dump) and
  * named Docker volumes (helper-container tar), so the source picker offers
- * both: databases from real `terminal.targets` data, volumes from the live
- * daemon inventory (orphans included). Submits via `runBackup` → `backups.run`.
+ * both: databases from `backups.sources` (managed AND compose-stack), volumes
+ * from the live daemon inventory (orphans included). Submits via `runBackup` → `backups.run`.
  */
 import { useForm, useSelector } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { Result } from "better-result";
 import { toast } from "sonner";
 
-import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
 import { Button } from "@/shared/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
+import { orpc } from "@/shared/server/orpc";
 
 import type { Destination } from "./data/destinations";
 
@@ -128,7 +128,11 @@ function BackupNowBody({
   onAddDestination?: () => void;
   initialResourceId?: string;
 }) {
-  const { data: databases } = useLiveQuery((q) => q.from({ d: terminalDatabasesCollection }));
+  // `backups.sources`, not `terminal.targets`: the latter is the terminal
+  // feature's inventory and lists managed `database_resource` rows only, so an
+  // install whose databases all live inside compose stacks — the common case —
+  // saw "No databases found" while holding live data.
+  const { data: databases = [] } = useQuery(orpc.backups.sources.queryOptions({ input: {} }));
   const form = useForm({
     defaultValues: emptyRun(initialResourceId),
     onSubmit: ({ value }) => submitBackup(value, onClose),
@@ -139,7 +143,7 @@ function BackupNowBody({
   const destOptions = toDestOptions(destinations);
 
   return (
-    <DialogContent className="gap-0 p-0 sm:max-w-3xl">
+    <DialogContent className="gap-0 p-0 [--dlg-pad:0px] sm:max-w-3xl">
       <BackupNowHeader />
 
       <form
