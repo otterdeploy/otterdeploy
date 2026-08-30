@@ -7,6 +7,11 @@ import { useEffect, useRef, useState } from "react";
 
 export type RowStatus = "unchanged" | "added" | "edited" | "deleted";
 
+interface EnvEntry {
+  key: string;
+  value: string;
+}
+
 export interface DraftRow {
   // Stable across the row's lifetime so React keys + cursor focus survive
   // edits. Distinct from `key` (the env var name) which the user can rename.
@@ -46,6 +51,41 @@ function rowsFromServer(env: Record<string, string>, secretKeys: string[]): Draf
         deleted: false,
       };
     });
+}
+
+/**
+ * The env bag to send when applying ONE row.
+ *
+ * `bulkSet` replaces the whole bag, so a single-row apply cannot send just that
+ * row: it sends every OTHER row at its SAVED value, with only this row carrying
+ * its edit. That is what makes "apply this one variable" mean what it says
+ * instead of quietly shipping the rest of the draft too.
+ *
+ * Pure and exported: this is the part where a mistake is silent and
+ * destructive, so it is pinned by tests rather than exercised through a render.
+ */
+export function payloadForRowFrom(
+  rows: DraftRow[],
+  id: string,
+): { env: EnvEntry[]; secretKeys: string[] } {
+  const env: EnvEntry[] = [];
+  const secretKeys: string[] = [];
+  for (const r of rows) {
+    const isTarget = r.id === id;
+    // The target's delete is what we are applying, so it contributes nothing.
+    // Another row's pending delete is NOT being applied, so its saved value
+    // stands.
+    if (r.deleted && isTarget) continue;
+    const source = isTarget ? r : (r.baseline ?? r);
+    const key = source.key.trim();
+    if (!key) continue;
+    // A row added in this draft has no saved value, so someone else's apply
+    // must not introduce it.
+    if (!isTarget && !r.baseline) continue;
+    env.push({ key, value: source.value });
+    if (source.isSecret) secretKeys.push(key);
+  }
+  return { env, secretKeys };
 }
 
 function statusOf(row: DraftRow): RowStatus {
@@ -113,6 +153,30 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, deleted: false } : r)));
 
   const discard = () => setRows(rowsFromServer(serverEnv, serverSecretKeys));
+
+  /** Undo ONE row back to the server snapshot. An added row disappears; a
+   *  tombstoned one comes back; an edited one returns to its baseline. */
+  const revertRow = (id: string) =>
+    setRows((prev) =>
+      prev.flatMap((r) => {
+        if (r.id !== id) return [r];
+        if (!r.baseline) return [];
+        return [{ ...r, ...r.baseline, deleted: false }];
+      }),
+    );
+
+  /** Stamp ONE row as saved. Called after a single-row apply so only that
+   *  row's chip clears and the rest of the draft stays pending. */
+  const commitRow = (id: string) =>
+    setRows((prev) =>
+      prev.flatMap((r) => {
+        if (r.id !== id) return [r];
+        if (r.deleted) return [];
+        return [{ ...r, baseline: { key: r.key, value: r.value, isSecret: r.isSecret } }];
+      }),
+    );
+
+  const payloadForRow = (id: string) => payloadForRowFrom(rows, id);
 
   // Stamp the current draft as the new baseline, called after a successful
   // save so ADDED/EDITED chips, the "N added" badge and Save/Discard clear
@@ -196,5 +260,8 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
     discard,
     replaceAll,
     commit,
+    revertRow,
+    commitRow,
+    payloadForRow,
   };
 }

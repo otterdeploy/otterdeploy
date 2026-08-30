@@ -54,6 +54,8 @@ interface VariablesEditorProps {
   /** Known env vars for this resource's image (env catalog); enables the
    *  key-field autocomplete. Omit for resources with no known image. */
   suggestions?: EnvSuggestion[];
+  /** Free-text filter from the surrounding tab's search box. Display only. */
+  filter?: string;
 }
 
 /** Suggest an env-var key from a picked `${{Source.KEY}}` token. The KEY
@@ -69,6 +71,7 @@ export function VariablesEditor({
   onSave,
   countLabel,
   suggestions = [],
+  filter = "",
 }: VariablesEditorProps) {
   const { t } = useTranslation();
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -107,6 +110,7 @@ export function VariablesEditor({
   );
 
   const [stagingSave, setStagingSave] = useState(false);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
   const saveMut = useMutation(
     orpc.project.resource.env.bulkSet.mutationOptions({
       onSuccess: async () => {
@@ -137,6 +141,46 @@ export function VariablesEditor({
   const blockingIssueCount = editor.rows.filter(
     (r) => !r.deleted && issueFor(suggestions, r.key, r.value)?.level === "block",
   ).length;
+
+  /**
+   * Apply ONE variable.
+   *
+   * `bulkSet` replaces the whole bag, so this sends every other row at its
+   * SAVED value and only this row's edit (see payloadForRow) — otherwise
+   * "apply this one" would quietly ship the rest of the draft too. Only the
+   * applied row is re-baselined, so everything else stays pending.
+   *
+   * Not offered on the staged-manifest path: a manifest edit is applied as one
+   * change through the pending-changes bar, and a per-row apply there would
+   * mean a second, competing staging concept.
+   */
+  const applyRow = (id: string) => {
+    const { env, secretKeys } = editor.payloadForRow(id);
+    setApplyingId(id);
+    applyOneMut.mutate(
+      {
+        projectId: resource.projectId,
+        resourceId: resource.resourceId,
+        env,
+        secretKeys,
+        redeploy: false,
+      },
+      {
+        onSuccess: () => editor.commitRow(id),
+        onSettled: () => setApplyingId(null),
+      },
+    );
+  };
+
+  const applyOneMut = useMutation(
+    orpc.project.resource.env.bulkSet.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
+        toast.success(t("resources.variablesSavedRedeploy"));
+      },
+      onError: (err) => toast.error(err.message ?? t("resources.variablesSaveFailed")),
+    }),
+  );
 
   const save = () => {
     // Belt-and-braces behind the disabled Save button: env is keyed by name,
@@ -203,6 +247,9 @@ export function VariablesEditor({
         onDelete={editor.removeRow}
         onRestore={editor.restoreRow}
         onAddRow={() => editor.addRow()}
+        filter={filter}
+        {...(onSave ? {} : { onApplyRow: applyRow, onRevertRow: editor.revertRow })}
+        applyingId={applyingId}
       />
 
       <BulkEditDialog

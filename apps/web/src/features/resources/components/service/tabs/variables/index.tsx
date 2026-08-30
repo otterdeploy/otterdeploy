@@ -22,6 +22,8 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
 
+import { countPrimaryDependents, PublicHostsBar } from "./public-hosts-bar";
+
 export function ServiceVariablesTabBody({
   resource,
   pending = false,
@@ -41,9 +43,12 @@ export function ServiceVariablesTabBody({
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const editorRef = useRef<VariablesEditorHandle>(null);
-  void query; // search is wired by the editor's own filter once the surface lands
 
   const varCount = Object.keys(editorResource.extraEnv ?? {}).length;
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery("");
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,7 +57,7 @@ export function ServiceVariablesTabBody({
           <span className="text-[14px] font-semibold">{varCount} Service Variables</span>
           <button
             type="button"
-            onClick={() => setSearchOpen((p) => !p)}
+            onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
             className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
             aria-label="Search variables"
           >
@@ -74,8 +79,23 @@ export function ServiceVariablesTabBody({
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filter by variable name…"
+          // Escape closes and clears: a filter left on hides rows from the
+          // next person to open the tab, and the box is easy to forget.
+          onKeyDown={(e) => {
+            if (e.key === "Escape") closeSearch();
+          }}
+          placeholder="Filter by name or value…"
           className="h-9 font-mono text-[12.5px]"
+        />
+      )}
+
+      {/* Only when the service serves more than one host: with one there is
+          no ambiguity about what PUBLIC_URL means. */}
+      {!pending && (
+        <PublicHostsBar
+          projectId={resource.projectId}
+          resourceId={resource.resourceId}
+          dependents={countPrimaryDependents(editorResource.extraEnv)}
         />
       )}
 
@@ -97,6 +117,7 @@ export function ServiceVariablesTabBody({
         onSave={onSave}
         countLabel={null}
         suggestions={envSuggestionsForImage(resource.image)}
+        filter={query}
       />
     </div>
   );

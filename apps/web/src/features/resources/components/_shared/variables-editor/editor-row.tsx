@@ -1,13 +1,3 @@
-import {
-  CircleUnlock01Icon,
-  Copy01Icon,
-  Delete02Icon,
-  LockKeyIcon,
-  Tick02Icon,
-  ViewIcon,
-  ViewOffIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { useTranslation } from "react-i18next";
 
@@ -20,21 +10,34 @@ import type { DraftRow, RowStatus } from "./use-editor-state";
 
 import { EnvKeyCombobox } from "../env-key-combobox";
 import { hasOpenRefToken } from "../ref-token";
+import {
+  CopyAction,
+  DeleteAction,
+  RevealToggle,
+  RowApplyActions,
+  SecretToggle,
+} from "./editor-row-actions";
 import { ValueCell } from "./value-cell";
 
+/**
+ * Status is a DOT, not a word.
+ *
+ * The word changes width as a row goes clean → edited, which shifted the key
+ * field while you were typing in it, and reserving the widest word left a band
+ * of empty space at the head of every unchanged row. A fixed 6px dot says the
+ * same thing, and the word rides its tooltip.
+ */
 const STATUS_TONE: Record<RowStatus, string> = {
-  unchanged: "bg-transparent text-transparent",
-  added: "bg-success/15 text-success",
-  edited: "bg-warning/15 text-warning",
-  deleted: "bg-destructive/15 text-destructive",
+  unchanged: "bg-transparent",
+  added: "bg-success/70",
+  edited: "bg-warning/80",
+  deleted: "bg-destructive/70",
 };
 
-const STATUS_LABEL: Record<RowStatus, string> = {
-  unchanged: "·",
-  added: "added",
-  edited: "edited",
-  deleted: "deleted",
-};
+/** Notes (duplicate, schema issue, reference hint) describe the VALUE, so they
+ *  align with the value field rather than sitting under the key. Status dot +
+ *  gap + the 14rem key field + gap. */
+const NOTE_INDENT = "sm:pl-[calc(0.375rem+0.5rem+14rem+0.5rem)]";
 
 interface EditorRowProps {
   row: DraftRow;
@@ -61,6 +64,13 @@ interface EditorRowProps {
   onToggleReveal: () => void;
   onCopy: () => void;
   onDelete: () => void;
+  /** Apply just this variable. Env vars are independent values, and one
+   *  blocking issue anywhere disables the whole Save — so shipping a single
+   *  corrected credential should not wait on the rest of the draft. */
+  onApply?: () => void;
+  /** Undo just this variable, back to what the server has. */
+  onRevert?: () => void;
+  applying?: boolean;
 }
 
 export function EditorRow({
@@ -79,7 +89,11 @@ export function EditorRow({
   onToggleReveal,
   onCopy,
   onDelete,
+  onApply,
+  onRevert,
+  applying = false,
 }: EditorRowProps) {
+  const dirty = status !== "unchanged";
   return (
     <div className="flex flex-col gap-1.5 border-b border-border/30 px-3 py-2 last:border-b-0">
       {/* Side-by-side needs ~380px at minimum, a 14rem key field, the value
@@ -132,21 +146,28 @@ export function EditorRow({
           onToggleReveal={onToggleReveal}
         />
         <div className="flex items-center justify-end gap-0.5 sm:contents">
+          {/* Fixed slot: the buttons appear and disappear with the row's
+              dirty state, and a shifting row while you type is worse than a
+              little reserved space. */}
+          {onApply && (
+            <RowApplyActions
+              dirty={dirty}
+              blocked={!!issue || duplicate}
+              applying={applying}
+              onApply={onApply}
+              {...(onRevert ? { onRevert } : {})}
+            />
+          )}
           <SecretToggle row={row} onChange={onChange} />
           <RevealToggle row={row} revealed={revealed} onToggleReveal={onToggleReveal} />
           <CopyAction copied={copied} onCopy={onCopy} />
-          <RowAction
-            icon={Delete02Icon}
-            label="Delete row"
-            tone="hover:text-destructive"
-            onClick={onDelete}
-          />
+          <DeleteAction onDelete={onDelete} />
         </div>
       </div>
       {duplicate && <DuplicateNote keyName={row.key.trim()} />}
       {!duplicate && issue && <IssueNote issue={issue} />}
       {showPickerHint(row.value, pickerOpen) && (
-        <p className="text-[10.5px] text-muted-foreground sm:pl-[5.5rem]">
+        <p className={cn("text-[10.5px] text-muted-foreground", NOTE_INDENT)}>
           Tip: press the {"{ }"} button to finish this reference.
         </p>
       )}
@@ -164,11 +185,11 @@ function showPickerHint(value: string, pickerOpen: boolean) {
 function IssueNote({ issue }: { issue: EnvIssue }) {
   return (
     <p
-      className={
-        issue.level === "block"
-          ? "text-[10.5px] text-destructive sm:pl-[5.5rem]"
-          : "text-[10.5px] text-warning sm:pl-[5.5rem]"
-      }
+      className={cn(
+        "text-[10.5px]",
+        NOTE_INDENT,
+        issue.level === "block" ? "text-destructive" : "text-warning",
+      )}
     >
       {issue.message}
     </p>
@@ -178,7 +199,7 @@ function IssueNote({ issue }: { issue: EnvIssue }) {
 function DuplicateNote({ keyName }: { keyName: string }) {
   const { t } = useTranslation();
   return (
-    <p className="text-[10.5px] text-destructive sm:pl-[5.5rem]">
+    <p className={cn("text-[10.5px] text-destructive", NOTE_INDENT)}>
       {t("resources.variables.duplicateNote", { key: keyName })}
     </p>
   );
@@ -187,80 +208,9 @@ function DuplicateNote({ keyName }: { keyName: string }) {
 function StatusPill({ status }: { status: RowStatus }) {
   return (
     <span
-      className={cn(
-        "mt-1.5 inline-flex rounded px-1 py-0.5 font-mono text-[10px] tracking-[0.1em] uppercase",
-        STATUS_TONE[status],
-      )}
-      title={status}
-    >
-      {STATUS_LABEL[status]}
-    </span>
-  );
-}
-
-function SecretToggle({ row, onChange }: { row: DraftRow; onChange: EditorRowProps["onChange"] }) {
-  return (
-    <RowAction
-      icon={row.isSecret ? LockKeyIcon : CircleUnlock01Icon}
-      tone={row.isSecret ? "text-primary" : undefined}
-      label={row.isSecret ? "Marked sensitive" : "Mark sensitive"}
-      onClick={() => onChange({ isSecret: !row.isSecret })}
+      aria-label={status === "unchanged" ? undefined : status}
+      className={cn("mt-2.5 size-1.5 shrink-0 rounded-full", STATUS_TONE[status])}
+      title={status === "unchanged" ? undefined : status}
     />
-  );
-}
-
-function RevealToggle({
-  row,
-  revealed,
-  onToggleReveal,
-}: {
-  row: DraftRow;
-  revealed: boolean;
-  onToggleReveal: () => void;
-}) {
-  return (
-    <RowAction
-      icon={revealed ? ViewOffIcon : ViewIcon}
-      label={revealed ? "Hide" : "Reveal"}
-      onClick={onToggleReveal}
-      disabled={!row.isSecret}
-    />
-  );
-}
-
-function CopyAction({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
-  return (
-    <RowAction
-      icon={copied ? Tick02Icon : Copy01Icon}
-      tone={copied ? "text-primary" : undefined}
-      label={copied ? "Copied" : "Copy"}
-      onClick={onCopy}
-    />
-  );
-}
-
-interface RowActionProps {
-  icon: typeof Copy01Icon;
-  label: string;
-  onClick: () => void;
-  tone?: string;
-  disabled?: boolean;
-}
-
-function RowAction({ icon, label, onClick, tone, disabled }: RowActionProps) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "grid size-7 shrink-0 place-items-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
-        tone,
-      )}
-    >
-      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5" />
-    </button>
   );
 }
