@@ -168,10 +168,20 @@ export const composeContract = {
     .input(z.object({ projectId: projectIdField, resourceId: resourceIdField }))
     .output(deployResultSchema),
 
+  // Tears the stack down immediately: services, routes, record, and (by
+  // default) the named volumes it mounted. `keepVolumes` leaves the volumes
+  // on the host for a later stack under the same name to re-adopt, which is
+  // also how a bundled database keeps its OLD password (see ./volumes.ts).
   delete: oc
     .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
     .meta({ path: `${basePath}/{resourceId}`, tag, method: "DELETE" })
-    .input(z.object({ projectId: projectIdField, resourceId: resourceIdField }))
+    .input(
+      z.object({
+        projectId: projectIdField,
+        resourceId: resourceIdField,
+        keepVolumes: z.boolean().optional(),
+      }),
+    )
     .output(z.object({ ok: z.boolean() })),
 
   // Replace the stored compose YAML of an INLINE stack, re-parse it, and keep

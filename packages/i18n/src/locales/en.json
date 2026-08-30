@@ -1736,6 +1736,8 @@
     "deleteStackBlurb": "Removes every service in this stack from swarm, its routes, and the resource record. This can't be undone.",
     "deleteStackTitle": "Delete the {{name}} stack?",
     "deleteStackDescription": "All {{n}} of its services are removed from swarm along with their routes and the resource record. This can't be undone.",
+    "deleteStackVolumes": "Also delete its {{count}} data volume(s)",
+    "deleteStackVolumesHint": "Unchecked, the volumes stay on the host and a stack created later under the same name adopts them, including any database password already set inside.",
     "variablesStaged": "Variables staged. Review and apply the pending changes.",
     "variablesSavedRedeploy": "Variables saved. They take effect on the next redeploy",
     "variablesSaveFailed": "Failed to save",

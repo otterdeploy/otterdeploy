@@ -201,7 +201,13 @@ function toDeploymentWithStats(
     image: row.image,
     reason: row.reason,
     status,
-    errorMessage: row.errorMessage,
+    // A row that failed before scheduling anything (a ref-cycle at resolve,
+    // say) can still be the LATEST row when a later env-set roll brings a new
+    // container up under its deployment id: the status derives to `running`
+    // from the live task, but the stored error would keep a red "failed"
+    // banner over a healthy service. The error described a state that is no
+    // longer true; drop it. Replaced rows keep it: that outcome is history.
+    errorMessage: row.status === "failed" && status === "running" ? null : row.errorMessage,
     taskCount: instances.length,
     failedTaskCount: failed,
     runningTaskCount: running,

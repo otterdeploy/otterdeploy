@@ -130,6 +130,7 @@ export const resourceRouter = {
           throw matchError(result.error, {
             ProjectNotFoundError: () => errors.NOT_FOUND(),
             PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+            RefSelfReferenceError: (e) => errors.INVALID_INPUT({ message: e.message }),
           });
         }
         return result.value;

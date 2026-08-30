@@ -12,7 +12,8 @@ import type { ProjectNotFoundError } from "../project/errors";
 
 import { syncManifestServiceEnv } from "../project/manifest";
 import { loadResource } from "./context";
-import { ServiceNotFoundError, type ResolveError } from "./errors";
+import { rejectSelfReferences } from "./env-self-ref";
+import { type RefSelfReferenceError, ServiceNotFoundError, type ResolveError } from "./errors";
 import { type ResourceRef } from "./inputs";
 import {
   bulkReplaceServiceEnvVars,
@@ -24,7 +25,7 @@ import { redeployAndFanOut } from "./redeploy";
 import { mapEnvVar, type EnvVarView } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
-type RedeployFailure = NotFound | ResolveError;
+type RedeployFailure = NotFound | ResolveError | RefSelfReferenceError;
 
 export async function setEnv(
   input: ResourceRef & { key: string; value: string },
@@ -32,6 +33,11 @@ export async function setEnv(
 ): Promise<Result<EnvVarView, RedeployFailure>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
+
+  // Before the write: a value that reads this service's own env bag can never
+  // resolve, so it must not be saved only to fail the redeploy.
+  const guarded = await rejectSelfReferences(input.projectId, ctx.value.record, [input]);
+  if (guarded.isErr()) return Result.err(guarded.error);
 
   const row = await upsertServiceEnvVar({
     serviceResourceId: input.resourceId,
@@ -53,7 +59,7 @@ export async function setEnv(
 export async function unsetEnv(
   input: ResourceRef & { key: string },
   log: RequestLogger,
-): Promise<Result<{ ok: true }, RedeployFailure>> {
+): Promise<Result<{ ok: true }, NotFound | ResolveError>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
@@ -103,6 +109,9 @@ export async function bulkSetEnv(
 ): Promise<Result<EnvVarView[], RedeployFailure>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
+
+  const guarded = await rejectSelfReferences(input.projectId, ctx.value.record, input.vars);
+  if (guarded.isErr()) return Result.err(guarded.error);
 
   const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars);
   const redeployed = await redeployAndFanOut(

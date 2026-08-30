@@ -75,6 +75,8 @@ export const serviceEnvRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
+          // Caught at the write, so the message names the key and the token.
+          RefSelfReferenceError: (e) => errors.INVALID_INPUT({ message: e.message }),
           // Not enumerated by the contract: a provider outage at redeploy
           // time surfaces as a structured 500, not a misleading input error.
           VaultResolveError: refToServerError,
@@ -145,6 +147,8 @@ export const serviceEnvRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
+          // Caught at the write, so the message names the key and the token.
+          RefSelfReferenceError: (e) => errors.INVALID_INPUT({ message: e.message }),
           // Not enumerated by the contract: a provider outage at redeploy
           // time surfaces as a structured 500, not a misleading input error.
           VaultResolveError: refToServerError,

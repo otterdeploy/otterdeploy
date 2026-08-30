@@ -67,7 +67,7 @@ export function ComposePanelTabs({
   draftContent: string | null;
   fileLoading: boolean;
   fileContent: string | null | undefined;
-  onDelete: () => void;
+  onDelete: (opts: { keepVolumes: boolean }) => void;
   deleting: boolean;
 }) {
   const memberIds = members.flatMap((m) => (m.resourceId ? [m.resourceId] : []));
@@ -152,6 +152,7 @@ export function ComposePanelTabs({
           projectSlug={projectSlug}
           name={resource.name}
           serviceCount={services.length}
+          volumeCount={new Set(services.flatMap((s) => s.volumes)).size}
           onDelete={onDelete}
           deleting={deleting}
         />

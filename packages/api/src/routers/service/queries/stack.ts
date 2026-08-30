@@ -90,3 +90,24 @@ export async function getStackRefIdentity(
   if (!row?.stackId || !row.composeService) return undefined;
   return { stackId: row.stackId, stackName: row.stackName, composeService: row.composeService };
 }
+
+/** A compose stack's resource name by id: the first segment of the absolute
+ *  stack-scoped ref form (`${{autumn.db.HOST}}`), for the reverse lookup a
+ *  self-reference check needs. Null when the id is not a stack in the project. */
+export async function getStackResourceName(
+  projectId: ProjectId,
+  stackResourceId: ResourceId,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ name: resource.name })
+    .from(resource)
+    .where(
+      and(
+        eq(resource.projectId, projectId),
+        eq(resource.id, stackResourceId),
+        eq(resource.type, "compose"),
+      ),
+    )
+    .limit(1);
+  return row?.name ?? null;
+}

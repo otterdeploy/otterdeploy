@@ -112,9 +112,14 @@ export const SOCIAL_TEMPLATES: StackTemplate[] = [
      * while the frontend serves normally. Without a healthcheck Swarm treats
      * the new task as healthy the instant the process starts and retires the
      * old one, so every wedge was an outage; with one it holds the previous
-     * task until the new one actually answers. The 180s start_period covers
+     * task until the new one actually answers. The 600s start_period covers
      * `prisma db push` plus the orchestrator compiling one ~3 MB workflow
-     * bundle per provider queue (33 of them) before the backend gets CPU.
+     * bundle per provider queue (33 of them) before the backend gets CPU:
+     * measured at 6m33s from container start to the backend binding 3000 on
+     * a fresh database (2026-08-29). The earlier 180s marked that first boot
+     * unhealthy at ~4.5 min and Swarm replaced it; the SECOND boot passed in
+     * ~30s only because the schema was already pushed. A wedged boot is still
+     * caught: it never answers, so the window's length only delays the verdict.
      * The image is bookworm-slim with neither curl nor wget, so the probe is
      * node's own fetch.
      */
@@ -155,7 +160,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 6
-      start_period: 180s
+      start_period: 600s
     restart: always
   db:
     image: postgres:17-alpine

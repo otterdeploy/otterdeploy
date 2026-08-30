@@ -234,6 +234,27 @@ export class VaultResolveError extends TaggedError("VaultResolveError")<{
   }
 }
 
+/**
+ * A value saved on a service reads that SAME service's env bag
+ * (`${{stack.postiz.JWT_SECRET}}` on the `postiz` child). The resolver would
+ * reject it at deploy time as a cycle; this is the same fact, caught at the
+ * write and said in words. Computed exports (HOST/PORT/URL/...) are exempt
+ * and never raise it.
+ */
+export class RefSelfReferenceError extends TaggedError("RefSelfReferenceError")<{
+  message: string;
+  key: string;
+  raw: string;
+}>() {
+  constructor(args: { key: string; raw: string }) {
+    super({
+      key: args.key,
+      raw: args.raw,
+      message: `${args.key} reads ${args.raw}, which is this service's own variable: a service cannot reference its own env bag. Paste the value itself, or move it to a project variable and reference that.`,
+    });
+  }
+}
+
 export type ResolveError =
   | RefParseError
   | RefMissingResourceError
