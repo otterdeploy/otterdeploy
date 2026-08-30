@@ -138,10 +138,22 @@ export function ServiceResourcePanel({
   );
   // Latches true the first time Logs is the active tab. From then on the Logs
   // panel stays mounted (hidden when inactive) so its SSE stream survives tab
-  // switches: see the Logs block below. Seeded from the resolved tab so a
-  // reload or shared link landing straight on `?tab=logs` mounts it too, with
-  // no click to latch on.
+  // switches: see the Logs block below.
+  //
+  // Latched from the RESOLVED TAB, not from the tab-strip callback. That
+  // callback only fires when the tab chrome itself is clicked, and clicking is
+  // not the only way Logs opens: "View logs" on a deployment card sets
+  // `?tab=logs` on the URL directly (see resource-logs-tab.tsx), as does
+  // Overview's own go-to-tab. Both arrived with the tab switched and the latch
+  // still false, so the block below never rendered and the pane was simply
+  // blank — no source toggle, no stream, not even an empty state. Reading the
+  // tab covers every route in, the click included.
+  //
+  // Adjusted during render (React's documented "adjust state when a prop
+  // changes" pattern) rather than in an effect: the re-render happens before
+  // anything commits, so there is no frame where Logs is open and empty.
   const [logsVisited, setLogsVisited] = useState(tab === "logs");
+  if (tab === "logs" && !logsVisited) setLogsVisited(true);
   const { buildMut, restartMut } = useServiceRuntimeActions({
     resourceId: resource.resourceId,
     orgSlug,
@@ -231,14 +243,7 @@ export function ServiceResourcePanel({
         stack={stack}
       />
 
-      <PanelTabsChrome
-        value={tab}
-        onValueChange={(next) => {
-          if (next === "logs") setLogsVisited(true);
-          onTabChange(next);
-        }}
-        tabs={serviceTabs(pending)}
-      >
+      <PanelTabsChrome value={tab} onValueChange={onTabChange} tabs={serviceTabs(pending)}>
         <ServicePanelBody
           resource={resource}
           framework={framework}

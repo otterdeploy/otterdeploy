@@ -46,7 +46,10 @@ interface ResolveContext {
   // branch) wins over the base row; null resolves base rows only. Previews
   // are NOT environments. Their var bags are the base env's, unchanged.
   previewId: PreviewId | null;
-  visited: Set<string>;
+  /** The active DFS path: resource id → the name the template addressed it
+   *  by. A Map rather than a Set so a cycle can be reported in those names
+   *  instead of the ids, which say nothing to the operator reading them. */
+  visited: Map<string, string>;
   exportsCache: Map<string, Record<string, string>>;
   // `${{vault.<provider>.<ref>}}` state: provider rows load once per
   // resolve, fetched values live only for this resolve's duration.
@@ -67,20 +70,23 @@ export async function resolveServiceEnv(
     return Result.err(new RefMissingResourceError({ refResourceName: "environment" }));
   }
 
+  // Fetched before the context so the path can be seeded with this service's
+  // NAME, which is what a cycle report has to print.
+  const record = await getServiceRecord(projectId, serviceResourceId);
+  if (!record) {
+    return Result.err(new RefMissingResourceError({ refResourceName: "(self)" }));
+  }
+
   const ctx: ResolveContext = {
     projectId,
     environmentId: envId,
     previewId: previewId ?? null,
-    visited: new Set([serviceResourceId]),
+    visited: new Map([[serviceResourceId, record.resource.name]]),
     exportsCache: new Map(),
     // Vault providers are org-scoped; the project row carries the org.
     vault: createVaultState(projectRecord.organizationId ?? null),
   };
 
-  const record = await getServiceRecord(projectId, serviceResourceId);
-  if (!record) {
-    return Result.err(new RefMissingResourceError({ refResourceName: "(self)" }));
-  }
   return resolveEnvFor(record, ctx);
 }
 
@@ -211,7 +217,12 @@ async function loadResourceExports(
       if (computed.isErr()) return computed;
       if (computed.value[refVarName] !== undefined) return computed;
     }
-    return Result.err(new RefCycleError({ chain: [...ctx.visited, resourceRow.id] }));
+    return Result.err(
+      new RefCycleError({
+        chain: [...ctx.visited.values(), refResourceName],
+        varName: refVarName,
+      }),
+    );
   }
 
   const cached = ctx.exportsCache.get(resourceRow.id);
@@ -289,7 +300,7 @@ async function loadServiceExports(
 
   let resolvedEnv: Record<string, string> = {};
   if (!envFree) {
-    ctx.visited.add(resourceRow.id);
+    ctx.visited.set(resourceRow.id, refResourceName);
     const nestedResult = await resolveEnvFor(record, ctx);
     ctx.visited.delete(resourceRow.id);
     if (nestedResult.isErr()) return Result.err(nestedResult.error);
