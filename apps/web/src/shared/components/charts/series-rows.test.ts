@@ -38,6 +38,33 @@ describe("withGaps", () => {
     expect(gaps).toHaveLength(2);
   });
 
+  it("draws a line when the sampler runs slower than nominal", () => {
+    // The metrics sampler walks containers serially and skips a tick when a
+    // pass overruns, so a 30s nominal cadence lands ~60s apart. Against a
+    // fixed 45s threshold EVERY pair looked like an outage, every point became
+    // its own one-point segment, and the chart rendered as loose dots.
+    const rows = Array.from({ length: 12 }, (_, i) => ({ ts: i * 60_000 }));
+    expect(withGaps(rows, 30_000).filter((r) => "gap" in r)).toHaveLength(0);
+  });
+
+  it("still breaks on a real outage inside a slow series", () => {
+    const rows = [
+      ...Array.from({ length: 8 }, (_, i) => ({ ts: i * 60_000 })),
+      { ts: 900_000 },
+      { ts: 960_000 },
+      { ts: 1_020_000 },
+      { ts: 1_080_000 },
+    ];
+    expect(withGaps(rows, 30_000).filter((r) => "gap" in r)).toHaveLength(1);
+  });
+
+  it("does not read the cadence off too few samples", () => {
+    // Two points one outage apart: trusting that single delta as "the cadence"
+    // would declare the outage normal and draw straight through it.
+    const out = withGaps([{ ts: 0 }, { ts: 300_000 }], 30_000);
+    expect(out.filter((r) => "gap" in r)).toHaveLength(1);
+  });
+
   it("does nothing without a known cadence", () => {
     // Aggregated rows have no fixed interval; inventing one would invent breaks.
     const rows = [{ ts: 0 }, { ts: 999_999 }];

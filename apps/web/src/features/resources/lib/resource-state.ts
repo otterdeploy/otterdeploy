@@ -211,9 +211,7 @@ export interface RuntimeFacts {
 export function serviceState(input: {
   pausedReplicas: number | null | undefined;
   runtime: RuntimeFacts | undefined;
-  latestDeployment:
-    | { status: DeploymentLifecycle | null; errorMessage?: string | null }
-    | undefined;
+  latestDeployment: { status: DeploymentLifecycle | null } | undefined;
   tasks: readonly TaskFacts[];
 }): ResourceState | null {
   if (input.pausedReplicas != null) {
@@ -225,10 +223,7 @@ export function serviceState(input: {
   }
   const dep = input.latestDeployment?.status ?? null;
   const tasks = taskWhy(input.tasks);
-  return (
-    deploymentOwnedState(dep, input.latestDeployment?.errorMessage, tasks) ??
-    runtimeState(input.runtime, dep, tasks)
-  );
+  return deploymentOwnedState(dep, tasks) ?? runtimeState(input.runtime, dep, tasks);
 }
 
 /** A deploy in flight (or one that just failed) owns the state: the container
@@ -236,7 +231,6 @@ export function serviceState(input: {
  *  the deployment has settled and the runtime should answer. */
 function deploymentOwnedState(
   dep: DeploymentLifecycle | null,
-  errorMessage: string | null | undefined,
   tasks: string | null,
 ): ResourceState | null {
   switch (dep) {
@@ -247,11 +241,15 @@ function deploymentOwnedState(
     case "starting":
       return { tone: "building", label: "starting", why: null };
     case "failed":
-      return {
-        tone: "error",
-        label: "failed",
-        why: errorMessage?.trim() || "build did not complete",
-      };
+      // No `why`. The deployment's `errorMessage` used to be piped in here,
+      // but it is a server error sentence, not the short phrase this slot is
+      // built for — things like `referenced resource "stack.db" not found in
+      // this project`. In a one-line truncating span next to the name it just
+      // read as noise clipped mid-word. The full message is already rendered,
+      // untruncated and with a title, on the deployment card in the same
+      // panel (see _shared/deployment-cards.tsx), which is where an operator
+      // reading an error is looking anyway.
+      return { tone: "error", label: "failed", why: null };
     case "crashed":
       return { tone: "error", label: "crashed", why: tasks ?? "container keeps exiting" };
     default:

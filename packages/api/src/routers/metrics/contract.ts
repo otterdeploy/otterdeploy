@@ -17,6 +17,9 @@ const metricsQueryInput = z.object({
   windowMinutes: z.number().int().positive().max(1440).default(30),
 });
 
+/** One bucket of a resource's series: its containers' readings summed. See
+ *  metrics/query.ts. `containers` says how many reported, so a bucket where
+ *  only part of a replica set sampled reads as partial, not as a dip. */
 const metricPointSchema = z.object({
   ts: z.date(),
   cpuPct: z.number(),
@@ -24,6 +27,7 @@ const metricPointSchema = z.object({
   memLimitBytes: z.number(),
   netRxBytes: z.number(),
   netTxBytes: z.number(),
+  containers: z.number(),
 });
 
 const platformInput = z.object({
@@ -66,7 +70,14 @@ export const metricsContract = {
   query: oc
     .meta({ path: `${basePath}/{resourceId}`, tag, method: "GET" })
     .input(metricsQueryInput)
-    .output(z.object({ points: z.array(metricPointSchema) })),
+    .output(
+      z.object({
+        points: z.array(metricPointSchema),
+        /** Bucket width the series was aggregated at. The chart needs it to
+         *  tell a real gap from its own sampling cadence. */
+        bucketSeconds: z.number(),
+      }),
+    ),
 
   // Project-wide CPU/memory aggregate: per-resource samples summed bucket-wise
   // across every container in the project. Backs the project metrics overview.

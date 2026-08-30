@@ -14,7 +14,7 @@ import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
 
 import { formatBytes, formatPercent, formatRate } from "./format";
 import { MetricCard } from "./metric-card";
-import { SAMPLE_INTERVAL_MS, type MetricRow, type MetricSummary } from "./use-resource-metrics";
+import { type MetricRow, type MetricSummary } from "./use-resource-metrics";
 
 const CHART_HEIGHT = 220;
 export const CPU_COLOR = "var(--chart-cpu)";
@@ -23,11 +23,14 @@ export const MEMORY_COLOR = "var(--chart-memory)";
 interface PanelProps {
   rows: MetricRow[];
   summary: MetricSummary;
+  /** Spacing the series was aggregated at, for gap detection. The sampler's
+   *  nominal 30s is not it: the server buckets by window. */
+  sampleIntervalMs: number;
 }
 
 /** Docker-style percent of one core; can exceed 100% on multi-core hosts, so
  *  the axis is left to auto-fit. */
-export function CpuPanel({ rows, summary }: PanelProps) {
+export function CpuPanel({ rows, summary, sampleIntervalMs }: PanelProps) {
   return (
     <MetricCard
       title="CPU usage"
@@ -44,7 +47,7 @@ export function CpuPanel({ rows, summary }: PanelProps) {
         data={rows}
         ariaLabel="CPU usage over the selected window"
         format={(v) => formatPercent(v, 1)}
-        sampleIntervalMs={SAMPLE_INTERVAL_MS}
+        sampleIntervalMs={sampleIntervalMs}
         series={[{ dataKey: "cpuPct", label: "CPU", color: CPU_COLOR }]}
       />
     </MetricCard>
@@ -59,7 +62,7 @@ export function CpuPanel({ rows, summary }: PanelProps) {
  * no limit at all reports 0. Percent of 0 is nothing, so that case charts the
  * working set in bytes instead.
  */
-export function MemoryPanel({ rows, summary }: PanelProps) {
+export function MemoryPanel({ rows, summary, sampleIntervalMs }: PanelProps) {
   const latest = summary.latest;
   const asPercent = summary.memLimitBytes > 0;
 
@@ -77,7 +80,7 @@ export function MemoryPanel({ rows, summary }: PanelProps) {
           data={rows}
           ariaLabel="Memory usage over the selected window"
           format={(v) => formatBytes(v)}
-          sampleIntervalMs={SAMPLE_INTERVAL_MS}
+          sampleIntervalMs={sampleIntervalMs}
           series={[{ dataKey: "memBytes", label: "Memory", color: MEMORY_COLOR }]}
         />
       </MetricCard>
@@ -101,7 +104,7 @@ export function MemoryPanel({ rows, summary }: PanelProps) {
         data={rows}
         ariaLabel="Memory usage as a share of the limit over the selected window"
         format={(v) => formatPercent(v, 1)}
-        sampleIntervalMs={SAMPLE_INTERVAL_MS}
+        sampleIntervalMs={sampleIntervalMs}
         series={[{ dataKey: "memPct", label: "Memory", color: MEMORY_COLOR }]}
       />
     </MetricCard>
@@ -111,7 +114,7 @@ export function MemoryPanel({ rows, summary }: PanelProps) {
 /** Per-second throughput derived from cumulative counters. In and out are
  *  not parts of one total, so they overlay rather than stack; the wheel
  *  gives each a distinguishable hue. */
-export function NetworkPanel({ rows, summary }: PanelProps) {
+export function NetworkPanel({ rows, summary, sampleIntervalMs }: PanelProps) {
   return (
     <MetricCard
       title="Network"
@@ -142,7 +145,7 @@ export function NetworkPanel({ rows, summary }: PanelProps) {
         data={rows}
         ariaLabel="Network throughput over the selected window"
         format={(v) => formatRate(v)}
-        sampleIntervalMs={SAMPLE_INTERVAL_MS}
+        sampleIntervalMs={sampleIntervalMs}
         series={[
           { dataKey: "netRxRate", label: "In" },
           { dataKey: "netTxRate", label: "Out" },

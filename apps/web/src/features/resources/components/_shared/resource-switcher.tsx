@@ -129,7 +129,10 @@ function SwitcherRow({
       onSelect={() => {
         onOpen(resource.resourceId);
       }}
-      className={cn(current && "bg-accent/60")}
+      // The row you are already on carries no label: cmdk's own keyboard
+      // highlight is a fill too, so a second fill plus a "here" tag read as
+      // two competing selections. `aria-current` keeps it announced.
+      aria-current={current ? "true" : undefined}
     >
       <span
         aria-hidden
@@ -139,7 +142,6 @@ function SwitcherRow({
         )}
       />
       <span className="min-w-0 truncate">{resource.name}</span>
-      {current && <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">here</span>}
     </CommandItem>
   );
 }

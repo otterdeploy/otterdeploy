@@ -32,7 +32,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
   const [window, setWindow] = useState<MetricWindowLabel>(DEFAULT_WINDOW.label);
   const selected = METRIC_WINDOWS.find((w) => w.label === window) ?? DEFAULT_WINDOW;
 
-  const { rows, summary, isLoading, isError, updatedAt } = useResourceMetrics(
+  const { rows, summary, bucketMs, isLoading, isError, updatedAt } = useResourceMetrics(
     resourceId,
     selected.minutes,
   );
@@ -54,9 +54,9 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
 
       {hasData ? (
         <div className="flex flex-col gap-4">
-          <CpuPanel rows={rows} summary={summary} />
-          <MemoryPanel rows={rows} summary={summary} />
-          <NetworkPanel rows={rows} summary={summary} />
+          <CpuPanel rows={rows} summary={summary} sampleIntervalMs={bucketMs} />
+          <MemoryPanel rows={rows} summary={summary} sampleIntervalMs={bucketMs} />
+          <NetworkPanel rows={rows} summary={summary} sampleIntervalMs={bucketMs} />
         </div>
       ) : isLoading ? (
         <LoadingState />

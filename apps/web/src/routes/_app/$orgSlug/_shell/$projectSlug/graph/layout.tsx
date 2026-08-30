@@ -36,6 +36,7 @@ import {
   focusNodeInView,
   preloadNodeRoute,
   useDetailPanelRefit,
+  useFocusOpenResource,
   useRevealNewNodes,
 } from "./-components/graph-camera";
 import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
@@ -254,6 +255,9 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // outside the current viewport: reveal it instead of leaving the operator
   // to hunt for a card they were just told was created.
   useRevealNewNodes(boundedNodes, fitView, getViewport);
+  // Pan to whatever the drawer is showing, however it was opened. See the
+  // hook: `openNode` below only navigates, this is what moves the camera.
+  useFocusOpenResource(boundedNodes, setCenter);
 
   // A resource panel (or preview/deployment overlay) is open. Collapse the
   // bottom drawer so its content isn't squeezed into a ~6-line sliver behind
@@ -297,7 +301,6 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
       }
       return;
     }
-    focusNodeInView(node, setCenter);
     const resourceId = nodeTargetId(node);
     void navigate({
       to: "/$orgSlug/$projectSlug/graph/$resourceId",
