@@ -105,7 +105,7 @@ export function mergeResourceBuckets(
  * `bucketSeconds` is a server-computed integer (never user text) inlined so
  * the SELECT and GROUP BY expressions stay textually identical.
  */
-export async function queryResourceMetricBuckets(input: {
+async function queryResourceMetricBuckets(input: {
   organizationId: OrganizationId;
   resourceId: ResourceId;
   since: Date;

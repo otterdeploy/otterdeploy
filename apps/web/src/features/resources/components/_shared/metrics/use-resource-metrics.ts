@@ -42,7 +42,7 @@ export type MetricWindowLabel = (typeof METRIC_WINDOWS)[number]["label"];
  *  This is the REFETCH cadence only. It is not the spacing of the series —
  *  the server buckets, and a pass that overruns its tick skips one — so the
  *  charts take `bucketMs` off the response instead of assuming this. */
-export const SAMPLE_INTERVAL_MS = 30_000;
+const SAMPLE_INTERVAL_MS = 30_000;
 
 /** Refetch cadence for the non-live windows. */
 export const HISTORY_REFETCH_MS = 5 * 60_000;
