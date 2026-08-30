@@ -1,8 +1,9 @@
 /** Field layout for the schedule editor. Form plumbing lives in `./schedule-form`. */
-import { useLiveQuery } from "@tanstack/react-db";
 
-import { terminalDatabasesCollection } from "@/features/terminal/data/targets";
+import { useQuery } from "@tanstack/react-query";
+
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
+import { orpc } from "@/shared/server/orpc";
 
 import type { Destination } from "./data/destinations";
 
@@ -35,7 +36,11 @@ export function ScheduleFields({
   editing: boolean;
   destinations: Destination[];
 }) {
-  const { data: databases } = useLiveQuery((q) => q.from({ d: terminalDatabasesCollection }));
+  // Same source list the run-now dialog uses: managed databases AND
+  // compose-stack database services. Scheduling already supported stack
+  // sources server-side (classifyScheduleSources counts them); only the
+  // picker could not offer one.
+  const { data: databases = [] } = useQuery(orpc.backups.sources.queryOptions({ input: {} }));
   const dbOptions = databases.map((d) => ({
     value: d.resourceId,
     label: d.name,

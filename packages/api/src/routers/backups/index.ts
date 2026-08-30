@@ -17,10 +17,11 @@ import {
   verifyBackup,
 } from "../../backups";
 import { activeDestinationIdsFor } from "../../backups/destination-availability";
-import { resolveStackDumpTarget } from "../../backups/stack";
+import { listStackDatabaseResources, resolveStackDumpTarget } from "../../backups/stack";
 import { inspectVolume } from "../volumes/service";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
+import { listManagedDatabaseSources } from "./queries";
 import { backupSchedulesRouter } from "./schedules-router";
 import { getBackup, listBackups } from "./service";
 
@@ -53,6 +54,29 @@ export const backupsRouter = {
       search: input?.search,
     });
     return rows.map(presentBackup);
+  }),
+
+  /** The picker's list: managed databases AND compose-stack database
+   *  services, in one shape. Deliberately NOT `terminal.targets`, which the
+   *  dialog used to read — that is the terminal feature's inventory, built
+   *  from `database_resource` alone, so an install whose only databases live
+   *  in stacks saw "No databases found" while holding live data. */
+  sources: orgScopedProcedure.backups.sources.handler(async ({ context }) => {
+    const [managed, stack] = await Promise.all([
+      listManagedDatabaseSources(context.activeOrganizationId),
+      listStackDatabaseResources(context.activeOrganizationId),
+    ]);
+    return [
+      ...managed.map((m) => ({ ...m, origin: "managed" as const })),
+      ...stack.map((r) => ({
+        resourceId: r.id,
+        name: r.name,
+        engine: r.engine,
+        projectSlug: r.projectSlug,
+        projectName: r.projectName,
+        origin: "stack" as const,
+      })),
+    ].sort((a, b) => a.projectSlug.localeCompare(b.projectSlug) || a.name.localeCompare(b.name));
   }),
 
   get: orgScopedProcedure.backups.get.handler(async ({ input, context, errors }) => {

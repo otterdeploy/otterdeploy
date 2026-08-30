@@ -72,13 +72,6 @@ export function engineFromImage(image: string): DumpEngine | null {
   return IMAGE_ENGINE[baseImageName(image)] ?? null;
 }
 
-/** Whether an image is a dumpable database (recognised AND not redis, redis has
- *  no logical dump, same as managed redis; those want a volume backup). */
-function isDumpableDatabaseImage(image: string): boolean {
-  const engine = engineFromImage(image);
-  return engine != null && engine !== "redis";
-}
-
 interface Creds {
   databaseName: string;
   username: string;
@@ -168,17 +161,50 @@ export async function resolveStackDumpTarget(
 }
 
 /** Compose-stack services in the org whose image is a recognised (dumpable)
- *  database: the candidate set the schedule source classifier matches against. */
-export async function listStackDatabaseResources(
-  organizationId: OrganizationId,
-): Promise<Array<{ id: ResourceId; name: string }>> {
+ *  database: the candidate set the schedule source classifier matches against,
+ *  and the other half of the picker an operator chooses a backup source from.
+ *
+ *  Carries the project and engine the picker needs to render a row, so the
+ *  backups surface can offer a stack's `db` service beside a managed one.
+ *  Callers that only need identity (the schedule classifiers) read `id`/`name`
+ *  and ignore the rest. */
+export async function listStackDatabaseResources(organizationId: OrganizationId): Promise<
+  Array<{
+    id: ResourceId;
+    name: string;
+    engine: DumpEngine;
+    projectId: ProjectId;
+    projectSlug: string;
+    projectName: string;
+  }>
+> {
   const rows = await db
-    .select({ id: resource.id, name: resource.name, image: serviceResource.image })
+    .select({
+      id: resource.id,
+      name: resource.name,
+      image: serviceResource.image,
+      projectId: project.id,
+      projectSlug: project.slug,
+      projectName: project.name,
+    })
     .from(serviceResource)
     .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
     .where(and(eq(project.organizationId, organizationId), isNotNull(serviceResource.stackId)));
-  return rows
-    .filter((r) => isDumpableDatabaseImage(r.image))
-    .map((r) => ({ id: r.id, name: r.name }));
+  return rows.flatMap((r) => {
+    const engine = engineFromImage(r.image);
+    // Redis is recognised but has no logical dump (same as managed redis:
+    // those want a volume backup), so it is not a source here.
+    if (!engine || engine === "redis") return [];
+    return [
+      {
+        id: r.id,
+        name: r.name,
+        engine,
+        projectId: r.projectId,
+        projectSlug: r.projectSlug,
+        projectName: r.projectName,
+      },
+    ];
+  });
 }
