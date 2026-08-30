@@ -1,5 +1,3 @@
-import type { Readable } from "node:stream";
-
 /**
  * Apply orchestrator. The self-replacement crux.
  *
@@ -15,7 +13,7 @@ import type { Readable } from "node:stream";
  * locally with no real newer image and no restart. Chosen by resolveDryRun()
  * (dev-default ON), so `bun dev` is safe out of the box.
  */
-import { Docker, demuxStream } from "@otterdeploy/docker";
+import { Docker } from "@otterdeploy/docker";
 import { env } from "@otterdeploy/env/server";
 import { log } from "evlog";
 
@@ -24,6 +22,7 @@ import { ensureDiskHeadroom } from "../../system-health/disk-guard";
 import { reclaimSpace } from "../../system-health/reclaim";
 import { checkForUpdate, currentVersion, resolveDryRun } from "./check";
 import { isNewer } from "./compare";
+import { readHelperLogs, relayHelperProgress } from "./helper-logs";
 import * as state from "./state";
 
 export type ApplyStartResult =
@@ -297,11 +296,18 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
   const container = docker.containers.getContainer(helperId);
   const deadlineAt = Date.now() + WATCH_DEADLINE_MS;
   try {
+    // Lines of helper output already relayed, so each poll emits only what is
+    // new. The helper is where the update actually happens, and until now none
+    // of it was visible: handoff emitted "launching helper" and the pane sat
+    // frozen through the image pull, the migrations and the recreate — the
+    // slowest minutes of the whole operation, reported as nothing at all.
+    let relayed = 0;
     while (Date.now() < deadlineAt) {
       await sleep(WATCH_POLL_MS);
       const inspected = await container.inspect();
       if (inspected.isErr()) continue; // transient socket blip: let the deadline decide
       const st = inspected.value.State;
+      relayed = await relayHelperProgress(container, relayed);
       if (st?.Running !== false) continue; // still pulling / recreating
       // Helper has exited. If it succeeded AND we somehow booted the target,
       // it's done; otherwise the cutover did not replace us, a failure.
@@ -338,22 +344,3 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
 
 /** Tail the helper's combined output for the failure message. Best-effort. An
  *  empty string when logs can't be read. */
-async function readHelperLogs(
-  container: ReturnType<Docker["containers"]["getContainer"]>,
-): Promise<string> {
-  const res = await container.logs({ follow: false, stdout: true, stderr: true, tail: "40" });
-  if (res.isErr()) return "";
-  const { stdout, stderr } = demuxStream(res.value);
-  const [out, err] = await Promise.all([collect(stdout), collect(stderr)]);
-  const text = `${out.toString("utf8")}${err.toString("utf8")}`.trim();
-  return text ? `Helper output:\n${text.slice(-1500)}` : "";
-}
-
-function collect(stream: Readable): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on("data", (c: Buffer) => chunks.push(c));
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-    stream.on("error", reject);
-  });
-}
