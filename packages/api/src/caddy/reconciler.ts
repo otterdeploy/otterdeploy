@@ -47,6 +47,9 @@ interface ReconcileOptions {
   crowdsec?: CrowdsecConfig;
   /** false ⇒ disable Caddy's automatic HTTP→HTTPS redirect in the global block. */
   httpsAutoRedirect?: boolean | null;
+  /** CIDRs of the hops in front of Caddy, so the access log names the visitor
+   *  and not the CDN. See ./trusted-proxies. */
+  trustedProxies?: string | null;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
   rlog?: RequestLogger;
@@ -61,6 +64,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     edgeLogSink,
     crowdsec,
     httpsAutoRedirect,
+    trustedProxies,
     adapt,
     load,
     rlog,
@@ -128,6 +132,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     edgeLogSink,
     crowdsec,
     httpsAutoRedirect,
+    trustedProxies,
   });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 

@@ -164,13 +164,20 @@ export const platformSettingsRouter = {
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: context.activeOrganizationId },
-        edge: { httpsAutoRedirect: input.httpsAutoRedirect },
+        edge: {
+          httpsAutoRedirect: input.httpsAutoRedirect,
+          trustedProxyCount: input.trustedProxies.split(/[\s,]+/).filter(Boolean).length,
+        },
       });
       // saveGlobalCaddyOptions persists + reconciles the live edge; validated
       // options can't produce invalid global syntax (same guarantee the
       // project-Networking editor relies on).
       return saveGlobalCaddyOptions(
-        { acmeEmail: input.acmeEmail, httpsAutoRedirect: input.httpsAutoRedirect },
+        {
+          acmeEmail: input.acmeEmail,
+          httpsAutoRedirect: input.httpsAutoRedirect,
+          trustedProxies: input.trustedProxies,
+        },
         context.log,
       );
     },

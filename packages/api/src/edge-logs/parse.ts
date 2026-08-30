@@ -33,6 +33,10 @@ const RequestSchema = z.object({
   method: z.string(),
   host: z.string(),
   uri: z.string().optional(),
+  /** Caddy's resolved client address: the first untrusted hop of
+   *  `client_ip_headers` when the peer is in `trusted_proxies`, else the same
+   *  thing `remote_ip` holds. Present from Caddy 2.7 on. */
+  client_ip: z.string().optional(),
   remote_ip: z.string().optional(),
   remote_addr: z.string().optional(),
   headers: HeaderMapSchema.optional(),
@@ -75,7 +79,24 @@ function flattenHeaders(headers: HeaderMap | undefined): Record<string, string> 
   return out;
 }
 
+/**
+ * The address to attribute a request to.
+ *
+ * `client_ip` FIRST, and this ordering is the whole point. `remote_ip` is the
+ * TCP peer, so on any install behind a CDN or an upstream load balancer every
+ * log line — and therefore every flagged IP, every ban target, every geo
+ * lookup — was the PROXY's address, not the visitor's. Blocking those bans the
+ * proxy for everyone who shares it, which on Cloudflare is most of the
+ * internet including the operator.
+ *
+ * Caddy only fills `client_ip` from a forwarded header when the peer is in its
+ * `trusted_proxies` list (see caddy/builder.ts), and otherwise sets it to the
+ * peer anyway — so preferring it is safe on a direct install and correct on a
+ * proxied one, and a caller can never talk their way into a different identity
+ * by sending a header.
+ */
 function ipOf(req: z.infer<typeof RequestSchema>): string {
+  if (req.client_ip) return req.client_ip;
   if (req.remote_ip) return req.remote_ip;
   if (req.remote_addr) {
     const addr = req.remote_addr;

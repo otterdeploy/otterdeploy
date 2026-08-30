@@ -79,6 +79,10 @@ export interface GlobalCaddyOptions {
   acmeEmail: string | null;
   /** Caddy auto HTTP→HTTPS redirect. Defaults on. */
   httpsAutoRedirect: boolean;
+  /** CIDRs of the proxies in front of Caddy. Empty ⇒ trust nothing, and
+   *  every request is attributed to its TCP peer — which behind a CDN is the
+   *  CDN. See packages/api/src/caddy/trusted-proxies.ts. */
+  trustedProxies: string;
 }
 
 /** Read the instance-wide global Caddy options (the `platform_settings`
@@ -88,6 +92,7 @@ export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
     .select({
       acmeEmail: platformSettings.acmeEmail,
       httpsAutoRedirect: platformSettings.httpsAutoRedirect,
+      trustedProxies: platformSettings.trustedProxies,
     })
     .from(platformSettings)
     .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
@@ -95,19 +100,36 @@ export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
   return {
     acmeEmail: s?.acmeEmail ?? null,
     httpsAutoRedirect: s?.httpsAutoRedirect ?? true,
+    trustedProxies: s?.trustedProxies ?? "",
   };
 }
 
-/** Persist the global Caddy options, then reconcile so they take effect. These
- *  options (an email + a redirect toggle) can't produce invalid global syntax,
- *  and reconcile only swaps the live config in after a successful adapt, so a
- *  bad value can't take routes offline. */
+/** Persist the global Caddy options, then reconcile so they take effect. The
+ *  contract validates each trusted-proxy entry against an address/CIDR
+ *  charset and the builder drops anything that still doesn't parse, so this
+ *  can't produce invalid global syntax; reconcile only swaps the live config
+ *  in after a successful adapt, so a bad value can't take routes offline
+ *  either. */
 export async function saveGlobalCaddyOptions(
-  input: GlobalCaddyOptions,
+  // `trustedProxies` is optional because two surfaces write these options: the
+  // instance Edge settings, which owns the field, and a project's Networking
+  // editor, which predates it and knows nothing about it. Omitting it has to
+  // mean "leave it alone" — spelling it as a required field would have let the
+  // project editor silently reset the install's proxy trust to nothing, and
+  // the next reconcile would put every visitor back behind the CDN's address.
+  input: Omit<GlobalCaddyOptions, "trustedProxies"> & { trustedProxies?: string },
   rlog?: RequestLogger,
 ): Promise<GlobalCaddyOptions> {
   const acmeEmail = input.acmeEmail?.trim() || null;
-  const next = { acmeEmail, httpsAutoRedirect: input.httpsAutoRedirect };
+  const trustedProxies =
+    input.trustedProxies === undefined
+      ? (await getGlobalCaddyOptions()).trustedProxies
+      : input.trustedProxies.trim();
+  const next = {
+    acmeEmail,
+    httpsAutoRedirect: input.httpsAutoRedirect,
+    trustedProxies,
+  };
   await db
     .insert(platformSettings)
     .values({ id: PLATFORM_SETTINGS_ID, ...next })

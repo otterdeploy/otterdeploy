@@ -51,6 +51,13 @@ export const platformSettings = pgTable("platform_settings", {
    *  default); false ⇒ render `auto_https disable_redirects` in the global
    *  block (e.g. a downstream load balancer already terminates/redirects TLS). */
   httpsAutoRedirect: boolean("https_auto_redirect"),
+  /** CIDRs of the proxies in front of Caddy (a CDN, an upstream load
+   *  balancer), whitespace/comma separated. Null ⇒ Caddy attributes every
+   *  request to its TCP peer, which behind a CDN is the CDN. Drives the
+   *  global `servers { trusted_proxies … }` stanza; see
+   *  packages/api/src/caddy/trusted-proxies.ts for why the two settings
+   *  (trust list + header) only make sense together. */
+  trustedProxies: text("trusted_proxies"),
 
   // ─── Outbound email transport (system emails: verification, invites,
   //     guest OTP). Configured in the UI; falls back to env (RESEND_API_KEY /

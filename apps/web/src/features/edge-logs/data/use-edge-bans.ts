@@ -46,12 +46,26 @@ export function useEdgeBans(onBlocked?: () => void) {
   const blockMany = useMutation({
     ...orpc.firewall.blockMany.mutationOptions(),
     onSuccess: (r) => {
-      if (r.ok) {
-        toast.success(`Blocked ${r.blocked} IP${r.blocked === 1 ? "" : "s"} at the edge`);
-        settled();
-      } else {
+      if (!r.ok) {
         toast.error(r.error ?? "Block failed");
+        return;
       }
+      // The server drops any target someone is signed in from before it bans
+      // anything (routers/firewall/self-block-guard). Say so: a sweep that
+      // quietly blocks fewer addresses than the button offered looks like it
+      // lost them.
+      const skipped =
+        r.skipped > 0
+          ? `${r.skipped} skipped — someone is signed in from ${r.skipped === 1 ? "it" : "them"}`
+          : undefined;
+      if (r.blocked === 0) {
+        toast.info("Nothing was blocked", { description: skipped });
+      } else {
+        toast.success(`Blocked ${r.blocked} IP${r.blocked === 1 ? "" : "s"} at the edge`, {
+          description: skipped,
+        });
+      }
+      settled();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Block failed"),
   });

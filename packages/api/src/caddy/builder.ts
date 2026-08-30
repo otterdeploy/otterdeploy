@@ -2,46 +2,19 @@ import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 
+import type { CrowdsecConfig, ProxyRouteInput } from "./types";
+
 import { customDirectiveLines } from "./custom-directives";
+import { buildGlobalBlock } from "./global-block";
 import { buildLayer4Block, buildLayer4SiteBlocks, sanitizeMatcherName } from "./layer4";
 import { assertSafeRoute } from "./route-validation";
 
 // Re-exported so existing `./builder` import sites keep working after the
 // layer4 fragments moved to ./layer4.
 export { buildLayer4Block, sanitizeMatcherName };
-
-export interface ProxyRouteInput {
-  projectId: string;
-  type: "http" | "layer4";
-  domain: string;
-  upstreamHost: string;
-  upstreamPort: number;
-  protocol: "tcp" | "http";
-  layer4Alpn: string | null;
-  /** When true, Caddy attempts public ACME issuance (Let's Encrypt) for
-   *  this domain. When false, falls back to `tls internal` (self-signed):
-   *  the only safe choice for sslip.io domains and any apex the
-   *  operator hasn't proven ownership of. */
-  usesAcme: boolean;
-  /** When true, the route is wrapped in a forward_auth gate (deployment
-   *  protection). Optional so existing call sites/fixtures that predate
-   *  the feature keep compiling; absent ⇒ unprotected. See
-   *  docs/designs/deployment-protection.md. */
-  protected?: boolean;
-  /** Allowlisted behavior rendered by trusted builder code. */
-  routePolicy?: RoutePolicy;
-  /** Raw Caddyfile directives spliced verbatim inside the site block (HTTP
-   *  routes only). Brace-balance-checked at the write boundary AND re-checked
-   *  here (see customDirectiveLines); Caddy's /adapt pass is the syntax gate. */
-  customDirectives?: string | null;
-  /** Operator-uploaded certificate to serve for this domain instead of
-   *  ACME / tls internal. Paths are CONTAINER paths under the `/etc/caddy`
-   *  mount, set by the reconcile layer only for certs whose files were
-   *  actually materialized (see ./certs.ts), so an emitted `tls` line never
-   *  references a file the edge can't read. Absent ⇒ normal ACME/internal
-   *  behaviour. */
-  customCert?: { certPath: string; keyPath: string } | null;
-}
+// Re-exported so the many `./builder` import sites keep working after the
+// shared shapes moved to ./types to break a builder <-> global-block cycle.
+export type { CrowdsecConfig, ProxyRouteInput } from "./types";
 
 /** Reserved, ungated path prefix on every protected deployment domain.
  *  The cross-domain auth handoff callback lands here and is proxied to the
@@ -74,16 +47,10 @@ interface HttpBlockOptions {
   crowdsec?: boolean;
 }
 
-/** CrowdSec LAPI connection for the global Caddy `crowdsec` app config. */
-export interface CrowdsecConfig {
-  apiUrl: string;
-  apiKey: string;
-}
-
 /** Global-block lines for the CrowdSec bouncer app: `order crowdsec first`
  *  so the per-site handler runs ahead of forward_auth/reverse_proxy, plus
  *  the LAPI connection. Emitted once, in the global options block. */
-function crowdsecGlobalLines(cfg: CrowdsecConfig): string[] {
+export function crowdsecGlobalLines(cfg: CrowdsecConfig): string[] {
   return [
     "\torder crowdsec first",
     "\tcrowdsec {",
@@ -98,7 +65,7 @@ function crowdsecGlobalLines(cfg: CrowdsecConfig): string[] {
  *  the same edge-log sink as the per-site access logs. The two use different
  *  loggers, so access logs are NOT duplicated here. See edge-logs/ingest.ts
  *  for the access-vs-event split. */
-function edgeLogGlobalLines(sink: string): string[] {
+export function edgeLogGlobalLines(sink: string): string[] {
   return ["\tlog {", `\t\toutput net ${sink}`, "\t\tformat json", "\t}"];
 }
 
@@ -108,7 +75,7 @@ function edgeLogGlobalLines(sink: string): string[] {
  *  per-site access logger, so no site block changes. The file lands on the
  *  shared `otterdeploy-caddy-logs` volume the agent reads read-only; see the
  *  crowdsec service's acquis config in docker-compose.yml. */
-function crowdsecAccessFileLines(): string[] {
+export function crowdsecAccessFileLines(): string[] {
   return [
     "\tlog crowdsec-access {",
     "\t\tinclude http.log.access",
@@ -243,52 +210,6 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
   return lines.join("\n");
 }
 
-interface GlobalBlockOptions {
-  /** The `admin` line body: `admin <bind>` or `admin off`. */
-  adminLine: string;
-  acmeEmail?: string | null;
-  anyUsesAcme: boolean;
-  /** false ⇒ emit `auto_https disable_redirects` (operator runs HTTP→HTTPS
-   *  elsewhere). Undefined/true keeps Caddy's default auto-redirect. */
-  httpsAutoRedirect?: boolean | null;
-  crowdsec?: CrowdsecConfig;
-  edgeLogSink?: string;
-  layer4Routes: ProxyRouteInput[];
-}
-
-/** The global `{ … }` block (incl. its closing brace). Only registers `email`
- *  when a route wants ACME. Caddy errors on `email` + `local_certs` together,
- *  so pure-internal installs keep the `local_certs` shortcut instead. */
-function buildGlobalBlock(o: GlobalBlockOptions): string[] {
-  const lines = ["{", `\t${o.adminLine}`];
-  if (o.anyUsesAcme && o.acmeEmail) {
-    lines.push(`\temail ${o.acmeEmail}`);
-  }
-  if (!o.anyUsesAcme) {
-    lines.push("\tlocal_certs");
-  }
-  if (o.httpsAutoRedirect === false) {
-    lines.push("\tauto_https disable_redirects");
-  }
-  if (o.crowdsec) {
-    lines.push(...crowdsecGlobalLines(o.crowdsec));
-  }
-  if (o.edgeLogSink) {
-    lines.push(...edgeLogGlobalLines(o.edgeLogSink));
-  }
-  // Access-log file for CrowdSec's parsers: only when the bouncer is wired
-  // (no point writing files nobody reads) AND sites emit access logs at all
-  // (they only do when the edge-log sink is configured).
-  if (o.crowdsec && o.edgeLogSink) {
-    lines.push(...crowdsecAccessFileLines());
-  }
-  if (o.layer4Routes.length > 0) {
-    lines.push(buildLayer4Block(o.layer4Routes));
-  }
-  lines.push("}");
-  return lines;
-}
-
 /** One HTTP site block per http route, each preceded by a blank separator. */
 function buildHttpSiteBlocks(
   httpRoutes: ProxyRouteInput[],
@@ -323,6 +244,9 @@ export function buildCaddyfile(
     /** false ⇒ emit `auto_https disable_redirects` (operator runs HTTP→HTTPS
      *  elsewhere). Undefined/true keeps Caddy's default auto-redirect. */
     httpsAutoRedirect?: boolean | null;
+    /** CIDRs of the hops in front of Caddy, so it attributes requests to the
+     *  visitor rather than to the CDN. See ./trusted-proxies. */
+    trustedProxies?: string | null;
   } = {},
 ): string {
   for (const route of routes) assertSafeRoute(route);
@@ -339,6 +263,7 @@ export function buildCaddyfile(
     httpsAutoRedirect: options.httpsAutoRedirect,
     crowdsec: options.crowdsec,
     edgeLogSink: options.edgeLogSink,
+    trustedProxies: options.trustedProxies,
     layer4Routes,
   });
   lines.push(...buildHttpSiteBlocks(httpRoutes, options));
@@ -354,6 +279,7 @@ export function buildProjectFragment(
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
+    trustedProxies?: string | null;
   } = {},
 ): string {
   for (const route of routes) assertSafeRoute(route);
@@ -373,6 +299,7 @@ export function buildProjectFragment(
     anyUsesAcme,
     crowdsec: options.crowdsec,
     edgeLogSink: options.edgeLogSink,
+    trustedProxies: options.trustedProxies,
     layer4Routes,
   });
   lines.push(...buildHttpSiteBlocks(httpRoutes, options));

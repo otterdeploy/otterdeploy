@@ -16,7 +16,7 @@ import { validatePublicHttpUrl } from "../../security/public-fetch";
 import { listOrgDomains } from "../edge-logs/queries";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
 import { cscliRead, cscliRun } from "./cscli";
-import { blockIp, blockManyIps, unblockIp } from "./decision";
+import { decisionHandlers } from "./decision-handlers";
 import { configured, fetchDecisions } from "./decisions-read";
 import {
   deleteBlocklist,
@@ -36,6 +36,7 @@ const globalFirewallWrite = requireInstallAdminPermission({ firewall: ["update"]
 
 export const firewallRouter = {
   ...recordedHandlers,
+  ...decisionHandlers,
   status: globalFirewallRead.firewall.status.handler(async () => {
     // Reachable = the agent answered `cscli lapi status` over the Docker exec.
     const lapi = await cscliRead("cscli lapi status");
@@ -47,34 +48,6 @@ export const firewallRouter = {
 
   decisions: globalFirewallRead.firewall.decisions.handler(async () => {
     return (await fetchDecisions()) ?? [];
-  }),
-
-  block: globalFirewallWrite.firewall.block.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "ip", id: input.ip } });
-    const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
-    const res = await blockIp(input.ip, input.durationHours, reason);
-    if (!res.ok) throw errors.APPLY_FAILED({ message: res.error });
-    return { ok: res.ok, error: res.error ?? null };
-  }),
-
-  blockMany: globalFirewallWrite.firewall.blockMany.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "ip", id: `${input.ips.length} ips` } });
-    const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
-    const res = await blockManyIps(input.ips, input.durationHours, reason);
-    context.log.set({ firewall: { requested: input.ips.length, applied: res.blocked } });
-    if (!res.ok || res.blocked !== input.ips.length) {
-      throw errors.APPLY_FAILED({
-        message: res.error ?? `CrowdSec blocked ${res.blocked} of ${input.ips.length} addresses.`,
-      });
-    }
-    return { ok: res.ok, blocked: res.blocked, error: res.error ?? null };
-  }),
-
-  unblock: globalFirewallWrite.firewall.unblock.handler(async ({ input, context, errors }) => {
-    context.log.set({ target: { type: "ip", id: input.ip } });
-    const res = await unblockIp(input.ip);
-    if (!res.ok) throw errors.APPLY_FAILED({ message: res.error });
-    return { ok: res.ok, error: res.error ?? null };
   }),
 
   flagged: requirePermission({ firewall: ["read"] }).firewall.flagged.handler(

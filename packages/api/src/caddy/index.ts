@@ -65,6 +65,10 @@ function toRouteInput(r: ProxyRouteRecord): ProxyRouteInput {
 interface CaddyBuildOptions {
   acmeEmail: string | null;
   httpsAutoRedirect: boolean | null;
+  /** Hops in front of Caddy, so the access log records the visitor rather
+   *  than the CDN. Everything downstream (flagged IPs, ban targets, geo)
+   *  reads that field. See ./trusted-proxies. */
+  trustedProxies: string | null;
   authzUpstream: string;
   edgeLogSink?: string;
   crowdsec?: CrowdsecConfig;
@@ -83,6 +87,7 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
     .select({
       acmeEmail: platformSettings.acmeEmail,
       httpsAutoRedirect: platformSettings.httpsAutoRedirect,
+      trustedProxies: platformSettings.trustedProxies,
       controlPlaneFqdn: platformSettings.controlPlaneFqdn,
       controlPlaneFqdnVerifiedAt: platformSettings.controlPlaneFqdnVerifiedAt,
     })
@@ -93,6 +98,7 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
   return {
     acmeEmail: settings?.acmeEmail ?? null,
     httpsAutoRedirect: settings?.httpsAutoRedirect ?? null,
+    trustedProxies: settings?.trustedProxies ?? null,
     authzUpstream: env.DEPLOY_AUTHZ_UPSTREAM,
     edgeLogSink: env.EDGE_LOG_SINK,
     // Settings-backed (env seeds it): saving credentials or flipping the

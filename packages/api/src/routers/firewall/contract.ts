@@ -168,6 +168,16 @@ const decisionErrors = {
   APPLY_FAILED: { status: 503, message: "CrowdSec could not apply the decision" as const },
 };
 
+/** Refusing to ban the address the request itself arrived from. 409 rather
+ *  than 422: the input is perfectly valid, it is the current situation that
+ *  makes it the wrong thing to do. */
+const selfBlockError = {
+  SELF_BLOCK: {
+    status: 409,
+    message: "That would block the address you are connected from" as const,
+  },
+};
+
 export const firewallContract = {
   status: oc.meta({ path: "/firewall/status", tag, method: "GET" }).output(firewallStatusSchema),
   decisions: oc
@@ -175,7 +185,7 @@ export const firewallContract = {
     .output(z.array(firewallDecisionSchema)),
   /** Ban a single IP / CIDR (manual CrowdSec decision). No Caddy reload needed. */
   block: oc
-    .errors(decisionErrors)
+    .errors({ ...decisionErrors, ...selfBlockError })
     .meta({ path: "/firewall/decisions/block", tag, method: "POST" })
     .input(
       z.object({
@@ -198,7 +208,17 @@ export const firewallContract = {
         reason: z.string().max(120).optional(),
       }),
     )
-    .output(z.object({ ok: z.boolean(), blocked: z.number(), error: z.string().nullable() })),
+    .output(
+      z.object({
+        ok: z.boolean(),
+        blocked: z.number(),
+        /** Targets left alone because someone is signed in from behind them.
+         *  Surfaced so the UI can say why it blocked fewer than it offered,
+         *  rather than appearing to lose them. */
+        skipped: z.number(),
+        error: z.string().nullable(),
+      }),
+    ),
   /** Remove every decision targeting an IP (undo a manual block). */
   unblock: oc
     .errors(decisionErrors)
