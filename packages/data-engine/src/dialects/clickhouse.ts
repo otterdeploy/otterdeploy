@@ -72,6 +72,12 @@ export const clickhouseDialect: Dialect = {
   supportsTransactions: false,
   defaultSchema: "default",
 
+  // ClickHouse's native protocol is not one we drive, and its HTTP interface is
+  // a different transport entirely. The dialect is complete and compiles
+  // correctly; what is missing is a driver, and saying so is better than
+  // offering a workbench that fails on connect.
+  wireProtocol: null,
+
   compiler: () => (compiler ??= new PgDialect()),
 
   castToText: (expr) => sql`toString(${expr})`,

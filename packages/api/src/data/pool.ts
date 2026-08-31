@@ -46,12 +46,15 @@ interface PooledClient {
 const pools = new Map<string, PooledClient>();
 let reaper: ReturnType<typeof setInterval> | null = null;
 
-/** Bun's SQL adapter name for an engine, or null when it speaks no wire we have. */
-function adapterFor(engine: DataTarget["engine"]): "postgres" | "mysql" | null {
-  if (engine === "postgres") return "postgres";
-  // MariaDB and MySQL share one wire protocol, and one dialect above it.
-  if (engine === "mariadb") return "mysql";
-  return null;
+/**
+ * Bun's SQL adapter name for a dialect.
+ *
+ * Read off the dialect rather than from a second engine list here: MariaDB
+ * speaking MySQL's protocol is dialect knowledge, and keeping one source of it
+ * stops "has a dialect" and "can be connected to" from drifting apart.
+ */
+function adapterFor(dialect: Dialect): "postgres" | "mysql" | null {
+  return dialect.wireProtocol;
 }
 
 function startReaper(): void {
@@ -94,7 +97,7 @@ export function connect(target: DataTarget): Connection {
       `${target.engine} is not a SQL engine, so the relational workbench cannot serve it`,
     );
   }
-  const adapter = adapterFor(target.engine);
+  const adapter = adapterFor(dialect);
   if (!adapter) {
     throw new DataError("unsupported", `no wire driver for ${target.engine}`);
   }

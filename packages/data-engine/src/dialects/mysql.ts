@@ -103,6 +103,8 @@ export const mysqlDialect: Dialect = {
   supportsTransactions: true,
   defaultSchema: "",
 
+  wireProtocol: "mysql",
+
   compiler: () => (compiler ??= new MySqlDialect()),
 
   castToText: (expr) => sql`CAST(${expr} AS CHAR)`,

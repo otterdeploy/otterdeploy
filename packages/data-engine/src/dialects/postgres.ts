@@ -108,6 +108,8 @@ export const postgresDialect: Dialect = {
   supportsTransactions: true,
   defaultSchema: "public",
 
+  wireProtocol: "postgres",
+
   compiler: () => (compiler ??= new PgDialect()),
 
   castToText: (expr) => sql`${expr}::text`,

@@ -68,6 +68,18 @@ export interface Dialect {
   readonly defaultSchema: string;
 
   /**
+   * The binary wire protocol this engine speaks, or null when it has none we
+   * can drive.
+   *
+   * Genuinely dialect knowledge — MariaDB speaks MySQL's protocol, ClickHouse
+   * speaks its own over HTTP — and the fact that decides whether the workbench
+   * can serve an engine at all. Kept here rather than as a list in the pool so
+   * "has a dialect" and "can actually be connected to" cannot drift apart, and
+   * so the UI can say "not yet" up front instead of after a failed connect.
+   */
+  readonly wireProtocol: "postgres" | "mysql" | null;
+
+  /**
    * The compile-only Drizzle dialect. Memoised by the dialect module: building
    * one per statement would allocate a compiler per keystroke.
    */

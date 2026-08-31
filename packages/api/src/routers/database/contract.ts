@@ -40,20 +40,6 @@ const notDatabase = {
 
 const connectionsInput = z.object({ resourceId: resourceIdField });
 
-// Still used by `mariadbTables`, which has no wire driver yet and keeps its own
-// docker-exec handler. The relational table list moved to `data.schema`.
-const tablesResultSchema = z.object({
-  tables: z.array(
-    z.object({
-      schema: z.string(),
-      name: z.string(),
-      // Fast planner estimate from pg_class.reltuples (never count(*)).
-      // null/omitted = unknown (never analyzed, or engines that don't report it).
-      estimatedRows: z.number().nullable().optional(),
-    }),
-  ),
-});
-
 /** One group of live client sessions sharing an origin. `clientAddr` is the
  *  raw address postgres sees. A container/overlay IP for in-cluster
  *  clients, so `applicationName` (when the client sets it) is often the more
@@ -140,23 +126,6 @@ const redisValueResultSchema = z.object({
 // ── MariaDB / MySQL (relational, read-only table browser) ───────────────────
 // Like Postgres but with no free-text console: list tables, then page a table's
 // rows. Every statement is server-built, so it's read-only by construction.
-
-const mariadbTablesInput = z.object({ resourceId: resourceIdField });
-
-const mariadbBrowseInput = z.object({
-  resourceId: resourceIdField,
-  schema: z.string().min(1).max(255),
-  table: z.string().min(1).max(255),
-  limit: z.number().int().positive().max(1000).default(100),
-  offset: z.number().int().min(0).default(0),
-});
-
-const mariadbGridSchema = z.object({
-  columns: z.array(z.string()),
-  rows: z.array(z.array(z.string().nullable())),
-  // Another page exists (fetched limit + 1).
-  hasMore: z.boolean(),
-});
 
 // ── MongoDB (document store, read-only browser) ─────────────────────────────
 
@@ -249,21 +218,6 @@ export const databaseContract = {
     .meta({ path: `${basePath}/{resourceId}/redis/value`, tag, method: "POST" })
     .input(redisValueInput)
     .output(redisValueResultSchema),
-
-  // ── MariaDB ──────────────────────────────────────────────────────────────
-  // List user tables.
-  mariadbTables: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/mariadb/tables`, tag, method: "GET" })
-    .input(mariadbTablesInput)
-    .output(tablesResultSchema),
-
-  // Page through a table's rows.
-  mariadbRows: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/mariadb/rows`, tag, method: "GET" })
-    .input(mariadbBrowseInput)
-    .output(mariadbGridSchema),
 
   // ── MongoDB ──────────────────────────────────────────────────────────────
   // List collections with estimated counts.

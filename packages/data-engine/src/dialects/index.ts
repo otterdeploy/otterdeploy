@@ -34,7 +34,18 @@ export function dialectForEngine(engine: DatabaseEngine): Dialect | null {
   return BY_ENGINE.get(engine) ?? null;
 }
 
-/** True when the relational workbench can serve this engine at all. */
+/** True when this engine has a SQL dialect at all. */
 export function isRelationalEngine(engine: DatabaseEngine): boolean {
   return BY_ENGINE.has(engine);
+}
+
+/**
+ * True when the workbench can actually CONNECT to this engine.
+ *
+ * Narrower than {@link isRelationalEngine}: ClickHouse has a complete dialect
+ * that compiles correct SQL, but no wire driver, so routing it to the workbench
+ * would produce a surface that fails the moment it opens.
+ */
+export function hasWireDriver(engine: DatabaseEngine): boolean {
+  return BY_ENGINE.get(engine)?.wireProtocol != null;
 }
