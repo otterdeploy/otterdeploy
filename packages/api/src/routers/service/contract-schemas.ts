@@ -112,6 +112,17 @@ export const envVarSchema = z.object({
   sealed: z.boolean(),
 });
 
+/** One row of `service.env.effective`. See routers/service/env-effective.ts
+ *  for why `value` is masked for secret and sealed rows. */
+export const effectiveEnvRowSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  declared: z.string().nullable(),
+  isSecret: z.boolean(),
+  sealed: z.boolean(),
+  unresolved: z.boolean(),
+});
+
 // One published host for a service. `id` is the underlying proxy_route id.
 // The same id the deployment-protection / guest surfaces address.
 export const serviceDomainSchema = z.object({

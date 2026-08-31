@@ -25,7 +25,12 @@ import {
   updateDomainInput,
   updateServiceInput,
 } from "./contract-inputs";
-import { envVarSchema, serviceDomainSchema, serviceSchema } from "./contract-schemas";
+import {
+  effectiveEnvRowSchema,
+  envVarSchema,
+  serviceDomainSchema,
+  serviceSchema,
+} from "./contract-schemas";
 
 // ---------------------------------------------------------------------------
 // Contract
@@ -293,6 +298,17 @@ export const serviceContract = {
       .meta({ path: `${basePath}/{resourceId}/env`, tag, method: "POST" })
       .input(bulkEnvInput)
       .output(z.array(envVarSchema)),
+
+    /** The bag as the container will see it: references expanded. Secret and
+     *  sealed values are masked — the resolver decrypts them for the deploy
+     *  path, and this is a browser read. See env-effective.ts. */
+    effective: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+      })
+      .meta({ path: `${basePath}/{resourceId}/env/effective`, tag, method: "GET" })
+      .input(getServiceInput)
+      .output(z.array(effectiveEnvRowSchema)),
   },
 
   // Custom-domain management. A service publishes on one generated host

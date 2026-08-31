@@ -9,6 +9,7 @@ import type { ResolveError, StackRollFailedError } from "./errors";
 import type { ResourceRef } from "./inputs";
 
 import { projectScopedProcedure, requirePermission } from "../..";
+import { listEffectiveEnv } from "./env-effective";
 import { bulkSetEnv, listEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./handlers";
 
 // Variable resolution errors aren't enumerated by the service.env.unset
@@ -177,6 +178,28 @@ export const serviceEnvRouter = {
         resourceId: input.resourceId,
         organizationId: context.activeOrganizationId,
       });
+      return result.value;
+    },
+  ),
+
+  /** The bag with `${{…}}` expanded. Read-only, and masked: see
+   *  env-effective.ts for why that is not negotiable. */
+  effective: projectScopedProcedure.service.env.effective.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await listEffectiveEnv({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
       return result.value;
     },
   ),

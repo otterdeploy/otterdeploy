@@ -32,6 +32,26 @@ interface TableViewProps {
   onApplyRow?: (id: string) => void;
   onRevertRow?: (id: string) => void;
   applyingId?: string | null;
+  /** key → resolved value, from service.env.effective. Absent on surfaces that
+   *  do not resolve (database panels, staged manifest edits). */
+  resolvedByKey?: ReadonlyMap<string, { value: string; unresolved: boolean }>;
+}
+
+/**
+ * The resolved-value note for one row, or nothing.
+ *
+ * Only rows that CARRY a reference get one: for a literal value the resolved
+ * string is the value, and repeating it under every row would be noise on the
+ * rows that need no explanation. Returned as a props object so the caller can
+ * spread it and omit the prop entirely rather than pass `undefined`.
+ */
+function resolvedNoteFor(
+  resolvedByKey: ReadonlyMap<string, { value: string; unresolved: boolean }> | undefined,
+  row: DraftRow,
+): { resolved?: { value: string; unresolved: boolean } } {
+  if (!resolvedByKey || !row.value.includes("${{")) return {};
+  const hit = resolvedByKey.get(row.key.trim());
+  return hit ? { resolved: hit } : {};
 }
 
 export function TableView({
@@ -49,6 +69,7 @@ export function TableView({
   onApplyRow,
   onRevertRow,
   applyingId = null,
+  resolvedByKey,
 }: TableViewProps) {
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState<string | null>(null);
@@ -113,6 +134,7 @@ export function TableView({
               duplicate={duplicateKeys.has(row.key.trim())}
               issue={issueFor(suggestions, row.key, row.value)}
               revealed={revealed.has(row.id)}
+              {...resolvedNoteFor(resolvedByKey, row)}
               copied={copiedId === row.id}
               pickerOpen={pickerOpen === row.id}
               onChange={(patch) => onUpdate(row.id, patch)}

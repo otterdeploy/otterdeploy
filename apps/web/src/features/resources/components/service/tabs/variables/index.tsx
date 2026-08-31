@@ -114,6 +114,7 @@ export function ServiceVariablesTabBody({
       <VariablesEditor
         ref={editorRef}
         resource={editorResource}
+        showResolved
         onSave={onSave}
         countLabel={null}
         suggestions={envSuggestionsForImage(resource.image)}
