@@ -24,6 +24,14 @@ interface TableViewProps {
   onDelete: (id: string) => void;
   onRestore: (id: string) => void;
   onAddRow: () => void;
+  /** Free-text filter from the tab's search box; matches key or value. Empty
+   *  shows everything. */
+  filter?: string;
+  /** Apply/revert one row. Omitted where single-row saves make no sense (a
+   *  staged manifest edit is applied as one manifest change). */
+  onApplyRow?: (id: string) => void;
+  onRevertRow?: (id: string) => void;
+  applyingId?: string | null;
 }
 
 export function TableView({
@@ -37,6 +45,10 @@ export function TableView({
   onDelete,
   onRestore,
   onAddRow,
+  filter = "",
+  onApplyRow,
+  onRevertRow,
+  applyingId = null,
 }: TableViewProps) {
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState<string | null>(null);
@@ -60,15 +72,28 @@ export function TableView({
     });
   };
 
+  // Filter for DISPLAY only: the draft still holds every row, so a save while
+  // a filter is active can never drop the rows you cannot see.
+  const needle = filter.trim().toLowerCase();
+  const shown = needle
+    ? rows.filter(
+        (r) => r.key.toLowerCase().includes(needle) || r.value.toLowerCase().includes(needle),
+      )
+    : rows;
+
   return (
     <div className="overflow-hidden rounded-lg border border-border/40">
       {rows.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
           No variables yet. Add one or paste a .env file.
         </div>
+      ) : shown.length === 0 ? (
+        <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
+          No variable matches “{filter.trim()}”.
+        </div>
       ) : (
         <div>
-          {rows.map((row) => (
+          {shown.map((row) => (
             <EditorRow
               key={row.id}
               row={row}
@@ -98,6 +123,9 @@ export function TableView({
               onToggleReveal={() => toggleReveal(row.id)}
               onCopy={() => copyValue(row.id, row.value)}
               onDelete={() => onDelete(row.id)}
+              {...(onApplyRow ? { onApply: () => onApplyRow(row.id) } : {})}
+              {...(onRevertRow ? { onRevert: () => onRevertRow(row.id) } : {})}
+              applying={applyingId === row.id}
             />
           ))}
         </div>

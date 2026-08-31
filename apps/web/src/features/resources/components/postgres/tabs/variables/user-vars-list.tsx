@@ -17,5 +17,8 @@ interface UserVarsListProps {
 }
 
 export function UserVarsList({ resource, ref }: UserVarsListProps) {
-  return <VariablesEditor ref={ref} resource={resource} />;
+  // countLabel null: the tab header above already counts these rows as
+  // "N Service Variables". Leaving the toolbar's default on printed a second
+  // "N User Variables" for the same bag under a different name (od-zh2.10).
+  return <VariablesEditor ref={ref} resource={resource} countLabel={null} />;
 }
