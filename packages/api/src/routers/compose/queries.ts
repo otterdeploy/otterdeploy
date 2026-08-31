@@ -85,8 +85,7 @@ export async function createComposeRecord(input: {
   /** SvglLogo search string carried from the source template; null otherwise. */
   logoBrand?: string | null;
 }): Promise<ComposeRecord> {
-  // Resolved before the transaction: a caller that omits the environment gets
-  // the project's main one rather than an unscoped row. See the helper.
+  // An omitted environment resolves to the project's main one.
   const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
   try {
     return await db.transaction(async (tx) => {

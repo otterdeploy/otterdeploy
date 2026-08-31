@@ -28,6 +28,7 @@ import {
   ServiceNotFoundError,
   type ResolveError,
 } from "./errors";
+import { getService } from "./get-service";
 import {
   type CreateServiceInput,
   type ProjectRef,
@@ -64,6 +65,9 @@ export type { CreateServiceInput, UpdateServiceInput } from "./inputs";
 
 export { exposeService, unexposeService } from "./expose";
 export { bulkSetEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./env-handlers";
+// Lives in a leaf so `expose.ts` can read it without importing this file; see
+// get-service.ts for why that edge mattered.
+export { getService } from "./get-service";
 export { rollbackService } from "./rollback";
 
 // Common error shapes: keep handler signatures legible.
@@ -88,12 +92,6 @@ export async function listServices(
     records.map((r) => mapServiceView(r, project.value.slug, runtimes.get(r.service.serviceName))),
   );
   return Result.ok(views);
-}
-
-export async function getService(input: ResourceRef): Promise<Result<ServiceView, NotFound>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-  return Result.ok(await mapServiceView(ctx.value.record, ctx.value.project.slug));
 }
 
 export async function listEnv(input: ResourceRef): Promise<Result<EnvVarView[], NotFound>> {

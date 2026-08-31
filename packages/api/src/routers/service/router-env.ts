@@ -5,7 +5,7 @@
 import { matchError, Result } from "better-result";
 import { createError, log } from "evlog";
 
-import type { ResolveError } from "./errors";
+import type { ResolveError, StackRollFailedError } from "./errors";
 import type { ResourceRef } from "./inputs";
 
 import { projectScopedProcedure, requirePermission } from "../..";
@@ -14,6 +14,18 @@ import { bulkSetEnv, listEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } f
 // Variable resolution errors aren't enumerated by the service.env.unset
 // contract, so they leave the procedure as a generic 500 with a structured
 // `why` for the log drain.
+/** The env write committed and the stack roll did not, so this is a server
+ *  failure, not bad input — but the message has to survive: it is the only
+ *  thing telling the operator the value IS saved and the container is not
+ *  running it yet. */
+const stackRollToServerError = (e: StackRollFailedError) =>
+  createError({
+    message: e.message,
+    status: 500,
+    why: "The env write committed; the stack roll that would apply it failed",
+    cause: e,
+  });
+
 const refToServerError = (e: ResolveError) =>
   createError({
     message: e.message,
@@ -77,6 +89,8 @@ export const serviceEnvRouter = {
           RefUnknownVarError: () => errors.INVALID_INPUT(),
           // Caught at the write, so the message names the key and the token.
           RefSelfReferenceError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          // The value IS saved; only the stack roll failed. See the mapper.
+          StackRollFailedError: stackRollToServerError,
           // Not enumerated by the contract: a provider outage at redeploy
           // time surfaces as a structured 500, not a misleading input error.
           VaultResolveError: refToServerError,
@@ -113,6 +127,8 @@ export const serviceEnvRouter = {
           RefCycleError: refToServerError,
           RefParseError: refToServerError,
           RefUnknownVarError: refToServerError,
+          // The unset IS persisted; only the stack roll failed. See the mapper.
+          StackRollFailedError: stackRollToServerError,
           VaultResolveError: refToServerError,
         });
       }
@@ -149,6 +165,8 @@ export const serviceEnvRouter = {
           RefUnknownVarError: () => errors.INVALID_INPUT(),
           // Caught at the write, so the message names the key and the token.
           RefSelfReferenceError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          // The value IS saved; only the stack roll failed. See the mapper.
+          StackRollFailedError: stackRollToServerError,
           // Not enumerated by the contract: a provider outage at redeploy
           // time surfaces as a structured 500, not a misleading input error.
           VaultResolveError: refToServerError,
