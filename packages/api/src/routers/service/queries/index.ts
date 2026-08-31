@@ -20,6 +20,9 @@ export type ResourceRow = typeof resource.$inferSelect;
 export type ServiceResourceRow = typeof serviceResource.$inferSelect;
 export type ServicePortRow = typeof servicePort.$inferSelect;
 export type ServiceEnvVarRow = typeof serviceEnvVar.$inferSelect;
+/** Who wrote an env row. Only `manifest` rows are the manifest's to prune;
+ *  see serviceEnvVar.source (od-y64.8). */
+export type EnvVarSource = ServiceEnvVarRow["source"];
 export type ServiceMountRow = typeof serviceMount.$inferSelect;
 
 export interface ServiceRecord {

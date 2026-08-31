@@ -1,0 +1,2 @@
+CREATE TYPE "env_var_source" AS ENUM('manifest', 'cli', 'ui', 'unknown');--> statement-breakpoint
+ALTER TABLE "service_env_var" ADD COLUMN "source" "env_var_source" DEFAULT 'unknown'::"env_var_source" NOT NULL;

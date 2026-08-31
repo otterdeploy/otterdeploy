@@ -269,6 +269,8 @@ export async function bulkSetResourceEnv(
   await bulkReplaceServiceEnvVars(
     input.resourceId,
     input.env.map((e) => ({ ...e, isSecret: secretSet.has(e.key) })),
+    // The Variables tab. A human sent the whole bag, so these are theirs.
+    "ui",
   );
   if (!shouldRedeploy) {
     log.set({ env: { outcome: "saved_no_redeploy" } });

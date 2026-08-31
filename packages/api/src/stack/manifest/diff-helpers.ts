@@ -124,6 +124,11 @@ export function diffEnv(
   desired: Record<string, string>,
   current: Record<string, string>,
   resolveValue?: (raw: string) => string | null,
+  /** Per-key provenance of the LIVE rows (serviceEnvVar.source). A key the
+   *  manifest did not write is not the manifest's to delete — see the delete
+   *  loop. Omitted for surfaces that have no provenance (database extraEnv is
+   *  a jsonb blob with no per-key owner), which keeps today's behaviour. */
+  currentSource?: Record<string, string | undefined>,
 ): EnvChange[] {
   const out: EnvChange[] = [];
 
@@ -162,9 +167,15 @@ export function diffEnv(
   }
 
   for (const key of Object.keys(current)) {
-    if (!(key in desired)) {
-      out.push({ key, action: "delete" });
-    }
+    if (key in desired) continue;
+    // od-y64.8: the manifest prunes what the MANIFEST wrote. A key set with
+    // `otterdeploy env set` is undeclared by construction — that is what
+    // imperative means — so staging it for delete wiped operator secrets on
+    // the next deploy, silently. Rows of unknown provenance are treated as
+    // the operator's too: leaving a stale key costs a stale key, and the
+    // other way round costs a secret.
+    if (currentSource && currentSource[key] !== "manifest") continue;
+    out.push({ key, action: "delete" });
   }
 
   return out;

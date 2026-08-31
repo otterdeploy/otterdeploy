@@ -37,13 +37,51 @@ interface ServiceStateRow {
 // Map one joined service row + its resolved ports/env onto the diff's
 // CurrentService view. Kept out of loadCurrentState so the field-by-field
 // null-coalescing doesn't inflate that function's branch count.
+/**
+ * Fold the flat env rows into per-service maps: values, and their provenance.
+ *
+ * Its own function to keep `loadCurrentState` under the complexity cap, and
+ * because the two maps have to be built in one pass over the same rows — a
+ * value without its `source` is what let the diff delete an operator's secret.
+ */
+async function groupEnvByService(
+  envs: ReadonlyArray<{
+    serviceResourceId: string;
+    key: string;
+    value: string;
+    sealed: boolean;
+    source: string;
+  }>,
+): Promise<{
+  envBySvc: Map<string, Record<string, string>>;
+  envSourceBySvc: Map<string, Record<string, string>>;
+}> {
+  const envBySvc = new Map<string, Record<string, string>>();
+  const envSourceBySvc = new Map<string, Record<string, string>>();
+  for (const e of envs) {
+    const existing = envBySvc.get(e.serviceResourceId) ?? {};
+    const sources = envSourceBySvc.get(e.serviceResourceId) ?? {};
+    sources[e.key] = e.source;
+    envSourceBySvc.set(e.serviceResourceId, sources);
+    // Encrypted at rest (od-3pp7): the manifest diff compares declared
+    // plaintext against current state, so decrypt unsealed values here. Sealed
+    // rows keep ciphertext (their plaintext never leaves the resolver),
+    // exactly as this map carried before encryption.
+    existing[e.key] = e.sealed ? e.value : await decryptEnvValue(e.value);
+    envBySvc.set(e.serviceResourceId, existing);
+  }
+  return { envBySvc, envSourceBySvc };
+}
+
 function toCurrentService(
   row: ServiceStateRow,
   ports: CurrentServicePort[],
   env: Record<string, string>,
+  envSource: Record<string, string>,
 ): CurrentService {
   return {
     name: row.resource.name,
+    envSource,
     source: row.service.source,
     image: row.service.image || null,
     sourceSubdir: row.service.sourceSubdir,
@@ -156,21 +194,13 @@ export async function loadCurrentState(
       portsBySvc.set(p.serviceResourceId, list);
     }
 
-    const envBySvc = new Map<string, Record<string, string>>();
-    for (const e of envs) {
-      const existing = envBySvc.get(e.serviceResourceId) ?? {};
-      // Encrypted at rest (od-3pp7): the manifest diff compares declared
-      // plaintext against current state, so decrypt unsealed values here.
-      // Sealed rows keep ciphertext (their plaintext never leaves the
-      // resolver), exactly as this map carried before encryption.
-      existing[e.key] = e.sealed ? e.value : await decryptEnvValue(e.value);
-      envBySvc.set(e.serviceResourceId, existing);
-    }
+    const { envBySvc, envSourceBySvc } = await groupEnvByService(envs);
 
     for (const row of serviceRows) {
       const svcPorts = portsBySvc.get(row.service.resourceId) ?? [];
       const svcEnv = envBySvc.get(row.service.resourceId) ?? {};
-      services[row.resource.name] = toCurrentService(row, svcPorts, svcEnv);
+      const svcEnvSource = envSourceBySvc.get(row.service.resourceId) ?? {};
+      services[row.resource.name] = toCurrentService(row, svcPorts, svcEnv, svcEnvSource);
     }
   }
 

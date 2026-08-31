@@ -62,6 +62,9 @@ export async function rewriteSeededSiblingHosts(
             serviceResourceId: child.resourceId,
             key: row.key,
             value: next,
+            // Deliberately no `source`: this repoints a value the compose file
+            // seeded, it does not claim authorship. Omitting it leaves the
+            // row's existing provenance intact (see upsertServiceEnvVar).
           }),
         catch: (e: unknown) => e,
       });
