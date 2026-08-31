@@ -257,6 +257,7 @@
         "@orpc/server": "catalog:",
         "@orpc/zod": "catalog:",
         "@otterdeploy/auth": "workspace:*",
+        "@otterdeploy/data-engine": "workspace:*",
         "@otterdeploy/db": "workspace:*",
         "@otterdeploy/docker": "^0.4.0",
         "@otterdeploy/email": "workspace:*",
@@ -311,6 +312,22 @@
     "packages/config": {
       "name": "@otterdeploy/config",
       "version": "0.0.0",
+    },
+    "packages/data-engine": {
+      "name": "@otterdeploy/data-engine",
+      "version": "0.0.0",
+      "dependencies": {
+        "@otterdeploy/shared": "workspace:*",
+        "better-result": "catalog:",
+        "drizzle-orm": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@otterdeploy/config": "workspace:*",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
     },
     "packages/db": {
       "name": "@otterdeploy/db",
@@ -1103,6 +1120,8 @@
     "@otterdeploy/cli": ["@otterdeploy/cli@workspace:apps/cli"],
 
     "@otterdeploy/config": ["@otterdeploy/config@workspace:packages/config"],
+
+    "@otterdeploy/data-engine": ["@otterdeploy/data-engine@workspace:packages/data-engine"],
 
     "@otterdeploy/db": ["@otterdeploy/db@workspace:packages/db"],
 
