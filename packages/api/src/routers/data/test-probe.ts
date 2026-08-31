@@ -55,7 +55,11 @@ function draftTarget(url: string, p: ParsedConnectionUrl): Parameters<typeof con
 export async function probeVersion(target: Parameters<typeof connect>[0]) {
   const connection = connect(target);
   const startedAt = performance.now();
-  const grid = await execute(connection, { sql: "SELECT version()", params: [] });
+  const grid = await execute(
+    connection,
+    { sql: "SELECT version()", params: [] },
+    { trustedRead: true },
+  );
   if (grid.isErr()) return grid;
   const cell = grid.value.rows[0]?.[0];
   return Result.ok({

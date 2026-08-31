@@ -23,6 +23,12 @@ const MAX_ROWS = 5_000;
 
 export interface ExecuteOptions {
   /**
+   * The statement was compiled by this codebase (bound params, validated
+   * columns), not authored by a user — skip the READ ONLY transaction fence
+   * and its two extra round trips. Never set for `data.run` input.
+   */
+  trustedRead?: boolean;
+  /**
    * Families for the result columns, positionally.
    *
    * Supplied when browsing a table (introspection knows the real types).
@@ -74,15 +80,19 @@ export async function execute(
 
   const ran = await Result.tryPromise({
     try: async () => {
-      return runOnConnection(connection, async (sql) => {
-        const query = sql.unsafe(statement.sql, [...statement.params]);
-        const rows: unknown = await awaitQuery(query.values());
-        return {
-          rows,
-          columns: readColumnNames(query),
-          rowsAffected: readRowsAffected(query),
-        };
-      });
+      return runOnConnection(
+        connection,
+        async (sql) => {
+          const query = sql.unsafe(statement.sql, [...statement.params]);
+          const rows: unknown = await awaitQuery(query.values());
+          return {
+            rows,
+            columns: readColumnNames(query),
+            rowsAffected: readRowsAffected(query),
+          };
+        },
+        { trustedRead: options.trustedRead },
+      );
     },
     catch: toDataError,
   });

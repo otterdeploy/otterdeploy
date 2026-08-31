@@ -61,10 +61,15 @@ export async function introspectRows<T>(
 ): Promise<Result<T[], DataError>> {
   const ran = await Result.tryPromise({
     try: () =>
-      runOnConnection(connection, (client) => {
-        const query = client.unsafe(sql);
-        return awaitQuery(query);
-      }),
+      runOnConnection(
+        connection,
+        (client) => {
+          const query = client.unsafe(sql);
+          return awaitQuery(query);
+        },
+        // Static catalog SQL from the dialect, not user input.
+        { trustedRead: true },
+      ),
     catch: toDataError,
   });
   if (ran.isErr()) return Result.err(ran.error);
@@ -152,4 +157,45 @@ export async function listColumns(
     grouped.set(key, bucket);
   }
   return Result.ok([...grouped.values()]);
+}
+
+/**
+ * `listColumns`, cached per pool for a short window.
+ *
+ * Browse and count call this on EVERY page — but it is one catalog query over
+ * the whole database, and against a remote target that round trip costs as
+ * much as the page itself. Columns change on DDL, not per keystroke, so a
+ * 60-second memory is honest; every write path calls
+ * {@link purgeIntrospectionCache} so DDL through the SQL runner is seen at
+ * once.
+ */
+const COLUMNS_TTL_MS = 60_000;
+const columnsCache = new Map<string, { at: number; value: TableColumns[] }>();
+
+export async function cachedListColumns(
+  connection: Connection,
+): Promise<Result<TableColumns[], DataError>> {
+  const key = connection.target.poolKey;
+  const hit = columnsCache.get(key);
+  if (hit && Date.now() - hit.at < COLUMNS_TTL_MS) return Result.ok(hit.value);
+  const fresh = await listColumns(connection);
+  if (fresh.isOk()) columnsCache.set(key, { at: Date.now(), value: fresh.value });
+  return fresh;
+}
+
+/** Forget a target's cached columns — called after any write on it. */
+export function purgeIntrospectionCache(poolKey: string): void {
+  columnsCache.delete(poolKey);
+}
+
+/** Columns for one table, from the cached whole-database introspection. */
+export async function tableColumns(
+  connection: Connection,
+  schema: string,
+  table: string,
+): Promise<Result<ColumnMeta[], DataError>> {
+  const all = await cachedListColumns(connection);
+  if (all.isErr()) return Result.err(all.error);
+  const hit = all.value.find((t) => t.table === table && (schema === "" || t.schema === schema));
+  return Result.ok(hit?.columns ?? []);
 }

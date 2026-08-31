@@ -158,12 +158,23 @@ export function connect(target: DataTarget): Connection {
   return { sql, dialect, target };
 }
 
-/** Run an operation with the target's read-only guarantee in force. */
+/**
+ * Run an operation with the target's read-only guarantee in force.
+ *
+ * `trustedRead` skips the READ ONLY transaction: the fence exists for
+ * USER-AUTHORED SQL, where a statement classifier is not a boundary. A
+ * statement this codebase compiled itself — browse, count, catalog
+ * introspection, the version probe — cannot write by construction, and the
+ * wrapper costs two extra round trips (BEGIN + COMMIT). Against a remote
+ * database that is the difference between one network hop and three.
+ */
 export async function runOnConnection<T>(
   connection: Connection,
   operation: (sql: SQL) => Promise<T>,
+  options: { trustedRead?: boolean } = {},
 ): Promise<T> {
   const needsReadOnlyTransaction =
+    options.trustedRead !== true &&
     connection.target.mode === "read-only" &&
     connection.dialect.readOnlyConnectionParams() === null;
   return needsReadOnlyTransaction
