@@ -24,6 +24,7 @@ import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById, loadProjectEnvBag } from "../project/queries";
 import { finalizeStackDeployment } from "./deploy-finalize";
 import { interpolate } from "./env";
+import { loadManifestServiceEnv } from "./manifest-service-env";
 import { type ComposeRecord, getComposeRecord } from "./queries";
 import { reconcileStackServices } from "./reconcile";
 
@@ -228,6 +229,13 @@ export async function deployCompose(
     // later imperative expose/unexpose. An entry's `domain` (when the
     // wizard/manifest named one) is the public host the seed publishes at.
     const exposedSeeds = new Map(record.compose.exposed.map((e) => [e.service, e.domain]));
+    // The manifest's per-child env, layered over the file's defaults the first
+    // time each child materializes. See manifest-service-env.ts (od-uhot).
+    const manifestServiceEnv = await loadManifestServiceEnv(
+      input.projectId,
+      organizationId,
+      record.resource.name,
+    );
 
     const reconciled = await Result.tryPromise({
       try: () =>
@@ -237,6 +245,7 @@ export async function deployCompose(
             projectId: input.projectId,
             organizationId,
             exposedSeeds,
+            manifestServiceEnv,
             stackResourceId: input.resourceId,
             projectSlug: project.slug,
             stackName: record.compose.stackName,

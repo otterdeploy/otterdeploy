@@ -51,6 +51,12 @@ export interface StackReconcileContext {
    *  again, so an operator's later imperative expose/unexpose on the child's
    *  own Settings tab is the single source of truth from then on. */
   exposedSeeds: ReadonlyMap<string, string>;
+  /** The manifest's per-child env (`composes[stack].services[key].env`),
+   *  keyed by compose service key. Layered OVER the compose file's own env
+   *  when a child is first materialized, so a stack restored from its manifest
+   *  comes back with the env an operator set on it (od-uhot). Seed only, like
+   *  `exposedSeeds`: env is the operator's once the child exists. */
+  manifestServiceEnv?: ReadonlyMap<string, Record<string, string>>;
   /** The compose resource id: written as `service_resource.stackId`. */
   stackResourceId: ResourceId;
   projectSlug: string;

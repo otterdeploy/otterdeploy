@@ -24,7 +24,7 @@ import {
   PostgresResourceNotFoundError,
   ProjectNotFoundError,
 } from "../errors";
-import { syncManifestDatabasePublic } from "../manifest";
+import { syncManifestDatabasePublic } from "../manifest-env-sync";
 import { getDatabaseResourceRecord, getProjectInOrg, setDatabaseResourcePublic } from "../queries";
 import { mapDatabaseResource, type PostgresResource } from "../views";
 

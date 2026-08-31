@@ -364,6 +364,22 @@ export type DatabaseManifest = z.infer<typeof databaseSchema>;
 // this map is deliberately looser than the service/database `envMap`.
 const composeEnvMap = z.record(z.string().min(1), z.string());
 
+/**
+ * Per-CHILD env for a stack, keyed by the file's own compose service key
+ * (`db`, not the renamed `autumn-db`): the key is the one thing that survives
+ * `pickResourceName` and `pickInternalHostname`.
+ *
+ * Distinct from `env` above, which seeds the PROJECT variables the file's
+ * `${VAR}` refs read. This is a child's own container env, which until now
+ * lived only in DB rows — invisible to `otd export`, to DR restore and to the
+ * diff, so a stack rebuilt from its manifest came back without it (od-uhot).
+ *
+ * A create-time seed, like the compose file's own env: env is the operator's
+ * once a child exists, and a later manifest apply must not clobber a value
+ * they tuned.
+ */
+const composeServicesMap = z.record(z.string().min(1), z.object({ env: composeEnvMap.optional() }));
+
 const composeExposedSchema = z.object({
   service: z.string().min(1),
   port: z.number().int().positive(),
@@ -395,6 +411,8 @@ const composeInlineSchema = z.object({
     .optional(),
   composePath: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
+  // Per-child container env; see composeServicesMap.
+  services: composeServicesMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
   // Brand mark for the graph node (SvglLogo search string), set when the stack
   // is deployed from a template. Presentation-only.
@@ -412,6 +430,8 @@ const composeGitSchema = z.object({
   // Root directory within the repo the stack builds from.
   sourceSubdir: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
+  // Per-child container env; see composeServicesMap.
+  services: composeServicesMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
   // Brand mark for the graph node (SvglLogo search string), set when the stack
   // is deployed from a template. Presentation-only.
