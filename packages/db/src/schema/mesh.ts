@@ -32,6 +32,21 @@ export const meshNetworkStatusEnum = pgEnum("mesh_network_status", [
   "disconnected",
 ]);
 
+/**
+ * The org's private-edge container: the node that joins the mesh and fronts
+ * private routes, so a service can be reachable from the org's own devices
+ * without being published.
+ *
+ * "absent" is the default and the common case — the whole feature is optional,
+ * and an org that never asked for a private edge has no container to describe.
+ */
+export const meshEdgeStatusEnum = pgEnum("mesh_edge_status", [
+  "absent",
+  "starting",
+  "ready",
+  "error",
+]);
+
 export const meshNetwork = pgTable(
   "mesh_network",
   {
@@ -79,6 +94,25 @@ export const meshNetwork = pgTable(
     lastVerifiedAt: timestamp("last_verified_at"),
     // Human-readable reason the last verify failed; cleared on success.
     lastError: text("last_error"),
+
+    // ── Private edge. Declared here because migration
+    // 20260829183801_mesh_private_edge already added these columns: without
+    // the declaration drizzle reads them as drift and the next `db:generate`
+    // emits DROPs for all eight (verified — it did). A column that exists in
+    // the database and not in the schema is a loaded gun.
+    edgeStatus: meshEdgeStatusEnum("edge_status").notNull().default("absent"),
+    // The mesh node container, and the Caddy that terminates private routes in
+    // front of it. Null until the edge is provisioned.
+    edgeContainerId: text("edge_container_id"),
+    edgeCaddyContainerId: text("edge_caddy_container_id"),
+    // The edge's own name inside the mesh, and the peer/address the provider
+    // assigned it. Read back from the provider, never operator input.
+    edgeHostname: text("edge_hostname"),
+    edgePeerId: text("edge_peer_id"),
+    edgeAddress: text("edge_address"),
+    // Why the edge is in `error`; cleared when it reaches `ready`.
+    edgeError: text("edge_error"),
+    edgeCheckedAt: timestamp("edge_checked_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
