@@ -15,6 +15,7 @@ import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
 import { certificatesContract } from "./routers/certificates/contract";
 import { composeContract } from "./routers/compose/contract";
+import { dataContract } from "./routers/data/contract";
 import { databaseContract } from "./routers/database/contract";
 import { deploymentContract } from "./routers/deployment/contract";
 import { dnsContract } from "./routers/dns/contract";
@@ -48,6 +49,7 @@ export const publicProcedure = implement({
   backups: backupsContract,
   certificates: certificatesContract,
   compose: composeContract,
+  data: dataContract,
   database: databaseContract,
   deployment: deploymentContract,
   sso: ssoContract,

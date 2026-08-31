@@ -6,6 +6,7 @@ import { auditRouter } from "./audit";
 import { backupsRouter } from "./backups";
 import { certificatesRouter } from "./certificates";
 import { composeRouter } from "./compose";
+import { dataRouter } from "./data";
 import { databaseRouter } from "./database";
 import { deploymentRouter } from "./deployment";
 import { dnsRouter } from "./dns";
@@ -39,6 +40,7 @@ export const appRouter = {
   backups: backupsRouter,
   certificates: certificatesRouter,
   compose: composeRouter,
+  data: dataRouter,
   database: databaseRouter,
   deployment: deploymentRouter,
   sso: ssoRouter,
