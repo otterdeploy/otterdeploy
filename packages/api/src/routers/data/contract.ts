@@ -204,6 +204,49 @@ export const dataContract = {
     .output(gridResultSchema)
     .errors(dataErrors),
 
+  /**
+   * Everything the Definitions view shows: indexes, constraints and enums.
+   *
+   * A separate call from `schema` rather than more fields on it, because the
+   * navigator needs the schema on open and needs it fast — and nobody browsing
+   * rows is waiting on an index list. Still ONE call for all three, and still
+   * whole-database rather than per-table, so expanding a section costs nothing.
+   */
+  definitions: oc
+    .route({ method: "GET", path: `${basePath}/definitions`, tags: [tag] })
+    .input(withTarget({}))
+    .output(
+      z.object({
+        indexes: z.array(
+          z.object({
+            schema: z.string(),
+            table: z.string(),
+            name: z.string(),
+            columns: z.array(z.string()),
+            isUnique: z.boolean(),
+            isPrimary: z.boolean(),
+            definition: z.string().nullable(),
+            sizeBytes: z.number().nullable(),
+          }),
+        ),
+        constraints: z.array(
+          z.object({
+            schema: z.string(),
+            table: z.string(),
+            name: z.string(),
+            type: z.enum(["primary_key", "foreign_key", "unique", "check", "exclusion"]),
+            columns: z.array(z.string()),
+            definition: z.string().nullable(),
+            referencedTable: z.object({ schema: z.string(), name: z.string() }).nullable(),
+          }),
+        ),
+        enums: z.array(
+          z.object({ schema: z.string(), name: z.string(), values: z.array(z.string()) }),
+        ),
+      }),
+    )
+    .errors(dataErrors),
+
   /** External connections this viewer may use. */
   listConnections: oc
     .route({ method: "GET", path: `${basePath}/connections`, tags: [tag] })

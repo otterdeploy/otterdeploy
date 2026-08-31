@@ -61,7 +61,9 @@ function useTableData(resource: Resource) {
   const [sorts, setSorts] = useState<Sort[]>([]);
   const [view, setView] = useState<ResultView>("grid");
   // Data (rows grid) vs Structure (column detail) for the open table.
-  const [tableView, setTableView] = useState<"data" | "structure">("data");
+  // Three read surfaces over the open connection: rows, this table's
+  // columns, and the database's non-table objects.
+  const [tableView, setTableView] = useState<"data" | "structure" | "definitions">("data");
   const [writeMode, setWriteMode] = useState(false);
   // Column names hidden from the grid for the open table (persisted per-table;
   // exports always include every column).

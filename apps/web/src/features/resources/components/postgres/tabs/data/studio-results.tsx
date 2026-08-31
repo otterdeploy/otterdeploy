@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { Database01Icon, PlayIcon } from "@hugeicons/core-free-icons";
 
+import { DefinitionsView } from "./components/definitions-view";
 import { DraftsBar } from "./components/drafts-bar";
 import { ResultsPanel } from "./components/results-panel";
 import { StructureView } from "./components/structure-view";
@@ -69,20 +70,13 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
 
   // Structure view replaces the whole results pane (read-only, no filters /
   // pagination); the Data/Structure toggle stays visible in both.
+  // Definitions is about the DATABASE, so it needs no open table.
+  if (t.mode === "table" && t.tableView === "definitions") {
+    return <DefinitionsPane studio={studio} />;
+  }
+
   if (t.mode === "table" && t.selected && t.tableView === "structure") {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
-          <DataStructureToggle t={t} />
-          <span className="truncate font-mono text-[11px] text-muted-foreground">
-            {t.selected.schema === "public"
-              ? t.selected.name
-              : `${t.selected.schema}.${t.selected.name}`}
-          </span>
-        </div>
-        <StructureView target={t.target} table={t.selected} />
-      </div>
-    );
+    return <StructurePane studio={studio} />;
   }
 
   return (
@@ -145,5 +139,39 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         }}
       />
     </>
+  );
+}
+
+/** The Definitions surface, with the same view toggle above it. */
+function DefinitionsPane({ studio }: { studio: DataStudioController }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        <DataStructureToggle t={studio.table} />
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
+          schema objects across the whole database
+        </span>
+      </div>
+      <DefinitionsView target={studio.table.target} />
+    </div>
+  );
+}
+
+/** The Structure surface for the open table. */
+function StructurePane({ studio }: { studio: DataStudioController }) {
+  const t = studio.table;
+  if (!t.selected) return null;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        <DataStructureToggle t={t} />
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
+          {t.selected.schema === "public"
+            ? t.selected.name
+            : `${t.selected.schema}.${t.selected.name}`}
+        </span>
+      </div>
+      <StructureView target={t.target} table={t.selected} />
+    </div>
   );
 }

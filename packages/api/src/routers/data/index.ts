@@ -20,7 +20,15 @@ import {
 import type { Connection } from "../../data";
 
 import { requirePermission } from "../..";
-import { execute, executeTransaction, listColumns, listTables } from "../../data";
+import {
+  execute,
+  executeTransaction,
+  listColumns,
+  listConstraints,
+  listEnums,
+  listIndexes,
+  listTables,
+} from "../../data";
 import { makeConnectionHandlers } from "./connections";
 import { guardTarget, open, raise, targetLog, viewerIdOf } from "./plumbing";
 
@@ -72,6 +80,35 @@ export const dataRouter = {
             canEdit: t.kind === "table" && isEditable(columns),
           };
         }),
+      };
+    },
+  ),
+
+  definitions: requirePermission({ database: ["read"] }).data.definitions.handler(
+    async ({ input, context, errors }) => {
+      context.log.set(targetLog(input.target));
+      await guardTarget(context, input.target);
+
+      const connection = await open(context, input.target, "read-only");
+      // In parallel: three independent catalog reads with no ordering between
+      // them, so serialising would just add two round trips of latency.
+      const [indexes, constraints, enums] = await Promise.all([
+        listIndexes(connection),
+        listConstraints(connection),
+        listEnums(connection),
+      ]);
+      if (indexes.isErr()) throw raise(indexes.error, errors);
+      if (constraints.isErr()) throw raise(constraints.error, errors);
+      if (enums.isErr()) throw raise(enums.error, errors);
+
+      return {
+        indexes: indexes.value.flatMap((t) =>
+          t.indexes.map((i) => ({ schema: t.schema, table: t.table, ...i })),
+        ),
+        constraints: constraints.value.flatMap((t) =>
+          t.constraints.map((c) => ({ schema: t.schema, table: t.table, ...c })),
+        ),
+        enums: enums.value,
       };
     },
   ),

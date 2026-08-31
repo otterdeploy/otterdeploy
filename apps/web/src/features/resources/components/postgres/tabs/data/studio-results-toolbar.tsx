@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import {
   FilterIcon,
+  Key01Icon,
   Layers01Icon,
   PlusSignIcon,
   Table01Icon,
@@ -34,7 +35,9 @@ export function DataStructureToggle({ t }: { t: TableController }) {
     <ToggleGroup
       size="sm"
       value={[t.tableView]}
-      onValueChange={([v]) => (v === "data" || v === "structure") && t.setTableView(v)}
+      onValueChange={([v]) =>
+        (v === "data" || v === "structure" || v === "definitions") && t.setTableView(v)
+      }
       className="gap-0.5"
     >
       <ToggleGroupItem value="data" aria-label="Data view" className="h-6 gap-1 px-1.5 text-[11px]">
@@ -48,6 +51,16 @@ export function DataStructureToggle({ t }: { t: TableController }) {
       >
         <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} className="size-3" />
         Structure
+      </ToggleGroupItem>
+      {/* Whole-database rather than per-table: "which unused index is costing
+          me writes" is a question about the database, not about a table. */}
+      <ToggleGroupItem
+        value="definitions"
+        aria-label="Definitions view"
+        className="h-6 gap-1 px-1.5 text-[11px]"
+      >
+        <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3" />
+        Definitions
       </ToggleGroupItem>
     </ToggleGroup>
   );

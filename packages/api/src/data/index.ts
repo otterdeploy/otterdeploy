@@ -10,6 +10,14 @@ export { decodeDeclared, decodeInferred, decodeRow } from "./decode";
 export { DataError, type DataErrorReason, toDataError } from "./errors";
 export { execute, executeTransaction, MAX_ROWS, type ExecuteOptions } from "./execute";
 export { listColumns, listTables, type TableColumns } from "./introspect";
+export {
+  listConstraints,
+  listEnums,
+  listIndexes,
+  type EnumType,
+  type TableConstraints,
+  type TableIndexes,
+} from "./introspect-objects";
 export { closeAllPools, connect, evict, openPoolKeys, type Connection } from "./pool";
 export {
   resolveExternalTarget,

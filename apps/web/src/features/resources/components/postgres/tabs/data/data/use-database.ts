@@ -257,6 +257,22 @@ export function useTableColumns({ target, table }: { target: WorkbenchTarget; ta
 }
 
 /**
+ * Indexes, constraints and enums for the Definitions view.
+ *
+ * Its own query rather than more fields on the schema call: the navigator needs
+ * the schema on open and needs it fast, and nobody browsing rows is waiting on
+ * an index list. Cached generously — schema objects change on DDL, not on the
+ * minute.
+ */
+export function useDefinitions(target: WorkbenchTarget) {
+  return useQuery({
+    ...orpc.data.definitions.queryOptions({ input: { target } }),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
  * Apply staged row edits as ONE transaction.
  *
  * The grid's edits are structured — table, primary key, column assignments —
