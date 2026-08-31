@@ -940,6 +940,15 @@ export const servicePort = pgTable(
 //   1. projectEnvSubscription -> projectEnvVar (inherited shared values)
 //   2. serviceEnvVar matching (serviceResourceId, environmentId) overlay
 //   3. ${{Resource.VAR}} template expansion on values
+/**
+ * Who wrote an env row. See `serviceEnvVar.source`.
+ *
+ * `cli` and `ui` both mean "a human set this"; they are kept apart because
+ * where a surprising value came from is worth being able to answer. `unknown`
+ * is every row written before the column existed.
+ */
+export const envVarSourceEnum = pgEnum("env_var_source", ["manifest", "cli", "ui", "unknown"]);
+
 export const serviceEnvVar = pgTable(
   "service_env_var",
   {
@@ -984,6 +993,17 @@ export const serviceEnvVar = pgTable(
     // allowed to decrypt it, and only at deploy/injection time; every
     // list/read surface must mask it before it reaches the API/UI.
     sealed: boolean("sealed").notNull().default(false),
+    // WHO owns this row (od-y64.8). The manifest diff prunes keys the file no
+    // longer declares, which is right for rows the manifest wrote and data loss
+    // for rows a human set with `env set` — the diff could not tell them apart,
+    // so a deploy quietly staged "delete env X" for every imperative secret.
+    //
+    // 'unknown' is the default because that is the honest description of a row
+    // written before this column, and because the two mistakes are not
+    // symmetric: treating a manifest row as live leaves a stale key until the
+    // next apply restamps it, while treating a live row as manifest DESTROYS a
+    // secret. Only 'manifest' is prunable; everything else is the operator's.
+    source: envVarSourceEnum("source").notNull().default("unknown"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

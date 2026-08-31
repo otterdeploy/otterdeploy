@@ -82,6 +82,11 @@ export interface CurrentService {
   entrypoint: string[] | null;
   ports: CurrentServicePort[];
   env: Record<string, string>;
+  /** Per-key `serviceEnvVar.source`. The delete side of the env diff reads it:
+   *  a key the manifest did not write is not the manifest's to prune
+   *  (od-y64.8). Optional so a caller that has not loaded it keeps the old
+   *  behaviour rather than silently pruning nothing. */
+  envSource?: Record<string, string | undefined>;
   publicEnabled: boolean;
   // Per-service PR-preview opt-in (serviceResource.previewsEnabled). Diffed
   // only when the manifest declares `previews`: see diffGitBinding.

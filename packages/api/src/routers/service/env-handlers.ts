@@ -9,6 +9,8 @@ import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
+import type { EnvVarSource } from "./queries";
+
 import { syncManifestServiceEnv } from "../project/manifest";
 import { loadResource } from "./context";
 import { rejectSelfReferences } from "./env-self-ref";
@@ -61,6 +63,9 @@ export async function setEnv(
     serviceResourceId: input.resourceId,
     key: input.key,
     value: input.value,
+    // `service.env.set` is the CLI's `env set` and the panel's single-row
+    // apply: either way a human, not the manifest.
+    source: "cli",
   });
 
   const redeployed = await rollFor(input, ctx.value, log);
@@ -112,7 +117,12 @@ export async function syncManifestEnvAfterLiveEdit(input: ResourceRef): Promise<
 }
 
 export async function bulkSetEnv(
-  input: ResourceRef & { vars: Array<{ key: string; value: string }> },
+  input: ResourceRef & {
+    vars: Array<{ key: string; value: string }>;
+    /** Who is writing. The manifest apply passes "manifest"; that is what
+     *  lets the next diff tell its own rows from an operator's (od-y64.8). */
+    source?: EnvVarSource;
+  },
   log: RequestLogger,
 ): Promise<Result<EnvVarView[], RedeployFailure>> {
   const ctx = await loadResource(input);
@@ -121,7 +131,7 @@ export async function bulkSetEnv(
   const guarded = await rejectSelfReferences(input.projectId, ctx.value.record, input.vars);
   if (guarded.isErr()) return Result.err(guarded.error);
 
-  const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars);
+  const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars, input.source ?? "ui");
   const redeployed = await rollFor(input, ctx.value, log);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 

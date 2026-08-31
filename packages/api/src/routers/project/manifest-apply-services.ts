@@ -307,6 +307,9 @@ export async function updateServiceFromManifest(
       organizationId: args.organizationId,
       resourceId: args.resourceId,
       vars: args.env,
+      // Stamps these rows as the manifest's, so a later diff prunes them and
+      // leaves an operator's `env set` keys alone (od-y64.8).
+      source: "manifest",
     },
     args.log,
   );

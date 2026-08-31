@@ -2,10 +2,10 @@ import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
-import type { ResourceRow, ServiceEnvVarRow } from ".";
+import type { EnvVarSource, ResourceRow, ServiceEnvVarRow } from ".";
 import type { StackRefIdentity } from "./stack";
 
 import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
@@ -75,6 +75,10 @@ export async function listServiceEnvVarsForResources(
  * THIS call's input already knew that.
  */
 export async function upsertServiceEnvVar(input: {
+  /** Who is writing. See serviceEnvVar.source; defaults to the honest
+   *  'unknown' so a caller that has not been taught about provenance cannot
+   *  accidentally claim the manifest wrote it. */
+  source?: EnvVarSource;
   serviceResourceId: ResourceId;
   key: string;
   value: string;
@@ -107,6 +111,7 @@ export async function upsertServiceEnvVar(input: {
         value,
         isSecret: input.isSecret ?? false,
         sealed,
+        source: input.source ?? "unknown",
       })
       .onConflictDoUpdate({
         target: [serviceEnvVar.serviceResourceId, serviceEnvVar.key],
@@ -115,6 +120,9 @@ export async function upsertServiceEnvVar(input: {
           value,
           sealed,
           ...(input.isSecret === undefined ? {} : { isSecret: input.isSecret }),
+          // Only restamp when the caller says who it is. A writer that does
+          // not know must not downgrade a row that already knows.
+          ...(input.source === undefined ? {} : { source: input.source }),
           updatedAt: new Date(),
         },
       })
@@ -163,22 +171,35 @@ export async function deleteServiceEnvVar(input: {
 export async function bulkReplaceServiceEnvVars(
   serviceResourceId: ResourceId,
   vars: Array<{ key: string; value: string; isSecret?: boolean }>,
+  source: EnvVarSource = "unknown",
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    const sealedRows: ServiceEnvVarRow[] = await tx
+    const baseRows: ServiceEnvVarRow[] = await tx
       .select()
       .from(serviceEnvVar)
       .where(
         and(
           eq(serviceEnvVar.serviceResourceId, serviceResourceId),
           isNull(serviceEnvVar.previewId),
-          eq(serviceEnvVar.sealed, true),
         ),
       );
+    const sealedRows = baseRows.filter((r) => r.sealed);
     const sealedKeys = new Set(sealedRows.map((r) => r.key));
 
-    // Base, unsealed rows only: a bulk edit of the base env must never wipe
-    // a PR preview's overrides, and never touches a sealed row.
+    // od-y64.8: a MANIFEST reconcile owns only what the manifest wrote. Rows a
+    // human set with `env set` are not the file's to prune, and deleting them
+    // is how imperative secrets disappeared on deploy. A live edit still
+    // replaces wholesale — the editor sends the whole bag, so omission there
+    // really is a delete.
+    const incoming = new Set(vars.map((v) => v.key));
+    const kept =
+      source === "manifest"
+        ? baseRows.filter((r) => !r.sealed && r.source !== "manifest" && !incoming.has(r.key))
+        : [];
+    const keptKeys = new Set(kept.map((r) => r.key));
+
+    // Base, unsealed rows only: a bulk edit of the base env must never wipe a
+    // PR preview's overrides, and never touches a sealed row.
     await tx
       .delete(serviceEnvVar)
       .where(
@@ -186,6 +207,7 @@ export async function bulkReplaceServiceEnvVars(
           eq(serviceEnvVar.serviceResourceId, serviceResourceId),
           isNull(serviceEnvVar.previewId),
           eq(serviceEnvVar.sealed, false),
+          keptKeys.size > 0 ? notInArray(serviceEnvVar.key, [...keptKeys]) : undefined,
         ),
       );
 
@@ -201,6 +223,7 @@ export async function bulkReplaceServiceEnvVars(
           value: await encryptEnvValue(v.value),
           isSecret: v.isSecret ?? false,
           sealed: false,
+          source,
         })),
       );
       const plaintextByKey = new Map(toInsert.map((v) => [v.key, v.value]));
@@ -211,7 +234,7 @@ export async function bulkReplaceServiceEnvVars(
       }));
     }
 
-    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
+    return [...inserted, ...sealedRows, ...kept].sort((a, b) => a.key.localeCompare(b.key));
   });
 }
 
