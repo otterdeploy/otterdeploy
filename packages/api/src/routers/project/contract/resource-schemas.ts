@@ -182,6 +182,10 @@ export const serviceResourceSchema = z.object({
   // Keys flagged as sensitive by the operator. Display hint for the
   // editor; values still travel the wire in plaintext.
   secretKeys: z.array(z.string()),
+  // Keys that are WRITE-ONLY. Unlike `secretKeys` these values never travel at
+  // all: `extraEnv` holds "" for them. The editor renders them replace-only
+  // with reveal disabled, because there is nothing to reveal.
+  sealedKeys: z.array(z.string()),
   // Manifest-tracked extras (Phase 2 of build config + lifecycle work).
   // Nullable + optional so consumers that don't care can ignore them;
   // surfaced in the list response so the resource panel can show them

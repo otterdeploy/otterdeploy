@@ -47,6 +47,18 @@ export function RevealToggle({
   revealed: boolean;
   onToggleReveal: () => void;
 }) {
+  // A sealed row's value never left the server, so there is nothing to reveal
+  // and the control says why rather than sitting there looking broken.
+  if (row.sealed) {
+    return (
+      <RowAction
+        icon={ViewIcon}
+        label="Write-only: cannot be read back"
+        onClick={() => {}}
+        disabled
+      />
+    );
+  }
   return (
     <RowAction
       icon={revealed ? ViewOffIcon : ViewIcon}

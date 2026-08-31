@@ -34,6 +34,10 @@ export function ValueCell({
   onPickerOpenChange,
   onToggleReveal,
 }: ValueCellProps) {
+  // A sealed row arrives with an empty value on purpose: the server sends no
+  // ciphertext and no plaintext. Rendering that as a blank input reads as "this
+  // variable is empty", so it announces itself as replace-only instead. Typing
+  // still works — replacing is the one thing you CAN do to a sealed row.
   const showValue = !row.isSecret || revealed;
   return (
     <div className="relative min-w-0 flex-1">
@@ -51,9 +55,9 @@ export function ValueCell({
           onChange({ value: next });
         }}
         onFocus={() => {
-          if (row.isSecret && !revealed) onToggleReveal();
+          if (row.isSecret && !row.sealed && !revealed) onToggleReveal();
         }}
-        placeholder="value"
+        placeholder={row.sealed ? "write-only — type to replace" : "value"}
         className="h-7 w-full pr-9 font-mono text-[12px]"
         spellCheck={false}
       />

@@ -20,6 +20,7 @@ function saved(key: string, value: string, patch: Partial<DraftRow> = {}): Draft
     key,
     value,
     isSecret: false,
+    sealed: false,
     baseline: { key, value, isSecret: false },
     deleted: false,
     ...patch,
@@ -28,7 +29,15 @@ function saved(key: string, value: string, patch: Partial<DraftRow> = {}): Draft
 
 /** A row added in this draft: no baseline yet. */
 function added(key: string, value: string): DraftRow {
-  return { id: key.toLowerCase(), key, value, isSecret: false, baseline: null, deleted: false };
+  return {
+    id: key.toLowerCase(),
+    key,
+    value,
+    isSecret: false,
+    sealed: false,
+    baseline: null,
+    deleted: false,
+  };
 }
 
 const keysOf = (rows: DraftRow[], id: string) => payloadForRowFrom(rows, id).env.map((e) => e.key);

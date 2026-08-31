@@ -104,7 +104,12 @@ export const envVarSchema = z.object({
   id: z.string(),
   serviceResourceId: z.string(),
   key: z.string(),
+  /** Empty string when `sealed`: mapEnvVar masks unconditionally. */
   value: z.string(),
+  /** Write-only: the row can be replaced or deleted, never read back. The
+   *  editor renders these as replace-only with reveal disabled. Computed by
+   *  `mapEnvVar` all along; this schema was quietly dropping it. */
+  sealed: z.boolean(),
 });
 
 // One published host for a service. `id` is the underlying proxy_route id.

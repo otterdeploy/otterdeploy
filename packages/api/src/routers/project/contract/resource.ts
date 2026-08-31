@@ -51,6 +51,19 @@ const resourceEnvEntrySchema = z.object({
   value: z.string(),
 });
 
+/**
+ * A READ of one env row. `value` is empty when `sealed`: a sealed row's stored
+ * value is a ciphertext envelope, so there is nothing a client could do with
+ * it, and the editor renders the row replace-only with reveal disabled.
+ *
+ * Separate from the write echo above on purpose. `bulkSet` returns what the
+ * caller just sent, and a write cannot know whether the key it replaced was
+ * sealed — claiming `sealed: false` there would be a guess.
+ */
+const resourceEnvReadEntrySchema = resourceEnvEntrySchema.extend({
+  sealed: z.boolean(),
+});
+
 const resourceEnvListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
@@ -174,7 +187,7 @@ export const resourceContractSlice = {
         method: "GET",
       })
       .input(resourceEnvListInput)
-      .output(z.array(resourceEnvEntrySchema)),
+      .output(z.array(resourceEnvReadEntrySchema)),
 
     bulkSet: oc
       .errors({

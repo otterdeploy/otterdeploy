@@ -19,6 +19,10 @@ export interface DraftRow {
   key: string;
   value: string;
   isSecret: boolean;
+  /** Write-only: the server never sent a value for this row, and never will.
+   *  It can be replaced or deleted, not read. Set from the resource's
+   *  `sealedKeys`; a row added in this draft is never sealed. */
+  sealed: boolean;
   // The server-side state we're diffing against. Null when this row was
   // added in the current draft.
   baseline: { key: string; value: string; isSecret: boolean } | null;
@@ -30,14 +34,20 @@ export interface DraftRow {
 interface UseEditorStateArgs {
   serverEnv: Record<string, string>;
   serverSecretKeys: string[];
+  serverSealedKeys?: string[];
 }
 
 function rid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function rowsFromServer(env: Record<string, string>, secretKeys: string[]): DraftRow[] {
+function rowsFromServer(
+  env: Record<string, string>,
+  secretKeys: string[],
+  sealedKeys: string[] = [],
+): DraftRow[] {
   const secretSet = new Set(secretKeys);
+  const sealedSet = new Set(sealedKeys);
   return Object.entries(env)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => {
@@ -47,6 +57,7 @@ function rowsFromServer(env: Record<string, string>, secretKeys: string[]): Draf
         key,
         value,
         isSecret,
+        sealed: sealedSet.has(key),
         baseline: { key, value, isSecret },
         deleted: false,
       };
@@ -101,23 +112,29 @@ function statusOf(row: DraftRow): RowStatus {
   return "unchanged";
 }
 
-export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateArgs) {
-  const [rows, setRows] = useState<DraftRow[]>(() => rowsFromServer(serverEnv, serverSecretKeys));
+export function useEditorState({
+  serverEnv,
+  serverSecretKeys,
+  serverSealedKeys,
+}: UseEditorStateArgs) {
+  const [rows, setRows] = useState<DraftRow[]>(() =>
+    rowsFromServer(serverEnv, serverSecretKeys, serverSealedKeys),
+  );
 
   // Re-baseline when the server snapshot changes AND we have no pending
   // edits: otherwise an unrelated invalidate would clobber the operator's
   // in-progress draft.
   const lastServerKey = useRef("");
-  const snapshotKey = JSON.stringify({ serverEnv, serverSecretKeys });
+  const snapshotKey = JSON.stringify({ serverEnv, serverSecretKeys, serverSealedKeys });
   useEffect(() => {
     if (snapshotKey === lastServerKey.current) return;
     lastServerKey.current = snapshotKey;
     setRows((prev) => {
       const hasPending = prev.some((r) => statusOf(r) !== "unchanged");
       if (hasPending) return prev;
-      return rowsFromServer(serverEnv, serverSecretKeys);
+      return rowsFromServer(serverEnv, serverSecretKeys, serverSealedKeys);
     });
-  }, [snapshotKey, serverEnv, serverSecretKeys]);
+  }, [snapshotKey, serverEnv, serverSecretKeys, serverSealedKeys]);
 
   const update = (id: string, patch: Partial<Pick<DraftRow, "key" | "value" | "isSecret">>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -131,6 +148,9 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
         key: seed?.key ?? "",
         value: seed?.value ?? "",
         isSecret: seed?.isSecret ?? false,
+        // A row typed in this draft has a plaintext value the client holds;
+        // sealing happens server-side, never here.
+        sealed: false,
         baseline: null,
         deleted: false,
       },
@@ -152,7 +172,7 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
   const restoreRow = (id: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, deleted: false } : r)));
 
-  const discard = () => setRows(rowsFromServer(serverEnv, serverSecretKeys));
+  const discard = () => setRows(rowsFromServer(serverEnv, serverSecretKeys, serverSealedKeys));
 
   /** Undo ONE row back to the server snapshot. An added row disappears; a
    *  tombstoned one comes back; an edited one returns to its baseline. */
@@ -220,6 +240,9 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
           key: e.key,
           value: e.value,
           isSecret: e.isSecret,
+          // Bulk-edit text carries no sealed rows: the server drops any entry
+          // colliding with a sealed key (bulkReplaceServiceEnvVars).
+          sealed: false,
           baseline: baseline ?? null,
           deleted: false,
         };
