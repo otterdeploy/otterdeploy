@@ -63,6 +63,10 @@ function buildCollection(target: WorkbenchTarget, table: TableRef) {
       queryKey: ["data-rows-window", key],
       queryFn: async (): Promise<RowsWindowRow[]> => {
         const grid = await orpc.data.browse.call(windowInput(target, table));
+        // Server-reported execution time, for the toolbar. Parked in the
+        // query cache (a real singleton), not module state, and not a row
+        // field: on a hydrated cache it is simply absent, never wrong.
+        queryClient.setQueryData(durationKey(key), grid.durationMs);
         return grid.rows.map((cells, i) => ({ i, cells }));
       },
       queryClient,
@@ -95,6 +99,17 @@ export function prefetchRowsWindow(target: WorkbenchTarget, table: TableRef) {
 }
 
 /** A collection that is forever empty, for the hooks' no-table render. */
+function durationKey(key: string) {
+  return ["data-rows-duration", key];
+}
+
+/** Query-cache key of the window's fetch duration — subscribe with useQuery
+ *  (`enabled: false`) so the value's ARRIVAL re-renders the reader; a passive
+ *  `getQueryData` at render time misses the first fetch. */
+export function windowDurationKey(target: WorkbenchTarget | null, table: TableRef | null) {
+  return durationKey(target === null || table === null ? "none" : windowKey(target, table));
+}
+
 let empty: ReturnType<typeof buildEmpty> | null = null;
 function buildEmpty() {
   return createCollection(

@@ -42,6 +42,10 @@ function resolveResultsProps(t: TableController) {
   };
 }
 
+function durationOf(result: { durationMs: number } | null): number | null {
+  return result === null ? null : result.durationMs;
+}
+
 export function StudioResults({ studio }: { studio: DataStudioController }) {
   const t = studio.table;
   const p = resolveResultsProps(t);
@@ -91,6 +95,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         onOpenRef={t.openRefTable}
         view={t.view}
         onViewChange={t.setView}
+        durationMs={durationOf(t.result)}
         isLoading={t.rowsQuery.isLoading}
         isError={t.rowsQuery.isError}
         errorMessage={errMessage(t.rowsQuery.error)}

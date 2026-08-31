@@ -21,7 +21,7 @@ import { useDatabaseSchema, useOpenTableColumns } from "./data/use-database";
  * the qualified `schema.name`, so searching "public." narrows by schema.
  */
 export function useTableList(target: WorkbenchTarget, search: string) {
-  const { tables, isLoading, isError } = useDatabaseSchema(target);
+  const { tables, meta, isLoading, isError } = useDatabaseSchema(target);
   // Three states, not two: `undefined` is "never chosen" and takes the default
   // below, `null` is an explicit "all schemas", a string is that schema. Two
   // states cannot express both "default to public" and "I really do want all".
@@ -30,11 +30,18 @@ export function useTableList(target: WorkbenchTarget, search: string) {
   // Distinct schemas, in the order the engine reported them. A database with
   // one schema needs no picker, and the rail hides it in that case.
   const schemas = [...new Set(tables.map((t) => t.schema))];
-  // Derived rather than set from an effect: `public` is where a Postgres user's
-  // own tables live, and opening onto every schema at once buries them under
-  // `drizzle` and `information_schema`.
-  const activeSchema =
-    pickedSchema === undefined ? (schemas.includes("public") ? "public" : null) : pickedSchema;
+  // Derived rather than set from an effect. The default is ONE schema, never
+  // "all": every row would wear its `schema.` prefix and the names get cut.
+  // The engine's own default (`public`, usually) wins; a database that renamed
+  // it away (Neon templates use `core`) falls back to its first schema.
+  const fallbackSchema =
+    (meta?.defaultSchema != null && schemas.includes(meta.defaultSchema)
+      ? meta.defaultSchema
+      : undefined) ??
+    (schemas.includes("public") ? "public" : undefined) ??
+    schemas[0] ??
+    null;
+  const activeSchema = pickedSchema === undefined ? fallbackSchema : pickedSchema;
   const inSchema = activeSchema === null ? tables : tables.filter((t) => t.schema === activeSchema);
   const filteredTables = needle
     ? inSchema.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(needle))

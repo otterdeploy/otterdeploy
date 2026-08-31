@@ -150,20 +150,26 @@ export function useDiceColumnDefs({
       size: 44,
       enableSorting: false,
       enableResizing: false,
+      // Both live inside the grid's padded function-cell wrapper; the flex
+      // centers them so the header box lines up with every row box.
       header: ({ table }) => (
-        <Checkbox
-          aria-label="Select all rows"
-          checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
-          onCheckedChange={(v) => table.toggleAllRowsSelected(Boolean(v))}
-        />
+        <div className="flex size-full items-center justify-center">
+          <Checkbox
+            aria-label="Select all rows"
+            checked={table.getIsAllRowsSelected()}
+            indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+            onCheckedChange={(v) => table.toggleAllRowsSelected(Boolean(v))}
+          />
+        </div>
       ),
       cell: ({ row }) => (
-        <Checkbox
-          aria-label="Select row"
-          checked={row.getIsSelected()}
-          onCheckedChange={(v) => row.toggleSelected(Boolean(v))}
-        />
+        <div className="flex size-full items-center justify-center">
+          <Checkbox
+            aria-label="Select row"
+            checked={row.getIsSelected()}
+            onCheckedChange={(v) => row.toggleSelected(Boolean(v))}
+          />
+        </div>
       ),
     });
   }
