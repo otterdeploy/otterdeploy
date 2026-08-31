@@ -8,8 +8,8 @@ import { loadConfig } from "../config-file";
 import { parseDotenv, parsePairs } from "../lib/dotenv";
 import { cmd } from "../lib/name";
 import { resolveProject } from "../lib/resolve";
-import { suggestions } from "../lib/suggest";
 import { abort, dim, interactive, note, ok, out, section, table } from "../lib/ui";
+import { resolveServiceTarget } from "./env-target";
 
 interface EnvVar {
   key: string;
@@ -55,16 +55,7 @@ async function requireService(args: {
     abort("No service named.", "pass `--service <name>`", "or `--shared` for project-level vars");
   }
   const resources = await client.project.resource.list({ projectId: project.id });
-  const svc = resources.find((r) => r.name === args.service);
-  if (!svc) {
-    abort(
-      `No service \`${args.service}\` in project ${slug}.`,
-      ...suggestions(
-        args.service,
-        resources.filter((r) => r.type === "service").map((r) => r.name),
-      ).map((s) => `did you mean \`${s}\`?`),
-    );
-  }
+  const svc = resolveServiceTarget(resources, args.service, slug);
   return { client, projectId: project.id, resourceId: svc.resourceId, projectSlug: slug };
 }
 
