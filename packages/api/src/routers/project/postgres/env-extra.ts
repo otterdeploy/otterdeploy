@@ -16,7 +16,7 @@ import type { ProjectRef } from "../../scopes";
 import { defaultImageFor } from "../../../swarm";
 import { getLatestDeploymentForResource } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
-import { syncManifestDatabaseExtraEnv } from "../manifest";
+import { syncManifestDatabaseExtraEnv } from "../manifest-env-sync";
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,

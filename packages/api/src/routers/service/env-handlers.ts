@@ -4,14 +4,14 @@
  * the router import path is unchanged. Each mutation fans a redeploy out to the
  * service and any dependents that reference its variables.
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
 import type { EnvVarSource } from "./queries";
 
-import { syncManifestServiceEnv } from "../project/manifest";
+import { syncManifestServiceEnv, type ManifestEnvTarget } from "../project/manifest-env-sync";
 import { loadResource } from "./context";
 import { rejectSelfReferences } from "./env-self-ref";
 import { type RefSelfReferenceError, ServiceNotFoundError } from "./errors";
@@ -22,6 +22,7 @@ import {
   listServiceEnvVars,
   upsertServiceEnvVar,
 } from "./queries";
+import { getStackResourceName } from "./queries/stack";
 import { rollAfterEnvChange, type RollFailure } from "./roll-after-env-change";
 import { mapEnvVar, type EnvVarView } from "./views";
 
@@ -105,13 +106,42 @@ export async function unsetEnv(
  * `${secret}` keys, so syncing from inside apply would destroy those
  * declarations. Best-effort: a failure must never fail the env mutation.
  */
+/**
+ * Which manifest slot this service's env belongs in.
+ *
+ * A stack child is addressed by its stack's RESOURCE name plus its own compose
+ * key — the key, not the resource name, because `pickResourceName` renames a
+ * child (`db` → `autumn-db`) while the compose key is what the file and the
+ * manifest both speak. Null when a child has no compose key recorded, which
+ * only pre-column rows can be: there is nowhere truthful to write it.
+ */
+async function manifestTargetFor(
+  projectId: ProjectId,
+  record: {
+    resource: { name: string };
+    service: { stackId?: ResourceId | null; composeService?: string | null };
+  },
+): Promise<ManifestEnvTarget | null> {
+  const stackId = record.service.stackId;
+  if (!stackId) return { kind: "service", name: record.resource.name };
+  const composeService = record.service.composeService;
+  if (!composeService) return null;
+  const stackName = await getStackResourceName(projectId, stackId);
+  return stackName ? { kind: "stackChild", stackName, composeService } : null;
+}
+
 export async function syncManifestEnvAfterLiveEdit(input: ResourceRef): Promise<void> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return;
   const rows = await listServiceEnvVars(input.resourceId);
+  // A stack child lives under composes[stack].services[key], not services[].
+  // Passing its resource name found nothing and returned, which is how every
+  // child's env edit fell out of the manifest (od-uhot).
+  const target = await manifestTargetFor(input.projectId, ctx.value.record);
+  if (!target) return;
   await syncManifestServiceEnv(
     { projectId: input.projectId, organizationId: input.organizationId },
-    ctx.value.record.resource.name,
+    target,
     Object.fromEntries(rows.map((r) => [r.key, r.value])),
   );
 }

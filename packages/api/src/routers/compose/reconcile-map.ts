@@ -187,7 +187,11 @@ export function toServiceFields(
   const projectSlug = sanitizeSlug(ctx.projectSlug);
   // Interpolate compose env against the project bag, then flatten to the
   // {key,value} rows createServiceRecord seeds.
-  const { env: resolvedEnv } = substituteComposeEnv(svc.env, ctx.projectVars);
+  const { env: composeEnv } = substituteComposeEnv(svc.env, ctx.projectVars);
+  // The manifest's per-child env wins over the file's default for the same
+  // key: it is what an operator set on this child, recorded so a restore can
+  // put it back (od-uhot). Seed only — the update branch never re-applies it.
+  const resolvedEnv = { ...composeEnv, ...(ctx.manifestServiceEnv?.get(svc.name) ?? {}) };
   // Flag credentials as they are written. Nothing on the compose path ever set
   // this, so every child service stored its secrets unflagged and any UI that
   // trusts the flag rendered AUTHENTIK_SECRET_KEY and POSTGRES_PASSWORD in the
