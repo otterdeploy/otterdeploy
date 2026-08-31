@@ -17,24 +17,26 @@ import type { FkTarget } from "@/shared/components/data-grid/types";
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverContent } from "@/shared/components/ui/popover";
 
+import type { WorkbenchTarget } from "../data/target";
+
 import { useReferencedRow } from "../data/use-database";
 
 export function FkRefPopover({
-  resourceId,
+  target,
   fk,
   value,
   anchor,
   onOpenChange,
   onOpenRef,
 }: {
-  resourceId: ResourceId;
+  target: WorkbenchTarget;
   fk: FkTarget;
   value: string;
   anchor: HTMLElement | null;
   onOpenChange: (open: boolean) => void;
   onOpenRef: (fk: FkTarget, value: string) => void;
 }) {
-  const q = useReferencedRow({ resourceId: String(resourceId), fk, value });
+  const q = useReferencedRow({ target, fk, value });
   const cols = q.data?.columns ?? [];
   const row = q.data?.rows?.[0];
 

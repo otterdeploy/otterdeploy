@@ -19,7 +19,6 @@
  */
 
 import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
-import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
@@ -33,6 +32,7 @@ import { useDataGrid } from "@/shared/components/data-grid/hooks/use-data-grid";
 import { useElementHeight } from "@/shared/components/data-grid/hooks/use-element-height";
 
 import type { ColumnVariant } from "../data/queries";
+import type { WorkbenchTarget } from "../data/target";
 
 import { useDiceColumnDefs, type Row } from "./dice-grid-columns";
 import {
@@ -61,7 +61,7 @@ export interface ColumnValue {
 }
 
 export function DiceResultGrid({
-  resourceId,
+  target,
   columns,
   rows,
   columnFks,
@@ -76,7 +76,7 @@ export function DiceResultGrid({
   onSelectionChange,
   enableRowDetail = false,
 }: {
-  resourceId: ResourceId;
+  target: WorkbenchTarget;
   columns: readonly ColumnMeta[];
   rows: readonly CellValue[][];
   columnFks?: Record<string, FkTarget>;
@@ -215,7 +215,7 @@ export function DiceResultGrid({
 
       {fk ? (
         <FkRefPopover
-          resourceId={resourceId}
+          target={target}
           fk={fk.target}
           value={fk.value}
           anchor={fk.anchor}

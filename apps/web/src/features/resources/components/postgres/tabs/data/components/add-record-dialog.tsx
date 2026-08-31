@@ -40,6 +40,7 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import type { InsertDraft } from "../data/insert";
 import type { TableRef } from "../data/queries";
 import type { StructureColumn } from "../data/structure";
+import type { WorkbenchTarget } from "../data/target";
 
 import { buildInsertSet, NULL_SENTINEL, validateInsertDraft } from "../data/insert";
 import { columnInputKind } from "../data/structure";
@@ -52,21 +53,21 @@ const issueReason = (col: StructureColumn, kind: CellKind, raw: string | undefin
   validateInsertDraft([col], { [col.name]: kind }, { [col.name]: raw })[0]?.reason;
 
 export function AddRecordDialog({
-  resourceId,
+  target,
   table,
   open,
   onOpenChange,
   onInserted,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   table: TableRef;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Called after a successful insert (refetch rows / counts). */
   onInserted: () => void;
 }) {
-  const { query, structure, columns } = useTableStructure({ resourceId, table });
-  const mutateRows = useMutateRows(resourceId);
+  const { query, structure, columns } = useTableStructure({ target, table });
+  const mutateRows = useMutateRows(target);
   // Cell kinds by column name: what each draft field is parsed into.
   const kinds: Record<string, CellKind> = {};
   for (const c of columns) kinds[c.name] = c.kind;
@@ -82,7 +83,7 @@ export function AddRecordDialog({
       if (issues.length > 0) return setShowIssues(true);
       mutateRows.mutate(
         {
-          resourceId,
+          target,
           mutations: [
             {
               op: "insert",

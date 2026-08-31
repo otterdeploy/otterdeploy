@@ -126,7 +126,7 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
       </Button>
 
       <AddRecordDialog
-        resourceId={String(t.resourceId)}
+        target={t.target}
         table={selected}
         open={addOpen}
         onOpenChange={setAddOpen}

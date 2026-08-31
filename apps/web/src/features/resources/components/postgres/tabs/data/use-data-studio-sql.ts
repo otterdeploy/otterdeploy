@@ -29,9 +29,11 @@ import { toast } from "sonner";
 import { orpc } from "@/shared/server/orpc";
 
 import type { QueryHistoryEntry } from "./data/query-history";
+import type { WorkbenchTarget } from "./data/target";
 
 import { classifyWriteSql, type WriteSeverity } from "./data/destructive-sql";
 import { SQL_RESULT_CAP } from "./data/queries";
+import { targetKey } from "./data/target";
 
 type RecordHistory = (e: Omit<QueryHistoryEntry, "id" | "at">) => void;
 
@@ -69,11 +71,11 @@ export interface SqlRunState {
  * audited, and both record a history entry exactly once in their settle callback.
  */
 export function useSqlRuns({
-  resourceId,
+  target,
   recordHistory,
   onWriteSuccess,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   recordHistory: RecordHistory;
   onWriteSuccess: () => void;
 }) {
@@ -93,7 +95,7 @@ export function useSqlRuns({
     const id = ++runSeq.current;
     setRun({ id, sql, kind, status: "running", result: null, error: null });
     runMutation.mutate(
-      { resourceId, sql, limit: SQL_RESULT_CAP, write: kind === "write" },
+      { target, sql, limit: SQL_RESULT_CAP, write: kind === "write" },
       {
         onSuccess: (res) => {
           settle(id, { status: "ok", result: res });

@@ -14,11 +14,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { cn } from "@/shared/lib/utils";
 
+import type { WorkbenchTarget } from "../data/target";
+
 import { shortType, type TableRef } from "../data/queries";
 import { useTableColumns } from "../data/use-database";
 
 interface SchemaExplorerProps {
-  resourceId: string;
+  target: WorkbenchTarget;
   tables: TableRef[];
   isLoading: boolean;
   isError: boolean;
@@ -28,7 +30,7 @@ interface SchemaExplorerProps {
 }
 
 export function SchemaExplorer({
-  resourceId,
+  target,
   tables,
   isLoading,
   isError,
@@ -57,17 +59,17 @@ export function SchemaExplorer({
   return (
     <div className="flex flex-col gap-0.5">
       {tables.map((tbl) => (
-        <SchemaTableRow key={`${tbl.schema}.${tbl.name}`} resourceId={resourceId} table={tbl} />
+        <SchemaTableRow key={`${tbl.schema}.${tbl.name}`} target={target} table={tbl} />
       ))}
     </div>
   );
 }
 
-function SchemaTableRow({ resourceId, table }: { resourceId: string; table: TableRef }) {
+function SchemaTableRow({ target, table }: { target: WorkbenchTarget; table: TableRef }) {
   const [open, setOpen] = useState(false);
 
   // Columns come from the schema already in memory — no per-table round trip.
-  const q = useTableColumns({ resourceId, table });
+  const q = useTableColumns({ target, table });
   const columns = q.columns;
 
   return (

@@ -74,9 +74,43 @@ const gridResultSchema = z.object({
   notices: z.array(z.string()),
 });
 
-const connectionRefSchema = z.object({
-  /** v1 targets managed resources only. External connections land next. */
-  resourceId: resourceIdField,
+const connectionIdField = zId(ID_PREFIX.dataConnection);
+
+/**
+ * WHICH database a call is about.
+ *
+ * A discriminated union rather than two optional ids, because the two are
+ * resolved completely differently — a managed resource's credentials come from
+ * `database_resource`, an external connection's from an encrypted URL — and a
+ * request naming both is a request with no answer. Making that unrepresentable
+ * is better than rejecting it in a refinement, and far better than resolving
+ * whichever branch the handler happened to check first.
+ */
+export const dataTargetSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("resource"), resourceId: resourceIdField }),
+  z.object({ kind: z.literal("connection"), connectionId: connectionIdField }),
+]);
+export type DataTargetRef = z.infer<typeof dataTargetSchema>;
+
+/** Build an input that names a target plus this procedure's own fields. */
+function withTarget<T extends z.ZodRawShape>(shape: T) {
+  return z.object({ target: dataTargetSchema, ...shape });
+}
+
+/** Fields a connection row exposes. NEVER the URL. */
+const connectionSchema = z.object({
+  id: connectionIdField,
+  name: z.string(),
+  engine: z.enum(["postgres", "mariadb"]),
+  /** Host and database only: enough to identify it, no credential. */
+  displayHost: z.string(),
+  displayDatabase: z.string(),
+  visibility: z.enum(["org", "private"]),
+  environment: z.enum(["production", "other"]),
+  defaultAccess: z.enum(["read-only", "read-write"]),
+  requireTls: z.boolean(),
+  createdAt: z.date(),
+  lastConnectedAt: z.date().nullable(),
 });
 
 const schemaResultSchema = z.object({
@@ -110,7 +144,7 @@ export const dataContract = {
    */
   schema: oc
     .route({ method: "GET", path: `${basePath}/schema`, tags: [tag] })
-    .input(connectionRefSchema)
+    .input(withTarget({}))
     .output(schemaResultSchema)
     .errors(dataErrors),
 
@@ -124,7 +158,7 @@ export const dataContract = {
   browse: oc
     .route({ method: "POST", path: `${basePath}/browse`, tags: [tag] })
     .input(
-      connectionRefSchema.extend({
+      withTarget({
         schema: z.string().max(255).default(""),
         table: z.string().min(1).max(255),
         columns: z.array(z.string().max(255)).max(512).default([]),
@@ -141,7 +175,7 @@ export const dataContract = {
   count: oc
     .route({ method: "POST", path: `${basePath}/count`, tags: [tag] })
     .input(
-      connectionRefSchema.extend({
+      withTarget({
         schema: z.string().max(255).default(""),
         table: z.string().min(1).max(255),
         filters: z.array(filterSchema).max(64).default([]),
@@ -160,7 +194,7 @@ export const dataContract = {
   run: oc
     .route({ method: "POST", path: `${basePath}/run`, tags: [tag] })
     .input(
-      connectionRefSchema.extend({
+      withTarget({
         sql: z.string().min(1).max(100_000),
         limit: z.number().int().positive().max(1000).default(200),
         /** Opt in to a read-write session. Requires the `database:write` scope. */
@@ -168,6 +202,80 @@ export const dataContract = {
       }),
     )
     .output(gridResultSchema)
+    .errors(dataErrors),
+
+  /** External connections this viewer may use. */
+  listConnections: oc
+    .route({ method: "GET", path: `${basePath}/connections`, tags: [tag] })
+    .input(z.object({}))
+    .output(z.object({ connections: z.array(connectionSchema) }))
+    .errors(dataErrors),
+
+  /**
+   * Save an external database URL.
+   *
+   * The URL is validated, then encrypted, and is never returned by any
+   * procedure afterwards. Loopback, private and cloud-metadata addresses are
+   * refused: the control plane can reach things at those addresses that are not
+   * the caller's to browse.
+   */
+  createConnection: oc
+    .route({ method: "POST", path: `${basePath}/connections`, tags: [tag] })
+    .input(
+      z.object({
+        name: z.string().min(1).max(120),
+        url: z.string().min(1).max(4096),
+        visibility: z.enum(["org", "private"]).default("org"),
+        environment: z.enum(["production", "other"]).default("other"),
+        defaultAccess: z.enum(["read-only", "read-write"]).default("read-only"),
+        requireTls: z.boolean().default(true),
+      }),
+    )
+    .output(connectionSchema)
+    .errors({
+      ...dataErrors,
+      INVALID_URL: {
+        status: 422 as const,
+        message: "That connection URL cannot be used" as const,
+        data: z.object({ reason: z.string() }),
+      },
+    }),
+
+  /** Change a connection's settings. Omit `url` to leave the credential alone. */
+  updateConnection: oc
+    .route({ method: "PATCH", path: `${basePath}/connections/{id}`, tags: [tag] })
+    .input(
+      z.object({
+        id: connectionIdField,
+        name: z.string().min(1).max(120).optional(),
+        url: z.string().min(1).max(4096).optional(),
+        visibility: z.enum(["org", "private"]).optional(),
+        environment: z.enum(["production", "other"]).optional(),
+        defaultAccess: z.enum(["read-only", "read-write"]).optional(),
+        requireTls: z.boolean().optional(),
+      }),
+    )
+    .output(connectionSchema)
+    .errors({
+      ...dataErrors,
+      INVALID_URL: {
+        status: 422 as const,
+        message: "That connection URL cannot be used" as const,
+        data: z.object({ reason: z.string() }),
+      },
+    }),
+
+  deleteConnection: oc
+    .route({ method: "DELETE", path: `${basePath}/connections/{id}`, tags: [tag] })
+    .input(z.object({ id: connectionIdField }))
+    .output(z.object({ deleted: z.boolean() }))
+    .errors(dataErrors),
+
+  /** Open the connection once and report whether it worked. */
+  testConnection: oc
+    .route({ method: "POST", path: `${basePath}/connections/{id}/test`, tags: [tag] })
+    .input(z.object({ id: connectionIdField }))
+    .output(z.object({ ok: z.boolean(), durationMs: z.number(), serverVersion: z.string() }))
     .errors(dataErrors),
 
   /**
@@ -185,7 +293,7 @@ export const dataContract = {
   mutate: oc
     .route({ method: "POST", path: `${basePath}/mutate`, tags: [tag] })
     .input(
-      connectionRefSchema.extend({
+      withTarget({
         mutations: z.array(mutationSchema).min(1).max(500),
       }),
     )

@@ -62,6 +62,8 @@ export const ID_PREFIX = {
   backupLog: "blog",
   backupVerification: "bver",
   backupRestore: "brst",
+  // external database connections the data workbench can browse
+  dataConnection: "dconn",
   // audit trail
   auditLog: "aud",
   // in-app notifications
@@ -353,6 +355,7 @@ export const idSchema: IdSchemaMap = {
   backup: zId(ID_PREFIX.backup),
   backupSchedule: zId(ID_PREFIX.backupSchedule),
   backupDestination: zId(ID_PREFIX.backupDestination),
+  dataConnection: zId(ID_PREFIX.dataConnection),
   backupLog: zId(ID_PREFIX.backupLog),
   backupVerification: zId(ID_PREFIX.backupVerification),
   backupRestore: zId(ID_PREFIX.backupRestore),

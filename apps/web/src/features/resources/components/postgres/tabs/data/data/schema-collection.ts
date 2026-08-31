@@ -27,6 +27,10 @@ import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import type { WorkbenchTarget } from "./target";
+
+import { targetKey } from "./target";
+
 /** One row per table, carrying its columns. Keyed by `schema.name`. */
 export interface SchemaTableRow {
   /** `schema.name`, or just `name` when the dialect has no schemas. */
@@ -61,14 +65,15 @@ export function tableId(schema: string, name: string): string {
  */
 const collections = new Map<string, ReturnType<typeof buildCollection>>();
 
-function buildCollection(resourceId: string) {
+function buildCollection(target: WorkbenchTarget) {
+  const key = targetKey(target);
   return createCollection(
     queryCollectionOptions({
-      id: `data-schema:${resourceId}`,
-      queryKey: orpc.data.schema.queryKey({ input: { resourceId } }),
+      id: `data-schema:${key}`,
+      queryKey: orpc.data.schema.queryKey({ input: { target } }),
       queryFn: async (): Promise<SchemaTableRow[]> => {
-        const result = await orpc.data.schema.call({ resourceId });
-        schemaMeta.set(resourceId, {
+        const result = await orpc.data.schema.call({ target });
+        schemaMeta.set(key, {
           dialect: result.dialect,
           defaultSchema: result.defaultSchema,
           canWrite: result.canWrite,
@@ -93,14 +98,15 @@ function buildCollection(resourceId: string) {
  */
 const schemaMeta = new Map<string, SchemaMeta>();
 
-export function schemaCollection(resourceId: string) {
-  const existing = collections.get(resourceId);
+export function schemaCollection(target: WorkbenchTarget) {
+  const key = targetKey(target);
+  const existing = collections.get(key);
   if (existing) return existing;
-  const created = buildCollection(resourceId);
-  collections.set(resourceId, created);
+  const created = buildCollection(target);
+  collections.set(key, created);
   return created;
 }
 
-export function schemaMetaFor(resourceId: string): SchemaMeta | undefined {
-  return schemaMeta.get(resourceId);
+export function schemaMetaFor(target: WorkbenchTarget): SchemaMeta | undefined {
+  return schemaMeta.get(targetKey(target));
 }

@@ -1,4 +1,6 @@
 import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
+
+import { useState } from "react";
 /**
  * Results pane for the data console. A sub-toolbar (grid / JSON view toggle +
  * export menu, see {@link ResultsToolbar}) sits above the body, which renders
@@ -6,9 +8,6 @@ import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
  * owner passes a `leftSlot` (filters in browse mode) and `footerSlot` (counts
  * + pagination).
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
-
-import { useState } from "react";
 
 import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -27,13 +26,15 @@ import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn } from "@/shared/lib/utils";
 
+import type { WorkbenchTarget } from "../data/target";
+
 import { type ColumnValue, DiceResultGrid } from "./dice-grid";
 import { ResultsToolbar, type ResultView } from "./results-toolbar";
 
 export type { ResultView };
 
 interface ResultsPanelProps {
-  resourceId: ResourceId;
+  target: WorkbenchTarget;
   columns: readonly ColumnMeta[];
   rows: readonly CellValue[][];
   columnFks?: Record<string, FkTarget>;
@@ -70,7 +71,7 @@ interface ResultsPanelProps {
 }
 
 export function ResultsPanel({
-  resourceId,
+  target,
   columns,
   rows,
   columnFks,
@@ -162,7 +163,7 @@ export function ResultsPanel({
       ) : (
         <DiceResultGrid
           key={gridKey}
-          resourceId={resourceId}
+          target={target}
           columns={columns}
           rows={rows}
           columnFks={columnFks}

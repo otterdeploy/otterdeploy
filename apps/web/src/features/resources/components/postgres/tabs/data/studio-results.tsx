@@ -57,7 +57,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
 
   const canMutateRows = t.editable && t.primaryKey.length > 0;
   const bulk = useBulkDelete({
-    resourceId: String(t.resourceId),
+    target: t.target,
     selected: t.selected,
     primaryKey: t.primaryKey,
     result: t.result,
@@ -79,7 +79,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
               : `${t.selected.schema}.${t.selected.name}`}
           </span>
         </div>
-        <StructureView resourceId={String(t.resourceId)} table={t.selected} />
+        <StructureView target={t.target} table={t.selected} />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
   return (
     <>
       <ResultsPanel
-        resourceId={t.resourceId}
+        target={t.target}
         columns={t.result?.columns ?? []}
         rows={t.result?.rows ?? []}
         columnFks={p.columnFks}

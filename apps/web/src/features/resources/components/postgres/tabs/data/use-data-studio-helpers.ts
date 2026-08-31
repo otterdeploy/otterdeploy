@@ -15,7 +15,9 @@ import { format as formatSql } from "sql-formatter";
 
 import type { ColumnValue } from "./components/dice-grid";
 import type { TableRef } from "./data/queries";
+import type { WorkbenchTarget } from "./data/target";
 
+import { targetKey } from "./data/target";
 import { useMutateRows } from "./data/use-database";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
 
@@ -39,7 +41,7 @@ export function hasNextPage(
   return mode === "table" && (result?.truncated ?? false);
 }
 
-export function useSnippetBuffer(resourceId: string) {
+export function useSnippetBuffer(target: WorkbenchTarget) {
   const [activeSnippetId, setActiveSnippetId] = useState<string>(PLAYGROUND_ID);
 
   const {
@@ -53,7 +55,7 @@ export function useSnippetBuffer(resourceId: string) {
     addSnippet,
     updateSnippet,
     deleteSnippet,
-  } = useSqlSnippets(resourceId);
+  } = useSqlSnippets(targetKey(target));
 
   // Resolve the editor buffer from the active snippet; fall back to Playground
   // if the snippet was deleted out from under us.
@@ -117,19 +119,19 @@ export function useSnippetBuffer(resourceId: string) {
  * report: the whole delete lands or none of it does.
  */
 export function useBulkDelete({
-  resourceId,
+  target,
   selected,
   primaryKey,
   result,
   rowsQuery,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   selected: TableRef | null;
   primaryKey: string[];
   result: { columns: ColumnMeta[]; rows: CellValue[][] } | null | undefined;
   rowsQuery: { refetch: () => unknown };
 }) {
-  const mutateRows = useMutateRows(resourceId);
+  const mutateRows = useMutateRows(target);
 
   const deleteRows = async (rowIndices: number[]) => {
     if (!selected || !result || primaryKey.length === 0 || rowIndices.length === 0) return;
@@ -154,7 +156,7 @@ export function useBulkDelete({
     if (mutations.length === 0) return;
 
     const outcome = await Result.tryPromise({
-      try: () => mutateRows.mutateAsync({ resourceId, mutations }),
+      try: () => mutateRows.mutateAsync({ target, mutations }),
       catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
     });
     void rowsQuery.refetch();
@@ -172,16 +174,16 @@ export function useBulkDelete({
 
 /** Inline edit / delete against the open table (table-browse mode, write-capable). */
 export function useRowMutations(
-  resourceId: string,
+  target: WorkbenchTarget,
   selected: TableRef | null,
   rowsQuery: { refetch: () => unknown },
 ) {
-  const mutateRows = useMutateRows(resourceId);
+  const mutateRows = useMutateRows(target);
 
   const onUpdateRow = async (pk: ColumnValue[], set: ColumnValue[]) => {
     if (!selected) return;
     await mutateRows.mutateAsync({
-      resourceId,
+      target,
       mutations: [{ op: "update", schema: selected.schema, table: selected.name, pk, set }],
     });
     // Reconcile with server truth (triggers / computed columns / defaults).
@@ -191,7 +193,7 @@ export function useRowMutations(
   const onDeleteRow = async (pk: ColumnValue[]) => {
     if (!selected) return;
     await mutateRows.mutateAsync({
-      resourceId,
+      target,
       mutations: [{ op: "delete", schema: selected.schema, table: selected.name, pk, set: [] }],
     });
     void rowsQuery.refetch();

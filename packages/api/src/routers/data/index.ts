@@ -17,18 +17,12 @@ import {
   isEditable,
 } from "@otterdeploy/data-engine";
 
-import type { AccessMode, Connection, DataError } from "../../data";
+import type { Connection } from "../../data";
 
 import { requirePermission } from "../..";
-import { enforceResourceScope } from "../../authz/project-scope-guards";
-import {
-  connect,
-  execute,
-  executeTransaction,
-  listColumns,
-  listTables,
-  resolveManagedTarget,
-} from "../../data";
+import { execute, executeTransaction, listColumns, listTables } from "../../data";
+import { makeConnectionHandlers } from "./connections";
+import { guardTarget, open, raise, targetLog, viewerIdOf } from "./plumbing";
 
 /**
  * Map a runtime failure onto the contract's error set.
@@ -37,53 +31,16 @@ import {
  * `column "stauts" does not exist` with "query failed" has discarded the only
  * part the user needed.
  */
-interface DataErrorConstructors {
-  NOT_FOUND: () => Error;
-  NOT_EDITABLE: (init: { data: { reason: string } }) => Error;
-  UNSUPPORTED: (init: { data: { engine: string } }) => Error;
-  UNREACHABLE: (init: { data: { reason: string } }) => Error;
-  QUERY_FAILED: (init: { data: { reason: string } }) => Error;
-  DENIED: (init: { data: { reason: string } }) => Error;
-}
-
-function raise(error: DataError, errors: DataErrorConstructors): Error {
-  const reason = error.message;
-  switch (error.reason) {
-    case "not_found":
-      return errors.NOT_FOUND();
-    case "unsupported":
-      return errors.UNSUPPORTED({ data: { engine: reason } });
-    case "unreachable":
-    case "timeout":
-      return errors.UNREACHABLE({ data: { reason } });
-    case "denied":
-      return errors.DENIED({ data: { reason } });
-    case "query":
-      return errors.QUERY_FAILED({ data: { reason } });
-  }
-}
-
-/** Resolve + connect in one step, since no handler wants one without the other. */
-async function open(input: {
-  organizationId: Parameters<typeof resolveManagedTarget>[0]["organizationId"];
-  resourceId: Parameters<typeof resolveManagedTarget>[0]["resourceId"];
-  mode: AccessMode;
-}): Promise<Connection> {
-  const target = await resolveManagedTarget(input);
-  return connect(target);
-}
 
 export const dataRouter = {
+  ...makeConnectionHandlers({ viewerIdOf }),
+
   schema: requirePermission({ database: ["read"] }).data.schema.handler(
     async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "resource", id: input.resourceId } });
-      await enforceResourceScope(context, input.resourceId);
+      context.log.set(targetLog(input.target));
+      await guardTarget(context, input.target);
 
-      const connection = await open({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-        mode: "read-only",
-      });
+      const connection = await open(context, input.target, "read-only");
 
       const [tables, columns] = await Promise.all([
         listTables(connection),
@@ -121,14 +78,10 @@ export const dataRouter = {
 
   browse: requirePermission({ database: ["read"] }).data.browse.handler(
     async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "resource", id: input.resourceId } });
-      await enforceResourceScope(context, input.resourceId);
+      context.log.set(targetLog(input.target));
+      await guardTarget(context, input.target);
 
-      const connection = await open({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-        mode: "read-only",
-      });
+      const connection = await open(context, input.target, "read-only");
 
       const columns = await tableColumns(connection, input.schema, input.table);
       if (columns.length === 0) throw errors.NOT_FOUND();
@@ -163,14 +116,10 @@ export const dataRouter = {
 
   count: requirePermission({ database: ["read"] }).data.count.handler(
     async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "resource", id: input.resourceId } });
-      await enforceResourceScope(context, input.resourceId);
+      context.log.set(targetLog(input.target));
+      await guardTarget(context, input.target);
 
-      const connection = await open({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-        mode: "read-only",
-      });
+      const connection = await open(context, input.target, "read-only");
       const columns = await tableColumns(connection, input.schema, input.table);
       if (columns.length === 0) throw errors.NOT_FOUND();
 
@@ -196,12 +145,12 @@ export const dataRouter = {
   run: requirePermission({ database: ["query"] }).data.run.handler(
     async ({ input, context, errors }) => {
       context.log.set({
-        target: { type: "resource", id: input.resourceId },
+        ...targetLog(input.target),
         // The statement is audited whether or not it succeeds. Truncated
         // because a console can legitimately paste a very large script.
         dbRun: { sql: input.sql.slice(0, 2000), write: input.write },
       });
-      await enforceResourceScope(context, input.resourceId);
+      await guardTarget(context, input.target);
 
       // Opting into writes needs the write scope, not just the query scope.
       // Checked here rather than in the contract because it depends on `write`.
@@ -225,11 +174,11 @@ export const dataRouter = {
         }
       }
 
-      const connection = await open({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-        mode: input.write ? "read-write" : "read-only",
-      });
+      const connection = await open(
+        context,
+        input.target,
+        input.write ? "read-write" : "read-only",
+      );
 
       const grid = await execute(
         connection,
@@ -244,7 +193,7 @@ export const dataRouter = {
   mutate: requirePermission({ database: ["write"] }).data.mutate.handler(
     async ({ input, context, errors }) => {
       context.log.set({
-        target: { type: "resource", id: input.resourceId },
+        ...targetLog(input.target),
         // What changed, never the values: the audit table is readable by
         // operators and kept for 90 days, so a column's contents must not land
         // in it. Which table and which columns is what an auditor needs.
@@ -254,13 +203,9 @@ export const dataRouter = {
           columns: [...new Set(input.mutations.flatMap((m) => m.set.map((s) => s.column)))],
         },
       });
-      await enforceResourceScope(context, input.resourceId);
+      await guardTarget(context, input.target);
 
-      const connection = await open({
-        organizationId: context.activeOrganizationId,
-        resourceId: input.resourceId,
-        mode: "read-write",
-      });
+      const connection = await open(context, input.target, "read-write");
 
       // Build every statement BEFORE opening the transaction. A mutation that
       // cannot be built is a client error, and discovering it halfway through

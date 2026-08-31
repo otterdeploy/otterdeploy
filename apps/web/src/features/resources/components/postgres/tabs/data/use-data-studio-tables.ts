@@ -9,6 +9,7 @@
  * you clicked a different table.
  */
 import type { TableRef } from "./data/queries";
+import type { WorkbenchTarget } from "./data/target";
 
 import { useDatabaseSchema, useOpenTableColumns } from "./data/use-database";
 
@@ -16,8 +17,8 @@ import { useDatabaseSchema, useOpenTableColumns } from "./data/use-database";
  * The project's tables plus the sidebar-search subset. The filter matches on
  * the qualified `schema.name`, so searching "public." narrows by schema.
  */
-export function useTableList(resourceId: string, search: string) {
-  const { tables, isLoading, isError } = useDatabaseSchema(resourceId);
+export function useTableList(target: WorkbenchTarget, search: string) {
+  const { tables, isLoading, isError } = useDatabaseSchema(target);
   const needle = search.trim().toLowerCase();
   const filteredTables = needle
     ? tables.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(needle))
@@ -43,17 +44,17 @@ export function useTableList(resourceId: string, search: string) {
  * (`canEdit`), and a table is actually open.
  */
 export function useOpenTableAccess({
-  resourceId,
+  target,
   table,
   mode,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   table: TableRef | null;
   mode: "table" | "sql";
 }) {
-  const { meta } = useDatabaseSchema(resourceId);
+  const { meta } = useDatabaseSchema(target);
   const { columns, columnVariants, columnFks, columnTypes, primaryKey, canEdit } =
-    useOpenTableColumns(resourceId, table);
+    useOpenTableColumns(target, table);
 
   const canWrite = meta?.canWrite ?? false;
 

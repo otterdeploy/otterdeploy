@@ -11,4 +11,15 @@ export { DataError, type DataErrorReason, toDataError } from "./errors";
 export { execute, executeTransaction, MAX_ROWS, type ExecuteOptions } from "./execute";
 export { listColumns, listTables, type TableColumns } from "./introspect";
 export { closeAllPools, connect, evict, openPoolKeys, type Connection } from "./pool";
-export { resolveManagedTarget, type AccessMode, type DataTarget } from "./target";
+export {
+  resolveExternalTarget,
+  resolveManagedTarget,
+  type AccessMode,
+  type DataTarget,
+} from "./target";
+export {
+  ConnectionUrlError,
+  describeConnection,
+  parseConnectionUrl,
+  type ParsedConnectionUrl,
+} from "./connection-url";

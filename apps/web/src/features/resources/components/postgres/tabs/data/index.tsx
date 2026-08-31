@@ -27,6 +27,7 @@ import type { PostgresBodyProps } from "../../types";
 import type { SqlEditorHandle } from "./components/sql-editor";
 
 import { DataSpotlight } from "./components/data-spotlight";
+import { resourceTarget } from "./data/target";
 import { useDataCapabilities } from "./data/use-database";
 import { StudioResults } from "./studio-results";
 import { SqlPlaygroundView } from "./studio-sql-view";
@@ -39,7 +40,8 @@ interface DataTabBodyProps {
 
 export function DataTabBody({ resource }: DataTabBodyProps) {
   const [expanded, setExpanded] = useState(false);
-  const canWrite = useDataCapabilities(String(resource.resourceId)).data?.canWrite ?? false;
+  const canWrite =
+    useDataCapabilities(resourceTarget(String(resource.resourceId))).data?.canWrite ?? false;
 
   return (
     <div className="flex min-h-0 flex-col gap-3">

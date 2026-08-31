@@ -120,7 +120,7 @@ function SchemaExplorerRail({ studio }: { studio: DataStudioController }) {
           Tables {t.tables.length ? `· ${t.tables.length}` : ""}
         </div>
         <SchemaExplorer
-          resourceId={String(t.resourceId)}
+          target={t.target}
           tables={t.filteredTables}
           isLoading={t.tablesQuery.isLoading}
           isError={t.tablesQuery.isError}

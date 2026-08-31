@@ -24,6 +24,7 @@ import type { FkTarget } from "@/shared/components/data-grid/types";
 import { orpc } from "@/shared/server/orpc";
 
 import type { ColumnVariant, TableRef } from "./queries";
+import type { WorkbenchTarget } from "./target";
 
 import { schemaCollection, schemaMetaFor, tableId, type SchemaTableRow } from "./schema-collection";
 import { toStructureColumns } from "./structure";
@@ -57,20 +58,23 @@ export function variantForKind(kind: CellKind): ColumnVariant {
 }
 
 /** The database's tables. One call; columns included. */
-export function useDatabaseSchema(resourceId: string) {
-  const collection = schemaCollection(resourceId);
+export function useDatabaseSchema(target: WorkbenchTarget) {
+  const collection = schemaCollection(target);
   const { data, isLoading, isError } = useLiveQuery((q) => q.from({ t: collection }), [collection]);
   return {
     tables: data ?? [],
-    meta: schemaMetaFor(resourceId),
+    meta: schemaMetaFor(target),
     isLoading,
     isError,
   };
 }
 
 /** One table's row from the schema collection, or null while it loads. */
-export function useTableMeta(resourceId: string, table: TableRef | null): SchemaTableRow | null {
-  const collection = schemaCollection(resourceId);
+export function useTableMeta(
+  target: WorkbenchTarget,
+  table: TableRef | null,
+): SchemaTableRow | null {
+  const collection = schemaCollection(target);
   const id = table ? tableId(table.schema, table.name) : "";
   const { data } = useLiveQuery(
     (q) => q.from({ t: collection }).where(({ t }) => eq(t.id, id)),
@@ -85,8 +89,8 @@ export function useTableMeta(resourceId: string, table: TableRef | null): Schema
  * All of it is derived from the schema already in memory. The predecessor made
  * three network round trips for exactly this, every time you clicked a table.
  */
-export function useOpenTableColumns(resourceId: string, table: TableRef | null) {
-  const meta = useTableMeta(resourceId, table);
+export function useOpenTableColumns(target: WorkbenchTarget, table: TableRef | null) {
+  const meta = useTableMeta(target, table);
   const columns: ColumnMeta[] = meta?.columns ?? [];
 
   const columnVariants: Record<string, ColumnVariant> = {};
@@ -116,8 +120,8 @@ export function useOpenTableColumns(resourceId: string, table: TableRef | null) 
 }
 
 /** Whether the actor may write at all (engine capability + permission). */
-export function useDataCapabilities(resourceId: string) {
-  const { meta } = useDatabaseSchema(resourceId);
+export function useDataCapabilities(target: WorkbenchTarget) {
+  const { meta } = useDatabaseSchema(target);
   return { data: { canWrite: meta?.canWrite ?? false } };
 }
 
@@ -130,7 +134,7 @@ export function useDataCapabilities(resourceId: string) {
  * the old `buildWhere` string interpolation could not promise.
  */
 export function useBrowseRows({
-  resourceId,
+  target,
   table,
   filters,
   sorts,
@@ -139,7 +143,7 @@ export function useBrowseRows({
   enabled,
   keepPrevious,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   table: TableRef | null;
   filters: Filter[];
   sorts: Sort[];
@@ -151,7 +155,7 @@ export function useBrowseRows({
   return useQuery({
     ...orpc.data.browse.queryOptions({
       input: {
-        resourceId,
+        target,
         schema: table?.schema ?? "",
         table: table?.name ?? "",
         columns: [],
@@ -170,12 +174,12 @@ export function useBrowseRows({
 
 /** Exact row count for the same filtered set the grid is showing. */
 export function useRowCount({
-  resourceId,
+  target,
   table,
   filters,
   enabled,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   table: TableRef | null;
   filters: Filter[];
   enabled: boolean;
@@ -183,7 +187,7 @@ export function useRowCount({
   return useQuery({
     ...orpc.data.count.queryOptions({
       input: {
-        resourceId,
+        target,
         schema: table?.schema ?? "",
         table: table?.name ?? "",
         filters,
@@ -202,20 +206,20 @@ export function useRowCount({
  * write unless `write` was granted and the caller has the permission.
  */
 export function useRunSql({
-  resourceId,
+  target,
   sql,
   limit,
   write,
   enabled,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   sql: string;
   limit: number;
   write: boolean;
   enabled: boolean;
 }) {
   return useQuery({
-    ...orpc.data.run.queryOptions({ input: { resourceId, sql, limit, write } }),
+    ...orpc.data.run.queryOptions({ input: { target, sql, limit, write } }),
     enabled,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -230,14 +234,14 @@ export function useRunSql({
  * string grid by index.
  */
 export function useTableStructure({
-  resourceId,
+  target,
   table,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   table: TableRef | null;
 }) {
-  const meta = useTableMeta(resourceId, table);
-  const { isLoading, isError } = useDatabaseSchema(resourceId);
+  const meta = useTableMeta(target, table);
+  const { isLoading, isError } = useDatabaseSchema(target);
   return {
     query: { isLoading, isError, error: isError ? new Error("Could not read the schema") : null },
     columns: meta?.columns ?? [],
@@ -246,9 +250,9 @@ export function useTableStructure({
 }
 
 /** Columns for one table in the schema explorer's expandable rows. */
-export function useTableColumns({ resourceId, table }: { resourceId: string; table: TableRef }) {
-  const meta = useTableMeta(resourceId, table);
-  const { isLoading, isError } = useDatabaseSchema(resourceId);
+export function useTableColumns({ target, table }: { target: WorkbenchTarget; table: TableRef }) {
+  const meta = useTableMeta(target, table);
+  const { isLoading, isError } = useDatabaseSchema(target);
   return { columns: meta?.columns ?? [], isLoading, isError };
 }
 
@@ -259,12 +263,12 @@ export function useTableColumns({ resourceId, table }: { resourceId: string; tab
  * and the SERVER builds the statements from the table's own introspected
  * columns. Nothing here sends SQL.
  */
-export function useMutateRows(resourceId: string) {
+export function useMutateRows(target: WorkbenchTarget) {
   return useMutation(
     orpc.data.mutate.mutationOptions({
       onSuccess: () => {
         // DDL and triggers can change the schema out from under the navigator.
-        void schemaCollection(resourceId).utils.refetch();
+        void schemaCollection(target).utils.refetch();
       },
     }),
   );
@@ -277,18 +281,18 @@ export function useMutateRows(resourceId: string) {
  * same code path, same parameter binding, one fewer statement in the browser.
  */
 export function useReferencedRow({
-  resourceId,
+  target,
   fk,
   value,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   fk: FkTarget;
   value: string;
 }) {
   return useQuery(
     orpc.data.browse.queryOptions({
       input: {
-        resourceId,
+        target,
         schema: fk.schema,
         table: fk.table,
         columns: [],

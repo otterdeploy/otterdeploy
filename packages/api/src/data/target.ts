@@ -12,12 +12,14 @@
  * classifier, and a classifier can be defeated by a CTE or a stored procedure.
  */
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
+import type { DataConnectionId, OrganizationId, ResourceId, UserId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { databaseResource, project, resource } from "@otterdeploy/db/schema";
-import { and, eq } from "drizzle-orm";
+import { dataConnection, databaseResource, project, resource } from "@otterdeploy/db/schema";
+import { and, eq, or } from "drizzle-orm";
 
+import { decryptForDomain } from "../lib/crypto";
+import { parseConnectionUrl } from "./connection-url";
 import { DataError } from "./errors";
 
 export type AccessMode = "read-only" | "read-write";
@@ -36,6 +38,8 @@ export interface DataTarget {
   mode: AccessMode;
   /** Present for managed targets, so audit rows can name the resource. */
   resourceId: ResourceId | null;
+  /** Present for external targets, so audit rows can name the connection. */
+  connectionId: DataConnectionId | null;
   /** Human label for logs and error messages. Never a secret. */
   label: string;
 }
@@ -94,6 +98,90 @@ export async function resolveManagedTarget(input: {
     tls: false,
     mode: input.mode,
     resourceId: row.resourceId,
+    connectionId: null,
     label: `${row.projectSlug}/${row.resourceName}`,
+  };
+}
+
+/**
+ * Resolve a saved external connection to a target.
+ *
+ * The URL is decrypted HERE and used HERE. No procedure returns it, because a
+ * workbench that shipped the URL to the browser would be handing every viewer a
+ * credential for a database otterdeploy does not run and cannot rotate.
+ *
+ * `visibility: "private"` rows are only resolvable by their creator; `org` rows
+ * by anyone in the organization. The org filter is in the WHERE clause rather
+ * than a post-fetch check, so a row from another org cannot be read at all.
+ */
+export async function resolveExternalTarget(input: {
+  organizationId: OrganizationId;
+  connectionId: DataConnectionId;
+  viewerId: UserId | null;
+  /** What the caller ASKED for; a production connection pins read-only. */
+  mode: AccessMode;
+}): Promise<DataTarget> {
+  const [row] = await db
+    .select({
+      id: dataConnection.id,
+      name: dataConnection.name,
+      engine: dataConnection.engine,
+      encryptedUrl: dataConnection.encryptedUrl,
+      visibility: dataConnection.visibility,
+      environment: dataConnection.environment,
+      defaultAccess: dataConnection.defaultAccess,
+      requireTls: dataConnection.requireTls,
+      createdBy: dataConnection.createdBy,
+    })
+    .from(dataConnection)
+    .where(
+      and(
+        eq(dataConnection.id, input.connectionId),
+        eq(dataConnection.organizationId, input.organizationId),
+        // A private connection is its creator's alone. Expressed as a predicate
+        // so the row never leaves the database for anyone else.
+        input.viewerId === null
+          ? eq(dataConnection.visibility, "org")
+          : or(eq(dataConnection.visibility, "org"), eq(dataConnection.createdBy, input.viewerId)),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new DataError("not_found", `connection ${input.connectionId} not found`);
+  }
+
+  const url = await decryptForDomain(row.encryptedUrl, "data-connections");
+  const parsed = parseConnectionUrl(url, { allowPrivateAddresses: true });
+  if (parsed.isErr()) {
+    // The URL passed validation when it was SAVED, so a failure here means the
+    // stored value is corrupt rather than that the user typed something wrong.
+    throw new DataError("not_found", "this connection's stored URL is unreadable");
+  }
+
+  // A production connection is read-only no matter what was asked for. This is
+  // the write gate: the deliberate, audited act is changing the CONNECTION, not
+  // approving each edit.
+  const mode: AccessMode =
+    row.environment === "production"
+      ? "read-only"
+      : row.defaultAccess === "read-only"
+        ? "read-only"
+        : input.mode;
+
+  return {
+    poolKey: `conn:${row.id}:${mode}`,
+    engine: row.engine,
+    host: parsed.value.host,
+    port: parsed.value.port,
+    database: parsed.value.database,
+    username: parsed.value.username,
+    password: parsed.value.password,
+    // External hops cross the public internet, so TLS unless the row opted out.
+    tls: row.requireTls || parsed.value.sslRequested,
+    mode,
+    resourceId: null,
+    connectionId: row.id,
+    label: row.name,
   };
 }

@@ -27,6 +27,7 @@ import type { ResultView } from "./components/results-panel";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { type TableRef } from "./data/queries";
+import { resourceTarget, targetKey } from "./data/target";
 import { useBrowseRows } from "./data/use-database";
 import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
 import { buildSchema, useRowMutations, useSnippetBuffer } from "./use-data-studio-helpers";
@@ -41,7 +42,10 @@ export { errMessage };
 
 function useTableData(resource: Resource) {
   const resourceId = resource.resourceId;
-  const resourceIdStr = String(resource.resourceId);
+  // The workbench addresses a TARGET, not a resource. A managed database is one
+  // kind of target; a saved external connection is the other, and everything
+  // below this line is written once for both.
+  const target = resourceTarget(String(resource.resourceId));
 
   const [mode, setMode] = useState<"table" | "sql">("table");
   const [tableSearch, setTableSearch] = useState("");
@@ -59,13 +63,13 @@ function useTableData(resource: Resource) {
   const [hiddenColumns, setHiddenColumnsState] = useState<string[]>([]);
   const autoOpenedRef = useRef(false);
 
-  const { tablesQuery, tables, filteredTables } = useTableList(resourceIdStr, tableSearch);
+  const { tablesQuery, tables, filteredTables } = useTableList(target, tableSearch);
 
   // The client sends a filter MODEL, not SQL. The server compiles it with the
   // operands bound and the column names checked against the table's real
   // columns, so neither can carry syntax into the statement.
   const tableRowsQuery = useBrowseRows({
-    resourceId: resourceIdStr,
+    target,
     table: selected,
     filters,
     sorts,
@@ -78,9 +82,9 @@ function useTableData(resource: Resource) {
   // Column metadata + write access for the open table. See
   // ./use-data-studio-tables.
   const { columns, columnVariants, columnFks, columnTypes, canWrite, primaryKey, editable } =
-    useOpenTableAccess({ resourceId: resourceIdStr, table: selected, mode });
+    useOpenTableAccess({ target, table: selected, mode });
 
-  const { onUpdateRow, onDeleteRow } = useRowMutations(resourceIdStr, selected, tableRowsQuery);
+  const { onUpdateRow, onDeleteRow } = useRowMutations(target, selected, tableRowsQuery);
 
   // Authored-SQL console: history + run model + write confirm + `runSql`. A
   // successful write refreshes the table list + open rows so DDL/DML shows up.
@@ -95,7 +99,7 @@ function useTableData(resource: Resource) {
     cancelPendingWrite,
     runSql,
   } = useSqlConsole({
-    resourceId: resourceIdStr,
+    target,
     canWrite,
     writeMode,
     setMode,
@@ -112,7 +116,7 @@ function useTableData(resource: Resource) {
     setMode("table");
     setTableView("data");
     setPage(0);
-    setHiddenColumnsState(loadHiddenColumns(resourceIdStr, t));
+    setHiddenColumnsState(loadHiddenColumns(targetKey(target), t));
   }
 
   // Jump to a referenced table, pre-filtered to the row (from a FK popover).
@@ -125,7 +129,7 @@ function useTableData(resource: Resource) {
 
   const setHiddenColumns = (next: string[]) => {
     setHiddenColumnsState(next);
-    if (selected) saveHiddenColumns(resourceIdStr, selected, next);
+    if (selected) saveHiddenColumns(targetKey(target), selected, next);
   };
 
   const schema = buildSchema(tables, selected, columns);
@@ -166,6 +170,7 @@ function useTableData(resource: Resource) {
 
   return {
     resourceId,
+    target,
     mode,
     setMode,
     tableSearch,
@@ -218,7 +223,7 @@ function useTableData(resource: Resource) {
 }
 
 export function useDataStudio(resource: Resource, shortcuts: boolean) {
-  const editor = useSnippetBuffer(String(resource.resourceId));
+  const editor = useSnippetBuffer(resourceTarget(String(resource.resourceId)));
   const table = useTableData(resource);
 
   // The SQL playground is a three-pane resizable shell. On a phone a 20% rail
