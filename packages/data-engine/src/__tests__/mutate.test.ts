@@ -12,6 +12,7 @@ const col = (over: Partial<ColumnMeta> & { name: string }): ColumnMeta => ({
   position: 1,
   defaultExpr: null,
   isPrimaryKey: false,
+  isUnique: false,
   isGenerated: false,
   references: null,
   enumValues: null,

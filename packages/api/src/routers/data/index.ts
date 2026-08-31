@@ -9,13 +9,26 @@
 import type { ColumnMeta } from "@otterdeploy/data-engine";
 
 import { auth } from "@otterdeploy/auth";
-import { buildCount, buildSelect, columnLookup, isEditable } from "@otterdeploy/data-engine";
+import {
+  buildCount,
+  buildMutation,
+  buildSelect,
+  columnLookup,
+  isEditable,
+} from "@otterdeploy/data-engine";
 
 import type { AccessMode, Connection, DataError } from "../../data";
 
 import { requirePermission } from "../..";
 import { enforceResourceScope } from "../../authz/project-scope-guards";
-import { connect, execute, listColumns, listTables, resolveManagedTarget } from "../../data";
+import {
+  connect,
+  execute,
+  executeTransaction,
+  listColumns,
+  listTables,
+  resolveManagedTarget,
+} from "../../data";
 
 /**
  * Map a runtime failure onto the contract's error set.
@@ -26,6 +39,7 @@ import { connect, execute, listColumns, listTables, resolveManagedTarget } from 
  */
 interface DataErrorConstructors {
   NOT_FOUND: () => Error;
+  NOT_EDITABLE: (init: { data: { reason: string } }) => Error;
   UNSUPPORTED: (init: { data: { engine: string } }) => Error;
   UNREACHABLE: (init: { data: { reason: string } }) => Error;
   QUERY_FAILED: (init: { data: { reason: string } }) => Error;
@@ -224,6 +238,52 @@ export const dataRouter = {
       );
       if (grid.isErr()) throw raise(grid.error, errors);
       return grid.value;
+    },
+  ),
+
+  mutate: requirePermission({ database: ["write"] }).data.mutate.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId },
+        // What changed, never the values: the audit table is readable by
+        // operators and kept for 90 days, so a column's contents must not land
+        // in it. Which table and which columns is what an auditor needs.
+        dbMutate: {
+          count: input.mutations.length,
+          tables: [...new Set(input.mutations.map((m) => `${m.schema}.${m.table}`))],
+          columns: [...new Set(input.mutations.flatMap((m) => m.set.map((s) => s.column)))],
+        },
+      });
+      await enforceResourceScope(context, input.resourceId);
+
+      const connection = await open({
+        organizationId: context.activeOrganizationId,
+        resourceId: input.resourceId,
+        mode: "read-write",
+      });
+
+      // Build every statement BEFORE opening the transaction. A mutation that
+      // cannot be built is a client error, and discovering it halfway through
+      // would mean rolling back writes that were themselves valid.
+      const statements = [];
+      for (const mutation of input.mutations) {
+        const columns = await tableColumns(connection, mutation.schema, mutation.table);
+        if (columns.length === 0) throw errors.NOT_FOUND();
+        const built = buildMutation(mutation, { dialect: connection.dialect, columns });
+        if (built.isErr()) {
+          throw errors.NOT_EDITABLE({ data: { reason: built.error.message } });
+        }
+        statements.push(built.value);
+      }
+
+      const startedAt = performance.now();
+      const grids = await executeTransaction(connection, statements);
+      if (grids.isErr()) throw raise(grids.error, errors);
+
+      return {
+        rowsAffected: grids.value.reduce((total, g) => total + (g.rowsAffected ?? 0), 0),
+        durationMs: Math.round(performance.now() - startedAt),
+      };
     },
   ),
 };

@@ -151,6 +151,7 @@ export const mysqlDialect: Dialect = {
              c.ORDINAL_POSITION           AS position,
              c.COLUMN_DEFAULT             AS default_expr,
              (c.COLUMN_KEY = 'PRI')       AS is_primary_key,
+             (c.COLUMN_KEY IN ('PRI', 'UNI')) AS is_unique,
              (c.EXTRA LIKE '%auto_increment%' OR c.EXTRA LIKE '%GENERATED%') AS is_generated,
              k.REFERENCED_TABLE_SCHEMA    AS ref_schema,
              k.REFERENCED_TABLE_NAME      AS ref_table,

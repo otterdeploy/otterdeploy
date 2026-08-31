@@ -12,7 +12,13 @@
  * and nothing else does.
  */
 import { oc } from "@orpc/contract";
-import { cellValueSchema, columnSchema, filterSchema, sortSchema } from "@otterdeploy/data-engine";
+import {
+  cellValueSchema,
+  columnSchema,
+  filterSchema,
+  mutationSchema,
+  sortSchema,
+} from "@otterdeploy/data-engine";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
@@ -43,6 +49,11 @@ const dataErrors = {
   QUERY_FAILED: {
     status: 422 as const,
     message: "Query failed" as const,
+    data: z.object({ reason: z.string() }),
+  },
+  NOT_EDITABLE: {
+    status: 422 as const,
+    message: "This row cannot be edited safely" as const,
     data: z.object({ reason: z.string() }),
   },
   DENIED: {
@@ -157,5 +168,33 @@ export const dataContract = {
       }),
     )
     .output(gridResultSchema)
+    .errors(dataErrors),
+
+  /**
+   * Apply staged row edits as ONE transaction.
+   *
+   * A list rather than a single mutation because that is what the grid actually
+   * produces: N cell edits across M rows, which must land together or not at
+   * all. Firing them one at a time can leave a row half-updated when the third
+   * violates a constraint — exactly the failure a staged-edit bar promises
+   * cannot happen.
+   *
+   * Every statement is BUILT HERE from the structured request against the
+   * table's introspected columns. The client never sends SQL for a write.
+   */
+  mutate: oc
+    .route({ method: "POST", path: `${basePath}/mutate`, tags: [tag] })
+    .input(
+      connectionRefSchema.extend({
+        mutations: z.array(mutationSchema).min(1).max(500),
+      }),
+    )
+    .output(
+      z.object({
+        /** Rows affected across the whole transaction. */
+        rowsAffected: z.number().int(),
+        durationMs: z.number(),
+      }),
+    )
     .errors(dataErrors),
 };

@@ -14,6 +14,7 @@ import {
   ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { isFilterComplete } from "@otterdeploy/data-engine";
 
 import { Button } from "@/shared/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
@@ -24,7 +25,6 @@ import type { DataStudioController } from "./use-data-studio";
 import { AddRecordDialog } from "./components/add-record-dialog";
 import { ColumnVisibilityPopover } from "./components/column-visibility-popover";
 import { FilterPopover } from "./components/filter-popover";
-import { isFilterActive } from "./data/filters";
 
 type TableController = DataStudioController["table"];
 
@@ -58,8 +58,8 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
   const [addOpen, setAddOpen] = useState(false);
   if (!(t.mode === "table" && t.selected)) return null;
   const selected = t.selected;
-  const resultColumns = t.result?.columns ?? [];
-  const activeFilterCount = t.filters.filter(isFilterActive).length;
+  const resultColumns = (t.result?.columns ?? []).map((c) => c.name);
+  const activeFilterCount = t.filters.filter(isFilterComplete).length;
   const canAdd = t.canWrite && t.primaryKey.length > 0;
   const visibleCount = resultColumns.length - t.hiddenColumns.length;
   return (

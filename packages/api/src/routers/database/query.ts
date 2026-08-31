@@ -3,8 +3,16 @@ import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
  * Data-viewer query engine. Resolves a database resource to its running
  * container and runs SQL there via psql in a read-only session (PGOPTIONS sets
  * default_transaction_read_only=on, so writes error at the server). Output is
- * parsed from psql's `--csv` so we don't need a wire driver in the control
- * plane. Postgres only for v1.
+ * parsed from psql's `--csv`.
+ *
+ * THIS IS NO LONGER THE DATA VIEWER'S PATH. Relational browsing and the SQL
+ * runner go through the wire driver in `packages/api/src/data`, which returns
+ * typed values instead of CSV text. What is left here serves the engines that
+ * have no wire driver yet — Redis, MongoDB, MariaDB's own handlers — plus the
+ * catalog's stat probes, all of which still shell into the container.
+ *
+ * The write path and the row-mutation SQL builders are gone: writes are built
+ * by `@otterdeploy/data-engine`'s `buildMutation` and run in a transaction.
  */
 import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 
@@ -65,25 +73,26 @@ export interface QueryGrid {
 }
 
 /** Run read-only SQL via psql --csv and parse the grid. Throws on query error. */
+export class UnsupportedEngineError extends Error {
+  constructor(public engine: string) {
+    super(`engine ${engine} is not supported`);
+    this.name = "UnsupportedEngineError";
+  }
+}
+
+export class QueryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QueryError";
+  }
+}
+
 export async function runReadOnlyQuery(
   conn: DbConnInfo,
   sql: string,
   limit: number,
 ): Promise<QueryGrid> {
   return runQuery(conn, sql, limit, { readOnly: true });
-}
-
-/**
- * Run a write statement (the data viewer's row mutations) and parse the
- * `RETURNING` grid. No read-only envelope. The caller must already have
- * checked the `database:write` capability. Throws on query error.
- */
-export async function runWriteQuery(
-  conn: DbConnInfo,
-  sql: string,
-  limit: number,
-): Promise<QueryGrid> {
-  return runQuery(conn, sql, limit, { readOnly: false });
 }
 
 async function runQuery(
@@ -149,81 +158,6 @@ async function runQuery(
     return { columns, rows, rowCount: parsed.length, truncated, durationMs };
   } finally {
     docker.destroy();
-  }
-}
-
-// ── Write SQL builders ──────────────────────────────────────────────────────
-// Built server-side from the structured `mutateRow` input so a client can never
-// inject a raw statement. Each mutation is wrapped in a CTE whose outer SELECT
-// returns the affected rows, so psql --csv emits a clean grid (no command-tag
-// line to special-case) and the row count is exactly the affected count.
-
-/** Quote a SQL identifier (embedded double quotes doubled). */
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
-/**
- * Render a value as a SQL literal. `null` → `NULL`; everything else is a quoted
- * text literal: Postgres resolves the unknown-typed literal to the column type
- * via assignment/comparison cast (same discipline as the read path's builders).
- */
-function literal(value: string | null): string {
-  if (value === null) return "NULL";
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-export interface ColumnValue {
-  column: string;
-  value: string | null;
-}
-
-function qualifiedTable(schema: string, table: string): string {
-  return `${quoteIdent(schema)}.${quoteIdent(table)}`;
-}
-
-/** `col = val AND …` predicate over the primary-key columns. */
-function pkPredicate(pk: ColumnValue[]): string {
-  return pk
-    .map((p) =>
-      p.value === null
-        ? `${quoteIdent(p.column)} IS NULL`
-        : `${quoteIdent(p.column)} = ${literal(p.value)}`,
-    )
-    .join(" AND ");
-}
-
-export function buildUpdateSql(
-  schema: string,
-  table: string,
-  set: ColumnValue[],
-  pk: ColumnValue[],
-): string {
-  const assignments = set.map((s) => `${quoteIdent(s.column)} = ${literal(s.value)}`).join(", ");
-  return `WITH __r AS (UPDATE ${qualifiedTable(schema, table)} SET ${assignments} WHERE ${pkPredicate(pk)} RETURNING *) SELECT * FROM __r`;
-}
-
-export function buildDeleteSql(schema: string, table: string, pk: ColumnValue[]): string {
-  return `WITH __r AS (DELETE FROM ${qualifiedTable(schema, table)} WHERE ${pkPredicate(pk)} RETURNING *) SELECT * FROM __r`;
-}
-
-export function buildInsertSql(schema: string, table: string, set: ColumnValue[]): string {
-  const cols = set.map((s) => quoteIdent(s.column)).join(", ");
-  const vals = set.map((s) => literal(s.value)).join(", ");
-  return `WITH __r AS (INSERT INTO ${qualifiedTable(schema, table)} (${cols}) VALUES (${vals}) RETURNING *) SELECT * FROM __r`;
-}
-
-export class UnsupportedEngineError extends Error {
-  constructor(public engine: string) {
-    super(`engine ${engine} is not supported`);
-    this.name = "UnsupportedEngineError";
-  }
-}
-
-export class QueryError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "QueryError";
   }
 }
 

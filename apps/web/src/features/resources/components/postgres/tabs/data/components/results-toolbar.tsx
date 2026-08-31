@@ -4,8 +4,11 @@
  * always carry EVERY column. Column hiding only trims the grid.
  */
 
+import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
+
 import { Download01Icon, SourceCodeIcon, Table01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { displayText } from "@otterdeploy/data-engine";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -29,24 +32,57 @@ function download(blobPart: string, mime: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function toCsv(columns: string[], rows: (string | null)[][]): string {
-  const esc = (v: string | null) => {
-    if (v == null) return "";
-    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+/**
+ * CSV, with NULL and the empty string kept apart.
+ *
+ * RFC 4180 has no NULL, so the convention every loader understands is: an
+ * unquoted empty field is NULL, a quoted empty field (`""`) is the empty
+ * string. The predecessor emitted both as nothing, which meant a round trip
+ * through export/import silently turned every empty string into a NULL.
+ */
+function toCsv(columns: readonly ColumnMeta[], rows: readonly CellValue[][]): string {
+  const escHeader = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const escCell = (cell: CellValue | undefined) => {
+    if (cell === null || cell === undefined) return "";
+    const text = displayText(cell);
+    if (text === "") return '""';
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
-  return [columns.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
+  return [
+    columns.map((c) => escHeader(c.name)).join(","),
+    ...rows.map((r) => r.map(escCell).join(",")),
+  ].join("\n");
 }
 
-function toJson(columns: string[], rows: (string | null)[][]): string {
+/**
+ * JSON, keeping each value's real type.
+ *
+ * A `jsonb` column exports as an object, a boolean as a boolean, and an exact
+ * `int8` as a string so no digit is lost — rather than everything arriving as
+ * the text psql happened to print.
+ */
+function toJson(columns: readonly ColumnMeta[], rows: readonly CellValue[][]): string {
   return JSON.stringify(
     rows.map((r) => {
-      const obj: Record<string, string | null> = {};
-      columns.forEach((c, i) => (obj[c] = r[i] ?? null));
+      const obj: Record<string, unknown> = {};
+      columns.forEach((c, i) => {
+        const cell = r[i] ?? null;
+        obj[c.name] = cell === null ? null : cell.k === "json" ? cell.v : jsonScalar(cell);
+      });
       return obj;
     }),
     null,
     2,
   );
+}
+
+/** The JSON-native form of a non-json cell. */
+function jsonScalar(cell: Exclude<CellValue, null>): unknown {
+  if (cell.k === "bool" || cell.k === "number") return cell.v;
+  if (cell.k === "array") return cell.v.map((c) => (c === null ? null : displayText(c)));
+  // bigint / decimal stay strings so precision survives; everything else is
+  // already text.
+  return displayText(cell);
 }
 
 export function ResultsToolbar({
@@ -60,8 +96,8 @@ export function ResultsToolbar({
   selectedRows,
   leftSlot,
 }: {
-  columns: string[];
-  rows: (string | null)[][];
+  columns: readonly ColumnMeta[];
+  rows: readonly CellValue[][];
   view: ResultView;
   onViewChange: (v: ResultView) => void;
   canExport: boolean;
@@ -73,9 +109,7 @@ export function ResultsToolbar({
   const selectedCount = selectedRows?.length ?? 0;
   const rowsFor = (selection: boolean) =>
     selection
-      ? (selectedRows ?? [])
-          .map((i) => rows[i])
-          .filter((r): r is (string | null)[] => r !== undefined)
+      ? (selectedRows ?? []).map((i) => rows[i]).filter((r): r is CellValue[] => r !== undefined)
       : rows;
   const exportAs = (format: "csv" | "json", selection: boolean) => {
     const subset = rowsFor(selection);

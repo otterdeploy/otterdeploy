@@ -1,43 +1,46 @@
 /**
- * The table-browse half of {@link useTableData}: the database's table list (and
- * the sidebar's search filter over it), plus everything the studio needs to know
- * about the currently open table. Cell variants, FK targets, display types,
- * the actor's write capability, and the primary key that makes a row targetable.
+ * The table-browse half of the studio controller: the database's table list
+ * (and the sidebar's search filter over it), plus everything the studio needs
+ * to know about the currently open table.
  *
- * Split out of use-data-studio.ts for size: each of these was a multi-line query
- * call with its own `enabled` gate and `??` fallback, and together they were a
- * third of the controller. Both hooks are called in the same order the
- * controller called their contents, so its hook sequence is unchanged.
+ * All of it now comes from ONE `data.schema` call, held as a collection. The
+ * version this replaces made four network round trips — table list, column
+ * types, foreign keys, primary key — and three of them fired again every time
+ * you clicked a different table.
  */
-
 import type { TableRef } from "./data/queries";
 
-import {
-  useDataCapabilities,
-  useDatabaseTables,
-  useTableColumnMeta,
-  useTablePrimaryKey,
-} from "./data/use-database";
+import { useDatabaseSchema, useOpenTableColumns } from "./data/use-database";
 
-/** The project's tables plus the sidebar-search subset. The filter matches on
- *  the qualified `schema.name`, so searching "public." narrows by schema. */
+/**
+ * The project's tables plus the sidebar-search subset. The filter matches on
+ * the qualified `schema.name`, so searching "public." narrows by schema.
+ */
 export function useTableList(resourceId: string, search: string) {
-  const tablesQuery = useDatabaseTables(resourceId);
-  const tables = tablesQuery.data?.tables ?? [];
+  const { tables, isLoading, isError } = useDatabaseSchema(resourceId);
   const needle = search.trim().toLowerCase();
   const filteredTables = needle
     ? tables.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(needle))
     : tables;
+
+  // Shaped like the query object the views used to receive, so the loading and
+  // error branches in the rails did not have to change.
+  const tablesQuery = {
+    isLoading,
+    isError,
+    error: isError ? new Error("Could not read the database schema") : null,
+    refetch: () => undefined,
+  };
   return { tablesQuery, tables, filteredTables };
 }
 
 /**
  * Column metadata + write access for the open table.
  *
- * All of it is table-browse only: authored console SQL renders its own result
- * shape, so the column meta stays gated on `mode === "table"`. Inline edit /
- * delete are offered only when the actor has the write capability AND the open
- * table has a primary key to target the row by, hence `editable`.
+ * `editable` needs three things to be true at once, and each is reported by
+ * the layer that actually knows it: the ENGINE can commit a transaction
+ * (`canWrite`), the TABLE has a primary key so a row can be targeted
+ * (`canEdit`), and a table is actually open.
  */
 export function useOpenTableAccess({
   resourceId,
@@ -48,25 +51,20 @@ export function useOpenTableAccess({
   table: TableRef | null;
   mode: "table" | "sql";
 }) {
-  const { columnVariants, columnFks, columnTypes } = useTableColumnMeta({
-    resourceId,
-    table,
-    enabled: mode === "table",
-  });
+  const { meta } = useDatabaseSchema(resourceId);
+  const { columns, columnVariants, columnFks, columnTypes, primaryKey, canEdit } =
+    useOpenTableColumns(resourceId, table);
 
-  const canWrite = useDataCapabilities(resourceId).data?.canWrite ?? false;
-  const primaryKey = useTablePrimaryKey({
-    resourceId,
-    table,
-    enabled: mode === "table" && canWrite,
-  });
+  const canWrite = meta?.canWrite ?? false;
 
   return {
+    columns,
     columnVariants,
     columnFks,
     columnTypes,
     canWrite,
     primaryKey,
-    editable: mode === "table" && canWrite && Boolean(table),
+    canEdit,
+    editable: mode === "table" && canWrite && canEdit && Boolean(table),
   };
 }

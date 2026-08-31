@@ -1,14 +1,16 @@
 /**
  * Foreign-key reference popover. Clicking a FK cell's link icon opens this,
- * anchored to that cell: it looks up the referenced row
- * (`SELECT * FROM ref WHERE refcol = value LIMIT 1`, read-only) and shows its
- * fields, with an action to open that table pre-filtered to the row.
+ * anchored to that cell: it looks up the referenced row through the same
+ * filtered `data.browse` the grid uses (one equality filter on the referenced
+ * column, bound as a parameter) and shows its fields, with an action to open
+ * that table pre-filtered to the row.
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { Link01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { displayText } from "@otterdeploy/data-engine";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
@@ -73,18 +75,23 @@ export function FkRefPopover({
           ) : !row ? (
             <p className="px-3 py-3 text-[12px] text-muted-foreground">No matching row.</p>
           ) : (
-            cols.map((c, i) => (
-              <div key={c} className="flex gap-3 px-3 py-1.5 text-[12px]">
-                <span className="w-32 shrink-0 truncate text-muted-foreground">{c}</span>
-                <span className="min-w-0 flex-1 truncate font-mono">
-                  {row[i] == null ? (
-                    <span className="text-muted-foreground/40 italic">NULL</span>
-                  ) : (
-                    row[i]
-                  )}
-                </span>
-              </div>
-            ))
+            cols.map((c, i) => {
+              const cell = row[i] ?? null;
+              return (
+                <div key={c.name} className="flex gap-3 px-3 py-1.5 text-[12px]">
+                  <span className="w-32 shrink-0 truncate text-muted-foreground">{c.name}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono">
+                    {cell === null ? (
+                      // A muted sentinel, not the text "NULL" — a column can
+                      // legitimately contain that string and the two must differ.
+                      <span className="text-muted-foreground/40 italic">NULL</span>
+                    ) : (
+                      displayText(cell)
+                    )}
+                  </span>
+                </div>
+              );
+            })
           )}
         </div>
       </PopoverContent>

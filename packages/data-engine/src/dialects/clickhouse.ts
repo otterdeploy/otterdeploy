@@ -113,6 +113,7 @@ export const clickhouseDialect: Dialect = {
              position,
              default_expression AS default_expr,
              is_in_primary_key  AS is_primary_key,
+             is_in_primary_key  AS is_unique,
              (default_kind = 'MATERIALIZED' OR default_kind = 'ALIAS') AS is_generated,
              NULL AS ref_schema, NULL AS ref_table, NULL AS ref_column,
              comment

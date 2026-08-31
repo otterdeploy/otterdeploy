@@ -11,11 +11,11 @@
  */
 
 import { useQueryHistory } from "./data/query-history";
-import { type useQueryRows } from "./data/use-database";
+import { type useBrowseRows } from "./data/use-database";
 import { hasNextPage } from "./use-data-studio-helpers";
 import { type SqlRunState, useSqlRuns, useWriteConfirm } from "./use-data-studio-sql";
 
-type TableRowsQuery = ReturnType<typeof useQueryRows>;
+type TableRowsQuery = ReturnType<typeof useBrowseRows>;
 
 /**
  * Owns everything the SQL console needs: the browser-local execution log, the

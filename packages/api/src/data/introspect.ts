@@ -87,6 +87,7 @@ const columnRowSchema = z.object({
   position: numericish,
   default_expr: stringish,
   is_primary_key: boolish,
+  is_unique: boolish,
   is_generated: boolish,
   ref_schema: stringish,
   ref_table: stringish,
@@ -178,6 +179,7 @@ export async function listColumns(
       position: r.position ?? bucket.columns.length + 1,
       defaultExpr: r.default_expr,
       isPrimaryKey: r.is_primary_key,
+      isUnique: r.is_unique,
       isGenerated: r.is_generated,
       references:
         r.ref_table === null

@@ -164,6 +164,7 @@ export const postgresDialect: Dialect = {
              a.attnum                                   AS position,
              pg_get_expr(d.adbin, d.adrelid)            AS default_expr,
              COALESCE(pk.is_pk, false)                  AS is_primary_key,
+             COALESCE(pk.is_pk, false) OR COALESCE(uq.is_uq, false) AS is_unique,
              (a.attidentity <> '' OR a.attgenerated <> '' OR
               pg_get_expr(d.adbin, d.adrelid) LIKE 'nextval(%') AS is_generated,
              fk.ref_schema, fk.ref_table, fk.ref_column,
@@ -179,6 +180,13 @@ export const postgresDialect: Dialect = {
         WHERE pc.conrelid = c.oid AND pc.contype = 'p' AND a.attnum = ANY(pc.conkey)
         LIMIT 1
       ) pk ON true
+      LEFT JOIN LATERAL (
+        SELECT true AS is_uq
+        FROM pg_catalog.pg_constraint uc
+        WHERE uc.conrelid = c.oid AND uc.contype = 'u'
+          AND array_length(uc.conkey, 1) = 1 AND uc.conkey[1] = a.attnum
+        LIMIT 1
+      ) uq ON true
       LEFT JOIN LATERAL (
         SELECT rn.nspname AS ref_schema, rc.relname AS ref_table, ra.attname AS ref_column
         FROM pg_catalog.pg_constraint fc

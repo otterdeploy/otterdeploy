@@ -64,9 +64,9 @@ export function SchemaExplorer({
 function SchemaTableRow({ resourceId, table }: { resourceId: string; table: TableRef }) {
   const [open, setOpen] = useState(false);
 
-  // Only introspect once the table is expanded; cached thereafter.
-  const q = useTableColumns({ resourceId, table, enabled: open });
-  const rows = q.data?.rows ?? [];
+  // Columns come from the schema already in memory — no per-table round trip.
+  const q = useTableColumns({ resourceId, table });
+  const columns = q.columns;
 
   return (
     <div>
@@ -99,13 +99,13 @@ function SchemaTableRow({ resourceId, table }: { resourceId: string; table: Tabl
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Loading…</p>
           ) : q.isError ? (
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Couldn’t load columns.</p>
-          ) : rows.length === 0 ? (
+          ) : columns.length === 0 ? (
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">No columns.</p>
           ) : (
-            rows.map((r) => {
-              const name = r[0] ?? "";
-              const type = r[1] ?? "";
-              const isPk = r[2] === "t";
+            columns.map((column) => {
+              const name = column.name;
+              const type = shortType(column.dataType);
+              const isPk = column.isPrimaryKey;
               return (
                 <div
                   key={name}

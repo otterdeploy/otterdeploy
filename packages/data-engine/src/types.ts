@@ -51,6 +51,8 @@ export const columnSchema = z.object({
   position: z.number().int(),
   defaultExpr: z.string().nullable(),
   isPrimaryKey: z.boolean(),
+  /** Covered by a single-column UNIQUE constraint (a PK also counts). */
+  isUnique: z.boolean(),
   /** Set when the engine fills the column itself (serial, identity, generated). */
   isGenerated: z.boolean(),
   /** Target of a single-column foreign key, for the cell's "peek" affordance. */

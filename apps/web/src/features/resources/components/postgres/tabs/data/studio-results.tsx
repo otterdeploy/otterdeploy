@@ -25,7 +25,6 @@ function resolveResultsProps(t: TableController) {
   const tableMode = t.mode === "table";
   const sqlMode = t.mode === "sql";
   return {
-    columnVariants: tableMode ? t.columnVariants : undefined,
     columnFks: tableMode ? t.columnFks : undefined,
     columnTypes: tableMode ? t.columnTypes : undefined,
     hiddenColumns: tableMode ? t.hiddenColumns : undefined,
@@ -91,7 +90,6 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         resourceId={t.resourceId}
         columns={t.result?.columns ?? []}
         rows={t.result?.rows ?? []}
-        columnVariants={p.columnVariants}
         columnFks={p.columnFks}
         columnTypes={p.columnTypes}
         hiddenColumns={p.hiddenColumns}
@@ -119,7 +117,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
           <ResultsFooter
             studio={studio}
             selectedRows={selectedRows}
-            deleteProgress={bulk.progress}
+            deleteProgress={null}
             onDeleteSelected={() => setConfirmDelete(selectedRows)}
           />
         }

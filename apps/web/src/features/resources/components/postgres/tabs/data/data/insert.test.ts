@@ -1,148 +1,119 @@
+import type { CellKind, ColumnMeta } from "@otterdeploy/data-engine";
+
 import { describe, expect, it } from "vite-plus/test";
 
-import type { StructureColumn } from "./structure";
-
 import { buildInsertSet, NULL_SENTINEL, validateInsertDraft } from "./insert";
-import { parseStructureRows } from "./structure";
+import { toStructureColumns } from "./structure";
 
-const col = (p: Partial<StructureColumn> & { name: string }): StructureColumn => ({
+/** One introspected column, defaulted to a plain nullable text field. */
+const meta = (p: Partial<ColumnMeta> & { name: string }): ColumnMeta => ({
   dataType: "text",
-  displayType: "text",
+  kind: "text",
   nullable: true,
-  default: null,
+  position: 1,
+  defaultExpr: null,
   isPrimaryKey: false,
   isUnique: false,
-  fkRef: null,
-  isAuto: false,
-  isRequired: false,
+  isGenerated: false,
+  references: null,
+  enumValues: null,
+  comment: null,
   ...p,
 });
 
-const id = col({
-  name: "id",
-  dataType: "integer",
-  displayType: "int",
-  isAuto: true,
-  isPrimaryKey: true,
-  nullable: false,
-});
-const name = col({ name: "name", nullable: false, isRequired: true });
-const bio = col({ name: "bio" });
-const active = col({
-  name: "active",
-  dataType: "boolean",
-  displayType: "boolean",
-  nullable: false,
-  default: "true",
-});
-const meta = col({ name: "meta", dataType: "jsonb", displayType: "jsonb" });
-const score = col({ name: "score", dataType: "numeric", displayType: "numeric" });
+const COLUMNS: ColumnMeta[] = [
+  meta({
+    name: "id",
+    dataType: "integer",
+    kind: "number",
+    isGenerated: true,
+    isPrimaryKey: true,
+    nullable: false,
+  }),
+  meta({ name: "name", nullable: false }),
+  meta({ name: "bio" }),
+  meta({ name: "active", dataType: "boolean", kind: "bool", nullable: false, defaultExpr: "true" }),
+  meta({ name: "meta", dataType: "jsonb", kind: "json" }),
+  meta({ name: "score", dataType: "numeric", kind: "decimal" }),
+];
 
-const table = [id, name, bio, active, meta, score];
+const table = toStructureColumns(COLUMNS);
+const kinds: Record<string, CellKind> = Object.fromEntries(COLUMNS.map((c) => [c.name, c.kind]));
+
+describe("toStructureColumns", () => {
+  it("derives the form model from introspected metadata", () => {
+    // The predecessor read ten positional strings out of a `structureSql` grid
+    // by index, with "t"/"YES" sentinels. There is nothing left to parse.
+    const id = table[0];
+    expect(id?.isAuto).toBe(true);
+    expect(id?.isPrimaryKey).toBe(true);
+    // Auto-generated ⇒ never required, even though it is NOT NULL with no default.
+    expect(id?.isRequired).toBe(false);
+  });
+
+  it("requires a column only when nothing else will supply a value", () => {
+    const byName = (n: string) => table.find((c) => c.name === n);
+    expect(byName("name")?.isRequired).toBe(true); // NOT NULL, no default, not auto
+    expect(byName("active")?.isRequired).toBe(false); // NOT NULL but defaulted
+    expect(byName("bio")?.isRequired).toBe(false); // nullable
+  });
+
+  it("collapses the verbose engine type for the column label", () => {
+    const [ts] = toStructureColumns([
+      meta({ name: "created_at", dataType: "timestamp with time zone", kind: "instant" }),
+    ]);
+    expect(ts?.displayType).toBe("timestamp");
+    expect(ts?.dataType).toBe("timestamp with time zone");
+  });
+});
 
 describe("buildInsertSet", () => {
-  it("skips auto columns and empty fields, keeps typed values", () => {
-    expect(buildInsertSet(table, { id: "9", name: "otter", bio: "" })).toEqual([
-      { column: "name", value: "otter" },
+  it("skips auto columns and empty fields", () => {
+    expect(buildInsertSet(table, kinds, { id: "9", name: "otter", bio: "" })).toEqual([
+      { column: "name", value: { k: "text", v: "otter" } },
     ]);
   });
 
-  it("maps the NULL sentinel to SQL NULL", () => {
-    expect(buildInsertSet(table, { name: "x", bio: NULL_SENTINEL })).toEqual([
-      { column: "name", value: "x" },
+  it("maps the NULL sentinel to SQL NULL, distinct from the empty string", () => {
+    // An omitted field takes the column's DEFAULT; the sentinel writes NULL.
+    // The predecessor could express both, but its `null` and `""` reached the
+    // server as the same thing once the value was stringified.
+    expect(buildInsertSet(table, kinds, { name: "x", bio: NULL_SENTINEL })).toEqual([
+      { column: "name", value: { k: "text", v: "x" } },
       { column: "bio", value: null },
     ]);
   });
 
-  it("sends everything else as text for server-side casting", () => {
-    expect(buildInsertSet(table, { name: "x", score: "12.5", active: "false" })).toEqual([
-      { column: "name", value: "x" },
-      { column: "active", value: "false" },
-      { column: "score", value: "12.5" },
+  it("parses each value into the column's declared kind", () => {
+    // Not "sent as text for the server to cast": a boolean is a boolean and a
+    // numeric keeps its exact literal, so no digit is lost to a float.
+    expect(buildInsertSet(table, kinds, { name: "x", score: "12.50", active: "false" })).toEqual([
+      { column: "name", value: { k: "text", v: "x" } },
+      { column: "active", value: { k: "bool", v: false } },
+      { column: "score", value: { k: "decimal", v: "12.50" } },
     ]);
   });
 });
 
 describe("validateInsertDraft", () => {
   it("flags empty required columns (non-nullable, no default, not auto)", () => {
-    expect(validateInsertDraft(table, {})).toEqual([{ column: "name", reason: "required" }]);
-    // Defaulted non-nullable (active) and auto PK (id) are fine when empty.
-    expect(validateInsertDraft(table, { name: "x" })).toEqual([]);
+    expect(validateInsertDraft(table, kinds, {})).toEqual([{ column: "name", reason: "required" }]);
+    expect(validateInsertDraft(table, kinds, { name: "x" })).toEqual([]);
   });
 
-  it("flags invalid JSON and invalid numbers", () => {
-    expect(validateInsertDraft(table, { name: "x", meta: "{nope" })).toEqual([
+  it("flags invalid JSON and invalid numbers before they reach the database", () => {
+    expect(validateInsertDraft(table, kinds, { name: "x", meta: "{nope" })).toEqual([
       { column: "meta", reason: "invalid-json" },
     ]);
-    expect(validateInsertDraft(table, { name: "x", score: "12,5" })).toEqual([
+    expect(validateInsertDraft(table, kinds, { name: "x", score: "12,5" })).toEqual([
       { column: "score", reason: "invalid-number" },
     ]);
-    expect(validateInsertDraft(table, { name: "x", meta: '{"a":1}', score: "12.5" })).toEqual([]);
+    expect(
+      validateInsertDraft(table, kinds, { name: "x", meta: '{"a":1}', score: "12.5" }),
+    ).toEqual([]);
   });
 
   it("accepts the NULL sentinel without type validation", () => {
-    expect(validateInsertDraft(table, { name: "x", meta: NULL_SENTINEL })).toEqual([]);
-  });
-});
-
-describe("parseStructureRows", () => {
-  it("parses the introspection grid into structure columns", () => {
-    const rows: (string | null)[][] = [
-      // name, data_type, is_nullable, column_default, is_identity, is_pk, is_uq, ref_schema, ref_table, ref_column
-      [
-        "id",
-        "integer",
-        "NO",
-        "nextval('users_id_seq'::regclass)",
-        "NO",
-        "t",
-        "f",
-        null,
-        null,
-        null,
-      ],
-      ["email", "character varying", "NO", null, "NO", "f", "t", null, null, null],
-      ["org_id", "uuid", "YES", null, "NO", "f", "f", "public", "organization", "id"],
-      ["created_at", "timestamp with time zone", "NO", "now()", "NO", "f", "f", null, null, null],
-    ];
-    const parsed = parseStructureRows(rows);
-    expect(parsed).toHaveLength(4);
-
-    expect(parsed[0]).toMatchObject({
-      name: "id",
-      isPrimaryKey: true,
-      isAuto: true, // serial via nextval default
-      isRequired: false,
-    });
-    expect(parsed[1]).toMatchObject({
-      name: "email",
-      displayType: "varchar",
-      isUnique: true,
-      isRequired: true, // NOT NULL, no default
-    });
-    expect(parsed[2]).toMatchObject({
-      name: "org_id",
-      nullable: true,
-      fkRef: { schema: "public", table: "organization", column: "id" },
-    });
-    expect(parsed[3]).toMatchObject({
-      name: "created_at",
-      displayType: "timestamp",
-      default: "now()",
-      isRequired: false, // defaulted
-    });
-  });
-
-  it("marks identity columns as auto", () => {
-    const parsed = parseStructureRows([
-      ["id", "bigint", "NO", null, "YES", "t", "f", null, null, null],
-    ]);
-    expect(parsed[0]).toMatchObject({ isAuto: true, isRequired: false });
-  });
-
-  it("skips rows with a missing column name", () => {
-    expect(
-      parseStructureRows([[null, "text", "YES", null, "NO", "f", "f", null, null, null]]),
-    ).toEqual([]);
+    expect(validateInsertDraft(table, kinds, { name: "x", meta: NULL_SENTINEL })).toEqual([]);
   });
 });

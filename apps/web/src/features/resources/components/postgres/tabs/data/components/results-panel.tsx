@@ -1,3 +1,4 @@
+import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
 /**
  * Results pane for the data console. A sub-toolbar (grid / JSON view toggle +
  * export menu, see {@link ResultsToolbar}) sits above the body, which renders
@@ -11,6 +12,7 @@ import { useState } from "react";
 
 import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { displayText } from "@otterdeploy/data-engine";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
@@ -25,16 +27,15 @@ import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn } from "@/shared/lib/utils";
 
-import { type ColumnValue, type ColumnVariant, DiceResultGrid } from "./dice-grid";
+import { type ColumnValue, DiceResultGrid } from "./dice-grid";
 import { ResultsToolbar, type ResultView } from "./results-toolbar";
 
 export type { ResultView };
 
 interface ResultsPanelProps {
   resourceId: ResourceId;
-  columns: string[];
-  rows: (string | null)[][];
-  columnVariants?: Record<string, ColumnVariant>;
+  columns: readonly ColumnMeta[];
+  rows: readonly CellValue[][];
   columnFks?: Record<string, FkTarget>;
   /** Collapsed display types (row-detail field labels). */
   columnTypes?: Record<string, string>;
@@ -72,7 +73,6 @@ export function ResultsPanel({
   resourceId,
   columns,
   rows,
-  columnVariants,
   columnFks,
   columnTypes,
   hiddenColumns,
@@ -98,9 +98,14 @@ export function ResultsPanel({
   onSelectionChange,
   enableRowDetail = false,
 }: ResultsPanelProps) {
+  // The JSON view keeps each value's real type: a jsonb column shows as an
+  // object, not as the text psql happened to print for it.
   const jsonData = rows.map((r) => {
-    const obj: Record<string, string | null> = {};
-    columns.forEach((c, i) => (obj[c] = r[i] ?? null));
+    const obj: Record<string, unknown> = {};
+    columns.forEach((c, i) => {
+      const cell = r[i] ?? null;
+      obj[c.name] = cell === null ? null : cell.k === "json" ? cell.v : displayText(cell);
+    });
     return obj;
   });
 
@@ -160,7 +165,6 @@ export function ResultsPanel({
           resourceId={resourceId}
           columns={columns}
           rows={rows}
-          columnVariants={columnVariants}
           columnFks={columnFks}
           columnTypes={columnTypes}
           hiddenColumns={hiddenColumns}

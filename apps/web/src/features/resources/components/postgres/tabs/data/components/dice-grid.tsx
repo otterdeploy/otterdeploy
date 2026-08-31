@@ -18,10 +18,12 @@
  *   exports and the detail panel) keeps every column.
  */
 
+import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
 import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
+import { parseCell } from "@otterdeploy/data-engine";
 import { toast } from "sonner";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
@@ -33,22 +35,35 @@ import { useElementHeight } from "@/shared/components/data-grid/hooks/use-elemen
 import type { ColumnVariant } from "../data/queries";
 
 import { useDiceColumnDefs, type Row } from "./dice-grid-columns";
-import { errText, RowDetailSlot, useGridRows, useSelectionMirror } from "./dice-grid-parts";
+import {
+  diffEditedRow,
+  errText,
+  primaryKeyFor,
+  RowDetailSlot,
+  useGridRows,
+  useSelectionMirror,
+} from "./dice-grid-parts";
 import { FkRefPopover } from "./fk-ref-popover";
 
 export type { ColumnVariant };
 
-/** A column predicate / assignment passed to the write endpoint. */
+/**
+ * A column predicate / assignment passed to the write endpoint.
+ *
+ * `value` is a typed cell, so setting a column to SQL NULL is expressible and
+ * distinct from setting it to the empty string. The predecessor's
+ * `string | null` could not say the difference, which meant the grid could not
+ * clear a text column without also being unable to blank it.
+ */
 export interface ColumnValue {
   column: string;
-  value: string | null;
+  value: CellValue;
 }
 
 export function DiceResultGrid({
   resourceId,
   columns,
   rows,
-  columnVariants,
   columnFks,
   columnTypes,
   hiddenColumns,
@@ -62,9 +77,8 @@ export function DiceResultGrid({
   enableRowDetail = false,
 }: {
   resourceId: ResourceId;
-  columns: string[];
-  rows: (string | null)[][];
-  columnVariants?: Record<string, ColumnVariant>;
+  columns: readonly ColumnMeta[];
+  rows: readonly CellValue[][];
   columnFks?: Record<string, FkTarget>;
   /** Collapsed display types for the row-detail panel's field labels. */
   columnTypes?: Record<string, string>;
@@ -90,7 +104,7 @@ export function DiceResultGrid({
     anchor: HTMLElement;
   } | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
-  const [data, setData] = useGridRows(columns, rows, columnVariants);
+  const [data, setData] = useGridRows(columns, rows);
 
   // A row can only be mutated if we can target it by primary key.
   const canEdit = editable && (primaryKey?.length ?? 0) > 0;
@@ -98,8 +112,9 @@ export function DiceResultGrid({
   // The change/delete handlers read the pre-edit rows (for the PK predicate and
   // for reverting a failed write) straight from the closed-over `data`: the grid
   // always invokes the latest handler, so this closure mirrors current state.
-  const pkFor = (row: Row): ColumnValue[] =>
-    (primaryKey ?? []).map((c) => ({ column: c, value: row[c] ?? null }));
+  // Key columns are read from the PRE-EDIT row, so a key that was itself
+  // edited still targets the row as it exists on the server.
+  const pkFor = (row: Row): ColumnValue[] => primaryKeyFor(columns, primaryKey ?? [], row);
 
   // The grid emits the full next array after an inline edit. Diff it against the
   // pre-edit rows to find the changed row + columns, then persist that row.
@@ -111,10 +126,13 @@ export function DiceResultGrid({
       const before = prev[i];
       const after = next[i];
       if (!before || !after || before === after) continue;
-      const set = columns.reduce<ColumnValue[]>((acc, c) => {
-        if (before[c] !== after[c]) acc.push({ column: c, value: after[c] ?? null });
-        return acc;
-      }, []);
+      const diff = diffEditedRow(columns, before, after);
+      if (diff.invalid !== null) {
+        setData((cur) => cur.map((r) => (r === after ? before : r)));
+        toast.error(diff.invalid);
+        continue;
+      }
+      const set = diff.set;
       if (set.length === 0) continue;
       onUpdateRow(pkFor(before), set).catch((err) => {
         // Revert just this row to its pre-edit value.
@@ -142,7 +160,6 @@ export function DiceResultGrid({
 
   const colDefs = useDiceColumnDefs({
     columns,
-    columnVariants,
     hiddenColumns,
     selectable,
     enableRowDetail,
@@ -182,7 +199,7 @@ export function DiceResultGrid({
       <RowDetailSlot
         index={detailIndex}
         data={data}
-        columns={columns}
+        columns={columns.map((c) => c.name)}
         columnTypes={columnTypes}
         primaryKey={primaryKey}
         editable={canEdit}

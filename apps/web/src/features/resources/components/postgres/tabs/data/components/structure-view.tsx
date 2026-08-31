@@ -18,7 +18,7 @@ import { useTableStructure } from "../data/use-database";
 import { TypeLabel } from "./type-label";
 
 export function StructureView({ resourceId, table }: { resourceId: string; table: TableRef }) {
-  const { query, structure } = useTableStructure({ resourceId, table, enabled: true });
+  const { query, structure } = useTableStructure({ resourceId, table });
 
   if (query.isLoading) {
     return (

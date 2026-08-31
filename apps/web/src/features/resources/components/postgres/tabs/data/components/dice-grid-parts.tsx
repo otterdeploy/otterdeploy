@@ -1,29 +1,24 @@
 /**
- * The non-rendering machinery behind {@link DiceResultGrid}: value coercion for
- * a `database.query` result, the in-memory row buffer, the selection mirror, and
- * the row-detail slot.
+ * The non-rendering machinery behind {@link DiceResultGrid}: the in-memory row
+ * buffer, the selection mirror, and the row-detail slot.
  *
- * Split out of dice-grid.tsx because every one of these carried branching (or
- * lines) the grid component itself was being charged for. The adapter file is
- * now just the wiring between the query result and the vendored DiceUI grid,
- * while the pieces that decide *what* a value/row/selection is live here.
+ * The value COERCION that used to live here is gone. It existed because
+ * `psql --csv` handed the UI strings: booleans arrived as `t`/`f` and had to be
+ * turned back into words, and nothing else could be trusted either. Rows are now
+ * typed `CellValue`s, so a boolean is a boolean and there is nothing to coerce.
  */
 
+import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
 import type { RowSelectionState, Updater } from "@tanstack/react-table";
 
 import { useRef, useState } from "react";
 
-import type { ColumnVariant } from "../data/queries";
+import { parseCell } from "@otterdeploy/data-engine";
 
-import { type Row } from "./dice-grid-columns";
+import type { ColumnValue } from "./dice-grid";
+
+import { cellText, isNullCell, type Row } from "./dice-grid-columns";
 import { RowDetailPanel } from "./row-detail-panel";
-
-/** psql --csv emits booleans as t/f; show the words instead. */
-function boolWord(v: string): string {
-  if (v === "t" || v === "true" || v === "TRUE") return "true";
-  if (v === "f" || v === "false" || v === "FALSE") return "false";
-  return v;
-}
 
 /** Pull a human-readable reason out of an oRPC error (QUERY_FAILED carries
  *  `data.reason`), falling back to a default. */
@@ -40,17 +35,65 @@ export function errText(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function toRows(
-  columns: string[],
-  rows: (string | null)[][],
-  variants?: Record<string, ColumnVariant>,
-): Row[] {
+/**
+ * The columns an inline edit changed, PARSED back into their declared kinds.
+ *
+ * An edit that does not parse is refused rather than coerced: silently turning
+ * "12x" into 12 is how a grid edit corrupts a row. `invalid` carries the
+ * message so the caller can revert the row and say why.
+ */
+export function diffEditedRow(
+  columns: readonly ColumnMeta[],
+  before: Row,
+  after: Row,
+): { set: ColumnValue[]; invalid: string | null } {
+  const set: ColumnValue[] = [];
+  for (const c of columns) {
+    if (before[c.name] === after[c.name]) continue;
+    const edited = after[c.name];
+    if (typeof edited !== "string") {
+      set.push({ column: c.name, value: edited ?? null });
+      continue;
+    }
+    const parsed = parseCell(edited, c.kind);
+    if (parsed === undefined) {
+      return { set: [], invalid: `"${edited}" is not a valid ${c.dataType || c.kind}` };
+    }
+    set.push({ column: c.name, value: parsed });
+  }
+  return { set, invalid: null };
+}
+
+/**
+ * The primary-key predicate for a row.
+ *
+ * Read from the PRE-EDIT row, so a key column that was itself edited still
+ * targets the row as it exists on the server rather than as the user has just
+ * retyped it.
+ */
+export function primaryKeyFor(
+  columns: readonly ColumnMeta[],
+  primaryKey: readonly string[],
+  row: Row,
+): ColumnValue[] {
+  return primaryKey.map((name) => {
+    const meta = columns.find((col) => col.name === name);
+    const raw = row[name];
+    if (typeof raw !== "string") return { column: name, value: raw ?? null };
+    // Transient editor text in a key: parse it back, or send it as text and
+    // let the server's own type check reject it.
+    return { column: name, value: (meta && parseCell(raw, meta.kind)) ?? { k: "text", v: raw } };
+  });
+}
+
+/** Positional server rows → column-keyed rows, with no value coercion. */
+function toRows(columns: readonly ColumnMeta[], rows: readonly CellValue[][]): Row[] {
   return rows.map((r) => {
     const obj: Row = {};
     columns.forEach((c, i) => {
-      let v = r[i] ?? null;
-      if (v !== null && variants?.[c] === "boolean") v = boolWord(v);
-      obj[c] = v;
+      // `?? null` is for a short row, not for a null value: a SQL NULL is
+      // already `null` and stays distinguishable from a missing column.
+      obj[c.name] = r[i] ?? null;
     });
     return obj;
   });
@@ -63,20 +106,12 @@ function toRows(
  * The re-sync happens during render (not in an effect) so new columns never
  * paint against the previous page's rows for a frame.
  */
-export function useGridRows(
-  columns: string[],
-  rows: (string | null)[][],
-  columnVariants: Record<string, ColumnVariant> | undefined,
-) {
-  const [data, setData] = useState<Row[]>(() => toRows(columns, rows, columnVariants));
-  const [source, setSource] = useState({ columns, rows, columnVariants });
-  if (
-    source.columns !== columns ||
-    source.rows !== rows ||
-    source.columnVariants !== columnVariants
-  ) {
-    setSource({ columns, rows, columnVariants });
-    setData(toRows(columns, rows, columnVariants));
+export function useGridRows(columns: readonly ColumnMeta[], rows: readonly CellValue[][]) {
+  const [data, setData] = useState<Row[]>(() => toRows(columns, rows));
+  const [source, setSource] = useState({ columns, rows });
+  if (source.columns !== columns || source.rows !== rows) {
+    setSource({ columns, rows });
+    setData(toRows(columns, rows));
   }
   return [data, setData] as const;
 }
@@ -126,10 +161,17 @@ export function RowDetailSlot({
 }) {
   const row = index === null ? undefined : data[index];
   if (row === undefined) return null;
+  // The detail panel is a read/edit form over display text; typed cells are
+  // rendered to their string form at this boundary rather than teaching the
+  // panel the whole CellValue union.
+  const displayRow: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(row)) {
+    displayRow[key] = isNullCell(value) ? null : cellText(value);
+  }
   return (
     <RowDetailPanel
       columns={columns}
-      row={row}
+      row={displayRow}
       columnTypes={columnTypes}
       primaryKey={primaryKey}
       editable={editable}

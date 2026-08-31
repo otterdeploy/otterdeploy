@@ -46,6 +46,7 @@ function inferredColumn(name: string, position: number): ColumnMeta {
     position,
     defaultExpr: null,
     isPrimaryKey: false,
+    isUnique: false,
     isGenerated: false,
     references: null,
     enumValues: null,
