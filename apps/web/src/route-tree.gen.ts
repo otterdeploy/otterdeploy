@@ -46,6 +46,7 @@ import { Route as AppOrgSlugShellEdgeRouteImport } from "./routes/_app/$orgSlug/
 import { Route as AppOrgSlugShellDockerRouteImport } from "./routes/_app/$orgSlug/_shell/docker"
 import { Route as AppOrgSlugShellDatabasesRouteImport } from "./routes/_app/$orgSlug/_shell/databases"
 import { Route as AppOrgSlugShellDataRouteImport } from "./routes/_app/$orgSlug/_shell/data"
+import { Route as AppOrgSlugShellBucketsRouteImport } from "./routes/_app/$orgSlug/_shell/buckets"
 import { Route as AppOrgSlugShellBackupsRouteImport } from "./routes/_app/$orgSlug/_shell/backups"
 import { Route as AppOrgSlugShellAuditRouteImport } from "./routes/_app/$orgSlug/_shell/audit"
 import { Route as AppOrgSlugShellAnalyticsRouteImport } from "./routes/_app/$orgSlug/_shell/analytics"
@@ -272,6 +273,11 @@ const AppOrgSlugShellDatabasesRoute =
 const AppOrgSlugShellDataRoute = AppOrgSlugShellDataRouteImport.update({
   id: "/data",
   path: "/data",
+  getParentRoute: () => AppOrgSlugShellLayoutRoute,
+} as any)
+const AppOrgSlugShellBucketsRoute = AppOrgSlugShellBucketsRouteImport.update({
+  id: "/buckets",
+  path: "/buckets",
   getParentRoute: () => AppOrgSlugShellLayoutRoute,
 } as any)
 const AppOrgSlugShellBackupsRoute = AppOrgSlugShellBackupsRouteImport.update({
@@ -501,6 +507,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
+  "/$orgSlug/buckets": typeof AppOrgSlugShellBucketsRoute
   "/$orgSlug/data": typeof AppOrgSlugShellDataRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
   "/$orgSlug/docker": typeof AppOrgSlugShellDockerRoute
@@ -570,6 +577,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
+  "/$orgSlug/buckets": typeof AppOrgSlugShellBucketsRoute
   "/$orgSlug/data": typeof AppOrgSlugShellDataRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
   "/$orgSlug/docker": typeof AppOrgSlugShellDockerRoute
@@ -643,6 +651,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/_app/$orgSlug/_shell/audit": typeof AppOrgSlugShellAuditRoute
   "/_app/$orgSlug/_shell/backups": typeof AppOrgSlugShellBackupsRoute
+  "/_app/$orgSlug/_shell/buckets": typeof AppOrgSlugShellBucketsRoute
   "/_app/$orgSlug/_shell/data": typeof AppOrgSlugShellDataRoute
   "/_app/$orgSlug/_shell/databases": typeof AppOrgSlugShellDatabasesRoute
   "/_app/$orgSlug/_shell/docker": typeof AppOrgSlugShellDockerRoute
@@ -716,6 +725,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/analytics"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
+    | "/$orgSlug/buckets"
     | "/$orgSlug/data"
     | "/$orgSlug/databases"
     | "/$orgSlug/docker"
@@ -785,6 +795,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/analytics"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
+    | "/$orgSlug/buckets"
     | "/$orgSlug/data"
     | "/$orgSlug/databases"
     | "/$orgSlug/docker"
@@ -857,6 +868,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/analytics"
     | "/_app/$orgSlug/_shell/audit"
     | "/_app/$orgSlug/_shell/backups"
+    | "/_app/$orgSlug/_shell/buckets"
     | "/_app/$orgSlug/_shell/data"
     | "/_app/$orgSlug/_shell/databases"
     | "/_app/$orgSlug/_shell/docker"
@@ -1178,6 +1190,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugShellDataRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
+    "/_app/$orgSlug/_shell/buckets": {
+      id: "/_app/$orgSlug/_shell/buckets"
+      path: "/buckets"
+      fullPath: "/$orgSlug/buckets"
+      preLoaderRoute: typeof AppOrgSlugShellBucketsRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
     "/_app/$orgSlug/_shell/backups": {
       id: "/_app/$orgSlug/_shell/backups"
       path: "/backups"
@@ -1494,6 +1513,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellAnalyticsRoute: typeof AppOrgSlugShellAnalyticsRoute
   AppOrgSlugShellAuditRoute: typeof AppOrgSlugShellAuditRoute
   AppOrgSlugShellBackupsRoute: typeof AppOrgSlugShellBackupsRoute
+  AppOrgSlugShellBucketsRoute: typeof AppOrgSlugShellBucketsRoute
   AppOrgSlugShellDataRoute: typeof AppOrgSlugShellDataRoute
   AppOrgSlugShellDatabasesRoute: typeof AppOrgSlugShellDatabasesRoute
   AppOrgSlugShellDockerRoute: typeof AppOrgSlugShellDockerRoute
@@ -1521,6 +1541,7 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellAnalyticsRoute: AppOrgSlugShellAnalyticsRoute,
   AppOrgSlugShellAuditRoute: AppOrgSlugShellAuditRoute,
   AppOrgSlugShellBackupsRoute: AppOrgSlugShellBackupsRoute,
+  AppOrgSlugShellBucketsRoute: AppOrgSlugShellBucketsRoute,
   AppOrgSlugShellDataRoute: AppOrgSlugShellDataRoute,
   AppOrgSlugShellDatabasesRoute: AppOrgSlugShellDatabasesRoute,
   AppOrgSlugShellDockerRoute: AppOrgSlugShellDockerRoute,

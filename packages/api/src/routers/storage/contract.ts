@@ -70,6 +70,8 @@ export const storageContract = {
             endpoint: z.string().nullable(),
             /** The prefix everything is scoped to; "" for the whole bucket. */
             root: z.string(),
+            /** Operator intent on the underlying destination, for the rail dot. */
+            status: z.enum(["active", "degraded", "disabled"]),
           }),
         ),
       }),
@@ -101,6 +103,46 @@ export const storageContract = {
         objects: z.array(objectSchema),
         continuationToken: z.string().nullable(),
         truncated: z.boolean(),
+      }),
+    )
+    .errors(storageErrors),
+
+  /**
+   * Scoped aggregates for the stats strip and the facet chips.
+   *
+   * A bounded flat walk of the keyspace under `prefix`, narrowed by the same
+   * filter grammar the client uses on its table — so the strip and the rows
+   * cannot disagree about what a token selects. `complete: false` means the
+   * scan hit its key limit and the numbers describe the FIRST `scannedKeys`
+   * keys, not the subtree; the UI must say so.
+   */
+  stats: oc
+    .route({ method: "GET", path: `${basePath}/stats`, tags: [tag] })
+    .input(
+      z.object({
+        bucketId: bucketIdField,
+        prefix: z.string().max(1024).default(""),
+        /** Filter tokens, e.g. `class:GLACIER_IR size:>100MB`. */
+        q: z.string().max(512).default(""),
+      }),
+    )
+    .output(
+      z.object({
+        objects: z.number().int(),
+        bytes: z.number(),
+        byClass: z.array(
+          z.object({ storageClass: z.string(), count: z.number().int(), bytes: z.number() }),
+        ),
+        byExtension: z.array(
+          z.object({ extension: z.string(), count: z.number().int(), bytes: z.number() }),
+        ),
+        largeCount: z.number().int(),
+        staleCount: z.number().int(),
+        childPrefixes: z.array(
+          z.object({ prefix: z.string(), count: z.number().int(), bytes: z.number() }),
+        ),
+        scannedKeys: z.number().int(),
+        complete: z.boolean(),
       }),
     )
     .errors(storageErrors),

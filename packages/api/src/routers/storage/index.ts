@@ -25,6 +25,7 @@ import {
   listObjects,
   presignObject,
   resolveStorageTarget,
+  scanStorageStats,
   statObject,
 } from "../../storage";
 
@@ -80,6 +81,7 @@ export const storageRouter = {
           id: backupDestination.id,
           name: backupDestination.name,
           config: backupDestination.config,
+          status: backupDestination.status,
         })
         .from(backupDestination)
         .where(
@@ -106,6 +108,7 @@ export const storageRouter = {
               region: config.data.region ?? null,
               endpoint: config.data.endpoint ?? null,
               root: trimmed === "" ? "" : `${trimmed}/`,
+              status: row.status,
             },
           ];
         }),
@@ -127,6 +130,18 @@ export const storageRouter = {
       });
       if (listing.isErr()) throw raise(listing.error, errors);
       return listing.value;
+    },
+  ),
+
+  stats: requirePermission({ backup: ["read"] }).storage.stats.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        storage: { bucketId: input.bucketId, prefix: input.prefix, stats: true },
+      });
+      const target = await open(context.activeOrganizationId, input.bucketId, errors);
+      const stats = await scanStorageStats(target, { prefix: input.prefix, q: input.q });
+      if (stats.isErr()) throw raise(stats.error, errors);
+      return stats.value;
     },
   ),
 

@@ -15,4 +15,12 @@ export {
   type StorageListing,
   type StorageObject,
 } from "./objects";
+export {
+  SCAN_KEY_LIMIT,
+  scanStorageStats,
+  type ClassStat,
+  type ExtensionStat,
+  type PrefixStat,
+  type StorageStats,
+} from "./stats";
 export { resolveKey, resolveStorageTarget, StorageError, type StorageTarget } from "./target";
