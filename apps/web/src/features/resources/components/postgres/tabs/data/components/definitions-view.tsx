@@ -24,16 +24,23 @@ import type { WorkbenchTarget } from "../data/target";
 import { useDefinitions } from "../data/use-database";
 import { ConstraintTable, EnumTable, IndexTable, Note } from "./definitions-tables";
 
-type Section = "indexes" | "constraints" | "enums";
+export type DefinitionSection = "indexes" | "constraints" | "enums";
 
-const SECTIONS: ReadonlyArray<{ id: Section; label: string }> = [
+const SECTIONS: ReadonlyArray<{ id: DefinitionSection; label: string }> = [
   { id: "indexes", label: "Indexes" },
   { id: "constraints", label: "Constraints" },
   { id: "enums", label: "Enums" },
 ];
 
-export function DefinitionsView({ target }: { target: WorkbenchTarget }) {
-  const [section, setSection] = useState<Section>("indexes");
+export function DefinitionsView({
+  target,
+  section,
+  onSectionChange,
+}: {
+  target: WorkbenchTarget;
+  section: DefinitionSection;
+  onSectionChange: (section: DefinitionSection) => void;
+}) {
   const [search, setSearch] = useState("");
   const { data, isLoading, isError } = useDefinitions(target);
 
@@ -51,7 +58,7 @@ export function DefinitionsView({ target }: { target: WorkbenchTarget }) {
           <button
             key={s.id}
             type="button"
-            onClick={() => setSection(s.id)}
+            onClick={() => onSectionChange(s.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] transition-colors",
               s.id === section
@@ -101,7 +108,7 @@ function SectionBody({
   isLoading,
   isError,
 }: {
-  section: Section;
+  section: DefinitionSection;
   needle: string;
   data: Definitions;
   isLoading: boolean;

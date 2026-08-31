@@ -152,7 +152,11 @@ function DefinitionsPane({ studio }: { studio: DataStudioController }) {
           schema objects across the whole database
         </span>
       </div>
-      <DefinitionsView target={studio.table.target} />
+      <DefinitionsView
+        target={studio.table.target}
+        section={studio.table.definitionsSection}
+        onSectionChange={studio.table.setDefinitionsSection}
+      />
     </div>
   );
 }

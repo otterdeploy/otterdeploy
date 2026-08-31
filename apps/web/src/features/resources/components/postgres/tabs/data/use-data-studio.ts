@@ -25,6 +25,7 @@ import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { orpc } from "@/shared/server/orpc";
 
+import type { DefinitionSection } from "./components/definitions-view";
 import type { ResultView } from "./components/results-panel";
 import type { WorkbenchTarget } from "./data/target";
 
@@ -61,12 +62,11 @@ function useTableData(target: WorkbenchTarget) {
   // Three read surfaces over the open connection: rows, this table's
   // columns, and the database's non-table objects.
   const [tableView, setTableView] = useState<"data" | "structure" | "definitions">("data");
+  const [definitionsSection, setDefinitionsSection] = useState<DefinitionSection>("indexes");
   const [writeMode, setWriteMode] = useState(false);
   // Column names hidden from the grid for the open table (persisted per-table;
   // exports always include every column).
   const [hiddenColumns, setHiddenColumnsState] = useState<string[]>([]);
-  const autoOpenedRef = useRef(false);
-
   const { tablesQuery, tables, filteredTables } = useTableList(target, tableSearch);
 
   // The client sends a filter MODEL, not SQL. The server compiles it with the
@@ -162,17 +162,7 @@ function useTableData(target: WorkbenchTarget) {
     setPage(0);
   };
 
-  // Land on the first table's rows once the list loads (browse, not authored
-  // SQL). Fires once so it never fights a manual SQL/snippet switch afterward.
-  // `openTable` is a fresh closure every render, so it reaches the effect as an
-  // effect event rather than a dependency that would re-run it constantly.
-  const autoOpen = useEffectEvent((t: TableRef) => openTable(t));
-  useEffect(() => {
-    if (!autoOpenedRef.current && !selected && tables[0]) {
-      autoOpenedRef.current = true;
-      autoOpen(tables[0]);
-    }
-  }, [selected, tables]);
+  useAutoOpenFirstTable(selected, tables, tablesQuery.isLoading, openTable, () => setMode("sql"));
 
   // Results pane source: see ./use-data-studio-console.
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
@@ -193,6 +183,8 @@ function useTableData(target: WorkbenchTarget) {
     setView,
     tableView,
     setTableView,
+    definitionsSection,
+    setDefinitionsSection,
     writeMode,
     setWriteMode,
     hiddenColumns,
@@ -230,6 +222,29 @@ function useTableData(target: WorkbenchTarget) {
   };
 }
 
+function useAutoOpenFirstTable(
+  selected: TableRef | null,
+  tables: TableRef[],
+  isLoading: boolean,
+  openTable: (table: TableRef) => void,
+  openEmpty: () => void,
+) {
+  const autoOpenedRef = useRef(false);
+  const autoOpen = useEffectEvent(openTable);
+  const openQueryWhenEmpty = useEffectEvent(openEmpty);
+
+  useEffect(() => {
+    if (autoOpenedRef.current || selected) return;
+    if (tables[0]) {
+      autoOpenedRef.current = true;
+      autoOpen(tables[0]);
+    } else if (!isLoading) {
+      autoOpenedRef.current = true;
+      openQueryWhenEmpty();
+    }
+  }, [selected, tables, isLoading]);
+}
+
 /**
  * The workbench, for one target.
  *
@@ -245,9 +260,7 @@ export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
   // is ~75px. Too narrow to read a snippet name and it starves the editor, so
   // the snippets rail starts closed below `md`. The toolbar toggle still opens
   // it on demand; only the DEFAULT differs.
-  const [showLeft, setShowLeft] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
+  const [showLeft, setShowLeft] = useState(false);
   // The schema explorer is opt-in. Closed until toggled from the toolbar.
   const [showRight, setShowRight] = useState(false);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
@@ -259,6 +272,7 @@ export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
   const newQuery = () => {
     const s = editor.addSnippet({ name: "Untitled query", sql: "" });
     selectSnippet(s.id);
+    return s;
   };
   /**
    * Seed the editor with a runnable query for the open table.
