@@ -68,6 +68,7 @@ async function resolveTargets(
         engine: d.database.engine,
         projectSlug: slug,
         resourceName: d.resource.name,
+        stored: d.database.serviceName,
       }),
     }));
 

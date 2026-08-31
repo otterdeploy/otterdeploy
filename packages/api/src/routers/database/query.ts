@@ -26,6 +26,11 @@ export interface DbConnInfo {
   /** Used to find the running container by its `otterdeploy.resource.id` label
    *  (runtime-agnostic, see findResourceContainerId). */
   resourceId: ResourceId;
+  /** `database_resource.service_name`, when the row carries one. The container
+   *  is located by LABEL here, not by name, so this only reaches error
+   *  messages — but a message naming a container that does not exist is its
+   *  own small lie once names are environment-scoped (od-jwx). */
+  serviceName: string | null;
 }
 
 export async function getDatabaseConnInfo(input: {
@@ -41,6 +46,7 @@ export async function getDatabaseConnInfo(input: {
       projectSlug: project.slug,
       resourceName: resource.name,
       resourceId: resource.id,
+      serviceName: databaseResource.serviceName,
     })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
@@ -101,6 +107,7 @@ async function runQuery(
       engine: conn.engine,
       projectSlug: conn.projectSlug,
       resourceName: conn.resourceName,
+      stored: conn.serviceName,
     });
     const containerId = await findResourceContainerId(docker, conn.resourceId);
     if (!containerId) {

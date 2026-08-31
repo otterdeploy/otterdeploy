@@ -27,7 +27,9 @@ import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 // lives in ./context; re-exported here so the engine's existing `./db` imports
 // are unchanged.
 export type { DatabaseEngine, ExecutionContext } from "./context";
-export { type DatabaseTarget, getExecutionContext, resolveDatabaseTarget } from "./context";
+export { getExecutionContext } from "./context";
+// Restore's write target lives in its own module (context.ts line cap).
+export { type DatabaseTarget, resolveDatabaseTarget } from "./restore-target";
 
 /** Source of a new run. `database` (managed) and `stack` (compose-service DB)
  *  both key off a resourceId; `volume` off a volume name. */

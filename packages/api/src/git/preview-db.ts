@@ -158,6 +158,7 @@ export async function branchProjectDatabases(input: {
             engine: "postgres",
             projectSlug: input.projectSlug,
             resourceName: base.resource.name,
+            stored: base.database.volumeName,
           }),
         );
     const done = await Result.tryPromise({
@@ -215,6 +216,18 @@ async function branchOne(
   // A distinct resource name (`<db>-pr-7`) drives distinct db/user/host/volume;
   // the branch RESOURCE keeps the base name so refs resolve to it in this env.
   const branchResourceName = `${base.resource.name}-${input.previewSlug}`;
+  // Computed once, recorded on the row, and reused for the spec — so the
+  // branch's container and volume have exactly one origin (od-jwx).
+  const branchServiceName = buildContainerName({
+    engine,
+    projectSlug,
+    resourceName: branchResourceName,
+  });
+  const branchVolumeName = buildVolumeName({
+    engine,
+    projectSlug,
+    resourceName: branchResourceName,
+  });
   const password = randomBytes(18).toString("base64url");
   const creds = deriveInternalDbCredentials({
     engine,
@@ -245,6 +258,11 @@ async function branchOne(
     upstreamHost: creds.internalHostname,
     upstreamPort: creds.internalPort,
     caddyLayer4Snippet: "",
+    // A branch records its names like any other database (od-jwx), so a later
+    // teardown addresses what was created rather than recomputing it from a
+    // resource name that has the preview slug appended by convention.
+    serviceName: branchServiceName,
+    volumeName: branchVolumeName,
   });
 
   const dep = await insertDeployment({
@@ -258,16 +276,8 @@ async function branchOne(
   const spec: BranchDatabaseSpec = {
     engine,
     resourceId: created.resource.id,
-    serviceName: buildContainerName({
-      engine,
-      projectSlug,
-      resourceName: branchResourceName,
-    }),
-    volumeName: buildVolumeName({
-      engine,
-      projectSlug,
-      resourceName: branchResourceName,
-    }),
+    serviceName: branchServiceName,
+    volumeName: branchVolumeName,
     hostnameAlias: creds.internalHostname,
     databaseName: creds.databaseName,
     username: creds.username,
@@ -280,6 +290,7 @@ async function branchOne(
       engine,
       projectSlug,
       resourceName: base.resource.name,
+      stored: base.database.serviceName,
     }),
     sourceResourceId: base.resource.id,
     sourceCredentials: {

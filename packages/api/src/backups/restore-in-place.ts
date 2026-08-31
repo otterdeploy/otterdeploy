@@ -122,6 +122,7 @@ export async function restoreDatabaseInPlace(
     engine: target.engine,
     projectSlug: target.projectSlug,
     resourceName: target.resourceName,
+    stored: target.serviceName,
   });
   const containerId = await findResourceContainerId(docker, target.resourceId);
   if (!containerId) throw new Error(`No running container for ${serviceName}`);

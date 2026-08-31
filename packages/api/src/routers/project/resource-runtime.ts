@@ -68,6 +68,7 @@ async function resolveSwarmService(
         engine: found.record.database.engine,
         projectSlug: slug,
         resourceName: found.record.resource.name,
+        stored: found.record.database.serviceName,
       }),
       projectSlug: sanitizeProjectSlug(slug),
     };

@@ -294,12 +294,18 @@ export async function getHostForRuntime(hostResourceId: ResourceId): Promise<{
   name: string;
   engine: DatabaseEngine;
   projectSlug: string;
+  serviceName: string | null;
+  volumeName: string | null;
 } | null> {
   const [row] = await db
     .select({
       name: resource.name,
       engine: databaseResource.engine,
       projectSlug: project.slug,
+      // The HOST's recorded names: a tenant has none of its own and is
+      // inspected under these (od-jwx).
+      serviceName: databaseResource.serviceName,
+      volumeName: databaseResource.volumeName,
     })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))

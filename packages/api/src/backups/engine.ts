@@ -96,6 +96,7 @@ async function produceArchive(
           engine: ctx.engine,
           projectSlug: ctx.projectSlug,
           resourceName: ctx.resourceName,
+          stored: ctx.serviceName,
         })
       : ctx.resourceName;
   const containerId = await findResourceContainerId(docker, ctx.resourceId);
