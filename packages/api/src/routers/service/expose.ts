@@ -26,7 +26,7 @@ import {
   ServiceNotFoundError,
 } from "./errors";
 import { insertGeneratedRoute, resolveGeneratedDomain } from "./expose-generated";
-import { getService } from "./handlers";
+import { getService } from "./get-service";
 import { type ResourceRef } from "./inputs";
 import { getPrimaryHttpPort, setPublicExposure } from "./queries";
 import { sanitizeSlug, type ServiceView } from "./views";

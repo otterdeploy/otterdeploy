@@ -21,6 +21,7 @@ import {
   type ServiceRecord,
   type ServiceResourceRow,
 } from ".";
+import { newResourceEnvironmentId } from "../../project/queries/new-resource-environment";
 import { inEnvironmentScope } from "../../project/queries/resource";
 import { listServiceEnvVars } from "./env";
 import { listServiceMounts } from "./mounts";
@@ -127,12 +128,15 @@ export async function listServiceRecordsByProject(projectId: ProjectId): Promise
 // ---------------------------------------------------------------------------
 
 export async function createServiceRecord(input: CreateServiceInput): Promise<ServiceRecord> {
+  // Resolved before the transaction: a caller that omits the environment gets
+  // the project's main one rather than an unscoped row. See the helper.
+  const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
       .insert(resource)
       .values({
         projectId: input.projectId,
-        environmentId: input.environmentId ?? null,
+        environmentId,
         name: input.name,
         type: "service",
         status: input.status ?? "draft",

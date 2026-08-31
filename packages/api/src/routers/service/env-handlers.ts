@@ -4,16 +4,15 @@
  * the router import path is unchanged. Each mutation fans a redeploy out to the
  * service and any dependents that reference its variables.
  */
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
-import type { ProjectNotFoundError } from "../project/errors";
-
 import { syncManifestServiceEnv } from "../project/manifest";
 import { loadResource } from "./context";
 import { rejectSelfReferences } from "./env-self-ref";
-import { type RefSelfReferenceError, ServiceNotFoundError, type ResolveError } from "./errors";
+import { type RefSelfReferenceError, ServiceNotFoundError } from "./errors";
 import { type ResourceRef } from "./inputs";
 import {
   bulkReplaceServiceEnvVars,
@@ -21,11 +20,30 @@ import {
   listServiceEnvVars,
   upsertServiceEnvVar,
 } from "./queries";
-import { redeployAndFanOut } from "./redeploy";
+import { rollAfterEnvChange, type RollFailure } from "./roll-after-env-change";
 import { mapEnvVar, type EnvVarView } from "./views";
 
-type NotFound = ProjectNotFoundError | ServiceNotFoundError;
-type RedeployFailure = NotFound | ResolveError | RefSelfReferenceError;
+type RedeployFailure = RollFailure | RefSelfReferenceError;
+
+/** The post-write roll, for all three mutations. A compose child's container
+ *  is owned by its stack's reconcile, so the single-service roll would leave
+ *  the old value live; `rollAfterEnvChange` picks the right owner. */
+function rollFor(
+  input: ResourceRef,
+  ctx: {
+    project: { slug: string };
+    record: { service: { stackId?: ResourceId | null } };
+  },
+  log: RequestLogger,
+): Promise<Result<true, RollFailure>> {
+  return rollAfterEnvChange({
+    projectId: input.projectId,
+    resourceId: input.resourceId,
+    projectSlug: ctx.project.slug,
+    stackId: ctx.record.service.stackId,
+    log,
+  });
+}
 
 export async function setEnv(
   input: ResourceRef & { key: string; value: string },
@@ -45,12 +63,7 @@ export async function setEnv(
     value: input.value,
   });
 
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
+  const redeployed = await rollFor(input, ctx.value, log);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return Result.ok(mapEnvVar(row));
@@ -59,7 +72,7 @@ export async function setEnv(
 export async function unsetEnv(
   input: ResourceRef & { key: string },
   log: RequestLogger,
-): Promise<Result<{ ok: true }, NotFound | ResolveError>> {
+): Promise<Result<{ ok: true }, RollFailure>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
@@ -71,12 +84,7 @@ export async function unsetEnv(
     return Result.err(new ServiceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
+  const redeployed = await rollFor(input, ctx.value, log);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return Result.ok({ ok: true });
@@ -114,12 +122,7 @@ export async function bulkSetEnv(
   if (guarded.isErr()) return Result.err(guarded.error);
 
   const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars);
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
+  const redeployed = await rollFor(input, ctx.value, log);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return Result.ok(rows.map(mapEnvVar));

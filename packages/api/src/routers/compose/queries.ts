@@ -14,6 +14,8 @@ import { composeResource, resource } from "@otterdeploy/db/schema/project";
  */
 import { and, asc, eq } from "drizzle-orm";
 
+import { newResourceEnvironmentId } from "../project/queries/new-resource-environment";
+
 export interface ComposeRecord {
   resource: typeof resource.$inferSelect;
   compose: typeof composeResource.$inferSelect;
@@ -83,13 +85,15 @@ export async function createComposeRecord(input: {
   /** SvglLogo search string carried from the source template; null otherwise. */
   logoBrand?: string | null;
 }): Promise<ComposeRecord> {
+  // An omitted environment resolves to the project's main one.
+  const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
   try {
     return await db.transaction(async (tx) => {
       const [res] = await tx
         .insert(resource)
         .values({
           projectId: input.projectId,
-          environmentId: input.environmentId ?? null,
+          environmentId,
           name: input.name,
           type: "compose",
           status: "valid",

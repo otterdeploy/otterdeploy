@@ -270,6 +270,27 @@ export class RefSelfReferenceError extends TaggedError("RefSelfReferenceError")<
   }
 }
 
+/**
+ * The env write landed; rolling the container did not.
+ *
+ * A compose child's swarm service is owned by its stack's reconcile, so an env
+ * change is applied by redeploying the STACK. When that fails the value IS
+ * saved and the running container still holds the old one — the two halves
+ * have to be said separately, or the operator reads a failure as "nothing
+ * happened" and retries a write that already succeeded.
+ */
+export class StackRollFailedError extends TaggedError("StackRollFailedError")<{
+  message: string;
+  stackResourceId: string;
+}>() {
+  constructor(args: { stackResourceId: string; detail: string }) {
+    super({
+      stackResourceId: args.stackResourceId,
+      message: `Saved, but rolling the stack to pick it up failed: ${args.detail}. The container is still running the previous value; redeploy the stack to retry.`,
+    });
+  }
+}
+
 export type ResolveError =
   | RefParseError
   | RefMissingResourceError
