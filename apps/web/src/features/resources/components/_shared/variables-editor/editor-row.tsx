@@ -57,6 +57,10 @@ interface EditorRowProps {
    *  and never stands in the way. */
   issue?: EnvIssue | null;
   revealed: boolean;
+  /** What this value resolves to once `${{…}}` references are expanded, from
+   *  service.env.effective. Undefined when the surface does not resolve (a
+   *  database panel, a staged manifest edit) or the row has no reference. */
+  resolved?: { value: string; unresolved: boolean };
   copied: boolean;
   pickerOpen: boolean;
   onChange: (patch: Partial<Pick<DraftRow, "key" | "value" | "isSecret">>) => void;
@@ -82,6 +86,7 @@ export function EditorRow({
   duplicate,
   issue = null,
   revealed,
+  resolved,
   copied,
   pickerOpen,
   onChange,
@@ -164,6 +169,7 @@ export function EditorRow({
           <DeleteAction onDelete={onDelete} />
         </div>
       </div>
+      {resolved && <ResolvedNote resolved={resolved} />}
       {duplicate && <DuplicateNote keyName={row.key.trim()} />}
       {!duplicate && issue && <IssueNote issue={issue} />}
       {showPickerHint(row.value, pickerOpen) && (
@@ -192,6 +198,33 @@ function IssueNote({ issue }: { issue: EnvIssue }) {
       )}
     >
       {issue.message}
+    </p>
+  );
+}
+
+/**
+ * What the container will actually get.
+ *
+ * A value like `postgres://…@${{stack.db.HOST}}:5432/x` is the thing you edit
+ * and the wrong thing to read: "is this pointing at the right database" is a
+ * question about the resolved string. Shown under the row rather than in place
+ * of it, because the template is still what you are editing.
+ *
+ * A reference that does not resolve is the case worth opening this for, so it
+ * says so in the blocking tone instead of quietly rendering the raw text.
+ */
+function ResolvedNote({ resolved }: { resolved: { value: string; unresolved: boolean } }) {
+  if (resolved.unresolved) {
+    return (
+      <p className={cn("text-[10.5px] text-destructive", NOTE_INDENT)}>
+        This reference does not resolve.
+      </p>
+    );
+  }
+  return (
+    <p className={cn("truncate font-mono text-[10.5px] text-muted-foreground", NOTE_INDENT)}>
+      <span className="font-sans">resolves to </span>
+      {resolved.value}
     </p>
   );
 }

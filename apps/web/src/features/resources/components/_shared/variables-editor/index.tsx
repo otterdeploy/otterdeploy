@@ -4,7 +4,7 @@
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import { useImperativeHandle, useState, type Ref } from "react";
+import { useImperativeHandle, useMemo, useState, type Ref } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -60,6 +60,11 @@ interface VariablesEditorProps {
   suggestions?: EnvSuggestion[];
   /** Free-text filter from the surrounding tab's search box. Display only. */
   filter?: string;
+  /** Show what each reference resolves to, under the row. Services only:
+   *  `service.env.effective` is a service endpoint, and a database's env holds
+   *  no references to resolve. Off by default so no surface calls it by
+   *  accident. */
+  showResolved?: boolean;
 }
 
 /** Suggest an env-var key from a picked `${{Source.KEY}}` token. The KEY
@@ -76,6 +81,7 @@ export function VariablesEditor({
   countLabel,
   suggestions = [],
   filter = "",
+  showResolved = false,
 }: VariablesEditorProps) {
   const { t } = useTranslation();
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -98,6 +104,24 @@ export function VariablesEditor({
       input: { projectId: resource.projectId },
       staleTime: 30_000,
     }),
+  );
+
+  // What each `${{…}}` reference actually resolves to. Secret and sealed rows
+  // come back masked (see routers/service/env-effective.ts), so this is safe to
+  // hold in the browser. Only fetched where it means something.
+  const effective = useQuery({
+    ...orpc.service.env.effective.queryOptions({
+      input: { projectId: resource.projectId, resourceId: resource.resourceId },
+      staleTime: 15_000,
+    }),
+    enabled: showResolved,
+  });
+  const resolvedByKey = useMemo(
+    () =>
+      new Map(
+        (effective.data ?? []).map((r) => [r.key, { value: r.value, unresolved: r.unresolved }]),
+      ),
+    [effective.data],
   );
 
   // Imperative handle for the header's "New Variable" button. Replaces the old
@@ -242,6 +266,7 @@ export function VariablesEditor({
       />
 
       <TableView
+        {...(showResolved ? { resolvedByKey } : {})}
         rows={editor.rows}
         deletedRows={editor.deletedRows}
         projectId={resource.projectId}
