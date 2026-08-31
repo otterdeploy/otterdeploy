@@ -124,7 +124,12 @@ export const postgresDialect: Dialect = {
   // `default_transaction_read_only` is a server-side session default, sent as a
   // startup parameter, so every statement on the connection inherits it and no
   // client-side check is load-bearing.
-  readOnlyConnectionParams: () => ({ options: "-c default_transaction_read_only=on" }),
+  // null, deliberately — NOT `-c default_transaction_read_only=on`. That was a
+  // startup parameter, and transaction-mode poolers (Neon, PgBouncer) refuse
+  // every startup option, which locked the workbench out of pooled databases.
+  // Read-only rides the same path as MySQL instead: runOnConnection wraps each
+  // read in a server-enforced READ ONLY transaction.
+  readOnlyConnectionParams: () => null,
   classifyType: classifyPostgresType,
 
   introspection: {
