@@ -17,6 +17,7 @@ import {
   RowApplyActions,
   SecretToggle,
 } from "./editor-row-actions";
+import { provenanceLabel, provenanceOf } from "./provenance";
 import { ValueCell } from "./value-cell";
 
 /**
@@ -169,6 +170,7 @@ export function EditorRow({
           <DeleteAction onDelete={onDelete} />
         </div>
       </div>
+      <ProvenanceChips value={row.value} />
       {resolved && <ResolvedNote resolved={resolved} />}
       {duplicate && <DuplicateNote keyName={row.key.trim()} />}
       {!duplicate && issue && <IssueNote issue={issue} />}
@@ -198,6 +200,35 @@ function IssueNote({ issue }: { issue: EnvIssue }) {
       )}
     >
       {issue.message}
+    </p>
+  );
+}
+
+/**
+ * What this value reads: `project`, `vault`, a sibling's name.
+ *
+ * Scoped to a claim the data supports. Nothing is INHERITED here — the project
+ * bag reaches a service only through an explicit `${{project.KEY}}` token, and
+ * there is no stack bag at all (od-1w02) — so these say "reads", never
+ * "inherited from". A row that reads nothing gets no chip: "set here" on every
+ * unremarkable row is noise, and most rows are unremarkable.
+ */
+function ProvenanceChips({ value }: { value: string }) {
+  const sources = provenanceOf(value)
+    .map(provenanceLabel)
+    .filter((label): label is string => label !== null);
+  if (sources.length === 0) return null;
+  return (
+    <p className={cn("flex flex-wrap items-center gap-1 text-[10.5px]", NOTE_INDENT)}>
+      <span className="text-muted-foreground">reads</span>
+      {sources.map((label) => (
+        <span
+          key={label}
+          className="rounded-sm bg-muted px-1 py-px font-mono text-[10px] text-muted-foreground"
+        >
+          {label}
+        </span>
+      ))}
     </p>
   );
 }
