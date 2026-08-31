@@ -92,13 +92,12 @@ describe("type classification", () => {
 });
 
 describe("read-only enforcement", () => {
-  it("makes postgres read-only with a server-applied startup parameter", () => {
-    // A startup parameter holds for every statement on every connection the
-    // pool opens, including ones opened later to meet demand. A statement
-    // issued after connect only covers the connections we remembered to run it on.
-    expect(postgresDialect.readOnlyConnectionParams()).toEqual({
-      options: "-c default_transaction_read_only=on",
-    });
+  it("enforces postgres read-only per transaction, not via startup parameters", () => {
+    // It used to be `-c default_transaction_read_only=on`, but transaction-mode
+    // poolers (Neon, PgBouncer) refuse every startup option — the parameter
+    // made pooled databases unopenable. Null routes postgres through the same
+    // server-enforced READ ONLY transaction wrapper MySQL already uses.
+    expect(postgresDialect.readOnlyConnectionParams()).toBeNull();
   });
 
   it("says honestly when an engine cannot do it at connect time", () => {

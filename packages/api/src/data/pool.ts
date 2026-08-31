@@ -23,6 +23,7 @@ import { withTimeout } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { SQL } from "bun";
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 
 import type { DataTarget } from "./target";
 
@@ -113,20 +114,15 @@ export function connect(target: DataTarget): Connection {
     return { sql: existing.sql, dialect: existing.dialect, target };
   }
 
-  // PostgreSQL accepts server-side startup parameters. MySQL has no equivalent;
-  // runOnConnection below wraps every read in a server-enforced READ ONLY
-  // transaction instead of pretending a statement classifier is a boundary.
+  // No startup parameters (`options`): transaction-mode poolers — Neon,
+  // PgBouncer, Supabase's pgbouncer — reject EVERY `-c` option with
+  // "unsupported startup parameter", which made pooled databases unopenable.
+  // Read-only is enforced by runOnConnection's server-side READ ONLY
+  // transaction; runaway statements are cancelled client-side by awaitQuery.
   let readOnlyParams: Record<string, string> = {};
   if (target.mode === "read-only") {
     const params = dialect.readOnlyConnectionParams();
     if (params !== null) readOnlyParams = params;
-  }
-  if (dialect.id === "postgres") {
-    const existingOptions = readOnlyParams.options;
-    readOnlyParams = {
-      ...readOnlyParams,
-      options: ["-c statement_timeout=30000", existingOptions].filter(Boolean).join(" "),
-    };
   }
 
   const sql = new SQL({
@@ -136,7 +132,18 @@ export function connect(target: DataTarget): Connection {
     database: target.database,
     username: target.username,
     password: target.password,
-    tls: target.tls,
+    // SNI, not just `true`: providers that route by server name (Neon answers
+    // "Endpoint ID is not specified" without it) need the hostname in the TLS
+    // handshake. An object tls (resolveExternalTarget pins the host to an IP
+    // and carries the real hostname as serverName) passes through untouched;
+    // a plain `true` gets the target's own host as the server name, unless
+    // that host is an IP literal, which is not a legal SNI value.
+    tls:
+      typeof target.tls === "boolean"
+        ? target.tls && isIP(target.host) === 0
+          ? { serverName: target.host }
+          : target.tls
+        : target.tls,
     max: MAX_CONNECTIONS,
     idleTimeout: IDLE_TIMEOUT_SECONDS,
     maxLifetime: MAX_LIFETIME_SECONDS,
