@@ -44,7 +44,11 @@ export function TargetSwitcher({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" size="sm" className="h-8 max-w-72 gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-full max-w-none justify-start gap-2 px-2"
+          >
             <span
               className={cn(
                 "size-1.5 shrink-0 rounded-full",
@@ -57,6 +61,11 @@ export function TargetSwitcher({
             />
             <span className="min-w-0 flex-1 truncate text-left font-medium">
               {isLoading ? "Loading…" : (active?.name ?? "No database")}
+              {active ? (
+                <span className="font-mono text-[10px] font-normal text-muted-foreground">
+                  {` · ${active.engine}`}
+                </span>
+              ) : null}
             </span>
             {active?.readOnly ? (
               <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9.5px] tracking-wide text-muted-foreground uppercase">

@@ -53,25 +53,20 @@ function DataPage() {
   // first option rather than rendering an empty workbench.
   const active = findTarget(all, search.target);
 
-  return (
-    <Page>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <TargetSwitcher
-          options={{ managed, external }}
-          active={active}
-          isLoading={isLoading}
-          onPick={(option) =>
-            void navigate({ search: { target: option.key }, replace: true })
-          }
-          onConnect={() => setConnectOpen(true)}
-        />
-        {active !== undefined ? (
-          <span className="font-mono text-[11.5px] text-muted-foreground">{active.subtitle}</span>
-        ) : null}
-      </div>
+  const connection = (
+    <TargetSwitcher
+      options={{ managed, external }}
+      active={active}
+      isLoading={isLoading}
+      onPick={(option) => void navigate({ search: { target: option.key }, replace: true })}
+      onConnect={() => setConnectOpen(true)}
+    />
+  );
 
+  return (
+    <Page className={active === undefined ? undefined : "min-h-0 gap-0 p-0 sm:p-0"}>
       {isLoading ? (
-        <div className="h-[calc(100dvh-13rem)] min-h-[440px] animate-pulse rounded-lg border bg-card" />
+        <div className="min-h-[560px] flex-1 animate-pulse border-y bg-card" />
       ) : active === undefined ? (
         <Empty className="rounded-lg border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
@@ -98,7 +93,8 @@ function DataPage() {
           key={active.key}
           target={active.target}
           label={active.name}
-          className="h-[calc(100dvh-13rem)] min-h-[440px]"
+          connection={connection}
+          className="min-h-[560px] flex-1"
         />
       )}
 
