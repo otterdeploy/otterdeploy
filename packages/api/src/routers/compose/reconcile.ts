@@ -37,6 +37,7 @@ import {
   seedServiceExposure,
   type MaterializedService,
 } from "./reconcile-rollout";
+import { rewriteSeededSiblingHosts } from "./reconcile-sibling-env";
 
 export interface StackReconcileContext {
   projectId: ProjectId;
@@ -165,11 +166,13 @@ export async function reconcileStackServices(
       const mapped = toServiceFields(svc, ctx, image);
       desired.add(mapped.serviceName);
 
-      const { resourceId, isCreate } = await materializeServiceRow({
+      const existing = existingByName.get(mapped.serviceName);
+      const { resourceId, isCreate, internalHostname } = await materializeServiceRow({
         ctx,
         composeServiceName: svc.name,
         mapped,
-        existingResourceId: existingByName.get(mapped.serviceName)?.resource.id,
+        existingResourceId: existing?.resource.id,
+        existingInternalHostname: existing?.service.internalHostname,
         environmentId,
         stackResourceName,
       });
@@ -179,6 +182,7 @@ export async function reconcileStackServices(
         serviceName: mapped.serviceName,
         resourceId,
         isCreate,
+        internalHostname,
       });
     } catch (e) {
       // A DB unique-violation (name / hostname collision) otherwise leaks the
@@ -187,6 +191,33 @@ export async function reconcileStackServices(
       progress(`Service ${svc.name}: failed, ${detail}`);
       failed.push(svc.name);
     }
+  }
+
+  // ── Pass 1.4: repoint seeded env at the siblings it meant.
+  //
+  // A compose file addresses peers by bare service key, but the project network
+  // is shared and `pickInternalHostname` renames a child whose bare name is
+  // already taken. The seeded env still said `db`, and on a shared network that
+  // name resolves — to the stack that got there first. See sibling-hosts.ts;
+  // this is the pass that stops one stack reading another's data.
+  //
+  // Here, not inside materialize, because the map is only complete once every
+  // row exists: each hostname is picked against the DB as it goes.
+  const rewritten = await Result.tryPromise({
+    try: () =>
+      rewriteSeededSiblingHosts(
+        materialized.map((m) => ({
+          composeService: m.svc.name,
+          internalHostname: m.internalHostname,
+          resourceId: m.resourceId,
+          isCreate: m.isCreate,
+        })),
+        log,
+      ),
+    catch: (e) => e,
+  });
+  if (rewritten.isOk() && rewritten.value > 0) {
+    progress(`Repointed ${rewritten.value} variable(s) at renamed stack siblings.`);
   }
 
   // ── Pass 1.5: every new service's PUBLIC ROUTE, before anything deploys.

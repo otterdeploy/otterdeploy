@@ -58,6 +58,9 @@ export interface MaterializedService {
   serviceName: string;
   resourceId: ResourceId;
   isCreate: boolean;
+  /** The hostname the row actually carries, which is NOT always the bare
+   *  compose key: see pickInternalHostname. The sibling-host rewrite reads it. */
+  internalHostname: string;
 }
 
 function toErrorMessage(e: unknown): string {

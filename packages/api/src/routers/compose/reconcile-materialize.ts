@@ -70,6 +70,8 @@ async function materializeServiceRow(input: {
   composeServiceName: string;
   mapped: ReturnType<typeof toServiceFields>;
   existingResourceId: ResourceId | undefined;
+  /** The existing row's stored hostname, when updating one. */
+  existingInternalHostname?: string;
   /** The owning stack's environment. A child belongs wherever its stack does.
    *  Read from the stack row rather than threaded through every context
    *  construction site, so it cannot go missing on one path and it follows the
@@ -77,7 +79,7 @@ async function materializeServiceRow(input: {
   environmentId: EnvironmentId | null;
   /** Owning stack's resource name. Children are namespaced by it. */
   stackResourceName: string;
-}): Promise<{ resourceId: ResourceId; isCreate: boolean }> {
+}): Promise<{ resourceId: ResourceId; isCreate: boolean; internalHostname: string }> {
   const { ctx, mapped } = input;
   if (input.existingResourceId) {
     // Structure (image/command/replicas/healthcheck/resources) tracks the
@@ -89,7 +91,14 @@ async function materializeServiceRow(input: {
       composeService: input.composeServiceName,
     });
     await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts);
-    return { resourceId: input.existingResourceId, isCreate: false };
+    // The stored hostname, not the mapped bare one: an existing child may have
+    // been renamed on ITS create, and the rename map the caller builds has to
+    // describe what DNS actually answers.
+    return {
+      resourceId: input.existingResourceId,
+      isCreate: false,
+      internalHostname: input.existingInternalHostname ?? mapped.internalHostname,
+    };
   }
 
   const name = await pickResourceName(
@@ -127,5 +136,5 @@ async function materializeServiceRow(input: {
   if (mapped.mounts.length > 0) {
     await bulkReplaceServiceMounts(resourceId, mapped.mounts);
   }
-  return { resourceId, isCreate: true };
+  return { resourceId, isCreate: true, internalHostname };
 }
