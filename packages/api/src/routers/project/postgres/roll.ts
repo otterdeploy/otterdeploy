@@ -89,15 +89,20 @@ export async function rollDatabaseContainer(
           await resolvePlacementForResource({ resourceId: record.resource.id, stateful: true })
         ).nodeId,
         image,
+        // Stored name wins; the computation is the fallback for rows that
+        // predate the column (od-jwx). A roll that addressed the wrong name
+        // would provision a SECOND container beside the live one.
         serviceName: buildContainerName({
           engine,
           projectSlug,
           resourceName: record.resource.name,
+          stored: db.serviceName,
         }),
         volumeName: buildVolumeName({
           engine,
           projectSlug,
           resourceName: record.resource.name,
+          stored: db.volumeName,
         }),
         hostnameAlias: db.internalHostname,
         databaseName: db.databaseName,

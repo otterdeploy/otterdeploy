@@ -66,21 +66,42 @@ const ENGINE_VOLUME_PREFIX: Record<DatabaseEngine, string> = {
   clickhouse: "chdata",
 };
 
+/**
+ * The container name for one database.
+ *
+ * `stored` is `database_resource.service_name`, written once at create. It
+ * WINS outright, and the computation below is the fallback for every row that
+ * predates that column (od-jwx). Keeping the fallback identical to what
+ * produced today's names is what lets the column land without a backfill: an
+ * existing database keeps addressing the container it already has.
+ *
+ * Pass `stored` wherever the row is in hand. A caller that computes when it
+ * could have read is harmless today — the two agree — but stops agreeing the
+ * moment names become environment-scoped, so this is the seam that has to be
+ * complete before that lands.
+ */
 export function buildContainerName(input: {
   engine: DatabaseEngine;
   projectSlug: string;
   resourceName: string;
+  stored?: string | null;
 }) {
+  if (input.stored) return input.stored;
   return sanitizeDockerName(
     `otterdeploy-${ENGINE_SERVICE_PREFIX[input.engine]}-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
   );
 }
 
+/** The volume name for one database. `stored` wins; see buildContainerName
+ *  for why the computation stays as the fallback. Getting this wrong orphans
+ *  data rather than merely failing a lookup, so the fallback is not optional. */
 export function buildVolumeName(input: {
   engine: DatabaseEngine;
   projectSlug: string;
   resourceName: string;
+  stored?: string | null;
 }) {
+  if (input.stored) return input.stored;
   return sanitizeDockerName(
     `otterdeploy-${ENGINE_VOLUME_PREFIX[input.engine]}-${sanitizeProjectSlug(input.projectSlug)}-${sanitizeDatabaseName(input.resourceName)}`,
   );
