@@ -266,7 +266,9 @@ function TableListRail({ studio, onPick }: { studio: DataStudioController; onPic
           >
             <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate" title={`${tbl.schema}.${tbl.name}`}>
-              {tbl.schema === "public" ? tbl.name : `${tbl.schema}.${tbl.name}`}
+              {/* Qualified only in "all schemas": with one schema active every
+                  row would repeat the same prefix and truncate the name. */}
+              {t.activeSchema === null ? `${tbl.schema}.${tbl.name}` : tbl.name}
             </span>
             {/* Planner estimate (pg_class.reltuples), never a count(*). */}
             {tbl.estimatedRows != null ? (

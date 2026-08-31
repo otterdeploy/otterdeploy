@@ -248,7 +248,7 @@ function DataGridRowImpl<TData>({
             tabIndex={-1}
             className={cn({
               grow: stretchColumns && columnId !== "select",
-              "border-e": showEndBorder && columnId !== "select",
+              "border-e": showEndBorder,
               "border-s": showStartBorder && columnId !== "select",
             })}
             style={{

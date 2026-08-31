@@ -54,6 +54,8 @@ interface ResultsPanelProps {
   emptyIcon?: typeof Database01Icon;
   leftSlot?: React.ReactNode;
   footerSlot?: React.ReactNode;
+  /** Execution time shown at the toolbar's right edge; null while unknown. */
+  durationMs?: number | null;
   /** Suggested filename stem for exports. */
   exportName?: string;
   /** Inline edit / delete (table-browse mode, actor has write capability). */
@@ -73,6 +75,7 @@ export function ResultsPanel({
   target,
   columns,
   rows,
+  durationMs,
   columnFks,
   columnTypes,
   hiddenColumns,
@@ -137,6 +140,7 @@ export function ResultsPanel({
         selectable={selectable}
         selectedRows={selectedRows}
         leftSlot={leftSlot}
+        durationMs={durationMs}
       />
 
       {/* Body */}

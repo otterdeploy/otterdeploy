@@ -165,7 +165,7 @@ export function DataGrid<TData>({
                     tabIndex={-1}
                     className={cn("relative", {
                       grow: stretchColumns && header.column.id !== "select",
-                      "border-e": showEndBorder && header.column.id !== "select",
+                      "border-e": showEndBorder,
                       "border-s": showStartBorder && header.column.id !== "select",
                     })}
                     style={{

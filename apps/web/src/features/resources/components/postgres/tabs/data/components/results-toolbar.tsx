@@ -100,6 +100,7 @@ export function ResultsToolbar({
   selectable,
   selectedRows,
   leftSlot,
+  durationMs,
 }: {
   columns: readonly ColumnMeta[];
   rows: readonly CellValue[][];
@@ -110,6 +111,8 @@ export function ResultsToolbar({
   selectable: boolean;
   selectedRows?: number[];
   leftSlot?: React.ReactNode;
+  /** Server-reported execution time of the visible result; null hides the chip. */
+  durationMs?: number | null;
 }) {
   const selectedCount = selectedRows?.length ?? 0;
   const rowsFor = (selection: boolean) =>
@@ -127,6 +130,12 @@ export function ResultsToolbar({
     <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-2">
       <div className="flex min-w-0 items-center gap-2">{leftSlot}</div>
       <div className="flex items-center gap-1.5">
+        {/* Hidden at 0: that is "no measurement yet", not a sub-ms query. */}
+        {durationMs !== null && durationMs !== undefined && durationMs > 0 ? (
+          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+            {durationMs}ms
+          </span>
+        ) : null}
         <ToggleGroup
           size="sm"
           value={[view]}

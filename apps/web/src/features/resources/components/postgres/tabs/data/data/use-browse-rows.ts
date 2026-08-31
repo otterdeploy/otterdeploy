@@ -25,6 +25,7 @@ import {
   refetchRowsWindow,
   ROWS_WINDOW,
   rowsWindowCollection,
+  windowDurationKey,
 } from "./rows-window";
 import { schemaCollection, tableId } from "./schema-collection";
 
@@ -92,6 +93,13 @@ export function useBrowseRows({
     placeholderData: keepPrevious ? (prev) => prev : undefined,
   });
 
+  // Subscribed, not read: `enabled: false` means never fetch, but the queryFn
+  // in rows-window writes this key and the subscription re-renders us when the
+  // duration lands — a plain getQueryData would miss the first fetch.
+  const durationEntry = useQuery({
+    queryKey: windowDurationKey(target, table),
+    enabled: false,
+  });
   const windowGrid = useWindowGrid({
     rows: overflow || table === null ? undefined : live.data,
     columns,
@@ -99,6 +107,7 @@ export function useBrowseRows({
     sorts,
     limit,
     offset,
+    durationMs: numberOrNull(durationEntry.data),
   });
 
   const refetch = () => {
@@ -150,8 +159,9 @@ function useWindowGrid(input: {
   sorts: Sort[];
   limit: number;
   offset: number;
+  durationMs: number | null;
 }): Grid | undefined {
-  const { rows, columns, filters, sorts, limit, offset } = input;
+  const { rows, columns, filters, sorts, limit, offset, durationMs } = input;
   return useMemo(() => {
     if (rows === undefined || columns === undefined) return undefined;
     const view = applyRowsView({ rows, columns, filters, sorts, limit, offset });
@@ -162,11 +172,11 @@ function useWindowGrid(input: {
       // The pager's "has next": more MATCHED rows exist past this page.
       truncated: offset + view.page.length < view.matched,
       rowsAffected: null,
-      // Served from the client-side window: no wire time to report.
-      durationMs: 0,
+      // The window's original fetch time; 0 when the cache hydrated without one.
+      durationMs: durationMs ?? 0,
       notices: [],
     };
-  }, [rows, columns, filters, sorts, limit, offset]);
+  }, [rows, columns, filters, sorts, limit, offset, durationMs]);
 }
 
 function windowShape(
@@ -197,3 +207,8 @@ export interface BrowseRowsResult {
 }
 
 const BROWSE_STALE_MS = 30_000;
+
+/** The duration cache entry is unowned by types; trust only a real number. */
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
