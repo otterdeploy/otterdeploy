@@ -22,47 +22,61 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
+import type { DefinitionsSection } from "./components/definitions-view";
 import type { ResultView } from "./components/results-panel";
 import type { WorkbenchTarget } from "./data/target";
+import type { WorkbenchUrlState } from "./data/url-state";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { type TableRef } from "./data/queries";
 import { targetKey } from "./data/target";
+import { EMPTY_URL_STATE, useWorkbenchUrlSync } from "./data/url-state";
 import { useBrowseRows } from "./data/use-database";
 import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
 import {
   buildSchema,
+  quoteRef,
   useDrafts,
   useRowMutations,
   useSnippetBuffer,
 } from "./use-data-studio-helpers";
 import { errMessage } from "./use-data-studio-sql";
 import { useOpenTableAccess, useTableList } from "./use-data-studio-tables";
+import { useWorkbenchTabs } from "./use-workbench-tabs";
 
 export const PAGE_SIZES = [50, 100, 200, 500];
 
 export { errMessage };
 
-function useTableData(target: WorkbenchTarget) {
+function useTableData(target: WorkbenchTarget, init: WorkbenchUrlState) {
   const [mode, setMode] = useState<"table" | "sql">("table");
   const [tableSearch, setTableSearch] = useState("");
-  const [selected, setSelected] = useState<TableRef | null>(null);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(100);
-  const [filters, setFilters] = useState<Filter[]>([]);
-  const [sorts, setSorts] = useState<Sort[]>([]);
+  // Seeded from the URL, so a refresh reopens the same table, page and
+  // filters. See data/url-state.ts for the round trip.
+  const [selected, setSelected] = useState<TableRef | null>(init.table);
+  const [page, setPage] = useState(init.page);
+  const [pageSize, setPageSize] = useState(init.pageSize);
+  const [filters, setFilters] = useState<Filter[]>(init.filters);
+  const [sorts, setSorts] = useState<Sort[]>(init.sorts);
   const [view, setView] = useState<ResultView>("grid");
   // Data (rows grid) vs Structure (column detail) for the open table.
   // Three read surfaces over the open connection: rows, this table's
   // columns, and the database's non-table objects.
   const [tableView, setTableView] = useState<"data" | "structure" | "definitions">("data");
+  // Which Definitions section is open. Lifted out of DefinitionsView because
+  // the rail lists Indexes/Constraints/Enums as destinations of their own —
+  // clicking one has to both switch to Definitions and land on that section.
+  const [definitionsSection, setDefinitionsSection] = useState<DefinitionsSection>("indexes");
   const [writeMode, setWriteMode] = useState(false);
   // Column names hidden from the grid for the open table (persisted per-table;
   // exports always include every column).
-  const [hiddenColumns, setHiddenColumnsState] = useState<string[]>([]);
+  const [hiddenColumns, setHiddenColumnsState] = useState<string[]>(() =>
+    init.table === null ? [] : loadHiddenColumns(targetKey(target), init.table),
+  );
   const autoOpenedRef = useRef(false);
 
-  const { tablesQuery, tables, filteredTables } = useTableList(target, tableSearch);
+  const { tablesQuery, tables, filteredTables, schemas, activeSchema, setActiveSchema } =
+    useTableList(target, tableSearch);
 
   // The client sends a filter MODEL, not SQL. The server compiles it with the
   // operands bound and the column names checked against the table's real
@@ -141,30 +155,28 @@ function useTableData(target: WorkbenchTarget) {
   };
   // Switch back to the (primary) table-browse view from the SQL playground.
   const backToTable = () => {
-    const first = tables[0];
+    const first = filteredTables[0];
     if (!selected && first) openTable(first);
     else setMode("table");
   };
-  const changeFilters = (next: Filter[]) => {
-    setFilters(next);
-    setPage(0);
-  };
-  const changeSorts = (next: Sort[]) => {
-    setSorts(next);
-    setPage(0);
-  };
+  // Both reset paging: page 3 of a different question is nowhere.
+  const changeFilters = (next: Filter[]) => (setFilters(next), setPage(0));
+  const changeSorts = (next: Sort[]) => (setSorts(next), setPage(0));
 
   // Land on the first table's rows once the list loads (browse, not authored
   // SQL). Fires once so it never fights a manual SQL/snippet switch afterward.
   // `openTable` is a fresh closure every render, so it reaches the effect as an
   // effect event rather than a dependency that would re-run it constantly.
+  // The FILTERED list, not every table: the rail defaults to `public`, and
+  // landing on a `drizzle` table that the rail is not showing leaves the
+  // workbench open on something with no visible selection.
   const autoOpen = useEffectEvent((t: TableRef) => openTable(t));
   useEffect(() => {
-    if (!autoOpenedRef.current && !selected && tables[0]) {
+    if (!autoOpenedRef.current && !selected && filteredTables[0]) {
       autoOpenedRef.current = true;
-      autoOpen(tables[0]);
+      autoOpen(filteredTables[0]);
     }
-  }, [selected, tables]);
+  }, [selected, filteredTables]);
 
   // Results pane source: see ./use-data-studio-console.
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
@@ -185,6 +197,8 @@ function useTableData(target: WorkbenchTarget) {
     setView,
     tableView,
     setTableView,
+    definitionsSection,
+    setDefinitionsSection,
     writeMode,
     setWriteMode,
     hiddenColumns,
@@ -192,6 +206,9 @@ function useTableData(target: WorkbenchTarget) {
     tablesQuery,
     tables,
     filteredTables,
+    schemas,
+    activeSchema,
+    setActiveSchema,
     columns,
     sorts,
     changeSorts,
@@ -229,17 +246,25 @@ function useTableData(target: WorkbenchTarget) {
  * there is no resource behind half the things this can open, and the panel that
  * used to own this surface has no way to name them.
  */
-export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
-  const editor = useSnippetBuffer(target);
-  const table = useTableData(target);
+export interface StudioOptions {
+  /** Browse state decoded from the URL at mount. */
+  init?: WorkbenchUrlState;
+  /** Called whenever the browse state changes, to write it back to the URL. */
+  onUrlState?: (state: WorkbenchUrlState) => void;
+}
 
-  // The SQL playground is a three-pane resizable shell. On a phone a 20% rail
-  // is ~75px. Too narrow to read a snippet name and it starves the editor, so
-  // the snippets rail starts closed below `md`. The toolbar toggle still opens
-  // it on demand; only the DEFAULT differs.
-  const [showLeft, setShowLeft] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
+export function useDataStudio(
+  target: WorkbenchTarget,
+  shortcuts: boolean,
+  options?: StudioOptions,
+) {
+  const editor = useSnippetBuffer(target);
+  const table = useTableData(target, options?.init ?? EMPTY_URL_STATE);
+
+  // The snippets panel starts closed: the workbench rail is the persistent
+  // sidebar, and a second always-open panel beside it would double the chrome.
+  // The toolbar toggle (and ⌘K) still opens it on demand.
+  const [showLeft, setShowLeft] = useState(false);
   // The schema explorer is opt-in. Closed until toggled from the toolbar.
   const [showRight, setShowRight] = useState(false);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
@@ -248,6 +273,16 @@ export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
     editor.setActiveSnippetId(id);
     table.setMode("sql");
   };
+  // Open tables + open queries, one strip. Derives its active entry from the
+  // state above, so every existing open path grows a tab without knowing.
+  const tabs = useWorkbenchTabs({
+    mode: table.mode,
+    selected: table.selected,
+    activeSnippetId: editor.activeSnippetId,
+    snippetIds: editor.snippets.map((s) => s.id),
+    openTable: table.openTable,
+    selectSnippet,
+  });
   const newQuery = () => {
     const s = editor.addSnippet({ name: "Untitled query", sql: "" });
     selectSnippet(s.id);
@@ -276,6 +311,17 @@ export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
     table.setMode("sql");
   };
 
+  useWorkbenchUrlSync(
+    {
+      table: table.selected,
+      filters: table.filters,
+      sorts: table.sorts,
+      page: table.page,
+      pageSize: table.pageSize,
+    },
+    options?.onUrlState,
+  );
+
   // ⌘K: only the visible studio listens (`enabled` is synced every render).
   // The global command palette also registers Mod+K (features/command-palette);
   // that's intentional. This one only fires while the Data studio is mounted
@@ -294,6 +340,7 @@ export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
   return {
     editor,
     table,
+    tabs,
     showLeft,
     setShowLeft,
     showRight,
@@ -305,17 +352,6 @@ export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
     openInSql,
     loadFromHistory,
   };
-}
-
-/**
- * Quote a table reference for the EDITOR BUFFER — text the user reads and can
- * edit before running, not a statement this code executes. Double quotes are
- * correct for Postgres and ClickHouse; MySQL accepts them under ANSI_QUOTES and
- * the user can adjust, which is the point of putting it in an editor.
- */
-function quoteRef(ref: TableRef): string {
-  const q = (name: string) => `"${name.replace(/"/g, '""')}"`;
-  return ref.schema === "" ? q(ref.name) : `${q(ref.schema)}.${q(ref.name)}`;
 }
 
 export type DataStudioController = ReturnType<typeof useDataStudio>;

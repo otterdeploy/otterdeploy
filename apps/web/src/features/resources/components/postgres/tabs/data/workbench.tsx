@@ -15,8 +15,11 @@ import { cn } from "@/shared/lib/utils";
 
 import type { SqlEditorHandle } from "./components/sql-editor";
 import type { WorkbenchTarget } from "./data/target";
+import type { WorkbenchUrlState } from "./data/url-state";
 
 import { DataSpotlight } from "./components/data-spotlight";
+import { RailContent } from "./components/workbench-rail";
+import { WorkbenchTabs } from "./components/workbench-tabs";
 import { StudioResults } from "./studio-results";
 import { SqlPlaygroundView } from "./studio-sql-view";
 import { TableBrowserView } from "./studio-table-view";
@@ -28,6 +31,8 @@ export function DataWorkbench({
   label,
   className,
   shortcuts = true,
+  urlInit,
+  onUrlState,
 }: {
   target: WorkbenchTarget;
   /** Human name of the database, for the destructive-write confirm gate. */
@@ -35,8 +40,11 @@ export function DataWorkbench({
   className?: string;
   /** False while another workbench above this one owns ⌘K. */
   shortcuts?: boolean;
+  /** Browse state decoded from the URL; the route owns the round trip. */
+  urlInit?: WorkbenchUrlState;
+  onUrlState?: (state: WorkbenchUrlState) => void;
 }) {
-  const studio = useDataStudio(target, shortcuts);
+  const studio = useDataStudio(target, shortcuts, { init: urlInit, onUrlState });
   // The editor handle is held here (not on the controller) so the shared
   // `studio` object never carries a ref. See use-data-studio.ts.
   const editorRef = useRef<SqlEditorHandle>(null);
@@ -45,12 +53,23 @@ export function DataWorkbench({
   const results = <StudioResults studio={studio} />;
 
   return (
-    <div className={cn("flex overflow-hidden rounded-lg border bg-card", className)}>
-      {studio.table.mode === "table" ? (
-        <TableBrowserView studio={studio} results={results} />
-      ) : (
-        <SqlPlaygroundView studio={studio} results={results} editorRef={editorRef} />
-      )}
+    <div className={cn("flex overflow-hidden bg-background", className)}>
+      {/* ONE rail, owned here rather than by either mode's layout. When each
+          layout carried its own (fixed-width here, percentage panel there),
+          switching tabs visibly resized the sidebar — the same element must
+          survive the mode change untouched. */}
+      <div className="hidden w-60 shrink-0 flex-col border-r sm:flex">
+        <RailContent studio={studio} />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <WorkbenchTabs studio={studio} />
+        {studio.table.mode === "table" ? (
+          <TableBrowserView studio={studio} results={results} />
+        ) : (
+          <SqlPlaygroundView studio={studio} results={results} editorRef={editorRef} />
+        )}
+      </div>
 
       <WriteConfirmDialog studio={studio} databaseName={label} />
 

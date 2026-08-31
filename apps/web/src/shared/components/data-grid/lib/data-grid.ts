@@ -162,9 +162,12 @@ export function getColumnPinningStyle<TData>(params: {
       : undefined,
     left: isRtl ? rightPosition : leftPosition,
     right: isRtl ? leftPosition : rightPosition,
-    opacity: isPinned ? 0.97 : 1,
     position: isPinned ? "sticky" : "relative",
-    background: isPinned ? "var(--background)" : "var(--card)",
+    // Pinned cells take their surface from the container they sit in (header
+    // vs body set --grid-pinned-bg); unpinned cells stay transparent so the
+    // container's own surface shows through. Painting var(--card) on every
+    // cell is what made the header read white no matter what it was told.
+    background: isPinned ? "var(--grid-pinned-bg, var(--card))" : undefined,
     width: column.getSize(),
     zIndex: isPinned ? 1 : undefined,
   };

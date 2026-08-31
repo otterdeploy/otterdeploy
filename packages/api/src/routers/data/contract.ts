@@ -322,6 +322,34 @@ export const dataContract = {
     .errors(dataErrors),
 
   /**
+   * Open a DRAFT URL once, before anything is saved.
+   *
+   * The URL exists only inside this request: it is not persisted, not echoed
+   * back, and not logged. This is what makes a "Test connection" button in the
+   * connect form possible at all — without it the only way to find out a URL
+   * was wrong was to save the credential first.
+   */
+  testUrl: oc
+    .route({ method: "POST", path: `${basePath}/connections/test-url`, tags: [tag] })
+    .input(z.object({ url: z.string().min(1).max(2048) }))
+    .output(
+      z.object({
+        ok: z.boolean(),
+        engine: z.string(),
+        durationMs: z.number(),
+        serverVersion: z.string(),
+      }),
+    )
+    .errors({
+      ...dataErrors,
+      INVALID_URL: {
+        status: 422 as const,
+        message: "That connection URL cannot be used" as const,
+        data: z.object({ reason: z.string() }),
+      },
+    }),
+
+  /**
    * Apply staged row edits as ONE transaction.
    *
    * A list rather than a single mutation because that is what the grid actually

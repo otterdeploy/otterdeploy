@@ -171,38 +171,6 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["restore", "snapshot", "database", "databases", "connections"],
       },
       {
-        // A destination, not a tab. It used to live inside a database
-        // resource's panel, which could not express an external connection at
-        // all — those are attached to no resource. The panel keeps a link in.
-        title: "Data",
-        i18nKey: "nav.data",
-        to: "/$orgSlug/data",
-        icon: DatabaseIcon,
-        keywords: [
-          "sql",
-          "query",
-          "postgres",
-          "mysql",
-          "mariadb",
-          "table",
-          "rows",
-          "browse",
-          "studio",
-          "schema",
-          "workbench",
-        ],
-      },
-      {
-        // Sits next to Backups because it IS them, seen from the other side: a
-        // bucket here is an S3 backup destination, browsed with the credential
-        // already stored on it. Nothing new to configure.
-        title: "Storage",
-        i18nKey: "nav.storage",
-        to: "/$orgSlug/storage",
-        icon: FolderLibraryIcon,
-        keywords: ["s3", "bucket", "buckets", "objects", "r2", "minio", "files", "uploads", "blob"],
-      },
-      {
         title: "Analytics",
         i18nKey: "nav.analytics",
         to: "/$orgSlug/analytics",
@@ -253,6 +221,33 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         to: "/$orgSlug/audit",
         icon: File01Icon,
         keywords: ["activity", "history"],
+      },
+    ],
+  },
+  {
+    // Its own heading: the workbench and the buckets are one subject — what is
+    // IN the stores — not more infrastructure to run.
+    label: "Data",
+    labelI18nKey: "nav.groups.data",
+    items: [
+      {
+        // A destination, not a tab. It used to live inside a database
+        // resource's panel, which could not express an external connection at
+        // all — those are attached to no resource. The panel keeps a link in.
+        title: "Workbench",
+        i18nKey: "nav.data",
+        to: "/$orgSlug/data",
+        icon: DatabaseIcon,
+        keywords: ["data", "sql", "query", "postgres", "mysql", "table", "rows", "workbench"],
+      },
+      {
+        // A bucket here is an S3 backup destination, browsed with the
+        // credential already stored on it. Nothing new to configure.
+        title: "Buckets",
+        i18nKey: "nav.storage",
+        to: "/$orgSlug/buckets",
+        icon: FolderLibraryIcon,
+        keywords: ["storage", "s3", "bucket", "buckets", "objects", "minio", "files", "blob"],
       },
     ],
   },

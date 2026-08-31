@@ -21,6 +21,7 @@
  */
 import type { JsonValue } from "@otterdeploy/shared/json";
 
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { Result } from "better-result";
 import * as z from "zod";
 
@@ -141,10 +142,11 @@ export function cellKind(cell: CellValue): CellKind | "null" {
 export function displayText(cell: CellValue): string {
   if (cell === null) return "";
   switch (cell.k) {
+    case "instant":
+      return instantDisplay(cell.v);
     case "text":
     case "bigint":
     case "decimal":
-    case "instant":
     case "date":
     case "time":
     case "opaque":
@@ -174,8 +176,35 @@ export function base64ByteLength(b64: string): number {
  * round-trips. Unlike {@link displayText} this is lossless: `bytes` keeps its
  * base64 and `json` keeps its full serialization.
  */
+/**
+ * A timestamp as a person reads it: `2026-08-24 09:12:44+00`.
+ *
+ * The driver hands back RFC-3339 (`2026-08-24T09:12:44.845Z`), which is the
+ * right thing to store and the wrong thing to put in a 150px column — the `T`,
+ * the milliseconds and the `Z` are three pieces of punctuation you have to read
+ * past to compare two rows. Postgres's own `\d` output is the model here.
+ *
+ * Rendered in UTC deliberately: the wire value IS an absolute instant, and
+ * shifting it to the viewer's zone would make two people reading the same row
+ * disagree about what it says. `editText` keeps the lossless original.
+ */
+function instantDisplay(iso: string): string {
+  const parsed = Result.try({
+    try: () => Temporal.Instant.from(iso).toZonedDateTimeISO("UTC"),
+    catch: () => null,
+  });
+  // Unparseable is shown verbatim: a value we cannot read is still a value the
+  // reader may recognise, and inventing a placeholder would hide it.
+  if (parsed.isErr()) return iso;
+  const z = parsed.value;
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  return `${z.year}-${p2(z.month)}-${p2(z.day)} ${p2(z.hour)}:${p2(z.minute)}:${p2(z.second)}+00`;
+}
+
 export function editText(cell: CellValue): string {
   if (cell === null) return "";
+  // The lossless original, so an untouched edit round-trips byte-for-byte.
+  if (cell.k === "instant") return cell.v;
   if (cell.k === "json") return JSON.stringify(cell.v, null, 2);
   if (cell.k === "bytes") return cell.v;
   if (cell.k === "array") return JSON.stringify(cell.v.map(editText));
@@ -269,10 +298,13 @@ function safeJsonParse(text: string): unknown {
 export function toDriverParam(cell: CellValue): string | number | boolean | null | Uint8Array {
   if (cell === null) return null;
   switch (cell.k) {
+    // The wire value verbatim. `instantDisplay` is for READING; sending its
+    // second-truncated form back would silently drop sub-second precision on
+    // every row that round-trips through an edit.
+    case "instant":
     case "text":
     case "bigint":
     case "decimal":
-    case "instant":
     case "date":
     case "time":
     case "opaque":

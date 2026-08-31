@@ -66,6 +66,13 @@ export function SiteHeader() {
 
         <HeaderNav />
 
+        {/* Route-owned continuation of the crumb trail. A page whose whole
+            subject is one switchable thing (the data workbench's database)
+            portals its picker here, so the trail reads `org / database` the
+            way it reads `org / project / env` — without this header knowing
+            any route's state. Empty for every route that doesn't use it. */}
+        <span id="site-header-crumb-slot" className="flex min-w-0 items-center gap-0.5" />
+
         <div
           className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2"
           data-tour="header-actions"

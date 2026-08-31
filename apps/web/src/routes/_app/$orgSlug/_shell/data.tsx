@@ -13,14 +13,15 @@
  * `target` is in the URL, so a particular database is a link you can send
  * someone — which is the whole reason it is a search param and not state.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { createPortal } from "react-dom";
 
 import { Database02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { Page } from "@/shared/components/page";
 import { Button } from "@/shared/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 
@@ -30,11 +31,23 @@ import {
   findTarget,
   useWorkbenchTargets,
 } from "@/features/resources/components/postgres/tabs/data/data/use-workbench-targets";
+import type { WorkbenchUrlState } from "@/features/resources/components/postgres/tabs/data/data/url-state";
+
+import {
+  searchFromUrlState,
+  urlStateFromSearch,
+} from "@/features/resources/components/postgres/tabs/data/data/url-state";
 import { DataWorkbench } from "@/features/resources/components/postgres/tabs/data/workbench";
 
 const searchSchema = z.object({
   /** `resource:res_…` or `connection:dconn_…`; see data/target.ts. */
   target: z.string().optional(),
+  /** Browse state — `schema.name`, JSON filters/sorts, paging. url-state.ts. */
+  table: z.string().optional(),
+  filters: z.string().optional(),
+  sorts: z.string().optional(),
+  page: z.coerce.number().int().min(0).optional(),
+  pageSize: z.coerce.number().int().min(1).max(500).optional(),
 });
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/data")({
@@ -52,42 +65,78 @@ function DataPage() {
   // first option rather than rendering an empty workbench.
   const active = findTarget(all, search.target);
 
-  return (
-    <Page>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <TargetSwitcher
-          options={{ managed, external }}
-          active={active}
-          isLoading={isLoading}
-          onPick={(option) =>
-            void navigate({ search: { target: option.key }, replace: true })
-          }
-          onConnect={() => setConnectOpen(true)}
-        />
-        {active !== undefined ? (
-          <span className="font-mono text-[11.5px] text-muted-foreground">{active.subtitle}</span>
-        ) : null}
-      </div>
+  // Captured ONCE: the workbench seeds its state from this at mount, then owns
+  // it; later URL echoes must not feed back in. Pinned to the target it was
+  // read for, so switching databases starts the new one clean.
+  const [initial] = useState(() => ({
+    forTarget: search.target,
+    state: urlStateFromSearch(search),
+  }));
+  const onUrlState = (state: WorkbenchUrlState) => {
+    void navigate({ search: (prev) => ({ ...prev, ...searchFromUrlState(state) }), replace: true });
+  };
 
+  const switcher = (
+    <TargetSwitcher
+      options={{ managed, external }}
+      active={active}
+      isLoading={isLoading}
+      onPick={(option) => void navigate({ search: { target: option.key }, replace: true })}
+      onConnect={() => setConnectOpen(true)}
+    />
+  );
+
+  // The switcher joins the header's crumb trail — `acme / otterdeploy-local` —
+  // instead of squatting at the top of the rail: which database you are in is
+  // the same species of fact as which org, and it belongs in the same row. The
+  // slot is grabbed after mount because the portal target renders in a
+  // different subtree of the same layout.
+  const [crumbSlot, setCrumbSlot] = useState<Element | null>(null);
+  useEffect(() => {
+    setCrumbSlot(document.getElementById("site-header-crumb-slot"));
+  }, []);
+  const headerCrumb =
+    crumbSlot === null
+      ? null
+      : createPortal(
+          <>
+            <span aria-hidden className="px-1 text-base text-muted-foreground/40 select-none">
+              /
+            </span>
+            {switcher}
+          </>,
+          crumbSlot,
+        );
+
+  // Full-bleed, no Page gutter and no card: this is an instrument surface, the
+  // exception Page's own docs carve out for Terminal and Edge logs. A database
+  // browser boxed inside page padding wastes the two dimensions it needs most,
+  // and the rail reads as part of the app rather than as a widget on a page.
+  return (
+    <div className="flex h-[calc(100svh-var(--header-height))] min-h-0 min-w-0 flex-col overflow-hidden">
+      {headerCrumb}
       {isLoading ? (
-        <div className="h-[calc(100dvh-13rem)] min-h-[440px] animate-pulse rounded-lg border bg-card" />
+        <div className="min-h-0 flex-1 animate-pulse bg-muted/20" />
       ) : active === undefined ? (
-        <Empty className="rounded-lg border border-dashed bg-muted/20 py-12">
-          <EmptyHeader>
-            <HugeiconsIcon
-              icon={Database02Icon}
-              strokeWidth={1.5}
-              className="size-10 text-muted-foreground/50"
-            />
-            <EmptyTitle>Nothing to browse yet</EmptyTitle>
-            <EmptyDescription>
-              Deploy a PostgreSQL or MariaDB database, or connect one otterdeploy doesn&rsquo;t run.
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button size="sm" onClick={() => setConnectOpen(true)}>
-            Connect a database URL
-          </Button>
-        </Empty>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Empty className="flex-1 justify-center">
+            <EmptyHeader>
+              <HugeiconsIcon
+                icon={Database02Icon}
+                strokeWidth={1.5}
+                className="size-10 text-muted-foreground/50"
+              />
+              <EmptyTitle>Nothing to browse yet</EmptyTitle>
+              <EmptyDescription>
+                Deploy a PostgreSQL or MariaDB database, or connect one otterdeploy
+                doesn&rsquo;t run.
+              </EmptyDescription>
+            </EmptyHeader>
+            <Button size="sm" onClick={() => setConnectOpen(true)}>
+              Connect a database URL
+            </Button>
+          </Empty>
+        </div>
       ) : (
         <DataWorkbench
           // Remount on target change: the workbench holds per-database state
@@ -97,11 +146,17 @@ function DataPage() {
           key={active.key}
           target={active.target}
           label={active.name}
-          className="h-[calc(100dvh-13rem)] min-h-[440px]"
+          urlInit={
+            initial.forTarget === undefined || initial.forTarget === active.key
+              ? initial.state
+              : undefined
+          }
+          onUrlState={onUrlState}
+          className="min-h-0 flex-1"
         />
       )}
 
       <ConnectDialog open={connectOpen} onOpenChange={setConnectOpen} />
-    </Page>
+    </div>
   );
 }

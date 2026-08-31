@@ -130,8 +130,11 @@ export function ResultsPanel({
     setGridKeyState({ rows, key: gridKey });
   }
 
+  // `relative`: the row-detail panel positions against this box, so it runs
+  // the full height of the pane — toolbar to footer — like the approved
+  // layout, instead of starting under the toolbar.
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <ResultsToolbar
         columns={columns}
         rows={rows}
@@ -177,6 +180,7 @@ export function ResultsPanel({
           selectable={selectable}
           onSelectionChange={onSelectionChange}
           enableRowDetail={enableRowDetail}
+          exportName={exportName}
         />
       )}
 

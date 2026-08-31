@@ -47,7 +47,7 @@ export function RowDetailPanel({
   const rowId = primaryKey?.length ? (row[primaryKey[0] ?? ""] ?? null) : null;
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-l bg-background">
+    <aside className="absolute inset-y-0 right-0 z-30 flex w-80 flex-col border-l bg-background shadow-lg">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3">
         <span className="text-[12px] font-medium">Row detail</span>
         {rowId !== null ? (

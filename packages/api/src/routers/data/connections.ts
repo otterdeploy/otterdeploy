@@ -12,7 +12,10 @@ import type { DataConnectionId, OrganizationId, UserId } from "@otterdeploy/shar
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
 import { env } from "@otterdeploy/env/server";
+import { Result } from "better-result";
 import { and, desc, eq, or } from "drizzle-orm";
+
+import type { ParsedConnectionUrl } from "../../data/connection-url";
 
 import { requirePermission } from "../..";
 import {
@@ -103,6 +106,43 @@ interface ConnectionRow {
   requireTls: boolean;
   createdAt: Date;
   lastConnectedAt: Date | null;
+}
+
+/**
+ * A throwaway read-only target for a URL that exists only in this request.
+ *
+ * Keyed by a HASH of the whole URL: the same credential re-tested reuses the
+ * client, a corrected password gets a fresh one, and the key itself never
+ * holds anything reversible. Never a way to acquire a writable session.
+ */
+function draftTarget(url: string, p: ParsedConnectionUrl): Parameters<typeof connect>[0] {
+  return {
+    poolKey: `testurl:${Bun.hash(url).toString(36)}`,
+    engine: p.engine,
+    host: p.host,
+    port: p.port,
+    database: p.database,
+    username: p.username,
+    password: p.password,
+    tls: p.sslRequested,
+    mode: "read-only",
+    resourceId: null,
+    connectionId: null,
+    label: "connection test",
+  };
+}
+
+/** Open the connection once and read the server's version string. */
+async function probeVersion(target: Parameters<typeof connect>[0]) {
+  const connection = connect(target);
+  const startedAt = performance.now();
+  const grid = await execute(connection, { sql: "SELECT version()", params: [] });
+  if (grid.isErr()) return grid;
+  const cell = grid.value.rows[0]?.[0];
+  return Result.ok({
+    durationMs: Math.round(performance.now() - startedAt),
+    serverVersion: cell !== null && cell !== undefined && "v" in cell ? String(cell.v) : "",
+  });
 }
 
 export function makeConnectionHandlers(deps: {
@@ -237,12 +277,9 @@ export function makeConnectionHandlers(deps: {
           // writable session on a production database.
           mode: "read-only",
         });
-        const connection = connect(target);
-
-        const startedAt = performance.now();
-        const grid = await execute(connection, { sql: "SELECT version()", params: [] });
-        if (grid.isErr()) {
-          throw errors.UNREACHABLE({ data: { reason: grid.error.message } });
+        const probe = await probeVersion(target);
+        if (probe.isErr()) {
+          throw errors.UNREACHABLE({ data: { reason: probe.error.message } });
         }
 
         await db
@@ -250,12 +287,26 @@ export function makeConnectionHandlers(deps: {
           .set({ lastConnectedAt: new Date() })
           .where(eq(dataConnection.id, input.id));
 
-        const cell = grid.value.rows[0]?.[0];
-        return {
-          ok: true,
-          durationMs: Math.round(performance.now() - startedAt),
-          serverVersion: cell !== null && cell !== undefined && "v" in cell ? String(cell.v) : "",
-        };
+        return { ok: true, ...probe.value };
+      },
+    ),
+
+    testUrl: requirePermission({ database: ["read"] }).data.testUrl.handler(
+      async ({ input, context, errors }) => {
+        // Deliberately WITHOUT the URL: it carries a live credential, and the
+        // log line only needs to say a test happened.
+        context.log.set({ dataConnection: { testUrl: true } });
+        const parsed = parseConnectionUrl(input.url, {
+          allowPrivateAddresses: allowsPrivateAddresses(),
+        });
+        if (parsed.isErr()) {
+          throw errors.INVALID_URL({ data: { reason: parsed.error.message } });
+        }
+        const probe = await probeVersion(draftTarget(input.url, parsed.value));
+        if (probe.isErr()) {
+          throw errors.UNREACHABLE({ data: { reason: probe.error.message } });
+        }
+        return { ok: true, engine: parsed.value.engine, ...probe.value };
       },
     ),
   };
