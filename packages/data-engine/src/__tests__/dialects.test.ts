@@ -3,19 +3,18 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   DIALECTS,
-  clickhouseDialect,
   dialectForEngine,
   isRelationalEngine,
   mysqlDialect,
   postgresDialect,
 } from "../dialects";
-import { qualified } from "../filters";
+import { qualified } from "../query";
 
 describe("registry", () => {
   it("maps every relational engine to a dialect", () => {
     expect(dialectForEngine("postgres")).toBe(postgresDialect);
     expect(dialectForEngine("mariadb")).toBe(mysqlDialect);
-    expect(dialectForEngine("clickhouse")).toBe(clickhouseDialect);
+    expect(dialectForEngine("clickhouse")).toBeNull();
   });
 
   it("returns null for engines that are not SQL, rather than a bad fit", () => {
@@ -62,7 +61,7 @@ describe("type classification", () => {
 
   it("separates timestamptz from timestamp, because one has no zone", () => {
     expect(postgresDialect.classifyType("timestamp with time zone")).toBe("instant");
-    expect(postgresDialect.classifyType("timestamp without time zone")).toBe("date");
+    expect(postgresDialect.classifyType("timestamp without time zone")).toBe("datetime");
   });
 
   it("recognises both array spellings postgres reports", () => {
@@ -74,6 +73,7 @@ describe("type classification", () => {
     expect(mysqlDialect.classifyType("tinyint(1)")).toBe("bool");
     expect(mysqlDialect.classifyType("tinyint(4)")).toBe("number");
     expect(mysqlDialect.classifyType("bigint unsigned")).toBe("bigint");
+    expect(mysqlDialect.classifyType("datetime(6)")).toBe("datetime");
   });
 
   it("strips mysql display widths and numeric attributes", () => {
@@ -83,13 +83,6 @@ describe("type classification", () => {
     expect(mysqlDialect.classifyType("decimal(10,2) unsigned")).toBe("decimal");
     // …but a two-word type name is not a type plus an attribute.
     expect(mysqlDialect.classifyType("double precision")).toBe("number");
-  });
-
-  it("unwraps clickhouse type modifiers", () => {
-    expect(clickhouseDialect.classifyType("Nullable(Int64)")).toBe("bigint");
-    expect(clickhouseDialect.classifyType("LowCardinality(Nullable(String))")).toBe("text");
-    expect(clickhouseDialect.classifyType("Array(UInt8)")).toBe("array");
-    expect(clickhouseDialect.classifyType("DateTime64(3)")).toBe("instant");
   });
 
   it("degrades an unmodelled type to opaque rather than guessing text", () => {
@@ -113,11 +106,9 @@ describe("read-only enforcement", () => {
     // "allow writes" — the pool refuses rather than falling back to a
     // statement classifier, which a CTE or a stored procedure defeats.
     expect(mysqlDialect.readOnlyConnectionParams()).toBeNull();
-    expect(clickhouseDialect.readOnlyConnectionParams()).toBeNull();
   });
 
-  it("marks clickhouse as having no interactive transaction", () => {
-    expect(clickhouseDialect.supportsTransactions).toBe(false);
+  it("marks postgres as supporting interactive transactions", () => {
     expect(postgresDialect.supportsTransactions).toBe(true);
   });
 });
@@ -133,6 +124,5 @@ describe("introspection sql", () => {
   it("excludes the engine's own catalog schemas", () => {
     expect(postgresDialect.introspection.tables).toContain("pg_catalog");
     expect(mysqlDialect.introspection.tables).toContain("information_schema");
-    expect(clickhouseDialect.introspection.tables).toContain("system");
   });
 });

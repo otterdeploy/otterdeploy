@@ -19,13 +19,15 @@ import { applyFilters, compileFilters, crumbsFor } from "./browse-state";
 import { useBuckets, useObjectDetail, useObjectListing } from "./data/buckets";
 
 export function useBucketBrowser({
+  organizationId,
   search,
   setSearch,
 }: {
+  organizationId: string;
   search: BrowseSearch;
   setSearch: (next: Partial<BrowseSearch>) => void;
 }) {
-  const { buckets, isLoading: bucketsLoading } = useBuckets();
+  const { buckets, isLoading: bucketsLoading } = useBuckets(organizationId);
 
   // Land on the first bucket when none is named. Derived during render rather
   // than set from an effect: it is a function of the props, not an event.
@@ -39,7 +41,6 @@ export function useBucketBrowser({
     bucketId,
     prefix: search.prefix,
     grouping: search.grouping,
-    continuationToken: null,
     enabled: bucketId !== "",
   });
   const detail = useObjectDetail({ bucketId, key: activeKey });
@@ -76,19 +77,36 @@ export function useBucketBrowser({
     });
 
   const toggleAll = (next: boolean) =>
-    setSelected(next ? new Set(objects.map((o) => o.key)) : new Set());
+    setSelected((previous) => {
+      const selected = new Set(previous);
+      for (const object of objects) {
+        if (next) selected.add(object.key);
+        else selected.delete(object.key);
+      }
+      return selected;
+    });
 
-  const deleteSelected = () => {
+  const deleteSelected = (onComplete?: () => void) => {
     const keys = [...selected];
     if (keys.length === 0 || bucketId === "") return;
     remove.mutate(
       { bucketId, keys },
       {
         onSuccess: (res) => {
-          toast.success(`Deleted ${res.deleted} object${res.deleted === 1 ? "" : "s"}`);
-          setSelected(new Set());
-          setActiveKey(null);
+          const deleted = new Set(res.deleted);
+          setSelected((previous) => new Set([...previous].filter((key) => !deleted.has(key))));
+          if (activeKey !== null && deleted.has(activeKey)) setActiveKey(null);
+          if (res.failed.length > 0) {
+            toast.warning(
+              `Deleted ${res.deleted.length}; ${res.failed.length} object${res.failed.length === 1 ? "" : "s"} could not be deleted.`,
+            );
+          } else {
+            toast.success(
+              `Deleted ${res.deleted.length} object${res.deleted.length === 1 ? "" : "s"}`,
+            );
+          }
           void listing.refetch();
+          onComplete?.();
         },
         onError: (err) =>
           toast.error(err instanceof Error ? err.message : "Couldn't delete the objects."),

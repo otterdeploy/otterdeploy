@@ -1,5 +1,6 @@
 import { ArrowRight01Icon, File01Icon, Folder01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { formatBytes } from "@otterdeploy/shared/format";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { CLOCK_STAMP, clockFormatter, epochMsFromIso } from "@/shared/lib/clock";
@@ -16,19 +17,6 @@ import { cn } from "@/shared/lib/utils";
 import type { StorageObjectRow } from "../types";
 
 import { basename } from "../browse-state";
-
-const SIZE_UNITS = ["B", "kB", "MB", "GB", "TB"] as const;
-
-/** Human size. Exact for bytes, one decimal above that. */
-export function formatSize(bytes: number): string {
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1000 && unit < SIZE_UNITS.length - 1) {
-    value /= 1000;
-    unit += 1;
-  }
-  return unit === 0 ? `${value} B` : `${value.toFixed(1)} ${SIZE_UNITS[unit]}`;
-}
 
 const formatStamp = clockFormatter(CLOCK_STAMP);
 
@@ -139,7 +127,7 @@ export function ObjectTable({
                   <span className="truncate">{grouping === "flat" ? o.key : basename(o.key)}</span>
                 </span>
               </Td>
-              <Td className="text-right">{formatSize(o.size)}</Td>
+              <Td className="text-right">{formatBytes(o.size)}</Td>
               <Td>
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] tracking-wide text-muted-foreground">
                   {o.storageClass}

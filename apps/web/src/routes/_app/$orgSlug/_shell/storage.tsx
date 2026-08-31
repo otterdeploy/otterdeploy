@@ -14,11 +14,14 @@
  * carries the bucket, endpoint, prefix and credential, so they appear here
  * automatically. The controller lives in `features/storage/use-bucket-browser`.
  */
+import { useState } from "react";
+
 import { Delete02Icon, FolderLibraryIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
 
 import { Page, PageHeader } from "@/shared/components/page";
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 
@@ -39,10 +42,12 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/storage")({
 function StoragePage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const setSearch = (next: Partial<BrowseSearch>) =>
     void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
 
-  const b = useBucketBrowser({ search, setSearch });
+  const b = useBucketBrowser({ organizationId: organization.id, search, setSearch });
 
   if (!b.bucketsLoading && b.buckets.length === 0) {
     return (
@@ -110,19 +115,22 @@ function StoragePage() {
             <SelectionBar
               count={b.selected.size}
               isDeleting={b.isDeleting}
-              onDelete={b.deleteSelected}
+              onDelete={() => setConfirmDelete(true)}
             />
           ) : null}
 
           <StatusBar
             objects={b.objects.length}
             prefixes={b.prefixes.length}
-            truncated={b.listing.data?.truncated ?? false}
+            hasMore={b.listing.hasNextPage}
+            isLoadingMore={b.listing.isFetchingNextPage}
+            onLoadMore={() => void b.listing.fetchNextPage()}
           />
         </main>
 
         {b.activeKey !== null ? (
           <ObjectPreview
+            key={b.activeKey}
             bucketId={b.bucketId}
             objectKey={b.activeKey}
             detail={b.detail.data}
@@ -131,6 +139,17 @@ function StoragePage() {
           />
         ) : null}
       </div>
+      <TypedConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete ${b.selected.size} object${b.selected.size === 1 ? "" : "s"}?`}
+        description="This permanently deletes the selected objects from the bucket and cannot be undone."
+        confirmPhrase={b.bucketName}
+        confirmLabel="Delete objects"
+        pendingLabel="Deleting…"
+        pending={b.isDeleting}
+        onConfirm={() => b.deleteSelected(() => setConfirmDelete(false))}
+      />
     </Page>
   );
 }
@@ -177,11 +196,15 @@ function SelectionBar({
 function StatusBar({
   objects,
   prefixes,
-  truncated,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: {
   objects: number;
   prefixes: number;
-  truncated: boolean;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 border-t bg-muted/20 px-3 py-1 font-mono text-[11px] text-muted-foreground">
@@ -189,9 +212,17 @@ function StatusBar({
         {objects} object{objects === 1 ? "" : "s"}
         {prefixes > 0 ? ` · ${prefixes} prefixes` : ""}
       </span>
-      {/* Honest about paging: S3 caps a listing at 1000 keys and we ask for 200,
-          so "12 objects" must not be read as "this bucket has 12 objects". */}
-      {truncated ? <span>· first page only</span> : null}
+      {hasMore ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-5 px-1.5 text-[11px]"
+          disabled={isLoadingMore}
+          onClick={onLoadMore}
+        >
+          {isLoadingMore ? "Loading…" : "Load more"}
+        </Button>
+      ) : null}
       <span className="flex-1" />
       <span>credentials stay in the control plane</span>
     </div>

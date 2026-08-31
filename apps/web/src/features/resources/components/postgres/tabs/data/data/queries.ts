@@ -13,10 +13,7 @@
  */
 
 /** A schema-qualified table reference (the unit the browser navigates by). */
-export interface TableRef {
-  schema: string;
-  name: string;
-}
+export type { TableRef } from "@otterdeploy/data-engine";
 
 /**
  * Grid cell rendering variant.

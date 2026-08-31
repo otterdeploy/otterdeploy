@@ -18,7 +18,7 @@ import type { Draft, PrimaryKeys } from "./data/drafts";
 import type { TableRef } from "./data/queries";
 import type { WorkbenchTarget } from "./data/target";
 
-import { loadDrafts, removeRowDrafts, saveDrafts, toMutations, upsertDraft } from "./data/drafts";
+import { removeRowDrafts, toMutations, upsertDraft } from "./data/drafts";
 import { targetKey } from "./data/target";
 import { useMutateRows } from "./data/use-database";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
@@ -77,11 +77,11 @@ export function useSnippetBuffer(target: WorkbenchTarget) {
   };
 
   const prettify = () => {
-    try {
-      onEditorChange(formatSql(editorValue, { language: "postgresql", keywordCase: "upper" }));
-    } catch {
-      /* leave the buffer untouched on parse error */
-    }
+    const formatted = Result.try({
+      try: () => formatSql(editorValue, { language: "postgresql", keywordCase: "upper" }),
+      catch: () => undefined,
+    });
+    if (formatted.isOk()) onEditorChange(formatted.value);
   };
 
   // Replace the Playground buffer and make it active (query-history recall).
@@ -133,7 +133,7 @@ export function useBulkDelete({
   result: { columns: ColumnMeta[]; rows: CellValue[][] } | null | undefined;
   rowsQuery: { refetch: () => unknown };
 }) {
-  const mutateRows = useMutateRows(target);
+  const mutateRows = useMutateRows();
 
   const deleteRows = async (rowIndices: number[]) => {
     if (!selected || !result || primaryKey.length === 0 || rowIndices.length === 0) return;
@@ -178,10 +178,9 @@ export function useBulkDelete({
 /**
  * Staged edits for the open table.
  *
- * Owns the draft list, persists it, and commits the whole set as ONE
- * transaction. Deletes are NOT staged: a delete has nothing to review, and
- * holding one back would leave a row on screen that the user has already
- * decided about.
+ * Owns an in-memory draft list and commits the whole set as ONE transaction.
+ * Keeping database values out of localStorage prevents one account from
+ * exposing another account's unfinished edits after logout.
  */
 export function useDrafts({
   target,
@@ -192,22 +191,16 @@ export function useDrafts({
   selected: TableRef | null;
   rowsQuery: { refetch: () => unknown };
 }) {
-  const key = targetKey(target);
-  const [drafts, setDraftsState] = useState<Draft[]>([]);
-  const mutateRows = useMutateRows(target);
-
-  // Re-read from storage when the open table changes. During render, not in an
-  // effect, so the bar never paints the previous table's count for a frame.
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  const tableKey = selected ? `${key}:${selected.schema}.${selected.name}` : null;
-  if (tableKey !== loadedFor) {
-    setLoadedFor(tableKey);
-    setDraftsState(loadDrafts(key, selected));
-  }
+  const tableKey = selected ? `${targetKey(target)}:${selected.schema}.${selected.name}` : null;
+  const [draftState, setDraftState] = useState<{
+    tableKey: string | null;
+    drafts: Draft[];
+  }>({ tableKey: null, drafts: [] });
+  const drafts = draftState.tableKey === tableKey ? draftState.drafts : [];
+  const mutateRows = useMutateRows();
 
   const write = (next: Draft[]) => {
-    setDraftsState(next);
-    if (selected) saveDrafts(key, selected, next);
+    setDraftState({ tableKey, drafts: next });
   };
 
   const stageEdit = (pk: ColumnValue[], changes: Array<ColumnValue & { previous: CellValue }>) => {
@@ -261,7 +254,7 @@ export function useRowMutations(
   selected: TableRef | null,
   rowsQuery: { refetch: () => unknown },
 ) {
-  const mutateRows = useMutateRows(target);
+  const mutateRows = useMutateRows();
 
   const onDeleteRow = async (pk: ColumnValue[]) => {
     if (!selected) return;

@@ -41,21 +41,26 @@ describe("row identity", () => {
   it("distinguishes NULL from the empty string", () => {
     expect(rowKey({ id: null })).not.toBe(rowKey({ id: text("") }));
   });
+
+  it("does not collide when column names and values contain separators", () => {
+    expect(rowKey({ "a=b": text("c|d") })).not.toBe(rowKey({ a: text("b=c|d") }));
+  });
 });
 
 describe("upsertDraft", () => {
   it("replaces rather than queues when the same cell is edited twice", () => {
     // The diff should show where the row is GOING, not the path it took.
     let drafts = upsertDraft([], draft("1", "status", text("paid"), text("pending")));
-    drafts = upsertDraft(drafts, draft("1", "status", text("refunded"), text("pending")));
+    drafts = upsertDraft(drafts, draft("1", "status", text("refunded"), text("paid")));
     expect(drafts).toHaveLength(1);
     expect(drafts[0]?.value).toEqual(text("refunded"));
+    expect(drafts[0]?.previous).toEqual(text("pending"));
   });
 
   it("drops the draft when an edit returns the cell to its original value", () => {
     // Otherwise the bar would say "1 unsaved change" for a change that isn't one.
     let drafts = upsertDraft([], draft("1", "status", text("paid"), text("pending")));
-    drafts = upsertDraft(drafts, draft("1", "status", text("pending"), text("pending")));
+    drafts = upsertDraft(drafts, draft("1", "status", text("pending"), text("paid")));
     expect(drafts).toEqual([]);
   });
 
@@ -82,6 +87,7 @@ describe("sameCell", () => {
 
   it("compares json structurally", () => {
     expect(sameCell({ k: "json", v: { a: 1 } }, { k: "json", v: { a: 1 } })).toBe(true);
+    expect(sameCell({ k: "json", v: { a: 1, b: 2 } }, { k: "json", v: { b: 2, a: 1 } })).toBe(true);
     expect(sameCell({ k: "json", v: { a: 1 } }, { k: "json", v: { a: 2 } })).toBe(false);
   });
 });
@@ -121,6 +127,10 @@ describe("toMutations", () => {
     const mutations = toMutations(drafts, table);
     expect(mutations).toHaveLength(2);
     expect(mutations[0]?.set).toHaveLength(2);
+    expect(mutations[0]?.expected).toEqual([
+      { column: "status", value: text("pending") },
+      { column: "note", value: null },
+    ]);
     expect(mutations[1]?.set).toHaveLength(1);
   });
 

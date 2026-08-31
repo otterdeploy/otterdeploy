@@ -4,15 +4,10 @@
  * Pairs with `routers/storage`. Credentials are resolved and used HERE; the
  * browser only ever receives listings and short-lived presigned URLs.
  */
+export { deleteObjects, listObjects, presignObject, statObject } from "./objects";
 export {
-  deleteObjects,
-  listObjects,
-  MAX_KEYS,
-  presignObject,
-  statObject,
-  type ListInput,
-  type ObjectDetail,
-  type StorageListing,
-  type StorageObject,
-} from "./objects";
-export { resolveKey, resolveStorageTarget, StorageError, type StorageTarget } from "./target";
+  normalizeStorageRoot,
+  resolveStorageTarget,
+  StorageError,
+  type StorageTarget,
+} from "./target";

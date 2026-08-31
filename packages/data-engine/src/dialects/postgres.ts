@@ -62,8 +62,8 @@ const POSTGRES_TYPE_KINDS: ReadonlyMap<string, CellKind> = new Map([
   ["timestamp with time zone", "instant"],
   // No offset, so it is NOT a point on the timeline. Kept distinct from
   // `instant` so the UI never invents a zone the database did not store.
-  ["timestamp", "date"],
-  ["timestamp without time zone", "date"],
+  ["timestamp", "datetime"],
+  ["timestamp without time zone", "datetime"],
   ["date", "date"],
 
   ["time", "time"],

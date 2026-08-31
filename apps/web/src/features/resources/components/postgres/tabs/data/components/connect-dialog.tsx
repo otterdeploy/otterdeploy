@@ -11,6 +11,7 @@
  */
 import { useState } from "react";
 
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { Result } from "better-result";
 import { toast } from "sonner";
@@ -37,7 +38,7 @@ import {
 
 import type { DataConnection } from "../data/connections";
 
-import { connectionsCollection } from "../data/connections";
+import { connectionCollectionFor } from "../data/connections";
 
 type Visibility = DataConnection["visibility"];
 type Environment = DataConnection["environment"];
@@ -52,10 +53,12 @@ interface ConnectDraft {
 }
 
 export function ConnectDialog({
+  organizationId,
   open,
   onOpenChange,
   existing,
 }: {
+  organizationId: string;
   open: boolean;
   onOpenChange: (next: boolean) => void;
   /** Set when editing; the URL field then means "replace the credential". */
@@ -79,7 +82,7 @@ export function ConnectDialog({
     defaultValues,
     onSubmit: ({ value }) => {
       setError(null);
-      const outcome = saveConnection(value, existing);
+      const outcome = saveConnection(connectionCollectionFor(organizationId), value, existing);
       if (outcome !== null) {
         // The server's own words: "169.254.169.254 is a loopback, private or
         // metadata address…" is the whole explanation, and paraphrasing it into
@@ -181,8 +184,9 @@ export function ConnectDialog({
 
           <form.Field name="requireTls">
             {(field) => (
-              <label className="flex items-center gap-2 text-[13px]">
+              <label htmlFor="conn-require-tls" className="flex items-center gap-2 text-[13px]">
                 <Checkbox
+                  id="conn-require-tls"
                   checked={field.state.value}
                   onCheckedChange={(v) => field.handleChange(Boolean(v))}
                 />
@@ -221,7 +225,11 @@ export function ConnectDialog({
  * write-only field must not end up in the collection's cached data, where every
  * reader of the connection list would be holding a live credential.
  */
-function saveConnection(value: ConnectDraft, existing: DataConnection | undefined): string | null {
+function saveConnection(
+  connections: ReturnType<typeof connectionCollectionFor>,
+  value: ConnectDraft,
+  existing: DataConnection | undefined,
+): string | null {
   // A production connection is read-only, full stop. The gate is the
   // CONNECTION, not a per-edit approval — so this is derived, never asked.
   const defaultAccess = value.environment === "production" ? "read-only" : "read-write";
@@ -229,7 +237,7 @@ function saveConnection(value: ConnectDraft, existing: DataConnection | undefine
   const attempt = Result.try({
     try: () => {
       if (existing !== undefined) {
-        connectionsCollection.update(
+        connections.update(
           existing.id,
           { metadata: value.url === "" ? undefined : { secret: value.url } },
           (draft) => {
@@ -242,11 +250,11 @@ function saveConnection(value: ConnectDraft, existing: DataConnection | undefine
         );
         return;
       }
-      connectionsCollection.insert(
+      connections.insert(
         {
           // Replaced by the server's row on refetch; the engine and host are
           // parsed from the URL there, so the optimistic values are placeholders.
-          id: crypto.randomUUID(),
+          id: createId(ID_PREFIX.dataConnection),
           name: value.name,
           engine: "postgres",
           displayHost: "",

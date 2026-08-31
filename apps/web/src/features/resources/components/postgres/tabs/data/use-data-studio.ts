@@ -19,14 +19,18 @@ import type { Filter, Sort } from "@otterdeploy/data-engine";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
+
+import { orpc } from "@/shared/server/orpc";
 
 import type { ResultView } from "./components/results-panel";
 import type { WorkbenchTarget } from "./data/target";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { type TableRef } from "./data/queries";
+import { schemaCollection } from "./data/schema-collection";
 import { targetKey } from "./data/target";
 import { useBrowseRows } from "./data/use-database";
 import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
@@ -44,6 +48,7 @@ export const PAGE_SIZES = [50, 100, 200, 500];
 export { errMessage };
 
 function useTableData(target: WorkbenchTarget) {
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<"table" | "sql">("table");
   const [tableSearch, setTableSearch] = useState("");
   const [selected, setSelected] = useState<TableRef | null>(null);
@@ -105,7 +110,10 @@ function useTableData(target: WorkbenchTarget) {
     writeMode,
     setMode,
     onWriteSuccess: () => {
-      void tablesQuery.refetch();
+      void schemaCollection(target).utils.refetch();
+      void queryClient.invalidateQueries({
+        queryKey: orpc.data.definitions.queryKey({ input: { target } }),
+      });
       void tableRowsQuery.refetch();
     },
   });

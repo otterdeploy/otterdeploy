@@ -10,14 +10,13 @@ import { useState } from "react";
 
 import { Cancel01Icon, Download01Icon, Link01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { formatBytes } from "@otterdeploy/shared/format";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
 import { CLOCK_EXACT, clockFormatter, epochMsFromIso } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
-
-import { formatSize } from "./object-table";
 
 const formatExact = clockFormatter(CLOCK_EXACT);
 
@@ -47,7 +46,7 @@ export function ObjectPreview({
 
   const mint = (then: (url: string) => void) => {
     presign.mutate(
-      { bucketId, key: objectKey, method: "GET" },
+      { bucketId, key: objectKey },
       {
         onSuccess: (res) => then(res.url),
         onError: (err) =>
@@ -81,7 +80,7 @@ export function ObjectPreview({
           <>
             <Field
               label="size"
-              value={`${formatSize(detail.size)} (${detail.size.toLocaleString()} B)`}
+              value={`${formatBytes(detail.size)} (${detail.size.toLocaleString()} B)`}
             />
             <Field label="storage class" value={detail.storageClass} />
             <Field

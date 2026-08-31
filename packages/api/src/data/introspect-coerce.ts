@@ -2,8 +2,8 @@
  * Coercions shared by every introspection parser.
  *
  * Catalogs disagree about how to spell a boolean, a count and a list, and they
- * disagree per engine: MySQL returns "YES", ClickHouse returns a bigint,
- * Postgres returns whichever the driver felt like for an int8. Normalising in
+ * disagree per engine: MySQL returns "YES" while Postgres may return an int8
+ * as a bigint or a string. Normalising in
  * one place is what lets the row parsers stay dialect-independent.
  */
 import * as z from "zod";
@@ -12,8 +12,7 @@ import * as z from "zod";
  * Coerce the many ways an engine reports a count or a size into a number, or
  * null.
  *
- * MySQL returns strings, ClickHouse returns bigints, Postgres returns whichever
- * the driver felt like for an int8. Anything that does not become a finite
+ * MySQL returns strings while Postgres can return bigints for int8. Anything that does not become a finite
  * non-negative number is null, meaning "unknown" -- which is different from
  * zero and must not be flattened into it.
  */
@@ -35,7 +34,7 @@ export const boolish = z
     return false;
   });
 
-export function isScalar(value: unknown): value is string | number | bigint {
+function isScalar(value: unknown): value is string | number | bigint {
   return typeof value === "string" || typeof value === "number" || typeof value === "bigint";
 }
 

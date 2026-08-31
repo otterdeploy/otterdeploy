@@ -44,6 +44,7 @@ const VARIANT_BY_KIND: Record<CellKind, ColumnVariant> = {
   bigint: "number",
   decimal: "number",
   instant: "date",
+  datetime: "date",
   date: "date",
   time: "short-text",
   text: "short-text",
@@ -70,10 +71,7 @@ export function useDatabaseSchema(target: WorkbenchTarget) {
 }
 
 /** One table's row from the schema collection, or null while it loads. */
-export function useTableMeta(
-  target: WorkbenchTarget,
-  table: TableRef | null,
-): SchemaTableRow | null {
+function useTableMeta(target: WorkbenchTarget, table: TableRef | null): SchemaTableRow | null {
   const collection = schemaCollection(target);
   const id = table ? tableId(table.schema, table.name) : "";
   const { data } = useLiveQuery(
@@ -172,60 +170,6 @@ export function useBrowseRows({
   });
 }
 
-/** Exact row count for the same filtered set the grid is showing. */
-export function useRowCount({
-  target,
-  table,
-  filters,
-  enabled,
-}: {
-  target: WorkbenchTarget;
-  table: TableRef | null;
-  filters: Filter[];
-  enabled: boolean;
-}) {
-  return useQuery({
-    ...orpc.data.count.queryOptions({
-      input: {
-        target,
-        schema: table?.schema ?? "",
-        table: table?.name ?? "",
-        filters,
-      },
-    }),
-    enabled: enabled && Boolean(table),
-    refetchOnWindowFocus: false,
-  });
-}
-
-/**
- * Run authored SQL from the console.
- *
- * The only place the client still sends a statement, and the only place it
- * should: read-only is enforced on the SESSION, so what arrives here cannot
- * write unless `write` was granted and the caller has the permission.
- */
-export function useRunSql({
-  target,
-  sql,
-  limit,
-  write,
-  enabled,
-}: {
-  target: WorkbenchTarget;
-  sql: string;
-  limit: number;
-  write: boolean;
-  enabled: boolean;
-}) {
-  return useQuery({
-    ...orpc.data.run.queryOptions({ input: { target, sql, limit, write } }),
-    enabled,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-}
-
 /**
  * Column detail for the Structure view and the Add-record modal.
  *
@@ -279,15 +223,8 @@ export function useDefinitions(target: WorkbenchTarget) {
  * and the SERVER builds the statements from the table's own introspected
  * columns. Nothing here sends SQL.
  */
-export function useMutateRows(target: WorkbenchTarget) {
-  return useMutation(
-    orpc.data.mutate.mutationOptions({
-      onSuccess: () => {
-        // DDL and triggers can change the schema out from under the navigator.
-        void schemaCollection(target).utils.refetch();
-      },
-    }),
-  );
+export function useMutateRows() {
+  return useMutation(orpc.data.mutate.mutationOptions());
 }
 
 /**

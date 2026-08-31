@@ -5,27 +5,21 @@
  * is typed in the filter. Split for size, and because these are the parts most
  * likely to grow a column as more of each catalog is surfaced.
  */
+import { formatBytes } from "@otterdeploy/shared/format";
+
 import { cn } from "@/shared/lib/utils";
 
 export function Note({ children }: { children: React.ReactNode }) {
   return <p className="px-3 py-3 text-[12.5px] text-muted-foreground">{children}</p>;
 }
 
-const SIZE_UNITS = ["B", "kB", "MB", "GB"] as const;
-
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return "—";
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1000 && unit < SIZE_UNITS.length - 1) {
-    value /= 1000;
-    unit += 1;
-  }
-  return unit === 0 ? `${value} B` : `${value.toFixed(1)} ${SIZE_UNITS[unit]}`;
-}
-
 function qualified(schema: string, table: string): string {
   return schema === "" || schema === "public" ? table : `${schema}.${table}`;
+}
+
+function filterNamed<T>(rows: readonly T[], needle: string, text: (row: T) => string): T[] {
+  if (needle === "") return [...rows];
+  return rows.filter((row) => text(row).toLowerCase().includes(needle));
 }
 
 export function IndexTable({
@@ -44,16 +38,14 @@ export function IndexTable({
   }>;
   needle: string;
 }) {
-  const shown = rows.filter(
-    (r) => needle === "" || `${r.table} ${r.name}`.toLowerCase().includes(needle),
-  );
+  const shown = filterNamed(rows, needle, (row) => `${row.table} ${row.name}`);
   if (shown.length === 0) return <Note>No indexes match.</Note>;
   return (
     <Table head={["table", "index", "columns", "kind", "size"]}>
       {shown.map((r) => (
         <tr key={`${r.schema}.${r.table}.${r.name}`} className="hover:bg-muted/30">
           <Td>{qualified(r.schema, r.table)}</Td>
-          <Td>{r.name}</Td>
+          <Td title={r.definition ?? undefined}>{r.name}</Td>
           <Td>{r.columns.join(", ") || "—"}</Td>
           <Td>{r.isPrimary ? <Badge>primary</Badge> : r.isUnique ? <Badge>unique</Badge> : "—"}</Td>
           <Td className="text-right">{formatBytes(r.sizeBytes)}</Td>
@@ -86,9 +78,7 @@ export function ConstraintTable({
   }>;
   needle: string;
 }) {
-  const shown = rows.filter(
-    (r) => needle === "" || `${r.table} ${r.name}`.toLowerCase().includes(needle),
-  );
+  const shown = filterNamed(rows, needle, (row) => `${row.table} ${row.name}`);
   if (shown.length === 0) return <Note>No constraints match.</Note>;
   return (
     <Table head={["table", "constraint", "type", "columns", "references"]}>
@@ -116,7 +106,7 @@ export function EnumTable({
   rows: ReadonlyArray<{ schema: string; name: string; values: string[] }>;
   needle: string;
 }) {
-  const shown = rows.filter((r) => needle === "" || r.name.toLowerCase().includes(needle));
+  const shown = filterNamed(rows, needle, (row) => row.name);
   if (rows.length === 0) {
     // Not an error: MySQL's enums are an inline column type rather than a
     // catalog object, so there is genuinely nothing to list.

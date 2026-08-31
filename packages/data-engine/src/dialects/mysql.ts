@@ -66,7 +66,7 @@ const MYSQL_TYPE_KINDS: ReadonlyMap<string, CellKind> = new Map([
   // MySQL stores TIMESTAMP as UTC and converts on read: a real instant.
   // DATETIME carries no zone, so it is a wall-clock value instead.
   ["timestamp", "instant"],
-  ["datetime", "date"],
+  ["datetime", "datetime"],
   ["date", "date"],
   ["time", "time"],
 

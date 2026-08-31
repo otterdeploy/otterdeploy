@@ -16,11 +16,12 @@ import type { DataConnectionId, OrganizationId, ResourceId, UserId } from "@otte
 
 import { db } from "@otterdeploy/db";
 import { dataConnection, databaseResource, project, resource } from "@otterdeploy/db/schema";
+import { env } from "@otterdeploy/env/server";
 import { and, eq, or } from "drizzle-orm";
 
 import { decryptForDomain } from "../lib/crypto";
-import { parseConnectionUrl } from "./connection-url";
-import { DataError } from "./errors";
+import { parseConnectionUrl, resolveConnectionAddress } from "./connection-url";
+import { dataError } from "./errors";
 
 export type AccessMode = "read-only" | "read-write";
 
@@ -34,8 +35,10 @@ export interface DataTarget {
   username: string;
   password: string;
   /** TLS for external targets; managed ones ride the private overlay network. */
-  tls: boolean;
+  tls: boolean | Bun.TLSOptions;
   mode: AccessMode;
+  /** Target policy before this individual call requested a mode. */
+  writeAllowed: boolean;
   /** Present for managed targets, so audit rows can name the resource. */
   resourceId: ResourceId | null;
   /** Present for external targets, so audit rows can name the connection. */
@@ -81,7 +84,7 @@ export async function resolveManagedTarget(input: {
     .limit(1);
 
   if (!row) {
-    throw new DataError("not_found", `database ${input.resourceId} not found`);
+    throw dataError("not_found", `database ${input.resourceId} not found`);
   }
 
   return {
@@ -97,6 +100,7 @@ export async function resolveManagedTarget(input: {
     password: row.password,
     tls: false,
     mode: input.mode,
+    writeAllowed: true,
     resourceId: row.resourceId,
     connectionId: null,
     label: `${row.projectSlug}/${row.resourceName}`,
@@ -148,15 +152,20 @@ export async function resolveExternalTarget(input: {
     .limit(1);
 
   if (!row) {
-    throw new DataError("not_found", `connection ${input.connectionId} not found`);
+    throw dataError("not_found", `connection ${input.connectionId} not found`);
   }
 
   const url = await decryptForDomain(row.encryptedUrl, "data-connections");
-  const parsed = parseConnectionUrl(url, { allowPrivateAddresses: true });
+  const allowPrivateAddresses = env.DATA_ALLOW_PRIVATE_CONNECTIONS === true;
+  const parsed = parseConnectionUrl(url, { allowPrivateAddresses });
   if (parsed.isErr()) {
     // The URL passed validation when it was SAVED, so a failure here means the
     // stored value is corrupt rather than that the user typed something wrong.
-    throw new DataError("not_found", "this connection's stored URL is unreadable");
+    throw dataError("not_found", "this connection's stored URL is unreadable");
+  }
+  const resolved = await resolveConnectionAddress(parsed.value.host, { allowPrivateAddresses });
+  if (resolved.isErr()) {
+    throw dataError("denied", resolved.error.message);
   }
 
   // A production connection is read-only no matter what was asked for. This is
@@ -168,18 +177,22 @@ export async function resolveExternalTarget(input: {
       : row.defaultAccess === "read-only"
         ? "read-only"
         : input.mode;
+  const writeAllowed = row.environment !== "production" && row.defaultAccess === "read-write";
+  const tls = row.requireTls || parsed.value.sslRequested;
 
   return {
     poolKey: `conn:${row.id}:${mode}`,
     engine: row.engine,
-    host: parsed.value.host,
+    host: resolved.value.address,
     port: parsed.value.port,
     database: parsed.value.database,
     username: parsed.value.username,
     password: parsed.value.password,
     // External hops cross the public internet, so TLS unless the row opted out.
-    tls: row.requireTls || parsed.value.sslRequested,
+    tls:
+      tls && resolved.value.serverName !== null ? { serverName: resolved.value.serverName } : tls,
     mode,
+    writeAllowed,
     resourceId: null,
     connectionId: row.id,
     label: row.name,

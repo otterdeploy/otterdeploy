@@ -23,13 +23,12 @@ import { decryptSecret } from "../lib/crypto";
 export class StorageError extends TaggedError("StorageError")<{
   reason: "not_found" | "unreachable" | "denied" | "unsupported" | "request";
   message: string;
-}>() {
-  constructor(
-    reason: "not_found" | "unreachable" | "denied" | "unsupported" | "request",
-    message: string,
-  ) {
-    super({ reason, message });
-  }
+}>() {}
+
+type StorageErrorReason = StorageError["reason"];
+
+export function storageError(reason: StorageErrorReason, message: string): StorageError {
+  return new StorageError({ reason, message });
 }
 
 /** The non-secret half of an S3 destination's config. */
@@ -67,7 +66,7 @@ export interface StorageTarget {
 }
 
 /** Normalise a prefix to "" or "some/path/". */
-function normalizeRoot(prefix: string | undefined): string {
+export function normalizeStorageRoot(prefix: string | undefined): string {
   if (!prefix) return "";
   const trimmed = prefix.replace(/^\/+/, "").replace(/\/+$/, "");
   return trimmed === "" ? "" : `${trimmed}/`;
@@ -102,11 +101,11 @@ export async function resolveStorageTarget(input: {
     .limit(1);
 
   if (!row) {
-    return Result.err(new StorageError("not_found", "bucket not found"));
+    return Result.err(storageError("not_found", "bucket not found"));
   }
   if (row.type !== "s3") {
     return Result.err(
-      new StorageError(
+      storageError(
         "unsupported",
         `${row.type} destinations have no object API to browse; only S3-compatible ones do`,
       ),
@@ -116,11 +115,11 @@ export async function resolveStorageTarget(input: {
   const config = s3ConfigSchema.safeParse(row.config);
   if (!config.success) {
     return Result.err(
-      new StorageError("not_found", "this destination is missing its bucket configuration"),
+      storageError("not_found", "this destination is missing its bucket configuration"),
     );
   }
   if (!row.encryptedSecret) {
-    return Result.err(new StorageError("denied", "this destination has no stored credentials"));
+    return Result.err(storageError("denied", "this destination has no stored credentials"));
   }
 
   const decrypted = await Result.tryPromise({
@@ -129,7 +128,7 @@ export async function resolveStorageTarget(input: {
       const parsed: unknown = JSON.parse(json);
       return s3SecretSchema.parse(parsed);
     },
-    catch: () => new StorageError("denied", "could not read this destination's credentials"),
+    catch: () => storageError("denied", "could not read this destination's credentials"),
   });
   if (decrypted.isErr()) return Result.err(decrypted.error);
 
@@ -139,7 +138,7 @@ export async function resolveStorageTarget(input: {
     bucket: config.data.bucket,
     region: config.data.region,
     endpoint: config.data.endpoint,
-    root: normalizeRoot(config.data.prefix),
+    root: normalizeStorageRoot(config.data.prefix),
     accessKeyId: decrypted.value.accessKeyId,
     secretAccessKey: decrypted.value.secretAccessKey,
     sessionToken: decrypted.value.sessionToken,
@@ -158,11 +157,8 @@ export async function resolveStorageTarget(input: {
 export function resolveKey(target: StorageTarget, key: string): Result<string, StorageError> {
   const clean = key.replace(/^\/+/, "");
   if (clean.split("/").includes("..")) {
-    return Result.err(new StorageError("denied", "key may not contain a '..' segment"));
+    return Result.err(storageError("denied", "key may not contain a '..' segment"));
   }
   const full = `${target.root}${clean}`;
-  if (!full.startsWith(target.root)) {
-    return Result.err(new StorageError("denied", "key is outside this bucket's configured prefix"));
-  }
   return Result.ok(full);
 }

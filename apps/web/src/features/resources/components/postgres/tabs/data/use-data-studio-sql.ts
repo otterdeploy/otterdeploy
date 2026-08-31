@@ -33,7 +33,6 @@ import type { WorkbenchTarget } from "./data/target";
 
 import { classifyWriteSql, type WriteSeverity } from "./data/destructive-sql";
 import { SQL_RESULT_CAP } from "./data/queries";
-import { targetKey } from "./data/target";
 
 type RecordHistory = (e: Omit<QueryHistoryEntry, "id" | "at">) => void;
 

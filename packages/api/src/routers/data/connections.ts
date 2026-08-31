@@ -7,8 +7,9 @@
  * would hand every viewer a working credential for a database otterdeploy does
  * not run and cannot rotate.
  */
-import type { DataConnectionId, OrganizationId, UserId } from "@otterdeploy/shared/id";
+import type { OrganizationId, UserId } from "@otterdeploy/shared/id";
 
+import { displayText } from "@otterdeploy/data-engine";
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
 import { env } from "@otterdeploy/env/server";
@@ -86,24 +87,23 @@ function announce(organizationId: OrganizationId, row: ConnectionRow): void {
 }
 
 /** Announce a removal — a real delete, or a row that left org visibility. */
-function publishDeleted(organizationId: OrganizationId, id: string): void {
-  publishOrgBusEvent(organizationId, { kind: "data-connections", op: "delete", keys: [id] });
+function publishDeleted(
+  organizationId: OrganizationId,
+  id: string,
+  excludedUserId?: UserId | null,
+): void {
+  publishOrgBusEvent(organizationId, {
+    kind: "data-connections",
+    op: "delete",
+    keys: [id],
+    ...(excludedUserId ? { excludedUserId } : {}),
+  });
 }
 
 /** The row shape every handler here returns and announces. Never the URL. */
-interface ConnectionRow {
-  id: string;
-  name: string;
-  engine: "postgres" | "mariadb";
-  displayHost: string;
-  displayDatabase: string;
-  visibility: "org" | "private";
-  environment: "production" | "other";
-  defaultAccess: "read-only" | "read-write";
-  requireTls: boolean;
-  createdAt: Date;
-  lastConnectedAt: Date | null;
-}
+type ConnectionRow = {
+  [Key in keyof typeof SELECTION]: (typeof dataConnection.$inferSelect)[Key];
+};
 
 export function makeConnectionHandlers(deps: {
   viewerIdOf: (context: { session?: { user?: { id?: string } } | null }) => UserId | null;
@@ -122,6 +122,12 @@ export function makeConnectionHandlers(deps: {
 
     createConnection: requirePermission({ database: ["write"] }).data.createConnection.handler(
       async ({ input, context, errors }) => {
+        const viewerId = deps.viewerIdOf(context);
+        if (input.visibility === "private" && viewerId === null) {
+          throw errors.DENIED({
+            data: { reason: "private connections require an interactive user" },
+          });
+        }
         const parsed = parseConnectionUrl(input.url, {
           allowPrivateAddresses: allowsPrivateAddresses(),
         });
@@ -150,7 +156,7 @@ export function makeConnectionHandlers(deps: {
             environment: input.environment,
             defaultAccess: input.defaultAccess,
             requireTls: input.requireTls,
-            createdBy: deps.viewerIdOf(context),
+            createdBy: viewerId,
           })
           .returning(SELECTION);
 
@@ -163,9 +169,20 @@ export function makeConnectionHandlers(deps: {
     updateConnection: requirePermission({ database: ["write"] }).data.updateConnection.handler(
       async ({ input, context, errors }) => {
         const viewerId = deps.viewerIdOf(context);
-        const patch: Record<string, unknown> = {};
+        if (input.visibility === "private" && viewerId === null) {
+          throw errors.DENIED({
+            data: { reason: "private connections require an interactive user" },
+          });
+        }
+        const patch: Partial<typeof dataConnection.$inferInsert> = {};
         if (input.name !== undefined) patch.name = input.name;
-        if (input.visibility !== undefined) patch.visibility = input.visibility;
+        if (input.visibility !== undefined) {
+          patch.visibility = input.visibility;
+          // The actor making an org row private becomes its owner. Retaining
+          // the original creator would make the row disappear for the person
+          // who just changed it (and could expose it to a different member).
+          if (input.visibility === "private") patch.createdBy = viewerId;
+        }
         if (input.environment !== undefined) patch.environment = input.environment;
         if (input.defaultAccess !== undefined) patch.defaultAccess = input.defaultAccess;
         if (input.requireTls !== undefined) patch.requireTls = input.requireTls;
@@ -203,7 +220,7 @@ export function makeConnectionHandlers(deps: {
         // old public copy in their collection would be the leak the visibility
         // change was made to prevent.
         if (row.visibility === "org") announce(context.activeOrganizationId, row);
-        else publishDeleted(context.activeOrganizationId, row.id);
+        else publishDeleted(context.activeOrganizationId, row.id, viewerId);
         return row;
       },
     ),
@@ -219,9 +236,9 @@ export function makeConnectionHandlers(deps: {
               visibleTo(context.activeOrganizationId, deps.viewerIdOf(context)),
             ),
           )
-          .returning({ id: dataConnection.id });
+          .returning({ id: dataConnection.id, visibility: dataConnection.visibility });
         if (!row) throw errors.NOT_FOUND();
-        publishDeleted(context.activeOrganizationId, row.id);
+        if (row.visibility === "org") publishDeleted(context.activeOrganizationId, row.id);
         return { deleted: true };
       },
     ),
@@ -254,11 +271,9 @@ export function makeConnectionHandlers(deps: {
         return {
           ok: true,
           durationMs: Math.round(performance.now() - startedAt),
-          serverVersion: cell !== null && cell !== undefined && "v" in cell ? String(cell.v) : "",
+          serverVersion: cell === null || cell === undefined ? "" : displayText(cell),
         };
       },
     ),
   };
 }
-
-export type ConnectionId = DataConnectionId;

@@ -6,28 +6,10 @@
  * wire connection, enforcing read-only on the session, executing, decoding, and
  * introspecting.
  */
-export { decodeDeclared, decodeInferred, decodeRow } from "./decode";
-export { DataError, type DataErrorReason, toDataError } from "./errors";
-export { execute, executeTransaction, MAX_ROWS, type ExecuteOptions } from "./execute";
-export { listColumns, listTables, type TableColumns } from "./introspect";
-export {
-  listConstraints,
-  listEnums,
-  listIndexes,
-  type EnumType,
-  type TableConstraints,
-  type TableIndexes,
-} from "./introspect-objects";
-export { closeAllPools, connect, evict, openPoolKeys, type Connection } from "./pool";
-export {
-  resolveExternalTarget,
-  resolveManagedTarget,
-  type AccessMode,
-  type DataTarget,
-} from "./target";
-export {
-  ConnectionUrlError,
-  describeConnection,
-  parseConnectionUrl,
-  type ParsedConnectionUrl,
-} from "./connection-url";
+export { DataError } from "./errors";
+export { execute, executeTransaction } from "./execute";
+export { listColumns, listTables } from "./introspect";
+export { listConstraints, listEnums, listIndexes } from "./introspect-objects";
+export { connect, type Connection } from "./pool";
+export { resolveExternalTarget, resolveManagedTarget, type AccessMode } from "./target";
+export { describeConnection, parseConnectionUrl } from "./connection-url";

@@ -14,7 +14,7 @@
  */
 import * as z from "zod";
 
-export const groupingSchema = z.enum(["folders", "flat"]);
+const groupingSchema = z.enum(["folders", "flat"]);
 export type Grouping = z.infer<typeof groupingSchema>;
 
 export const browseSearchSchema = z.object({

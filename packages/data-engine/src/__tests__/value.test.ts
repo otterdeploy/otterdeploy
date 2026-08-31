@@ -62,6 +62,12 @@ describe("parseCell", () => {
     expect(parseCell("31/08/2026", "date")).toBeUndefined();
     expect(parseCell("09:30:00", "time")).toEqual({ k: "time", v: "09:30:00" });
     expect(parseCell("9:30", "time")).toBeUndefined();
+    expect(parseCell("2026-08-31T09:30:00", "datetime")).toEqual({
+      k: "datetime",
+      v: "2026-08-31T09:30:00",
+    });
+    expect(parseCell("2026-02-30T09:30:00", "datetime")).toBeUndefined();
+    expect(parseCell("not-an-instant", "instant")).toBeUndefined();
   });
 
   it("treats empty text as an empty string, never as null", () => {
@@ -93,6 +99,14 @@ describe("editText round-trips through parseCell", () => {
     const cell: CellValue = { k: "json", v: { a: 1, b: [true, null] } };
     expect(parseCell(editText(cell), "json")).toEqual(cell);
   });
+
+  it("keeps tagged array elements lossless", () => {
+    const cell: CellValue = {
+      k: "array",
+      v: [{ k: "bigint", v: "9007199254740993" }, null, { k: "text", v: "1" }],
+    };
+    expect(parseCell(editText(cell), "array")).toEqual(cell);
+  });
 });
 
 describe("cellValueSchema", () => {
@@ -118,5 +132,16 @@ describe("toDriverParam", () => {
     const out = toDriverParam({ k: "bytes", v: "AQID" });
     expect(out).toBeInstanceOf(Uint8Array);
     expect([...(out instanceof Uint8Array ? out : new Uint8Array())]).toEqual([1, 2, 3]);
+  });
+
+  it("rejects malformed base64 before it reaches the driver", () => {
+    expect(parseCell("a", "bytes")).toBeUndefined();
+    expect(cellValueSchema.safeParse({ k: "bytes", v: "a" }).success).toBe(false);
+  });
+
+  it("binds arrays as driver arrays instead of lossy JSON strings", () => {
+    expect(
+      toDriverParam({ k: "array", v: [{ k: "number", v: 1 }, null, { k: "text", v: "1" }] }),
+    ).toEqual([1, null, "1"]);
   });
 });

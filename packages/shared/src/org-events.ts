@@ -56,7 +56,13 @@ export interface OrgConnectionRow {
 export type OrgBusEvent =
   | { kind: OrgStreamCollection }
   | { kind: OrgRowCollection; op: "upsert"; rows: OrgConnectionRow[] }
-  | { kind: OrgRowCollection; op: "delete"; keys: string[] };
+  | {
+      kind: OrgRowCollection;
+      op: "delete";
+      keys: string[];
+      /** Keep a newly-private row in its owner's collection while removing it for everyone else. */
+      excludedUserId?: string;
+    };
 
 /** Redis pub/sub channel for one organization's event fan-out. */
 export function orgEventsChannel(organizationId: string): string {

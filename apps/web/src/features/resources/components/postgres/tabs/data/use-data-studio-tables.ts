@@ -11,6 +11,7 @@
 import type { TableRef } from "./data/queries";
 import type { WorkbenchTarget } from "./data/target";
 
+import { schemaCollection } from "./data/schema-collection";
 import { useDatabaseSchema, useOpenTableColumns } from "./data/use-database";
 
 /**
@@ -30,7 +31,7 @@ export function useTableList(target: WorkbenchTarget, search: string) {
     isLoading,
     isError,
     error: isError ? new Error("Could not read the database schema") : null,
-    refetch: () => undefined,
+    refetch: () => schemaCollection(target).utils.refetch(),
   };
   return { tablesQuery, tables, filteredTables };
 }

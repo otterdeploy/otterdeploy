@@ -12,10 +12,12 @@ import type { ColumnMeta, TableMeta } from "@otterdeploy/data-engine";
 import { Result } from "better-result";
 import * as z from "zod";
 
+import type { DataError } from "./errors";
 import type { Connection } from "./pool";
 
-import { DataError, toDataError } from "./errors";
+import { dataError, toDataError } from "./errors";
 import { boolish, listish, numericish, stringish } from "./introspect-coerce";
+import { awaitQuery, runOnConnection } from "./pool";
 
 const tableRowSchema = z.object({
   schema: stringish,
@@ -58,7 +60,11 @@ export async function introspectRows<T>(
   schema: z.ZodType<T>,
 ): Promise<Result<T[], DataError>> {
   const ran = await Result.tryPromise({
-    try: async (): Promise<unknown> => connection.sql.unsafe(sql),
+    try: () =>
+      runOnConnection(connection, (client) => {
+        const query = client.unsafe(sql);
+        return awaitQuery(query);
+      }),
     catch: toDataError,
   });
   if (ran.isErr()) return Result.err(ran.error);
@@ -68,7 +74,7 @@ export async function introspectRows<T>(
   if (!parsed.success) {
     const first = parsed.error.issues[0];
     return Result.err(
-      new DataError(
+      dataError(
         "query",
         `introspection returned an unexpected shape: ${first?.message ?? "unknown"}`,
       ),

@@ -23,6 +23,7 @@ import { requirePermission } from "../..";
 import {
   deleteObjects,
   listObjects,
+  normalizeStorageRoot,
   presignObject,
   resolveStorageTarget,
   statObject,
@@ -96,8 +97,6 @@ export const storageRouter = {
         buckets: rows.flatMap((row) => {
           const config = configSchema.safeParse(row.config);
           if (!config.success || config.data.bucket === "") return [];
-          const prefix = config.data.prefix ?? "";
-          const trimmed = prefix.replace(/^\/+/, "").replace(/\/+$/, "");
           return [
             {
               id: row.id,
@@ -105,7 +104,7 @@ export const storageRouter = {
               bucket: config.data.bucket,
               region: config.data.region ?? null,
               endpoint: config.data.endpoint ?? null,
-              root: trimmed === "" ? "" : `${trimmed}/`,
+              root: normalizeStorageRoot(config.data.prefix ?? undefined),
             },
           ];
         }),
@@ -141,21 +140,11 @@ export const storageRouter = {
 
   presign: requirePermission({ backup: ["read"] }).storage.presign.handler(
     async ({ input, context, errors }) => {
-      // A PUT presign is a write: it hands out a URL that can replace an
-      // object. Gated on the stronger scope rather than on `read`.
-      if (input.method === "PUT") {
-        const allowed = await requirePermissionForUpload(context);
-        if (!allowed) {
-          throw errors.DENIED({
-            data: { reason: "you do not have permission to write to this bucket" },
-          });
-        }
-      }
       context.log.set({
-        storage: { bucketId: input.bucketId, key: input.key, presign: input.method },
+        storage: { bucketId: input.bucketId, key: input.key, presign: "GET" },
       });
       const target = await open(context.activeOrganizationId, input.bucketId, errors);
-      const url = presignObject(target, input.key, input.method);
+      const url = presignObject(target, input.key);
       if (url.isErr()) throw raise(url.error, errors);
       return url.value;
     },
@@ -179,23 +168,3 @@ export const storageRouter = {
     },
   ),
 };
-
-/**
- * Whether the actor may upload.
- *
- * `backup:update` is the closest existing scope to "may change what is in this
- * destination". Reusing it keeps the permission model as it is rather than
- * adding a storage-specific one that every role would then have to learn.
- */
-async function requirePermissionForUpload(context: {
-  headers: Headers;
-  apiKey?: unknown;
-}): Promise<boolean> {
-  const { auth } = await import("@otterdeploy/auth");
-  if (context.apiKey) return false;
-  const { success } = await auth.api.hasPermission({
-    headers: context.headers,
-    body: { permissions: { backup: ["update"] } },
-  });
-  return success;
-}

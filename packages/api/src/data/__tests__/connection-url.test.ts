@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { describeConnection, parseConnectionUrl } from "../connection-url";
+import {
+  describeConnection,
+  parseConnectionUrl,
+  resolveConnectionAddress,
+} from "../connection-url";
 
 const ok = (raw: string) => {
   const out = parseConnectionUrl(raw);
@@ -72,6 +76,10 @@ describe("SSRF: the address is checked before anything opens a socket", () => {
     }
   });
 
+  it("refuses IPv4-mapped IPv6 loopback", () => {
+    expect(reason("postgres://u:p@[::ffff:127.0.0.1]/app")).toBe("blocked_host");
+  });
+
   it("allows public addresses", () => {
     expect(reason("postgres://u:p@db.example.com/app")).toBeNull();
     expect(reason("postgres://u:p@8.8.8.8/app")).toBeNull();
@@ -82,6 +90,19 @@ describe("SSRF: the address is checked before anything opens a socket", () => {
   it("opens private ranges only when the instance deliberately allows it", () => {
     expect(reason("postgres://u:p@10.0.0.5/app", { allowPrivateAddresses: true })).toBeNull();
     expect(reason("postgres://u:p@localhost/app", { allowPrivateAddresses: true })).toBeNull();
+  });
+
+  it("validates and pins the address used for the connection", async () => {
+    const blocked = await resolveConnectionAddress("127.0.0.1");
+    expect(blocked.isErr() && blocked.error.reason).toBe("blocked_host");
+
+    const allowed = await resolveConnectionAddress("127.0.0.1", {
+      allowPrivateAddresses: true,
+    });
+    expect(allowed.isOk() && allowed.value).toEqual({
+      address: "127.0.0.1",
+      serverName: null,
+    });
   });
 });
 

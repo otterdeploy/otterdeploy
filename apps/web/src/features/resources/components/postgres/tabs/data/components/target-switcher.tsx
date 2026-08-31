@@ -111,7 +111,13 @@ function TargetItem({
   onPick: (option: WorkbenchTargetOption) => void;
 }) {
   return (
-    <DropdownMenuItem onClick={() => onPick(option)} className={cn("gap-2", active && "bg-accent")}>
+    <DropdownMenuItem
+      disabled={!option.healthy}
+      onClick={() => {
+        if (option.healthy) onPick(option);
+      }}
+      className={cn("gap-2", active && "bg-accent")}
+    >
       <HugeiconsIcon
         icon={option.kind === "managed" ? Database02Icon : Globe02Icon}
         strokeWidth={2}
