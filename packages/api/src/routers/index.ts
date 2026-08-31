@@ -27,6 +27,7 @@ import { serverRouter } from "./server";
 import { serviceRouter } from "./service";
 import { sshKeysRouter } from "./sshKeys";
 import { ssoRouter } from "./sso";
+import { storageRouter } from "./storage";
 import { systemRouter } from "./system";
 import { terminalRouter } from "./terminal";
 import { vaultProviderRouter } from "./vault-provider";
@@ -61,6 +62,7 @@ export const appRouter = {
   server: serverRouter,
   service: serviceRouter,
   sshKeys: sshKeysRouter,
+  storage: storageRouter,
   system: systemRouter,
   terminal: terminalRouter,
   vaultProvider: vaultProviderRouter,

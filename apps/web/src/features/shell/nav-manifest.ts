@@ -31,6 +31,7 @@ import {
   EarthIcon,
   File01Icon,
   FlashIcon,
+  FolderLibraryIcon,
   GitBranchIcon,
   Home01Icon,
   Key01Icon,
@@ -168,6 +169,16 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         to: "/$orgSlug/backups",
         icon: DatabaseIcon,
         keywords: ["restore", "snapshot", "database", "databases", "connections"],
+      },
+      {
+        // Sits next to Backups because it IS them, seen from the other side: a
+        // bucket here is an S3 backup destination, browsed with the credential
+        // already stored on it. Nothing new to configure.
+        title: "Storage",
+        i18nKey: "nav.storage",
+        to: "/$orgSlug/storage",
+        icon: FolderLibraryIcon,
+        keywords: ["s3", "bucket", "buckets", "objects", "r2", "minio", "files", "uploads", "blob"],
       },
       {
         title: "Analytics",
