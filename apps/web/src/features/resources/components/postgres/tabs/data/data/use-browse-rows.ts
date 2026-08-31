@@ -85,6 +85,7 @@ export function useBrowseRows({
       },
     }),
     enabled: wanted && overflow,
+    retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: BROWSE_STALE_MS,

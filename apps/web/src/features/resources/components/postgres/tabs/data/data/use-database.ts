@@ -168,6 +168,7 @@ export function useDefinitions(target: WorkbenchTarget) {
     ...orpc.data.definitions.queryOptions({ input: { target } }),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
+    retry: false,
   });
 }
 
@@ -209,6 +210,7 @@ export function useReferencedRow({
         limit: 1,
         offset: 0,
       },
+      retry: false,
     }),
   );
 }

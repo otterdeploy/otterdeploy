@@ -68,6 +68,7 @@ function buildCollection(target: WorkbenchTarget, table: TableRef) {
       queryClient,
       getKey: (row) => row.i,
       staleTime: 30_000,
+      retry: false,
     }),
   );
 }

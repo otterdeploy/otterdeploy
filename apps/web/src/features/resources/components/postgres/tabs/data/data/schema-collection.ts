@@ -72,6 +72,9 @@ function buildCollection(target: WorkbenchTarget) {
       // The schema is not something the workbench mutates; DDL goes through the
       // SQL runner and lands here on the next refetch. No onInsert/onUpdate.
       staleTime: 60_000,
+      // An unreachable database answers the same way four times in a row;
+      // don't retry, show the honest error immediately.
+      retry: false,
     }),
   );
 }
