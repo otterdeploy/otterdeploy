@@ -21,6 +21,7 @@ import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
 import { bulkSetEnv, createService, exposeService, updateService } from "../service/handlers";
 import { ManifestApplySkipError } from "./errors";
 import { gitSourceColumns, resolveManifestRepo } from "./manifest-apply-git";
+import { withSecretFlags } from "./manifest-secret-flags";
 
 type OrgId = OrganizationId;
 
@@ -100,7 +101,9 @@ function buildCreateServiceInput(
     entrypoint: args.spec.entrypoint ?? null,
     replicas: args.spec.replicas ?? 1,
     ports: buildPortsPatch(args.spec) ?? [],
-    env: args.env.length > 0 ? args.env : undefined,
+    // Flags carried from the manifest's `secrets` list; a create that dropped
+    // them would leave the first apply's rows unflagged (od-w2r).
+    env: args.env.length > 0 ? withSecretFlags(args.env, args.spec.secrets) : undefined,
     healthcheck: buildHealthcheckPatch(args.spec),
     restart: args.spec.restart,
     resources: buildResourcesPatch(args.spec),
@@ -307,6 +310,9 @@ export async function updateServiceFromManifest(
       organizationId: args.organizationId,
       resourceId: args.resourceId,
       vars: args.env,
+      // Without this the replace re-inserts every key unflagged, so an
+      // explicit "mark sensitive" survived only until the next apply (od-w2r).
+      secretKeys: args.spec.secrets,
       // Stamps these rows as the manifest's, so a later diff prunes them and
       // leaves an operator's `env set` keys alone (od-y64.8).
       source: "manifest",

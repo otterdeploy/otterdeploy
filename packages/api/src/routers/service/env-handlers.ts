@@ -143,12 +143,16 @@ export async function syncManifestEnvAfterLiveEdit(input: ResourceRef): Promise<
     { projectId: input.projectId, organizationId: input.organizationId },
     target,
     Object.fromEntries(rows.map((r) => [r.key, r.value])),
+    rows.filter((r) => r.isSecret).map((r) => r.key),
   );
 }
 
 export async function bulkSetEnv(
   input: ResourceRef & {
     vars: Array<{ key: string; value: string }>;
+    /** Keys to flag sensitive. The manifest's `secrets` list; without it a
+     *  replace re-inserts every row unflagged (od-w2r). */
+    secretKeys?: readonly string[];
     /** Who is writing. The manifest apply passes "manifest"; that is what
      *  lets the next diff tell its own rows from an operator's (od-y64.8). */
     source?: EnvVarSource;
@@ -161,7 +165,12 @@ export async function bulkSetEnv(
   const guarded = await rejectSelfReferences(input.projectId, ctx.value.record, input.vars);
   if (guarded.isErr()) return Result.err(guarded.error);
 
-  const rows = await bulkReplaceServiceEnvVars(input.resourceId, input.vars, input.source ?? "ui");
+  const secretSet = new Set(input.secretKeys ?? []);
+  const rows = await bulkReplaceServiceEnvVars(
+    input.resourceId,
+    input.vars.map((v) => ({ ...v, isSecret: secretSet.has(v.key) })),
+    input.source ?? "ui",
+  );
   const redeployed = await rollFor(input, ctx.value, log);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 

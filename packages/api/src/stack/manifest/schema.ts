@@ -183,6 +183,12 @@ const serviceCommonSchema = z.object({
   replicas: z.number().int().nonnegative().optional(),
   ports: z.array(portSchema).optional(),
   env: envMap.optional(),
+  /** Keys in `env` the operator marked sensitive. A display flag, not storage:
+   *  values are encrypted either way. It lives here because apply REPLACES the
+   *  env rows, and without a declaration every apply re-inserted them
+   *  unflagged — an explicit "this is a secret" toggle survived until the next
+   *  apply and then silently fell back to key-name heuristics (od-w2r). */
+  secrets: z.array(z.string().min(1)).optional(),
   // Exec-form start command. Array, not string. `["bun", "run", "start"]`
   // not `"bun run start"`. Wrap shell expressions yourself if you need them:
   // `["sh", "-c", "x && y"]`.
