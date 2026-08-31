@@ -877,13 +877,15 @@
     "publicListsSubtitle": "Listas gratuitas conocidas, no hace falta cuenta de CrowdSec. Se añaden con un clic.",
     "removeListDescription": "La lista y todas las IP que importó se eliminan del cortafuegos. Puedes volver a añadirla desde el catálogo o por URL más adelante.",
     "block": "Bloquear",
-    "blocking": "Bloqueando…",
+    "unblock": "Desbloquear",
+    "blockForLength": "Bloquear {{ip}} durante un periodo elegido",
     "duration": {
       "hour1": "1 hora",
       "hours24": "24 horas",
       "days7": "7 días",
       "days30": "30 días",
-      "days180": "180 días"
+      "days180": "180 días",
+      "forever": "Para siempre"
     }
   },
   "gitProviders": {

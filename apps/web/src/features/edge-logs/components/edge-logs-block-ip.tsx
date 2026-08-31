@@ -20,16 +20,12 @@ import { Button } from "@/shared/components/ui/button";
 
 /** Mass-block confirm: bans every listed offender IP in one CrowdSec batch.
  *  Same confirm-first posture as the single-IP action; used by the suspicious
- *  filter here and the Flagged IPs panel in the Firewall view. */
-export function BlockAllButton({
-  count,
-  onConfirm,
-  blocking,
-}: {
-  count: number;
-  onConfirm: () => void;
-  blocking: boolean;
-}) {
+ *  filter here and the Flagged IPs panel in the Firewall view.
+ *
+ *  No `blocking` flag: the ban is a transaction over the decision collection,
+ *  so it applies locally as the dialog closes and rolls back if the server
+ *  refuses. There is nothing left to disable a button for. */
+export function BlockAllButton({ count, onConfirm }: { count: number; onConfirm: () => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
@@ -39,9 +35,8 @@ export function BlockAllButton({
         size="sm"
         className="text-destructive hover:text-destructive"
         onClick={() => setOpen(true)}
-        disabled={blocking}
       >
-        {blocking ? "Blocking…" : `Block ${count} IP${count === 1 ? "" : "s"}`}
+        {`Block ${count} IP${count === 1 ? "" : "s"}`}
       </Button>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -55,14 +50,13 @@ export function BlockAllButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={blocking}>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
               onConfirm();
               setOpen(false);
             }}
-            disabled={blocking}
           >
             Block all
           </AlertDialogAction>
@@ -72,15 +66,7 @@ export function BlockAllButton({
   );
 }
 
-export function BlockIpButton({
-  ip,
-  onBlockIp,
-  blocking,
-}: {
-  ip: string;
-  onBlockIp: (ip: string) => void;
-  blocking: boolean;
-}) {
+export function BlockIpButton({ ip, onBlockIp }: { ip: string; onBlockIp: (ip: string) => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
@@ -108,16 +94,15 @@ export function BlockIpButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={blocking}>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
               onBlockIp(ip);
               setOpen(false);
             }}
-            disabled={blocking}
           >
-            {blocking ? "Blocking…" : "Block IP"}
+            Block IP
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
