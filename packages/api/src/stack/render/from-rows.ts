@@ -35,11 +35,13 @@ function renderDatabases(
       engine,
       projectSlug,
       resourceName: row.resource.name,
+      stored: row.database.serviceName,
     });
     const volumeName = buildVolumeName({
       engine,
       projectSlug,
       resourceName: row.resource.name,
+      stored: row.database.volumeName,
     });
     volumes[volumeName] = {};
     const entry = buildDatabaseService(row, projectSlug, volumeName);

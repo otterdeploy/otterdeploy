@@ -96,11 +96,13 @@ async function hostedRuntime(hostResourceId: ResourceId): Promise<SwarmDatabaseR
       engine: host.engine,
       projectSlug: host.projectSlug,
       resourceName: host.name,
+      stored: host.serviceName,
     }),
     volumeName: buildVolumeName({
       engine: host.engine,
       projectSlug: host.projectSlug,
       resourceName: host.name,
+      stored: host.volumeName,
     }),
     projectSlug: host.projectSlug,
   });
@@ -136,11 +138,13 @@ export async function ensureSwarmRuntimeForRecord(
     engine,
     projectSlug,
     resourceName: record.resource.name,
+    stored: record.database.serviceName,
   });
   const volumeName = buildVolumeName({
     engine,
     projectSlug,
     resourceName: record.resource.name,
+    stored: record.database.volumeName,
   });
 
   const existingRuntime = await inspectSwarmDatabaseRuntime({

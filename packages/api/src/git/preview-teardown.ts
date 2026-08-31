@@ -100,10 +100,14 @@ export async function destroyPreviewBranchDbs(
     (r) => r.resource.previewId === input.id,
   );
   for (const br of branches) {
+    // The branch's recorded name; the appended-slug convention is only the
+    // fallback for branches created before the column (od-jwx). Tearing down
+    // under the wrong name leaves the container running.
     const serviceName = buildContainerName({
       engine: br.database.engine,
       projectSlug: input.projectSlug,
       resourceName: `${br.resource.name}-${input.slug}`,
+      stored: br.database.serviceName,
     });
     await best(
       () =>

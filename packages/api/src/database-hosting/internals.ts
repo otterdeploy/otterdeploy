@@ -47,6 +47,12 @@ export interface HostRow {
   admin: HostAdmin;
   internalHostname: string;
   internalPort: number;
+  /** The host's own recorded container/volume names. A tenant has none of its
+   *  own and is inspected under these, so a recomputed guess would report a
+   *  confident "missing" for a server that is running (od-jwx). Null on rows
+   *  that predate the columns; the builders fall back to the computation. */
+  serviceName: string | null;
+  volumeName: string | null;
   /** Set when this row is itself a tenant — hosting on a tenant is refused. */
   hostResourceId: ResourceId | null;
 }
@@ -70,6 +76,8 @@ export async function getHostRow(input: {
       databaseName: databaseResource.databaseName,
       internalHostname: databaseResource.internalHostname,
       internalPort: databaseResource.internalPort,
+      serviceName: databaseResource.serviceName,
+      volumeName: databaseResource.volumeName,
       hostResourceId: databaseResource.hostResourceId,
     })
     .from(databaseResource)
@@ -96,6 +104,8 @@ export async function getHostRow(input: {
     },
     internalHostname: row.internalHostname,
     internalPort: row.internalPort,
+    serviceName: row.serviceName,
+    volumeName: row.volumeName,
     hostResourceId: row.hostResourceId,
   };
 }
