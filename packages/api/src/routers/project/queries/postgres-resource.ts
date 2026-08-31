@@ -8,6 +8,7 @@ import { createError } from "evlog";
 
 import type { ResourceScope } from "./resource";
 
+import { newResourceEnvironmentId } from "./new-resource-environment";
 import { inEnvironmentScope } from "./resource";
 
 export interface DatabaseResourceRecord {
@@ -111,12 +112,15 @@ export async function createDatabaseResourceRecord(input: {
   /** Cap on the tenant's concurrent connections (shared servers only). */
   connectionLimit?: number | null;
 }): Promise<DatabaseResourceRecord> {
+  // Resolved before the transaction: a caller that omits the environment gets
+  // the project's main one rather than an unscoped row. See the helper.
+  const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
       .insert(resource)
       .values({
         projectId: input.projectId,
-        environmentId: input.environmentId ?? null,
+        environmentId,
         name: input.name,
         type: "database",
         status: input.status ?? "valid",

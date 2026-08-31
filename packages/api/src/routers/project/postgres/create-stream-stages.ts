@@ -21,7 +21,7 @@ import { createPullLineSummarizer, resolveRegistryAuth, streamImagePull } from "
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import { reconcileDeploySuccess } from "../deployments-reconcile";
-import { createDatabaseResourceRecord, resolveProjectEnvironmentScope } from "../queries";
+import { createDatabaseResourceRecord } from "../queries";
 import { isUniqueViolation } from "../views";
 import { tailContainerBootLogs } from "./boot-logs";
 import {
@@ -47,19 +47,13 @@ export async function* persistDbRecordStage(
 ): AsyncGenerator<CreatePostgresProgress, StageResult<CreatedRecord>, void> {
   yield { type: "step", step: "db-record", status: "start", message: null };
   let created: CreatedRecord;
-  // Resolve the project's MAIN environment when the caller sends none (deep
-  // links, the CLI, and the direct wizard route all do). Writing null here is
-  // what orphaned a live database on 2026-08-10 (od-lqm): the row existed and
-  // its container was healthy, but every environment-scoped client read
-  // skipped it. The read side now treats null as main (web's
-  // inActiveEnvironment, server's inEnvironmentScope), so this is
-  // belt-and-braces: a resource should still carry the environment it
-  // belongs to.
-  const scope = await resolveProjectEnvironmentScope(input.projectId, input.environmentId);
   try {
     created = await createDatabaseResourceRecord({
       projectId: input.projectId,
-      environmentId: scope?.environmentId ?? input.environmentId ?? null,
+      // Resolving an omitted environment is the insert's job now, for every
+      // resource type rather than this one stage. See
+      // project/queries/new-resource-environment.ts.
+      environmentId: input.environmentId,
       name: input.name,
       engine: ctx.engine,
       status: "draft",
