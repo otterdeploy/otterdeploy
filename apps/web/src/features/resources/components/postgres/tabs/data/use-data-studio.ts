@@ -22,12 +22,12 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
-import type { PostgresBodyProps } from "../../types";
 import type { ResultView } from "./components/results-panel";
+import type { WorkbenchTarget } from "./data/target";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { type TableRef } from "./data/queries";
-import { resourceTarget, targetKey } from "./data/target";
+import { targetKey } from "./data/target";
 import { useBrowseRows } from "./data/use-database";
 import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
 import {
@@ -39,19 +39,11 @@ import {
 import { errMessage } from "./use-data-studio-sql";
 import { useOpenTableAccess, useTableList } from "./use-data-studio-tables";
 
-type Resource = PostgresBodyProps["resource"];
-
 export const PAGE_SIZES = [50, 100, 200, 500];
 
 export { errMessage };
 
-function useTableData(resource: Resource) {
-  const resourceId = resource.resourceId;
-  // The workbench addresses a TARGET, not a resource. A managed database is one
-  // kind of target; a saved external connection is the other, and everything
-  // below this line is written once for both.
-  const target = resourceTarget(String(resource.resourceId));
-
+function useTableData(target: WorkbenchTarget) {
   const [mode, setMode] = useState<"table" | "sql">("table");
   const [tableSearch, setTableSearch] = useState("");
   const [selected, setSelected] = useState<TableRef | null>(null);
@@ -178,7 +170,6 @@ function useTableData(resource: Resource) {
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
 
   return {
-    resourceId,
     target,
     mode,
     setMode,
@@ -231,9 +222,16 @@ function useTableData(resource: Resource) {
   };
 }
 
-export function useDataStudio(resource: Resource, shortcuts: boolean) {
-  const editor = useSnippetBuffer(resourceTarget(String(resource.resourceId)));
-  const table = useTableData(resource);
+/**
+ * The workbench, for one target.
+ *
+ * Takes a `WorkbenchTarget`, not a resource: since external connections exist
+ * there is no resource behind half the things this can open, and the panel that
+ * used to own this surface has no way to name them.
+ */
+export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
+  const editor = useSnippetBuffer(target);
+  const table = useTableData(target);
 
   // The SQL playground is a three-pane resizable shell. On a phone a 20% rail
   // is ~75px. Too narrow to read a snippet name and it starves the editor, so

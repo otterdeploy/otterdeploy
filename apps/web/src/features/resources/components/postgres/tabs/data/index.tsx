@@ -1,185 +1,83 @@
 /**
- * "Data" tab: the built-in database console (read-only v1).
+ * The database panel's "Data" tab: a doorway, not the workbench.
  *
- * A studio-style layout: a left rail of browser-stored SQL snippets, a center
- * pane with a CodeMirror editor (per-statement run gutter, ⌘↵, Prettify) over a
- * results panel (grid / JSON / CSV export), and a right rail listing the
- * database's tables. Clicking a table browses it (server-side ORDER BY +
- * filters + LIMIT/OFFSET pagination); the editor runs arbitrary read-only SQL.
- * Nothing auto-runs. Execution is always an explicit ▶, ⌘↵, or Run. ⌘K opens a
- * scoped spotlight. Writes are a later phase. See docs/designs/data-viewer.md.
+ * It used to render the whole studio inside the resource panel, boxed at
+ * `h-[calc(100dvh-20rem)]` with an "Open editor" button that threw a 100svh
+ * `Dialog` over the app. That escape hatch was the admission that a side panel
+ * is the wrong shape for writing SQL.
  *
- * The studio's state + actions live in {@link useDataStudio}; the three layout
- * views live in the sibling `studio-*` modules.
+ * What settled it was external connections: one is not attached to any
+ * resource, so half of what the workbench can open has no panel to be opened
+ * from. The workbench moved to `/$orgSlug/data`, and this tab became the link
+ * that opens it already pointed at THIS database.
+ *
+ * The tab stays rather than disappearing because a database panel with no
+ * mention of its data reads like something is missing, and because "how do I
+ * connect to this" is a question people come to the panel to answer.
  */
-
-import { useRef, useState } from "react";
-
-import { Database01Icon, SquareArrowExpand01Icon } from "@hugeicons/core-free-icons";
+import { ArrowRight01Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Link, useParams } from "@tanstack/react-router";
 
-import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
-import { cn } from "@/shared/lib/utils";
 
 import type { PostgresBodyProps } from "../../types";
-import type { SqlEditorHandle } from "./components/sql-editor";
 
-import { DataSpotlight } from "./components/data-spotlight";
-import { resourceTarget } from "./data/target";
+import { resourceTarget, targetKey } from "./data/target";
 import { useDataCapabilities } from "./data/use-database";
-import { StudioResults } from "./studio-results";
-import { SqlPlaygroundView } from "./studio-sql-view";
-import { TableBrowserView } from "./studio-table-view";
-import { useDataStudio } from "./use-data-studio";
 
 interface DataTabBodyProps {
   resource: PostgresBodyProps["resource"];
 }
 
 export function DataTabBody({ resource }: DataTabBodyProps) {
-  const [expanded, setExpanded] = useState(false);
-  const canWrite =
-    useDataCapabilities(resourceTarget(String(resource.resourceId))).data?.canWrite ?? false;
+  const target = resourceTarget(String(resource.resourceId));
+  const canWrite = useDataCapabilities(target).data?.canWrite ?? false;
+  // Read from the URL rather than threaded through two panel layers: the org
+  // slug is a fact about where we are, not about this resource.
+  const { orgSlug } = useParams({ strict: false });
 
   return (
-    <div className="flex min-h-0 flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <DbIdentity resource={resource} canWrite={canWrite} />
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setExpanded(true)}>
-          <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} className="size-3.5" />
-          Open editor
-        </Button>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+        <div className="flex items-center gap-2 text-[13px]">
+          <HugeiconsIcon
+            icon={Database01Icon}
+            strokeWidth={2}
+            className="size-4 text-muted-foreground"
+          />
+          <span className="font-mono">{resource.databaseName}</span>
+          <span className="text-muted-foreground/50">·</span>
+          <span className="text-muted-foreground">{resource.engine}</span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground">
+            {canWrite ? "EDITABLE" : "READ-ONLY"}
+          </span>
+        </div>
+
+        <p className="text-[13px] text-muted-foreground">
+          Browse tables, run SQL and edit rows in the workbench. It opens pointed at this database,
+          and you can switch to any other from there.
+        </p>
+
+        <div>
+          {orgSlug === undefined ? null : (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              render={
+                <Link
+                  to="/$orgSlug/data"
+                  params={{ orgSlug }}
+                  search={{ target: targetKey(target) }}
+                />
+              }
+            >
+              Browse data
+              <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
-
-      {/* Inline studio listens for ⌘K only while the fullscreen one is closed. */}
-      <DataStudio
-        resource={resource}
-        boxClassName="h-[calc(100dvh-20rem)] min-h-[460px]"
-        shortcuts={!expanded}
-      />
-
-      <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="top-0 left-0 flex h-[100svh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 [--dlg-pad:0px] sm:max-w-none">
-          <DialogHeader className="border-b px-4 py-3">
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <DbIdentity resource={resource} canWrite={canWrite} />
-            </DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 p-4">
-            <DataStudio resource={resource} boxClassName="min-h-0 h-full" shortcuts={expanded} />
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function DbIdentity({
-  resource,
-  canWrite,
-}: {
-  resource: DataTabBodyProps["resource"];
-  canWrite: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2 text-[13px]">
-      <HugeiconsIcon
-        icon={Database01Icon}
-        strokeWidth={2}
-        className="size-4 text-muted-foreground"
-      />
-      <span className="font-mono">{resource.databaseName}</span>
-      <span className="text-muted-foreground/50">·</span>
-      <span className="text-muted-foreground">{resource.engine}</span>
-      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground">
-        {canWrite ? "EDITABLE" : "READ-ONLY"}
-      </span>
-    </div>
-  );
-}
-
-function DataStudio({
-  resource,
-  boxClassName,
-  shortcuts,
-}: {
-  resource: DataTabBodyProps["resource"];
-  boxClassName?: string;
-  shortcuts: boolean;
-}) {
-  const studio = useDataStudio(resource, shortcuts);
-  // The editor handle is held here (not on the controller) so the shared
-  // `studio` object never carries a ref. See use-data-studio.ts.
-  const editorRef = useRef<SqlEditorHandle>(null);
-  // The results pane is identical in both modes. Built once and rendered in
-  // whichever layout `mode` selects.
-  const results = <StudioResults studio={studio} />;
-
-  return (
-    <div className={cn("flex overflow-hidden rounded-lg border bg-card", boxClassName)}>
-      {studio.table.mode === "table" ? (
-        <TableBrowserView studio={studio} results={results} />
-      ) : (
-        <SqlPlaygroundView studio={studio} results={results} editorRef={editorRef} />
-      )}
-
-      <WriteConfirmDialog studio={studio} databaseName={resource.databaseName} />
-
-      <DataSpotlight
-        open={studio.spotlightOpen}
-        onOpenChange={studio.setSpotlightOpen}
-        tables={studio.table.tables}
-        snippets={studio.editor.snippets}
-        onOpenTable={studio.table.openTable}
-        onOpenSnippet={studio.selectSnippet}
-        onRunCurrent={() => editorRef.current?.runCurrent()}
-        onRunAll={() => editorRef.current?.runAll()}
-        onPrettify={studio.editor.prettify}
-        onNewQuery={studio.newQuery}
-        onToggleLeft={() => studio.setShowLeft((v) => !v)}
-        onToggleRight={() => studio.setShowRight((v) => !v)}
-      />
-    </div>
-  );
-}
-
-/**
- * Confirm gate for write-mode SQL. Destructive statements (DROP / TRUNCATE /
- * unscoped DELETE / UPDATE) require typing the database name; other writes get
- * a plain styled confirm. Either way the statement about to run is shown.
- */
-function WriteConfirmDialog({
-  studio,
-  databaseName,
-}: {
-  studio: ReturnType<typeof useDataStudio>;
-  databaseName: string;
-}) {
-  const pw = studio.table.pendingWrite;
-  const destructive = pw?.severity === "destructive";
-  return (
-    <TypedConfirmDialog
-      open={pw !== null}
-      onOpenChange={(open) => {
-        if (!open) studio.table.cancelPendingWrite();
-      }}
-      title={destructive ? "This statement is destructive" : "Run against the live database?"}
-      description={
-        destructive
-          ? "It contains DROP, TRUNCATE, or a DELETE/UPDATE with no WHERE clause. It runs immediately and the data can't be recovered."
-          : "INSERT / UPDATE / DELETE / DDL take effect immediately and can't be undone."
-      }
-      confirmPhrase={destructive ? databaseName : undefined}
-      confirmLabel="Run statement"
-      onConfirm={() => studio.table.confirmPendingWrite()}
-    >
-      {pw ? (
-        <pre className="max-h-32 overflow-auto rounded-md bg-muted/50 p-2 font-mono text-[11px] whitespace-pre-wrap text-muted-foreground ring-1 ring-foreground/10">
-          {pw.sql}
-        </pre>
-      ) : null}
-    </TypedConfirmDialog>
   );
 }
