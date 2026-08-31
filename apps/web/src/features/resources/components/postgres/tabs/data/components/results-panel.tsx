@@ -160,24 +160,35 @@ export function ResultsPanel({
           <JsonView data={jsonData} className="p-3" />
         </ScrollArea>
       ) : (
-        <DiceResultGrid
-          key={gridKey}
-          target={target}
-          columns={columns}
-          rows={rows}
-          columnFks={columnFks}
-          columnTypes={columnTypes}
-          hiddenColumns={hiddenColumns}
-          onOpenRef={onOpenRef}
-          editable={editable}
-          primaryKey={primaryKey}
-          onStageEdit={onStageEdit}
-          onDeleteRow={onDeleteRow}
-          selectable={selectable}
-          onSelectionChange={onSelectionChange}
-          enableRowDetail={enableRowDetail}
-          exportName={exportName}
-        />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <DiceResultGrid
+            key={gridKey}
+            target={target}
+            columns={columns}
+            rows={rows}
+            columnFks={columnFks}
+            columnTypes={columnTypes}
+            hiddenColumns={hiddenColumns}
+            onOpenRef={onOpenRef}
+            editable={editable}
+            primaryKey={primaryKey}
+            onStageEdit={onStageEdit}
+            onDeleteRow={onDeleteRow}
+            selectable={selectable}
+            onSelectionChange={onSelectionChange}
+            enableRowDetail={enableRowDetail}
+            exportName={exportName}
+          />
+          {/* The headers still render (the table's shape is the answer to
+              "is my column there"), but an empty body has to SAY so — a
+              silent void reads as a broken grid, not an empty table. */}
+          {rows.length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 pt-8">
+              <p className="text-[13px] text-muted-foreground">No rows</p>
+              <p className="font-mono text-[11px] text-muted-foreground/60">the table is empty</p>
+            </div>
+          ) : null}
+        </div>
       )}
 
       {/* Footer */}

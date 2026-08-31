@@ -8,7 +8,13 @@
  */
 export { DataError } from "./errors";
 export { execute, executeTransaction } from "./execute";
-export { listColumns, listTables } from "./introspect";
+export {
+  cachedListColumns,
+  listColumns,
+  listTables,
+  purgeIntrospectionCache,
+  tableColumns,
+} from "./introspect";
 export { listConstraints, listEnums, listIndexes } from "./introspect-objects";
 export { connect, type Connection } from "./pool";
 export { resolveExternalTarget, resolveManagedTarget, type AccessMode } from "./target";

@@ -6,7 +6,6 @@
  * client never sends SQL for anything except the explicit runner, and even
  * there the session decides whether a write can land.
  */
-import type { ColumnMeta } from "@otterdeploy/data-engine";
 
 import { auth } from "@otterdeploy/auth";
 import {
@@ -20,7 +19,6 @@ import {
 } from "@otterdeploy/data-engine";
 import { Result } from "better-result";
 
-import type { Connection, DataError } from "../../data";
 
 import { requirePermission } from "../..";
 import {
@@ -31,6 +29,8 @@ import {
   listEnums,
   listIndexes,
   listTables,
+  purgeIntrospectionCache,
+  tableColumns,
 } from "../../data";
 import { makeConnectionHandlers } from "./connections";
 import { guardTarget, open, raise, targetLog, viewerIdOf } from "./plumbing";
@@ -163,6 +163,7 @@ export const dataRouter = {
       const grid = await execute(connection, statement, {
         columns: projected,
         limit: input.limit,
+        trustedRead: true,
       });
       if (grid.isErr()) throw raise(grid.error, errors);
       return grid.value;
@@ -194,7 +195,7 @@ export const dataRouter = {
           filters: input.filters,
           lookup,
         }),
-        { kinds: ["bigint"] },
+        { kinds: ["bigint"], trustedRead: true },
       );
       if (grid.isErr()) throw raise(grid.error, errors);
 
@@ -242,6 +243,8 @@ export const dataRouter = {
         { limit: input.limit },
       );
       if (grid.isErr()) throw raise(grid.error, errors);
+      // A write may have been DDL; the cached columns are no longer the truth.
+      if (input.write) purgeIntrospectionCache(connection.target.poolKey);
       return grid.value;
     },
   ),
@@ -294,6 +297,7 @@ export const dataRouter = {
       const startedAt = performance.now();
       const grids = await executeTransaction(connection, statements);
       if (grids.isErr()) throw raise(grids.error, errors);
+      purgeIntrospectionCache(connection.target.poolKey);
 
       return {
         rowsAffected: grids.value.reduce((total, g) => total + (g.rowsAffected ?? 0), 0),
@@ -302,15 +306,3 @@ export const dataRouter = {
     },
   ),
 };
-
-/** Columns for one table, from the same single-round-trip introspection. */
-async function tableColumns(
-  connection: Connection,
-  schema: string,
-  table: string,
-): Promise<Result<ColumnMeta[], DataError>> {
-  const all = await listColumns(connection);
-  if (all.isErr()) return Result.err(all.error);
-  const hit = all.value.find((t) => t.table === table && (schema === "" || t.schema === schema));
-  return Result.ok(hit?.columns ?? []);
-}

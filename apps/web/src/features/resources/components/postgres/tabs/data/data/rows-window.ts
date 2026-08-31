@@ -62,11 +62,15 @@ function buildCollection(target: WorkbenchTarget, table: TableRef) {
       id: `data-rows:${key}`,
       queryKey: ["data-rows-window", key],
       queryFn: async (): Promise<RowsWindowRow[]> => {
+        // WALL time of the whole request, measured where the user sits — not
+        // the server's execute() slice. A chip that says 114ms while the
+        // request took 350 is a lie; this number is what the wait felt like.
+        // Parked in the query cache (a real singleton), not module state, and
+        // not a row field: on a hydrated cache it is simply absent, never
+        // wrong.
+        const startedAt = performance.now();
         const grid = await orpc.data.browse.call(windowInput(target, table));
-        // Server-reported execution time, for the toolbar. Parked in the
-        // query cache (a real singleton), not module state, and not a row
-        // field: on a hydrated cache it is simply absent, never wrong.
-        queryClient.setQueryData(durationKey(key), grid.durationMs);
+        queryClient.setQueryData(durationKey(key), Math.round(performance.now() - startedAt));
         return grid.rows.map((cells, i) => ({ i, cells }));
       },
       queryClient,
