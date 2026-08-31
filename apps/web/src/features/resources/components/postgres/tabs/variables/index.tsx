@@ -6,13 +6,13 @@ import { useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 import { VariableRefHint } from "@/features/resources/components/_shared/hint-banner";
 import {
   VariablesEditor,
   type VariablesEditorHandle,
 } from "@/features/resources/components/_shared/variables-editor";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { orpc } from "@/shared/server/orpc";
 
