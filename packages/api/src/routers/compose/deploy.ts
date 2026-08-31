@@ -27,6 +27,7 @@ import { interpolate } from "./env";
 import { loadManifestServiceEnv } from "./manifest-service-env";
 import { type ComposeRecord, getComposeRecord } from "./queries";
 import { reconcileStackServices } from "./reconcile";
+import { resolveVaultInProjectVars } from "./vault-project-vars";
 
 class ComposeDeployError extends Error {
   constructor(message: string) {
@@ -137,12 +138,17 @@ export async function deployCompose(
     return Result.err(new ComposeDeployError(parsed.error.message));
   }
 
-  const projectVars = project.environmentId
+  const rawProjectVars = project.environmentId
     ? await loadProjectEnvBag({
         projectId: input.projectId,
         environmentId: project.environmentId,
       })
     : {};
+  // A vault token inside a project variable's VALUE would otherwise be
+  // inlined verbatim into image/command/ports: compose's `${VAR}` regex does
+  // not match `${{vault…}}`, and these fields never reach resolveServiceEnv.
+  // See vault-project-vars.ts (od-i3p).
+  const projectVars = await resolveVaultInProjectVars(rawProjectVars, organizationId, rlog);
 
   // The stack's on-disk home is env-keyed (null environmentId = main env).
   const materialized = await materializeInlineTree(
