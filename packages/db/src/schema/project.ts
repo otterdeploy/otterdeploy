@@ -376,6 +376,20 @@ export const databaseResource = pgTable(
     publicPort: integer("public_port").notNull().default(443),
     publicConnectionString: text("public_connection_string").notNull(),
     internalHostname: text("internal_hostname").notNull(),
+    // Container + volume names, computed ONCE at create and read everywhere
+    // after (od-jwx). Services have carried their own `serviceName` since the
+    // start; databases recomputed theirs from {engine, projectSlug,
+    // resourceName} at 78 call sites, so there was no single place to make the
+    // name environment-aware — and a staging `postgres` collided with
+    // production's.
+    //
+    // NULLABLE, and readers fall back to the same computation that produced
+    // today's names. That is what makes this safe to land without a backfill:
+    // an existing row keeps addressing the container it already has, because
+    // the fallback IS the old function. Only rows created after the scope
+    // lands carry a stored value.
+    serviceName: text("service_name"),
+    volumeName: text("volume_name"),
     internalPort: integer("internal_port").notNull().default(5432),
     internalConnectionString: text("internal_connection_string").notNull(),
     upstreamHost: text("upstream_host").notNull(),

@@ -14,12 +14,13 @@
 import { Result } from "better-result";
 import { S3Client } from "bun";
 
-import type { StorageTarget } from "./target";
+import type { StorageError, StorageTarget } from "./target";
 
-import { StorageError, resolveKey } from "./target";
+import { resolveKey, storageError } from "./target";
 
 /** S3 returns at most 1000 keys per call, and so do we. */
-export const MAX_KEYS = 1000;
+const MAX_KEYS = 1000;
+const DELETE_CONCURRENCY = 8;
 
 /** Presigned URLs are short-lived: long enough to click, short enough to leak badly. */
 const PRESIGN_SECONDS = 15 * 60;
@@ -59,15 +60,15 @@ function clientFor(target: StorageTarget): S3Client {
 function toStorageError(cause: unknown): StorageError {
   const message = cause instanceof Error ? cause.message : String(cause);
   if (/access ?denied|forbidden|signature|credential/i.test(message)) {
-    return new StorageError("denied", message);
+    return storageError("denied", message);
   }
   if (/no ?such ?bucket|not ?found|404/i.test(message)) {
-    return new StorageError("not_found", message);
+    return storageError("not_found", message);
   }
   if (/econnrefused|enotfound|timeout|network/i.test(message)) {
-    return new StorageError("unreachable", message);
+    return storageError("unreachable", message);
   }
-  return new StorageError("request", message);
+  return storageError("request", message);
 }
 
 export interface ListInput {
@@ -162,14 +163,13 @@ export async function statObject(
 /**
  * A short-lived presigned URL.
  *
- * This is how the browser reads or writes an object WITHOUT the control plane
- * proxying the bytes and without ever holding a credential. `method` decides
- * which: `GET` to download or preview, `PUT` to upload.
+ * This is how the browser reads an object WITHOUT the control plane proxying
+ * the bytes and without ever holding a credential.
  */
 export function presignObject(
   target: StorageTarget,
   key: string,
-  method: "GET" | "PUT",
+  method: "GET" | "PUT" = "GET",
 ): Result<{ url: string; expiresInSeconds: number }, StorageError> {
   const scoped = resolveKey(target, key);
   if (scoped.isErr()) return Result.err(scoped.error);
@@ -186,29 +186,44 @@ export function presignObject(
   });
 }
 
-/** Delete objects. Returns how many keys were accepted. */
+export interface DeleteObjectsResult {
+  deleted: string[];
+  failed: Array<{ key: string; reason: string }>;
+}
+
+/** Delete objects with bounded concurrency and an exact outcome per key. */
 export async function deleteObjects(
   target: StorageTarget,
   keys: readonly string[],
-): Promise<Result<{ deleted: number }, StorageError>> {
-  const scoped: string[] = [];
+): Promise<Result<DeleteObjectsResult, StorageError>> {
+  const scoped: Array<{ key: string; fullKey: string }> = [];
+  const seen = new Set<string>();
   for (const key of keys) {
+    if (seen.has(key)) {
+      return Result.err(storageError("request", `object key "${key}" was provided more than once`));
+    }
+    seen.add(key);
     const resolved = resolveKey(target, key);
     if (resolved.isErr()) return Result.err(resolved.error);
-    scoped.push(resolved.value);
+    scoped.push({ key, fullKey: resolved.value });
   }
 
   const client = clientFor(target);
-  // S3 has a batch delete, but Bun's client exposes per-object unlink. Failing
-  // the whole call on the first error would leave an unknowable partial state,
-  // so each is attempted and the count is reported honestly.
-  const outcomes = await Promise.all(
-    scoped.map((key) =>
-      Result.tryPromise({ try: () => client.delete(key), catch: toStorageError }),
-    ),
-  );
-  const failed = outcomes.find((o) => o.isErr());
-  const deleted = outcomes.filter((o) => o.isOk()).length;
-  if (failed?.isErr() && deleted === 0) return Result.err(failed.error);
-  return Result.ok({ deleted });
+  const deleted: string[] = [];
+  const failed: DeleteObjectsResult["failed"] = [];
+  for (let offset = 0; offset < scoped.length; offset += DELETE_CONCURRENCY) {
+    const batch = scoped.slice(offset, offset + DELETE_CONCURRENCY);
+    const outcomes = await Promise.all(
+      batch.map(({ fullKey }) =>
+        Result.tryPromise({ try: () => client.delete(fullKey), catch: toStorageError }),
+      ),
+    );
+    outcomes.forEach((outcome, index) => {
+      const key = batch[index]?.key;
+      if (key === undefined) return;
+      if (outcome.isOk()) deleted.push(key);
+      else failed.push({ key, reason: outcome.error.message });
+    });
+  }
+  return Result.ok({ deleted, failed });
 }

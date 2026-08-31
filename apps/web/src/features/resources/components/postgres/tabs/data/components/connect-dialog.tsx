@@ -17,6 +17,7 @@
  */
 import { useState } from "react";
 
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -36,7 +37,7 @@ import type { DataConnection } from "../data/connections";
 import type { ConnectEngine } from "./connect-engines";
 import type { ConnectDraft } from "./connect-form";
 
-import { connectionsCollection } from "../data/connections";
+import { connectionCollectionFor } from "../data/connections";
 import { CONNECT_ENGINES, EMPTY_FIELDS, fieldsFromUrl, urlFromFields } from "./connect-engines";
 import { ConnectForm, EnginePicker } from "./connect-form";
 
@@ -49,7 +50,7 @@ function reasonOf(cause: unknown): string {
 }
 
 /** All of the dialog's state and actions; the component only renders it. */
-function useConnectDraft(existing: DataConnection | undefined) {
+function useConnectDraft(organizationId: string, existing: DataConnection | undefined) {
   const editing = existing !== undefined;
   const [engine, setEngine] = useState<ConnectEngine | null>(null);
   const [draft, setDraft] = useState<ConnectDraft>({
@@ -112,7 +113,13 @@ function useConnectDraft(existing: DataConnection | undefined) {
   /** Returns true when saved, so the caller can close the dialog. */
   const submit = () => {
     setError(null);
-    const outcome = saveConnection(draft, effectiveUrl(), activeEngine, existing);
+    const outcome = saveConnection(
+      connectionCollectionFor(organizationId),
+      draft,
+      effectiveUrl(),
+      activeEngine,
+      existing,
+    );
     if (outcome !== null) {
       setError(outcome);
       return false;
@@ -137,16 +144,18 @@ function useConnectDraft(existing: DataConnection | undefined) {
 }
 
 export function ConnectDialog({
+  organizationId,
   open,
   onOpenChange,
   existing,
 }: {
+  organizationId: string;
   open: boolean;
   onOpenChange: (next: boolean) => void;
   /** Set when editing; the URL field then means "replace the credential". */
   existing?: DataConnection;
 }) {
-  const c = useConnectDraft(existing);
+  const c = useConnectDraft(organizationId, existing);
   const title = c.editing
     ? "Edit connection"
     : c.activeEngine === null
@@ -213,6 +222,7 @@ export function ConnectDialog({
  * every reader of the connection list would be holding a live credential.
  */
 function saveConnection(
+  connections: ReturnType<typeof connectionCollectionFor>,
   draft: ConnectDraft,
   url: string,
   engine: ConnectEngine | null,
@@ -225,7 +235,7 @@ function saveConnection(
   const attempt = Result.try({
     try: () => {
       if (existing !== undefined) {
-        connectionsCollection.update(
+        connections.update(
           existing.id,
           { metadata: url === "" ? undefined : { secret: url } },
           (row) => {
@@ -238,11 +248,11 @@ function saveConnection(
         );
         return;
       }
-      connectionsCollection.insert(
+      connections.insert(
         {
           // Replaced by the server's row on refetch; engine and host are
           // parsed from the URL there, so these are optimistic placeholders.
-          id: crypto.randomUUID(),
+          id: createId(ID_PREFIX.dataConnection),
           name: draft.name,
           engine: engine?.id ?? "postgres",
           displayHost: draft.fields.host,

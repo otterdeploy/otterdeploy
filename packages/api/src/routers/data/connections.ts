@@ -7,26 +7,17 @@
  * would hand every viewer a working credential for a database otterdeploy does
  * not run and cannot rotate.
  */
-import type { DataConnectionId, OrganizationId, UserId } from "@otterdeploy/shared/id";
+import type { OrganizationId, UserId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
-import { env } from "@otterdeploy/env/server";
-import { Result } from "better-result";
 import { and, desc, eq, or } from "drizzle-orm";
 
-import type { ParsedConnectionUrl } from "../../data/connection-url";
-
 import { requirePermission } from "../..";
-import {
-  connect,
-  describeConnection,
-  execute,
-  parseConnectionUrl,
-  resolveExternalTarget,
-} from "../../data";
+import { describeConnection, parseConnectionUrl, resolveExternalTarget } from "../../data";
 import { encryptForDomain } from "../../lib/crypto";
 import { publishOrgBusEvent } from "../project/project-event-bus";
+import { allowsPrivateAddresses, probeVersion, testUrlHandler } from "./test-probe";
 
 /** Row shape every procedure here returns. Never includes the URL. */
 const SELECTION = {
@@ -42,18 +33,6 @@ const SELECTION = {
   createdAt: dataConnection.createdAt,
   lastConnectedAt: dataConnection.lastConnectedAt,
 };
-
-/**
- * Whether this instance may connect to private addresses.
- *
- * Off unless the operator turns it on. Someone running otterdeploy alongside a
- * database on the same host is a real case, but it has to be an instance-level
- * decision — otherwise any member could reach the metadata service or another
- * tenant's overlay address by pasting a URL.
- */
-function allowsPrivateAddresses(): boolean {
-  return env.DATA_ALLOW_PRIVATE_CONNECTIONS === true;
-}
 
 /** Rows this viewer may see: org-visible, plus their own private ones. */
 function visibleTo(organizationId: OrganizationId, viewerId: UserId | null) {
@@ -89,61 +68,23 @@ function announce(organizationId: OrganizationId, row: ConnectionRow): void {
 }
 
 /** Announce a removal — a real delete, or a row that left org visibility. */
-function publishDeleted(organizationId: OrganizationId, id: string): void {
-  publishOrgBusEvent(organizationId, { kind: "data-connections", op: "delete", keys: [id] });
+function publishDeleted(
+  organizationId: OrganizationId,
+  id: string,
+  excludedUserId?: UserId | null,
+): void {
+  publishOrgBusEvent(organizationId, {
+    kind: "data-connections",
+    op: "delete",
+    keys: [id],
+    ...(excludedUserId ? { excludedUserId } : {}),
+  });
 }
 
 /** The row shape every handler here returns and announces. Never the URL. */
-interface ConnectionRow {
-  id: string;
-  name: string;
-  engine: "postgres" | "mariadb";
-  displayHost: string;
-  displayDatabase: string;
-  visibility: "org" | "private";
-  environment: "production" | "other";
-  defaultAccess: "read-only" | "read-write";
-  requireTls: boolean;
-  createdAt: Date;
-  lastConnectedAt: Date | null;
-}
-
-/**
- * A throwaway read-only target for a URL that exists only in this request.
- *
- * Keyed by a HASH of the whole URL: the same credential re-tested reuses the
- * client, a corrected password gets a fresh one, and the key itself never
- * holds anything reversible. Never a way to acquire a writable session.
- */
-function draftTarget(url: string, p: ParsedConnectionUrl): Parameters<typeof connect>[0] {
-  return {
-    poolKey: `testurl:${Bun.hash(url).toString(36)}`,
-    engine: p.engine,
-    host: p.host,
-    port: p.port,
-    database: p.database,
-    username: p.username,
-    password: p.password,
-    tls: p.sslRequested,
-    mode: "read-only",
-    resourceId: null,
-    connectionId: null,
-    label: "connection test",
-  };
-}
-
-/** Open the connection once and read the server's version string. */
-async function probeVersion(target: Parameters<typeof connect>[0]) {
-  const connection = connect(target);
-  const startedAt = performance.now();
-  const grid = await execute(connection, { sql: "SELECT version()", params: [] });
-  if (grid.isErr()) return grid;
-  const cell = grid.value.rows[0]?.[0];
-  return Result.ok({
-    durationMs: Math.round(performance.now() - startedAt),
-    serverVersion: cell !== null && cell !== undefined && "v" in cell ? String(cell.v) : "",
-  });
-}
+type ConnectionRow = {
+  [Key in keyof typeof SELECTION]: (typeof dataConnection.$inferSelect)[Key];
+};
 
 export function makeConnectionHandlers(deps: {
   viewerIdOf: (context: { session?: { user?: { id?: string } } | null }) => UserId | null;
@@ -162,6 +103,12 @@ export function makeConnectionHandlers(deps: {
 
     createConnection: requirePermission({ database: ["write"] }).data.createConnection.handler(
       async ({ input, context, errors }) => {
+        const viewerId = deps.viewerIdOf(context);
+        if (input.visibility === "private" && viewerId === null) {
+          throw errors.DENIED({
+            data: { reason: "private connections require an interactive user" },
+          });
+        }
         const parsed = parseConnectionUrl(input.url, {
           allowPrivateAddresses: allowsPrivateAddresses(),
         });
@@ -190,7 +137,7 @@ export function makeConnectionHandlers(deps: {
             environment: input.environment,
             defaultAccess: input.defaultAccess,
             requireTls: input.requireTls,
-            createdBy: deps.viewerIdOf(context),
+            createdBy: viewerId,
           })
           .returning(SELECTION);
 
@@ -203,9 +150,20 @@ export function makeConnectionHandlers(deps: {
     updateConnection: requirePermission({ database: ["write"] }).data.updateConnection.handler(
       async ({ input, context, errors }) => {
         const viewerId = deps.viewerIdOf(context);
-        const patch: Record<string, unknown> = {};
+        if (input.visibility === "private" && viewerId === null) {
+          throw errors.DENIED({
+            data: { reason: "private connections require an interactive user" },
+          });
+        }
+        const patch: Partial<typeof dataConnection.$inferInsert> = {};
         if (input.name !== undefined) patch.name = input.name;
-        if (input.visibility !== undefined) patch.visibility = input.visibility;
+        if (input.visibility !== undefined) {
+          patch.visibility = input.visibility;
+          // The actor making an org row private becomes its owner. Retaining
+          // the original creator would make the row disappear for the person
+          // who just changed it (and could expose it to a different member).
+          if (input.visibility === "private") patch.createdBy = viewerId;
+        }
         if (input.environment !== undefined) patch.environment = input.environment;
         if (input.defaultAccess !== undefined) patch.defaultAccess = input.defaultAccess;
         if (input.requireTls !== undefined) patch.requireTls = input.requireTls;
@@ -243,7 +201,7 @@ export function makeConnectionHandlers(deps: {
         // old public copy in their collection would be the leak the visibility
         // change was made to prevent.
         if (row.visibility === "org") announce(context.activeOrganizationId, row);
-        else publishDeleted(context.activeOrganizationId, row.id);
+        else publishDeleted(context.activeOrganizationId, row.id, viewerId);
         return row;
       },
     ),
@@ -259,9 +217,9 @@ export function makeConnectionHandlers(deps: {
               visibleTo(context.activeOrganizationId, deps.viewerIdOf(context)),
             ),
           )
-          .returning({ id: dataConnection.id });
+          .returning({ id: dataConnection.id, visibility: dataConnection.visibility });
         if (!row) throw errors.NOT_FOUND();
-        publishDeleted(context.activeOrganizationId, row.id);
+        if (row.visibility === "org") publishDeleted(context.activeOrganizationId, row.id);
         return { deleted: true };
       },
     ),
@@ -291,25 +249,6 @@ export function makeConnectionHandlers(deps: {
       },
     ),
 
-    testUrl: requirePermission({ database: ["read"] }).data.testUrl.handler(
-      async ({ input, context, errors }) => {
-        // Deliberately WITHOUT the URL: it carries a live credential, and the
-        // log line only needs to say a test happened.
-        context.log.set({ dataConnection: { testUrl: true } });
-        const parsed = parseConnectionUrl(input.url, {
-          allowPrivateAddresses: allowsPrivateAddresses(),
-        });
-        if (parsed.isErr()) {
-          throw errors.INVALID_URL({ data: { reason: parsed.error.message } });
-        }
-        const probe = await probeVersion(draftTarget(input.url, parsed.value));
-        if (probe.isErr()) {
-          throw errors.UNREACHABLE({ data: { reason: probe.error.message } });
-        }
-        return { ok: true, engine: parsed.value.engine, ...probe.value };
-      },
-    ),
+    testUrl: testUrlHandler,
   };
 }
-
-export type ConnectionId = DataConnectionId;

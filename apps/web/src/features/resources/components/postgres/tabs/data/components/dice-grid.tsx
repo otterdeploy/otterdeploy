@@ -24,7 +24,7 @@ import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
 
 import { useState } from "react";
 
-import { parseCell } from "@otterdeploy/data-engine";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
@@ -33,7 +33,6 @@ import { DataGrid } from "@/shared/components/data-grid/data-grid";
 import { useDataGrid } from "@/shared/components/data-grid/hooks/use-data-grid";
 import { useElementHeight } from "@/shared/components/data-grid/hooks/use-element-height";
 
-import type { ColumnVariant } from "../data/queries";
 import type { WorkbenchTarget } from "../data/target";
 
 import { targetKey } from "../data/target";
@@ -49,8 +48,6 @@ import {
 } from "./dice-grid-parts";
 import { FkRefPopover } from "./fk-ref-popover";
 import { useGridScrollMemory } from "./use-grid-scroll-memory";
-
-export type { ColumnVariant };
 
 /**
  * A column predicate / assignment passed to the write endpoint.
@@ -176,11 +173,13 @@ export function DiceResultGrid({
     const toDelete = new Set(rowsToDelete);
     setData((cur) => cur.filter((r) => !toDelete.has(r)));
     for (const row of rowsToDelete) {
-      try {
-        await onDeleteRow(pkFor(row));
-      } catch (err) {
+      const deleted = await Result.tryPromise({
+        try: () => onDeleteRow(pkFor(row)),
+        catch: (cause) => errText(cause, "Couldn't delete the row."),
+      });
+      if (deleted.isErr()) {
         setData(snapshot);
-        toast.error(errText(err, "Couldn't delete the row."));
+        toast.error(deleted.error);
         return;
       }
     }

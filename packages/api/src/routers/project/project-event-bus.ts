@@ -75,6 +75,7 @@ const orgBusEventSchema = z.union([
     kind: z.enum(ORG_ROW_COLLECTIONS),
     op: z.literal("delete"),
     keys: z.array(z.string()),
+    excludedUserId: z.string().optional(),
   }),
 ]);
 

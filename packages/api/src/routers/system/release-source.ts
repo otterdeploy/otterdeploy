@@ -4,10 +4,11 @@
  *
  * - stable  → GitHub `releases/latest`, which by definition excludes
  *   prereleases, so nightly tags are structurally invisible to it.
- * - nightly → the releases LIST (newest first), taking the first entry whose
- *   tag parses as a version — prerelease OR stable. That "or stable" is the
- *   catch-up point: when v0.16.0 ships it outranks every v0.16.0-nightly.*,
- *   so nightly users are offered the stable of the same core.
+ * - nightly → the releases LIST, taking the highest parseable version —
+ *   prerelease OR stable. GitHub orders this endpoint by release metadata,
+ *   not semantic version, so list position cannot decide what is latest. The
+ *   "or stable" case is the catch-up point: when v0.16.0 ships it outranks
+ *   every v0.16.0-nightly.*, so nightly users are offered that stable release.
  *
  * Overridable via OTTERDEPLOY_UPDATE_MANIFEST_URL to a fixture/mirror
  * (testing, air-gapped): the override wins on BOTH channels and must serve a
@@ -19,7 +20,7 @@ import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import * as z from "zod";
 
-import { parseVersion } from "./compare";
+import { compareVersions, parseVersion } from "./compare";
 
 const UPDATE_CHANNELS = ["stable", "nightly"] as const;
 export type UpdateChannel = (typeof UPDATE_CHANNELS)[number];
@@ -77,14 +78,19 @@ async function fetchSingle(url: string): Promise<LatestRelease> {
   return toLatestRelease(githubReleaseSchema.parse(await fetchGithubJson(url)));
 }
 
-/** Nightly: the releases list is newest-first; take the first entry with a
- *  parseable version tag (prerelease or stable — see module doc). Drafts are
- *  not returned to unauthenticated callers, so no draft filter is needed. */
+/** Nightly: choose the greatest semantic version in the release window.
+ *  GitHub's list order is not semver order (same-day `.9` can precede `.14`).
+ *  Drafts are not returned to unauthenticated callers, so no draft filter is
+ *  needed. */
 async function fetchNightly(): Promise<LatestRelease | null> {
   const releases = githubReleaseListSchema.parse(
-    await fetchGithubJson(`${releasesBase()}?per_page=15`),
+    await fetchGithubJson(`${releasesBase()}?per_page=100`),
   );
-  const hit = releases.find((release) => parseVersion(release.tag_name) !== null);
+  let hit: z.infer<typeof githubReleaseSchema> | undefined;
+  for (const release of releases) {
+    if (parseVersion(release.tag_name) === null) continue;
+    if (!hit || compareVersions(release.tag_name, hit.tag_name) > 0) hit = release;
+  }
   return hit ? toLatestRelease(hit) : null;
 }
 

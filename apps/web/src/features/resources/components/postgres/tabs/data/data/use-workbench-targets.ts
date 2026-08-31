@@ -37,9 +37,9 @@ export interface WorkbenchTargetOption {
   readOnly: boolean;
 }
 
-export function useWorkbenchTargets() {
+export function useWorkbenchTargets(organizationId: string) {
   const catalog = useDatabaseCatalog();
-  const { connections, isLoading: connectionsLoading } = useDataConnections();
+  const { connections, isLoading: connectionsLoading } = useDataConnections(organizationId);
 
   // The catalog's engine list is wider than `DatabaseEngine` — it also carries
   // the non-database services (minio, meilisearch, rabbitmq) the catalog page
@@ -85,6 +85,7 @@ export function findTarget(
   options: readonly WorkbenchTargetOption[],
   key: string | undefined,
 ): WorkbenchTargetOption | undefined {
-  if (key === undefined) return options[0];
-  return options.find((o) => o.key === key) ?? options[0];
+  const fallback = options.find((option) => option.healthy) ?? options[0];
+  if (key === undefined) return fallback;
+  return options.find((option) => option.key === key) ?? fallback;
 }

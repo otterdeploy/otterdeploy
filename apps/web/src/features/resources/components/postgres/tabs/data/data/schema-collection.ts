@@ -20,7 +20,8 @@
  * read it through live queries and have a future schema-changed event update
  * every open tab, without an invalidation fan-out.
  */
-import type { ColumnMeta } from "@otterdeploy/data-engine";
+import type { InferRouterOutputs } from "@orpc/server";
+import type { AppRouter } from "@otterdeploy/api/routers/index";
 
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
@@ -31,26 +32,12 @@ import type { WorkbenchTarget } from "./target";
 
 import { targetKey } from "./target";
 
-/** One row per table, carrying its columns. Keyed by `schema.name`. */
-export interface SchemaTableRow {
-  /** `schema.name`, or just `name` when the dialect has no schemas. */
-  id: string;
-  schema: string;
-  name: string;
-  kind: "table" | "view" | "materialized_view" | "foreign_table";
-  estimatedRows: number | null;
-  sizeBytes: number | null;
-  comment: string | null;
-  columns: ColumnMeta[];
-  /** False when the table has no primary key, so no row can be targeted. */
-  canEdit: boolean;
-}
+type SchemaResult = InferRouterOutputs<AppRouter>["data"]["schema"];
 
-export interface SchemaMeta {
-  dialect: "postgres" | "mysql" | "clickhouse";
-  defaultSchema: string;
-  canWrite: boolean;
-}
+/** One contract-derived table plus the stable collection key. */
+export type SchemaTableRow = SchemaResult["tables"][number] & { id: string };
+
+export type SchemaMeta = Pick<SchemaResult, "canWrite" | "defaultSchema" | "dialect">;
 
 export function tableId(schema: string, name: string): string {
   return schema === "" ? name : `${schema}.${name}`;
@@ -70,7 +57,7 @@ function buildCollection(target: WorkbenchTarget) {
   return createCollection(
     queryCollectionOptions({
       id: `data-schema:${key}`,
-      queryKey: orpc.data.schema.queryKey({ input: { target } }),
+      queryKey: [...orpc.data.schema.queryKey({ input: { target } }), { cacheKey: key }],
       queryFn: async (): Promise<SchemaTableRow[]> => {
         const result = await orpc.data.schema.call({ target });
         schemaMeta.set(key, {

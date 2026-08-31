@@ -111,15 +111,17 @@ async function* streamCollectionEvents(
  * one keeps its rows. Dates cross the bus as ISO strings (it is JSON) and the
  * contract's `z.coerce.date()` turns them back on the way out.
  */
-function toOrgCollectionEvent(
+export function toOrgCollectionEvent(
   organizationId: OrganizationId,
   event: OrgBusEvent,
-): OrgCollectionEvent {
+  viewerId: string | null,
+): OrgCollectionEvent | null {
   const scope = { organizationId };
   if (!("op" in event)) {
     return { protocol: 1, collection: event.kind, scope, op: "resync" };
   }
   if (event.op === "delete") {
+    if (event.excludedUserId === viewerId) return null;
     return {
       protocol: 1,
       collection: "data-connections",
@@ -153,6 +155,7 @@ function toOrgCollectionEvent(
 
 async function* streamOrgCollectionEvents(
   organizationId: OrganizationId,
+  viewerId: string | null,
   signal?: AbortSignal,
 ): AsyncGenerator<OrgCollectionEvent, void, void> {
   const queue: OrgCollectionEvent[] = [];
@@ -185,7 +188,9 @@ async function* streamOrgCollectionEvents(
 
   const sub = subscribeOrgEvents(organizationId, (event) => {
     if (aborted) return;
-    queue.push(toOrgCollectionEvent(organizationId, event));
+    const collectionEvent = toOrgCollectionEvent(organizationId, event, viewerId);
+    if (collectionEvent === null) return;
+    queue.push(collectionEvent);
     if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
     wake();
   });
@@ -217,7 +222,11 @@ export const eventsRouter = {
     if (context.apiKey?.projectScope === "selected") {
       throw errors.FORBIDDEN();
     }
-    return streamOrgCollectionEvents(context.activeOrganizationId, signal);
+    return streamOrgCollectionEvents(
+      context.activeOrganizationId,
+      context.session?.user.id ?? null,
+      signal,
+    );
   }),
 
   stream: orgScopedProcedure.events.stream.handler(async ({ input, context, errors, signal }) => {

@@ -7,7 +7,6 @@
 export {
   deleteObjects,
   listObjects,
-  MAX_KEYS,
   presignObject,
   statObject,
   type ListInput,
@@ -23,4 +22,10 @@ export {
   type PrefixStat,
   type StorageStats,
 } from "./stats";
-export { resolveKey, resolveStorageTarget, StorageError, type StorageTarget } from "./target";
+export {
+  normalizeStorageRoot,
+  resolveKey,
+  resolveStorageTarget,
+  StorageError,
+  type StorageTarget,
+} from "./target";

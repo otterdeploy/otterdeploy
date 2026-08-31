@@ -2,15 +2,14 @@ import * as z from "zod";
 
 /**
  * Shapes the introspection layer produces and the UI consumes. Deliberately
- * dialect-neutral: a Postgres `pg_catalog` row, a MySQL `information_schema`
- * row and a ClickHouse `system.columns` row all normalise into the same
- * `ColumnMeta`, which is what lets one grid, one filter bar and one editor
- * serve every engine instead of the four forks we have today.
+ * dialect-neutral: Postgres `pg_catalog` and MySQL `information_schema` rows
+ * both normalise into the same `ColumnMeta`, which is what lets one grid, one
+ * filter bar and one editor serve every supported wire driver.
  */
 import { cellKindSchema, cellValueSchema } from "./value";
 
 /** Dialects that speak SQL well enough to share the relational workbench. */
-export const DIALECT_IDS = ["postgres", "mysql", "clickhouse"] as const;
+export const DIALECT_IDS = ["postgres", "mysql"] as const;
 export type DialectId = (typeof DIALECT_IDS)[number];
 export const dialectIdSchema = z.enum(DIALECT_IDS);
 
@@ -111,6 +110,8 @@ export type Grid = z.infer<typeof gridSchema>;
 export interface PreparedStatement {
   sql: string;
   params: unknown[];
+  /** Roll back a transaction when this write no longer matches a row. */
+  expectsAffectedRow?: boolean;
 }
 
 export const sortDirectionSchema = z.enum(["asc", "desc"]);

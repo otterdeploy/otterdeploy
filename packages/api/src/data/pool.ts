@@ -11,20 +11,22 @@
  * set the relational dialects cover — so this needs no new dependency and no
  * second driver to keep in step.
  *
- * READ-ONLY IS ENFORCED HERE, ON THE SESSION, not per statement. A read-only
- * pool issues the dialect's read-only statement on every connection it opens,
- * so the server refuses writes no matter what SQL arrives. That is the property
- * a lexical classifier cannot give you, and it is why `mode` is part of the
- * pool key.
+ * READ-ONLY IS ENFORCED HERE, ON THE SERVER, not by classifying statements.
+ * PostgreSQL receives a read-only startup parameter on every pooled connection;
+ * MySQL operations run in a READ ONLY transaction. In both cases the database,
+ * not client-side parsing, refuses a write.
  */
 import type { Dialect } from "@otterdeploy/data-engine";
 
 import { dialectForEngine } from "@otterdeploy/data-engine";
+import { withTimeout } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
 import { SQL } from "bun";
+import { createHash } from "node:crypto";
 
 import type { DataTarget } from "./target";
 
-import { DataError } from "./errors";
+import { dataError } from "./errors";
 
 /** Small: a workbench is interactive, not a batch job. */
 const MAX_CONNECTIONS = 4;
@@ -34,6 +36,8 @@ const IDLE_TIMEOUT_SECONDS = 60;
 const MAX_LIFETIME_SECONDS = 15 * 60;
 /** Seconds to wait for the initial connect before calling the target down. */
 const CONNECT_TIMEOUT_SECONDS = 10;
+/** Queries are interactive; an unbounded statement must not pin a pool forever. */
+const QUERY_TIMEOUT_MS = 30_000;
 /** Milliseconds a pool may sit entirely unused before it is closed. */
 const POOL_TTL_MS = 5 * 60 * 1000;
 
@@ -64,7 +68,7 @@ function startReaper(): void {
     for (const [key, pooled] of pools) {
       if (now - pooled.lastUsedAt <= POOL_TTL_MS) continue;
       pools.delete(key);
-      void pooled.sql.close();
+      closeBestEffort(pooled.sql);
     }
     if (pools.size === 0 && reaper !== null) {
       clearInterval(reaper);
@@ -92,37 +96,37 @@ export interface Connection {
 export function connect(target: DataTarget): Connection {
   const dialect = dialectForEngine(target.engine);
   if (!dialect) {
-    throw new DataError(
+    throw dataError(
       "unsupported",
       `${target.engine} is not a SQL engine, so the relational workbench cannot serve it`,
     );
   }
   const adapter = adapterFor(dialect);
   if (!adapter) {
-    throw new DataError("unsupported", `no wire driver for ${target.engine}`);
+    throw dataError("unsupported", `no wire driver for ${target.engine}`);
   }
 
-  const existing = pools.get(target.poolKey);
+  const poolKey = effectivePoolKey(target);
+  const existing = pools.get(poolKey);
   if (existing) {
     existing.lastUsedAt = Date.now();
     return { sql: existing.sql, dialect: existing.dialect, target };
   }
 
-  // Read-only is a SERVER-side session default applied at connect, so it holds
-  // for every statement on every connection this pool opens. When the dialect
-  // has no such parameter we refuse outright rather than falling back to a
-  // statement classifier for a security property — a CTE or a stored procedure
-  // defeats a classifier, and the caller has a real alternative (a read-only role).
+  // PostgreSQL accepts server-side startup parameters. MySQL has no equivalent;
+  // runOnConnection below wraps every read in a server-enforced READ ONLY
+  // transaction instead of pretending a statement classifier is a boundary.
   let readOnlyParams: Record<string, string> = {};
   if (target.mode === "read-only") {
     const params = dialect.readOnlyConnectionParams();
-    if (params === null) {
-      throw new DataError(
-        "denied",
-        `${target.engine} cannot be made read-only at connect time; use a connection whose role is read-only instead`,
-      );
-    }
-    readOnlyParams = params;
+    if (params !== null) readOnlyParams = params;
+  }
+  if (dialect.id === "postgres") {
+    const existingOptions = readOnlyParams.options;
+    readOnlyParams = {
+      ...readOnlyParams,
+      options: ["-c statement_timeout=30000", existingOptions].filter(Boolean).join(" "),
+    };
   }
 
   const sql = new SQL({
@@ -142,31 +146,43 @@ export function connect(target: DataTarget): Connection {
     connection: readOnlyParams,
   });
 
-  pools.set(target.poolKey, { sql, dialect, lastUsedAt: Date.now() });
+  pools.set(poolKey, { sql, dialect, lastUsedAt: Date.now() });
   startReaper();
   return { sql, dialect, target };
 }
 
-/** Close and forget one target's pool. Used when credentials rotate. */
-export async function evict(poolKey: string): Promise<void> {
-  const pooled = pools.get(poolKey);
-  if (!pooled) return;
-  pools.delete(poolKey);
-  await pooled.sql.close();
+/** Run an operation with the target's read-only guarantee in force. */
+export async function runOnConnection<T>(
+  connection: Connection,
+  operation: (sql: SQL) => Promise<T>,
+): Promise<T> {
+  const needsReadOnlyTransaction =
+    connection.target.mode === "read-only" &&
+    connection.dialect.readOnlyConnectionParams() === null;
+  return needsReadOnlyTransaction
+    ? connection.sql.begin("read only", operation)
+    : operation(connection.sql);
 }
 
-/** Close every pool. Called on shutdown and between integration tests. */
-export async function closeAllPools(): Promise<void> {
-  const open = [...pools.values()];
-  pools.clear();
-  if (reaper !== null) {
-    clearInterval(reaper);
-    reaper = null;
-  }
-  await Promise.all(open.map((p) => p.sql.close()));
+/** Await and cancel one Bun query at the common interactive timeout. */
+export function awaitQuery<T>(query: SQL.Query<T>): Promise<T> {
+  return withTimeout(query, QUERY_TIMEOUT_MS, "database query", () => query.cancel());
+}
+function effectivePoolKey(target: DataTarget): string {
+  const identity = JSON.stringify([
+    target.engine,
+    target.host,
+    target.port,
+    target.database,
+    target.username,
+    target.password,
+    target.tls,
+    target.mode,
+  ]);
+  const fingerprint = createHash("sha256").update(identity).digest("hex");
+  return `${target.poolKey}:${fingerprint}`;
 }
 
-/** Pool keys currently open. Diagnostics only; never contains a password. */
-export function openPoolKeys(): string[] {
-  return [...pools.keys()];
+function closeBestEffort(sql: SQL): void {
+  void Result.tryPromise({ try: () => sql.close(), catch: () => undefined });
 }

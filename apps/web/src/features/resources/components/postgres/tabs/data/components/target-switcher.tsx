@@ -113,7 +113,13 @@ function TargetItem({
   onPick: (option: WorkbenchTargetOption) => void;
 }) {
   return (
-    <DropdownMenuItem onClick={() => onPick(option)} className={cn("gap-2", active && "bg-accent")}>
+    <DropdownMenuItem
+      disabled={!option.healthy}
+      onClick={() => {
+        if (option.healthy) onPick(option);
+      }}
+      className={cn("gap-2", active && "bg-accent")}
+    >
       <DatabaseLogo value={option.engine} size={20} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[13px] font-medium">{option.name}</span>

@@ -2,10 +2,10 @@
  * Channel-aware release resolution (release-channels design, od-tfs2).
  *
  * The load-bearing behaviors: stable reads `releases/latest` (GitHub already
- * excludes prereleases there); nightly reads the releases LIST and takes the
- * first entry with a parseable version tag — prerelease OR stable, so a newer
- * stable is offered to nightly users (the channel catch-up point); and every
- * failure mode resolves to null, never a throw.
+ * excludes prereleases there); nightly reads the releases LIST and takes its
+ * greatest semantic version — prerelease OR stable, so GitHub's non-semver
+ * ordering cannot hide a same-day re-cut and a newer stable is offered to
+ * nightly users (the channel catch-up point). Every failure resolves to null.
  */
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -54,29 +54,33 @@ describe("fetchLatestRelease", () => {
     });
   });
 
-  it("nightly reads the list and takes the newest parseable tag (a prerelease)", async () => {
+  it("nightly takes the greatest version even when GitHub returns .9 before .14", async () => {
     stubFetch((url) => {
-      expect(url).toContain("/releases?per_page=");
+      expect(url).toContain("/releases?per_page=100");
       return {
         json: [
-          { tag_name: "v0.16.0-nightly.20260821", html_url: "https://x/n2", body: "n2" },
-          { tag_name: "v0.16.0-nightly.20260820", html_url: "https://x/n1", body: "n1" },
+          { tag_name: "v0.20.0-nightly.20260831.9", html_url: "https://x/n9", body: "n9" },
+          {
+            tag_name: "v0.20.0-nightly.20260831.14",
+            html_url: "https://x/n14",
+            body: "n14",
+          },
           { tag_name: "v0.15.2", html_url: "https://x/s", body: "s" },
         ],
       };
     });
     expect(await fetchLatestRelease("nightly")).toEqual({
-      version: "v0.16.0-nightly.20260821",
-      notes: "n2",
-      url: "https://x/n2",
+      version: "v0.20.0-nightly.20260831.14",
+      notes: "n14",
+      url: "https://x/n14",
     });
   });
 
-  it("nightly takes a stable release when it is the newest entry (channel catch-up)", async () => {
+  it("nightly takes a stable release when it is the greatest version (channel catch-up)", async () => {
     stubFetch(() => ({
       json: [
-        { tag_name: "v0.16.0", html_url: "https://x/s", body: "stable!" },
         { tag_name: "v0.16.0-nightly.20260821", html_url: "https://x/n", body: "n" },
+        { tag_name: "v0.16.0", html_url: "https://x/s", body: "stable!" },
       ],
     }));
     const release = await fetchLatestRelease("nightly");

@@ -95,6 +95,10 @@ export async function createDatabaseResourceRecord(input: {
   publicPort: number;
   publicConnectionString: string;
   internalHostname: string;
+  /** Container + volume names to record on the row. Omitted by callers that
+   *  have not been taught yet; those rows fall back to the computation. */
+  serviceName?: string | null;
+  volumeName?: string | null;
   internalPort: number;
   internalConnectionString: string;
   upstreamHost: string;
@@ -151,6 +155,12 @@ export async function createDatabaseResourceRecord(input: {
         publicPort: input.publicPort,
         publicConnectionString: input.publicConnectionString,
         internalHostname: input.internalHostname,
+        // Recorded once, read everywhere after (od-jwx). Today these are the
+        // same strings the old per-call-site computation produced, so storing
+        // them changes nothing; they exist so the name has ONE origin, which
+        // is the prerequisite for making it environment-scoped.
+        serviceName: input.serviceName ?? null,
+        volumeName: input.volumeName ?? null,
         internalPort: input.internalPort,
         internalConnectionString: input.internalConnectionString,
         upstreamHost: input.upstreamHost,
@@ -284,12 +294,18 @@ export async function getHostForRuntime(hostResourceId: ResourceId): Promise<{
   name: string;
   engine: DatabaseEngine;
   projectSlug: string;
+  serviceName: string | null;
+  volumeName: string | null;
 } | null> {
   const [row] = await db
     .select({
       name: resource.name,
       engine: databaseResource.engine,
       projectSlug: project.slug,
+      // The HOST's recorded names: a tenant has none of its own and is
+      // inspected under these (od-jwx).
+      serviceName: databaseResource.serviceName,
+      volumeName: databaseResource.volumeName,
     })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))

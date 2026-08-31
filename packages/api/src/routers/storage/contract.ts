@@ -157,7 +157,7 @@ export const storageContract = {
   /**
    * A short-lived presigned URL.
    *
-   * How the browser reads or writes an object without the control plane
+   * How the browser reads an object without the control plane
    * proxying the bytes and without ever holding a credential.
    */
   presign: oc
@@ -166,6 +166,7 @@ export const storageContract = {
       z.object({
         bucketId: bucketIdField,
         key: z.string().min(1).max(1024),
+        /** PUT presigns an upload; the browser then sends the bytes itself. */
         method: z.enum(["GET", "PUT"]).default("GET"),
       }),
     )
@@ -181,6 +182,11 @@ export const storageContract = {
         keys: z.array(z.string().min(1).max(1024)).min(1).max(1000),
       }),
     )
-    .output(z.object({ deleted: z.number().int() }))
+    .output(
+      z.object({
+        deleted: z.array(z.string()),
+        failed: z.array(z.object({ key: z.string(), reason: z.string() })),
+      }),
+    )
     .errors(storageErrors),
 };

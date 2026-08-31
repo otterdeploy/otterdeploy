@@ -11,7 +11,6 @@ import { useState } from "react";
 
 import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { displayText } from "@otterdeploy/data-engine";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
@@ -29,7 +28,7 @@ import { cn } from "@/shared/lib/utils";
 import type { WorkbenchTarget } from "../data/target";
 
 import { type ColumnValue, DiceResultGrid } from "./dice-grid";
-import { ResultsToolbar, type ResultView } from "./results-toolbar";
+import { resultRowsAsJson, ResultsToolbar, type ResultView } from "./results-toolbar";
 
 export type { ResultView };
 
@@ -101,14 +100,7 @@ export function ResultsPanel({
 }: ResultsPanelProps) {
   // The JSON view keeps each value's real type: a jsonb column shows as an
   // object, not as the text psql happened to print for it.
-  const jsonData = rows.map((r) => {
-    const obj: Record<string, unknown> = {};
-    columns.forEach((c, i) => {
-      const cell = r[i] ?? null;
-      obj[c.name] = cell === null ? null : cell.k === "json" ? cell.v : displayText(cell);
-    });
-    return obj;
-  });
+  const jsonData = resultRowsAsJson(columns, rows);
 
   const canExport = hasResult && columns.length > 0;
 

@@ -15,6 +15,10 @@ export function hostContainerName(host: HostRow): string {
     engine: host.engine,
     projectSlug: host.projectSlug,
     resourceName: host.name,
+    // The host's own recorded name when it has one (od-jwx). A tenant
+    // inspected under a recomputed host name would report a confident
+    // "missing" for a server that is running.
+    stored: host.serviceName,
   });
 }
 
@@ -23,5 +27,6 @@ export function hostVolumeName(host: HostRow): string {
     engine: host.engine,
     projectSlug: host.projectSlug,
     resourceName: host.name,
+    stored: host.volumeName,
   });
 }

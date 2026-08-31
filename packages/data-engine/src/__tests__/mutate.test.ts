@@ -65,6 +65,33 @@ describe("update", () => {
     expect(out.isOk() && out.value.params[0]).toBeNull();
   });
 
+  it("rejects a stale update by matching the original values", () => {
+    const out = buildMutation(
+      {
+        op: "update",
+        schema: "public",
+        table: "orders",
+        pk: [{ column: "id", value: { k: "bigint", v: "8843" } }],
+        set: [
+          { column: "status", value: { k: "text", v: "paid" } },
+          { column: "note", value: { k: "text", v: "sent" } },
+        ],
+        expected: [
+          { column: "status", value: { k: "text", v: "pending" } },
+          { column: "note", value: null },
+        ],
+      },
+      ctx,
+    );
+    expect(out.isOk()).toBe(true);
+    if (!out.isOk()) return;
+    expect(out.value.sql).toBe(
+      `UPDATE "public"."orders" SET "status" = $1, "note" = $2 WHERE "id" = $3 AND "status" = $4 AND "note" IS NULL RETURNING *`,
+    );
+    expect(out.value.params).toEqual(["paid", "sent", "8843", "pending"]);
+    expect(out.value.expectsAffectedRow).toBe(true);
+  });
+
   it("refuses a table with no primary key rather than guessing with ctid", () => {
     const out = buildMutation(
       {
@@ -111,6 +138,38 @@ describe("update", () => {
       ctx,
     );
     expect(out.isErr() && out.error.reason).toBe("incomplete_key");
+  });
+
+  it("rejects duplicate and non-key primary-key entries", () => {
+    const duplicate = buildMutation(
+      {
+        op: "delete",
+        schema: "",
+        table: "orders",
+        pk: [
+          { column: "id", value: { k: "bigint", v: "1" } },
+          { column: "id", value: { k: "bigint", v: "2" } },
+        ],
+        set: [],
+      },
+      ctx,
+    );
+    expect(duplicate.isErr() && duplicate.error.reason).toBe("duplicate_column");
+
+    const extra = buildMutation(
+      {
+        op: "delete",
+        schema: "",
+        table: "orders",
+        pk: [
+          { column: "id", value: { k: "bigint", v: "1" } },
+          { column: "status", value: { k: "text", v: "paid" } },
+        ],
+        set: [],
+      },
+      ctx,
+    );
+    expect(extra.isErr() && extra.error.reason).toBe("incomplete_key");
   });
 });
 

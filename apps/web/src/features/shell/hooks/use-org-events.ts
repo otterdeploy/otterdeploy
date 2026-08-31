@@ -22,9 +22,10 @@
 import { useEffect } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useLoaderData, useParams } from "@tanstack/react-router";
+import { Result } from "better-result";
 
-import { connectionsCollection } from "@/features/resources/components/postgres/tabs/data/data/connections";
+import { connectionCollectionFor } from "@/features/resources/components/postgres/tabs/data/data/connections";
 import { serverCollection } from "@/features/servers/data/server";
 import { createResyncBatcher } from "@/shared/lib/resync-batcher";
 import { orpc } from "@/shared/server/orpc";
@@ -36,6 +37,8 @@ export function useOrgEvents(): void {
   const qc = useQueryClient();
   const params = useParams({ strict: false });
   const orgSlug = params.orgSlug;
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+  const connections = connectionCollectionFor(organization.id);
 
   useEffect(() => {
     if (!orgSlug) return;
@@ -46,53 +49,57 @@ export function useOrgEvents(): void {
     const scheduleResync = batcher.schedule;
 
     void (async () => {
-      try {
-        const stream = await orpc.events.orgStream.call(
-          {},
-          { signal: ctrl.signal, context: { retry: Number.POSITIVE_INFINITY } },
-        );
-        for await (const event of stream) {
-          if (ctrl.signal.aborted) break;
+      const consumed = await Result.tryPromise({
+        try: async () => {
+          const stream = await orpc.events.orgStream.call(
+            {},
+            { signal: ctrl.signal, context: { retry: Number.POSITIVE_INFINITY } },
+          );
+          // Redis pub/sub has no replay cursor. Every initial connection and
+          // reconnect therefore takes a fresh snapshot before consuming the
+          // incremental stream, repairing events missed while disconnected.
+          void connections.utils.refetch();
+          for await (const event of stream) {
+            if (ctrl.signal.aborted) break;
 
-          // Row-carrying events are applied directly. No batching: there is no
-          // round trip to coalesce, and a write is cheaper than the timer.
-          if (event.op === "upsert") {
-            connectionsCollection.utils.writeUpsert(event.rows);
-            continue;
-          }
-          if (event.op === "delete") {
-            connectionsCollection.utils.writeDelete(event.keys);
-            continue;
-          }
+            // Row-carrying events are applied directly. No batching: there is no
+            // round trip to coalesce, and a write is cheaper than the timer.
+            if (event.op === "upsert") {
+              connections.utils.writeUpsert(event.rows);
+              continue;
+            }
+            if (event.op === "delete") {
+              connections.utils.writeDelete(event.keys);
+              continue;
+            }
 
-          switch (event.collection) {
-            case "activity":
-              scheduleResync("activity", () => {
-                void qc.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
-                // Prefix catches both the deployments page's filtered query
-                // and the status pill's custom ["…", projectId, "app-status"]
-                // cache entry (use-deploy-status.ts).
-                void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
-              });
-              break;
-            case "inbox":
-              scheduleResync("inbox", () => {
-                void qc.invalidateQueries({ queryKey: orpc.notifications.inbox.list.key() });
-              });
-              break;
-            case "servers":
-              scheduleResync("servers", () => {
-                void serverCollection.utils.refetch();
-              });
-              break;
+            switch (event.collection) {
+              case "activity":
+                scheduleResync("activity", () => {
+                  void qc.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
+                  void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
+                });
+                break;
+              case "inbox":
+                scheduleResync("inbox", () => {
+                  void qc.invalidateQueries({ queryKey: orpc.notifications.inbox.list.key() });
+                });
+                break;
+              case "servers":
+                scheduleResync("servers", () => {
+                  void serverCollection.utils.refetch();
+                });
+                break;
+            }
           }
-        }
-      } catch (err) {
-        // The retry plugin reconnects on transient errors; reaching here
-        // means the stream ended terminally (or the component unmounted).
-        if (ctrl.signal.aborted) return;
+        },
+        catch: (cause) => cause,
+      });
+      // The retry plugin reconnects on transient errors; reaching here means
+      // the stream ended terminally (or the component unmounted).
+      if (consumed.isErr() && !ctrl.signal.aborted) {
         // eslint-disable-next-line no-console
-        console.warn("[org-events] stream ended", err);
+        console.warn("[org-events] stream ended", consumed.error);
       }
     })();
 
@@ -100,5 +107,5 @@ export function useOrgEvents(): void {
       ctrl.abort();
       batcher.cancel();
     };
-  }, [orgSlug, qc]);
+  }, [connections, orgSlug, qc]);
 }

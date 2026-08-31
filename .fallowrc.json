@@ -21,7 +21,15 @@
   // `brand/` is deliberately outside the bun workspaces (see brand/package.json:
   // Playwright is build-time-only and must not enter the app dependency graph),
   // so analysing it only produces undeclared-workspace noise.
-  "ignorePatterns": ["research/**", ".agents/**", ".claude/**", "brand/**"],
+  "ignorePatterns": [
+    "research/**",
+    ".agents/**",
+    ".claude/**",
+    "brand/**",
+    // TanStack Router generates repeated route maps; hand-editing this file is
+    // forbidden and reporting its self-similarity cannot guide a refactor.
+    "apps/web/src/route-tree.gen.ts"
+  ],
   // `collections/*` is the virtual module fumadocs-mdx generates at postinstall
   // for apps/www; it has no package.json entry to resolve against.
   //

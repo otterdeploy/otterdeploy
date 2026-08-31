@@ -30,6 +30,7 @@ import {
   cellBool,
   cellBytes,
   cellDate,
+  cellDatetime,
   cellDecimal,
   cellInstant,
   cellJson,
@@ -135,6 +136,8 @@ const DECLARED_DECODERS: Partial<Record<CellKind, (raw: unknown) => CellValue>> 
     return json === undefined ? cellOpaque(describeUnknown(raw)) : cellJson(json);
   },
   instant: (raw) => cellInstant(isDate(raw) ? raw.toISOString() : describeUnknown(raw)),
+  datetime: (raw) =>
+    cellDatetime(isDate(raw) ? raw.toISOString().replace(/Z$/, "") : describeUnknown(raw)),
   date: (raw) =>
     cellDate(isDate(raw) ? (raw.toISOString().split("T")[0] ?? "") : describeUnknown(raw)),
   time: (raw) => cellTime(describeUnknown(raw)),

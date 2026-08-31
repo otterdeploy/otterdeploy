@@ -11,18 +11,15 @@ import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type { Dialect } from "../dialect";
 import type { DialectId } from "../types";
 
-import { clickhouseDialect } from "./clickhouse";
 import { mysqlDialect } from "./mysql";
 import { postgresDialect } from "./postgres";
 
-export { classifyClickhouseType, clickhouseDialect } from "./clickhouse";
 export { classifyMysqlType, mysqlDialect } from "./mysql";
 export { classifyPostgresType, postgresDialect } from "./postgres";
 
 export const DIALECTS: Record<DialectId, Dialect> = {
   postgres: postgresDialect,
   mysql: mysqlDialect,
-  clickhouse: clickhouseDialect,
 };
 
 const BY_ENGINE: ReadonlyMap<DatabaseEngine, Dialect> = new Map(
@@ -42,9 +39,9 @@ export function isRelationalEngine(engine: DatabaseEngine): boolean {
 /**
  * True when the workbench can actually CONNECT to this engine.
  *
- * Narrower than {@link isRelationalEngine}: ClickHouse has a complete dialect
- * that compiles correct SQL, but no wire driver, so routing it to the workbench
- * would produce a surface that fails the moment it opens.
+ * Kept separate from {@link isRelationalEngine} because a future SQL dialect
+ * may be useful before its driver is ready. Today both registered dialects
+ * have a wire driver.
  */
 export function hasWireDriver(engine: DatabaseEngine): boolean {
   return BY_ENGINE.get(engine)?.wireProtocol != null;

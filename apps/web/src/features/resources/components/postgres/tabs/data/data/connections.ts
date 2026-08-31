@@ -22,105 +22,102 @@
  * repairs it on reconnect. The stream is the incremental path between snapshots,
  * so a dropped event costs freshness, never correctness.
  */
+import type { InferRouterOutputs } from "@orpc/server";
+import type { AppRouter } from "@otterdeploy/api/routers/index";
+
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useMutation } from "@tanstack/react-query";
 
 import { metadataSecret } from "@/shared/db/mutation-metadata";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-export interface DataConnection {
-  id: string;
-  name: string;
-  engine: "postgres" | "mariadb";
-  /** Host and database only — enough to identify it, no credential. */
-  displayHost: string;
-  displayDatabase: string;
-  visibility: "org" | "private";
-  environment: "production" | "other";
-  defaultAccess: "read-only" | "read-write";
-  requireTls: boolean;
-  createdAt: Date;
-  lastConnectedAt: Date | null;
-}
+export type DataConnection =
+  InferRouterOutputs<AppRouter>["data"]["listConnections"]["connections"][number];
 
-const listKey = orpc.data.listConnections.queryKey({ input: {} });
-
-export const connectionsCollection = createCollection(
-  queryCollectionOptions({
-    id: "data-connections",
-    queryKey: listKey,
-    queryFn: async (): Promise<DataConnection[]> => {
-      const { connections } = await orpc.data.listConnections.call({});
-      return connections;
-    },
-    queryClient,
-    getKey: (row) => row.id,
-    onInsert: async ({ transaction }) => {
-      for (const m of transaction.mutations) {
-        const row = m.modified;
-        // The URL rides the mutation's metadata rather than the row, because it
-        // is write-only: it must never end up in the collection's cached data,
-        // where every reader of the list would hold a live credential.
-        const url = metadataSecret(m.metadata);
-        if (url === undefined) continue;
-        const saved = await orpc.data.createConnection.call({
-          name: row.name,
-          url,
-          visibility: row.visibility,
-          environment: row.environment,
-          defaultAccess: row.defaultAccess,
-          requireTls: row.requireTls,
-        });
-        // The optimistic row carried a temp id and no parsed host. Drop it and
-        // write the server's row, rather than refetching the whole list to
-        // discover the same thing the mutation just returned.
-        connectionsCollection.utils.writeDelete(m.key);
-        connectionsCollection.utils.writeUpsert(saved);
-      }
-      return { refetch: false };
-    },
-    onUpdate: async ({ transaction }) => {
-      for (const m of transaction.mutations) {
-        const c = m.changes;
-        const url = metadataSecret(m.metadata);
-        const saved = await orpc.data.updateConnection.call({
-          id: m.original.id,
-          ...omitUndefined({
-            name: c.name,
-            visibility: c.visibility,
-            environment: c.environment,
-            defaultAccess: c.defaultAccess,
-            requireTls: c.requireTls,
-            // Omitting `url` leaves the stored credential untouched, which is
-            // what lets someone rename a connection without re-pasting it.
+function createConnectionsCollection(organizationId: string) {
+  return createCollection(
+    queryCollectionOptions({
+      id: `data-connections:${organizationId}`,
+      queryKey: [...orpc.data.listConnections.queryKey({ input: {} }), { organizationId }],
+      queryFn: async (): Promise<DataConnection[]> => {
+        const { connections } = await orpc.data.listConnections.call({});
+        return connections;
+      },
+      queryClient,
+      getKey: (row) => row.id,
+      onInsert: async ({ transaction }) => {
+        for (const m of transaction.mutations) {
+          const row = m.modified;
+          // The URL rides the mutation's metadata rather than the row, because it
+          // is write-only: it must never end up in the collection's cached data,
+          // where every reader of the list would hold a live credential.
+          const url = metadataSecret(m.metadata);
+          if (url === undefined) continue;
+          const saved = await orpc.data.createConnection.call({
+            name: row.name,
             url,
-          }),
-        });
-        connectionsCollection.utils.writeUpsert(saved);
-      }
-      return { refetch: false };
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) => orpc.data.deleteConnection.call({ id: m.original.id })),
-      );
-      // The optimistic delete already removed the row; there is nothing to
-      // reconcile and nothing to refetch.
-      return { refetch: false };
-    },
-    staleTime: 60_000,
-  }),
-);
-
-export function useDataConnections() {
-  const { data, isLoading } = useLiveQuery((q) => q.from({ c: connectionsCollection }), []);
-  return { connections: data ?? [], isLoading };
+            visibility: row.visibility,
+            environment: row.environment,
+            defaultAccess: row.defaultAccess,
+            requireTls: row.requireTls,
+          });
+          // The optimistic row carried a temp id and no parsed host. Drop it and
+          // write the server's row, rather than refetching the whole list to
+          // discover the same thing the mutation just returned.
+          const collection = connectionCollectionFor(organizationId);
+          collection.utils.writeDelete(m.key);
+          collection.utils.writeUpsert(saved);
+        }
+        return { refetch: false };
+      },
+      onUpdate: async ({ transaction }) => {
+        for (const m of transaction.mutations) {
+          const c = m.changes;
+          const url = metadataSecret(m.metadata);
+          const saved = await orpc.data.updateConnection.call({
+            id: m.original.id,
+            ...omitUndefined({
+              name: c.name,
+              visibility: c.visibility,
+              environment: c.environment,
+              defaultAccess: c.defaultAccess,
+              requireTls: c.requireTls,
+              // Omitting `url` leaves the stored credential untouched, which is
+              // what lets someone rename a connection without re-pasting it.
+              url,
+            }),
+          });
+          connectionCollectionFor(organizationId).utils.writeUpsert(saved);
+        }
+        return { refetch: false };
+      },
+      onDelete: async ({ transaction }) => {
+        await Promise.all(
+          transaction.mutations.map((m) => orpc.data.deleteConnection.call({ id: m.original.id })),
+        );
+        // The optimistic delete already removed the row; there is nothing to
+        // reconcile and nothing to refetch.
+        return { refetch: false };
+      },
+      staleTime: 60_000,
+    }),
+  );
 }
 
-/** Open the connection once and report what came back. */
-export function useTestConnection() {
-  return useMutation(orpc.data.testConnection.mutationOptions());
+const connectionCollections = new Map<string, ReturnType<typeof createConnectionsCollection>>();
+
+export function connectionCollectionFor(organizationId: string) {
+  const existing = connectionCollections.get(organizationId);
+  if (existing) return existing;
+  const created = createConnectionsCollection(organizationId);
+  connectionCollections.set(organizationId, created);
+  return created;
+}
+
+export function useDataConnections(organizationId: string) {
+  const collection = connectionCollectionFor(organizationId);
+  const { data, isLoading } = useLiveQuery((q) => q.from({ c: collection }), [collection]);
+  return { connections: data ?? [], isLoading };
 }

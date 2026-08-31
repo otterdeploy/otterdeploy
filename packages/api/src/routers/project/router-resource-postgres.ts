@@ -1,7 +1,10 @@
+import { idSchema } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import { DatabaseHostingError } from "../../database-hosting";
 import { orgScopedProcedure, requirePermission } from "../../index";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { scopeSuffix } from "../../lib/environment/scoping";
 import {
   createPostgresResourceStream,
   restartDatabaseResource,
@@ -84,11 +87,21 @@ export const postgresResourceRouter = {
       if (!project) throw errors.NOT_FOUND();
       // Mint (or read) the stable password, then derive the rest.
       const password = await ensureDraftCredentialPassword(input.projectId, input.name);
+      // The SAME scope the create will apply, so what the pending panel shows
+      // is what deploys (od-jwx). BASE for main and for a caller that sends no
+      // environment, which is every pre-environment client.
+      const suffix = scopeSuffix(
+        await resolveRuntimeScope({
+          projectId: input.projectId,
+          environmentId: idSchema.environment.safeParse(input.environmentId).data ?? null,
+        }),
+      );
       const creds = deriveInternalDbCredentials({
         engine: input.engine,
         projectSlug: project.slug,
         resourceName: input.name,
         password,
+        scopeSuffix: suffix,
       });
       return {
         username: creds.username,

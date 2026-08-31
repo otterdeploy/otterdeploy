@@ -1,3 +1,9 @@
+import {
+  isForbiddenEgressAddress,
+  resolveEgressAddresses,
+} from "@otterdeploy/shared/egress-policy";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Result, TaggedError } from "better-result";
 /**
  * Parsing a database URL a human pasted in.
  *
@@ -13,7 +19,7 @@
  * ideal way to reach all of those, so the address is checked here, once, before
  * anything opens a socket.
  */
-import { Result, TaggedError } from "better-result";
+import { isIP } from "node:net";
 
 /**
  * Engines an external URL can name.
@@ -24,16 +30,15 @@ import { Result, TaggedError } from "better-result";
  */
 export type ConnectableEngine = "postgres" | "mariadb";
 
-export class ConnectionUrlError extends TaggedError("ConnectionUrlError")<{
+class ConnectionUrlError extends TaggedError("ConnectionUrlError")<{
   reason: "malformed" | "unsupported_scheme" | "blocked_host" | "missing_database";
   message: string;
-}>() {
-  constructor(
-    reason: "malformed" | "unsupported_scheme" | "blocked_host" | "missing_database",
-    message: string,
-  ) {
-    super({ reason, message });
-  }
+}>() {}
+
+type ConnectionUrlErrorReason = ConnectionUrlError["reason"];
+
+function urlError(reason: ConnectionUrlErrorReason, message: string): ConnectionUrlError {
+  return new ConnectionUrlError({ reason, message });
 }
 
 export interface ParsedConnectionUrl {
@@ -73,46 +78,6 @@ const BLOCKED_HOSTNAMES = new Set([
   "metadata",
 ]);
 
-/**
- * Reserved IPv4 blocks, as `[first octet, predicate on the second]`.
- *
- * A table because each entry is a fact about IPv4, not a branch: the list is
- * what needs reviewing, and reading it as data makes a missing range obvious in
- * a way a chain of `if`s does not.
- */
-const RESERVED_V4: ReadonlyArray<readonly [number, (b: number) => boolean]> = [
-  [0, () => true], // "this network"
-  [10, () => true], // private
-  [127, () => true], // loopback
-  [100, (b) => b >= 64 && b <= 127], // carrier-grade NAT, used by some meshes
-  [169, (b) => b === 254], // link-local — cloud metadata lives here
-  [172, (b) => b >= 16 && b <= 31], // private
-  [192, (b) => b === 168], // private
-];
-
-function isPrivateV4(host: string): boolean | null {
-  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!m) return null;
-  const octets = m.slice(1, 5).map(Number);
-  // A malformed dotted quad is treated as private, i.e. refused. Guessing in
-  // the permissive direction here would be guessing about an address we are
-  // about to open a socket to.
-  if (octets.some((n) => Number.isNaN(n) || n > 255)) return true;
-  const [a, b] = octets;
-  if (a === undefined || b === undefined) return true;
-  return RESERVED_V4.some(([first, rest]) => a === first && rest(b));
-}
-
-/** fc00::/7 unique-local, fe80::/10 link-local, plus loopback and unspecified. */
-const RESERVED_V6 = /^(::1?$|f[cd]|fe[89ab])/;
-
-/** Private and reserved IPv4 ranges, plus IPv6 loopback/link-local/ULA. */
-function isPrivateAddress(host: string): boolean {
-  const v4 = isPrivateV4(host);
-  if (v4 !== null) return v4;
-  return RESERVED_V6.test(host.replace(/^\[|\]$/g, "").toLowerCase());
-}
-
 export interface ParseOptions {
   /**
    * Allow private and loopback addresses.
@@ -131,7 +96,7 @@ export function parseConnectionUrl(
 ): Result<ParsedConnectionUrl, ConnectionUrlError> {
   const parsed = Result.try({
     try: () => new URL(raw.trim()),
-    catch: () => new ConnectionUrlError("malformed", "that does not look like a database URL"),
+    catch: () => urlError("malformed", "that does not look like a database URL"),
   });
   if (parsed.isErr()) return Result.err(parsed.error);
   const url = parsed.value;
@@ -140,7 +105,7 @@ export function parseConnectionUrl(
   const known = SCHEMES[scheme];
   if (!known) {
     return Result.err(
-      new ConnectionUrlError(
+      urlError(
         "unsupported_scheme",
         `"${scheme}://" is not a database the workbench can open; use postgres:// or mysql://`,
       ),
@@ -149,12 +114,16 @@ export function parseConnectionUrl(
 
   const host = url.hostname;
   if (host === "") {
-    return Result.err(new ConnectionUrlError("malformed", "the URL has no host"));
+    return Result.err(urlError("malformed", "the URL has no host"));
   }
   if (!options.allowPrivateAddresses) {
-    if (BLOCKED_HOSTNAMES.has(host.toLowerCase()) || isPrivateAddress(host)) {
+    const literal = host.replace(/^\[|\]$/g, "");
+    if (
+      BLOCKED_HOSTNAMES.has(host.toLowerCase()) ||
+      (isIP(literal) !== 0 && isForbiddenEgressAddress(literal))
+    ) {
       return Result.err(
-        new ConnectionUrlError(
+        urlError(
           "blocked_host",
           `${host} is a loopback, private or metadata address. The control plane can reach things there that are not yours to browse, so external connections must name a public host.`,
         ),
@@ -164,9 +133,7 @@ export function parseConnectionUrl(
 
   const database = decodeURIComponent(url.pathname.replace(/^\//, ""));
   if (database === "") {
-    return Result.err(
-      new ConnectionUrlError("missing_database", "the URL does not name a database"),
-    );
+    return Result.err(urlError("missing_database", "the URL does not name a database"));
   }
 
   const sslParam = url.searchParams.get("sslmode") ?? url.searchParams.get("ssl");
@@ -181,6 +148,44 @@ export function parseConnectionUrl(
     username: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     sslRequested,
+  });
+}
+
+export interface ResolvedConnectionAddress {
+  /** Address checked immediately before connect; use this instead of resolving again. */
+  address: string;
+  /** Original hostname for TLS SNI and certificate verification. */
+  serverName: string | null;
+}
+
+/**
+ * Resolve and validate every DNS answer, then pin one checked address.
+ *
+ * Checking only the hostname text misses a public name that resolves to
+ * loopback/private space. Connecting by name after a separate lookup also
+ * leaves a DNS-rebinding window, so callers connect to `address` and retain the
+ * original hostname only as TLS `serverName`.
+ */
+export async function resolveConnectionAddress(
+  host: string,
+  options: ParseOptions = {},
+): Promise<Result<ResolvedConnectionAddress, ConnectionUrlError>> {
+  const literal = host.replace(/^\[|\]$/g, "");
+  const literalFamily = isIP(literal);
+  const urlHost = literalFamily === 6 ? `[${literal}]` : literal;
+  const allowAddresses = options.allowPrivateAddresses ? ["0.0.0.0/0", "::/0"] : undefined;
+  const resolved = await Result.tryPromise({
+    try: () => resolveEgressAddresses(new URL(`https://${urlHost}`), { allowAddresses }),
+    catch: (cause) =>
+      urlError(
+        isForbiddenEgressAddress(literal, { allowAddresses }) ? "blocked_host" : "malformed",
+        `could not use database host ${host}: ${errorFromUnknown(cause).message}`,
+      ),
+  });
+  if (resolved.isErr()) return Result.err(resolved.error);
+  return Result.ok({
+    address: resolved.value[0].address,
+    serverName: literalFamily === 0 ? literal : null,
   });
 }
 

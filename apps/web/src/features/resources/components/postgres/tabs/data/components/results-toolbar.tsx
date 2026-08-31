@@ -62,27 +62,32 @@ function toCsv(columns: readonly ColumnMeta[], rows: readonly CellValue[][]): st
  * the text psql happened to print.
  */
 function toJson(columns: readonly ColumnMeta[], rows: readonly CellValue[][]): string {
-  return JSON.stringify(
-    rows.map((r) => {
-      const obj: Record<string, unknown> = {};
-      columns.forEach((c, i) => {
-        const cell = r[i] ?? null;
-        obj[c.name] = cell === null ? null : cell.k === "json" ? cell.v : jsonScalar(cell);
-      });
-      return obj;
-    }),
-    null,
-    2,
-  );
+  return JSON.stringify(resultRowsAsJson(columns, rows), null, 2);
 }
 
 /** The JSON-native form of a non-json cell. */
 function jsonScalar(cell: Exclude<CellValue, null>): unknown {
   if (cell.k === "bool" || cell.k === "number") return cell.v;
-  if (cell.k === "array") return cell.v.map((c) => (c === null ? null : displayText(c)));
+  if (cell.k === "json") return cell.v;
+  if (cell.k === "array") return cell.v.map((entry) => (entry === null ? null : jsonScalar(entry)));
   // bigint / decimal stay strings so precision survives; everything else is
   // already text.
   return displayText(cell);
+}
+
+/** Convert a typed result grid without flattening JSON, numbers, or booleans to text. */
+export function resultRowsAsJson(
+  columns: readonly ColumnMeta[],
+  rows: readonly CellValue[][],
+): Array<Record<string, unknown>> {
+  return rows.map((row) => {
+    const object: Record<string, unknown> = {};
+    columns.forEach((column, index) => {
+      const cell = row[index] ?? null;
+      object[column.name] = cell === null ? null : jsonScalar(cell);
+    });
+    return object;
+  });
 }
 
 export function ResultsToolbar({

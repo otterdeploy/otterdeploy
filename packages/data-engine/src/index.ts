@@ -18,5 +18,7 @@ export * from "./dialect";
 export * from "./dialects";
 export * from "./filters";
 export * from "./mutate";
+export * from "./query";
+export * from "./query-input";
 export * from "./types";
 export * from "./value";

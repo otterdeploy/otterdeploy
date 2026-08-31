@@ -35,6 +35,7 @@ export const CELL_KINDS = [
   "bytes",
   "json",
   "instant",
+  "datetime",
   "date",
   "time",
   "array",
@@ -63,6 +64,8 @@ export type CellValue =
   | { k: "json"; v: JsonValue }
   /** ISO-8601 with an offset. A point on the timeline. */
   | { k: "instant"; v: string }
+  /** ISO-8601 local date-time, with no offset and therefore no invented zone. */
+  | { k: "datetime"; v: string }
   /** `YYYY-MM-DD`, no zone. A calendar date is not a point on the timeline. */
   | { k: "date"; v: string }
   /** `HH:MM:SS[.fff]`, no zone. */
@@ -95,9 +98,12 @@ export const cellValueSchema: z.ZodType<CellValue> = z.lazy(() =>
     z.object({ k: z.literal("bool"), v: z.boolean() }),
     z.object({ k: z.literal("bigint"), v: z.string() }),
     z.object({ k: z.literal("decimal"), v: z.string() }),
-    z.object({ k: z.literal("bytes"), v: z.string() }),
+    z
+      .object({ k: z.literal("bytes"), v: z.string() })
+      .refine(({ v }) => decodeBase64(v) !== undefined, { message: "invalid base64" }),
     z.object({ k: z.literal("json"), v: jsonValueSchema }),
     z.object({ k: z.literal("instant"), v: z.string() }),
+    z.object({ k: z.literal("datetime"), v: z.string() }),
     z.object({ k: z.literal("date"), v: z.string() }),
     z.object({ k: z.literal("time"), v: z.string() }),
     z.object({ k: z.literal("array"), v: z.array(cellValueSchema) }),
@@ -117,6 +123,7 @@ export const cellDecimal = (v: string): CellValue => ({ k: "decimal", v });
 export const cellBytes = (v: string): CellValue => ({ k: "bytes", v });
 export const cellJson = (v: JsonValue): CellValue => ({ k: "json", v });
 export const cellInstant = (v: string): CellValue => ({ k: "instant", v });
+export const cellDatetime = (v: string): CellValue => ({ k: "datetime", v });
 export const cellDate = (v: string): CellValue => ({ k: "date", v });
 export const cellTime = (v: string): CellValue => ({ k: "time", v });
 export const cellArray = (v: CellValue[]): CellValue => ({ k: "array", v });
@@ -132,6 +139,27 @@ export function cellKind(cell: CellValue): CellKind | "null" {
   return cell === null ? "null" : cell.k;
 }
 
+type TextPayloadCell = Extract<
+  Exclude<CellValue, null>,
+  { k: "text" | "bigint" | "decimal" | "instant" | "datetime" | "date" | "time" | "opaque" }
+>;
+
+function hasTextPayload(cell: Exclude<CellValue, null>): cell is TextPayloadCell {
+  switch (cell.k) {
+    case "text":
+    case "bigint":
+    case "decimal":
+    case "instant":
+    case "datetime":
+    case "date":
+    case "time":
+    case "opaque":
+      return true;
+    default:
+      return false;
+  }
+}
+
 /**
  * A short, lossless-where-possible string for the grid cell and for CSV export.
  *
@@ -141,16 +169,12 @@ export function cellKind(cell: CellValue): CellKind | "null" {
  */
 export function displayText(cell: CellValue): string {
   if (cell === null) return "";
+  // Timestamps read as `2026-08-24 09:12:44+00`, not raw RFC-3339 — see
+  // instantDisplay. Checked before the verbatim text-payload guard, which
+  // would otherwise return the wire string untouched.
+  if (cell.k === "instant") return instantDisplay(cell.v);
+  if (hasTextPayload(cell)) return cell.v;
   switch (cell.k) {
-    case "instant":
-      return instantDisplay(cell.v);
-    case "text":
-    case "bigint":
-    case "decimal":
-    case "date":
-    case "time":
-    case "opaque":
-      return cell.v;
     case "number":
       return String(cell.v);
     case "bool":
@@ -207,7 +231,7 @@ export function editText(cell: CellValue): string {
   if (cell.k === "instant") return cell.v;
   if (cell.k === "json") return JSON.stringify(cell.v, null, 2);
   if (cell.k === "bytes") return cell.v;
-  if (cell.k === "array") return JSON.stringify(cell.v.map(editText));
+  if (cell.k === "array") return JSON.stringify(cell.v);
   return displayText(cell);
 }
 
@@ -218,9 +242,22 @@ const DECIMAL_LITERAL = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
 const BOOL_TRUE = new Set(["true", "t", "1", "yes", "y", "on"]);
 const BOOL_FALSE = new Set(["false", "f", "0", "no", "n", "off"]);
-const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const ISO_TIME = /^\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
+function parsesTemporal(text: string, parse: (value: string) => unknown): boolean {
+  return Result.try({ try: () => parse(text), catch: () => undefined }).isOk();
+}
+
+function decodeBase64(b64: string): Uint8Array | undefined {
+  const decoded = Result.try({
+    try: () => {
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    },
+    catch: () => undefined,
+  });
+  return decoded.isOk() ? decoded.value : undefined;
+}
 
 /** One parser per kind. Returning `undefined` means "not valid for this kind". */
 const CELL_PARSERS: Record<CellKind, (text: string) => CellValue | undefined> = {
@@ -243,14 +280,38 @@ const CELL_PARSERS: Record<CellKind, (text: string) => CellValue | undefined> = 
     if (BOOL_FALSE.has(t)) return cellBool(false);
     return undefined;
   },
-  bytes: (text) => (BASE64.test(text.trim()) ? cellBytes(text.trim()) : undefined),
+  bytes: (text) => {
+    const value = text.trim();
+    return decodeBase64(value) === undefined ? undefined : cellBytes(value);
+  },
   json: (text) => {
     const parsed = jsonValueSchema.safeParse(safeJsonParse(text));
     return parsed.success ? cellJson(parsed.data) : undefined;
   },
-  instant: (text) => (text.trim() === "" ? undefined : cellInstant(text.trim())),
-  date: (text) => (ISO_DATE.test(text.trim()) ? cellDate(text.trim()) : undefined),
-  time: (text) => (ISO_TIME.test(text.trim()) ? cellTime(text.trim()) : undefined),
+  instant: (text) => {
+    const value = text.trim();
+    return parsesTemporal(value, (candidate) => Temporal.Instant.from(candidate))
+      ? cellInstant(value)
+      : undefined;
+  },
+  datetime: (text) => {
+    const value = text.trim();
+    return parsesTemporal(value, (candidate) => Temporal.PlainDateTime.from(candidate))
+      ? cellDatetime(value)
+      : undefined;
+  },
+  date: (text) => {
+    const value = text.trim();
+    return parsesTemporal(value, (candidate) => Temporal.PlainDate.from(candidate))
+      ? cellDate(value)
+      : undefined;
+  },
+  time: (text) => {
+    const value = text.trim();
+    return parsesTemporal(value, (candidate) => Temporal.PlainTime.from(candidate))
+      ? cellTime(value)
+      : undefined;
+  },
   array: (text) => {
     const parsed = z.array(cellValueSchema).safeParse(safeJsonParse(text));
     return parsed.success ? cellArray(parsed.data) : undefined;
@@ -295,36 +356,24 @@ function safeJsonParse(text: string): unknown {
  * Exact numerics stay strings: every driver we use accepts a decimal string for
  * `numeric`/`int8` and converts server-side without going through a float.
  */
-export function toDriverParam(cell: CellValue): string | number | boolean | null | Uint8Array {
+export type DriverParam = string | number | boolean | null | Uint8Array | DriverParam[];
+
+export function toDriverParam(cell: CellValue): DriverParam {
   if (cell === null) return null;
+  if (hasTextPayload(cell)) return cell.v;
   switch (cell.k) {
-    // The wire value verbatim. `instantDisplay` is for READING; sending its
-    // second-truncated form back would silently drop sub-second precision on
-    // every row that round-trips through an edit.
-    case "instant":
-    case "text":
-    case "bigint":
-    case "decimal":
-    case "date":
-    case "time":
-    case "opaque":
-      return cell.v;
     case "number":
       return cell.v;
     case "bool":
       return cell.v;
     case "bytes":
-      return decodeBase64(cell.v);
+      // `cellValueSchema` and `parseCell` validate this before a cell reaches a
+      // statement builder. Keep the fallback non-throwing for manually-created
+      // values so malformed UI state cannot crash the request process.
+      return decodeBase64(cell.v) ?? new Uint8Array();
     case "json":
       return JSON.stringify(cell.v);
     case "array":
-      return JSON.stringify(cell.v.map((c) => (c === null ? null : displayText(c))));
+      return cell.v.map(toDriverParam);
   }
-}
-
-function decodeBase64(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }

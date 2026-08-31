@@ -33,7 +33,7 @@ export interface StructureColumn {
   enumValues: string[] | null;
 }
 
-export function toStructureColumn(column: ColumnMeta): StructureColumn {
+function toStructureColumn(column: ColumnMeta): StructureColumn {
   // `isGenerated` already covers identity, generated-always and serial's
   // `nextval(...)` default — the dialect decides, so this no longer has to
   // sniff the default expression for "nextval(" the way the parser did.
@@ -85,6 +85,7 @@ export function columnInputKind(
     case "decimal":
       return "number";
     case "instant":
+    case "datetime":
     case "date":
     case "time":
       return "date";

@@ -19,7 +19,7 @@ import { createPortal } from "react-dom";
 
 import { Database02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { Button } from "@/shared/components/ui/button";
@@ -58,7 +58,8 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/data")({
 function DataPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const { managed, external, all, isLoading } = useWorkbenchTargets();
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+  const { managed, external, all, isLoading } = useWorkbenchTargets(organization.id);
   const [connectOpen, setConnectOpen] = useState(false);
 
   // Derived, not stored: an unknown or absent `?target=` falls back to the
@@ -156,7 +157,11 @@ function DataPage() {
         />
       )}
 
-      <ConnectDialog open={connectOpen} onOpenChange={setConnectOpen} />
+      <ConnectDialog
+        organizationId={organization.id}
+        open={connectOpen}
+        onOpenChange={setConnectOpen}
+      />
     </div>
   );
 }

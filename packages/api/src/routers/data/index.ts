@@ -14,10 +14,13 @@ import {
   buildMutation,
   buildSelect,
   columnLookup,
+  displayText,
   isEditable,
+  validateQueryInput,
 } from "@otterdeploy/data-engine";
+import { Result } from "better-result";
 
-import type { Connection } from "../../data";
+import type { Connection, DataError } from "../../data";
 
 import { requirePermission } from "../..";
 import {
@@ -31,6 +34,15 @@ import {
 } from "../../data";
 import { makeConnectionHandlers } from "./connections";
 import { guardTarget, open, raise, targetLog, viewerIdOf } from "./plumbing";
+
+async function mayWrite(context: { apiKey?: unknown; headers: Headers }): Promise<boolean> {
+  if (context.apiKey) return false;
+  const { success } = await auth.api.hasPermission({
+    headers: context.headers,
+    body: { permissions: { database: ["write"] } },
+  });
+  return success;
+}
 
 /**
  * Map a runtime failure onto the contract's error set.
@@ -64,10 +76,10 @@ export const dataRouter = {
       return {
         dialect: connection.dialect.id,
         defaultSchema: connection.dialect.defaultSchema,
-        // Whether the ENGINE can commit a staged edit atomically at all.
-        // ClickHouse cannot, so the drafts bar degrades to read-only there
-        // rather than offering a commit it could not honour.
-        canWrite: connection.dialect.supportsTransactions,
+        canWrite:
+          connection.dialect.supportsTransactions &&
+          connection.target.writeAllowed &&
+          (await mayWrite(context)),
         tables: tables.value.map((t) => {
           const columns = columnsByTable.get(`${t.schema} ${t.name}`) ?? [];
           return {
@@ -120,10 +132,16 @@ export const dataRouter = {
 
       const connection = await open(context, input.target, "read-only");
 
-      const columns = await tableColumns(connection, input.schema, input.table);
+      const foundColumns = await tableColumns(connection, input.schema, input.table);
+      if (foundColumns.isErr()) throw raise(foundColumns.error, errors);
+      const columns = foundColumns.value;
       if (columns.length === 0) throw errors.NOT_FOUND();
 
       const lookup = columnLookup(columns);
+      const validated = validateQueryInput(input, lookup);
+      if (validated.isErr()) {
+        throw errors.QUERY_FAILED({ data: { reason: validated.error.message } });
+      }
       const statement = buildSelect({
         dialect: connection.dialect,
         schema: input.schema,
@@ -157,8 +175,15 @@ export const dataRouter = {
       await guardTarget(context, input.target);
 
       const connection = await open(context, input.target, "read-only");
-      const columns = await tableColumns(connection, input.schema, input.table);
+      const foundColumns = await tableColumns(connection, input.schema, input.table);
+      if (foundColumns.isErr()) throw raise(foundColumns.error, errors);
+      const columns = foundColumns.value;
       if (columns.length === 0) throw errors.NOT_FOUND();
+      const lookup = columnLookup(columns);
+      const validated = validateQueryInput({ filters: input.filters }, lookup);
+      if (validated.isErr()) {
+        throw errors.QUERY_FAILED({ data: { reason: validated.error.message } });
+      }
 
       const grid = await execute(
         connection,
@@ -167,15 +192,21 @@ export const dataRouter = {
           schema: input.schema,
           table: input.table,
           filters: input.filters,
-          lookup: columnLookup(columns),
+          lookup,
         }),
         { kinds: ["bigint"] },
       );
       if (grid.isErr()) throw raise(grid.error, errors);
 
       const cell = grid.value.rows[0]?.[0];
-      const total = cell !== null && cell !== undefined && "v" in cell ? Number(cell.v) : 0;
-      return { total: Number.isFinite(total) ? total : 0 };
+      const raw = cell === null || cell === undefined ? "0" : displayText(cell);
+      const parsed = Result.try({ try: () => BigInt(raw), catch: () => undefined });
+      if (parsed.isErr() || parsed.value > BigInt(Number.MAX_SAFE_INTEGER)) {
+        throw errors.QUERY_FAILED({
+          data: { reason: "row count exceeds the largest value this grid can page safely" },
+        });
+      }
+      return { total: Number(parsed.value) };
     },
   ),
 
@@ -192,19 +223,7 @@ export const dataRouter = {
       // Opting into writes needs the write scope, not just the query scope.
       // Checked here rather than in the contract because it depends on `write`.
       if (input.write) {
-        // An API-key actor has no session for better-auth's role check, so the
-        // write path is a session surface only. Same rule the old
-        // `database.capabilities` handler applies.
-        if (context.apiKey) {
-          throw errors.DENIED({
-            data: { reason: "writes require an interactive session, not an API key" },
-          });
-        }
-        const { success } = await auth.api.hasPermission({
-          headers: context.headers,
-          body: { permissions: { database: ["write"] } },
-        });
-        if (!success) {
+        if (!(await mayWrite(context))) {
           throw errors.DENIED({
             data: { reason: "you do not have permission to write to this database" },
           });
@@ -242,14 +261,28 @@ export const dataRouter = {
       });
       await guardTarget(context, input.target);
 
+      if (!(await mayWrite(context))) {
+        throw errors.DENIED({
+          data: { reason: "writes require an interactive session with database write permission" },
+        });
+      }
+
       const connection = await open(context, input.target, "read-write");
+      if (!connection.target.writeAllowed || connection.target.mode === "read-only") {
+        throw errors.DENIED({ data: { reason: "this connection is configured read-only" } });
+      }
 
       // Build every statement BEFORE opening the transaction. A mutation that
       // cannot be built is a client error, and discovering it halfway through
       // would mean rolling back writes that were themselves valid.
+      const allColumns = await listColumns(connection);
+      if (allColumns.isErr()) throw raise(allColumns.error, errors);
+      const columnsByTable = new Map(
+        allColumns.value.map((entry) => [`${entry.schema} ${entry.table}`, entry.columns]),
+      );
       const statements = [];
       for (const mutation of input.mutations) {
-        const columns = await tableColumns(connection, mutation.schema, mutation.table);
+        const columns = columnsByTable.get(`${mutation.schema} ${mutation.table}`) ?? [];
         if (columns.length === 0) throw errors.NOT_FOUND();
         const built = buildMutation(mutation, { dialect: connection.dialect, columns });
         if (built.isErr()) {
@@ -275,9 +308,9 @@ async function tableColumns(
   connection: Connection,
   schema: string,
   table: string,
-): Promise<ColumnMeta[]> {
+): Promise<Result<ColumnMeta[], DataError>> {
   const all = await listColumns(connection);
-  if (all.isErr()) return [];
+  if (all.isErr()) return Result.err(all.error);
   const hit = all.value.find((t) => t.table === table && (schema === "" || t.schema === schema));
-  return hit?.columns ?? [];
+  return Result.ok(hit?.columns ?? []);
 }

@@ -20,7 +20,6 @@ import {
 import type { DataStudioController } from "./use-data-studio";
 
 import { RailContent } from "./components/workbench-rail";
-import { WorkbenchTabs } from "./components/workbench-tabs";
 
 export function TableBrowserView({
   studio,

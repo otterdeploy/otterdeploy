@@ -33,9 +33,17 @@ export class TimeoutError extends Error {
  * sat forever with no I/O) otherwise wedges every caller with no error, no
  * log line, and no timeout at any other layer.
  */
-export function withTimeout<T>(promise: Promise<T>, ms: number, label = "operation"): Promise<T> {
+export function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label = "operation",
+  onTimeout?: () => void,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new TimeoutError(label, ms)), ms);
+    const timer = setTimeout(() => {
+      onTimeout?.();
+      reject(new TimeoutError(label, ms));
+    }, ms);
     promise.then(
       (value) => {
         clearTimeout(timer);

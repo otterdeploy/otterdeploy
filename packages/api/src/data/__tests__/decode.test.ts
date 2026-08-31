@@ -23,6 +23,7 @@ describe("SQL NULL", () => {
       "bytes",
       "json",
       "instant",
+      "datetime",
       "date",
       "time",
       "array",
@@ -77,6 +78,10 @@ describe("structured types", () => {
     expect(decodeDeclared(d, "instant")).toEqual({
       k: "instant",
       v: "2026-08-31T09:11:02.000Z",
+    });
+    expect(decodeDeclared(d, "datetime")).toEqual({
+      k: "datetime",
+      v: "2026-08-31T09:11:02.000",
     });
     expect(decodeDeclared(d, "date")).toEqual({ k: "date", v: "2026-08-31" });
   });

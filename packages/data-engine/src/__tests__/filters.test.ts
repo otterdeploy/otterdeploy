@@ -3,7 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Filter } from "../filters";
 
 import { mysqlDialect, postgresDialect } from "../dialects";
-import { buildSelect, columnLookup, compileFilters, orderByFragment } from "../filters";
+import { columnLookup } from "../filters";
+import { buildSelect, compileFilters, orderByFragment } from "../query";
+import { validateQueryInput } from "../query-input";
 
 const lookup = columnLookup([
   { name: "id", kind: "bigint" },
@@ -59,6 +61,16 @@ describe("identifiers are allowlisted, not escaped", () => {
     );
     expect(out.sql).toBe("");
     expect(out.params).toEqual([]);
+  });
+
+  it("rejects unknown client state before it can widen a query", () => {
+    const validated = validateQueryInput({ columns: ["id", "missing"] }, lookup);
+    expect(validated.isErr() && validated.error.reason).toBe("unknown_column");
+  });
+
+  it("rejects incomplete enabled filters instead of dropping them", () => {
+    const validated = validateQueryInput({ filters: [f({ values: [] })] }, lookup);
+    expect(validated.isErr() && validated.error.reason).toBe("incomplete_filter");
   });
 });
 

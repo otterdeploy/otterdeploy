@@ -25,11 +25,10 @@ export type DataErrorReason =
 export class DataError extends TaggedError("DataError")<{
   reason: DataErrorReason;
   message: string;
-}>() {
-  constructor(reason: DataErrorReason, message: string) {
-    super({ reason, message });
-  }
-}
+}>() {}
+
+export const dataError = (reason: DataErrorReason, message: string): DataError =>
+  new DataError({ reason, message });
 
 /**
  * Normalise a thrown driver value into a {@link DataError}.
@@ -45,18 +44,18 @@ export function toDataError(cause: unknown): DataError {
   const code = readErrorCode(cause);
 
   if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "EHOSTUNREACH") {
-    return new DataError("unreachable", message);
+    return dataError("unreachable", message);
   }
   if (code === "ETIMEDOUT" || /timeout|timed out|statement_timeout/i.test(message)) {
-    return new DataError("timeout", message);
+    return dataError("timeout", message);
   }
   if (/read-only|read only transaction|permission denied|access denied/i.test(message)) {
-    return new DataError("denied", message);
+    return dataError("denied", message);
   }
   if (/connect|connection|ECONNRESET|getaddrinfo/i.test(message) && code !== undefined) {
-    return new DataError("unreachable", message);
+    return dataError("unreachable", message);
   }
-  return new DataError("query", message);
+  return dataError("query", message);
 }
 
 /** Read a Node-style `code` off a thrown value without asserting its shape. */

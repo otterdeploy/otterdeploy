@@ -16,11 +16,14 @@
 
 import type { Filter, Sort } from "@otterdeploy/data-engine";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
+
+import { orpc } from "@/shared/server/orpc";
 
 import type { DefinitionsSection } from "./components/definitions-view";
 import type { ResultView } from "./components/results-panel";
@@ -29,6 +32,7 @@ import type { WorkbenchUrlState } from "./data/url-state";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { type TableRef } from "./data/queries";
+import { schemaCollection } from "./data/schema-collection";
 import { targetKey } from "./data/target";
 import { EMPTY_URL_STATE, useWorkbenchUrlSync } from "./data/url-state";
 import { useBrowseRows } from "./data/use-database";
@@ -41,7 +45,7 @@ import {
   useSnippetBuffer,
 } from "./use-data-studio-helpers";
 import { errMessage } from "./use-data-studio-sql";
-import { useOpenTableAccess, useTableList } from "./use-data-studio-tables";
+import { useAutoOpenFirstTable, useOpenTableAccess, useTableList } from "./use-data-studio-tables";
 import { useWorkbenchTabs } from "./use-workbench-tabs";
 
 export const PAGE_SIZES = [50, 100, 200, 500];
@@ -49,6 +53,7 @@ export const PAGE_SIZES = [50, 100, 200, 500];
 export { errMessage };
 
 function useTableData(target: WorkbenchTarget, init: WorkbenchUrlState) {
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<"table" | "sql">("table");
   const [tableSearch, setTableSearch] = useState("");
   // Seeded from the URL, so a refresh reopens the same table, page and
@@ -73,7 +78,6 @@ function useTableData(target: WorkbenchTarget, init: WorkbenchUrlState) {
   const [hiddenColumns, setHiddenColumnsState] = useState<string[]>(() =>
     init.table === null ? [] : loadHiddenColumns(targetKey(target), init.table),
   );
-  const autoOpenedRef = useRef(false);
 
   const { tablesQuery, tables, filteredTables, schemas, activeSchema, setActiveSchema } =
     useTableList(target, tableSearch);
@@ -119,7 +123,10 @@ function useTableData(target: WorkbenchTarget, init: WorkbenchUrlState) {
     writeMode,
     setMode,
     onWriteSuccess: () => {
-      void tablesQuery.refetch();
+      void schemaCollection(target).utils.refetch();
+      void queryClient.invalidateQueries({
+        queryKey: orpc.data.definitions.queryKey({ input: { target } }),
+      });
       void tableRowsQuery.refetch();
     },
   });
@@ -163,20 +170,13 @@ function useTableData(target: WorkbenchTarget, init: WorkbenchUrlState) {
   const changeFilters = (next: Filter[]) => (setFilters(next), setPage(0));
   const changeSorts = (next: Sort[]) => (setSorts(next), setPage(0));
 
-  // Land on the first table's rows once the list loads (browse, not authored
-  // SQL). Fires once so it never fights a manual SQL/snippet switch afterward.
-  // `openTable` is a fresh closure every render, so it reaches the effect as an
-  // effect event rather than a dependency that would re-run it constantly.
-  // The FILTERED list, not every table: the rail defaults to `public`, and
-  // landing on a `drizzle` table that the rail is not showing leaves the
-  // workbench open on something with no visible selection.
-  const autoOpen = useEffectEvent((t: TableRef) => openTable(t));
-  useEffect(() => {
-    if (!autoOpenedRef.current && !selected && filteredTables[0]) {
-      autoOpenedRef.current = true;
-      autoOpen(filteredTables[0]);
-    }
-  }, [selected, filteredTables]);
+  // Land on the first table's rows once the list loads (or the SQL editor when
+  // the database has none). The FILTERED list, not every table: the rail
+  // defaults to `public`, and landing on a `drizzle` table the rail is not
+  // showing leaves the workbench open on something with no visible selection.
+  useAutoOpenFirstTable(selected, filteredTables, tablesQuery.isLoading, openTable, () =>
+    setMode("sql"),
+  );
 
   // Results pane source: see ./use-data-studio-console.
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
@@ -286,6 +286,7 @@ export function useDataStudio(
   const newQuery = () => {
     const s = editor.addSnippet({ name: "Untitled query", sql: "" });
     selectSnippet(s.id);
+    return s;
   };
   /**
    * Seed the editor with a runnable query for the open table.

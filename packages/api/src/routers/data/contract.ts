@@ -13,9 +13,9 @@
  */
 import { oc } from "@orpc/contract";
 import {
-  cellValueSchema,
   columnSchema,
   filterSchema,
+  gridSchema,
   mutationSchema,
   sortSchema,
 } from "@otterdeploy/data-engine";
@@ -63,17 +63,6 @@ const dataErrors = {
   },
 };
 
-/** A page of typed rows. Mirrors `Grid` in @otterdeploy/data-engine. */
-const gridResultSchema = z.object({
-  columns: z.array(columnSchema),
-  rows: z.array(z.array(cellValueSchema)),
-  rowCount: z.number().int(),
-  truncated: z.boolean(),
-  rowsAffected: z.number().int().nullable(),
-  durationMs: z.number(),
-  notices: z.array(z.string()),
-});
-
 const connectionIdField = zId(ID_PREFIX.dataConnection);
 
 /**
@@ -86,7 +75,7 @@ const connectionIdField = zId(ID_PREFIX.dataConnection);
  * is better than rejecting it in a refinement, and far better than resolving
  * whichever branch the handler happened to check first.
  */
-export const dataTargetSchema = z.discriminatedUnion("kind", [
+const dataTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("resource"), resourceId: resourceIdField }),
   z.object({ kind: z.literal("connection"), connectionId: connectionIdField }),
 ]);
@@ -114,7 +103,7 @@ const connectionSchema = z.object({
 });
 
 const schemaResultSchema = z.object({
-  dialect: z.enum(["postgres", "mysql", "clickhouse"]),
+  dialect: z.enum(["postgres", "mysql"]),
   defaultSchema: z.string(),
   /** True when the workbench may offer inline editing at all. */
   canWrite: z.boolean(),
@@ -168,7 +157,7 @@ export const dataContract = {
         offset: z.number().int().min(0).default(0),
       }),
     )
-    .output(gridResultSchema)
+    .output(gridSchema)
     .errors(dataErrors),
 
   /** Exact row count for the same filtered set the grid is showing. */
@@ -201,7 +190,7 @@ export const dataContract = {
         write: z.boolean().default(false),
       }),
     )
-    .output(gridResultSchema)
+    .output(gridSchema)
     .errors(dataErrors),
 
   /**

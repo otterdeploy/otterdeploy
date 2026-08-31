@@ -13,8 +13,6 @@ import type { CellKind } from "@otterdeploy/data-engine";
 
 import { useState } from "react";
 
-import { Key01Icon, Link01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
@@ -26,24 +24,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
-import { Textarea } from "@/shared/components/ui/textarea";
 
 import type { InsertDraft } from "../data/insert";
 import type { TableRef } from "../data/queries";
 import type { StructureColumn } from "../data/structure";
 import type { WorkbenchTarget } from "../data/target";
 
-import { buildInsertSet, NULL_SENTINEL, validateInsertDraft } from "../data/insert";
-import { columnInputKind } from "../data/structure";
+import { buildInsertSet, validateInsertDraft } from "../data/insert";
 import { useMutateRows, useTableStructure } from "../data/use-database";
 import { FieldRow } from "./add-record-fields";
 
@@ -67,7 +55,7 @@ export function AddRecordDialog({
   onInserted: () => void;
 }) {
   const { query, structure, columns } = useTableStructure({ target, table });
-  const mutateRows = useMutateRows(target);
+  const mutateRows = useMutateRows();
   // Cell kinds by column name: what each draft field is parsed into.
   const kinds: Record<string, CellKind> = {};
   for (const c of columns) kinds[c.name] = c.kind;

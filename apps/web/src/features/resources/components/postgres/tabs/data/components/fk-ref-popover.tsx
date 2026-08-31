@@ -6,8 +6,6 @@
  * that table pre-filtered to the row.
  */
 
-import type { ResourceId } from "@otterdeploy/shared/id";
-
 import { Link01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { displayText } from "@otterdeploy/data-engine";

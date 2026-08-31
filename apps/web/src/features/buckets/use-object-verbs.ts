@@ -95,7 +95,12 @@ export function useObjectVerbs({
       { bucketId, keys },
       {
         onSuccess: (res) => {
-          toast.success(`Deleted ${res.deleted} object${res.deleted === 1 ? "" : "s"}`);
+          const n = res.deleted.length;
+          if (res.failed.length > 0) {
+            toast.error(`Deleted ${n}, but ${res.failed.length} failed: ${res.failed[0]?.reason}`);
+          } else {
+            toast.success(`Deleted ${n} object${n === 1 ? "" : "s"}`);
+          }
           onDeleted();
           refetchAll();
         },

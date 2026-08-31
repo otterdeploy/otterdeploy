@@ -11,13 +11,15 @@ import type { CellKind, ColumnMeta, Grid, PreparedStatement } from "@otterdeploy
 
 import { Result } from "better-result";
 
+import type { DataError } from "./errors";
 import type { Connection } from "./pool";
 
 import { decodeRow } from "./decode";
-import { DataError, toDataError } from "./errors";
+import { dataError, toDataError } from "./errors";
+import { awaitQuery, runOnConnection } from "./pool";
 
 /** Hard ceiling on rows returned to a browser, whatever the caller asked for. */
-export const MAX_ROWS = 5_000;
+const MAX_ROWS = 5_000;
 
 export interface ExecuteOptions {
   /**
@@ -72,9 +74,15 @@ export async function execute(
 
   const ran = await Result.tryPromise({
     try: async () => {
-      const query = connection.sql.unsafe(statement.sql, [...statement.params]);
-      const rows: unknown = await query.values();
-      return { rows, columns: readColumnNames(query) };
+      return runOnConnection(connection, async (sql) => {
+        const query = sql.unsafe(statement.sql, [...statement.params]);
+        const rows: unknown = await awaitQuery(query.values());
+        return {
+          rows,
+          columns: readColumnNames(query),
+          rowsAffected: readRowsAffected(query),
+        };
+      });
     },
     catch: toDataError,
   });
@@ -100,7 +108,7 @@ export async function execute(
     // Bun's driver does not surface an affected-row count separately from the
     // returned rows; for RETURNING statements the row count is the answer, and
     // null is honest for the rest rather than a fabricated zero.
-    rowsAffected: null,
+    rowsAffected: ran.value.rowsAffected,
     durationMs,
     notices: [],
   });
@@ -120,6 +128,16 @@ function readColumnNames(query: unknown): string[] {
   return columns.map((c) => (typeof c === "string" ? c : String(c)));
 }
 
+function readRowsAffected(query: unknown): number | null {
+  if (typeof query !== "object" || query === null) return null;
+  for (const property of ["affectedRows", "rowCount", "count"] as const) {
+    if (!(property in query)) continue;
+    const value = Reflect.get(query, property);
+    if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return value;
+  }
+  return null;
+}
+
 /**
  * Run several statements as ONE transaction.
  *
@@ -134,11 +152,11 @@ export async function executeTransaction(
   options: ExecuteOptions = {},
 ): Promise<Result<Grid[], DataError>> {
   if (connection.target.mode === "read-only") {
-    return Result.err(new DataError("denied", "this connection is read-only"));
+    return Result.err(dataError("denied", "this connection is read-only"));
   }
   if (!connection.dialect.supportsTransactions) {
     return Result.err(
-      new DataError(
+      dataError(
         "unsupported",
         `${connection.target.engine} has no interactive transaction, so a staged commit cannot be atomic`,
       ),
@@ -152,15 +170,23 @@ export async function executeTransaction(
         for (const statement of statements) {
           const startedAt = performance.now();
           const query = tx.unsafe(statement.sql, [...statement.params]);
-          const rows: unknown = await query.values();
+          const rows: unknown = await awaitQuery(query.values());
           const rawRows = Array.isArray(rows) ? rows : [];
           const kinds = options.kinds ?? options.columns?.map((c) => c.kind) ?? [];
+          const rowsAffected =
+            readRowsAffected(query) ?? (rawRows.length > 0 ? rawRows.length : null);
+          if (statement.expectsAffectedRow && rowsAffected === 0) {
+            throw dataError(
+              "query",
+              "the row changed or was deleted after it was loaded; refresh before committing",
+            );
+          }
           grids.push({
             columns: options.columns ? [...options.columns] : [],
             rows: rawRows.map((row) => decodeRow(Array.isArray(row) ? row : [row], kinds)),
             rowCount: rawRows.length,
             truncated: false,
-            rowsAffected: rawRows.length,
+            rowsAffected,
             durationMs: Math.round(performance.now() - startedAt),
             notices: [],
           });

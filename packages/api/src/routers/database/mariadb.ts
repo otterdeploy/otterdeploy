@@ -35,6 +35,7 @@ export async function withMysql<T>(
       engine: conn.engine,
       projectSlug: conn.projectSlug,
       resourceName: conn.resourceName,
+      stored: conn.serviceName,
     });
     const containerId = await findResourceContainerId(docker, conn.resourceId);
     if (!containerId) {

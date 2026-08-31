@@ -23,7 +23,7 @@ import type { Dialect } from "./dialect";
 import type { ColumnMeta, PreparedStatement } from "./types";
 import type { CellValue } from "./value";
 
-import { compile, qualified } from "./filters";
+import { compile, qualified } from "./query";
 import { cellValueSchema, toDriverParam } from "./value";
 
 export const columnAssignmentSchema = z.object({
@@ -43,6 +43,8 @@ export const mutationSchema = z.object({
   pk: z.array(columnAssignmentSchema).max(32).default([]),
   /** Column assignments. Empty for delete. */
   set: z.array(columnAssignmentSchema).max(512).default([]),
+  /** Original values used to reject an update when the row changed meanwhile. */
+  expected: z.array(columnAssignmentSchema).max(512).optional(),
 });
 export type Mutation = z.infer<typeof mutationSchema>;
 
@@ -50,23 +52,12 @@ export class MutationError extends TaggedError("MutationError")<{
   reason:
     | "no_primary_key"
     | "unknown_column"
+    | "duplicate_column"
     | "incomplete_key"
     | "empty_assignment"
     | "generated_column";
   message: string;
-}>() {
-  constructor(
-    reason:
-      | "no_primary_key"
-      | "unknown_column"
-      | "incomplete_key"
-      | "empty_assignment"
-      | "generated_column",
-    message: string,
-  ) {
-    super({ reason, message });
-  }
-}
+}>() {}
 
 interface BuildContext {
   dialect: Dialect;
@@ -80,12 +71,25 @@ function resolve(
   columns: readonly ColumnMeta[],
 ): Result<Array<{ meta: ColumnMeta; value: CellValue }>, MutationError> {
   const byName = new Map(columns.map((c) => [c.name, c]));
+  const seen = new Set<string>();
   const out: Array<{ meta: ColumnMeta; value: CellValue }> = [];
   for (const a of assignments) {
+    if (seen.has(a.column)) {
+      return Result.err(
+        new MutationError({
+          reason: "duplicate_column",
+          message: `column "${a.column}" was assigned more than once`,
+        }),
+      );
+    }
+    seen.add(a.column);
     const meta = byName.get(a.column);
     if (!meta) {
       return Result.err(
-        new MutationError("unknown_column", `column "${a.column}" does not exist on this table`),
+        new MutationError({
+          reason: "unknown_column",
+          message: `column "${a.column}" does not exist on this table`,
+        }),
       );
     }
     out.push({ meta, value: a.value });
@@ -110,17 +114,29 @@ function primaryKeyWhere(
   const keyColumns = ctx.columns.filter((c) => c.isPrimaryKey).map((c) => c.name);
   if (keyColumns.length === 0) {
     return Result.err(
-      new MutationError(
-        "no_primary_key",
-        "this table has no primary key, so a single row cannot be targeted safely",
-      ),
+      new MutationError({
+        reason: "no_primary_key",
+        message: "this table has no primary key, so a single row cannot be targeted safely",
+      }),
     );
   }
   const provided = new Set(pk.map((p) => p.meta.name));
   const missing = keyColumns.filter((c) => !provided.has(c));
   if (missing.length > 0) {
     return Result.err(
-      new MutationError("incomplete_key", `primary key is missing ${missing.join(", ")}`),
+      new MutationError({
+        reason: "incomplete_key",
+        message: `primary key is missing ${missing.join(", ")}`,
+      }),
+    );
+  }
+  const extra = pk.filter(({ meta }) => !meta.isPrimaryKey).map(({ meta }) => meta.name);
+  if (extra.length > 0) {
+    return Result.err(
+      new MutationError({
+        reason: "incomplete_key",
+        message: `primary key contains non-key column${extra.length === 1 ? "" : "s"} ${extra.join(", ")}`,
+      }),
     );
   }
   const parts: SQL[] = [];
@@ -128,7 +144,10 @@ function primaryKeyWhere(
     if (!meta.isPrimaryKey) continue;
     if (value === null) {
       return Result.err(
-        new MutationError("incomplete_key", `primary key column "${meta.name}" cannot be null`),
+        new MutationError({
+          reason: "incomplete_key",
+          message: `primary key column "${meta.name}" cannot be null`,
+        }),
       );
     }
     parts.push(sql`${sql.identifier(meta.name)} = ${toDriverParam(value)}`);
@@ -156,7 +175,11 @@ export function buildMutation(
 
   const built = buildStatement(mutation, ctx, target, returning);
   if (built.isErr()) return Result.err(built.error);
-  return Result.ok({ ...compile(ctx.dialect, built.value), returnsRows: supportsReturning });
+  return Result.ok({
+    ...compile(ctx.dialect, built.value),
+    returnsRows: supportsReturning,
+    expectsAffectedRow: mutation.op !== "insert",
+  });
 }
 
 function buildStatement(
@@ -170,7 +193,9 @@ function buildStatement(
   const set = resolve(mutation.set, ctx.columns);
   if (set.isErr()) return Result.err(set.error);
   if (set.value.length === 0) {
-    return Result.err(new MutationError("empty_assignment", "no columns to write"));
+    return Result.err(
+      new MutationError({ reason: "empty_assignment", message: "no columns to write" }),
+    );
   }
   // Writing a generated/identity column is rejected rather than silently
   // dropped: the caller believes it set a value, and the row would come back
@@ -178,10 +203,10 @@ function buildStatement(
   const generated = set.value.find((s) => s.meta.isGenerated);
   if (generated) {
     return Result.err(
-      new MutationError(
-        "generated_column",
-        `"${generated.meta.name}" is generated by the database and cannot be written`,
-      ),
+      new MutationError({
+        reason: "generated_column",
+        message: `"${generated.meta.name}" is generated by the database and cannot be written`,
+      }),
     );
   }
 
@@ -205,7 +230,19 @@ function buildStatement(
   if (pk.isErr()) return Result.err(pk.error);
   const where = primaryKeyWhere(pk.value, ctx);
   if (where.isErr()) return Result.err(where.error);
-  return Result.ok(sql`UPDATE ${target} SET ${assignments} WHERE ${where.value}${returning}`);
+  const expected = resolve(mutation.expected ?? [], ctx.columns);
+  if (expected.isErr()) return Result.err(expected.error);
+  const predicates = [
+    where.value,
+    ...expected.value.map(({ meta, value }) =>
+      value === null
+        ? sql`${sql.identifier(meta.name)} IS NULL`
+        : sql`${sql.identifier(meta.name)} = ${toDriverParam(value)}`,
+    ),
+  ];
+  return Result.ok(
+    sql`UPDATE ${target} SET ${assignments} WHERE ${sql.join(predicates, sql` AND `)}${returning}`,
+  );
 }
 
 function buildDelete(
