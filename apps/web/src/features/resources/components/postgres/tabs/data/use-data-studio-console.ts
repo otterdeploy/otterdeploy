@@ -10,12 +10,15 @@
  * the controller's hook sequence is unchanged.
  */
 
+import type { WorkbenchTarget } from "./data/target";
+
 import { useQueryHistory } from "./data/query-history";
-import { type useQueryRows } from "./data/use-database";
+import { targetKey } from "./data/target";
+import { type useBrowseRows } from "./data/use-database";
 import { hasNextPage } from "./use-data-studio-helpers";
 import { type SqlRunState, useSqlRuns, useWriteConfirm } from "./use-data-studio-sql";
 
-type TableRowsQuery = ReturnType<typeof useQueryRows>;
+type TableRowsQuery = ReturnType<typeof useBrowseRows>;
 
 /**
  * Owns everything the SQL console needs: the browser-local execution log, the
@@ -28,13 +31,13 @@ type TableRowsQuery = ReturnType<typeof useQueryRows>;
  * cache entry).
  */
 export function useSqlConsole({
-  resourceId,
+  target,
   canWrite,
   writeMode,
   setMode,
   onWriteSuccess,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   /** The actor holds `database:write`. Write mode is inert without it. */
   canWrite: boolean;
   /** The Write toggle is on (staged + audited execution instead of a query). */
@@ -44,11 +47,11 @@ export function useSqlConsole({
   onWriteSuccess: () => void;
 }) {
   // SQL-console execution log (browser-local ring, successes and failures).
-  const history = useQueryHistory(resourceId);
+  const history = useQueryHistory(targetKey(target));
   const recordHistory = history.record;
 
   const { run, startRead, startWrite, writeRunning } = useSqlRuns({
-    resourceId,
+    target,
     recordHistory,
     onWriteSuccess,
   });

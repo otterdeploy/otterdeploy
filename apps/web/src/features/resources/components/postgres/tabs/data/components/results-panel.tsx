@@ -1,3 +1,6 @@
+import type { CellValue, ColumnMeta } from "@otterdeploy/data-engine";
+
+import { useState } from "react";
 /**
  * Results pane for the data console. A sub-toolbar (grid / JSON view toggle +
  * export menu, see {@link ResultsToolbar}) sits above the body, which renders
@@ -5,9 +8,6 @@
  * owner passes a `leftSlot` (filters in browse mode) and `footerSlot` (counts
  * + pagination).
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
-
-import { useState } from "react";
 
 import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -25,16 +25,17 @@ import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { cn } from "@/shared/lib/utils";
 
-import { type ColumnValue, type ColumnVariant, DiceResultGrid } from "./dice-grid";
-import { ResultsToolbar, type ResultView } from "./results-toolbar";
+import type { WorkbenchTarget } from "../data/target";
+
+import { type ColumnValue, DiceResultGrid } from "./dice-grid";
+import { resultRowsAsJson, ResultsToolbar, type ResultView } from "./results-toolbar";
 
 export type { ResultView };
 
 interface ResultsPanelProps {
-  resourceId: ResourceId;
-  columns: string[];
-  rows: (string | null)[][];
-  columnVariants?: Record<string, ColumnVariant>;
+  target: WorkbenchTarget;
+  columns: readonly ColumnMeta[];
+  rows: readonly CellValue[][];
   columnFks?: Record<string, FkTarget>;
   /** Collapsed display types (row-detail field labels). */
   columnTypes?: Record<string, string>;
@@ -58,7 +59,7 @@ interface ResultsPanelProps {
   /** Inline edit / delete (table-browse mode, actor has write capability). */
   editable?: boolean;
   primaryKey?: string[];
-  onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
+  onStageEdit?: (pk: ColumnValue[], changes: Array<ColumnValue & { previous: CellValue }>) => void;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
   /** Multi-select checkbox column + selection mirror (table-browse mode). */
   selectable?: boolean;
@@ -69,10 +70,9 @@ interface ResultsPanelProps {
 }
 
 export function ResultsPanel({
-  resourceId,
+  target,
   columns,
   rows,
-  columnVariants,
   columnFks,
   columnTypes,
   hiddenColumns,
@@ -91,18 +91,16 @@ export function ResultsPanel({
   exportName = "query",
   editable = false,
   primaryKey,
-  onUpdateRow,
+  onStageEdit,
   onDeleteRow,
   selectable = false,
   selectedRows,
   onSelectionChange,
   enableRowDetail = false,
 }: ResultsPanelProps) {
-  const jsonData = rows.map((r) => {
-    const obj: Record<string, string | null> = {};
-    columns.forEach((c, i) => (obj[c] = r[i] ?? null));
-    return obj;
-  });
+  // The JSON view keeps each value's real type: a jsonb column shows as an
+  // object, not as the text psql happened to print for it.
+  const jsonData = resultRowsAsJson(columns, rows);
 
   const canExport = hasResult && columns.length > 0;
 
@@ -157,17 +155,16 @@ export function ResultsPanel({
       ) : (
         <DiceResultGrid
           key={gridKey}
-          resourceId={resourceId}
+          target={target}
           columns={columns}
           rows={rows}
-          columnVariants={columnVariants}
           columnFks={columnFks}
           columnTypes={columnTypes}
           hiddenColumns={hiddenColumns}
           onOpenRef={onOpenRef}
           editable={editable}
           primaryKey={primaryKey}
-          onUpdateRow={onUpdateRow}
+          onStageEdit={onStageEdit}
           onDeleteRow={onDeleteRow}
           selectable={selectable}
           onSelectionChange={onSelectionChange}

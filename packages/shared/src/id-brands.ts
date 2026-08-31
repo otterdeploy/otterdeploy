@@ -54,6 +54,7 @@ export type DeploymentLogId = Id<typeof ID_PREFIX.deploymentLog>;
 export type BackupId = Id<typeof ID_PREFIX.backup>;
 export type BackupScheduleId = Id<typeof ID_PREFIX.backupSchedule>;
 export type BackupDestinationId = Id<typeof ID_PREFIX.backupDestination>;
+export type DataConnectionId = Id<typeof ID_PREFIX.dataConnection>;
 export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
 export type BackupVerificationId = Id<typeof ID_PREFIX.backupVerification>;
 export type BackupRestoreId = Id<typeof ID_PREFIX.backupRestore>;

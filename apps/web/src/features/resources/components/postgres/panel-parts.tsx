@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 
 import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { hasWireDriver } from "@otterdeploy/data-engine";
 
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 import type { ResourceState } from "@/features/resources/lib/resource-state";
@@ -22,7 +23,6 @@ import {
   ResourcePanelHeader,
   StatePill,
 } from "@/features/resources/components/_shared/panel-header";
-import { MariadbDataTabBody } from "@/features/resources/components/mariadb/tabs/data";
 import { MongoDataTabBody } from "@/features/resources/components/mongo/tabs/data";
 import { RedisDataTabBody } from "@/features/resources/components/redis/tabs/data";
 import { Button } from "@/shared/components/ui/button";
@@ -120,12 +120,23 @@ export function DatabasePanelHeader({
   );
 }
 
-/** Each engine gets its native browser; unsupported engines say so plainly
- *  rather than falling back to the SQL console. */
+/**
+ * Which viewer an engine gets.
+ *
+ * The RELATIONAL engines now share one workbench. MariaDB used to have its own
+ * 237-line table browser that listed `information_schema` and paged rows through
+ * `mysql --batch`, parsing tab-delimited output with `\N` for NULL — a second
+ * implementation of everything the Postgres viewer already did. It has a
+ * dialect and a wire driver now, so it goes through the same surface.
+ *
+ * Redis and MongoDB deliberately keep their own views. Pretending a keyspace or
+ * a document store is a table is the mistake `UnsupportedDataViewer` was
+ * written to avoid, and it survives for the engines that genuinely have no
+ * relational workbench.
+ */
 export function DatabaseDataTab({ resource }: { resource: DbResource }) {
-  if (resource.engine === "postgres") return <DataTabBody resource={resource} />;
+  if (hasWireDriver(resource.engine)) return <DataTabBody resource={resource} />;
   if (resource.engine === "redis") return <RedisDataTabBody resource={resource} />;
-  if (resource.engine === "mariadb") return <MariadbDataTabBody resource={resource} />;
   if (resource.engine === "mongodb") return <MongoDataTabBody resource={resource} />;
   return <UnsupportedDataViewer engine={resource.engine} />;
 }

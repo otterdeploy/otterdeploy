@@ -28,7 +28,11 @@ import {
   type ProxyRouteId,
   type ResourceId,
 } from "@otterdeploy/shared/id";
-import { ORG_STREAM_COLLECTIONS, orgEventsChannel } from "@otterdeploy/shared/org-events";
+import {
+  ORG_ROW_COLLECTIONS,
+  ORG_STREAM_COLLECTIONS,
+  orgEventsChannel,
+} from "@otterdeploy/shared/org-events";
 import { eq } from "drizzle-orm";
 import * as z from "zod";
 
@@ -46,7 +50,34 @@ import { proxyRouteIdField, resourceIdField } from "./contract/shared";
 // rows arrive as ISO strings and are coerced back (the events contract does
 // the same on its own output for the identical reason).
 
-const orgBusEventSchema = z.object({ kind: z.enum(ORG_STREAM_COLLECTIONS) });
+const orgConnectionRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  engine: z.enum(["postgres", "mariadb"]),
+  displayHost: z.string(),
+  displayDatabase: z.string(),
+  visibility: z.enum(["org", "private"]),
+  environment: z.enum(["production", "other"]),
+  defaultAccess: z.enum(["read-only", "read-write"]),
+  requireTls: z.boolean(),
+  createdAt: z.string(),
+  lastConnectedAt: z.string().nullable(),
+});
+
+const orgBusEventSchema = z.union([
+  z.object({ kind: z.enum(ORG_STREAM_COLLECTIONS) }),
+  z.object({
+    kind: z.enum(ORG_ROW_COLLECTIONS),
+    op: z.literal("upsert"),
+    rows: z.array(orgConnectionRowSchema),
+  }),
+  z.object({
+    kind: z.enum(ORG_ROW_COLLECTIONS),
+    op: z.literal("delete"),
+    keys: z.array(z.string()),
+    excludedUserId: z.string().optional(),
+  }),
+]);
 
 const busRouteSchema = proxyRouteSchema.extend({
   // The route row's previewId carries the PreviewId brand; re-apply it after
@@ -200,7 +231,17 @@ export function publishRouteRemoved(
  * lives in @otterdeploy/shared/org-events so the two can't drift.
  */
 export function publishOrgEvent(organizationId: string, kind: OrgStreamCollection): void {
-  const event: OrgBusEvent = { kind };
+  publishOrgBusEvent(organizationId, { kind });
+}
+
+/**
+ * Publish a whole event, including the row-carrying shapes.
+ *
+ * Best-effort, like every publish on this bus: a dropped event costs freshness,
+ * never correctness, because the collection's snapshot query is still the
+ * source of truth and repairs on reconnect.
+ */
+export function publishOrgBusEvent(organizationId: string, event: OrgBusEvent): void {
   void Promise.resolve()
     .then(() => getPublisher().publish(orgEventsChannel(organizationId), JSON.stringify(event)))
     .catch(() => undefined);

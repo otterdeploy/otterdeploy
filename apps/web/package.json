@@ -37,6 +37,7 @@
     "@orpc/server": "^1.14.3",
     "@orpc/tanstack-query": "^1.14.3",
     "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/data-engine": "workspace:*",
     "@otterdeploy/env": "workspace:*",
     "@otterdeploy/i18n": "workspace:*",
     "@otterdeploy/shared": "workspace:*",

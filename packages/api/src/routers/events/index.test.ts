@@ -1,9 +1,11 @@
+import type { OrgBusEvent } from "@otterdeploy/shared/org-events";
+
 import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ProjectStreamEvent } from "../project/events-stream";
 
-import { toCollectionEvents } from ".";
+import { toCollectionEvents, toOrgCollectionEvent } from ".";
 
 const scope = {
   organizationId: idSchema.organization.parse("org_test"),
@@ -74,5 +76,24 @@ describe("toCollectionEvents", () => {
       collection: "dependencies",
       op: "resync",
     });
+  });
+});
+
+describe("toOrgCollectionEvent", () => {
+  const hiddenFromOthers: OrgBusEvent = {
+    kind: "data-connections",
+    op: "delete",
+    keys: ["dconn_test"],
+    excludedUserId: "usr_owner",
+  };
+
+  it("keeps a newly-private connection in its owner's collection", () => {
+    expect(toOrgCollectionEvent(scope.organizationId, hiddenFromOthers, "usr_owner")).toBeNull();
+  });
+
+  it("removes a newly-private connection from every other viewer", () => {
+    expect(
+      toOrgCollectionEvent(scope.organizationId, hiddenFromOthers, "usr_teammate"),
+    ).toMatchObject({ op: "delete", keys: ["dconn_test"] });
   });
 });

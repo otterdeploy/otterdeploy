@@ -1,108 +1,169 @@
 /**
- * Data-viewer fetching hooks. The React-Query layer over `database.query` /
- * `database.tables`. Everything that *reads* the live database lives here, so
- * the components stay presentational; SQL strings come from `./queries`.
+ * Data-viewer fetching hooks, over the typed `data.*` procedures.
  *
- * `resourceId` is typed `string` here and cast to the branded oRPC input type
- * at the call boundary (`never` is assignable to any input type). Callers pass
- * the plain resource id.
+ * What this file used to be: a React-Query layer over `database.query`, where
+ * every hook shipped a hand-written SQL string built in the BROWSER
+ * (`primaryKeysSql`, `columnTypesSql`, `foreignKeysSql`, `structureSql`,
+ * `tableColumnsSql`, `browseRowsSql`, `referencedRowSql`). Six statements, all
+ * duplicating catalog SQL that now lives once per dialect in
+ * `@otterdeploy/data-engine`, and all of them arriving as
+ * `Array<Array<string | null>>` — a shape in which SQL NULL and the empty
+ * string are the same value.
+ *
+ * What it is now: the schema comes from one collection, and rows come from
+ * `data.browse`, which takes a filter MODEL rather than a statement. The client
+ * no longer authors SQL for anything except the explicit SQL runner.
  */
+import type { CellKind, ColumnMeta, Filter, Sort } from "@otterdeploy/data-engine";
 
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
 import { orpc } from "@/shared/server/orpc";
 
-import {
-  columnTypesSql,
-  foreignKeysSql,
-  pgTypeToVariant,
-  primaryKeysSql,
-  referencedRowSql,
-  shortType,
-  structureSql,
-  tableColumnsSql,
-  type ColumnVariant,
-  type TableRef,
-} from "./queries";
-import { parseStructureRows, type StructureColumn } from "./structure";
+import type { ColumnVariant, TableRef } from "./queries";
+import type { WorkbenchTarget } from "./target";
 
-/** List the database's tables (the navigator + autocomplete source). */
-export function useDatabaseTables(resourceId: string) {
-  return useQuery(
-    orpc.database.tables.queryOptions({
-      input: { resourceId },
-    }),
-  );
+import { schemaCollection, schemaMetaFor, tableId, type SchemaTableRow } from "./schema-collection";
+import { toStructureColumns } from "./structure";
+
+/**
+ * How a typed cell family maps onto the shared DataGrid's renderer.
+ *
+ * These are different concepts and both are needed: `CellKind` is what the
+ * DATABASE said, `ColumnVariant` is how the GRID draws it. Deriving one from
+ * the other keeps the mapping in a single place — the predecessor ran a second
+ * regex over the raw pg type name (`pgTypeToVariant`), which is how `int8` and
+ * `numeric` both ended up rendering as plain text.
+ */
+const VARIANT_BY_KIND: Record<CellKind, ColumnVariant> = {
+  bool: "boolean",
+  number: "number",
+  bigint: "number",
+  decimal: "number",
+  instant: "date",
+  datetime: "date",
+  date: "date",
+  time: "short-text",
+  text: "short-text",
+  json: "short-text",
+  bytes: "short-text",
+  array: "short-text",
+  opaque: "short-text",
+};
+
+export function variantForKind(kind: CellKind): ColumnVariant {
+  return VARIANT_BY_KIND[kind];
 }
 
-/** Whether the actor may mutate data (drives read-only vs editable grid). */
-export function useDataCapabilities(resourceId: string) {
-  return useQuery(
-    orpc.database.capabilities.queryOptions({
-      input: { resourceId },
-    }),
+/** The database's tables. One call; columns included. */
+export function useDatabaseSchema(target: WorkbenchTarget) {
+  const collection = schemaCollection(target);
+  const { data, isLoading, isError } = useLiveQuery((q) => q.from({ t: collection }), [collection]);
+  return {
+    tables: data ?? [],
+    meta: schemaMetaFor(target),
+    isLoading,
+    isError,
+  };
+}
+
+/** One table's row from the schema collection, or null while it loads. */
+function useTableMeta(target: WorkbenchTarget, table: TableRef | null): SchemaTableRow | null {
+  const collection = schemaCollection(target);
+  const id = table ? tableId(table.schema, table.name) : "";
+  const { data } = useLiveQuery(
+    (q) => q.from({ t: collection }).where(({ t }) => eq(t.id, id)),
+    [collection, id],
   );
+  return data?.[0] ?? null;
 }
 
 /**
- * Primary-key columns for the selected table, in key order. An empty array
- * (table has no PK) means rows can't be edited. The grid stays read-only.
+ * Everything the grid needs about the open table's columns.
+ *
+ * All of it is derived from the schema already in memory. The predecessor made
+ * three network round trips for exactly this, every time you clicked a table.
  */
-export function useTablePrimaryKey({
-  resourceId,
+export function useOpenTableColumns(target: WorkbenchTarget, table: TableRef | null) {
+  const meta = useTableMeta(target, table);
+  const columns: ColumnMeta[] = meta?.columns ?? [];
+
+  const columnVariants: Record<string, ColumnVariant> = {};
+  const columnTypes: Record<string, string> = {};
+  const columnFks: Record<string, FkTarget> = {};
+  for (const c of columns) {
+    columnVariants[c.name] = variantForKind(c.kind);
+    columnTypes[c.name] = c.dataType;
+    if (c.references) {
+      columnFks[c.name] = {
+        schema: c.references.schema,
+        table: c.references.name,
+        column: c.references.column,
+      };
+    }
+  }
+
+  return {
+    columns,
+    columnVariants,
+    columnTypes,
+    columnFks,
+    primaryKey: columns.filter((c) => c.isPrimaryKey).map((c) => c.name),
+    /** False when the table has no primary key: no row can be targeted safely. */
+    canEdit: meta?.canEdit ?? false,
+  };
+}
+
+/** Whether the actor may write at all (engine capability + permission). */
+export function useDataCapabilities(target: WorkbenchTarget) {
+  const { meta } = useDatabaseSchema(target);
+  return { data: { canWrite: meta?.canWrite ?? false } };
+}
+
+/**
+ * A page of rows for the table browser.
+ *
+ * Filters and sorts travel as a MODEL. The server compiles them with the
+ * operands bound as parameters and the column names checked against the
+ * table's real columns, so neither can carry syntax into the statement — which
+ * the old `buildWhere` string interpolation could not promise.
+ */
+export function useBrowseRows({
+  target,
   table,
-  enabled,
-}: {
-  resourceId: string;
-  table: TableRef | null;
-  enabled: boolean;
-}) {
-  const query = useQuery({
-    ...orpc.database.query.queryOptions({
-      input: {
-        resourceId,
-        sql: table ? primaryKeysSql(table) : "",
-        limit: 100,
-      },
-    }),
-    enabled: enabled && Boolean(table),
-    staleTime: 5 * 60 * 1000,
-  });
-  const pkColumns = (query.data?.rows ?? []).map((r) => r[0]).filter((c): c is string => c != null);
-  return pkColumns;
-}
-
-/** Run a structured row mutation (insert/update/delete) on the server. The
- *  caller passes the full input (resourceId + schema/table/op/pk/set). */
-export function useMutateRow() {
-  return useMutation(orpc.database.mutateRow.mutationOptions());
-}
-
-/**
- * Run a read-only query and return its rows. Drives both the table browser
- * (`keepPrevious` holds rows on screen across sort/page changes) and the SQL
- * console (each run is a fresh query, so carrying stale rows is suppressed).
- */
-export function useQueryRows({
-  resourceId,
-  sql,
+  filters,
+  sorts,
   limit,
+  offset,
   enabled,
   keepPrevious,
 }: {
-  resourceId: string;
-  sql: string;
+  target: WorkbenchTarget;
+  table: TableRef | null;
+  filters: Filter[];
+  sorts: Sort[];
   limit: number;
+  offset: number;
   enabled: boolean;
   keepPrevious: boolean;
 }) {
   return useQuery({
-    ...orpc.database.query.queryOptions({
-      input: { resourceId, sql, limit },
+    ...orpc.data.browse.queryOptions({
+      input: {
+        target,
+        schema: table?.schema ?? "",
+        table: table?.name ?? "",
+        columns: [],
+        filters,
+        sorts,
+        limit,
+        offset,
+      },
     }),
-    enabled,
+    enabled: enabled && Boolean(table),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     placeholderData: keepPrevious ? (prev) => prev : undefined,
@@ -110,142 +171,89 @@ export function useQueryRows({
 }
 
 /**
- * Cell variants + FK targets for the selected table: both read
- * `information_schema` through the same read-only query path, then reshape into
- * column-keyed maps the grid consumes.
+ * Column detail for the Structure view and the Add-record modal.
+ *
+ * Derived from the schema already in memory — the version this replaces made a
+ * separate `structureSql` round trip and parsed ten positional columns out of a
+ * string grid by index.
  */
-export function useTableColumnMeta({
-  resourceId,
+export function useTableStructure({
+  target,
   table,
-  enabled,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   table: TableRef | null;
-  enabled: boolean;
 }) {
-  const on = enabled && Boolean(table);
+  const meta = useTableMeta(target, table);
+  const { isLoading, isError } = useDatabaseSchema(target);
+  return {
+    query: { isLoading, isError, error: isError ? new Error("Could not read the schema") : null },
+    columns: meta?.columns ?? [],
+    structure: toStructureColumns(meta?.columns ?? []),
+  };
+}
 
-  const colTypesQuery = useQuery({
-    ...orpc.database.query.queryOptions({
-      input: {
-        resourceId,
-        sql: table ? columnTypesSql(table) : "",
-        limit: 1000,
-      },
-    }),
-    enabled: on,
-  });
-
-  const fkQuery = useQuery({
-    ...orpc.database.query.queryOptions({
-      input: {
-        resourceId,
-        sql: table ? foreignKeysSql(table) : "",
-        limit: 1000,
-      },
-    }),
-    enabled: on,
-  });
-
-  const columnVariants = (() => {
-    const m: Record<string, ColumnVariant> = {};
-    for (const row of colTypesQuery.data?.rows ?? []) {
-      const name = row[0];
-      if (name) m[name] = pgTypeToVariant(row[1] ?? "");
-    }
-    return m;
-  })();
-
-  // Collapsed display types ("varchar", "timestamp"): the Columns popover and
-  // row-detail panel label columns with these.
-  const columnTypes = (() => {
-    const m: Record<string, string> = {};
-    for (const row of colTypesQuery.data?.rows ?? []) {
-      const name = row[0];
-      if (name) m[name] = shortType(row[1] ?? "");
-    }
-    return m;
-  })();
-
-  const columnFks = (() => {
-    const m: Record<string, FkTarget> = {};
-    for (const row of fkQuery.data?.rows ?? []) {
-      const [col, refSchema, refTable, refCol] = row;
-      if (col && refTable && refCol) {
-        m[col] = {
-          schema: refSchema ?? "public",
-          table: refTable,
-          column: refCol,
-        };
-      }
-    }
-    return m;
-  })();
-
-  return { columnVariants, columnFks, columnTypes };
+/** Columns for one table in the schema explorer's expandable rows. */
+export function useTableColumns({ target, table }: { target: WorkbenchTarget; table: TableRef }) {
+  const meta = useTableMeta(target, table);
+  const { isLoading, isError } = useDatabaseSchema(target);
+  return { columns: meta?.columns ?? [], isLoading, isError };
 }
 
 /**
- * Full column detail (type / nullability / default / PK / UQ / FK / identity)
- * for the Structure view and the Add-record modal. Same read-only query path
- * as the rest of the introspection; parsed into {@link StructureColumn}s.
+ * Indexes, constraints and enums for the Definitions view.
+ *
+ * Its own query rather than more fields on the schema call: the navigator needs
+ * the schema on open and needs it fast, and nobody browsing rows is waiting on
+ * an index list. Cached generously — schema objects change on DDL, not on the
+ * minute.
  */
-export function useTableStructure({
-  resourceId,
-  table,
-  enabled,
-}: {
-  resourceId: string;
-  table: TableRef | null;
-  enabled: boolean;
-}) {
-  const query = useQuery({
-    ...orpc.database.query.queryOptions({
-      input: {
-        resourceId,
-        sql: table ? structureSql(table) : "",
-        limit: 1000,
-      },
-    }),
-    enabled: enabled && Boolean(table),
-    staleTime: 5 * 60 * 1000,
-  });
-  const structure: StructureColumn[] = parseStructureRows(query.data?.rows ?? []);
-  return { query, structure };
-}
-
-/** Columns + PK flag for one table: lazy (only once its row is expanded). */
-export function useTableColumns({
-  resourceId,
-  table,
-  enabled,
-}: {
-  resourceId: string;
-  table: TableRef;
-  enabled: boolean;
-}) {
+export function useDefinitions(target: WorkbenchTarget) {
   return useQuery({
-    ...orpc.database.query.queryOptions({
-      input: { resourceId, sql: tableColumnsSql(table), limit: 500 },
-    }),
-    enabled,
+    ...orpc.data.definitions.queryOptions({ input: { target } }),
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 
-/** The single row a FK cell points at, for the FK reference popover. */
+/**
+ * Apply staged row edits as ONE transaction.
+ *
+ * The grid's edits are structured — table, primary key, column assignments —
+ * and the SERVER builds the statements from the table's own introspected
+ * columns. Nothing here sends SQL.
+ */
+export function useMutateRows() {
+  return useMutation(orpc.data.mutate.mutationOptions());
+}
+
+/**
+ * The single row a FK cell points at, for the reference popover.
+ *
+ * Now a filtered browse rather than a hand-built `WHERE col = '<escaped>'`:
+ * same code path, same parameter binding, one fewer statement in the browser.
+ */
 export function useReferencedRow({
-  resourceId,
+  target,
   fk,
   value,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   fk: FkTarget;
   value: string;
 }) {
   return useQuery(
-    orpc.database.query.queryOptions({
-      input: { resourceId, sql: referencedRowSql(fk, value), limit: 1 },
+    orpc.data.browse.queryOptions({
+      input: {
+        target,
+        schema: fk.schema,
+        table: fk.table,
+        columns: [],
+        filters: [{ column: fk.column, op: "eq", values: [value], enabled: true }],
+        sorts: [],
+        limit: 1,
+        offset: 0,
+      },
     }),
   );
 }

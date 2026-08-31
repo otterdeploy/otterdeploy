@@ -1,0 +1,121 @@
+/**
+ * Staged cell edits. Drafts stay in memory and commit as one transaction, so
+ * database contents never outlive the authenticated browser session.
+ */
+import type { CellValue } from "@otterdeploy/data-engine";
+import type { JsonValue } from "@otterdeploy/shared/json";
+
+import type { TableRef } from "./queries";
+
+export type PrimaryKeys = Record<string, CellValue>;
+
+export interface Draft {
+  primaryKeys: PrimaryKeys;
+  column: string;
+  value: CellValue;
+  previous: CellValue;
+}
+
+function canonicalJson(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value === null || typeof value !== "object") return value;
+  const sorted: Record<string, JsonValue> = {};
+  for (const key of Object.keys(value).toSorted()) {
+    const entry = value[key];
+    if (entry !== undefined) sorted[key] = canonicalJson(entry);
+  }
+  return sorted;
+}
+
+function canonicalCell(cell: CellValue): JsonValue {
+  if (cell === null) return null;
+  if (cell.k === "json") return [cell.k, canonicalJson(cell.v)];
+  if (cell.k === "array") return [cell.k, cell.v.map(canonicalCell)];
+  return [cell.k, cell.v];
+}
+
+/** Stable, collision-safe identity for a row. */
+export function rowKey(keys: PrimaryKeys): string {
+  return JSON.stringify(
+    Object.entries(keys)
+      .toSorted(([a], [b]) => a.localeCompare(b))
+      .map(([column, cell]) => [column, canonicalCell(cell)]),
+  );
+}
+
+function draftKey(draft: Pick<Draft, "primaryKeys" | "column">): string {
+  return JSON.stringify([rowKey(draft.primaryKeys), draft.column]);
+}
+
+/** Add or replace a draft while preserving the value first loaded from the server. */
+export function upsertDraft(drafts: readonly Draft[], draft: Draft): Draft[] {
+  const key = draftKey(draft);
+  const existing = drafts.find((candidate) => draftKey(candidate) === key);
+  const next = { ...draft, previous: existing?.previous ?? draft.previous };
+  const rest = drafts.filter((candidate) => draftKey(candidate) !== key);
+  if (sameCell(next.value, next.previous)) return rest;
+  return [...rest, next];
+}
+
+export function removeDraft(
+  drafts: readonly Draft[],
+  draft: Pick<Draft, "primaryKeys" | "column">,
+) {
+  const key = draftKey(draft);
+  return drafts.filter((candidate) => draftKey(candidate) !== key);
+}
+
+export function removeRowDrafts(drafts: readonly Draft[], keys: PrimaryKeys): Draft[] {
+  const key = rowKey(keys);
+  return drafts.filter((draft) => rowKey(draft.primaryKeys) !== key);
+}
+
+export function draftFor(
+  drafts: readonly Draft[],
+  keys: PrimaryKeys,
+  column: string,
+): Draft | undefined {
+  const key = draftKey({ primaryKeys: keys, column });
+  return drafts.find((draft) => draftKey(draft) === key);
+}
+
+export function groupByRow(drafts: readonly Draft[]): Array<{
+  key: string;
+  primaryKeys: PrimaryKeys;
+  changes: Draft[];
+}> {
+  const groups = new Map<string, { key: string; primaryKeys: PrimaryKeys; changes: Draft[] }>();
+  for (const draft of drafts) {
+    const key = rowKey(draft.primaryKeys);
+    const group = groups.get(key) ?? { key, primaryKeys: draft.primaryKeys, changes: [] };
+    group.changes.push(draft);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+export function sameCell(a: CellValue, b: CellValue): boolean {
+  return JSON.stringify(canonicalCell(a)) === JSON.stringify(canonicalCell(b));
+}
+
+/** Group drafts into one optimistic-concurrency-checked UPDATE per row. */
+export function toMutations(
+  drafts: readonly Draft[],
+  table: TableRef,
+): Array<{
+  op: "update";
+  schema: string;
+  table: string;
+  pk: Array<{ column: string; value: CellValue }>;
+  set: Array<{ column: string; value: CellValue }>;
+  expected: Array<{ column: string; value: CellValue }>;
+}> {
+  return groupByRow(drafts).map((group) => ({
+    op: "update" as const,
+    schema: table.schema,
+    table: table.name,
+    pk: Object.entries(group.primaryKeys).map(([column, value]) => ({ column, value })),
+    set: group.changes.map((draft) => ({ column: draft.column, value: draft.value })),
+    expected: group.changes.map((draft) => ({ column: draft.column, value: draft.previous })),
+  }));
+}

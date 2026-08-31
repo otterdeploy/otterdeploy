@@ -15,6 +15,7 @@ import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
 import { certificatesContract } from "./routers/certificates/contract";
 import { composeContract } from "./routers/compose/contract";
+import { dataContract } from "./routers/data/contract";
 import { databaseContract } from "./routers/database/contract";
 import { deploymentContract } from "./routers/deployment/contract";
 import { dnsContract } from "./routers/dns/contract";
@@ -35,6 +36,7 @@ import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
 import { sshKeysContract } from "./routers/sshKeys/contract";
 import { ssoContract } from "./routers/sso/contract";
+import { storageContract } from "./routers/storage/contract";
 import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 import { vaultProviderContract } from "./routers/vault-provider/contract";
@@ -48,6 +50,7 @@ export const publicProcedure = implement({
   backups: backupsContract,
   certificates: certificatesContract,
   compose: composeContract,
+  data: dataContract,
   database: databaseContract,
   deployment: deploymentContract,
   sso: ssoContract,
@@ -68,6 +71,7 @@ export const publicProcedure = implement({
   server: serverContract,
   service: serviceContract,
   sshKeys: sshKeysContract,
+  storage: storageContract,
   system: systemContract,
   terminal: terminalContract,
   vaultProvider: vaultProviderContract,

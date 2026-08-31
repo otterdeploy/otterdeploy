@@ -89,6 +89,11 @@ export const SECRET_DOMAINS = [
   // able to read every secret the org points at otterdeploy, so it gets its
   // own domain for the same reason "mesh-creds" does.
   "vault-creds",
+  // External database connection strings on `data_connection` rows. A URL here
+  // grants whatever the role in it grants, on a database otterdeploy does not
+  // run and cannot rotate — so it gets its own domain rather than sharing
+  // "db-creds" with the managed databases we provision and can re-key.
+  "data-connections",
 ] as const;
 export type SecretDomain = (typeof SECRET_DOMAINS)[number];
 

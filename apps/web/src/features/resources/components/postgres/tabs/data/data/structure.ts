@@ -1,73 +1,97 @@
 /**
- * Column-detail model for the Structure view and the Add-record modal. The
- * parsed shape of `structureSql` (./queries) results. Pure: the fetching hook
- * lives in ./use-database, this file only reshapes the grid rows.
+ * The Structure view's column model, DERIVED from introspected `ColumnMeta`.
+ *
+ * This used to parse a hand-written `structureSql` result — ten positional
+ * columns read out of a `(string | null)[][]` by index, with `t`/`YES` string
+ * sentinels for booleans. The SQL is gone (it lives once, per dialect, in
+ * `@otterdeploy/data-engine`) and so is the parsing; what remains is the small
+ * amount of PRESENTATION the structure table and the add-record dialog need on
+ * top of the raw metadata.
  */
+import type { ColumnMeta } from "@otterdeploy/data-engine";
 
 import { shortType } from "./queries";
 
 export interface StructureColumn {
   name: string;
-  /** Full information_schema data_type ("timestamp with time zone"). */
+  /** Full engine type name ("timestamp with time zone"). */
   dataType: string;
   /** Collapsed display type ("timestamp"). */
   displayType: string;
   nullable: boolean;
-  /** Raw column_default expression ("now()", "nextval('…')"), null when none. */
+  /** Raw default expression ("now()", "nextval('…')"), null when none. */
   default: string | null;
   isPrimaryKey: boolean;
   isUnique: boolean;
   /** Referenced column for FK columns, null otherwise. */
   fkRef: { schema: string; table: string; column: string } | null;
-  /** Identity / serial: the database generates the value ("auto"). */
+  /** Identity / serial / generated: the database supplies the value. */
   isAuto: boolean;
-  /** No value needed from the user: nullable, defaulted, or auto-generated. */
+  /** The user MUST supply a value: not nullable, not defaulted, not generated. */
   isRequired: boolean;
+  /** Allowed values, when the column is an enum. */
+  enumValues: string[] | null;
 }
 
-const t = (v: string | null | undefined) => v === "t";
-const yes = (v: string | null | undefined) => v === "YES";
+function toStructureColumn(column: ColumnMeta): StructureColumn {
+  // `isGenerated` already covers identity, generated-always and serial's
+  // `nextval(...)` default — the dialect decides, so this no longer has to
+  // sniff the default expression for "nextval(" the way the parser did.
+  const isAuto = column.isGenerated;
+  return {
+    name: column.name,
+    dataType: column.dataType,
+    displayType: shortType(column.dataType),
+    nullable: column.nullable,
+    default: column.defaultExpr,
+    isPrimaryKey: column.isPrimaryKey,
+    isUnique: column.isUnique,
+    fkRef: column.references
+      ? {
+          schema: column.references.schema,
+          table: column.references.name,
+          column: column.references.column,
+        }
+      : null,
+    isAuto,
+    isRequired: !column.nullable && column.defaultExpr === null && !isAuto,
+    enumValues: column.enumValues,
+  };
+}
 
-/** Parse one `structureSql` result grid into StructureColumns (column order:
- *  name, data_type, is_nullable, column_default, is_identity, is_pk, is_uq,
- *  ref_schema, ref_table, ref_column). */
-export function parseStructureRows(rows: (string | null)[][]): StructureColumn[] {
-  const out: StructureColumn[] = [];
-  for (const r of rows) {
-    const name = r[0];
-    if (!name) continue;
-    const dataType = r[1] ?? "";
-    const nullable = yes(r[2]);
-    const def = r[3] ?? null;
-    const isAuto = yes(r[4]) || (def !== null && def.startsWith("nextval("));
-    const refTable = r[8];
-    const refColumn = r[9];
-    out.push({
-      name,
-      dataType,
-      displayType: shortType(dataType),
-      nullable,
-      default: def,
-      isPrimaryKey: t(r[5]),
-      isUnique: t(r[6]),
-      fkRef:
-        refTable && refColumn
-          ? { schema: r[7] ?? "public", table: refTable, column: refColumn }
-          : null,
-      isAuto,
-      isRequired: !nullable && def === null && !isAuto,
-    });
+export function toStructureColumns(columns: readonly ColumnMeta[]): StructureColumn[] {
+  return columns.map(toStructureColumn);
+}
+
+/**
+ * Which input the add-record dialog should render for a column.
+ *
+ * Reads the introspected cell KIND rather than regexing the type name, so a
+ * `numeric` gets a number input on every engine instead of only where the
+ * type happened to be spelled the way a regex expected.
+ */
+export type ColumnInputKind = "boolean" | "number" | "date" | "json" | "enum" | "text";
+
+export function columnInputKind(
+  column: StructureColumn,
+  kind: ColumnMeta["kind"],
+): ColumnInputKind {
+  if (column.enumValues && column.enumValues.length > 0) return "enum";
+  switch (kind) {
+    case "bool":
+      return "boolean";
+    case "number":
+    case "bigint":
+    case "decimal":
+      return "number";
+    case "instant":
+    case "datetime":
+    case "date":
+    case "time":
+      return "date";
+    case "json":
+      return "json";
+    default:
+      return "text";
   }
-  return out;
-}
-
-/** Broad input-kind for the Add-record modal's per-column control. */
-export type ColumnInputKind = "boolean" | "number" | "json" | "timestamp" | "text";
-
-export function columnInputKind(dataType: string): ColumnInputKind {
-  if (/bool/.test(dataType)) return "boolean";
-  if (/int|numeric|real|double|decimal|money/.test(dataType)) return "number";
-  if (/json/.test(dataType)) return "json";
-  if (/timestamp|date|time/.test(dataType)) return "timestamp";
-  return "text";
 }

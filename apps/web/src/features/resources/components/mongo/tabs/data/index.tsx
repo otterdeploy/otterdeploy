@@ -10,6 +10,7 @@ import { useState } from "react";
 import { FolderLibraryIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { Pager } from "@/features/resources/components/_shared/data/pager";
 import {
   Empty,
   EmptyDescription,
@@ -23,7 +24,6 @@ import { cn } from "@/shared/lib/utils";
 
 import type { PostgresBodyProps } from "../../../postgres/types";
 
-import { Pager } from "../../../mariadb/tabs/data";
 import { useMongoCollections, useMongoDocuments } from "./data/use-mongo";
 
 const PAGE = 50;

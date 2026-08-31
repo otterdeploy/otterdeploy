@@ -12,6 +12,8 @@ import { useState } from "react";
 
 import { Database01Icon, PlayIcon } from "@hugeicons/core-free-icons";
 
+import { DefinitionsView } from "./components/definitions-view";
+import { DraftsBar } from "./components/drafts-bar";
 import { ResultsPanel } from "./components/results-panel";
 import { StructureView } from "./components/structure-view";
 import { BulkDeleteConfirm, ResultsFooter } from "./studio-results-footer";
@@ -25,12 +27,11 @@ function resolveResultsProps(t: TableController) {
   const tableMode = t.mode === "table";
   const sqlMode = t.mode === "sql";
   return {
-    columnVariants: tableMode ? t.columnVariants : undefined,
     columnFks: tableMode ? t.columnFks : undefined,
     columnTypes: tableMode ? t.columnTypes : undefined,
     hiddenColumns: tableMode ? t.hiddenColumns : undefined,
     primaryKey: tableMode ? t.primaryKey : undefined,
-    onUpdateRow: tableMode ? t.onUpdateRow : undefined,
+    onStageEdit: tableMode ? t.drafts.stageEdit : undefined,
     onDeleteRow: tableMode ? t.onDeleteRow : undefined,
     exportName: tableMode && t.selected ? t.selected.name : "query",
     emptyIcon: sqlMode ? PlayIcon : Database01Icon,
@@ -58,7 +59,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
 
   const canMutateRows = t.editable && t.primaryKey.length > 0;
   const bulk = useBulkDelete({
-    resourceId: String(t.resourceId),
+    target: t.target,
     selected: t.selected,
     primaryKey: t.primaryKey,
     result: t.result,
@@ -69,29 +70,21 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
 
   // Structure view replaces the whole results pane (read-only, no filters /
   // pagination); the Data/Structure toggle stays visible in both.
+  // Definitions is about the DATABASE, so it needs no open table.
+  if (t.mode === "table" && t.tableView === "definitions") {
+    return <DefinitionsPane studio={studio} />;
+  }
+
   if (t.mode === "table" && t.selected && t.tableView === "structure") {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
-          <DataStructureToggle t={t} />
-          <span className="truncate font-mono text-[11px] text-muted-foreground">
-            {t.selected.schema === "public"
-              ? t.selected.name
-              : `${t.selected.schema}.${t.selected.name}`}
-          </span>
-        </div>
-        <StructureView resourceId={String(t.resourceId)} table={t.selected} />
-      </div>
-    );
+    return <StructurePane studio={studio} />;
   }
 
   return (
     <>
       <ResultsPanel
-        resourceId={t.resourceId}
+        target={t.target}
         columns={t.result?.columns ?? []}
         rows={t.result?.rows ?? []}
-        columnVariants={p.columnVariants}
         columnFks={p.columnFks}
         columnTypes={p.columnTypes}
         hiddenColumns={p.hiddenColumns}
@@ -105,7 +98,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         exportName={p.exportName}
         editable={t.editable}
         primaryKey={p.primaryKey}
-        onUpdateRow={p.onUpdateRow}
+        onStageEdit={p.onStageEdit}
         onDeleteRow={p.onDeleteRow}
         selectable={t.mode === "table" && canMutateRows}
         selectedRows={selectedRows}
@@ -116,12 +109,23 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         emptyBody={p.emptyBody}
         leftSlot={<TableActions studio={studio} />}
         footerSlot={
-          <ResultsFooter
-            studio={studio}
-            selectedRows={selectedRows}
-            deleteProgress={bulk.progress}
-            onDeleteSelected={() => setConfirmDelete(selectedRows)}
-          />
+          <>
+            {/* Above the pager, because it is about what you are ABOUT to do,
+                not about where you are in the result set. */}
+            <DraftsBar
+              drafts={t.drafts.drafts}
+              isCommitting={t.drafts.isCommitting}
+              onCommit={t.drafts.commit}
+              onDiscardAll={t.drafts.discardAll}
+              onDiscardRow={t.drafts.discardRow}
+            />
+            <ResultsFooter
+              studio={studio}
+              selectedRows={selectedRows}
+              deleteProgress={null}
+              onDeleteSelected={() => setConfirmDelete(selectedRows)}
+            />
+          </>
         }
       />
 
@@ -135,5 +139,39 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         }}
       />
     </>
+  );
+}
+
+/** The Definitions surface, with the same view toggle above it. */
+function DefinitionsPane({ studio }: { studio: DataStudioController }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        <DataStructureToggle t={studio.table} />
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
+          schema objects across the whole database
+        </span>
+      </div>
+      <DefinitionsView target={studio.table.target} />
+    </div>
+  );
+}
+
+/** The Structure surface for the open table. */
+function StructurePane({ studio }: { studio: DataStudioController }) {
+  const t = studio.table;
+  if (!t.selected) return null;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        <DataStructureToggle t={t} />
+        <span className="truncate font-mono text-[11px] text-muted-foreground">
+          {t.selected.schema === "public"
+            ? t.selected.name
+            : `${t.selected.schema}.${t.selected.name}`}
+        </span>
+      </div>
+      <StructureView target={t.target} table={t.selected} />
+    </div>
   );
 }

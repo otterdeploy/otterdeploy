@@ -8,12 +8,14 @@ import { useState } from "react";
 
 import {
   FilterIcon,
+  Key01Icon,
   Layers01Icon,
   PlusSignIcon,
   Table01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { isFilterComplete } from "@otterdeploy/data-engine";
 
 import { Button } from "@/shared/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
@@ -24,7 +26,6 @@ import type { DataStudioController } from "./use-data-studio";
 import { AddRecordDialog } from "./components/add-record-dialog";
 import { ColumnVisibilityPopover } from "./components/column-visibility-popover";
 import { FilterPopover } from "./components/filter-popover";
-import { isFilterActive } from "./data/filters";
 
 type TableController = DataStudioController["table"];
 
@@ -34,7 +35,9 @@ export function DataStructureToggle({ t }: { t: TableController }) {
     <ToggleGroup
       size="sm"
       value={[t.tableView]}
-      onValueChange={([v]) => (v === "data" || v === "structure") && t.setTableView(v)}
+      onValueChange={([v]) =>
+        (v === "data" || v === "structure" || v === "definitions") && t.setTableView(v)
+      }
       className="gap-0.5"
     >
       <ToggleGroupItem value="data" aria-label="Data view" className="h-6 gap-1 px-1.5 text-[11px]">
@@ -49,6 +52,16 @@ export function DataStructureToggle({ t }: { t: TableController }) {
         <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} className="size-3" />
         Structure
       </ToggleGroupItem>
+      {/* Whole-database rather than per-table: "which unused index is costing
+          me writes" is a question about the database, not about a table. */}
+      <ToggleGroupItem
+        value="definitions"
+        aria-label="Definitions view"
+        className="h-6 gap-1 px-1.5 text-[11px]"
+      >
+        <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3" />
+        Definitions
+      </ToggleGroupItem>
     </ToggleGroup>
   );
 }
@@ -58,8 +71,8 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
   const [addOpen, setAddOpen] = useState(false);
   if (!(t.mode === "table" && t.selected)) return null;
   const selected = t.selected;
-  const resultColumns = t.result?.columns ?? [];
-  const activeFilterCount = t.filters.filter(isFilterActive).length;
+  const resultColumns = (t.result?.columns ?? []).map((c) => c.name);
+  const activeFilterCount = t.filters.filter(isFilterComplete).length;
   const canAdd = t.canWrite && t.primaryKey.length > 0;
   const visibleCount = resultColumns.length - t.hiddenColumns.length;
   return (
@@ -126,7 +139,7 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
       </Button>
 
       <AddRecordDialog
-        resourceId={String(t.resourceId)}
+        target={t.target}
         table={selected}
         open={addOpen}
         onOpenChange={setAddOpen}

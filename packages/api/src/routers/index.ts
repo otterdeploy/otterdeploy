@@ -6,6 +6,7 @@ import { auditRouter } from "./audit";
 import { backupsRouter } from "./backups";
 import { certificatesRouter } from "./certificates";
 import { composeRouter } from "./compose";
+import { dataRouter } from "./data";
 import { databaseRouter } from "./database";
 import { deploymentRouter } from "./deployment";
 import { dnsRouter } from "./dns";
@@ -26,6 +27,7 @@ import { serverRouter } from "./server";
 import { serviceRouter } from "./service";
 import { sshKeysRouter } from "./sshKeys";
 import { ssoRouter } from "./sso";
+import { storageRouter } from "./storage";
 import { systemRouter } from "./system";
 import { terminalRouter } from "./terminal";
 import { vaultProviderRouter } from "./vault-provider";
@@ -39,6 +41,7 @@ export const appRouter = {
   backups: backupsRouter,
   certificates: certificatesRouter,
   compose: composeRouter,
+  data: dataRouter,
   database: databaseRouter,
   deployment: deploymentRouter,
   sso: ssoRouter,
@@ -59,6 +62,7 @@ export const appRouter = {
   server: serverRouter,
   service: serviceRouter,
   sshKeys: sshKeysRouter,
+  storage: storageRouter,
   system: systemRouter,
   terminal: terminalRouter,
   vaultProvider: vaultProviderRouter,

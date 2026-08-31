@@ -32,6 +32,7 @@ import { Route as AppOrgSlugGitProvidersProviderIdRouteImport } from "./routes/_
 import { Route as AppOrgSlugShellVolumesRouteImport } from "./routes/_app/$orgSlug/_shell/volumes"
 import { Route as AppOrgSlugShellTerminalRouteImport } from "./routes/_app/$orgSlug/_shell/terminal"
 import { Route as AppOrgSlugShellTemplatesRouteImport } from "./routes/_app/$orgSlug/_shell/templates"
+import { Route as AppOrgSlugShellStorageRouteImport } from "./routes/_app/$orgSlug/_shell/storage"
 import { Route as AppOrgSlugShellSshKeysRouteImport } from "./routes/_app/$orgSlug/_shell/ssh-keys"
 import { Route as AppOrgSlugShellServersRouteImport } from "./routes/_app/$orgSlug/_shell/servers"
 import { Route as AppOrgSlugShellSecretsRouteImport } from "./routes/_app/$orgSlug/_shell/secrets"
@@ -44,6 +45,7 @@ import { Route as AppOrgSlugShellEdgeLogsRouteImport } from "./routes/_app/$orgS
 import { Route as AppOrgSlugShellEdgeRouteImport } from "./routes/_app/$orgSlug/_shell/edge"
 import { Route as AppOrgSlugShellDockerRouteImport } from "./routes/_app/$orgSlug/_shell/docker"
 import { Route as AppOrgSlugShellDatabasesRouteImport } from "./routes/_app/$orgSlug/_shell/databases"
+import { Route as AppOrgSlugShellDataRouteImport } from "./routes/_app/$orgSlug/_shell/data"
 import { Route as AppOrgSlugShellBackupsRouteImport } from "./routes/_app/$orgSlug/_shell/backups"
 import { Route as AppOrgSlugShellAuditRouteImport } from "./routes/_app/$orgSlug/_shell/audit"
 import { Route as AppOrgSlugShellAnalyticsRouteImport } from "./routes/_app/$orgSlug/_shell/analytics"
@@ -197,6 +199,11 @@ const AppOrgSlugShellTemplatesRoute =
     path: "/templates",
     getParentRoute: () => AppOrgSlugShellLayoutRoute,
   } as any)
+const AppOrgSlugShellStorageRoute = AppOrgSlugShellStorageRouteImport.update({
+  id: "/storage",
+  path: "/storage",
+  getParentRoute: () => AppOrgSlugShellLayoutRoute,
+} as any)
 const AppOrgSlugShellSshKeysRoute = AppOrgSlugShellSshKeysRouteImport.update({
   id: "/ssh-keys",
   path: "/ssh-keys",
@@ -262,6 +269,11 @@ const AppOrgSlugShellDatabasesRoute =
     path: "/databases",
     getParentRoute: () => AppOrgSlugShellLayoutRoute,
   } as any)
+const AppOrgSlugShellDataRoute = AppOrgSlugShellDataRouteImport.update({
+  id: "/data",
+  path: "/data",
+  getParentRoute: () => AppOrgSlugShellLayoutRoute,
+} as any)
 const AppOrgSlugShellBackupsRoute = AppOrgSlugShellBackupsRouteImport.update({
   id: "/backups",
   path: "/backups",
@@ -473,7 +485,7 @@ export interface FileRoutesByFullPath {
   "/device": typeof DeviceRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
-  "/$orgSlug": typeof AppOrgSlugShellLayoutRouteWithChildren
+  "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsLayoutRouteWithChildren
@@ -489,6 +501,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
+  "/$orgSlug/data": typeof AppOrgSlugShellDataRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
   "/$orgSlug/docker": typeof AppOrgSlugShellDockerRoute
   "/$orgSlug/edge": typeof AppOrgSlugShellEdgeRoute
@@ -501,6 +514,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/secrets": typeof AppOrgSlugShellSecretsRoute
   "/$orgSlug/servers": typeof AppOrgSlugShellServersRoute
   "/$orgSlug/ssh-keys": typeof AppOrgSlugShellSshKeysRoute
+  "/$orgSlug/storage": typeof AppOrgSlugShellStorageRoute
   "/$orgSlug/templates": typeof AppOrgSlugShellTemplatesRoute
   "/$orgSlug/terminal": typeof AppOrgSlugShellTerminalRoute
   "/$orgSlug/volumes": typeof AppOrgSlugShellVolumesRoute
@@ -556,6 +570,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
+  "/$orgSlug/data": typeof AppOrgSlugShellDataRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
   "/$orgSlug/docker": typeof AppOrgSlugShellDockerRoute
   "/$orgSlug/edge": typeof AppOrgSlugShellEdgeRoute
@@ -568,6 +583,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/secrets": typeof AppOrgSlugShellSecretsRoute
   "/$orgSlug/servers": typeof AppOrgSlugShellServersRoute
   "/$orgSlug/ssh-keys": typeof AppOrgSlugShellSshKeysRoute
+  "/$orgSlug/storage": typeof AppOrgSlugShellStorageRoute
   "/$orgSlug/templates": typeof AppOrgSlugShellTemplatesRoute
   "/$orgSlug/terminal": typeof AppOrgSlugShellTerminalRoute
   "/$orgSlug/volumes": typeof AppOrgSlugShellVolumesRoute
@@ -627,6 +643,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/analytics": typeof AppOrgSlugShellAnalyticsRoute
   "/_app/$orgSlug/_shell/audit": typeof AppOrgSlugShellAuditRoute
   "/_app/$orgSlug/_shell/backups": typeof AppOrgSlugShellBackupsRoute
+  "/_app/$orgSlug/_shell/data": typeof AppOrgSlugShellDataRoute
   "/_app/$orgSlug/_shell/databases": typeof AppOrgSlugShellDatabasesRoute
   "/_app/$orgSlug/_shell/docker": typeof AppOrgSlugShellDockerRoute
   "/_app/$orgSlug/_shell/edge": typeof AppOrgSlugShellEdgeRoute
@@ -639,6 +656,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/secrets": typeof AppOrgSlugShellSecretsRoute
   "/_app/$orgSlug/_shell/servers": typeof AppOrgSlugShellServersRoute
   "/_app/$orgSlug/_shell/ssh-keys": typeof AppOrgSlugShellSshKeysRoute
+  "/_app/$orgSlug/_shell/storage": typeof AppOrgSlugShellStorageRoute
   "/_app/$orgSlug/_shell/templates": typeof AppOrgSlugShellTemplatesRoute
   "/_app/$orgSlug/_shell/terminal": typeof AppOrgSlugShellTerminalRoute
   "/_app/$orgSlug/_shell/volumes": typeof AppOrgSlugShellVolumesRoute
@@ -698,6 +716,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/analytics"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
+    | "/$orgSlug/data"
     | "/$orgSlug/databases"
     | "/$orgSlug/docker"
     | "/$orgSlug/edge"
@@ -710,6 +729,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/secrets"
     | "/$orgSlug/servers"
     | "/$orgSlug/ssh-keys"
+    | "/$orgSlug/storage"
     | "/$orgSlug/templates"
     | "/$orgSlug/terminal"
     | "/$orgSlug/volumes"
@@ -765,6 +785,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/analytics"
     | "/$orgSlug/audit"
     | "/$orgSlug/backups"
+    | "/$orgSlug/data"
     | "/$orgSlug/databases"
     | "/$orgSlug/docker"
     | "/$orgSlug/edge"
@@ -777,6 +798,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/secrets"
     | "/$orgSlug/servers"
     | "/$orgSlug/ssh-keys"
+    | "/$orgSlug/storage"
     | "/$orgSlug/templates"
     | "/$orgSlug/terminal"
     | "/$orgSlug/volumes"
@@ -835,6 +857,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/analytics"
     | "/_app/$orgSlug/_shell/audit"
     | "/_app/$orgSlug/_shell/backups"
+    | "/_app/$orgSlug/_shell/data"
     | "/_app/$orgSlug/_shell/databases"
     | "/_app/$orgSlug/_shell/docker"
     | "/_app/$orgSlug/_shell/edge"
@@ -847,6 +870,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/secrets"
     | "/_app/$orgSlug/_shell/servers"
     | "/_app/$orgSlug/_shell/ssh-keys"
+    | "/_app/$orgSlug/_shell/storage"
     | "/_app/$orgSlug/_shell/templates"
     | "/_app/$orgSlug/_shell/terminal"
     | "/_app/$orgSlug/_shell/volumes"
@@ -1056,6 +1080,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugShellTemplatesRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
+    "/_app/$orgSlug/_shell/storage": {
+      id: "/_app/$orgSlug/_shell/storage"
+      path: "/storage"
+      fullPath: "/$orgSlug/storage"
+      preLoaderRoute: typeof AppOrgSlugShellStorageRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
     "/_app/$orgSlug/_shell/ssh-keys": {
       id: "/_app/$orgSlug/_shell/ssh-keys"
       path: "/ssh-keys"
@@ -1138,6 +1169,13 @@ declare module "@tanstack/react-router" {
       path: "/databases"
       fullPath: "/$orgSlug/databases"
       preLoaderRoute: typeof AppOrgSlugShellDatabasesRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
+    "/_app/$orgSlug/_shell/data": {
+      id: "/_app/$orgSlug/_shell/data"
+      path: "/data"
+      fullPath: "/$orgSlug/data"
+      preLoaderRoute: typeof AppOrgSlugShellDataRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
     "/_app/$orgSlug/_shell/backups": {
@@ -1456,6 +1494,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellAnalyticsRoute: typeof AppOrgSlugShellAnalyticsRoute
   AppOrgSlugShellAuditRoute: typeof AppOrgSlugShellAuditRoute
   AppOrgSlugShellBackupsRoute: typeof AppOrgSlugShellBackupsRoute
+  AppOrgSlugShellDataRoute: typeof AppOrgSlugShellDataRoute
   AppOrgSlugShellDatabasesRoute: typeof AppOrgSlugShellDatabasesRoute
   AppOrgSlugShellDockerRoute: typeof AppOrgSlugShellDockerRoute
   AppOrgSlugShellEdgeRoute: typeof AppOrgSlugShellEdgeRoute
@@ -1468,6 +1507,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellSecretsRoute: typeof AppOrgSlugShellSecretsRoute
   AppOrgSlugShellServersRoute: typeof AppOrgSlugShellServersRoute
   AppOrgSlugShellSshKeysRoute: typeof AppOrgSlugShellSshKeysRoute
+  AppOrgSlugShellStorageRoute: typeof AppOrgSlugShellStorageRoute
   AppOrgSlugShellTemplatesRoute: typeof AppOrgSlugShellTemplatesRoute
   AppOrgSlugShellTerminalRoute: typeof AppOrgSlugShellTerminalRoute
   AppOrgSlugShellVolumesRoute: typeof AppOrgSlugShellVolumesRoute
@@ -1481,6 +1521,7 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellAnalyticsRoute: AppOrgSlugShellAnalyticsRoute,
   AppOrgSlugShellAuditRoute: AppOrgSlugShellAuditRoute,
   AppOrgSlugShellBackupsRoute: AppOrgSlugShellBackupsRoute,
+  AppOrgSlugShellDataRoute: AppOrgSlugShellDataRoute,
   AppOrgSlugShellDatabasesRoute: AppOrgSlugShellDatabasesRoute,
   AppOrgSlugShellDockerRoute: AppOrgSlugShellDockerRoute,
   AppOrgSlugShellEdgeRoute: AppOrgSlugShellEdgeRoute,
@@ -1493,6 +1534,7 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellSecretsRoute: AppOrgSlugShellSecretsRoute,
   AppOrgSlugShellServersRoute: AppOrgSlugShellServersRoute,
   AppOrgSlugShellSshKeysRoute: AppOrgSlugShellSshKeysRoute,
+  AppOrgSlugShellStorageRoute: AppOrgSlugShellStorageRoute,
   AppOrgSlugShellTemplatesRoute: AppOrgSlugShellTemplatesRoute,
   AppOrgSlugShellTerminalRoute: AppOrgSlugShellTerminalRoute,
   AppOrgSlugShellVolumesRoute: AppOrgSlugShellVolumesRoute,

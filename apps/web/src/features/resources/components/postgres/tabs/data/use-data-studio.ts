@@ -14,71 +14,83 @@
  * consume the returned {@link DataStudioController}.
  */
 
+import type { Filter, Sort } from "@otterdeploy/data-engine";
+
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
-import type { PostgresBodyProps } from "../../types";
+import { orpc } from "@/shared/server/orpc";
+
 import type { ResultView } from "./components/results-panel";
+import type { WorkbenchTarget } from "./data/target";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
-import { buildWhere, type Filter, newFilter } from "./data/filters";
-import { browseRowsSql, type TableRef } from "./data/queries";
-import { useQueryRows } from "./data/use-database";
+import { type TableRef } from "./data/queries";
+import { schemaCollection } from "./data/schema-collection";
+import { targetKey } from "./data/target";
+import { useBrowseRows } from "./data/use-database";
 import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
-import { buildSchema, useRowMutations, useSnippetBuffer } from "./use-data-studio-helpers";
+import {
+  buildSchema,
+  useDrafts,
+  useRowMutations,
+  useSnippetBuffer,
+} from "./use-data-studio-helpers";
 import { errMessage } from "./use-data-studio-sql";
 import { useOpenTableAccess, useTableList } from "./use-data-studio-tables";
-
-type Resource = PostgresBodyProps["resource"];
 
 export const PAGE_SIZES = [50, 100, 200, 500];
 
 export { errMessage };
 
-function useTableData(resource: Resource) {
-  const resourceId = resource.resourceId;
-  const resourceIdStr = String(resource.resourceId);
-
+function useTableData(target: WorkbenchTarget) {
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<"table" | "sql">("table");
   const [tableSearch, setTableSearch] = useState("");
   const [selected, setSelected] = useState<TableRef | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(100);
   const [filters, setFilters] = useState<Filter[]>([]);
+  const [sorts, setSorts] = useState<Sort[]>([]);
   const [view, setView] = useState<ResultView>("grid");
   // Data (rows grid) vs Structure (column detail) for the open table.
-  const [tableView, setTableView] = useState<"data" | "structure">("data");
+  // Three read surfaces over the open connection: rows, this table's
+  // columns, and the database's non-table objects.
+  const [tableView, setTableView] = useState<"data" | "structure" | "definitions">("data");
   const [writeMode, setWriteMode] = useState(false);
   // Column names hidden from the grid for the open table (persisted per-table;
   // exports always include every column).
   const [hiddenColumns, setHiddenColumnsState] = useState<string[]>([]);
   const autoOpenedRef = useRef(false);
 
-  const { tablesQuery, tables, filteredTables } = useTableList(resourceIdStr, tableSearch);
+  const { tablesQuery, tables, filteredTables } = useTableList(target, tableSearch);
 
-  const where = buildWhere(filters);
-  const tableSql = selected ? browseRowsSql(selected, where, pageSize + 1, page * pageSize) : "";
-
-  // Table-browse rows only, authored console SQL runs through `useSqlRuns`
-  // below (run-scoped, uncached, never retried), so its results and errors are
-  // keyed to each individual run.
-  const tableRowsQuery = useQueryRows({
-    resourceId: resourceIdStr,
-    sql: tableSql,
+  // The client sends a filter MODEL, not SQL. The server compiles it with the
+  // operands bound and the column names checked against the table's real
+  // columns, so neither can carry syntax into the statement.
+  const tableRowsQuery = useBrowseRows({
+    target,
+    table: selected,
+    filters,
+    sorts,
     limit: pageSize,
-    enabled: mode === "table" && Boolean(selected),
+    offset: page * pageSize,
+    enabled: mode === "table",
     keepPrevious: true,
   });
 
   // Column metadata + write access for the open table. See
   // ./use-data-studio-tables.
-  const { columnVariants, columnFks, columnTypes, canWrite, primaryKey, editable } =
-    useOpenTableAccess({ resourceId: resourceIdStr, table: selected, mode });
+  const { columns, columnVariants, columnFks, columnTypes, canWrite, primaryKey, editable } =
+    useOpenTableAccess({ target, table: selected, mode });
 
-  const { onUpdateRow, onDeleteRow } = useRowMutations(resourceIdStr, selected, tableRowsQuery);
+  const { onDeleteRow } = useRowMutations(target, selected, tableRowsQuery);
+  // Inline edits are STAGED, not written: see ./data/drafts.
+  const drafts = useDrafts({ target, selected, rowsQuery: tableRowsQuery });
 
   // Authored-SQL console: history + run model + write confirm + `runSql`. A
   // successful write refreshes the table list + open rows so DDL/DML shows up.
@@ -93,12 +105,15 @@ function useTableData(resource: Resource) {
     cancelPendingWrite,
     runSql,
   } = useSqlConsole({
-    resourceId: resourceIdStr,
+    target,
     canWrite,
     writeMode,
     setMode,
     onWriteSuccess: () => {
-      void tablesQuery.refetch();
+      void schemaCollection(target).utils.refetch();
+      void queryClient.invalidateQueries({
+        queryKey: orpc.data.definitions.queryKey({ input: { target } }),
+      });
       void tableRowsQuery.refetch();
     },
   });
@@ -110,7 +125,7 @@ function useTableData(resource: Resource) {
     setMode("table");
     setTableView("data");
     setPage(0);
-    setHiddenColumnsState(loadHiddenColumns(resourceIdStr, t));
+    setHiddenColumnsState(loadHiddenColumns(targetKey(target), t));
   }
 
   // Jump to a referenced table, pre-filtered to the row (from a FK popover).
@@ -118,15 +133,15 @@ function useTableData(resource: Resource) {
     const target = tables.find((t) => t.schema === fk.schema && t.name === fk.table);
     if (!target) return;
     switchToTable(target);
-    setFilters([{ ...newFilter(), column: fk.column, op: "eq", value }]);
+    setFilters([{ column: fk.column, op: "eq", values: [value], enabled: true }]);
   }
 
   const setHiddenColumns = (next: string[]) => {
     setHiddenColumnsState(next);
-    if (selected) saveHiddenColumns(resourceIdStr, selected, next);
+    if (selected) saveHiddenColumns(targetKey(target), selected, next);
   };
 
-  const schema = buildSchema(tables, selected, columnVariants);
+  const schema = buildSchema(tables, selected, columns);
 
   const openTable = (t: TableRef) => {
     switchToTable(t);
@@ -140,6 +155,10 @@ function useTableData(resource: Resource) {
   };
   const changeFilters = (next: Filter[]) => {
     setFilters(next);
+    setPage(0);
+  };
+  const changeSorts = (next: Sort[]) => {
+    setSorts(next);
     setPage(0);
   };
 
@@ -159,7 +178,7 @@ function useTableData(resource: Resource) {
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
 
   return {
-    resourceId,
+    target,
     mode,
     setMode,
     tableSearch,
@@ -181,7 +200,9 @@ function useTableData(resource: Resource) {
     tablesQuery,
     tables,
     filteredTables,
-    where,
+    columns,
+    sorts,
+    changeSorts,
     rowsQuery,
     result,
     hasNext,
@@ -194,7 +215,7 @@ function useTableData(resource: Resource) {
     // Toolbar only reads `.isPending` (disables the Write switch mid-run and
     // swaps its label): see studio-sql-toolbar.tsx.
     executeSql: { isPending: writeRunning },
-    onUpdateRow,
+    drafts,
     onDeleteRow,
     openRefTable,
     schema,
@@ -209,9 +230,16 @@ function useTableData(resource: Resource) {
   };
 }
 
-export function useDataStudio(resource: Resource, shortcuts: boolean) {
-  const editor = useSnippetBuffer(String(resource.resourceId));
-  const table = useTableData(resource);
+/**
+ * The workbench, for one target.
+ *
+ * Takes a `WorkbenchTarget`, not a resource: since external connections exist
+ * there is no resource behind half the things this can open, and the panel that
+ * used to own this surface has no way to name them.
+ */
+export function useDataStudio(target: WorkbenchTarget, shortcuts: boolean) {
+  const editor = useSnippetBuffer(target);
+  const table = useTableData(target);
 
   // The SQL playground is a three-pane resizable shell. On a phone a 20% rail
   // is ~75px. Too narrow to read a snippet name and it starves the editor, so
@@ -232,10 +260,19 @@ export function useDataStudio(resource: Resource, shortcuts: boolean) {
     const s = editor.addSnippet({ name: "Untitled query", sql: "" });
     selectSnippet(s.id);
   };
+  /**
+   * Seed the editor with a runnable query for the open table.
+   *
+   * Deliberately WITHOUT the active filters. Those are a model the server
+   * compiles with bound parameters; splicing their operands back into a string
+   * here would reintroduce exactly the client-side SQL assembly this feature
+   * just removed. The filter bar stays the place to express them, and the
+   * editor starts from the unfiltered table.
+   */
   const openInSql = () => {
     const sel = table.selected;
     if (!sel) return;
-    const q = `SELECT * FROM "${sel.schema}"."${sel.name}"${table.where} LIMIT ${table.pageSize};`;
+    const q = `SELECT * FROM ${quoteRef(sel)} LIMIT ${table.pageSize};`;
     const s = editor.addSnippet({ name: `${sel.name} query`, sql: q, folderId: null });
     selectSnippet(s.id);
     table.runSql(q);
@@ -276,6 +313,17 @@ export function useDataStudio(resource: Resource, shortcuts: boolean) {
     openInSql,
     loadFromHistory,
   };
+}
+
+/**
+ * Quote a table reference for the EDITOR BUFFER — text the user reads and can
+ * edit before running, not a statement this code executes. Double quotes are
+ * correct for Postgres and ClickHouse; MySQL accepts them under ANSI_QUOTES and
+ * the user can adjust, which is the point of putting it in an editor.
+ */
+function quoteRef(ref: TableRef): string {
+  const q = (name: string) => `"${name.replace(/"/g, '""')}"`;
+  return ref.schema === "" ? q(ref.name) : `${q(ref.schema)}.${q(ref.name)}`;
 }
 
 export type DataStudioController = ReturnType<typeof useDataStudio>;

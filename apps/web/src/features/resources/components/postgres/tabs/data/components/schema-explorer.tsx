@@ -1,8 +1,10 @@
 /**
  * Schema explorer: the right-rail tables panel. Each table is collapsed by
  * default; clicking it expands an inline column list (name · type, PK badge)
- * fetched lazily via `information_schema`. This is a *reference* view: it never
- * navigates to the row browser, so you can inspect a schema while writing SQL.
+ * read from the schema already in memory — expanding one costs nothing, where
+ * it used to fire an `information_schema` query per table. This is a
+ * *reference* view: it never navigates to the row browser, so you can inspect a
+ * schema while writing SQL.
  */
 
 import { useState } from "react";
@@ -12,11 +14,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { cn } from "@/shared/lib/utils";
 
+import type { WorkbenchTarget } from "../data/target";
+
 import { shortType, type TableRef } from "../data/queries";
 import { useTableColumns } from "../data/use-database";
 
 interface SchemaExplorerProps {
-  resourceId: string;
+  target: WorkbenchTarget;
   tables: TableRef[];
   isLoading: boolean;
   isError: boolean;
@@ -26,7 +30,7 @@ interface SchemaExplorerProps {
 }
 
 export function SchemaExplorer({
-  resourceId,
+  target,
   tables,
   isLoading,
   isError,
@@ -55,18 +59,18 @@ export function SchemaExplorer({
   return (
     <div className="flex flex-col gap-0.5">
       {tables.map((tbl) => (
-        <SchemaTableRow key={`${tbl.schema}.${tbl.name}`} resourceId={resourceId} table={tbl} />
+        <SchemaTableRow key={`${tbl.schema}.${tbl.name}`} target={target} table={tbl} />
       ))}
     </div>
   );
 }
 
-function SchemaTableRow({ resourceId, table }: { resourceId: string; table: TableRef }) {
+function SchemaTableRow({ target, table }: { target: WorkbenchTarget; table: TableRef }) {
   const [open, setOpen] = useState(false);
 
-  // Only introspect once the table is expanded; cached thereafter.
-  const q = useTableColumns({ resourceId, table, enabled: open });
-  const rows = q.data?.rows ?? [];
+  // Columns come from the schema already in memory — no per-table round trip.
+  const q = useTableColumns({ target, table });
+  const columns = q.columns;
 
   return (
     <div>
@@ -99,13 +103,13 @@ function SchemaTableRow({ resourceId, table }: { resourceId: string; table: Tabl
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Loading…</p>
           ) : q.isError ? (
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">Couldn’t load columns.</p>
-          ) : rows.length === 0 ? (
+          ) : columns.length === 0 ? (
             <p className="px-1.5 py-1 text-[11px] text-muted-foreground">No columns.</p>
           ) : (
-            rows.map((r) => {
-              const name = r[0] ?? "";
-              const type = r[1] ?? "";
-              const isPk = r[2] === "t";
+            columns.map((column) => {
+              const name = column.name;
+              const type = shortType(column.dataType);
+              const isPk = column.isPrimaryKey;
               return (
                 <div
                   key={name}

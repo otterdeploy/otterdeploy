@@ -1,9 +1,13 @@
 /**
- * Data-tab fallback for database engines the viewer doesn't natively support
- * yet (MariaDB, MongoDB). We deliberately do NOT fall back to the Postgres SQL
- * console here, showing a relational studio over a non-relational engine is
- * worse than honest: it just errors on every query. Instead we say plainly
- * that the engine isn't supported. The Terminal tab remains the escape hatch.
+ * Data-tab fallback for engines the workbench cannot serve.
+ *
+ * Now only ClickHouse: it has a complete SQL dialect that compiles correct
+ * statements, but no wire driver, so routing it to the workbench would give a
+ * surface that fails the moment it opens. Postgres and MariaDB share the
+ * workbench; Redis and MongoDB have their own views, because pretending a
+ * keyspace or a document store is a table is worse than saying so.
+ *
+ * The Terminal tab remains the escape hatch.
  */
 
 import { Database01Icon } from "@hugeicons/core-free-icons";

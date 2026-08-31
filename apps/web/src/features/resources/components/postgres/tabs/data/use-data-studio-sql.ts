@@ -8,12 +8,18 @@
  * statement can never render against a newer one, and a slow older run that
  * settles late can never clobber a newer run's result.
  *
- * The write path (pendingWrite → audited `database.execute`) stages the exact
- * statement text behind a confirm dialog; the confirmed run executes that exact
- * staged text and lands in the same run slot, so write results and errors render
- * in the results pane too (previously they only surfaced as toasts, leaving the
- * pane showing whatever the last read run produced).
+ * Both paths are now the SAME procedure, `data.run`, differing only by its
+ * `write` flag — which selects a read-only or read-write SESSION on the server.
+ * The previous split (`database.query` vs `database.execute`) put the read-only
+ * guarantee in the choice of endpoint; it now lives in a connect-time server
+ * setting, so a statement cannot write just because it reached the wrong one.
+ *
+ * The confirm dialog stages the exact statement text; the confirmed run executes
+ * that same staged string and lands in the same run slot, so write results and
+ * errors render in the results pane rather than only as toasts.
  */
+
+import type { Grid } from "@otterdeploy/data-engine";
 
 import { useRef, useState } from "react";
 
@@ -23,6 +29,7 @@ import { toast } from "sonner";
 import { orpc } from "@/shared/server/orpc";
 
 import type { QueryHistoryEntry } from "./data/query-history";
+import type { WorkbenchTarget } from "./data/target";
 
 import { classifyWriteSql, type WriteSeverity } from "./data/destructive-sql";
 import { SQL_RESULT_CAP } from "./data/queries";
@@ -44,14 +51,8 @@ export function errMessage(error: unknown): string {
   return "Something went wrong.";
 }
 
-/** The grid shape both `database.query` and `database.execute` return. */
-export interface SqlRunResult {
-  columns: string[];
-  rows: Array<Array<string | null>>;
-  rowCount: number;
-  truncated: boolean;
-  durationMs: number;
-}
+/** The typed grid `data.run` returns. */
+export type SqlRunResult = Grid;
 
 /** One console run: the exact SQL sent, which path it took, and its outcome. */
 export interface SqlRunState {
@@ -64,25 +65,24 @@ export interface SqlRunState {
 }
 
 /**
- * Owns the console's run lifecycle. `startRead` sends the statement through the
- * read-only `database.query` path; `startWrite` through the audited
- * `database.execute` path (writable session, DML/DDL take effect). Both record
- * a history entry exactly once, in the run's own settle callback.
+ * Owns the console's run lifecycle. `startRead` runs against a read-only
+ * session; `startWrite` against a read-write one. Both are `data.run`, both are
+ * audited, and both record a history entry exactly once in their settle callback.
  */
 export function useSqlRuns({
-  resourceId,
+  target,
   recordHistory,
   onWriteSuccess,
 }: {
-  resourceId: string;
+  target: WorkbenchTarget;
   recordHistory: RecordHistory;
   onWriteSuccess: () => void;
 }) {
   const [run, setRun] = useState<SqlRunState | null>(null);
   const runSeq = useRef(0);
 
-  const queryMutation = useMutation(orpc.database.query.mutationOptions());
-  const executeMutation = useMutation(orpc.database.execute.mutationOptions());
+  // One procedure for both paths. `write` picks the session mode server-side.
+  const runMutation = useMutation(orpc.data.run.mutationOptions());
 
   // Settle a run's outcome. Ignored unless it's still the latest run, so a
   // slow older request can never overwrite a newer run's state.
@@ -93,9 +93,8 @@ export function useSqlRuns({
   const start = (sql: string, kind: "read" | "write") => {
     const id = ++runSeq.current;
     setRun({ id, sql, kind, status: "running", result: null, error: null });
-    const mutation = kind === "read" ? queryMutation : executeMutation;
-    mutation.mutate(
-      { resourceId, sql, limit: SQL_RESULT_CAP },
+    runMutation.mutate(
+      { target, sql, limit: SQL_RESULT_CAP, write: kind === "write" },
       {
         onSuccess: (res) => {
           settle(id, { status: "ok", result: res });

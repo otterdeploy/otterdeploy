@@ -1,12 +1,18 @@
 /**
- * Subscribe once to the org-scoped event stream (`events.orgStream`) and
- * resync the org-wide surfaces it announces: the header activity pill, the
- * notification inbox, and the servers collection.
+ * Subscribe once to the org-scoped event stream (`events.orgStream`) and apply
+ * what it announces.
  *
- * Same discipline as useProjectEvents: the stream decides WHEN to refetch,
- * the queries own the data, and resyncs are batched so a burst of events
- * costs one round trip per surface. The polls on these surfaces are
- * dead-stream backstops, not the freshness mechanism.
+ * Two dispositions, and the event says which:
+ *
+ *   - `resync` names a surface; the query owns the data and refetches. Resyncs
+ *     are batched so a burst of events costs one round trip per surface.
+ *   - `upsert`/`delete` CARRY THE ROW; it is applied with
+ *     `writeUpsert`/`writeDelete` and nothing refetches at all. Same discipline
+ *     as useProjectEvents' proxy-route path, and the shape
+ *     docs/designs/collection-cache-invalidation-api.md specifies.
+ *
+ * The polls on these surfaces are dead-stream backstops, not the freshness
+ * mechanism.
  *
  * The server derives the stream key from the session's active organization.
  * The input is empty. The effect re-keys on the URL's org slug because that
@@ -16,8 +22,10 @@
 import { useEffect } from "react";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useLoaderData, useParams } from "@tanstack/react-router";
+import { Result } from "better-result";
 
+import { connectionCollectionFor } from "@/features/resources/components/postgres/tabs/data/data/connections";
 import { serverCollection } from "@/features/servers/data/server";
 import { createResyncBatcher } from "@/shared/lib/resync-batcher";
 import { orpc } from "@/shared/server/orpc";
@@ -29,6 +37,8 @@ export function useOrgEvents(): void {
   const qc = useQueryClient();
   const params = useParams({ strict: false });
   const orgSlug = params.orgSlug;
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+  const connections = connectionCollectionFor(organization.id);
 
   useEffect(() => {
     if (!orgSlug) return;
@@ -39,42 +49,57 @@ export function useOrgEvents(): void {
     const scheduleResync = batcher.schedule;
 
     void (async () => {
-      try {
-        const stream = await orpc.events.orgStream.call(
-          {},
-          { signal: ctrl.signal, context: { retry: Number.POSITIVE_INFINITY } },
-        );
-        for await (const event of stream) {
-          if (ctrl.signal.aborted) break;
+      const consumed = await Result.tryPromise({
+        try: async () => {
+          const stream = await orpc.events.orgStream.call(
+            {},
+            { signal: ctrl.signal, context: { retry: Number.POSITIVE_INFINITY } },
+          );
+          // Redis pub/sub has no replay cursor. Every initial connection and
+          // reconnect therefore takes a fresh snapshot before consuming the
+          // incremental stream, repairing events missed while disconnected.
+          void connections.utils.refetch();
+          for await (const event of stream) {
+            if (ctrl.signal.aborted) break;
 
-          switch (event.collection) {
-            case "activity":
-              scheduleResync("activity", () => {
-                void qc.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
-                // Prefix catches both the deployments page's filtered query
-                // and the status pill's custom ["…", projectId, "app-status"]
-                // cache entry (use-deploy-status.ts).
-                void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
-              });
-              break;
-            case "inbox":
-              scheduleResync("inbox", () => {
-                void qc.invalidateQueries({ queryKey: orpc.notifications.inbox.list.key() });
-              });
-              break;
-            case "servers":
-              scheduleResync("servers", () => {
-                void serverCollection.utils.refetch();
-              });
-              break;
+            // Row-carrying events are applied directly. No batching: there is no
+            // round trip to coalesce, and a write is cheaper than the timer.
+            if (event.op === "upsert") {
+              connections.utils.writeUpsert(event.rows);
+              continue;
+            }
+            if (event.op === "delete") {
+              connections.utils.writeDelete(event.keys);
+              continue;
+            }
+
+            switch (event.collection) {
+              case "activity":
+                scheduleResync("activity", () => {
+                  void qc.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
+                  void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
+                });
+                break;
+              case "inbox":
+                scheduleResync("inbox", () => {
+                  void qc.invalidateQueries({ queryKey: orpc.notifications.inbox.list.key() });
+                });
+                break;
+              case "servers":
+                scheduleResync("servers", () => {
+                  void serverCollection.utils.refetch();
+                });
+                break;
+            }
           }
-        }
-      } catch (err) {
-        // The retry plugin reconnects on transient errors; reaching here
-        // means the stream ended terminally (or the component unmounted).
-        if (ctrl.signal.aborted) return;
+        },
+        catch: (cause) => cause,
+      });
+      // The retry plugin reconnects on transient errors; reaching here means
+      // the stream ended terminally (or the component unmounted).
+      if (consumed.isErr() && !ctrl.signal.aborted) {
         // eslint-disable-next-line no-console
-        console.warn("[org-events] stream ended", err);
+        console.warn("[org-events] stream ended", consumed.error);
       }
     })();
 
@@ -82,5 +107,5 @@ export function useOrgEvents(): void {
       ctrl.abort();
       batcher.cancel();
     };
-  }, [orgSlug, qc]);
+  }, [connections, orgSlug, qc]);
 }

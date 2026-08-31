@@ -172,6 +172,18 @@ export const env = createEnv({
     // (Phase 2 — enables 24h/7d ranges + percentiles across restarts).
     // Default on whenever the sink is configured; set to false for a
     // pure in-memory tail.
+    // Let external data connections name a loopback or private address.
+    //
+    // OFF by default, and deliberately an instance-level switch rather than a
+    // per-connection option: the control plane can reach the cloud metadata
+    // service, other tenants' overlay addresses and its own services, and a
+    // feature whose whole job is "connect to an address the user typed" is the
+    // ideal way to reach all of them. Turn it on only where otterdeploy and the
+    // database share a host.
+    DATA_ALLOW_PRIVATE_CONNECTIONS: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => v === true || v === "true" || v === "1")
+      .default(false),
     EDGE_LOG_PERSIST: z
       .union([z.boolean(), z.string()])
       .transform((v) => v === true || v === "true" || v === "1")

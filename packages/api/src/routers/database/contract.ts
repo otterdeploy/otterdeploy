@@ -38,34 +38,7 @@ const notDatabase = {
   },
 };
 
-// The write path adds one more failure mode: a row mutation that can't be
-// safely targeted because the table has no primary key (we refuse rather than
-// guess with `ctid`, which the read path never exposes).
-const notMutable = {
-  ...notDatabase,
-  NO_PRIMARY_KEY: {
-    status: 422 as const,
-    message: "Table has no primary key, so rows can't be edited safely" as const,
-  },
-};
-
-const queryInput = z.object({
-  resourceId: resourceIdField,
-  sql: z.string().min(1).max(100_000),
-  // Hard cap on returned rows (UI grid). The engine still streams the full
-  // result from psql, then truncates: fine for a console, not for exports.
-  limit: z.number().int().positive().max(5000).default(200),
-});
-
-const queryResultSchema = z.object({
-  columns: z.array(z.string()),
-  rows: z.array(z.array(z.string().nullable())),
-  rowCount: z.number(),
-  truncated: z.boolean(),
-  durationMs: z.number(),
-});
-
-const tablesInput = z.object({ resourceId: resourceIdField });
+const connectionsInput = z.object({ resourceId: resourceIdField });
 
 /** One group of live client sessions sharing an origin. `clientAddr` is the
  *  raw address postgres sees. A container/overlay IP for in-cluster
@@ -83,57 +56,6 @@ const connectionsResultSchema = z.object({
   /** current_setting('max_connections'); null when unparseable. */
   maxConnections: z.number().int().nullable(),
   groups: z.array(connectionGroupSchema),
-});
-
-const tablesResultSchema = z.object({
-  tables: z.array(
-    z.object({
-      schema: z.string(),
-      name: z.string(),
-      // Fast planner estimate from pg_class.reltuples (never count(*)).
-      // null/omitted = unknown (never analyzed, or engines that don't report it).
-      estimatedRows: z.number().nullable().optional(),
-    }),
-  ),
-});
-
-// ── Write path (Phase 2) ────────────────────────────────────────────────────
-// Structured row mutations that back inline grid editing: the SERVER builds
-// the SQL from this shape (never trusting a client-sent statement) so writes
-// stay primary-key-guarded and gated by the `database:write` capability.
-
-/** One column predicate / assignment. `value: null` is SQL NULL. */
-const columnValue = z.object({
-  column: z.string().min(1).max(255),
-  value: z.string().nullable(),
-});
-
-const mutateRowInput = z.object({
-  resourceId: resourceIdField,
-  schema: z.string().min(1).max(255),
-  table: z.string().min(1).max(255),
-  op: z.enum(["update", "insert", "delete"]),
-  // Identifies the target row (required for update/delete). Every primary-key
-  // column, so exactly one row is matched.
-  pk: z.array(columnValue).default([]),
-  // Column assignments (required for update/insert).
-  set: z.array(columnValue).default([]),
-});
-
-const mutateRowResultSchema = z.object({
-  // The affected row(s), from `RETURNING *`, shaped like a query grid so the
-  // client can reconcile its in-memory row. 0 rows = the predicate matched none.
-  columns: z.array(z.string()),
-  rows: z.array(z.array(z.string().nullable())),
-  rowsAffected: z.number(),
-});
-
-const capabilitiesInput = z.object({ resourceId: resourceIdField });
-
-const capabilitiesResultSchema = z.object({
-  // Whether the current actor may mutate data (drives read-only vs editable UI;
-  // the write handlers enforce it server-side regardless).
-  canWrite: z.boolean(),
 });
 
 // ── Redis (key-value) ──────────────────────────────────────────────────────
@@ -205,23 +127,6 @@ const redisValueResultSchema = z.object({
 // Like Postgres but with no free-text console: list tables, then page a table's
 // rows. Every statement is server-built, so it's read-only by construction.
 
-const mariadbTablesInput = z.object({ resourceId: resourceIdField });
-
-const mariadbBrowseInput = z.object({
-  resourceId: resourceIdField,
-  schema: z.string().min(1).max(255),
-  table: z.string().min(1).max(255),
-  limit: z.number().int().positive().max(1000).default(100),
-  offset: z.number().int().min(0).default(0),
-});
-
-const mariadbGridSchema = z.object({
-  columns: z.array(z.string()),
-  rows: z.array(z.array(z.string().nullable())),
-  // Another page exists (fetched limit + 1).
-  hasMore: z.boolean(),
-});
-
 // ── MongoDB (document store, read-only browser) ─────────────────────────────
 
 const mongoCollectionsInput = z.object({ resourceId: resourceIdField });
@@ -244,6 +149,15 @@ const mongoDocumentsResultSchema = z.object({
 });
 
 export const databaseContract = {
+  // Live client sessions grouped by origin. A monitoring probe over
+  // pg_stat_activity, not a data-browsing procedure — which is why it stayed
+  // here when the viewer moved to `data.*`.
+  connections: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/connections`, tag, method: "GET" })
+    .input(connectionsInput)
+    .output(connectionsResultSchema),
+
   // Org-wide catalog: every database resource across the org's projects with
   // runtime status, endpoints, last-backup freshness, and best-effort live
   // stats. Backs the /$org/databases page. `list`-prefixed so the audit
@@ -260,53 +174,6 @@ export const databaseContract = {
     .meta({ path: `${basePath}/hosts`, tag, method: "GET" })
     .input(hostListInput)
     .output(hostListResultSchema),
-
-  // List user tables in the database (excludes catalog/system schemas).
-  tables: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/tables`, tag, method: "GET" })
-    .input(tablesInput)
-    .output(tablesResultSchema),
-
-  // Live client sessions from pg_stat_activity, grouped by origin. Who is
-  // connected, from where, in what state. Background workers and the probe's
-  // own session are excluded, matching the catalog card's honest count.
-  connections: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/connections`, tag, method: "GET" })
-    .input(tablesInput)
-    .output(connectionsResultSchema),
-
-  // Run a read-only SQL statement and return the grid.
-  query: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/query`, tag, method: "POST" })
-    .input(queryInput)
-    .output(queryResultSchema),
-
-  // Run ARBITRARY SQL (DML/DDL) without the read-only envelope. Requires the
-  // `database:write` capability; every call is audited. Same grid shape as
-  // `query`: rowCount doubles as rows-affected for INSERT/UPDATE/DELETE.
-  execute: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/execute`, tag, method: "POST" })
-    .input(queryInput)
-    .output(queryResultSchema),
-
-  // What the current actor may do against this database (read-only vs editable).
-  capabilities: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/capabilities`, tag, method: "GET" })
-    .input(capabilitiesInput)
-    .output(capabilitiesResultSchema),
-
-  // Mutate a single row (insert/update/delete), primary-key-guarded. Requires
-  // the `database:write` capability.
-  mutateRow: oc
-    .errors(notMutable)
-    .meta({ path: `${basePath}/{resourceId}/mutate-row`, tag, method: "POST" })
-    .input(mutateRowInput)
-    .output(mutateRowResultSchema),
 
   // ── Ephemeral credentials ────────────────────────────────────────────────
   // Mint a short-lived connection URL (auto-disposed at the TTL).
@@ -351,21 +218,6 @@ export const databaseContract = {
     .meta({ path: `${basePath}/{resourceId}/redis/value`, tag, method: "POST" })
     .input(redisValueInput)
     .output(redisValueResultSchema),
-
-  // ── MariaDB ──────────────────────────────────────────────────────────────
-  // List user tables.
-  mariadbTables: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/mariadb/tables`, tag, method: "GET" })
-    .input(mariadbTablesInput)
-    .output(tablesResultSchema),
-
-  // Page through a table's rows.
-  mariadbRows: oc
-    .errors(notDatabase)
-    .meta({ path: `${basePath}/{resourceId}/mariadb/rows`, tag, method: "GET" })
-    .input(mariadbBrowseInput)
-    .output(mariadbGridSchema),
 
   // ── MongoDB ──────────────────────────────────────────────────────────────
   // List collections with estimated counts.

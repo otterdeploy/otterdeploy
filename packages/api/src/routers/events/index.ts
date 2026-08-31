@@ -1,5 +1,7 @@
 import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+import type { OrgBusEvent } from "@otterdeploy/shared/org-events";
 
+import { ID_PREFIX, hasPrefix } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import type { CollectionEvent, OrgCollectionEvent } from "./contract";
@@ -101,8 +103,59 @@ async function* streamCollectionEvents(
  * streamProjectEvents' queue discipline: a slow reader drops oldest rather
  * than backpressuring Redis, and the client's poll backstops repair the gap.
  */
+/**
+ * Bus event → wire event.
+ *
+ * The bus and the stream carry the same two shapes, so this is a translation
+ * and not a decision: a payload-free kind becomes a `resync`, a row-carrying
+ * one keeps its rows. Dates cross the bus as ISO strings (it is JSON) and the
+ * contract's `z.coerce.date()` turns them back on the way out.
+ */
+export function toOrgCollectionEvent(
+  organizationId: OrganizationId,
+  event: OrgBusEvent,
+  viewerId: string | null,
+): OrgCollectionEvent | null {
+  const scope = { organizationId };
+  if (!("op" in event)) {
+    return { protocol: 1, collection: event.kind, scope, op: "resync" };
+  }
+  if (event.op === "delete") {
+    if (event.excludedUserId === viewerId) return null;
+    return {
+      protocol: 1,
+      collection: "data-connections",
+      scope,
+      op: "delete",
+      keys: event.keys.filter((key) => hasPrefix(key, ID_PREFIX.dataConnection)),
+    };
+  }
+  return {
+    protocol: 1,
+    collection: "data-connections",
+    scope,
+    op: "upsert",
+    rows: event.rows.flatMap((row) =>
+      // A row whose id does not carry the expected prefix is a malformed
+      // publish, not a row to render. Dropping it keeps a bad producer from
+      // poisoning every subscriber's collection.
+      hasPrefix(row.id, ID_PREFIX.dataConnection)
+        ? [
+            {
+              ...row,
+              id: row.id,
+              createdAt: new Date(row.createdAt),
+              lastConnectedAt: row.lastConnectedAt === null ? null : new Date(row.lastConnectedAt),
+            },
+          ]
+        : [],
+    ),
+  };
+}
+
 async function* streamOrgCollectionEvents(
   organizationId: OrganizationId,
+  viewerId: string | null,
   signal?: AbortSignal,
 ): AsyncGenerator<OrgCollectionEvent, void, void> {
   const queue: OrgCollectionEvent[] = [];
@@ -135,12 +188,9 @@ async function* streamOrgCollectionEvents(
 
   const sub = subscribeOrgEvents(organizationId, (event) => {
     if (aborted) return;
-    queue.push({
-      protocol: 1,
-      collection: event.kind,
-      scope: { organizationId },
-      op: "resync",
-    });
+    const collectionEvent = toOrgCollectionEvent(organizationId, event, viewerId);
+    if (collectionEvent === null) return;
+    queue.push(collectionEvent);
     if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
     wake();
   });
@@ -172,7 +222,11 @@ export const eventsRouter = {
     if (context.apiKey?.projectScope === "selected") {
       throw errors.FORBIDDEN();
     }
-    return streamOrgCollectionEvents(context.activeOrganizationId, signal);
+    return streamOrgCollectionEvents(
+      context.activeOrganizationId,
+      context.session?.user.id ?? null,
+      signal,
+    );
   }),
 
   stream: orgScopedProcedure.events.stream.handler(async ({ input, context, errors, signal }) => {

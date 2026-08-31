@@ -13,12 +13,13 @@ import { ScrollArea } from "@/shared/components/ui/scroll-area";
 
 import type { TableRef } from "../data/queries";
 import type { StructureColumn } from "../data/structure";
+import type { WorkbenchTarget } from "../data/target";
 
 import { useTableStructure } from "../data/use-database";
 import { TypeLabel } from "./type-label";
 
-export function StructureView({ resourceId, table }: { resourceId: string; table: TableRef }) {
-  const { query, structure } = useTableStructure({ resourceId, table, enabled: true });
+export function StructureView({ target, table }: { target: WorkbenchTarget; table: TableRef }) {
+  const { query, structure } = useTableStructure({ target, table });
 
   if (query.isLoading) {
     return (

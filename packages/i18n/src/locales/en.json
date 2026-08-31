@@ -180,6 +180,8 @@
     "newService": "+ New service",
     "workspace": "Workspace",
     "backups": "Backups",
+    "data": "Data",
+    "storage": "Storage",
     "edge": "Edge",
     "audit": "Audit",
     "gitProviders": "Git providers",

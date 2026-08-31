@@ -2,22 +2,29 @@
  * "Filter Data" popover, anchored to the Filter button. Layout matches the
  * reference: header · natural-language hint · filter rows · footer
  * (Add Filter | Cancel · Apply). Edits a DRAFT (Cancel discards), commits on
- * Apply. Reuses ./filter-bar (rows) and ./filters (server-side WHERE compiler).
+ * Apply. Rows come from ./filter-bar; the model and its operators come from
+ * `@otterdeploy/data-engine`, so the popover cannot offer an operator the
+ * server would refuse to compile.
  *
  * NOTE: the NL hint input is rendered to match the design; parsing free-text
  * into filters is a later enhancement. The structured rows below are the
  * functional path today.
  */
 
+import type { Filter } from "@otterdeploy/data-engine";
+
 import { useState } from "react";
 
 import { FilterIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { isFilterComplete } from "@otterdeploy/data-engine";
 
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 
-import { type Filter, isFilterActive, newFilter } from "../data/filters";
+import type { DraftFilter } from "../data/filter-draft";
+
+import { newDraftFilter, toDrafts, toFilters } from "../data/filter-draft";
 import { FilterBar } from "./filter-bar";
 
 export function FilterPopover({
@@ -32,17 +39,17 @@ export function FilterPopover({
   trigger: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<Filter[]>(filters);
+  const [draft, setDraft] = useState<DraftFilter[]>(() => toDrafts(filters));
 
   // Re-seed the draft when the popover opens. Done in the open handler (not an
   // effect) so the rows are correct on the first paint and we skip an extra render.
   function handleOpenChange(next: boolean) {
-    if (next) setDraft(filters.length ? filters : [newFilter()]);
+    if (next) setDraft(filters.length ? toDrafts(filters) : [newDraftFilter()]);
     setOpen(next);
   }
 
   function apply() {
-    onApply(draft.filter(isFilterActive));
+    onApply(toFilters(draft).filter(isFilterComplete));
     setOpen(false);
   }
 
@@ -74,7 +81,7 @@ export function FilterPopover({
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => setDraft((d) => [...d, newFilter()])}
+            onClick={() => setDraft((d) => [...d, newDraftFilter()])}
           >
             <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
             Add Filter
