@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { Database01Icon, PlayIcon } from "@hugeicons/core-free-icons";
 
+import { DraftsBar } from "./components/drafts-bar";
 import { ResultsPanel } from "./components/results-panel";
 import { StructureView } from "./components/structure-view";
 import { BulkDeleteConfirm, ResultsFooter } from "./studio-results-footer";
@@ -29,7 +30,7 @@ function resolveResultsProps(t: TableController) {
     columnTypes: tableMode ? t.columnTypes : undefined,
     hiddenColumns: tableMode ? t.hiddenColumns : undefined,
     primaryKey: tableMode ? t.primaryKey : undefined,
-    onUpdateRow: tableMode ? t.onUpdateRow : undefined,
+    onStageEdit: tableMode ? t.drafts.stageEdit : undefined,
     onDeleteRow: tableMode ? t.onDeleteRow : undefined,
     exportName: tableMode && t.selected ? t.selected.name : "query",
     emptyIcon: sqlMode ? PlayIcon : Database01Icon,
@@ -103,7 +104,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         exportName={p.exportName}
         editable={t.editable}
         primaryKey={p.primaryKey}
-        onUpdateRow={p.onUpdateRow}
+        onStageEdit={p.onStageEdit}
         onDeleteRow={p.onDeleteRow}
         selectable={t.mode === "table" && canMutateRows}
         selectedRows={selectedRows}
@@ -114,12 +115,23 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         emptyBody={p.emptyBody}
         leftSlot={<TableActions studio={studio} />}
         footerSlot={
-          <ResultsFooter
-            studio={studio}
-            selectedRows={selectedRows}
-            deleteProgress={null}
-            onDeleteSelected={() => setConfirmDelete(selectedRows)}
-          />
+          <>
+            {/* Above the pager, because it is about what you are ABOUT to do,
+                not about where you are in the result set. */}
+            <DraftsBar
+              drafts={t.drafts.drafts}
+              isCommitting={t.drafts.isCommitting}
+              onCommit={t.drafts.commit}
+              onDiscardAll={t.drafts.discardAll}
+              onDiscardRow={t.drafts.discardRow}
+            />
+            <ResultsFooter
+              studio={studio}
+              selectedRows={selectedRows}
+              deleteProgress={null}
+              onDeleteSelected={() => setConfirmDelete(selectedRows)}
+            />
+          </>
         }
       />
 

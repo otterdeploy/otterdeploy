@@ -1,7 +1,7 @@
 /**
  * Smaller building blocks for {@link useDataStudio}: the editor/snippet buffer
- * hook, the inline row-mutation hook, and the pure derivations (autocomplete
- * schema, active SQL, has-next-page). Kept here so the controller file stays
+ * hook, the STAGED-EDIT store, row deletion, and the pure derivations
+ * (autocomplete schema, has-next-page). Kept here so the controller file stays
  * within size + complexity budgets.
  */
 
@@ -14,9 +14,11 @@ import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
 
 import type { ColumnValue } from "./components/dice-grid";
+import type { Draft, PrimaryKeys } from "./data/drafts";
 import type { TableRef } from "./data/queries";
 import type { WorkbenchTarget } from "./data/target";
 
+import { loadDrafts, removeRowDrafts, saveDrafts, toMutations, upsertDraft } from "./data/drafts";
 import { targetKey } from "./data/target";
 import { useMutateRows } from "./data/use-database";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
@@ -173,22 +175,93 @@ export function useBulkDelete({
 }
 
 /** Inline edit / delete against the open table (table-browse mode, write-capable). */
+/**
+ * Staged edits for the open table.
+ *
+ * Owns the draft list, persists it, and commits the whole set as ONE
+ * transaction. Deletes are NOT staged: a delete has nothing to review, and
+ * holding one back would leave a row on screen that the user has already
+ * decided about.
+ */
+export function useDrafts({
+  target,
+  selected,
+  rowsQuery,
+}: {
+  target: WorkbenchTarget;
+  selected: TableRef | null;
+  rowsQuery: { refetch: () => unknown };
+}) {
+  const key = targetKey(target);
+  const [drafts, setDraftsState] = useState<Draft[]>([]);
+  const mutateRows = useMutateRows(target);
+
+  // Re-read from storage when the open table changes. During render, not in an
+  // effect, so the bar never paints the previous table's count for a frame.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const tableKey = selected ? `${key}:${selected.schema}.${selected.name}` : null;
+  if (tableKey !== loadedFor) {
+    setLoadedFor(tableKey);
+    setDraftsState(loadDrafts(key, selected));
+  }
+
+  const write = (next: Draft[]) => {
+    setDraftsState(next);
+    if (selected) saveDrafts(key, selected, next);
+  };
+
+  const stageEdit = (pk: ColumnValue[], changes: Array<ColumnValue & { previous: CellValue }>) => {
+    const primaryKeys: PrimaryKeys = Object.fromEntries(pk.map((k) => [k.column, k.value]));
+    let next = drafts;
+    for (const change of changes) {
+      next = upsertDraft(next, {
+        primaryKeys,
+        column: change.column,
+        value: change.value,
+        previous: change.previous,
+      });
+    }
+    write(next);
+  };
+
+  const commit = () => {
+    if (!selected || drafts.length === 0) return;
+    mutateRows.mutate(
+      { target, mutations: toMutations(drafts, selected) },
+      {
+        onSuccess: (res) => {
+          write([]);
+          toast.success(
+            `Committed ${res.rowsAffected} row${res.rowsAffected === 1 ? "" : "s"} in ${res.durationMs} ms`,
+          );
+          // Reconcile with server truth: triggers, computed columns, defaults.
+          void rowsQuery.refetch();
+        },
+        // Drafts are KEPT on failure. The transaction rolled back, so the edits
+        // are still unsaved work — discarding them would destroy exactly what
+        // the user now needs in order to fix the problem.
+        onError: (err) =>
+          toast.error(err instanceof Error ? err.message : "Nothing was committed."),
+      },
+    );
+  };
+
+  return {
+    drafts,
+    stageEdit,
+    commit,
+    isCommitting: mutateRows.isPending,
+    discardAll: () => write([]),
+    discardRow: (keys: PrimaryKeys) => write(removeRowDrafts(drafts, keys)),
+  };
+}
+
 export function useRowMutations(
   target: WorkbenchTarget,
   selected: TableRef | null,
   rowsQuery: { refetch: () => unknown },
 ) {
   const mutateRows = useMutateRows(target);
-
-  const onUpdateRow = async (pk: ColumnValue[], set: ColumnValue[]) => {
-    if (!selected) return;
-    await mutateRows.mutateAsync({
-      target,
-      mutations: [{ op: "update", schema: selected.schema, table: selected.name, pk, set }],
-    });
-    // Reconcile with server truth (triggers / computed columns / defaults).
-    void rowsQuery.refetch();
-  };
 
   const onDeleteRow = async (pk: ColumnValue[]) => {
     if (!selected) return;
@@ -199,5 +272,5 @@ export function useRowMutations(
     void rowsQuery.refetch();
   };
 
-  return { onUpdateRow, onDeleteRow };
+  return { onDeleteRow };
 }

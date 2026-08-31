@@ -30,7 +30,12 @@ import { type TableRef } from "./data/queries";
 import { resourceTarget, targetKey } from "./data/target";
 import { useBrowseRows } from "./data/use-database";
 import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
-import { buildSchema, useRowMutations, useSnippetBuffer } from "./use-data-studio-helpers";
+import {
+  buildSchema,
+  useDrafts,
+  useRowMutations,
+  useSnippetBuffer,
+} from "./use-data-studio-helpers";
 import { errMessage } from "./use-data-studio-sql";
 import { useOpenTableAccess, useTableList } from "./use-data-studio-tables";
 
@@ -84,7 +89,9 @@ function useTableData(resource: Resource) {
   const { columns, columnVariants, columnFks, columnTypes, canWrite, primaryKey, editable } =
     useOpenTableAccess({ target, table: selected, mode });
 
-  const { onUpdateRow, onDeleteRow } = useRowMutations(target, selected, tableRowsQuery);
+  const { onDeleteRow } = useRowMutations(target, selected, tableRowsQuery);
+  // Inline edits are STAGED, not written: see ./data/drafts.
+  const drafts = useDrafts({ target, selected, rowsQuery: tableRowsQuery });
 
   // Authored-SQL console: history + run model + write confirm + `runSql`. A
   // successful write refreshes the table list + open rows so DDL/DML shows up.
@@ -207,7 +214,7 @@ function useTableData(resource: Resource) {
     // Toolbar only reads `.isPending` (disables the Write switch mid-run and
     // swaps its label): see studio-sql-toolbar.tsx.
     executeSql: { isPending: writeRunning },
-    onUpdateRow,
+    drafts,
     onDeleteRow,
     openRefTable,
     schema,

@@ -60,7 +60,7 @@ interface ResultsPanelProps {
   /** Inline edit / delete (table-browse mode, actor has write capability). */
   editable?: boolean;
   primaryKey?: string[];
-  onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
+  onStageEdit?: (pk: ColumnValue[], changes: Array<ColumnValue & { previous: CellValue }>) => void;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
   /** Multi-select checkbox column + selection mirror (table-browse mode). */
   selectable?: boolean;
@@ -92,7 +92,7 @@ export function ResultsPanel({
   exportName = "query",
   editable = false,
   primaryKey,
-  onUpdateRow,
+  onStageEdit,
   onDeleteRow,
   selectable = false,
   selectedRows,
@@ -172,7 +172,7 @@ export function ResultsPanel({
           onOpenRef={onOpenRef}
           editable={editable}
           primaryKey={primaryKey}
-          onUpdateRow={onUpdateRow}
+          onStageEdit={onStageEdit}
           onDeleteRow={onDeleteRow}
           selectable={selectable}
           onSelectionChange={onSelectionChange}

@@ -5,8 +5,10 @@
  * in-memory `data`; every column is a short-text editable cell.
  *
  * When `editable` is set (the actor has `database:write` and the table has a
- * primary key), inline edits and row deletes persist through the parent's
- * `onUpdateRow` / `onDeleteRow` callbacks (which call `database.mutateRow`).
+ * primary key), an inline edit is STAGED through `onStageEdit` rather than
+ * written: it becomes a draft the parent counts, shows in a diff, and commits
+ * as one transaction. Row deletes still go straight through `onDeleteRow`,
+ * because a delete has nothing to review — the row either goes or it does not.
  * Changes apply optimistically and revert on a server error.
  *
  * Table-browse extras (all opt-in via props):
@@ -34,7 +36,7 @@ import { useElementHeight } from "@/shared/components/data-grid/hooks/use-elemen
 import type { ColumnVariant } from "../data/queries";
 import type { WorkbenchTarget } from "../data/target";
 
-import { useDiceColumnDefs, type Row } from "./dice-grid-columns";
+import { cellOf, useDiceColumnDefs, type Row } from "./dice-grid-columns";
 import {
   diffEditedRow,
   errText,
@@ -70,7 +72,7 @@ export function DiceResultGrid({
   onOpenRef,
   editable = false,
   primaryKey,
-  onUpdateRow,
+  onStageEdit,
   onDeleteRow,
   selectable = false,
   onSelectionChange,
@@ -89,7 +91,12 @@ export function DiceResultGrid({
   editable?: boolean;
   /** Primary-key columns, required to target a row; empty disables editing. */
   primaryKey?: string[];
-  onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
+  /**
+   * Stage an inline edit. Given the row's key and what changed, with each
+   * change carrying the value it is replacing so the review drawer can show a
+   * real before → after.
+   */
+  onStageEdit?: (pk: ColumnValue[], changes: Array<ColumnValue & { previous: CellValue }>) => void;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
   /** Show the multi-select checkbox column (bulk delete / export selected). */
   selectable?: boolean;
@@ -118,10 +125,22 @@ export function DiceResultGrid({
 
   // The grid emits the full next array after an inline edit. Diff it against the
   // pre-edit rows to find the changed row + columns, then persist that row.
+  /**
+   * An inline edit becomes a DRAFT, not an UPDATE.
+   *
+   * The predecessor fired a statement the moment focus left a cell, so editing
+   * four columns of a row was four statements and a violation on the fourth
+   * left the row half-changed. Here the edit is staged: the grid shows it, the
+   * bar counts it, and the whole set commits as one transaction.
+   *
+   * An edit that does not parse into the column's kind is still rejected on the
+   * spot, because staging a value the database will certainly refuse only moves
+   * the error further from the keystroke that caused it.
+   */
   const handleDataChange = (next: Row[]) => {
     const prev = data;
     setData(next);
-    if (!canEdit || !onUpdateRow) return;
+    if (!canEdit || !onStageEdit) return;
     for (let i = 0; i < next.length; i++) {
       const before = prev[i];
       const after = next[i];
@@ -132,13 +151,16 @@ export function DiceResultGrid({
         toast.error(diff.invalid);
         continue;
       }
-      const set = diff.set;
-      if (set.length === 0) continue;
-      onUpdateRow(pkFor(before), set).catch((err) => {
-        // Revert just this row to its pre-edit value.
-        setData((cur) => cur.map((r) => (r === after ? before : r)));
-        toast.error(errText(err, "Couldn't save the change."));
-      });
+      if (diff.set.length === 0) continue;
+      onStageEdit(
+        pkFor(before),
+        diff.set.map((change) => ({
+          ...change,
+          // The pre-edit value, for the diff. Read from `before` so it is what
+          // the SERVER last returned, not whatever the cell showed a keystroke ago.
+          previous: cellOf(before[change.column]),
+        })),
+      );
     }
   };
 

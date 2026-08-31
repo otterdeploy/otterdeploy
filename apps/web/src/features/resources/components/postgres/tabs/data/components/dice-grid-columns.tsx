@@ -44,6 +44,19 @@ export function isNullCell(value: CellValue | string | undefined): boolean {
   return value === null || value === undefined;
 }
 
+/**
+ * A cell's committed value, ignoring any transient editor text.
+ *
+ * Used where a REAL `CellValue` is needed rather than something to render — the
+ * before-side of a diff, or a primary key. Post-edit text becomes a `text` cell
+ * as a last resort; callers that care about the column's true kind parse it
+ * themselves with `parseCell`.
+ */
+export function cellOf(value: CellValue | string | undefined): CellValue {
+  if (value === undefined) return null;
+  return typeof value === "string" ? { k: "text", v: value } : value;
+}
+
 export function useDiceColumnDefs({
   columns,
   hiddenColumns,
