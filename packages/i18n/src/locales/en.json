@@ -877,13 +877,15 @@
     "publicListsSubtitle": "Well-known free lists, no CrowdSec account needed. One click to add.",
     "removeListDescription": "The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later.",
     "block": "Block",
-    "blocking": "Blocking…",
+    "unblock": "Unblock",
+    "blockForLength": "Block {{ip}} for a chosen length",
     "duration": {
       "hour1": "1 hour",
       "hours24": "24 hours",
       "days7": "7 days",
       "days30": "30 days",
-      "days180": "180 days"
+      "days180": "180 days",
+      "forever": "Forever"
     }
   },
   "gitProviders": {

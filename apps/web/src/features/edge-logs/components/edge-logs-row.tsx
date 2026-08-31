@@ -24,7 +24,6 @@ export function EdgeRow({
   open,
   onToggle,
   onBlockIp,
-  blocking,
   banned,
 }: {
   row: EdgeLog;
@@ -32,7 +31,6 @@ export function EdgeRow({
   open: boolean;
   onToggle: () => void;
   onBlockIp?: (ip: string) => void;
-  blocking: boolean;
   /** This client IP currently has an active CrowdSec ban. */
   banned: boolean;
 }) {
@@ -134,15 +132,7 @@ export function EdgeRow({
           {shortUserAgent(row.userAgent)}
         </TableCell>
       </TableRow>
-      {open ? (
-        <EdgeRowDetail
-          row={row}
-          wrap={wrap}
-          onBlockIp={onBlockIp}
-          blocking={blocking}
-          banned={banned}
-        />
-      ) : null}
+      {open ? <EdgeRowDetail row={row} wrap={wrap} onBlockIp={onBlockIp} banned={banned} /> : null}
     </>
   );
 }
@@ -153,13 +143,11 @@ function EdgeRowDetail({
   row,
   wrap,
   onBlockIp,
-  blocking,
   banned,
 }: {
   row: EdgeLog;
   wrap: boolean;
   onBlockIp?: (ip: string) => void;
-  blocking: boolean;
   banned: boolean;
 }) {
   const headers = Object.entries(row.headers);
@@ -187,7 +175,7 @@ function EdgeRowDetail({
                 Blocked at the edge
               </span>
             ) : onBlockIp ? (
-              <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} blocking={blocking} />
+              <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} />
             ) : null}
           </div>
           <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">

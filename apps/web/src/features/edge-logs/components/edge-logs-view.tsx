@@ -75,7 +75,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
 
   // Active CrowdSec bans + block actions (single from a row, bulk from the
   // suspicious filter). CrowdSec-enforced; reversible from the Firewall view.
-  const { bannedIps, block, blockMany, canBlock } = useEdgeBans();
+  const { bannedIps, blockIp, blockAll, canBlock } = useEdgeBans();
 
   const data = query.data;
   // Already narrowed server-side when the filter is on: the row list IS the
@@ -126,10 +126,9 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           count={probes.count}
           ips={probes.ips}
           onToggle={() => setSuspiciousOnly((v) => !v)}
-          blocking={blockMany.isPending}
           // Blocking is install-scoped; without the action the filter toggle
           // still works, so the control stays and only the button goes.
-          onBlockAll={canBlock ? () => blockMany.mutate({ ips: probes.ips }) : undefined}
+          onBlockAll={canBlock ? () => blockAll(probes.ips) : undefined}
         />
         <Button
           variant="outline"
@@ -157,8 +156,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         expanded={expanded}
         setExpanded={setExpanded}
         isLoading={query.isLoading}
-        onBlockIp={canBlock ? (ip) => block.mutate({ ip }) : undefined}
-        blocking={block.isPending}
+        onBlockIp={canBlock ? blockIp : undefined}
         bannedIps={bannedIps}
       />
 
@@ -179,7 +177,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
  */
 function probeFacts(
   data: EdgeLogsData | undefined,
-  bannedIps: Set<string>,
+  bannedIps: ReadonlySet<string>,
 ): { count: number; ips: string[] } {
   return {
     count: data?.suspiciousTotal ?? 0,
@@ -200,14 +198,12 @@ function SuspiciousControls({
   count,
   ips,
   onToggle,
-  blocking,
   onBlockAll,
 }: {
   active: boolean;
   count: number;
   ips: string[];
   onToggle: () => void;
-  blocking: boolean;
   /** Absent when the viewer can't block. The toggle stays, the action goes. */
   onBlockAll?: () => void;
 }) {
@@ -227,7 +223,7 @@ function SuspiciousControls({
         Suspicious{count > 0 ? ` (${count})` : ""}
       </Button>
       {active && ips.length > 0 && onBlockAll ? (
-        <BlockAllButton count={ips.length} blocking={blocking} onConfirm={onBlockAll} />
+        <BlockAllButton count={ips.length} onConfirm={onBlockAll} />
       ) : null}
     </>
   );

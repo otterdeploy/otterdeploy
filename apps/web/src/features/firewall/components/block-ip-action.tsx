@@ -28,33 +28,20 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-/**
- * Ban lengths offered by the manual block form (hours).
- *
- * Labels are i18n keys, not text: "7 days" pluralises and declines
- * differently per language, so the string has to be resolved at render.
- */
-const BLOCK_DURATIONS = [
-  { hours: 1, labelKey: "firewall.duration.hour1" },
-  { hours: 24, labelKey: "firewall.duration.hours24" },
-  { hours: 168, labelKey: "firewall.duration.days7" },
-  { hours: 720, labelKey: "firewall.duration.days30" },
-  { hours: 4320, labelKey: "firewall.duration.days180" },
-] as const;
+import { BAN_DURATIONS } from "../ban-durations";
+import { DEFAULT_BAN_HOURS } from "../decisions";
 
 export function BlockIpAction({
   onBlock,
-  blocking,
 }: {
   onBlock: (ip: string, durationHours: number) => void;
-  blocking: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   // Rebuilt when the language changes; `Select` values round-trip as strings.
-  const items = BLOCK_DURATIONS.map((d) => ({ value: String(d.hours), label: t(d.labelKey) }));
+  const items = BAN_DURATIONS.map((d) => ({ value: String(d.hours), label: t(d.labelKey) }));
   const form = useForm({
-    defaultValues: { ip: "", hours: 720 },
+    defaultValues: { ip: "", hours: DEFAULT_BAN_HOURS },
     onSubmit: ({ value, formApi }) => {
       const ip = value.ip.trim();
       if (!ip) return;
@@ -126,10 +113,12 @@ export function BlockIpAction({
               </div>
             )}
           </form.Field>
+          {/* No pending state: the ban is applied optimistically the moment
+              the form is submitted, and the popover closes on the same tick. */}
           <form.Subscribe selector={(s) => s.values.ip.trim().length === 0}>
             {(empty) => (
-              <Button type="submit" size="sm" disabled={blocking || empty}>
-                {blocking ? t("firewall.blocking") : t("firewall.block")}
+              <Button type="submit" size="sm" disabled={empty}>
+                {t("firewall.block")}
               </Button>
             )}
           </form.Subscribe>

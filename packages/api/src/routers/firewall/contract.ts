@@ -45,6 +45,23 @@ const ipValue = z
   .max(64)
   .regex(/^[0-9a-fA-F:.]+(\/\d{1,3})?$/, "Enter a valid IP address or CIDR range.");
 
+/**
+ * "Never expires", expressed in the only vocabulary CrowdSec has: a duration.
+ *
+ * There is no infinite decision — `cscli decisions add` takes a Go duration and
+ * the LAPI counts it down — so a permanent ban is a hundred years (876,000h,
+ * comfortably inside Go's ~292-year `time.Duration` ceiling). The UI shows it
+ * as "permanent" rather than "36500d 0h", because nobody blocking a scanner
+ * means "until 2126"; they mean "until I say otherwise", and unblocking is the
+ * way to say otherwise.
+ */
+export const PERMANENT_BAN_HOURS = 876_000;
+
+/** Every manual ban length the API accepts: an hour at the shortest, forever at
+ *  the longest. The default (30 days) is what a one-click block from a table
+ *  applies. */
+const banDurationHours = z.number().int().min(1).max(PERMANENT_BAN_HOURS).default(720);
+
 const blockResultSchema = z.object({
   ok: z.boolean(),
   /** Human-readable failure (agent down, cscli error): null on success. */
@@ -190,8 +207,8 @@ export const firewallContract = {
     .input(
       z.object({
         ip: ipValue,
-        /** Ban length in hours. Default 30 days. */
-        durationHours: z.number().int().min(1).max(8760).default(720),
+        /** Ban length in hours. Default 30 days; `PERMANENT_BAN_HOURS` = never. */
+        durationHours: banDurationHours,
         /** Free-text note; defaults to `manual:<actorId>` in the handler. */
         reason: z.string().max(120).optional(),
       }),
@@ -204,7 +221,7 @@ export const firewallContract = {
     .input(
       z.object({
         ips: z.array(ipValue).min(1).max(100),
-        durationHours: z.number().int().min(1).max(8760).default(720),
+        durationHours: banDurationHours,
         reason: z.string().max(120).optional(),
       }),
     )

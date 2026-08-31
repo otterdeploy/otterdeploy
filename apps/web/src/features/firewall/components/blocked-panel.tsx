@@ -19,7 +19,8 @@ import type { BlockedRow } from "../blocked-rows";
 import type { BlockedRange, BlockedState } from "../data";
 
 import { blockedFields, liveRows, recordedRows } from "../blocked-rows";
-import { decisionsQuery, historyQuery } from "../data";
+import { historyQuery } from "../data";
+import { useCanBlock, useDecisions } from "../decisions";
 import { filterRows } from "../search";
 import { BLOCKED_COLUMNS, BlockedCard, BlockedTableRow } from "./blocked-rows-view";
 import {
@@ -42,14 +43,17 @@ import {
  */
 export function useBlockedRows(range: BlockedRange, state: BlockedState, search: string) {
   const isNow = range === "now";
-  const live = useQuery(decisionsQuery());
+  // The live half comes from the decision collection, not a query, so a block
+  // or an unblock shows up in this table the moment it is clicked rather than
+  // on the next fifteen-second poll.
+  const canBlock = useCanBlock();
+  const live = useDecisions(canBlock);
   // Only fetched at the ranges that read it; the live poll is always on,
   // because the tab badge and the access log's ban markers both need it.
   // The window argument is inert while disabled, but has to stay a valid one
   // so the key doesn't churn on the way back to `now`.
   const recorded = useQuery({ ...historyQuery(isNow ? "7d" : range, "all"), enabled: !isNow });
-  const source = isNow ? live : recorded;
-  const rows = isNow ? liveRows(live.data ?? []) : recordedRows(recorded.data ?? []);
+  const rows = isNow ? liveRows(live.decisions) : recordedRows(recorded.data ?? []);
 
   // Search first, then state. Doing it in this order is what lets the state
   // filter's counts describe the set you are actually looking at: search
@@ -65,8 +69,8 @@ export function useBlockedRows(range: BlockedRange, state: BlockedState, search:
       enforcing,
       expired: searched.length - enforcing,
     },
-    loading: source.isLoading,
-    liveCount: live.data?.length ?? 0,
+    loading: isNow ? live.loading : recorded.isLoading,
+    liveCount: live.decisions.length,
   };
 }
 
@@ -82,7 +86,6 @@ export function BlockedPanel({
   state,
   searching,
   onUnblock,
-  unblocking,
 }: {
   rows: readonly BlockedRow[];
   /** Rows before the search box narrowed them, for the "n of m" footer. */
@@ -94,7 +97,6 @@ export function BlockedPanel({
   state: BlockedState;
   searching: boolean;
   onUnblock: (ip: string) => void;
-  unblocking: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const toggle = (row: BlockedRow) => setOpenKey((k) => (k === row.key ? null : row.key));
@@ -118,7 +120,6 @@ export function BlockedPanel({
               open={openKey === row.key}
               onToggle={() => toggle(row)}
               onUnblock={onUnblock}
-              unblocking={unblocking}
             />
           ))
         )}
@@ -143,7 +144,6 @@ export function BlockedPanel({
                 open={openKey === row.key}
                 onToggle={() => toggle(row)}
                 onUnblock={onUnblock}
-                unblocking={unblocking}
               />
             ))
           )}
