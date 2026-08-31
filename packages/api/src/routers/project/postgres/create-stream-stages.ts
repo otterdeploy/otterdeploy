@@ -65,6 +65,10 @@ export async function* persistDbRecordStage(
       publicPort: PLATFORM.database.publicPort,
       publicConnectionString: ctx.publicConnectionString,
       internalHostname: ctx.internalHostname,
+      // Recorded once so every later lookup reads instead of recomputing
+      // (od-jwx). Same strings the computation produces today.
+      serviceName: ctx.containerName,
+      volumeName: ctx.volumeName,
       internalPort: ctx.adapter.port,
       internalConnectionString: ctx.internalConnectionString,
       upstreamHost: ctx.internalHostname,
