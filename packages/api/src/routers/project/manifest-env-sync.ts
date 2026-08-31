@@ -83,6 +83,28 @@ export async function syncManifestDatabaseExtraEnv(
   });
 }
 
+/**
+ * The applied values, except where the declaration is OPAQUE.
+ *
+ * A declared `${secret}` or `${…ref}` must survive: the live row holds the
+ * resolved value, so writing it back would destroy the declaration and put the
+ * resolved secret in the manifest as cleartext.
+ */
+function mergeAppliedOverDeclared(
+  declared: Record<string, string>,
+  applied: Record<string, string>,
+): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [key, value] of Object.entries(applied)) {
+    const declaredValue = declared[key];
+    const opaque =
+      declaredValue !== undefined &&
+      (isSecretSentinel(declaredValue) || parseRefs(declaredValue).length > 0);
+    next[key] = opaque ? declaredValue : value;
+  }
+  return next;
+}
+
 /** Which manifest slot a service's declared env lives in. */
 export type ManifestEnvTarget =
   | { kind: "service"; name: string }
@@ -111,14 +133,7 @@ async function syncStackChildEnv(
   const stack = manifest.composes?.[target.stackName];
   if (!stack) return;
   const declared = stack.services?.[target.composeService]?.env ?? {};
-  const next: Record<string, string> = {};
-  for (const [key, value] of Object.entries(applied)) {
-    const declaredValue = declared[key];
-    const opaque =
-      declaredValue !== undefined &&
-      (isSecretSentinel(declaredValue) || parseRefs(declaredValue).length > 0);
-    next[key] = opaque ? declaredValue : value;
-  }
+  const next = mergeAppliedOverDeclared(declared, applied);
   const declaredKeys = Object.keys(declared);
   const nextKeys = Object.keys(next);
   const unchanged =
@@ -162,6 +177,8 @@ export async function syncManifestServiceEnv(
    *  (od-uhot): this function looked in one place and returned. */
   target: ManifestEnvTarget,
   applied: Record<string, string>,
+  /** Keys the operator has flagged sensitive, from the live rows. */
+  secretKeys: readonly string[] = [],
 ): Promise<void> {
   const row = await loadManifest(scope);
   if (row.isErr()) return;
@@ -177,21 +194,34 @@ export async function syncManifestServiceEnv(
     return;
   }
   const declared = entry.env;
-  const next: Record<string, string> = {};
-  for (const [key, value] of Object.entries(applied)) {
-    const declaredValue = declared[key];
-    const opaque =
-      declaredValue !== undefined &&
-      (isSecretSentinel(declaredValue) || parseRefs(declaredValue).length > 0);
-    next[key] = opaque ? declaredValue : value;
-  }
+  const next = mergeAppliedOverDeclared(declared, applied);
+  // Which keys the operator marked sensitive, recorded so the next apply does
+  // not re-insert them unflagged (od-w2r). Undefined when nothing is flagged,
+  // so a manifest that never used the field does not grow an empty array.
+  const nextSecrets = secretKeys.length > 0 ? [...secretKeys] : undefined;
   const declaredKeys = Object.keys(declared);
   const nextKeys = Object.keys(next);
   const unchanged =
-    declaredKeys.length === nextKeys.length && nextKeys.every((k) => declared[k] === next[k]);
+    declaredKeys.length === nextKeys.length &&
+    nextKeys.every((k) => declared[k] === next[k]) &&
+    sameKeySet(entry.secrets, nextSecrets);
   if (unchanged) return;
   await saveManifest(scope, {
-    manifest: { ...manifest, services: { ...manifest.services, [name]: { ...entry, env: next } } },
+    manifest: {
+      ...manifest,
+      services: {
+        ...manifest.services,
+        [name]: { ...entry, env: next, ...(nextSecrets ? { secrets: nextSecrets } : {}) },
+      },
+    },
     expectedVersion: row.value.version,
   });
+}
+
+/** Same keys, order-insensitive. Two lists that differ only in order are not
+ *  a change worth bumping the manifest version for. */
+function sameKeySet(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  const left = [...(a ?? [])].sort();
+  const right = [...(b ?? [])].sort();
+  return left.length === right.length && left.every((k, i) => k === right[i]);
 }
