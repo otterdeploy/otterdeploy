@@ -23,8 +23,8 @@ import type { BlockedRange, BlockedState, FirewallWindow } from "../data";
 import type { FirewallTab } from "../tabs";
 
 import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
-import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
 import { flaggedFields, flaggedQuery, prefetchFirewall, statusQuery } from "../data";
+import { blockIps, unblockIp, useBannedIps, useCanBlock } from "../decisions";
 import { filterRows } from "../search";
 import { useFirewallActions } from "../use-firewall-actions";
 import { BlockIpAction } from "./block-ip-action";
@@ -68,9 +68,11 @@ export function FirewallView() {
   const flaggedRows = flagged.data ?? [];
   const flaggedShown = filterRows(flaggedRows, search, flaggedFields);
 
-  // Active bans flip already-blocked rows to a passive "Blocked" state; the
-  // hook refreshes both after each block.
-  const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());
+  // Active bans decide which affordance a Flagged row offers (Block, or
+  // Unblock). Read from the decision collection, so a block applied on one row
+  // is reflected here on the same tick rather than after the next poll.
+  const canBlock = useCanBlock();
+  const bannedIps = useBannedIps(canBlock);
   const actions = useFirewallActions();
 
   // Mass-block acts on what is ON SCREEN, not on the whole window: an operator
@@ -108,17 +110,10 @@ export function FirewallView() {
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       <FirewallHeader configured={configured} reachable={reachable}>
         {tab === "flagged" && blockTargets.length > 0 ? (
-          <BlockAllButton
-            count={blockTargets.length}
-            blocking={blockMany.isPending}
-            onConfirm={() => blockMany.mutate({ ips: blockTargets })}
-          />
+          <BlockAllButton count={blockTargets.length} onConfirm={() => blockIps(blockTargets)} />
         ) : null}
         {usable ? (
-          <BlockIpAction
-            onBlock={(ip, durationHours) => actions.block.mutate({ ip, durationHours })}
-            blocking={actions.block.isPending}
-          />
+          <BlockIpAction onBlock={(ip, durationHours) => blockIps([ip], durationHours)} />
         ) : null}
         <Button
           variant="outline"
@@ -173,8 +168,6 @@ export function FirewallView() {
           loading={flagged.isLoading}
           searching={searching}
           bannedIps={bannedIps}
-          onBlock={(ip) => block.mutate({ ip })}
-          blocking={block.isPending}
         />
       ) : usable ? (
         <BlockedPanel
@@ -184,8 +177,7 @@ export function FirewallView() {
           range={range}
           state={state}
           searching={searching}
-          onUnblock={(ip) => actions.unblock.mutate({ ip })}
-          unblocking={actions.unblock.isPending}
+          onUnblock={unblockIp}
         />
       ) : (
         <FirewallDisabledCard />

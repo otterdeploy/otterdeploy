@@ -877,13 +877,15 @@
     "publicListsSubtitle": "Bekannte kostenlose Listen, kein CrowdSec-Konto nötig. Mit einem Klick hinzufügen.",
     "removeListDescription": "Die Liste und alle von ihr importierten IPs werden aus der Firewall entfernt. Du kannst sie später aus dem Katalog oder per URL erneut hinzufügen.",
     "block": "Sperren",
-    "blocking": "Wird gesperrt…",
+    "unblock": "Entsperren",
+    "blockForLength": "{{ip}} für einen gewählten Zeitraum sperren",
     "duration": {
       "hour1": "1 Stunde",
       "hours24": "24 Stunden",
       "days7": "7 Tage",
       "days30": "30 Tage",
-      "days180": "180 Tage"
+      "days180": "180 Tage",
+      "forever": "Dauerhaft"
     }
   },
   "gitProviders": {

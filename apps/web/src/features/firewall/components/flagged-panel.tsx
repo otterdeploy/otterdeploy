@@ -10,9 +10,6 @@
  * default): that is the honest ceiling, which is why the empty state names the
  * window rather than letting an empty 7d view read as "nobody ever probed us".
  */
-import { useTranslation } from "react-i18next";
-
-import { Button } from "@/shared/components/ui/button";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/shared/components/ui/table";
 import { CLOCK_EXACT, clockFormatter, epochMsFromIso } from "@/shared/lib/clock";
 import { timeAgo } from "@/shared/lib/time";
@@ -33,6 +30,7 @@ import {
   TableSkeletonRows,
   TEXT_CLASS,
 } from "./firewall-table";
+import { FlaggedRowAction } from "./flagged-row-action";
 
 /** Same rule as the Blocked table: the columns an operator scans (who, where,
  *  how hard, against what) always show, and "First seen" — the one fact the
@@ -63,38 +61,22 @@ export function FlaggedPanel({
   loading,
   searching,
   bannedIps,
-  onBlock,
-  blocking,
 }: {
   rows: readonly FlaggedRow[];
   total: number;
   loading: boolean;
   searching: boolean;
   bannedIps: ReadonlySet<string>;
-  onBlock: (ip: string) => void;
-  blocking: boolean;
 }) {
-  const { t } = useTranslation();
   const empty = searching
     ? "No probing IP matches that search."
     : "No suspicious probing in this window. Scanner traffic to your domains appears here.";
 
-  const action = (row: FlaggedRow) =>
-    bannedIps.has(row.ip) ? (
-      <span className="text-xs text-muted-foreground" title={t("firewall.alreadyBanned")}>
-        Blocked
-      </span>
-    ) : (
-      <Button
-        variant="outline"
-        size="xs"
-        className="text-destructive hover:text-destructive"
-        onClick={() => onBlock(row.ip)}
-        disabled={blocking}
-      >
-        Block
-      </Button>
-    );
+  // Per row, and stateless: the block is optimistic, so there is no pending
+  // flag for one row's click to impose on the other seventy-nine.
+  const action = (row: FlaggedRow) => (
+    <FlaggedRowAction ip={row.ip} banned={bannedIps.has(row.ip)} />
+  );
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">

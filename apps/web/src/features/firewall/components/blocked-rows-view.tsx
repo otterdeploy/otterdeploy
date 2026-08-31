@@ -58,7 +58,6 @@ interface RowProps {
   open: boolean;
   onToggle: () => void;
   onUnblock: (ip: string) => void;
-  unblocking: boolean;
 }
 
 /** Blue, not red: an enforced ban is the firewall WORKING, and red here made a
@@ -96,7 +95,7 @@ function Scenario({ row }: { row: BlockedRow }) {
   );
 }
 
-function UnblockButton({ row, onUnblock, unblocking }: Omit<RowProps, "open" | "onToggle">) {
+function UnblockButton({ row, onUnblock }: Omit<RowProps, "open" | "onToggle">) {
   return (
     <button
       type="button"
@@ -105,15 +104,14 @@ function UnblockButton({ row, onUnblock, unblocking }: Omit<RowProps, "open" | "
         e.stopPropagation();
         onUnblock(row.value);
       }}
-      disabled={unblocking}
-      className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+      className="text-xs text-muted-foreground transition-colors hover:text-foreground"
     >
       Unblock
     </button>
   );
 }
 
-export function BlockedTableRow({ row, open, onToggle, onUnblock, unblocking }: RowProps) {
+export function BlockedTableRow({ row, open, onToggle, onUnblock }: RowProps) {
   const expandable = isExpandable(row);
   return (
     <>
@@ -153,7 +151,7 @@ export function BlockedTableRow({ row, open, onToggle, onUnblock, unblocking }: 
         </TableCell>
         <TableCell className="text-right">
           {row.enforcing && isUnblockable(row) ? (
-            <UnblockButton row={row} onUnblock={onUnblock} unblocking={unblocking} />
+            <UnblockButton row={row} onUnblock={onUnblock} />
           ) : null}
         </TableCell>
       </TableRow>
@@ -168,7 +166,7 @@ export function BlockedTableRow({ row, open, onToggle, onUnblock, unblocking }: 
   );
 }
 
-export function BlockedCard({ row, open, onToggle, onUnblock, unblocking }: RowProps) {
+export function BlockedCard({ row, open, onToggle, onUnblock }: RowProps) {
   const expandable = isExpandable(row);
   return (
     <div>
@@ -177,7 +175,7 @@ export function BlockedCard({ row, open, onToggle, onUnblock, unblocking }: RowP
         expanded={expandable ? open : undefined}
         action={
           row.enforcing && isUnblockable(row) ? (
-            <UnblockButton row={row} onUnblock={onUnblock} unblocking={unblocking} />
+            <UnblockButton row={row} onUnblock={onUnblock} />
           ) : null
         }
       >

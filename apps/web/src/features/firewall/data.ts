@@ -68,16 +68,15 @@ export function flaggedFields(row: FlaggedRow): ReadonlyArray<string | number | 
 }
 
 /**
- * Live decisions. Polled, because this is the one view that answers "what is
- * blocked right now" and a stale answer there is a wrong answer. The poll is
- * what makes the 15s stale time safe: the data is never older than the tick.
+ * Live decisions, for the prefetch only.
+ *
+ * Nothing renders from this query. The decisions themselves live in
+ * `./decisions`, a collection whose observer polls the SAME key — so warming
+ * that key here means the collection has its first answer before anything
+ * subscribes, which is the whole point of the prefetch. The poll and the stale
+ * time belong to the collection; this just fills the cache entry it reads.
  */
-export const decisionsQuery = () => ({
-  ...orpc.firewall.decisions.queryOptions(),
-  staleTime: 15_000,
-  refetchInterval: 15_000,
-  placeholderData: keepPreviousData,
-});
+const decisionsQuery = () => orpc.firewall.decisions.queryOptions();
 
 /** Agent reachability. Cheap, and it drives whether the rest of the page is
  *  even meaningful, so it polls alongside decisions. */

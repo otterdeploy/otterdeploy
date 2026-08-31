@@ -1,53 +1,25 @@
 /**
- * The Firewall's two write paths and its refresh, lifted out of the view.
+ * The Firewall's refresh.
  *
- * Both mutations end the same way: tell the operator what happened, then drop
- * the decisions cache so every surface reading it (this table, the Flagged
- * tab's "already blocked" markers, the access log's row badges) agrees about
- * the new state. That used to be a `decisions.refetch()` on one query object,
- * which left the other readers stale until their own poll came round.
+ * This file used to hold the block and unblock mutations too. They are now
+ * transactions over `./decisions`, because a `useMutation` per view meant one
+ * `isPending` boolean shared by every row of a table: blocking one address
+ * disabled the Block button on all the others, and nothing moved on screen
+ * until the round-trip and the next poll had both landed.
+ *
+ * What is left is the read side. One button, because an operator refreshing a
+ * security page means "tell me what is true now", not "re-run whichever tab
+ * this happens to be showing" — so it drops the whole `firewall` cache, which
+ * every surface reading it (both tables, the access log's row badges) then
+ * re-answers together. Resolves when the refetches settle, so the button can
+ * spin for exactly that long.
  */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
 export function useFirewallActions() {
   const queryClient = useQueryClient();
-  const invalidateDecisions = () =>
-    void queryClient.invalidateQueries({ queryKey: orpc.firewall.decisions.key() });
-
-  const block = useMutation({
-    ...orpc.firewall.block.mutationOptions(),
-    onSuccess: (r, vars) => {
-      if (r.ok) {
-        toast.success(`Blocked ${vars.ip}`);
-        invalidateDecisions();
-      } else {
-        toast.error(r.error ?? "Block failed");
-      }
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Block failed"),
-  });
-
-  const unblock = useMutation({
-    ...orpc.firewall.unblock.mutationOptions(),
-    onSuccess: (r, vars) => {
-      if (r.ok) {
-        toast.success(`Unblocked ${vars.ip}`);
-        invalidateDecisions();
-      } else {
-        toast.error(r.error ?? "Unblock failed");
-      }
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Unblock failed"),
-  });
-
-  /** Everything the view can show, refetched together. One button, because an
-   *  operator refreshing a security page means "tell me what is true now", not
-   *  "re-run whichever query this tab happens to be showing". Resolves when
-   *  the refetches settle, so the button can spin for exactly that long. */
   const refresh = () => queryClient.invalidateQueries({ queryKey: orpc.firewall.key() });
-
-  return { block, unblock, refresh };
+  return { refresh };
 }

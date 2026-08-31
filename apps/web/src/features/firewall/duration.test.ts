@@ -20,6 +20,12 @@ describe("humanizeGoDuration", () => {
     expect(humanizeGoDuration("0s")).toBe("expired");
   });
 
+  test("a hundred-year ban reads as permanent, a 180-day one does not", () => {
+    expect(humanizeGoDuration("876000h0m0s")).toBe("permanent");
+    expect(humanizeGoDuration("875999h59m1s")).toBe("permanent");
+    expect(humanizeGoDuration("4320h0m0s")).toBe("180d");
+  });
+
   test("unparseable input passes through", () => {
     expect(humanizeGoDuration("forever")).toBe("forever");
     expect(humanizeGoDuration("")).toBe("");
