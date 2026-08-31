@@ -30,7 +30,11 @@ export function useServiceRuntimeActions({
     navigate({
       to: "/$orgSlug/$projectSlug/graph/$resourceId",
       params: { orgSlug, projectSlug, resourceId },
-      search: { tab: "logs", deployment: deploymentId, logSource },
+      // Spread, don't replace: the active environment rides the URL as `?env=`
+      // (see use-active-environment), so a literal search object silently
+      // dropped it and bounced the operator from Staging back to the default
+      // environment on every Deploy or Restart (od-asc.7).
+      search: (prev) => ({ ...prev, tab: "logs", deployment: deploymentId, logSource }),
       replace: true,
     });
 
