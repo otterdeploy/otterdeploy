@@ -111,7 +111,9 @@ export function useGraphContextMenu({
         void navigate({
           to: "/$orgSlug/$projectSlug/logs",
           params: { orgSlug, projectSlug },
-          search: { service: node.data.resourceId, source: "runtime" },
+          // Spread: a literal search object drops `?env=` and resets the
+          // active environment. See od-asc.7.
+          search: (prev) => ({ ...prev, service: node.data.resourceId, source: "runtime" }),
         });
         return;
       }
