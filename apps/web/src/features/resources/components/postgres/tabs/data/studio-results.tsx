@@ -100,7 +100,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
         primaryKey={p.primaryKey}
         onStageEdit={p.onStageEdit}
         onDeleteRow={p.onDeleteRow}
-        selectable={t.mode === "table" && canMutateRows}
+        selectable={t.mode === "table"}
         selectedRows={selectedRows}
         onSelectionChange={setSelectedRows}
         enableRowDetail={t.mode === "table"}
@@ -123,6 +123,7 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
               studio={studio}
               selectedRows={selectedRows}
               deleteProgress={null}
+              canDelete={canMutateRows}
               onDeleteSelected={() => setConfirmDelete(selectedRows)}
             />
           </>
@@ -148,9 +149,6 @@ function DefinitionsPane({ studio }: { studio: DataStudioController }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
         <DataStructureToggle t={studio.table} />
-        <span className="truncate font-mono text-[11px] text-muted-foreground">
-          schema objects across the whole database
-        </span>
       </div>
       <DefinitionsView
         target={studio.table.target}

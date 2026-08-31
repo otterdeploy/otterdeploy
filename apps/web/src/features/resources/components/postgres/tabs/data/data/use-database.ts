@@ -14,7 +14,7 @@
  * `data.browse`, which takes a filter MODEL rather than a statement. The client
  * no longer authors SQL for anything except the explicit SQL runner.
  */
-import type { CellKind, ColumnMeta, Filter, Sort } from "@otterdeploy/data-engine";
+import type { CellKind, ColumnMeta } from "@otterdeploy/data-engine";
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -123,52 +123,7 @@ export function useDataCapabilities(target: WorkbenchTarget) {
   return { data: { canWrite: meta?.canWrite ?? false } };
 }
 
-/**
- * A page of rows for the table browser.
- *
- * Filters and sorts travel as a MODEL. The server compiles them with the
- * operands bound as parameters and the column names checked against the
- * table's real columns, so neither can carry syntax into the statement — which
- * the old `buildWhere` string interpolation could not promise.
- */
-export function useBrowseRows({
-  target,
-  table,
-  filters,
-  sorts,
-  limit,
-  offset,
-  enabled,
-  keepPrevious,
-}: {
-  target: WorkbenchTarget;
-  table: TableRef | null;
-  filters: Filter[];
-  sorts: Sort[];
-  limit: number;
-  offset: number;
-  enabled: boolean;
-  keepPrevious: boolean;
-}) {
-  return useQuery({
-    ...orpc.data.browse.queryOptions({
-      input: {
-        target,
-        schema: table?.schema ?? "",
-        table: table?.name ?? "",
-        columns: [],
-        filters,
-        sorts,
-        limit,
-        offset,
-      },
-    }),
-    enabled: enabled && Boolean(table),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    placeholderData: keepPrevious ? (prev) => prev : undefined,
-  });
-}
+export { useBrowseRows, type BrowseRowsResult } from "./use-browse-rows";
 
 /**
  * Column detail for the Structure view and the Add-record modal.

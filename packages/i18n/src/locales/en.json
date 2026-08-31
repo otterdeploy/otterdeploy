@@ -180,8 +180,8 @@
     "newService": "+ New service",
     "workspace": "Workspace",
     "backups": "Backups",
-    "data": "Data",
-    "storage": "Storage",
+    "data": "Workbench",
+    "storage": "Buckets",
     "edge": "Edge",
     "audit": "Audit",
     "gitProviders": "Git providers",
@@ -202,7 +202,8 @@
       "infrastructure": "Infrastructure",
       "workspace": "Workspace",
       "account": "Account",
-      "instance": "Instance"
+      "instance": "Instance",
+      "data": "Data"
     },
     "secrets": "Secrets"
   },

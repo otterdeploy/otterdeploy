@@ -35,6 +35,8 @@ import { useElementHeight } from "@/shared/components/data-grid/hooks/use-elemen
 
 import type { WorkbenchTarget } from "../data/target";
 
+import { targetKey } from "../data/target";
+import { serializeRows, type CopyRowsFormat } from "./copy-rows-as";
 import { cellOf, useDiceColumnDefs, type Row } from "./dice-grid-columns";
 import {
   diffEditedRow,
@@ -45,6 +47,7 @@ import {
   useSelectionMirror,
 } from "./dice-grid-parts";
 import { FkRefPopover } from "./fk-ref-popover";
+import { useGridScrollMemory } from "./use-grid-scroll-memory";
 
 /**
  * A column predicate / assignment passed to the write endpoint.
@@ -74,6 +77,7 @@ export function DiceResultGrid({
   selectable = false,
   onSelectionChange,
   enableRowDetail = false,
+  exportName,
 }: {
   target: WorkbenchTarget;
   columns: readonly ColumnMeta[];
@@ -99,8 +103,10 @@ export function DiceResultGrid({
   selectable?: boolean;
   /** Selected row indices (into `rows`), newest state on every change. */
   onSelectionChange?: (indices: number[]) => void;
-  /** Show the per-row detail chevron + right-hand detail panel. */
+  /** Row click opens the right-hand detail panel. */
   enableRowDetail?: boolean;
+  /** Table name, for export filenames and "Copy as SQL". */
+  exportName?: string;
 }) {
   const [fk, setFk] = useState<{
     target: FkTarget;
@@ -179,14 +185,10 @@ export function DiceResultGrid({
     }
   };
 
-  const colDefs = useDiceColumnDefs({
-    columns,
-    hiddenColumns,
-    selectable,
-    enableRowDetail,
-    // Stable setState identity: keeps the memoized defs from re-building.
-    onOpenDetail: setDetailIndex,
-  });
+  const colDefs = useDiceColumnDefs({ columns, hiddenColumns, selectable });
+
+  const onRowClick = (e: React.MouseEvent) =>
+    enableRowDetail && openDetailFromRowClick(e, setDetailIndex);
 
   const handleRowSelectionChange = useSelectionMirror(onSelectionChange);
 
@@ -203,18 +205,36 @@ export function DiceResultGrid({
     meta: {
       fks: columnFks,
       onFkOpen: (target, value, anchor) => setFk({ target, value, anchor }),
+      onRowsCopyAs: (indices, format) =>
+        copyRowsToClipboard(indices, format, data, columns, exportName),
+    },
+    // The row's IDENTITY stays on screen while the rest scrolls: checkbox and
+    // primary key pin left, the way the reference viewer keeps the key column.
+    initialState: {
+      columnPinning: { left: [...(selectable ? ["select"] : []), ...(primaryKey ?? [])] },
     },
   });
 
   const [wrapRef, height] = useElementHeight<HTMLDivElement>();
+  // Column names stand in for the table's identity: the grid doesn't know the
+  // table's name, but the same table always presents the same columns.
+  const scrollKey = `od:grid-scroll:${targetKey(target)}:${columns.map((c) => c.name).join(",")}`;
+  useGridScrollMemory(wrapRef, scrollKey, rows.length > 0);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      <div ref={wrapRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- delegated
+          row-open; the row cells stay keyboard-reachable through the grid itself */}
+      <div ref={wrapRef} className="min-h-0 min-w-0 flex-1 overflow-hidden" onClick={onRowClick}>
         {/* No stretchColumns: it flex-grows every column to fill width, so
             resizing one redistributes the rest. Fixed widths = resize one, only
             that one changes (grid scrolls horizontally if columns overflow). */}
-        <DataGrid {...grid} height={height} />
+        {/* `rowHeight` is what selects the cell's line-clamp; leaving it unset
+            means NO clamp class applies and a long value wraps out of its row
+            and over its neighbours. One line per row is also the right default
+            for a database browser: every row the same height is what lets you
+            scan a column. Taller values are read in the row detail panel. */}
+        <DataGrid {...grid} height={height} rowHeight="short" />
       </div>
 
       <RowDetailSlot
@@ -247,5 +267,36 @@ export function DiceResultGrid({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Row click opens the detail panel — the ROW is the affordance, the way the
+ * Edge log viewer does it. The chevron column this replaces was a mostly empty
+ * gutter whose only job was being a smaller click target. Interactive bits
+ * inside the row (checkbox, FK chip, an editing cell) keep their own click;
+ * anything else on the row means "show me this one".
+ */
+function openDetailFromRowClick(event: React.MouseEvent, open: (index: number) => void) {
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest('button, a, input, [role="checkbox"], [contenteditable="true"]')) return;
+  const row = event.target.closest("[data-index]");
+  if (row instanceof HTMLElement && row.dataset.index !== undefined) {
+    open(Number(row.dataset.index));
+  }
+}
+
+function copyRowsToClipboard(
+  indices: number[],
+  format: CopyRowsFormat,
+  data: readonly Row[],
+  columns: readonly ColumnMeta[],
+  exportName: string | undefined,
+) {
+  const chosen = indices.flatMap((i) => (data[i] === undefined ? [] : [data[i]]));
+  const text = serializeRows(format, { tableName: exportName ?? "rows", columns, rows: chosen });
+  void navigator.clipboard.writeText(text);
+  toast.success(
+    `Copied ${chosen.length} row${chosen.length === 1 ? "" : "s"} as ${format.toUpperCase()}`,
   );
 }

@@ -24,22 +24,27 @@ import type { WorkbenchTarget } from "../data/target";
 import { useDefinitions } from "../data/use-database";
 import { ConstraintTable, EnumTable, IndexTable, Note } from "./definitions-tables";
 
-export type DefinitionSection = "indexes" | "constraints" | "enums";
+export type DefinitionsSection = "indexes" | "constraints" | "enums";
 
-const SECTIONS: ReadonlyArray<{ id: DefinitionSection; label: string }> = [
+export const DEFINITION_SECTIONS: ReadonlyArray<{ id: DefinitionsSection; label: string }> = [
   { id: "indexes", label: "Indexes" },
   { id: "constraints", label: "Constraints" },
   { id: "enums", label: "Enums" },
 ];
 
+/**
+ * `section` is controlled by the studio, not held here: the rail lists these
+ * three as destinations, so "open Definitions" and "open Constraints" have to
+ * be the same act.
+ */
 export function DefinitionsView({
   target,
   section,
   onSectionChange,
 }: {
   target: WorkbenchTarget;
-  section: DefinitionSection;
-  onSectionChange: (section: DefinitionSection) => void;
+  section: DefinitionsSection;
+  onSectionChange: (section: DefinitionsSection) => void;
 }) {
   const [search, setSearch] = useState("");
   const { data, isLoading, isError } = useDefinitions(target);
@@ -54,7 +59,7 @@ export function DefinitionsView({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-2 py-1.5">
-        {SECTIONS.map((s) => (
+        {DEFINITION_SECTIONS.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -108,7 +113,7 @@ function SectionBody({
   isLoading,
   isError,
 }: {
-  section: DefinitionSection;
+  section: DefinitionsSection;
   needle: string;
   data: Definitions;
   isLoading: boolean;

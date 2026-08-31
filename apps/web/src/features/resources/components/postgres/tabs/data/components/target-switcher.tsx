@@ -10,10 +10,10 @@
  * "It is not in the list" and "it is down" are different problems, and a
  * switcher that silently omits the second sends people looking for the first.
  */
-import { Database02Icon, Globe02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { Button } from "@/shared/components/ui/button";
+import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,40 +42,33 @@ export function TargetSwitcher({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 w-full max-w-none justify-start gap-2 px-2"
-          >
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                active === undefined
-                  ? "bg-muted-foreground/40"
-                  : active.healthy
-                    ? "bg-success"
-                    : "bg-warning",
-              )}
-            />
-            <span className="min-w-0 flex-1 truncate text-left font-medium">
-              {isLoading ? "Loading…" : (active?.name ?? "No database")}
-              {active ? (
-                <span className="font-mono text-[10px] font-normal text-muted-foreground">
-                  {` · ${active.engine}`}
-                </span>
-              ) : null}
-            </span>
-            {active?.readOnly ? (
-              <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9.5px] tracking-wide text-muted-foreground uppercase">
-                read-only
-              </span>
-            ) : null}
-            <span className="shrink-0 text-muted-foreground">⌄</span>
-          </Button>
-        }
-      />
+      {/* Styled as a crumb, not a form control: it lives in the header trail
+          next to the org switcher and has to read as the same species. */}
+      <DropdownMenuTrigger className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-popup-open:bg-accent">
+        <span
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            active === undefined
+              ? "bg-muted-foreground/40"
+              : active.healthy
+                ? "bg-success"
+                : "bg-warning",
+          )}
+        />
+        <span className="max-w-[18ch] truncate">
+          {isLoading ? "Loading…" : (active?.name ?? "No database")}
+        </span>
+        {active?.readOnly ? (
+          <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9.5px] tracking-wide text-muted-foreground uppercase">
+            read-only
+          </span>
+        ) : null}
+        <HugeiconsIcon
+          icon={ArrowDown01Icon}
+          strokeWidth={2}
+          className="size-3.5 shrink-0 text-muted-foreground"
+        />
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80">
         {options.managed.length > 0 ? (
           <DropdownMenuGroup>
@@ -127,11 +120,7 @@ function TargetItem({
       }}
       className={cn("gap-2", active && "bg-accent")}
     >
-      <HugeiconsIcon
-        icon={option.kind === "managed" ? Database02Icon : Globe02Icon}
-        strokeWidth={2}
-        className="size-3.5 shrink-0 text-muted-foreground"
-      />
+      <DatabaseLogo value={option.engine} size={20} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-[13px] font-medium">{option.name}</span>
         <span className="truncate font-mono text-[10.5px] text-muted-foreground">

@@ -169,6 +169,7 @@ export async function statObject(
 export function presignObject(
   target: StorageTarget,
   key: string,
+  method: "GET" | "PUT" = "GET",
 ): Result<{ url: string; expiresInSeconds: number }, StorageError> {
   const scoped = resolveKey(target, key);
   if (scoped.isErr()) return Result.err(scoped.error);
@@ -176,7 +177,7 @@ export function presignObject(
   return Result.try({
     try: () => ({
       url: clientFor(target).presign(scoped.value, {
-        method: "GET",
+        method,
         expiresIn: PRESIGN_SECONDS,
       }),
       expiresInSeconds: PRESIGN_SECONDS,

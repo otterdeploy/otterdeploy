@@ -26,6 +26,7 @@ import {
   normalizeStorageRoot,
   presignObject,
   resolveStorageTarget,
+  scanStorageStats,
   statObject,
 } from "../../storage";
 
@@ -81,6 +82,7 @@ export const storageRouter = {
           id: backupDestination.id,
           name: backupDestination.name,
           config: backupDestination.config,
+          status: backupDestination.status,
         })
         .from(backupDestination)
         .where(
@@ -105,6 +107,7 @@ export const storageRouter = {
               region: config.data.region ?? null,
               endpoint: config.data.endpoint ?? null,
               root: normalizeStorageRoot(config.data.prefix ?? undefined),
+              status: row.status,
             },
           ];
         }),
@@ -129,6 +132,18 @@ export const storageRouter = {
     },
   ),
 
+  stats: requirePermission({ backup: ["read"] }).storage.stats.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        storage: { bucketId: input.bucketId, prefix: input.prefix, stats: true },
+      });
+      const target = await open(context.activeOrganizationId, input.bucketId, errors);
+      const stats = await scanStorageStats(target, { prefix: input.prefix, q: input.q });
+      if (stats.isErr()) throw raise(stats.error, errors);
+      return stats.value;
+    },
+  ),
+
   stat: requirePermission({ backup: ["read"] }).storage.stat.handler(
     async ({ input, context, errors }) => {
       const target = await open(context.activeOrganizationId, input.bucketId, errors);
@@ -141,10 +156,10 @@ export const storageRouter = {
   presign: requirePermission({ backup: ["read"] }).storage.presign.handler(
     async ({ input, context, errors }) => {
       context.log.set({
-        storage: { bucketId: input.bucketId, key: input.key, presign: "GET" },
+        storage: { bucketId: input.bucketId, key: input.key, presign: input.method },
       });
       const target = await open(context.activeOrganizationId, input.bucketId, errors);
-      const url = presignObject(target, input.key);
+      const url = presignObject(target, input.key, input.method);
       if (url.isErr()) throw raise(url.error, errors);
       return url.value;
     },

@@ -9,22 +9,15 @@
  */
 import type { OrganizationId, UserId } from "@otterdeploy/shared/id";
 
-import { displayText } from "@otterdeploy/data-engine";
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
-import { env } from "@otterdeploy/env/server";
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { requirePermission } from "../..";
-import {
-  connect,
-  describeConnection,
-  execute,
-  parseConnectionUrl,
-  resolveExternalTarget,
-} from "../../data";
+import { describeConnection, parseConnectionUrl, resolveExternalTarget } from "../../data";
 import { encryptForDomain } from "../../lib/crypto";
 import { publishOrgBusEvent } from "../project/project-event-bus";
+import { allowsPrivateAddresses, probeVersion, testUrlHandler } from "./test-probe";
 
 /** Row shape every procedure here returns. Never includes the URL. */
 const SELECTION = {
@@ -40,18 +33,6 @@ const SELECTION = {
   createdAt: dataConnection.createdAt,
   lastConnectedAt: dataConnection.lastConnectedAt,
 };
-
-/**
- * Whether this instance may connect to private addresses.
- *
- * Off unless the operator turns it on. Someone running otterdeploy alongside a
- * database on the same host is a real case, but it has to be an instance-level
- * decision — otherwise any member could reach the metadata service or another
- * tenant's overlay address by pasting a URL.
- */
-function allowsPrivateAddresses(): boolean {
-  return env.DATA_ALLOW_PRIVATE_CONNECTIONS === true;
-}
 
 /** Rows this viewer may see: org-visible, plus their own private ones. */
 function visibleTo(organizationId: OrganizationId, viewerId: UserId | null) {
@@ -254,12 +235,9 @@ export function makeConnectionHandlers(deps: {
           // writable session on a production database.
           mode: "read-only",
         });
-        const connection = connect(target);
-
-        const startedAt = performance.now();
-        const grid = await execute(connection, { sql: "SELECT version()", params: [] });
-        if (grid.isErr()) {
-          throw errors.UNREACHABLE({ data: { reason: grid.error.message } });
+        const probe = await probeVersion(target);
+        if (probe.isErr()) {
+          throw errors.UNREACHABLE({ data: { reason: probe.error.message } });
         }
 
         await db
@@ -267,13 +245,10 @@ export function makeConnectionHandlers(deps: {
           .set({ lastConnectedAt: new Date() })
           .where(eq(dataConnection.id, input.id));
 
-        const cell = grid.value.rows[0]?.[0];
-        return {
-          ok: true,
-          durationMs: Math.round(performance.now() - startedAt),
-          serverVersion: cell === null || cell === undefined ? "" : displayText(cell),
-        };
+        return { ok: true, ...probe.value };
       },
     ),
+
+    testUrl: testUrlHandler,
   };
 }

@@ -11,6 +11,7 @@ import {
   Key01Icon,
   Layers01Icon,
   PlusSignIcon,
+  SourceCodeIcon,
   Table01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
@@ -109,6 +110,11 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
           </Button>
         }
       />
+      {/* Everything above narrows what you SEE; everything below changes it or
+          takes you elsewhere. The gap is the separation — same split, and the
+          same button weight, as the approved layout. */}
+      <span className="flex-1" />
+
       <Tooltip>
         <TooltipTrigger
           render={
@@ -121,7 +127,7 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
                 onClick={() => setAddOpen(true)}
               >
                 <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-                Add record
+                Row
               </Button>
             </span>
           }
@@ -134,7 +140,8 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
               : "The table needs a primary key for safe writes."}
         </TooltipContent>
       </Tooltip>
-      <Button variant="ghost" size="sm" className="h-6" onClick={studio.openInSql}>
+      <Button variant="outline" size="sm" className="h-6 gap-1.5" onClick={studio.openInSql}>
+        <HugeiconsIcon icon={SourceCodeIcon} strokeWidth={2} className="size-3.5" />
         Open in SQL
       </Button>
 

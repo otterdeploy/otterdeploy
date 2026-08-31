@@ -267,3 +267,14 @@ export function useRowMutations(
 
   return { onDeleteRow };
 }
+
+/**
+ * Quote a table reference for the EDITOR BUFFER — text the user reads and can
+ * edit before running, not a statement this code executes. Double quotes are
+ * correct for Postgres and ClickHouse; MySQL accepts them under ANSI_QUOTES and
+ * the user can adjust, which is the point of putting it in an editor.
+ */
+export function quoteRef(ref: TableRef): string {
+  const q = (name: string) => `"${name.replace(/"/g, '""')}"`;
+  return ref.schema === "" ? q(ref.name) : `${q(ref.schema)}.${q(ref.name)}`;
+}

@@ -31,6 +31,10 @@ function RoutePending() {
 
 const router = createRouter({
   routeTree,
+  // Refresh and back/forward land where you left, not at the top. Window
+  // scrolling only; scroll containers that manage themselves (the data grid)
+  // persist their own offset per table.
+  scrollRestoration: true,
   defaultPreload: "intent",
   // Let TanStack Query's own staleTime govern data freshness, not the router's
   // separate preload cache. Our route loaders warm the Query cache (via

@@ -39,7 +39,7 @@ export function SqlPlaygroundView({
       {studio.showLeft ? (
         <>
           <ResizablePanel id="left" defaultSize={20} minSize={12}>
-            <div className="flex h-full min-h-0 flex-col border-r bg-muted/20">
+            <div className="flex h-full min-h-0 flex-col border-r">
               <SnippetTree
                 folders={editor.folders}
                 snippets={editor.snippets}
@@ -99,7 +99,7 @@ export function SqlPlaygroundView({
 function SchemaExplorerRail({ studio }: { studio: DataStudioController }) {
   const t = studio.table;
   return (
-    <div className="flex h-full min-h-0 flex-col border-l bg-muted/20">
+    <div className="flex h-full min-h-0 flex-col border-l">
       <div className="p-2">
         <div className="relative">
           <HugeiconsIcon

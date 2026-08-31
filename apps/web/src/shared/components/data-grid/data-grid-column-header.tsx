@@ -111,7 +111,10 @@ export function DataGridColumnHeader<TData, TValue>({
           {...props}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            {columnVariant && (
+            {/* A rich labelNode brings its own glyphs (key, FK arrow, type
+                tag); stacking the variant icon in front of it says "text"
+                twice in one header. */}
+            {columnVariant && !column.columnDef.meta?.labelNode && (
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -123,7 +126,7 @@ export function DataGridColumnHeader<TData, TValue>({
                 </TooltipContent>
               </Tooltip>
             )}
-            <span className="truncate">{label}</span>
+            {column.columnDef.meta?.labelNode ?? <span className="truncate">{label}</span>}
           </div>
           <ChevronDownIcon className="shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>

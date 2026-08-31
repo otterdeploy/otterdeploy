@@ -190,6 +190,9 @@
    neutral-950+5%-white mix that read as flat charcoal. */
 :root {
   --background: #fbfbfa;
+  /* The data grid's header shelf: a real step of ink over the canvas, opaque,
+     so rows scrolling underneath disappear instead of ghosting through. */
+  --grid-header-bg: #ececea;
   --foreground: #141412;
   --card: #ffffff;
   --card-foreground: #141412;
@@ -264,6 +267,8 @@
 
 .dark {
   --background: #0c0c0b;
+  /* Rows sit on the lifted card surface; the shelf is the BLACK beneath them. */
+  --grid-header-bg: #0c0c0b;
   --foreground: #f5f5f0;
   --card: #161614;
   --card-foreground: #f5f5f0;

@@ -49,6 +49,8 @@ export type CellOpts =
       multiple?: boolean;
     };
 
+export type CopyRowsFormat = "json" | "csv" | "tsv" | "markdown" | "sql";
+
 export interface CellUpdate {
   rowIndex: number;
   columnId: string;
@@ -59,11 +61,25 @@ declare module "@tanstack/react-table" {
   // biome-ignore lint/correctness/noUnusedVariables: TData and TValue are used in the ColumnMeta interface
   interface ColumnMeta<TData extends RowData, TValue> {
     label?: string;
+    /**
+     * Rich replacement for the header's label span (icons, type tags, …).
+     * ONLY the label: a function `columnDef.header` makes the grid treat the
+     * whole column as custom chrome — no sort menu, no resizer, and the CELLS
+     * fall back to a plain div too — so decorated headers must come through
+     * here instead. `label` stays required alongside it for the places that
+     * need plain text (resizer aria-label, column menus).
+     */
+    labelNode?: React.ReactNode;
     cell?: CellOpts;
   }
 
   // biome-ignore lint/correctness/noUnusedVariables: TData is used in the TableMeta interface
   interface TableMeta<TData extends RowData> {
+    /**
+     * Serialize whole rows to the clipboard (context menu "Copy row as…").
+     * Implemented by the consumer, which owns the typed data and table name.
+     */
+    onRowsCopyAs?: (rowIndices: number[], format: CopyRowsFormat) => void;
     dataGridRef?: React.RefObject<HTMLElement | null>;
     cellMapRef?: React.RefObject<Map<string, HTMLDivElement>>;
     focusedCell?: CellPosition | null;

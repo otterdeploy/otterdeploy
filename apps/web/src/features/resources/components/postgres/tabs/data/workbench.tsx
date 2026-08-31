@@ -9,52 +9,42 @@
  * It takes a `WorkbenchTarget`, never a resource: half of what it can open is
  * an external connection with no resource behind it.
  */
-import type { ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
-import { SourceCodeIcon, Table01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
-
-import { Button } from "@/shared/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/shared/components/ui/sheet";
 import { cn } from "@/shared/lib/utils";
 
 import type { SqlEditorHandle } from "./components/sql-editor";
 import type { WorkbenchTarget } from "./data/target";
-import type { DataStudioController } from "./use-data-studio";
+import type { WorkbenchUrlState } from "./data/url-state";
 
 import { DataSpotlight } from "./components/data-spotlight";
+import { RailContent } from "./components/workbench-rail";
+import { WorkbenchTabs } from "./components/workbench-tabs";
 import { StudioResults } from "./studio-results";
 import { SqlPlaygroundView } from "./studio-sql-view";
+import { TableBrowserView } from "./studio-table-view";
 import { useDataStudio } from "./use-data-studio";
-import { WorkbenchRail } from "./workbench-rail";
-import { useWorkbenchTabs, WorkbenchTabBar } from "./workbench-tabs";
 import { WriteConfirmDialog } from "./write-confirm-dialog";
 
 export function DataWorkbench({
   target,
   label,
-  connection,
   className,
   shortcuts = true,
+  urlInit,
+  onUrlState,
 }: {
   target: WorkbenchTarget;
   /** Human name of the database, for the destructive-write confirm gate. */
   label: string;
-  /** The managed/external connection switcher, anchored inside the rail. */
-  connection: ReactNode;
   className?: string;
   /** False while another workbench above this one owns ⌘K. */
   shortcuts?: boolean;
+  /** Browse state decoded from the URL; the route owns the round trip. */
+  urlInit?: WorkbenchUrlState;
+  onUrlState?: (state: WorkbenchUrlState) => void;
 }) {
-  const studio = useDataStudio(target, shortcuts);
-  const tabs = useWorkbenchTabs(studio);
+  const studio = useDataStudio(target, shortcuts, { init: urlInit, onUrlState });
   // The editor handle is held here (not on the controller) so the shared
   // `studio` object never carries a ref. See use-data-studio.ts.
   const editorRef = useRef<SqlEditorHandle>(null);
@@ -63,56 +53,23 @@ export function DataWorkbench({
   const results = <StudioResults studio={studio} />;
 
   return (
-    <div className={cn("flex min-h-0 overflow-hidden border-y bg-card", className)}>
-      <WorkbenchRail
-        studio={studio}
-        connection={connection}
-        onOpenTable={studio.table.openTable}
-        onOpenDefinition={(section) => {
-          studio.table.setMode("table");
-          studio.table.setDefinitionsSection(section);
-          studio.table.setTableView("definitions");
-        }}
-        onNewQuery={tabs.newQuery}
-      />
+    <div className={cn("flex overflow-hidden bg-background", className)}>
+      {/* ONE rail, owned here rather than by either mode's layout. When each
+          layout carried its own (fixed-width here, percentage panel there),
+          switching tabs visibly resized the sidebar — the same element must
+          survive the mode change untouched. */}
+      <div className="hidden w-60 shrink-0 flex-col border-r sm:flex">
+        <RailContent studio={studio} />
+      </div>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-1.5 border-b p-1.5 md:hidden">
-          <div className="min-w-0 flex-1">{connection}</div>
-          <MobileWorkbenchRail studio={studio} connection={connection} onNewQuery={tabs.newQuery} />
-        </div>
-        <WorkbenchTabBar
-          tabs={tabs.tabs}
-          activeId={tabs.activeId}
-          onActivate={tabs.activate}
-          onClose={tabs.close}
-          onPin={tabs.pin}
-          onNewQuery={tabs.newQuery}
-        />
-
-        {tabs.activeId === null ? (
-          <div className="grid min-h-0 flex-1 place-items-center p-8 text-center">
-            <div>
-              <HugeiconsIcon
-                icon={SourceCodeIcon}
-                strokeWidth={1.5}
-                className="mx-auto mb-3 size-8 text-muted-foreground/50"
-              />
-              <p className="text-sm font-medium">No tab open</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Pick a table from the rail or start a query.
-              </p>
-              <Button size="sm" className="mt-4" onClick={tabs.newQuery}>
-                New query
-              </Button>
-            </div>
-          </div>
-        ) : studio.table.mode === "table" ? (
-          results
+      <div className="flex min-w-0 flex-1 flex-col">
+        <WorkbenchTabs studio={studio} />
+        {studio.table.mode === "table" ? (
+          <TableBrowserView studio={studio} results={results} />
         ) : (
           <SqlPlaygroundView studio={studio} results={results} editorRef={editorRef} />
         )}
-      </main>
+      </div>
 
       <WriteConfirmDialog studio={studio} databaseName={label} />
 
@@ -131,56 +88,5 @@ export function DataWorkbench({
         onToggleRight={() => studio.setShowRight((v) => !v)}
       />
     </div>
-  );
-}
-
-function MobileWorkbenchRail({
-  studio,
-  connection,
-  onNewQuery,
-}: {
-  studio: DataStudioController;
-  connection: ReactNode;
-  onNewQuery: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const close = () => setOpen(false);
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <Button
-        size="icon-sm"
-        variant="outline"
-        aria-label="Browse database objects"
-        onClick={() => setOpen(true)}
-      >
-        <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-4" />
-      </Button>
-      <SheetContent side="left" className="w-72 gap-0 p-0">
-        <SheetHeader className="sr-only">
-          <SheetTitle>Database objects</SheetTitle>
-          <SheetDescription>Pick a table or database definition to open.</SheetDescription>
-        </SheetHeader>
-        <WorkbenchRail
-          studio={studio}
-          connection={connection}
-          onOpenTable={(table) => {
-            studio.table.openTable(table);
-            close();
-          }}
-          onOpenDefinition={(section) => {
-            studio.table.setMode("table");
-            studio.table.setDefinitionsSection(section);
-            studio.table.setTableView("definitions");
-            close();
-          }}
-          onNewQuery={() => {
-            onNewQuery();
-            close();
-          }}
-          className="flex h-full w-full border-r-0"
-        />
-      </SheetContent>
-    </Sheet>
   );
 }

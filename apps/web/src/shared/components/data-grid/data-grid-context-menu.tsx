@@ -7,7 +7,12 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import type { CellOpts, CellUpdate, ContextMenuState } from "@/shared/components/data-grid/types";
+import type {
+  CellOpts,
+  CellUpdate,
+  ContextMenuState,
+  CopyRowsFormat,
+} from "@/shared/components/data-grid/types";
 
 import { useAsRef } from "@/shared/components/data-grid/hooks/use-as-ref";
 import { parseCellKey } from "@/shared/components/data-grid/lib/data-grid";
@@ -16,10 +21,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 
 import { CopyIcon, EraserIcon, ScissorsIcon, Trash2Icon } from "./icons";
+
+const COPY_ROW_FORMATS: readonly CopyRowsFormat[] = ["json", "csv", "tsv", "markdown", "sql"];
 
 interface DataGridContextMenuProps<TData> {
   tableMeta: TableMeta<TData>;
@@ -39,6 +49,7 @@ export function DataGridContextMenu<TData>({
   const onRowsDelete = tableMeta?.onRowsDelete;
   const onCellsCopy = tableMeta?.onCellsCopy;
   const onCellsCut = tableMeta?.onCellsCut;
+  const onRowsCopyAs = tableMeta?.onRowsCopyAs;
 
   if (!contextMenu.open) return null;
 
@@ -54,6 +65,7 @@ export function DataGridContextMenu<TData>({
       onRowsDelete={onRowsDelete}
       onCellsCopy={onCellsCopy}
       onCellsCut={onCellsCut}
+      onRowsCopyAs={onRowsCopyAs}
     />
   );
 }
@@ -80,6 +92,7 @@ interface ContextMenuProps
       | "onDataUpdate"
       | "onRowsDelete"
       | "onCellsCopy"
+      | "onRowsCopyAs"
       | "onCellsCut"
       | "readOnly"
     >,
@@ -112,6 +125,7 @@ function ContextMenuImpl({
   onRowsDelete,
   onCellsCopy,
   onCellsCut,
+  onRowsCopyAs,
 }: ContextMenuProps) {
   const { t } = useTranslation();
   const propsRef = useAsRef({
@@ -121,6 +135,7 @@ function ContextMenuImpl({
     onRowsDelete,
     onCellsCopy,
     onCellsCut,
+    onRowsCopyAs,
     columns,
   });
 
@@ -145,6 +160,20 @@ function ContextMenuImpl({
 
   const onCut = () => {
     propsRef.current.onCellsCut?.();
+  };
+
+  // Same row resolution the delete uses: every row that owns a selected cell.
+  const onCopyRowsAs = (format: CopyRowsFormat) => {
+    const { selectionState, onRowsCopyAs: copyAs } = propsRef.current;
+    if (!copyAs || !selectionState?.selectedCells?.size) return;
+    const rowIndices = new Set<number>();
+    for (const cellKey of selectionState.selectedCells) {
+      rowIndices.add(parseCellKey(cellKey).rowIndex);
+    }
+    copyAs(
+      Array.from(rowIndices).sort((a, b) => a - b),
+      format,
+    );
   };
 
   const onClear = () => {
@@ -209,6 +238,21 @@ function ContextMenuImpl({
           <CopyIcon />
           Copy
         </DropdownMenuItem>
+        {onRowsCopyAs ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <CopyIcon />
+              Copy row as
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-36">
+              {COPY_ROW_FORMATS.map((format) => (
+                <DropdownMenuItem key={format} onClick={() => onCopyRowsAs(format)}>
+                  {format === "markdown" ? "Markdown" : format.toUpperCase()}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
         <DropdownMenuItem onClick={onCut} disabled={tableMeta?.readOnly}>
           <ScissorsIcon />
           Cut
