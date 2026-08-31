@@ -128,6 +128,7 @@ export async function pausePreview(
   );
   for (const br of branches) {
     const serviceName = buildContainerName({
+      stored: br.database.serviceName,
       engine: br.database.engine,
       projectSlug: g.value.project.slug,
       resourceName: `${br.resource.name}-${preview.slug}`,

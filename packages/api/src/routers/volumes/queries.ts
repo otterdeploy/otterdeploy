@@ -46,6 +46,7 @@ export async function loadOrgVolumeClaims(
         projectSlug: project.slug,
         engine: databaseResource.engine,
         legacyVolumeName: databaseResource.legacyVolumeName,
+        storedVolumeName: databaseResource.volumeName,
       })
       .from(databaseResource)
       .innerJoin(resource, eq(databaseResource.resourceId, resource.id))
@@ -107,10 +108,13 @@ export async function loadOrgVolumeClaims(
     };
     claims.push({
       ...base,
+      // The recorded volume, not a recomputed guess: a claim under the wrong
+      // name reads a live volume as unclaimed (od-jwx).
       volumeName: buildVolumeName({
         engine: row.engine,
         projectSlug: row.projectSlug,
         resourceName: row.resourceName,
+        stored: row.storedVolumeName,
       }),
     });
     if (row.legacyVolumeName) {

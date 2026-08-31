@@ -82,8 +82,20 @@ export async function rollDatabaseEnv(args: {
           // Without an explicit image the driver falls back to the engine
           // default, which would swap the running version on an env roll.
           image: engineImage,
-          serviceName: buildContainerName({ engine, projectSlug, resourceName }),
-          volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
+          // Prefer the stored name; the computation is the fallback for rows
+          // that predate the column (od-jwx).
+          serviceName: buildContainerName({
+            engine,
+            projectSlug,
+            resourceName,
+            stored: dbRecord.database.serviceName,
+          }),
+          volumeName: buildVolumeName({
+            engine,
+            projectSlug,
+            resourceName,
+            stored: dbRecord.database.volumeName,
+          }),
           hostnameAlias: dbRecord.database.internalHostname,
           databaseName: dbRecord.database.databaseName,
           username: dbRecord.database.username,

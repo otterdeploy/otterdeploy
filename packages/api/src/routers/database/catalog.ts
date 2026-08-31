@@ -84,7 +84,15 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
   const naming = new Map(
     rows.map((r) => [
       r.resource.id,
-      { name: r.resource.name, projectSlug: r.projectSlug, engine: r.database.engine },
+      {
+        name: r.resource.name,
+        projectSlug: r.projectSlug,
+        engine: r.database.engine,
+        // The stored names, so a tenant probed under its HOST's coordinates
+        // reads the host's recorded name rather than recomputing it (od-jwx).
+        serviceName: r.database.serviceName,
+        volumeName: r.database.volumeName,
+      },
     ]),
   );
   const hostNaming = (row: (typeof rows)[number]) => {
@@ -93,6 +101,8 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
       engine: row.database.engine,
       projectSlug: row.projectSlug,
       resourceName: row.resource.name,
+      serviceName: row.database.serviceName,
+      volumeName: row.database.volumeName,
     };
     if (!hostId) return own;
     const host = naming.get(hostId);
@@ -100,7 +110,13 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
     // tenant's own (nonexistent) service would report a confident "missing",
     // so fall back to its own names and let the probe say `unreachable`.
     if (!host) return own;
-    return { engine: host.engine, projectSlug: host.projectSlug, resourceName: host.name };
+    return {
+      engine: host.engine,
+      projectSlug: host.projectSlug,
+      resourceName: host.name,
+      serviceName: host.serviceName,
+      volumeName: host.volumeName,
+    };
   };
 
   const [backupRows, deploymentRows] = await Promise.all([
@@ -144,8 +160,14 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
     rows.map(async (row): Promise<OrgCatalogItem> => {
       const engine = row.database.engine;
       const containerNaming = hostNaming(row);
-      const serviceName = buildContainerName(containerNaming);
-      const volumeName = buildVolumeName(containerNaming);
+      const serviceName = buildContainerName({
+        ...containerNaming,
+        stored: containerNaming.serviceName,
+      });
+      const volumeName = buildVolumeName({
+        ...containerNaming,
+        stored: containerNaming.volumeName,
+      });
 
       const runtimeStatus = await probeRuntime({
         serviceName,
@@ -163,6 +185,7 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
         projectSlug: containerNaming.projectSlug,
         resourceName: containerNaming.resourceName,
         resourceId: row.resource.id,
+        serviceName: containerNaming.serviceName,
       };
       const stats = runtimeStatus === "running" ? await probeStats(conn) : null;
 

@@ -247,6 +247,7 @@ export async function deleteProject(
       ? previewSlugById.get(record.resource.previewId)
       : undefined;
     const serviceName = buildContainerName({
+      stored: record.database.serviceName,
       engine: record.database.engine,
       projectSlug,
       resourceName: previewSlug ? `${record.resource.name}-${previewSlug}` : record.resource.name,

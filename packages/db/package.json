@@ -15,7 +15,7 @@
   "scripts": {
     "db:generate": "bun --env-file ../../.env drizzle-kit generate",
     "db:migrate": "bun --env-file ../../.env drizzle-kit migrate",
-    "db:normalize-environment-slugs": "bun --env-file ../../.env src/scripts/normalize-environment-slugs.ts",
+    "db:normalize-environment-slugs": "psql \"$DATABASE_URL\" -f scripts/normalize-environment-slugs.sql",
     "db:push": "bun --env-file ../../.env -- drizzle-kit push",
     "db:start": "docker compose up -d",
     "db:stop": "docker compose stop",

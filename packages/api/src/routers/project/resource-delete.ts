@@ -202,15 +202,20 @@ export async function deleteProjectResource(
       }
 
       const projectSlug = sanitizeProjectSlug(project.slug);
+      // Stored name wins. Getting this wrong on DELETE leaves the container
+      // and its volume behind, which is the failure the stored name exists to
+      // prevent once names become environment-scoped (od-jwx).
       const serviceName = buildContainerName({
         engine,
         projectSlug,
         resourceName: found.record.resource.name,
+        stored: found.record.database.serviceName,
       });
       const volumeName = buildVolumeName({
         engine,
         projectSlug,
         resourceName: found.record.resource.name,
+        stored: found.record.database.volumeName,
       });
 
       log.set({

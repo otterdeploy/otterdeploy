@@ -116,6 +116,7 @@ export async function resolveDeploymentServiceName(
       engine: found.record.database.engine,
       projectSlug: slug,
       resourceName: found.record.resource.name,
+      stored: found.record.database.serviceName,
     });
   }
   if (found.kind === "service") return found.record.service.serviceName;

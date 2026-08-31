@@ -100,6 +100,7 @@ async function loadServiceNameMap(
       engine: row.database.engine,
       projectSlug: sanitizedSlug,
       resourceName: row.resource.name,
+      stored: row.database.serviceName,
     });
     map.set(serviceName, row.resource.id);
   }
