@@ -96,9 +96,14 @@ export async function mapServiceResource(
   const envRows = opts?.envRows ?? (await listServiceEnvVars(record.resource.id));
   const extraEnv: Record<string, string> = {};
   const secretKeys: string[] = [];
+  const sealedKeys: string[] = [];
   for (const row of envRows) {
-    extraEnv[row.key] = row.value;
+    // A sealed row's stored value is a ciphertext envelope. Masking here is
+    // what keeps it off the wire on the projection the Variables tab reads;
+    // `mapEnvVar` only guards the service.env.* path.
+    extraEnv[row.key] = row.sealed ? "" : row.value;
     if (row.isSecret) secretKeys.push(row.key);
+    if (row.sealed) sealedKeys.push(row.key);
   }
   return {
     resourceId: record.resource.id,
@@ -126,6 +131,7 @@ export async function mapServiceResource(
     publicDomain: record.service.publicDomain,
     extraEnv,
     secretKeys,
+    sealedKeys,
     ...serviceManifestExtras(record.service),
   };
 }

@@ -38,9 +38,17 @@ import {
 } from "./resource-instances";
 import { buildContainerName, sanitizeProjectSlug } from "./views";
 
+/** What a WRITE supplies. A caller cannot set `sealed` by sending a flag; a
+ *  row becomes sealed through its own path. */
 export interface EnvEntry {
   key: string;
   value: string;
+}
+
+/** What a READ returns. `value` is empty for a sealed row: its stored value is
+ *  a ciphertext envelope, so there is nothing a client could do with it. */
+export interface ResourceEnvEntryView extends EnvEntry {
+  sealed: boolean;
 }
 
 // Resolve a resource to its swarm service name. Postgres uses the
@@ -156,7 +164,7 @@ export async function listResourceTasks(
 
 export async function listResourceEnv(
   input: ResourceRef,
-): Promise<Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
+): Promise<Result<ResourceEnvEntryView[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -177,11 +185,16 @@ export async function listResourceEnv(
     const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
     // `extraEnv` is `$type<Record<string, string>>` on the schema already.
     const env = record?.database.extraEnv ?? {};
-    return Result.ok(Object.entries(env).map(([key, value]) => ({ key, value })));
+    // A database's extraEnv has no sealed rows: the column is service-only.
+    return Result.ok(Object.entries(env).map(([key, value]) => ({ key, value, sealed: false })));
   }
 
   const rows = await listServiceEnvVars(input.resourceId);
-  return Result.ok(rows.map((r) => ({ key: r.key, value: r.value })));
+  // Masked here, not just in mapEnvVar: a sealed row's `value` is a ciphertext
+  // envelope, and this path reads the DB rows directly.
+  return Result.ok(
+    rows.map((r) => ({ key: r.key, value: r.sealed ? "" : r.value, sealed: r.sealed })),
+  );
 }
 
 export async function bulkSetResourceEnv(

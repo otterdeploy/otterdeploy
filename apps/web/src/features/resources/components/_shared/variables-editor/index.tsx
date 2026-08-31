@@ -28,6 +28,10 @@ export interface VariablesEditorResource {
   resourceId: ResourceId;
   extraEnv: Record<string, string>;
   secretKeys: string[];
+  /** Keys whose value is write-only. `extraEnv` holds "" for these: the
+   *  server never sends a sealed value, so the editor shows them as
+   *  replace-only rather than as an empty variable. */
+  sealedKeys?: string[];
 }
 
 export interface VariablesEditorHandle {
@@ -83,6 +87,7 @@ export function VariablesEditor({
   const editor = useEditorState({
     serverEnv: resource.extraEnv ?? {},
     serverSecretKeys: resource.secretKeys ?? [],
+    serverSealedKeys: resource.sealedKeys ?? [],
   });
 
   // Warm the reference list once for the whole editor so a row's { } picker
