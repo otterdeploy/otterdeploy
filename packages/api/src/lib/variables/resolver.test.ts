@@ -280,6 +280,12 @@ describe("resolveServiceEnv", () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefCycleError");
+    // Names and the variable, never resource ids: the operator has to be able
+    // to tell WHICH resources and WHICH value from the message alone.
+    expect(result.error.message).toContain("api");
+    expect(result.error.message).toContain("web");
+    expect(result.error.message).toContain("OTHER");
+    expect(result.error.message).not.toContain("resource_");
   });
 
   it("resolves mutual refs to computed exports (HOST) without a cycle", async () => {
@@ -349,6 +355,11 @@ describe("resolveServiceEnv", () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefCycleError");
+    // A self-reference used to render as the same resource id twice
+    // (`res_xyz -> res_xyz`), which named neither the resource nor the way out.
+    expect(result.error.message).toContain("api reads its own SELF");
+    expect(result.error.message).toContain("PUBLIC_URL");
+    expect(result.error.message).not.toContain("->");
   });
 
   it("resolves in a preview env: env-specific DB branch + inherited base project var", async () => {

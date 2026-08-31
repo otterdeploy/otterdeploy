@@ -200,14 +200,29 @@ export class RefUnknownVarError extends TaggedError("RefUnknownVarError")<{
   }
 }
 
+/**
+ * A reference walked back into a resource already being resolved.
+ *
+ * `chain` is the DFS path in the words the operator wrote in the template —
+ * `postiz-app`, `stack.db` — never resource ids. It used to be ids, so the
+ * commonest case rendered as
+ * `variable reference cycle: res_j1hiws15… -> res_j1hiws15…`: the same opaque
+ * string twice, naming neither the resource nor the variable. A self-reference
+ * gets its own sentence, because "a -> a" is a worse way of saying "this reads
+ * itself" and the way out (the computed exports) is worth naming.
+ */
 export class RefCycleError extends TaggedError("RefCycleError")<{
   message: string;
   chain: ReadonlyArray<string>;
 }>() {
-  constructor(args: { chain: ReadonlyArray<string> }) {
+  constructor(args: { chain: ReadonlyArray<string>; varName?: string }) {
+    const variable = args.varName ?? "that variable";
+    const isSelf = args.chain.length === 2 && args.chain[0] === args.chain[1];
     super({
       chain: args.chain,
-      message: `variable reference cycle: ${args.chain.join(" -> ")}`,
+      message: isSelf
+        ? `${args.chain[0]} reads its own ${variable}: a service cannot reference its own env bag. Only HOST, PORT, URL, DOMAIN, PUBLIC_URL and DOMAINS can be read from the service itself.`
+        : `variable reference cycle reading ${variable}: ${args.chain.join(" -> ")}`,
     });
   }
 }
