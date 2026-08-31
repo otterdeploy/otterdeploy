@@ -5,7 +5,7 @@ import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
  * Caddy proxy-route bookkeeping. Read/delete are handled generically in
  * resources.ts. The per-stage implementations live in ./create-stream-stages.
  */
-import type { EnvironmentId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ResourceId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -65,7 +65,7 @@ export type CreatePostgresProgress =
 /** What a successful pre-flight yields: the project the row lands in, and the
  *  resolved server it lives inside (null for a dedicated container). */
 export interface PostgresCreateValidation {
-  project: { id: string; slug: string };
+  project: { id: ProjectId; slug: string };
   host: HostRow | null;
 }
 
@@ -175,7 +175,7 @@ export async function* createPostgresResourceStream(
     /** Cap on the tenant's concurrent connections (shared-server only). */
     connectionLimit?: number | null;
     /** Output of validatePostgresCreate so we don't re-fetch the project. */
-    project: { id: string; slug: string };
+    project: { id: ProjectId; slug: string };
   },
   log: RequestLogger,
 ): AsyncGenerator<CreatePostgresProgress, void, void> {

@@ -4,7 +4,7 @@
  * resolution, container/volume names) and builds the early hand-off resource
  * view. Pulled out of the stages so each file stays readable.
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import {
@@ -18,6 +18,8 @@ import type { HostRow } from "../../../database-hosting";
 import { PLATFORM } from "../../../constants";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
+import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
+import { scopeSuffix } from "../../../lib/environment/scoping";
 import { getEngineAdapter, type DatabaseEngineAdapter } from "../../../swarm";
 import { createDatabaseResourceRecord } from "../queries";
 import {
@@ -56,7 +58,11 @@ export interface CreateStreamInput {
   /** Cap on the tenant's concurrent connections. Only meaningful with `host`:
    *  a dedicated server's connections are already its own. */
   connectionLimit?: number | null;
-  project: { id: string; slug: string };
+  /** Environment the database is created in. Drives the runtime scope: a
+   *  non-main environment gets a suffix on its hostname, container and volume
+   *  so a staging `postgres` stops colliding with production's (od-jwx). */
+  environmentId?: EnvironmentId | null;
+  project: { id: ProjectId; slug: string };
 }
 
 export interface CreateContext {
@@ -71,7 +77,7 @@ export interface CreateContext {
   extensions: string[];
   extraEnv: Record<string, string>;
   publicEnabled: boolean;
-  project: { id: string; slug: string };
+  project: { id: ProjectId; slug: string };
   resourceSlug: string;
   projectSlug: string;
   password: string;
@@ -140,8 +146,18 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   // Internal identity is the shared deriver's output. The SAME function the
   // draft-credentials endpoint uses, so pending-panel display and deployed
   // reality can't drift.
+  // BASE for main and for unstamped rows, so nothing already deployed is
+  // renamed; only a non-main environment takes a suffix. See
+  // lib/environment/runtime-scope.
+  const suffix = scopeSuffix(
+    await resolveRuntimeScope({
+      projectId: input.project.id,
+      environmentId: input.environmentId ?? null,
+    }),
+  );
   const { databaseName, username, internalHostname, internalPort, internalConnectionString } =
     deriveInternalDbCredentials({
+      scopeSuffix: suffix,
       engine,
       projectSlug: input.project.slug,
       resourceName: input.name,
@@ -171,10 +187,10 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   // Container + volume names use the engine's short slug so multi-engine
   // deployments don't collide on a shared name pattern.
   const containerName = sanitizeDockerName(
-    `otterdeploy-${adapter.nameShort}-${projectSlug}-${resourceSlug}`,
+    `otterdeploy-${adapter.nameShort}-${projectSlug}-${resourceSlug}${suffix}`,
   );
   const volumeName = sanitizeDockerName(
-    `otterdeploy-${adapter.nameShort}data-${projectSlug}-${resourceSlug}`,
+    `otterdeploy-${adapter.nameShort}data-${projectSlug}-${resourceSlug}${suffix}`,
   );
   // Public Postgres is reached on :443 (caddy-l4 listener wrapper SNI-routes it
   // next to HTTP), so the port is explicit and non-default. `sslnegotiation:

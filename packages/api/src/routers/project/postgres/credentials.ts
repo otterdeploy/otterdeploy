@@ -36,15 +36,29 @@ export function deriveInternalDbCredentials(input: {
    *  slug, so two tenants can never collide on one server); only the address
    *  changes, because a tenant answers on its host's hostname and port. */
   host?: { internalHostname: string; internalPort: number } | null;
+  /** Environment scope suffix (`-staging`), from `scopeSuffix()`. Empty for
+   *  main and for unstamped rows, so every already-deployed database keeps the
+   *  hostname it has — only a NON-main environment takes one.
+   *
+   *  Applied to the HOSTNAME only. The database name and username are already
+   *  namespaced by project slug and are the identity a dump/restore round-trips
+   *  through, so scoping them would rename an existing tenant's schema for no
+   *  uniqueness gain. The hostname is the one that collides: it has no
+   *  environment in it and `database_resource_internal_hostname_unique` is
+   *  global, so a staging `postgres` fails to INSERT beside production's
+   *  (od-jwx). */
+  scopeSuffix?: string;
 }): InternalDbCredentials {
   const adapter = getEngineAdapter(input.engine);
   const resourceSlug = sanitizeDatabaseName(input.resourceName);
   const projectSlug = sanitizeProjectSlug(input.projectSlug);
   const databaseName = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_db`);
   const username = clampPostgresIdentifier(`${projectSlug}_${resourceSlug}_user`);
+  // A tenant answers on its HOST's hostname, which already carries the host's
+  // own scope; only a database with its own container takes the suffix.
   const internalHostname =
     input.host?.internalHostname ??
-    `${resourceSlug}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
+    `${resourceSlug}${input.scopeSuffix ?? ""}.${projectSlug}.${PLATFORM.database.internalBaseDomain}`;
   const internalPort = input.host?.internalPort ?? adapter.port;
   const internalConnectionString = adapter.buildConnectionString({
     username,

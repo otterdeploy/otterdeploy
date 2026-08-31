@@ -12,6 +12,7 @@ import {
   VariablesEditor,
   type VariablesEditorHandle,
 } from "@/features/resources/components/_shared/variables-editor";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { orpc } from "@/shared/server/orpc";
 
@@ -141,6 +142,10 @@ function PendingVariables({
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // The environment this stages into. Same source the rest of the panel scopes
+  // by, so the draft and the create agree on which one they mean.
+  const activeEnvironmentId = useActiveEnvironment(resource.projectId).id;
+
   // Mint (or read) the staged credentials. Real username/password/db/URL the
   // deployed database will use. Server-side derivation, so it can't drift.
   const creds = useQuery(
@@ -149,6 +154,10 @@ function PendingVariables({
         projectId: resource.projectId,
         name: dbName ?? resource.name,
         engine: resource.engine,
+        // The environment this will deploy INTO. The hostname carries a suffix
+        // for a non-main environment (od-jwx), so omitting it would show a
+        // connection string that doesn't match what the create produces.
+        ...(activeEnvironmentId ? { environmentId: activeEnvironmentId } : {}),
       },
       enabled: Boolean(dbName),
       staleTime: Infinity,

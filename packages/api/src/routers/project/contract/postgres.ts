@@ -171,6 +171,12 @@ const draftCredentialsInput = z.object({
   projectId: projectIdField,
   /** Manifest resource name (the `databases[name]` key). */
   name: z.string().min(1),
+  /** The environment the operator is staging INTO. The deployed hostname
+   *  carries a suffix for a non-main environment (od-jwx), so a draft derived
+   *  without it would show a connection string that does not match what the
+   *  create produces. Optional: omitted means main, which is what every
+   *  pre-environment caller meant. */
+  environmentId: z.string().optional(),
   engine: z
     .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse"])
     .optional()
