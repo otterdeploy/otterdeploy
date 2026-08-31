@@ -1,12 +1,18 @@
 /**
- * Subscribe once to the org-scoped event stream (`events.orgStream`) and
- * resync the org-wide surfaces it announces: the header activity pill, the
- * notification inbox, and the servers collection.
+ * Subscribe once to the org-scoped event stream (`events.orgStream`) and apply
+ * what it announces.
  *
- * Same discipline as useProjectEvents: the stream decides WHEN to refetch,
- * the queries own the data, and resyncs are batched so a burst of events
- * costs one round trip per surface. The polls on these surfaces are
- * dead-stream backstops, not the freshness mechanism.
+ * Two dispositions, and the event says which:
+ *
+ *   - `resync` names a surface; the query owns the data and refetches. Resyncs
+ *     are batched so a burst of events costs one round trip per surface.
+ *   - `upsert`/`delete` CARRY THE ROW; it is applied with
+ *     `writeUpsert`/`writeDelete` and nothing refetches at all. Same discipline
+ *     as useProjectEvents' proxy-route path, and the shape
+ *     docs/designs/collection-cache-invalidation-api.md specifies.
+ *
+ * The polls on these surfaces are dead-stream backstops, not the freshness
+ * mechanism.
  *
  * The server derives the stream key from the session's active organization.
  * The input is empty. The effect re-keys on the URL's org slug because that
@@ -18,6 +24,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 
+import { connectionsCollection } from "@/features/resources/components/postgres/tabs/data/data/connections";
 import { serverCollection } from "@/features/servers/data/server";
 import { createResyncBatcher } from "@/shared/lib/resync-batcher";
 import { orpc } from "@/shared/server/orpc";
@@ -46,6 +53,17 @@ export function useOrgEvents(): void {
         );
         for await (const event of stream) {
           if (ctrl.signal.aborted) break;
+
+          // Row-carrying events are applied directly. No batching: there is no
+          // round trip to coalesce, and a write is cheaper than the timer.
+          if (event.op === "upsert") {
+            connectionsCollection.utils.writeUpsert(event.rows);
+            continue;
+          }
+          if (event.op === "delete") {
+            connectionsCollection.utils.writeDelete(event.keys);
+            continue;
+          }
 
           switch (event.collection) {
             case "activity":

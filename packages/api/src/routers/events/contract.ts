@@ -62,14 +62,59 @@ const eventsStreamInputSchema = z.object({
   projectId: projectIdField,
 });
 
-/** Org-wide surfaces that resync over the org stream. Payload-free by design.
- *  See @otterdeploy/shared/org-events for the bus side of this contract. */
-const orgCollectionEventSchema = z.object({
-  protocol: z.literal(1),
-  collection: z.enum(["activity", "inbox", "servers"]),
-  scope: z.object({ organizationId: organizationIdField }),
-  op: z.literal("resync"),
+const orgScopeSchema = z.object({ organizationId: organizationIdField });
+
+/**
+ * A connection row as pushed to the client.
+ *
+ * Everything needed to identify the connection and nothing that could open it:
+ * the encrypted URL is not here, is not on `data.listConnections`, and must
+ * never be added to either.
+ */
+const dataConnectionEventRowSchema = z.object({
+  id: zId(ID_PREFIX.dataConnection),
+  name: z.string(),
+  engine: z.enum(["postgres", "mariadb"]),
+  displayHost: z.string(),
+  displayDatabase: z.string(),
+  visibility: z.enum(["org", "private"]),
+  environment: z.enum(["production", "other"]),
+  defaultAccess: z.enum(["read-only", "read-write"]),
+  requireTls: z.boolean(),
+  createdAt: z.coerce.date(),
+  lastConnectedAt: z.coerce.date().nullable(),
 });
+
+/**
+ * Org-wide stream events.
+ *
+ * Two shapes, per docs/designs/collection-cache-invalidation-api.md: `resync`
+ * names a surface and the client refetches; `upsert`/`delete` carry the row and
+ * the client applies it with `writeUpsert`/`writeDelete` without refetching at
+ * all. See @otterdeploy/shared/org-events for the bus side.
+ */
+const orgCollectionEventSchema = z.discriminatedUnion("op", [
+  z.object({
+    protocol: z.literal(1),
+    collection: z.enum(["activity", "inbox", "servers"]),
+    scope: orgScopeSchema,
+    op: z.literal("resync"),
+  }),
+  z.object({
+    protocol: z.literal(1),
+    collection: z.literal("data-connections"),
+    scope: orgScopeSchema,
+    op: z.literal("upsert"),
+    rows: z.array(dataConnectionEventRowSchema),
+  }),
+  z.object({
+    protocol: z.literal(1),
+    collection: z.literal("data-connections"),
+    scope: orgScopeSchema,
+    op: z.literal("delete"),
+    keys: z.array(zId(ID_PREFIX.dataConnection)),
+  }),
+]);
 
 export type OrgCollectionEvent = z.infer<typeof orgCollectionEventSchema>;
 

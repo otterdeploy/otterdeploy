@@ -9,6 +9,18 @@
  * The URL is never in this data. It is write-only: it goes to the server on
  * create or update and no procedure ever returns it, so a row here can safely
  * be held in browser memory and rendered in a list.
+ *
+ * ROWS ARE PUSHED, NOT REFETCHED. Following
+ * docs/designs/collection-cache-invalidation-api.md (whose reference
+ * implementation is conar's `lib/sync.ts`): the mutation response is applied
+ * directly with `writeUpsert`, the org event stream applies everyone else's
+ * changes the same way, and the handlers return `{ refetch: false }`. There is
+ * no `invalidateQueries` in this path — a list of five connections should not
+ * cost a round trip to learn that one of them was renamed.
+ *
+ * The snapshot query is still the source of truth: it seeds the collection and
+ * repairs it on reconnect. The stream is the incremental path between snapshots,
+ * so a dropped event costs freshness, never correctness.
  */
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { createCollection } from "@tanstack/db";
@@ -47,54 +59,57 @@ export const connectionsCollection = createCollection(
     queryClient,
     getKey: (row) => row.id,
     onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const row = m.modified;
-          // The URL rides the mutation's metadata rather than the row, because
-          // it is write-only: it must never end up in the collection's cached
-          // data, where every reader of the list would hold a live credential.
-          const url = metadataSecret(m.metadata);
-          if (url === undefined) return;
-          await orpc.data.createConnection.call({
-            name: row.name,
-            url,
-            visibility: row.visibility,
-            environment: row.environment,
-            defaultAccess: row.defaultAccess,
-            requireTls: row.requireTls,
-          });
-          // The optimistic row carried a temp id; refetch so the server's row
-          // (real id, parsed host, timestamps) replaces it.
-          await queryClient.invalidateQueries({ queryKey: listKey });
-        }),
-      );
+      for (const m of transaction.mutations) {
+        const row = m.modified;
+        // The URL rides the mutation's metadata rather than the row, because it
+        // is write-only: it must never end up in the collection's cached data,
+        // where every reader of the list would hold a live credential.
+        const url = metadataSecret(m.metadata);
+        if (url === undefined) continue;
+        const saved = await orpc.data.createConnection.call({
+          name: row.name,
+          url,
+          visibility: row.visibility,
+          environment: row.environment,
+          defaultAccess: row.defaultAccess,
+          requireTls: row.requireTls,
+        });
+        // The optimistic row carried a temp id and no parsed host. Drop it and
+        // write the server's row, rather than refetching the whole list to
+        // discover the same thing the mutation just returned.
+        connectionsCollection.utils.writeDelete(m.key);
+        connectionsCollection.utils.writeUpsert(saved);
+      }
+      return { refetch: false };
     },
     onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const c = m.changes;
-          const url = metadataSecret(m.metadata);
-          await orpc.data.updateConnection.call({
-            id: m.original.id,
-            ...omitUndefined({
-              name: c.name,
-              visibility: c.visibility,
-              environment: c.environment,
-              defaultAccess: c.defaultAccess,
-              requireTls: c.requireTls,
-              // Omitting `url` leaves the stored credential untouched, which is
-              // what lets someone rename a connection without re-pasting it.
-              url,
-            }),
-          });
-          await queryClient.invalidateQueries({ queryKey: listKey });
-        }),
-      );
+      for (const m of transaction.mutations) {
+        const c = m.changes;
+        const url = metadataSecret(m.metadata);
+        const saved = await orpc.data.updateConnection.call({
+          id: m.original.id,
+          ...omitUndefined({
+            name: c.name,
+            visibility: c.visibility,
+            environment: c.environment,
+            defaultAccess: c.defaultAccess,
+            requireTls: c.requireTls,
+            // Omitting `url` leaves the stored credential untouched, which is
+            // what lets someone rename a connection without re-pasting it.
+            url,
+          }),
+        });
+        connectionsCollection.utils.writeUpsert(saved);
+      }
+      return { refetch: false };
     },
     onDelete: async ({ transaction }) => {
       await Promise.all(
         transaction.mutations.map((m) => orpc.data.deleteConnection.call({ id: m.original.id })),
       );
+      // The optimistic delete already removed the row; there is nothing to
+      // reconcile and nothing to refetch.
+      return { refetch: false };
     },
     staleTime: 60_000,
   }),

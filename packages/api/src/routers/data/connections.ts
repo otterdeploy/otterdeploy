@@ -23,6 +23,7 @@ import {
   resolveExternalTarget,
 } from "../../data";
 import { encryptForDomain } from "../../lib/crypto";
+import { publishOrgBusEvent } from "../project/project-event-bus";
 
 /** Row shape every procedure here returns. Never includes the URL. */
 const SELECTION = {
@@ -59,6 +60,49 @@ function visibleTo(organizationId: OrganizationId, viewerId: UserId | null) {
       ? eq(dataConnection.visibility, "org")
       : or(eq(dataConnection.visibility, "org"), eq(dataConnection.createdBy, viewerId)),
   );
+}
+
+/**
+ * Announce a row to the org, so every open client applies it WITHOUT refetching.
+ *
+ * Only `org`-visible rows are published. A private connection belongs to its
+ * creator, and pushing it to the whole organization would leak the existence of
+ * a database — and its host — to people the visibility rule exists to exclude.
+ * The creator's own client already has the row from the mutation response.
+ */
+function announce(organizationId: OrganizationId, row: ConnectionRow): void {
+  if (row.visibility !== "org") return;
+  publishOrgBusEvent(organizationId, {
+    kind: "data-connections",
+    op: "upsert",
+    rows: [
+      {
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+        lastConnectedAt: row.lastConnectedAt?.toISOString() ?? null,
+      },
+    ],
+  });
+}
+
+/** Announce a removal — a real delete, or a row that left org visibility. */
+function publishDeleted(organizationId: OrganizationId, id: string): void {
+  publishOrgBusEvent(organizationId, { kind: "data-connections", op: "delete", keys: [id] });
+}
+
+/** The row shape every handler here returns and announces. Never the URL. */
+interface ConnectionRow {
+  id: string;
+  name: string;
+  engine: "postgres" | "mariadb";
+  displayHost: string;
+  displayDatabase: string;
+  visibility: "org" | "private";
+  environment: "production" | "other";
+  defaultAccess: "read-only" | "read-write";
+  requireTls: boolean;
+  createdAt: Date;
+  lastConnectedAt: Date | null;
 }
 
 export function makeConnectionHandlers(deps: {
@@ -111,6 +155,7 @@ export function makeConnectionHandlers(deps: {
           .returning(SELECTION);
 
         if (!row) throw errors.NOT_FOUND();
+        announce(context.activeOrganizationId, row);
         return row;
       },
     ),
@@ -153,6 +198,12 @@ export function makeConnectionHandlers(deps: {
           .returning(SELECTION);
 
         if (!row) throw errors.NOT_FOUND();
+        // A row flipped to `private` is announced as a DELETE, not an upsert:
+        // to everyone else it has genuinely stopped existing, and leaving the
+        // old public copy in their collection would be the leak the visibility
+        // change was made to prevent.
+        if (row.visibility === "org") announce(context.activeOrganizationId, row);
+        else publishDeleted(context.activeOrganizationId, row.id);
         return row;
       },
     ),
@@ -170,6 +221,7 @@ export function makeConnectionHandlers(deps: {
           )
           .returning({ id: dataConnection.id });
         if (!row) throw errors.NOT_FOUND();
+        publishDeleted(context.activeOrganizationId, row.id);
         return { deleted: true };
       },
     ),
