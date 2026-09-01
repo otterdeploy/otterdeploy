@@ -7,6 +7,8 @@
  */
 import type { JsonObject } from "@otterdeploy/shared/json";
 
+import { SUBJECT_DATA_KEYS } from "@otterdeploy/shared/inbox-subject";
+
 import { timeAgo } from "@/shared/lib/time";
 
 import type { channelsCollection, subscriptionsCollection } from "./data/notifications";
@@ -39,6 +41,7 @@ export const EVENTS: EventRow[] = [
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
   { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
+  { id: "host.pressure.cleared", label: "Server pressure cleared", severity: "ok" },
   { id: "cert.expiring", label: "Cert expiring soon", severity: "warn", wired: false },
   { id: "cert.renewed", label: "Cert renewed", severity: "ok" },
   { id: "backup.failed", label: "Backup failed", severity: "err" },
@@ -150,7 +153,7 @@ export const KIND_META: Record<ChannelKind, KindMeta> = {
  * `eventId` drives the severity/label (rendered on its own), `occurrence` is
  * the fan-out dedupe key. Both are hidden from the inbox detail rows.
  */
-const INBOX_DATA_HIDDEN = new Set(["eventId", "occurrence"]);
+const INBOX_DATA_HIDDEN = new Set<string>(["eventId", "occurrence", ...SUBJECT_DATA_KEYS]);
 
 /** camelCase / dotted key → spaced, capitalized label ("deploymentId" → "Deployment id"). */
 function humanizeKey(key: string): string {
@@ -215,64 +218,10 @@ export const SEVERITY_BADGE: Record<Severity, string> = {
 };
 
 /** Worst-first, so a single failure is never buried under newer chatter. */
-const SEVERITY_RANK: readonly Severity[] = ["err", "warn", "info", "ok"];
-
-/**
- * The headline severity across `items`, or null when there's nothing to report.
- *
- * The bell badge summarizes many notifications in one 8px dot, so it has to pick
- * ONE, and the only safe pick is the most concerning, matching how
- * `rollupStatus` (build-live-nodes.ts) and the app-status rollup resolve ties.
- * Callers pass the unread subset; a read failure is history, not a badge.
- */
-export function worstSeverity(items: readonly { data: JsonObject | null }[]): Severity | null {
-  if (items.length === 0) return null;
-  const present = new Set<Severity>();
-  for (const item of items) {
-    const id = inboxEventId(item.data);
-    present.add(id ? eventSeverityOf(id) : "info");
-  }
-  return SEVERITY_RANK.find((s) => present.has(s)) ?? null;
-}
+export const SEVERITY_RANK: readonly Severity[] = ["err", "warn", "info", "ok"];
 
 /** Compact relative time from an ISO string. `null` → "never", which is a
  *  claim about the channel (it has never delivered) and not a timestamp. */
 export function relativeTime(iso: string | null): string {
   return iso === null ? "never" : timeAgo(iso);
-}
-
-/**
- * Which of the four bodies the inbox popover shows.
- *
- * A function rather than a chain of ternaries inline in the JSX, because the
- * ORDER is the correctness property and it deserves a name and a test. A
- * failed request leaves the item list empty, so checking `empty` before
- * `error` renders "No notifications yet" for a request that 500'd, timed out,
- * or lost its session: the app asserting nothing happened when in truth it
- * could not find out. That is the bug this encodes against.
- */
-export type InboxViewState = "loading" | "error" | "empty" | "list";
-
-export function inboxViewState(query: {
-  isLoading: boolean;
-  isError: boolean;
-  itemCount: number;
-}): InboxViewState {
-  if (query.isLoading) return "loading";
-  // Before `empty`, always.
-  if (query.isError) return "error";
-  return query.itemCount === 0 ? "empty" : "list";
-}
-
-/**
- * Unread rows the page could not carry.
- *
- * `unread` is counted server-side across every unread row; `items` is capped at
- * the requested page size. The difference is what the operator cannot see, and
- * it matters because "Mark all read" clears ALL unread rows, not just the
- * rendered ones — so without surfacing this, the button silently discards
- * notifications that were never shown.
- */
-export function hiddenUnreadCount(input: { unread: number; itemCount: number }): number {
-  return Math.max(0, input.unread - input.itemCount);
 }

@@ -2,6 +2,7 @@ import type { db as DbClient } from "@otterdeploy/db";
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { deployment, deploymentLog, project, resource } from "@otterdeploy/db/schema";
+import { encodeSubject } from "@otterdeploy/shared/inbox-subject";
 /**
  * Boot-time deploy reconciliation.
  *
@@ -316,8 +317,10 @@ async function notifyDeployFailed(
   const [info] = await db
     .select({
       organizationId: project.organizationId,
+      resourceId: deployment.resourceId,
       resourceName: resource.name,
       projectName: project.name,
+      projectSlug: project.slug,
     })
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
@@ -336,6 +339,12 @@ async function notifyDeployFailed(
       deploymentId,
       resource: info.resourceName,
       project: info.projectName,
+      ...encodeSubject({
+        kind: "service",
+        id: info.resourceId,
+        label: info.resourceName,
+        project: info.projectSlug,
+      }),
     },
   });
 }

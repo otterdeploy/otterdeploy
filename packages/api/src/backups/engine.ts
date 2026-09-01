@@ -18,6 +18,7 @@
 import type { Readable } from "node:stream";
 
 import { Docker } from "@otterdeploy/docker";
+import { encodeSubject } from "@otterdeploy/shared/inbox-subject";
 import { Result } from "better-result";
 
 import type { ResolvedDestination } from "./backends";
@@ -48,15 +49,27 @@ function sourceLabel(ctx: ExecutionContext): string {
   return ctx.kind === "volume" ? `volume ${ctx.volumeName}` : ctx.resourceName;
 }
 
-/** Display context for the platform event (already-formatted strings). */
+/** Display context for the platform event (already-formatted strings), plus
+ *  the source as an inbox subject so a failed run and the next successful one
+ *  fold into one story. */
 function eventData(ctx: ExecutionContext): Record<string, string> {
   return ctx.kind === "volume"
-    ? { backupId: ctx.backupId, volume: ctx.volumeName }
+    ? {
+        backupId: ctx.backupId,
+        volume: ctx.volumeName,
+        ...encodeSubject({ kind: "backup", id: `vol:${ctx.volumeName}`, label: ctx.volumeName }),
+      }
     : {
         backupId: ctx.backupId,
         resourceId: ctx.resourceId,
         resource: ctx.resourceName,
         project: ctx.projectSlug,
+        ...encodeSubject({
+          kind: "backup",
+          id: ctx.resourceId,
+          label: `${ctx.resourceName} · ${ctx.projectSlug}`,
+          project: ctx.projectSlug,
+        }),
       };
 }
 

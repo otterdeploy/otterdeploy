@@ -10,7 +10,7 @@ import * as z from "zod";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { subscriptionSchema } from "./contract";
-import { listInbox, markInboxAllRead, markInboxRead } from "./inbox";
+import { listInbox, markInboxAllRead, markInboxRead, markInboxReadMany } from "./inbox";
 import {
   type ChannelView,
   addSubscription,
@@ -214,9 +214,21 @@ export const notificationsRouter = {
   inbox: {
     list: orgScopedProcedure.notifications.inbox.list.handler(async ({ input, context }) => {
       const userId = context.session?.user?.id;
-      if (!userId) return { items: [], unread: 0 };
+      if (!userId) return { open: [], items: [], unread: 0 };
       return listInbox({ userId, organizationId: context.activeOrganizationId }, input.limit);
     }),
+
+    markReadMany: orgScopedProcedure.notifications.inbox.markReadMany.handler(
+      async ({ input, context }) => {
+        const userId = context.session?.user?.id;
+        if (!userId) return { updated: 0 };
+        const updated = await markInboxReadMany(
+          { userId, organizationId: context.activeOrganizationId },
+          input.ids,
+        );
+        return { updated };
+      },
+    ),
 
     markRead: orgScopedProcedure.notifications.inbox.markRead.handler(
       async ({ input, context }) => {

@@ -229,8 +229,10 @@ async function emitBuildFailed(deploymentId: DeploymentId, message: string): Pro
   const [ctx] = await db
     .select({
       organizationId: project.organizationId,
+      resourceId: deployment.resourceId,
       resourceName: resource.name,
       projectName: project.name,
+      projectSlug: project.slug,
     })
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
@@ -245,6 +247,12 @@ async function emitBuildFailed(deploymentId: DeploymentId, message: string): Pro
     eventId: "build.failed",
     title: "Build failed",
     message: `${ctx.resourceName}: ${message}`.slice(0, 500),
+    subject: {
+      kind: "service",
+      id: ctx.resourceId,
+      label: ctx.resourceName,
+      project: ctx.projectSlug,
+    },
     data: {
       deploymentId,
       resource: ctx.resourceName,

@@ -283,8 +283,10 @@ async function notifyCrashed(
   const [info] = await db
     .select({
       organizationId: project.organizationId,
+      resourceId: deployment.resourceId,
       resourceName: resource.name,
       projectName: project.name,
+      projectSlug: project.slug,
       stackName: stack.name,
     })
     .from(deployment)
@@ -306,6 +308,7 @@ async function notifyCrashed(
     eventId: "deploy.crashed",
     title: "Service crashed",
     message: `${label}: ${detail}`,
+    subject: { kind: "service", id: info.resourceId, label, project: info.projectSlug },
     data: {
       deploymentId: ctx.deploymentId,
       resource: label,
