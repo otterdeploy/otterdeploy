@@ -24,23 +24,14 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Input } from "@/shared/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 import { cn } from "@/shared/lib/utils";
 
 import { prefetchRowsWindow } from "../data/rows-window";
 import { useDefinitions } from "../data/use-database";
 import { type DataStudioController, errMessage } from "../use-data-studio";
 import { DEFINITION_SECTIONS } from "./definitions-view";
+import { SchemaPicker } from "./schema-picker";
 import { compactCount, SidebarSkeleton } from "./workbench-rail-bits";
-
-/** Sentinel: Select needs a non-empty value, "every schema" is `null` in state. */
-const ALL_SCHEMAS = "__all__";
 
 export function RailContent({
   studio,
@@ -63,31 +54,7 @@ export function RailContent({
       {/* Only when there is a choice to make. A database whose tables all live
           in `public` gains nothing from a one-option dropdown. */}
       {t.schemas.length > 1 ? (
-        <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
-          <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-            Schema
-          </span>
-          <Select
-            value={t.activeSchema ?? ALL_SCHEMAS}
-            onValueChange={(v) => t.setActiveSchema(v === ALL_SCHEMAS ? null : v)}
-          >
-            <SelectTrigger className="h-6 w-auto gap-1 border-0 bg-transparent px-1 font-mono text-[11px] shadow-none hover:bg-muted/60">
-              {/* Render the label, not the value: the sentinel is an
-                  implementation detail and `__all__` is not a schema. */}
-              <SelectValue>{t.activeSchema ?? "all schemas"}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_SCHEMAS} className="font-mono text-[11px]">
-                all schemas
-              </SelectItem>
-              {t.schemas.map((s) => (
-                <SelectItem key={s} value={s} className="font-mono text-[11px]">
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <SchemaPicker schemas={t.schemas} active={t.activeSchema} onChange={t.setActiveSchema} />
       ) : null}
 
       <div className="p-2 pb-1.5">

@@ -201,6 +201,19 @@ function effectivePoolKey(target: DataTarget): string {
   return `${target.poolKey}:${fingerprint}`;
 }
 
+/** Close every pool whose key starts with `prefix`: a session ending takes
+ *  its connections with it instead of leaving them to the TTL reaper. */
+export function closePools(prefix: string): number {
+  let closed = 0;
+  for (const [key, pooled] of pools) {
+    if (!key.startsWith(prefix)) continue;
+    pools.delete(key);
+    closeBestEffort(pooled.sql);
+    closed += 1;
+  }
+  return closed;
+}
+
 function closeBestEffort(sql: SQL): void {
   void Result.tryPromise({ try: () => sql.close(), catch: () => undefined });
 }

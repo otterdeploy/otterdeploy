@@ -9,12 +9,23 @@
 import type { OrganizationId, UserId } from "@otterdeploy/shared/id";
 
 import { ID_PREFIX, hasPrefix } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 
 import type { AccessMode, Connection, DataError } from "../../data";
+import type { DataTarget } from "../../data/target";
 import type { DataTargetRef } from "./contract";
 
 import { enforceResourceScope } from "../../authz/project-scope-guards";
-import { connect, resolveExternalTarget, resolveManagedTarget } from "../../data";
+import {
+  connect,
+  liveSession,
+  ownerOf,
+  poolScopeOf,
+  resolveExternalTarget,
+  resolveManagedTarget,
+  sessionKey,
+} from "../../data";
+import { dataError, toDataError } from "../../data/errors";
 
 interface DataErrorConstructors {
   NOT_FOUND: () => Error;
@@ -23,6 +34,7 @@ interface DataErrorConstructors {
   UNREACHABLE: (init: { data: { reason: string } }) => Error;
   QUERY_FAILED: (init: { data: { reason: string } }) => Error;
   DENIED: (init: { data: { reason: string } }) => Error;
+  NOT_CONNECTED: (init: { data: { reason: string } }) => Error;
 }
 
 export function raise(error: DataError, errors: DataErrorConstructors): Error {
@@ -39,41 +51,73 @@ export function raise(error: DataError, errors: DataErrorConstructors): Error {
       return errors.DENIED({ data: { reason } });
     case "query":
       return errors.QUERY_FAILED({ data: { reason } });
+    case "not_connected":
+      return errors.NOT_CONNECTED({ data: { reason } });
   }
 }
 
+/** The context every handler carries; what a session is keyed by. */
+export interface DataContext {
+  activeOrganizationId: OrganizationId;
+  session?: { user?: { id?: string } } | null;
+}
+
 /**
- * Resolve a target ref and connect, whichever kind it names.
+ * Resolve a target ref to credentials-and-address, whichever kind it names.
  *
  * The one place the two kinds differ. Above it, every handler is written once:
  * browsing a Neon database and browsing a managed one are the same code path
- * because the difference — where the credentials come from — is settled here.
+ * because the difference — where the credentials come from, and how the
+ * database is reached — is settled here. A managed database is reached only
+ * through the caller's open session (its tunnel); without one this is
+ * `not_connected`, which the client turns into the connect step.
  */
-export async function open(
-  context: {
-    activeOrganizationId: OrganizationId;
-    session?: { user?: { id?: string } } | null;
-  },
+export async function resolveTarget(
+  context: DataContext,
   target: DataTargetRef,
   mode: AccessMode,
-): Promise<Connection> {
+): Promise<DataTarget> {
   if (target.kind === "resource") {
-    return connect(
-      await resolveManagedTarget({
-        organizationId: context.activeOrganizationId,
-        resourceId: target.resourceId,
-        mode,
-      }),
-    );
-  }
-  return connect(
-    await resolveExternalTarget({
+    const key = sessionKey({
+      owner: ownerOf(viewerIdOf(context)),
       organizationId: context.activeOrganizationId,
-      connectionId: target.connectionId,
-      viewerId: viewerIdOf(context),
+      target,
+    });
+    const live = liveSession(key);
+    if (!live?.tunnel) {
+      throw dataError(
+        "not_connected",
+        "open the database first: a managed database is reachable only through a session",
+      );
+    }
+    return resolveManagedTarget({
+      organizationId: context.activeOrganizationId,
+      resourceId: target.resourceId,
       mode,
-    }),
-  );
+      via: { host: live.tunnel.host, port: live.tunnel.port, scope: poolScopeOf(key) },
+    });
+  }
+  return resolveExternalTarget({
+    organizationId: context.activeOrganizationId,
+    connectionId: target.connectionId,
+    viewerId: viewerIdOf(context),
+    mode,
+  });
+}
+
+/** Resolve and connect, with every runtime failure mapped onto the contract. */
+export async function open(
+  context: DataContext,
+  target: DataTargetRef,
+  mode: AccessMode,
+  errors: DataErrorConstructors,
+): Promise<Connection> {
+  const connection = await Result.tryPromise({
+    try: async () => connect(await resolveTarget(context, target, mode)),
+    catch: toDataError,
+  });
+  if (connection.isErr()) throw raise(connection.error, errors);
+  return connection.value;
 }
 
 /**

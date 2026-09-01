@@ -39,6 +39,9 @@ type RecordHistory = (e: Omit<QueryHistoryEntry, "id" | "at">) => void;
 /** Pull the human-readable reason out of an oRPC error (QUERY_FAILED carries
  *  `data.reason`), falling back to the message. */
 export function errMessage(error: unknown): string {
+  // A console run stores the reason it already extracted (`SqlRunState.error`),
+  // so the results pane hands a string back here; return it as is.
+  if (typeof error === "string" && error.length > 0) return error;
   if (error && typeof error === "object") {
     if ("data" in error) {
       const { data } = error;
