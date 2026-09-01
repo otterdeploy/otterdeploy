@@ -32,7 +32,7 @@ export function WorkbenchFooter({
   onNextPage: () => void;
 }) {
   return (
-    <div className="flex h-7 shrink-0 items-center gap-2 overflow-hidden border-t bg-muted/20 px-3 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
+    <div className="flex h-7 shrink-0 items-center gap-2 overflow-hidden border-t px-3 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
       <span className="truncate">
         {objectCount} object{objectCount === 1 ? "" : "s"}
         {prefixCount > 0 ? ` · ${prefixCount} prefix${prefixCount === 1 ? "" : "es"}` : ""}

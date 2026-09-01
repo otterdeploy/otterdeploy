@@ -4,34 +4,27 @@
  * Prefix rows and object rows in ONE table, because in folder mode they are
  * one result set — S3 returns `commonPrefixes` and `contents` from the same
  * call. Rendering them as two lists would make "3 of 12 selected" ambiguous
- * about what the other nine are. The row renderers live in
- * `object-table-rows`.
+ * about what the other nine are. Row renderers live in `object-table-rows`,
+ * sorting in `object-table-sort`.
  *
- * Columns drag-resize at the header dividers. Widths live in state and the
- * table is `table-fixed` over a colgroup, so a drag moves ONE divider and
- * every cell under it, never reflows the neighbours' text mid-drag.
+ * Columns drag-resize at the header dividers (`use-column-widths`). Sorting
+ * is a rendering choice over the returned page and stays out of the URL.
  */
 import { useState } from "react";
+
+import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Temporal } from "@otterdeploy/shared/temporal";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { cn } from "@/shared/lib/utils";
 
 import type { ObjectRow } from "../use-bucket-workbench";
+import type { SortDir, SortKey } from "./object-table-sort";
 
 import { ObjectTableRow, PrefixTableRow } from "./object-table-rows";
-
-const SELECT_WIDTH = 36;
-const MIN_WIDTH = 72;
-
-type ResizableColumn = "key" | "size" | "storageClass" | "modified" | "actions";
-
-const DEFAULT_WIDTHS: Record<ResizableColumn, number> = {
-  key: 420,
-  size: 100,
-  storageClass: 130,
-  modified: 170,
-  actions: 88,
-};
+import { sortObjects, sortPrefixes } from "./object-table-sort";
+import { SELECT_WIDTH, useColumnWidths } from "./use-column-widths";
 
 export function ObjectTable({
   prefixes,
@@ -67,22 +60,14 @@ export function ObjectTable({
   const allSelected = objects.length > 0 && objects.every((o) => selected.has(o.key));
   const someSelected = objects.some((o) => selected.has(o.key));
 
-  const [widths, setWidths] = useState(DEFAULT_WIDTHS);
-  const totalWidth = SELECT_WIDTH + Object.values(widths).reduce((a, w) => a + w, 0);
+  const { widths, totalWidth, startResize } = useColumnWidths();
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
+  const toggleSort = (key: SortKey) =>
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 1 ? -1 : 1 } : { key, dir: 1 }));
 
-  const startResize = (column: ResizableColumn, event: React.PointerEvent) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = widths[column];
-    const onMove = (move: PointerEvent) =>
-      setWidths((prev) => ({
-        ...prev,
-        [column]: Math.max(MIN_WIDTH, startWidth + move.clientX - startX),
-      }));
-    const onUp = () => window.removeEventListener("pointermove", onMove);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
-  };
+  const nowMs = Temporal.Now.instant().epochMilliseconds;
+  const sortedPrefixes = sortPrefixes(prefixes, prefixTallies, sort.key, sort.dir);
+  const sortedObjects = sortObjects(objects, sort.key, sort.dir);
 
   if (prefixes.length === 0 && objects.length === 0) {
     return (
@@ -112,28 +97,47 @@ export function ObjectTable({
           <col style={{ width: widths.actions }} />
         </colgroup>
         <thead>
-          <tr>
-            <Th>
+          <tr className="group/head">
+            <Th className="pl-3">
               <Checkbox
                 aria-label="Select all objects on this page"
                 checked={allSelected}
                 indeterminate={someSelected && !allSelected}
                 onCheckedChange={(v) => onToggleAll(Boolean(v))}
+                className={cn(
+                  "transition-opacity",
+                  someSelected ? "opacity-100" : "opacity-0 group-hover/head:opacity-100",
+                )}
               />
             </Th>
-            <Th onResize={(e) => startResize("key", e)}>key</Th>
-            <Th className="text-right" onResize={(e) => startResize("size", e)}>
+            <Th sort={sort} sortKey="name" onSort={toggleSort} onResize={startResize("key")}>
+              name
+            </Th>
+            <Th
+              className="text-right"
+              sort={sort}
+              sortKey="size"
+              onSort={toggleSort}
+              onResize={startResize("size")}
+            >
               size
             </Th>
-            <Th onResize={(e) => startResize("storageClass", e)}>storage class</Th>
-            <Th onResize={(e) => startResize("modified", e)}>last modified</Th>
-            <Th onResize={(e) => startResize("actions", e)}>
+            <Th onResize={startResize("storageClass")}>class</Th>
+            <Th
+              sort={sort}
+              sortKey="modified"
+              onSort={toggleSort}
+              onResize={startResize("modified")}
+            >
+              modified
+            </Th>
+            <Th>
               <span className="sr-only">actions</span>
             </Th>
           </tr>
         </thead>
         <tbody>
-          {prefixes.map((prefix) => (
+          {sortedPrefixes.map((prefix) => (
             <PrefixTableRow
               key={prefix}
               prefix={prefix}
@@ -142,12 +146,13 @@ export function ObjectTable({
               onOpen={onOpenPrefix}
             />
           ))}
-          {objects.map((o) => (
+          {sortedObjects.map((o) => (
             <ObjectTableRow
               key={o.key}
               object={o}
               grouping={grouping}
               currentPrefix={currentPrefix}
+              nowMs={nowMs}
               isChecked={selected.has(o.key)}
               isActive={o.key === activeKey}
               onSelect={onSelect}
@@ -165,28 +170,57 @@ export function ObjectTable({
 function Th({
   children,
   className,
+  sort,
+  sortKey,
+  onSort,
   onResize,
 }: {
   children?: React.ReactNode;
   className?: string;
+  sort?: { key: SortKey; dir: SortDir };
+  sortKey?: SortKey;
+  onSort?: (key: SortKey) => void;
   onResize?: (event: React.PointerEvent) => void;
 }) {
+  const sortable = sortKey !== undefined && onSort !== undefined;
+  const active = sortable && sort?.key === sortKey;
   return (
     <th
+      onClick={sortable ? () => onSort(sortKey) : undefined}
+      aria-sort={active ? (sort?.dir === 1 ? "ascending" : "descending") : undefined}
       className={cn(
-        "sticky top-0 z-10 h-8 border-b bg-muted/40 px-3 text-left font-mono text-[11px] font-medium whitespace-nowrap text-muted-foreground",
+        "sticky top-0 z-10 h-[30px] border-r border-b border-border/70 bg-background px-2.5 text-left font-mono text-[10.5px] font-medium tracking-[0.02em] whitespace-nowrap text-muted-foreground select-none last:border-r-0",
+        sortable && "group/th cursor-pointer hover:text-foreground",
         onResize !== undefined && "relative",
         className,
       )}
     >
-      {children}
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {sortable ? <SortMark active={active} descending={sort?.dir === -1} /> : null}
+      </span>
       {onResize !== undefined ? (
         <span
           aria-hidden
           onPointerDown={onResize}
-          className="absolute top-0 -right-px z-20 h-full w-2 cursor-col-resize touch-none select-none after:absolute after:inset-y-1.5 after:right-1 after:w-px after:bg-border after:transition-colors hover:after:w-0.5 hover:after:bg-primary/60"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-0 -right-1 z-20 h-full w-2 cursor-col-resize touch-none select-none hover:bg-primary/20"
         />
       ) : null}
     </th>
+  );
+}
+
+/** The sort arrow: solid when active, a faint hint on header hover otherwise. */
+function SortMark({ active, descending }: { active: boolean; descending: boolean }) {
+  return (
+    <HugeiconsIcon
+      icon={active && descending ? ArrowDown01Icon : ArrowUp01Icon}
+      strokeWidth={2}
+      className={cn(
+        "size-3 transition-opacity",
+        active ? "opacity-100" : "opacity-0 group-hover/th:opacity-40",
+      )}
+    />
   );
 }

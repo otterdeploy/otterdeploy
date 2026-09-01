@@ -24,7 +24,7 @@ import type { BucketRow } from "./data/buckets-data";
 import type { BucketsSearch } from "./state";
 
 import { useBucketStats, useObjectDetail, useObjectListing } from "./data/buckets-data";
-import { ancestorPrefixes, crumbsFor } from "./state";
+import { crumbsFor } from "./state";
 import { useObjectVerbs } from "./use-object-verbs";
 
 /** A listed object plus the epoch-ms the filter grammar compares against. */
@@ -91,20 +91,6 @@ export function useBucketWorkbench({
 
   const prefixes = listing.data?.prefixes ?? [];
 
-  // ── the rail's prefix tree: what this view can actually see ──────────────
-  // S3 cannot enumerate a bucket's prefixes cheaply, so the tree is derived,
-  // not discovered: the ancestors of where you stand, the prefixes on this
-  // page, and the children the stats scan walked. Exactly what clicking one
-  // will open — never a guess.
-  const knownPrefixes = useMemo(() => {
-    const set = new Set<string>(ancestorPrefixes(search.prefix));
-    for (const p of listing.data?.prefixes ?? []) set.add(p);
-    for (const child of stats.data?.childPrefixes ?? []) {
-      set.add(`${search.prefix}${child.prefix}`);
-    }
-    return [...set].sort();
-  }, [search.prefix, listing.data, stats.data]);
-
   // ── facets: the scan's aggregates, or the page's own when the scan has
   // not answered — the chips must exist the moment there are rows to filter,
   // not only once a 5,000-key walk completes. The fallback is labelled
@@ -134,6 +120,16 @@ export function useBucketWorkbench({
     setActiveKey(null);
     setPageTokens([null]);
     setSearch({ prefix });
+  };
+
+  /** Open one object's preview, walking to its folder first if needed. */
+  const openObject = (key: string) => {
+    const parent = key.slice(0, key.lastIndexOf("/") + 1);
+    if (parent !== search.prefix) {
+      setPageTokens([null]);
+      setSearch({ prefix: parent });
+    }
+    setActiveKey(key);
   };
 
   const setQuery = (q: string) => setSearch({ q });
@@ -188,7 +184,6 @@ export function useBucketWorkbench({
   return {
     bucket,
     crumbs: crumbsFor(bucket.name, search.prefix),
-    knownPrefixes,
     prefixes,
     prefixTallies,
     objects,
@@ -207,6 +202,7 @@ export function useBucketWorkbench({
     activeKey,
     setActiveKey,
     navigateTo,
+    openObject,
     setQuery,
     toggleToken,
     setGrouping,
