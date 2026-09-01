@@ -25,7 +25,7 @@ import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
-import { emitDeployStarted } from "./deployments-emit";
+import { emitDeployStarted, serviceSubject } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
 export interface DeploymentRow {
@@ -147,6 +147,7 @@ export async function markDeploymentFailed(
       resourceId: deployment.resourceId,
       resourceName: resource.name,
       projectName: project.name,
+      projectSlug: project.slug,
     })
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
@@ -163,6 +164,7 @@ export async function markDeploymentFailed(
       eventId: "deploy.failed",
       title: "Deploy failed",
       message: `${info.resourceName}: ${errorMessage}`,
+      subject: serviceSubject(info.resourceId, info),
       data: {
         deploymentId,
         resource: info.resourceName,

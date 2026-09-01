@@ -10,7 +10,17 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { type NotificationRow, notification } from "@otterdeploy/db/schema";
-import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+
+import { deriveOpenConditions, type OpenCondition } from "../../notifications/conditions";
+
+/**
+ * How far back to look for open conditions, in rows. A condition is decided
+ * by the newest row of its key, so the window only has to reach past the
+ * newest row of every key the operator could still care about; three hundred
+ * covers weeks of a busy install and the query is indexed by (user, created).
+ */
+const CONDITION_LOOKBACK = 300;
 
 export interface InboxItem {
   id: NotificationId;
@@ -47,23 +57,35 @@ function toItem(row: NotificationRow): InboxItem {
   };
 }
 
+/**
+ * The inbox as two lists: what is still open, and settled history.
+ *
+ * Rows an open condition folded are returned inside it and NOT in `items`,
+ * so a failure is one card rather than a card plus twenty rows underneath.
+ */
 export async function listInbox(
   scope: InboxScope,
   limit: number,
-): Promise<{ items: InboxItem[]; unread: number }> {
+): Promise<{ open: OpenCondition<NotificationId>[]; items: InboxItem[]; unread: number }> {
   const [rows, [unreadRow]] = await Promise.all([
     db
       .select()
       .from(notification)
       .where(scopeWhere(scope))
       .orderBy(desc(notification.createdAt))
-      .limit(limit),
+      .limit(Math.max(limit, CONDITION_LOOKBACK)),
     db
       .select({ unread: count() })
       .from(notification)
       .where(and(scopeWhere(scope), isNull(notification.readAt))),
   ]);
-  return { items: rows.map(toItem), unread: unreadRow?.unread ?? 0 };
+  const items = rows.map(toItem);
+  const { open, consumed } = deriveOpenConditions(items);
+  return {
+    open,
+    items: items.filter((item) => !consumed.has(item.id)).slice(0, limit),
+    unread: unreadRow?.unread ?? 0,
+  };
 }
 
 /** Idempotent: an already-read row keeps its original readAt. */
@@ -72,6 +94,26 @@ export async function markInboxRead(scope: InboxScope, id: NotificationId): Prom
     .update(notification)
     .set({ readAt: sql`coalesce(${notification.readAt}, now())` })
     .where(and(eq(notification.id, id), eq(notification.userId, scope.userId)));
+}
+
+/** Idempotent for the same reason as {@link markInboxRead}; guarded by user. */
+export async function markInboxReadMany(
+  scope: InboxScope,
+  ids: readonly NotificationId[],
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const rows = await db
+    .update(notification)
+    .set({ readAt: sql`coalesce(${notification.readAt}, now())` })
+    .where(
+      and(
+        inArray(notification.id, [...ids]),
+        eq(notification.userId, scope.userId),
+        isNull(notification.readAt),
+      ),
+    )
+    .returning({ id: notification.id });
+  return rows.length;
 }
 
 export async function markInboxAllRead(scope: InboxScope): Promise<number> {

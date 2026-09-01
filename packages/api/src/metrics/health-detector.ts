@@ -70,6 +70,7 @@ async function emitHealthEvent(resourceId: ResourceId, health: Health): Promise<
       organizationId: project.organizationId,
       resourceName: resource.name,
       projectName: project.name,
+      projectSlug: project.slug,
     })
     .from(resource)
     .innerJoin(project, eq(project.id, resource.projectId))
@@ -89,6 +90,12 @@ async function emitHealthEvent(resourceId: ResourceId, health: Health): Promise<
     message: degraded
       ? `${info.resourceName} is reporting unhealthy`
       : `${info.resourceName} is healthy again`,
+    subject: {
+      kind: "service",
+      id: resourceId,
+      label: info.resourceName,
+      project: info.projectSlug,
+    },
     data: { resource: info.resourceName, project: info.projectName, health },
   });
 }
