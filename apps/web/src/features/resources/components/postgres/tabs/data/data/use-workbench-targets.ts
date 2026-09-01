@@ -17,6 +17,7 @@ import { isDatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import { useDatabaseCatalog } from "@/features/databases/data";
 
+import type { DataConnection } from "./connections";
 import type { WorkbenchTarget } from "./target";
 
 import { useDataConnections } from "./connections";
@@ -35,6 +36,14 @@ export interface WorkbenchTargetOption {
   healthy: boolean;
   /** Production external connections are pinned read-only; say so up front. */
   readOnly: boolean;
+  /** Canonical tags; empty for managed databases, which are found by project. */
+  tags: readonly string[];
+  /**
+   * The saved row behind an external option, so the switcher can offer to
+   * edit it. Absent for managed databases: their settings live on the
+   * resource, not here.
+   */
+  connection?: DataConnection;
 }
 
 export function useWorkbenchTargets(organizationId: string) {
@@ -58,6 +67,7 @@ export function useWorkbenchTargets(organizationId: string) {
       // still worth listing, greyed, rather than silently absent.
       healthy: d.runtimeStatus === "running",
       readOnly: false,
+      tags: [],
     }));
 
   const external: WorkbenchTargetOption[] = connections.map((c) => ({
@@ -70,6 +80,8 @@ export function useWorkbenchTargets(organizationId: string) {
     // A connection that has never opened is not unhealthy, just unproven.
     healthy: true,
     readOnly: c.environment === "production" || c.defaultAccess === "read-only",
+    tags: c.tags,
+    connection: c,
   }));
 
   return {

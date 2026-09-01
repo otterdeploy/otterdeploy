@@ -81,6 +81,7 @@ const dataConnectionEventRowSchema = z.object({
   environment: z.enum(["production", "other"]),
   defaultAccess: z.enum(["read-only", "read-write"]),
   requireTls: z.boolean(),
+  tags: z.array(z.string()),
   createdAt: z.coerce.date(),
   lastConnectedAt: z.coerce.date().nullable(),
 });

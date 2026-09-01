@@ -11,6 +11,7 @@ import type { OrganizationId, UserId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
+import { normalizeTags } from "@otterdeploy/shared/data-tags";
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { requirePermission } from "../..";
@@ -30,6 +31,7 @@ const SELECTION = {
   environment: dataConnection.environment,
   defaultAccess: dataConnection.defaultAccess,
   requireTls: dataConnection.requireTls,
+  tags: dataConnection.tags,
   createdAt: dataConnection.createdAt,
   lastConnectedAt: dataConnection.lastConnectedAt,
 };
@@ -116,6 +118,8 @@ export function makeConnectionHandlers(deps: {
           throw errors.INVALID_URL({ data: { reason: parsed.error.message } });
         }
         const described = describeConnection(parsed.value);
+        const tags = normalizeTags(input.tags);
+        if (!tags.ok) throw errors.INVALID_TAGS({ data: { reason: tags.reason } });
 
         context.log.set({
           // The host and database, never the URL: this row is readable by
@@ -137,6 +141,7 @@ export function makeConnectionHandlers(deps: {
             environment: input.environment,
             defaultAccess: input.defaultAccess,
             requireTls: input.requireTls,
+            tags: tags.tags,
             createdBy: viewerId,
           })
           .returning(SELECTION);
@@ -167,6 +172,11 @@ export function makeConnectionHandlers(deps: {
         if (input.environment !== undefined) patch.environment = input.environment;
         if (input.defaultAccess !== undefined) patch.defaultAccess = input.defaultAccess;
         if (input.requireTls !== undefined) patch.requireTls = input.requireTls;
+        if (input.tags !== undefined) {
+          const tags = normalizeTags(input.tags);
+          if (!tags.ok) throw errors.INVALID_TAGS({ data: { reason: tags.reason } });
+          patch.tags = tags.tags;
+        }
 
         // Omitting `url` leaves the stored credential untouched. That is what
         // lets someone rename a connection or flip it out of production without

@@ -98,9 +98,26 @@ const connectionSchema = z.object({
   environment: z.enum(["production", "other"]),
   defaultAccess: z.enum(["read-only", "read-write"]),
   requireTls: z.boolean(),
+  /** Canonical (lowercase, unique) — see `@otterdeploy/shared/data-tags`. */
+  tags: z.array(z.string()),
   createdAt: z.date(),
   lastConnectedAt: z.date().nullable(),
 });
+
+/**
+ * Tags as SUBMITTED. Loose on purpose: the handler canonicalises with
+ * `normalizeTags` and refuses with INVALID_TAGS naming the offending tag, which
+ * is a better error than a regex failure reported by field index.
+ */
+const tagsInput = z.array(z.string().max(128)).max(64);
+
+const tagErrors = {
+  INVALID_TAGS: {
+    status: 422 as const,
+    message: "Those tags cannot be used" as const,
+    data: z.object({ reason: z.string() }),
+  },
+};
 
 const schemaResultSchema = z.object({
   dialect: z.enum(["postgres", "mysql"]),
@@ -261,11 +278,13 @@ export const dataContract = {
         environment: z.enum(["production", "other"]).default("other"),
         defaultAccess: z.enum(["read-only", "read-write"]).default("read-only"),
         requireTls: z.boolean().default(true),
+        tags: tagsInput.default([]),
       }),
     )
     .output(connectionSchema)
     .errors({
       ...dataErrors,
+      ...tagErrors,
       INVALID_URL: {
         status: 422 as const,
         message: "That connection URL cannot be used" as const,
@@ -285,11 +304,14 @@ export const dataContract = {
         environment: z.enum(["production", "other"]).optional(),
         defaultAccess: z.enum(["read-only", "read-write"]).optional(),
         requireTls: z.boolean().optional(),
+        /** The whole list; omit to leave tags alone. */
+        tags: tagsInput.optional(),
       }),
     )
     .output(connectionSchema)
     .errors({
       ...dataErrors,
+      ...tagErrors,
       INVALID_URL: {
         status: 422 as const,
         message: "That connection URL cannot be used" as const,

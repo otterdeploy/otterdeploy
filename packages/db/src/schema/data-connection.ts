@@ -12,7 +12,7 @@
 import type { DataConnectionId, OrganizationId, UserId } from "@otterdeploy/shared/id";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { boolean, index, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { organization, user } from "./auth";
 
@@ -95,6 +95,14 @@ export const dataConnection = pgTable(
     defaultAccess: dataConnectionAccessEnum("default_access").notNull().default("read-only"),
     /** Require TLS. Default on: an external hop is over the public internet. */
     requireTls: boolean("require_tls").notNull().default(true),
+    /**
+     * Free-form labels for finding a connection: "analytics", "customer-acme".
+     *
+     * Canonicalised at save time by `@otterdeploy/shared/data-tags` (lowercase,
+     * deduplicated, capped), so equality here is string equality. A jsonb
+     * array like `server.labels`: read as a whole, never queried by element.
+     */
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
 
     createdBy: text("created_by")
       .$type<UserId>()

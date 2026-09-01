@@ -7,21 +7,15 @@
 import type { ChangeEvent } from "react";
 
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
-import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 
 import type { DataConnection } from "../data/connections";
 import type { ConnectEngine, UrlFields } from "./connect-engines";
 
 import { COMING_SOON, CONNECT_ENGINES } from "./connect-engines";
+import { ScopeFields } from "./connect-scope-fields";
+import { TagsField } from "./connect-tags-field";
 
 export interface ConnectDraft {
   name: string;
@@ -31,6 +25,8 @@ export interface ConnectDraft {
   visibility: DataConnection["visibility"];
   environment: DataConnection["environment"];
   requireTls: boolean;
+  /** Canonical already: the tags field normalises on the way in. */
+  tags: string[];
 }
 
 /** Step 1: the engine grid, with paste-to-autodetect above it. */
@@ -100,6 +96,7 @@ export function ConnectForm({
   editing,
   error,
   tested,
+  tagSuggestions,
   patch,
   onAcceptUrl,
   onBack,
@@ -109,6 +106,8 @@ export function ConnectForm({
   editing: boolean;
   error: string | null;
   tested: string | null;
+  /** Tags already used by the org's other connections. */
+  tagSuggestions: readonly string[];
   patch: (next: Partial<ConnectDraft>) => void;
   onAcceptUrl: (raw: string) => void;
   onBack?: () => void;
@@ -203,14 +202,11 @@ export function ConnectForm({
 
       <ScopeFields draft={draft} patch={patch} />
 
-      <label className="flex items-center gap-2 text-[13px]">
-        <Checkbox
-          checked={draft.requireTls}
-          onCheckedChange={(v) => patch({ requireTls: Boolean(v) })}
-        />
-        Require TLS
-        <span className="text-muted-foreground">— the hop leaves the cluster</span>
-      </label>
+      <TagsField
+        tags={draft.tags}
+        suggestions={tagSuggestions}
+        onChange={(tags) => patch({ tags })}
+      />
 
       {tested !== null ? (
         <p className="rounded-md bg-success/10 px-3 py-2 text-[12.5px] text-success">{tested}</p>
@@ -220,50 +216,6 @@ export function ConnectForm({
           {error}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-/** Environment + visibility: who this connection is for, and how carefully. */
-function ScopeFields({
-  draft,
-  patch,
-}: {
-  draft: ConnectDraft;
-  patch: (next: Partial<ConnectDraft>) => void;
-}) {
-  return (
-    <div className="flex gap-3">
-      <div className="flex flex-1 flex-col gap-1.5">
-        <Label>Environment</Label>
-        <Select
-          value={draft.environment}
-          onValueChange={(v) => patch({ environment: v === "production" ? v : "other" })}
-        >
-          <SelectTrigger size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="other">Not production</SelectItem>
-            <SelectItem value="production">Production (read-only)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5">
-        <Label>Visible to</Label>
-        <Select
-          value={draft.visibility}
-          onValueChange={(v) => patch({ visibility: v === "private" ? v : "org" })}
-        >
-          <SelectTrigger size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="org">Everyone in this org</SelectItem>
-            <SelectItem value="private">Only me</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
     </div>
   );
 }

@@ -62,6 +62,7 @@ function createConnectionsCollection(organizationId: string) {
             environment: row.environment,
             defaultAccess: row.defaultAccess,
             requireTls: row.requireTls,
+            tags: row.tags,
           });
           // The optimistic row carried a temp id and no parsed host. Drop it and
           // write the server's row, rather than refetching the whole list to
@@ -84,6 +85,7 @@ function createConnectionsCollection(organizationId: string) {
               environment: c.environment,
               defaultAccess: c.defaultAccess,
               requireTls: c.requireTls,
+              tags: c.tags,
               // Omitting `url` leaves the stored credential untouched, which is
               // what lets someone rename a connection without re-pasting it.
               url,

@@ -1,0 +1,1 @@
+ALTER TABLE "data_connection" ADD COLUMN "tags" jsonb DEFAULT '[]' NOT NULL;
