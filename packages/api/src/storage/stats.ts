@@ -1,3 +1,5 @@
+import { keyExtension, compileStorageFilters } from "@otterdeploy/shared/storage-filter";
+import { Temporal } from "@otterdeploy/shared/temporal";
 /**
  * Scoped aggregates for the bucket viewer's stats strip and facet chips.
  *
@@ -12,8 +14,6 @@
  * `class:GLACIER_IR size:>100MB` selects.
  */
 import { Result } from "better-result";
-import { keyExtension, compileStorageFilters } from "@otterdeploy/shared/storage-filter";
-import { Temporal } from "@otterdeploy/shared/temporal";
 
 import type { StorageError, StorageTarget } from "./target";
 

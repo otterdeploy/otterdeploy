@@ -14,7 +14,10 @@ const NOW = 1_756_600_000_000; // fixed anchor so `modified:` tests are stable
 
 const DAY = 86_400_000;
 
-function obj(key: string, over: Partial<{ size: number; storageClass: string; modifiedMs: number | null }> = {}) {
+function obj(
+  key: string,
+  over: Partial<{ size: number; storageClass: string; modifiedMs: number | null }> = {},
+) {
   return {
     key,
     size: over.size ?? 1_000,
@@ -67,7 +70,11 @@ describe("token filters", () => {
   const objects = [
     obj("invoices/2026-08/INV-1.pdf", { size: 2_400_000 }),
     obj("invoices/2026-08/manifest.jsonl", { size: 9_100_000 }),
-    obj("exports/orders.csv.gz", { size: 412_000_000, storageClass: "GLACIER_IR", modifiedMs: NOW - 400 * DAY }),
+    obj("exports/orders.csv.gz", {
+      size: 412_000_000,
+      storageClass: "GLACIER_IR",
+      modifiedMs: NOW - 400 * DAY,
+    }),
     obj("logo.svg", { size: 4_200, modifiedMs: null }),
   ];
 
