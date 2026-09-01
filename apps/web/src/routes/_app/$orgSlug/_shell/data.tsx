@@ -17,15 +17,12 @@ import { useEffect, useState } from "react";
 
 import { createPortal } from "react-dom";
 
-import { Database02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { Button } from "@/shared/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
-
 import { ConnectDialog } from "@/features/resources/components/postgres/tabs/data/components/connect-dialog";
+import { ConnectGate } from "@/features/resources/components/postgres/tabs/data/components/connect-gate";
+import { TargetPicker } from "@/features/resources/components/postgres/tabs/data/components/target-picker";
 import { TargetSwitcher } from "@/features/resources/components/postgres/tabs/data/components/target-switcher";
 import type { DataConnection } from "@/features/resources/components/postgres/tabs/data/data/connections";
 import {
@@ -73,9 +70,12 @@ function DataPage() {
   // content it opened with, rather than snapping back to the create form.
   const setDialogOpen = (open: boolean) => setDialog((d) => ({ ...d, open }));
 
-  // Derived, not stored: an unknown or absent `?target=` falls back to the
-  // first option rather than rendering an empty workbench.
+  // Derived, not stored. No `?target=` means nothing is open and the picker
+  // shows; opening a database is a click, because it opens a session.
   const active = findTarget(all, search.target);
+  const pick = (option: { key: string }) =>
+    void navigate({ search: { target: option.key }, replace: true });
+  const leave = () => void navigate({ search: {}, replace: true });
 
   // Captured ONCE: the workbench seeds its state from this at mount, then owns
   // it; later URL echoes must not feed back in. Pinned to the target it was
@@ -93,9 +93,10 @@ function DataPage() {
       options={{ managed, external }}
       active={active}
       isLoading={isLoading}
-      onPick={(option) => void navigate({ search: { target: option.key }, replace: true })}
+      onPick={pick}
       onConnect={openConnect}
       onEdit={openEdit}
+      onDisconnect={active === undefined ? undefined : leave}
     />
   );
 
@@ -131,42 +132,29 @@ function DataPage() {
       {isLoading ? (
         <div className="min-h-0 flex-1 animate-pulse bg-muted/20" />
       ) : active === undefined ? (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <Empty className="flex-1 justify-center">
-            <EmptyHeader>
-              <HugeiconsIcon
-                icon={Database02Icon}
-                strokeWidth={1.5}
-                className="size-10 text-muted-foreground/50"
-              />
-              <EmptyTitle>Nothing to browse yet</EmptyTitle>
-              <EmptyDescription>
-                Deploy a PostgreSQL or MariaDB database, or connect one otterdeploy
-                doesn&rsquo;t run.
-              </EmptyDescription>
-            </EmptyHeader>
-            <Button size="sm" onClick={openConnect}>
-              Connect a database URL
-            </Button>
-          </Empty>
-        </div>
+        <TargetPicker managed={managed} external={external} onPick={pick} onConnect={openConnect} />
       ) : (
-        <DataWorkbench
-          // Remount on target change: the workbench holds per-database state
-          // (open table, filters, page, editor buffer) that means nothing
-          // against a different database, and carrying it across would show
-          // one database's filters over another's rows.
+        <ConnectGate
+          // Remount on target change: the session and the workbench's
+          // per-database state (open table, filters, page, editor buffer)
+          // both belong to one database.
           key={active.key}
           target={active.target}
-          label={active.name}
-          urlInit={
-            initial.forTarget === undefined || initial.forTarget === active.key
-              ? initial.state
-              : undefined
-          }
-          onUrlState={onUrlState}
-          className="min-h-0 flex-1"
-        />
+          name={active.name}
+          onChooseAnother={leave}
+        >
+          <DataWorkbench
+            target={active.target}
+            label={active.name}
+            urlInit={
+              initial.forTarget === undefined || initial.forTarget === active.key
+                ? initial.state
+                : undefined
+            }
+            onUrlState={onUrlState}
+            className="min-h-0 flex-1"
+          />
+        </ConnectGate>
       )}
 
       <ConnectDialog

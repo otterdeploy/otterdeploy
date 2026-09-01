@@ -33,6 +33,7 @@ import {
 } from "../../data";
 import { makeConnectionHandlers } from "./connections";
 import { guardTarget, open, raise, targetLog, viewerIdOf } from "./plumbing";
+import { makeSessionHandlers } from "./sessions";
 
 async function mayWrite(context: { apiKey?: unknown; headers: Headers }): Promise<boolean> {
   if (context.apiKey) return false;
@@ -53,13 +54,14 @@ async function mayWrite(context: { apiKey?: unknown; headers: Headers }): Promis
 
 export const dataRouter = {
   ...makeConnectionHandlers({ viewerIdOf }),
+  ...makeSessionHandlers({ viewerIdOf }),
 
   schema: requirePermission({ database: ["read"] }).data.schema.handler(
     async ({ input, context, errors }) => {
       context.log.set(targetLog(input.target));
       await guardTarget(context, input.target);
 
-      const connection = await open(context, input.target, "read-only");
+      const connection = await open(context, input.target, "read-only", errors);
 
       const [tables, columns] = await Promise.all([
         listTables(connection),
@@ -100,7 +102,7 @@ export const dataRouter = {
       context.log.set(targetLog(input.target));
       await guardTarget(context, input.target);
 
-      const connection = await open(context, input.target, "read-only");
+      const connection = await open(context, input.target, "read-only", errors);
       // In parallel: three independent catalog reads with no ordering between
       // them, so serialising would just add two round trips of latency.
       const [indexes, constraints, enums] = await Promise.all([
@@ -129,7 +131,7 @@ export const dataRouter = {
       context.log.set(targetLog(input.target));
       await guardTarget(context, input.target);
 
-      const connection = await open(context, input.target, "read-only");
+      const connection = await open(context, input.target, "read-only", errors);
 
       const foundColumns = await tableColumns(connection, input.schema, input.table);
       if (foundColumns.isErr()) throw raise(foundColumns.error, errors);
@@ -174,7 +176,7 @@ export const dataRouter = {
       context.log.set(targetLog(input.target));
       await guardTarget(context, input.target);
 
-      const connection = await open(context, input.target, "read-only");
+      const connection = await open(context, input.target, "read-only", errors);
       const foundColumns = await tableColumns(connection, input.schema, input.table);
       if (foundColumns.isErr()) throw raise(foundColumns.error, errors);
       const columns = foundColumns.value;
@@ -234,6 +236,7 @@ export const dataRouter = {
         context,
         input.target,
         input.write ? "read-write" : "read-only",
+        errors,
       );
 
       const grid = await execute(
@@ -269,7 +272,7 @@ export const dataRouter = {
         });
       }
 
-      const connection = await open(context, input.target, "read-write");
+      const connection = await open(context, input.target, "read-write", errors);
       if (!connection.target.writeAllowed || connection.target.mode === "read-only") {
         throw errors.DENIED({ data: { reason: "this connection is configured read-only" } });
       }

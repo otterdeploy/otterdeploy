@@ -17,5 +17,14 @@ export {
 } from "./introspect";
 export { listConstraints, listEnums, listIndexes } from "./introspect-objects";
 export { connect, type Connection } from "./pool";
+export {
+  closeSession,
+  listSessions,
+  liveSession,
+  openSession,
+  ownerOf,
+  poolScopeOf,
+  sessionKey,
+} from "./session";
 export { resolveExternalTarget, resolveManagedTarget, type AccessMode } from "./target";
 export { describeConnection, parseConnectionUrl } from "./connection-url";

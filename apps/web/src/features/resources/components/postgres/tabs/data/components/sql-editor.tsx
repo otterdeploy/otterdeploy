@@ -14,6 +14,7 @@ import { PostgreSQL, sql } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { StateField } from "@codemirror/state";
 import { EditorView, GutterMarker, gutter, keymap } from "@codemirror/view";
+import { PlayIcon } from "@hugeicons/core-free-icons";
 import { tags as t } from "@lezer/highlight";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
@@ -66,12 +67,41 @@ function statementAtCursor(view: EditorView): SqlStatement | null {
   );
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+const SVG_ATTR: Record<string, string> = {
+  strokeWidth: "stroke-width",
+  strokeLinejoin: "stroke-linejoin",
+  strokeLinecap: "stroke-linecap",
+};
+
+/** The gutter is imperative DOM (CodeMirror), so the hugeicon is built by
+ *  hand from its geometry rather than through `HugeiconsIcon`. Drawn with a
+ *  heavier stroke than the icon set's 1.5 so it reads at 12 px. */
+function playIcon(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
+  svg.setAttribute("aria-hidden", "true");
+  for (const [tag, attrs] of PlayIcon) {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const [name, value] of Object.entries(attrs)) {
+      if (name === "key") continue;
+      node.setAttribute(SVG_ATTR[name] ?? name, String(value));
+    }
+    node.setAttribute("stroke-width", "2.25");
+    node.setAttribute("fill", "color-mix(in srgb, currentColor 22%, transparent)");
+    svg.appendChild(node);
+  }
+  return svg;
+}
+
 class RunMarker extends GutterMarker {
   toDOM() {
     const el = document.createElement("span");
     el.className = "cm-run-marker";
-    el.textContent = "▶";
     el.title = "Run this statement";
+    el.appendChild(playIcon());
     return el;
   }
 }
@@ -101,9 +131,11 @@ const editorTheme = EditorView.theme(
     },
     ".cm-run-gutter": { width: "16px" },
     ".cm-run-marker": {
-      color: "#22c55e",
+      color: "var(--success)",
       cursor: "pointer",
-      fontSize: "10px",
+      display: "inline-flex",
+      alignItems: "center",
+      height: "100%",
       opacity: "0.85",
     },
     ".cm-run-marker:hover": { opacity: "1" },

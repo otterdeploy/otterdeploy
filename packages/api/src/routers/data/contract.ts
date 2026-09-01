@@ -61,6 +61,11 @@ const dataErrors = {
     message: "This connection is read-only" as const,
     data: z.object({ reason: z.string() }),
   },
+  NOT_CONNECTED: {
+    status: 409 as const,
+    message: "Not connected to this database" as const,
+    data: z.object({ reason: z.string() }),
+  },
 };
 
 const connectionIdField = zId(ID_PREFIX.dataConnection);
@@ -372,6 +377,52 @@ export const dataContract = {
    * Every statement is BUILT HERE from the structured request against the
    * table's introspected columns. The client never sends SQL for a write.
    */
+  /**
+   * Open the caller's session on a target: the deliberate "connect" step.
+   *
+   * A managed database is reached through a per-session tunnel into its
+   * container, and it exists only between this call and `closeSession` (or
+   * the idle reaper). Idempotent: a second open joins the live session.
+   */
+  openSession: oc
+    .route({ method: "POST", path: `${basePath}/sessions`, tags: [tag] })
+    .input(withTarget({}))
+    .output(
+      z.object({
+        key: z.string(),
+        tunneled: z.boolean(),
+        serverVersion: z.string(),
+        durationMs: z.number(),
+      }),
+    )
+    .errors(dataErrors),
+
+  /** Close the caller's session on a target and everything it held. */
+  closeSession: oc
+    .route({ method: "DELETE", path: `${basePath}/sessions`, tags: [tag] })
+    .input(withTarget({}))
+    .output(z.object({ closed: z.boolean() }))
+    .errors(dataErrors),
+
+  /** The caller's live sessions, so a leak is something you can see. */
+  listSessions: oc
+    .route({ method: "GET", path: `${basePath}/sessions`, tags: [tag] })
+    .input(z.object({}))
+    .output(
+      z.object({
+        sessions: z.array(
+          z.object({
+            key: z.string(),
+            target: dataTargetSchema,
+            tunneled: z.boolean(),
+            openedAt: z.number(),
+            idleMs: z.number(),
+          }),
+        ),
+      }),
+    )
+    .errors(dataErrors),
+
   mutate: oc
     .route({ method: "POST", path: `${basePath}/mutate`, tags: [tag] })
     .input(

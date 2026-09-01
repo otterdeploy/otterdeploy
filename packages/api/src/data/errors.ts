@@ -20,7 +20,9 @@ export type DataErrorReason =
   /** The engine has no relational dialect (Redis, Mongo). */
   | "unsupported"
   /** The resource or connection does not exist for this organization. */
-  | "not_found";
+  | "not_found"
+  /** A managed database is only reachable through an open session. */
+  | "not_connected";
 
 export class DataError extends TaggedError("DataError")<{
   reason: DataErrorReason;

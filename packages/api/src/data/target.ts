@@ -34,7 +34,7 @@ export interface DataTarget {
   database: string;
   username: string;
   password: string;
-  /** TLS for external targets; managed ones ride the private overlay network. */
+  /** TLS for external targets; managed ones ride a loopback tunnel. */
   tls: boolean | Bun.TLSOptions;
   mode: AccessMode;
   /** Target policy before this individual call requested a mode. */
@@ -50,15 +50,18 @@ export interface DataTarget {
 /**
  * Resolve a managed database resource to a target.
  *
- * Uses `internalHostname`/`internalPort` — the service's DNS alias on the
- * project's overlay network — rather than the public edge. The control plane is
- * on that network, so this is a direct hop that never leaves the cluster and
- * never depends on the database being publicly exposed at all.
+ * Reached through the caller's session tunnel (`via`): a loopback port on
+ * the control plane that an exec relays into the database's container. The
+ * alias on the project's network is NOT used — the control plane is not on
+ * that network, by design (docs/designs/workbench-managed-reach.md). The
+ * tunnel's scope is part of the pool key so a session's connections are its
+ * own and are closed with it.
  */
 export async function resolveManagedTarget(input: {
   organizationId: OrganizationId;
   resourceId: ResourceId;
   mode: AccessMode;
+  via: { host: string; port: number; scope: string };
 }): Promise<DataTarget> {
   const [row] = await db
     .select({
@@ -91,10 +94,10 @@ export async function resolveManagedTarget(input: {
     // Mode is part of the key: a read-only and a read-write session against the
     // same database must never share a pooled connection, or the read-only
     // guarantee lasts exactly until someone else's write checks the socket out.
-    poolKey: `res:${row.resourceId}:${input.mode}`,
+    poolKey: `res:${input.via.scope}:${row.resourceId}:${input.mode}`,
     engine: row.engine,
-    host: row.internalHostname,
-    port: row.internalPort,
+    host: input.via.host,
+    port: input.via.port,
     database: row.databaseName,
     username: row.username,
     password: row.password,

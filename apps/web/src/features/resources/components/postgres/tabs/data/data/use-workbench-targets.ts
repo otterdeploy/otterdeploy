@@ -92,12 +92,17 @@ export function useWorkbenchTargets(organizationId: string) {
   };
 }
 
-/** Resolve the `?target=` search param back to an option. */
+/**
+ * Resolve the `?target=` search param back to an option.
+ *
+ * No fallback. An absent or unknown target means "nothing is open", and the
+ * page shows the picker; it does not open the first database on someone's
+ * behalf, because opening one starts a session.
+ */
 export function findTarget(
   options: readonly WorkbenchTargetOption[],
   key: string | undefined,
 ): WorkbenchTargetOption | undefined {
-  const fallback = options.find((option) => option.healthy) ?? options[0];
-  if (key === undefined) return fallback;
-  return options.find((option) => option.key === key) ?? fallback;
+  if (key === undefined) return undefined;
+  return options.find((option) => option.key === key);
 }

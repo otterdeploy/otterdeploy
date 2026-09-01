@@ -37,7 +37,7 @@ function resolveResultsProps(t: TableController) {
     emptyIcon: sqlMode ? PlayIcon : Database01Icon,
     emptyTitle: sqlMode ? "Run a query" : "Select a table",
     emptyBody: sqlMode
-      ? "Write read-only SQL above, then run a statement with its ▶ or ⌘↵."
+      ? "Write read-only SQL above, then run a statement with its play button or ⌘↵."
       : "Pick a table from the left to browse its rows.",
   };
 }
