@@ -1,17 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { bellLabel } from "./bell-badge";
+import { bellState, groupSettled, itemSeverity, subjectOfItem, worstSeverity } from "./inbox-fold";
+import { hiddenUnreadCount, inboxViewState } from "./inbox-view-state";
 import {
   EVENTS,
   SUBSCRIBABLE_EVENTS,
   channelTargetHint,
   eventLabel,
   eventSeverityOf,
-  hiddenUnreadCount,
   inboxDetailRows,
   inboxEventId,
-  inboxViewState,
-  worstSeverity,
 } from "./shared";
 
 describe("channelTargetHint", () => {
@@ -262,5 +261,119 @@ describe("the subscribable catalog", () => {
   it("keeps the id resolvable so stored rows still render", () => {
     expect(EVENTS.map((e) => e.id)).toContain("cert.expiring");
     expect(eventSeverityOf("cert.expiring")).toBe("warn");
+  });
+});
+
+describe("itemSeverity", () => {
+  it("grades host.pressure from the payload, not the catalog", () => {
+    expect(itemSeverity({ eventId: "host.pressure", severity: "critical" })).toBe("err");
+    expect(itemSeverity({ eventId: "host.pressure", severity: "warning" })).toBe("warn");
+    expect(itemSeverity({ eventId: "host.pressure", severity: "info" })).toBe("info");
+    // Ungraded pressure keeps the catalog's warn.
+    expect(itemSeverity({ eventId: "host.pressure" })).toBe("warn");
+  });
+
+  it("uses the catalog for everything else", () => {
+    expect(itemSeverity({ eventId: "deploy.failed", severity: "info" })).toBe("err");
+    expect(itemSeverity(null)).toBe("info");
+  });
+});
+
+describe("subjectOfItem", () => {
+  it("prefers the encoded subject", () => {
+    const data = {
+      subjectKind: "service",
+      subjectId: "res_1",
+      subjectLabel: "api",
+      subjectProject: "acme",
+      resource: "api",
+    };
+    expect(subjectOfItem(data)).toEqual({
+      kind: "service",
+      id: "res_1",
+      label: "api",
+      project: "acme",
+    });
+  });
+
+  it("derives a legacy subject from display strings, marked so it never links", () => {
+    expect(subjectOfItem({ eventId: "deploy.failed", resource: "api" })).toEqual({
+      kind: "service",
+      id: "legacy:api",
+      label: "api",
+    });
+    expect(subjectOfItem({ eventId: "host.pressure", recommendation: "disk-pressure" })?.kind).toBe(
+      "server",
+    );
+    expect(subjectOfItem({ eventId: "ssh.rotated" })).toBeNull();
+  });
+});
+
+describe("groupSettled", () => {
+  const at = (minutesAgo: number) => new Date(Date.UTC(2026, 8, 1, 12, 0) - minutesAgo * 60_000);
+  const row = (
+    id: string,
+    title: string,
+    data: Record<string, string>,
+    minutesAgo: number,
+    read = false,
+  ) => ({ id, title, data, readAt: read ? at(minutesAgo) : null, createdAt: at(minutesAgo) });
+  const host = { subjectKind: "server", subjectId: "h1", subjectLabel: "h1" };
+  const api = {
+    subjectKind: "service",
+    subjectId: "res_api",
+    subjectLabel: "api",
+    subjectProject: "p",
+  };
+
+  it("groups under the subject and folds identical consecutive rows into one line", () => {
+    const groups = groupSettled([
+      row("a", "Disk 87% full", { eventId: "host.pressure", ...host }, 1),
+      row("b", "Disk 87% full", { eventId: "host.pressure", ...host }, 5),
+      row("c", "Auto-reclaimed 2 GB", { eventId: "host.pressure", ...host }, 9),
+      row("d", "Disk 87% full", { eventId: "host.pressure", ...host }, 12),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.rows.map((r) => [r.item.title, r.count])).toEqual([
+      ["Disk 87% full", 2],
+      ["Auto-reclaimed 2 GB", 1],
+      ["Disk 87% full", 1],
+    ]);
+    expect(groups[0]?.rows[0]?.ids).toEqual(["a", "b"]);
+    expect(groups[0]?.unread).toBe(4);
+  });
+
+  it("puts unread groups first, worst severity first, then read groups by recency", () => {
+    const groups = groupSettled([
+      row("1", "Deploy succeeded", { eventId: "deploy.succeeded", ...api }, 1, true),
+      row("2", "Disk 87% full", { eventId: "host.pressure", severity: "warning", ...host }, 2),
+      row("3", "SSH key rotated", { eventId: "ssh.rotated" }, 3),
+      row(
+        "4",
+        "Backup failed",
+        { eventId: "backup.failed", subjectKind: "backup", subjectId: "b", subjectLabel: "pg" },
+        30,
+      ),
+    ]);
+    expect(groups.map((g) => g.key)).toEqual(["backup:b", "server:h1", "other", "service:res_api"]);
+    expect(groups[0]?.severity).toBe("err");
+    expect(groups[3]?.severity).toBeNull();
+  });
+});
+
+describe("bellState", () => {
+  it("counts open problems in the worst colour", () => {
+    expect(bellState({ open: [{ severity: "warn" }, { severity: "err" }], unread: 40 })).toEqual({
+      count: 2,
+      severity: "err",
+    });
+  });
+
+  it("falls back to the unread count, quietly, when nothing is open", () => {
+    expect(bellState({ open: [], unread: 3 })).toEqual({ count: 3, severity: "info" });
+  });
+
+  it("is off when there is nothing open and nothing unread", () => {
+    expect(bellState({ open: [], unread: 0 })).toBeNull();
   });
 });

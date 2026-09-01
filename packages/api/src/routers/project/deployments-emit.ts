@@ -4,6 +4,7 @@
  * throws into the deploy path (emitPlatformEvent swallows its own errors).
  */
 import type { DeploymentId, OrganizationId, ResourceId } from "@otterdeploy/shared/id";
+import type { InboxSubject } from "@otterdeploy/shared/inbox-subject";
 
 import { db } from "@otterdeploy/db";
 import { project, resource } from "@otterdeploy/db/schema/project";
@@ -18,12 +19,14 @@ async function resolveDeployContext(resourceId: ResourceId): Promise<{
   organizationId: OrganizationId;
   resourceName: string;
   projectName: string;
+  projectSlug: string;
 } | null> {
   const [info] = await db
     .select({
       organizationId: project.organizationId,
       resourceName: resource.name,
       projectName: project.name,
+      projectSlug: project.slug,
     })
     .from(resource)
     .innerJoin(project, eq(project.id, resource.projectId))
@@ -55,6 +58,7 @@ export async function emitDeployStarted(input: {
     eventId: "deploy.started",
     title: "Deploy started",
     message: `${info.resourceName}: ${input.reason}`,
+    subject: serviceSubject(input.resourceId, info),
     data: {
       deploymentId: input.deploymentId,
       resource: info.resourceName,
@@ -74,10 +78,19 @@ export async function emitDeploySucceeded(input: {
     eventId: "deploy.succeeded",
     title: "Deploy succeeded",
     message: `${info.resourceName} is now running`,
+    subject: serviceSubject(input.resourceId, info),
     data: {
       deploymentId: input.deploymentId,
       resource: info.resourceName,
       project: info.projectName,
     },
   });
+}
+
+/** The resource as an inbox subject: id for folding, slug for the route. */
+export function serviceSubject(
+  resourceId: ResourceId,
+  info: { resourceName: string; projectSlug: string },
+): InboxSubject {
+  return { kind: "service", id: resourceId, label: info.resourceName, project: info.projectSlug };
 }

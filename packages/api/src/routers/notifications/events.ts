@@ -39,6 +39,10 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
   { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
+  // The other half of host.pressure: emitted by the monitor when a warning or
+  // critical recommendation stops being true, so the inbox can close the
+  // condition instead of leaving a card up until someone dismisses it.
+  { id: "host.pressure.cleared", label: "Server pressure cleared", severity: "ok" },
   // Not emitted anywhere. Caddy logs obtain/renew/fail, not expiry, so there is
   // no source for it today: see src/edge-logs/cert-promote.ts. Kept as an id,
   // hidden from the matrix, until something can actually raise it.

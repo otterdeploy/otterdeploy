@@ -34,6 +34,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  * `wired: false` in the catalog so the subscription matrix stops offering it.
  */
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
+import { encodeSubject, type InboxSubject } from "@otterdeploy/shared/inbox-subject";
 import { Result } from "better-result";
 
 import { eventSeverity } from "../routers/notifications/events";
@@ -47,6 +48,14 @@ export interface EmitInput {
   message?: string;
   /** Display context: already-formatted strings, shown as key/value rows. */
   data?: Record<string, string>;
+  /**
+   * What the event is about, as an identity rather than a display string.
+   * This is what lets the inbox fold "deploy failed" and the later "deploy
+   * succeeded" on the same resource into one resolved story, and group
+   * history under the thing it happened to. Encoded onto `data` so every
+   * transport sees it without a schema change (@otterdeploy/shared/inbox-subject).
+   */
+  subject?: InboxSubject;
 }
 
 export async function emitPlatformEvent(input: EmitInput): Promise<void> {
@@ -58,7 +67,7 @@ export async function emitPlatformEvent(input: EmitInput): Promise<void> {
         severity: eventSeverity(input.eventId),
         title: input.title,
         message: input.message ?? "",
-        data: input.data,
+        data: input.subject ? { ...input.data, ...encodeSubject(input.subject) } : input.data,
       }),
     catch: (cause) => cause,
   });

@@ -97,6 +97,45 @@ const inboxItemSchema = z.object({
   createdAt: z.date(),
 });
 
+const inboxSubjectSchema = z.object({
+  kind: z.enum(["server", "service", "backup", "edge", "account"]),
+  id: z.string(),
+  label: z.string(),
+  project: z.string().optional(),
+});
+
+/**
+ * Something that is still true and still yours to deal with: a pressure
+ * warning without its clear, a failed deploy without a later success, a
+ * degraded service not yet recovered. Derived server-side from the rows
+ * (notifications/conditions.ts); `occurrenceIds` are the rows it folded, so
+ * the client can mark them read as one and they are never also listed as
+ * history.
+ */
+const openConditionSchema = z.object({
+  key: z.string(),
+  eventId: z.string(),
+  severity: z.enum(["warn", "err"]),
+  title: z.string(),
+  message: z.string(),
+  subject: inboxSubjectSchema.nullable(),
+  occurrenceIds: z.array(notificationIdField),
+  count: z.number(),
+  firstAt: z.date(),
+  lastAt: z.date(),
+  unread: z.boolean(),
+  unreadCount: z.number(),
+  /** The one mutation the inbox can run itself; everything else is a link. */
+  action: z
+    .object({
+      kind: z.literal("reclaim"),
+      target: z.enum(["images", "build-cache", "branch-pool"]),
+    })
+    .nullable(),
+  /** The newest occurrence's payload, for deep links (deploymentId, …). */
+  data: zJsonObject,
+});
+
 // ─── Inputs ────────────────────────────────────────────────────────────
 
 const channelNotFound = {
@@ -214,12 +253,27 @@ export const notificationsContract = {
     list: oc
       .route({ method: "GET", path: `${basePath}/inbox`, tags: [tag] })
       .input(z.object({ limit: z.number().int().min(1).max(50).default(20) }))
-      .output(z.object({ items: z.array(inboxItemSchema), unread: z.number() })),
+      .output(
+        z.object({
+          /** What still needs attention. Never overlaps `items`. */
+          open: z.array(openConditionSchema),
+          /** Settled history, newest first, capped at `limit`. */
+          items: z.array(inboxItemSchema),
+          /** Every unread row, open or settled, shown or not. */
+          unread: z.number(),
+        }),
+      ),
 
     markRead: oc
       .route({ method: "POST", path: `${basePath}/inbox/read`, tags: [tag] })
       .input(z.object({ id: notificationIdField }))
       .output(z.object({ id: notificationIdField })),
+
+    /** Every occurrence of a condition at once, when a card is dismissed. */
+    markReadMany: oc
+      .route({ method: "POST", path: `${basePath}/inbox/read-many`, tags: [tag] })
+      .input(z.object({ ids: z.array(notificationIdField).min(1).max(500) }))
+      .output(z.object({ updated: z.number() })),
 
     markAllRead: oc
       .route({ method: "POST", path: `${basePath}/inbox/read-all`, tags: [tag] })
