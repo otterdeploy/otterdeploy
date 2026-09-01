@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   CpuIcon,
@@ -6,9 +8,11 @@ import {
   Task01Icon,
 } from "@hugeicons/core-free-icons";
 
-import { Page } from "@/shared/components/page";
+import type { ServerHealthEntry } from "@/features/servers/data/health";
+
+import { formatBytes } from "@otterdeploy/shared/format";
+
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 
 type IconType = Parameters<typeof HugeiconsIcon>[0]["icon"];
@@ -27,32 +31,21 @@ function StatTile({
   const isPlaceholder = value === "–";
   return (
     // min-w-0 on the Card itself, not just the text block: as a grid item its
-    // default min-width:auto lets a long label ("Containers running") set the
-    // column's minimum, widening the grid past the viewport on a phone.
+    // default min-width:auto lets a long label set the column's minimum and
+    // widen the grid past the viewport on a phone.
     <Card className="min-w-0 gap-0 rounded-md py-3 sm:py-4">
-      {/* Two layouts, one tile. On a phone the 36px icon chip took a third of
-          the tile's width, which wrapped "Cluster memory" onto two lines and
-          left the four tiles ragged and half-empty; there the icon rides
-          inline with the label instead and the text gets the full width. From
-          `sm` there is room for the chip, so the roomier layout returns. */}
       <CardContent className="flex min-w-0 items-center gap-3 px-3 sm:px-4">
         <div className="hidden size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground sm:inline-flex">
           <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-4 shrink-0" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase">
-            <HugeiconsIcon
-              icon={icon}
-              strokeWidth={1.8}
-              className="size-3.5 shrink-0 sm:hidden"
-            />
-            {/* Single long tokens ("otterdeploy-managed") must be allowed to
-                break mid-word: a tile is ~150px of text width at 390px. */}
+            <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-3.5 shrink-0 sm:hidden" />
             <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
           </div>
           <div
             className={cn(
-              "mt-1 text-lg font-semibold leading-tight",
+              "mt-1 text-lg leading-tight font-semibold",
               isPlaceholder && "text-muted-foreground/40",
             )}
           >
@@ -67,53 +60,97 @@ function StatTile({
   );
 }
 
-/** The four cluster-capacity tiles above the node table. Extracted from
- *  ServersRoute for the lint complexity budget: the placeholder ternaries
- *  live here with the tiles they feed. */
-export function ClusterStatTiles({
+interface FleetServer {
+  id: string;
+  cpuTotal: number;
+  memTotalGb: number;
+}
+
+/** Capacity from the registered rows; utilization from whichever hosts are
+ *  reporting. The two are kept apart in the copy: "14 vCPU" is what you have,
+ *  "34% in use" is what is happening on the boxes that told us. */
+function fleetTotals(
+  servers: readonly FleetServer[],
+  healthByServer: ReadonlyMap<string, ServerHealthEntry>,
+) {
+  let vcpu = 0;
+  let memGb = 0;
+  let cpuWeighted = 0;
+  let cpuCores = 0;
+  let memUsedBytes = 0;
+  let memReporting = 0;
+  for (const s of servers) {
+    vcpu += s.cpuTotal;
+    memGb += s.memTotalGb;
+    const entry = healthByServer.get(s.id);
+    // A stale report is a memory, not a reading: it stays off the fleet
+    // totals so "0 of 1 reporting" and "23.9 GB in use" cannot share a row.
+    const health = entry && !entry.stale ? entry.health : null;
+    if (!health) continue;
+    if (health.cpu) {
+      cpuWeighted += health.cpu.usedPct * health.cpu.coreCount;
+      cpuCores += health.cpu.coreCount;
+    }
+    memUsedBytes += health.memory.totalBytes - health.memory.availableBytes;
+    memReporting += 1;
+  }
+  return {
+    vcpu,
+    memGb,
+    cpuPct: cpuCores > 0 ? cpuWeighted / cpuCores : null,
+    memUsedBytes: memReporting > 0 ? memUsedBytes : null,
+  };
+}
+
+/** The four fleet tiles above the server cards. */
+export function FleetTiles({
   servers,
+  reporting,
+  attention,
   tasksRunning,
   isSwarm,
+  healthByServer,
 }: {
-  servers: Array<{ cpuTotal: number; memTotalGb: number; role: string }>;
+  servers: readonly FleetServer[];
+  reporting: number;
+  attention: number;
   tasksRunning: number | null;
-  /** Whether this install is running the Swarm runtime. The plain-Docker
-   *  runtime (the default) has no swarm tasks. `server.stats` counts
-   *  running otterdeploy-managed CONTAINERS instead and reports them through
-   *  the same field, so the tile must say so: labelling a container count
-   *  "Tasks running" reads as a live contradiction next to the Docker page's
-   *  Tasks tab, which is genuinely swarm-only and always empty here
-   *  (od-1kc.4, "TASKS RUNNING 3" here vs "Tasks 0" there, same install). */
+  /** Plain Docker counts otterdeploy-managed containers through the same
+   *  field; the label says which. */
   isSwarm: boolean;
+  healthByServer: ReadonlyMap<string, ServerHealthEntry>;
 }) {
-  const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
-  const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
-  const managerCount = servers.filter((s) => s.role === "manager").length;
+  const t = fleetTotals(servers, healthByServer);
+  const n = servers.length;
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <StatTile
+        icon={ServerStack01Icon}
+        label="Servers"
+        value={String(n)}
+        sub={
+          attention > 0
+            ? `${reporting} of ${n} reporting · ${attention} need${attention === 1 ? "s" : ""} attention`
+            : `${reporting} of ${n} reporting`
+        }
+      />
+      <StatTile
         icon={CpuIcon}
-        label="Cluster CPU"
-        value={totalCpu > 0 ? `${totalCpu} vCPU` : "–"}
-        sub="cluster capacity"
+        label="CPU"
+        value={t.vcpu > 0 ? `${t.vcpu} vCPU` : "–"}
+        sub={t.cpuPct === null ? "capacity · no utilization reported" : `${Math.round(t.cpuPct)}% in use`}
       />
       <StatTile
         icon={RamMemoryIcon}
-        label="Cluster memory"
-        value={totalMem > 0 ? `${totalMem} GB` : "–"}
-        sub="cluster capacity"
+        label="Memory"
+        value={t.memGb > 0 ? `${t.memGb} GB` : "–"}
+        sub={t.memUsedBytes === null ? "capacity · no utilization reported" : `${formatBytes(t.memUsedBytes, 1)} in use`}
       />
       <StatTile
         icon={Task01Icon}
         label={isSwarm ? "Tasks running" : "Containers running"}
         value={tasksRunning != null ? String(tasksRunning) : "–"}
         sub={isSwarm ? "across all replicas" : "otterdeploy-managed"}
-      />
-      <StatTile
-        icon={ServerStack01Icon}
-        label="Manager nodes"
-        value={`${managerCount} / ${servers.length}`}
-        sub={managerCount >= 1 ? "quorum healthy" : "no manager"}
       />
     </div>
   );
@@ -147,62 +184,60 @@ export function FilterPill({
   );
 }
 
-export function ServersPending() {
+/** The project pills beside the Servers heading: filter the grid to one
+ *  project's placements. */
+export function ProjectFilters({
+  cluster,
+  selected,
+  onSelect,
+}: {
+  cluster: { tasksRunning: number; projects: { slug: string; name: string; tasksRunning: number }[] };
+  selected: string;
+  onSelect: (project: string) => void;
+}) {
+  if (cluster.projects.length === 0) return null;
   return (
-    <Page>
-      <header className="flex items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="h-8 w-28" />
-        </div>
-      </header>
+    <>
+      <FilterPill
+        active={selected === "all"}
+        label="All projects"
+        count={cluster.tasksRunning}
+        onClick={() => onSelect("all")}
+      />
+      {cluster.projects.map((project) => (
+        <FilterPill
+          key={project.slug}
+          active={selected === project.slug}
+          label={project.name}
+          count={project.tasksRunning}
+          onClick={() => onSelect(project.slug)}
+        />
+      ))}
+    </>
+  );
+}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="rounded-md">
-            <CardContent className="flex items-start gap-3">
-              <Skeleton className="size-9 shrink-0 rounded-md" />
-              <div className="flex flex-1 flex-col gap-1.5">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-5 w-12" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="overflow-hidden rounded-md p-0 gap-0">
-        <div className="flex items-center gap-4 border-b bg-muted/50 px-4 py-3">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <Skeleton key={i} className="h-3 w-16" />
-          ))}
-        </div>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-4 border-b border-border/60 px-4 py-3 last:border-b-0"
-          >
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-20" />
-            </div>
-            <Skeleton className="h-5 w-16 rounded-sm" />
-            <Skeleton className="h-7 w-24 rounded-md" />
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-full" />
-            </div>
-            <Skeleton className="h-4 w-8" />
-            <Skeleton className="h-5 w-20 rounded-sm" />
-            <Skeleton className="size-4 rounded-sm" />
-          </div>
-        ))}
-      </Card>
-    </Page>
+/** A section heading inside the page: title, count, and an optional right slot. */
+export function SectionHeading({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count?: number;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <h2 className="text-[13px] font-semibold">
+        {title}
+        {count !== undefined && (
+          <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">
+            {count}
+          </span>
+        )}
+      </h2>
+      {children && <div className="ml-auto flex flex-wrap items-center gap-1.5">{children}</div>}
+    </div>
   );
 }

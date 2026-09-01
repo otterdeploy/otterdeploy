@@ -68,6 +68,7 @@ import { Route as AppOrgSlugSettingsInstanceGeneralRouteImport } from "./routes/
 import { Route as AppOrgSlugSettingsAccountSessionsRouteImport } from "./routes/_app/$orgSlug/settings/account/sessions"
 import { Route as AppOrgSlugSettingsAccountSecurityRouteImport } from "./routes/_app/$orgSlug/settings/account/security"
 import { Route as AppOrgSlugSettingsAccountProfileRouteImport } from "./routes/_app/$orgSlug/settings/account/profile"
+import { Route as AppOrgSlugShellServersServerIdRouteImport } from "./routes/_app/$orgSlug/_shell/servers_.$serverId"
 import { Route as AppOrgSlugShellGithubAppProviderIdRouteImport } from "./routes/_app/$orgSlug/_shell/github-app.$providerId"
 import { Route as AppOrgSlugShellProjectSlugVariablesRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/variables"
 import { Route as AppOrgSlugShellProjectSlugSettingsRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/settings"
@@ -404,6 +405,12 @@ const AppOrgSlugSettingsAccountProfileRoute =
     path: "/account/profile",
     getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
   } as any)
+const AppOrgSlugShellServersServerIdRoute =
+  AppOrgSlugShellServersServerIdRouteImport.update({
+    id: "/servers_/$serverId",
+    path: "/servers/$serverId",
+    getParentRoute: () => AppOrgSlugShellLayoutRoute,
+  } as any)
 const AppOrgSlugShellGithubAppProviderIdRoute =
   AppOrgSlugShellGithubAppProviderIdRouteImport.update({
     id: "/github-app/$providerId",
@@ -491,7 +498,7 @@ export interface FileRoutesByFullPath {
   "/device": typeof DeviceRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
-  "/$orgSlug": typeof AppOrgSlugShellLayoutRouteWithChildren
+  "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsLayoutRouteWithChildren
@@ -537,6 +544,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/$projectSlug/settings": typeof AppOrgSlugShellProjectSlugSettingsRoute
   "/$orgSlug/$projectSlug/variables": typeof AppOrgSlugShellProjectSlugVariablesRoute
   "/$orgSlug/github-app/$providerId": typeof AppOrgSlugShellGithubAppProviderIdRoute
+  "/$orgSlug/servers/$serverId": typeof AppOrgSlugShellServersServerIdRoute
   "/$orgSlug/settings/account/profile": typeof AppOrgSlugSettingsAccountProfileRoute
   "/$orgSlug/settings/account/security": typeof AppOrgSlugSettingsAccountSecurityRoute
   "/$orgSlug/settings/account/sessions": typeof AppOrgSlugSettingsAccountSessionsRoute
@@ -606,6 +614,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/$projectSlug/settings": typeof AppOrgSlugShellProjectSlugSettingsRoute
   "/$orgSlug/$projectSlug/variables": typeof AppOrgSlugShellProjectSlugVariablesRoute
   "/$orgSlug/github-app/$providerId": typeof AppOrgSlugShellGithubAppProviderIdRoute
+  "/$orgSlug/servers/$serverId": typeof AppOrgSlugShellServersServerIdRoute
   "/$orgSlug/settings/account/profile": typeof AppOrgSlugSettingsAccountProfileRoute
   "/$orgSlug/settings/account/security": typeof AppOrgSlugSettingsAccountSecurityRoute
   "/$orgSlug/settings/account/sessions": typeof AppOrgSlugSettingsAccountSessionsRoute
@@ -681,6 +690,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/$projectSlug/settings": typeof AppOrgSlugShellProjectSlugSettingsRoute
   "/_app/$orgSlug/_shell/$projectSlug/variables": typeof AppOrgSlugShellProjectSlugVariablesRoute
   "/_app/$orgSlug/_shell/github-app/$providerId": typeof AppOrgSlugShellGithubAppProviderIdRoute
+  "/_app/$orgSlug/_shell/servers_/$serverId": typeof AppOrgSlugShellServersServerIdRoute
   "/_app/$orgSlug/settings/account/profile": typeof AppOrgSlugSettingsAccountProfileRoute
   "/_app/$orgSlug/settings/account/security": typeof AppOrgSlugSettingsAccountSecurityRoute
   "/_app/$orgSlug/settings/account/sessions": typeof AppOrgSlugSettingsAccountSessionsRoute
@@ -755,6 +765,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/$projectSlug/settings"
     | "/$orgSlug/$projectSlug/variables"
     | "/$orgSlug/github-app/$providerId"
+    | "/$orgSlug/servers/$serverId"
     | "/$orgSlug/settings/account/profile"
     | "/$orgSlug/settings/account/security"
     | "/$orgSlug/settings/account/sessions"
@@ -824,6 +835,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/$projectSlug/settings"
     | "/$orgSlug/$projectSlug/variables"
     | "/$orgSlug/github-app/$providerId"
+    | "/$orgSlug/servers/$serverId"
     | "/$orgSlug/settings/account/profile"
     | "/$orgSlug/settings/account/security"
     | "/$orgSlug/settings/account/sessions"
@@ -898,6 +910,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/$projectSlug/settings"
     | "/_app/$orgSlug/_shell/$projectSlug/variables"
     | "/_app/$orgSlug/_shell/github-app/$providerId"
+    | "/_app/$orgSlug/_shell/servers_/$serverId"
     | "/_app/$orgSlug/settings/account/profile"
     | "/_app/$orgSlug/settings/account/security"
     | "/_app/$orgSlug/settings/account/sessions"
@@ -1344,6 +1357,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugSettingsAccountProfileRouteImport
       parentRoute: typeof AppOrgSlugSettingsLayoutRoute
     }
+    "/_app/$orgSlug/_shell/servers_/$serverId": {
+      id: "/_app/$orgSlug/_shell/servers_/$serverId"
+      path: "/servers/$serverId"
+      fullPath: "/$orgSlug/servers/$serverId"
+      preLoaderRoute: typeof AppOrgSlugShellServersServerIdRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
     "/_app/$orgSlug/_shell/github-app/$providerId": {
       id: "/_app/$orgSlug/_shell/github-app/$providerId"
       path: "/github-app/$providerId"
@@ -1533,6 +1553,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellVolumesRoute: typeof AppOrgSlugShellVolumesRoute
   AppOrgSlugShellIndexRoute: typeof AppOrgSlugShellIndexRoute
   AppOrgSlugShellGithubAppProviderIdRoute: typeof AppOrgSlugShellGithubAppProviderIdRoute
+  AppOrgSlugShellServersServerIdRoute: typeof AppOrgSlugShellServersServerIdRoute
 }
 
 const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
@@ -1562,6 +1583,7 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellIndexRoute: AppOrgSlugShellIndexRoute,
   AppOrgSlugShellGithubAppProviderIdRoute:
     AppOrgSlugShellGithubAppProviderIdRoute,
+  AppOrgSlugShellServersServerIdRoute: AppOrgSlugShellServersServerIdRoute,
 }
 
 const AppOrgSlugShellLayoutRouteWithChildren =

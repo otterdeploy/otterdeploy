@@ -115,9 +115,7 @@ export function ServerUnits({ serverId }: { serverId: ServerId }) {
   return (
     <div className="flex flex-col gap-2.5 px-4 pb-6">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium tracking-[0.06em] text-muted-foreground uppercase">
-          Services
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">systemd units</span>
         {all.length > 0 && (
           <span className="font-mono text-[10px] text-muted-foreground">
             {visible.length}/{all.length}
@@ -134,9 +132,10 @@ export function ServerUnits({ serverId }: { serverId: ServerId }) {
       ) : all.length === 0 ? (
         // Not "no services" — a Linux host always has some. We have not been
         // told about them, which is a different fact and the useful one.
-        <p className="text-[11.5px] text-muted-foreground">
-          No unit report from this host yet. Units arrive with the health agent, on hosts
-          running systemd.
+        <p className="text-[12.5px] text-muted-foreground">
+          No unit report from this host. Units (docker, ssh, the firewall, whatever else runs
+          on the box) are collected by the health agent on Linux hosts running systemd; this
+          host has not sent any.
         </p>
       ) : (
         <>

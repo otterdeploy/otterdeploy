@@ -23,18 +23,17 @@ import {
   type SwarmNode,
   type SwarmNodesView,
 } from "@/features/servers/data/swarm";
+import { fleetAttention } from "@/features/servers/detail/fleet-attention";
+import { deriveServerState, isReporting } from "@/features/servers/detail/server-state";
 import { Button } from "@/shared/components/ui/button";
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
 
-import { ServerHealthSheet } from "../-components/servers-health-sheet";
-import {
-  InstallAdminPlanes,
-  LocalHostHealth,
-  ServersTabList,
-} from "../-components/servers-install-admin";
-import { ServerFleetCards } from "../-components/servers-fleet-cards";
+import { InstallAdminPlanes, ServersTabList } from "../-components/servers-install-admin";
+import { FleetAttention } from "../-components/servers-fleet-attention";
+import { ServerFleetGrid } from "../-components/servers-fleet-grid";
 import { ManagersQuorumCard } from "../-components/servers-managers-card";
-import { ClusterStatTiles, FilterPill, ServersPending } from "../-components/servers-parts";
+import { FleetTiles, ProjectFilters, SectionHeading } from "../-components/servers-parts";
+import { ServersPending } from "../-components/servers-pending";
 
 // Pulled out of ServersRoute (rather than inline IIFEs) to keep the
 // component's own branching under the complexity budget. These are pure
@@ -63,7 +62,11 @@ function visibleServersForProject<T extends { id: string }>(
   return servers.filter((server) => stats.get(server.id)?.projects.includes(project));
 }
 
-
+function countBy(items: ReadonlyArray<{ serverId: string }>): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const item of items) map.set(item.serverId, (map.get(item.serverId) ?? 0) + 1);
+  return map;
+}
 
 function ServerPageActions({
   tab,
@@ -95,37 +98,6 @@ function ServerPageActions({
   );
 }
 
-function ProjectFilters({
-  cluster,
-  selected,
-  onSelect,
-}: {
-  cluster: { tasksRunning: number; projects: { slug: string; name: string; tasksRunning: number }[] };
-  selected: string;
-  onSelect: (project: string) => void;
-}) {
-  if (cluster.projects.length === 0) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <FilterPill
-        active={selected === "all"}
-        label="All projects"
-        count={cluster.tasksRunning}
-        onClick={() => onSelect("all")}
-      />
-      {cluster.projects.map((project) => (
-        <FilterPill
-          key={project.slug}
-          active={selected === project.slug}
-          label={project.name}
-          count={project.tasksRunning}
-          onClick={() => onSelect(project.slug)}
-        />
-      ))}
-    </div>
-  );
-}
-
 // `tab` picks the section (Overview / Raw Docker / Install health, the
 // latter merged in from the standalone Platform page, od-u63.4); `dockerTab`
 // is forwarded from the old `/docker?tab=` deep links so a specific Docker
@@ -138,8 +110,7 @@ type ServersTab = (typeof SERVERS_TABS)[number];
  * Raw Docker (`docker.*` + `volumes.*`) and Install health (`metrics.platform`)
  * are install-admin in their entirety, so both tabs are omitted for anyone
  * else. Overview is org-scoped (`server.list` / `stats` / `health` /
- * `swarmNodes`) and stays. Except the local-host health card, which is
- * `system.hostHealth`; see `LocalHostHealth` in -components/servers-install-admin.
+ * `swarmNodes`) and stays.
  */
 const SERVERS_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<ServersTab>([
   "docker",
@@ -151,12 +122,6 @@ const SERVERS_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<ServersTab>([
 function resolveServersTab(tab: ServersTab, isInstallAdmin: boolean): ServersTab {
   if (isInstallAdmin || !SERVERS_TABS_INSTALL_ADMIN.has(tab)) return tab;
   return "overview";
-}
-
-/** Narrow the tab strip's string value without asserting: the tuple lookup
- *  is the type guard. */
-function toServersTab(value: string): ServersTab {
-  return SERVERS_TABS.find((tab) => tab === value) ?? "overview";
 }
 
 const serversSearch = z.object({
@@ -199,26 +164,25 @@ function ServersRoute() {
   // Live cluster + per-node aggregates via TanStack DB collections sharing
   // a single server.stats RPC. Sync reads keep tab/filter interactions
   // instant; polling refreshes silently every 5s.
-  const { data: perServerArr = [] } = useLiveQuery(
-    () => serverNodeStatsCollection,
-  );
-  const { data: clusterArr = [] } = useLiveQuery(
-    () => serverClusterStatsCollection,
-  );
+  const { data: perServerArr = [] } = useLiveQuery(() => serverNodeStatsCollection);
+  const { data: clusterArr = [] } = useLiveQuery(() => serverClusterStatsCollection);
   // Latest per-server health snapshots (local sampler + swarm agents, 30s
-  // poll): feeds the Live column and the row detail sheet.
+  // poll): feeds every card's meters and the needs-attention list.
   const { data: healthArr = [] } = useLiveQuery(() => serverHealthCollection);
-  // Live swarm topology (10s poll). Quorum card, leader markers, and the
-  // sheet's role/membership actions. `swarm: false` on plain docker.
+  // Live swarm topology (10s poll). Quorum card and leader markers.
+  // `swarm: false` on plain docker.
   const { data: swarmArr = [] } = useLiveQuery(() => swarmNodesCollection);
   const swarmView = swarmArr[0] ?? null;
-  const [openServerId, setOpenServerId] = useState<string | null>(null);
   const healthByServer = toMapBy(healthArr, (h) => h.serverId);
   const nodesByServer = swarmNodesByServer(swarmView);
   const cluster = clusterArr[0] ?? null;
   const perServerStats = toMapBy(perServerArr, (s) => s.serverId);
 
   const visibleServers = visibleServersForProject(servers, perServerStats, projectFilter);
+  const attention = fleetAttention(servers, healthByServer);
+  const reporting = servers.filter((s) =>
+    isReporting(deriveServerState(s, healthByServer.get(s.id) ?? null).kind),
+  ).length;
 
   return (
     <Tabs
@@ -249,37 +213,51 @@ function ServersRoute() {
         <ServersTabList isInstallAdmin={isInstallAdmin} />
       </div>
 
-      <TabsContent value="overview" className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6">
-        <ClusterStatTiles
+      <TabsContent value="overview" className="flex min-w-0 flex-1 flex-col gap-5 p-4 sm:p-6">
+        {/* 1. Capacity and how much of it is in use. */}
+        <FleetTiles
           servers={servers}
+          reporting={reporting}
+          attention={attention.length}
           tasksRunning={cluster?.tasksRunning ?? null}
           isSwarm={swarmView?.swarm ?? false}
+          healthByServer={healthByServer}
         />
 
-        {cluster ? (
-          <ProjectFilters
-            cluster={cluster}
-            selected={projectFilter}
-            onSelect={setProjectFilter}
-          />
-        ) : null}
+        {/* 2. What needs a person, one line each. Absent when nothing does. */}
+        {attention.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <SectionHeading title="Needs attention" count={attention.length} />
+            <FleetAttention items={attention} orgSlug={orgSlug} />
+          </section>
+        )}
 
         {/* Swarm-gated: renders nothing on the plain-docker runtime. */}
         <ManagersQuorumCard view={swarmView} />
 
-        <ServerFleetCards
-          servers={visibleServers}
-          statsByServer={perServerStats}
-          healthByServer={healthByServer}
-          nodesByServer={nodesByServer}
-          onOpenServer={setOpenServerId}
-          onCreate={addDialog.openFresh}
-          onReAdd={addDialog.openWith}
-        />
-
-        {/* The LOCAL host's action surface (reclaim/grow run on the local
-            docker socket). Per-server snapshots live in the rows + sheet. */}
-        <LocalHostHealth isInstallAdmin={isInstallAdmin} />
+        {/* 3. The machines. Each card opens its page; everything a box can
+            do (reclaim, drain, shell, remove) lives there. */}
+        <section className="flex flex-col gap-2">
+          <SectionHeading title="Servers" count={servers.length}>
+            {cluster ? (
+              <ProjectFilters
+                cluster={cluster}
+                selected={projectFilter}
+                onSelect={setProjectFilter}
+              />
+            ) : null}
+          </SectionHeading>
+          <ServerFleetGrid
+            servers={visibleServers}
+            statsByServer={perServerStats}
+            healthByServer={healthByServer}
+            nodesByServer={nodesByServer}
+            attentionByServer={countBy(attention)}
+            orgSlug={orgSlug}
+            onCreate={addDialog.openFresh}
+            onReAdd={addDialog.openWith}
+          />
+        </section>
       </TabsContent>
 
       <InstallAdminPlanes
@@ -288,14 +266,6 @@ function ServersRoute() {
         dockerTab={dockerTab}
       />
 
-      <ServerHealthSheet
-        server={servers.find((s) => s.id === openServerId) ?? null}
-        entry={openServerId ? (healthByServer.get(openServerId) ?? null) : null}
-        swarm={swarmView}
-        onOpenChange={(open) => {
-          if (!open) setOpenServerId(null);
-        }}
-      />
       {/* Keyed so a re-add remounts the form. TanStack Form reads
           defaultValues on mount only, so a live prop change wouldn't apply. */}
       <ServerCreateDialog
