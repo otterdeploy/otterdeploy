@@ -115,10 +115,10 @@ export function DestinationRow({
   return (
     <div
       className={cn(
-        // One line from `md`; below it the identity, the usage read-out and
+        // One line from `lg`; below it the identity, the usage read-out and
         // the four controls each take their own row. Six items on one line is
         // ~700px of content in a 358px card.
-        "flex flex-col gap-3 px-4 py-3.5 md:flex-row md:items-center",
+        "flex flex-col gap-3 px-4 py-3.5 lg:flex-row lg:items-center",
         !first && "border-t",
         // A disabled destination takes no new backups. Dimming it keeps that
         // legible at a glance without hiding the row, since its existing
@@ -126,9 +126,9 @@ export function DestinationRow({
         disabled && "opacity-60",
       )}
     >
-      {/* Each wrapper is a mobile row and `display:contents` from `md`, so the
+      {/* Each wrapper is a mobile row and `display:contents` from `lg`, so the
           same children become direct flex items of the one-line desktop row. */}
-      <div className="flex min-w-0 items-start gap-3 md:contents">
+      <div className="flex min-w-0 items-start gap-3 lg:contents">
         <div className="grid size-8 shrink-0 place-items-center rounded-md border bg-muted/30 text-muted-foreground">
           <HugeiconsIcon icon={DIcon} className="size-3.5" />
         </div>
@@ -137,10 +137,10 @@ export function DestinationRow({
 
       {/* pl-11 = the 32px icon + 12px gap above it, so every stacked row hangs
           off the SAME left edge as the destination's name instead of starting
-          under the icon. Dropped at `md`, where these become flex items of the
+          under the icon. Dropped at `lg`, where these become flex items of the
           one-line row. */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pl-11 md:contents">
-        <div className="flex flex-col items-start gap-0.5 md:min-w-40 md:items-end">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pl-11 lg:contents">
+        <div className="flex flex-col items-start gap-0.5 lg:min-w-40 lg:items-end">
           <span className="font-mono text-xs">
             {usedGB.toFixed(usedGB >= 10 ? 0 : 1)} GB
             {totalGB ? <span className="text-muted-foreground"> / {totalGB} GB</span> : null}
@@ -154,13 +154,17 @@ export function DestinationRow({
             </div>
           )}
         </div>
-        <StatusBadge status={dest.status} />
+        {/* Fixed column from `lg`: "Active" and "Disabled" differ in width and
+            would otherwise nudge every control after them. */}
+        <div className="lg:w-24">
+          <StatusBadge status={dest.status} />
+        </div>
       </div>
 
       {/* pl-9, not pl-11: these are ghost buttons whose own px-2.5 padding
           carries the rest of the way, so their LABELS line up with the name
           rather than their invisible box edges. */}
-      <div className="flex flex-wrap items-center gap-1 pl-9 md:contents md:pl-0">
+      <div className="flex flex-wrap items-center gap-1 pl-9 lg:contents lg:pl-0">
         <Button
           variant="ghost"
           size="sm"
@@ -175,6 +179,8 @@ export function DestinationRow({
         <Button
           variant="ghost"
           size="sm"
+          // Widest label ("Disable") sets the column so Enable/Disable rows align.
+          className="lg:w-[76px]"
           disabled={busy}
           title={
             disabled
@@ -197,7 +203,12 @@ export function DestinationRow({
         {/* No delete for the managed destination. It must always exist, or the
             org is back to "configure storage before you can back anything up".
             Disable is the escape hatch. */}
-        {!dest.managed && (
+        {dest.managed ? (
+          // Same footprint as the delete button so the managed row's controls
+          // sit in the same columns as every other row's, rather than the
+          // whole tail sliding one icon to the right.
+          <span aria-hidden className="hidden size-7 lg:block" />
+        ) : (
           <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
             <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
           </Button>

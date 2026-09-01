@@ -22,7 +22,6 @@ import { TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 
 import { InstallHealthSection } from "./install-health";
 import { RawDockerPanel } from "./raw-docker-panel";
-import { ServerHealthCard } from "./servers-health";
 
 export function ServersTabList({ isInstallAdmin }: { isInstallAdmin: boolean }) {
   return (
@@ -59,13 +58,4 @@ export function InstallAdminPlanes({
       </TabsContent>
     </>
   );
-}
-
-/**
- * The LOCAL host's action surface (reclaim/grow run on the local docker
- * socket), which lives inside the otherwise-shared Overview plane, so here
- * it's the card that disappears, not the tab.
- */
-export function LocalHostHealth({ isInstallAdmin }: { isInstallAdmin: boolean }) {
-  return isInstallAdmin ? <ServerHealthCard /> : null;
 }

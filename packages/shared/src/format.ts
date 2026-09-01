@@ -25,7 +25,12 @@ const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
 export function formatBytes(bytes: number | null | undefined, decimals = 1): string {
   if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return ABSENT;
   if (bytes === 0) return "0 B";
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1);
+  // Clamped at 0: a fractional byte (a 0–1 B/s axis tick on an idle host)
+  // has a negative log and would index past the front of the unit table.
+  const i = Math.max(
+    0,
+    Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1),
+  );
   return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : decimals)} ${BYTE_UNITS[i]}`;
 }
 
