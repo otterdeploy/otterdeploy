@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vite-plus/test";
-
 import { encodeSubject } from "@otterdeploy/shared/inbox-subject";
+import { describe, expect, it } from "vite-plus/test";
 
 import { conditionKey, deriveOpenConditions, type ConditionSourceRow } from "../conditions";
 
@@ -62,7 +61,11 @@ describe("conditionKey", () => {
 describe("deriveOpenConditions", () => {
   it("folds a re-notified pressure warning into one condition with a count", () => {
     const rows = [3, 9, 15, 26].map((m) =>
-      row("host.pressure", { ...host, recommendation: "disk-pressure", severity: "warning", action: "images" }, minutesAgo(m)),
+      row(
+        "host.pressure",
+        { ...host, recommendation: "disk-pressure", severity: "warning", action: "images" },
+        minutesAgo(m),
+      ),
     );
     const { open, consumed } = deriveOpenConditions(rows, NOW);
     expect(open).toHaveLength(1);
@@ -81,20 +84,38 @@ describe("deriveOpenConditions", () => {
   it("takes the subject from the newest occurrence that has one", () => {
     const rows = [
       row("host.pressure", { recommendation: "disk-pressure", severity: "warning" }, minutesAgo(1)),
-      row("host.pressure", { ...host, recommendation: "disk-pressure", severity: "warning" }, minutesAgo(8)),
+      row(
+        "host.pressure",
+        { ...host, recommendation: "disk-pressure", severity: "warning" },
+        minutesAgo(8),
+      ),
     ];
-    expect(deriveOpenConditions(rows, NOW).open[0]?.subject).toEqual({ kind: "server", id: "hetzner-1", label: "hetzner-1" });
+    expect(deriveOpenConditions(rows, NOW).open[0]?.subject).toEqual({
+      kind: "server",
+      id: "hetzner-1",
+      label: "hetzner-1",
+    });
   });
 
   it("grades pressure from the payload: critical memory is err, not the catalog's warn", () => {
-    const rows = [row("host.pressure", { ...host, recommendation: "memory-critical", severity: "critical" }, minutesAgo(1))];
+    const rows = [
+      row(
+        "host.pressure",
+        { ...host, recommendation: "memory-critical", severity: "critical" },
+        minutesAgo(1),
+      ),
+    ];
     expect(deriveOpenConditions(rows, NOW).open[0]?.severity).toBe("err");
   });
 
   it("closes a pressure condition on its clear event and consumes nothing", () => {
     const rows = [
       row("host.pressure.cleared", { ...host, recommendation: "disk-pressure" }, minutesAgo(1)),
-      row("host.pressure", { ...host, recommendation: "disk-pressure", severity: "warning" }, minutesAgo(30)),
+      row(
+        "host.pressure",
+        { ...host, recommendation: "disk-pressure", severity: "warning" },
+        minutesAgo(30),
+      ),
     ];
     const { open, consumed } = deriveOpenConditions(rows, NOW);
     expect(open).toHaveLength(0);
@@ -102,13 +123,22 @@ describe("deriveOpenConditions", () => {
   });
 
   it("treats a pressure warning with no clear for a day as stale, not open", () => {
-    const rows = [row("host.pressure", { ...host, recommendation: "disk-pressure", severity: "warning" }, minutesAgo(25 * 60))];
+    const rows = [
+      row(
+        "host.pressure",
+        { ...host, recommendation: "disk-pressure", severity: "warning" },
+        minutesAgo(25 * 60),
+      ),
+    ];
     expect(deriveOpenConditions(rows, NOW).open).toHaveLength(0);
   });
 
   it("a failed deploy is open until a later success on the same resource", () => {
     const failed = [row("deploy.failed", { ...api, deploymentId: "dep_1" }, minutesAgo(10))];
-    expect(deriveOpenConditions(failed, NOW).open[0]).toMatchObject({ key: "deploy:res_api", severity: "err" });
+    expect(deriveOpenConditions(failed, NOW).open[0]).toMatchObject({
+      key: "deploy:res_api",
+      severity: "err",
+    });
 
     const fixed = [
       row("deploy.succeeded", { ...api, deploymentId: "dep_2" }, minutesAgo(2)),
@@ -138,13 +168,26 @@ describe("deriveOpenConditions", () => {
       row("health.degraded", api, minutesAgo(5)),
       row("health.recovered", api, minutesAgo(12)),
     ];
-    expect(deriveOpenConditions(open, NOW).open[0]).toMatchObject({ key: "health:res_api", severity: "warn", count: 1 });
+    expect(deriveOpenConditions(open, NOW).open[0]).toMatchObject({
+      key: "health:res_api",
+      severity: "warn",
+      count: 1,
+    });
   });
 
   it("reports the worst grade across the run and unread when any occurrence is unread", () => {
     const rows = [
-      row("host.pressure", { ...host, recommendation: "memory-critical", severity: "warning" }, minutesAgo(1), { readAt: NOW }),
-      row("host.pressure", { ...host, recommendation: "memory-critical", severity: "critical" }, minutesAgo(7)),
+      row(
+        "host.pressure",
+        { ...host, recommendation: "memory-critical", severity: "warning" },
+        minutesAgo(1),
+        { readAt: NOW },
+      ),
+      row(
+        "host.pressure",
+        { ...host, recommendation: "memory-critical", severity: "critical" },
+        minutesAgo(7),
+      ),
     ];
     const [c] = deriveOpenConditions(rows, NOW).open;
     expect(c?.severity).toBe("err");
@@ -153,7 +196,11 @@ describe("deriveOpenConditions", () => {
 
   it("orders worst first, then most recent", () => {
     const rows = [
-      row("host.pressure", { ...host, recommendation: "disk-pressure", severity: "warning" }, minutesAgo(1)),
+      row(
+        "host.pressure",
+        { ...host, recommendation: "disk-pressure", severity: "warning" },
+        minutesAgo(1),
+      ),
       row("deploy.failed", { ...api, deploymentId: "dep_1" }, minutesAgo(40)),
       row("backup.failed", { resourceId: "res_pg", resource: "postgres" }, minutesAgo(20)),
     ];
