@@ -101,6 +101,10 @@ function hostShellArgv(helperName: string): string[] {
     // shell gets. Without this the host shell comes up as a dumb terminal.
     "-e",
     "TERM=xterm-256color",
+    // Lets prompts and tools that check for truecolor (starship, bat, modern
+    // vim) use it; TERM alone advertises only 256 colours.
+    "-e",
+    "COLORTERM=truecolor",
     "--privileged",
     "--pid=host",
     "--net=host",

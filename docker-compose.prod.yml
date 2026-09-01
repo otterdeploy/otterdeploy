@@ -130,7 +130,16 @@ services:
       # inside the server container (EDGE_LOG_PORT, default 9100), Caddy
       # reaches it by service DNS on the shared network.
       EDGE_LOG_SINK: server:9100
+      # Read the HOST's procfs and hostname, not this container's. Inside a
+      # container /proc/mounts and /proc/net/dev show the overlay root and a
+      # veth pair, and os.hostname() is the container id; the Servers page
+      # was naming the machine "02e9009ef740". Same wiring the swarm health
+      # agent gets (system-health/agent-service.ts).
+      HOST_PROC_PATH: /host/proc
+      HOST_HOSTNAME_PATH: /host/etc/hostname
     volumes:
+      - /proc:/host/proc:ro
+      - /etc/hostname:/host/etc/hostname:ro
       # Drive the HOST Docker daemon — this is how the runtime() driver
       # provisions services/databases/compose stacks.
       - /var/run/docker.sock:/var/run/docker.sock

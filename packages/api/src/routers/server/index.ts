@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
-import { queryServerMetrics } from "../../metrics/server-query";
+import { chooseServerBucketSeconds, queryServerMetrics } from "../../metrics/server-query";
 import { setServerAvailability } from "./availability";
 import { serverEnrollmentRouter } from "./enrollment-router";
 import {
@@ -175,12 +175,14 @@ export const serverRouter = {
   metrics: orgScopedProcedure.server.metrics.handler(async ({ input, context }) => {
     context.log.set({ target: { type: "server", id: input.id } });
     const since = new Date(Date.now() - input.windowMinutes * 60 * 1000);
+    const bucketSeconds = chooseServerBucketSeconds(input.windowMinutes);
     const points = await queryServerMetrics({
       organizationId: context.activeOrganizationId,
       serverId: input.id,
       since,
+      bucketSeconds,
     });
-    return { points };
+    return { points, bucketSeconds };
   }),
 
   // Latest state per unit on this node. Deliberately not a series: units are a

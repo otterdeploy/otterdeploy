@@ -24,8 +24,10 @@ export const SERVER_METRIC_WINDOWS = [
 export type ServerMetricWindowLabel = (typeof SERVER_METRIC_WINDOWS)[number]["label"];
 
 /** Health reports land every 60 s (HEALTH_SAMPLE_INTERVAL_MS on the ingest
- *  side); live windows poll in step so a chart trails by at most one report. */
-export const SERVER_SAMPLE_INTERVAL_MS = 60_000;
+ *  side); live windows poll in step so a chart trails by at most one report.
+ *  This is the REFETCH cadence, not the spacing of the series: the server
+ *  buckets by window and the charts take `bucketMs` off the response. */
+const SERVER_SAMPLE_INTERVAL_MS = 60_000;
 const HISTORY_REFETCH_MS = 5 * 60_000;
 
 function serverMetricsRefetchMs(windowMinutes: number): number {
@@ -36,6 +38,9 @@ function serverMetricsRefetchMs(windowMinutes: number): number {
 export interface ServerMetricRow {
   ts: number;
   cpuPct: number | null;
+  /** Highest single report in the bucket. Equals cpuPct at raw resolution,
+   *  and is what keeps a one-minute spike visible on a 7-day chart. */
+  cpuPctMax: number | null;
   cpuUserPct: number | null;
   cpuSystemPct: number | null;
   cpuIowaitPct: number | null;
@@ -65,6 +70,9 @@ export interface ServerMetricSummary {
 export interface ServerMetrics {
   rows: ServerMetricRow[];
   summary: ServerMetricSummary;
+  /** Width of each point, from the server. Feeds gap detection and the
+   *  "one point per N minutes" caption; 60 s means raw reports. */
+  bucketMs: number;
   isLoading: boolean;
   isError: boolean;
   updatedAt: number;
@@ -80,6 +88,7 @@ function toRow(p: Point): ServerMetricRow {
   return {
     ts: epochMsOf(p.ts),
     cpuPct: p.cpuPct,
+    cpuPctMax: p.cpuPctMax,
     cpuUserPct: p.cpuUserPct,
     cpuSystemPct: p.cpuSystemPct,
     cpuIowaitPct: p.cpuIowaitPct,
@@ -100,9 +109,11 @@ function toRow(p: Point): ServerMetricRow {
 
 function summarize(rows: ServerMetricRow[]): ServerMetricSummary {
   const cpu = rows.map((r) => r.cpuPct).filter((v): v is number => v !== null);
+  const peaks = rows.map((r) => r.cpuPctMax).filter((v): v is number => v !== null);
   return {
     latest: rows.at(-1) ?? null,
-    cpuPeak: cpu.length ? Math.max(...cpu) : null,
+    // The peak is the highest REPORT, not the highest bucket average.
+    cpuPeak: peaks.length ? Math.max(...peaks) : null,
     cpuAvg: cpu.length ? cpu.reduce((a, v) => a + v, 0) / cpu.length : null,
     sampleCount: rows.length,
   };
@@ -119,6 +130,7 @@ export function useServerMetrics(serverId: ServerId, windowMinutes: number): Ser
   return {
     rows,
     summary: summarize(rows),
+    bucketMs: (query.data?.bucketSeconds ?? 60) * 1000,
     isLoading: query.isLoading,
     isError: query.isError,
     updatedAt: query.dataUpdatedAt,

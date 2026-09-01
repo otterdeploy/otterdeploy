@@ -25,23 +25,25 @@
  *   HEALTH_AGENT_INGEST_URL  where to POST (e.g. http://<ip>:3000/api/agent/health)
  *   HEALTH_AGENT_TOKEN       HMAC token minted by the reconciler
  *   OTTERDEPLOY_NODE_HOSTNAME  swarm-templated {{.Node.Hostname}}: the
- *     attribution key; falls back to os.hostname() (the container id in a
- *     container, so the template matters in swarm).
+ *     attribution key; falls back to the host's /etc/hostname when it is
+ *     mounted, else os.hostname() (the container id in a container, so
+ *     the template matters in swarm).
  *   HOST_PROC_PATH           optional: where the HOST's /proc is bind-mounted
  *     inside this container (the reconciler sets /host/proc). Without it the
  *     agent would read its own container's mounts and network namespace and
  *     report those as the node's.
  */
 import { getHostHealth } from "@otterdeploy/api/system-health/host-health";
+import { hostHostname } from "@otterdeploy/api/system-health/host-identity";
 import { log } from "evlog";
-import { hostname as osHostname, cpus, totalmem } from "node:os";
+import { cpus, totalmem } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 
 /* oxlint-disable no-process-env -- the whole point of this entrypoint is
  * booting from raw env with NO validated schema (see module note) */
 const INGEST_URL = process.env.HEALTH_AGENT_INGEST_URL;
 const TOKEN = process.env.HEALTH_AGENT_TOKEN;
-const NODE_HOSTNAME = process.env.OTTERDEPLOY_NODE_HOSTNAME || osHostname();
+const NODE_HOSTNAME = process.env.OTTERDEPLOY_NODE_HOSTNAME || hostHostname();
 const INTERVAL_MS = Number(process.env.HEALTH_AGENT_INTERVAL_MS) || 60_000;
 /* oxlint-enable no-process-env */
 

@@ -15,7 +15,7 @@ import * as z from "zod";
 import type { DataError } from "./errors";
 import type { Connection } from "./pool";
 
-import { dataError, toDataError } from "./errors";
+import { dataError, describeUnreachable, toDataError } from "./errors";
 import { boolish, listish, numericish, stringish } from "./introspect-coerce";
 import { awaitQuery, runOnConnection } from "./pool";
 
@@ -70,7 +70,7 @@ export async function introspectRows<T>(
         // Static catalog SQL from the dialect, not user input.
         { trustedRead: true },
       ),
-    catch: toDataError,
+    catch: (cause) => describeUnreachable(toDataError(cause), connection.target),
   });
   if (ran.isErr()) return Result.err(ran.error);
 

@@ -23,14 +23,15 @@ import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/p
 import { server } from "@otterdeploy/db/schema/server";
 import { Docker, type ServiceCreateOptions } from "@otterdeploy/docker";
 import { env } from "@otterdeploy/env/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { log } from "evlog";
-import { hostname as osHostname, cpus, totalmem } from "node:os";
+import { cpus, totalmem } from "node:os";
 
 import { isSwarmRuntime } from "../runtime";
 import { HEALTH_SAMPLE_INTERVAL_MS, recordHealthSample } from "./agent-ingest";
 import { mintAgentToken } from "./agent-token";
 import { getHostHealth } from "./host-health";
+import { hostHostname } from "./host-identity";
 
 const AGENT_SERVICE_NAME = "otterdeploy-health-agent";
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
@@ -39,8 +40,9 @@ const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 
 async function sampleLocalHost(): Promise<void> {
   // The bootstrap convention: every org gets a `localhost` row for the
-  // machine the control plane runs on. Match by host, not hostname. The
-  // hostname column mirrors os.hostname() but `host` is the stable key.
+  // machine the control plane runs on. Match by host, not hostname: the
+  // hostname column is descriptive (and was a container id until the host's
+  // own /etc/hostname was mounted in); `host` is the stable key.
   const rows = await db
     .select({
       id: server.id,
@@ -53,11 +55,20 @@ async function sampleLocalHost(): Promise<void> {
   if (rows.length === 0) return;
 
   const health = await getHostHealth();
+  const hostname = hostHostname();
   await recordHealthSample(rows, {
-    hostname: osHostname(),
+    hostname,
     health,
     capacity: { cpuTotal: cpus().length, memTotalGb: totalmem() / 1024 ** 3 },
   });
+  // Rows bootstrapped inside the container carry its id as the hostname;
+  // the first sample that knows the host's real name puts it right.
+  await db
+    .update(server)
+    .set({ hostname })
+    .where(
+      and(eq(server.host, "127.0.0.1"), or(isNull(server.hostname), ne(server.hostname, hostname))),
+    );
 }
 
 export function startLocalHealthSampler(): () => void {

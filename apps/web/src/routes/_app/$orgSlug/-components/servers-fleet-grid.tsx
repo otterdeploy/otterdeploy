@@ -132,14 +132,25 @@ function FleetCard({
   const meta = metaText(stats, server);
 
   return (
-    <Card className="flex min-w-0 flex-col gap-4 rounded-md p-4">
-      <div className="flex min-w-0 flex-col gap-0.5">
+    // The whole card opens the server. A stretched link covers the card;
+    // the content sits above it with pointer events off, and the few real
+    // controls (the name, the retry buttons) turn them back on so they act
+    // as themselves rather than as "open".
+    <Card className="group relative flex min-w-0 flex-col gap-4 rounded-md p-4 transition-colors hover:bg-muted/30 focus-within:ring-foreground/20">
+      <Link
+        to="/$orgSlug/servers/$serverId"
+        params={{ orgSlug, serverId: server.id }}
+        search={{ tab: "overview" }}
+        aria-label={`Open ${server.name}`}
+        className="absolute inset-0 rounded-md outline-none"
+      />
+      <div className="pointer-events-none relative flex min-w-0 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-2">
           <Link
             to="/$orgSlug/servers/$serverId"
             params={{ orgSlug, serverId: server.id }}
             search={{ tab: "overview" }}
-            className="min-w-0 truncate font-mono text-sm font-medium underline-offset-4 hover:underline"
+            className="pointer-events-auto min-w-0 truncate font-mono text-sm font-medium underline-offset-4 group-hover:underline"
           >
             {server.name}
           </Link>
@@ -150,24 +161,31 @@ function FleetCard({
         </div>
       </div>
 
-      <div className={cn("flex flex-col gap-1.5", state.kind === "stale" && "opacity-60")}>
+      <div
+        className={cn(
+          "pointer-events-none relative flex flex-col gap-1.5",
+          state.kind === "stale" && "opacity-60",
+        )}
+      >
         {readings(health).map((r) => (
           <MeterRow key={r.label} {...r} />
         ))}
       </div>
 
-      <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+      <div className="pointer-events-none relative flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
         <span className="min-w-0 truncate font-mono">
           {meta.length > 0 ? meta.join(" · ") : "no placement data"}
         </span>
         {attention > 0 && (
-          <span className="ml-auto shrink-0 text-warning">
-            {attention} to review
-          </span>
+          <span className="ml-auto shrink-0 text-warning">{attention} to review</span>
         )}
       </div>
 
-      {server.provisionStatus === "failed" && <ProvisionRetryCell server={server} onReAdd={onReAdd} />}
+      {server.provisionStatus === "failed" && (
+        <div className="relative">
+          <ProvisionRetryCell server={server} onReAdd={onReAdd} />
+        </div>
+      )}
     </Card>
   );
 }

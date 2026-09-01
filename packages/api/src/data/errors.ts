@@ -31,6 +31,27 @@ export const dataError = (reason: DataErrorReason, message: string): DataError =
   new DataError({ reason, message });
 
 /**
+ * Say WHICH database could not be reached.
+ *
+ * The driver's own words ("Connection closed", "Connection timeout after
+ * 10s") name no host, and a workbench that shows five connections cannot
+ * leave the reader to guess which one is unreachable. The label is the row's
+ * name; the host is what we actually dialled (an external target is pinned
+ * to its resolved address). Never the credentials. Query and policy errors
+ * are left alone: they already come with the engine's or our own context.
+ */
+export function describeUnreachable(
+  error: DataError,
+  target: { label: string; host: string; port: number },
+): DataError {
+  if (error.reason !== "unreachable" && error.reason !== "timeout") return error;
+  return dataError(
+    error.reason,
+    `${target.label} (${target.host}:${target.port}): ${error.message}`,
+  );
+}
+
+/**
  * Normalise a thrown driver value into a {@link DataError}.
  *
  * Bun's SQL driver throws `Error`s whose message carries the server's text; a

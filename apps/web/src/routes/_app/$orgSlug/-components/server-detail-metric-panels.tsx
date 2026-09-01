@@ -113,7 +113,16 @@ export function CpuPanel({
           ariaLabel="CPU usage over the selected window"
           format={(v) => formatPercent(v, 0)}
           sampleIntervalMs={sampleIntervalMs}
-          series={[{ dataKey: "cpuPct", label: "CPU", color: CPU_COLOR }]}
+          series={
+            // Bucketed windows draw the bucket's peak beside its average, so a
+            // one-minute spike is not averaged out of a week-long chart.
+            sampleIntervalMs > 60_000
+              ? [
+                  { dataKey: "cpuPct", label: "average", color: CPU_COLOR },
+                  { dataKey: "cpuPctMax", label: "peak" },
+                ]
+              : [{ dataKey: "cpuPct", label: "CPU", color: CPU_COLOR }]
+          }
         />
       )}
     </MetricCard>

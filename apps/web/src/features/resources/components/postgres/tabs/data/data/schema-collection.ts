@@ -25,12 +25,27 @@ import type { AppRouter } from "@otterdeploy/api/routers/index";
 
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
+import { Result } from "better-result";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { WorkbenchTarget } from "./target";
 
 import { targetKey } from "./target";
+
+/** Pull the human-readable reason out of an oRPC error: UNREACHABLE and
+ *  QUERY_FAILED carry `data.reason`; anything else keeps its message. */
+function reasonOf(cause: unknown): Error {
+  if (cause && typeof cause === "object" && "data" in cause) {
+    const { data } = cause;
+    if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+      const message =
+        "message" in cause && typeof cause.message === "string" ? cause.message : null;
+      return new Error(message ? `${message}: ${data.reason}` : data.reason);
+    }
+  }
+  return cause instanceof Error ? cause : new Error(String(cause));
+}
 
 type SchemaResult = InferRouterOutputs<AppRouter>["data"]["schema"];
 
@@ -59,7 +74,19 @@ function buildCollection(target: WorkbenchTarget) {
       id: `data-schema:${key}`,
       queryKey: [...orpc.data.schema.queryKey({ input: { target } }), { cacheKey: key }],
       queryFn: async (): Promise<SchemaTableRow[]> => {
-        const result = await orpc.data.schema.call({ target });
+        // The collection surfaces failure as a bare `isError`; the WHY (the
+        // server's `data.reason`) is kept beside it so the rail can say
+        // "connection refused" instead of "could not read the schema".
+        const fetched = await Result.tryPromise({
+          try: () => orpc.data.schema.call({ target }),
+          catch: reasonOf,
+        });
+        if (fetched.isErr()) {
+          schemaErrors.set(key, fetched.error);
+          throw fetched.error;
+        }
+        const result = fetched.value;
+        schemaErrors.delete(key);
         schemaMeta.set(key, {
           dialect: result.dialect,
           defaultSchema: result.defaultSchema,
@@ -87,6 +114,13 @@ function buildCollection(target: WorkbenchTarget) {
  * make "which dialect is this" a question with 200 answers.
  */
 const schemaMeta = new Map<string, SchemaMeta>();
+
+/** The last fetch failure per target, cleared by the next success. */
+const schemaErrors = new Map<string, Error>();
+
+export function schemaErrorFor(target: WorkbenchTarget): Error | null {
+  return schemaErrors.get(targetKey(target)) ?? null;
+}
 
 export function schemaCollection(target: WorkbenchTarget) {
   const key = targetKey(target);
