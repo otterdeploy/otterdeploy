@@ -240,6 +240,8 @@ const serverMetricPointSchema = z.object({
   cpuSystemPct: z.number().nullable(),
   cpuIowaitPct: z.number().nullable(),
   cpuStealPct: z.number().nullable(),
+  /** Highest single report inside the bucket; equals cpuPct at raw resolution. */
+  cpuPctMax: z.number().nullable(),
   memUsedPct: z.number(),
   memAvailableBytes: z.number(),
   memTotalBytes: z.number(),
@@ -469,7 +471,14 @@ export const serverContract = {
   metrics: oc
     .meta({ path: `${basePath}/{id}/metrics`, tag, method: "GET" })
     .input(serverMetricsInput)
-    .output(z.object({ points: z.array(serverMetricPointSchema) })),
+    .output(
+      z.object({
+        points: z.array(serverMetricPointSchema),
+        /** Width of each point. Feeds the chart's gap detection and its
+         *  "one point per N minutes" caption. */
+        bucketSeconds: z.number(),
+      }),
+    ),
   units: oc
     .meta({ path: `${basePath}/{id}/units`, tag, method: "GET" })
     .input(serverUnitsInput)

@@ -43,6 +43,7 @@ export function buildBaseEnv(userId: string | undefined): Record<string, string>
     LANG: nodeEnv.LANG ?? "C.UTF-8",
     LC_ALL: nodeEnv.LC_ALL ?? "C.UTF-8",
     TERM: "xterm-256color",
+    COLORTERM: "truecolor",
   };
   if (userId) childEnv.OTTERDEPLOY_USER = userId;
   return childEnv;

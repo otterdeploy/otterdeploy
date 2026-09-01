@@ -22,6 +22,7 @@ import { cn } from "@/shared/lib/utils";
 import type { WorkbenchTarget } from "../data/target";
 
 import { useDefinitions } from "../data/use-database";
+import { errMessage } from "../use-data-studio-sql";
 import { ConstraintTable, EnumTable, IndexTable, Note } from "./definitions-tables";
 
 export type DefinitionsSection = "indexes" | "constraints" | "enums";
@@ -47,7 +48,7 @@ export function DefinitionsView({
   onSectionChange: (section: DefinitionsSection) => void;
 }) {
   const [search, setSearch] = useState("");
-  const { data, isLoading, isError } = useDefinitions(target);
+  const { data, isLoading, isError, error } = useDefinitions(target);
 
   const needle = search.trim().toLowerCase();
   const counts = {
@@ -98,6 +99,7 @@ export function DefinitionsView({
           data={data}
           isLoading={isLoading}
           isError={isError}
+          error={error}
         />
       </div>
     </div>
@@ -112,15 +114,19 @@ function SectionBody({
   data,
   isLoading,
   isError,
+  error,
 }: {
   section: DefinitionsSection;
   needle: string;
   data: Definitions;
   isLoading: boolean;
   isError: boolean;
+  error: unknown;
 }) {
   if (isLoading) return <Note>Loading…</Note>;
-  if (isError) return <Note>Couldn&rsquo;t read the database&rsquo;s definitions.</Note>;
+  // The server's own reason ("Could not reach the database: connection
+  // refused"), not a generic line that hides it.
+  if (isError) return <Note>{errMessage(error)}</Note>;
   if (section === "indexes") return <IndexTable rows={data?.indexes ?? []} needle={needle} />;
   if (section === "constraints") {
     return <ConstraintTable rows={data?.constraints ?? []} needle={needle} />;

@@ -15,7 +15,6 @@ import {
 } from "@/features/resources/components/_shared/metrics/metrics-tab-chrome";
 import {
   SERVER_METRIC_WINDOWS,
-  SERVER_SAMPLE_INTERVAL_MS,
   useServerMetrics,
   type ServerMetricWindowLabel,
 } from "@/features/servers/detail/use-server-metrics";
@@ -70,10 +69,11 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
   const [window, setWindow] = useState<ServerMetricWindowLabel>(DEFAULT_WINDOW.label);
   const [cpuMode, setCpuMode] = useState<CpuMode>("total");
   const selected = SERVER_METRIC_WINDOWS.find((w) => w.label === window) ?? DEFAULT_WINDOW;
-  const { rows, summary, isLoading, isError, updatedAt } = useServerMetrics(
+  const { rows, summary, bucketMs, isLoading, isError, updatedAt } = useServerMetrics(
     server.id,
     selected.minutes,
   );
+  const bucketMinutes = Math.round(bucketMs / 60_000);
   const hasData = rows.length > 0;
   const cores = health?.cpu?.coreCount ?? server.cpuTotal;
 
@@ -83,7 +83,10 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
         <div className="flex flex-wrap items-center gap-3">
           <WindowPicker value={window} onChange={setWindow} />
           <span className="text-[11.5px] text-muted-foreground">
-            one point per health report · {selected.live ? "live" : "history"}
+            {bucketMinutes <= 1
+              ? "one point per health report"
+              : `one point per ${bucketMinutes} min, averaged · CPU keeps each bucket's peak`}
+            {selected.live ? " · live" : ""}
           </span>
         </div>
         {selected.live && hasData ? <LiveIndicator updatedAt={updatedAt} /> : null}
@@ -94,7 +97,7 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
           <CpuPanel
             rows={rows}
             summary={summary}
-            sampleIntervalMs={SERVER_SAMPLE_INTERVAL_MS}
+            sampleIntervalMs={bucketMs}
             mode={cpuMode}
             onMode={setCpuMode}
           />
@@ -104,10 +107,10 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
             </SectionCard>
           )}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <LoadPanel rows={rows} sampleIntervalMs={SERVER_SAMPLE_INTERVAL_MS} cores={cores} />
-            <MemoryPanel rows={rows} sampleIntervalMs={SERVER_SAMPLE_INTERVAL_MS} />
-            <DiskIoPanel rows={rows} sampleIntervalMs={SERVER_SAMPLE_INTERVAL_MS} />
-            <NetworkPanel rows={rows} sampleIntervalMs={SERVER_SAMPLE_INTERVAL_MS} />
+            <LoadPanel rows={rows} sampleIntervalMs={bucketMs} cores={cores} />
+            <MemoryPanel rows={rows} sampleIntervalMs={bucketMs} />
+            <DiskIoPanel rows={rows} sampleIntervalMs={bucketMs} />
+            <NetworkPanel rows={rows} sampleIntervalMs={bucketMs} />
           </div>
         </div>
       ) : isLoading ? (

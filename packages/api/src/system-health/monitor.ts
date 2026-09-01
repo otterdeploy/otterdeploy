@@ -26,11 +26,11 @@ import { hasPrefix, ID_PREFIX, type OrganizationId } from "@otterdeploy/shared/i
 import { type InboxSubject } from "@otterdeploy/shared/inbox-subject";
 import { Result } from "better-result";
 import { log } from "evlog";
-import { hostname } from "node:os";
 
 import { createRedis } from "../lib/redis";
 import { emitPlatformEvent } from "../notifications/emit";
 import { getHostHealth, type HostHealth } from "./host-health";
+import { hostHostname } from "./host-identity";
 import {
   type ActivePressure,
   activePressureSchema,
@@ -91,7 +91,7 @@ async function saveActive(next: ActivePressure): Promise<void> {
 
 /** This host, as the thing every pressure event is about. */
 function hostSubject(): InboxSubject {
-  const name = hostname();
+  const name = hostHostname();
   return { kind: "server", id: name, label: name };
 }
 

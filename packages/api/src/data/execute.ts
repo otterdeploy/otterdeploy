@@ -15,7 +15,7 @@ import type { DataError } from "./errors";
 import type { Connection } from "./pool";
 
 import { decodeRow } from "./decode";
-import { dataError, toDataError } from "./errors";
+import { dataError, describeUnreachable, toDataError } from "./errors";
 import { awaitQuery, runOnConnection } from "./pool";
 
 /** Hard ceiling on rows returned to a browser, whatever the caller asked for. */
@@ -94,7 +94,7 @@ export async function execute(
         { trustedRead: options.trustedRead },
       );
     },
-    catch: toDataError,
+    catch: (cause) => describeUnreachable(toDataError(cause), connection.target),
   });
   if (ran.isErr()) return Result.err(ran.error);
 
@@ -203,6 +203,6 @@ export async function executeTransaction(
         }
         return grids;
       }),
-    catch: toDataError,
+    catch: (cause) => describeUnreachable(toDataError(cause), connection.target),
   });
 }

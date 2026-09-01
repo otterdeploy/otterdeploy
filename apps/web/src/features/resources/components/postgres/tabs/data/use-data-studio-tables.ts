@@ -21,7 +21,7 @@ import { useDatabaseSchema, useOpenTableColumns } from "./data/use-database";
  * the qualified `schema.name`, so searching "public." narrows by schema.
  */
 export function useTableList(target: WorkbenchTarget, search: string) {
-  const { tables, meta, isLoading, isError } = useDatabaseSchema(target);
+  const { tables, meta, isLoading, isError, error } = useDatabaseSchema(target);
   // Three states, not two: `undefined` is "never chosen" and takes the default
   // below, `null` is an explicit "all schemas", a string is that schema. Two
   // states cannot express both "default to public" and "I really do want all".
@@ -52,7 +52,9 @@ export function useTableList(target: WorkbenchTarget, search: string) {
   const tablesQuery = {
     isLoading,
     isError,
-    error: isError ? new Error("Could not read the database schema") : null,
+    // The server's reason when it gave one ("Could not reach the database:
+    // connection refused"), the generic line only when it did not.
+    error: isError ? (error ?? new Error("Could not read the database schema")) : null,
     refetch: () => schemaCollection(target).utils.refetch(),
   };
   return {

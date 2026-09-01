@@ -7,6 +7,7 @@ import { server } from "@otterdeploy/db/schema/server";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import os from "node:os";
 
+import { hostHostname } from "../../system-health/host-identity";
 import { publishOrgEvent } from "../project/project-event-bus";
 type OrgId = OrganizationId;
 
@@ -270,7 +271,7 @@ export async function deleteServerRecord(input: {
 export async function bootstrapLocalhostIfMissing(organizationId: OrgId): Promise<void> {
   const cpuCount = os.cpus().length;
   const memTotalGb = Math.max(1, Math.round(os.totalmem() / 1024 ** 3));
-  const hostname = os.hostname() || null;
+  const hostname = hostHostname() || null;
 
   // Upsert: insert new orgs, and back-fill the canonical name/hostname pair
   // on existing rows that were created before the schema split (when the OS

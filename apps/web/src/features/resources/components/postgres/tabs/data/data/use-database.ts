@@ -26,7 +26,13 @@ import { orpc } from "@/shared/server/orpc";
 import type { ColumnVariant, TableRef } from "./queries";
 import type { WorkbenchTarget } from "./target";
 
-import { schemaCollection, schemaMetaFor, tableId, type SchemaTableRow } from "./schema-collection";
+import {
+  schemaCollection,
+  schemaErrorFor,
+  schemaMetaFor,
+  tableId,
+  type SchemaTableRow,
+} from "./schema-collection";
 import { toStructureColumns } from "./structure";
 
 /**
@@ -62,11 +68,19 @@ export function variantForKind(kind: CellKind): ColumnVariant {
 export function useDatabaseSchema(target: WorkbenchTarget) {
   const collection = schemaCollection(target);
   const { data, isLoading, isError } = useLiveQuery((q) => q.from({ t: collection }), [collection]);
+  // A failed fetch does NOT put the collection into an error state: the
+  // query-collection adapter logs the failure and marks the collection ready
+  // with no rows, so a database that cannot be reached would read as "no
+  // tables yet". The queryFn records the failure beside the collection; that
+  // record is the error state, and it carries the server's reason
+  // ("Connection closed") for the rail to print.
+  const failure = schemaErrorFor(target);
   return {
     tables: data ?? [],
     meta: schemaMetaFor(target),
     isLoading,
-    isError,
+    isError: isError || failure !== null,
+    error: failure,
   };
 }
 

@@ -25,7 +25,6 @@ import {
   Alert01Icon,
   Analytics01Icon,
   BellDotIcon,
-  Database02Icon,
   DatabaseIcon,
   DeviceAccessIcon,
   EarthIcon,
@@ -44,6 +43,8 @@ import {
   UserCircleIcon,
   UserMultipleIcon,
   WebhookIcon,
+  SqlIcon,
+  ContainerIcon,
 } from "@hugeicons/core-free-icons";
 
 import type { RoutePath } from "./components/sidebar";
@@ -237,7 +238,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         title: "Workbench",
         i18nKey: "nav.data",
         to: "/$orgSlug/data",
-        icon: DatabaseIcon,
+        icon: SqlIcon,
         keywords: ["data", "sql", "query", "postgres", "mysql", "table", "rows", "workbench"],
       },
       {
@@ -273,7 +274,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         title: "Registries",
         i18nKey: "nav.registries",
         to: "/$orgSlug/registries",
-        icon: Database02Icon,
+        icon: ContainerIcon,
         keywords: ["docker", "image", "ghcr", "ecr", "pull", "credentials"],
       },
       {
