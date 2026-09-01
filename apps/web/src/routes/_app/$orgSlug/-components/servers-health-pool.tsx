@@ -51,7 +51,7 @@ export function UsageRow({
 }
 
 /** Mirrors the system.hostHealth contract's branchPool block. */
-export interface BranchPool {
+interface BranchPool {
   pool: string;
   health: string | null;
   sizeBytes: number | null;

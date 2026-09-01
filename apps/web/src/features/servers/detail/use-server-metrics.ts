@@ -28,7 +28,7 @@ export type ServerMetricWindowLabel = (typeof SERVER_METRIC_WINDOWS)[number]["la
 export const SERVER_SAMPLE_INTERVAL_MS = 60_000;
 const HISTORY_REFETCH_MS = 5 * 60_000;
 
-export function serverMetricsRefetchMs(windowMinutes: number): number {
+function serverMetricsRefetchMs(windowMinutes: number): number {
   return windowMinutes <= 60 ? SERVER_SAMPLE_INTERVAL_MS : HISTORY_REFETCH_MS;
 }
 

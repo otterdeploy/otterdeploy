@@ -1,7 +1,7 @@
 /**
- * The per-server availability control (active / drain / pause) and the stats
- * shape the overview cards read. The old table row that lived here was
- * replaced by the fleet cards (servers-fleet-cards.tsx).
+ * The per-server availability control (active / drain / pause), used by the
+ * server page's Settings tab. The table row that once lived here is gone;
+ * the fleet is a card grid (servers-fleet-grid.tsx).
  */
 import { useState } from "react";
 
@@ -17,13 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
-
-export interface ServerRowStats {
-  tasksRunning: number;
-  cpuAllocatedVcpu: number;
-  memoryAllocatedGb: number;
-  projects: string[];
-}
 
 export function AvailabilitySelect({
   server,

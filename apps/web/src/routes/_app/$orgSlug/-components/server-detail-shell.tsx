@@ -27,7 +27,7 @@ const TerminalSession = lazy(() =>
   })),
 );
 
-export function ComingSoon({ title, description }: { title: string; description: string }) {
+function ComingSoon({ title, description }: { title: string; description: string }) {
   return (
     <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
       <EmptyHeader>
