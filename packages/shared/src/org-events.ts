@@ -49,6 +49,7 @@ export interface OrgConnectionRow {
   environment: "production" | "other";
   defaultAccess: "read-only" | "read-write";
   requireTls: boolean;
+  tags: string[];
   createdAt: string;
   lastConnectedAt: string | null;
 }

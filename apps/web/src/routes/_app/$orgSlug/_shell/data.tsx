@@ -27,6 +27,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/compo
 
 import { ConnectDialog } from "@/features/resources/components/postgres/tabs/data/components/connect-dialog";
 import { TargetSwitcher } from "@/features/resources/components/postgres/tabs/data/components/target-switcher";
+import type { DataConnection } from "@/features/resources/components/postgres/tabs/data/data/connections";
 import {
   findTarget,
   useWorkbenchTargets,
@@ -60,7 +61,17 @@ function DataPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { managed, external, all, isLoading } = useWorkbenchTargets(organization.id);
-  const [connectOpen, setConnectOpen] = useState(false);
+  const [dialog, setDialog] = useState<ConnectDialogState>({ open: false, opening: 0 });
+  // Each opening gets a fresh dialog (see `key` below): the draft is state the
+  // dialog owns, and a form that remembers the last connection's name — or
+  // the last edit's target — when you come back to add another is a bug.
+  const openConnect = () =>
+    setDialog((d) => ({ open: true, opening: d.opening + 1, existing: undefined }));
+  const openEdit = (existing: DataConnection) =>
+    setDialog((d) => ({ open: true, opening: d.opening + 1, existing }));
+  // Closing keeps `existing` so the dialog's exit animation shows the same
+  // content it opened with, rather than snapping back to the create form.
+  const setDialogOpen = (open: boolean) => setDialog((d) => ({ ...d, open }));
 
   // Derived, not stored: an unknown or absent `?target=` falls back to the
   // first option rather than rendering an empty workbench.
@@ -83,7 +94,8 @@ function DataPage() {
       active={active}
       isLoading={isLoading}
       onPick={(option) => void navigate({ search: { target: option.key }, replace: true })}
-      onConnect={() => setConnectOpen(true)}
+      onConnect={openConnect}
+      onEdit={openEdit}
     />
   );
 
@@ -133,7 +145,7 @@ function DataPage() {
                 doesn&rsquo;t run.
               </EmptyDescription>
             </EmptyHeader>
-            <Button size="sm" onClick={() => setConnectOpen(true)}>
+            <Button size="sm" onClick={openConnect}>
               Connect a database URL
             </Button>
           </Empty>
@@ -158,10 +170,20 @@ function DataPage() {
       )}
 
       <ConnectDialog
+        key={dialog.opening}
         organizationId={organization.id}
-        open={connectOpen}
-        onOpenChange={setConnectOpen}
+        open={dialog.open}
+        onOpenChange={setDialogOpen}
+        existing={dialog.existing}
       />
     </div>
   );
+}
+
+interface ConnectDialogState {
+  open: boolean;
+  /** Bumped on every open; remounts the dialog so it starts from a clean draft. */
+  opening: number;
+  /** The connection being edited, or undefined for "connect a new one". */
+  existing?: DataConnection;
 }

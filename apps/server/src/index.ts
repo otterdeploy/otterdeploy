@@ -480,6 +480,20 @@ declare global {
 
   var __controlPlaneListener: { reload: (o: { fetch: typeof app.fetch }) => void } | undefined;
 }
+
+/**
+ * Seconds a request may sit with no bytes moving before Bun closes the socket.
+ *
+ * Bun's default is 10, which is SHORTER than budgets this server hands out on
+ * purpose: the data workbench allows 10s to connect and 30s per statement. A
+ * schema read against a cold Neon compute over a slow link measured 14s; Bun
+ * cut the socket at 10, the browser saw a dropped connection, and the
+ * dashboard announced "Control plane unreachable" while the server was fine.
+ * The response must be able to outlive the slowest thing it legitimately
+ * waits on. 255 is Bun's ceiling. Streaming responses (SSE, log tails) keep
+ * bytes moving and are not affected either way.
+ */
+const REQUEST_IDLE_TIMEOUT_SECONDS = 120;
 if (env.CONTROL_PLANE_PORT && env.CONTROL_PLANE_PORT !== env.PORT) {
   if (globalThis.__controlPlaneListener) {
     // --hot reloaded: swap the handler in place so the auth routes pick up
@@ -490,6 +504,7 @@ if (env.CONTROL_PLANE_PORT && env.CONTROL_PLANE_PORT !== env.PORT) {
       port: env.CONTROL_PLANE_PORT,
       hostname: "0.0.0.0",
       fetch: app.fetch,
+      idleTimeout: REQUEST_IDLE_TIMEOUT_SECONDS,
     });
     log.info({
       startup: { step: "control-plane-listener", port: env.CONTROL_PLANE_PORT },
@@ -500,4 +515,5 @@ if (env.CONTROL_PLANE_PORT && env.CONTROL_PLANE_PORT !== env.PORT) {
 export default {
   fetch: app.fetch,
   websocket,
+  idleTimeout: REQUEST_IDLE_TIMEOUT_SECONDS,
 };

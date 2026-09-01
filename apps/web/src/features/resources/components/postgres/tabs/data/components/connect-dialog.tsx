@@ -37,7 +37,7 @@ import type { DataConnection } from "../data/connections";
 import type { ConnectEngine } from "./connect-engines";
 import type { ConnectDraft } from "./connect-form";
 
-import { connectionCollectionFor } from "../data/connections";
+import { connectionCollectionFor, useDataConnections } from "../data/connections";
 import { CONNECT_ENGINES, EMPTY_FIELDS, fieldsFromUrl, urlFromFields } from "./connect-engines";
 import { ConnectForm, EnginePicker } from "./connect-form";
 
@@ -60,6 +60,7 @@ function useConnectDraft(organizationId: string, existing: DataConnection | unde
     visibility: existing?.visibility ?? "org",
     environment: existing?.environment ?? "other",
     requireTls: existing?.requireTls ?? true,
+    tags: existing?.tags ?? [],
   });
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -156,6 +157,10 @@ export function ConnectDialog({
   existing?: DataConnection;
 }) {
   const c = useConnectDraft(organizationId, existing);
+  // Every tag in use across the connections this viewer can see, once each,
+  // sorted — the vocabulary the tags field offers so spellings converge.
+  const { connections } = useDataConnections(organizationId);
+  const tagSuggestions = [...new Set(connections.flatMap((row) => row.tags))].sort();
   const title = c.editing
     ? "Edit connection"
     : c.activeEngine === null
@@ -183,6 +188,7 @@ export function ConnectDialog({
             editing={c.editing}
             error={c.error}
             tested={c.tested}
+            tagSuggestions={tagSuggestions}
             patch={c.patch}
             onAcceptUrl={c.acceptUrl}
             onBack={c.editing ? undefined : () => c.setEngine(null)}
@@ -244,6 +250,7 @@ function saveConnection(
             row.environment = draft.environment;
             row.defaultAccess = defaultAccess;
             row.requireTls = draft.requireTls;
+            row.tags = draft.tags;
           },
         );
         return;
@@ -261,6 +268,7 @@ function saveConnection(
           environment: draft.environment,
           defaultAccess,
           requireTls: draft.requireTls,
+          tags: draft.tags,
           createdAt: new Date(),
           lastConnectedAt: null,
         },

@@ -92,7 +92,7 @@ export function BucketSwitcher({
 
         {buckets.length > 0 ? <DropdownMenuSeparator /> : null}
 
-        <DropdownMenuItem onClick={onConnect} className="gap-2 text-primary">
+        <DropdownMenuItem onClick={onConnect} className="gap-2">
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
           Connect a bucket…
         </DropdownMenuItem>
