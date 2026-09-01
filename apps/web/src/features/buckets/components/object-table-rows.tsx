@@ -1,35 +1,33 @@
 /**
  * The two row kinds of the object listing, one file over.
  *
- * A prefix row shows a size only when the stats scan actually walked it;
- * otherwise it shows "—", because summing a subtree needs a full scan and a
- * guessed number in a size column poisons every number near it. A "+" marks
- * tallies from a partial scan.
+ * Every cell carries a hairline on its right so the columns read as columns
+ * in the body, not only in the header. A prefix row shows a size only when
+ * the stats scan actually walked it; otherwise "—", because summing a
+ * subtree needs a full scan and a guessed number poisons every number near
+ * it. A "+" marks tallies from a partial scan.
  */
-import {
-  ArrowRight01Icon,
-  Download01Icon,
-  File01Icon,
-  Folder01Icon,
-  Link01Icon,
-} from "@hugeicons/core-free-icons";
+import { Download01Icon, File01Icon, Folder01Icon, Link01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
-import { CLOCK_STAMP, clockFormatter, epochMsFromIso } from "@/shared/lib/clock";
+import { CLOCK_EXACT, clockFormatter } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
 import type { ObjectRow } from "../use-bucket-workbench";
 
 import { basename, formatSize } from "../state";
+import { agoLabel } from "./object-table-sort";
 
-const formatStamp = clockFormatter(CLOCK_STAMP);
+const formatExact = clockFormatter(CLOCK_EXACT);
 
-/** A malformed timestamp becomes a dash rather than a throw inside a row. */
-function formatModified(iso: string | null): string {
-  if (iso === null) return "—";
-  const ms = epochMsFromIso(iso);
-  return ms === null ? "—" : formatStamp(ms);
+/** Hot / warm / cold, so a column of class names reads at a glance. */
+function classDot(storageClass: string): string {
+  const c = storageClass.toUpperCase();
+  if (c === "STANDARD" || c === "EXPRESS_ONEZONE") return "bg-success";
+  if (c.endsWith("_IA") || c === "INTELLIGENT_TIERING") return "bg-warning";
+  if (c.startsWith("GLACIER") || c === "DEEP_ARCHIVE") return "bg-info";
+  return "bg-muted-foreground";
 }
 
 export function PrefixTableRow({
@@ -43,28 +41,32 @@ export function PrefixTableRow({
   scanComplete: boolean;
   onOpen: (prefix: string) => void;
 }) {
+  const plus = tally !== undefined && !scanComplete ? "+" : "";
   return (
-    <tr onClick={() => onOpen(prefix)} className="cursor-pointer hover:bg-muted/40">
-      <Td className="text-center text-muted-foreground">
-        <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
-      </Td>
-      <Td>
-        <span className="flex items-center gap-1.5 text-primary">
-          <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5" />
-          {basename(prefix)}/
+    <tr onClick={() => onOpen(prefix)} className="group cursor-pointer hover:bg-muted/40">
+      <Td className="pl-3 text-muted-foreground">›</Td>
+      <Td className="font-medium text-foreground">
+        <span className="flex items-center gap-2">
+          <HugeiconsIcon
+            icon={Folder01Icon}
+            strokeWidth={1.8}
+            className="size-3.5 shrink-0 text-foreground/75"
+          />
+          <span className="truncate">{basename(prefix)}/</span>
+          {tally !== undefined ? (
+            <span className="ml-1 shrink-0 text-[10.5px] font-normal text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+              {tally.count}
+              {plus} objects
+            </span>
+          ) : null}
         </span>
       </Td>
       <Td className={cn("text-right", tally === undefined && "text-muted-foreground/50")}>
-        {tally === undefined ? "—" : formatSize(tally.bytes)}
-        {tally !== undefined && !scanComplete ? "+" : ""}
+        {tally === undefined ? "—" : `${formatSize(tally.bytes)}${plus}`}
       </Td>
-      <Td colSpan={3} className="text-muted-foreground/70">
-        {tally === undefined
-          ? "—"
-          : `${tally.count}${scanComplete ? "" : "+"} object${
-              tally.count === 1 && scanComplete ? "" : "s"
-            } below this prefix`}
-      </Td>
+      <Td className="text-muted-foreground/50">—</Td>
+      <Td className="text-muted-foreground/50">—</Td>
+      <Td />
     </tr>
   );
 }
@@ -73,6 +75,7 @@ export function ObjectTableRow({
   object: o,
   grouping,
   currentPrefix,
+  nowMs,
   isChecked,
   isActive,
   onSelect,
@@ -83,6 +86,7 @@ export function ObjectTableRow({
   object: ObjectRow;
   grouping: "folders" | "flat";
   currentPrefix: string;
+  nowMs: number;
   isChecked: boolean;
   isActive: boolean;
   onSelect: (key: string) => void;
@@ -93,20 +97,31 @@ export function ObjectTableRow({
   return (
     <tr
       onClick={() => onSelect(o.key)}
-      className={cn("group cursor-pointer", isActive ? "bg-primary/5" : "hover:bg-muted/40")}
+      className={cn(
+        "group cursor-pointer",
+        isActive ? "bg-primary/5" : isChecked ? "bg-primary/[0.035]" : "hover:bg-muted/40",
+      )}
     >
-      <Td onClick={(e) => e.stopPropagation()} className="text-center">
+      <Td onClick={(e) => e.stopPropagation()} className="pl-3">
+        {/* The box appears on hover or once ticked: the listing reads as
+            data at rest, not as a form. */}
         <Checkbox
           aria-label={`Select ${o.key}`}
           checked={isChecked}
           onCheckedChange={() => onToggle(o.key, o.size)}
+          className={cn(
+            "transition-opacity",
+            isChecked
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+          )}
         />
       </Td>
       <Td>
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-2">
           <HugeiconsIcon
             icon={File01Icon}
-            strokeWidth={2}
+            strokeWidth={1.8}
             className="size-3.5 shrink-0 text-muted-foreground"
           />
           {/* In flat mode the whole key is the point, with the walked part
@@ -121,18 +136,21 @@ export function ObjectTableRow({
           )}
         </span>
       </Td>
-      <Td className="text-right">{formatSize(o.size)}</Td>
+      <Td className="text-right tabular-nums">{formatSize(o.size)}</Td>
       <Td>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] tracking-wide text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <i aria-hidden className={cn("size-1.5 rounded-full", classDot(o.storageClass))} />
           {o.storageClass}
         </span>
       </Td>
-      <Td className="text-muted-foreground">{formatModified(o.lastModified)}</Td>
-      <Td onClick={(e) => e.stopPropagation()} className="py-0">
-        {/* Icons, revealed on row hover: actions are per-row verbs, not
-            content, so at rest the column stays quiet. focus-within keeps
-            them reachable by keyboard. */}
-        <span className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+      <Td
+        className="text-muted-foreground"
+        title={o.modifiedMs === null ? undefined : formatExact(o.modifiedMs)}
+      >
+        {agoLabel(o.modifiedMs, nowMs)}
+      </Td>
+      <Td onClick={(e) => e.stopPropagation()} className="pr-2 text-right">
+        <span className="inline-flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
           <RowAction
             icon={Download01Icon}
             label={`Download ${o.key}`}
@@ -170,22 +188,26 @@ function RowAction({
     </button>
   );
 }
+
 export function Td({
   children,
   className,
-  colSpan,
+  title,
   onClick,
 }: {
   children?: React.ReactNode;
   className?: string;
-  colSpan?: number;
+  title?: string;
   onClick?: (e: React.MouseEvent) => void;
 }) {
   return (
     <td
       onClick={onClick}
-      colSpan={colSpan}
-      className={cn("truncate border-b px-3 py-1.5 font-mono text-[12px]", className)}
+      title={title}
+      className={cn(
+        "h-[30px] truncate border-r border-b border-border/70 px-2.5 py-0 font-mono text-[12px] last:border-r-0",
+        className,
+      )}
     >
       {children}
     </td>

@@ -34,12 +34,13 @@ export function BucketWorkbench({
   // The footer sits OUTSIDE the rail/main/preview row so its top border is
   // one contiguous line across the whole surface.
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <BucketRail
-          knownPrefixes={b.knownPrefixes}
+          bucketId={bucket.id}
           activePrefix={search.prefix}
           onPickPrefix={b.navigateTo}
+          onPickObject={b.openObject}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">

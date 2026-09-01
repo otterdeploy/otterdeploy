@@ -42,6 +42,7 @@
     "@otterdeploy/i18n": "workspace:*",
     "@otterdeploy/shared": "workspace:*",
     "@otterdeploy/ui": "workspace:*",
+    "@pierre/trees": "^1.0.0-beta.6",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/browser-db-sqlite-persistence": "catalog:",
     "@tanstack/charts": "^0.14.0",
