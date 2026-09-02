@@ -55,8 +55,8 @@ export function ContrastBlock() {
           The manual way, retired
         </h2>
         <p className="mt-4 max-w-[52ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-          Everything you'd wire together on a bare box — the platform already did. The left column
-          is the afternoon you spend today; the right is one line.
+          Everything you'd wire together on a bare box, the platform already did. The left column is
+          the afternoon you spend today; the right is one line.
         </p>
       </Reveal>
 

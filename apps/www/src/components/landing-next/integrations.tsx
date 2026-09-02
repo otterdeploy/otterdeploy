@@ -164,7 +164,7 @@ export function Integrations() {
             One hand on the whole stack
           </h2>
           <p className="mx-auto mt-4 max-w-[52ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-            otterdeploy orchestrates the tools you already run — your git host, your secret vault,
+            otterdeploy orchestrates the tools you already run: your git host, your secret vault,
             your registry, your mesh. Plug them in; it conducts them.
           </p>
         </Reveal>

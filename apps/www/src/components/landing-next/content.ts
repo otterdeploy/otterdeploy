@@ -89,7 +89,7 @@ export const TOUR: TourStop[] = [
     id: "data",
     eyebrow: "Data workbench",
     title: "Query your databases without leaving",
-    body: "Open any managed database — or an external Postgres, MySQL or Neon URL — and read your tables in a real grid: typed columns, filters, pagination, read-only by default. Or drop into the SQL playground. No psql, no second tool.",
+    body: "Open any managed database (or an external Postgres, MySQL or Neon URL) and read your tables in a real grid: typed columns, filters, pagination, read-only by default. Or drop into the SQL playground. No psql, no second tool.",
     img: "/landing/app-data-query.png",
     alt: "The otterdeploy Workbench data grid showing the customers table with 12 rows.",
     href: "/docs/guides/databases#browsing-the-data",
@@ -98,7 +98,7 @@ export const TOUR: TourStop[] = [
     id: "templates",
     eyebrow: "Templates",
     title: "Deploy 98 apps in one click",
-    body: "Ghost, Plausible, n8n, Metabase, Gitea, Grafana and 90 more — each a compose file the platform's own parser round-trips with zero warnings. Pick one, fill the secrets it asks for, deploy.",
+    body: "Ghost, Plausible, n8n, Metabase, Gitea, Grafana and 90 more, each a compose file the platform's own parser round-trips with zero warnings. Pick one, fill the secrets it asks for, deploy.",
     img: "/landing/app-templates.png",
     alt: "The otterdeploy template gallery with 98 stacks.",
     href: "/docs/guides/databases#templates",
@@ -250,7 +250,7 @@ export const CONTRASTS: Contrast[] = [
   {
     task: "Add a database",
     hand: "Provision it, create a user, paste the connection string into each service.",
-    od: "Reference it by name — filled in at deploy.",
+    od: "Reference it by name, filled in at deploy.",
   },
   {
     task: "HTTPS on a domain",

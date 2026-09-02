@@ -63,7 +63,7 @@ export function DeployPipeline() {
           </h2>
           <p className="mx-auto mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
             Railpack builds the repo, the image rolls out on Swarm, Caddy takes the domain and
-            issues the certificate — every phase named and honest about where it is.
+            issues the certificate. Every phase named and honest about where it is.
           </p>
         </Reveal>
 

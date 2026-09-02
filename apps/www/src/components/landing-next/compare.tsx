@@ -136,7 +136,7 @@ export function CompareBlock() {
           How it compares
         </h2>
         <p className="mt-4 max-w-[54ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-          The table you'd have opened in another tab anyway — wins conceded where they're due. A
+          The table you'd have opened in another tab anyway. Wins conceded where they're due. A
           hollow ring means it exists with wiring or caveats; where we weren't sure, the mark went
           to the other tool.
         </p>
@@ -242,7 +242,7 @@ export function CompareBlock() {
           })}
         </div>
         <p className="mt-3 px-1 text-[0.75rem] leading-relaxed text-muted-foreground/70">
-          Every capability above ships in otterdeploy — the note shows which of Coolify, Dokploy or
+          Every capability above ships in otterdeploy. The note shows which of Coolify, Dokploy or
           CapRover also have it.
         </p>
       </Reveal>
