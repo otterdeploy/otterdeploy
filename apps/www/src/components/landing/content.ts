@@ -50,7 +50,7 @@ export const RAIL_STATIONS: { key: string; note: string }[] = [
 /** Four counts, each verifiable in the repository. */
 export const HERO_FACTS: { value: string; label: string }[] = [
   { value: "5", label: "database engines" },
-  { value: "18", label: "stack templates" },
+  { value: "98", label: "stack templates" },
   { value: "34", label: "CLI commands" },
   { value: "1", label: "machine to start" },
 ];
@@ -70,7 +70,7 @@ export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
       "Dockerfile builds",
       "Monorepo aware",
       "Compose stacks",
-      "18 stack templates",
+      "98 stack templates",
       "Rollback",
       "Crash reporting",
       "Environments",
