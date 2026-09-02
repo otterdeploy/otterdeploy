@@ -17,11 +17,11 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: "Product",
     links: [
-      { label: "Graph", href: "/next#graph" },
-      { label: "Deployments", href: "/next#deploys" },
-      { label: "Data workbench", href: "/next#data" },
-      { label: "Templates", href: "/next#templates" },
-      { label: "CLI", href: "/next#cli" },
+      { label: "Graph", href: "/#graph" },
+      { label: "Deployments", href: "/#deploys" },
+      { label: "Data workbench", href: "/#data" },
+      { label: "Templates", href: "/#templates" },
+      { label: "CLI", href: "/#cli" },
     ],
   },
   {
