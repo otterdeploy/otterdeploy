@@ -63,6 +63,12 @@ otterdeploy/
 │   └── jobs/        # Job queue (BullMQ), workers, triggers, registry
 ```
 
+## Deployment
+
+- `apps/www` deploys through **Cloudflare Workers Builds** on push to `main`
+  (build: `bun run build --filter=www`, deploy: `cd apps/www && bunx wrangler deploy`).
+  There is no deploy job in GitHub Actions; CI only runs checks.
+
 ## Common Commands
 
 - `bun install` - Install dependencies
