@@ -605,3 +605,102 @@ html > body[data-scroll-locked] {
   color: var(--foreground);
   font-weight: 500;
 }
+
+/* ── /next landing: Linear-clone scope ─────────────────────────────────────
+   The /next page replicates Linear's live homepage (owner-supplied reference
+   + Mobbin sections). This class re-scopes the dark tokens to Linear's exact
+   values so every shared component (Compare, FAQ, footer, CommandLine)
+   coheres with the clone without forking. */
+.od-lin {
+  --background: #08090a;
+  --foreground: #f7f8f8;
+  --card: #0f1011;
+  --card-foreground: #f7f8f8;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #8a8f98;
+  --accent: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.1);
+}
+
+/* Scroll reveal: sections fade-and-rise as they enter, the way linear.app's
+   do. Reduced motion gets content in place with no transition. */
+@media (prefers-reduced-motion: no-preference) {
+  .od-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.6, 0.2, 1),
+      transform 0.7s cubic-bezier(0.2, 0.6, 0.2, 1);
+  }
+  .od-reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Hero window: the three deploy-state screenshots crossfade. */
+.od-state {
+  opacity: 0;
+  transition: opacity 0.55s ease;
+}
+.od-state.is-active {
+  opacity: 1;
+}
+
+/* Streaming detail line for the animated deploy pipeline. */
+@keyframes od-lineIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Orchestrator hub: light pulsing down each wire toward the core, and the
+   core's breathing ring. Gated on reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .od-flow {
+    animation: od-flow 2.6s linear infinite;
+  }
+}
+@keyframes od-flow {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes od-hubPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.06);
+  }
+}
+
+/* Hero surface duration bar: fills across one cycle, then the surface advances.
+   Motion-safe only — reduced-motion holds frame one with no bar. */
+@media (prefers-reduced-motion: no-preference) {
+  .od-progress {
+    animation-name: od-progressFill;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  @keyframes od-progressFill {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+}
