@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Landing } from "@/components/landing/landing";
+import { LandingNext } from "@/components/landing-next/landing-next";
 import { canonical, organizationJsonLd, seo, softwareJsonLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
@@ -15,8 +15,7 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-// The marketing landing page. Composition, fold order, and the reasoning
-// behind both live in components/landing/landing.tsx.
+// The marketing landing: the product-led page in components/landing-next.
 function Home() {
-  return <Landing />;
+  return <LandingNext />;
 }
