@@ -58,4 +58,4 @@ export function isCanonicalHost(requestUrl: string): boolean {
 }
 
 export const siteDescription =
-  "Open-source, self-hosted PaaS: an alternative to Vercel and Railway that runs on your own VPS. Git-push builds, managed databases, automatic HTTPS, preview environments per pull request.";
+  "Open-source, self-hosted PaaS — a Vercel and Railway alternative on your own servers. Git-push deploys, managed databases, automatic HTTPS, PR previews.";
