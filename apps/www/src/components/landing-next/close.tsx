@@ -12,7 +12,7 @@ export function Close() {
           Grab a VPS. Ship tonight.
         </h2>
         <p className="mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-          Open source, no seats, no usage bill. Pre-1.0 — run it on something you'd be willing to
+          Open source, no seats, no usage bill. Pre-1.0, run it on something you'd be willing to
           rebuild.
         </p>
         <div className="mt-8 flex items-center gap-6">

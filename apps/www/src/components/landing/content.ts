@@ -182,7 +182,7 @@ export const COMPARE_ROWS: { label: string; marks: CompareMark[] }[] = [
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Is it production-ready?",
-    a: "Not yet. otterdeploy is pre-1.0 and under active development: interfaces and schemas still change without migration paths. Run it on something you'd be willing to rebuild — side projects, staging, internal tools — and hold the production workloads until 1.0.",
+    a: "Not yet. otterdeploy is pre-1.0 and under active development: interfaces and schemas still change without migration paths. Run it on something you'd be willing to rebuild (side projects, staging, internal tools) and hold the production workloads until 1.0.",
   },
   {
     q: "What does it cost?",
@@ -190,7 +190,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "How is this different from Coolify or Dokploy?",
-    a: "Same family, different bets. We bet on previews with database branching, a typed API and CLI for automation, mesh networking built in, and host security (firewall, CrowdSec) on by default rather than as homework. If another tool fits you better, use it — the comparison table above concedes their wins on purpose.",
+    a: "Same family, different bets. We bet on previews with database branching, a typed API and CLI for automation, mesh networking built in, and host security (firewall, CrowdSec) on by default rather than as homework. If another tool fits you better, use it; the comparison table above concedes their wins on purpose.",
   },
   {
     q: "Do I need Kubernetes?",
@@ -202,7 +202,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "What happens when the box dies?",
-    a: "Backups are encrypted, scheduled and restorable to any snapshot, so the honest answer is: you restore onto a new box. A single machine is a single point of failure — that trade is yours to make, and multi-node Swarm is there when you outgrow it.",
+    a: "Backups are encrypted, scheduled and restorable to any snapshot, so the honest answer is: you restore onto a new box. A single machine is a single point of failure; that trade is yours to make, and multi-node Swarm is there when you outgrow it.",
   },
 ];
 

@@ -58,7 +58,7 @@ export function NextHero() {
         <div className="mt-6 max-w-[34rem]">
           <CommandLine command={INSTALL_CMD} label="install" />
           <p className="mt-2 pl-1 font-mono text-[0.7rem] text-muted-foreground/70">
-            one command on a fresh VPS — installs and starts the control plane.
+            one command on a fresh VPS, installs and starts the control plane.
           </p>
         </div>
 

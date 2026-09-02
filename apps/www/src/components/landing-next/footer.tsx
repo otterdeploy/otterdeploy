@@ -93,8 +93,8 @@ export function NextFooter() {
               <span className="text-[0.95rem] font-semibold tracking-tight">otterdeploy</span>
             </span>
             <p className="mt-4 max-w-[34ch] text-[0.8125rem] leading-relaxed text-pretty text-muted-foreground">
-              A control plane you actually own — the ergonomics of a managed platform, running on
-              servers you rent, no seats, no usage bill. Come build it with us.
+              A control plane you actually own, with the ergonomics of a managed platform, running
+              on servers you rent, no seats, no usage bill. Come build it with us.
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2.5">

@@ -186,7 +186,7 @@ function BotComment() {
           )}
         </svg>
         <span className="text-[0.75rem] text-white/60">
-          <span className="font-medium text-white/80">otterdeploy</span> —{" "}
+          <span className="font-medium text-white/80">otterdeploy</span> ·{" "}
           {ready ? "Preview ready" : "Building preview…"}
         </span>
       </div>
@@ -266,7 +266,7 @@ function PreviewGraph() {
       </div>
 
       <p className="relative mt-auto pt-4 text-[0.8125rem] leading-relaxed text-pretty text-muted-foreground">
-        The whole preview is one graph — services and a branched database. The preview's{" "}
+        The whole preview is one graph: services and a branched database. The preview's{" "}
         <Mono className="text-foreground/70">{"${{db.DATABASE_URL}}"}</Mono> resolves to{" "}
         <span className="text-[#7ab5ff]">pr-482</span>, so production data is never touched.
       </p>
@@ -282,7 +282,7 @@ function WallCard() {
       <div className="md:max-w-[24rem] md:shrink-0">
         <h3 className="text-[0.9375rem] font-semibold text-foreground">A wall in front of it</h3>
         <p className="mt-2 text-[0.8125rem] leading-relaxed text-pretty text-muted-foreground">
-          One toggle puts deployment protection in front of any route — Caddy gates it with
+          One toggle puts deployment protection in front of any route. Caddy gates it with
           forward-auth and a wall page. No basic-auth headers, no code changes, and a scoped bypass
           token keeps your CI green.
         </p>
@@ -312,7 +312,7 @@ export function PrPreview() {
           </h2>
           <p className="mt-4 max-w-[56ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
             The platform builds the branch, comments the preview URLs on the PR, and flips the
-            commit status when everything is live — with a branched database and a lock on the door
+            commit status when everything is live, with a branched database and a lock on the door
             if you want them.
           </p>
         </Reveal>
