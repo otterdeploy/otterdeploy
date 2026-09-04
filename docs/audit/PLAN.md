@@ -13,7 +13,7 @@ Measured at the start of the sweep. These are the numbers the sweep has to move.
 | --- | --- |
 | Source files in scope (excl. tests, generated, vendored) | 1626 |
 | Import cycles / files involved | 16 / 21 |
-| Clone groups / files touched | 372 / 370 |
+| Clone groups / files touched | 384 / 384 |
 | fallow dead-code findings | 197 |
 | oxlint warnings | 196 |
 | Files with `try`/`catch` | 209 |
@@ -23,6 +23,12 @@ Measured at the start of the sweep. These are the numbers the sweep has to move.
 | zod schemas / `z.infer` uses | 1112 / 79 |
 | `InferRouterOutputs` uses in `apps/web` | 4 |
 | Hand-written type declarations (api / web) | 979 / 804 |
+
+The duplication floor was re-measured on 2026-09-04 after the public landing
+promotion had already raised live `main` to 388 clone groups and 3.93% duplicated
+lines. The cleanup that removed the now-unreachable previous landing and stale
+integration modules lowers those figures to 384 and 3.67%; the dead-code and cycle
+floors do not move.
 
 Regenerate the per-file evidence any time:
 

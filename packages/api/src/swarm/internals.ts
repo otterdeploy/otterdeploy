@@ -258,7 +258,7 @@ export async function inspectSwarmService(
     throw tasksResult.error;
   }
 
-  const latestTask = [...tasksResult.value].sort(byCreatedDesc).at(0);
+  const latestTask = tasksResult.value.toSorted(byCreatedDesc).at(0);
   const { status, errorMessage } = resolveTaskStatus(tasksResult.value);
 
   return {

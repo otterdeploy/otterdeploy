@@ -9,43 +9,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 export const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
 
-// ── Buttons ────────────────────────────────────────────────────────────────
-
-const BTN =
-  "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium whitespace-nowrap transition-[background-color,color,border-color,translate] duration-200 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px [&_svg]:size-4 [&_svg]:shrink-0";
-
-export function PrimaryButton({
-  href,
-  children,
-  ...rest
-}: { href: string; children: ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
-  return (
-    <a
-      href={href}
-      className={cx(BTN, "bg-primary text-primary-foreground hover:bg-primary/90")}
-      {...rest}
-    >
-      {children}
-    </a>
-  );
-}
-
-export function OutlineButton({
-  href,
-  children,
-  ...rest
-}: { href: string; children: ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
-  return (
-    <a
-      href={href}
-      className={cx(BTN, "border border-border bg-background text-foreground hover:bg-muted")}
-      {...rest}
-    >
-      {children}
-    </a>
-  );
-}
-
 // ── Section shell ──────────────────────────────────────────────────────────
 
 /** The page's one horizontal rhythm. Every band shares it, so the hairline
@@ -111,85 +74,6 @@ export function TwoTone({ a, b, className }: { a: string; b: string; className?:
 export function Mono({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span className={cx("font-mono text-[0.75rem] tracking-tight", className)}>{children}</span>
-  );
-}
-
-/**
- * A state chip. Colour never travels alone: every chip carries a dot AND a
- * word, so it survives a colour-blind reader and a greyscale print.
- */
-export function StateChip({
-  tone = "muted",
-  children,
-}: {
-  tone?: "muted" | "success" | "warning" | "info";
-  children: ReactNode;
-}) {
-  const dot = {
-    muted: "bg-muted-foreground",
-    success: "bg-success",
-    warning: "bg-warning",
-    info: "bg-info",
-  }[tone];
-  return (
-    <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border px-2.5 font-mono text-[0.7rem] text-muted-foreground">
-      <span className={cx("size-1.5 rounded-full", dot)} />
-      {children}
-    </span>
-  );
-}
-
-// ── Art field ──────────────────────────────────────────────────────────────
-
-/**
- * The blue, grained panel a showcase visual floats on. It re-scopes the colour
- * tokens (see `.od-field` in styles/app.css), so the visual inside needs no
- * knowledge of where it landed. It keeps using `bg-card` and `text-foreground`
- * and comes out as dark glass on blue.
- */
-export function Field({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={cx(
-        "od-field overflow-hidden rounded-2xl p-5 sm:p-7 lg:p-9",
-        // The one place this page uses a shadow: the field genuinely floats.
-        "shadow-[0_24px_60px_-30px_rgba(20,20,18,0.55)]",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ── Visual frame ───────────────────────────────────────────────────────────
-
-/**
- * The chrome every showcase visual sits in: a flat card with a hairline ring
- * and one header strip. Giving them all identical chrome is what makes five
- * different mini-interfaces read as five views of one product.
- */
-export function VisualFrame({
-  title,
-  trailing,
-  children,
-  className,
-  bodyClassName,
-}: {
-  title: ReactNode;
-  trailing?: ReactNode;
-  children: ReactNode;
-  className?: string;
-  bodyClassName?: string;
-}) {
-  return (
-    <div className={cx("overflow-hidden rounded-xl border border-border bg-card", className)}>
-      <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-        <span className="min-w-0 truncate font-mono text-[0.75rem] text-foreground">{title}</span>
-        {trailing ? <span className="ml-auto shrink-0">{trailing}</span> : null}
-      </div>
-      <div className={cx("p-4", bodyClassName)}>{children}</div>
-    </div>
   );
 }
 
