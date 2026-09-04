@@ -9,7 +9,13 @@
     },
     "www#build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "cache": false,
+      "env": [
+        "OTTERDEPLOY_DOCS_VERSION",
+        "OTTERDEPLOY_OPENAPI_SPEC_URL",
+        "OTTERSTACK_OPENAPI_SPEC_URL"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env*", "$TURBO_ROOT$/.env*"],
       "outputs": [".output/**", ".wrangler/deploy/**"]
     },
     "lint": {

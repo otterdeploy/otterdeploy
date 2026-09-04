@@ -1,0 +1,34 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Otterdeploy CI fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "The control plane is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

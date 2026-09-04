@@ -1,0 +1,13 @@
+/*
+  Content-Security-Policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'
+  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+
+# Version previews are useful for review but must never compete with the
+# canonical domain. Worker-rendered HTML receives the same policy in code;
+# this host-scoped rule covers static assets that bypass the Worker.
+https://:version.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex

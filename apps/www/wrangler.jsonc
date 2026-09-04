@@ -4,17 +4,29 @@
   // Kept in step with the nitro compatibilityDate in vite.config.ts, and with
   // the newest date the pinned wrangler's workerd binary supports.
   "compatibility_date": "2026-05-28",
-  "observability": { "enabled": true },
+  // Keep application-authored logs and uncaught exceptions, but do not retain
+  // Cloudflare's automatic per-request invocation log. Search terms arrive in
+  // `/api/search?q=…`; invocation logs otherwise persist that query string.
+  "observability": {
+    "enabled": true,
+    "logs": { "invocation_logs": false },
+  },
 
-  // `main` and `assets` are deliberately absent: the nitro cloudflare_workers
+  // Production is served only on the custom domains below. Keep versioned
+  // preview URLs explicitly available for review instead of inheriting the
+  // disabled workers.dev production route.
+  "workers_dev": false,
+  "preview_urls": true,
+
+  // `main` and `assets` are deliberately absent: Nitro's cloudflare-module
   // preset merges this file with the entry + asset paths it generates and
   // writes the result to .output/server/wrangler.json, then points wrangler at
   // it via .wrangler/deploy/config.json. Setting either here makes nitro warn
   // and ignore it.
 
-  // Both hostnames are served directly so the site is reachable today with no
-  // dashboard work. Follow-up: a Cloudflare redirect rule sending
-  // www → apex, so the docs aren't indexed twice.
+  // Both hostnames reach the Worker. Request middleware performs the permanent
+  // www → apex redirect in one hop, keeping that canonicalization rule in
+  // version control instead of relying on an untracked dashboard setting.
   "routes": [
     { "pattern": "otterdeploy.com", "custom_domain": true },
     { "pattern": "www.otterdeploy.com", "custom_domain": true },

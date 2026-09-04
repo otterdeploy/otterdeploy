@@ -1,4 +1,4 @@
-import { absoluteUrl, appName, siteDescription, siteUrl } from "./shared";
+import { absoluteUrl, appName, docsRoute, siteDescription, siteUrl } from "./shared";
 
 /**
  * Head-tag builders shared by every route.
@@ -28,6 +28,8 @@ export interface SeoInput {
   imageAlt?: string;
   /** Articles and reference pages are "article"; the landing page is a website. */
   type?: "website" | "article";
+  /** Generated/supporting pages can stay crawlable without entering the index. */
+  indexable?: boolean;
 }
 
 export function seo({
@@ -37,6 +39,7 @@ export function seo({
   image = "/og.png",
   imageAlt = "otterdeploy: calm, confident infrastructure. Self-hostable deployments: build, ship, and operate your services on your own servers.",
   type = "website",
+  indexable = true,
 }: SeoInput): MetaTag[] {
   // "otterdeploy" alone on the home page, "Getting started · otterdeploy"
   // elsewhere. Repeating the site name in front of itself reads as a bug.
@@ -55,7 +58,15 @@ export function seo({
     // result for a page whose whole job is explaining what this software is.
     {
       name: "robots",
-      content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+      // Index/follow stay implicit on normal pages so preview deployments can
+      // add a stricter X-Robots-Tag without opposing directives. Generated
+      // support pages opt out of indexing while leaving link discovery on.
+      content: [
+        ...(indexable ? [] : ["noindex", "follow"]),
+        "max-image-preview:large",
+        "max-snippet:-1",
+        "max-video-preview:-1",
+      ].join(", "),
     },
 
     { property: "og:title", content: fullTitle },
@@ -86,11 +97,52 @@ export function seo({
   ];
 }
 
+/**
+ * Serialize data for an inline JSON-LD script without allowing a value to
+ * close the script element. JSON escapes alone do not protect `</script>` in
+ * HTML parsing, so encode the five HTML-sensitive/separator characters as
+ * JSON Unicode escapes. JSON.parse reconstructs the original values.
+ */
+function jsonLdStringify(value: unknown): string {
+  const unsafeCharacters: Record<string, string> = {
+    "&": "\\u0026",
+    "<": "\\u003c",
+    ">": "\\u003e",
+    "\u2028": "\\u2028",
+    "\u2029": "\\u2029",
+  };
+
+  return JSON.stringify(value).replace(
+    /[&<>\u2028\u2029]/g,
+    (character) => unsafeCharacters[character] ?? character,
+  );
+}
+
 /** The canonical link for a page. Paired with `seo()` on every route. */
 export const canonical = (path: string) => ({
   rel: "canonical" as const,
   href: absoluteUrl(path),
 });
+
+/** Metadata for a response that really returned 404. Deliberately contains no
+ * canonical or og:url: a missing URL must not lend its signals to `/` or
+ * `/docs`, and there is no indexable document to make canonical. */
+export function notFoundSeo(): MetaTag[] {
+  return [
+    { title: "Page not found · otterdeploy" },
+    {
+      name: "description",
+      content: "The requested page could not be found on the otterdeploy site.",
+    },
+    { name: "robots", content: "noindex, nofollow" },
+  ];
+}
+
+/** Keep a concise navigation/H1 title unless the page explicitly supplies a
+ * richer search-result title. */
+export function seoTitleOf(page: { title: string; seoTitle?: string }): string {
+  return page.seoTitle ?? page.title;
+}
 
 /**
  * schema.org SoftwareApplication for the home page. Search engines use this to
@@ -98,7 +150,7 @@ export const canonical = (path: string) => ({
  * here as in the visible copy, so the licence is the real one.
  */
 export function softwareJsonLd(): string {
-  return JSON.stringify({
+  return jsonLdStringify({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "otterdeploy",
@@ -126,42 +178,61 @@ export function softwareJsonLd(): string {
  * as an unrelated string.
  */
 export function organizationJsonLd(): string {
-  return JSON.stringify({
+  return jsonLdStringify({
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "otterdeploy",
     url: siteUrl,
     description: siteDescription,
-    logo: absoluteUrl("/favicon-96x96.png"),
+    logo: {
+      "@type": "ImageObject",
+      url: absoluteUrl("/icon-512.png"),
+      width: 512,
+      height: 512,
+    },
     sameAs: ["https://github.com/otterdeploy/otterdeploy"],
+  });
+}
+
+/** The website entity complements the software and publisher entities on the
+ * home page. It describes this URL as the official site, not another copy of
+ * the application itself. */
+export function websiteJsonLd(): string {
+  return jsonLdStringify({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "otterdeploy",
+    url: siteUrl,
+    description: siteDescription,
   });
 }
 
 /**
  * schema.org BreadcrumbList for a docs page.
  *
- * Turns the result's second line from a raw URL into the real trail
- * (otterdeploy › Docs › Guides › Backups). Built from the URL rather than the
- * page tree so it cannot disagree with the address the crawler actually
- * fetched.
+ * Turns the result's second line from a raw URL into a trail of real pages.
+ * Most docs folders are navigation groups, not routes, so only known,
+ * indexable parent pages may appear. In particular, `/docs/start`,
+ * `/docs/guides` and `/docs/reference` are intentionally skipped.
  */
 export function breadcrumbJsonLd(path: string, title: string): string {
-  const segments = path.split("/").filter(Boolean);
-
+  const normalizedPath = path !== "/" ? path.replace(/\/+$/, "") : path;
   const items = [{ name: "otterdeploy", item: siteUrl }];
-  let href = "";
-  for (const [i, segment] of segments.entries()) {
-    href += `/${segment}`;
-    const last = i === segments.length - 1;
-    items.push({
-      // Only the leaf knows its real title; the folders in between are
-      // path segments, so they are title-cased rather than invented.
-      name: last ? title : segment.charAt(0).toUpperCase() + segment.slice(1),
-      item: absoluteUrl(href),
-    });
+
+  const realParents = [
+    { path: docsRoute, name: "Docs" },
+    { path: `${docsRoute}/cli`, name: "CLI" },
+    { path: `${docsRoute}/openapi`, name: "HTTP API operations" },
+  ];
+  for (const parent of realParents) {
+    if (normalizedPath !== parent.path && normalizedPath.startsWith(`${parent.path}/`)) {
+      items.push({ name: parent.name, item: absoluteUrl(parent.path) });
+    }
   }
 
-  return JSON.stringify({
+  items.push({ name: title, item: absoluteUrl(normalizedPath) });
+
+  return jsonLdStringify({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: items.map((entry, i) => ({

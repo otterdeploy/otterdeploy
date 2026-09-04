@@ -5,7 +5,7 @@ Marketing landing page **and** documentation for Otterdeploy, served at
 
 ## Stack
 
-- **TanStack Start** (SSR + prerender), same router family as `apps/web`
+- **TanStack Start** (request-time SSR on Cloudflare Workers), same router family as `apps/web`
 - **Fumadocs** (`fumadocs-core` / `fumadocs-ui` / `fumadocs-mdx`) for docs
 - **Tailwind v4**, reusing `apps/web`'s brand tokens (see `src/styles/app.css`)
 
@@ -32,21 +32,44 @@ bun dev:www          # via turbo + portless (www.otterdeploy)
 PORT=3002 bunx --bun vite dev    # from apps/www
 ```
 
-## TODO: interactive API reference (OpenAPI)
+## Generated API reference (OpenAPI)
 
 The server already emits an OpenAPI 3.1 spec from the oRPC contracts
 (`apps/server/src/index.ts`, `OpenAPIHandler` + `OpenAPIReferencePlugin`),
 served live at `/api/reference/spec.json`.
 
-To turn `content/docs/api.mdx` into a generated, interactive ("Send Request")
-reference:
+The Vite build loads and validates that document through
+`src/lib/openapi-loader.ts`, then embeds the public specification snapshot for
+`src/lib/openapi.ts`. It also runs Fumadocs once as a build preflight. In the
+deployed Worker, Fumadocs generates one page per operation under
+`/docs/openapi` lazily on the first reference request per isolate, including
+schemas and request examples;
+`content/docs/openapi/index.mdx` remains as a stable overview even when
+operation generation is unavailable. Live browser requests are disabled: the
+public docs neither collect API credentials nor assume a self-hosted control
+plane's CORS policy. Generated operation pages are `noindex, follow` and stay
+out of the sitemap and llms indexes; the authored overview is the indexable
+entry point while the site establishes its search footprint.
 
-1. Add an `openapi` instance with `fumadocs-openapi` (already a dependency)
-   pointing at the spec (snapshot it to `openapi.json` at build time, or call
-   `@orpc/openapi`'s `OpenAPIGenerator` directly from `packages/api`).
-2. Register the OpenAPI MDX components and the `APIPage` component.
-3. Either author endpoint pages with `<APIPage .../>` or use
-   `fumadocs-openapi`'s page generator.
+Set `OTTERDEPLOY_OPENAPI_SPEC_URL` to the absolute HTTPS
+`/api/reference/spec.json` URL of the control plane whose operations the
+production docs should publish. It must be available to the Vite build (for
+Cloudflare Workers Builds, configure it as a build variable or secret); a
+runtime Worker binding alone is too late. Existing deployments using the
+pre-rename `OTTERSTACK_OPENAPI_SPEC_URL` variable remain supported as a
+fallback, but should migrate to the current name. Use the control plane's
+canonical, client-reachable origin rather than a private build-network alias.
+The loader pins generated request examples to that configured origin plus the
+control plane's fixed `/api/reference` handler prefix; this also prevents an
+internal HTTP proxy hop from leaking into examples for a public HTTPS endpoint.
+Local development defaults to
+`http://localhost:3000/api/reference/spec.json`. Vite captures the document
+when a production build or local dev server starts, so restart the dev server
+after the control-plane schema changes. With no production URL, the build
+intentionally publishes the stable overview without operation pages. Once a
+URL is configured, an invalid, empty, unavailable, or slow source fails the
+production build so an existing reference is not replaced by hundreds of 404s.
+Development reports the failure and keeps the overview available.
 
 See https://fumadocs.dev/docs/integrations/openapi (and the **Without RSC**
 variant: TanStack Start does not use React Server Components).

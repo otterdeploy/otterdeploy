@@ -1,5 +1,6 @@
 /**
- * One 301 to the canonical URL: https, apex, no trailing slash.
+ * One permanent redirect to the canonical URL: https, apex, lower-case paths,
+ * no duplicate or trailing slashes, and no legacy `/next` landing path.
  *
  * Three separate defects, all the same shape, and all previously answered
  * wrongly or not at all:
@@ -14,77 +15,44 @@
  *   - `/docs/` returned **307**. A temporary redirect tells a crawler both
  *     spellings are live, so neither consolidates.
  *
- * Fixed HERE rather than in Cloudflare deliberately. The zone toggles (Always
- * Use HTTPS, a www→apex redirect rule) do the same job one layer earlier and
- * marginally cheaper, but they live in a dashboard: invisible in review,
- * unversioned, and silently lost if the zone is ever recreated — which this
- * project has already done once, moving accounts. This is the same rule, in
- * the repo, deployed with the code that depends on it.
+ * App-rendered routes are fixed here so the behavior is versioned and travels
+ * with the code. Cloudflare serves known static assets before this middleware,
+ * so zone-level HTTPS and www→apex rules are still required to cover those
+ * asset URLs; that owner-managed edge rule complements this one.
  *
  * ONE redirect, not three. Normalising scheme, host and path in a single pass
  * means `http://www.otterdeploy.com/docs/` reaches its destination in one hop
  * instead of chaining through three, each of which bleeds a little authority
- * and adds a round trip.
+ * and adds a round trip. The same pass folds the old `/next` landing path into
+ * `/`, so old links do not canonicalise once and redirect a second time.
  */
 import { createMiddleware } from "@tanstack/react-start";
 
-/** Hosts that must never be rewritten: local dev, preview builds, and the
- *  workers.dev fallback. Redirecting `localhost` to https breaks `vite dev`,
- *  and rewriting a preview host would send reviewers to production. */
-function isCanonicalisable(hostname: string): boolean {
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") return false;
-  if (hostname.endsWith(".workers.dev")) return false;
-  return true;
-}
-
-/**
- * The canonical URL for a request, or `null` when it is already canonical.
- *
- * Pure and exported so it can be TESTED. The obvious way to check this — curl
- * the built Worker with a spoofed `Host` — does not work: `wrangler dev`
- * rewrites Host to the first route in wrangler.jsonc, so a request sent as
- * `www.otterdeploy.com` arrives as `otterdeploy.com` and the www branch is
- * never exercised. That produced a convincing false negative. A unit test over
- * this function is the only honest verification.
- */
-export function canonicalUrlFor(request: Request, pathname: string): URL | null {
-  const url = new URL(request.url);
-  if (!isCanonicalisable(url.hostname)) return null;
-
-  let changed = false;
-
-  // Behind Cloudflare the Worker can see the original scheme on the URL, but
-  // `x-forwarded-proto` is the header that survives every proxy in front of
-  // us, so trust it when present.
-  const proto = request.headers.get("x-forwarded-proto");
-  if (proto === "http" || (proto === null && url.protocol === "http:")) {
-    url.protocol = "https:";
-    changed = true;
-  }
-
-  if (url.hostname.startsWith("www.")) {
-    url.hostname = url.hostname.slice(4);
-    changed = true;
-  }
-
-  // `/` is legitimately a single slash; collapsing it would loop. Any other
-  // run of trailing slashes goes, in one step rather than one per slash.
-  if (pathname !== "/" && pathname.endsWith("/")) {
-    url.pathname = pathname.replace(/\/+$/, "") || "/";
-    changed = true;
-  }
-
-  // `url` still carries the original search and hash, so `?q=` survives —
-  // dropping it silently loses a search, which is a bug nobody reports.
-  return changed ? url : null;
-}
+import { canonicalRedirectFor } from "./canonical-url-policy";
+import { shouldNoIndexPreview } from "./lib/shared";
+import { withPreviewNoIndex, withSiteSecurityHeaders } from "./response-policy";
 
 export const canonicalUrlMiddleware = createMiddleware({ type: "request" }).server(
-  ({ request, pathname, handlerType, next }) => {
-    // Server functions are RPC, not pages. Nothing crawls them, and a redirect
-    // mid-call breaks the caller.
-    if (handlerType === "serverFn") return next();
-    const canonical = canonicalUrlFor(request, pathname);
-    return canonical === null ? next() : Response.redirect(canonical, 301);
+  async ({ request, pathname, handlerType, next }) => {
+    const redirect = canonicalRedirectFor(request, pathname, handlerType);
+    if (redirect !== null) {
+      return withSiteSecurityHeaders(request, Response.redirect(redirect.url, redirect.status));
+    }
+
+    // Server functions are RPC, not pages. Apart from the method-preserving
+    // HTTPS upgrade above, leave their host and path untouched.
+    if (handlerType === "serverFn") {
+      const result = await next();
+      const response = withSiteSecurityHeaders(request, result.response);
+      return response === result.response ? result : { ...result, response };
+    }
+
+    const result = await next();
+    let response = result.response;
+    if (shouldNoIndexPreview(request.url, handlerType, response.headers.get("content-type"))) {
+      response = withPreviewNoIndex(response);
+    }
+    response = withSiteSecurityHeaders(request, response);
+    return response === result.response ? result : { ...result, response };
   },
 );

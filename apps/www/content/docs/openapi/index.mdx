@@ -1,0 +1,43 @@
+---
+title: HTTP API operations
+seoTitle: Browse the HTTP API operation reference
+description: Browse Otterdeploy HTTP API operation pages generated from a configured control plane's OpenAPI document.
+---
+
+This is the permanent entry point for the generated HTTP API reference. When
+this docs deployment successfully captures a control plane's OpenAPI document
+at build time, one page per operation appears in this section of the sidebar.
+Each operation page includes its parameters, responses, schemas, and copyable
+request examples.
+
+<Callout title="Operation pages require a build-time specification">
+  If no operation pages are listed, this docs deployment does not currently
+  have a verified specification to publish. The overview stays available, but
+  the site will not show an empty or invented API as though it were complete.
+</Callout>
+
+Every Otterdeploy control plane serves its raw OpenAPI document at:
+
+```text
+{control-plane-origin}/api/reference/spec.json
+```
+
+The generated reference is tied to the control plane configured by the docs
+operator. It is not a universal hosted API, and this public site deliberately
+does not send live requests or collect API credentials. Run a copied request
+against your own control plane with credentials accepted by that server.
+
+## Related documentation
+
+<Cards>
+  <Card
+    title="How the reference is generated"
+    href="/docs/reference/api"
+    description="The oRPC contracts, OpenAPI document, loading rules, and authentication model."
+  />
+  <Card
+    title="Use the CLI"
+    href="/docs/cli"
+    description="Drive the same control plane from a terminal or CI workflow."
+  />
+</Cards>
