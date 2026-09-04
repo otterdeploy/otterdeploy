@@ -159,9 +159,9 @@ export function runPreDeploy(args: {
   });
 }
 
-/** Post-deploy hooks run AFTER the new replicas are live + healthy. The rollout
+/** Post-deploy hooks run AFTER the new task reaches `running`. The rollout
  *  already succeeded, so a hook failure is surfaced loudly but does NOT flip a
- *  live, healthy deployment to "failed". That would contradict reality. */
+ *  live deployment to "failed". That would contradict reality. */
 export async function runPostDeploy(args: {
   ctx: PipelineContext;
   image: string;

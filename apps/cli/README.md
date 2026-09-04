@@ -81,6 +81,6 @@ Conventions worth knowing:
 
 ## Docs
 
-Full command reference: <https://github.com/otterdeploy/otterdeploy/tree/main/apps/cli>.
+Full command reference: <https://otterdeploy.com/docs/cli/commands>.
 Run `otd <command> --help` for any command, and `otd completions <bash|zsh|fish>`
 to install shell completions (generated for whichever name you invoke).

@@ -1,6 +1,7 @@
 ---
 title: Databases
-description: Provision Postgres, Redis, MariaDB, MongoDB or ClickHouse alongside your services.
+seoTitle: Deploy and manage databases
+description: Provision and connect PostgreSQL, Redis, MariaDB, MongoDB or ClickHouse beside your services, then manage credentials, backups and data access.
 ---
 
 A database is a first-class resource, not a container you wire up yourself. It
@@ -38,18 +39,17 @@ fill it in at deploy time:
 ```json
 {
   "env": {
-    "DATABASE_URL": "${database:postgres.DATABASE_URL}"
+    "DATABASE_URL": "${{postgres.DATABASE_URL}}"
   }
 }
 ```
 
-Individual fields are addressable too: `url`, `host`, `port`, `username`,
-`password`, `database`, so you can compose a string yourself when a library
-insists:
+Individual PostgreSQL exports are addressable too, so you can compose a string
+yourself when a library insists:
 
 ```json
 {
-  "DSN": "postgres://${database:primary.username}:${database:primary.password}@${database:primary.host}:${database:primary.port}/app"
+  "DSN": "postgres://${{primary.PGUSER}}:${{primary.PGPASSWORD}}@${{primary.PGHOST}}:${{primary.PGPORT}}/${{primary.PGDATABASE}}"
 }
 ```
 
@@ -60,9 +60,10 @@ a preview's own database copy when it runs in a preview. See
 
 ## Reaching it from outside
 
-By default a database is only reachable inside the cluster. To connect from
-your laptop or an external tool, expose it at layer 4: the same Caddy edge
-routes raw TCP to it.
+By default a database is only reachable inside the cluster. A standalone
+PostgreSQL database can be exposed at layer 4 for a laptop or external tool:
+the same Caddy edge routes raw TCP to it. Other database engines and databases
+hosted on a shared server do not support public exposure.
 
 Use this deliberately. An exposed database is on the public internet, protected
 by its credentials and whatever the [firewall](/docs/start/install#security-defaults)
@@ -70,14 +71,15 @@ blocks.
 
 ## Ephemeral credentials
 
-Short-lived roles can be issued for a database instead of handing out the main
-credentials. They expire on their own: Postgres's `VALID UNTIL` stops new
+Short-lived roles can be issued for a PostgreSQL database instead of handing
+out the main credentials. They expire on their own: Postgres's `VALID UNTIL` stops new
 logins at expiry, and a sweeper runs every minute to terminate live sessions
 and drop the role behind them.
 
 ## Backups
 
-Databases are backed up by logical dump, encrypted, on a schedule you set. See
+PostgreSQL, MariaDB and MongoDB can be backed up by encrypted logical dump on a
+schedule you set. Back up the data volume for Redis or ClickHouse. See
 [backups](/docs/guides/backups).
 
 ## Browsing the data
@@ -112,11 +114,6 @@ the actual SQL.
 
 ## Templates
 
-Eighteen curated compose stacks ship in the dashboard's template gallery,
-Gitea, n8n, Metabase, Authentik, Plausible, Umami, Vaultwarden, MinIO,
-RabbitMQ, Meilisearch, NocoDB, Directus, Ghost, Twenty, Excalidraw,
-Uptime Kuma, RustFS and a Grafana + Prometheus pair.
-
-Each template declares the environment it needs. With a hint for generating
-each secret: before it will deploy, so you don't get a stack that comes up and
-then fails on a missing key.
+RabbitMQ, MinIO, Meilisearch and other data services ship as Compose templates,
+not as managed database resources. See [App templates](/docs/guides/templates)
+for the catalog, its verification checks and the staged deployment flow.

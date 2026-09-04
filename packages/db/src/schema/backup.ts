@@ -105,9 +105,9 @@ export const backupStatusEnum = pgEnum("backup_status", [
 export const backupApproachEnum = pgEnum("backup_approach", ["logical", "physical"]);
 
 /**
- * Encryption-at-rest mode applied to the produced archive. v1 only implements
- * `aes-256-gcm` (reuses the registry crypto) and `none`; `kms-managed` and
- * `customer-key` are reserved for later and rejected by the engine for now.
+ * Historical encryption-policy label stored on runs and schedules. The current
+ * Rustic engine always uses its password-protected repository format and does
+ * not branch on this value; `kms-managed` and `customer-key` remain reserved.
  */
 export const backupEncryptionEnum = pgEnum("backup_encryption", [
   "none",

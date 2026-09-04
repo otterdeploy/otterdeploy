@@ -1,6 +1,7 @@
 ---
 title: First deploy
-description: From an empty project to a running, routed service.
+seoTitle: Deploy your first app
+description: Go from an empty project to a running service on your own server, with a domain and automatic TLS at the end.
 ---
 
 This walks from nothing to a service on a real URL using the
@@ -56,8 +57,8 @@ branch: see [services](/docs/guides/services).
 
 ## 4. Watch it converge
 
-Deploy and block until every resource is healthy. Non-zero exit on failure, so
-it works as a CI gate:
+Deploy and block until every changed service reaches `running` or reports a
+failure. Non-zero exit on failure, so it works as a CI gate:
 
 ```bash
 otterdeploy deploy --wait
@@ -94,7 +95,7 @@ otterdeploy add database postgres --engine postgres
 Then reference it from the service rather than copying a connection string:
 
 ```json
-{ "DATABASE_URL": "${database:postgres.DATABASE_URL}" }
+{ "DATABASE_URL": "${{postgres.DATABASE_URL}}" }
 ```
 
 The value is resolved at deploy time. See
@@ -111,7 +112,7 @@ The value is resolved at deploy time. See
   <Card
     title="Previews"
     href="/docs/guides/previews"
-    description="A URL for every pull request."
+    description="Opt-in deployments and URLs for pull requests."
   />
   <Card
     title="Backups"
@@ -121,6 +122,6 @@ The value is resolved at deploy time. See
   <Card
     title="CLI reference"
     href="/docs/cli/commands"
-    description="Every command and flag."
+    description="Syntax, examples, and options for the command tree."
   />
 </Cards>

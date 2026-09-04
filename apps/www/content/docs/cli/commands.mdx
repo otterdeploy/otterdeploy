@@ -1,11 +1,11 @@
 ---
 title: Command reference
-description: Every otterdeploy CLI command and flag.
+seoTitle: CLI command and flag reference
+description: A practical reference for otterdeploy CLI commands and flags across projects, services, databases, deployments, logs, and administration.
 ---
 
-Every command the `otterdeploy` CLI exposes, grouped the way the binary groups
-them. Each entry lists its real flags and subcommands, nothing here is
-aspirational.
+The `otterdeploy` CLI command tree, grouped the way the binary groups it. Entries
+show source-backed syntax, examples, and options.
 
 ## Conventions
 
@@ -16,15 +16,16 @@ A handful of flags recur across commands:
 - **`--slug <project>`**: target a project explicitly, overriding the config's
   `project` field.
 - **`--url <url>`**: override the control-plane URL for a single command.
-- **`--json`**: raw JSON to stdout on read commands (no decoration), for
-  scripting.
+- **`--json`**: machine-readable JSON to stdout where listed, with no
+  decoration (streaming commands emit one event per line).
 - **`--yes`**: skip confirmation prompts (destructive actions confirm by
   default).
 
 <Callout title="Positional resource">
-  Commands that act on one resource take the service or database **name** as a
-  positional argument (e.g. `otterdeploy restart web`). The project is read from
-  the config's `project` field unless you pass `--slug`.
+  Commands that act on one resource take its **name** as a positional argument
+  (for example, `otterdeploy restart web`). Depending on the command, that can
+  be a service, database, or compose stack. The project is read from the
+  config's `project` field unless you pass `--slug`.
 </Callout>
 
 ## Auth & context
@@ -76,7 +77,7 @@ otterdeploy org use acme
 
 #### `org list`
 
-List organizations you belong to (the active one is marked `*`).
+List organizations you belong to (the active one carries the live-state glyph).
 
 - `--url <url>`, `--json`.
 
@@ -154,6 +155,7 @@ Append a resource to the config file (a local edit, run `deploy` to apply it).
 ```bash
 otterdeploy add service web --image nginx:latest --port 80
 otterdeploy add service api --git --repo acme/api --branch main
+otterdeploy add service worker --upload
 otterdeploy add database primary --engine postgres --version 16
 otterdeploy add compose stack --file ./docker-compose.yml
 ```
@@ -165,9 +167,10 @@ Add a service to the config.
 - `name` *(positional, required)*: service name.
 - `--image <ref>`: container image (for `source=image`).
 - `--git`: source from the project's git binding instead.
+- `--upload`: build from a local directory uploaded by `deploy` (no git).
 - `--repo <owner/name>`: git repo (with `--git`).
 - `--branch <branch>`: branch whose pushes deploy (with `--git`).
-- `--source-subdir <path>`: build path within the git repo.
+- `--source-subdir <path>`: build path within the git repo or uploaded source.
 - `--port <n>`: container port (HTTP, primary).
 - `--replicas <n>`: replica count.
 - `--domain <domain>`: public domain; the first is primary (repeatable).
@@ -346,8 +349,8 @@ otterdeploy open
 otterdeploy open web
 ```
 
-- `service` *(positional, optional)*: service or database name (omit for the
-  project overview).
+- `service` *(positional, optional)*: resource name (service, database, or
+  compose stack; omit for the project overview).
 - `--config <path>`: config file path.
 - `--slug <project>`: project slug (defaults to config).
 - `--url <url>`.
@@ -356,19 +359,24 @@ otterdeploy open web
 
 ### `restart`
 
-Restart a service (redeploy with the current image and env).
+Restart a service or dedicated PostgreSQL database with its current image and
+environment variables. PostgreSQL databases hosted inside a shared database
+server own no container to restart, and other database engines cannot be
+restarted from the CLI yet.
 
 ```bash
 otterdeploy restart web
+otterdeploy restart primary
 ```
 
-- `service` *(positional, required)*: service name.
+- `resource` *(positional, required)*: service or dedicated PostgreSQL database
+  name.
 - `--config <path>`, `--slug <project>`, `--url <url>`, `--json`.
 
 ### `rollback`
 
-Roll a service back to a prior deployment's image. With no deployment id, targets
-the last settled deploy.
+Roll a service back to a prior successful deployment's image. With no deployment
+id, targets the newest superseded deployment that has a real image.
 
 ```bash
 otterdeploy rollback web
@@ -377,60 +385,66 @@ otterdeploy rollback web dep_123 --yes
 
 - `service` *(positional, required)*: service name.
 - `deployment` *(positional, optional)*: deployment id to roll back to
-  (defaults to the last settled deploy).
+  (defaults to the newest superseded deployment with a real image).
 - `--config <path>`, `--slug <project>`, `--url <url>`.
 - `--yes`: skip the confirmation prompt.
 - `--json`.
 
 ### `build`
 
-Trigger a git build from the head of the service's bound branch.
+Queue a build and rollout from the head of a Git-sourced service's bound branch.
 
 ```bash
 otterdeploy build api
 otterdeploy build api --wait --timeout 20
+otterdeploy build api --no-cache
 ```
 
 - `service` *(positional, required)*: service name.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
 - `--wait`: wait for the deployment to settle (non-zero exit on failure).
+- `--no-cache`: rebuild from scratch, ignoring every build cache.
 - `--timeout <minutes>`: wait timeout in minutes.
 - `--json`.
 
 ### `redeploy`
 
-Rebuild a service or compose stack from the head of its bound branch. Unlike
-`restart` (same image, new container), this produces a new build.
+Rebuild a Git-sourced service from the head of its bound branch, or re-apply a
+compose stack (re-cloning Git-sourced stacks at branch head). Unlike `restart`
+(same image, new container), this can produce a new build.
 
 ```bash
 otterdeploy redeploy web
 otterdeploy redeploy web --wait --timeout 20
+otterdeploy redeploy web --no-cache
 ```
 
-- `target` *(positional, required)*: service or compose stack name.
+- `resource` *(positional, required)*: service or compose stack name.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
 - `--wait`: wait for the deployment to settle.
+- `--no-cache`: rebuild from scratch, ignoring every build cache (git services only).
 - `--timeout <minutes>`: wait timeout in minutes.
 - `--json`.
 
 ### `deployments`
 
-List deployment history for a service.
+List deployment history for a service, database, or compose stack.
 
 ```bash
 otterdeploy deployments web
 otterdeploy deployments web --limit 5 --json
 ```
 
-- `service` *(positional, optional)*: service name.
+- `service` *(positional, required)*: service, database, or compose stack name.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
 - `--limit <n>`: max deployments to show (default 20).
 - `--json`.
 
 ### `logs`
 
-Tail logs from a service or database. Streams by default; `--no-follow` prints
-what's available and exits.
+Tail runtime logs from a service or database, or use `--build` for a service or
+compose stack's build logs. Streams by default; `--no-follow` prints what's
+available and exits.
 
 ```bash
 otterdeploy logs web
@@ -438,7 +452,8 @@ otterdeploy logs web --since 15m --no-follow
 otterdeploy logs api --build
 ```
 
-- `resource` *(positional)*: resource name (service or database).
+- `resource` *(positional, required)*: service or database name for runtime
+  logs; service or compose stack name with `--build`.
 - `--config <path>`, `--slug <project>`, `--url <url>`.
 - `--tail <n>`: replay this many lines first (default 100).
 - `--since <window>`: only runtime logs newer than `15m`, `2h`, `3d`, or an ISO
@@ -522,8 +537,8 @@ Manage a service's persistent volumes.
 
 ```bash
 otterdeploy volume list --service web
-otterdeploy volume add --service web --path /data
-otterdeploy volume remove --service web --path /data --yes
+otterdeploy volume add --service web --mount-path /data
+otterdeploy volume remove --service web --mount-path /data --yes
 ```
 
 #### `volume list`
@@ -537,7 +552,7 @@ List persistent volumes on a service.
 Attach a persistent volume to a service.
 
 - `--service <name>` *(required)*.
-- `--path <path>` *(required)*: absolute container path to mount, e.g. `/data`.
+- `--mount-path <path>` *(required)*: absolute container path to mount, e.g. `/data`.
 - `--read-only`: mount the volume read-only.
 - `--config`, `--slug`, `--url`, `--json`.
 
@@ -547,7 +562,7 @@ Detach a persistent volume from a service. **The data is left intact**, this
 removes the mount, not the volume's contents.
 
 - `--service <name>` *(required)*.
-- `--path <path>` *(required)*: absolute container path of the volume to detach.
+- `--mount-path <path>` *(required)*: absolute container path of the volume to detach.
 - `--yes`: skip the confirmation prompt.
 - `--config`, `--slug`, `--url`.
 
@@ -645,10 +660,12 @@ otterdeploy db creds revoke primary dbeph_123 --yes
 
 #### `db url`
 
-Print connection URLs for a database, or mint a short-lived credential.
+Print connection URLs for a database, or mint a short-lived PostgreSQL
+credential.
 
 - `database` *(positional, required)*: database name.
-- `--ephemeral`: mint a short-lived credential instead of the standing one.
+- `--ephemeral`: mint a short-lived credential instead of the standing one
+  (PostgreSQL only).
 - `--ttl <spec>`: ephemeral lifetime: minutes or `15m` / `2h` / `1d` (default
   `1h`; only with `--ephemeral`).
 - `--write`: mint with read-write scope (default read-only; only with
@@ -657,27 +674,29 @@ Print connection URLs for a database, or mint a short-lived credential.
 
 #### `db creds list`
 
-List ephemeral credentials for a database.
+List ephemeral credentials for a PostgreSQL database.
 
-- `database` *(positional, required)*: database name.
+- `database` *(positional, required)*: PostgreSQL database name.
 - `--config`, `--slug`, `--url`, `--json`.
 
 #### `db creds revoke`
 
-Revoke an ephemeral credential (drops the pg role, terminating active sessions).
+Revoke an ephemeral PostgreSQL credential (drops the role, terminating active
+sessions).
 
-- `database` *(positional, required)*: database name.
+- `database` *(positional, required)*: PostgreSQL database name.
 - `credentialId` *(positional, required)*: credential id (`dbeph_…`).
 - `--yes`: skip the confirmation prompt.
 - `--config`, `--slug`, `--url`.
 
 ### `backups`
 
-Run, list, and restore database backups.
+Run database backups, and list, verify, or restore backup runs.
 
 ```bash
 otterdeploy backups list
 otterdeploy backups run primary --destination bakdest_123
+otterdeploy backups verify bak_abc123
 otterdeploy backups restore bak_abc123 --confirm primary
 otterdeploy backups destinations list
 ```
@@ -697,22 +716,35 @@ picked automatically; otherwise pass `--destination`.
 
 - `database` *(positional, required)*: database name.
 - `--destination <id>`: destination id (`bakdest_…`).
+- `--physical`: use a `pg_basebackup` cluster tar instead of a logical dump
+  (PostgreSQL only).
 - `--config`, `--slug`, `--url`.
 
-#### `backups restore`
+#### `backups verify`
 
-Restore a backup in place: **overwrites the live database**.
+Verify a logical PostgreSQL backup by restoring it into a throwaway container.
+Volume snapshots, physical backups, and other database engines are refused.
 
 - `backupId` *(positional, required)*: backup id (`bak_…`, a unique prefix is
   accepted).
-- `--confirm <phrase>`: confirmation phrase (the database name) for
-  non-interactive use.
+- `--url`.
+
+#### `backups restore`
+
+Restore a logical database dump or volume snapshot in place: **overwrites the
+live database or volume**. Physical PostgreSQL backups must be downloaded from
+the dashboard or API and extracted into a fresh data directory.
+
+- `backupId` *(positional, required)*: backup id (`bak_…`, a unique prefix is
+  accepted).
+- `--confirm <phrase>`: confirmation phrase (the source database or volume
+  name) for non-interactive use.
 - `--url`.
 
 <Callout type="warn" title="No --yes bypass">
-  In-place restore overwrites the target database. It demands a typed
-  confirmation (the database name): interactively it prompts, non-interactively
-  you must pass `--confirm "<database>"`. There is deliberately no `--yes`
+  In-place restore overwrites the target database or volume. It demands a typed
+  confirmation (the source name): interactively it prompts, non-interactively
+  you must pass `--confirm "<source>"`. There is deliberately no `--yes`
   shortcut. Only `succeeded` backups can be restored.
 </Callout>
 
@@ -733,7 +765,8 @@ otterdeploy metrics web
 otterdeploy metrics web --window 60 --json
 ```
 
-- `resource` *(positional)*: resource name (service or database).
+- `resource` *(positional, required)*: resource name (service, database, or
+  compose stack).
 - `--window <minutes>`: look-back window in minutes (1–1440, default 30).
 - `--config`, `--slug`, `--url`, `--json`.
 
@@ -829,7 +862,7 @@ otterdeploy completions zsh  > "${fpath[1]}/_otterdeploy"
 otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish
 ```
 
-- `shell` *(positional)*: `bash`, `zsh`, or `fish`.
+- `shell` *(positional, required)*: `bash`, `zsh`, or `fish`.
 
 <Cards>
   <Card title="CLI overview" href="/docs/cli" />

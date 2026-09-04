@@ -1,11 +1,12 @@
 ---
 title: CLI
-description: Install, authenticate, and drive Otterdeploy from the terminal.
+seoTitle: Install and use the CLI
+description: Install and authenticate the otterdeploy CLI, then manage projects, services, databases, and deployments from your terminal or CI.
 ---
 
-The `otterdeploy` CLI drives everything the dashboard can, projects, services,
-databases, domains, deployments, logs, backups, and more: from your terminal
-and your CI. It talks to the same typed oRPC API as the web app.
+The `otterdeploy` CLI covers core project, service, database, domain,
+deployment, log and backup workflows from your terminal and CI. It talks to
+the same typed oRPC API as the web app.
 
 ## Install
 
@@ -79,8 +80,8 @@ name as a positional argument.
 
 ## Global conventions
 
-- **`--json`**: machine-readable output on read commands (raw JSON to stdout,
-  no decoration). Ideal for scripting.
+- **`--json`**: machine-readable output where a command lists the flag, with no
+  decoration. Streaming commands emit one JSON event per line.
 - **`--yes`**: skip confirmation prompts (destructive actions confirm by
   default).
 - **`--url <url>`**: override the control-plane URL for a single command.
@@ -96,6 +97,6 @@ otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish
 ```
 
 <Cards>
-  <Card title="Full command reference" href="/docs/cli/commands" />
+  <Card title="Command reference" href="/docs/cli/commands" />
   <Card title="Getting started guide" href="/docs/start/first-deploy" />
 </Cards>

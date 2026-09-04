@@ -1,5 +1,6 @@
 ---
 title: Concepts
+seoTitle: Projects, resources, and deployment flow
 description: "Organisations, projects, resources, deployments and previews: the model the rest of the docs assume."
 ---
 
@@ -73,11 +74,12 @@ resolved shapes.
 
 ## Preview
 
-A pull request's own deployment. A preview is **not** an environment: it is a
-first-class record bound to `(project, repo, PR number)`, with its own
-deployments, routes and (if you opt in per database) its own database copy.
-Close the pull request and everything is torn down; leave it idle past its
-deadline and it is reaped hourly.
+A pull-request scope created when at least one matching GitHub-backed service
+opts in. A preview is **not** an environment: it is a first-class record bound
+to `(project, repo, PR number)`, with its own deployments, routes and (if you
+opt in per PostgreSQL database) its own database copy. Previews are disabled by default
+and enabled per service. Close the pull request and everything is torn down;
+leave it idle past its deadline and it is reaped hourly.
 
 ## How they fit together
 
@@ -93,7 +95,7 @@ organisation
     │   ├── service    → deployments → routes → certificates
     │   ├── database   → backups
     │   └── compose    → n swarm services
-    └── previews       (one per open pull request)
+    └── previews       (per repository and open PR, when a service opts in)
 ```
 
 ## What isn't built yet
@@ -102,7 +104,7 @@ Kept here rather than left for you to discover after installing:
 
 | Not built | What that means in practice |
 | --- | --- |
-| ZFS copy-on-write database branches | Previews branch by logical copy. An explicit `zfs` request falls back to `copy` with a logged warning |
+| ZFS copy-on-write PostgreSQL branches | Previews branch PostgreSQL by logical copy. An explicit `zfs` request falls back to `copy` with a logged warning |
 | GitLab and other git sources | Only a GitHub App installation can be a deploy source. GitLab exists elsewhere in the product (as a container registry and a sign-in provider) but not as a place to build from |
 | Cloudflare Domain Connect | The one-click relay isn't built. Cloudflare DNS **is** supported with an API token: list zones, and auto-configure the base and control-plane domain records |
 

@@ -1,6 +1,7 @@
 ---
 title: Servers and the fleet
-description: Add nodes, drain them, mesh them, and get told when one is under pressure.
+seoTitle: Manage servers and clusters
+description: Add Linux servers to an Otterdeploy cluster, assign manager or worker roles, drain nodes safely, configure the private mesh, and monitor host pressure.
 ---
 
 One machine is a valid cluster. Adding more turns the install into a Swarm the
@@ -136,8 +137,9 @@ the Servers page.
 ## When teardown fails
 
 Runtime objects whose delete never reached the daemon are recorded and retried
-every five minutes, backing off per row. A failed teardown leaks a warning, not
-a volume.
+every five minutes, backing off per row. Until cleanup succeeds, the object can
+still consume resources; the orphan record and escalating warnings keep the
+failed teardown visible rather than silently abandoning it.
 
 ## Audit
 
