@@ -69,8 +69,12 @@
     "apps/get": {
       "name": "@otterdeploy/get",
       "version": "0.0.0",
+      "dependencies": {
+        "@otterdeploy/shared": "workspace:*",
+      },
       "devDependencies": {
         "@cloudflare/workers-types": "^4.20260701.0",
+        "@types/bun": "catalog:",
         "typescript": "catalog:",
         "wrangler": "^4.94.0",
       },

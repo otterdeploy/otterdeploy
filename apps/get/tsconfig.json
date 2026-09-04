@@ -5,8 +5,11 @@
     "strict": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "paths": {
+      "@otterdeploy/shared/*": ["../../packages/shared/src/*"]
+    },
     "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"],
+    "types": ["@cloudflare/workers-types", "bun"],
     "target": "ES2022",
     "isolatedModules": true,
     "skipLibCheck": true,

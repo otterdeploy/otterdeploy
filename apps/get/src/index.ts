@@ -25,9 +25,15 @@
 
 import { connect } from "cloudflare:sockets";
 
+import { installEdgeDataPoint } from "./analytics";
+import { type ArtifactName, isArtifactName } from "./artifact-name";
+import { artifactCacheKey } from "./cache-key";
+import { publicRedirectFor, withArtifactSecurityHeaders } from "./https-redirect";
+
 interface Env {
   ARTIFACTS: R2Bucket;
   ANALYTICS?: AnalyticsEngineDataset;
+  ANALYTICS_HASH_KEY?: string;
   FALLBACK_REPO: string;
   DOCS_URL: string;
 }
@@ -56,9 +62,7 @@ const ARTIFACTS = {
     repoPath: "docker-compose.prod.yml",
     contentType: "text/yaml; charset=utf-8",
   },
-} as const;
-
-type ArtifactName = keyof typeof ARTIFACTS;
+} as const satisfies Record<ArtifactName, { repoPath: string; contentType: string }>;
 
 /** Release tags only: `v1.2.3`, optionally `-rc.1`. Anything else 404s rather
  *  than reaching R2, so a stray path can't be used to probe the bucket. */
@@ -75,23 +79,30 @@ const MANIFEST_CACHE = "public, max-age=60";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const publicRedirect = publicRedirectFor(request, env.DOCS_URL);
+    if (publicRedirect) return withArtifactSecurityHeaders(request, publicRedirect);
+
     if (request.method !== "GET" && request.method !== "HEAD") {
-      return text("Method not allowed\n", 405, { Allow: "GET, HEAD" });
+      return withArtifactSecurityHeaders(
+        request,
+        text("Method not allowed\n", 405, { Allow: "GET, HEAD" }),
+      );
     }
 
     const url = new URL(request.url);
     const route = parse(url.pathname);
 
-    if (route.kind === "root") {
-      return Response.redirect(env.DOCS_URL, 302);
-    }
+    // Public GET/HEAD root requests returned above. Local Wrangler still uses
+    // the configured docs destination without pretending localhost is HTTPS.
+    if (route.kind === "root")
+      return withArtifactSecurityHeaders(request, Response.redirect(env.DOCS_URL, 308));
     // Never cached and never counted as an install: it's a per-caller
     // measurement whose whole value is being current.
     if (route.kind === "edge-probe") {
-      return edgeProbe(request, url);
+      return withArtifactSecurityHeaders(request, await edgeProbe(request, url));
     }
     if (route.kind === "unknown") {
-      return text("Not found\n", 404);
+      return withArtifactSecurityHeaders(request, text("Not found\n", 404));
     }
 
     // Counted before the cache lookup: the Worker runs on every request, so
@@ -99,8 +110,9 @@ export default {
     ctx.waitUntil(record(request, env, route));
 
     const cache = caches.default;
-    const hit = await cache.match(request);
-    if (hit) return hit;
+    const cacheKey = artifactCacheKey(request);
+    const hit = await cache.match(cacheKey);
+    if (hit) return withArtifactSecurityHeaders(request, hit);
 
     const response =
       route.kind === "manifest"
@@ -108,9 +120,9 @@ export default {
         : await artifact(env, route.version, route.name, route.checksum);
 
     if (response.ok && request.method === "GET") {
-      ctx.waitUntil(cache.put(request, response.clone()));
+      ctx.waitUntil(cache.put(cacheKey, response.clone()));
     }
-    return response;
+    return withArtifactSecurityHeaders(request, response);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -148,10 +160,6 @@ function parse(pathname: string): Route {
 
   if (!isArtifactName(file)) return { kind: "unknown" };
   return { kind: "artifact", version, name: file, checksum };
-}
-
-function isArtifactName(file: string): file is ArtifactName {
-  return file in ARTIFACTS;
 }
 
 // ── serving ─────────────────────────────────────────────────────────────────
@@ -255,39 +263,19 @@ async function manifest(env: Env): Promise<Response> {
  *   installs: count where blob1 = 'install.sh'
  *   active: count DISTINCT index1 where blob1 = 'versions.json', last 24h
  *
- * `index1` is a truncated SHA-256 of the client IP. It is never stored or
- * logged in the clear and can't be reversed to an address, but it is stable
- * enough within a window to deduplicate one host polling every few minutes,
- * which is the whole "how many people are running this" number.
+ * `index1` is a truncated HMAC of the client IP under a Worker secret. The raw
+ * address is not written to Analytics Engine, and an exported dataset cannot
+ * be searched against the IPv4 address space without that secret. Rotating the
+ * key intentionally breaks correlation. No User-Agent value is stored.
  */
 async function record(request: Request, env: Env, route: Route): Promise<void> {
-  if (!env.ANALYTICS) return;
+  if (!env.ANALYTICS || !env.ANALYTICS_HASH_KEY) return;
   if (route.kind !== "artifact" && route.kind !== "manifest") return;
 
   const file = route.kind === "manifest" ? MANIFEST_KEY : route.name;
   const version = route.kind === "manifest" ? "" : (route.version ?? "latest");
-
-  env.ANALYTICS.writeDataPoint({
-    blobs: [
-      file,
-      version,
-      // Header rather than `request.cf.country`: the latter is typed loosely
-      // enough that it stringifies to "[object Object]" in some shapes.
-      request.headers.get("CF-IPCountry") ?? "",
-      request.headers.get("User-Agent")?.slice(0, 128) ?? "",
-    ],
-    doubles: [1],
-    indexes: [await clientHash(request)],
-  });
-}
-
-async function clientHash(request: Request): Promise<string> {
-  const ip = request.headers.get("CF-Connecting-IP") ?? "";
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
-  return [...new Uint8Array(digest)]
-    .slice(0, 12)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  const point = await installEdgeDataPoint(request, file, version, env.ANALYTICS_HASH_KEY);
+  if (point) env.ANALYTICS.writeDataPoint(point);
 }
 
 // ── edge probe ──────────────────────────────────────────────────────────────
