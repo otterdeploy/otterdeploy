@@ -35,7 +35,7 @@ export function SiteBar() {
 
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="flex h-full items-center gap-6 px-5 lg:px-6">
+      <div className="flex h-full items-center gap-2 px-3 sm:gap-6 sm:px-5 lg:px-6">
         <Wordmark />
 
         <nav aria-label="Site" className="flex items-center gap-1">
@@ -48,6 +48,7 @@ export function SiteBar() {
                 aria-current={on ? "page" : undefined}
                 className={cx(
                   "rounded-md px-2.5 py-1.5 text-[0.8125rem] font-medium transition-colors duration-200 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
+                  l.label === "Home" && "hidden sm:block",
                   on ? "text-foreground" : "text-muted-foreground",
                 )}
               >

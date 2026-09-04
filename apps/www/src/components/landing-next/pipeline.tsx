@@ -1,16 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Band, Container, cx, Mono } from "../landing/primitives";
 import { PIPELINE_PHASES } from "./content";
 import { Reveal } from "./reveal";
+import { observeReducedMotion, useReducedMotion } from "./use-reduced-motion";
 
 /**
- * A live deploy, animated. The stations light up left to right in the app's
+ * An example deploy, animated. The stations light up left to right in the app's
  * own vocabulary — pending → building → image → rollout → route → tls →
  * running — with a comet travelling the rail, a progress bar filling, the
  * active phase's detail streaming, and the status pill turning amber then
- * green. It loops. `prefers-reduced-motion` paints the finished deploy and
- * holds it.
+ * green. It starts only when the visitor asks to replay it, can be paused,
+ * and finishes in the settled state. `prefers-reduced-motion` paints that
+ * finished deploy and disables the replay.
  *
  * Not a screenshot and not a spinner: it depicts the one thing on this page
  * that genuinely moves, because a deploy moves.
@@ -20,35 +22,79 @@ const TOTAL = PIPELINE_PHASES.length;
 
 function useDeployClock() {
   const [step, setStep] = useState(TOTAL - 1); // SSR paints the finished rail
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const reduced = useReducedMotion();
+
+  useEffect(
+    () =>
+      observeReducedMotion((nextReduced) => {
+        if (!nextReduced) return;
+        setPlaying(false);
+        setStep(TOTAL - 1);
+      }),
+    [],
+  );
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let i = 0;
-    const tick = () => {
-      setStep(i);
-      const phase = PIPELINE_PHASES[i];
-      i = (i + 1) % TOTAL;
-      // A beat of black between loops so the restart reads as a new deploy.
-      const wait = i === 0 ? phase.ms + 900 : phase.ms;
-      timer.current = setTimeout(tick, wait);
-    };
-    // Rewind to the start after first paint, never during it.
-    const frame = requestAnimationFrame(() => {
-      setStep(0);
-      tick();
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
+    if (!playing || reduced || step >= TOTAL - 1) return;
 
-  return step;
+    const timer = setTimeout(() => {
+      const next = step + 1;
+      setStep(next);
+      if (next === TOTAL - 1) setPlaying(false);
+    }, PIPELINE_PHASES[step].animationMs);
+
+    return () => clearTimeout(timer);
+  }, [playing, reduced, step]);
+
+  const toggle = () => {
+    if (reduced) return;
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    if (step === TOTAL - 1) setStep(0);
+    setPlaying(true);
+  };
+
+  return {
+    step: reduced ? TOTAL - 1 : step,
+    playing: reduced ? false : playing,
+    reduced,
+    toggle,
+  };
+}
+
+function replayLabel(step: number, playing: boolean, reduced: boolean): string {
+  if (reduced) return "Motion off";
+  if (playing) return "Pause";
+  return step === TOTAL - 1 ? "Replay" : "Resume";
+}
+
+interface ReplayButtonProps {
+  step: number;
+  playing: boolean;
+  reduced: boolean;
+  toggle: () => void;
+}
+
+function ReplayButton({ step, playing, reduced, toggle }: ReplayButtonProps) {
+  const label = replayLabel(step, playing, reduced);
+  return (
+    <button
+      type="button"
+      disabled={reduced}
+      onClick={toggle}
+      aria-label={`${label} example deployment`}
+      className="rounded-md border border-white/[0.15] px-2.5 py-1 font-mono text-[0.625rem] font-medium text-white/70 outline-none hover:border-white/25 hover:text-white focus-visible:ring-2 focus-visible:ring-white/50 disabled:cursor-default disabled:text-white/35"
+    >
+      {label}
+    </button>
+  );
 }
 
 export function DeployPipeline() {
-  const step = useDeployClock();
+  const { step, playing, reduced, toggle } = useDeployClock();
   const active = PIPELINE_PHASES[step];
   const running = active.key === "running";
   const progress = (step / (TOTAL - 1)) * 100;
@@ -57,9 +103,9 @@ export function DeployPipeline() {
     <Band>
       <Container className="py-20 lg:py-28">
         <Reveal className="mx-auto max-w-[40rem] text-center">
-          <Mono className="text-muted-foreground/70">LIVE · ONE DEPLOY</Mono>
+          <Mono className="text-muted-foreground">EXAMPLE · ONE DEPLOY</Mono>
           <h2 className="mt-3 text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance sm:text-[2.25rem]">
-            Push to git. Watch it reach production.
+            Push to git. Watch it reach running.
           </h2>
           <p className="mx-auto mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
             Railpack builds the repo, the image rolls out on Swarm, Caddy takes the domain and
@@ -75,28 +121,31 @@ export function DeployPipeline() {
                 W
               </span>
               <Mono className="text-white/80">storefront / web</Mono>
-              <span
-                className={cx(
-                  "ml-auto flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.625rem] font-medium uppercase transition-colors duration-300",
-                  running
-                    ? "bg-[#4ade80]/15 text-[#4ade80]"
-                    : active.key === "pending"
-                      ? "bg-white/10 text-white/60"
-                      : "bg-[#fbbf24]/15 text-[#fbbf24]",
-                )}
-              >
+              <div className="ml-auto flex items-center gap-2">
                 <span
                   className={cx(
-                    "size-1.5 rounded-full",
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.625rem] font-medium uppercase transition-colors duration-300",
                     running
-                      ? "bg-[#4ade80]"
+                      ? "bg-[#4ade80]/15 text-[#4ade80]"
                       : active.key === "pending"
-                        ? "bg-white/40"
-                        : "bg-[#fbbf24] motion-safe:animate-pulse",
+                        ? "bg-white/10 text-white/60"
+                        : "bg-[#fbbf24]/15 text-[#fbbf24]",
                   )}
-                />
-                {active.key}
-              </span>
+                >
+                  <span
+                    className={cx(
+                      "size-1.5 rounded-full",
+                      running
+                        ? "bg-[#4ade80]"
+                        : active.key === "pending"
+                          ? "bg-white/40"
+                          : cx("bg-[#fbbf24]", playing && "motion-safe:animate-pulse"),
+                    )}
+                  />
+                  {active.key}
+                </span>
+                <ReplayButton {...{ step, playing, reduced, toggle }} />
+              </div>
             </div>
 
             {/* The rail */}
@@ -114,7 +163,10 @@ export function DeployPipeline() {
                 {!running ? (
                   <span
                     aria-hidden
-                    className="absolute top-1 hidden size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3d7bfb] shadow-[0_0_12px_2px_rgba(61,123,251,0.7)] transition-[left] duration-500 ease-out motion-safe:animate-pulse sm:block"
+                    className={cx(
+                      "absolute top-1 hidden size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3d7bfb] shadow-[0_0_12px_2px_rgba(61,123,251,0.7)] transition-[left] duration-500 ease-out sm:block",
+                      playing && "motion-safe:animate-pulse",
+                    )}
                     style={{ left: `${progress}%` }}
                   />
                 ) : null}
@@ -126,6 +178,7 @@ export function DeployPipeline() {
                     return (
                       <li
                         key={phase.key}
+                        aria-current={now ? "step" : undefined}
                         className="flex min-w-0 flex-col items-start gap-2.5 pr-3"
                       >
                         <span
@@ -138,7 +191,7 @@ export function DeployPipeline() {
                           <Mono
                             className={cx(
                               "block truncate transition-colors duration-300",
-                              done || now ? "text-white/90" : "text-white/35",
+                              done || now ? "text-white/90" : "text-white/55",
                             )}
                           >
                             {phase.key}
@@ -146,7 +199,7 @@ export function DeployPipeline() {
                           <Mono
                             className={cx(
                               "mt-1 block truncate transition-colors duration-300",
-                              now ? "text-[#8a8f98]" : "text-white/25",
+                              now ? "text-[#8a8f98]" : "text-white/55",
                             )}
                           >
                             {phase.note}
@@ -160,8 +213,14 @@ export function DeployPipeline() {
             </div>
 
             {/* Streaming detail line for the active phase */}
-            <div className="flex items-center gap-3 border-t border-white/[0.07] bg-white/[0.015] px-5 py-3 sm:px-8">
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="flex items-center gap-3 border-t border-white/[0.07] bg-white/[0.015] px-5 py-3 sm:px-8"
+            >
               <span
+                aria-hidden
                 className={cx(
                   "size-1.5 shrink-0 rounded-full transition-colors duration-300",
                   running ? "bg-[#4ade80]" : "bg-[#fbbf24]",
@@ -173,7 +232,7 @@ export function DeployPipeline() {
               >
                 {active.detail}
               </Mono>
-              <Mono className="shrink-0 text-white/35">
+              <Mono className="shrink-0 text-white/55">
                 {running ? "done" : `${step + 1}/${TOTAL}`}
               </Mono>
             </div>

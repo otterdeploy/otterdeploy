@@ -623,17 +623,18 @@ html > body[data-scroll-locked] {
   --input: rgba(255, 255, 255, 0.1);
 }
 
-/* Scroll reveal: sections fade-and-rise as they enter, the way linear.app's
-   do. Reduced motion gets content in place with no transition. */
+/* Scroll reveal: content is visible in SSR/no-JS output. Hydrated elements only
+   opt into the hidden starting state after their observer is ready. Reduced
+   motion gets content in place with no transition. */
 @media (prefers-reduced-motion: no-preference) {
-  .od-reveal {
+  .od-reveal.is-ready {
     opacity: 0;
     transform: translateY(16px);
     transition:
       opacity 0.7s cubic-bezier(0.2, 0.6, 0.2, 1),
       transform 0.7s cubic-bezier(0.2, 0.6, 0.2, 1);
   }
-  .od-reveal.is-in {
+  .od-reveal.is-ready.is-in {
     opacity: 1;
     transform: none;
   }
