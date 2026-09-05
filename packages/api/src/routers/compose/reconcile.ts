@@ -241,7 +241,8 @@ export async function reconcileStackServices(
   // over, and a throw here would strand every service after it in the file.
   for (const { svc, resourceId, isCreate } of materialized) {
     const seeded = await Result.tryPromise({
-      try: () => seedServiceExposure(ctx, isCreate, svc.name, resourceId, log, progress),
+      try: () =>
+        seedServiceExposure(ctx, isCreate, svc.name, resourceId, svc.labels, log, progress),
       catch: (e) => e,
     });
     if (seeded.isErr()) {

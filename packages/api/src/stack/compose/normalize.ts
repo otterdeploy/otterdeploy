@@ -26,6 +26,8 @@ export type Obj = JsonObject;
 
 export const isObj: (v: unknown) => v is Obj = isJsonObject;
 
+import { normalizeLabels } from "./labels";
+
 export function normalizeService(name: string, svc: Obj, warnings: string[]): ParsedComposeService {
   const deploy = isObj(svc.deploy) ? svc.deploy : {};
   const limits =
@@ -49,6 +51,7 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     resources: normalizeResources(limits),
     restart: normalizeRestart(svc.restart, deploy.restart_policy),
     dependsOn: toNameList(svc.depends_on),
+    labels: normalizeLabels(svc.labels),
   };
 }
 

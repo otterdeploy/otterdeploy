@@ -177,6 +177,14 @@ services:
           '  reverse_proxy /* dashboard:80' \\
           '}' > /etc/caddy/Caddyfile
         exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    # The sidecar speaks h2c to netbird, but that only matters if the request
+    # still IS gRPC when it arrives. The edge's own hop is upstream of this
+    # one and defaults to HTTP/1.1, which strips HTTP/2 before the @grpc
+    # matcher above can ever fire — so peers could not register even with the
+    # path split fixed (#239's parting note). This label is what tells the
+    # edge to dial "h2c://proxy:80" instead.
+    labels:
+      otterdeploy.upstream.protocol: h2c
     ports:
       - "80"
     restart: always

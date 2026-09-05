@@ -1,3 +1,4 @@
+import { DEFAULT_ROUTE_POLICY } from "@otterdeploy/shared/route-policy";
 import { describe, expect, test } from "vite-plus/test";
 
 import {
@@ -221,6 +222,32 @@ describe("builder", () => {
     expect(output).toContain("connection_policy {");
   });
 
+  // The edge hop is upstream of anything a stack does internally, so a gRPC
+  // backend is unreachable until the dial itself carries the scheme: Caddy's
+  // default upstream transport is HTTP/1.1, and gRPC cannot survive it.
+  test("h2c policy dials the upstream over HTTP/2 cleartext", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      routePolicy: { ...DEFAULT_ROUTE_POLICY, upstreamProtocol: "h2c" },
+    });
+    expect(output).toContain("\treverse_proxy h2c://otterdeploy-acme-myapp:3000");
+  });
+
+  test("the default policy leaves the upstream schemeless", () => {
+    expect(buildHttpBlock(httpRoute)).toContain("\treverse_proxy otterdeploy-acme-myapp:3000");
+  });
+
+  // The auth wall wraps the proxy in a `handle`, a second emission site that
+  // would otherwise quietly keep dialling HTTP/1.1.
+  test("h2c survives the deployment-protection handle block", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      protected: true,
+      routePolicy: { ...DEFAULT_ROUTE_POLICY, upstreamProtocol: "h2c" },
+    });
+    expect(output).toContain("\t\treverse_proxy h2c://otterdeploy-acme-myapp:3000");
+  });
+
   test("buildProjectFragment returns empty string for no routes", () => {
     expect(buildProjectFragment([])).toBe("");
   });
@@ -236,6 +263,7 @@ describe("builder", () => {
         frameOptions: "deny",
         referrerPolicy: "strict-origin-when-cross-origin",
         contentSecurityPolicy: "default-src 'self'; object-src 'none'",
+        upstreamProtocol: "http",
       },
     });
     expect(output).toContain("\tencode zstd gzip");
@@ -260,6 +288,7 @@ describe("builder", () => {
           contentTypeNosniff: false,
           frameOptions: "off",
           referrerPolicy: "off",
+          upstreamProtocol: "http",
           contentSecurityPolicy: "safe\n}\nfile_server /etc",
         },
       }),
