@@ -6,7 +6,6 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -15,43 +14,27 @@ import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
-import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
-import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { removeServiceFromManifest } from "../project/manifest";
-import { resolveEnvironmentScope } from "../project/queries/resource";
 import { loadProject, loadResource } from "./context";
-import {
-  MissingServiceBuildBindingError,
-  ServiceConflictError,
-  ServiceInUseError,
-  ServiceNotFoundError,
-  type ResolveError,
-} from "./errors";
+import { ServiceInUseError, ServiceNotFoundError, type ResolveError } from "./errors";
 import { getService } from "./get-service";
 import {
-  type CreateServiceInput,
   type ProjectRef,
   type ResourceRef,
   type UpdateServiceInput,
-  toCreateRecordPayload,
   toUpdateRecordPatch,
 } from "./inputs";
 import {
-  createServiceRecord,
   deleteServiceRecord,
   findExternalDependents,
-  getServiceRecord,
-  getServiceRecordByName,
   listServiceRecordsByProject,
   replaceServicePorts,
   updateServiceRecord,
-  type ServiceRecord,
 } from "./queries";
-import { provisionFresh, redeployAndFanOut, settleCreateDeployment } from "./redeploy";
+import { redeployAndFanOut } from "./redeploy";
 import { reclaimServiceHostArtifacts } from "./teardown";
 import {
-  isUniqueViolation,
   mapEnvVar,
   mapServiceView,
   normalizePorts,
@@ -67,6 +50,7 @@ export { exposeService, unexposeService } from "./expose";
 export { bulkSetEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./env-handlers";
 // Lives in a leaf so `expose.ts` can read it without importing this file; see
 // get-service.ts for why that edge mattered.
+export { createService } from "./create";
 export { getService } from "./get-service";
 export { rollbackService } from "./rollback";
 
@@ -98,127 +82,6 @@ export async function listEnv(input: ResourceRef): Promise<Result<EnvVarView[], 
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   return Result.ok(ctx.value.record.env.map(mapEnvVar));
-}
-
-/**
- * Is this service name already used IN THE TARGET ENVIRONMENT?
- *
- * Scoped deliberately: the unique index is (project, environment, name), so an
- * unscoped check rejected `api` in staging because production owned the name -
- * a collision the database would never have raised.
- *
- * A project with no environment pointer can't be scoped; nothing is "taken"
- * there, and the insert's own unique constraint remains the backstop.
- */
-async function serviceNameTaken(
-  project: { environmentId: EnvironmentId | null },
-  input: { projectId: ProjectId; name: string; environmentId?: EnvironmentId },
-): Promise<boolean> {
-  const scope = resolveEnvironmentScope(project, input.environmentId);
-  if (!scope) return false;
-  return (await getServiceRecordByName(input.projectId, input.name, scope)) !== undefined;
-}
-
-export async function createService(
-  input: CreateServiceInput,
-  log: RequestLogger,
-): Promise<
-  Result<
-    ServiceView,
-    ProjectNotFoundError | ServiceConflictError | MissingServiceBuildBindingError | ResolveError
-  >
-> {
-  log.set({
-    resource: { kind: "service", projectId: input.projectId, name: input.name },
-  });
-
-  const projectResult = await loadProject(input);
-  if (projectResult.isErr()) return Result.err(projectResult.error);
-  const project = projectResult.value;
-
-  if (await serviceNameTaken(project, input)) {
-    return Result.err(new ServiceConflictError({ name: input.name }));
-  }
-
-  const source = input.source ?? "image";
-
-  // Git-sourced services now own their own repo: the build worker reads
-  // gitRepoId off the service row. Only the repo gates creation (registry +
-  // image are optional; the builder falls back to a registry-less local
-  // build). Fail fast with a typed error the UI uses to prompt "pick a repo".
-  // The manifest reconciler passes skipBuildBindingCheck so an unbound git
-  // service still lands as a pending:initial row (its build fails clearly).
-  if (source === "git" && !input.skipBuildBindingCheck && !input.gitRepoId) {
-    return Result.err(new MissingServiceBuildBindingError({ missing: ["gitRepoId"] }));
-  }
-
-  const projectSlug = sanitizeSlug(project.slug);
-  const resourceSlug = sanitizeSlug(input.name);
-  const serviceName = `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(
-    0,
-    63,
-  );
-  const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
-  const internalHostname = resourceSlug;
-
-  const ports = normalizePorts(input.ports);
-
-  let record: ServiceRecord;
-  try {
-    record = await createServiceRecord(
-      toCreateRecordPayload(input, {
-        ports,
-        serviceName,
-        networkName,
-        internalHostname,
-      }),
-    );
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return Result.err(new ServiceConflictError({ name: input.name }));
-    }
-    throw error;
-  }
-
-  // Image-sourced creates deploy right here (no build): record the deployment
-  // BEFORE provisioning so the ledger has a row for it (history, logs anchor,
-  // rollback anchor) and buildSwarmSpec stamps its id onto the container's
-  // labels. Git/upload creates skip this: their row is inserted by the build
-  // enqueue (manifest-apply-git / upload-source) when the build actually starts.
-  // Compose stacks don't pass through here (reconcileStackServices owns its
-  // own per-service rows). The image is prebuilt/pulled: nothing compiles -
-  // so the row starts at "pending", not "building".
-  const deploysNow = !record.service.image.startsWith("pending:");
-  const deploymentRow = deploysNow
-    ? await insertDeployment({
-        resourceId: record.service.resourceId,
-        image: record.service.image,
-        reason: "create",
-        status: "pending",
-        snapshot: { image: record.service.image, source },
-      })
-    : null;
-
-  const provisioned = await provisionFresh(input.projectId, record, projectSlug, log);
-  if (provisioned.isErr()) {
-    if (deploymentRow) {
-      await markDeploymentFailed(deploymentRow.id, provisioned.error.message).catch(
-        () => undefined,
-      );
-    }
-    return Result.err(provisioned.error);
-  }
-  const runtime = provisioned.value;
-  await settleCreateDeployment(
-    deploymentRow?.id ?? null,
-    record.service.resourceId,
-    runtime.status,
-    runtime.errorMessage,
-  );
-  log.set({ provision: { service: serviceName, status: runtime.status } });
-
-  const refreshed = await getServiceRecord(input.projectId, record.service.resourceId);
-  return Result.ok(await mapServiceView(refreshed ?? record, projectSlug, runtime));
 }
 
 export async function updateService(

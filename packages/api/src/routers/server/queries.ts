@@ -47,6 +47,28 @@ export async function getServerInOrg(input: {
   return row;
 }
 
+/**
+ * Look up a server by NAME within an org.
+ *
+ * The manifest addresses machines by name rather than id so it survives being
+ * checked into a repo and applied to a different install (see the `server`
+ * field in stack/manifest/schema.ts). Names are unique per org in practice but
+ * not by constraint, so this takes the first match deterministically rather
+ * than pretending the ambiguity cannot happen.
+ */
+export async function getServerByNameInOrg(input: {
+  name: string;
+  organizationId: OrgId;
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .select()
+    .from(server)
+    .where(and(eq(server.name, input.name), eq(server.organizationId, input.organizationId)))
+    .orderBy(server.id)
+    .limit(1);
+  return row;
+}
+
 export async function createServerRecord(input: {
   id?: ServerId;
   organizationId: OrgId;

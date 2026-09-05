@@ -140,6 +140,7 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
         name: input.name,
         type: "service",
         status: input.status ?? "draft",
+        placementServerId: input.placementServerId ?? null,
       })
       .returning();
     if (!createdResource) {

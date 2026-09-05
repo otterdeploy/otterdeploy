@@ -119,6 +119,10 @@ async function materializeServiceRow(input: {
     environmentId: input.environmentId,
     name,
     status: "draft",
+    // Create-time only, by construction: this branch IS the create. An
+    // existing child is updated above and never has its placement touched,
+    // so a service an operator moved on its own Settings tab stays moved.
+    placementServerId: ctx.placementServerId,
     source: "image",
     internalHostname,
     serviceName: mapped.serviceName,

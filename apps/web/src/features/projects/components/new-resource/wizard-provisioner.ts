@@ -46,6 +46,9 @@ export interface ServiceCreatePayload {
   healthTimeout: number;
   healthRetries: number;
   root: string;
+  // The machine this runs on, by server NAME (the manifest is portable, so it
+  // cannot carry an install-local id). Undefined = let the scheduler place it.
+  serverName?: string;
   // Bound repo as portable "owner/repo" + its branch, threaded into the
   // manifest so the created service is actually bound. Undefined for image
   // sources (and for a git service the operator left unbound, apply then

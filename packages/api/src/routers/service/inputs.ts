@@ -22,10 +22,14 @@ import type {
   OrganizationId,
   ProjectId,
   ResourceId,
+  ServerId,
 } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import type { createServiceInput, updateServiceInput } from "./contract-inputs";
+
+import { PLATFORM } from "../../constants";
+import { sanitizeSlug } from "./views";
 
 type OrgId = OrganizationId;
 
@@ -174,6 +178,9 @@ export function toCreateRecordPayload(
     serviceName: string;
     networkName: string;
     internalHostname: string;
+    /** Already narrowed to a server in this org (lib/placement-seed.ts), so
+     *  the payload carries the brand rather than re-checking it downstream. */
+    placementServerId: ServerId | null;
   },
 ) {
   return {
@@ -181,6 +188,7 @@ export function toCreateRecordPayload(
     environmentId: input.environmentId ?? null,
     name: input.name,
     status: "draft" as const,
+    placementServerId: extras.placementServerId,
     source: input.source ?? "image",
     sourceSubdir: input.sourceSubdir ?? null,
     gitRepoId: input.gitRepoId ?? null,
@@ -260,5 +268,53 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     sourceSubdir: input.sourceSubdir,
     imageRepository: input.imageRepository,
     previewsEnabled: input.previewsEnabled,
+  };
+}
+
+/**
+ * Git-sourced services own their own repo: the build worker reads `gitRepoId`
+ * off the service row. Only the repo gates creation (registry + image are
+ * optional; the builder falls back to a registry-less local build), so this is
+ * the fail-fast the UI turns into "pick a repo".
+ *
+ * `skipBuildBindingCheck` is the manifest reconciler's: an unbound git service
+ * should still land as a `pending:initial` row whose BUILD then fails clearly,
+ * rather than failing the whole apply at create.
+ *
+ * A predicate rather than three inline `&&`s so `createService` stays under
+ * the complexity cap; the reason it is three conditions lives here with them.
+ */
+export function missingGitBuildBinding(
+  input: CreateServiceInput,
+  source: "image" | "git" | "upload",
+): boolean {
+  return source === "git" && !input.skipBuildBindingCheck && !input.gitRepoId;
+}
+
+/**
+ * The three docker-visible names a new service gets, all derived from the same
+ * two slugs so they cannot drift: the swarm service name (prefixed, capped at
+ * docker's 63 chars), the per-project overlay network, and the DNS alias
+ * siblings reach it on.
+ *
+ * Lives here rather than inline in `createService` so that function stays
+ * under the line cap, and so the 63-char truncation has one home.
+ */
+export function deriveServiceNames(
+  projectSlugRaw: string,
+  name: string,
+): {
+  projectSlug: string;
+  serviceName: string;
+  networkName: string;
+  internalHostname: string;
+} {
+  const projectSlug = sanitizeSlug(projectSlugRaw);
+  const resourceSlug = sanitizeSlug(name);
+  return {
+    projectSlug,
+    serviceName: `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(0, 63),
+    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    internalHostname: resourceSlug,
   };
 }

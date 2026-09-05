@@ -253,6 +253,7 @@ export async function deployCompose(
             exposedSeeds,
             manifestServiceEnv,
             stackResourceId: input.resourceId,
+            placementServerId: record.resource.placementServerId ?? null,
             projectSlug: project.slug,
             stackName: record.compose.stackName,
             projectVars,

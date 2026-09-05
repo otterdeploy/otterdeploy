@@ -4,7 +4,13 @@
  * manifest path in manifest-reconcile.ts. See docs/designs/compose.md.
  */
 import type { ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/compose";
-import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  GitRepoId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+  ServerId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
@@ -12,6 +18,7 @@ import { Result } from "better-result";
 
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
+import { resolvePlacementSeed } from "../../lib/placement-seed";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
@@ -34,6 +41,8 @@ export interface ComposeCreateInput {
   sourceSubdir?: string;
   variables: Array<{ key: string; value: string; secret?: boolean }>;
   exposed: Array<{ service: string; port: number; domain?: string }>;
+  /** Server every child of this stack is seeded onto. See the contract. */
+  placementServerId?: string | null;
   deploy: boolean;
 }
 
@@ -90,6 +99,7 @@ async function createGitCompose(
   input: ComposeCreateInput,
   project: ComposeProject,
   exposed: ExposedSeed[],
+  placementServerId: ServerId | null,
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
   // Prefer the bound repo (repo picker). Resolves owner/repo + installation so
   // private repos clone with a token. Fall back to a pasted public URL.
@@ -165,6 +175,7 @@ async function createGitCompose(
         stackName,
         services: [],
         exposed,
+        placementServerId,
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });
@@ -208,6 +219,15 @@ export async function createComposeResource(args: {
   const project = await getProjectInOrg({ projectId: input.projectId, organizationId });
   if (!project) return Result.err({ reason: "not_found" });
 
+  // Validated before anything is written: at deploy an unresolvable pin
+  // degrades to "schedule anywhere", which would silently ignore the machine
+  // the operator picked in the install form. See lib/placement-seed.ts.
+  const placement = await resolvePlacementSeed({
+    serverId: input.placementServerId,
+    organizationId,
+  });
+  if (placement.isErr()) return Result.err(invalid(placement.error.message));
+
   await persistComposeVariables(input, project);
 
   const exposed: ExposedSeed[] = input.exposed.map((e) => ({
@@ -217,6 +237,6 @@ export async function createComposeResource(args: {
   }));
 
   return input.source === "git"
-    ? createGitCompose(input, project, exposed)
-    : createInlineCompose(input, project, exposed, log);
+    ? createGitCompose(input, project, exposed, placement.value)
+    : createInlineCompose(input, project, exposed, placement.value, log);
 }

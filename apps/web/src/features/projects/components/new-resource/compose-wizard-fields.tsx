@@ -26,6 +26,7 @@ import { ComposeFilePanel } from "./compose-file-panel";
 import { ComposeNameField } from "./compose-name-field";
 import { ComposePreview } from "./compose-preview";
 import { stackNamePlaceholder } from "./compose-schema";
+import { ComposeServerField } from "./compose-server-field";
 import { RepoPicker } from "./steps/repo-picker";
 import { useBindingSummary } from "./steps/source-binding";
 import { BranchPicker } from "./steps/source-pickers";
@@ -172,6 +173,7 @@ export function ComposeGitFields({
       </form.Field>
 
       <ComposeNameField form={form} projectId={projectId} derivedName={derivedName} />
+      <ComposeServerField form={form} />
       <p className="text-[11px] text-muted-foreground">
         {t("compose.gitBlurbBefore")} <code>build:</code> {t("compose.gitBlurbAfter")}
       </p>
@@ -238,6 +240,7 @@ export function ComposeInlineFields({
       />
 
       <ComposeNameField form={form} projectId={projectId} derivedName={derivedName} />
+      <ComposeServerField form={form} />
     </>
   );
 }

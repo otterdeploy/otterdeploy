@@ -58,6 +58,10 @@ export interface ComposeFileValues {
   /** Root directory within the repo the stack builds from. */
   sourceSubdir: string;
   exposed: string[];
+  /** Machine every service in this stack runs on, by server NAME ("" = let the
+   *  scheduler place it). A name because it is staged into the manifest, which
+   *  is portable across installs; an id is not. */
+  serverName: string;
 }
 
 /** The `vars` group: the `${VAR}` rows the second step edits, plus the public
@@ -99,6 +103,7 @@ export const composeDefaults: ComposeFormValues = {
     composePath: "",
     sourceSubdir: "",
     exposed: [],
+    serverName: "",
   },
   vars: {
     variables: [],
@@ -139,6 +144,7 @@ export const fileStepSchema = z
     composePath: z.string(),
     sourceSubdir: z.string(),
     exposed: z.array(z.string()),
+    serverName: z.string(),
   })
   .superRefine((v, ctx) => {
     // Only assert "there is *a* source to work with"; the deployability of

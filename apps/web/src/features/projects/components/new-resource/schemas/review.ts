@@ -37,6 +37,7 @@ export const reviewStepSchema = z.object({
   replicas: z.number().int().min(1),
   placement: z.string().min(1),
   pinnedNodeId: z.string().nullable(),
+  pinnedServerName: z.string().nullable(),
   // No storage/backup/PITR/HA fields: the manifest databaseSchema and the
   // DB provisioner support none of them (see schemas/storage.ts).
   // Validating fields the backend drops would be validating fiction.

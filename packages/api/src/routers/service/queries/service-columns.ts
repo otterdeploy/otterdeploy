@@ -5,7 +5,13 @@
  * from the orchestration.
  */
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { EnvironmentId, GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  GitRepoId,
+  ProjectId,
+  ResourceId,
+  ServerId,
+} from "@otterdeploy/shared/id";
 
 export interface CreateServiceInput {
   projectId: ProjectId;
@@ -14,6 +20,12 @@ export interface CreateServiceInput {
   environmentId?: EnvironmentId | null;
   name: string;
   status?: "draft" | "valid" | "invalid";
+  /** Server this service is pinned to at birth, or null for "schedule
+   *  anywhere". A create-time SEED only: `setServicePlacement` remains the one
+   *  writable surface for changing it afterwards (see routers/service/
+   *  placement.ts), exactly as `exposedSeeds` seeds exposure once and then
+   *  leaves it to the child's Settings tab. */
+  placementServerId?: ServerId | null;
 
   image: string;
   /** "image" = pull a pre-built tag; "git"/"upload" = built by apps/builder

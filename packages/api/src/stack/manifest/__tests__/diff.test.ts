@@ -617,3 +617,89 @@ describe("diffDatabase host placement", () => {
     expect(changes).toEqual([{ kind: "no-op", resource: "database", name: "blog" }]);
   });
 });
+
+/**
+ * `server` pins a resource to a machine at CREATE and is deliberately inert
+ * afterwards. Moving a live resource has to roll it, and a resource with a
+ * local volume comes up on the new box with an empty one — so an apply must
+ * never do it implicitly. `service.setPlacement` is the surface that moves
+ * something; this field only decides where it is born.
+ */
+describe("service placement is a create-time seed, not drift", () => {
+  it("accepts `server` on a service and a compose stack", () => {
+    const m = manifest({
+      project: "acme",
+      services: { web: { source: "image", image: "nginx", server: "frankfurt-1" } },
+      composes: {
+        obs: {
+          source: "inline",
+          content: "services:\n  a:\n    image: nginx\n",
+          server: "frankfurt-1",
+        },
+      },
+    });
+    expect(m.services.web?.server).toBe("frankfurt-1");
+    expect(m.composes.obs?.server).toBe("frankfurt-1");
+  });
+
+  // The summary is what the pending-changes bar shows. A machine name is not a
+  // field the operator is deciding about again on every diff.
+  it("keeps `server` out of the create summary", () => {
+    const m = manifest({
+      project: "acme",
+      services: { web: { source: "image", image: "nginx", server: "frankfurt-1" } },
+    });
+    const changes = diffManifest(m, empty);
+    expect(changes[0]).toEqual({
+      kind: "create",
+      resource: "service",
+      name: "web",
+      details: { source: "image", replicas: 1, image: "nginx" },
+    });
+  });
+
+  // The load-bearing one: adding (or changing) `server` on a service that
+  // already exists must NOT stage an update, or every apply would try to move
+  // a running service — and, for anything with a volume, silently strand it.
+  it("plans a no-op, not an update, when `server` appears on a live service", () => {
+    const current: CurrentState = {
+      services: {
+        web: {
+          name: "web",
+          source: "image",
+          image: "ghcr.io/acme/api:1.0.0",
+          sourceSubdir: null,
+          repo: null,
+          branch: null,
+          imageRepository: null,
+          replicas: 1,
+          command: null,
+          entrypoint: null,
+          ports: [],
+          env: {},
+          publicEnabled: false,
+          previewsEnabled: false,
+          preDeploy: null,
+          postDeploy: null,
+          buildConfig: null,
+          restartWindowMs: null,
+          diskLimitMb: null,
+          swapLimitMb: null,
+          pidsLimit: null,
+        },
+      },
+      databases: {},
+      composes: {},
+    };
+    const changes = diffManifest(
+      manifest({
+        project: "acme",
+        services: {
+          web: { source: "image", image: "ghcr.io/acme/api:1.0.0", server: "frankfurt-1" },
+        },
+      }),
+      current,
+    );
+    expect(changes).toEqual([{ kind: "no-op", resource: "service", name: "web" }]);
+  });
+});

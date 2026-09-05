@@ -67,6 +67,22 @@ function isFieldPath<TFormData>(
  * provisioner. Module-level (not a closure inside the hook) so the hook
  * stays within the per-function line budget.
  */
+/**
+ * The Placement step's contribution to a service payload.
+ *
+ * Only "pin" reaches the manifest. The other strategies ("any", "spread",
+ * "pack") describe a scheduler otterdeploy deliberately does not have — see
+ * docs/designs/otterd.md, "no auto-scheduler, bin-packing, or rescheduling on
+ * node death" — so emitting anything for them would claim a behaviour nothing
+ * implements. "any" is also the honest default: no pin, scheduler decides.
+ */
+function placementOf(payload: { placement: string; pinnedServerName: string | null }): {
+  serverName?: string;
+} {
+  if (payload.placement !== "pin" || !payload.pinnedServerName) return {};
+  return { serverName: payload.pinnedServerName };
+}
+
 async function submitWizard(
   value: ResourceFormState,
   runDatabaseCreate: (payload: DatabaseCreatePayload) => Promise<void>,
@@ -120,6 +136,7 @@ async function submitWizard(
       healthTimeout: payload.healthTimeout,
       healthRetries: payload.healthRetries,
       root: payload.root,
+      ...placementOf(payload),
       ...sizing,
     });
     return;
@@ -150,6 +167,7 @@ async function submitWizard(
     repo: payload.repoFullName || undefined,
     branch: payload.branch || undefined,
     gitRepoId: payload.repo || undefined,
+    ...placementOf(payload),
     ...sizing,
   });
 }

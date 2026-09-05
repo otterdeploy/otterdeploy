@@ -1,4 +1,10 @@
-import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+  ServerId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -59,6 +65,15 @@ export interface StackReconcileContext {
   manifestServiceEnv?: ReadonlyMap<string, Record<string, string>>;
   /** The compose resource id: written as `service_resource.stackId`. */
   stackResourceId: ResourceId;
+  /** The machine the STACK was created on, seeded onto each child the first
+   *  time it is materialized. Null = let the scheduler place them.
+   *
+   *  Seed only, exactly like `exposedSeeds`: a child that already exists keeps
+   *  whatever its own Settings tab says, so moving one service of a stack to
+   *  another box is not undone by the next redeploy. A child ADDED to the
+   *  compose file later still lands with its siblings, which is the behaviour
+   *  an operator expects from "this stack runs on that machine". */
+  placementServerId: ServerId | null;
   projectSlug: string;
   stackName: string;
   /** Project env bag for `${VAR:-default}` interpolation. */
