@@ -81,6 +81,19 @@ export function RoutePolicyFields({
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {/* First, and deliberately: it is the only field here that decides
+          whether the upstream is reachable AT ALL rather than how its
+          responses are dressed. A gRPC backend behind the HTTP/1.1 default is
+          simply unreachable, with nothing in the edge logs to say why. */}
+      <SelectField
+        label="Upstream protocol"
+        value={draft.upstreamProtocol}
+        options={[
+          { value: "http", label: "HTTP/1.1 (default)" },
+          { value: "h2c", label: "HTTP/2 cleartext (gRPC)" },
+        ]}
+        onChange={(value) => update("upstreamProtocol", value)}
+      />
       <SelectField
         label="Compression"
         value={draft.compression}

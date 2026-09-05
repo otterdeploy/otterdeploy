@@ -218,4 +218,52 @@ services:
     if (!a) throw new Error("expected a service");
     expect(a.resources.memoryMb).toBe(1024);
   });
+
+  // Labels are surfaced because the platform reads `otterdeploy.*` keys off
+  // them for facts compose has no field for (today: whether the edge must
+  // dial the service over h2c because it speaks gRPC).
+  it("normalizes labels from the map form", () => {
+    const c = ok(`
+services:
+  proxy:
+    image: caddy:2-alpine
+    labels:
+      otterdeploy.upstream.protocol: h2c
+      traefik.enable: false
+`);
+    expect(c.services[0]?.labels).toEqual({
+      "otterdeploy.upstream.protocol": "h2c",
+      "traefik.enable": "false",
+    });
+  });
+
+  // Compose accepts `KEY=value` list form too, and half the ecosystem writes
+  // it that way (every Traefik example does). Reading only the map form would
+  // make the same label work or not depending on how it was spelled.
+  it("normalizes labels from the list form, including a bare key", () => {
+    const c = ok(`
+services:
+  proxy:
+    image: caddy:2-alpine
+    labels:
+      - otterdeploy.upstream.protocol=h2c
+      - com.example.marker
+      - com.example.pair=a=b
+`);
+    expect(c.services[0]?.labels).toEqual({
+      "otterdeploy.upstream.protocol": "h2c",
+      "com.example.marker": "",
+      // Only the FIRST `=` separates; the value keeps its own.
+      "com.example.pair": "a=b",
+    });
+  });
+
+  it("gives a service with no labels an empty map, not undefined", () => {
+    const c = ok(`
+services:
+  app:
+    image: nginx
+`);
+    expect(c.services[0]?.labels).toEqual({});
+  });
 });
