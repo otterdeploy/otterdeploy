@@ -219,6 +219,9 @@ export interface ServiceSpecInput {
   healthRetries: number;
   /** Repo-relative root directory for git sources ("" = repo root). */
   root: string;
+  /** Machine this runs on, by server NAME. Emitted as the manifest's `server`,
+   *  a create-time seed apply resolves against this org's machines. */
+  serverName?: string;
   /** Server-derived watch patterns for a workspace app at `root` (from
    *  `git.inspectRepo`): its own directory plus the directories of the
    *  workspace packages it depends on, transitively, plus the root build
@@ -267,6 +270,7 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
     ...(resources ? { resources } : {}),
     ...(healthcheck ? { healthcheck } : {}),
     ...(domains ? { domains } : {}),
+    ...(input.serverName ? { server: input.serverName } : {}),
   };
   if (input.source === "image") {
     return { source: "image", image: input.image, ...common };

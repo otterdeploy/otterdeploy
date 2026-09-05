@@ -46,6 +46,7 @@ function fixtureId<P extends string>(value: string, prefix: P): Id<P> {
 /** A single-file stack, no materialized tree, so no stackDir. */
 const ctx: StackReconcileContext = {
   projectId: fixtureId("project_1", "prj"),
+  placementServerId: null,
   organizationId: fixtureId("org_1", "org"),
   exposedSeeds: new Map<string, string>(),
   stackResourceId: fixtureId("resource_1", "res"),

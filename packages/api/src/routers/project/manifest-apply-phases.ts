@@ -17,6 +17,7 @@ import { ManifestApplySkipError } from "./errors";
 import { createDatabase } from "./manifest-apply-database-create";
 import { updateDatabaseFromManifest } from "./manifest-apply-databases";
 import { enqueueGitBuild } from "./manifest-apply-git";
+import { resolveManifestPlacement } from "./manifest-apply-placement";
 import { lookupDatabaseId, lookupServiceId } from "./manifest-apply-support";
 import { deleteProjectResource } from "./resources";
 
@@ -88,18 +89,27 @@ export async function runComposeCreates(
   changes: Change[],
 ): Promise<PhaseContribution> {
   const results = await Promise.all(
-    changes.flatMap((change) => {
+    changes.map(async (change) => {
       const spec = ctx.manifest.composes[change.name];
-      if (!spec) return [];
-      return [
-        createComposeFromManifest({
-          projectId: ctx.projectId,
-          organizationId: ctx.organizationId,
-          name: change.name,
-          spec,
-          log: ctx.log,
-        }),
-      ];
+      if (!spec) return null;
+      // A stack names ONE machine and every child is seeded onto it: the
+      // children reach each other over the project network, so splitting one
+      // across boxes is a mesh question rather than an install-form default.
+      const placement = await resolveManifestPlacement({
+        serverName: spec.server,
+        organizationId: ctx.organizationId,
+        resource: "compose",
+        name: change.name,
+      });
+      if (placement.isErr()) return Result.err(placement.error);
+      return createComposeFromManifest({
+        projectId: ctx.projectId,
+        organizationId: ctx.organizationId,
+        name: change.name,
+        spec,
+        placementServerId: placement.value,
+        log: ctx.log,
+      });
     }),
   );
   return tallyResults(results);

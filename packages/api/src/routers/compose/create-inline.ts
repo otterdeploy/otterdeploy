@@ -5,7 +5,7 @@
  * file has `build:` services, enqueue the build worker (which materializes the
  * tree, builds each context, and deploys). See docs/designs/compose.md.
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId, ServerId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -67,6 +67,7 @@ export async function createInlineCompose(
   input: ComposeCreateInput,
   project: ComposeProject,
   exposed: ExposedSeed[],
+  placementServerId: ServerId | null,
   log: RequestLogger,
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
   const resolved = resolveInlineInput(input);
@@ -91,6 +92,7 @@ export async function createInlineCompose(
         stackName,
         services,
         exposed,
+        placementServerId,
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });

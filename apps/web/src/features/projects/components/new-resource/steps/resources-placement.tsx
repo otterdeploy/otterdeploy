@@ -156,7 +156,12 @@ export function PlacementSection() {
                           <Checkbox
                             checked={isPinned}
                             onCheckedChange={(checked) => {
-                              if (checked) form.setFieldValue("pinnedNodeId", n.id);
+                              if (!checked) return;
+                              // Both, always together: the id drives this
+                              // checkbox, the name is what the manifest can
+                              // carry to another install.
+                              form.setFieldValue("pinnedNodeId", n.id);
+                              form.setFieldValue("pinnedServerName", n.name);
                             }}
                             aria-label={`Pin to ${n.name}`}
                           />

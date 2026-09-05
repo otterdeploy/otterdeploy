@@ -217,6 +217,23 @@ const serviceCommonSchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * Which machine this runs on, by server NAME.
+   *
+   * A name, not an id, for the same reason a hostable database's `host` names
+   * another resource by name: a manifest is checked into a repo and applied to
+   * a different install, where the id of "the box in Frankfurt" is different
+   * and its name is not. An unknown name is refused at apply rather than
+   * silently degrading to "anywhere" — placement that quietly does nothing is
+   * how a volume ends up on the wrong disk.
+   *
+   * Create-time only, and deliberately not diffed for drift: MOVING a live
+   * resource has to roll it (and, if it has a volume, abandon that volume),
+   * which an apply must never do implicitly. `service.setPlacement` is the one
+   * surface that moves something, exactly as `domains` above is a create-time
+   * seed with its own UI afterwards.
+   */
+  server: z.string().min(1).optional(),
 });
 
 const imageServiceSchema = serviceCommonSchema.extend({
@@ -423,6 +440,9 @@ const composeInlineSchema = z.object({
   // Brand mark for the graph node (SvglLogo search string), set when the stack
   // is deployed from a template. Presentation-only.
   logoBrand: z.string().max(64).optional(),
+  /** Machine every service in this stack runs on, by server NAME. Same
+   *  create-time-seed rules as a service's `server`; see serviceCommonSchema. */
+  server: z.string().min(1).optional(),
 });
 
 const composeGitSchema = z.object({
@@ -442,6 +462,9 @@ const composeGitSchema = z.object({
   // Brand mark for the graph node (SvglLogo search string), set when the stack
   // is deployed from a template. Presentation-only.
   logoBrand: z.string().max(64).optional(),
+  /** Machine every service in this stack runs on, by server NAME. Same
+   *  create-time-seed rules as a service's `server`; see serviceCommonSchema. */
+  server: z.string().min(1).optional(),
 });
 
 export const composeSchema = z.discriminatedUnion("source", [

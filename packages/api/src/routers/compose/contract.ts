@@ -149,6 +149,16 @@ export const composeContract = {
             }),
           )
           .default([]),
+        /** The machine every service in this stack runs on. Omitted / null =
+         *  let the scheduler place them, which stays the default.
+         *
+         *  Stack-level rather than per-service because a stack is deployed as
+         *  a unit and its children talk to each other over the project
+         *  network; splitting one across boxes is a mesh question, not a
+         *  create-form one. A single child can still be moved afterwards from
+         *  its own Settings tab, which remains the only surface that CHANGES
+         *  placement. */
+        placementServerId: z.string().nullable().optional(),
         /** Deploy immediately after create (default true). */
         deploy: z.boolean().default(true),
       }),

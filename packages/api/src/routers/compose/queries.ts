@@ -3,7 +3,13 @@ import type {
   ComposeFile,
   ComposeServiceSummary,
 } from "@otterdeploy/shared/compose";
-import type { EnvironmentId, GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  GitRepoId,
+  ProjectId,
+  ResourceId,
+  ServerId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { composeResource, resource } from "@otterdeploy/db/schema/project";
@@ -84,6 +90,10 @@ export async function createComposeRecord(input: {
   exposed?: ComposeExposed[];
   /** SvglLogo search string carried from the source template; null otherwise. */
   logoBrand?: string | null;
+  /** Machine the stack (and, by seeding, each of its children) runs on. Null =
+   *  let the scheduler place it. Already narrowed to a server in this org by
+   *  lib/placement-seed.ts. */
+  placementServerId?: ServerId | null;
 }): Promise<ComposeRecord> {
   // An omitted environment resolves to the project's main one.
   const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
@@ -97,6 +107,7 @@ export async function createComposeRecord(input: {
           name: input.name,
           type: "compose",
           status: "valid",
+          placementServerId: input.placementServerId ?? null,
         })
         .returning();
       if (!res) throw new Error("Failed to create compose resource row");

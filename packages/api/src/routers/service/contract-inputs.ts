@@ -37,6 +37,16 @@ export const createServiceInput = z.object({
   entrypoint: z.array(z.string()).nullable().optional(),
   replicas: z.number().int().nonnegative().optional(),
 
+  // The machine this runs on, chosen up front instead of discovered after the
+  // first rollout landed the volume on the wrong disk. Omitted / null = let the
+  // scheduler place it, which stays the default.
+  //
+  // This is a SEED, not a second writable surface: `service.setPlacement` is
+  // still the only way to CHANGE placement, because changing it has to roll the
+  // service to take effect (routers/service/placement.ts). At create there is
+  // nothing to roll, so the value simply rides the first rollout.
+  placementServerId: z.string().nullable().optional(),
+
   // Image-sourced services must publish at least one port (otherwise
   // there's nothing to route to). Git-sourced services may publish zero
   // ports at create time. The user might be building a worker. Enforced

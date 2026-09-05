@@ -12,4 +12,5 @@ export const resourcesStepSchema = z.object({
   replicas: z.number().int().min(1),
   placement: z.string().min(1),
   pinnedNodeId: z.string().nullable(),
+  pinnedServerName: z.string().nullable(),
 });

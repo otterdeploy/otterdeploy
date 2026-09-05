@@ -75,6 +75,10 @@ export interface ResourceFormState {
   replicas: number;
   placement: string;
   pinnedNodeId: string | null;
+  /** The pinned server's NAME. Set together with `pinnedNodeId` and never
+   *  alone: the id is what the picker selects on, the name is what the
+   *  manifest carries (a manifest is portable, an id is install-local). */
+  pinnedServerName: string | null;
   /** Database-only: expose via the Caddy public proxy. OFF by default. */
   publicEnabled: boolean;
   /** Postgres-only: enabled extensions (canonical CREATE EXTENSION names).
@@ -126,6 +130,7 @@ export const resourceDefaults: ResourceFormState = {
   replicas: 1,
   placement: "any",
   pinnedNodeId: null,
+  pinnedServerName: null,
   publicEnabled: false,
   extensions: [],
   hostName: null,

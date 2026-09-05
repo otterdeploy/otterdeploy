@@ -58,16 +58,20 @@ function buildComposeEntry(value: ComposeFormValues, logoBrand: string | undefin
   }
   // Template brand mark, persisted so the graph node shows the logo.
   const brand = logoBrand ? { logoBrand } : {};
+  // Create-time seed: apply resolves the name against this org's machines and
+  // refuses the stack if it names one that isn't here, rather than quietly
+  // deploying it anywhere. See stack/manifest/schema.ts.
+  const server = value.file.serverName ? { server: value.file.serverName } : {};
   const envEntry = Object.keys(env).length > 0 ? { env } : {};
   const file = value.file;
   return file.source === "inline"
-    ? buildInlineEntry(file, brand, envEntry, exposedHostFor(value.vars))
-    : buildGitEntry(file, brand, envEntry);
+    ? buildInlineEntry(file, { ...brand, ...server }, envEntry, exposedHostFor(value.vars))
+    : buildGitEntry(file, { ...brand, ...server }, envEntry);
 }
 
 function buildInlineEntry(
   file: ComposeFileValues,
-  brand: { logoBrand?: string },
+  brand: { logoBrand?: string; server?: string },
   envEntry: { env?: Record<string, string> },
   /** Operator-edited public host for the front (first exposed) service. */
   exposedHost: string | null,
@@ -115,7 +119,7 @@ function buildInlineEntry(
 
 function buildGitEntry(
   file: ComposeFileValues,
-  brand: { logoBrand?: string },
+  brand: { logoBrand?: string; server?: string },
   envEntry: { env?: Record<string, string> },
 ) {
   const gitRepoId = file.gitRepoId.trim();

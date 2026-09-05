@@ -226,6 +226,26 @@ describe("buildServiceSpec", () => {
     });
   });
 
+  // The Placement step used to collect a node and drop it on the floor:
+  // `pinnedNodeId` was written to the form and read by nothing, so an operator
+  // picked a machine and the service landed wherever the scheduler put it.
+  it("emits `server` so a picked machine actually reaches the manifest", () => {
+    const spec = buildServiceSpec({
+      ...base,
+      source: "image",
+      image: "nginx",
+      serverName: "frankfurt-1",
+    });
+    expect(spec).toMatchObject({ server: "frankfurt-1" });
+  });
+
+  // A NAME, not an id: the manifest is checked into a repo and applied to
+  // other installs, where "frankfurt-1" survives and `srv_...` does not.
+  it("omits `server` entirely when no machine was picked", () => {
+    const spec = buildServiceSpec({ ...base, source: "image", image: "nginx" });
+    expect("server" in spec).toBe(false);
+  });
+
   it("emits the bound repo + branch so apply binds the git_repo (no unbound service)", () => {
     const spec = buildServiceSpec({
       ...base,
