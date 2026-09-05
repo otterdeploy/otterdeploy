@@ -40,7 +40,7 @@ export const CONFERENCING_TEMPLATES: StackTemplate[] = [
     compose: `name: jitsi
 services:
   web:
-    image: jitsi/web:stable-10133
+    image: ghcr.io/jitsi/web:stable-11146-2
     depends_on:
       - prosody
     environment:
@@ -58,13 +58,12 @@ services:
       XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
       JICOFO_AUTH_USER: focus
     ports:
-      - "80"
+      - "8000"
     volumes:
       - jitsi-web-config:/config
-      - jitsi-web-crontabs:/var/spool/cron/crontabs
     restart: always
   prosody:
-    image: jitsi/prosody:stable-10133
+    image: ghcr.io/jitsi/prosody:stable-11146-2
     environment:
       TZ: UTC
       AUTH_TYPE: internal
@@ -85,9 +84,10 @@ services:
     volumes:
       - jitsi-prosody-config:/config
       - jitsi-prosody-plugins:/prosody-plugins-custom
+      - jitsi-prosody-data:/var/lib/prosody
     restart: always
   jicofo:
-    image: jitsi/jicofo:stable-10133
+    image: ghcr.io/jitsi/jicofo:stable-11146-2
     depends_on:
       - prosody
     environment:
@@ -104,7 +104,7 @@ services:
       - jitsi-jicofo-config:/config
     restart: always
   jvb:
-    image: jitsi/jvb:stable-10133
+    image: ghcr.io/jitsi/jvb:stable-11146-2
     depends_on:
       - prosody
     environment:
@@ -124,9 +124,9 @@ services:
     restart: always
 volumes:
   jitsi-web-config:
-  jitsi-web-crontabs:
   jitsi-prosody-config:
   jitsi-prosody-plugins:
+  jitsi-prosody-data:
   jitsi-jicofo-config:
   jitsi-jvb-config:
 `,

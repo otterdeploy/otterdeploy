@@ -62,7 +62,7 @@ services:
       retries: 5
     restart: always
   events-db:
-    image: clickhouse/clickhouse-server:24.12-alpine
+    image: clickhouse/clickhouse-server:25.8-alpine
     environment:
       CLICKHOUSE_SKIP_USER_SETUP: "1"
     volumes:
@@ -101,7 +101,7 @@ volumes:
     compose: `name: umami
 services:
   umami:
-    image: ghcr.io/umami-software/umami:postgresql-latest
+    image: ghcr.io/umami-software/umami:3.3.1
     depends_on:
       - db
     environment:
@@ -153,7 +153,7 @@ volumes:
     compose: `name: metabase
 services:
   metabase:
-    image: metabase/metabase:latest
+    image: metabase/metabase:v0.63.16.4
     depends_on:
       - db
     environment:

@@ -11,7 +11,7 @@ export const AUTOMATION_TEMPLATES: StackTemplate[] = [
     includes: ["homeassistant"],
     requiredEnv: [],
     logoBrand: "Home Assistant",
-    docsUrl: "https://www.home-assistant.io/installation/linux#docker-compose",
+    docsUrl: "https://www.home-assistant.io/installation/linux/",
     // Bridge networking, not host networking: this runs on a server, not on
     // the LAN the devices live on. Cloud and IP integrations work; the
     // broadcast-based auto-discovery ones (mDNS, SSDP) will not find anything
@@ -20,7 +20,7 @@ export const AUTOMATION_TEMPLATES: StackTemplate[] = [
     compose: `name: home-assistant
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2025.8
+    image: ghcr.io/home-assistant/home-assistant:2026.8.3
     environment:
       TZ: UTC
     ports:
@@ -56,7 +56,7 @@ volumes:
     compose: `name: windmill
 services:
   server:
-    image: ghcr.io/windmill-labs/windmill:main
+    image: ghcr.io/windmill-labs/windmill:1.798.1
     depends_on:
       - db
     environment:
@@ -70,7 +70,7 @@ services:
       - windmill-logs:/tmp/windmill/logs
     restart: always
   worker:
-    image: ghcr.io/windmill-labs/windmill:main
+    image: ghcr.io/windmill-labs/windmill:1.798.1
     depends_on:
       - db
     environment:
@@ -119,10 +119,15 @@ volumes:
     docsUrl: "https://kestra.io/docs/installation/docker-compose",
     // Kestra takes its whole configuration as one YAML document in an env var
     // rather than a file, which is what lets this ship without a bind mount.
+    // Since 0.24 basic auth is mandatory in OSS and the old `enabled` flag is
+    // ignored, so the first visit lands on Kestra's setup page — which stays
+    // open until someone claims it, and whoever claims it can run arbitrary
+    // code here. Seed KESTRA_SERVER_BASIC_AUTH_USERNAME/_PASSWORD before the
+    // stack is reachable.
     compose: `name: kestra
 services:
   kestra:
-    image: kestra/kestra:v0.21.5
+    image: kestra/kestra:v1.3.37
     depends_on:
       - db
     command: ["server", "standalone"]
@@ -135,9 +140,6 @@ services:
             username: kestra
             password: \${POSTGRES_PASSWORD}
         kestra:
-          server:
-            basic-auth:
-              enabled: false
           repository:
             type: postgres
           storage:
@@ -180,7 +182,7 @@ volumes:
     name: "Mautic",
     descriptionKey: "templates.catalog.mautic.description",
     category: "automation",
-    includes: ["mautic", "db"],
+    includes: ["mautic", "mautic_cron", "db"],
     requiredEnv: [
       { key: "MAUTIC_URL", descriptionKey: "templates.catalog.mautic.env.MAUTIC_URL" },
       {
@@ -191,25 +193,49 @@ volumes:
     ],
     logoBrand: "Mautic",
     docsUrl: "https://github.com/mautic/docker-mautic",
-    // `MAUTIC_RUN_CRON_JOBS` matters more than it looks: Mautic's segments,
-    // campaigns and e-mail queue are all driven by cron, and with it off the
-    // install comes up looking healthy and then never sends anything.
+    // Pinned to 7.1.3, not the `6-apache` this used to float on: Mautic 6 is a
+    // bridging LTS whose security support ends 30 September 2026, while 7.1 is
+    // the line upstream calls actively supported. (`7.1-apache` is NOT a safe
+    // shorthand — upstream never re-pointed it at 7.1.3, it still resolves to
+    // 7.1.2.) An existing 6.x install must be upgraded through Mautic's own
+    // updater, 6.0.x → 7.0 → 7.1, before its volumes fit this image.
+    //
+    // Cron is a SEPARATE container, not a flag: the official image dropped
+    // `MAUTIC_RUN_CRON_JOBS` when it moved to roles, and segments, campaigns
+    // and the e-mail queue all run out of `DOCKER_MAUTIC_ROLE: mautic_cron`.
+    // Without it the install comes up looking healthy and then never sends
+    // anything. The role container idles until the web installer has written
+    // a site_url, then registers the crontab.
     compose: `name: mautic
 services:
   mautic:
-    image: mautic/mautic:6-apache
+    image: mautic/mautic:7.1.3-apache
     depends_on:
       - db
     environment:
       MAUTIC_DB_HOST: "\${{stack.db.HOST}}"
-      MAUTIC_DB_NAME: mautic
+      MAUTIC_DB_DATABASE: mautic
       MAUTIC_DB_USER: mautic
       MAUTIC_DB_PASSWORD: \${MYSQL_PASSWORD}
-      MAUTIC_URL: \${MAUTIC_URL}
-      MAUTIC_RUN_CRON_JOBS: "true"
-      MAUTIC_TRUSTED_PROXIES: "0.0.0.0/0"
+      MAUTIC_CONFIG_PARAMETERS: '{"site_url":"\${MAUTIC_URL}"}'
     ports:
       - "80"
+    volumes:
+      - mautic-config:/var/www/html/config
+      - mautic-logs:/var/www/html/var/logs
+      - mautic-media:/var/www/html/docroot/media
+    restart: always
+  mautic_cron:
+    image: mautic/mautic:7.1.3-apache
+    depends_on:
+      - mautic
+    environment:
+      DOCKER_MAUTIC_ROLE: mautic_cron
+      MAUTIC_DB_HOST: "\${{stack.db.HOST}}"
+      MAUTIC_DB_DATABASE: mautic
+      MAUTIC_DB_USER: mautic
+      MAUTIC_DB_PASSWORD: \${MYSQL_PASSWORD}
+      MAUTIC_CONFIG_PARAMETERS: '{"site_url":"\${MAUTIC_URL}"}'
     volumes:
       - mautic-config:/var/www/html/config
       - mautic-logs:/var/www/html/var/logs

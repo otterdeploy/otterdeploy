@@ -21,7 +21,7 @@ export const SERVICES_TEMPLATES: StackTemplate[] = [
     compose: `name: browserless
 services:
   browserless:
-    image: ghcr.io/browserless/chromium:latest
+    image: ghcr.io/browserless/chromium:v2.56.2
     environment:
       TOKEN: \${BROWSERLESS_TOKEN}
       CONCURRENT: "\${BROWSERLESS_CONCURRENT:-5}"
@@ -84,11 +84,11 @@ services:
       },
     ],
     logoBrand: "Drizzle",
-    docsUrl: "https://orm.drizzle.team/docs/gateway",
+    docsUrl: "https://gateway.drizzle.team/docs/docker",
     compose: `name: drizzle-gateway
 services:
   drizzle-gateway:
-    image: ghcr.io/drizzle-team/gateway:latest
+    image: ghcr.io/drizzle-team/gateway:1.6.0
     environment:
       STORE_PATH: /app
       MASTERPASS: \${GATEWAY_MASTERPASS}
@@ -113,7 +113,7 @@ volumes:
     compose: `name: cloudbeaver
 services:
   cloudbeaver:
-    image: dbeaver/cloudbeaver:24
+    image: dbeaver/cloudbeaver:26.1.5
     environment:
       CB_SERVER_NAME: "\${CB_SERVER_NAME:-CloudBeaver}"
     ports:
@@ -143,10 +143,18 @@ volumes:
     ],
     logoBrand: "Soketi",
     docsUrl: "https://docs.soketi.app/getting-started/installation/docker",
+    // Upstream is effectively unmaintained: 1.6.1 (2024-03-25) is still the
+    // newest release, the 1.x branch has had no functional commit since
+    // October 2023, and the 2025 dependabot PRs were closed unmerged. The
+    // floating `1.6-16-debian` tag resolved to the same digest as
+    // `1.6.1-16-debian` (sha256:713223456cf1…), last pushed 2024-03-25, so
+    // pinning the exact release is a no-op today and stops a surprise later.
+    // The image is Node 16.20.2 (EOL 2023-09-11) on Debian bullseye and will
+    // never be patched — keep it behind a proxy, on a private network.
     compose: `name: soketi
 services:
   soketi:
-    image: quay.io/soketi/soketi:1.6-16-debian
+    image: quay.io/soketi/soketi:1.6.1-16-debian
     environment:
       SOKETI_DEFAULT_APP_ID: "\${SOKETI_APP_ID:-app-id}"
       SOKETI_DEFAULT_APP_KEY: \${SOKETI_APP_KEY}
@@ -195,15 +203,26 @@ volumes:
         key: "APP_URL",
         descriptionKey: "templates.catalog.pocket-id.env.APP_URL",
       },
+      {
+        key: "ENCRYPTION_KEY",
+        descriptionKey: "templates.catalog.pocket-id.env.ENCRYPTION_KEY",
+        generateHint: "openssl rand -base64 32",
+        // Mandatory from v2: the server exits 1 with "Configuration error" if
+        // it is unset or shorter than 16 bytes. Deliberately not given a
+        // compose default — a shared literal encryption key baked into an
+        // identity provider template would be worse than no template at all.
+        generate: { encoding: "base64", bytes: 32 },
+      },
     ],
     logoBrand: "Pocket ID",
     docsUrl: "https://pocket-id.org/docs/setup/installation",
     compose: `name: pocket-id
 services:
   pocket-id:
-    image: ghcr.io/pocket-id/pocket-id:v1.13
+    image: ghcr.io/pocket-id/pocket-id:v2.13.0
     environment:
       APP_URL: \${APP_URL}
+      ENCRYPTION_KEY: \${ENCRYPTION_KEY}
       TRUST_PROXY: "true"
     ports:
       - "1411"

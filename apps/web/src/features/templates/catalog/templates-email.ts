@@ -37,15 +37,16 @@ export const EMAIL_TEMPLATES: StackTemplate[] = [
       { key: "GITHUB_SECRET", descriptionKey: "templates.catalog.usesend.env.GITHUB_SECRET" },
     ],
     logoBrand: "useSend",
-    docsUrl: "https://docs.usesend.com/get-started/self-hosting",
+    docsUrl: "https://docs.usesend.com/self-hosting/overview",
     compose: `name: usesend
 services:
   usesend:
-    image: usesend/usesend:latest
+    image: usesend/usesend:v1.9.8
     depends_on:
       - postgres
       - redis
     environment:
+      HOSTNAME: "0.0.0.0"
       DATABASE_URL: "postgresql://usesend:\${POSTGRES_PASSWORD}@\${{stack.postgres.HOST}}:5432/usesend"
       REDIS_URL: "redis://\${{stack.redis.HOST}}:6379"
       NEXTAUTH_URL: \${USESEND_URL}

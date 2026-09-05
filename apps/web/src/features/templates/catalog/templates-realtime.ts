@@ -48,13 +48,13 @@ export const REALTIME_TEMPLATES: StackTemplate[] = [
     compose: `name: livekit
 services:
   livekit:
-    image: livekit/livekit-server:v1.13.5
+    image: livekit/livekit-server:v1.13.6
     depends_on:
       - redis
     environment:
       # Credentials ride their own variable rather than the config blob.
       # LiveKit reads them from LIVEKIT_KEYS ("key: secret"), verified against
-      # v1.13.5: a config carrying no keys section boots fine when this is
+      # v1.13.6: a config carrying no keys section boots fine when this is
       # set, and exits "one of key-file or keys must be provided" when it is
       # not. Inside LIVEKIT_CONFIG the secret was part of a value the
       # classifier reads as plain, so it rendered unmasked in the editor.

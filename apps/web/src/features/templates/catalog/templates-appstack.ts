@@ -62,7 +62,7 @@ volumes:
       },
     ],
     logoBrand: "Temporal",
-    docsUrl: "https://docs.temporal.io/self-hosted-guide/setup",
+    docsUrl: "https://docs.temporal.io/self-hosted-guide/deployment",
     compose: `name: temporal
 services:
   temporal:
@@ -119,8 +119,13 @@ services:
       - --store_dir=/data
       - --http_port=8222
     ports:
-      - "4222"
+      # Monitoring HTTP FIRST: reconcile-map marks the first port primary, and
+      # the primary is what the generated domain reverse-proxies to. 4222 is
+      # the binary NATS protocol, which a browser cannot speak, so leading with
+      # it makes Visit useless. Clients dial <service>:4222 explicitly over the
+      # stack network and are unaffected by which port is primary.
       - "8222"
+      - "4222"
     volumes:
       - nats-data:/data
     restart: always
@@ -149,7 +154,7 @@ volumes:
     compose: `name: baserow
 services:
   baserow:
-    image: baserow/baserow:1.35.1
+    image: baserow/baserow:2.3.3
     environment:
       BASEROW_PUBLIC_URL: \${BASEROW_PUBLIC_URL}
       SECRET_KEY: \${SECRET_KEY}

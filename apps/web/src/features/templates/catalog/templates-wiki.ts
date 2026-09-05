@@ -29,7 +29,7 @@ export const WIKI_TEMPLATES: StackTemplate[] = [
     compose: `name: bookstack
 services:
   bookstack:
-    image: lscr.io/linuxserver/bookstack:26.05.3
+    image: lscr.io/linuxserver/bookstack:26.05.4
     depends_on:
       - db
     environment:
@@ -84,11 +84,16 @@ volumes:
     logoBrand: "Wiki.js",
     docsUrl: "https://docs.requarks.io/install/docker",
     // Everything else is configured through the setup wizard on first visit,
-    // which is why the database password is the only prompt here.
+    // which is why the database password is the only prompt here. That wizard
+    // is UNAUTHENTICATED and first-visitor-wins: whoever loads the page first
+    // creates the admin account, so finish setup before exposing the instance.
+    // Pinned to 2.5.314 (2026-05-01), the newest stable release; it carries the
+    // fix for GHSA-cq3g-mwrg-v2rv (critical privilege escalation via
+    // `users.update`, patched in 2.5.313). 3.x is still pre-release only.
     compose: `name: wikijs
 services:
   wiki:
-    image: ghcr.io/requarks/wiki:2.5
+    image: ghcr.io/requarks/wiki:2.5.314
     depends_on:
       - db
     environment:

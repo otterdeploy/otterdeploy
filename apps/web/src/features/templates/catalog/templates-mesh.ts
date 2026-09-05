@@ -136,6 +136,13 @@ services:
     image: netbirdio/dashboard:v2.91.1
     depends_on:
       - netbird
+    # The four OIDC values below are not free-form: the combined server hard-codes
+    # the audience it will accept (config.go: httpConfig.AuthAudience =
+    # "netbird-dashboard"), the embedded Dex registers exactly one dashboard
+    # client id ("netbird-dashboard", idp/embedded.go), Dex rejects any scope it
+    # does not know with invalid_scope, and it matches redirect_uri literally
+    # against the list config.yaml registers above. The dashboard otherwise
+    # defaults to "/#callback", which is not one of them.
     environment:
       NETBIRD_MGMT_API_ENDPOINT: "\${NETBIRD_DOMAIN}"
       NETBIRD_MGMT_GRPC_API_ENDPOINT: "\${NETBIRD_DOMAIN}"
@@ -143,7 +150,9 @@ services:
       AUTH_CLIENT_ID: "netbird-dashboard"
       AUTH_AUTHORITY: "\${NETBIRD_DOMAIN}/oauth2"
       USE_AUTH0: "false"
-      AUTH_SUPPORTED_SCOPES: "openid profile email offline_access api"
+      AUTH_SUPPORTED_SCOPES: "openid profile email groups"
+      AUTH_REDIRECT_URI: "/nb-auth"
+      AUTH_SILENT_REDIRECT_URI: "/nb-silent-auth"
       NETBIRD_TOKEN_SOURCE: "idToken"
     restart: always
   proxy:

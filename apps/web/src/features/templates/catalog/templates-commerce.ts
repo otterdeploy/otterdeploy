@@ -21,19 +21,35 @@ export const COMMERCE_TEMPLATES: StackTemplate[] = [
     // Odoo reads HOST/USER/PASSWORD rather than a DSN, and it creates its own
     // databases at first run — which is why the Postgres user here owns the
     // cluster rather than a single pre-made database.
+    //
+    // /etc/odoo is a named volume because that is where $ODOO_RC lives, and
+    // odoo.conf is the ONLY place the master password (`admin_passwd`) can be
+    // stored — it has no env var and no CLI flag. Odoo writes the password an
+    // operator sets on first visit back into that file; without the volume it
+    // sat in the image layer and reverted to the built-in default "admin" on
+    // every container recreate, leaving /web/database/manager (create, drop,
+    // duplicate, backup, restore) open to anyone who reached the port. Docker
+    // seeds the empty volume from the image, so odoo.conf's addons_path and
+    // data_dir survive the mount.
+    //
+    // --proxy-mode makes Odoo trust X-Forwarded-* for URL building and client
+    // IPs. Safe here and only here: otterdeploy's Caddy edge always fronts the
+    // service and overwrites those headers.
     compose: `name: odoo
 services:
   odoo:
-    image: odoo:18
+    image: odoo:19.0
     depends_on:
       - db
     environment:
       HOST: "\${{stack.db.HOST}}"
       USER: odoo
       PASSWORD: \${POSTGRES_PASSWORD}
+    command: ["odoo", "--proxy-mode"]
     ports:
       - "8069"
     volumes:
+      - odoo-config:/etc/odoo
       - odoo-data:/var/lib/odoo
       - odoo-addons:/mnt/extra-addons
     restart: always
@@ -52,6 +68,7 @@ services:
       retries: 5
     restart: always
 volumes:
+  odoo-config:
   odoo-data:
   odoo-addons:
   odoo-db:
@@ -85,7 +102,7 @@ volumes:
     compose: `name: prestashop
 services:
   prestashop:
-    image: prestashop/prestashop:9.1-apache
+    image: prestashop/prestashop:9.1.5-apache
     depends_on:
       - db
     environment:

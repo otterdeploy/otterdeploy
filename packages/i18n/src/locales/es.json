@@ -1186,7 +1186,11 @@
         "description": "Domótica que prioriza lo local: dispositivos, escenas y automatizaciones se evalúan en tu propio servidor y no en la nube de un fabricante. Corre en red bridge, así que añade los dispositivos por dirección o vía MQTT en lugar de confiar en el descubrimiento por difusión."
       },
       "hoppscotch": {
-        "description": "Cliente de API en el navegador: peticiones REST, GraphQL y WebSocket con colecciones y entornos. Una alternativa autoalojada a Postman que nunca sincroniza tus tokens en ningún sitio."
+        "description": "Cliente de API en el navegador: peticiones REST, GraphQL y WebSocket con colecciones y entornos. Una alternativa autoalojada a Postman que nunca sincroniza tus tokens en ningún sitio.",
+        "env": {
+          "DATA_ENCRYPTION_KEY": "Clave maestra de todo lo que Hoppscotch guarda cifrado: los secretos de firma que genera en el primer arranque, las credenciales SMTP y los secretos de cliente SSO. Debe tener exactamente 32 caracteres, y cambiarla más adelante deja ilegibles las filas existentes.",
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+        }
       },
       "immich": {
         "description": "Copia de seguridad autoalojada de fotos y vídeos, con aplicaciones móviles, reconocimiento de caras y objetos y navegación por línea temporal. El servicio de aprendizaje automático se ejecuta al lado, así que nada sale de la máquina.",
@@ -1433,7 +1437,8 @@
       "pocket-id": {
         "description": "Proveedor OIDC construido en torno a las passkeys, así que no hay contraseñas que guardar ni restablecer. Lo bastante pequeño como para ponerlo delante de herramientas internas sin montar una plataforma de identidad completa.",
         "env": {
-          "APP_URL": "URL base pública. Los tokens emitidos y el descubrimiento OIDC se construyen a partir de ella."
+          "APP_URL": "URL base pública. Los tokens emitidos y el descubrimiento OIDC se construyen a partir de ella.",
+          "ENCRYPTION_KEY": "Cifra las claves de firma y los secretos almacenados en reposo. Obligatoria desde la v2; si se pierde, los datos existentes quedan ilegibles."
         }
       },
       "pocketbase": {
@@ -1497,7 +1502,8 @@
           "TOOLJET_HOST": "URL completa, con esquema incluido, desde la que se sirve ToolJet. Se usa como origen para los retornos de autenticación y las apps embebidas.",
           "LOCKBOX_MASTER_KEY": "Cifra las credenciales de origen de datos almacenadas. Debe medir 32 bytes en hexadecimal.",
           "SECRET_KEY_BASE": "Firma sesiones y cookies.",
-          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido."
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido.",
+          "PGRST_JWT_SECRET": "Secreto HS256 compartido entre ToolJet y el PostgREST incluido, que sirve la base de datos de ToolJet. Sin él, el editor de tablas integrado no devuelve nada."
         }
       },
       "twenty": {
@@ -1524,7 +1530,8 @@
       "unleash": {
         "description": "Servicio de feature flags con despliegues graduales, reglas de segmentación y conmutadores por entorno. Basado en SDK, así que los flags se evalúan en tu aplicación y no por red en cada petición.",
         "env": {
-          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena los flags y las estrategias."
+          "POSTGRES_PASSWORD": "Contraseña del Postgres incluido que almacena los flags y las estrategias.",
+          "UNLEASH_SECRET": "Firma las cookies de sesión. El valor por defecto integrado es una constante pública, así que solo un valor generado impide que alguien falsifique un inicio de sesión."
         }
       },
       "uptime-kuma": {

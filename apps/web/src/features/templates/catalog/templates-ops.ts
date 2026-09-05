@@ -20,11 +20,11 @@ export const OPS_TEMPLATES: StackTemplate[] = [
       },
     ],
     logoBrand: "n8n",
-    docsUrl: "https://docs.n8n.io/hosting/installation/docker/",
+    docsUrl: "https://docs.n8n.io/deploy/host-n8n/install-options/install-with-docker",
     compose: `name: n8n
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:2.37.9
     environment:
       N8N_ENCRYPTION_KEY: \${N8N_ENCRYPTION_KEY}
       WEBHOOK_URL: \${WEBHOOK_URL}
@@ -111,7 +111,7 @@ volumes:
     compose: `name: grafana
 services:
   grafana:
-    image: grafana/grafana-oss:13.0.2
+    image: grafana/grafana:13.2.1
     depends_on:
       - prometheus
     environment:

@@ -25,11 +25,11 @@ export const CRM_TEMPLATES: StackTemplate[] = [
       },
     ],
     logoBrand: "Twenty",
-    docsUrl: "https://twenty.com/developers/section/self-hosting/docker-compose",
+    docsUrl: "https://docs.twenty.com/developers/self-host/capabilities/docker-compose",
     compose: `name: twenty
 services:
   twenty:
-    image: twentycrm/twenty:v2.32.0
+    image: twentycrm/twenty:v2.37.5
     depends_on:
       - db
       - redis
@@ -47,7 +47,7 @@ services:
       - twenty-data:/app/packages/twenty-server/.local-storage
     restart: always
   worker:
-    image: twentycrm/twenty:v2.32.0
+    image: twentycrm/twenty:v2.37.5
     command: ["yarn", "worker:prod"]
     depends_on:
       - db

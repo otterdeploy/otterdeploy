@@ -17,14 +17,16 @@ export const MEDIA_TEMPLATES: StackTemplate[] = [
       },
     ],
     logoBrand: "Immich",
-    docsUrl: "https://immich.app/docs/install/docker-compose",
+    docsUrl: "https://docs.immich.app/install/docker-compose",
     // Immich needs Postgres with a vector extension, not stock Postgres: the
     // upstream `immich-app/postgres` image is the supported build and swapping
-    // it for `postgres:16` fails at the first face/CLIP index.
+    // it for `postgres:16` fails at the first face/CLIP index. v3 dropped
+    // pgvecto.rs entirely, so the extension has to be VectorChord (>=0.3 <2);
+    // the tag below is the exact one upstream's own v3.1.0 compose pins.
     compose: `name: immich
 services:
   immich-server:
-    image: ghcr.io/immich-app/immich-server:v1.128.0
+    image: ghcr.io/immich-app/immich-server:v3.1.0
     depends_on:
       - database
       - redis
@@ -41,7 +43,7 @@ services:
       - immich-upload:/data
     restart: always
   immich-machine-learning:
-    image: ghcr.io/immich-app/immich-machine-learning:v1.128.0
+    image: ghcr.io/immich-app/immich-machine-learning:v3.1.0
     volumes:
       - immich-model-cache:/cache
     restart: always
@@ -56,7 +58,7 @@ services:
       - immich-db:/var/lib/postgresql/data
     restart: always
   redis:
-    image: valkey/valkey:8-alpine
+    image: valkey/valkey:9-alpine
     healthcheck:
       test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
       interval: 10s

@@ -15,10 +15,7 @@ export const DEVTOOLS_TEMPLATES: StackTemplate[] = [
     compose: `name: pocketbase
 services:
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
-    command:
-      - serve
-      - --http=0.0.0.0:8090
+    image: ghcr.io/muchobien/pocketbase:0.40.2
     ports:
       - "8090"
     volumes:
@@ -40,7 +37,7 @@ volumes:
     compose: `name: mailpit
 services:
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.31.0
     environment:
       MP_MAX_MESSAGES: "\${MP_MAX_MESSAGES:-5000}"
       MP_DATABASE: /data/mailpit.db
@@ -73,11 +70,11 @@ volumes:
       },
     ],
     logoBrand: "Forgejo",
-    docsUrl: "https://forgejo.org/docs/latest/admin/installation-docker/",
+    docsUrl: "https://forgejo.org/docs/v15.0/admin/installation/docker/",
     compose: `name: forgejo
 services:
   forgejo:
-    image: codeberg.org/forgejo/forgejo:11
+    image: codeberg.org/forgejo/forgejo:15.0.7
     depends_on:
       - db
     environment:
@@ -119,18 +116,25 @@ volumes:
         key: "POSTGRES_PASSWORD",
         descriptionKey: "templates.catalog.unleash.env.POSTGRES_PASSWORD",
       },
+      {
+        key: "UNLEASH_SECRET",
+        descriptionKey: "templates.catalog.unleash.env.UNLEASH_SECRET",
+        generateHint: "openssl rand -hex 32",
+      },
     ],
     logoBrand: "Unleash",
-    docsUrl: "https://docs.getunleash.io/using-unleash/deploy/getting-started",
+    docsUrl: "https://docs.getunleash.io/deploy/getting-started",
     compose: `name: unleash
 services:
   unleash:
-    image: unleashorg/unleash-server:latest
+    image: unleashorg/unleash-server:8.1.0
     depends_on:
       - db
     environment:
       DATABASE_URL: "postgres://unleash:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/unleash"
       DATABASE_SSL: "false"
+      UNLEASH_URL: \${{stack.unleash.PUBLIC_URL}}
+      UNLEASH_SECRET: \${UNLEASH_SECRET}
     ports:
       - "4242"
     restart: always

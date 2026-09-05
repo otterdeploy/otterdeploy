@@ -8,7 +8,7 @@ export const PLATFORM_OPS_TEMPLATES: StackTemplate[] = [
     name: "GlitchTip",
     descriptionKey: "templates.catalog.glitchtip.description",
     category: "observability",
-    includes: ["glitchtip", "worker", "db", "redis"],
+    includes: ["glitchtip", "worker", "migrate", "db", "redis"],
     requiredEnv: [
       {
         key: "GLITCHTIP_DOMAIN",
@@ -32,7 +32,7 @@ export const PLATFORM_OPS_TEMPLATES: StackTemplate[] = [
     compose: `name: glitchtip
 services:
   glitchtip:
-    image: glitchtip/glitchtip:v5.0.5
+    image: glitchtip/glitchtip:6.2.6
     depends_on:
       - db
       - redis
@@ -49,9 +49,9 @@ services:
       - glitchtip-uploads:/code/uploads
     restart: always
   worker:
-    image: glitchtip/glitchtip:v5.0.5
+    image: glitchtip/glitchtip:6.2.6
     command:
-      - ./bin/run-celery-with-beat.sh
+      - ./bin/run-worker.sh
     depends_on:
       - db
       - redis
@@ -65,6 +65,20 @@ services:
     volumes:
       - glitchtip-uploads:/code/uploads
     restart: always
+  migrate:
+    image: glitchtip/glitchtip:6.2.6
+    command:
+      - ./bin/run-migrate.sh
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "postgres://glitchtip:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/glitchtip"
+      REDIS_URL: "redis://\${{stack.redis.HOST}}:6379/0"
+      SECRET_KEY: \${SECRET_KEY}
+      GLITCHTIP_DOMAIN: \${GLITCHTIP_DOMAIN}
+      DEFAULT_FROM_EMAIL: \${DEFAULT_FROM_EMAIL}
+      EMAIL_URL: "\${EMAIL_URL:-consolemail://}"
+    restart: "no"
   db:
     image: postgres:17-alpine
     environment:
@@ -99,7 +113,7 @@ volumes:
     compose: `name: ntfy
 services:
   ntfy:
-    image: binwiederhier/ntfy:latest
+    image: binwiederhier/ntfy:v2.28.0
     command:
       - serve
     environment:
@@ -138,11 +152,11 @@ volumes:
     compose: `name: listmonk
 services:
   listmonk:
-    image: listmonk/listmonk:latest
+    image: listmonk/listmonk:v6.2.0
     command:
       - sh
       - -c
-      - "./listmonk --install --idempotent --yes --config '' && ./listmonk --config ''"
+      - "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"
     depends_on:
       - db
     environment:
