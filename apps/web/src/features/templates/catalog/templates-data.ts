@@ -220,8 +220,7 @@ volumes:
       },
     ],
     logoBrand: "Meilisearch",
-    docsUrl:
-      "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/quick_start",
+    docsUrl: "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/quick_start",
     compose: `name: meilisearch
 services:
   meilisearch:
