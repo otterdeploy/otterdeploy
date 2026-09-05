@@ -25,7 +25,7 @@ export const DEV_TEMPLATES: StackTemplate[] = [
     compose: `name: authentik
 services:
   server:
-    image: ghcr.io/goauthentik/server:2026.5.4
+    image: ghcr.io/goauthentik/server:2026.8.1
     command: server
     depends_on:
       - db
@@ -41,7 +41,7 @@ services:
       - "9000"
     restart: always
   worker:
-    image: ghcr.io/goauthentik/server:2026.5.4
+    image: ghcr.io/goauthentik/server:2026.8.1
     command: worker
     depends_on:
       - db
@@ -105,7 +105,7 @@ volumes:
     compose: `name: vaultwarden
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:1.37.2
     environment:
       DOMAIN: \${DOMAIN}
       ADMIN_TOKEN: \${ADMIN_TOKEN}

@@ -1186,7 +1186,11 @@
         "description": "Local-first home automation: devices, scenes and automations evaluated on your own server rather than a vendor cloud. Runs in bridge networking, so add devices by address or via MQTT rather than relying on broadcast discovery."
       },
       "hoppscotch": {
-        "description": "API client in the browser: REST, GraphQL and WebSocket requests with collections and environments. A self-hosted alternative to Postman that never syncs your tokens anywhere."
+        "description": "API client in the browser: REST, GraphQL and WebSocket requests with collections and environments. A self-hosted alternative to Postman that never syncs your tokens anywhere.",
+        "env": {
+          "DATA_ENCRYPTION_KEY": "Master key for everything Hoppscotch stores encrypted: the signing secrets it generates on first boot, SMTP credentials and SSO client secrets. Must be exactly 32 characters, and changing it later makes the existing rows unreadable.",
+          "POSTGRES_PASSWORD": "Password for the bundled Postgres."
+        }
       },
       "immich": {
         "description": "Self-hosted photo and video backup with mobile apps, face and object recognition, and timeline browsing. The machine-learning service runs alongside, so nothing is sent off the box.",
@@ -1433,7 +1437,8 @@
       "pocket-id": {
         "description": "OIDC provider built around passkeys, so there are no passwords to store or reset. Small enough to put in front of internal tools without running a full identity platform.",
         "env": {
-          "APP_URL": "Public base URL. Issued tokens and OIDC discovery are built from it."
+          "APP_URL": "Public base URL. Issued tokens and OIDC discovery are built from it.",
+          "ENCRYPTION_KEY": "Encrypts signing keys and stored secrets at rest. Required from v2; losing it makes existing data unreadable."
         }
       },
       "pocketbase": {
@@ -1497,7 +1502,8 @@
           "TOOLJET_HOST": "The full URL ToolJet is served at, scheme included. It is used as the origin for auth callbacks and embedded apps.",
           "LOCKBOX_MASTER_KEY": "Encrypts stored datasource credentials. Must be 32 bytes of hex.",
           "SECRET_KEY_BASE": "Signs sessions and cookies.",
-          "POSTGRES_PASSWORD": "Password for the bundled Postgres."
+          "POSTGRES_PASSWORD": "Password for the bundled Postgres.",
+          "PGRST_JWT_SECRET": "Shared HS256 secret between ToolJet and the bundled PostgREST, which serves the ToolJet Database. Without it the built-in table editor returns nothing."
         }
       },
       "twenty": {
@@ -1524,7 +1530,8 @@
       "unleash": {
         "description": "Feature-flag service with gradual rollouts, targeting rules and per-environment toggles. SDK-driven, so flags evaluate in your app rather than over the network per request.",
         "env": {
-          "POSTGRES_PASSWORD": "Password for the bundled Postgres that stores flags and strategies."
+          "POSTGRES_PASSWORD": "Password for the bundled Postgres that stores flags and strategies.",
+          "UNLEASH_SECRET": "Signs session cookies. The built-in default is a public constant, so a generated value is what stops anyone forging a login."
         }
       },
       "uptime-kuma": {

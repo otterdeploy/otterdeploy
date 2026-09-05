@@ -22,7 +22,7 @@ export const AGENT_INFRA_TEMPLATES: StackTemplate[] = [
     compose: `name: docling
 services:
   docling-serve:
-    image: ghcr.io/docling-project/docling-serve-cpu:latest
+    image: ghcr.io/docling-project/docling-serve-cpu:v1.32.0
     environment:
       DOCLING_SERVE_ENABLE_UI: "true"
       DOCLING_SERVE_API_KEY: \${DOCLING_API_KEY}
@@ -124,7 +124,7 @@ volumes:
     compose: `name: buzz
 services:
   relay:
-    image: ghcr.io/block/buzz:main
+    image: ghcr.io/block/buzz:0.2.1
     depends_on:
       - postgres
       - redis

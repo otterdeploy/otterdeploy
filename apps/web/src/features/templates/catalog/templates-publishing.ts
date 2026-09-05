@@ -24,7 +24,7 @@ export const PUBLISHING_TEMPLATES: StackTemplate[] = [
     compose: `name: wordpress
 services:
   wordpress:
-    image: wordpress:6-apache
+    image: wordpress:7.1.0-apache
     depends_on:
       - db
     environment:
@@ -73,7 +73,7 @@ volumes:
     compose: `name: matomo
 services:
   matomo:
-    image: matomo:5-apache
+    image: matomo:5.13.0-apache
     depends_on:
       - db
     environment:

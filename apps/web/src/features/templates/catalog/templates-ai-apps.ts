@@ -9,30 +9,25 @@ export const AI_APPS_TEMPLATES: StackTemplate[] = [
     descriptionKey: "templates.catalog.flowise.description",
     category: "ai",
     includes: ["flowise"],
-    requiredEnv: [
-      {
-        key: "FLOWISE_PASSWORD",
-        descriptionKey: "templates.catalog.flowise.env.FLOWISE_PASSWORD",
-      },
-    ],
+    requiredEnv: [],
     logoBrand: "Flowise",
-    docsUrl: "https://docs.flowiseai.com/configuration/deployment/docker",
+    docsUrl: "https://docs.flowiseai.com/getting-started",
     compose: `name: flowise
 services:
   flowise:
-    image: flowiseai/flowise:latest
+    image: flowiseai/flowise:3.1.4
     environment:
-      FLOWISE_USERNAME: "\${FLOWISE_USERNAME:-admin}"
-      FLOWISE_PASSWORD: \${FLOWISE_PASSWORD}
-      DATABASE_PATH: /root/.flowise
-      APIKEY_PATH: /root/.flowise
-      SECRETKEY_PATH: /root/.flowise
-      LOG_PATH: /root/.flowise/logs
       PORT: "3000"
+      APP_URL: "\${{stack.flowise.PUBLIC_URL}}"
+      DATABASE_PATH: /home/node/.flowise
+      SECRETKEY_PATH: /home/node/.flowise
+      BLOB_STORAGE_PATH: /home/node/.flowise/storage
+      LOG_PATH: /home/node/logs
+      EXPIRE_AUTH_TOKENS_ON_RESTART: "true"
     ports:
       - "3000"
     volumes:
-      - flowise-data:/root/.flowise
+      - flowise-data:/home/node
     restart: always
 volumes:
   flowise-data:
@@ -55,7 +50,7 @@ volumes:
     compose: `name: anythingllm
 services:
   anythingllm:
-    image: mintplexlabs/anythingllm:latest
+    image: mintplexlabs/anythingllm:1.16.1
     environment:
       STORAGE_DIR: /app/server/storage
       JWT_SECRET: \${JWT_SECRET}
@@ -81,7 +76,7 @@ volumes:
     compose: `name: libretranslate
 services:
   libretranslate:
-    image: libretranslate/libretranslate:latest
+    image: libretranslate/libretranslate:v1.9.6
     environment:
       LT_DISABLE_WEB_UI: "false"
       LT_LOAD_ONLY: "\${LT_LOAD_ONLY:-en,es,fr,de,pt}"
@@ -123,7 +118,7 @@ volumes:
     compose: `name: activepieces
 services:
   activepieces:
-    image: ghcr.io/activepieces/activepieces:0.75.0
+    image: ghcr.io/activepieces/activepieces:0.90.1
     depends_on:
       - db
       - redis

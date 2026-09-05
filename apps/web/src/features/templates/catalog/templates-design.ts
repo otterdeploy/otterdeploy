@@ -32,7 +32,7 @@ export const DESIGN_TEMPLATES: StackTemplate[] = [
     compose: `name: penpot
 services:
   frontend:
-    image: penpotapp/frontend:2.9.0
+    image: penpotapp/frontend:2.17.2
     depends_on:
       - backend
       - exporter
@@ -47,7 +47,7 @@ services:
       - penpot-assets:/opt/data/assets
     restart: always
   backend:
-    image: penpotapp/backend:2.9.0
+    image: penpotapp/backend:2.17.2
     depends_on:
       - db
       - valkey
@@ -66,7 +66,7 @@ services:
       - penpot-assets:/opt/data/assets
     restart: always
   exporter:
-    image: penpotapp/exporter:2.9.0
+    image: penpotapp/exporter:2.17.2
     depends_on:
       - valkey
     environment:

@@ -98,7 +98,7 @@ volumes:
     compose: `name: affine
 services:
   affine:
-    image: ghcr.io/toeverything/affine:stable
+    image: ghcr.io/toeverything/affine:0.27.4
     depends_on:
       - affine_migration
       - postgres
@@ -114,7 +114,7 @@ services:
       - "3010"
     restart: unless-stopped
   affine_migration:
-    image: ghcr.io/toeverything/affine:stable
+    image: ghcr.io/toeverything/affine:0.27.4
     command: ["sh", "-c", "node ./scripts/self-host-predeploy.js"]
     depends_on:
       - postgres

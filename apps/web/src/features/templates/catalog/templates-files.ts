@@ -30,11 +30,20 @@ export const FILES_TEMPLATES: StackTemplate[] = [
       },
     ],
     logoBrand: "Nextcloud",
-    docsUrl: "https://github.com/nextcloud/docker#docker-compose",
+    docsUrl: "https://github.com/nextcloud/docker#running-this-image-with-docker-compose",
+    // Nextcloud keeps three majors maintained at once — 32, 33 and 34 all got
+    // point releases in the same batch (34.0.3 / 33.0.8 / 32.0.14, 2026-08-13).
+    // 34 is the newest of them, and 34.0.3-apache shares its digest with the
+    // image's `latest`, `stable`, `production`, `apache` and `34-apache` tags
+    // (all sha256:b97df9e0…, pushed 2026-09-02), so this pin IS the head of
+    // the line, just spelled out. The pin is exact because the entrypoint
+    // refuses to skip a major: an instance installed on 31 cannot jump
+    // straight to 34, it has to be walked 31 -> 32 -> 33 -> 34, one image at
+    // a time, so a floating tag would strand anyone who fell two behind.
     compose: `name: nextcloud
 services:
   nextcloud:
-    image: nextcloud:31-apache
+    image: nextcloud:34.0.3-apache
     depends_on:
       - db
       - redis
@@ -107,14 +116,18 @@ volumes:
       },
     ],
     logoBrand: "Paperless-ngx",
-    docsUrl: "https://docs.paperless-ngx.com/setup/#docker_hub",
+    docsUrl: "https://docs.paperless-ngx.com/setup/#docker",
     // Gotenberg and Tika are what let Paperless index office documents and
     // e-mail rather than only scans; the catalog ships Gotenberg standalone
     // too, but Paperless expects its OWN instance on a private port.
+    // Tika is pinned, not floated: Tika 4.0.0 (which `latest` has pointed at
+    // since 2026-08-22) dropped the /tika/form/* endpoints the bundled
+    // tika-client still PUTs to, so every Office/.eml document fails to parse.
+    // Upstream pinned 3.3.1 in v3.1.0 for the same reason (paperless-ngx#13755).
     compose: `name: paperless-ngx
 services:
   webserver:
-    image: ghcr.io/paperless-ngx/paperless-ngx:2.15
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.1.2
     depends_on:
       - db
       - broker
@@ -170,7 +183,7 @@ services:
       - --chromium-allow-list=file:///tmp/.*
     restart: always
   tika:
-    image: apache/tika:latest-full
+    image: apache/tika:3.3.1.0-full
     restart: always
 volumes:
   paperless-data:

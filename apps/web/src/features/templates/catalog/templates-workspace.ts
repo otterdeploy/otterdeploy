@@ -32,7 +32,7 @@ export const WORKSPACE_TEMPLATES: StackTemplate[] = [
     compose: `name: cal-com
 services:
   calcom:
-    image: ghcr.io/dr34mw0rk5/calcom-web:latest
+    image: calcom/cal.com:v6.2.0
     depends_on:
       - db
     environment:
@@ -40,6 +40,7 @@ services:
       NEXTAUTH_URL: \${CALCOM_URL}
       NEXTAUTH_SECRET: \${NEXTAUTH_SECRET}
       CALENDSO_ENCRYPTION_KEY: \${CALENDSO_ENCRYPTION_KEY}
+      DATABASE_HOST: "\${{stack.db.HOST}}:5432"
       DATABASE_URL: "postgresql://calcom:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/calcom"
       DATABASE_DIRECT_URL: "postgresql://calcom:\${POSTGRES_PASSWORD}@\${{stack.db.HOST}}:5432/calcom"
       NEXT_PUBLIC_LICENSE_CONSENT: agree
@@ -88,12 +89,13 @@ volumes:
     compose: `name: vikunja
 services:
   vikunja:
-    image: vikunja/vikunja:0.24.6
+    image: vikunja/vikunja:2.6.0
+    user: "0:0"
     depends_on:
       - db
     environment:
       VIKUNJA_SERVICE_PUBLICURL: \${VIKUNJA_URL}
-      VIKUNJA_SERVICE_JWTSECRET: \${VIKUNJA_JWT_SECRET}
+      VIKUNJA_SERVICE_SECRET: \${VIKUNJA_JWT_SECRET}
       VIKUNJA_DATABASE_TYPE: postgres
       VIKUNJA_DATABASE_HOST: "\${{stack.db.HOST}}"
       VIKUNJA_DATABASE_DATABASE: vikunja
@@ -131,11 +133,11 @@ volumes:
     includes: ["stirling-pdf"],
     requiredEnv: [],
     logoBrand: "Stirling PDF",
-    docsUrl: "https://docs.stirlingpdf.com/Installation/Docker%20Install",
+    docsUrl: "https://docs.stirlingpdf.com/Installation/Docker%20Install/",
     compose: `name: stirling-pdf
 services:
   stirling-pdf:
-    image: ghcr.io/stirling-tools/stirling-pdf:latest
+    image: ghcr.io/stirling-tools/stirling-pdf:2.14.3
     environment:
       DISABLE_ADDITIONAL_FEATURES: "true"
       LANGS: en_GB

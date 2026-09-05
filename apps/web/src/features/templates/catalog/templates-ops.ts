@@ -20,11 +20,11 @@ export const OPS_TEMPLATES: StackTemplate[] = [
       },
     ],
     logoBrand: "n8n",
-    docsUrl: "https://docs.n8n.io/hosting/installation/docker/",
+    docsUrl: "https://docs.n8n.io/deploy/host-n8n/install-options/install-with-docker",
     compose: `name: n8n
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:2.37.9
     environment:
       N8N_ENCRYPTION_KEY: \${N8N_ENCRYPTION_KEY}
       WEBHOOK_URL: \${WEBHOOK_URL}
@@ -111,7 +111,7 @@ volumes:
     compose: `name: grafana
 services:
   grafana:
-    image: grafana/grafana-oss:13.0.2
+    image: grafana/grafana:13.2.1
     depends_on:
       - prometheus
     environment:
@@ -140,6 +140,84 @@ services:
 volumes:
   grafana-data:
   prometheus-data:
+`,
+  },
+  {
+    id: "jaeger",
+    name: "Jaeger",
+    descriptionKey: "templates.catalog.jaeger.description",
+    category: "observability",
+    includes: ["jaeger"],
+    requiredEnv: [],
+    logoBrand: "Jaeger",
+    docsUrl: "https://www.jaegertracing.io/docs/1.76/getting-started/",
+    compose: `name: jaeger
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: memory
+    ports:
+      - "16686"
+      - "4317"
+      - "4318"
+    restart: always
+`,
+  },
+  {
+    id: "healthchecks",
+    name: "Healthchecks",
+    descriptionKey: "templates.catalog.healthchecks.description",
+    category: "observability",
+    includes: ["healthchecks", "db"],
+    requiredEnv: [
+      {
+        key: "SITE_ROOT",
+        descriptionKey: "templates.catalog.healthchecks.env.SITE_ROOT",
+      },
+      {
+        key: "SECRET_KEY",
+        descriptionKey: "templates.catalog.healthchecks.env.SECRET_KEY",
+      },
+      {
+        key: "POSTGRES_PASSWORD",
+        descriptionKey: "templates.catalog.healthchecks.env.POSTGRES_PASSWORD",
+      },
+    ],
+    logoBrand: "Healthchecks",
+    docsUrl: "https://healthchecks.io/docs/self_hosted_docker/",
+    compose: `name: healthchecks
+services:
+  healthchecks:
+    image: healthchecks/healthchecks:v4.4
+    depends_on:
+      - db
+    environment:
+      SITE_ROOT: \${SITE_ROOT}
+      SECRET_KEY: \${SECRET_KEY}
+      DB: postgres
+      DB_HOST: "\${{stack.db.HOST}}"
+      DB_PORT: "5432"
+      DB_NAME: healthchecks
+      DB_USER: healthchecks
+      DB_PASSWORD: \${POSTGRES_PASSWORD}
+      ALLOWED_HOSTS: "*"
+      DEBUG: "False"
+    ports:
+      - "8000"
+    restart: always
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: healthchecks
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      POSTGRES_DB: healthchecks
+    volumes:
+      - healthchecks-db:/var/lib/postgresql/data
+    restart: always
+volumes:
+  healthchecks-db:
 `,
   },
 ];

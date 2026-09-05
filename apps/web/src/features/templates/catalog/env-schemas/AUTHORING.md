@@ -82,8 +82,33 @@ Redis, Temporal) must be declared, with the value the compose gives it.
 | `@type=string(minLength=N, startsWith=X, matches=/re/)` | constraints; a regex must be a `/…/` literal |
 | `@docs("label", url)` | the label MUST be quoted; the URL MUST answer 2xx — verify with curl |
 
+**Attach every `@docs` to an item, never to a section ruler.** A `@docs` in a
+comment block that is separated from the next key by a blank line is dropped by
+the env-spec projection: it never reaches the editor, and `--links` never checks
+it, so it rots silently. Put it in the comment block directly above the
+section's first key instead. (Several schemas were authored with ruler-level
+`@docs` before this was understood — `uptime-kuma.env.schema` still has two that
+are being dropped.)
+
 Do not invent types outside that table; the interpreter ignores unknown ones
 and the editor then shows no check, which is honest. Do not use `@example`.
+
+## An empty value never reaches the container
+
+Declaring an optional key with an empty value is safe, and is the house style.
+The schema is an EDITOR layer, not a runtime one: `ENV_SCHEMAS` is consumed
+only by `env-catalog`, whose every consumer is a UI component (key
+autocomplete, descriptions, shape validation). Nothing in `packages/api` or
+`packages/jobs` reads it, and the new-resource wizard passes suggestions to
+autocomplete and validators, never auto-applying them to the resource.
+
+So what reaches a running container is exactly: what the compose sets, plus
+what the operator actually typed. This matters because several apps treat a
+PRESENT-but-blank variable as an override to zero/empty (LiveKit's YAML
+scalars are one: a blank `LIVEKIT_RTC_TCP_PORT` zeroes the port rather than
+falling back to the config file). Documenting such a key with an empty value
+does NOT trigger that behaviour, so do not pre-fill it with an effective value
+out of caution: describe the hazard in the comment instead.
 
 ## Rules
 

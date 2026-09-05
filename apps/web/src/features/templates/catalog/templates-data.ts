@@ -59,7 +59,12 @@ volumes:
       {
         key: "POSTGRES_PASSWORD",
         descriptionKey: "templates.catalog.nocodb.env.POSTGRES_PASSWORD",
-        generateHint: "openssl rand -base64 24",
+        // Hex, not base64: this password is interpolated into NC_DB's query
+        // string, and NocoDB parses that with `new URL(...).searchParams`
+        // (utils/nc-config/helpers.ts metaUrlToDbConfig), which decodes `+` as
+        // a space. A base64 password containing `+` silently authenticates
+        // with the wrong string and the meta-DB connection fails.
+        generateHint: "openssl rand -hex 24",
       },
       {
         key: "NC_AUTH_JWT_SECRET",
@@ -72,7 +77,7 @@ volumes:
     compose: `name: nocodb
 services:
   nocodb:
-    image: nocodb/nocodb:latest
+    image: nocodb/nocodb:2026.08.1
     depends_on:
       - db
     environment:
@@ -120,11 +125,11 @@ volumes:
       },
     ],
     logoBrand: "RustFS",
-    docsUrl: "https://docs.rustfs.com/",
+    docsUrl: "https://docs.rustfs.com/en/",
     compose: `name: rustfs
 services:
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.0-rc.5
     environment:
       RUSTFS_ACCESS_KEY: \${RUSTFS_ACCESS_KEY}
       RUSTFS_SECRET_KEY: \${RUSTFS_SECRET_KEY}
@@ -169,13 +174,26 @@ volumes:
     compose: `name: rabbitmq
 services:
   rabbitmq:
-    image: rabbitmq:3.13-management
+    image: rabbitmq:4.3.5-management
+    # The Erlang node name is rabbit@<hostname>, and the node's data lives in
+    # /var/lib/rabbitmq/mnesia/<node name>. Without this, Docker derives the
+    # hostname from the container ID, so recreating the container (any image
+    # bump) renames the node and it boots EMPTY while the old queues sit
+    # orphaned in the volume. Verified: recreate without it and a durable
+    # queue is gone; with it the queue and its persistent messages survive.
+    hostname: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: \${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: \${RABBITMQ_PASSWORD}
     ports:
-      - "5672"
+      # Management UI FIRST: the first http-ish port becomes the primary, and
+      # the primary is what the generated domain reverse-proxies to. Port 5672
+      # is the binary AMQP protocol, which a browser cannot speak at all, so
+      # leading with it makes Visit useless. AMQP clients dial
+      # <service>:5672 explicitly over the stack network and do not care
+      # which port the platform made primary.
       - "15672"
+      - "5672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -202,8 +220,7 @@ volumes:
       },
     ],
     logoBrand: "Meilisearch",
-    docsUrl:
-      "https://www.meilisearch.com/docs/learn/self_hosted/getting_started_with_self_hosted_meilisearch",
+    docsUrl: "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/quick_start",
     compose: `name: meilisearch
 services:
   meilisearch:

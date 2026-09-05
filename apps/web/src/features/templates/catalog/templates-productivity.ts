@@ -47,7 +47,7 @@ export const PRODUCTIVITY_TEMPLATES: StackTemplate[] = [
     compose: `name: outline
 services:
   outline:
-    image: outlinewiki/outline:1.9.2
+    image: outlinewiki/outline:1.10.0
     depends_on:
       - db
       - redis
@@ -107,16 +107,19 @@ volumes:
     category: "productivity",
     includes: ["memos"],
     // Nothing to fill in: Memos stores everything in SQLite under its volume
-    // and the first account to sign up becomes the host.
+    // and the first account to sign up becomes the ADMIN. Claim it immediately —
+    // registration is open by default and reachable even in 0.30's private mode.
+    // MEMOS_INSTANCE_URL is deliberately unset: since 0.30 an empty value keeps
+    // the instance private (anonymous visitors get the sign-in page, no RSS).
+    // Setting it to the public URL is what turns Explore/RSS/public memos on.
     requiredEnv: [],
     logoBrand: "Memos",
-    docsUrl: "https://www.usememos.com/docs/install/container-install",
+    docsUrl: "https://www.usememos.com/docs/deploy/docker",
     compose: `name: memos
 services:
   memos:
-    image: neosmemo/memos:stable
+    image: neosmemo/memos:0.30.0
     environment:
-      MEMOS_MODE: prod
       MEMOS_PORT: "5230"
     ports:
       - "5230"
@@ -154,7 +157,7 @@ volumes:
     compose: `name: karakeep
 services:
   web:
-    image: ghcr.io/karakeep-app/karakeep:release
+    image: ghcr.io/karakeep-app/karakeep:0.33.2
     depends_on:
       - chrome
       - meilisearch
@@ -171,10 +174,10 @@ services:
       - karakeep-data:/data
     restart: always
   chrome:
-    image: ghcr.io/karakeep-app/karakeep-chrome:release
+    image: ghcr.io/karakeep-app/karakeep-chrome:151.0.7922.47-r1
     restart: always
   meilisearch:
-    image: getmeili/meilisearch:v1.53
+    image: getmeili/meilisearch:v1.53.1
     environment:
       MEILI_NO_ANALYTICS: "true"
       MEILI_MASTER_KEY: \${MEILI_MASTER_KEY}

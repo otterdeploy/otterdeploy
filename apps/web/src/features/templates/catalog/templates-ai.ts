@@ -19,7 +19,7 @@ export const AI_TEMPLATES: StackTemplate[] = [
     compose: `name: open-webui
 services:
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    image: ghcr.io/open-webui/open-webui:v0.11.3
     depends_on:
       - ollama
     environment:
@@ -62,7 +62,7 @@ volumes:
     compose: `name: litellm
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    image: ghcr.io/berriai/litellm:v1.99.1
     depends_on:
       - db
     environment:

@@ -32,7 +32,7 @@ export const PLATFORM_ID_TEMPLATES: StackTemplate[] = [
     compose: `name: infisical
 services:
   infisical:
-    image: infisical/infisical:v0.162.21
+    image: infisical/infisical:v0.165.2
     depends_on:
       - db
       - redis
@@ -90,7 +90,7 @@ volumes:
     compose: `name: keycloak
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.4
+    image: quay.io/keycloak/keycloak:26.7.3
     command:
       - start
       - --proxy-headers=xforwarded
@@ -143,11 +143,11 @@ volumes:
       },
     ],
     logoBrand: "Docmost",
-    docsUrl: "https://docmost.com/docs/self-hosting/installation",
+    docsUrl: "https://docmost.com/docs/installation",
     compose: `name: docmost
 services:
   docmost:
-    image: docmost/docmost:latest
+    image: docmost/docmost:0.95.0
     depends_on:
       - db
       - redis
