@@ -82,6 +82,7 @@ import { Nocodb } from "@/shared/components/ui/svgs/nocodb";
 import { Ntfy } from "@/shared/components/ui/svgs/ntfy";
 import { Odoo } from "@/shared/components/ui/svgs/odoo";
 import { Ollama } from "@/shared/components/ui/svgs/ollama";
+import { OpenStatus } from "@/shared/components/ui/svgs/openstatus";
 import { Outline } from "@/shared/components/ui/svgs/outline";
 import { Pagerduty } from "@/shared/components/ui/svgs/pagerduty";
 import { PaperlessNgx } from "@/shared/components/ui/svgs/paperless-ngx";
@@ -239,9 +240,10 @@ type BrandKey =
   | "Docling"
   | "Inngest"
   // Marks taken from each project's own repo: absent from dashboard-icons,
-  // svgl and selfh.st. useSend and Trigger.dev are monochrome, so they paint
-  // with `currentColor` and inherit the tile ink.
+  // svgl and selfh.st. useSend, Trigger.dev and openstatus are monochrome, so
+  // they paint with `currentColor` and inherit the tile ink.
   | "Autobase"
+  | "openstatus"
   | "Rivet"
   | "Trigger.dev"
   | "useSend";
@@ -376,6 +378,7 @@ const staticBrands: Record<Exclude<BrandKey, "AWS" | "Buzz" | "Inngest">, SvgCom
   Nextcloud: Nextcloud,
   NocoBase: NocoBase,
   Odoo: Odoo,
+  openstatus: OpenStatus,
   Outline: Outline,
   "Paperless-ngx": PaperlessNgx,
   Penpot: Penpot,

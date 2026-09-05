@@ -99,6 +99,7 @@ import nocodb from "./nocodb.env.schema?raw";
 import ntfy from "./ntfy.env.schema?raw";
 import odoo from "./odoo.env.schema?raw";
 import open_webui from "./open-webui.env.schema?raw";
+import openstatus from "./openstatus.env.schema?raw";
 import outline from "./outline.env.schema?raw";
 import paperless_ngx from "./paperless-ngx.env.schema?raw";
 import penpot from "./penpot.env.schema?raw";
@@ -230,6 +231,17 @@ export const ENV_SCHEMAS: Record<string, TemplateEnvSchema> = {
   ntfy: { source: ntfy, images: ["binwiederhier/ntfy"] },
   odoo: { source: odoo, images: ["odoo"] },
   "open-webui": { source: open_webui, images: ["ghcr.io/open-webui/open-webui"] },
+  openstatus: {
+    source: openstatus,
+    images: [
+      "ghcr.io/openstatushq/openstatus-dashboard",
+      "ghcr.io/openstatushq/openstatus-status-page",
+      "ghcr.io/openstatushq/openstatus-server",
+      "ghcr.io/openstatushq/openstatus-workflows",
+      "ghcr.io/openstatushq/openstatus-private-location",
+      "ghcr.io/openstatushq/openstatus-db-migrate",
+    ],
+  },
   outline: { source: outline, images: ["outlinewiki/outline"] },
   "paperless-ngx": { source: paperless_ngx, images: ["ghcr.io/paperless-ngx/paperless-ngx"] },
   penpot: {

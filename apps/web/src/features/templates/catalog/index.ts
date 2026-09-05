@@ -38,6 +38,7 @@ import { PUBLISHING_TEMPLATES } from "./templates-publishing";
 import { REALTIME_TEMPLATES } from "./templates-realtime";
 import { SERVICES_TEMPLATES } from "./templates-services";
 import { SOCIAL_TEMPLATES } from "./templates-social";
+import { STATUS_TEMPLATES } from "./templates-status";
 import { WIKI_TEMPLATES } from "./templates-wiki";
 import { WORKSPACE_TEMPLATES } from "./templates-workspace";
 
@@ -67,6 +68,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...AI_CHAT_TEMPLATES,
   ...AUTOMATION_TEMPLATES,
   ...OPS_TEMPLATES,
+  ...STATUS_TEMPLATES,
   ...PLATFORM_OPS_TEMPLATES,
   ...PLATFORM_ID_TEMPLATES,
   ...MESH_TEMPLATES,
