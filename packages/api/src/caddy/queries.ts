@@ -1,9 +1,11 @@
 import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
+import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
 
@@ -199,6 +201,43 @@ export async function updateProxyRoute(
   // the current tab stays invisible until something else invalidates.
   if (record) publishRouteUpserted("updated", record);
   return record;
+}
+
+/**
+ * Set how the edge dials a resource's PRIMARY route.
+ *
+ * The seam a compose stack uses to say "this upstream speaks gRPC": routes
+ * are minted by `exposeService`, which knows nothing about the compose file
+ * the service came from, so the label is applied here once the route exists.
+ * Merged onto the stored policy rather than replacing it, so a route that
+ * already carries compression or HSTS keeps them.
+ *
+ * Returns false when the resource has no primary route, so the caller can say
+ * so rather than silently dropping the setting.
+ */
+export async function setPrimaryRouteUpstreamProtocol(
+  resourceId: ResourceId,
+  upstreamProtocol: RoutePolicy["upstreamProtocol"],
+): Promise<boolean> {
+  const [primary] = await db
+    .select({ id: proxyRoute.id, routePolicy: proxyRoute.routePolicy })
+    .from(proxyRoute)
+    .where(
+      and(
+        eq(proxyRoute.resourceId, resourceId),
+        isNull(proxyRoute.previewId),
+        eq(proxyRoute.isPrimary, true),
+      ),
+    )
+    .limit(1);
+  if (!primary) return false;
+  // safeParse, not a spread onto the raw jsonb: a row written before a policy
+  // field existed is missing it, and the schema's defaults are what fill it.
+  const parsed = routePolicySchema.safeParse(primary.routePolicy);
+  const base = parsed.success ? parsed.data : DEFAULT_ROUTE_POLICY;
+  if (base.upstreamProtocol === upstreamProtocol) return true;
+  await updateProxyRoute(primary.id, { routePolicy: { ...base, upstreamProtocol } });
+  return true;
 }
 
 /** Announce removed rows. Unlike an upsert there is no row to carry, so each

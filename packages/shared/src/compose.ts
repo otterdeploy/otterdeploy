@@ -31,6 +31,23 @@ export type ComposeServiceSummary = {
   volumes: string[];
 };
 
+/**
+ * Compose label a stack sets to tell the edge how to dial the service.
+ *
+ * `h2c` is the only value that does anything: it means "this service speaks
+ * gRPC", which the compose file has no native way to say and the platform
+ * cannot infer. Without it the edge dials over HTTP/1.1 and gRPC dies at that
+ * hop regardless of what the stack does downstream.
+ *
+ * A label rather than a template field so it works for every source a stack
+ * can come from — catalog template, pasted YAML, git repo — and so it lives
+ * next to the service it describes.
+ */
+export const UPSTREAM_PROTOCOL_LABEL = "otterdeploy.upstream.protocol";
+
+/** The label's only meaningful value. */
+export const UPSTREAM_PROTOCOL_H2C = "h2c";
+
 /** A `service:port` fronted by a public domain. */
 // Type alias, not interface: aliases keep the implicit index signature that
 // makes this assignable to JsonObject/JsonValue (jsonb columns, log events).

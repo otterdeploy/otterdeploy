@@ -69,6 +69,18 @@ export interface ParsedComposeService {
   resources: ParsedResources;
   restart: ParsedRestart;
   dependsOn: string[];
+  /**
+   * Compose `labels`, normalized to a flat map (compose allows both the map
+   * and the `KEY=value` list form).
+   *
+   * Surfaced because the platform reads a few `otterdeploy.*` keys off it —
+   * facts about a service that compose has no field for. Today that is
+   * `otterdeploy.upstream.protocol`, which tells the edge to dial this
+   * service over h2c because it speaks gRPC. Everything else is carried
+   * through untouched and ignored; a stack's own labels (Traefik's, say) are
+   * none of our business.
+   */
+  labels: Record<string, string>;
 }
 
 export interface ParsedCompose {

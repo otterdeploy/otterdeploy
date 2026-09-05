@@ -21,6 +21,7 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
+import { UPSTREAM_PROTOCOL_H2C, UPSTREAM_PROTOCOL_LABEL } from "@otterdeploy/shared/compose";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { createLogger } from "evlog";
@@ -28,6 +29,7 @@ import { createLogger } from "evlog";
 import type { ParsedComposeService } from "../../stack/compose";
 import type { SwarmServiceRuntime } from "../../swarm";
 
+import { setPrimaryRouteUpstreamProtocol } from "../../caddy/queries";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { normalizePublicHostInput } from "../service/domain-rules";
 import { exposeService } from "../service/expose";
@@ -89,6 +91,9 @@ export async function seedServiceExposure(
   isCreate: boolean,
   svcName: string,
   resourceId: ResourceId,
+  /** The service's compose labels, for the `otterdeploy.*` keys the edge
+   *  reads. See UPSTREAM_PROTOCOL_LABEL. */
+  labels: Record<string, string>,
   log: RequestLogger | undefined,
   progress: (line: string) => void,
 ): Promise<void> {
@@ -131,6 +136,42 @@ export async function seedServiceExposure(
     progress(
       `Service ${svcName}: exposed publicly at ${seeded.value.value.publicDomain ?? "generated host"}.`,
     );
+    await applyUpstreamProtocol(svcName, resourceId, labels, progress);
+  }
+}
+
+/**
+ * Honour `otterdeploy.upstream.protocol: h2c` on a service that just gained a
+ * route.
+ *
+ * Applied here, after the route exists, because `exposeService` mints routes
+ * without ever seeing the compose file the service came from. Seed-only like
+ * the exposure itself: a later edit in the route's own panel is the operator's
+ * and must not be reconciled away.
+ *
+ * Best-effort. A stack whose upstream protocol could not be recorded is still
+ * a stack that deployed; the failure is reported and the route keeps the
+ * HTTP/1.1 default, which is wrong for gRPC but breaks nothing else.
+ */
+async function applyUpstreamProtocol(
+  svcName: string,
+  resourceId: ResourceId,
+  labels: Record<string, string>,
+  progress: (line: string) => void,
+): Promise<void> {
+  if (labels[UPSTREAM_PROTOCOL_LABEL] !== UPSTREAM_PROTOCOL_H2C) return;
+  const wrote = await Result.tryPromise({
+    try: () => setPrimaryRouteUpstreamProtocol(resourceId, "h2c"),
+    catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+  });
+  if (wrote.isErr()) {
+    progress(
+      `Service ${svcName}: exposed, but the edge could not be set to dial it over h2c, ${toErrorMessage(wrote.error)}`,
+    );
+  } else if (!wrote.value) {
+    progress(`Service ${svcName}: exposed, but has no primary route to set h2c on.`);
+  } else {
+    progress(`Service ${svcName}: edge will dial it over h2c (gRPC upstream).`);
   }
 }
 
