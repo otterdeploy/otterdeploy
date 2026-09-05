@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { absoluteUrl, siteDescription } from "@/lib/shared";
+import { absoluteUrl, machineReadableTextHeaders, siteDescription } from "@/lib/shared";
+import { isIndexableDocsPage } from "@/lib/sitemap";
 import { source } from "@/lib/source";
 
 /**
@@ -8,11 +9,11 @@ import { source } from "@/lib/source";
  *
  * The companion to /llms.txt. An assistant that has decided our docs are
  * relevant can take the whole corpus in one request instead of crawling
- * fifteen React routes and hoping each one rendered.
+ * individual React routes and hoping each one rendered.
  *
- * Only MDX pages contribute. The OpenAPI operation pages are generated at
- * runtime from the spec and carry no prose worth flattening, so they are
- * skipped rather than emitted as empty headings.
+ * Only authored MDX pages contribute. The OpenAPI operation pages come from a
+ * build-time spec snapshot and carry no prose worth flattening, so they stay
+ * out rather than appearing as hundreds of empty headings.
  */
 export const Route = createFileRoute("/llms-full.txt")({
   server: {
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/llms-full.txt")({
           "",
         ];
 
-        for (const page of source.getPages()) {
+        for (const page of source.getPages().filter(isIndexableDocsPage)) {
           const data = page.data;
 
           // `getText` is only present on MDX-backed pages (it comes from
@@ -55,12 +56,7 @@ export const Route = createFileRoute("/llms-full.txt")({
           );
         }
 
-        return new Response(parts.join("\n"), {
-          headers: {
-            "content-type": "text/plain; charset=utf-8",
-            "cache-control": "public, max-age=0, s-maxage=3600",
-          },
-        });
+        return new Response(parts.join("\n"), { headers: machineReadableTextHeaders });
       },
     },
   },

@@ -1,6 +1,7 @@
 ---
 title: Environment variables
-description: Values, references, sealed secrets and per-environment overrides.
+seoTitle: Environment variables and secrets
+description: Configure values, resource references, sealed secrets, and per-environment overrides that resolve when an application deploys.
 ---
 
 Environment variables are set per resource and resolved at deploy time. Keys
@@ -14,38 +15,39 @@ otterdeploy env unset API_URL --service web
 
 ## References
 
-A value can point at something else instead of copying it. References are
-resolved server-side when the deployment is built, so nothing sensitive has to
-live in the manifest and nothing has to be updated by hand when the thing it
-points at changes.
+A value can point at something else instead of copying it. Platform references
+use double braces and resolve server-side for each deployment, so nothing has
+to be updated by hand when the thing it points at changes.
 
 | Reference | Resolves to |
 | --- | --- |
-| `${secret}` | A declaration only: the value lives server-side |
-| `${database:<name>.<field>}` | A database's `url`, `host`, `port`, `username`, `password` or `database` |
-| `${service:<name>.host}` | Another service's internal hostname |
-| `${service:<name>.port}` | That service's primary published port |
-| `${service:<name>.port.<name>}` | A named published port |
-| `${service:<name>.<KEY>}` | Another service's environment variable |
+| `${{<database>.DATABASE_URL}}` | A database's internal connection URL |
+| `${{<database>.PGHOST}}` and other `PG*` exports | Individual database connection fields |
+| `${{<service>.HOST}}`, `.PORT` or `.URL` | Another service's internal address |
+| `${{<service>.<KEY>}}` | Another service's resolved environment variable |
+| `${{project.<KEY>}}` | A shared project variable |
+| `${{vault.<provider>.<ref>}}` | A value fetched from an external secret provider at deploy time |
 
 References interpolate mid-string, so you can build a value out of parts:
 
 ```json
 {
-  "DATABASE_URL": "postgres://acme:${database:primary.password}@${database:primary.host}:5432/acme"
+  "DATABASE_URL": "postgres://${{primary.PGUSER}}:${{primary.PGPASSWORD}}@${{primary.PGHOST}}:${{primary.PGPORT}}/${{primary.PGDATABASE}}"
 }
 ```
 
-A malformed reference fails **manifest validation**, not the deploy. A typo in
-the grammar is caught when you write it, not twenty minutes later in a build
-log.
+Manifest env maps additionally accept apply-time references such as
+`${database:primary.url}`, `${database:primary.host}` and
+`${service:api.host}`. Their grammar is checked during manifest validation and
+their values are substituted when the manifest is applied. Use the double-brace
+platform form when a reference must be evaluated again for every deployment.
 
 ### Why references matter
 
 The lookup is by resource **name**, late-bound at deploy. That is the mechanism
 behind [previews](/docs/guides/previews): a preview that owns its own database
 copy (also named `postgres`) resolves the same
-`${database:postgres.DATABASE_URL}` to the copy. The manifest doesn't change.
+`${{postgres.DATABASE_URL}}` to the copy. The manifest doesn't change.
 Nothing is templated per environment.
 
 ## Sealed variables
@@ -86,19 +88,21 @@ variable inherited. You maintain one manifest, not one per environment.
 otterdeploy environments list
 ```
 
-## The manifest owns env
+## When the manifest owns env
 
-<Callout type="warn" title="Declarative apply overwrites variables">
-  Unlike volumes, environment variables **are** owned by the manifest. A
-  `otterdeploy sync` reconciles them to what the file says, which means a
-  variable you set imperatively with `env set` and never wrote back to the
-  manifest will be removed.
+<Callout type="warn" title="A declared env map is authoritative">
+  When a service declares a non-empty `env` map, `otterdeploy sync` reconciles
+  its manifest-managed variables to that map. Omitting `env`, or declaring an
+  empty map, leaves its variables under live control instead. Service mounts
+  are always live-managed and survive a manifest apply.
 </Callout>
 
-Keep the manifest authoritative, or use `otterdeploy export` to pull the current
-state back into the file before you sync:
+Live variable edits are copied back into the server's saved manifest when that
+manifest already declares the service's environment. They do not rewrite your
+local file. Use `otterdeploy pull` to replace the local file with the saved
+manifest before you sync:
 
 ```bash
-otterdeploy export        # write the live project back out to otterdeploy.json
+otterdeploy pull          # replace the local config with the saved manifest
 otterdeploy sync          # show the diff, then apply it
 ```

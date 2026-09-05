@@ -1,14 +1,10 @@
 import type { ComponentType, SVGProps } from "react";
 
 import { OtterdeployMark } from "@/components/brand/otterdeploy-mark";
-import { Bitbucket } from "@/components/brand/svgs/bitbucket";
 import { Discord } from "@/components/brand/svgs/discord";
 import { Docker } from "@/components/brand/svgs/docker";
 import { Doppler } from "@/components/brand/svgs/doppler";
-import { Forgejo } from "@/components/brand/svgs/forgejo";
-import { Gitea } from "@/components/brand/svgs/gitea";
 import { Github } from "@/components/brand/svgs/github";
-import { Gitlab } from "@/components/brand/svgs/gitlab";
 import { Harbor } from "@/components/brand/svgs/harbor";
 import { Infisical } from "@/components/brand/svgs/infisical";
 import { NetBird } from "@/components/brand/svgs/netbird";
@@ -35,10 +31,6 @@ import { Reveal } from "./reveal";
 
 const LOGOS: Record<IntegrationLogo, ComponentType<SVGProps<SVGSVGElement>>> = {
   github: Github,
-  gitlab: Gitlab,
-  gitea: Gitea,
-  forgejo: Forgejo,
-  bitbucket: Bitbucket,
   infisical: Infisical,
   vault: Vault,
   doppler: Doppler,
@@ -62,10 +54,8 @@ interface Spoke {
 /** Two columns of sources/targets, each wired into the core. */
 const SPOKES: Spoke[] = [
   { logo: "github", x: 120, y: 60, side: "l" },
-  { logo: "gitlab", x: 120, y: 148, side: "l" },
-  { logo: "gitea", x: 120, y: 236, side: "l" },
-  { logo: "infisical", x: 120, y: 324, side: "l" },
-  { logo: "vault", x: 120, y: 412, side: "l" },
+  { logo: "infisical", x: 120, y: 207, side: "l" },
+  { logo: "vault", x: 120, y: 353, side: "l" },
   { logo: "doppler", x: 120, y: 500, side: "l" },
   { logo: "docker", x: 880, y: 60, side: "r" },
   { logo: "harbor", x: 880, y: 148, side: "r" },
@@ -164,8 +154,8 @@ export function Integrations() {
             One hand on the whole stack
           </h2>
           <p className="mx-auto mt-4 max-w-[52ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-            otterdeploy orchestrates the tools you already run: your git host, your secret vault,
-            your registry, your mesh. Plug them in; it conducts them.
+            otterdeploy orchestrates the tools you already run: your GitHub repository, your secret
+            vault, your registry, your mesh. Plug them in; it conducts them.
           </p>
         </Reveal>
 

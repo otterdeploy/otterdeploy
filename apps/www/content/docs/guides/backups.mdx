@@ -1,6 +1,7 @@
 ---
 title: Backups and restore
-description: Encrypted, scheduled snapshots of databases, volumes and stacks, to storage you control.
+seoTitle: Back up and restore databases and volumes
+description: Encrypted, scheduled backups of supported managed or compose-backed databases and Docker volumes, written to storage you control.
 ---
 
 Backups are taken with [rustic](https://rustic.cli.rs/), encrypted with a key
@@ -13,6 +14,8 @@ derived per repository, and written to a destination you own.
 | `s3` | Object storage: bucket, region, endpoint and prefix |
 | `local` | A filesystem path on the host |
 | `sftp` | A remote host over SSH |
+| `azblob` | An Azure Blob Storage container |
+| `gcs` | A Google Cloud Storage bucket |
 
 <Callout type="warn" title="SFTP is key-auth only">
   The SFTP backend authenticates with an SSH private key. A destination
@@ -25,11 +28,11 @@ run needs them.
 
 ## What can be backed up
 
-| Kind | How |
+| Source | How |
 | --- | --- |
-| `database` | Logical dump of a managed database |
-| `volume` | A named Docker volume, tarred through a helper container |
-| `stack` | A whole compose stack |
+| Managed database | A logical dump of PostgreSQL, MariaDB or MongoDB; use a volume backup for Redis or ClickHouse |
+| Compose database service | A logical dump of a recognised PostgreSQL, MariaDB/MySQL or MongoDB service inside a compose stack |
+| Docker volume | A named volume, tarred through a helper container |
 
 The source picker offers both databases and the live volume inventory from the
 daemon, including orphans, so a volume whose owning resource is gone can still
@@ -37,22 +40,19 @@ be captured before you delete it.
 
 ## Schedules and retention
 
-Runs are cron-scheduled. Retention is expressed as how many to keep:
-
-- `keepDaily`
-- `keepWeekly`
-- `keepMonthly`
-
-plus a retention class of `short`, `standard`, `long` or `archive`.
+Runs are cron-scheduled. `keepLast`, `keepHourly`, `keepDaily`, `keepWeekly`,
+`keepMonthly` and `keepYearly` retain the newest snapshots overall or by time
+bucket within each repository. `retentionDays` sets a maximum age, and
+`maxStorageGb` applies a schedule-wide stored-size ceiling after those rules.
 
 The scheduler scans the schedule table **every minute** and the database is the
 source of truth, so an edited cron expression or retention rule takes effect
-immediately: there is no repeatable job to re-register.
+on the next scan: there is no repeatable job to re-register.
 
 ```bash
 otterdeploy backups list
-otterdeploy backups run
-otterdeploy backups restore
+otterdeploy backups run primary --destination bakdest_123
+otterdeploy backups restore bak_abc123 --confirm primary
 ```
 
 ## Running one now
@@ -72,9 +72,13 @@ keeps the output that explains why.
 
 ## Restore
 
-Restore a snapshot back into a resource. Treat it as a real operation with real
-consequences (it overwrites the target) and read the run log afterwards
-rather than assuming a clean exit.
+Logical PostgreSQL, MariaDB and MongoDB dumps can be restored into a running
+database. A volume snapshot can be restored only when no container, including
+a stopped one, mounts that volume. Both modes overwrite the target. A physical
+PostgreSQL backup cannot be restored in place: download its tar and extract it
+into a fresh data directory with the server stopped.
+
+Read the restore run afterwards rather than assuming a clean exit.
 
 <Callout title="Practise it">
   A backup you have never restored is a hypothesis. Restore into a throwaway
@@ -83,7 +87,11 @@ rather than assuming a clean exit.
 
 ## Encryption
 
-The encryption options are `none`, `aes-256-gcm`, `kms-managed` and
-`customer-key`. The repository key is derived per repository, so one
-destination holding several repositories does not share a single key across
-them.
+Run and schedule records expose an encryption policy of `aes-256-gcm` (the
+default) or `none`. Independently of that recorded value, the current backend
+always gives Rustic a repository password: a deterministic 32-byte value
+derived with HKDF-SHA256 from the install's master secret and the repository's
+password domain. That domain contains the resource id or volume scope under an
+external destination's prefix, and is organisation-qualified for managed
+storage. Different sources sharing one destination therefore do not share a
+password.

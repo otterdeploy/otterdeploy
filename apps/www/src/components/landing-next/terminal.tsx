@@ -70,20 +70,20 @@ export function TerminalDeploy() {
     return () => io.disconnect();
   }, []);
 
-  const tone = { muted: "text-white/45", ok: "text-[#4ade80]", info: "text-[#7ab5ff]" };
+  const tone = { muted: "text-white/55", ok: "text-[#4ade80]", info: "text-[#7ab5ff]" };
 
   return (
     <Band id="cli">
       <Container className="grid items-center gap-12 py-20 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 lg:py-28">
         <Reveal>
-          <Mono className="text-muted-foreground/70">FIG. 02 · CLI</Mono>
+          <Mono className="text-muted-foreground">EXAMPLE OUTPUT · CLI</Mono>
           <h2 className="mt-3 max-w-[16ch] text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance sm:text-[2.25rem]">
             Or ship it from your terminal
           </h2>
           <p className="mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
             One manifest describes the project. The CLI reads it, applies the plan, and tails what
-            happens next. 34 commands over the same typed API the dashboard uses. Device login for
-            you, scoped tokens for CI.
+            happens next. The command tree uses the same typed API as the dashboard. Device login
+            for you, scoped tokens for CI.
           </p>
           <a
             href="/docs/cli/commands"
@@ -102,7 +102,7 @@ export function TerminalDeploy() {
               <span className="size-2 rounded-full bg-white/15" />
               <span className="size-2 rounded-full bg-white/15" />
               <span className="size-2 rounded-full bg-white/15" />
-              <Mono className="ml-2 text-white/40">~/storefront · zsh</Mono>
+              <Mono className="ml-2 text-white/55">~/storefront · zsh</Mono>
             </div>
             <div className="min-h-[15rem] px-4 py-4 font-mono text-[0.8125rem] leading-[1.85]">
               {TERMINAL.map((line, i) => {

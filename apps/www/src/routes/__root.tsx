@@ -1,7 +1,7 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
 
-import { seo } from "@/lib/seo";
+import { notFoundSeo } from "@/lib/seo";
 import appCss from "@/styles/app.css?url";
 
 /**
@@ -9,15 +9,16 @@ import appCss from "@/styles/app.css?url";
  *
  * The icon, manifest and theme-color tags live here rather than per route.
  * They're properties of the site, not of a page. Titles, descriptions and
- * canonical links are per route (see lib/seo.ts); a route that sets none of
- * them inherits the defaults below, which are the home page's.
+ * canonical links are per route (see lib/seo.ts). The root intentionally has
+ * no page defaults: inheriting the home page's og:url on a true 404 falsely
+ * attributes that missing URL to `/`.
  */
 export const Route = createRootRoute({
-  head: () => ({
+  head: ({ match }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      ...seo({ path: "/" }),
+      ...(match.globalNotFound || match.status === "notFound" ? notFoundSeo() : []),
     ],
     links: [
       { rel: "stylesheet", href: appCss },

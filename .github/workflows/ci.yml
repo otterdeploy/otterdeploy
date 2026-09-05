@@ -20,9 +20,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [typecheck, lint, test]
+        task: [typecheck, lint, test, get-build, www-build]
     steps:
       - uses: actions/checkout@v4
+
+      # Fumadocs derives truthful per-page lastModified values from git. The
+      # rendered www leg must exercise that production path rather than always
+      # taking the shallow-checkout fallback covered by unit tests.
+      - name: Fetch documentation history
+        if: matrix.task == 'www-build'
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            git fetch --unshallow --no-tags origin
+          fi
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -62,6 +72,295 @@ jobs:
       - name: Test
         if: matrix.task == 'test'
         run: bun run test --cache-dir=.turbo
+
+      # TypeScript can accept a Worker that Wrangler cannot bundle. Keep the
+      # artifact edge's workspace imports, bindings, and runtime target on the
+      # deployment path without contacting Cloudflare or requiring secrets.
+      - name: Bundle get Worker
+        if: matrix.task == 'get-build'
+        working-directory: apps/get
+        run: bunx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/get-worker"
+
+      # Build the Cloudflare Worker with no API source configured so the
+      # intentional null-snapshot degradation stays deployment-safe.
+      - name: Build www without OpenAPI source
+        if: matrix.task == 'www-build'
+        run: |
+          env -u OTTERDEPLOY_OPENAPI_SPEC_URL -u OTTERSTACK_OPENAPI_SPEC_URL \
+            bun run build --filter=www --cache-dir=.turbo
+
+      - name: Verify www without OpenAPI source
+        if: matrix.task == 'www-build'
+        working-directory: apps/www
+        run: |
+          jq 'del(.routes)' .output/server/wrangler.json \
+            > .output/server/wrangler.no-openapi.json
+          bunx wrangler dev --config .output/server/wrangler.no-openapi.json --port 8787 \
+            > "$RUNNER_TEMP/wrangler-www-no-openapi.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+
+          worker_ready=false
+          for _ in $(seq 1 60); do
+            status="$(curl -sS -o /dev/null --max-time 3 -w '%{http_code}' \
+              http://localhost:8787/ || true)"
+            if [ "$status" = "200" ]; then
+              worker_ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$worker_ready" != "true" ]; then
+            cat "$RUNNER_TEMP/wrangler-www-no-openapi.log" >&2
+            exit 1
+          fi
+
+          status="$(curl -sS -o "$RUNNER_TEMP/openapi-overview.html" --max-time 15 \
+            -w '%{http_code}' http://localhost:8787/docs/openapi || true)"
+          if [ "$status" != "200" ]; then
+            cat "$RUNNER_TEMP/wrangler-www-no-openapi.log" >&2
+            exit 1
+          fi
+          grep -aFq "HTTP API operations" "$RUNNER_TEMP/openapi-overview.html"
+
+          status="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' \
+            http://localhost:8787/docs/openapi/health/get || true)"
+          if [ "$status" != "404" ]; then
+            echo "expected an absent generated operation to return 404, got ${status}" >&2
+            cat "$RUNNER_TEMP/wrangler-www-no-openapi.log" >&2
+            exit 1
+          fi
+
+          curl -fsS --max-time 15 http://localhost:8787/sitemap.xml \
+            > "$RUNNER_TEMP/sitemap-no-openapi.xml"
+          if grep -Fq "/docs/openapi/health/get" "$RUNNER_TEMP/sitemap-no-openapi.xml"; then
+            echo "generated operation leaked into the no-source sitemap" >&2
+            exit 1
+          fi
+          lastmod_count="$(grep -c '<lastmod>[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T' \
+            "$RUNNER_TEMP/sitemap-no-openapi.xml" || true)"
+          if [ "$lastmod_count" -lt 1 ]; then
+            echo "full-history build emitted no ISO sitemap lastmod values" >&2
+            exit 1
+          fi
+
+          bun scripts/verify-seo-corpus.ts --base http://localhost:8787 \
+            --expect-preview-noindex
+
+      # An HTTP-served 401-operation fixture approximates the current API's
+      # route count and exercises the other production shape: spec fetch,
+      # Fumadocs generation, Worker serialization, lazy combined source,
+      # page-tree serialization, and generated route rendering.
+      - name: Build www with OpenAPI source
+        if: matrix.task == 'www-build'
+        run: |
+          bun -e '
+            const fixture = await Bun.file("apps/www/test/fixtures/openapi.json").json();
+            fixture.components = { schemas: {} };
+            for (let index = 0; index < 400; index++) {
+              const id = String(index).padStart(3, "0");
+              const schemaName = `CapacityResource${id}`;
+              fixture.components.schemas[schemaName] = {
+                type: "object",
+                description: `Representative generated response schema ${id}`,
+                properties: Object.fromEntries(
+                  Array.from({ length: 16 }, (_, fieldIndex) => [
+                    `field_${fieldIndex}`,
+                    {
+                      type: fieldIndex % 3 === 0 ? "integer" : "string",
+                      description: `Representative field ${fieldIndex} on resource ${id}`,
+                    },
+                  ]),
+                ),
+                required: ["field_0", "field_1"],
+              };
+              fixture.paths[`/capacity/resources/${id}`] = {
+                get: {
+                  operationId: `getCapacityResource${id}`,
+                  summary: `Capacity resource ${id}`,
+                  parameters: [
+                    {
+                      name: "include",
+                      in: "query",
+                      description: "Optional related records to include",
+                      schema: { type: "string" },
+                    },
+                  ],
+                  responses: {
+                    "200": {
+                      description: "Capacity fixture response",
+                      content: {
+                        "application/json": { schema: { $ref: `#/components/schemas/${schemaName}` } },
+                      },
+                    },
+                  },
+                },
+              };
+            }
+            const body = JSON.stringify(fixture);
+            Bun.serve({
+              hostname: "127.0.0.1",
+              port: 8790,
+              fetch() {
+                return new Response(body, {
+                  headers: { "content-type": "application/json" },
+                });
+              },
+            });
+            await new Promise(() => {});
+          ' > "$RUNNER_TEMP/openapi-fixture.log" 2>&1 &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+
+          fixture_ready=false
+          for _ in $(seq 1 30); do
+            if curl -fsS --max-time 3 http://127.0.0.1:8790/spec.json > /dev/null; then
+              fixture_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$fixture_ready" != "true" ]; then
+            cat "$RUNNER_TEMP/openapi-fixture.log" >&2
+            exit 1
+          fi
+
+          OTTERDEPLOY_OPENAPI_SPEC_URL=http://127.0.0.1:8790/spec.json \
+            bun run build --filter=www --cache-dir=.turbo
+
+      - name: Verify generated www output
+        if: matrix.task == 'www-build'
+        working-directory: apps/www
+        run: |
+          grep -Fq "Content-Security-Policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'" \
+            .output/public/_headers
+          grep -Fq "Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()" \
+            .output/public/_headers
+          grep -Fq "Referrer-Policy: strict-origin-when-cross-origin" \
+            .output/public/_headers
+          grep -Fq "Strict-Transport-Security: max-age=31536000" \
+            .output/public/_headers
+          grep -Fq "X-Content-Type-Options: nosniff" \
+            .output/public/_headers
+          grep -Fq "X-Frame-Options: DENY" \
+            .output/public/_headers
+          grep -Fq "https://:version.:subdomain.workers.dev/*" \
+            .output/public/_headers
+          grep -Fq "X-Robots-Tag: noindex" \
+            .output/public/_headers
+          jq -e '.workers_dev == false and .preview_urls == true' \
+            .output/server/wrangler.json > /dev/null
+          NO_COLOR=1 bunx wrangler deploy --dry-run --config .output/server/wrangler.json \
+            --outdir "$RUNNER_TEMP/www-worker" 2>&1 \
+            | tee "$RUNNER_TEMP/wrangler-www-dry-run.log"
+          # Wrangler's dry run reports size but leaves limit enforcement to the
+          # deployment API. Enforce the stricter Workers Free 3 MiB gzip cap in
+          # CI so a paid account cannot hide an oversized portable build.
+          bun -e '
+            const report = await Bun.file(process.argv[1]).text();
+            const match = report.match(/Total Upload: .*?gzip:\s*([0-9.]+)\s*KiB/);
+            if (!match) throw new Error("Wrangler did not report a gzip upload size");
+            const gzipKib = Number(match[1]);
+            const freeLimitKib = 3 * 1024;
+            if (!Number.isFinite(gzipKib) || gzipKib > freeLimitKib) {
+              throw new Error(
+                `Worker gzip upload is ${gzipKib} KiB; Free-plan limit is ${freeLimitKib} KiB`,
+              );
+            }
+            console.log(`Worker gzip upload: ${gzipKib} / ${freeLimitKib} KiB`);
+          ' "$RUNNER_TEMP/wrangler-www-dry-run.log"
+
+          jq 'del(.routes)' .output/server/wrangler.json \
+            > .output/server/wrangler.ci.json
+          bunx wrangler dev --config .output/server/wrangler.ci.json --port 8787 \
+            > "$RUNNER_TEMP/wrangler-www.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+
+          worker_ready=false
+          for _ in $(seq 1 60); do
+            status="$(curl -sS -o /dev/null --max-time 3 -w '%{http_code}' \
+              http://localhost:8787/ || true)"
+            if [ "$status" = "200" ]; then
+              worker_ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$worker_ready" != "true" ]; then
+            cat "$RUNNER_TEMP/wrangler-www.log" >&2
+            exit 1
+          fi
+
+          status="$(curl -sS -o "$RUNNER_TEMP/openapi-page.html" --max-time 15 \
+            -w '%{http_code}' http://localhost:8787/docs/openapi/health/get || true)"
+          if [ "$status" != "200" ]; then
+            cat "$RUNNER_TEMP/wrangler-www.log" >&2
+            exit 1
+          fi
+          grep -Fq "Health check" "$RUNNER_TEMP/openapi-page.html"
+          grep -Fq "noindex, follow" "$RUNNER_TEMP/openapi-page.html"
+
+          status="$(curl -sS -o "$RUNNER_TEMP/openapi-capacity-page.html" --max-time 30 \
+            -w '%{http_code}' \
+            http://localhost:8787/docs/openapi/capacity/resources/399/get || true)"
+          if [ "$status" != "200" ]; then
+            echo "expected the 400th generated operation to render, got ${status}" >&2
+            cat "$RUNNER_TEMP/wrangler-www.log" >&2
+            exit 1
+          fi
+          grep -Fq "Capacity resource 399" "$RUNNER_TEMP/openapi-capacity-page.html"
+          grep -Fq "noindex, follow" "$RUNNER_TEMP/openapi-capacity-page.html"
+
+          for missing_path in "/not-a-real-page" "/docs/not-a-real-page"; do
+            status="$(curl -sS -o "$RUNNER_TEMP/not-found.html" --max-time 15 \
+              -w '%{http_code}' "http://localhost:8787${missing_path}" || true)"
+            if [ "$status" != "404" ]; then
+              echo "expected 404 for ${missing_path}, got ${status}" >&2
+              cat "$RUNNER_TEMP/wrangler-www.log" >&2
+              exit 1
+            fi
+            grep -aFq "Page not found · otterdeploy" "$RUNNER_TEMP/not-found.html"
+            grep -aEq \
+              '<meta[^>]+name="robots"[^>]+content="noindex, nofollow"|<meta[^>]+content="noindex, nofollow"[^>]+name="robots"' \
+              "$RUNNER_TEMP/not-found.html"
+            if grep -aEq \
+              '<link[^>]+rel="canonical"|<meta[^>]+property="og:url"' \
+              "$RUNNER_TEMP/not-found.html"; then
+              echo "404 metadata leaked a canonical or og:url for ${missing_path}" >&2
+              exit 1
+            fi
+          done
+
+          # Encoded path aliases can reach the same route without matching a
+          # literal robots.txt rule, so the response itself must forbid index.
+          for path in "/api/search?q=test" "/%61pi/search?q=test" "/api/%73earch?q=test"; do
+            status="$(curl -sS -D "$RUNNER_TEMP/search-headers.txt" -o /dev/null \
+              --max-time 15 -w '%{http_code}' "http://localhost:8787${path}" || true)"
+            if [ "$status" != "200" ]; then
+              echo "expected 200 for search path ${path}, got ${status}" >&2
+              cat "$RUNNER_TEMP/wrangler-www.log" >&2
+              exit 1
+            fi
+            grep -Fiq "X-Robots-Tag: noindex, nofollow" "$RUNNER_TEMP/search-headers.txt"
+          done
+
+          # Production canonicalises mixed-case paths with a 301. Localhost is
+          # deliberately exempt from production redirects, so these assertions
+          # exercise the case-sensitive router fallback and ensure correctness
+          # does not depend on middleware alone.
+          for path in "/Docs" "/API/search?q=test" "/SITEMAP.xml"; do
+            status="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' \
+              "http://localhost:8787${path}" || true)"
+            if [ "$status" != "404" ]; then
+              echo "expected 404 for mixed-case path ${path}, got ${status}" >&2
+              cat "$RUNNER_TEMP/wrangler-www.log" >&2
+              exit 1
+            fi
+          done
+
+          bun scripts/verify-seo-corpus.ts --base http://localhost:8787 \
+            --expect-preview-noindex
 
   # Phase 0 of the codebase vetting sweep (od-l90, docs/audit/PLAN.md).
   #

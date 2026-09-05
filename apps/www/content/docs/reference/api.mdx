@@ -1,26 +1,75 @@
 ---
 title: API reference
-description: The Otterdeploy oRPC API and its interactive reference.
+seoTitle: HTTP API reference and authentication
+description: How Otterdeploy exposes its typed API as oRPC and OpenAPI, and how the generated operation reference is published.
 ---
 
-The Otterdeploy API is built on [oRPC](https://orpc.unnoq.com). The server emits an
-**OpenAPI 3.1** document from the same Zod-typed contracts that power the
-dashboard, and these docs render it as a browsable, interactive reference with a
-built-in "Send Request" playground.
+The Otterdeploy API is built on [oRPC](https://orpc.dev). Every control plane
+emits an **OpenAPI 3.1** document from the same Zod-typed contracts that power
+the dashboard. This docs site can turn a configured control plane's document
+into one browsable page per operation, with schemas and copyable request
+examples.
+
+## Browse the operation reference
 
 <Cards>
-  <Card title="Open the interactive reference" href="/docs/openapi" />
+  <Card
+    title="Browse HTTP API operations"
+    href="/docs/openapi"
+    description="The stable entry point for generated operation pages and their availability status."
+  />
 </Cards>
 
 ## The pipeline
 
 ```text
 oRPC contracts (packages/api)
-  └─ OpenAPIHandler  (apps/server/src/index.ts)   → live spec at /api/reference/spec.json
-       └─ fumadocs-openapi (apps/www)             → reference pages + playground
+  └─ OpenAPIHandler (apps/server/src/index.ts) → /api/reference/spec.json
+       └─ Vite snapshot + Fumadocs preflight  → operation pages + request examples
 ```
 
-The reference is generated from the **live** spec at `/api/reference/spec.json`,
-so it always tracks the deployed contracts. Point `OTTERSTACK_OPENAPI_SPEC_URL`
-at your API to build the reference against a specific environment (it defaults to
-the local dev server).
+To publish operation pages in production, set
+`OTTERDEPLOY_OPENAPI_SPEC_URL` in the docs build environment to the absolute HTTPS
+URL of the control plane's `/api/reference/spec.json`. A runtime Worker binding
+alone cannot configure this build-time snapshot. The build captures a validated
+copy of that public document. Local development captures
+`http://localhost:3000/api/reference/spec.json` when its Vite server starts.
+Use the canonical origin API clients can reach, not a private build-network
+alias. The docs pin generated request examples to that configured origin plus
+the control plane's fixed `/api/reference` handler prefix, preventing an
+internal HTTP proxy hop from leaking into examples for a public HTTPS endpoint.
+The deployed Worker initializes the generated page source lazily on the first
+API-reference request per isolate, keeping schema processing out of its startup
+path. Generated operation pages remain crawlable but non-indexable; the authored
+overview is the indexable search entry point.
+
+With no production URL, the deployment intentionally contains only the stable
+[HTTP API operations](/docs/openapi) overview. Once a URL is configured, an
+unreachable, slow, malformed, or empty document fails the production build so
+an existing operation reference is not replaced by a wave of 404s. Development
+reports the failure and keeps the overview available. The site never substitutes
+a fabricated empty API.
+
+## Authentication
+
+Most operations require either an authenticated session or an `otter_` API
+key. Browser sessions authenticate with their session cookie, and CLI device
+sessions send their session token as a bearer token. For scripts and other API
+clients, mint a narrowly scoped key with the CLI; a read-only key is the safe
+choice while exploring the API:
+
+```bash
+otterdeploy tokens create --name reference --expires 1d --read-only
+```
+
+```http
+Authorization: Bearer otter_...
+```
+
+An API key can also be sent as `x-api-key: otter_...`.
+
+The public documentation does not send live API requests. Self-hosted control
+planes have operator-defined origins and CORS policies, and the generated
+document does not yet advertise its authentication scheme. Use the CLI or a
+copied request example against your own control plane instead of entering a
+credential into this site.

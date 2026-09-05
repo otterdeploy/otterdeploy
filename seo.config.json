@@ -1,0 +1,17 @@
+{
+  "$comment": "Read by .github/workflows/seo-check.yml. Keep this product-side crawl configuration in sync with the otterdeploy entry in dr34mw0rk5/seo-ops/sites.json. Collector credentials and analytics properties belong only in the private hub.",
+  "project": "otterdeploy",
+  "repo": "otterdeploy/otterdeploy",
+  "origin": "https://otterdeploy.com",
+  "locales": [],
+  "contentLanguage": "en",
+  "nonIndexablePaths": [],
+  "localeExemptPaths": [],
+  "ignore": ["^/api/", "^/assets/", "^/_serverFn/", "^/docs/openapi/"],
+  "fixAllowlist": [
+    "apps/www/content/**",
+    "apps/www/src/lib/seo.ts",
+    "apps/www/src/components/landing/content.ts",
+    "apps/www/src/components/landing-next/content.ts"
+  ]
+}

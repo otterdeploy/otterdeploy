@@ -21,7 +21,7 @@ function Row({ c, last }: { c: Contrast; last: boolean }) {
         <span className="text-[0.9375rem] font-medium text-foreground">{c.task}</span>
       </div>
       <div className={cell}>
-        <span className="text-[0.875rem] leading-relaxed text-pretty text-muted-foreground/75 line-through decoration-white/15">
+        <span className="text-[0.875rem] leading-relaxed text-pretty text-muted-foreground line-through decoration-white/15">
           {c.hand}
         </span>
       </div>
@@ -50,7 +50,7 @@ export function ContrastBlock() {
   return (
     <Container className="pt-20 pb-0 lg:pt-28">
       <Reveal className="max-w-[44rem]">
-        <Mono className="text-muted-foreground/70">BY HAND vs OTTERDEPLOY</Mono>
+        <Mono className="text-muted-foreground">BY HAND vs OTTERDEPLOY</Mono>
         <h2 className="mt-3 text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance sm:text-[2.25rem]">
           The manual way, retired
         </h2>
@@ -65,7 +65,7 @@ export function ContrastBlock() {
           <div className="grid gap-px sm:grid-cols-[minmax(9rem,0.8fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
             <div className="bg-background px-5 py-3" />
             <div className="bg-background px-5 py-3">
-              <Mono className="text-muted-foreground/70">by hand</Mono>
+              <Mono className="text-muted-foreground">by hand</Mono>
             </div>
             <div className="bg-[#3d7bfb]/[0.1] px-5 py-3 shadow-[inset_1px_0_0_rgba(61,123,251,0.22),inset_-1px_0_0_rgba(61,123,251,0.22)]">
               <Mono className="font-medium text-[#7ab5ff]">with otterdeploy</Mono>

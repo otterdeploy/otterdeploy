@@ -1,0 +1,58 @@
+---
+title: App templates
+seoTitle: Self-hosted application templates
+description: Choose from 90+ curated self-hosted app templates, inspect services and required variables, then stage the Compose stack in an otterdeploy project.
+---
+
+The dashboard catalog contains 90+ curated Compose stacks for applications such
+as Ghost, Plausible, n8n, Metabase, Gitea and Grafana. Each entry is the actual
+YAML handed to the Compose wizard, alongside its included services, required
+variables and a link to the application's upstream documentation.
+
+[Browse the template catalog source](https://github.com/otterdeploy/otterdeploy/tree/main/apps/web/src/features/templates/catalog)
+to inspect every current entry and its Compose file.
+
+## Deploy a template
+
+1. Open **Templates** from the organisation navigation.
+2. Search by name or filter by category, then open a template.
+3. Review its architecture, included services, required variables and upstream
+   documentation.
+4. Choose an existing project and select **Deploy to project**. This opens that
+   project's Compose wizard with the template prefilled; it does not deploy the
+   stack immediately.
+5. Supply the required values, review the stack and stage it. Then deploy from
+   the project graph.
+
+The normal Compose flow remains in charge. You can inspect and change the YAML
+before staging rather than accepting a hidden install script.
+
+## What the catalog verifies
+
+Repository tests run every template through the same Compose parser used by the
+wizard and deploy reconciler. They require:
+
+- a clean parse with zero warnings;
+- declared service names and required variables to match the parsed YAML;
+- image-backed services, with no repository build context;
+- at least one exposed service port for routing;
+- every shipped supporting file to be mounted, and every non-allowlisted bind
+  to have a supporting file; and
+- generated-secret formats, when declared, to match the command shown to the
+  operator.
+
+Those checks establish that the catalog metadata and deploy input agree. They
+do not promise that every upstream application will boot on every architecture,
+network or future image release.
+
+## Review before deploying
+
+Read the upstream documentation linked from the template and inspect its image
+tags, volumes, ports and defaults. Decide which service should receive a domain,
+where persistent data belongs and which values need your own secrets.
+
+A template creates a Compose stack; it does not turn an included database into
+an otterdeploy managed database or create a backup schedule. See
+[Databases](/docs/guides/databases) for the distinction and
+[Backups and restore](/docs/guides/backups) when the stack holds data you need
+to recover.

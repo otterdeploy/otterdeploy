@@ -38,8 +38,9 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
     title: "Community",
     links: [
       { label: "GitHub", href: GITHUB_URL },
-      { label: "Discussions", href: `${GITHUB_URL}/discussions` },
       { label: "Issues", href: `${GITHUB_URL}/issues` },
+      { label: "Security", href: `${GITHUB_URL}/security/policy` },
+      { label: "Privacy", href: "/privacy" },
       { label: "Changelog", href: `${GITHUB_URL}/releases` },
       { label: "License · AGPL-3.0", href: `${GITHUB_URL}/blob/main/LICENSE` },
     ],
@@ -128,10 +129,10 @@ export function NextFooter() {
         </div>
 
         <div className="mt-14 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-white/[0.06] pt-6">
-          <Mono className="text-muted-foreground/70">
+          <Mono className="text-muted-foreground">
             © {new Date().getFullYear()} otterdeploy contributors · AGPL-3.0
           </Mono>
-          <span className="inline-flex items-center gap-1.5 text-[0.75rem] text-muted-foreground/80">
+          <span className="inline-flex items-center gap-1.5 text-[0.75rem] text-muted-foreground">
             Made with care by self-hosters, for self-hosters
             <span aria-hidden className="text-[#7ab5ff]">
               ♥

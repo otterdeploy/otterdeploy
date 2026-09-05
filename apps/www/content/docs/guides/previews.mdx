@@ -1,16 +1,17 @@
 ---
 title: Pull request previews
-description: A deployment and a URL for every open pull request, torn down when it closes.
+seoTitle: Self-hosted pull request previews
+description: Opt a GitHub-backed service into per-pull-request deployments and URLs, removed when each pull request closes.
 ---
 
-Open a pull request and it comes up on its own deployment with its own URL.
-Close the pull request and everything is removed.
+Enable previews on a GitHub-backed service, then open a pull request to give it
+its own deployment and URL. Close the pull request and everything is removed.
 
 ## The model
 
 A preview is **not** an environment. It is a first-class record bound to
-`(project, repo, PR number)`. Its deployments, routes and database branches are
-scoped to it by id; the `environment` table holds only the contexts you create
+`(project, repo, PR number)`. Its deployments, routes and PostgreSQL branches
+are scoped to it by id; the `environment` table holds only the contexts you create
 by hand and carries no preview provenance.
 
 In the dashboard, previews render as satellite cards attached to the service
@@ -26,9 +27,10 @@ service doesn't clone your data by accident.
 
 ## Database branching
 
-Opt in per database. When enabled, a preview gets its own copy of the data and
-the service's `${database:<name>.…}` reference resolves to the copy, with no
-change to the manifest, because the reference is late-bound by name.
+PostgreSQL is the only branchable engine today. Opt in per PostgreSQL database.
+When enabled, a preview gets its own copy of the data and the service's
+`${{<name>.DATABASE_URL}}` reference resolves to the copy, with no change to
+the manifest, because the reference is late-bound by name.
 
 Two tiers exist in the schema:
 
@@ -41,6 +43,14 @@ Two tiers exist in the schema:
   The installer will provision a ZFS pool, and the snapshot driver has a slot
   for it, but the driver still resolves `zfs` to `copy`. Plan for the cost of a
   logical copy.
+</Callout>
+
+<Callout type="warn" title="A branch contains copied production data">
+  The shipped `copy` strategy reads the production database and restores its
+  contents into the preview branch. It isolates preview writes; it does not
+  sanitize the copied rows. Enable branching only for data that is safe in a
+  preview workload, and protect the preview URL when reviewers should not have
+  public access.
 </Callout>
 
 ## Teardown
@@ -64,5 +74,6 @@ for reviewers outside the org and bypass tokens for CI.
 ## Requirements
 
 Previews need a connected GitHub App installation on the organisation and a
-service bound to a repository. `git_provider_kind` has one member (GitHub)
-so this does not work with GitLab or other providers today.
+service bound to a repository. They are disabled by default and enabled per
+service. `git_provider_kind` has one member (GitHub), so this does not work with
+GitLab or other providers today.

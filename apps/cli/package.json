@@ -11,7 +11,7 @@
     "paas",
     "self-hosted"
   ],
-  "homepage": "https://github.com/otterdeploy/otterdeploy/tree/main/apps/cli#readme",
+  "homepage": "https://otterdeploy.com/docs/cli",
   "bugs": "https://github.com/otterdeploy/otterdeploy/issues",
   "license": "AGPL-3.0-only",
   "repository": {

@@ -1,6 +1,7 @@
 ---
 title: Install
-description: Put the Otterdeploy control plane on your own server.
+seoTitle: Install on a Linux server
+description: Install the Otterdeploy control plane on a supported Linux server with one command that provisions the host and starts the stack.
 ---
 
 One command provisions the host, pulls the published images, puts Docker into
@@ -11,11 +12,28 @@ toolchain involved.
 curl -fsSL https://get.otterdeploy.com/install.sh | bash
 ```
 
+## Verify before running
+
+Each published installer has a SHA-256 file at the same URL. Download both,
+verify the release artifact, then run the local copy:
+
+```bash
+curl -fsSLO https://get.otterdeploy.com/install.sh
+curl -fsSLO https://get.otterdeploy.com/install.sh.sha256
+sha256sum --check install.sh.sha256
+bash install.sh
+```
+
+The check fails closed if a new release lands between the two downloads: fetch
+both files again and repeat it. Version-pinned artifacts are also available at
+`https://get.otterdeploy.com/vX.Y.Z/install.sh` with the checksum beside them.
+
 ## What the host needs
 
 | | |
 | --- | --- |
-| **OS** | Linux, with root (or passwordless `sudo`) |
+| **OS** | Debian/Ubuntu, RHEL/Fedora-family, or Arch Linux (including recognised derivatives), with root or passwordless `sudo` |
+| **Runtime** | Docker 28+; the installer adds Docker when it is absent |
 | **Ports** | `80` and `443` for the edge and ACME, `3000` for the dashboard |
 | **Disk** | Enough for images, build caches and any volumes you create |
 | **Nodes** | One is a valid cluster; more can join later as managers or workers |

@@ -24,7 +24,7 @@ export function LandingNext() {
   return (
     <div className="dark od-lin od-landing relative bg-background text-foreground">
       <a
-        href="#graph"
+        href="#main-content"
         className="sr-only rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
       >
         Skip to content
@@ -55,7 +55,7 @@ export function LandingNext() {
       </div>
 
       <NextNav />
-      <main className="relative z-0">
+      <main id="main-content" tabIndex={-1} className="relative z-0 outline-none">
         <NextHero />
         <Stats />
         <DeployPipeline />

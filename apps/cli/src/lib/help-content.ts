@@ -36,7 +36,7 @@ export const EXAMPLES: Record<string, Example[]> = {
   ],
   up: [
     { note: "scaffold if needed, then deploy in one step", run: "up" },
-    { note: "block until every resource is healthy", run: "up --wait" },
+    { note: "block until every changed service is running or failed", run: "up --wait" },
   ],
   deploy: [
     { note: "show what would change without writing", run: "deploy --dry-run" },

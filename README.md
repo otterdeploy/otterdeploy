@@ -8,13 +8,14 @@
 ### Push to git. Deploy to your own servers.
 
 A self-hostable deployment platform. Builds from a repo, managed databases, automatic HTTPS,
-previews on every pull request, running on your hardware, with no usage bill.
+opt-in pull request previews, running on your hardware, with no usage bill.
 
 <a href="https://otterdeploy.com">Website</a> ·
 <a href="https://otterdeploy.com/docs">Documentation</a> ·
 <a href="https://otterdeploy.com/docs/start/first-deploy">Quickstart</a> ·
 <a href="https://otterdeploy.com/docs/cli">CLI</a> ·
-<a href="https://github.com/otterdeploy/otterdeploy/issues">Issues</a>
+<a href="https://github.com/otterdeploy/otterdeploy/issues">Issues</a> ·
+<a href="https://github.com/otterdeploy/otterdeploy/security/policy">Security</a>
 
 [![CI](https://github.com/otterdeploy/otterdeploy/actions/workflows/ci.yml/badge.svg)](https://github.com/otterdeploy/otterdeploy/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/otterdeploy/otterdeploy?label=release&color=2563eb)](https://github.com/otterdeploy/otterdeploy/releases)
@@ -37,9 +38,9 @@ the thing you need isn't on the menu. The usual escape route is a VPS, a Dockerf
 proxy, a certificate renewal cron, and a backup script you wrote once and never tested.
 
 otterdeploy is the middle path: the control of running your own infrastructure with the ergonomics
-of a managed one. Point it at a Linux box, connect a repo, and you get builds, rollouts, routing,
-TLS, databases, backups, and logs: from a dashboard that stays calm, fast, and honest about what
-the system is actually doing.
+of a managed one. Point it at a supported Linux host, connect a repo, and you get builds, rollouts,
+routing, TLS, databases, backups, and logs: from a dashboard that stays calm, fast, and honest
+about what the system is actually doing.
 
 > [!WARNING]
 > **Pre-1.0, under active development.** Interfaces and schemas still change without migration
@@ -48,7 +49,7 @@ the system is actually doing.
 
 ## Install
 
-One Linux box, one command:
+One supported Linux box, one command:
 
 ```bash
 curl -fsSL https://get.otterdeploy.com/install.sh | bash
@@ -60,9 +61,9 @@ images, so no source checkout or build toolchain is needed on the server.
 
 | Requirement | |
 | --- | --- |
-| **Host** | One Linux box with root |
-| **Runtime** | Docker, Swarm-enabled by the installer |
-| **Ports** | 80 and 443, for the edge and ACME |
+| **Host** | Debian/Ubuntu, RHEL/Fedora-family, or Arch Linux with root |
+| **Runtime** | Docker 28+, installed and Swarm-enabled by the script if needed |
+| **Ports** | 80 and 443 for the edge and ACME; dashboard port 3000 free by default |
 
 Preview it without changing anything first:
 
@@ -72,7 +73,7 @@ curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 
 Then open the dashboard on port 3000 and follow the
 [first deploy guide](https://otterdeploy.com/docs/start/first-deploy). Tunables (data directory,
-version pin, ZFS branching pool, firewall opt-out) are documented in the
+version pin, optional ZFS pool, firewall opt-out) are documented in the
 [install reference](https://otterdeploy.com/docs/start/install).
 
 ### CLI
@@ -81,7 +82,7 @@ version pin, ZFS branching pool, firewall opt-out) are documented in the
 npm install -g @otterdeploy/cli
 ```
 
-Ships as `otterdeploy` with an `otd` alias: 34 commands for deploys, logs, environments, and CI.
+Ships as `otterdeploy` with an `otd` alias, with commands for deploys, logs, environments, and CI.
 See the [CLI reference](https://otterdeploy.com/docs/cli).
 
 ### Uninstall
@@ -103,7 +104,7 @@ Volumes, `/data/otterdeploy`, the ZFS pool, Swarm and Docker are each opt-out, b
 
 **Build & deploy**
 
-Framework auto-detect · Dockerfile builds · Monorepo aware · Compose stacks · 18 stack templates · Rollback · Crash reporting · Environments
+Framework auto-detect · Dockerfile builds · Monorepo aware · Compose stacks · 90+ stack templates · Rollback · Crash reporting · Environments
 
 </td>
 <td width="33%" valign="top">
@@ -126,7 +127,7 @@ Postgres · Redis · MariaDB · MongoDB · ClickHouse · Built-in data browser �
 
 **Operate**
 
-Live logs · CPU & memory metrics · Web terminal · Multi-node Swarm · Tailscale & NetBird mesh · Host health alerts · Slack, Discord, PagerDuty · Raw Docker
+Live logs · CPU & memory metrics · Web terminal · Multi-node Swarm · Tailscale & NetBird node join · Host health alerts · Slack, Discord, PagerDuty · Raw Docker
 
 </td>
 <td width="33%" valign="top">
@@ -140,15 +141,15 @@ Org RBAC · Scoped API keys · Audit log · Sealed variables · Host firewall ·
 
 **Automate**
 
-`otterdeploy.json` · Typed oRPC API · 34 CLI commands · Outbound webhooks · Inbound triggers · Device login · CI tokens · Shell completions
+`otterdeploy.json` · Typed oRPC API · CLI command tree · Outbound webhooks · Inbound triggers · Device login · CI tokens · Shell completions
 
 </td>
 </tr>
 </table>
 
-Pull requests get their own preview deployment with database branching and idle garbage collection.
-Databases branch copy-on-write when ZFS is available, and fall back to logical snapshots when it
-isn't, the installer never blocks on it.
+Enable previews per service and pull requests get their own deployment, with optional PostgreSQL
+branching and idle garbage collection. PostgreSQL branches currently use logical copies; the
+planned ZFS strategy falls back to a logical copy with a warning.
 
 ## How a deploy works
 
@@ -224,7 +225,7 @@ otterdeploy/
 ## Built with
 
 TypeScript end to end: [Bun](https://bun.sh), [Turborepo](https://turbo.build),
-[Hono](https://hono.dev), [oRPC](https://orpc.unnoq.com), [Zod](https://zod.dev),
+[Hono](https://hono.dev), [oRPC](https://orpc.dev), [Zod](https://zod.dev),
 [Drizzle](https://orm.drizzle.team), [PostgreSQL](https://www.postgresql.org),
 [TanStack](https://tanstack.com) Router/DB, [Tailwind](https://tailwindcss.com),
 [BullMQ](https://bullmq.io), and Pino/OpenTelemetry for observability. Deploys run on

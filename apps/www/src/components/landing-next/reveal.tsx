@@ -6,8 +6,8 @@ import { cx } from "../landing/primitives";
  * Fade-and-rise on scroll entry, the way linear.app's sections arrive. Pure
  * class toggling: the transition lives in app.css behind a reduced-motion
  * gate, so readers who asked for less motion get content in place instantly.
- * SSR renders without `is-in`; the observer adds it after hydration, and a
- * no-JS reader sees content because the base opacity rule is also motion-gated.
+ * SSR is visible by default. Once JavaScript and IntersectionObserver are
+ * ready, offscreen elements opt into the hidden starting state.
  */
 export function Reveal({
   children,
@@ -23,7 +23,14 @@ export function Reveal({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const bounds = el.getBoundingClientRect();
+    if (bounds.bottom >= 0 && bounds.top <= window.innerHeight * 0.9) {
+      el.classList.add("is-in");
+      return;
+    }
+
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -35,6 +42,7 @@ export function Reveal({
       },
       { rootMargin: "0px 0px -10% 0px", threshold: 0.1 },
     );
+    el.classList.add("is-ready");
     io.observe(el);
     return () => io.disconnect();
   }, []);

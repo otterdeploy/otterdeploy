@@ -30,12 +30,13 @@ export function NextHero() {
 
       <Container className="relative z-10 pt-28 lg:pt-36">
         <h1 className="max-w-[15ch] text-[2.75rem] leading-[1.05] font-semibold tracking-[-0.024em] text-balance text-foreground sm:text-[3.75rem]">
-          The control plane for servers you own
+          The self-hosted control plane for servers you own
         </h1>
 
         <p className="mt-6 max-w-[54ch] text-[1rem] leading-normal text-pretty text-muted-foreground">
-          One dashboard for your whole stack: a project graph, deployments, live logs and metrics, a
-          database workbench, and 98 one-click apps. Self-hosted, on your VPS.
+          An open-source, self-hosted alternative to Vercel and Railway, running on your VPS. One
+          dashboard for your whole stack: deployments, logs, metrics, databases, and 90+ curated app
+          templates.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
@@ -57,7 +58,7 @@ export function NextHero() {
 
         <div className="mt-6 max-w-[34rem]">
           <CommandLine command={INSTALL_CMD} label="install" />
-          <p className="mt-2 pl-1 font-mono text-[0.7rem] text-muted-foreground/70">
+          <p className="mt-2 pl-1 font-mono text-[0.7rem] text-muted-foreground">
             one command on a fresh VPS, installs and starts the control plane.
           </p>
         </div>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { COMPARE_COLUMNS, COMPARE_ROWS, type CompareMark } from "../landing/content";
 import { Container, cx, Mono } from "../landing/primitives";
+import { CompareMethodology } from "./compare-methodology";
 import { Reveal } from "./reveal";
 
 /**
@@ -131,7 +132,7 @@ export function CompareBlock() {
   return (
     <Container className="pt-20 pb-20 lg:pt-24 lg:pb-28">
       <Reveal className="max-w-[46rem]">
-        <Mono className="text-muted-foreground/70">OTTERDEPLOY vs THE ALTERNATIVES</Mono>
+        <Mono className="text-muted-foreground">OTTERDEPLOY vs THE ALTERNATIVES</Mono>
         <h2 className="mt-3 text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance sm:text-[2.25rem]">
           How it compares
         </h2>
@@ -210,12 +211,12 @@ export function CompareBlock() {
                   <div className="text-[0.875rem] font-medium text-foreground">{row.label}</div>
                   <div className="mt-0.5 text-[0.75rem] leading-snug">
                     {unique ? (
-                      <span className="font-medium text-[#7ab5ff]">Only otterdeploy</span>
+                      <span className="font-medium text-[#7ab5ff]">Built into otterdeploy</span>
                     ) : (
                       <span className="text-muted-foreground">
                         Also in {also.join(", ")}
                         {partial.length > 0 && (
-                          <span className="text-muted-foreground/70">
+                          <span className="text-muted-foreground">
                             {also.length > 0 ? " · " : ""}partial in {partial.join(", ")}
                           </span>
                         )}
@@ -241,15 +242,13 @@ export function CompareBlock() {
             );
           })}
         </div>
-        <p className="mt-3 px-1 text-[0.75rem] leading-relaxed text-muted-foreground/70">
-          Every capability above ships in otterdeploy. The note shows which of Coolify, Dokploy or
-          CapRover also have it.
+        <p className="mt-3 px-1 text-[0.75rem] leading-relaxed text-muted-foreground">
+          Every capability above ships in otterdeploy. The note shows which competitors also have
+          it.
         </p>
       </Reveal>
 
-      <Mono className="mt-5 block text-muted-foreground/60">
-        spotted a stale mark? open an issue and we'll fix the row.
-      </Mono>
+      <CompareMethodology />
     </Container>
   );
 }

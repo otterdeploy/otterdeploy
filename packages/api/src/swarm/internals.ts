@@ -209,12 +209,11 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     Labels: otterdeployLabels,
     TaskTemplate: taskTemplate,
     Mode: { Replicated: { Replicas: spec.replicas } },
-    // Zero-downtime rolling update: start the new task before stopping
-    // the old one, fail the deploy + auto-rollback if the new task can't
-    // hold "running" for 10s. Monitor=10s is short enough that operators
-    // see fast feedback on a bad spec; MaxFailureRatio=0 means any
-    // failed task aborts the rollout instead of accepting partial
-    // success.
+    // Start-first rolling update: start the new task before stopping the old
+    // one, then fail + auto-rollback if it cannot hold `running` for 10s.
+    // Avoiding interrupted requests still depends on enough spare capacity
+    // and an application healthcheck; Swarm's running state alone does not
+    // prove readiness. MaxFailureRatio=0 rejects partial rollout failure.
     UpdateConfig: {
       Parallelism: 1,
       Delay: 0,
@@ -259,7 +258,7 @@ export async function inspectSwarmService(
     throw tasksResult.error;
   }
 
-  const latestTask = [...tasksResult.value].sort(byCreatedDesc).at(0);
+  const latestTask = tasksResult.value.toSorted(byCreatedDesc).at(0);
   const { status, errorMessage } = resolveTaskStatus(tasksResult.value);
 
   return {

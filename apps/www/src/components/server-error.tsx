@@ -11,6 +11,13 @@ import { ErrorScreen, errorBackClass, errorBtnClass } from "@otterdeploy/ui/erro
  * boundary.
  */
 export function ServerError({ reset, error }: ErrorComponentProps) {
+  // Runtime errors can contain upstream URLs, identifiers, or implementation
+  // details. Keep them visible during local development without reflecting
+  // them into a public 500 response.
+  const message = import.meta.env.DEV
+    ? (error?.message ?? "Something failed on our side while building this page.")
+    : "Something failed on our side while building this page.";
+
   return (
     <ErrorScreen
       code="500"
@@ -18,7 +25,7 @@ export function ServerError({ reset, error }: ErrorComponentProps) {
       eyebrow="Server error"
       title="That page didn't render"
       statusTag="RENDER_FAILED"
-      message={error?.message ?? "Something failed on our side while building this page."}
+      message={message}
       actions={
         <>
           <button type="button" className={errorBtnClass} onClick={() => reset()}>

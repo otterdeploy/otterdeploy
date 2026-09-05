@@ -199,8 +199,8 @@ const serviceCommonSchema = z.object({
   restart: restartSchema.optional(),
   // Lifecycle hooks. Exec-form, run in order, each in a throwaway
   // container off the new image. preDeploy runs after the build but
-  // before the new replicas take traffic (db migrations); postDeploy
-  // runs after they're live + healthy (cache warmup, smoke checks).
+  // before the new replicas take traffic (db migrations); postDeploy runs
+  // after the new task reaches running (cache warmup, smoke checks).
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
   // Public domains to attach when the service is first created by Apply.

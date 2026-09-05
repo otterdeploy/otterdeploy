@@ -26,7 +26,14 @@ how many people run otterdeploy**: GHCR publishes no pull counts and
 serve the installer yourself, and let running instances poll a manifest you also
 serve.
 
-Two numbers come out of the `otterdeploy_get` Analytics Engine dataset:
+> [!IMPORTANT]
+> Collection is currently disabled. The checked-in `wrangler.jsonc` leaves the
+> Analytics Engine binding commented out because this Cloudflare account still
+> rejects it with API error 10089. Until the binding is enabled and the Worker
+> is redeployed, there are no install or active-instance counts.
+
+When enabled, two numbers come out of the `otterdeploy_get` Analytics Engine
+dataset:
 
 ```sql
 -- installs
@@ -36,9 +43,12 @@ SELECT count() FROM otterdeploy_get WHERE blob1 = 'install.sh' AND timestamp > n
 SELECT uniq(index1) FROM otterdeploy_get WHERE blob1 = 'versions.json' AND timestamp > now() - INTERVAL '1' DAY
 ```
 
-`index1` is a truncated SHA-256 of the client IP, stable enough within a window
-to deduplicate one host, never stored or reversible to an address. No telemetry
-ships in the product itself, and nothing identifies an installation.
+`index1` is a truncated HMAC of the client IP under a Worker secret, stable
+enough within a window to deduplicate one host. The Analytics Engine datapoint
+stores the requested file, requested version, country code, and keyed
+identifier; it does not store the raw IP address or User-Agent. Rotate the key
+to break correlation between old and new datapoints. No telemetry ships in the
+product itself, and the edge request does not carry an installation ID.
 
 ## One-time setup
 
@@ -51,6 +61,19 @@ bun run deploy
 `wrangler deploy` claims `get.otterdeploy.com` as a custom domain and creates the
 DNS record itself: this is what replaces the proxied-record-with-no-origin that
 was returning 525.
+
+To enable the optional counters after Analytics Engine is available on the
+account:
+
+1. Uncomment the `analytics_engine_datasets` block in `wrangler.jsonc`.
+2. Run `bunx wrangler secret put ANALYTICS_HASH_KEY` and enter a new random
+   secret; never put the value in this repository.
+3. Run `bun run deploy` again.
+
+Cloudflare creates the `otterdeploy_get` dataset automatically on its first
+write; there is no separate dataset-creation command. If the binding remains
+commented out, the Worker still serves artifacts but deliberately records no
+counter data.
 
 Then add two repository secrets so CI can publish releases:
 
@@ -79,3 +102,8 @@ active-instance number stays blind.
 bun run dev    # http://localhost:8787, R2 empty → exercises the GitHub fallback
 bun run tail   # live logs from production
 ```
+
+The `local` Wrangler environment deliberately omits the production custom-domain
+route. Without that override Wrangler presents localhost requests as
+`get.otterdeploy.com`, so the Worker's HTTPS policy correctly redirects the
+browser away from the local server.

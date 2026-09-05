@@ -8,6 +8,9 @@
   "compatibility_date": "2026-05-28",
   "observability": {
     "enabled": true,
+    // Artifact URLs can contain user-supplied query strings. Preserve explicit
+    // console/error logs without retaining an automatic log for every request.
+    "logs": { "invocation_logs": false },
   },
   // `custom_domain` makes wrangler create/own the proxied DNS record for
   // get.otterdeploy.com and terminate TLS at the edge. There is no origin, so
@@ -36,7 +39,8 @@
   // unaffected: `Env.ANALYTICS` is optional and `record()` returns early when
   // the binding is absent, but until this is restored there are NO install or
   // active-instance counts, which is the reason this Worker exists at all.
-  // Re-enable by uncommenting; it is a redeploy with no code change.
+  // Before re-enabling, create the keyed identifier secret with
+  // `wrangler secret put ANALYTICS_HASH_KEY`, then uncomment and redeploy.
   // "analytics_engine_datasets": [
   // 	{
   // 		"binding": "ANALYTICS",
@@ -48,5 +52,25 @@
     // never dead, including before the very first release is published.
     "FALLBACK_REPO": "otterdeploy/otterdeploy",
     "DOCS_URL": "https://otterdeploy.com/docs/start/install",
+  },
+  // Local development must not inherit the production custom-domain route.
+  // Wrangler otherwise rewrites localhost requests as get.otterdeploy.com,
+  // which correctly triggers the Worker's HTTPS upgrade and makes the local
+  // server appear to redirect to production. R2 bindings and vars are not
+  // inherited by named environments, so repeat them here deliberately.
+  "env": {
+    "local": {
+      "routes": [],
+      "r2_buckets": [
+        {
+          "binding": "ARTIFACTS",
+          "bucket_name": "otterdeploy-get",
+        },
+      ],
+      "vars": {
+        "FALLBACK_REPO": "otterdeploy/otterdeploy",
+        "DOCS_URL": "https://otterdeploy.com/docs/start/install",
+      },
+    },
   },
 }

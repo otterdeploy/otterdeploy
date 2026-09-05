@@ -10,17 +10,19 @@ import {
   DocsDescription,
   DocsPage,
   DocsTitle,
+  PageLastUpdate,
 } from "fumadocs-ui/layouts/docs/page";
 import type React from "react";
 import { Suspense } from "react";
 import { OpenAPIPage } from "@/components/api-page";
 import { DocsVersion } from "@/components/docs-version";
+import { GITHUB_URL } from "@/components/landing/content";
 import { getMDXComponents } from "@/components/mdx";
 import { SiteBar } from "@/components/site-bar";
 import { baseOptions } from "@/lib/layout.shared";
-import { breadcrumbJsonLd, canonical, seo } from "@/lib/seo";
+import { breadcrumbJsonLd, canonical, notFoundSeo, seo, seoTitleOf } from "@/lib/seo";
 import { docsRoute } from "@/lib/shared";
-import { source } from "@/lib/source";
+import { sourceForDocs } from "@/lib/source";
 
 export const Route = createFileRoute("/docs/$")({
   component: Page,
@@ -35,14 +37,22 @@ export const Route = createFileRoute("/docs/$")({
   // Per-page title, description and canonical. Without this every docs page
   // shares the root's tags, so search engines see one title across the whole
   // reference and dedupe most of it away.
-  head: ({ loaderData }) => {
+  head: ({ loaderData, match }) => {
+    if (match.status === "notFound") {
+      return { meta: notFoundSeo(), links: [], scripts: [] };
+    }
+
     const path = loaderData?.url ?? docsRoute;
     return {
       meta: seo({
-        title: loaderData?.title,
+        title: loaderData ? seoTitleOf(loaderData) : undefined,
         description: loaderData?.description,
         path,
         type: "article",
+        // Hundreds of generated operation URLs are useful to a person already
+        // browsing the reference, but premature crawl/index expansion for a
+        // new site. The authored /docs/openapi overview remains indexable.
+        indexable: loaderData?.type !== "openapi",
       }),
       links: [canonical(path)],
       // A breadcrumb trail in the result instead of a bare URL. Only for
@@ -69,6 +79,7 @@ function isOpenAPIPageData(data: PageData): data is OpenAPIPageData {
 const serverLoader = createServerFn({ method: "GET" })
   .validator((slugs: string[]) => slugs)
   .handler(async ({ data: slugs }) => {
+    const source = await sourceForDocs(slugs);
     const page = source.getPage(slugs);
     if (!page) throw notFound();
 
@@ -83,7 +94,13 @@ const serverLoader = createServerFn({ method: "GET" })
       }
       return {
         type: "openapi" as const,
-        title: data.title,
+        // OpenAPI page titles are optional in Fumadocs' type. Keep the route
+        // renderable and its noindex metadata meaningful for malformed or
+        // unusually sparse upstream operation metadata.
+        title:
+          data.title ??
+          `${data._openapi.method?.toUpperCase() ?? "API"} ${page.url.replace(`${docsRoute}/openapi`, "")}`,
+        seoTitle: undefined,
         description: data.description,
         url: page.url,
         pageTree,
@@ -101,6 +118,7 @@ const serverLoader = createServerFn({ method: "GET" })
       path: page.path,
       url: page.url,
       title: data.title,
+      seoTitle: data.seoTitle,
       description: data.description,
       pageTree,
     };
@@ -112,16 +130,31 @@ const serverLoader = createServerFn({ method: "GET" })
 // inside its own internal `Renderer`, which a hooks linter can't see as a
 // component boundary.
 const mdxComponents = getMDXComponents();
+const docsSourceRoot = `${GITHUB_URL}/blob/main/apps/www/content/docs`;
 
-const clientLoader = browserCollections.docs.createClientLoader({
-  component({ toc, frontmatter, default: MDX }) {
+const clientLoader = browserCollections.docs.createClientLoader<{ sourcePath: string }>({
+  component({ toc, frontmatter, lastModified, default: MDX }, { sourcePath }) {
     return (
-      <DocsPage toc={toc}>
+      <DocsPage toc={toc} role="main">
         <DocsTitle>{frontmatter.title}</DocsTitle>
         <DocsDescription>{frontmatter.description}</DocsDescription>
         <DocsBody>
           <MDX components={mdxComponents} />
         </DocsBody>
+        {__DOCS_GIT_HISTORY_COMPLETE__ && lastModified && (
+          <PageLastUpdate date={lastModified} />
+        )}
+        <p className="mt-6 border-t border-border pt-5 text-xs text-muted-foreground">
+          Maintained in the public otterdeploy repository.{" "}
+          <a
+            href={`${docsSourceRoot}/${sourcePath.replace(/^\/+/, "")}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-sm underline underline-offset-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none"
+          >
+            View this page’s source ↗
+          </a>
+        </p>
       </DocsPage>
     );
   },
@@ -132,7 +165,7 @@ const clientLoader = browserCollections.docs.createClientLoader({
 // component so the hook runs unconditionally at that component's top level; the
 // component itself is then what we render conditionally, which is allowed.
 function DocsContent({ path }: { path: string }) {
-  return clientLoader.useContent(path);
+  return clientLoader.useContent(path, { sourcePath: path });
 }
 
 // `--fd-banner-height` offsets the docs sidebar/TOC below our marketing bar,
@@ -157,7 +190,7 @@ function Page() {
         themeSwitch={{ enabled: false }}
       >
         {page.type === "openapi" ? (
-          <DocsPage full>
+          <DocsPage full role="main">
             <DocsTitle>{page.title}</DocsTitle>
             <DocsDescription>{page.description}</DocsDescription>
             <DocsBody>

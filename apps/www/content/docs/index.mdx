@@ -1,14 +1,15 @@
 ---
 title: Introduction
-description: What Otterdeploy is, what it runs, and how these docs are organised.
+seoTitle: Self-hosted deployment platform documentation
+description: Learn how Otterdeploy builds and operates services, databases, domains, previews, and backups on servers you control.
 icon: Album
 ---
 
-Otterdeploy is a self-hostable deployment platform. You bring a Linux box, or
-a cluster of them, and it gives you git-sourced builds, managed databases, a
-Caddy edge with automatic HTTPS, per-pull-request previews, live logs, metrics
-and scheduled backups. Everything runs on your hardware; nothing phones home,
-and nothing stops working if we do.
+Otterdeploy is a self-hostable deployment platform. You bring a supported Linux
+host, or a cluster of them, and it gives you git-sourced builds, managed
+databases, a Caddy edge with automatic HTTPS, opt-in pull request previews, live logs,
+metrics and scheduled backups. The control plane and workloads run on your
+hardware; no hosted Otterdeploy service sits in the request path.
 
 <Callout type="warn" title="Under active development">
   Interfaces and schemas still change without migration paths. Run it on
@@ -26,8 +27,8 @@ and nothing stops working if we do.
 - **Compose stacks**: a whole `docker-compose` project as one resource, pasted
   inline or pulled from a repo.
 
-Everything is reachable three ways: the dashboard, the `otterdeploy` CLI, and
-the typed API the other two are built on.
+Core workflows are available through the dashboard and the `otterdeploy` CLI.
+Both use the same typed API.
 
 ## Where to start
 
@@ -50,7 +51,7 @@ the typed API the other two are built on.
   <Card
     title="CLI reference"
     href="/docs/cli/commands"
-    description="Every command and flag the binary accepts."
+    description="Source-backed syntax, examples, and options for the command tree."
   />
 </Cards>
 
@@ -67,4 +68,4 @@ Task-shaped pages for the things you'll do after the first deploy:
 
 The [manifest schema](/docs/reference/manifest) for `otterdeploy.json`, the
 [CLI reference](/docs/cli/commands), and the
-[HTTP API](/docs/reference/api) generated from the live OpenAPI spec.
+[HTTP API](/docs/reference/api) generated from a build-time OpenAPI snapshot.

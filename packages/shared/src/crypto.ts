@@ -128,8 +128,14 @@ export async function hmacSha256Hex(secret: string, body: string | ArrayBuffer):
     false,
     ["sign"],
   );
-  const data: Uint8Array<ArrayBuffer> =
-    typeof body === "string" ? new TextEncoder().encode(body) : new Uint8Array(body);
+  // `Uint8Array.from` makes the backing store unambiguously an `ArrayBuffer`.
+  // TypeScript 7 models `TextEncoder#encode` as `ArrayBufferLike`, while the
+  // Workers Web Crypto declarations correctly reject a possible
+  // `SharedArrayBuffer` for `SubtleCrypto#sign`.
+  const data =
+    typeof body === "string"
+      ? Uint8Array.from(new TextEncoder().encode(body))
+      : new Uint8Array(body);
   const mac = await crypto.subtle.sign("HMAC", key, data);
   return bytesToHex(new Uint8Array(mac));
 }

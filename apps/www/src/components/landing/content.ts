@@ -13,137 +13,6 @@ export const GITHUB_URL = "https://github.com/otterdeploy/otterdeploy";
 /** scripts/install.sh: the host installer, published at get.otterdeploy.com. */
 export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | bash";
 
-// ── Nav ────────────────────────────────────────────────────────────────────
-
-/**
- * Four stops, not every section: the centre of the bar is a map, and a map
- * that names every street stops being one.
- *
- * Every id here must be a real `Band` on the page, because the scroll-spy
- * looks each one up by `getElementById` and silently drops what it can't
- * find. The showcase became one bento (`#features`), so the per-panel ids it
- * used to carry — deploy, project, edge, previews — no longer exist.
- */
-export const NAV_SECTIONS: { id: string; label: string }[] = [
-  { id: "features", label: "Features" },
-  { id: "platform", label: "Platform" },
-  { id: "compare", label: "Compare" },
-  { id: "faq", label: "FAQ" },
-];
-
-// ── Hero ───────────────────────────────────────────────────────────────────
-
-/**
- * The stations a git-sourced deploy passes through, in order. The words are
- * the product's own: `pending` / `building` / `running` are `deployment_status`
- * members, `tls` resolves a `proxy_route_cert_state`.
- */
-export const RAIL_STATIONS: { key: string; note: string }[] = [
-  { key: "pending", note: "queued" },
-  { key: "building", note: "railpack" },
-  { key: "image", note: "pushed" },
-  { key: "rollout", note: "swarm" },
-  { key: "route", note: "caddy" },
-  { key: "tls", note: "valid" },
-];
-
-/** Four counts, each verifiable in the repository. */
-export const HERO_FACTS: { value: string; label: string }[] = [
-  { value: "5", label: "database engines" },
-  { value: "98", label: "stack templates" },
-  { value: "34", label: "CLI commands" },
-  { value: "1", label: "machine to start" },
-];
-
-// ── Everything else ────────────────────────────────────────────────────────
-
-/**
- * The rest of the surface, as names only. Anyone who needs the detail is one
- * click from the docs; putting all fifty descriptions on the landing page is
- * what made the first draft unreadable.
- */
-export const CHIP_GROUPS: { title: string; chips: string[] }[] = [
-  {
-    title: "Build & deploy",
-    chips: [
-      "Framework auto-detect",
-      "Dockerfile builds",
-      "Monorepo aware",
-      "Compose stacks",
-      "98 stack templates",
-      "Rollback",
-      "Crash reporting",
-      "Environments",
-    ],
-  },
-  {
-    title: "Domains, TLS & networking",
-    chips: [
-      "Multi-domain routing",
-      "Automatic TLS",
-      "Custom certificates",
-      "Layer-4 exposure",
-      "Deployment protection",
-      "Access logs",
-      "Edge events",
-      "CrowdSec",
-    ],
-  },
-  {
-    title: "Databases & backups",
-    chips: [
-      "Postgres",
-      "Redis",
-      "MariaDB",
-      "MongoDB",
-      "ClickHouse",
-      "Built-in data browser",
-      "Encrypted backups",
-      "Scheduled snapshots",
-      "Volumes & mounts",
-    ],
-  },
-  {
-    title: "Operate",
-    chips: [
-      "Live logs",
-      "CPU & memory metrics",
-      "Web terminal",
-      "Multi-node Swarm",
-      "Tailscale & NetBird mesh",
-      "Host health alerts",
-      "Slack, Discord, PagerDuty",
-      "Raw Docker",
-    ],
-  },
-  {
-    title: "Access & security",
-    chips: [
-      "Org RBAC",
-      "Scoped API keys",
-      "Audit log",
-      "Sealed variables",
-      "Host firewall",
-      "SSH keys",
-      "Private registries",
-      "Anomaly alerts",
-    ],
-  },
-  {
-    title: "CLI, API & automation",
-    chips: [
-      "otterdeploy.json",
-      "Typed oRPC API",
-      "34 CLI commands",
-      "Outbound webhooks",
-      "Inbound triggers",
-      "Device login",
-      "CI tokens",
-      "Shell completions",
-    ],
-  },
-];
-
 // ── Compare ────────────────────────────────────────────────────────────────
 
 /**
@@ -161,14 +30,14 @@ export const COMPARE_COLUMNS = ["otterdeploy", "Coolify", "Dokploy", "CapRover",
 export const COMPARE_ROWS: { label: string; marks: CompareMark[] }[] = [
   { label: "Web dashboard", marks: ["yes", "yes", "yes", "yes", "no"] },
   { label: "Preview deployments per PR", marks: ["yes", "yes", "yes", "no", "no"] },
-  { label: "Database branching for previews", marks: ["yes", "no", "no", "no", "no"] },
+  { label: "PostgreSQL branching for previews", marks: ["yes", "no", "no", "no", "no"] },
   { label: "Managed databases", marks: ["yes", "yes", "yes", "partial", "partial"] },
   { label: "Encrypted, scheduled backups", marks: ["yes", "partial", "partial", "partial", "no"] },
-  { label: "Zero-downtime rollouts", marks: ["yes", "partial", "yes", "partial", "yes"] },
+  { label: "Start-first rolling updates", marks: ["yes", "partial", "partial", "partial", "yes"] },
   { label: "Multi-node scheduling", marks: ["yes", "partial", "yes", "yes", "partial"] },
   { label: "Compose stacks as one resource", marks: ["yes", "yes", "yes", "partial", "no"] },
   { label: "Typed API + CLI", marks: ["yes", "partial", "partial", "partial", "partial"] },
-  { label: "Tailscale & NetBird mesh built in", marks: ["yes", "no", "no", "no", "no"] },
+  { label: "Automated node mesh join (Tailscale/NetBird)", marks: ["yes", "no", "no", "no", "no"] },
   { label: "Host firewall + CrowdSec by default", marks: ["yes", "no", "no", "no", "no"] },
 ];
 
@@ -190,7 +59,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "How is this different from Coolify or Dokploy?",
-    a: "Same family, different bets. We bet on previews with database branching, a typed API and CLI for automation, mesh networking built in, and host security (firewall, CrowdSec) on by default rather than as homework. If another tool fits you better, use it; the comparison table above concedes their wins on purpose.",
+    a: "Same family, different bets. We bet on previews with PostgreSQL branching, a typed API and CLI for automation, automated node mesh join, and host security (firewall, CrowdSec) on by default rather than as homework. If another tool fits you better, use it; the comparison table above concedes their wins on purpose.",
   },
   {
     q: "Do I need Kubernetes?",
@@ -198,38 +67,10 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "What do I need to start?",
-    a: "One Linux box you have root on, with ports 80 and 443 reachable for the edge and ACME. The installer does the rest, including the firewall.",
+    a: "One supported Linux box with root or passwordless sudo: Debian/Ubuntu, a RHEL/Fedora-family distro, or Arch. Docker 28+ can already be present or the installer can add it. Ports 80 and 443 must be reachable for the edge and ACME, and the dashboard port (3000 by default) must be free.",
   },
   {
     q: "What happens when the box dies?",
-    a: "Backups are encrypted, scheduled and restorable to any snapshot, so the honest answer is: you restore onto a new box. A single machine is a single point of failure; that trade is yours to make, and multi-node Swarm is there when you outgrow it.",
-  },
-];
-
-// ── Close ──────────────────────────────────────────────────────────────────
-
-export const REQUIREMENTS: { label: string; value: string }[] = [
-  { label: "Host", value: "One Linux VPS or bare-metal box, with root" },
-  { label: "Runtime", value: "Docker, Swarm-enabled by the installer" },
-  { label: "Ports", value: "80 and 443, for the edge and ACME" },
-];
-
-export const FOOTER_LINKS: { title: string; links: { label: string; href: string }[] }[] = [
-  {
-    title: "Docs",
-    links: [
-      { label: "Introduction", href: "/docs" },
-      { label: "Getting started", href: "/docs/start/first-deploy" },
-      { label: "CLI reference", href: "/docs/cli" },
-      { label: "API reference", href: "/docs/reference/api" },
-    ],
-  },
-  {
-    title: "Project",
-    links: [
-      { label: "GitHub", href: GITHUB_URL },
-      { label: "License: AGPL-3.0", href: `${GITHUB_URL}/blob/main/LICENSE` },
-      { label: "Issues", href: `${GITHUB_URL}/issues` },
-    ],
+    a: "A single machine is a single point of failure. Configure scheduled backups to an external destination before you depend on recovery: the managed local destination lives on that same node and does not survive its loss. Multi-node Swarm improves service availability but does not replace off-node backups.",
   },
 ];

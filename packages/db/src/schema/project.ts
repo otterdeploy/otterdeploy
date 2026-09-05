@@ -590,8 +590,8 @@ export const serviceResource = pgTable(
     // Exec-form (text[], one shell command per entry, run in order).
     //   preDeploy: after the build, BEFORE the new replicas take traffic.
     //                A non-zero exit aborts the rollout. Use: db migrations.
-    //   postDeploy: after the new replicas are live + healthy. Use: cache
-    //                warmup, smoke checks, deploy pings.
+    //   postDeploy: after the new task reaches running. Use: cache warmup,
+    //                smoke checks, deploy pings.
     preDeploy: text("pre_deploy").array(),
     postDeploy: text("post_deploy").array(),
 

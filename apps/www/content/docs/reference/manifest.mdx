@@ -1,15 +1,16 @@
 ---
 title: Manifest
-description: The otterdeploy.json schema, the declarative shape of a project.
+seoTitle: Project manifest reference
+description: Define and synchronize services, databases, and environments in otterdeploy.json, with domains applied only when a service is created.
 ---
 
 A project can be described by one JSON document. Diff it, review it, commit it,
 apply it.
 
 ```bash
-otterdeploy export        # write the live project out to otterdeploy.json
+otterdeploy pull          # replace the local config with the saved manifest
 otterdeploy sync          # show the diff, then apply it
-otterdeploy pull          # pull remote state without applying
+otterdeploy export        # render the project as a docker-compose stack
 ```
 
 ## Top level
@@ -54,7 +55,7 @@ Discriminated by `source`.
     "sourceSubdir": "apps/web",
     "build": { "builder": "auto" },
     "ports": [{ "container": 3000, "primary": true }],
-    "env": { "DATABASE_URL": "${database:postgres.DATABASE_URL}" }
+    "env": { "DATABASE_URL": "${database:postgres.url}" }
   }
 }
 ```
@@ -132,9 +133,10 @@ It is off by default because `turbo prune` keeps only the root `package.json`,
 the lockfile and `turbo.json`, and drops every other root-level file. A repo
 whose packages do `"extends": "../../tsconfig.json"`, or that keeps a root
 `.npmrc`, `patches/`, or shared tool config, would break. Otterdeploy checks
-for exactly that before using a pruned tree and silently builds the full
-workspace instead when it isn't safe — so turning this on can never break a
-build that worked, at worst it does nothing.
+for those known hazards before using a pruned tree and silently builds the full
+workspace instead when it finds one. The guard is conservative, not exhaustive:
+if a build reads an unusual root-level script or config, disable `turboPrune`
+and build the full workspace.
 
 <Callout title="Uses the builder's turbo, not your repo's">
   Pruning runs before install, so it can't use the `turbo` in your
@@ -181,7 +183,7 @@ turbo re-runs every task.
 | `resources` | `cpuLimit`, `memoryMb`, `cpuReservation`, `memoryReservationMb`, `diskMb`, `swapMb`, `pidsLimit` |
 | `restart` | `{ condition: "none" \| "on-failure" \| "any", maxAttempts?, delayMs?, windowMs? }` |
 | `preDeploy` | Hooks run after build, before new replicas take traffic: migrations |
-| `postDeploy` | Hooks run after replicas are live and healthy: warmup, smoke checks |
+| `postDeploy` | Hooks run after the new task reaches `running`: warmup, smoke checks |
 | `domains` | Create-time seed only; see below |
 
 <Callout title="Shell expressions need a shell">
@@ -232,10 +234,10 @@ Overrides that deep-merge onto the base:
 Applying the manifest reconciles the resources it describes. Two things behave
 differently and are worth committing to memory:
 
-- **Environment variables are owned by the manifest.** A variable set
-  imperatively and never written back will be removed by the next sync.
+- **A non-empty service `env` map is owned by the manifest.** Omitting it, or
+  declaring `{}`, leaves that service's variables under live control.
 - **Service mounts are not.** Apply never touches them, so a volume added by
   hand survives.
 
-Run `otterdeploy export` before a sync when you aren't sure the file matches
-reality.
+Run `otterdeploy pull` before a sync when you want to replace the local file
+with the server's saved manifest.

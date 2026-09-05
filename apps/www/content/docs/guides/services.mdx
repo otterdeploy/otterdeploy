@@ -1,6 +1,7 @@
 ---
 title: Services
-description: Build from a repo, roll out, roll back, and read the logs.
+seoTitle: Deploy services from Git, images, and uploads
+description: Build a service from a repository, deploy from a pre-built image or uploaded source, roll it back, and inspect its logs and metrics.
 ---
 
 A service is a long-running container. Its **source** decides how the image
@@ -62,10 +63,10 @@ Deployments become Swarm service updates. The new tasks come up, the old ones
 drain.
 
 ```bash
-otterdeploy deploy --wait          # reconcile the whole project, block until healthy
+otterdeploy deploy --wait          # reconcile the project, block until running or failed
 otterdeploy redeploy web           # rebuild from the head of the bound branch
 otterdeploy restart web            # cycle the container, same image
-otterdeploy build web              # build without rolling out
+otterdeploy build web              # queue the same Git build and rollout path
 ```
 
 `--wait` exits non-zero if anything fails to settle, which makes it usable as a
@@ -113,9 +114,9 @@ summarises it.
 
 ```bash
 otterdeploy volume list --service web
-otterdeploy volume add --service web --path /data
-otterdeploy volume add --service web --path /cache --read-only
-otterdeploy volume remove --service web --path /data --yes
+otterdeploy volume add --service web --mount-path /data
+otterdeploy volume add --service web --mount-path /cache --read-only
+otterdeploy volume remove --service web --mount-path /data --yes
 ```
 
 Removing a volume detaches it; the data is left intact. Mount types are
@@ -123,8 +124,9 @@ Removing a volume detaches it; the data is left intact. Mount types are
 
 <Callout title="Volumes survive a reconcile">
   Manifest apply never touches service mounts, so a volume you added by hand
-  isn't wiped by the next declarative sync, unlike environment variables,
-  which the manifest does own.
+  isn't wiped by the next declarative sync. Environment variables are
+  different: the manifest owns them only when that service declares a
+  non-empty `env` map; omitted or empty `env` leaves the live values alone.
 </Callout>
 
 ## Shelling in
