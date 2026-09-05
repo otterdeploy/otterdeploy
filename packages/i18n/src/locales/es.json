@@ -1393,6 +1393,14 @@
           "WEBUI_SECRET_KEY": "Firma las cookies de sesión. Cambiarla cierra la sesión de todo el mundo."
         }
       },
+      "openstatus": {
+        "description": "Monitorización sintética, alertas y páginas de estado públicas, autoalojadas. Ejecuta la pila completa: libSQL, el panel, la página de estado pública, el servidor de API, el planificador de workflows y el servidor de ingesta al que reportan las sondas privadas. Las sondas y el despliegue de analítica de Tinybird se configuran después de la instalación — consulta el enlace a la documentación.",
+        "env": {
+          "AUTH_SECRET": "Secreto de Auth.js. Firma las sesiones y los tokens de enlace mágico usados para iniciar sesión.",
+          "CRON_SECRET": "Secreto compartido con el que el servidor de ingesta se autentica ante la app de workflows para enviar cambios de estado. Cualquier cadena aleatoria, siempre que sea la misma.",
+          "RESEND_API_KEY": "Clave de Resend para los correos de alerta. Debe estar definida — el panel no arranca sin ella — pero el inicio de sesión no la usa: con SELF_HOST activo, el enlace mágico se imprime en los logs del panel en vez de enviarse por correo."
+        }
+      },
       "outline": {
         "description": "Wiki de equipo rápido, con edición en tiempo real, búsqueda de texto completo y una organización al estilo de Slack. Los documentos viven en Postgres; los adjuntos, en un volumen local.",
         "env": {

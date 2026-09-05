@@ -1393,6 +1393,14 @@
           "WEBUI_SECRET_KEY": "Signs session cookies. Changing it logs everyone out."
         }
       },
+      "openstatus": {
+        "description": "Synthetic monitoring, alerting and public status pages, self-hosted. Runs the full stack: libSQL, the dashboard, the public status page, the API server, the workflows scheduler, and the ingest server that private probes report into. Probes, and the Tinybird analytics deploy, are set up after install — see the docs link.",
+        "env": {
+          "AUTH_SECRET": "Auth.js secret. Signs sessions and the magic-link tokens used to log in.",
+          "CRON_SECRET": "Shared secret the ingest server uses to authenticate status updates to the workflows app. Any random string, as long as it is the same one.",
+          "RESEND_API_KEY": "Resend key for alert emails. It must be set — the dashboard refuses to boot without it — but login does not use it: with SELF_HOST on, the magic link is printed to the dashboard's logs instead of mailed."
+        }
+      },
       "outline": {
         "description": "Fast team wiki with real-time editing, full-text search, and Slack-style organisation. Documents live in Postgres; attachments land on a local volume.",
         "env": {
