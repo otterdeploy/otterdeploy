@@ -44,7 +44,9 @@ import {
 } from "./views";
 
 export type { EnvVarView, ServiceView } from "./views";
-export type { CreateServiceInput, UpdateServiceInput } from "./inputs";
+// `CreateServiceInput` is deliberately NOT re-exported here: `createService`
+// moved to ./create.ts, so this module is no longer where callers reach it.
+export type { UpdateServiceInput } from "./inputs";
 
 export { exposeService, unexposeService } from "./expose";
 export { bulkSetEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./env-handlers";
