@@ -1684,9 +1684,9 @@
     "dialogTemplateBefore": "Review the services and variables",
     "errorLine": "line {{line}}",
     "errorLineColumn": "line {{line}}:{{column}}",
-    "exposeHint": "Click a port to expose it on a public domain.",
-    "exposeTitle": "Expose with a public domain",
-    "exposedTitle": "Exposed. Click to make internal.",
+    "exposeHint": "Each highlighted port gets its own public URL. Click one to turn it off.",
+    "exposeTitle": "Internal only",
+    "exposedTitle": "Gets a public URL",
     "fileLabel": "Compose file",
     "fileLinesTemplate_one": "{{count}} line, from the template",
     "fileLinesTemplate_other": "{{count}} lines, from the template",
@@ -1719,7 +1719,12 @@
     "view": "View",
     "domainLabel": "Domain",
     "domainPlaceholder": "auto-generated",
-    "domainHelp": "Where this stack will be reachable. Pre-filled with the address it would get anyway — change it to publish on your own hostname."
+    "domainHelp": "Where this stack will be reachable. Pre-filled with the address it would get anyway; change it to publish on your own hostname.",
+    "exposeBody": "Nothing outside the stack can reach this port. Click to give it a public URL.",
+    "exposedBody": "This service gets its own hostname, which you can edit on the next step. Click to keep it internal.",
+    "udpTitle": "UDP port",
+    "udpBody": "Published straight to the server. Public URLs are HTTP only, so this port never gets one.",
+    "domainsLabel": "Domains"
   },
   "edgeLogs": {
     "events": "Edge events",

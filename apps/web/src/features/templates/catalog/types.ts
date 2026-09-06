@@ -120,4 +120,25 @@ export interface StackTemplate {
    * with an unprompted `${VAR}` that would silently render empty.
    */
   files?: Array<{ path: string; content: string; interpolate?: boolean }>;
+  /**
+   * The stack's public front door(s): compose service keys that should get a
+   * hostname. Everything else stays internal, whatever its `ports:`.
+   *
+   * By default the wizard ticks EVERY service that publishes a tcp port, and
+   * each ticked service gets its own generated hostname. That default is right
+   * for a pasted compose file, where declaring a port is the only signal we
+   * have, and wrong for a template, which knows its own shape. openstatus is
+   * the case in point: seven of its eight services publish a port, so it asked
+   * for seven public hostnames, when only the dashboard and the status pages
+   * are meant to be reached from outside. Its own services address each other
+   * as `${{stack.<svc>.HOST}}` over the overlay and never through a public URL.
+   *
+   * Declaring this pins exposure to exactly these services, and the first one
+   * is the stack's front door: the service whose address seeds the wizard's
+   * domain field. Leave it unset and the port heuristic applies unchanged.
+   *
+   * catalog.test.ts checks each name is a service in the file that publishes a
+   * tcp port, so this cannot rot as a template's compose changes.
+   */
+  exposed?: string[];
 }

@@ -159,6 +159,40 @@ describe("template catalog", () => {
         expect(parsed.services.some((s) => s.ports.length > 0)).toBe(true);
       });
 
+      it("names a real, tcp-publishing service in `exposed`", () => {
+        // `exposed` pins which services get a public hostname. A name that has
+        // drifted from the file would silently expose nothing (the wizard
+        // intersects it with the parsed services), and a udp-only service
+        // would mint a route the HTTP edge can never answer.
+        for (const name of template.exposed ?? []) {
+          const svc = parsed.services.find((s) => s.name === name);
+          expect(
+            svc,
+            `${template.id}: exposed "${name}" is not a service in the file`,
+          ).toBeDefined();
+          expect(
+            svc?.ports.some((p) => p.protocol === "tcp"),
+            `${template.id}: exposed "${name}" publishes no tcp port`,
+          ).toBe(true);
+        }
+      });
+
+      it("declares `exposed` when the file would otherwise mint several hostnames", () => {
+        // Every tcp-publishing service the wizard would tick by default. More
+        // than one means the operator gets a pile of generated hostnames and
+        // no say in which is the front door, so the template has to state it.
+        const wouldExpose = parsed.services.filter((s) =>
+          s.ports.some((p) => p.protocol === "tcp"),
+        );
+        if (wouldExpose.length > 1) {
+          expect(
+            template.exposed?.length,
+            `${template.id}: ${wouldExpose.length} services publish a tcp port ` +
+              `(${wouldExpose.map((s) => s.name).join(", ")}), so it must declare which are public`,
+          ).toBeGreaterThan(0);
+        }
+      });
+
       it("declares `requiredEnv` exactly matching the file's required ${VAR} refs", () => {
         const fromCompose = collectVarRefs(parsed)
           .filter((ref) => ref.default === null)

@@ -1,32 +1,50 @@
 /**
  * The wizard-side half of "the URL you typed is the URL you get".
  *
- * The compose wizard auto-fills address-shaped variables (`NETBIRD_DOMAIN`,
- * `SERVER_URL`, …) with the stack's resolved public host and remembers that
- * seed on the row (`Var.seedValue`). If the operator edits such a value, the
- * hostname they typed becomes the exposed front service's public domain in
- * the staged manifest entry — otherwise the route would publish on the
- * name-derived generated host while the app's own config points elsewhere.
+ * A stack has one public hostname per exposed service. The wizard seeds each
+ * with the address the server would generate anyway and lets the operator
+ * overwrite any of them; whatever survives here is what the staged manifest
+ * entry publishes on.
+ *
+ * The compose wizard also auto-fills address-shaped variables (`SERVER_URL`,
+ * `NETBIRD_DOMAIN`, …) with the front door's resolved host and remembers that
+ * seed on the row (`Var.seedValue`). Editing such a value is still a way to
+ * say "publish here", and still lands on the front door, for the templates
+ * that declare one.
  */
 
 import { stripToHostname } from "@otterdeploy/shared/public-host";
 
 /**
- * The hostname to publish the exposed front service on.
+ * The hostname to publish each exposed `<service>:<port>` on.
  *
- * The explicit domain field wins: it is seeded with the host the server would
- * generate, so sending it is a no-op until the operator edits it, and it is the
- * only control a template without an address-shaped variable has.
- * `editedExposedHost` stays as the fallback for the templates that do declare
- * one, where editing the variable is still the natural gesture.
+ * Explicit per-service entries win. They are seeded with the generated host,
+ * so sending them is a no-op until the operator edits one. `editedExposedHost`
+ * remains the fallback for the FRONT DOOR only (the first exposed entry): a
+ * template that declares an address-shaped variable but whose domain row the
+ * operator never touched should still follow the variable they did touch.
+ *
+ * A key with no usable hostname is omitted rather than sent blank, so the
+ * server keeps generating that service's address.
  */
-export function exposedHostFor(vars: {
-  variables: Array<{ value: string; seedValue?: string }>;
-  domain: string;
-}): string | null {
-  const typed = stripToHostname(vars.domain);
-  if (typed) return typed;
-  return editedExposedHost(vars.variables);
+export function exposedHostsFor(
+  vars: {
+    variables: Array<{ value: string; seedValue?: string }>;
+    domains: Array<{ key: string; domain: string }>;
+  },
+  exposedKeys: string[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of exposedKeys) {
+    const typed = stripToHostname(vars.domains.find((d) => d.key === key)?.domain ?? "");
+    if (typed) out[key] = typed;
+  }
+  const front = exposedKeys[0];
+  if (front !== undefined && out[front] === undefined) {
+    const edited = editedExposedHost(vars.variables);
+    if (edited) out[front] = edited;
+  }
+  return out;
 }
 
 /** The hostname the operator typed over a seeded address variable, or null

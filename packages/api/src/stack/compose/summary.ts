@@ -13,6 +13,9 @@ export function summarizeCompose(parsed: ParsedCompose): ComposeServiceSummary[]
     image: s.image,
     hasBuild: s.build != null,
     ports: [...new Set(s.ports.map((p) => p.target))],
+    // Only the tcp ports can be fronted by an HTTP route; see
+    // `ComposeServiceSummary.httpPorts`.
+    httpPorts: [...new Set(s.ports.flatMap((p) => (p.protocol === "tcp" ? [p.target] : [])))],
     // Named volumes only (binds/tmpfs are dropped at deploy). Deduped, source
     // name as written in the compose file: the chip the graph card renders.
     volumes: [

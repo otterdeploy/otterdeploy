@@ -56,3 +56,33 @@ export function withTimeout<T>(
     );
   });
 }
+
+/**
+ * Run `tasks` with at most `limit` in flight, preserving result order.
+ *
+ * Thunks rather than `(item, i) => …` on purpose: indexing a `readonly T[]`
+ * inside the worker gives `T | undefined` under `noUncheckedIndexedAccess`,
+ * and the only ways to spend that are a non-null assertion (a type assertion,
+ * which this repo bans) or a guard that lies about `T` when `T` itself
+ * includes undefined. A thunk array narrows honestly.
+ *
+ * Rejections propagate: a caller that wants "all of them, failures reported"
+ * catches inside its own thunk, which is what the stack rollout does.
+ */
+export async function mapLimit<R>(
+  tasks: ReadonlyArray<() => Promise<R>>,
+  limit: number,
+): Promise<R[]> {
+  const out: R[] = new Array<R>(tasks.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const i = next++;
+      const task = tasks[i];
+      if (!task) return;
+      out[i] = await task();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, tasks.length)) }, worker));
+  return out;
+}

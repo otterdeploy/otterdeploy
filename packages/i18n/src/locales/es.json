@@ -1684,9 +1684,9 @@
     "dialogTemplateBefore": "Revisa los servicios y las variables",
     "errorLine": "línea {{line}}",
     "errorLineColumn": "línea {{line}}:{{column}}",
-    "exposeHint": "Haz clic en un puerto para exponerlo en un dominio público.",
-    "exposeTitle": "Exponer en un dominio público",
-    "exposedTitle": "Expuesto. Haz clic para hacerlo interno.",
+    "exposeHint": "Cada puerto resaltado obtiene su propia URL pública. Haz clic en uno para desactivarlo.",
+    "exposeTitle": "Solo interno",
+    "exposedTitle": "Obtiene una URL pública",
     "fileLabel": "Archivo compose",
     "fileLinesTemplate_one": "{{count}} línea, de la plantilla",
     "fileLinesTemplate_other": "{{count}} líneas, de la plantilla",
@@ -1719,7 +1719,12 @@
     "view": "Ver",
     "domainLabel": "Dominio",
     "domainPlaceholder": "generado automáticamente",
-    "domainHelp": "Dónde estará disponible este stack. Se rellena con la dirección que recibiría de todos modos; cámbiala para publicarlo en tu propio nombre de host."
+    "domainHelp": "Donde este stack será accesible. Prerrellenado con la dirección que obtendría de todos modos; cámbiala para publicar en tu propio nombre de host.",
+    "exposeBody": "Nada fuera del stack puede alcanzar este puerto. Haz clic para darle una URL pública.",
+    "exposedBody": "Este servicio recibe su propio nombre de host, que puedes editar en el paso siguiente. Haz clic para mantenerlo interno.",
+    "udpTitle": "Puerto UDP",
+    "udpBody": "Se publica directamente en el servidor. Las URL públicas son solo HTTP, así que este puerto nunca recibe una.",
+    "domainsLabel": "Dominios"
   },
   "edgeLogs": {
     "events": "Eventos del edge",

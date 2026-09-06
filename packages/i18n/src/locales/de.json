@@ -1684,9 +1684,9 @@
     "dialogTemplateBefore": "Prüfe die Dienste und Variablen",
     "errorLine": "Zeile {{line}}",
     "errorLineColumn": "Zeile {{line}}:{{column}}",
-    "exposeHint": "Klicke auf einen Port, um ihn über eine öffentliche Domain freizugeben.",
-    "exposeTitle": "Über eine öffentliche Domain freigeben",
-    "exposedTitle": "Freigegeben. Klicken, um auf intern zu stellen.",
+    "exposeHint": "Jeder hervorgehobene Port erhält eine eigene öffentliche URL. Zum Abschalten daraufklicken.",
+    "exposeTitle": "Nur intern",
+    "exposedTitle": "Erhält eine öffentliche URL",
     "fileLabel": "Compose-Datei",
     "fileLinesTemplate_one": "{{count}} Zeile, aus der Vorlage",
     "fileLinesTemplate_other": "{{count}} Zeilen, aus der Vorlage",
@@ -1719,7 +1719,12 @@
     "view": "Ansehen",
     "domainLabel": "Domain",
     "domainPlaceholder": "automatisch erzeugt",
-    "domainHelp": "Unter welcher Adresse dieser Stack erreichbar ist. Vorbelegt mit der Adresse, die er ohnehin bekäme — ändern, um ihn unter einem eigenen Hostnamen zu veröffentlichen."
+    "domainHelp": "Wo dieser Stack erreichbar sein wird. Vorbelegt mit der Adresse, die er ohnehin bekäme; ändern Sie sie, um unter Ihrem eigenen Hostnamen zu veröffentlichen.",
+    "exposeBody": "Von außerhalb des Stacks ist dieser Port nicht erreichbar. Klicken, um ihm eine öffentliche URL zu geben.",
+    "exposedBody": "Dieser Dienst bekommt einen eigenen Hostnamen, den Sie im nächsten Schritt bearbeiten können. Klicken, um ihn intern zu halten.",
+    "udpTitle": "UDP-Port",
+    "udpBody": "Wird direkt auf dem Server veröffentlicht. Öffentliche URLs sind rein HTTP, dieser Port bekommt also keine.",
+    "domainsLabel": "Domains"
   },
   "edgeLogs": {
     "events": "Edge-Ereignisse",

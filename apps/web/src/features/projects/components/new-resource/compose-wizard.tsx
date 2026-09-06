@@ -43,7 +43,7 @@ import {
   type ComposePrefill,
   useComposeForm,
 } from "./compose-wizard-shared";
-import { exposedHostFor } from "./exposed-host";
+import { exposedHostsFor } from "./exposed-host";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values: split from the
@@ -65,7 +65,12 @@ function buildComposeEntry(value: ComposeFormValues, logoBrand: string | undefin
   const envEntry = Object.keys(env).length > 0 ? { env } : {};
   const file = value.file;
   return file.source === "inline"
-    ? buildInlineEntry(file, { ...brand, ...server }, envEntry, exposedHostFor(value.vars))
+    ? buildInlineEntry(
+        file,
+        { ...brand, ...server },
+        envEntry,
+        exposedHostsFor(value.vars, file.exposed),
+      )
     : buildGitEntry(file, { ...brand, ...server }, envEntry);
 }
 
@@ -73,8 +78,9 @@ function buildInlineEntry(
   file: ComposeFileValues,
   brand: { logoBrand?: string; server?: string },
   envEntry: { env?: Record<string, string> },
-  /** Operator-edited public host for the front (first exposed) service. */
-  exposedHost: string | null,
+  /** Public host per exposed `<service>:<port>`, when the operator gave one.
+   *  A key that is absent keeps the server's generated address. */
+  exposedHosts: Record<string, string>,
 ) {
   return {
     source: "inline" as const,
@@ -103,15 +109,16 @@ function buildInlineEntry(
         }
       : {}),
     ...envEntry,
-    // The first exposed entry is the stack's front door (the same rule that
-    // picked the host the address vars were seeded from), so an edited
-    // address lands on it.
-    exposed: file.exposed.map((k, i) => {
+    // Every exposed service carries its own hostname. The first entry is still
+    // the stack's front door (the one whose address seeded the address-shaped
+    // variables), but it is no longer the only one an operator can set.
+    exposed: file.exposed.map((k) => {
       const [service, port] = k.split(":");
+      const domain = exposedHosts[k];
       return {
         service: service ?? "",
         port: Number(port),
-        ...(i === 0 && exposedHost ? { domain: exposedHost } : {}),
+        ...(domain ? { domain } : {}),
       };
     }),
   };
@@ -167,7 +174,13 @@ export function ComposeWizard({
   // Template prefill is seeded through defaultValues (no effect). See
   // useComposeForm; the content field's onMount runs the initial parse.
   const form = useComposeForm(prefill);
-  const { preview, parseContent } = useComposeParse(projectId, editorRef, form, prefill?.generate);
+  const { preview, parseContent } = useComposeParse(
+    projectId,
+    editorRef,
+    form,
+    prefill?.generate,
+    prefill?.exposed,
+  );
 
   // View facts read straight off the form store, no hand-rolled flags. `source`
   // and `gitRepoUrl`/`name` drive the derived name; `hasVars` decides whether

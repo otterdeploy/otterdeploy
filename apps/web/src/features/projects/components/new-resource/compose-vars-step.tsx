@@ -45,21 +45,36 @@ export function ComposeVarsStep({
           {t("compose.varsRequiredBanner")}
         </div>
       )}
-      {/* The stack's public address. Seeded with the host the server would
-          generate, so leaving it alone changes nothing — but a template that
-          declares no address-shaped variable (Authentik: SECRET_KEY and
-          POSTGRES_PASSWORD, nothing else) previously had no domain control
-          anywhere, and deployed on the generated host with no way to say
-          otherwise. */}
-      <form.AppField name="vars.domain">
-        {(field) => (
-          <field.TextField
-            label={t("compose.domainLabel")}
-            placeholder={t("compose.domainPlaceholder")}
-            description={t("compose.domainHelp")}
-          />
-        )}
-      </form.AppField>
+      {/* One public address per exposed service, seeded with the host the
+          server would generate, so leaving them alone changes nothing. There
+          used to be a single box here: it was seeded from whichever service
+          declared a port first (openstatus: its internal libsql) and applied
+          only to the first exposed entry, so every other hostname was
+          generated silently and could not be changed until after the deploy. */}
+      <form.Subscribe selector={(st) => st.values.vars.domains}>
+        {(domains) =>
+          domains.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">
+                  {t(domains.length > 1 ? "compose.domainsLabel" : "compose.domainLabel")}
+                </span>
+                <span className="text-xs text-muted-foreground">{t("compose.domainHelp")}</span>
+              </div>
+              {domains.map((row, i) => (
+                <form.AppField key={row.key} name={`vars.domains[${i}].domain`}>
+                  {(field) => (
+                    <field.TextField
+                      label={row.key.split(":")[0] ?? row.key}
+                      placeholder={t("compose.domainPlaceholder")}
+                    />
+                  )}
+                </form.AppField>
+              ))}
+            </div>
+          ) : null
+        }
+      </form.Subscribe>
       <form.AppField
         name="vars.variables"
         validators={{ onChange: variablesValidatorFor(suggestions) }}

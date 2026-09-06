@@ -25,6 +25,18 @@ export type ComposeServiceSummary = {
   hasBuild: boolean;
   /** Declared container ports (target ports), for the UI preview. */
   ports: number[];
+  /** The subset of `ports` an HTTP route can actually front: the tcp ones.
+   *
+   *  A udp port is host-published instead and the edge speaks HTTP only, so
+   *  offering one for public exposure mints a route that can never answer.
+   *  Jitsi's `10000/udp` (media) and NetBird's `3478/udp` (STUN) were both
+   *  being offered, and each made its stack look like it needed two public
+   *  hostnames when it needed one.
+   *
+   *  Defaulted rather than required: rows written before this existed have no
+   *  value, and the wizard always recomputes the preview, so the fallback only
+   *  ever applies to a stored summary, which nothing seeds exposure from. */
+  httpPorts?: number[];
   /** Named-volume sources the service mounts. Rendered as chips on the graph
    *  card so a stateful service reads as stateful at a glance. Empty when the
    *  service mounts nothing (or only binds/tmpfs, which we drop). */
