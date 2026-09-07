@@ -684,22 +684,38 @@ export const serviceResource = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("service_resource_service_name_unique").on(table.serviceName),
+    // NO unique index on `serviceName`, and none on (networkName,
+    // internalHostname). Both used to exist and both were WRONG, in the same
+    // way: they asserted global uniqueness of a value this design intends to be
+    // SHARED across environments.
+    //
+    // `serviceName` (`od-<project>-<name>`) and `internalHostname`
+    // (`<name>`) are stored as the BASE identity. The environment/preview
+    // suffix is applied at READ time by `runtimeServiceName` (service/spec.ts,
+    // deployments-list.ts, git/preview-routes.ts, git/preview-teardown.ts), so
+    // two rows deliberately holding the same base string deploy as
+    // `od-<project>-api` and `od-<project>-api-staging`. A unique index on the
+    // base therefore rejected a staging service purely for existing beside
+    // production's — and it could never be fixed by scoping the stored name the
+    // way the database path does (od-jwx/#274), because that would double-suffix
+    // to `api-staging-staging`.
+    //
+    // Nothing is lost by their absence. Both were pure functions of
+    // (projectSlug, resourceName), which `resource_project_name_base_unique` /
+    // `_env_unique` / `_preview_unique` already constrain at exactly the right
+    // scope — the one that can actually see `resource.environment_id`. No query
+    // keys on either column, so neither backed a lookup. See od-4osd.
     index("service_resource_stack_id_idx").on(table.stackId),
     // Push routing: a webhook for (repo, branch) fans out to the services bound
     // to that pair. Replaces the old project-by-(gitRepoId, productionBranch)
     // lookup. See git/handle-push.ts.
     index("service_resource_git_repo_branch_idx").on(table.gitRepoId, table.branch),
-    // internalHostname is the service's DNS alias on its project overlay
-    // network: it only has to be unique *within that network*, not globally.
-    // Two different projects (each on its own `otterdeploy-<project>` network)
-    // can both run a service called "dealort". Scope the uniqueness to
-    // (networkName, internalHostname) so same-named services across projects
-    // don't collide.
-    uniqueIndex("service_resource_network_hostname_unique").on(
-      table.networkName,
-      table.internalHostname,
-    ),
+    // Non-unique, but still the lookup the DNS alias is resolved by.
+    index("service_resource_network_hostname_idx").on(table.networkName, table.internalHostname),
+    // Stays unique, and is the one that genuinely is: a public domain resolves
+    // to exactly one service globally. Scoped domains differ by construction
+    // (`previewHostLabel` puts the environment in the host label), so this
+    // never fires across environments.
     uniqueIndex("service_resource_public_domain_unique").on(table.publicDomain),
   ],
 );
