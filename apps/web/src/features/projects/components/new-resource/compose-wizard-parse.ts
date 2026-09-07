@@ -26,7 +26,7 @@ import {
   type Preview,
 } from "./compose-wizard-shared";
 import { AUTO_WRITE } from "./form-context";
-import { deriveStackDomain } from "./stack-domains";
+import { rederiveDomains } from "./stack-domains";
 
 /** Refs from several files, unique by name (first wins). */
 function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
@@ -113,37 +113,31 @@ function seedExposure(form: ComposeForm, preview: Preview, declared: string[] | 
 }
 
 /**
- * Reconcile `vars.baseDomain` + `vars.domains` with the exposed services.
+ * Reconcile `vars.domains` with the exposed services.
  *
- * One field, many hostnames. `baseDomain` is seeded from the FRONT DOOR's
- * resolved host — through the same `publicHostPreview` chain `exposeService`
- * walks, so it is a preview of the real value rather than a client-side
- * reconstruction that could drift. Every other exposed service derives a flat
- * sibling of it (`deriveStackDomain`), which is what the operator sees and can
- * still override row by row.
+ * Row 0 is the front door and carries the stack's own hostname, resolved
+ * through the same `publicHostPreview` chain `exposeService` walks — a preview
+ * of the real value rather than a client-side reconstruction that could drift.
+ * Every other exposed service derives a flat sibling of it.
  *
- * Rows the operator typed into (`custom`) are never recomputed. A row whose
- * host resolves to nothing stays empty, which simply means "keep whatever the
- * server generates".
+ * Rows the operator typed into (`custom`) are never recomputed, and neither is
+ * a front door they have already edited: once there is a value they own it,
+ * and a re-parse on every keystroke must not stamp over it.
  */
-function seedDomains(form: ComposeForm, frontHost: string | null, front: string | null): void {
+function seedDomains(form: ComposeForm, frontHost: string | null): void {
   const keys = form.state.values.file.exposed;
   const rows = form.state.values.vars.domains;
-
-  // The base is only ever seeded, never re-derived: once there is a value the
-  // operator owns it, and a re-parse on every keystroke must not stamp over it.
-  const base = form.state.values.vars.baseDomain || frontHost || "";
-  if (base !== form.state.values.vars.baseDomain) {
-    form.setFieldValue("vars.baseDomain", base, AUTO_WRITE);
-  }
-
   const byKey = new Map(rows.map((r) => [r.key, r]));
-  const next = keys.map((key) => {
-    const existing = byKey.get(key);
-    if (existing?.custom) return existing;
-    const service = key.split(":")[0] ?? "";
-    return { key, domain: deriveStackDomain(base, service, service === front), custom: false };
-  });
+
+  // Keep the front door's existing value if it has one; otherwise seed it.
+  const frontKey = keys[0];
+  const base =
+    (frontKey === undefined ? undefined : byKey.get(frontKey)?.domain) || frontHost || "";
+
+  const next = rederiveDomains(
+    keys.map((key) => byKey.get(key) ?? { key, domain: "", custom: false }),
+    base,
+  );
 
   const unchanged =
     next.length === rows.length &&
@@ -243,7 +237,7 @@ export function useComposeParse(
     // uses, added for keys that have no row yet and dropped for keys no longer
     // exposed. A row the operator has already typed into is never restamped:
     // the parse re-runs on every keystroke in the editor.
-    seedDomains(form, publicHost, front);
+    seedDomains(form, publicHost);
     // Seed the variables editor with the file's `${VAR}` refs, preserving any
     // rows the user already added/edited. A credential-looking key with no
     // `:-default` is AUTO-GENERATED (strong random, locked) and an address-

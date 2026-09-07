@@ -69,14 +69,6 @@ export interface ComposeFileValues {
 export interface ComposeVarsValues {
   variables: Var[];
   /**
-   * The ONE hostname the operator types: the stack's front door. Every other
-   * exposed service starts as a flat sibling of it (`stack-domains.ts`).
-   *
-   * Seeded with the host the server would generate anyway, so leaving the
-   * whole step alone changes nothing.
-   */
-  baseDomain: string;
-  /**
    * One public hostname per exposed service, keyed by the same
    * `<service>:<port>` string `file.exposed` uses.
    *
@@ -87,9 +79,13 @@ export interface ComposeVarsValues {
    * "the" domain while silently generating six more the operator never saw and
    * could not change until after the deploy.
    *
-   * `custom` marks a row the operator typed into. Editing `baseDomain`
-   * recomputes every row that is NOT custom, so the common case is one field
-   * and the escape hatch is still per-service.
+   * Row 0 is the FRONT DOOR (`file.exposed` is ordered front-door-first), and
+   * it IS the stack's name: editing it re-derives every row that is not
+   * `custom`, so the common case is one field and the escape hatch is still
+   * per-service. There is no separate base field to keep in sync with it.
+   *
+   * Edited on the service list itself rather than in a block of its own, so a
+   * hostname sits next to the port it fronts.
    *
    * It is a field group of its own because the old route to a custom domain
    * went through `editedExposedHost`: edit an ADDRESS-SHAPED variable and the
@@ -126,7 +122,6 @@ export const composeDefaults: ComposeFormValues = {
   },
   vars: {
     variables: [],
-    baseDomain: "",
     domains: [],
   },
 };
@@ -200,7 +195,6 @@ export const fileStepSchema = z
 export const varsStepSchema = z
   .object({
     variables: z.array(varRowSchema),
-    baseDomain: z.string(),
     domains: z.array(z.object({ key: z.string(), domain: z.string(), custom: z.boolean() })),
   })
   .superRefine((v, ctx) => {

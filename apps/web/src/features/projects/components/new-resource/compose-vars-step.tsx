@@ -13,7 +13,6 @@ import type { EnvSuggestion } from "@/features/resources/env-catalog";
 
 import type { ComposeForm } from "./compose-wizard-shared";
 
-import { ComposeDomainsField } from "./compose-domains-field";
 import { variablesValidatorFor } from "./form-fields/variables-field";
 
 export function ComposeVarsStep({
@@ -46,7 +45,6 @@ export function ComposeVarsStep({
           {t("compose.varsRequiredBanner")}
         </div>
       )}
-      <ComposeDomainsField form={form} />
       <form.AppField
         name="vars.variables"
         validators={{ onChange: variablesValidatorFor(suggestions) }}

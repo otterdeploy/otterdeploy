@@ -49,3 +49,48 @@ export function deriveStackDomain(base: string, service: string, isFront: boolea
   const label = first === service || first.endsWith(`-${service}`) ? first : `${first}-${service}`;
   return zone === "" ? label : `${label}.${zone}`;
 }
+
+/** The service half of an `<service>:<port>` exposure key. */
+export function serviceOf(key: string): string {
+  return key.split(":")[0] ?? key;
+}
+
+/** The port half. "" when the key carries none. */
+function portOf(key: string): string {
+  return key.split(":")[1] ?? "";
+}
+
+export interface DomainRow {
+  /** `<service>:<port>`, the same key `file.exposed` uses. */
+  key: string;
+  domain: string;
+  /** The operator typed this one; the front door no longer drives it. */
+  custom: boolean;
+}
+
+/**
+ * Rewrite the derived rows after the FRONT DOOR's hostname changed.
+ *
+ * Row 0 is the front door — `file.exposed` is ordered front-door-first — so
+ * it IS the stack's name and there is no separate base field to keep in sync.
+ * Pinned rows are left exactly as they are.
+ */
+export function rederiveDomains(rows: readonly DomainRow[], base: string): DomainRow[] {
+  // A container can publish more than one port, and each published port is a
+  // route of its own. Naming both after the service alone would derive ONE
+  // hostname for two routes, so the port joins the label whenever a service
+  // appears more than once.
+  const perService = new Map<string, number>();
+  for (const row of rows) {
+    const service = serviceOf(row.key);
+    perService.set(service, (perService.get(service) ?? 0) + 1);
+  }
+
+  return rows.map((row, i) => {
+    if (i === 0) return { ...row, domain: base };
+    if (row.custom) return row;
+    const service = serviceOf(row.key);
+    const label = (perService.get(service) ?? 0) > 1 ? `${service}-${portOf(row.key)}` : service;
+    return { ...row, domain: deriveStackDomain(base, label, false) };
+  });
+}

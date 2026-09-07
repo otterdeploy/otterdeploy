@@ -27,6 +27,7 @@ import { ComposeNameField } from "./compose-name-field";
 import { ComposePreview } from "./compose-preview";
 import { stackNamePlaceholder } from "./compose-schema";
 import { ComposeServerField } from "./compose-server-field";
+import { rederiveDomains } from "./stack-domains";
 import { RepoPicker } from "./steps/repo-picker";
 import { useBindingSummary } from "./steps/source-binding";
 import { BranchPicker } from "./steps/source-pickers";
@@ -209,11 +210,44 @@ export function ComposeInlineFields({
   // only changes when the exposed list actually changes.
   const exposedList = useSelector(form.store, (s) => s.values.file.exposed);
   const exposed = useMemo(() => new Set(exposedList), [exposedList]);
+  /**
+   * Publish or unpublish a port, and reconcile the hostnames with it.
+   *
+   * Both halves here rather than waiting for the next parse: a port you just
+   * published would otherwise open a blank hostname row and stay blank until
+   * something re-parsed the file. The stack's own name (row 0's) is carried
+   * across, so toggling a port never renames the stack.
+   */
   const toggleExpose = (key: string) => {
     const cur = form.state.values.file.exposed;
+    const nextKeys = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+    form.setFieldValue("file.exposed", nextKeys);
+
+    const rows = form.state.values.vars.domains;
+    const base = rows[0]?.domain ?? "";
+    const byKey = new Map(rows.map((r) => [r.key, r]));
     form.setFieldValue(
-      "file.exposed",
-      cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key],
+      "vars.domains",
+      rederiveDomains(
+        nextKeys.map((k) => byKey.get(k) ?? { key: k, domain: "", custom: false }),
+        base,
+      ),
+    );
+  };
+
+  const domains = useSelector(form.store, (s) => s.values.vars.domains);
+  /**
+   * Editing the FRONT DOOR renames the whole stack: every row that has not
+   * been typed into follows it. Editing any other row pins that row, and the
+   * front door stops driving it.
+   */
+  const setDomain = (key: string, domain: string) => {
+    const rows = form.state.values.vars.domains;
+    form.setFieldValue(
+      "vars.domains",
+      key === rows[0]?.key
+        ? rederiveDomains(rows, domain)
+        : rows.map((r) => (r.key === key ? { ...r, domain, custom: true } : r)),
     );
   };
 
@@ -228,7 +262,9 @@ export function ComposeInlineFields({
         preview={preview}
         buildServices={buildServices}
         exposed={exposed}
+        domains={domains}
         onToggleExpose={toggleExpose}
+        onDomainChange={setDomain}
       />
 
       <ComposeFilePanel
