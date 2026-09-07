@@ -103,6 +103,18 @@ function BackupsRoute() {
   const { data: schedules } = useLiveQuery((q) => q.from({ s: schedulesCollection }));
   const { data: destinations } = useLiveQuery((q) => q.from({ d: destinationsCollection }));
 
+  /**
+   * The destinations a backup may actually be written to.
+   *
+   * The collection also holds buckets connected in the workbench: same table,
+   * same stored credential, but never opted into backups. They belong in the
+   * Destinations list (that is where you go to opt one in) and in the activity
+   * filter (an old backup may name one), but offering them in a schedule or a
+   * "Backup now" picker would let someone choose a target the server then
+   * refuses. The server refuses it either way — this keeps the UI from asking.
+   */
+  const backupTargets = destinations.filter((d) => d.usedForBackups);
+
   const [backupNowOpen, setBackupNowOpen] = useState(false);
   const [scheduleEditor, setScheduleEditor] = useState<Schedule | "new" | null>(null);
   const [presetSources, setPresetSources] = useState<string[]>([]);
@@ -182,7 +194,7 @@ function BackupsRoute() {
       <BackupNowDialog
         open={backupNowOpen}
         onOpenChange={setBackupNowOpen}
-        destinations={destinations}
+        destinations={backupTargets}
         onAddDestination={() => {
           setBackupNowOpen(false);
           setDestEditor("new");
@@ -198,7 +210,7 @@ function BackupsRoute() {
             setPresetSources([]);
           }
         }}
-        destinations={destinations}
+        destinations={backupTargets}
         presetSources={presetSources}
       />
       <DestinationEditorDialog

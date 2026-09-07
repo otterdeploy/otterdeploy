@@ -6,9 +6,11 @@
  */
 export {
   deleteObjects,
+  deletePrefix,
   listObjects,
   presignObject,
   statObject,
+  type DeletePrefixResult,
   type ListInput,
   type ObjectDetail,
   type StorageListing,

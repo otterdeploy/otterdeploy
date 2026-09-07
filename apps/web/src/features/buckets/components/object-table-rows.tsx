@@ -6,6 +6,11 @@
  * the stats scan actually walked it; otherwise "—", because summing a
  * subtree needs a full scan and a guessed number poisons every number near
  * it. A "+" marks tallies from a partial scan.
+ *
+ * Both row kinds tick. The chevron in a prefix row's first cell gives way to
+ * a checkbox on hover, so a folder can be selected without being opened —
+ * ticking one means everything under it, which is the only way to delete a
+ * subtree without paging it all into the browser first.
  */
 import { Download01Icon, File01Icon, Folder01Icon, Link01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -34,17 +39,49 @@ export function PrefixTableRow({
   prefix,
   tally,
   scanComplete,
+  isChecked,
   onOpen,
+  onToggle,
 }: {
   prefix: string;
   tally: { count: number; bytes: number } | undefined;
   scanComplete: boolean;
+  isChecked: boolean;
   onOpen: (prefix: string) => void;
+  onToggle: (key: string, size: number) => void;
 }) {
   const plus = tally !== undefined && !scanComplete ? "+" : "";
   return (
-    <tr onClick={() => onOpen(prefix)} className="group cursor-pointer hover:bg-muted/40">
-      <Td className="pl-3 text-muted-foreground">›</Td>
+    <tr
+      onClick={() => onOpen(prefix)}
+      className={cn("group cursor-pointer", isChecked ? "bg-primary/[0.035]" : "hover:bg-muted/40")}
+    >
+      <Td onClick={(e) => e.stopPropagation()} className="pl-3">
+        {/* The chevron says "opens"; the box says "acts on". One cell, because
+            they are the same affordance seen from two sides. */}
+        <span className="grid place-items-center">
+          <span
+            aria-hidden
+            className={cn(
+              "col-start-1 row-start-1 text-muted-foreground transition-opacity",
+              isChecked ? "opacity-0" : "opacity-100 group-hover:opacity-0",
+            )}
+          >
+            ›
+          </span>
+          <Checkbox
+            aria-label={`Select everything under ${prefix}`}
+            checked={isChecked}
+            onCheckedChange={() => onToggle(prefix, tally?.bytes ?? 0)}
+            className={cn(
+              "col-start-1 row-start-1 transition-opacity",
+              isChecked
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+            )}
+          />
+        </span>
+      </Td>
       <Td className="font-medium text-foreground">
         <span className="flex items-center gap-2">
           <HugeiconsIcon
@@ -189,7 +226,7 @@ function RowAction({
   );
 }
 
-export function Td({
+function Td({
   children,
   className,
   title,

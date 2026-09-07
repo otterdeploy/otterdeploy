@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  ancestorPrefixes,
   basename,
   crumbsFor,
   estimatedMonthlyUsd,
   formatSize,
   isImageKey,
+  isPrefixSelection,
   providerLabel,
 } from "../state";
 
@@ -23,10 +23,13 @@ describe("crumbsFor", () => {
   });
 });
 
-describe("ancestorPrefixes", () => {
-  it("every hop, deepest last", () => {
-    expect(ancestorPrefixes("a/b/c/")).toEqual(["a/", "a/b/", "a/b/c/"]);
-    expect(ancestorPrefixes("")).toEqual([]);
+describe("isPrefixSelection", () => {
+  it("the trailing slash is the whole discriminator", () => {
+    expect(isPrefixSelection("invoices/2026-08/")).toBe(true);
+    expect(isPrefixSelection("invoices/2026-08/receipt.pdf")).toBe(false);
+    // A folder marker object would collide, but `listObjects` drops the one
+    // whose key equals the prefix, so no object key ever ends in "/".
+    expect(isPrefixSelection("logo.svg")).toBe(false);
   });
 });
 

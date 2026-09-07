@@ -16,7 +16,13 @@ import { managedLocalConfig } from "../managed-destination";
 
 const org = (id: string) => idSchema.organization.parse(id);
 const dest = (id: string) => idSchema.backupDestination.parse(id);
-const row = (id: string, status: string) => ({ id: dest(id), status });
+/** A destination row. Opted into backups unless a test says otherwise: that
+ *  is what every row in this table meant before `usedForBackups` existed. */
+const row = (id: string, status: string, usedForBackups = true) => ({
+  id: dest(id),
+  status,
+  usedForBackups,
+});
 
 describe("managedLocalConfig", () => {
   it("roots the repo at the org's platform-owned path, not a user-supplied one", () => {
@@ -76,5 +82,14 @@ describe("runnableDestinationIds", () => {
 
   it("handles an empty schedule", () => {
     expect(runnableDestinationIds([], [row("bdst_a", "active")])).toEqual([]);
+  });
+
+  it("drops a bucket that was never opted into backups", () => {
+    // A bucket connected in the workbench is stored as a destination row. It
+    // is active and healthy — it is simply not a backup target, and naming it
+    // in a schedule must not make it one.
+    const ids = [dest("bdst_bucket"), dest("bdst_real")];
+    const rows = [row("bdst_bucket", "active", false), row("bdst_real", "active")];
+    expect(runnableDestinationIds(ids, rows)).toEqual([dest("bdst_real")]);
   });
 });

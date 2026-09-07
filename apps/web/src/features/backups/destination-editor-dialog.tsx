@@ -99,6 +99,10 @@ function saveDestination(
       // Operator-created destinations are never managed. Only the platform's
       // own local row is, and that one is provisioned server-side.
       managed: false,
+      // This dialog IS "add a backup destination", so the opt-in is implied by
+      // being here. The buckets workbench, which writes the same kind of row
+      // just to browse a bucket, passes false.
+      usedForBackups: true,
       usedBytes: 0,
       createdAt: new Date(),
       updatedAt: new Date(),

@@ -24,6 +24,7 @@ const DESTINATION_VIEW = {
   config: backupDestination.config,
   status: backupDestination.status,
   managed: backupDestination.managed,
+  usedForBackups: backupDestination.usedForBackups,
   createdAt: backupDestination.createdAt,
   updatedAt: backupDestination.updatedAt,
 } as const;
@@ -58,12 +59,14 @@ export async function getDestinationGuardFields(input: {
   type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   managed: boolean;
   status: string;
+  usedForBackups: boolean;
 } | null> {
   const [row] = await db
     .select({
       type: backupDestination.type,
       managed: backupDestination.managed,
       status: backupDestination.status,
+      usedForBackups: backupDestination.usedForBackups,
     })
     .from(backupDestination)
     .where(destinationScope(input))
@@ -81,6 +84,21 @@ export async function setDestinationStatusRecord(input: {
   const [row] = await db
     .update(backupDestination)
     .set({ status: input.status })
+    .where(destinationScope(input))
+    .returning(DESTINATION_VIEW);
+  return row ?? null;
+}
+
+/** Opt a destination into (or out of) being written to by the scheduler. The
+ *  one write path for `usedForBackups`; see the column's own note. */
+export async function setDestinationUsedForBackupsRecord(input: {
+  organizationId: OrganizationId;
+  id: BackupDestinationId;
+  usedForBackups: boolean;
+}): Promise<DestinationView | null> {
+  const [row] = await db
+    .update(backupDestination)
+    .set({ usedForBackups: input.usedForBackups })
     .where(destinationScope(input))
     .returning(DESTINATION_VIEW);
   return row ?? null;
@@ -113,6 +131,8 @@ export async function createDestinationRecord(input: {
   type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   config: JsonObject;
   encryptedSecret: string | null;
+  /** Explicit at every call site: see `backupDestination.usedForBackups`. */
+  usedForBackups: boolean;
 }): Promise<DestinationView> {
   const [row] = await db
     .insert(backupDestination)
@@ -122,6 +142,7 @@ export async function createDestinationRecord(input: {
       type: input.type,
       config: input.config,
       encryptedSecret: input.encryptedSecret,
+      usedForBackups: input.usedForBackups,
     })
     .returning(DESTINATION_VIEW);
   if (!row) throw new Error("createDestinationRecord: insert returned no rows");
@@ -209,6 +230,7 @@ export async function listDestinationsByOrg(
       config: backupDestination.config,
       status: backupDestination.status,
       managed: backupDestination.managed,
+      usedForBackups: backupDestination.usedForBackups,
       createdAt: backupDestination.createdAt,
       updatedAt: backupDestination.updatedAt,
       // bigint sum comes back as a string in pg; coerce in JS below.

@@ -79,9 +79,14 @@ export function DestinationsSection({
             No destinations yet. Add one to start storing backups.
           </div>
         ) : (
-          destinations.map((d, i) => (
-            <DestinationRow key={d.id} dest={d} first={i === 0} onEdit={() => onEdit(d)} />
-          ))
+          // Real destinations first, connected buckets after. Both belong in
+          // this list — it is where you come to opt a bucket in — but the
+          // things backups are actually written to should be read first.
+          [...destinations]
+            .sort((a, b) => Number(b.usedForBackups) - Number(a.usedForBackups))
+            .map((d, i) => (
+              <DestinationRow key={d.id} dest={d} first={i === 0} onEdit={() => onEdit(d)} />
+            ))
         )}
       </div>
     </>

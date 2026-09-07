@@ -4,8 +4,9 @@
  * Prefix rows and object rows in ONE table, because in folder mode they are
  * one result set — S3 returns `commonPrefixes` and `contents` from the same
  * call. Rendering them as two lists would make "3 of 12 selected" ambiguous
- * about what the other nine are. Row renderers live in `object-table-rows`,
- * sorting in `object-table-sort`.
+ * about what the other nine are. Both kinds tick, and a ticked folder means
+ * everything under it. Row renderers live in `object-table-rows`, sorting in
+ * `object-table-sort`.
  *
  * Columns drag-resize at the header dividers (`use-column-widths`). Sorting
  * is a rendering choice over the returned page and stays out of the URL.
@@ -57,8 +58,11 @@ export function ObjectTable({
   onDownloadKey: (key: string) => void;
   onCopyLinkForKey: (key: string) => void;
 }) {
-  const allSelected = objects.length > 0 && objects.every((o) => selected.has(o.key));
-  const someSelected = objects.some((o) => selected.has(o.key));
+  // Folders count as rows: a listing that is all folders must still answer
+  // the header checkbox, which is what "I can't select anything" looked like.
+  const rowKeys = [...prefixes, ...objects.map((o) => o.key)];
+  const allSelected = rowKeys.length > 0 && rowKeys.every((key) => selected.has(key));
+  const someSelected = rowKeys.some((key) => selected.has(key));
 
   const { widths, totalWidth, startResize } = useColumnWidths();
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
@@ -100,7 +104,7 @@ export function ObjectTable({
           <tr className="group/head">
             <Th className="pl-3">
               <Checkbox
-                aria-label="Select all objects on this page"
+                aria-label="Select everything on this page"
                 checked={allSelected}
                 indeterminate={someSelected && !allSelected}
                 onCheckedChange={(v) => onToggleAll(Boolean(v))}
@@ -143,7 +147,9 @@ export function ObjectTable({
               prefix={prefix}
               tally={prefixTallies.get(prefix)}
               scanComplete={scanComplete}
+              isChecked={selected.has(prefix)}
               onOpen={onOpenPrefix}
+              onToggle={onToggle}
             />
           ))}
           {sortedObjects.map((o) => (

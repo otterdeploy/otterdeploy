@@ -69,7 +69,8 @@ export {
   createDestination,
   deleteDestination,
   listDestinations,
-  setDestinationEnabled,
   testDestination,
   updateDestination,
 } from "./destination-service";
+// The enable/opt-in toggles are a third slice of the same seam.
+export { setDestinationEnabled, setDestinationUsedForBackups } from "./destination-flags";

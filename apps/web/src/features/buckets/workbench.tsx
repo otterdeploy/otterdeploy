@@ -1,5 +1,5 @@
 /**
- * The bucket workbench: rail · listing · preview, one instrument surface.
+ * The bucket workbench: listing · preview, one instrument surface.
  *
  * Assembled here so the route stays a shell. Mounted with a `key` per bucket
  * by the route — a different bucket is a different keyspace, so the
@@ -10,7 +10,6 @@ import type { BucketRow } from "./data/buckets-data";
 import type { BucketsSearch, Grouping } from "./state";
 
 import { BrowseBar } from "./components/browse-bar";
-import { BucketRail } from "./components/bucket-rail";
 import { FacetsRow } from "./components/facets-row";
 import { ObjectPreview } from "./components/object-preview";
 import { ObjectTable } from "./components/object-table";
@@ -31,18 +30,11 @@ export function BucketWorkbench({
 }) {
   const b = useBucketWorkbench({ bucket, search, setSearch });
 
-  // The footer sits OUTSIDE the rail/main/preview row so its top border is
-  // one contiguous line across the whole surface.
+  // The footer sits OUTSIDE the listing/preview row so its top border is one
+  // contiguous line across the whole surface.
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <BucketRail
-          bucketId={bucket.id}
-          activePrefix={search.prefix}
-          onPickPrefix={b.navigateTo}
-          onPickObject={b.openObject}
-        />
-
         <main className="flex min-w-0 flex-1 flex-col">
           <BrowseBar
             crumbs={b.crumbs}
@@ -101,11 +93,12 @@ export function BucketWorkbench({
           {b.selected.size > 0 ? (
             <SelectionBar
               count={b.selected.size}
+              folderCount={b.selectedFolders}
               bytes={b.selectedBytes}
               isDeleting={b.isDeleting}
               onDownload={() => void b.downloadSelected()}
               onCopyLinks={() => void b.copyLinksSelected()}
-              onDelete={b.deleteSelected}
+              onDelete={() => void b.deleteSelected()}
               onClear={b.clearSelection}
             />
           ) : null}

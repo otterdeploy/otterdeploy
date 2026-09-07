@@ -196,6 +196,23 @@ export const backupDestination = pgTable(
      * safe to call concurrently.
      */
     managed: boolean("managed").notNull().default(false),
+    /**
+     * May the scheduler write backups here?
+     *
+     * A destination row is also how an S3 BUCKET is stored — same bucket,
+     * same credential, one encrypted secret — so the buckets workbench
+     * creates one every time someone connects a bucket to browse it.
+     * Connecting a bucket to look at it is not consent to write backups into
+     * it, so this defaults to false and the backups surfaces set it
+     * explicitly. `activeDestinationIdsFor` is the choke point that enforces
+     * it: a schedule or a manual run naming a destination without this flag
+     * is refused, not silently skipped.
+     *
+     * Distinct from `status`, which is operator intent about a destination
+     * that IS one ("stop using it for now"). This says whether it is one at
+     * all.
+     */
+    usedForBackups: boolean("used_for_backups").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

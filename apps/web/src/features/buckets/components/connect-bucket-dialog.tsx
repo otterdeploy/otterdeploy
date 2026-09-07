@@ -1,11 +1,17 @@
 /**
  * Connect a bucket — in bucket language.
  *
- * Under the hood this creates an S3 backup destination, because a bucket IS
- * one: same bucket, same credential, stored once, browsable here and usable
- * as a backup target. But the person clicking "Connect a bucket" is thinking
- * about a bucket, so the dialog says bucket, offers only S3-compatible
- * fields, and verifies the connection right after creating it.
+ * Under the hood this writes a `backup_destination` row, because that table
+ * is where an S3 bucket + its encrypted credential already live. It does NOT
+ * make the bucket a backup target: `usedForBackups: false`. Connecting a
+ * bucket to look inside it is not consent to write backups into it, and the
+ * server refuses any schedule naming a destination without that flag. Saying
+ * "yes, back up here" is a separate, explicit act under Backups →
+ * Destinations.
+ *
+ * The person clicking "Connect a bucket" is thinking about a bucket, so the
+ * dialog says bucket, offers only S3-compatible fields, and verifies the
+ * connection right after creating it.
  */
 import { useState } from "react";
 
@@ -92,6 +98,8 @@ function ConnectBucketBody({
         name: form.name.trim() === "" ? form.bucket.trim() : form.name.trim(),
         type: "s3",
         config,
+        // Browsing is not backing up. See the note at the top of this file.
+        usedForBackups: false,
         secret: {
           accessKeyId: form.accessKeyId.trim(),
           secretAccessKey: form.secretAccessKey.trim(),
@@ -130,9 +138,9 @@ function ConnectBucketBody({
       <DialogHeader>
         <DialogTitle>Connect a bucket</DialogTitle>
         <DialogDescription>
-          Any S3-compatible bucket — AWS, R2, MinIO, Spaces. The credential is encrypted at rest,
-          never leaves the control plane, and also makes this bucket available as a backup
-          destination.
+          Any S3-compatible bucket — AWS, R2, MinIO, Spaces. The credential is encrypted at rest and
+          never leaves the control plane. Backups are not written here unless you say so under
+          Backups → Destinations.
         </DialogDescription>
       </DialogHeader>
 
