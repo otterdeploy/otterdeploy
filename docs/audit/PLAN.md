@@ -35,6 +35,14 @@ destination flag flips (`status`, `usedForBackups`) onto one guarded helper
 removed four clone groups' worth of near-identical code at every layer —
 service, router and row — and left the duplication floor lower than it found it.
 
+Re-pinned on 2026-09-08 to 3.65% (od-4osd). One `index(...).on(...)` line
+replacing a `uniqueIndex(...).on(...)` line in `schema/project.ts` is enough to
+register as a clone, because in a Drizzle schema every index declaration is
+structurally identical to every other one by design. The clone groups the
+ratchet named are all pre-existing schema-shape pairs. There is nothing to
+extract here: a helper wrapping `index()` would trade a real declaration for an
+indirection, and the measure is counting the schema DSL working correctly.
+
 Regenerate the per-file evidence any time:
 
 ```bash
