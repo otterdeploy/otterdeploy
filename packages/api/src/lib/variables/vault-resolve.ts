@@ -7,6 +7,13 @@
  * provider gets a single `getSecrets` call. Values live only in the
  * per-resolve state: nothing is cached across resolves and nothing resolved
  * here is ever persisted.
+ *
+ * One ref namespace never reaches a provider: `otterdeploy/*` addresses the
+ * CONNECTION's own credentials (see ./vault-connection-ref.ts) and resolves
+ * off the stored row. It is split out before `getSecrets` so it costs no
+ * round trip and stays available when the provider itself is unreachable —
+ * which matters, because it is the credential an app uses to reach that
+ * provider in the first place.
  */
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
@@ -21,6 +28,7 @@ import { VaultResolveError } from "../../routers/service/errors";
 import { listVaultProvidersByOrg } from "../../routers/vault-provider/queries";
 import { decryptForDomain } from "../crypto";
 import { getSecrets } from "../vault";
+import { isConnectionRef, resolveConnectionRef } from "./vault-connection-ref";
 
 export interface VaultResolveState {
   /** Null when the project row didn't carry an org (only mocked test data). */
@@ -124,39 +132,101 @@ export async function loadVaultValues(
       );
     }
 
-    let fetched: Map<string, string>;
-    try {
-      // Decrypt inside the try: a malformed/rotated-away ciphertext should
-      // surface as an actionable resolve failure, not an unhandled 500.
-      const credential = await decryptForDomain(row.credentialCiphertext, "vault-creds");
-      fetched = await getSecrets(
-        { name: row.name, kind: row.kind, config: row.configJson, credential },
-        [...refs],
-      );
-    } catch (err) {
-      return Result.err(
-        new VaultResolveError({
-          providerName,
-          ref: firstRefOf(refs),
-          detail: err instanceof Error ? err.message : String(err),
-        }),
-      );
-    }
-
-    for (const ref of refs) {
-      const value = fetched.get(ref);
-      if (value === undefined) {
-        return Result.err(
-          new VaultResolveError({
-            providerName,
-            ref,
-            detail: `provider returned no value for "${ref}"`,
-          }),
-        );
-      }
-      state.values.set(vaultValueKey(providerName, ref), value);
-    }
+    const resolved = await resolveOneProvider(providerName, refs, row, state);
+    if (resolved.isErr()) return resolved;
   }
 
   return Result.ok(true);
+}
+
+/**
+ * Everything one provider owes this resolve: decrypt once, answer its
+ * connection refs from the row, fetch the rest.
+ *
+ * Split out of `loadVaultValues` to keep that function under the complexity
+ * cap once connection refs joined it. The split is also where the ordering
+ * matters: connection refs resolve BEFORE the network call, so they still
+ * resolve when the provider is unreachable.
+ */
+async function resolveOneProvider(
+  providerName: string,
+  refs: Set<string>,
+  row: VaultProviderRecord,
+  state: VaultResolveState,
+): Promise<Result<true, VaultResolveError>> {
+  // `otterdeploy/*` addresses the CONNECTION's own credentials, not a secret
+  // stored in it, so those refs never reach the provider API.
+  const connectionRefs = [...refs].filter(isConnectionRef);
+  const secretRefs = [...refs].filter((ref) => !isConnectionRef(ref));
+
+  let fetched: Map<string, string>;
+  let connectionValues: Map<string, string>;
+  try {
+    // Decrypt inside the try: a malformed/rotated-away ciphertext should
+    // surface as an actionable resolve failure, not an unhandled 500.
+    const credential = await decryptForDomain(row.credentialCiphertext, "vault-creds");
+
+    const resolved = resolveConnectionRefs(row, credential, connectionRefs);
+    if (resolved.isErr()) {
+      const { ref, detail } = resolved.error;
+      return Result.err(new VaultResolveError({ providerName, ref, detail }));
+    }
+    connectionValues = resolved.value;
+
+    fetched =
+      secretRefs.length > 0
+        ? await getSecrets(
+            { name: row.name, kind: row.kind, config: row.configJson, credential },
+            secretRefs,
+          )
+        : new Map();
+  } catch (err) {
+    return Result.err(
+      new VaultResolveError({
+        providerName,
+        ref: [...refs][0] ?? "",
+        detail: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
+  for (const [ref, value] of connectionValues) {
+    state.values.set(vaultValueKey(providerName, ref), value);
+  }
+
+  for (const ref of secretRefs) {
+    const value = fetched.get(ref);
+    if (value === undefined) {
+      return Result.err(
+        new VaultResolveError({
+          providerName,
+          ref,
+          detail: `provider returned no value for "${ref}"`,
+        }),
+      );
+    }
+    state.values.set(vaultValueKey(providerName, ref), value);
+  }
+
+  return Result.ok(true);
+}
+
+/** Resolve every connection ref, or the first one that cannot be. Values are
+ *  returned rather than written straight into the state so a later failure in
+ *  the same provider cannot leave half its refs resolved. */
+function resolveConnectionRefs(
+  row: VaultProviderRecord,
+  credential: string,
+  refs: string[],
+): Result<Map<string, string>, { ref: string; detail: string }> {
+  const values = new Map<string, string>();
+  for (const ref of refs) {
+    const resolved = resolveConnectionRef(
+      { kind: row.kind, config: row.configJson, credential },
+      ref,
+    );
+    if (!resolved.ok) return Result.err({ ref, detail: resolved.detail });
+    values.set(ref, resolved.value);
+  }
+  return Result.ok(values);
 }
