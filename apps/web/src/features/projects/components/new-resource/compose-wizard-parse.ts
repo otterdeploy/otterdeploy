@@ -19,8 +19,14 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { Var } from "./form-fields/variables-field";
 
-import { type ComposeForm, type ComposePrefill, type Preview } from "./compose-wizard-shared";
+import {
+  type ComposeForm,
+  type ComposePrefill,
+  type DetectedService,
+  type Preview,
+} from "./compose-wizard-shared";
 import { AUTO_WRITE } from "./form-context";
+import { rederiveDomains } from "./stack-domains";
 
 /** Refs from several files, unique by name (first wins). */
 function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
@@ -29,15 +35,32 @@ function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
 }
 
 /**
+ * The ports of a service an HTTP route can actually front.
+ *
+ * `httpPorts` is the tcp subset; `ports` is everything the file declares. A
+ * udp port is host-published and the edge has no UDP path, so offering one for
+ * public exposure mints a route that can never answer. Jitsi's `10000/udp` and
+ * NetBird's `3478/udp` were each being offered as a second public hostname.
+ *
+ * Falls back to `ports` for a summary stored before `httpPorts` existed.
+ */
+function routablePorts(s: DetectedService): number[] {
+  return s.httpPorts ?? s.ports;
+}
+
+/**
  * The FQDN a stack's address variables should point at, or null when there is
  * nothing to point them at yet.
  *
  * A compose stack has many services but one *front door*. The thing a
- * `SERVER_URL` means. We take the first service that publishes a port, which
- * is what the exposure step defaults to and what a template's app service
- * always is (its database and worker declare none). Guessing wrong costs an
- * edit on a pre-filled field; guessing nothing costs the operator a hostname
- * they cannot know before deploying.
+ * `SERVER_URL` means. A template says which that is (`StackTemplate.exposed`,
+ * first entry); a pasted file gets the old heuristic, the first service that
+ * publishes a tcp port.
+ *
+ * The heuristic alone was wrong for any stack whose database happens to be
+ * listed first: openstatus seeded its domain field from `libsql`, an internal
+ * SQLite server, so the wizard offered to publish the stack at
+ * `libsql-<project>.<org>` while the app a human actually opens is `dashboard`.
  *
  * The name→FQDN step goes through `project.resource.publicHostPreview`, the
  * same resolver chain `exposeService` walks (project custom domain → org base
@@ -46,9 +69,12 @@ function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
  */
 async function previewStackHost(
   projectId: ProjectId,
-  preview: { services: { name: string; ports: number[] }[] },
+  preview: { services: DetectedService[] },
+  declared: string[] | undefined,
 ): Promise<{ fqdn: string | null; front: string | null }> {
-  const front = preview.services.find((s) => s.ports.length > 0);
+  const front =
+    preview.services.find((s) => s.name === declared?.[0]) ??
+    preview.services.find((s) => routablePorts(s).length > 0);
   if (!front) return { fqdn: null, front: null };
   const resolved = await orpc.project.resource.publicHostPreview
     .call({ projectId, name: front.name })
@@ -70,12 +96,57 @@ async function previewStackHost(
  * editor) cannot re-tick it. Services with no published port (databases,
  * caches, workers) are never selected, because they never asked to be.
  */
-function seedExposure(form: ComposeForm, preview: Preview): void {
+function seedExposure(form: ComposeForm, preview: Preview, declared: string[] | undefined): void {
   if (form.state.values.file.exposed.length > 0) return;
-  const seeds = preview.services.flatMap((svc) =>
-    svc.ports.length > 0 ? [`${svc.name}:${svc.ports[0]}`] : [],
-  );
+  // A template names its front door(s); anything else stays internal however
+  // many ports it publishes. Intersected with the parsed file rather than
+  // trusted blindly, so a declaration that has drifted from the compose seeds
+  // nothing instead of a `service:undefined` key. Only tcp ports are offered.
+  const wanted = declared?.length
+    ? preview.services.filter((s) => declared.includes(s.name))
+    : preview.services;
+  const seeds = wanted.flatMap((svc) => {
+    const port = routablePorts(svc)[0];
+    return port === undefined ? [] : [`${svc.name}:${port}`];
+  });
   if (seeds.length > 0) form.setFieldValue("file.exposed", seeds);
+}
+
+/**
+ * Reconcile `vars.domains` with the exposed services.
+ *
+ * Row 0 is the front door and carries the stack's own hostname, resolved
+ * through the same `publicHostPreview` chain `exposeService` walks — a preview
+ * of the real value rather than a client-side reconstruction that could drift.
+ * Every other exposed service derives a flat sibling of it.
+ *
+ * Rows the operator typed into (`custom`) are never recomputed, and neither is
+ * a front door they have already edited: once there is a value they own it,
+ * and a re-parse on every keystroke must not stamp over it.
+ */
+function seedDomains(form: ComposeForm, frontHost: string | null): void {
+  const keys = form.state.values.file.exposed;
+  const rows = form.state.values.vars.domains;
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+
+  // Keep the front door's existing value if it has one; otherwise seed it.
+  const frontKey = keys[0];
+  const base =
+    (frontKey === undefined ? undefined : byKey.get(frontKey)?.domain) || frontHost || "";
+
+  const next = rederiveDomains(
+    keys.map((key) => byKey.get(key) ?? { key, domain: "", custom: false }),
+    base,
+  );
+
+  const unchanged =
+    next.length === rows.length &&
+    next.every((r, i) => {
+      const prev = rows[i];
+      return prev?.key === r.key && prev.domain === r.domain && prev.custom === r.custom;
+    });
+  if (unchanged) return;
+  form.setFieldValue("vars.domains", next, AUTO_WRITE);
 }
 
 export function useComposeParse(
@@ -85,6 +156,10 @@ export function useComposeParse(
   /** Wire formats declared by the template this stack came from, keyed by
    *  variable name. Empty for a hand-pasted compose file. */
   generate?: ComposePrefill["generate"],
+  /** Front-door service keys declared by the template this stack came from.
+   *  Undefined for a hand-pasted compose file, which falls back to the
+   *  every-service-with-a-tcp-port heuristic. */
+  exposed?: ComposePrefill["exposed"],
 ) {
   const [preview, setPreview] = useState<Preview | null>(null);
 
@@ -138,12 +213,12 @@ export function useComposeParse(
     }
     setPreview(res);
     applyDiagnostics(res);
-    seedExposure(form, res);
+    seedExposure(form, res, exposed);
     // The public FQDN this stack will publish at, resolved by the SAME server
     // chain the expose path walks, so an address we seed is the address the
     // service actually gets, not a guess. Best-effort: a failure just leaves
     // address vars blank, exactly as before.
-    const { fqdn: publicHost, front } = await previewStackHost(projectId, res);
+    const { fqdn: publicHost, front } = await previewStackHost(projectId, res, exposed);
     // Address variables are seeded as a REFERENCE to the front service's public
     // URL, not as the hostname itself, so renaming the domain later updates
     // them instead of stranding the app on the host it was created with.
@@ -153,13 +228,16 @@ export function useComposeParse(
     // literal it replaces. Unticked front door → fall back to the literal.
     const exposedFront =
       front && form.state.values.file.exposed.some((e) => e.split(":")[0] === front) ? front : null;
-    // Seed the domain field with that same resolved host, so the wizard shows
-    // the address the stack will actually publish at and the operator can
-    // overwrite it. Only when untouched: re-parsing on every keystroke must not
-    // stomp a hostname they typed.
-    if (publicHost && form.state.values.vars.domain.trim() === "") {
-      form.setFieldValue("vars.domain", publicHost, AUTO_WRITE);
-    }
+    // Seed a domain row per exposed service, so step 2 shows every address the
+    // stack will actually publish at and the operator can overwrite any of
+    // them. One box used to stand in for all of them, seeded from whichever
+    // service happened to declare a port first.
+    //
+    // Rows are keyed by the same `<service>:<port>` string `file.exposed`
+    // uses, added for keys that have no row yet and dropped for keys no longer
+    // exposed. A row the operator has already typed into is never restamped:
+    // the parse re-runs on every keystroke in the editor.
+    seedDomains(form, publicHost);
     // Seed the variables editor with the file's `${VAR}` refs, preserving any
     // rows the user already added/edited. A credential-looking key with no
     // `:-default` is AUTO-GENERATED (strong random, locked) and an address-

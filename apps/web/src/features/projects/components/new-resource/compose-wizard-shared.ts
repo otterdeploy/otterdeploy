@@ -23,6 +23,11 @@ export interface DetectedService {
   image: string | null;
   hasBuild: boolean;
   ports: number[];
+  /** The tcp subset of `ports`: the only ones an HTTP route can front. A udp
+   *  port is host-published and the edge speaks HTTP, so exposing one mints a
+   *  route that can never answer. Optional because a summary stored before
+   *  this existed carries no value; callers fall back to `ports`. */
+  httpPorts?: number[];
 }
 
 export interface VarRef {
@@ -60,6 +65,12 @@ export interface ComposePrefill {
    *  anything absent gets the wizard's default fill. See
    *  `TemplateEnvVar.generate` for why this is opt-in per template. */
   generate?: Record<string, { encoding: "base64"; bytes: number }>;
+  /** Compose service keys this template declares as its public front door(s),
+   *  in order: the first is the stack's front door. Seeds the exposure
+   *  selection instead of the "every service with a tcp port" heuristic, which
+   *  is right for a pasted file and wrong for a template that knows its own
+   *  shape. See `StackTemplate.exposed`. */
+  exposed?: string[];
 }
 
 /** Coerce a display name into a valid manifest resource key

@@ -69,17 +69,32 @@ export interface ComposeFileValues {
 export interface ComposeVarsValues {
   variables: Var[];
   /**
-   * Public hostname for the stack's exposed service, seeded with the host the
-   * server would generate anyway.
+   * One public hostname per exposed service, keyed by the same
+   * `<service>:<port>` string `file.exposed` uses.
    *
-   * It is a field of its own because the old route to a custom domain went
-   * through `editedExposedHost`: edit an ADDRESS-SHAPED variable and the
+   * A list rather than one field because a stack has as many hostnames as it
+   * has exposed services, and there used to be exactly one box. It seeded from
+   * the FIRST service that published a port and applied only to exposed index
+   * 0, so openstatus showed `libsql-<project>.<org>` (an internal database) as
+   * "the" domain while silently generating six more the operator never saw and
+   * could not change until after the deploy.
+   *
+   * Row 0 is the FRONT DOOR (`file.exposed` is ordered front-door-first), and
+   * it IS the stack's name: editing it re-derives every row that is not
+   * `custom`, so the common case is one field and the escape hatch is still
+   * per-service. There is no separate base field to keep in sync with it.
+   *
+   * Edited on the service list itself rather than in a block of its own, so a
+   * hostname sits next to the port it fronts.
+   *
+   * It is a field group of its own because the old route to a custom domain
+   * went through `editedExposedHost`: edit an ADDRESS-SHAPED variable and the
    * hostname you typed becomes the route. That only works for a template that
    * declares one. Authentik's declares `SECRET_KEY` and `POSTGRES_PASSWORD`
    * and nothing address-shaped, so it had no domain control anywhere in the
    * wizard and deployed on a generated host with no way to say otherwise.
    */
-  domain: string;
+  domains: Array<{ key: string; domain: string; custom: boolean }>;
 }
 
 /** The full nested form value. Every field reference in the wizard is a nested
@@ -107,7 +122,7 @@ export const composeDefaults: ComposeFormValues = {
   },
   vars: {
     variables: [],
-    domain: "",
+    domains: [],
   },
 };
 
@@ -180,7 +195,7 @@ export const fileStepSchema = z
 export const varsStepSchema = z
   .object({
     variables: z.array(varRowSchema),
-    domain: z.string(),
+    domains: z.array(z.object({ key: z.string(), domain: z.string(), custom: z.boolean() })),
   })
   .superRefine((v, ctx) => {
     v.variables.forEach((row, i) => {

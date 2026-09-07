@@ -21,6 +21,7 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
+import { mapLimit } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { createLogger } from "evlog";
@@ -177,8 +178,36 @@ async function settleServiceRollout<E>(input: {
   return true;
 }
 
-/** Roll out every materialized service, in file order. Never throws: a
- *  service that fails is reported, and the rest still deploy. */
+/**
+ * How many services roll out at once.
+ *
+ * Four, not unbounded: the work is dominated by image pulls against a single
+ * Docker daemon, so more parallelism stops buying wall-clock and starts
+ * competing for the same disk and network. Four covers the common shape (an
+ * app, a worker, a database, a cache) in one wave and still bounds a
+ * twenty-service monorepo.
+ */
+const ROLLOUT_CONCURRENCY = 4;
+
+/**
+ * Roll out every materialized service. Never throws: a service that fails is
+ * reported, and the rest still deploy.
+ *
+ * Bounded-concurrent, not serial. Each iteration opens its own deployment row,
+ * provisions or redeploys, and WAITS for that service to converge, so a stack
+ * cost the sum of its services: openstatus's eight images pulled and settled
+ * one after another while seven cards sat at "queued".
+ *
+ * Nothing in the loop depended on that order. Pass 1 has already materialized
+ * every row precisely so `${{stack.<svc>.HOST}}` resolves against a sibling
+ * that may deploy later, and pass 1.5 seeded exposure for the same reason one
+ * step further, so by the time this runs each service is independent. Compose
+ * `depends_on` is not honoured here either way: Swarm has no such ordering,
+ * and the old loop walked file order, not the dependency graph.
+ *
+ * Capped rather than unbounded: these are image pulls against one daemon, and
+ * a stack the size of a monorepo should not open forty at once.
+ */
 export async function rolloutMaterialized(input: {
   ctx: RolloutContext;
   materialized: ReadonlyArray<MaterializedService>;
@@ -187,71 +216,71 @@ export async function rolloutMaterialized(input: {
   log?: RequestLogger;
 }): Promise<{ deployed: number; failed: string[] }> {
   const { ctx, materialized, reason, progress, log } = input;
-  const failed: string[] = [];
-  let deployed = 0;
 
-  for (const { svc, image, serviceName, resourceId, isCreate } of materialized) {
-    // This service's own deployment row, once opened. Hoisted so the catch can
-    // SETTLE it: an unsettled row sits at "pending" forever, and the graph
-    // reads a stack member's pending row as "Building", so a stack whose
-    // Deployments tab said FAILED six hours ago still showed a spinner. The
-    // periodic reconciler can't save us either: it protects any row owned by an
-    // in-flight deploy job, which this one is for as long as the stack deploy
-    // runs. The code that opens the row owns closing it.
-    let openDeploymentId: DeploymentId | null = null;
-    try {
-      // One deployment row per service per reconcile → its own build/deploy
-      // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
-      // the swarm tasks, so the Deployments tab groups tasks correctly. The
-      // image is prebuilt/pulled (nothing compiles here) so the row starts at
-      // "pending", not "building".
-      const dep = await insertDeployment({
-        resourceId,
-        image,
-        reason: isCreate ? "create" : reason === "create" ? "create" : "redeploy",
-        status: "pending",
-        snapshot: { stack: ctx.stackResourceId, composeService: svc.name },
-      });
-      openDeploymentId = dep.id;
+  const results = await mapLimit(
+    materialized.map(({ svc, image, serviceName, resourceId, isCreate }) => async () => {
+      // This service's own deployment row, once opened. Hoisted so the catch can
+      // SETTLE it: an unsettled row sits at "pending" forever, and the graph
+      // reads a stack member's pending row as "Building", so a stack whose
+      // Deployments tab said FAILED six hours ago still showed a spinner. The
+      // periodic reconciler can't save us either: it protects any row owned by an
+      // in-flight deploy job, which this one is for as long as the stack deploy
+      // runs. The code that opens the row owns closing it.
+      let openDeploymentId: DeploymentId | null = null;
+      try {
+        // One deployment row per service per reconcile → its own build/deploy
+        // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
+        // the swarm tasks, so the Deployments tab groups tasks correctly. The
+        // image is prebuilt/pulled (nothing compiles here) so the row starts at
+        // "pending", not "building".
+        const dep = await insertDeployment({
+          resourceId,
+          image,
+          reason: isCreate ? "create" : reason === "create" ? "create" : "redeploy",
+          status: "pending",
+          snapshot: { stack: ctx.stackResourceId, composeService: svc.name },
+        });
+        openDeploymentId = dep.id;
 
-      progress(
-        `Service ${svc.name}: ${isCreate ? "creating" : "updating"} ${serviceName} from ${image}…`,
-      );
+        progress(
+          `Service ${svc.name}: ${isCreate ? "creating" : "updating"} ${serviceName} from ${image}…`,
+        );
 
-      // Provision (fresh) or update (existing) the swarm service via the EXISTING
-      // per-service primitive: same path a standalone service deploys through.
-      const rolled = isCreate
-        ? await (async () => {
-            const record = await getServiceRecord(ctx.projectId, resourceId);
-            if (!record) return Result.err(new Error("Service row vanished after create"));
-            return provisionFresh(ctx.projectId, record, ctx.projectSlug, log);
-          })()
-        : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
+        // Provision (fresh) or update (existing) the swarm service via the EXISTING
+        // per-service primitive: same path a standalone service deploys through.
+        const rolled = isCreate
+          ? await (async () => {
+              const record = await getServiceRecord(ctx.projectId, resourceId);
+              if (!record) return Result.err(new Error("Service row vanished after create"));
+              return provisionFresh(ctx.projectId, record, ctx.projectSlug, log);
+            })()
+          : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
 
-      const rolledOut = await settleServiceRollout({
-        deploymentId: dep.id,
-        rolled,
-        composeServiceName: svc.name,
-        progress,
-      });
-      // Settled either way; nothing left for the catch to close.
-      openDeploymentId = null;
-      if (!rolledOut) {
-        failed.push(svc.name);
-        continue;
+        const rolledOut = await settleServiceRollout({
+          deploymentId: dep.id,
+          rolled,
+          composeServiceName: svc.name,
+          progress,
+        });
+        // Settled either way; nothing left for the catch to close.
+        openDeploymentId = null;
+        return { name: svc.name, ok: rolledOut };
+      } catch (e) {
+        const detail = describeReconcileFailure(e, svc.name);
+        progress(`Service ${svc.name}: failed, ${detail}`);
+        // Close this service's own row, so its card stops reading "Building".
+        // Best-effort: a DB that just threw must not also abort the loop.
+        if (openDeploymentId) {
+          await markDeploymentFailed(openDeploymentId, detail).catch(() => undefined);
+        }
+        return { name: svc.name, ok: false };
       }
-      deployed++;
-    } catch (e) {
-      const detail = describeReconcileFailure(e, svc.name);
-      progress(`Service ${svc.name}: failed, ${detail}`);
-      // Close this service's own row, so its card stops reading "Building".
-      // Best-effort: a DB that just threw must not also abort the loop.
-      if (openDeploymentId) {
-        await markDeploymentFailed(openDeploymentId, detail).catch(() => undefined);
-      }
-      failed.push(svc.name);
-    }
-  }
+    }),
+    ROLLOUT_CONCURRENCY,
+  );
 
-  return { deployed, failed };
+  return {
+    deployed: results.filter((r) => r.ok).length,
+    failed: results.flatMap((r) => (r.ok ? [] : [r.name])),
+  };
 }

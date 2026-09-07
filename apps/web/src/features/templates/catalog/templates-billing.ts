@@ -14,6 +14,11 @@ export const BILLING_TEMPLATES: StackTemplate[] = [
     descriptionKey: "templates.catalog.autumn.description",
     category: "devtools",
     includes: ["server", "workers", "cron", "dashboard", "db", "redis", "dragonfly", "dynamodb"],
+    // Both halves are reached from a browser: the dashboard is the UI a
+    // human opens, and `server` answers the API the dashboard calls through
+    // AUTUMN_API_URL, which is an operator-supplied public address. The rest
+    // (workers, cron, db, redis, dragonfly, dynamodb) talk over the overlay.
+    exposed: ["dashboard", "server"],
     requiredEnv: [
       {
         key: "AUTUMN_API_URL",

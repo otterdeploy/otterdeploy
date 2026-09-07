@@ -55,6 +55,11 @@ volumes:
     descriptionKey: "templates.catalog.temporal.description",
     category: "automation",
     includes: ["temporal", "ui", "db"],
+    // Only the Web UI is a front door. The server publishes 7233 for gRPC
+    // clients, but the UI reaches it as `${{stack.temporal.HOST}}:7233` over
+    // the overlay, and the edge proxies HTTP/1.1, so a public route in front
+    // of a gRPC port could not carry a client anyway.
+    exposed: ["ui"],
     requiredEnv: [
       {
         key: "POSTGRES_PASSWORD",

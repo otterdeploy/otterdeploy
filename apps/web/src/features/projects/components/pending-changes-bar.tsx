@@ -75,7 +75,18 @@ interface PendingChangesBarProps {
 
 export function PendingChangesBar({ projectId, environment }: PendingChangesBarProps) {
   const { diff, applyMut, discardMut } = usePendingChanges(projectId, environment);
-  const [expanded, setExpanded] = useState(false);
+  /**
+   * The bar opens showing what it will apply, rather than collapsed behind a
+   * count. "1 change" is not information — the whole reason to look is to see
+   * WHICH change, and hiding that behind a click meant applying blind.
+   *
+   * Derived rather than stored, so no effect has to notice a change arriving:
+   * `collapsedFor` records the exact set of changes the operator collapsed on,
+   * and anything else is open. Collapsing sticks for that set; staging
+   * something new re-opens, because a change that appeared after you looked
+   * away is the one most worth seeing.
+   */
+  const [collapsedFor, setCollapsedFor] = useState<string | null>(null);
   const [openRows, setOpenRows] = useState<ReadonlySet<string>>(new Set());
   /** Rows the operator UNTICKED. Deferred, not discarded — tracking exclusions
    *  rather than inclusions means a change that appears while the panel is
@@ -90,6 +101,9 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   if (meaningful.length === 0) return null;
 
   const groups = groupChanges(meaningful);
+  const signature = groups.map(changeKey).sort().join("|");
+  const expanded = collapsedFor !== signature;
+  const setExpanded = (open: boolean) => setCollapsedFor(open ? null : signature);
   const chosen = groups.filter((g) => !deferred.has(changeKey(g)));
   const partial = chosen.length !== groups.length;
 
@@ -130,7 +144,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
           chosenCount={chosen.length}
           partial={partial}
           expanded={expanded}
-          onToggle={() => setExpanded((v) => !v)}
+          onToggle={() => setExpanded(!expanded)}
           applying={applyMut.isPending}
           busy={busy}
           onDiscardAll={() => {

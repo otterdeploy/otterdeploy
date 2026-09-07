@@ -29,6 +29,15 @@ export const STATUS_TEMPLATES: StackTemplate[] = [
       "dashboard",
       "status-page",
     ],
+    // Two front doors, and only two. The dashboard is the app a human
+    // signs into; status-page serves the public status pages. Everything
+    // else in this stack is internal and says so in its own env: libsql,
+    // tinybird, workflows and server are addressed as
+    // `${{stack.<svc>.HOST}}` over the overlay, never through a public
+    // URL, and private-location is a prober that dials out rather than
+    // being dialled. Without this the wizard ticked all seven and asked
+    // the operator to reason about seven generated hostnames.
+    exposed: ["dashboard", "status-page"],
     requiredEnv: [
       {
         key: "AUTH_SECRET",
