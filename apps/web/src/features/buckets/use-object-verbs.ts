@@ -20,6 +20,10 @@ import { isPrefixSelection } from "./state";
 const DOWNLOAD_CAP = 20;
 /** Bulk presigns are minted sequentially; cap so a stray select-all is cheap. */
 const PRESIGN_CAP = 50;
+/** `storage.remove` accepts at most this many keys per call (S3's own cap).
+ *  The SELECTION has no such limit — it deliberately survives paging — so a
+ *  delete spanning six pages has to be chunked or the request never validates. */
+const REMOVE_CHUNK = 1000;
 
 export function useObjectVerbs({
   bucketId,
@@ -116,13 +120,20 @@ export function useObjectVerbs({
     const failures: string[] = [];
     let partial = false;
 
-    if (keys.length > 0) {
+    for (let offset = 0; offset < keys.length; offset += REMOVE_CHUNK) {
+      const chunk = keys.slice(offset, offset + REMOVE_CHUNK);
       const done = await Result.tryPromise({
-        try: () => remove.mutateAsync({ bucketId, keys }),
+        try: () => remove.mutateAsync({ bucketId, keys: chunk }),
         catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
       });
       if (done.isErr()) {
-        toast.error(done.error.message || "Couldn't delete the objects.");
+        // Stop rather than press on: whatever refused the first chunk will
+        // refuse the rest, and the count so far is still worth reporting.
+        toast.error(
+          deleted === 0
+            ? done.error.message || "Couldn't delete the objects."
+            : `Deleted ${deleted}, then stopped: ${done.error.message}`,
+        );
         refetchAll();
         return;
       }
@@ -146,15 +157,7 @@ export function useObjectVerbs({
       if (!done.value.complete) partial = true;
     }
 
-    if (failures.length > 0) {
-      toast.error(`Deleted ${deleted}, but ${failures.length} failed: ${failures[0]}`);
-    } else if (partial) {
-      toast.warning(
-        `Deleted ${deleted} objects. There were more than one pass can remove — run it again.`,
-      );
-    } else {
-      toast.success(`Deleted ${deleted} object${deleted === 1 ? "" : "s"}`);
-    }
+    reportDelete(deleted, failures, partial);
     onDeleted();
     refetchAll();
   };
@@ -198,6 +201,27 @@ export function useObjectVerbs({
     upload,
     uploading,
   };
+}
+
+/**
+ * One toast for the whole delete, whatever it was made of.
+ *
+ * `partial` means the server hit its per-call ceiling with keys still under a
+ * folder. That has to be said out loud: a folder still holding objects must
+ * never read as deleted.
+ */
+function reportDelete(deleted: number, failures: readonly string[], partial: boolean): void {
+  if (failures.length > 0) {
+    toast.error(`Deleted ${deleted}, but ${failures.length} failed: ${failures[0]}`);
+    return;
+  }
+  if (partial) {
+    toast.warning(
+      `Deleted ${deleted} objects. There were more than one pass can remove — run it again.`,
+    );
+    return;
+  }
+  toast.success(`Deleted ${deleted} object${deleted === 1 ? "" : "s"}`);
 }
 
 function triggerDownload(url: string, key: string): void {
