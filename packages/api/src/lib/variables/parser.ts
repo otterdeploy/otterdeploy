@@ -11,6 +11,13 @@
  *                                          instance renames (autumn-2) that
  *                                          break any absolute name
  *   ${{vault.<provider>.<ref>}}          — an external secret manager
+ *   ${{vault.<provider>.otterdeploy/<f>}} — that provider CONNECTION's own
+ *                                          credentials (the bootstrap pair an
+ *                                          app needs to authenticate to the
+ *                                          manager itself). `otterdeploy/` is a
+ *                                          RESERVED ref prefix, resolved from
+ *                                          the stored row instead of fetched;
+ *                                          see ./vault-connection-ref.ts
  *
  * Escaping: `\${{` becomes a literal `${{` in the output.
  *
