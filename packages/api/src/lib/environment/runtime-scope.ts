@@ -62,3 +62,55 @@ export async function resolveRuntimeScope(row: {
 
   return environmentScope({ slug: envRow.slug, isMain: false });
 }
+
+/**
+ * Scopes for EVERY environment in one project, in two queries.
+ *
+ * `resolveRuntimeScope` costs two queries per row, which is fine for a deploy
+ * and wrong for a listing: the graph's task poll reads every service in a
+ * project on every tick. This resolves the whole project once and hands back a
+ * lookup.
+ *
+ * Same rules as the single-row version, so the two cannot drift: main and
+ * unstamped both render as base. The one difference is a dangling
+ * environment_id, which returns BASE here instead of throwing. A listing must
+ * still render when one row is broken, and the worst case is a task not
+ * matching its service (a visibly empty replicas tray) rather than a deploy
+ * silently landing on production's name.
+ */
+export async function resolveRuntimeScopesForProject(
+  projectId: ProjectId,
+): Promise<(environmentId: EnvironmentId | null) => Scope> {
+  const [[projectRow], envRows] = await Promise.all([
+    db
+      .select({ environmentId: project.environmentId })
+      .from(project)
+      .where(eq(project.id, projectId))
+      .limit(1),
+    db
+      .select({ id: environment.id, slug: environment.slug })
+      .from(environment)
+      .where(eq(environment.projectId, projectId)),
+  ]);
+
+  const mainId = projectRow?.environmentId ?? null;
+  const slugById = new Map(envRows.map((row) => [row.id, row.slug]));
+
+  return (environmentId) => scopeForEnvironment(environmentId, mainId, slugById);
+}
+
+/**
+ * The rule the batch lookup applies, extracted so it can be pinned without a
+ * database. Mirrors `resolveRuntimeScope`'s branches exactly, except for the
+ * dangling id (see that function's note).
+ */
+export function scopeForEnvironment(
+  environmentId: EnvironmentId | null,
+  mainEnvironmentId: EnvironmentId | null,
+  slugById: ReadonlyMap<EnvironmentId, string>,
+): Scope {
+  if (!environmentId || environmentId === mainEnvironmentId) return BASE;
+  const slug = slugById.get(environmentId);
+  if (!slug) return BASE;
+  return environmentScope({ slug, isMain: false });
+}
