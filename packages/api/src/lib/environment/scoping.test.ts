@@ -2,6 +2,7 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { isEnvironmentSlugAllowed } from "./reserved-slugs";
+import { scopeForEnvironment } from "./runtime-scope";
 import {
   BASE,
   environmentScope,
@@ -118,5 +119,33 @@ describe("previewIdOf", () => {
     expect(previewIdOf(BASE)).toBeNull();
     expect(previewIdOf(null)).toBeNull();
     expect(previewIdOf(undefined)).toBeNull();
+  });
+});
+
+describe("scopeForEnvironment (the batch listing rule)", () => {
+  const main = idSchema.environment.parse("env_main");
+  const staging = idSchema.environment.parse("env_staging");
+  const slugs = new Map([
+    [main, "production"],
+    [staging, "staging"],
+  ]);
+
+  it("renders main and unstamped rows as base, so nothing deployed is renamed", () => {
+    expect(scopeForEnvironment(main, main, slugs)).toEqual(BASE);
+    expect(scopeForEnvironment(null, main, slugs)).toEqual(BASE);
+  });
+
+  it("suffixes a non-main environment", () => {
+    expect(runtimeServiceName("od-praxly-api", scopeForEnvironment(staging, main, slugs))).toBe(
+      "od-praxly-api-staging",
+    );
+  });
+
+  it("degrades a dangling environment id to base rather than throwing", () => {
+    // Deliberately unlike resolveRuntimeScope, which refuses. A listing must
+    // still render when one row is broken; the cost is an empty replicas tray,
+    // not a deploy landing on production's name.
+    const dangling = idSchema.environment.parse("env_gone");
+    expect(scopeForEnvironment(dangling, main, slugs)).toEqual(BASE);
   });
 });

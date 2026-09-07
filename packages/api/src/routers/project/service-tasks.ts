@@ -4,7 +4,8 @@
  * here; the frontend polls when it wants fresh state.
  *
  * Implementation:
- *   1. Load service rows (resourceId + serviceName) from the DB.
+ *   1. Load service rows (resourceId + serviceName + environment) from the
+ *      DB, and scope each name the way the deploy path named it.
  *   2. Ask the swarm for every task across those services (one filtered call).
  *   3. Group by serviceName, map back to resourceId, collapse docker task
  *      states into the running/building/error bucket the graph cares about.
@@ -20,6 +21,8 @@ import { eq } from "drizzle-orm";
 
 import type { ProjectRef } from "../scopes";
 
+import { resolveRuntimeScopesForProject } from "../../lib/environment/runtime-scope";
+import { runtimeServiceName } from "../../lib/environment/scoping";
 import { isSwarmRuntime } from "../../runtime";
 import { composeSwarmServiceName } from "../../stack/compose";
 import { ProjectNotFoundError } from "./errors";
@@ -255,14 +258,27 @@ export async function listProjectServiceTasks(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const services = await db
-    .select({
-      resourceId: resource.id,
-      serviceName: serviceResource.serviceName,
-    })
-    .from(resource)
-    .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-    .where(eq(resource.projectId, input.projectId));
+  // The environment rides along because `serviceResource.serviceName` is the
+  // BASE name: two environments' services deliberately share it, and the swarm
+  // knows them by their scoped names. Keying the owner index on the base would
+  // both miss every non-main service's tasks and, with two of them, file one
+  // environment's tasks under the other's resource.
+  const [scopeOf, services] = await Promise.all([
+    resolveRuntimeScopesForProject(input.projectId),
+    db
+      .select({
+        resourceId: resource.id,
+        serviceName: serviceResource.serviceName,
+        environmentId: resource.environmentId,
+      })
+      .from(resource)
+      .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+      .where(eq(resource.projectId, input.projectId)),
+  ]);
+  const scopedServices = services.map((s) => ({
+    resourceId: s.resourceId,
+    serviceName: runtimeServiceName(s.serviceName, scopeOf(s.environmentId)),
+  }));
 
   // Compose stacks fan out to N swarm services (`${stack}-${svc}`), each
   // labelled with the stack's resourceId. We resolve every sub-service's swarm
@@ -281,7 +297,7 @@ export async function listProjectServiceTasks(
 
   // swarmName -> { resourceId, service }. `service` is the compose sub-service
   // key (null for plain single-service resources).
-  const swarmNameToOwner = buildSwarmNameToOwner(services, composes);
+  const swarmNameToOwner = buildSwarmNameToOwner(scopedServices, composes);
 
   // Every resource that should appear in the result, even with zero tasks, so
   // the graph can render a node/group as "offline" rather than omit it.
