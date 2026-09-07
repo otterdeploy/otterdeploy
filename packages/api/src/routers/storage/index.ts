@@ -22,6 +22,7 @@ import type { StorageError, StorageTarget } from "../../storage";
 import { requirePermission } from "../..";
 import {
   deleteObjects,
+  deletePrefix,
   listObjects,
   normalizeStorageRoot,
   presignObject,
@@ -179,6 +180,25 @@ export const storageRouter = {
       const target = await open(context.activeOrganizationId, input.bucketId, errors);
       const outcome = await deleteObjects(target, input.keys);
       if (outcome.isErr()) throw raise(outcome.error, errors);
+      return outcome.value;
+    },
+  ),
+
+  removePrefix: requirePermission({ backup: ["delete"] }).storage.removePrefix.handler(
+    async ({ input, context, errors }) => {
+      const target = await open(context.activeOrganizationId, input.bucketId, errors);
+      const outcome = await deletePrefix(target, input.prefix);
+      if (outcome.isErr()) throw raise(outcome.error, errors);
+      // Logged AFTER the walk: unlike `remove`, the count is not knowable
+      // from the input — the whole point is that the server enumerated it.
+      context.log.set({
+        storage: {
+          bucketId: input.bucketId,
+          prefix: input.prefix,
+          deleted: outcome.value.deleted,
+          complete: outcome.value.complete,
+        },
+      });
       return outcome.value;
     },
   ),

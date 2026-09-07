@@ -30,6 +30,11 @@ lines. The cleanup that removed the now-unreachable previous landing and stale
 integration modules lowers those figures to 384 and 3.67%; the dead-code and cycle
 floors do not move.
 
+Re-pinned on 2026-09-07 to 3.64% duplicated lines. Collapsing the two backup
+destination flag flips (`status`, `usedForBackups`) onto one guarded helper
+removed four clone groups' worth of near-identical code at every layer —
+service, router and row — and left the duplication floor lower than it found it.
+
 Regenerate the per-file evidence any time:
 
 ```bash

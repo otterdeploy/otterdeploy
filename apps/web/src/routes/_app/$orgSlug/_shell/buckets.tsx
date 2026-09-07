@@ -4,29 +4,26 @@
  * One viewer, not two. A prefix IS a filter — walking into
  * `invoices/2026-08/` and filtering on that prefix are the same
  * ListObjectsV2 call, differing only in whether the delimiter is set — so
- * the breadcrumb, the prefix rail and the filter tokens all edit ONE state
- * object, and Folders/Flat is a rendering toggle over one result set rather
- * than a second screen. All of that state lives in the URL, so any view is
- * a link.
+ * the breadcrumb and the filter tokens both edit ONE state object, and
+ * Folders/Flat is a rendering toggle over one result set rather than a
+ * second screen. All of that state lives in the URL, so any view is a link.
  *
- * Which bucket you are in joins the header's crumb trail — `acme /
- * acme-uploads` — the same way the data workbench's database does: it is
- * the same species of fact as which org, and moving it there gives the rail
- * entirely to the prefix tree.
+ * Nothing opens on arrival. `?bucket=` is the whole answer to "which
+ * keyspace", so with no bucket named the page shows the picker rather than
+ * guessing at the first row — the same front door the data workbench gives
+ * databases. Once you are in one, the bucket joins the header's crumb trail
+ * — `acme / acme-uploads` — because which bucket you are in is the same
+ * species of fact as which org.
  */
 import { useEffect, useState } from "react";
 
 import { createPortal } from "react-dom";
 
-import { FolderLibraryIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-
-import { Button } from "@/shared/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 
 import type { BucketsSearch } from "@/features/buckets/state";
 
+import { BucketPicker } from "@/features/buckets/components/bucket-picker";
 import { BucketSwitcher } from "@/features/buckets/components/bucket-switcher";
 import { ConnectBucketDialog } from "@/features/buckets/components/connect-bucket-dialog";
 import { bucketsCollection, useBuckets } from "@/features/buckets/data/buckets-data";
@@ -47,9 +44,12 @@ function BucketsPage() {
   const setSearch = (next: Partial<BucketsSearch>) =>
     void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
 
-  // Derived, not stored: an unknown or absent `?bucket=` falls back to the
-  // first bucket rather than rendering an empty workbench.
-  const activeBucket = buckets.find((b) => b.id === search.bucket) ?? buckets[0];
+  // Derived, not stored, and never guessed: an unknown or absent `?bucket=`
+  // means nothing is open, and the picker shows.
+  const activeBucket = buckets.find((b) => b.id === search.bucket);
+  const openBucket = (id: string) =>
+    void navigate({ search: { bucket: id, prefix: "", grouping: search.grouping, q: "" } });
+  const leave = () => void navigate({ search: {} });
 
   // A freshly connected bucket becomes the active one: you connected it to
   // look at it.
@@ -63,10 +63,9 @@ function BucketsPage() {
       buckets={buckets}
       active={activeBucket}
       isLoading={isLoading}
-      onPick={(id) =>
-        void navigate({ search: { bucket: id, prefix: "", grouping: search.grouping, q: "" } })
-      }
+      onPick={openBucket}
       onConnect={() => setConnectOpen(true)}
+      onLeave={activeBucket === undefined ? undefined : leave}
     />
   );
 
@@ -99,23 +98,11 @@ function BucketsPage() {
       {isLoading ? (
         <div className="min-h-0 flex-1 animate-pulse bg-muted/20" />
       ) : activeBucket === undefined ? (
-        <Empty className="flex-1 justify-center">
-          <EmptyHeader>
-            <HugeiconsIcon
-              icon={FolderLibraryIcon}
-              strokeWidth={1.5}
-              className="size-10 text-muted-foreground/50"
-            />
-            <EmptyTitle>No buckets to browse</EmptyTitle>
-            <EmptyDescription>
-              Connect any S3-compatible bucket — AWS, R2, MinIO — and it becomes browsable here
-              and usable as a backup destination, with one stored credential.
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button size="sm" onClick={() => setConnectOpen(true)}>
-            Connect a bucket
-          </Button>
-        </Empty>
+        <BucketPicker
+          buckets={buckets}
+          onPick={openBucket}
+          onConnect={() => setConnectOpen(true)}
+        />
       ) : (
         <BucketWorkbench
           // Remount on bucket change: a different bucket is a different

@@ -70,6 +70,9 @@ export async function ensureManagedLocalDestination(organizationId: Organization
       config: desiredConfig,
       encryptedSecret: null,
       managed: true,
+      // The whole reason this row exists is to be a backup target, so it is
+      // the one destination that opts itself in.
+      usedForBackups: true,
     })
     .onConflictDoNothing()
     .returning({ id: backupDestination.id });
@@ -119,6 +122,10 @@ export async function canDisableManagedDestination(input: {
       and(
         eq(backupDestination.organizationId, input.organizationId),
         ne(backupDestination.id, input.id),
+        // A connected bucket is stored as a destination row but is not one:
+        // counting it as a peer would let the last real destination be
+        // disabled and leave the org backing up to nothing.
+        eq(backupDestination.usedForBackups, true),
         or(eq(backupDestination.status, "active"), eq(backupDestination.status, "degraded")),
       ),
     )

@@ -4,9 +4,9 @@
  * Deliberately one object, and deliberately all of it in the URL. A prefix IS
  * a filter — walking into `invoices/2026-08/` and filtering on
  * `prefix:invoices/2026-08/` are the same ListObjectsV2 call, differing only
- * in whether the delimiter is set — so the breadcrumb, the prefix tree and the
- * filter tokens are three EDITORS OF ONE STATE, and Folders/Flat is a
- * rendering toggle over one result set. That is what lets a selection survive
+ * in whether the delimiter is set — so the breadcrumb and the filter tokens
+ * are two EDITORS OF ONE STATE, and Folders/Flat is a rendering toggle over
+ * one result set. That is what lets a selection survive
  * the toggle, and what makes any view a link.
  */
 import * as z from "zod";
@@ -40,6 +40,19 @@ export function crumbsFor(bucketName: string, prefix: string): Crumb[] {
     crumbs.push({ label: segment, prefix: acc });
   }
   return crumbs;
+}
+
+/**
+ * Is this selection entry a folder rather than an object?
+ *
+ * The selection holds prefixes and object keys in ONE map, because "3 of 12
+ * selected" would be a lie if folders lived in a second one. They need no
+ * discriminator field: a prefix always ends in `/` and an object key never
+ * does — `listObjects` drops the zero-byte folder marker whose key equals
+ * the prefix, which is the only key that could collide.
+ */
+export function isPrefixSelection(key: string): boolean {
+  return key.endsWith("/");
 }
 
 /** The last path segment of a key, for the name column in folder mode. */
@@ -122,16 +135,4 @@ export function isImageKey(key: string): boolean {
   const dot = key.lastIndexOf(".");
   if (dot < 0) return false;
   return IMAGE_EXTENSIONS.has(key.slice(dot + 1).toLowerCase());
-}
-
-/** Every ancestor prefix of `prefix`, itself included: `a/b/` → [`a/`, `a/b/`]. */
-export function ancestorPrefixes(prefix: string): string[] {
-  const segments = prefix.replace(/\/+$/, "").split("/").filter(Boolean);
-  const out: string[] = [];
-  let acc = "";
-  for (const segment of segments) {
-    acc += `${segment}/`;
-    out.push(acc);
-  }
-  return out;
 }

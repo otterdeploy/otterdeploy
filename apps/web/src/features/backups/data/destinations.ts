@@ -47,6 +47,7 @@ const destinationsQueryOptions = queryCollectionOptions({
           name: row.name,
           type: row.type,
           config: row.config,
+          usedForBackups: row.usedForBackups,
           ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
         });
         // The optimistic row used a temp id; refetch so the real row
@@ -110,6 +111,21 @@ export function testDestination(id: Destination["id"]) {
  */
 export async function setDestinationEnabled(id: Destination["id"], enabled: boolean) {
   const row = await orpc.backups.destinations.setEnabled.call({ id, enabled });
+  await queryClient.invalidateQueries({ queryKey: destinationsListKey });
+  return row;
+}
+
+/**
+ * Opt a destination into, or out of, being written to by the scheduler.
+ *
+ * A bucket connected in the buckets workbench is stored as a destination row
+ * so its credential is kept once, but it is NOT a backup target until someone
+ * says so here. Refetches rather than mutating optimistically for the same
+ * reason as `setDestinationEnabled`: the server can refuse to opt out the
+ * last usable destination.
+ */
+export async function setDestinationUsedForBackups(id: Destination["id"], usedForBackups: boolean) {
+  const row = await orpc.backups.destinations.setUsedForBackups.call({ id, usedForBackups });
   await queryClient.invalidateQueries({ queryKey: destinationsListKey });
   return row;
 }

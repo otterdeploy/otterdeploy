@@ -169,6 +169,13 @@ const createDestinationInput = z.object({
   type: destinationType,
   config: destinationConfigInput.default({}),
   secret: destinationSecretInput.optional(),
+  /**
+   * May the scheduler write here? Defaults to true because this procedure
+   * lives under `backups.destinations` — creating one HERE is the act of
+   * adding a backup target. The buckets workbench, which stores an S3 bucket
+   * in the same table just to browse it, passes false.
+   */
+  usedForBackups: z.boolean().default(true),
 });
 
 const updateDestinationInput = z.object({
@@ -184,6 +191,11 @@ const destinationIdInput = z.object({ id: backupDestinationIdField });
 const setDestinationEnabledInput = z.object({
   id: backupDestinationIdField,
   enabled: z.boolean(),
+});
+
+const setDestinationUsedForBackupsInput = z.object({
+  id: backupDestinationIdField,
+  usedForBackups: z.boolean(),
 });
 
 const testResultSchema = z.object({
@@ -499,6 +511,16 @@ export const backupsContract = {
       .errors({ ...destinationNotFound, ...destinationLastActive })
       .meta({ path: `${basePath}/destinations/{id}/enabled`, tag, method: "PUT" })
       .input(setDestinationEnabledInput)
+      .output(destinationSchema),
+
+    // Whether this row is a backup destination AT ALL, as opposed to a bucket
+    // stored here so the workbench can browse it. Turning it on is the
+    // explicit "yes, back up into this bucket" the connect flow deliberately
+    // does not ask for.
+    setUsedForBackups: oc
+      .errors({ ...destinationNotFound, ...destinationLastActive })
+      .meta({ path: `${basePath}/destinations/{id}/used-for-backups`, tag, method: "PUT" })
+      .input(setDestinationUsedForBackupsInput)
       .output(destinationSchema),
 
     delete: oc

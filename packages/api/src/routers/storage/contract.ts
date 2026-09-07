@@ -189,4 +189,34 @@ export const storageContract = {
       }),
     )
     .errors(storageErrors),
+
+  /**
+   * Delete everything under a prefix, recursively.
+   *
+   * Separate from `remove` because it is a different act: `remove` deletes
+   * the keys you named, this one deletes keys you have never seen. The
+   * server does the walk — the alternative is paging a whole subtree into
+   * the browser to enumerate what to delete.
+   *
+   * `complete: false` means keys were left behind (the per-call ceiling was
+   * reached, or something refused), so the caller must not report the folder
+   * as gone.
+   */
+  removePrefix: oc
+    .route({ method: "POST", path: `${basePath}/remove-prefix`, tags: [tag] })
+    .input(
+      z.object({
+        bucketId: bucketIdField,
+        /** Ends with `/`; the bucket's own root is refused. */
+        prefix: z.string().min(1).max(1024),
+      }),
+    )
+    .output(
+      z.object({
+        deleted: z.number().int(),
+        failed: z.array(z.object({ key: z.string(), reason: z.string() })),
+        complete: z.boolean(),
+      }),
+    )
+    .errors(storageErrors),
 };

@@ -2,8 +2,8 @@
  * The bucket workbench's controller: one state object, all of it in the URL.
  *
  * Split out of the components so the rule that makes the design work — the
- * breadcrumb, the prefix tree and the filter tokens are three editors of ONE
- * state — lives somewhere it can be read in one screen. The verbs (presign,
+ * breadcrumb and the filter tokens are two editors of ONE state — lives
+ * somewhere it can be read in one screen. The verbs (presign,
  * upload, delete…) live in `use-object-verbs`.
  *
  * Mounted per bucket (the route remounts on bucket change), so everything
@@ -24,7 +24,7 @@ import type { BucketRow } from "./data/buckets-data";
 import type { BucketsSearch } from "./state";
 
 import { useBucketStats, useObjectDetail, useObjectListing } from "./data/buckets-data";
-import { crumbsFor } from "./state";
+import { crumbsFor, isPrefixSelection } from "./state";
 import { useObjectVerbs } from "./use-object-verbs";
 
 /** A listed object plus the epoch-ms the filter grammar compares against. */
@@ -52,8 +52,10 @@ export function useBucketWorkbench({
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]);
   const pageIndex = pageTokens.length - 1;
 
-  /** Selection is a Map key → size, so the bar can total what is ticked even
-   *  after the rows scroll off through paging or prefix navigation. */
+  /** Selection is a Map key → bytes, so the bar can total what is ticked even
+   *  after the rows scroll off through paging or prefix navigation. Folders
+   *  live in it too, keyed by their prefix (see `isPrefixSelection`); their
+   *  bytes are the stats scan's tally, or 0 while it has not answered. */
   const [selected, setSelected] = useState<ReadonlyMap<string, number>>(new Map());
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [statsOpen, setStatsOpen] = useState(true);
@@ -122,16 +124,6 @@ export function useBucketWorkbench({
     setSearch({ prefix });
   };
 
-  /** Open one object's preview, walking to its folder first if needed. */
-  const openObject = (key: string) => {
-    const parent = key.slice(0, key.lastIndexOf("/") + 1);
-    if (parent !== search.prefix) {
-      setPageTokens([null]);
-      setSearch({ prefix: parent });
-    }
-    setActiveKey(key);
-  };
-
   const setQuery = (q: string) => setSearch({ q });
   const toggleToken = (token: string) => setSearch({ q: withStorageToken(search.q, token) });
   const setGrouping = (grouping: "folders" | "flat") => {
@@ -157,13 +149,29 @@ export function useBucketWorkbench({
       return next;
     });
 
+  /** Everything on the page: folders as well as objects, or the header
+   *  checkbox would do nothing on a listing that is all folders. */
   const toggleAll = (next: boolean) =>
-    setSelected(next ? new Map(objects.map((o) => [o.key, o.size])) : new Map());
+    setSelected(
+      next
+        ? new Map([
+            ...prefixes.map((p): [string, number] => [p, prefixTallies.get(p)?.bytes ?? 0]),
+            ...objects.map((o): [string, number] => [o.key, o.size]),
+          ])
+        : new Map(),
+    );
 
   const clearSelection = () => setSelected(new Map());
 
   const selectedBytes = useMemo(
     () => [...selected.values()].reduce((sum, size) => sum + size, 0),
+    [selected],
+  );
+
+  /** How many of the ticked entries are folders — the bar says so out loud,
+   *  because deleting one means deleting a subtree nobody has seen. */
+  const selectedFolders = useMemo(
+    () => [...selected.keys()].filter(isPrefixSelection).length,
     [selected],
   );
 
@@ -199,10 +207,10 @@ export function useBucketWorkbench({
     hasNextPage: (listing.data?.continuationToken ?? null) !== null,
     selected,
     selectedBytes,
+    selectedFolders,
     activeKey,
     setActiveKey,
     navigateTo,
-    openObject,
     setQuery,
     toggleToken,
     setGrouping,

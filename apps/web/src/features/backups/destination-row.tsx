@@ -7,6 +7,11 @@
  * exists so a fresh install can schedule a backup without inventing a host path,
  * so it offers no Delete. Only Disable, and the server refuses even that while
  * it's the last active destination. See packages/api/src/backups/managed-destination.ts.
+ *
+ * A row with `usedForBackups: false` is a bucket connected in the workbench:
+ * the same table, the same stored credential, but not a backup target. It
+ * shows here — this is where you would come looking — reading as what it is,
+ * and "Use for backups" is the explicit act that turns it into one.
  */
 import { useState } from "react";
 
@@ -22,6 +27,7 @@ import type { Destination } from "./data/destinations";
 import {
   destinationsCollection,
   setDestinationEnabled,
+  setDestinationUsedForBackups,
   testDestination,
 } from "./data/destinations";
 import { StatusBadge, destIcon, destSub, destUri } from "./shared";
@@ -99,18 +105,34 @@ export function DestinationRow({
   };
 
   const disabled = dest.status === "disabled";
+  // Not a backup target at all — a connected bucket. Distinct from `disabled`,
+  // which is a backup destination the operator has paused.
+  const browseOnly = !dest.usedForBackups;
 
-  const toggleEnabled = () => {
+  /** Both flag flips answer the same way, so they report the same way. The
+   *  server's own message is surfaced verbatim on failure: it refuses to turn
+   *  off the last usable destination and says why, which beats a generic one. */
+  const flip = (pending: Promise<unknown>, ok: string) => {
     setBusy(true);
-    setDestinationEnabled(dest.id, disabled)
-      .then(() => toast.success(disabled ? "Destination enabled" : "Destination disabled"))
+    pending
+      .then(() => toast.success(ok))
       .catch((err: unknown) =>
-        // The server refuses to disable the last active destination, surfacing
-        // its message verbatim explains why better than a generic failure.
         toast.error(err instanceof Error ? err.message : "Couldn't change destination"),
       )
       .finally(() => setBusy(false));
   };
+
+  const toggleUsedForBackups = () =>
+    flip(
+      setDestinationUsedForBackups(dest.id, browseOnly),
+      browseOnly ? "Backups can now be written here" : "No longer a backup target",
+    );
+
+  const toggleEnabled = () =>
+    flip(
+      setDestinationEnabled(dest.id, disabled),
+      disabled ? "Destination enabled" : "Destination disabled",
+    );
 
   return (
     <div
@@ -123,7 +145,7 @@ export function DestinationRow({
         // A disabled destination takes no new backups. Dimming it keeps that
         // legible at a glance without hiding the row, since its existing
         // snapshots are still restorable.
-        disabled && "opacity-60",
+        (disabled || browseOnly) && "opacity-60",
       )}
     >
       {/* Each wrapper is a mobile row and `display:contents` from `lg`, so the
@@ -157,25 +179,93 @@ export function DestinationRow({
         {/* Fixed column from `lg`: "Active" and "Disabled" differ in width and
             would otherwise nudge every control after them. */}
         <div className="lg:w-24">
-          <StatusBadge status={dest.status} />
+          {browseOnly ? (
+            <span
+              className="rounded bg-muted px-1.5 py-0.5 text-[11px] whitespace-nowrap text-muted-foreground"
+              title="Connected so you can browse it. Nothing is backed up here."
+            >
+              Browse only
+            </span>
+          ) : (
+            <StatusBadge status={dest.status} />
+          )}
         </div>
       </div>
 
-      {/* pl-9, not pl-11: these are ghost buttons whose own px-2.5 padding
-          carries the rest of the way, so their LABELS line up with the name
-          rather than their invisible box edges. */}
-      <div className="flex flex-wrap items-center gap-1 pl-9 lg:contents lg:pl-0">
+      <DestinationControls
+        managed={dest.managed}
+        busy={busy}
+        disabled={disabled}
+        browseOnly={browseOnly}
+        onTest={test}
+        onToggleEnabled={toggleEnabled}
+        onToggleUsedForBackups={toggleUsedForBackups}
+        onEdit={onEdit}
+        onRemove={remove}
+      />
+    </div>
+  );
+}
+
+/**
+ * Test / enable / opt-in / edit / delete.
+ *
+ * Its own component because every one of the row's conditions lands here —
+ * managed or not, disabled or not, a backup target or a browse-only bucket —
+ * and reading the row's layout should not mean reading five buttons' branches
+ * first.
+ */
+function DestinationControls({
+  managed,
+  busy,
+  disabled,
+  browseOnly,
+  onTest,
+  onToggleEnabled,
+  onToggleUsedForBackups,
+  onEdit,
+  onRemove,
+}: {
+  managed: boolean;
+  busy: boolean;
+  disabled: boolean;
+  browseOnly: boolean;
+  onTest: () => void;
+  onToggleEnabled: () => void;
+  onToggleUsedForBackups: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    /* pl-9, not pl-11: these are ghost buttons whose own px-2.5 padding
+       carries the rest of the way, so their LABELS line up with the name
+       rather than their invisible box edges. */
+    <div className="flex flex-wrap items-center gap-1 pl-9 lg:contents lg:pl-0">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1.5"
+        title="Validate stored credential"
+        disabled={busy}
+        onClick={onTest}
+      >
+        <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
+        Test
+      </Button>
+      {browseOnly ? (
+        // The explicit act. A connected bucket is inert until this is
+        // clicked; no schedule can name it before then.
         <Button
           variant="ghost"
           size="sm"
-          className="gap-1.5"
-          title="Validate stored credential"
+          className="whitespace-nowrap"
           disabled={busy}
-          onClick={test}
+          title="Start writing backups into this bucket. Nothing is written until you do."
+          onClick={onToggleUsedForBackups}
         >
-          <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
-          Test
+          Use for backups
         </Button>
+      ) : (
         <Button
           variant="ghost"
           size="sm"
@@ -187,33 +277,33 @@ export function DestinationRow({
               ? "Resume sending backups here"
               : "Stop sending new backups here. Existing snapshots stay restorable."
           }
-          onClick={toggleEnabled}
+          onClick={onToggleEnabled}
         >
           {disabled ? "Enable" : "Disable"}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          title={dest.managed ? "Rename" : "Edit"}
-          onClick={onEdit}
-        >
-          <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
-        </Button>
-        {/* No delete for the managed destination. It must always exist, or the
+      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7"
+        title={managed ? "Rename" : "Edit"}
+        onClick={onEdit}
+      >
+        <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
+      </Button>
+      {/* No delete for the managed destination. It must always exist, or the
             org is back to "configure storage before you can back anything up".
             Disable is the escape hatch. */}
-        {dest.managed ? (
-          // Same footprint as the delete button so the managed row's controls
-          // sit in the same columns as every other row's, rather than the
-          // whole tail sliding one icon to the right.
-          <span aria-hidden className="hidden size-7 lg:block" />
-        ) : (
-          <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
-            <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-          </Button>
-        )}
-      </div>
+      {managed ? (
+        // Same footprint as the delete button so the managed row's controls
+        // sit in the same columns as every other row's, rather than the
+        // whole tail sliding one icon to the right.
+        <span aria-hidden className="hidden size-7 lg:block" />
+      ) : (
+        <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={onRemove}>
+          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

@@ -4,9 +4,10 @@
  * (same split as `queries.ts` / `destination-queries.ts`).
  *
  * The guards here are what make the platform-managed local destination safe to
- * always exist: it cannot be deleted or relocated, only renamed or disabled, and
- * disabling is refused while it is the org's last active destination. See
- * ../../backups/managed-destination.ts for why it exists at all.
+ * always exist: it cannot be deleted or relocated, only renamed. The two
+ * boolean toggles that decide whether a row is written to at all live in
+ * `destination-flags.ts`. See ../../backups/managed-destination.ts for why the
+ * managed row exists.
  */
 import type { BackupDestinationId } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
@@ -16,17 +17,13 @@ import { Result } from "better-result";
 import type { OrgRef } from "../scopes";
 import type { DestinationResult } from "./service";
 
-import {
-  canDisableManagedDestination,
-  ensureManagedLocalDestination,
-} from "../../backups/managed-destination";
+import { ensureManagedLocalDestination } from "../../backups/managed-destination";
 import { encryptSecret } from "../../lib/crypto";
 import { missingConfigKeys, missingSecret } from "./destination-config";
 import { decryptDestinationSecret, probeDestination } from "./destination-probe";
 import {
   DestinationConfigInvalidError,
   DestinationInUseError,
-  DestinationLastActiveError,
   DestinationManagedError,
   DestinationNotFoundError,
   DestinationTestFailedError,
@@ -39,7 +36,6 @@ import {
   getDestinationGuardFields,
   getDestinationWithSecret,
   listDestinationsByOrg,
-  setDestinationStatusRecord,
   updateDestinationRecord,
 } from "./queries";
 
@@ -63,45 +59,6 @@ export async function listDestinations(input: OrgRef): Promise<DestinationRow[]>
   return listDestinationsByOrg(input.organizationId);
 }
 
-/**
- * Enable or disable a destination. Disabling is operator intent: the scheduler
- * skips it on future runs while its existing snapshots stay restorable.
- *
- * Guarded so the org can never reach zero active destinations. See
- * `canDisableManagedDestination`. The guard applies to every destination, not
- * just the managed one: disabling the last active S3 bucket is just as silent a
- * failure as disabling the last local one.
- */
-export async function setDestinationEnabled(
-  input: OrgRef & { id: BackupDestinationId; enabled: boolean },
-): Promise<Result<DestinationResult, DestinationNotFoundError | DestinationLastActiveError>> {
-  const guard = await getDestinationGuardFields({
-    organizationId: input.organizationId,
-    id: input.id,
-  });
-  if (!guard) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-  if (!input.enabled) {
-    const hasPeer = await canDisableManagedDestination({
-      organizationId: input.organizationId,
-      id: input.id,
-    });
-    if (!hasPeer) {
-      return Result.err(new DestinationLastActiveError({ destinationId: input.id }));
-    }
-  }
-  const row = await setDestinationStatusRecord({
-    organizationId: input.organizationId,
-    id: input.id,
-    status: input.enabled ? "active" : "disabled",
-  });
-  if (!row) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-  return Result.ok({ ...row, usedBytes: 0 });
-}
-
 // Secret creds are JSON-serialized then AES-GCM encrypted at rest (registry
 // crypto). Empty/undefined → no secret stored (e.g. `local` destinations).
 async function encryptDestinationSecret(
@@ -111,12 +68,21 @@ async function encryptDestinationSecret(
   return encryptSecret(JSON.stringify(secret));
 }
 
+/**
+ * Create a destination row.
+ *
+ * `usedForBackups` is required rather than defaulted because the two callers
+ * mean opposite things by it: the Backups → Destinations editor is adding a
+ * backup target, while the buckets workbench is storing a bucket to browse.
+ * A default here would silently pick one of them.
+ */
 export async function createDestination(
   input: OrgRef & {
     name: string;
     type: DestinationType;
     config: JsonObject;
     secret?: Record<string, string>;
+    usedForBackups: boolean;
   },
 ): Promise<Result<DestinationResult, DestinationConfigInvalidError>> {
   const missing = missingConfigKeys(input.type, input.config);
@@ -137,6 +103,7 @@ export async function createDestination(
     type: input.type,
     config: input.config,
     encryptedSecret,
+    usedForBackups: input.usedForBackups,
   });
   return Result.ok({ ...row, usedBytes: 0 });
 }

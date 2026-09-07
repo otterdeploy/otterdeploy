@@ -205,6 +205,7 @@ export {
   listDestinationsByOrg,
   resolveDestinationNames,
   setDestinationStatusRecord,
+  setDestinationUsedForBackupsRecord,
   updateDestinationRecord,
   type DestinationRow,
   type DestinationView,

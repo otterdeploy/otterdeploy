@@ -3,13 +3,18 @@
  *
  * Lives in the header's crumb trail — `acme / acme-uploads` — because which
  * bucket you are in is the same species of fact as which org, and it belongs
- * in the same row. Moving it out of the rail gives the rail entirely to the
- * prefix tree.
+ * in the same row.
  *
- * Connecting a bucket is offered here too: it is the same act as adding an
- * S3 backup destination, one credential stored once.
+ * Leaving is offered alongside picking: dropping `?bucket=` returns to the
+ * picker, which is the only way back to "nothing is open" once you are in a
+ * bucket. Connecting a new one is offered here too.
  */
-import { ArrowDown01Icon, FolderLibraryIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDown01Icon,
+  ArrowLeft01Icon,
+  FolderLibraryIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
@@ -31,12 +36,15 @@ export function BucketSwitcher({
   isLoading,
   onPick,
   onConnect,
+  onLeave,
 }: {
   buckets: readonly BucketRow[];
   active: BucketRow | undefined;
   isLoading: boolean;
   onPick: (id: string) => void;
   onConnect: () => void;
+  /** Back to the picker. Absent when nothing is open. */
+  onLeave?: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -96,6 +104,13 @@ export function BucketSwitcher({
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
           Connect a bucket…
         </DropdownMenuItem>
+
+        {onLeave === undefined ? null : (
+          <DropdownMenuItem onClick={onLeave} className="gap-2">
+            <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-3.5" />
+            All buckets
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

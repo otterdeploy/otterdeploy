@@ -227,3 +227,86 @@ export async function deleteObjects(
   }
   return Result.ok({ deleted, failed });
 }
+
+/**
+ * The ceiling on one recursive delete. A folder holding more keys than this
+ * takes several calls, and the answer says so rather than reporting a
+ * finished job — an operator who thinks a subtree is gone when it is not is
+ * exactly the wrong thing to be wrong about.
+ */
+const DELETE_PREFIX_KEY_LIMIT = 10_000;
+
+export interface DeletePrefixResult {
+  deleted: number;
+  failed: Array<{ key: string; reason: string }>;
+  /** False when keys were left behind: budget spent, or something refused. */
+  complete: boolean;
+}
+
+/**
+ * Delete everything under a prefix, recursively.
+ *
+ * S3 has no folders and therefore no rmdir: emptying `invoices/2026-08/`
+ * means listing its whole subtree flat and deleting the keys. This is the
+ * one place that walk lives, so the UI never has to page a million keys into
+ * the browser just to delete them.
+ *
+ * Each round re-lists FROM THE TOP rather than following a continuation
+ * token: the keys from the previous round are gone, so the token would point
+ * into a listing that no longer exists. Not truncated and nothing refused
+ * means the subtree is empty; anything else stops and reports.
+ */
+export async function deletePrefix(
+  target: StorageTarget,
+  prefix: string,
+): Promise<Result<DeletePrefixResult, StorageError>> {
+  if (!prefix.endsWith("/")) {
+    return Result.err(storageError("request", "a prefix delete needs a prefix ending in '/'"));
+  }
+  const scoped = resolveKey(target, prefix);
+  if (scoped.isErr()) return Result.err(scoped.error);
+  // Emptying a whole bucket is not something a folder row may ask for by
+  // accident, and `root` is the ceiling the rest of this module enforces.
+  if (scoped.value === target.root) {
+    return Result.err(storageError("denied", "refusing to empty the bucket root"));
+  }
+
+  const client = clientFor(target);
+  const failed: DeletePrefixResult["failed"] = [];
+  let deleted = 0;
+
+  while (deleted + failed.length < DELETE_PREFIX_KEY_LIMIT) {
+    // No delimiter: one flat walk of the subtree, folder markers included.
+    const listed = await Result.tryPromise({
+      try: () => client.list({ prefix: scoped.value, maxKeys: MAX_KEYS }),
+      catch: toStorageError,
+    });
+    if (listed.isErr()) return Result.err(listed.error);
+
+    const contents = listed.value.contents ?? [];
+    if (contents.length === 0) return Result.ok({ deleted, failed, complete: true });
+
+    for (let offset = 0; offset < contents.length; offset += DELETE_CONCURRENCY) {
+      const batch = contents.slice(offset, offset + DELETE_CONCURRENCY);
+      const outcomes = await Promise.all(
+        batch.map((object) =>
+          Result.tryPromise({ try: () => client.delete(object.key), catch: toStorageError }),
+        ),
+      );
+      outcomes.forEach((outcome, index) => {
+        const fullKey = batch[index]?.key;
+        if (fullKey === undefined) return;
+        if (outcome.isOk()) deleted += 1;
+        else failed.push({ key: fullKey.slice(target.root.length), reason: outcome.error.message });
+      });
+    }
+
+    // Something under here refuses to go; another round would loop on it.
+    if (failed.length > 0) return Result.ok({ deleted, failed, complete: false });
+    if (!(listed.value.isTruncated ?? false)) {
+      return Result.ok({ deleted, failed, complete: true });
+    }
+  }
+
+  return Result.ok({ deleted, failed, complete: false });
+}
