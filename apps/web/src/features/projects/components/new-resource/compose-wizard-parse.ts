@@ -26,6 +26,7 @@ import {
   type Preview,
 } from "./compose-wizard-shared";
 import { AUTO_WRITE } from "./form-context";
+import { deriveStackDomain } from "./stack-domains";
 
 /** Refs from several files, unique by name (first wins). */
 function dedupeByName<T extends { name: string }>(refs: T[]): T[] {
@@ -112,44 +113,46 @@ function seedExposure(form: ComposeForm, preview: Preview, declared: string[] | 
 }
 
 /**
- * Reconcile `vars.domains` with the currently exposed services.
+ * Reconcile `vars.baseDomain` + `vars.domains` with the exposed services.
  *
- * Resolution goes through the same `publicHostPreview` the front door uses, so
- * a seeded address is the address the service actually gets. A failure leaves
- * that row empty, which simply means "keep whatever the server generates".
+ * One field, many hostnames. `baseDomain` is seeded from the FRONT DOOR's
+ * resolved host — through the same `publicHostPreview` chain `exposeService`
+ * walks, so it is a preview of the real value rather than a client-side
+ * reconstruction that could drift. Every other exposed service derives a flat
+ * sibling of it (`deriveStackDomain`), which is what the operator sees and can
+ * still override row by row.
+ *
+ * Rows the operator typed into (`custom`) are never recomputed. A row whose
+ * host resolves to nothing stays empty, which simply means "keep whatever the
+ * server generates".
  */
-async function seedDomains(
-  projectId: ProjectId,
-  form: ComposeForm,
-  frontHost: string | null,
-  front: string | null,
-): Promise<void> {
+function seedDomains(form: ComposeForm, frontHost: string | null, front: string | null): void {
   const keys = form.state.values.file.exposed;
   const rows = form.state.values.vars.domains;
-  const kept = rows.filter((r) => keys.includes(r.key));
-  const missing = keys.filter((k) => !kept.some((r) => r.key === k));
-  if (missing.length === 0 && kept.length === rows.length) return;
-  const added = await Promise.all(
-    missing.map(async (key) => {
-      const service = key.split(":")[0] ?? "";
-      // The front door's host is already resolved; don't ask twice.
-      if (service === front && frontHost) return { key, domain: frontHost };
-      const resolved = await orpc.project.resource.publicHostPreview
-        .call({ projectId, name: service })
-        .catch(() => null);
-      return { key, domain: resolved?.fqdn ?? "" };
-    }),
-  );
-  // Preserve the exposed order, so the front door reads first.
-  const byKey = new Map([...kept, ...added].map((r) => [r.key, r]));
-  form.setFieldValue(
-    "vars.domains",
-    keys.flatMap((k) => {
-      const row = byKey.get(k);
-      return row ? [row] : [];
-    }),
-    AUTO_WRITE,
-  );
+
+  // The base is only ever seeded, never re-derived: once there is a value the
+  // operator owns it, and a re-parse on every keystroke must not stamp over it.
+  const base = form.state.values.vars.baseDomain || frontHost || "";
+  if (base !== form.state.values.vars.baseDomain) {
+    form.setFieldValue("vars.baseDomain", base, AUTO_WRITE);
+  }
+
+  const byKey = new Map(rows.map((r) => [r.key, r]));
+  const next = keys.map((key) => {
+    const existing = byKey.get(key);
+    if (existing?.custom) return existing;
+    const service = key.split(":")[0] ?? "";
+    return { key, domain: deriveStackDomain(base, service, service === front), custom: false };
+  });
+
+  const unchanged =
+    next.length === rows.length &&
+    next.every((r, i) => {
+      const prev = rows[i];
+      return prev?.key === r.key && prev.domain === r.domain && prev.custom === r.custom;
+    });
+  if (unchanged) return;
+  form.setFieldValue("vars.domains", next, AUTO_WRITE);
 }
 
 export function useComposeParse(
@@ -240,7 +243,7 @@ export function useComposeParse(
     // uses, added for keys that have no row yet and dropped for keys no longer
     // exposed. A row the operator has already typed into is never restamped:
     // the parse re-runs on every keystroke in the editor.
-    await seedDomains(projectId, form, publicHost, front);
+    seedDomains(form, publicHost, front);
     // Seed the variables editor with the file's `${VAR}` refs, preserving any
     // rows the user already added/edited. A credential-looking key with no
     // `:-default` is AUTO-GENERATED (strong random, locked) and an address-

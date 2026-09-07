@@ -13,6 +13,7 @@ import type { EnvSuggestion } from "@/features/resources/env-catalog";
 
 import type { ComposeForm } from "./compose-wizard-shared";
 
+import { ComposeDomainsField } from "./compose-domains-field";
 import { variablesValidatorFor } from "./form-fields/variables-field";
 
 export function ComposeVarsStep({
@@ -45,36 +46,7 @@ export function ComposeVarsStep({
           {t("compose.varsRequiredBanner")}
         </div>
       )}
-      {/* One public address per exposed service, seeded with the host the
-          server would generate, so leaving them alone changes nothing. There
-          used to be a single box here: it was seeded from whichever service
-          declared a port first (openstatus: its internal libsql) and applied
-          only to the first exposed entry, so every other hostname was
-          generated silently and could not be changed until after the deploy. */}
-      <form.Subscribe selector={(st) => st.values.vars.domains}>
-        {(domains) =>
-          domains.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">
-                  {t(domains.length > 1 ? "compose.domainsLabel" : "compose.domainLabel")}
-                </span>
-                <span className="text-xs text-muted-foreground">{t("compose.domainHelp")}</span>
-              </div>
-              {domains.map((row, i) => (
-                <form.AppField key={row.key} name={`vars.domains[${i}].domain`}>
-                  {(field) => (
-                    <field.TextField
-                      label={row.key.split(":")[0] ?? row.key}
-                      placeholder={t("compose.domainPlaceholder")}
-                    />
-                  )}
-                </form.AppField>
-              ))}
-            </div>
-          ) : null
-        }
-      </form.Subscribe>
+      <ComposeDomainsField form={form} />
       <form.AppField
         name="vars.variables"
         validators={{ onChange: variablesValidatorFor(suggestions) }}

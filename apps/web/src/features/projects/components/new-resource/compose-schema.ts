@@ -69,9 +69,16 @@ export interface ComposeFileValues {
 export interface ComposeVarsValues {
   variables: Var[];
   /**
+   * The ONE hostname the operator types: the stack's front door. Every other
+   * exposed service starts as a flat sibling of it (`stack-domains.ts`).
+   *
+   * Seeded with the host the server would generate anyway, so leaving the
+   * whole step alone changes nothing.
+   */
+  baseDomain: string;
+  /**
    * One public hostname per exposed service, keyed by the same
-   * `<service>:<port>` string `file.exposed` uses. Seeded with the host the
-   * server would generate anyway, so leaving them alone changes nothing.
+   * `<service>:<port>` string `file.exposed` uses.
    *
    * A list rather than one field because a stack has as many hostnames as it
    * has exposed services, and there used to be exactly one box. It seeded from
@@ -80,6 +87,10 @@ export interface ComposeVarsValues {
    * "the" domain while silently generating six more the operator never saw and
    * could not change until after the deploy.
    *
+   * `custom` marks a row the operator typed into. Editing `baseDomain`
+   * recomputes every row that is NOT custom, so the common case is one field
+   * and the escape hatch is still per-service.
+   *
    * It is a field group of its own because the old route to a custom domain
    * went through `editedExposedHost`: edit an ADDRESS-SHAPED variable and the
    * hostname you typed becomes the route. That only works for a template that
@@ -87,7 +98,7 @@ export interface ComposeVarsValues {
    * and nothing address-shaped, so it had no domain control anywhere in the
    * wizard and deployed on a generated host with no way to say otherwise.
    */
-  domains: Array<{ key: string; domain: string }>;
+  domains: Array<{ key: string; domain: string; custom: boolean }>;
 }
 
 /** The full nested form value. Every field reference in the wizard is a nested
@@ -115,6 +126,7 @@ export const composeDefaults: ComposeFormValues = {
   },
   vars: {
     variables: [],
+    baseDomain: "",
     domains: [],
   },
 };
@@ -188,7 +200,8 @@ export const fileStepSchema = z
 export const varsStepSchema = z
   .object({
     variables: z.array(varRowSchema),
-    domains: z.array(z.object({ key: z.string(), domain: z.string() })),
+    baseDomain: z.string(),
+    domains: z.array(z.object({ key: z.string(), domain: z.string(), custom: z.boolean() })),
   })
   .superRefine((v, ctx) => {
     v.variables.forEach((row, i) => {
