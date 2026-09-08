@@ -7,6 +7,7 @@
  */
 
 import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
+import { projectNetworkName } from "../swarm/network-name";
 import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
@@ -15,7 +16,6 @@ import { setTimeout as sleep } from "node:timers/promises";
 import type { RegistryAuth } from "../swarm";
 import type { ContainerSpec, RuntimeStatus } from "./types";
 
-import { PLATFORM } from "../constants";
 import { connectCaddyToNetwork } from "../swarm/client";
 import { streamImagePull } from "../swarm/image-pull";
 import { toHealthcheckTest } from "../swarm/internals";
@@ -24,7 +24,7 @@ import { connectExtraNetworks } from "./docker-driver-networks";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
 export const networkNameFor = (projectSlug: string) =>
-  `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
+  projectNetworkName(projectSlug);
 
 export const otterLabels = (
   spec: { resourceId: string; projectSlug: string; deploymentId?: string | null },

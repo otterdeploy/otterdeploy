@@ -4,6 +4,7 @@ import type { RequestLogger } from "evlog";
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
 
 import { PLATFORM } from "../constants";
+import { projectNetworkName } from "./network-name";
 import { asStepLogger } from "../lib/logger";
 
 export async function ensureSwarm(): Promise<void> {
@@ -32,16 +33,20 @@ export async function ensureSwarm(): Promise<void> {
 }
 
 /**
- * Ensure a per-project overlay network exists.
- * Network name: otterdeploy-{projectSlug}
+ * Ensure the overlay network for a project AND environment exists.
+ * Network name: otterdeploy-{projectSlug}{scopeSuffix} — see ./network-name.
  * Caddy is connected to the network so it can route traffic to project services.
+ *
+ * `scopeSuffix` defaults to base (""), which is what the MAIN environment
+ * renders as, so every already-deployed project keeps the network it has.
  */
 export async function ensureProjectNetwork(
   projectSlug: string,
+  scopeSuffix = "",
   rlog?: RequestLogger,
 ): Promise<string> {
   const log = asStepLogger(rlog);
-  const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
+  const networkName = projectNetworkName(projectSlug, scopeSuffix);
   const docker = Docker.fromEnv();
 
   const inspectResult = await docker.networks.inspect(networkName);
@@ -221,10 +226,11 @@ export async function ensureEdgeOnProjectNetworks(rlog?: RequestLogger): Promise
  */
 export async function removeProjectNetwork(
   projectSlug: string,
+  scopeSuffix = "",
   rlog?: RequestLogger,
 ): Promise<void> {
   const log = asStepLogger(rlog);
-  const networkName = `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
+  const networkName = projectNetworkName(projectSlug, scopeSuffix);
   const docker = Docker.fromEnv();
 
   const inspectResult = await docker.networks.inspect(networkName);

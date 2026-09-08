@@ -4,6 +4,7 @@
  * to keep the orchestration module under the line cap. See docs/designs/compose.md.
  */
 import type { ProjectId } from "@otterdeploy/shared/id";
+import { projectNetworkName } from "../../swarm/network-name";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
@@ -223,7 +224,7 @@ export function toServiceFields(
     serviceName: composeSwarmServiceName(ctx.stackName, svc.name),
     // Bare compose name = the overlay DNS alias intra-stack peers connect to.
     internalHostname: sanitize(svc.name),
-    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    networkName: projectNetworkName(projectSlug),
     fields: {
       image,
       command: svc.command?.map((c) => interpolate(c, ctx.projectVars)) ?? null,

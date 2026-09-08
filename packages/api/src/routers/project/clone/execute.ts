@@ -27,6 +27,7 @@
  */
 
 import type { RequestLogger } from "evlog";
+import { projectNetworkName } from "../../../swarm/network-name";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
@@ -151,7 +152,7 @@ async function cloneService(
     buildConfig: svc.buildConfig,
     internalHostname: resourceSlug,
     serviceName,
-    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    networkName: projectNetworkName(projectSlug),
     ports: record.ports.map((p) => ({
       containerPort: p.containerPort,
       protocol: p.protocol,

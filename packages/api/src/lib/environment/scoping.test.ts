@@ -10,6 +10,7 @@ import {
   previewScope,
   previewSlug,
   previewIdOf,
+  networkScopeSuffix,
   runtimeServiceName,
   scopeSuffix,
   type PreviewScope,
@@ -147,5 +148,41 @@ describe("scopeForEnvironment (the batch listing rule)", () => {
     // not a deploy landing on production's name.
     const dangling = idSchema.environment.parse("env_gone");
     expect(scopeForEnvironment(dangling, main, slugs)).toEqual(BASE);
+  });
+});
+
+/**
+ * The network suffix is deliberately NOT `scopeSuffix`. The overlay network is
+ * a DNS namespace, and the two scope kinds want opposite things from it: an
+ * environment is an isolation boundary, a preview is explicitly not one.
+ *
+ * Observed in the wild with a single project-wide network: a production API
+ * resolved `postgres-staging.<project>.otterdeploy.internal` and served live
+ * traffic against staging's data. Distinct names had not prevented it —
+ * only a distinct network can.
+ */
+describe("networkScopeSuffix", () => {
+  it("gives a non-main environment its own network", () => {
+    expect(networkScopeSuffix({ kind: "environment", slug: "staging", isMain: false })).toBe(
+      "-staging",
+    );
+  });
+
+  it("leaves main on the base network, so nothing deployed is renamed", () => {
+    expect(networkScopeSuffix({ kind: "environment", slug: "production", isMain: true })).toBe("");
+  });
+
+  it("keeps a preview on its base network: it must reach that environment's databases", () => {
+    // scopeSuffix gives previews `-pr-7` for CONTAINER names. The network is
+    // the one place that must not follow, or the preview cannot resolve the
+    // databases it exists to preview against.
+    const preview = previewScope(scope);
+    expect(scopeSuffix(preview)).toBe("-pr-7");
+    expect(networkScopeSuffix(preview)).toBe("");
+  });
+
+  it("treats an absent scope as base", () => {
+    expect(networkScopeSuffix(null)).toBe("");
+    expect(networkScopeSuffix(undefined)).toBe("");
   });
 });

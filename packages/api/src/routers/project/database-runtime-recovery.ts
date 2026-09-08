@@ -4,6 +4,8 @@
  * stay focused on row → API-shape translation.
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
+import { networkScopeSuffix } from "../../lib/environment/scoping";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 
 import { reconcile } from "../../caddy";
 import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
@@ -230,6 +232,9 @@ export async function ensureSwarmRuntimeForRecord(
         serviceName,
         volumeName,
         hostnameAlias: record.database.internalHostname,
+        // Same overlay its dependants attach to: a non-main environment gets
+        // its own, so nothing outside that environment can resolve this host.
+        networkScopeSuffix: networkScopeSuffix(await resolveRuntimeScope(record.resource)),
         databaseName: record.database.databaseName,
         username: record.database.username,
         password: record.database.password,

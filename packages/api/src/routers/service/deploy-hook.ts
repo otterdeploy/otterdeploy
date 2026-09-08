@@ -13,12 +13,12 @@
  */
 
 import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import { projectNetworkName } from "../../swarm/network-name";
 
 import { Result } from "better-result";
 
 import type { RefMissingResourceError, ResolveError } from "./errors";
 
-import { PLATFORM } from "../../constants";
 import { resolveServiceEnv } from "../../lib/variables";
 import { sanitizeSlug } from "./views";
 
@@ -42,6 +42,6 @@ export async function resolveDeployHookContext(
   if (resolved.isErr()) return Result.err(resolved.error);
   return Result.ok({
     env: resolved.value,
-    networkName: `${PLATFORM.swarm.networkPrefix}${sanitizeSlug(projectSlug)}`,
+    networkName: projectNetworkName(sanitizeSlug(projectSlug)),
   });
 }

@@ -21,6 +21,8 @@
  * that can drift apart.
  */
 import type { RequestLogger } from "evlog";
+import { networkScopeSuffix } from "../../../lib/environment/scoping";
+import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
 
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
@@ -105,6 +107,7 @@ export async function rollDatabaseContainer(
           stored: db.volumeName,
         }),
         hostnameAlias: db.internalHostname,
+        networkScopeSuffix: networkScopeSuffix(await resolveRuntimeScope(record.resource)),
         databaseName: db.databaseName,
         username: db.username,
         password: db.password,

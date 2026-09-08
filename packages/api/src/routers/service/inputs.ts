@@ -16,6 +16,7 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import { projectNetworkName } from "../../swarm/network-name";
 import type {
   EnvironmentId,
   GitRepoId,
@@ -314,7 +315,7 @@ export function deriveServiceNames(
   return {
     projectSlug,
     serviceName: `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(0, 63),
-    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    networkName: projectNetworkName(projectSlug),
     internalHostname: resourceSlug,
   };
 }

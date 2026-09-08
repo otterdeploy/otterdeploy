@@ -6,6 +6,8 @@
  * swap the running image/engine" history worth keeping in one place.
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
+import { networkScopeSuffix } from "../../lib/environment/scoping";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -70,6 +72,8 @@ export async function rollDatabaseEnv(args: {
   // stranding it "building" forever (the stale-row rescue only covers
   // zero-task rows; a live DB container keeps deriving from its tasks).
   const placement = await resolvePlacementForResource({ resourceId, stateful: true });
+  // Resolved before the non-async driver callback below, which cannot await.
+  const dbNetworkScope = networkScopeSuffix(await resolveRuntimeScope(dbRecord.resource));
 
   const rolled = await Result.tryPromise({
     try: () =>
@@ -97,6 +101,9 @@ export async function rollDatabaseEnv(args: {
             stored: dbRecord.database.volumeName,
           }),
           hostnameAlias: dbRecord.database.internalHostname,
+          // Same overlay its dependants attach to: a non-main environment gets
+          // its own, so nothing outside it can resolve this host.
+          networkScopeSuffix: dbNetworkScope,
           databaseName: dbRecord.database.databaseName,
           username: dbRecord.database.username,
           password: dbRecord.database.password,

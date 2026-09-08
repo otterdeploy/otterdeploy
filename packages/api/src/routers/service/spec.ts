@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 
 import type { RegistryAuth } from "../../swarm";
 
-import { previewIdOf, runtimeServiceName, type ScopeLike } from "../../lib/environment/scoping";
+import { previewIdOf, runtimeServiceName, type ScopeLike, networkScopeSuffix } from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { resolveRegistryAuth } from "../../swarm/registry-auth";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";
@@ -93,6 +93,10 @@ export async function buildSwarmSpec(
     projectSlug: sanitizeSlug(projectSlug),
     serviceName,
     internalHostname,
+    // Environment-scoped network. A non-main environment gets its own overlay,
+    // so this service can only resolve hostnames inside it. Previews stay on
+    // the base network by design — see networkScopeSuffix.
+    networkScopeSuffix: networkScopeSuffix(preview),
     image,
     command: record.service.command,
     entrypoint: record.service.entrypoint,
