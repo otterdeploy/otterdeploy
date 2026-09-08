@@ -12,6 +12,7 @@ import type { DataTableFeatures } from "@/shared/components/data-table/features"
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { cn } from "@/shared/lib/utils";
 
+import { fieldText } from "../data/structured-line";
 import {
   LEVEL_TEXT,
   LOG_LEVELS,
@@ -19,6 +20,28 @@ import {
   type LogLine,
 } from "../data/use-project-log-stream";
 import { stripAnsi } from "./ansi";
+
+/**
+ * Context, after the sentence.
+ *
+ * A structured line's fields are what make its message actionable — which
+ * service, which namespace, which attempt — and they read as `key=value` in
+ * dimmed mono so the eye can skip the whole tail and still scan the messages.
+ * Keys are dim and values are not: the value is the part that differs row to
+ * row, and it is what someone is looking for.
+ */
+function FieldTail({ fields }: { fields: LogLine["fields"] }) {
+  if (fields.length === 0) return null;
+  return (
+    <span className="ml-2 inline-flex shrink-0 gap-2 font-mono text-xs">
+      {fields.map(([key, value]) => (
+        <span key={key} className="text-muted-foreground/70">
+          {key}=<span className="text-muted-foreground">{fieldText(value)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
 
 const levelRank = (lv: LogLevel) => LOG_LEVELS.indexOf(lv);
 
@@ -60,9 +83,7 @@ export function makeLogColumns(t: TFunction): ColumnDef<DataTableFeatures, LogLi
       accessorKey: "tsIso",
       size: 150,
       header: "Timestamp",
-      cell: ({ row }) => (
-        <span className="text-[11.5px] text-muted-foreground">{row.original.ts}</span>
-      ),
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.ts}</span>,
     },
     {
       id: "level",
@@ -71,12 +92,7 @@ export function makeLogColumns(t: TFunction): ColumnDef<DataTableFeatures, LogLi
       header: "Level",
       sortFn: (a, b) => levelRank(a.original.level) - levelRank(b.original.level),
       cell: ({ row }) => (
-        <span
-          className={cn(
-            "text-[10px] font-medium tracking-[0.08em] uppercase",
-            LEVEL_TEXT[row.original.level],
-          )}
-        >
+        <span className={cn("text-xs font-medium uppercase", LEVEL_TEXT[row.original.level])}>
           {row.original.level}
         </span>
       ),
@@ -112,13 +128,14 @@ export function makeLogColumns(t: TFunction): ColumnDef<DataTableFeatures, LogLi
         const summary = firstBreak === -1 ? msg : msg.slice(0, firstBreak);
         const extra = firstBreak === -1 ? 0 : msg.split("\n").length - 1;
         return (
-          <span className="min-w-0 flex-1 truncate text-xs text-foreground">
-            {summary}
+          <span className="flex min-w-0 flex-1 items-baseline">
+            <span className="truncate text-xs text-foreground">{summary}</span>
             {extra > 0 && (
-              <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 align-middle text-[10px] font-medium text-muted-foreground/80">
+              <span className="ml-2 shrink-0 rounded-sm bg-muted px-1.5 py-0.5 align-middle text-xs font-medium text-muted-foreground/80">
                 +{extra}
               </span>
             )}
+            <FieldTail fields={row.original.fields} />
           </span>
         );
       },

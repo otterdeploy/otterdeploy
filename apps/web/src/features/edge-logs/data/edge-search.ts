@@ -16,5 +16,3 @@ export const zEdgeLogsSearch = z.object({
   // so the page always has a valid controlled tab without an extra default.
   tab: z.enum(EDGE_TABS).catch("logs"),
 });
-
-export type EdgeLogsSearch = z.infer<typeof zEdgeLogsSearch>;

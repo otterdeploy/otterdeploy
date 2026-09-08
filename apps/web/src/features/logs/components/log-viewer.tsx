@@ -279,12 +279,12 @@ export function LogViewer({
           onScroll={(e) =>
             handleTailScroll(e.currentTarget, lastScrollTopRef, autoScroll, setAutoScroll)
           }
-          className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
+          className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-xs leading-relaxed text-terminal-foreground"
         >
           {!hasLines ? (
             empty
           ) : visible.length === 0 ? (
-            <div className="grid h-full place-items-center text-center text-[12px] text-muted-foreground">
+            <div className="grid h-full place-items-center text-center text-xs text-muted-foreground">
               No lines match your search.
             </div>
           ) : (

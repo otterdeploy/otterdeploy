@@ -1,8 +1,32 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+/**
+ * Log volume over the tail window.
+ *
+ * An adapter, not a chart. It used to be ~240 lines of hand-rolled bars with
+ * its own drag-selection, its own colour mapping, its own tick formatting and
+ * its own `new Date()` clock — a second charting implementation living beside
+ * the one every other surface uses, and drifting from it in all four.
+ *
+ * Now it buckets the live buffer and hands the result to the shared histogram,
+ * so a log tail and an audit feed are read with the same instrument: the same
+ * bars, the same ranked tooltip, the same drag-to-select-then-confirm (a stray
+ * drag over a live tail must not silently narrow it), and the same tokens.
+ *
+ * What stays here is what is genuinely the log tail's own: the window is
+ * anchored to the buffer rather than to a server range, and the selection is
+ * the page's time filter rather than a URL-held one.
+ */
+
+import { useMemo, useState } from "react";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { useTranslation } from "react-i18next";
+
+import type { FeedHistogram } from "@/shared/components/data-table/feed/types";
+
+import { DataTableHistogram } from "@/shared/components/data-table/parts/histogram";
+import { CLOCK_MINUTES, clockFormatter } from "@/shared/lib/clock";
 
 import {
   bucketize,
@@ -10,7 +34,26 @@ import {
   HISTOGRAM_BUCKETS,
   type HistogramBucket,
 } from "../data/histogram";
-import { LEVEL_STRIPE, type LogLine } from "../data/use-project-log-stream";
+import { LOG_LEVELS, type LogLine } from "../data/use-project-log-stream";
+
+const clockHM = clockFormatter(CLOCK_MINUTES);
+
+/**
+ * Level → paint, from the semantic tokens rather than from a chart palette.
+ *
+ * A log level is a state, and DESIGN.md's state colours are what the rest of
+ * the app already paints it with: the same red in the histogram, the level
+ * chip and the row text means the eye only learns it once.
+ */
+const LEVEL_TONES: Record<string, string> = {
+  debug: "var(--muted-foreground)",
+  info: "var(--info)",
+  warn: "var(--warning)",
+  error: "var(--destructive)",
+};
+
+/** Bottom of the stack first: the ordinary case sits under the exceptions. */
+const LEVEL_ORDER = [...LOG_LEVELS];
 
 export interface TimeRange {
   from: number;
@@ -23,14 +66,12 @@ interface LogsHistogramProps {
   matchCount: number;
   /** Active time-window filter, or null. */
   selectedRange: TimeRange | null;
-  /** Click a bucket or drag across several to set the window; clicking the
-   *  active single bucket clears it. */
+  /** Confirming a drag sets the window; the chip beside the title clears it. */
   onSelectRange: (range: TimeRange | null) => void;
 }
 
-function clockHM(ms: number): string {
-  const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+function bucketTotal(bucket: HistogramBucket): number {
+  return bucket.debug + bucket.info + bucket.warn + bucket.error;
 }
 
 export function LogsHistogram({
@@ -41,92 +82,50 @@ export function LogsHistogram({
   onSelectRange,
 }: LogsHistogramProps) {
   const { t } = useTranslation();
-  // `now` anchors the 30-bucket window. Wall-clock is impure to read during
-  // render, and the window only ever advanced when `lines` changed anyway, so
-  // derive it from the data instead of re-stamping it from an effect: the
-  // newest line's timestamp, floored at mount time so an idle tail keeps
-  // showing the last 30 real minutes rather than scrolling back to whenever
-  // the buffer's last line happened to land. `earliest` (and every bucket's
-  // start timestamp, `earliest + i * HISTOGRAM_BUCKET_MS`) derive from it, so
-  // the bars and their click windows always share one set of boundaries.
-  const [mountedAt] = useState(() => Date.now());
+
+  // `now` anchors the window. Wall-clock is impure to read during render, and
+  // the window only ever advanced when `lines` changed anyway, so it comes from
+  // the data: the newest line's timestamp, floored at mount so an idle tail
+  // keeps showing the last thirty real minutes rather than scrolling back to
+  // whenever the buffer's last line happened to land.
+  const [mountedAt] = useState(() => Temporal.Now.instant().epochMilliseconds);
   const now = useMemo(() => {
     let latest = mountedAt;
-    for (const l of lines) {
-      if (l.tsMs != null && l.tsMs > latest) latest = l.tsMs;
+    for (const line of lines) {
+      if (line.tsMs !== null && line.tsMs > latest) latest = line.tsMs;
     }
     return latest;
   }, [lines, mountedAt]);
-  const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
 
-  const buckets = useMemo(() => bucketize(lines, now), [lines, now]);
-  const histoMax = useMemo(() => Math.max(1, ...buckets.map(totalCount)), [buckets]);
-
-  // Drag selection: anchor = where the press started, hover = bucket under the
-  // pointer now. Committed on pointerup (even if released outside the chart).
-  const [drag, setDrag] = useState<{ anchor: number; hover: number } | null>(null);
-
-  // Non-reactive: reads the latest drag/earliest/selectedRange/onSelectRange at
-  // pointerup time, so the effect below only re-subscribes when the drag itself
-  // starts or ends, not on every `onSelectRange`/`selectedRange`/`earliest`
-  // identity change.
-  const onCommit = useEffectEvent(() => {
-    if (!drag) return;
-    const lo = Math.min(drag.anchor, drag.hover);
-    const hi = Math.max(drag.anchor, drag.hover);
-    const from = earliest + lo * HISTOGRAM_BUCKET_MS;
-    const to = earliest + (hi + 1) * HISTOGRAM_BUCKET_MS;
-    if (lo === hi) {
-      // Plain click on a single bucket toggles it.
-      const active = selectedRange && from < selectedRange.to && to > selectedRange.from;
-      onSelectRange(active ? null : { from, to });
-    } else {
-      onSelectRange({ from, to });
-    }
-    setDrag(null);
-  });
-
-  useEffect(() => {
-    if (!drag) return;
-    const commit = () => onCommit();
-    window.addEventListener("pointerup", commit);
-    return () => window.removeEventListener("pointerup", commit);
-  }, [drag]);
-
-  // The contiguous bucket span to frame: the live drag preview takes precedence
-  // over the committed range. One [lo, hi] drives a single continuous box rather
-  // than a ring per bucket.
-  const span = useMemo(() => {
-    if (drag) {
-      return {
-        lo: Math.min(drag.anchor, drag.hover),
-        hi: Math.max(drag.anchor, drag.hover),
-      };
-    }
-    if (!selectedRange) return null;
-    let lo = -1;
-    let hi = -1;
-    for (let i = 0; i < HISTOGRAM_BUCKETS; i++) {
-      const s = earliest + i * HISTOGRAM_BUCKET_MS;
-      if (s < selectedRange.to && s + HISTOGRAM_BUCKET_MS > selectedRange.from) {
-        if (lo === -1) lo = i;
-        hi = i;
-      }
-    }
-    return lo === -1 ? null : { lo, hi };
-  }, [drag, selectedRange, earliest]);
+  const data = useMemo<FeedHistogram>(() => {
+    const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
+    const counted = bucketize(lines, now);
+    return {
+      bucketMs: HISTOGRAM_BUCKET_MS,
+      buckets: counted.map((bucket, index) => ({
+        at: earliest + index * HISTOGRAM_BUCKET_MS,
+        total: bucketTotal(bucket),
+        // Levels with no lines in this bucket are left out rather than sent as
+        // zeroes: a series that is absent everywhere should not earn a key in
+        // the legend just because the bucket exists.
+        by: Object.fromEntries(
+          LEVEL_ORDER.map((level) => [level, bucket[level]] as const).filter(
+            ([, count]) => count > 0,
+          ),
+        ),
+      })),
+    };
+  }, [lines, now]);
 
   return (
-    <div className="border-b px-5 pt-4 pb-2.5">
-      <div className="mb-2 flex items-center gap-2 text-[11px]">
-        <span className="tracking-[0.06em] text-muted-foreground uppercase">
-          {t("logs.volumeLast30m")}
-        </span>
+    <div className="border-b px-5 pt-4 pb-2">
+      <div className="mb-1 flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground">{t("logs.volumeLast30m")}</span>
         {selectedRange && (
           <button
             type="button"
             onClick={() => onSelectRange(null)}
-            className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-foreground hover:bg-muted/70"
+            className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-mono text-foreground hover:bg-muted/70"
             title={t("logs.clearTimeFilter")}
           >
             {clockHM(selectedRange.from)}–{clockHM(selectedRange.to)}
@@ -134,105 +133,18 @@ export function LogsHistogram({
           </button>
         )}
         <div className="flex-1" />
-        <span className="font-mono text-muted-foreground">
+        <span className="font-mono text-muted-foreground tabular-nums">
           {loadedCount} loaded · {matchCount} match
         </span>
       </div>
-      <div className="relative flex h-14 items-stretch gap-0.5 select-none">
-        {buckets.map((b, i) => {
-          const start = earliest + i * HISTOGRAM_BUCKET_MS;
-          const end = start + HISTOGRAM_BUCKET_MS;
-          // Key by positional index, not `start`: `start` is an absolute
-          // timestamp that slides every time the live tail recomputes `now`,
-          // which would remount all 30 bars on every tick (the visible jump).
-          return (
-            <Bar
-              key={i}
-              bucket={b}
-              max={histoMax}
-              start={start}
-              end={end}
-              dimmed={span ? i < span.lo || i > span.hi : false}
-              onPointerDown={() => setDrag({ anchor: i, hover: i })}
-              onPointerEnter={() => setDrag((d) => (d ? { ...d, hover: i } : d))}
-            />
-          );
-        })}
 
-        {/* Single continuous frame over the spanned buckets (gaps included)
-            instead of one ring per bucket. Bars are equal-width `flex-1` with a
-            2px (gap-0.5) gutter, so the geometry is exact via calc. */}
-        {span && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 rounded-md bg-primary/10 ring-1 ring-primary/50"
-            style={{
-              left: `calc((100% - ${(HISTOGRAM_BUCKETS - 1) * BAR_GAP_PX}px) / ${HISTOGRAM_BUCKETS} * ${span.lo} + ${span.lo * BAR_GAP_PX}px)`,
-              width: `calc((100% - ${(HISTOGRAM_BUCKETS - 1) * BAR_GAP_PX}px) / ${HISTOGRAM_BUCKETS} * ${span.hi - span.lo + 1} + ${(span.hi - span.lo) * BAR_GAP_PX}px)`,
-            }}
-          />
-        )}
-      </div>
-      <div className="mt-1 flex font-mono text-[10px] text-muted-foreground/70">
-        <span>−30m</span>
-        <div className="flex-1" />
-        <span>now</span>
-      </div>
+      <DataTableHistogram
+        data={data}
+        tones={LEVEL_TONES}
+        order={LEVEL_ORDER}
+        height={56}
+        onZoom={([from, to]) => onSelectRange({ from, to })}
+      />
     </div>
   );
-}
-
-// Matches the `gap-0.5` (0.125rem = 2px) gutter between bars; the selection
-// frame's calc geometry depends on this staying in sync with the className.
-const BAR_GAP_PX = 2;
-
-function totalCount(b: HistogramBucket) {
-  return b.info + b.warn + b.error + b.debug;
-}
-
-function Bar({
-  bucket,
-  max,
-  start,
-  end,
-  dimmed,
-  onPointerDown,
-  onPointerEnter,
-}: {
-  bucket: HistogramBucket;
-  max: number;
-  start: number;
-  end: number;
-  dimmed: boolean;
-  onPointerDown: () => void;
-  onPointerEnter: () => void;
-}) {
-  const total = totalCount(bucket);
-  const pct = (n: number) => (total ? (n / total) * 100 : 0);
-  return (
-    <button
-      type="button"
-      onPointerDown={onPointerDown}
-      onPointerEnter={onPointerEnter}
-      aria-label={`${clockHM(start)}–${clockHM(end)} · ${total} events`}
-      title={`${clockHM(start)}–${clockHM(end)} · ${total} events`}
-      className={cnBar(dimmed)}
-    >
-      <div
-        className="flex w-full flex-col-reverse overflow-hidden rounded-[1px]"
-        style={{ height: `${(total / max) * 100}%` }}
-      >
-        <span className={LEVEL_STRIPE.info} style={{ height: `${pct(bucket.info)}%` }} />
-        <span className={LEVEL_STRIPE.debug} style={{ height: `${pct(bucket.debug)}%` }} />
-        <span className={LEVEL_STRIPE.warn} style={{ height: `${pct(bucket.warn)}%` }} />
-        <span className={LEVEL_STRIPE.error} style={{ height: `${pct(bucket.error)}%` }} />
-      </div>
-    </button>
-  );
-}
-
-function cnBar(dimmed: boolean): string {
-  const base =
-    "flex h-full min-h-px flex-1 cursor-pointer flex-col justify-end rounded-sm transition-opacity hover:bg-muted/30";
-  return dimmed ? `${base} opacity-35 hover:opacity-80` : base;
 }

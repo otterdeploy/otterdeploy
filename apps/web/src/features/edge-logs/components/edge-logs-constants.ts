@@ -8,12 +8,6 @@ export const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export const BUCKETS = ["2xx", "3xx", "4xx", "5xx"] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
-export const BUCKET_BG: Record<Bucket, string> = {
-  "2xx": "bg-success",
-  "3xx": "bg-sky-500",
-  "4xx": "bg-amber-500",
-  "5xx": "bg-destructive",
-};
 export const BUCKET_TEXT: Record<Bucket, string> = {
   "2xx": "text-success",
   "3xx": "text-sky-500",

@@ -48,7 +48,7 @@ export function HostFilter({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-[210px] justify-between gap-1.5 px-2.5 text-[12px] font-normal"
+            className="h-8 w-[210px] justify-between gap-1.5 px-2.5 text-xs font-normal"
             // Deployment hostnames share a long prefix, so a truncated trigger
             // can read identically for two different selections. The full
             // value has to be recoverable without reopening the popover.
@@ -79,7 +79,7 @@ export function HostFilter({
                 key={host}
                 value={host}
                 onSelect={() => toggle(host)}
-                className="items-start gap-2 font-mono text-[12px]"
+                className="items-start gap-2 font-mono text-xs"
                 title={host}
               >
                 <Checkbox

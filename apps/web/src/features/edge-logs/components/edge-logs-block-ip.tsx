@@ -74,7 +74,7 @@ export function BlockIpButton({ ip, onBlockIp }: { ip: string; onBlockIp: (ip: s
       <Button
         variant="outline"
         size="sm"
-        className="h-7 shrink-0 text-[11px] text-destructive hover:text-destructive"
+        className="h-7 shrink-0 text-xs text-destructive hover:text-destructive"
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);

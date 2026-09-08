@@ -83,9 +83,7 @@ export function LogToolbar({
         on={colors}
         onToggle={onToggleColors}
       />
-      <span className="font-mono text-[11.5px] text-muted-foreground tabular-nums">
-        {countLabel}
-      </span>
+      <span className="font-mono text-xs text-muted-foreground tabular-nums">{countLabel}</span>
       <div className="ml-auto flex items-center gap-1.5">
         <LevelChip
           icon={CancelCircleIcon}
@@ -117,9 +115,9 @@ export function LogToolbar({
             onChange={(e) => onQueryChange(e.target.value)}
             aria-label={t("logs.findInLogs")}
             placeholder={t("logs.findInLogs")}
-            className="h-7 w-44 rounded-md border bg-transparent pr-9 pl-8 font-mono text-[11.5px] outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-foreground/20"
+            className="h-7 w-44 rounded-md border bg-transparent pr-9 pl-8 font-mono text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-foreground/20"
           />
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 font-mono text-[10px] text-muted-foreground/50">
+          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 font-mono text-xs text-muted-foreground/50">
             ⌘F
           </kbd>
         </div>
@@ -186,7 +184,7 @@ function LevelChip({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full border font-mono text-[11px] tabular-nums transition-colors",
+        "inline-flex items-center rounded-full border font-mono text-xs tabular-nums transition-colors",
         disabled
           ? "border-transparent text-muted-foreground/40"
           : active

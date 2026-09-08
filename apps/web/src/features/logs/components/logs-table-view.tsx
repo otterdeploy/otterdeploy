@@ -92,7 +92,7 @@ export function LogsTableView({
         </table>
 
         {matchCount === 0 && (
-          <div className="py-16 text-center text-[13px] text-muted-foreground">
+          <div className="py-16 text-center text-sm text-muted-foreground">
             {status === "connecting" ? "Connecting to log stream…" : "No logs match these filters."}
           </div>
         )}
@@ -102,7 +102,7 @@ export function LogsTableView({
         <button
           type="button"
           onClick={() => onFollowChange(true)}
-          className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-[11px] font-medium shadow-md hover:bg-muted"
+          className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium shadow-md hover:bg-muted"
         >
           <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3.5" />
           Jump to latest
@@ -125,7 +125,7 @@ function LogsTableHeader({ table }: { table: Table<DataTableFeatures, LogLine> }
                 key={h.id}
                 style={isMsg ? undefined : { width: h.getSize() }}
                 className={cn(
-                  "flex h-8 items-center text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase",
+                  "flex h-8 items-center text-xs font-semibold text-muted-foreground uppercase",
                   isMsg ? "min-w-0 flex-1" : "shrink-0",
                 )}
               >

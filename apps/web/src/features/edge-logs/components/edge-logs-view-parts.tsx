@@ -58,10 +58,7 @@ export function LogTable({
               "Country",
               "UA",
             ].map((h) => (
-              <TableHead
-                key={h}
-                className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
-              >
+              <TableHead key={h} className="h-8 text-xs font-semibold uppercase">
                 {h}
               </TableHead>
             ))}
@@ -70,10 +67,7 @@ export function LogTable({
         <TableBody>
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell
-                colSpan={10}
-                className="py-10 text-center text-[13px] text-muted-foreground"
-              >
+              <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                 {isLoading
                   ? "Loading…"
                   : "No edge requests in this window. Traffic to your public domains appears here."}
@@ -167,7 +161,7 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
   const rest = folded ? hostStats.slice(HOST_FOOTER_VISIBLE) : [];
 
   return (
-    <div className="border-t font-mono text-[11px] text-muted-foreground">
+    <div className="border-t font-mono text-xs text-muted-foreground">
       <div className={cn(expanded && "max-h-[30vh] overflow-y-auto")}>
         {shown.map((s) => (
           <div

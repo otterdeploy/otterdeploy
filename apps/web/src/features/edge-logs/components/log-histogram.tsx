@@ -1,58 +1,103 @@
-import { BUCKET_BG, type EdgeLogsData } from "./edge-logs-constants";
+/**
+ * Edge request volume, stacked by status class.
+ *
+ * An adapter over the shared histogram, for the same reason the runtime log
+ * tail is one: this was a third hand-rolled bar chart, with its own stacking,
+ * its own `toLocaleTimeString` clock and its own idea of what a hover should
+ * say. A request volume chart and a log volume chart are the same instrument
+ * pointed at different rows, and they should not be two implementations.
+ *
+ * What the shared component brings that this could not: a ranked tooltip that
+ * names the bucket's span and totals the classes, drag-to-select with a
+ * confirm step, and empty buckets drawn rather than skipped.
+ */
 
-function Bar({ n, total, cls }: { n: number; total: number; cls: string }) {
-  if (n === 0 || total === 0) return null;
-  return <div className={cls} style={{ height: `${(n / total) * 100}%` }} />;
+import type { EdgeHistogramBucket } from "@otterdeploy/api/edge-logs/types";
+
+import { useMemo } from "react";
+
+import type { FeedHistogram } from "@/shared/components/data-table/feed/types";
+
+import { DataTableHistogram } from "@/shared/components/data-table/parts/histogram";
+
+import { type EdgeLogsData } from "./edge-logs-constants";
+
+/**
+ * Status class → paint.
+ *
+ * The semantic tokens, so a 5xx is the same red here as in the status column
+ * and in every other failure in the product. 3xx borrows the info blue: a
+ * redirect is neither a success to celebrate nor a problem to chase.
+ */
+const STATUS_TONES: Record<string, string> = {
+  "2xx": "var(--success)",
+  "3xx": "var(--info)",
+  "4xx": "var(--warning)",
+  "5xx": "var(--destructive)",
+};
+
+/** Bottom of the stack first: the ordinary case sits under the exceptions. */
+const STATUS_ORDER = ["2xx", "3xx", "4xx", "5xx"] as const;
+
+/** Only classes that actually occurred, so an absent one earns no legend key. */
+function classesOf(bucket: EdgeHistogramBucket): Record<string, number> {
+  const counts: Record<string, number> = {};
+  if (bucket.c2xx > 0) counts["2xx"] = bucket.c2xx;
+  if (bucket.c3xx > 0) counts["3xx"] = bucket.c3xx;
+  if (bucket.c4xx > 0) counts["4xx"] = bucket.c4xx;
+  if (bucket.c5xx > 0) counts["5xx"] = bucket.c5xx;
+  return counts;
 }
 
-/** Volume histogram, stacked by status bucket. `labels` are the window's
- *  start/end axis captions (e.g. "−1h" / "now", or the custom range ends). */
+/** The bucket width, read off the data rather than assumed. */
+function bucketMsOf(buckets: readonly EdgeHistogramBucket[]): number {
+  const first = buckets[0] ? Date.parse(buckets[0].t) : Number.NaN;
+  const second = buckets[1] ? Date.parse(buckets[1].t) : Number.NaN;
+  const width = second - first;
+  return Number.isFinite(width) && width > 0 ? width : 60_000;
+}
+
 export function LogHistogram({
   data,
-  labels,
+  onSelectRange,
 }: {
   data: EdgeLogsData | undefined;
-  labels: { start: string; end: string };
+  /** Confirming a drag narrows the window, when the caller can take one. */
+  onSelectRange?: (range: [number, number]) => void;
 }) {
-  const maxBucket = Math.max(
-    1,
-    ...(data?.histogram ?? []).map((b) => b.c2xx + b.c3xx + b.c4xx + b.c5xx),
-  );
+  const raw = data?.histogram;
+
+  const histogram = useMemo<FeedHistogram | undefined>(() => {
+    if (!raw || raw.length === 0) return undefined;
+    return {
+      bucketMs: bucketMsOf(raw),
+      buckets: raw.flatMap((bucket) => {
+        const at = Date.parse(bucket.t);
+        if (Number.isNaN(at)) return [];
+        const by = classesOf(bucket);
+        const total = bucket.c2xx + bucket.c3xx + bucket.c4xx + bucket.c5xx;
+        return [{ at, total, by }];
+      }),
+    };
+  }, [raw]);
+
   return (
     <div className="border-b px-4 pt-3 pb-2">
-      <div className="mb-1.5 flex items-center">
-        <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-          Volume
-        </span>
+      <div className="mb-1 flex items-center text-xs">
+        <span className="text-muted-foreground">Volume</span>
         <div className="flex-1" />
-        <span className="font-mono text-[11px] text-muted-foreground">
+        <span className="font-mono text-muted-foreground tabular-nums">
           {data?.total ?? 0} matched
         </span>
       </div>
-      <div className="flex h-[52px] items-end gap-px">
-        {(data?.histogram ?? []).map((b) => {
-          const total = b.c2xx + b.c3xx + b.c4xx + b.c5xx;
-          const h = (total / maxBucket) * 100;
-          return (
-            <div
-              key={b.t}
-              className="flex flex-1 flex-col-reverse"
-              style={{ height: `${Math.max(2, h)}%`, minHeight: 1 }}
-              title={`${new Date(b.t).toLocaleTimeString()} · ${total} req`}
-            >
-              <Bar n={b.c2xx} total={total} cls={BUCKET_BG["2xx"]} />
-              <Bar n={b.c3xx} total={total} cls={BUCKET_BG["3xx"]} />
-              <Bar n={b.c4xx} total={total} cls={BUCKET_BG["4xx"]} />
-              <Bar n={b.c5xx} total={total} cls={BUCKET_BG["5xx"]} />
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-1 flex font-mono text-[10px] text-muted-foreground/70">
-        <span>{labels.start}</span>
-        <div className="flex-1" />
-        <span>{labels.end}</span>
-      </div>
+
+      <DataTableHistogram
+        data={histogram}
+        tones={STATUS_TONES}
+        order={STATUS_ORDER}
+        height={56}
+        onZoom={(range) => onSelectRange?.(range)}
+      />
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function EdgeRow({
     <>
       <TableRow
         className={cn(
-          "cursor-pointer font-mono text-[12px]",
+          "cursor-pointer font-mono text-xs",
           threat && "bg-destructive/[0.04] hover:bg-destructive/[0.07]",
         )}
         onClick={onToggle}
@@ -55,7 +55,7 @@ export function EdgeRow({
         <TableCell>
           <span
             className={cn(
-              "rounded border px-1.5 py-0.5 text-[10px] font-semibold",
+              "rounded border px-1.5 py-0.5 text-xs font-semibold",
               METHOD_TEXT[row.method],
             )}
           >
@@ -80,7 +80,7 @@ export function EdgeRow({
         >
           {threat ? (
             <span
-              className="mr-1.5 inline-block rounded-sm bg-destructive/15 px-1 py-px align-middle text-[9px] font-semibold tracking-[0.04em] text-destructive uppercase"
+              className="mr-1.5 inline-block rounded-sm bg-destructive/15 px-1 py-px align-middle text-xs font-semibold text-destructive uppercase"
               title={`Suspicious request: ${threat.replace(/-/g, " ")}. Likely a vulnerability scanner.`}
             >
               {threat}
@@ -108,7 +108,7 @@ export function EdgeRow({
           {row.clientIp}
           {banned ? (
             <span
-              className="ml-1.5 inline-block rounded-sm bg-foreground/10 px-1 py-px align-middle text-[9px] font-semibold tracking-[0.04em] text-foreground/70 uppercase"
+              className="ml-1.5 inline-block rounded-sm bg-foreground/10 px-1 py-px align-middle text-xs font-semibold text-foreground/70 uppercase"
               title={t("edgeLogs.bannedIp")}
             >
               blocked
@@ -126,7 +126,7 @@ export function EdgeRow({
           )}
         </TableCell>
         <TableCell
-          className="max-w-[150px] truncate text-[11px] text-muted-foreground"
+          className="max-w-[150px] truncate text-xs text-muted-foreground"
           title={row.userAgent}
         >
           {shortUserAgent(row.userAgent)}
@@ -162,7 +162,7 @@ function EdgeRowDetail({
             wrapper to the cell, giving the truncate children a bounded width. */}
         <div className="w-0 min-w-full overflow-hidden">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="font-mono text-[12px] text-muted-foreground">
+            <span className="font-mono text-xs text-muted-foreground">
               {row.clientIp}
               {row.country ? (
                 <span className="ml-2">
@@ -171,14 +171,14 @@ function EdgeRowDetail({
               ) : null}
             </span>
             {banned ? (
-              <span className="rounded-md border px-2.5 py-1 text-[11px] text-muted-foreground">
+              <span className="rounded-md border px-2.5 py-1 text-xs text-muted-foreground">
                 Blocked at the edge
               </span>
             ) : onBlockIp ? (
               <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} />
             ) : null}
           </div>
-          <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-xs sm:grid-cols-2">
             <Detail k="request_id" v={row.requestId ?? "–"} wrap={wrap} />
             <Detail k="cache" v={row.cache ?? "–"} wrap={wrap} vClass={cacheTextClass(row.cache)} />
             {/* The demo also showed the upstream's own latency "(Xms)" here,
@@ -198,7 +198,7 @@ function EdgeRowDetail({
 
           {headers.length > 0 ? (
             <div className="mt-3">
-              <div className="mb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+              <div className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase">
                 Headers preview
               </div>
               {/* Per-header rows (not one <pre>): a single long value like
@@ -206,7 +206,7 @@ function EdgeRowDetail({
                 that expands the whole table past the viewport. min-w-0 +
                 truncate lets each value shrink instead; the Wrap toggle expands
                 to the full value, and the title surfaces it on hover. */}
-              <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed">
+              <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-md border bg-background/60 p-3 font-mono text-xs leading-relaxed">
                 {headers.map(([k, v]) => (
                   <div key={k} className="flex min-w-0 gap-2">
                     <span className="shrink-0 text-muted-foreground">{k.toLowerCase()}:</span>

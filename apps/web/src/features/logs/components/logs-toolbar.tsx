@@ -64,7 +64,7 @@ export function LogsToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
       <Select value={svcFilter} onValueChange={(v) => v && onSvcChange(v)} items={svcItems}>
-        <SelectTrigger className="h-8 w-44 text-[12px]" size="sm">
+        <SelectTrigger className="h-8 w-44 text-xs" size="sm">
           <SelectValue placeholder={t("logs.allServices")} />
         </SelectTrigger>
         <SelectContent>
@@ -86,7 +86,7 @@ export function LogsToolbar({
               type="button"
               onClick={() => onToggleLevel(lv)}
               className={cn(
-                "rounded px-2 py-0.5 font-mono text-[11px] transition-colors",
+                "rounded px-2 py-0.5 font-mono text-xs transition-colors",
                 on
                   ? cn("bg-background font-medium shadow-sm", LEVEL_TEXT[lv])
                   : "text-muted-foreground/60 hover:text-foreground/80",
@@ -108,13 +108,13 @@ export function LogsToolbar({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t("logs.filterVisible")}
-          className="h-8 pl-8 font-mono text-[12px]"
+          className="h-8 pl-8 font-mono text-xs"
         />
       </div>
 
       <span
         className={cn(
-          "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium tracking-widest uppercase",
+          "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium tracking-widest uppercase",
           badge.tone,
         )}
       >
@@ -125,7 +125,7 @@ export function LogsToolbar({
       <div className="flex-1" />
 
       {selectedCount > 0 && (
-        <div className="flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-0.5 text-[11px]">
+        <div className="flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-0.5 text-xs">
           <span className="font-medium text-foreground">
             {t("logs.selectedCount", { count: selectedCount })}
           </span>
@@ -150,7 +150,7 @@ export function LogsToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 text-[12px]"
+        className="h-7 gap-1.5 text-xs"
         onClick={onTogglePause}
       >
         <HugeiconsIcon icon={paused ? PlayIcon : PauseIcon} strokeWidth={2} className="size-3.5" />

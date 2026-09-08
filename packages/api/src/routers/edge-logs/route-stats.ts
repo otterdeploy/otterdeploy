@@ -22,8 +22,6 @@ export interface RouteTraffic {
   p95: number;
 }
 
-export type RouteStat = ProjectRouteRef & RouteTraffic;
-
 /** Zero-filled traffic for a host that saw no requests in the window. */
 const quiet: RouteTraffic = { rps: 0, errorRate: 0, p50: 0, p95: 0 };
 

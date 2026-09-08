@@ -97,7 +97,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
           <h1 className="text-base font-semibold">{t("edgeLogs.events")}</h1>
           <LiveBadge live={live} />
         </div>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Caddy's operational log: TLS/ACME certificate lifecycle and upstream errors. Live-tailed
           from the proxy's default logger.
         </p>
@@ -129,7 +129,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("edgeLogs.searchEvents")}
-          className="h-8 max-w-xs text-[12px]"
+          className="h-8 max-w-xs text-xs"
         />
         <div className="flex-1" />
         <Button

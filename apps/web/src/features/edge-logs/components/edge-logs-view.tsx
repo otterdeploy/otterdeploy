@@ -32,7 +32,6 @@ import {
   isPresetWindow,
   TimeRangePicker,
   type TimeWindow,
-  windowLabels,
   windowQueryInput,
 } from "./time-range-picker";
 
@@ -92,7 +91,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           <h1 className="text-base font-semibold">{t("edgeLogs.accessLogs")}</h1>
           <LiveBadge live={live && isLiveWindow} />
         </div>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Every HTTP request that hit the Caddy edge proxy. Live-tailed from Caddy's structured
           access log.
         </p>
@@ -118,7 +117,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("edgeLogs.searchLogs")}
-          className="h-8 max-w-xs text-[12px]"
+          className="h-8 max-w-xs text-xs"
         />
         <div className="flex-1" />
         <SuspiciousControls
@@ -148,7 +147,10 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         </Button>
       </div>
 
-      <LogHistogram data={data} labels={windowLabels(timeWindow)} />
+      {/* Dragging the chart narrows the window to what was dragged — the same
+          gesture the audit feed's histogram takes, and it lands in the same
+          place the picker writes, so the two controls cannot disagree. */}
+      <LogHistogram data={data} onSelectRange={([from, to]) => setWindow({ from, to })} />
 
       <LogTable
         rows={rows}

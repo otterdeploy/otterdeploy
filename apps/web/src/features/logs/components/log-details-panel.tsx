@@ -43,9 +43,13 @@ export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClo
 
 function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
   const { t } = useTranslation();
-  // Strip ANSI/SGR escapes so the full entry (and its JSON detection) works on
-  // clean text instead of showing literal `[32m…` codes.
-  const msg = stripAnsi(line.msg);
+  // The RAW line, not the row's reading of it. A structured entry is parsed at
+  // ingest so the row can show its message, and this panel is the place the
+  // whole entry — every field, in the emitter's own shape — is still available.
+  // Reading `line.msg` here would pretty-print a sentence and drop the context.
+  // ANSI/SGR escapes are stripped first so the JSON detection works on clean
+  // text instead of showing literal `[32m…` codes.
+  const msg = stripAnsi(line.raw);
   const json = parseJson(msg);
   const [raw, setRaw] = useState(false);
 
@@ -61,12 +65,10 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
     >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold">{t("logs.details")}</div>
-          <div className="mt-0.5 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+          <div className="text-sm font-semibold">{t("logs.details")}</div>
+          <div className="mt-0.5 flex items-center gap-3 font-mono text-xs text-muted-foreground">
             <span className="truncate">{line.tsIso ?? line.ts}</span>
-            <span className={cn("tracking-[0.08em] uppercase", LEVEL_TEXT[line.level])}>
-              {line.level}
-            </span>
+            <span className={cn("uppercase", LEVEL_TEXT[line.level])}>{line.level}</span>
           </div>
         </div>
         <Button
@@ -81,21 +83,19 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 font-mono text-[11.5px]">
+        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 font-mono text-xs">
           <Meta label="service" value={line.svc} />
           <Meta label="stream" value={line.stream} />
           <Meta label="resource" value={line.resourceId || "–"} />
         </dl>
 
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-            Message
-          </span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase">Message</span>
           {json !== undefined && (
             <button
               type="button"
               onClick={() => setRaw((v) => !v)}
-              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="rounded px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {raw ? "prettify" : "raw"}
             </button>
@@ -103,12 +103,9 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
         </div>
 
         {json !== undefined && !raw ? (
-          <JsonView
-            data={json}
-            className="mt-1.5 rounded-md border bg-background/60 p-3 text-[11.5px]"
-          />
+          <JsonView data={json} className="mt-1.5 rounded-md border bg-background/60 p-3 text-xs" />
         ) : (
-          <pre className="mt-1.5 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
+          <pre className="mt-1.5 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
             {msg}
           </pre>
         )}

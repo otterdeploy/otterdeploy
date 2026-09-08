@@ -39,7 +39,7 @@ export function LiveBadge({ live }: { live: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-[11px]",
+        "inline-flex items-center gap-1.5 text-xs",
         live ? "text-success" : "text-muted-foreground",
       )}
     >
@@ -78,7 +78,7 @@ export function Chips({
             type="button"
             onClick={() => onToggle(o)}
             className={cn(
-              "rounded px-2 py-1 text-[11px] font-medium transition-all",
+              "rounded px-2 py-1 text-xs font-medium transition-all",
               colors[o],
               active && "bg-muted",
               !active && !none && "opacity-40 hover:opacity-100",
@@ -115,7 +115,7 @@ export function Segmented({
             type="button"
             onClick={() => onChange(o)}
             className={cn(
-              "rounded px-2 py-1 text-[11px] font-medium transition-colors",
+              "rounded px-2 py-1 text-xs font-medium transition-colors",
               colors?.[o] ?? (active ? "text-foreground" : "text-muted-foreground"),
               active ? "bg-muted" : "hover:bg-muted/60",
               !colors && !active && "hover:text-foreground",

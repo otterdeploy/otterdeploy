@@ -14,6 +14,7 @@ import { displayServiceName } from "@/shared/lib/service-name";
 import { orpc } from "@/shared/server/orpc";
 
 import { classifyLogSeverity } from "../components/log-severity";
+import { parseStructuredLine, type StructuredLevel } from "./structured-line";
 import { useLogStream, type LogStreamStatus } from "./use-log-stream";
 
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
@@ -65,6 +66,11 @@ export interface LogLine {
   /** Lowercased `msg`, computed once at ingest for the same reason: the text
    *  filter otherwise allocated a lowercased copy of every message per pass. */
   msgLower: string;
+  /** Structured fields, when the line was JSON. Empty for plain output. */
+  fields: ReadonlyArray<readonly [string, unknown]>;
+  /** The line exactly as it arrived. What the detail panel and copy use: the
+   *  parsed reading is for the ROW, and must not be the only copy we keep. */
+  raw: string;
 }
 
 interface UseProjectLogStreamArgs {
@@ -74,6 +80,22 @@ interface UseProjectLogStreamArgs {
   paused: boolean;
   bufferSize?: number;
 }
+
+/**
+ * A declared level, in the four the viewer paints.
+ *
+ * `fatal` is an error and `trace` is debug: the viewer's filter chips are the
+ * four an operator actually toggles, and adding two more buckets to hold two
+ * rare synonyms would make the toolbar worse to serve the taxonomy.
+ */
+function viewerLevel(level: StructuredLevel): LogLevel {
+  if (level === "fatal") return "error";
+  if (level === "trace") return "debug";
+  return level;
+}
+
+/** One shared empty array, so a plain line's fields never change identity. */
+const EMPTY_FIELDS: ReadonlyArray<readonly [string, unknown]> = [];
 
 /** Level from the line's CONTENT first (shared heuristic with the build-log
  *  viewer: catches `TypeError`, `Failed …`, `⨯`, stack frames), falling back
@@ -163,17 +185,27 @@ export function useProjectLogStream({
       ),
     map: (ev, id): LogLine => {
       const tsMs = ev.ts ? Date.parse(ev.ts) : NaN;
+      // Parsed ONCE here, like every other per-line cost in this hook: a live
+      // tail runs the filter and the histogram over the whole buffer per frame,
+      // and re-parsing JSON in a cell would do it per row per frame.
+      const structured = parseStructuredLine(ev.line);
+      const msg = structured?.message ?? ev.line;
       return {
         id: String(id),
         ts: shortTs(ev.ts),
         tsIso: ev.ts,
         tsMs: Number.isNaN(tsMs) ? null : tsMs,
-        level: inferLevel(ev.stream, ev.line),
+        // The line's OWN level outranks the heuristic: a structured log states
+        // its severity, and guessing from the text of the JSON around it is how
+        // an error painted as a warning because the word "error" sat in a key.
+        level: structured?.level ? viewerLevel(structured.level) : inferLevel(ev.stream, ev.line),
         svc: ev.serviceName ? displayServiceName(ev.serviceName) : "system",
         resourceId: ev.resourceId,
         stream: ev.stream,
-        msg: ev.line,
-        msgLower: ev.line.toLowerCase(),
+        msg,
+        msgLower: msg.toLowerCase(),
+        fields: structured?.fields ?? EMPTY_FIELDS,
+        raw: ev.line,
       };
     },
     onError: (err, id): LogLine => {
@@ -190,6 +222,8 @@ export function useProjectLogStream({
         stream: "system",
         msg,
         msgLower: msg.toLowerCase(),
+        fields: EMPTY_FIELDS,
+        raw: msg,
       };
     },
     bufferSize,

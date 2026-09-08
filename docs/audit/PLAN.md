@@ -101,6 +101,13 @@ Dead code and clone groups land exactly on their floors: the server table module
 barrel exports what a list endpoint imports and nothing else, rather than
 re-exporting every internal under a second name with nothing on the other end.
 
+Duplicated lines re-pinned to 3.55% on the same day, from the log surfaces
+adopting the shared histogram. Two hand-rolled bar charts — the runtime log
+tail's and the edge access log's — became adapters over the one every other
+surface uses, which removed ~250 lines of stacking, tick-formatting and
+drag-selection logic that had already drifted three ways. Three exports lost
+their last consumer in the process and were removed rather than pinned.
+
 Regenerate the per-file evidence any time:
 
 ```bash

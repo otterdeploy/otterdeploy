@@ -60,10 +60,7 @@ export function EventsTable({
           <TableRow className="border-b bg-muted/30 hover:bg-transparent">
             <TableHead className="w-8" />
             {["Time", "Level", "Category", "Host", "Message"].map((h) => (
-              <TableHead
-                key={h}
-                className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
-              >
+              <TableHead key={h} className="h-8 text-xs font-semibold uppercase">
                 {h}
               </TableHead>
             ))}
@@ -72,10 +69,7 @@ export function EventsTable({
         <TableBody>
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell
-                colSpan={6}
-                className="py-10 text-center text-[13px] text-muted-foreground"
-              >
+              <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                 {isLoading
                   ? t("common.loading")
                   : sinkConfigured
@@ -113,7 +107,7 @@ function EventRow({
 }) {
   return (
     <>
-      <TableRow className="cursor-pointer font-mono text-[12px]" onClick={onToggle}>
+      <TableRow className="cursor-pointer font-mono text-xs" onClick={onToggle}>
         <TableCell className="text-muted-foreground">
           <span className={cn("inline-block transition-transform", open && "rotate-90")}>›</span>
         </TableCell>
@@ -123,7 +117,7 @@ function EventRow({
         <TableCell>
           <span
             className={cn(
-              "rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+              "rounded border px-1.5 py-0.5 text-xs font-semibold uppercase",
               LEVEL_TEXT[row.level],
             )}
           >
@@ -149,7 +143,7 @@ function EventRow({
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={6} className="py-3">
             <div className="w-0 min-w-full overflow-hidden">
-              <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-xs sm:grid-cols-2">
                 <Detail k="logger" v={row.logger} wrap={wrap} />
                 {row.upstream ? <Detail k="upstream" v={row.upstream} wrap={wrap} /> : null}
                 {row.error ? <Detail k="error" v={row.error} wrap={wrap} wide /> : null}
@@ -158,12 +152,12 @@ function EventRow({
                 ) : null}
               </div>
               <div className="mt-3">
-                <div className="mb-1.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+                <div className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase">
                   Raw
                 </div>
                 <pre
                   className={cn(
-                    "max-h-64 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed",
+                    "max-h-64 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-xs leading-relaxed",
                     wrap ? "break-all whitespace-pre-wrap" : "whitespace-pre",
                   )}
                 >

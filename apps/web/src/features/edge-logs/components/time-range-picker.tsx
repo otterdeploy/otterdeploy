@@ -35,12 +35,6 @@ function fmtShort(ms: number): string {
   });
 }
 
-/** Histogram axis labels for a window: start on the left, end on the right. */
-export function windowLabels(w: TimeWindow): { start: string; end: string } {
-  if (isPresetWindow(w)) return { start: `−${w.preset}`, end: "now" };
-  return { start: fmtShort(w.from), end: fmtShort(w.to) };
-}
-
 /** The edgeLogs.query input fragment a window maps to. */
 export function windowQueryInput(w: TimeWindow): { range: Range } | { from: number; to: number } {
   return isPresetWindow(w) ? { range: w.preset } : { from: w.from, to: w.to };
@@ -129,7 +123,7 @@ export function TimeRangePicker({
               variant="outline"
               size="sm"
               className={cn(
-                "h-8 gap-1.5 px-2.5 text-[11px] font-medium",
+                "h-8 gap-1.5 px-2.5 text-xs font-medium",
                 custom ? "bg-muted text-foreground" : "text-muted-foreground",
               )}
               title="Custom time range (within the 7-day log retention)"
@@ -170,15 +164,15 @@ export function TimeRangePicker({
                 type="time"
                 value={fromTime}
                 onChange={(e) => setFromTime(e.target.value)}
-                className="h-8 min-w-0 flex-1 text-[12px]"
+                className="h-8 min-w-0 flex-1 text-xs"
                 aria-label="Start time"
               />
-              <span className="shrink-0 text-[11px] text-muted-foreground">to</span>
+              <span className="shrink-0 text-xs text-muted-foreground">to</span>
               <Input
                 type="time"
                 value={toTime}
                 onChange={(e) => setToTime(e.target.value)}
-                className="h-8 min-w-0 flex-1 text-[12px]"
+                className="h-8 min-w-0 flex-1 text-xs"
                 aria-label="End time"
               />
             </div>
@@ -187,7 +181,7 @@ export function TimeRangePicker({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2.5 text-[12px]"
+                  className="h-8 px-2.5 text-xs"
                   onClick={() => {
                     onChange({ preset: "1h" });
                     setOpen(false);
@@ -196,12 +190,7 @@ export function TimeRangePicker({
                   Clear
                 </Button>
               ) : null}
-              <Button
-                size="sm"
-                className="h-8 px-3 text-[12px]"
-                disabled={!days?.from}
-                onClick={apply}
-              >
+              <Button size="sm" className="h-8 px-3 text-xs" disabled={!days?.from} onClick={apply}>
                 Apply
               </Button>
             </div>
