@@ -10,9 +10,16 @@
  * else passes through untouched: a stack's own labels (Traefik's, say) are
  * none of our business.
  */
-import type { Obj } from "./normalize";
+// Straight from the shared JSON primitives, NOT via ./normalize, which merely
+// aliases them (`Obj = JsonObject`, `isObj = isJsonObject`). Importing the
+// aliases would make labels.ts <-> normalize.ts a cycle, since normalize.ts
+// imports `normalizeLabels` from here — and this module needs the primitives,
+// not anything normalize.ts actually owns.
+import type { JsonObject } from "@otterdeploy/shared/json";
 
-import { isObj } from "./normalize";
+import { isJsonObject } from "@otterdeploy/shared/json";
+
+import { parseKeyValueList } from "./kv-list";
 
 /**
  * Compose accepts labels as a map OR as a `KEY=value` list, and half the
@@ -21,30 +28,17 @@ import { isObj } from "./normalize";
  * spelled.
  */
 export function normalizeLabels(v: unknown): Record<string, string> {
-  if (isObj(v)) return fromMap(v);
-  if (Array.isArray(v)) return fromList(v);
+  if (isJsonObject(v)) return fromMap(v);
+  if (Array.isArray(v)) return parseKeyValueList(v);
   return {};
 }
 
-function fromMap(v: Obj): Record<string, string> {
+function fromMap(v: JsonObject): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(v)) {
     // Compose stringifies scalars; `traefik.enable: false` is the common one.
     if (typeof value === "string") out[key] = value;
     else if (typeof value === "number" || typeof value === "boolean") out[key] = String(value);
-  }
-  return out;
-}
-
-function fromList(v: unknown[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const entry of v) {
-    if (typeof entry !== "string") continue;
-    // Only the FIRST `=` separates, so a value may contain its own.
-    const eq = entry.indexOf("=");
-    // A bare key is a label with an empty value, which is what compose does.
-    if (eq === -1) out[entry] = "";
-    else out[entry.slice(0, eq)] = entry.slice(eq + 1);
   }
   return out;
 }

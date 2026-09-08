@@ -76,6 +76,18 @@ folding them together would replace two readable writers with one that branches
 on which caller it is serving. The measure is reading the drizzle update shape
 that every one of them necessarily has.
 
+Re-pinned on 2026-09-08 to 3.63% (#297). Rebasing the h2c branch onto main
+surfaced four findings, and taking them properly rather than exempting them
+left the floor LOWER than it found it. The gated one was a real cycle:
+`labels.ts` imported `Obj`/`isObj` from `normalize.ts`, which imports
+`normalizeLabels` back — but those are only aliases of `JsonObject`/
+`isJsonObject`, so importing the primitives directly dissolved it with no
+behaviour change. The clone was real too: `environment` and `labels` both
+accept compose's `KEY=value` list form and each carried its own copy of the
+parser, identical down to the comment about the first `=`. One copy now, in a
+leaf module both import, which is why the duplication percentage went down
+rather than sideways.
+
 Regenerate the per-file evidence any time:
 
 ```bash

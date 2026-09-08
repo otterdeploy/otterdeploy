@@ -26,6 +26,7 @@ export type Obj = JsonObject;
 
 export const isObj: (v: unknown) => v is Obj = isJsonObject;
 
+import { parseKeyValueList } from "./kv-list";
 import { normalizeLabels } from "./labels";
 
 export function normalizeService(name: string, svc: Obj, warnings: string[]): ParsedComposeService {
@@ -115,12 +116,7 @@ function normalizeKeyVals(v: unknown): Record<string, string> {
       else out[k] = String(val);
     }
   } else if (Array.isArray(v)) {
-    for (const entry of v) {
-      if (typeof entry !== "string") continue;
-      const eq = entry.indexOf("=");
-      if (eq === -1) out[entry] = "";
-      else out[entry.slice(0, eq)] = entry.slice(eq + 1);
-    }
+    return parseKeyValueList(v);
   }
   return out;
 }
