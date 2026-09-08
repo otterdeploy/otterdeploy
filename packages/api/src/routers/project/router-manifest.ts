@@ -10,6 +10,7 @@ import {
   discardManifest,
   loadAppliedSnapshot,
   loadManifest,
+  manifestRemovals,
   resolvedManifest,
   saveManifest,
 } from "./manifest";
@@ -65,20 +66,33 @@ export const manifestRouter = {
   save: requirePermission({ project: ["update"] }).project.manifest.save.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
-      const outcome = await saveManifest(
-        {
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
-        },
-        { manifest: input.manifest, expectedVersion: input.expectedVersion },
-      );
+      const scope = { projectId: input.projectId, organizationId: context.activeOrganizationId };
+
+      // What this payload DELETES by omission, computed before anything is
+      // written so a dry run and a real save report the same thing.
+      const stored = await loadManifest(scope);
+      if (stored.isErr()) {
+        throw matchError(stored.error, { ProjectNotFoundError: () => errors.NOT_FOUND() });
+      }
+      const removed = manifestRemovals(stored.value.manifest, input.manifest);
+
+      if (input.dryRun) {
+        // The stored version is returned so the caller can use it as its
+        // `expectedVersion` on the real save that follows.
+        return { version: stored.value.version, removed, dryRun: true };
+      }
+
+      const outcome = await saveManifest(scope, {
+        manifest: input.manifest,
+        expectedVersion: input.expectedVersion,
+      });
       if (outcome.isErr()) {
         throw matchError(outcome.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ManifestVersionConflictError: () => errors.CONFLICT(),
         });
       }
-      return outcome.value;
+      return { ...outcome.value, removed, dryRun: false };
     },
   ),
 
