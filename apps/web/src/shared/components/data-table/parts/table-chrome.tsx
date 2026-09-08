@@ -14,6 +14,7 @@ import type { Density } from "@/shared/components/data-table/parts/density";
 import type { ColumnPrefsState } from "@/shared/components/data-table/use-column-prefs";
 import type { useDataTable } from "@/shared/components/data-table/use-data-table";
 
+import { DataTableFilterChips } from "@/shared/components/data-table/parts/filter-chips";
 import {
   DataTableFilterCommand,
   FilterCommandTrigger,
@@ -99,6 +100,8 @@ export function TableChrome<TRow extends RowData>({
           </>
         }
       />
+
+      <DataTableFilterChips specs={specs} />
 
       <DataTableFilterCommand
         specs={specs}

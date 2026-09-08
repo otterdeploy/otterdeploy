@@ -30,7 +30,7 @@ import type { TableSort } from "@/shared/components/data-table/state/search-sche
 
 import { canLoadMore, useFeed } from "@/shared/components/data-table/feed/use-feed";
 import { useLiveTail } from "@/shared/components/data-table/feed/use-live-tail";
-import { DataTableFilterPanel } from "@/shared/components/data-table/parts/filter-panel";
+import { FilterRegion, useFilterPanel } from "@/shared/components/data-table/parts/filter-region";
 import { isTailing, useTailedRowClassName } from "@/shared/components/data-table/parts/live-toggle";
 import { DataTableRowSheet } from "@/shared/components/data-table/parts/row-sheet";
 import { TableBodyRegion } from "@/shared/components/data-table/parts/table-body-region";
@@ -136,7 +136,7 @@ export function DataTable<TRow extends RowData>({
   rowClassName,
   className,
 }: DataTableProps<TRow>) {
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const filterPanel = useFilterPanel();
   const [queryOpen, setQueryOpen] = useState(false);
 
   // ⌘K belongs to the app's own palette, so the table's query bar takes
@@ -211,8 +211,8 @@ export function DataTable<TRow extends RowData>({
         prefs={prefs}
         density={prefs.density}
         onDensityChange={prefs.setDensity}
-        filtersOpen={filtersOpen}
-        onToggleFilters={() => setFiltersOpen((open) => !open)}
+        filtersOpen={filterPanel.open}
+        onToggleFilters={filterPanel.toggle}
         queryOpen={queryOpen}
         onQueryOpenChange={setQueryOpen}
         specs={store.specs}
@@ -227,14 +227,12 @@ export function DataTable<TRow extends RowData>({
       />
 
       <div className="flex min-h-0 flex-1">
-        {filtersOpen ? (
-          <aside
-            aria-label="Filters"
-            className="hidden w-56 shrink-0 overflow-y-auto border-r sm:block lg:w-64"
-          >
-            <DataTableFilterPanel columns={declaration} facets={feed.facets} />
-          </aside>
-        ) : null}
+        <FilterRegion
+          columns={declaration}
+          facets={feed.facets}
+          open={filterPanel.open}
+          onOpenChange={filterPanel.setOpen}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <TableBodyRegion
