@@ -80,6 +80,27 @@ export const migrateContract = {
     .input(emptyInput)
     .output(z.array(detectedPlatformSchema)),
 
+  /**
+   * The same detection, on a chosen server instead of the control plane.
+   *
+   * A separate procedure rather than an optional `serverId` on `detect`: the
+   * two return different shapes, because a remote scan can fail to CONNECT and
+   * that is not the same answer as "nothing installed here". Folding an
+   * `unreachable` field into the local response would make every caller handle
+   * a case the local path can never produce.
+   */
+  detectOnServer: oc
+    .meta({ path: `${base}/detect-on-server`, tag, method: "POST" })
+    .input(z.object({ serverId: z.string().min(1) }))
+    .output(
+      z.object({
+        serverId: z.string(),
+        serverName: z.string(),
+        platforms: z.array(detectedPlatformSchema),
+        unreachable: z.string().nullable(),
+      }),
+    ),
+
   coolifyPlan: oc
     .meta({ path: `${base}/coolify/plan`, tag, method: "POST" })
     .input(emptyInput)

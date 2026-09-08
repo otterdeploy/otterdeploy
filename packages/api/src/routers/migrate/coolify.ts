@@ -23,6 +23,7 @@ import type { CoolifyPlan, PlannedDatabase } from "./coolify-plan";
 
 import { collectStream, demuxDockerStream } from "../firewall/cscli";
 import { buildCoolifyPlan } from "./coolify-plan";
+import { type RunningContainer } from "./detect-remote";
 import { decryptLaravelValue, looksLaravelEncrypted, parseAppKey } from "./laravel-crypt";
 
 export type { CoolifyPlan, PlannedProject, PlannedService } from "./coolify-plan";
@@ -38,12 +39,6 @@ export interface DetectedPlatform {
   containers: string[];
   /** Whether this build ships an importer for it. */
   importSupported: boolean;
-}
-
-interface RunningContainer {
-  id: string;
-  name: string;
-  image: string;
 }
 
 async function listRunning(docker: Docker): Promise<RunningContainer[]> {
@@ -64,8 +59,13 @@ function imageVersion(image: string): string | null {
 }
 
 /** Signature containers per platform. Names are the platforms' own compose
- *  defaults; matching is prefix-based so `coolify-db-1` style suffixes hit. */
-function matchPlatforms(containers: RunningContainer[]): DetectedPlatform[] {
+ *  defaults; matching is prefix-based so `coolify-db-1` style suffixes hit.
+ *
+ *  Exported because the REMOTE detection path (./detect-remote.ts) feeds it the
+ *  same shape from `docker ps` over SSH. The rules must not fork: a platform
+ *  recognised on the control plane and not on a worker would be worse than
+ *  detecting neither. */
+export function matchPlatforms(containers: RunningContainer[]): DetectedPlatform[] {
   const found: DetectedPlatform[] = [];
   const byPrefix = (p: string) => containers.filter((c) => c.name.startsWith(p));
 
