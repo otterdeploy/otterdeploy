@@ -110,8 +110,7 @@ export async function listEffectiveEnv(input: {
           // the secret behind it, so it stays readable for a row hidden only
           // because it resolves through one. A row the operator marked secret
           // (or that is sealed) still masks both halves.
-          declared:
-            declared === null ? null : row.isSecret || row.sealed ? SECRET_MASK : declared,
+          declared: declared === null ? null : row.isSecret || row.sealed ? SECRET_MASK : declared,
           isSecret: row.isSecret,
           sealed: row.sealed,
           unresolved: !resolveOk && resolvedValue === undefined,

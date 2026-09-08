@@ -20,8 +20,6 @@ import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
 
-
-
 /**
  * Attach a parsed service summary to each compose `create` change so the graph
  * can render the staged stack as a ghost group node WITH its service cards,

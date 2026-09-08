@@ -67,7 +67,10 @@ export async function environmentIdForSlug(
       .select({ slug: environment.slug })
       .from(environment)
       .where(eq(environment.projectId, projectId));
-    throw new UnknownEnvironmentError(slug, available.map((e) => e.slug));
+    throw new UnknownEnvironmentError(
+      slug,
+      available.map((e) => e.slug),
+    );
   }
 
   // The project's main environment is represented as base (NULL), so an
