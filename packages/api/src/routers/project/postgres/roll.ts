@@ -21,9 +21,9 @@
  * that can drift apart.
  */
 import type { RequestLogger } from "evlog";
-import { networkScopeSuffix } from "../../../lib/environment/scoping";
-import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
 
+import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
+import { networkScopeSuffix } from "../../../lib/environment/scoping";
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed } from "../deployments";

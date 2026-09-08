@@ -4,7 +4,6 @@
  * to keep the orchestration module under the line cap. See docs/designs/compose.md.
  */
 import type { ProjectId } from "@otterdeploy/shared/id";
-import { projectNetworkName } from "../../swarm/network-name";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
@@ -21,6 +20,7 @@ import {
   durationMs,
   type ParsedComposeService,
 } from "../../stack/compose";
+import { projectNetworkName } from "../../swarm/network-name";
 import { type CreateServiceInput } from "../service/queries";
 import { sanitizeSlug } from "../service/views";
 import { interpolate, substituteComposeEnv } from "./env";

@@ -8,7 +8,6 @@
  */
 
 import type { JsonObject } from "@otterdeploy/shared/json";
-import { projectNetworkName } from "./network-name";
 
 import { Docker } from "@otterdeploy/docker";
 import { type DatabaseEngine } from "@otterdeploy/shared/database-engines";
@@ -17,6 +16,7 @@ import { log, type RequestLogger } from "evlog";
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 import { buildDatabaseSpec, inspectSwarmService, waitForServiceReady } from "./database-internals";
+import { projectNetworkName } from "./network-name";
 
 export interface SwarmDatabaseRuntime {
   serviceId: string | null;

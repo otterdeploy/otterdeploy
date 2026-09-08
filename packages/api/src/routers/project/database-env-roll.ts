@@ -6,12 +6,12 @@
  * swap the running image/engine" history worth keeping in one place.
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
-import { networkScopeSuffix } from "../../lib/environment/scoping";
-import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { networkScopeSuffix } from "../../lib/environment/scoping";
 import { updateSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor } from "../../swarm";
 import { resolvePlacementForResource } from "../../swarm/resolve-placement";

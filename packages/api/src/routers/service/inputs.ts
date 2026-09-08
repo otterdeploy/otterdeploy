@@ -16,7 +16,6 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import { projectNetworkName } from "../../swarm/network-name";
 import type {
   EnvironmentId,
   GitRepoId,
@@ -30,6 +29,7 @@ import type * as z from "zod";
 import type { createServiceInput, updateServiceInput } from "./contract-inputs";
 
 import { PLATFORM } from "../../constants";
+import { projectNetworkName } from "../../swarm/network-name";
 import { sanitizeSlug } from "./views";
 
 type OrgId = OrganizationId;

@@ -12,7 +12,12 @@ import { eq } from "drizzle-orm";
 
 import type { RegistryAuth } from "../../swarm";
 
-import { previewIdOf, runtimeServiceName, type ScopeLike, networkScopeSuffix } from "../../lib/environment/scoping";
+import {
+  previewIdOf,
+  runtimeServiceName,
+  type ScopeLike,
+  networkScopeSuffix,
+} from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { resolveRegistryAuth } from "../../swarm/registry-auth";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";

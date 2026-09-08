@@ -4,12 +4,12 @@
  * stay focused on row → API-shape translation.
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
-import { networkScopeSuffix } from "../../lib/environment/scoping";
-import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 
 import { reconcile } from "../../caddy";
 import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { networkScopeSuffix } from "../../lib/environment/scoping";
 import { inspectSwarmDatabaseRuntime, provisionSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor, type SwarmDatabaseRuntime } from "../../swarm";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";

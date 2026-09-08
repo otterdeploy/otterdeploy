@@ -20,8 +20,8 @@ import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
 import { networkScopeSuffix, scopeSuffix } from "../../../lib/environment/scoping";
-import { projectNetworkName } from "../../../swarm/network-name";
 import { getEngineAdapter, type DatabaseEngineAdapter } from "../../../swarm";
+import { projectNetworkName } from "../../../swarm/network-name";
 import { createDatabaseResourceRecord } from "../queries";
 import {
   sanitizeDatabaseName,

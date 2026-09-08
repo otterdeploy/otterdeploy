@@ -13,13 +13,13 @@
  */
 
 import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { projectNetworkName } from "../../swarm/network-name";
 
 import { Result } from "better-result";
 
 import type { RefMissingResourceError, ResolveError } from "./errors";
 
 import { resolveServiceEnv } from "../../lib/variables";
+import { projectNetworkName } from "../../swarm/network-name";
 import { sanitizeSlug } from "./views";
 
 export interface DeployHookContext {

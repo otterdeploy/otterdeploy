@@ -4,8 +4,8 @@ import type { RequestLogger } from "evlog";
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
 
 import { PLATFORM } from "../constants";
-import { projectNetworkName } from "./network-name";
 import { asStepLogger } from "../lib/logger";
+import { projectNetworkName } from "./network-name";
 
 export async function ensureSwarm(): Promise<void> {
   const docker = Docker.fromEnv();
