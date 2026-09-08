@@ -69,19 +69,26 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode => {
   // Fall back to all tasks when everything's retired (the service is down).
   const status = rollupStatus(live.length > 0 ? live : tasks);
   const why = taskWhy(tasks);
-  // A deploy in flight keeps its phase word and bar; otherwise the tasks
-  // decide: a dead task with an exit code is "crashed", and says so.
+  // A deploy in flight keeps its phase word, its bar AND its colour; otherwise
+  // the tasks decide: a dead task with an exit code is "crashed", and says so.
+  //
+  // `status` has to be held back with the label, not just alongside it. The
+  // rollup describes the containers running RIGHT NOW, which during a deploy
+  // are still the previous revision's - healthy, and therefore green. Letting
+  // that through while the label stayed on the deploy phase produced a green
+  // dot next to the word "queued": the pill claimed two different things at
+  // once, and the reassuring half was the wrong one.
   const inFlight = node.data.buildPhase != null;
   return {
     ...node,
     data: {
       ...node.data,
-      status,
       replicas: live.map((t) => ({ label: t.label, status: t.state })),
       ...(restarts > 0 ? { restarts } : {}),
       ...(inFlight
         ? {}
         : {
+            status,
             statusLabel: status === "error" ? "crashed" : status,
             ...(why ? { statusWhy: why } : {}),
           }),

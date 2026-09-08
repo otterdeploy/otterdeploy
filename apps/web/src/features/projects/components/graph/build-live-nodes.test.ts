@@ -8,6 +8,7 @@ import {
   childServiceStatus,
   memberBase,
   type PendingByName,
+  type Task,
 } from "./build-live-nodes";
 import { baseStackServiceStatus } from "./resource-to-node";
 
@@ -167,5 +168,57 @@ describe("buildLiveNodes ghost synthesis", () => {
   it("returns no nodes when there are no resources and no pending creates", () => {
     expect(buildLiveNodes([], noTasks)).toEqual([]);
     expect(buildLiveNodes([], noTasks, { creates: [], marker: new Map() })).toEqual([]);
+  });
+});
+
+describe("buildLiveNodes service pill during a deploy", () => {
+  // The previous revision's containers are still up and healthy while the next
+  // deploy sits in the queue, so the live-task rollup says "running". Letting
+  // that reach the pill while the LABEL stayed on the deploy phase drew a green
+  // dot beside the word "queued" - two claims in one pill, the calmer one wrong.
+  function service(
+    latestDeploymentStatus: Extract<ProjectResource, { type: "service" }>["latestDeploymentStatus"],
+  ): Extract<ProjectResource, { type: "service" }> {
+    return {
+      resourceId: createId(ID_PREFIX.resource),
+      projectId: createId(ID_PREFIX.project),
+      environmentId: createId(ID_PREFIX.environment),
+      name: "web-portal",
+      type: "service",
+      status: "valid",
+      latestDeploymentStatus,
+      latestDeploymentStartedAt: null,
+      latestDeploymentFinishedAt: null,
+      source: "git",
+      image: "registry.internal/web-portal:5c39ccd",
+      imageDigest: null,
+      sourceSubdir: "apps/portal",
+      internalHostname: "web-portal",
+      serviceName: "web-portal",
+      framework: "vite",
+      replicas: 1,
+      publicEnabled: true,
+      publicDomain: "cmp-staging.praxly.md",
+      stackId: null,
+      extraEnv: {},
+      secretKeys: [],
+      sealedKeys: [],
+    };
+  }
+
+  const runningTask = (resourceId: string): Map<string, Task[]> =>
+    new Map([[resourceId, [{ label: "web-portal.1", service: null, state: "running" }]]]);
+
+  it("keeps the queued pill queued while the old revision still runs", () => {
+    const queued = service("pending");
+    const nodes = buildLiveNodes([queued], runningTask(queued.resourceId));
+    expect(nodes[0]?.data.status).toBe("queued");
+    expect(nodes[0]?.data.statusLabel).toBe("queued");
+  });
+
+  it("still reports the live rollup once no deploy is in flight", () => {
+    const settled = service("running");
+    const nodes = buildLiveNodes([settled], runningTask(settled.resourceId));
+    expect(nodes[0]?.data.status).toBe("running");
   });
 });
