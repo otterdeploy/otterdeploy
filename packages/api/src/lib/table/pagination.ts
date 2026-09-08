@@ -106,7 +106,11 @@ export function snapPage<TRow>(
   if (boundary === null) return { rows: rows.slice(0, size), tiedAt: null };
 
   const page = rows.slice(0, size);
-  for (let last = page.at(-1); last !== undefined && cursorOf(last) === boundary; last = page.at(-1)) {
+  for (
+    let last = page.at(-1);
+    last !== undefined && cursorOf(last) === boundary;
+    last = page.at(-1)
+  ) {
     page.pop();
   }
 

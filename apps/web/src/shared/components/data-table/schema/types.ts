@@ -79,6 +79,15 @@ export interface DataTableColumn<TRow> {
   resizable?: boolean;
   /** Hidden by default; still in the column menu. */
   hidden?: boolean;
+  /**
+   * A filter, not a column: it appears in the sidebar or the toolbar and never
+   * in the grid or the detail sheet.
+   *
+   * The table-wide search is the case this exists for — it spans several
+   * columns, so it is not one of them, but it is still declared here so its
+   * semantics live beside everything else's.
+   */
+  filterOnly?: boolean;
   /** Cannot be hidden — the select gutter and the row-actions column. */
   alwaysVisible?: boolean;
   /**

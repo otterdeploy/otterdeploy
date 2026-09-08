@@ -56,18 +56,14 @@ describe("ordering", () => {
 
   test("a user sort sits between the cursor and the tiebreak", () => {
     const sorted = plan({ sort: asc(events.id) });
-    expect(orderText(sorted)).toBe(
-      `"events"."at" desc, "events"."id" asc, "events"."id" desc`,
-    );
+    expect(orderText(sorted)).toBe(`"events"."at" desc, "events"."id" asc, "events"."id" desc`);
   });
 
   test("the tiebreak follows the cursor's direction", () => {
     // A `prev` page is read ascending and reversed afterwards, so its tiebreak
     // has to be ascending too or the reversed page disagrees with its
     // neighbours about the order of a tied group.
-    expect(orderText(plan({ direction: "prev" }))).toBe(
-      `"events"."at" asc, "events"."id" asc`,
-    );
+    expect(orderText(plan({ direction: "prev" }))).toBe(`"events"."at" asc, "events"."id" asc`);
   });
 });
 

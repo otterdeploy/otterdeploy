@@ -128,7 +128,7 @@ export function DataTableRowSheet<TRow extends RowData>({
         {row ? (
           <div className="divide-y">
             {columns
-              .filter((column) => column.sheet !== false)
+              .filter((column) => column.sheet !== false && !column.filterOnly)
               .map((column) => (
                 <SheetField key={column.key} column={column} row={row} />
               ))}

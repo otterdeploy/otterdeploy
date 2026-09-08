@@ -1,14 +1,20 @@
 /**
- * The search-param schema for a table, derived from its filter declarations.
+ * A table's search params: the three controls every table shares, plus its
+ * filter values.
  *
- * The route validates with this, so a hand-edited or stale URL degrades to "no
- * filter" instead of an error page — a URL is a convenience copy of state, not
- * an API. Every field is optional and every default is omitted, so a pristine
- * visit keeps a bare address and any touched control becomes shareable.
+ * The filter values are deliberately NOT re-validated by a zod shape here. They
+ * already have a validator — `filters.coerce`, the same one the server runs —
+ * which drops unknown keys, checks enum members against the declared set and
+ * clamps numeric ranges to their bounds. A second, weaker copy of those rules
+ * expressed as zod would be one more thing to keep in agreement with the first.
+ *
+ * So the route validates the controls and passes the rest through, and the
+ * store takes what `coerce` accepts. A hand-edited or stale URL degrades to "no
+ * filter" rather than an error page — a URL is a convenience copy of state, not
+ * an API.
  */
 
-import type { FilterSpec } from "@otterdeploy/shared/table-filters";
-
+import { defineFilters, type FilterSpec } from "@otterdeploy/shared/table-filters";
 import * as z from "zod";
 
 /** `"at.desc"` — compact enough to read in an address bar. */
@@ -31,67 +37,63 @@ export function serializeSort(sort: TableSort | null): string | undefined {
 }
 
 const scalar = z.union([z.string(), z.number(), z.boolean()]);
-/** A range always carries both ends; one handle is written as `[n, n]`. */
-const numberRange = z.tuple([z.number(), z.number()]);
 
 /**
- * The value shape one declared filter accepts in the URL.
+ * The URL shape of each filter type.
  *
- * Deliberately loose about the MEMBER type — `normalize` coerces members to the
- * column's declared family, and rejecting `"200"` for a numeric column here
- * would break every link that carries one.
+ * Shape only — what a value may LOOK like in an address bar. What it MEANS is
+ * `coerce`'s business, which is why these are permissive: rejecting `?level=x`
+ * here would take the page down over one stale link, and dropping it there is
+ * the same outcome without the error page.
  */
-function fieldSchema(spec: FilterSpec): z.ZodType {
-  switch (spec.type) {
-    case "checkbox":
-      // A single value is accepted and widened: `?level=error` is what a person
-      // writes by hand, and what a "filter to just this" link produces.
-      return z.union([z.array(scalar), scalar.transform((value) => [value])]);
-    case "slider":
-      return numberRange;
-    case "timerange":
-      return z.tuple([z.number(), z.number()]);
-    case "input":
-    case "search":
-      return z.string();
-  }
-}
+export const filterParam = {
+  /** A multi-select. A bare value is accepted and widened: `?outcome=denied`. */
+  checkbox: () =>
+    z
+      .union([z.array(scalar), scalar.transform((value) => [value])])
+      .optional()
+      .catch(undefined),
+  /** A text box. */
+  text: () => z.string().optional().catch(undefined),
+  /** `[from, to]`, epoch millis. */
+  timerange: () => z.tuple([z.number(), z.number()]).optional().catch(undefined),
+  /** `[min, max]`. One handle is written as `[n, n]`. */
+  range: () => z.tuple([z.number(), z.number()]).optional().catch(undefined),
+};
 
 /**
- * Search params for a table: its filters, plus the four controls every table
- * shares.
+ * Search params for a table: the three shared controls, plus this table's
+ * filter params.
  *
- * Spread into a route's own `validateSearch` object — a table lives on a page
- * that has its own params, and this must not claim the whole namespace.
+ * The filter shape is passed in rather than derived from the specs because a
+ * derived shape erases its keys — the schema becomes an index signature, and
+ * TanStack Router merges route search types, so ONE such route makes `navigate`
+ * untyped everywhere else in the app. Written out, every key stays known.
  */
-export function tableSearchSchema(specs: readonly FilterSpec[]) {
-  const shape: Record<string, z.ZodType> = {
+export function tableSearchSchema<TFilters extends z.ZodRawShape>(filters: TFilters) {
+  return z.object({
     /** `"key.desc"`. Absent means the feed's own order. */
     sort: z.string().regex(SORT_PATTERN).optional().catch(undefined),
     /** The row whose detail sheet is open — so a row is linkable too. */
     row: z.string().optional().catch(undefined),
     /** Tailing new rows. */
     live: z.boolean().optional().catch(undefined),
-  };
-
-  for (const spec of specs) {
-    // `.catch` on every field: one malformed value must not take the page down
-    // with it, and the rest of the filters still apply.
-    shape[spec.key] = fieldSchema(spec).optional().catch(undefined);
-  }
-
-  return z.object(shape);
+    ...filters,
+  });
 }
 
-/** Filter values only — what the store holds and the request carries. */
+/**
+ * The filter values in a search bag, validated against the declaration.
+ *
+ * This is the one validator: an unknown key never survives it, an enum member
+ * outside the declared option set is dropped, and a numeric range is clamped to
+ * its declared bounds. It is the same function the server calls on the same
+ * declarations, so the client cannot ask for something the server would refuse
+ * to compile.
+ */
 export function filterValuesOf(
   search: Record<string, unknown>,
   specs: readonly FilterSpec[],
 ): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-  for (const spec of specs) {
-    const value = search[spec.key];
-    if (value !== undefined) values[spec.key] = value;
-  }
-  return values;
+  return defineFilters(specs).coerce(search);
 }

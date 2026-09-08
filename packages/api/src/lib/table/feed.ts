@@ -150,7 +150,8 @@ function requireColumn(columns: ColumnMap, key: string, label: string): PgColumn
 
 function resolveTiebreak(config: FeedConfig): PgColumn {
   const explicit = config.tiebreakKey ? config.columns[config.tiebreakKey] : undefined;
-  const column = explicit ?? (config.tiebreakKey ? undefined : singleColumnPrimaryKey(config.table));
+  const column =
+    explicit ?? (config.tiebreakKey ? undefined : singleColumnPrimaryKey(config.table));
   if (!column) {
     throw new Error(
       `[createFeedHandler] no tiebreak column. The table has no single-column primary key, so` +

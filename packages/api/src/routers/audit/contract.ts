@@ -109,7 +109,104 @@ const byCorrelationOutput = z.object({
   items: z.array(auditEventSchema),
 });
 
+/**
+ * One row of the feed.
+ *
+ * Keyed by FILTER KEYS, not database column names — `at`, not `timestamp`;
+ * `actor`, not `actorEmail` — because the projection on the server IS the
+ * column map. One identity space runs from the URL parameter through the
+ * column definition to the WHERE clause, so nothing in between translates.
+ *
+ * `at` is epoch milliseconds rather than an ISO string: it is the cursor, the
+ * histogram's bucket key and the sort key, and every one of those wants a
+ * number.
+ */
+const auditFeedRowSchema = z.object({
+  id: z.string(),
+  at: z.number(),
+  action: z.string(),
+  outcome: auditOutcomeSchema,
+  actorType: auditActorTypeSchema,
+  actorId: z.string(),
+  actor: z.string().nullable(),
+  actorLabel: z.string().nullable(),
+  targetType: z.string().nullable(),
+  targetId: z.string().nullable(),
+  target: zJsonObject.nullable(),
+  reason: z.string().nullable(),
+  durationMs: z.number().nullable(),
+  changes: zJsonObject.nullable(),
+  ip: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  correlationId: z.string().nullable(),
+  causationId: z.string().nullable(),
+});
+
+export type AuditFeedRow = z.infer<typeof auditFeedRowSchema>;
+
+/**
+ * The feed: one page of rows plus the aggregates that describe the whole
+ * filtered set.
+ *
+ * `filters` is an untyped bag on purpose. Its schema is the DECLARATION in
+ * `table.ts`, which the handler enforces through `coerce` — an unknown key is
+ * dropped, an enum member outside the declared set is dropped, and a numeric
+ * range is clamped. Restating that as zod here would be a second, weaker copy
+ * of the same rules.
+ */
+const feedInput = z.object({
+  filters: z.record(z.string(), z.unknown()).default({}),
+  sort: z.object({ key: z.string(), desc: z.boolean() }).nullish(),
+  /** Epoch millis of the last row on the previous page. */
+  cursor: z.number().nullish(),
+  direction: z.enum(["next", "prev"]).default("next"),
+  size: z.number().int().min(1).max(200).default(50),
+  /**
+   * Counts, facets and the histogram. Skipped on pagination: they describe the
+   * whole filtered set, so every page after the first would recompute the same
+   * answer the client already holds.
+   */
+  includeFacets: z.boolean().default(true),
+  /** Which day a lone date means. The client knows; the server must be told. */
+  timeZone: z.string().optional(),
+});
+
+const facetSchema = z.object({
+  rows: z.array(
+    z.object({ value: z.union([z.string(), z.number(), z.boolean()]), total: z.number() }),
+  ),
+  total: z.number(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+});
+
+const feedOutput = z.object({
+  items: z.array(auditFeedRowSchema),
+  nextCursor: z.number().nullable(),
+  prevCursor: z.number().nullable(),
+  /** `null` when this page skipped the aggregates — never a stand-in guess. */
+  totalRowCount: z.number().nullable(),
+  filterRowCount: z.number().nullable(),
+  facets: z.record(z.string(), facetSchema),
+  histogram: z
+    .object({
+      buckets: z.array(
+        z.object({
+          at: z.number(),
+          total: z.number(),
+          by: z.record(z.string(), z.number()),
+        }),
+      ),
+      bucketMs: z.number(),
+    })
+    .optional(),
+});
+
 export const auditContract = {
+  feed: oc
+    .meta({ path: `${basePath}/feed`, tag, method: "POST" })
+    .input(feedInput)
+    .output(feedOutput),
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
     .input(listAuditInput)

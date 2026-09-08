@@ -115,6 +115,8 @@ export function buildColumns<TRow extends RowData>(
     : [];
 
   for (const column of columns) {
+    // A filter-only declaration (the search box) is not a column.
+    if (column.filterOnly) continue;
     const display = column.display ?? defaultDisplay(column.kind);
     const filterFn = filters.filterFn(column.key);
     const isTrailing = display.type === "number";

@@ -65,8 +65,13 @@ export interface DataTableProps<TRow extends RowData> {
   timeKey?: string;
   emptyTitle?: string;
   emptyDescription?: string;
-  /** Surface-specific toolbar controls (live, export, bulk actions). */
-  actions?: React.ReactNode;
+  /**
+   * Surface-specific toolbar controls (live, export, bulk actions).
+   *
+   * A render prop, because the useful ones need the rows: an export button
+   * without them is a button that cannot say what it would export.
+   */
+  actions?: React.ReactNode | ((context: { rows: TRow[]; isFetching: boolean }) => React.ReactNode);
   /** Extra content in the row-detail sheet, under the fields. */
   sheetExtra?: (row: TRow) => React.ReactNode;
   /** Dims rows behind a live tail, or marks failures. */
@@ -170,7 +175,9 @@ export function DataTable<TRow extends RowData>({
         onToggleFilters={() => setFiltersOpen((open) => !open)}
         actions={
           <>
-            {actions}
+            {typeof actions === "function"
+              ? actions({ rows: feed.rows, isFetching: feed.isFetching })
+              : actions}
             <DataTableViewOptions
               table={table}
               density={density}
