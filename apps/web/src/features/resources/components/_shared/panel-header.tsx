@@ -191,7 +191,17 @@ export function PanelStatusPill({
   return (
     <span
       className={cn(
-        "inline-flex min-w-0 shrink items-center gap-1.5 text-xs leading-none whitespace-nowrap",
+        // NO `min-w-0` here, deliberately. It let the pill's BOX shrink below
+        // its own content while the dot and label are `shrink-0`, so under
+        // width pressure the label overflowed and the meta text beside it was
+        // measured from the shrunken box: `building` ran straight into
+        // `build dep_…` with no gap at all (od-xzkz).
+        //
+        // Without it the flex item keeps `min-width: auto`, which resolves to
+        // its min-content size. The `why` child below carries `min-w-0` +
+        // `truncate`, so IT contributes ~0 and still absorbs the shrink: the
+        // pill collapses `why` first and never the label.
+        "inline-flex shrink items-center gap-1.5 text-xs leading-none whitespace-nowrap",
         TONE_TEXT[tone],
         className,
       )}
