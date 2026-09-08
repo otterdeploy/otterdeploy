@@ -1,11 +1,22 @@
 "use client";
 
-import type { ColumnPinningState, Row, TableMeta, VisibilityState } from "@tanstack/react-table";
+import type {
+  ColumnPinningState,
+  ColumnVisibilityState,
+  Row,
+  RowData,
+} from "@tanstack/react-table";
 import type { VirtualItem } from "@tanstack/react-virtual";
 
 import * as React from "react";
 
-import type { CellPosition, Direction, RowHeightValue } from "@/shared/components/data-grid/types";
+import type { DataGridFeatures } from "@/shared/components/data-grid/features";
+import type {
+  CellPosition,
+  Direction,
+  RowHeightValue,
+  DataGridTableMeta,
+} from "@/shared/components/data-grid/types";
 
 import { DataGridCell } from "@/shared/components/data-grid/data-grid-cell";
 import { useComposedRefs } from "@/shared/components/data-grid/lib/compose-refs";
@@ -18,14 +29,14 @@ import {
 } from "@/shared/components/data-grid/lib/data-grid";
 import { cn } from "@/shared/lib/utils";
 
-interface DataGridRowProps<TData> extends React.ComponentProps<"div"> {
-  row: Row<TData>;
-  tableMeta: TableMeta<TData>;
+interface DataGridRowProps<TData extends RowData> extends React.ComponentProps<"div"> {
+  row: Row<DataGridFeatures, TData>;
+  tableMeta: DataGridTableMeta;
   virtualItem: VirtualItem;
   measureElement: (node: Element | null) => void;
   rowMapRef: React.RefObject<Map<number, HTMLDivElement>>;
   rowHeight: RowHeightValue;
-  columnVisibility: VisibilityState;
+  columnVisibility: ColumnVisibilityState;
   columnPinning: ColumnPinningState;
   focusedCell: CellPosition | null;
   editingCell: CellPosition | null;
@@ -145,12 +156,14 @@ const MemoizedDataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
 // React.memo erases the generic, so re-expose it through an overloaded
 // wrapper: callers see the generic signature, the memoized inner component
 // still short-circuits re-renders. No assertion involved.
-export function DataGridRow<TData>(props: DataGridRowProps<TData>): React.JSX.Element;
-export function DataGridRow(props: DataGridRowProps<unknown>): React.JSX.Element {
+export function DataGridRow<TData extends RowData>(
+  props: DataGridRowProps<TData>,
+): React.JSX.Element;
+export function DataGridRow(props: DataGridRowProps<RowData>): React.JSX.Element {
   return <MemoizedDataGridRow {...props} />;
 }
 
-function DataGridRowImpl<TData>({
+function DataGridRowImpl<TData extends RowData>({
   row,
   tableMeta,
   virtualItem,

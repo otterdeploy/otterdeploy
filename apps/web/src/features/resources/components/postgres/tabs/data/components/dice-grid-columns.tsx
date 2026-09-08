@@ -10,6 +10,8 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { displayText, tableKey } from "@otterdeploy/data-engine";
 
+import type { DataGridFeatures } from "@/shared/components/data-grid/features";
+
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { cn } from "@/shared/lib/utils";
 
@@ -140,8 +142,8 @@ export function useDiceColumnDefs({
   columns: readonly ColumnMeta[];
   hiddenColumns?: string[];
   selectable: boolean;
-}): ColumnDef<Row>[] {
-  const defs: ColumnDef<Row>[] = [];
+}): ColumnDef<DataGridFeatures, Row>[] {
+  const defs: ColumnDef<DataGridFeatures, Row>[] = [];
   // Function header/cell → the grid flexRenders them; keyboard navigation
   // skips the "select" / "actions" column ids by design.
   if (selectable) {

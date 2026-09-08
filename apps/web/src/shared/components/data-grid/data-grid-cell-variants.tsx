@@ -1,5 +1,7 @@
 "use client";
 
+import type { RowData } from "@tanstack/react-table";
+
 import * as React from "react";
 
 import { useTranslation } from "react-i18next";
@@ -48,7 +50,7 @@ import { cn } from "@/shared/lib/utils";
 
 import { Check, LinkIcon, Upload, X } from "./icons";
 
-/** Cell values arrive as `unknown` (`Cell<TData, unknown>`). Text-ish cells
+/** Cell values arrive as `unknown` (`Cell<DataGridFeatures, TData>`). Text-ish cells
  *  hold `string | null` in practice (SQL NULL stays null so the NULL sentinel
  *  renders); any stray scalar gets the same string coercion the DOM applied
  *  when these were written straight into `textContent`. */
@@ -72,7 +74,7 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-export function ShortTextCell<TData>({
+export function ShortTextCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -249,7 +251,7 @@ export function ShortTextCell<TData>({
   );
 }
 
-export function LongTextCell<TData>({
+export function LongTextCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -442,7 +444,7 @@ export function LongTextCell<TData>({
   );
 }
 
-export function NumberCell<TData>({
+export function NumberCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -569,7 +571,7 @@ export function NumberCell<TData>({
   );
 }
 
-export function UrlCell<TData>({
+export function UrlCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -775,7 +777,7 @@ export function UrlCell<TData>({
   );
 }
 
-export function CheckboxCell<TData>({
+export function CheckboxCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -876,7 +878,7 @@ export function CheckboxCell<TData>({
   );
 }
 
-export function SelectCell<TData>({
+export function SelectCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -1008,7 +1010,7 @@ export function SelectCell<TData>({
   );
 }
 
-export function MultiSelectCell<TData>({
+export function MultiSelectCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -1293,7 +1295,7 @@ export function MultiSelectCell<TData>({
   );
 }
 
-export function DateCell<TData>({
+export function DateCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -1402,7 +1404,7 @@ export function DateCell<TData>({
   );
 }
 
-export function FileCell<TData>({
+export function FileCell<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,

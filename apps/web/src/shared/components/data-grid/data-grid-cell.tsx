@@ -1,6 +1,7 @@
 "use client";
 
 import type { UnknownRecord } from "@otterdeploy/shared/json";
+import type { RowData } from "@tanstack/react-table";
 
 import * as React from "react";
 
@@ -62,7 +63,7 @@ export const DataGridCell = typedMemo(DataGridCellImpl, (prev, next) => {
   return true;
 });
 
-function DataGridCellImpl<TData>({
+function DataGridCellImpl<TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,

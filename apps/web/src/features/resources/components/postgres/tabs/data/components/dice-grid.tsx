@@ -192,6 +192,8 @@ export function DiceResultGrid({
 
   const handleRowSelectionChange = useSelectionMirror(onSelectionChange);
 
+  const pinnedColumns = [...(selectable ? ["select"] : []), ...(primaryKey ?? [])];
+
   const grid = useDataGrid<Row>({
     data,
     columns: colDefs,
@@ -209,10 +211,8 @@ export function DiceResultGrid({
         copyRowsToClipboard(indices, format, data, columns, exportName),
     },
     // The row's IDENTITY stays on screen while the rest scrolls: checkbox and
-    // primary key pin left, the way the reference viewer keeps the key column.
-    initialState: {
-      columnPinning: { left: [...(selectable ? ["select"] : []), ...(primaryKey ?? [])] },
-    },
+    // primary key pin to the leading edge (`start`, so RTL reads correctly).
+    initialState: { columnPinning: { start: pinnedColumns, end: [] } },
   });
 
   const [wrapRef, height] = useElementHeight<HTMLDivElement>();

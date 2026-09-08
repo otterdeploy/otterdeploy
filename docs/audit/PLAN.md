@@ -88,6 +88,19 @@ parser, identical down to the comment about the first `=`. One copy now, in a
 leaf module both import, which is why the duplication percentage went down
 rather than sideways.
 
+Duplicated lines re-pinned on 2026-09-08 to 3.56% (#333), from the data table
+landing, measured after merging main.
+A change that adds ~4k lines of new surface would normally push every measure up;
+this one ends below the floor it started at because the shared pieces are shared
+rather than repeated. Three copies of "what does this column hold for this row"
+(grid, CSV export, detail sheet) became one reader, the toolbar's search box and
+the sidebar's text filter now run off one debounced-draft hook instead of a copy
+each, the two chart tooltips share their swatch/label/value row, and the caret
+helpers in the filter grammar read their word boundaries from one function.
+Dead code and clone groups land exactly on their floors: the server table module's
+barrel exports what a list endpoint imports and nothing else, rather than
+re-exporting every internal under a second name with nothing on the other end.
+
 Regenerate the per-file evidence any time:
 
 ```bash

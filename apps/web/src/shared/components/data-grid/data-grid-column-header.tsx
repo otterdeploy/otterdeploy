@@ -1,10 +1,19 @@
 "use client";
 
-import type { ColumnSort, Header, SortDirection, SortingState, Table } from "@tanstack/react-table";
+import type {
+  ColumnSort,
+  Header,
+  ReactTable,
+  RowData,
+  SortDirection,
+  SortingState,
+} from "@tanstack/react-table";
 
 import * as React from "react";
 
 import { useTranslation } from "react-i18next";
+
+import type { DataGridFeatures } from "@/shared/components/data-grid/features";
 
 import { getColumnVariant } from "@/shared/components/data-grid/lib/data-grid";
 import {
@@ -20,14 +29,14 @@ import { cn } from "@/shared/lib/utils";
 
 import { ChevronDownIcon, ChevronUpIcon, EyeOffIcon, PinIcon, PinOffIcon, XIcon } from "./icons";
 
-interface DataGridColumnHeaderProps<TData, TValue> extends React.ComponentProps<
+interface DataGridColumnHeaderProps<TData extends RowData, TValue> extends React.ComponentProps<
   typeof DropdownMenuTrigger
 > {
-  header: Header<TData, TValue>;
-  table: Table<TData>;
+  header: Header<DataGridFeatures, TData, TValue>;
+  table: ReactTable<DataGridFeatures, TData>;
 }
 
-export function DataGridColumnHeader<TData, TValue>({
+export function DataGridColumnHeader<TData extends RowData, TValue>({
   header,
   table,
   className,
@@ -41,14 +50,14 @@ export function DataGridColumnHeader<TData, TValue>({
       ? column.columnDef.header
       : column.id;
 
-  const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
+  const isAnyColumnResizing = table.state.columnResizing.isResizingColumn;
 
   const cellVariant = column.columnDef.meta?.cell;
   const columnVariant = getColumnVariant(cellVariant?.variant);
 
   const pinnedPosition = column.getIsPinned();
-  const isPinnedLeft = pinnedPosition === "left";
-  const isPinnedRight = pinnedPosition === "right";
+  const isPinnedLeft = pinnedPosition === "start";
+  const isPinnedRight = pinnedPosition === "end";
 
   const onSortingChange = (direction: SortDirection) => {
     table.setSorting((prev: SortingState) => {
@@ -73,11 +82,11 @@ export function DataGridColumnHeader<TData, TValue>({
   };
 
   const onLeftPin = () => {
-    column.pin("left");
+    column.pin("start");
   };
 
   const onRightPin = () => {
-    column.pin("right");
+    column.pin("end");
   };
 
   const onUnpin = () => {
@@ -226,7 +235,7 @@ const DataGridColumnResizer = React.memo(DataGridColumnResizerImpl, (prev, next)
  * The narrow structural slice of `Header`/`Table` the resizer actually reads.
  * Deliberately free of the `TData`/`TValue` generics: `Header` is invariant in
  * them, which is what forced the old `React.memo(...) as typeof Impl` cast.
- * Any `Header<TData, TValue>` / `Table<TData>` satisfies this shape.
+ * Any `Header<DataGridFeatures, TData, TValue>` / `Table<DataGridFeatures, TData>` satisfies this shape.
  */
 interface DataGridColumnResizerProps {
   header: {
@@ -238,14 +247,14 @@ interface DataGridColumnResizerProps {
     getResizeHandler: () => (event: unknown) => void;
   };
   table: {
-    _getDefaultColumnDef: () => { minSize?: number; maxSize?: number };
+    getDefaultColumnDef: () => { minSize?: number; maxSize?: number };
   };
   label: string;
 }
 
 function DataGridColumnResizerImpl({ header, table, label }: DataGridColumnResizerProps) {
   const { t } = useTranslation();
-  const defaultColumnDef = table._getDefaultColumnDef();
+  const defaultColumnDef = table.getDefaultColumnDef();
 
   const onDoubleClick = () => {
     header.column.resetSize();

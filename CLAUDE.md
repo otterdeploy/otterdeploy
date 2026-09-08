@@ -131,6 +131,32 @@ in `brand/scripts/build_svgs.py`. Files in `brand/logo/`, `brand/dist/`, and the
 `OtterdeployMark` / `OtterdeployLogo` from `@/shared/components/brand/otterdeploy-logo` rather
 than inlining the SVG.
 
+## Data tables (list surfaces)
+
+Every server-paginated list surface is built on **one** shell — do not hand-roll another
+table, filter bar or drawer.
+
+- **Filter meaning is declared once**, in `packages/shared/src/table-filters/`
+  (`defineFilters(specs)`). The client filter functions and the SQL `WHERE` are compiled
+  from the same specs, so the sidebar, the ⌘⇧F query bar, the URL and the database
+  cannot disagree. Adding an operator means extending the closed `FilterOp` union — every
+  engine then fails to compile until it handles it, which is the point.
+- **Server**: `packages/api/src/lib/table/` — `createFeedHandler` gives filtering,
+  facet counts, a histogram and cursor pagination (unique tiebreak, boundary snapping)
+  over one `FeedInput`/`FeedPage` contract. Unmapped filter keys throw at construction.
+- **Client**: `apps/web/src/shared/components/data-table/` — `<DataTable>` takes a column
+  declaration and a `fetchPage`, and owns URL-held filters, virtualized rows, the
+  histogram, the row sheet, keyboard navigation, and remembered columns/widths/density.
+  Route search params use `tableSearchSchema({...filterParam.*})`; never a zod catchall,
+  which pollutes route search types app-wide.
+- TanStack Table **v9**: features are registered per product in
+  `data-table/features.ts` and `data-grid/features.ts` (`TFeatures` is invariant, so a
+  shared "all features" set does not typecheck). The pagination feature is deliberately
+  absent — registering it truncates `getRowModel()` to a page.
+- The audit log (`routes/_app/$orgSlug/_shell/audit.tsx`) is the reference surface.
+  `docs/gap-audit-data-table-openstatus.md` records the review, the goals and every
+  decision behind the design.
+
 ## Maintenance
 
 Keep CLAUDE.md updated when:

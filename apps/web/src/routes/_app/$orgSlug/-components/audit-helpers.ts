@@ -1,5 +1,3 @@
-import type { AuditEvent } from "@/features/audit/data/audit";
-
 import { relativeMs } from "@/shared/lib/time";
 
 /**
@@ -36,40 +34,4 @@ export function actionTone(action: string): ActionTone {
 export function timeAgoOrDash(iso: string): string {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? "–" : relativeMs(t);
-}
-
-export function exportCsv(items: AuditEvent[]) {
-  const cols: Array<keyof AuditEvent> = [
-    "timestamp",
-    "action",
-    "actorType",
-    "actorId",
-    "actorEmail",
-    "outcome",
-    "targetType",
-    "targetId",
-    "ip",
-    "durationMs",
-    "reason",
-  ];
-  const esc = (v: unknown) => {
-    let s: string;
-    if (v == null) s = "";
-    else if (typeof v === "string") s = v;
-    else if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint")
-      s = String(v);
-    else s = JSON.stringify(v);
-    return `"${s.replace(/"/g, '""')}"`;
-  };
-  const rows = [
-    cols.join(","),
-    ...items.map((e) => cols.map((c) => esc(e[c])).join(",")),
-  ];
-  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
 }

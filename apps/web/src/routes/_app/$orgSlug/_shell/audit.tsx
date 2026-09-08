@@ -1,180 +1,192 @@
 /**
- * Audit log: queryable, append-only record of every audit-worthy action
- * (mutations + all denials) across the org.
+ * Audit log: the append-only record of every audit-worthy action across the
+ * org — every mutation, and every denial.
  *
- * Filters are a TanStack Form (used as a reactive container, no submit; value
- * changes drive the reads). Rows ride a TanStack DB query collection consumed
- * via `useLiveQuery`; the server-truth aggregates (`counts`/`total`) the
- * collection can't represent come from a tiny companion query. See
- * `features/audit/data/audit.ts` for why the reads are split this way.
+ * The first surface on the shared data table. Everything the page used to own
+ * by hand — filters, counts, paging, the drawer — now comes from one column
+ * declaration and one feed endpoint, and the parts that were untrue got fixed
+ * on the way:
+ *
+ * - Filters live in the URL, so a filtered view is a link an operator can paste
+ *   into an incident channel. They were form state before, and could not be.
+ * - Options carry counts, from the same filtered set, instead of a bare
+ *   distinct list that could not say whether a value would match anything.
+ * - Pages are cursor-based with a unique tiebreak. Offset paging over a feed
+ *   that is being written to drops and duplicates rows, which on an audit log
+ *   is not a cosmetic bug.
  */
-import { useDebouncedValue } from "@otterdeploy/ui/hooks/use-debounced-value";
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useSelector } from "@tanstack/react-form";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { auditFilterSpecs } from "@otterdeploy/api/routers/audit/table";
+import { Temporal } from "@otterdeploy/shared/temporal";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useMemo } from "react";
+
+import type { AuditFeedRow } from "@otterdeploy/api/routers/audit/contract";
+import type { FeedInput } from "@/shared/components/data-table/feed/types";
 
 import {
-  auditCollection,
-  auditSubsetKey,
-  DEFAULT_AUDIT_FILTER,
-  prefetchAuditSubset,
-  toAuditInput,
-  type AuditEvent,
-} from "@/features/audit/data/audit";
+  auditColumns,
+  AUDIT_OUTCOME_ORDER,
+  AUDIT_OUTCOME_TONES,
+} from "@/features/audit/table/columns";
 import { Page, PageHeader } from "@/shared/components/page";
+import { DataTable } from "@/shared/components/data-table/data-table";
+import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
+import {
+  filterParam,
+  filterValuesOf,
+  parseSort,
+  serializeSort,
+  tableSearchSchema,
+  type TableSort,
+} from "@/shared/components/data-table/state/search-schema";
+import { useSearchFilterStore } from "@/shared/components/data-table/state/use-search-store";
 import { Button } from "@/shared/components/ui/button";
-import { orpc, queryClient } from "@/shared/server/orpc";
+import { client } from "@/shared/server/orpc";
 
-import { AuditFilters, useAuditFilterForm } from "../-components/audit-filters";
-import { EventDrawer } from "../-components/audit-drawer";
-import { exportCsv } from "../-components/audit-helpers";
-import { StatTile } from "../-components/audit-parts";
-import { AuditTableSection } from "../-components/audit-table";
+import { downloadCsv, toCsv } from "@/shared/components/data-table/export-csv";
+
+import { AuditCorrelated } from "../-components/audit-correlated";
+
+// The URL shape. What each of these MEANS lives in `auditFilterSpecs`, which
+// both this page and the server compile from; this only says what may appear
+// in the address bar.
+const searchSchema = tableSearchSchema({
+  at: filterParam.timerange(),
+  outcome: filterParam.checkbox(),
+  action: filterParam.checkbox(),
+  actorType: filterParam.checkbox(),
+  actor: filterParam.checkbox(),
+  targetType: filterParam.checkbox(),
+  q: filterParam.text(),
+});
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/audit")({
   staticData: { crumb: "Audit" },
-  // Warm the default view on hover (intent-preload): the rows subset the
-  // collection will ask for AND the stats companion query, both under the
-  // exact keys the component uses (keyed on the filter *selection*, so the
-  // fresh `from` recomputed at mount still hits the cache). Non-blocking +
-  // best-effort: a miss just falls back to fetch-on-mount.
-  loader: () => {
-    prefetchAuditSubset(DEFAULT_AUDIT_FILTER);
-    void queryClient
-      .prefetchQuery({
-        ...orpc.audit.list.queryOptions({
-          input: { ...toAuditInput(DEFAULT_AUDIT_FILTER), limit: 1 },
-        }),
-        queryKey: [...orpc.audit.list.key(), "stats", auditSubsetKey(DEFAULT_AUDIT_FILTER)],
-      })
-      .catch(() => undefined);
-  },
+  validateSearch: searchSchema,
   component: AuditRoute,
 });
 
 function AuditRoute() {
-  // The whole event rides in state (not just an id): correlated-event
-  // navigation can open events that aren't in the loaded page, so deriving
-  // the open event from `items` would come up empty for them.
-  const [openEvent, setOpenEvent] = useState<AuditEvent | null>(null);
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
 
-  const form = useAuditFilterForm();
-  const filter = useSelector(form.store, (s) => s.values);
+  const filters = useMemo(() => filterValuesOf(search, auditFilterSpecs), [search]);
 
-  // Each distinct filter is its own on-demand collection subset, so typing in
-  // the search box would refetch on every keystroke. Debounce the term that
-  // reaches the queries while the input itself stays instant.
-  const debouncedQ = useDebouncedValue(filter.q, 250);
+  const onChange = useCallback(
+    (patch: Record<string, unknown>) => {
+      void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+    },
+    [navigate],
+  );
 
-  const queryFilter = {
-    range: filter.range,
-    from: filter.from,
-    to: filter.to,
-    outcome: filter.outcome,
-    actor: filter.actor,
-    action: filter.action,
-    targetType: filter.targetType,
-    q: debouncedQ,
-    limit: filter.limit,
-  };
-  const input = toAuditInput(queryFilter);
-  const key = auditSubsetKey(queryFilter);
-
-  // Companion read for the server-truth aggregates the collection can't hold.
-  // `limit: 1` keeps the payload tiny, `counts`/`total` span the whole filtered
-  // set regardless of limit. Also the page's loading / error / retry source.
-  // Key on the *filter selection* (`key`), not the resolved input. Same trick
-  // as the rows subset. `input.from` is recomputed from "now" on every mount, so
-  // keying on it made each remount a cache miss and flashed the full loading
-  // state on every return to the route. The queryFn still sends the fresh
-  // `from`; only the cache identity is stabilized.
-  const stats = useQuery({
-    ...orpc.audit.list.queryOptions({ input: { ...input, limit: 1 } }),
-    queryKey: [...orpc.audit.list.key(), "stats", key],
-    placeholderData: keepPreviousData,
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+  const store = useSearchFilterStore({
+    tableId: "audit",
+    specs: auditFilterSpecs,
+    values: filters,
+    onChange,
   });
-  const counts = stats.data?.counts ?? { total: 0, failed: 0, denied: 0 };
-  const total = stats.data?.total ?? 0;
 
-  // Rows ride the query collection: the `eq(a.key, …)` filter forwards as a
-  // subset load, so this both fetches the page and subscribes to it live.
-  const { data: items } = useLiveQuery(
-    (q) =>
-      q
-        .from({ a: auditCollection })
-        .where(({ a }) => eq(a.key, key))
-        .orderBy(({ a }) => a.timestamp, "desc")
-        .limit(queryFilter.limit),
-    [key, queryFilter.limit],
+  const sort = parseSort(search.sort);
+  const onSortChange = useCallback(
+    (next: TableSort | null) => {
+      void navigate({
+        search: (prev) => ({ ...prev, sort: serializeSort(next) }),
+        replace: true,
+      });
+    },
+    [navigate],
+  );
+
+  const onOpenRow = useCallback(
+    (rowId: string | null) => {
+      void navigate({ search: (prev) => ({ ...prev, row: rowId ?? undefined }), replace: true });
+    },
+    [navigate],
+  );
+
+  /**
+   * The viewer's own zone travels with the request, so a lone date means the
+   * day the reader is having rather than UTC's.
+   */
+  const timeZone = Temporal.Now.timeZoneId();
+
+  const fetchPage = useCallback(
+    (input: FeedInput) =>
+      client.audit.feed({
+        filters: input.filters,
+        sort: input.sort ?? null,
+        cursor: input.cursor ?? null,
+        direction: input.direction ?? "next",
+        size: input.size ?? 50,
+        includeFacets: input.includeFacets ?? true,
+        timeZone,
+      }),
+    [timeZone],
   );
 
   return (
-    <Page>
+    <Page className="min-h-0">
       <PageHeader
         title="Audit log"
         description="Append-only record of every administrative action across this workspace, including denials."
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5"
-            disabled={items.length === 0}
-            onClick={() => exportCsv(items)}
-          >
-            <HugeiconsIcon
-              icon={Download01Icon}
-              strokeWidth={2}
-              className="size-3.5"
-            />
-            Export CSV
-          </Button>
-        }
       />
-
-      <AuditFilters form={form} filter={filter} queryFilter={queryFilter} />
-
-      {/* Stat tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile label="Events" value={counts.total} sub="matching filters" />
-        <StatTile
-          label="Failed"
-          value={counts.failed}
-          sub="errored actions"
-          tone={counts.failed > 0 ? "warn" : undefined}
-        />
-        <StatTile
-          label="Denied"
-          value={counts.denied}
-          sub="authz-blocked"
-          tone={counts.denied > 0 ? "danger" : undefined}
-        />
-      </div>
-
-      {/* Table */}
-      <AuditTableSection
-        items={items}
-        total={total}
-        isLoading={stats.isLoading}
-        isError={stats.isError}
-        isFetching={stats.isFetching}
-        errorMessage={stats.error?.message}
-        onRetry={() => void stats.refetch()}
-        onOpen={setOpenEvent}
-        onLoadMore={() => form.setFieldValue("limit", filter.limit + 50)}
-      />
-
-      <EventDrawer
-        event={openEvent}
-        onClose={() => setOpenEvent(null)}
-        onSelect={setOpenEvent}
-      />
+      <FilterStoreProvider store={store}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10">
+          <DataTable<AuditFeedRow>
+            columns={auditColumns}
+            queryKey={["audit", "feed"]}
+            fetchPage={fetchPage}
+            getRowId={(row) => row.id}
+            rowTitle={(row) => <span className="font-mono">{row.action}</span>}
+            filters={filters}
+            sort={sort}
+            onSortChange={onSortChange}
+            openRowId={search.row ?? null}
+            onOpenRow={onOpenRow}
+            timeKey="at"
+            live
+            histogramTones={AUDIT_OUTCOME_TONES}
+            histogramOrder={AUDIT_OUTCOME_ORDER}
+            histogramKey="outcome"
+            searchPlaceholder="Search actions, actors, targets"
+            emptyTitle="No audit events yet"
+            emptyDescription="Mutations and denials appear here as they happen."
+            rowClassName={(row) => (row.outcome === "denied" ? "bg-destructive/[0.04]" : undefined)}
+            actions={({ rows }) => <ExportButton rows={rows} />}
+            sheetExtra={(row) => <AuditCorrelated row={row} onOpenRow={onOpenRow} />}
+          />
+        </div>
+      </FilterStoreProvider>
     </Page>
+  );
+}
+
+/**
+ * Exports what is LOADED, and says so on the tooltip.
+ *
+ * Exporting the whole filtered set would mean paging the feed to its end behind
+ * a button that looks instant, so the honest offer is the rows in hand.
+ */
+function ExportButton({ rows }: { rows: AuditFeedRow[] }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 gap-1.5"
+      disabled={rows.length === 0}
+      onClick={() =>
+        downloadCsv(
+          `audit-${Temporal.Now.plainDateISO().toString()}.csv`,
+          toCsv(rows, auditColumns),
+        )
+      }
+      title={`Export the ${rows.length} rows loaded so far`}
+    >
+      <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
+      Export
+    </Button>
   );
 }

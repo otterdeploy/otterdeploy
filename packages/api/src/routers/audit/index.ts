@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm";
 
 import { orgScopedProcedure } from "../..";
+import { runAuditFeed } from "./feed";
 
 type AuditRow = typeof auditLog.$inferSelect;
 
@@ -67,6 +68,15 @@ function windowConds(orgId: string, from?: string, to?: string): SQL[] {
 }
 
 export const auditRouter = {
+  /**
+   * The org's audit feed: one cursor page plus the aggregates describing the
+   * whole filtered set. Filters, facets and the histogram all come from one
+   * declaration — see `./feed.ts` and `./table.ts`.
+   */
+  feed: orgScopedProcedure.audit.feed.handler(({ input, context }) =>
+    runAuditFeed(input, context.activeOrganizationId),
+  ),
+
   list: orgScopedProcedure.audit.list.handler(async ({ input, context }) => {
     const orgId = context.activeOrganizationId;
 
