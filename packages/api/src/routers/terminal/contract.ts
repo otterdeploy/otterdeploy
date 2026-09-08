@@ -81,6 +81,9 @@ const stepUpInput = z.object({
     .optional(),
   /** Required otherwise. */
   password: z.string().min(1, "Enter your password.").optional(),
+  /** Required for an account with no password and no authenticator: its
+   *  mailbox is the factor it actually has. See authz/step-up. */
+  emailCode: z.string().min(1).optional(),
 });
 
 const stepUpOutput = z.object({
@@ -116,9 +119,34 @@ const stepUpErrors = {
    * caller is authenticated — the ACCOUNT is in a state that cannot satisfy
    * it, and the fix is a configuration change, not a retry.
    */
+  EMAIL_CODE_REQUIRED: {
+    status: 400,
+    message: "Enter the code we emailed you." as const,
+  },
   STEP_UP_UNAVAILABLE: {
     status: 409,
     message: "Your account has no password or authenticator to confirm with." as const,
+  },
+};
+
+const sendStepUpCodeErrors = {
+  INTERACTIVE_SESSION_REQUIRED: {
+    status: 401,
+    message: "Sign in with a browser session to open a shell." as const,
+  },
+  /** The account has a stronger factor already; emailing a code would offer a
+   *  weaker path to the same gate. */
+  STEP_UP_CODE_NOT_APPLICABLE: {
+    status: 409,
+    message: "This account confirms with its authenticator or password." as const,
+  },
+  STEP_UP_CODE_RATE_LIMITED: {
+    status: 429,
+    message: "Too many codes requested. Wait a few minutes and try again." as const,
+  },
+  STEP_UP_CODE_SEND_FAILED: {
+    status: 502,
+    message: "Could not send the code." as const,
   },
 };
 
@@ -162,6 +190,19 @@ export const terminalContract = {
     .meta({ path: `${basePath}/step-up`, tag, method: "POST" })
     .input(stepUpInput)
     .output(stepUpOutput),
+  /**
+   * Email a one-time code to an account whose only factor is its mailbox.
+   *
+   * Its own procedure rather than a flag on `stepUp`, because it is a
+   * different kind of act: `stepUp` VERIFIES and is idempotent-ish, this one
+   * SENDS mail and is rate-limited. Folding them together would make a
+   * mistyped code re-send an email.
+   */
+  sendStepUpCode: oc
+    .errors(sendStepUpCodeErrors)
+    .meta({ path: `${basePath}/step-up/send-code`, tag, method: "POST" })
+    .input(z.object({}).optional())
+    .output(z.object({ sentTo: z.string() })),
   /** Mint a single-use, target-bound ticket for the /pty WS upgrade. Requires
    *  an interactive session with a live step-up grant. */
   mintTicket: oc

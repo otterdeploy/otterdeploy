@@ -1,5 +1,10 @@
 import { orgScopedProcedure, requirePermission } from "../..";
-import { grantStepUp, hasRecentStepUp, verifyStepUpCredential } from "../../authz/step-up";
+import {
+  grantStepUp,
+  hasRecentStepUp,
+  sendStepUpEmailCode,
+  verifyStepUpCredential,
+} from "../../authz/step-up";
 import { authorizeTerminalTarget, type TerminalTarget } from "./authorize";
 import { listTerminalTargets } from "./handlers";
 import { mintTerminalTicket, ticketBindingIp } from "./tickets";
@@ -30,6 +35,8 @@ export const terminalRouter = {
           throw errors.TWO_FACTOR_CODE_REQUIRED();
         case "password_required":
           throw errors.PASSWORD_REQUIRED();
+        case "email_code_required":
+          throw errors.EMAIL_CODE_REQUIRED();
         case "no_credential":
           // Not a wrong answer — no answer exists. Carries the server's
           // message, which names the two ways out, rather than the generic
@@ -44,6 +51,25 @@ export const terminalRouter = {
     context.log.set({ target: { type: "user", id: context.session.user.id } });
     return { grantedUntil: grantedUntil.toISOString() };
   }),
+
+  sendStepUpCode: orgScopedProcedure.terminal.sendStepUpCode.handler(
+    async ({ context, errors }) => {
+      if (!context.session) throw errors.INTERACTIVE_SESSION_REQUIRED();
+      const sent = await sendStepUpEmailCode(context.session.user);
+      if (sent.isErr()) {
+        switch (sent.error.reason) {
+          case "not_applicable":
+            throw errors.STEP_UP_CODE_NOT_APPLICABLE();
+          case "rate_limited":
+            throw errors.STEP_UP_CODE_RATE_LIMITED();
+          default:
+            throw errors.STEP_UP_CODE_SEND_FAILED({ message: sent.error.message });
+        }
+      }
+      context.log.set({ target: { type: "user", id: context.session.user.id } });
+      return sent.value;
+    },
+  ),
 
   mintTicket: orgScopedProcedure.terminal.mintTicket.handler(async ({ input, context, errors }) => {
     // Tickets authenticate an interactive shell for a real human, never an
