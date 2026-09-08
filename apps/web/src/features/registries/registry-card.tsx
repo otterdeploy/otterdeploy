@@ -64,6 +64,7 @@ import {
 import { orpc } from "@/shared/server/orpc";
 
 import { registryCollection } from "./data/registries";
+import { RedundantNote } from "./redundant-note";
 import { RegistryCardShell } from "./registry-card-shell";
 import { REGISTRY_KIND_META, kindForHost } from "./registry-kinds";
 import { formatRelative, type RegistryRow } from "./shared";
@@ -147,14 +148,7 @@ export function RegistryCard({ registry, onEdit, redundant = false }: RegistryCa
             ) : (
               <span className="text-amber-600 dark:text-amber-500">{t("registries.unused")}</span>
             )}
-            {redundant && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="text-amber-600 dark:text-amber-500">
-                  already covered by GitHub — safe to delete
-                </span>
-              </>
-            )}
+            {redundant && <RedundantNote />}
             <span aria-hidden>·</span>
             <span>
               {t("registries.detail.added")} {formatRelative(registry.createdAt)}

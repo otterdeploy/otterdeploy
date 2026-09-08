@@ -29,9 +29,21 @@ import { listServiceEnvVars } from "./queries";
 /** Same glyph run the preview panel masks with, so one idea has one look. */
 const SECRET_MASK = "••••••••";
 
-/** Any `${{…}}` reference. What it resolves to is not this endpoint's to
- *  disclose: see the masking note below. */
-const REFERENCE_PATTERN = /\$\{\{[^}]+\}\}/;
+/**
+ * A reference whose TARGET carries a credential.
+ *
+ * Not "any reference": `${{db.HOST}}` resolves to a hostname, and showing it
+ * is the entire point of the surface — "is this pointing at the right
+ * database" is a question a mask cannot answer. What must never resolve into
+ * a browser is the subset that dereferences a secret:
+ *
+ *   `${{vault.<env>.<KEY>}}`     a vault entry, secret by definition
+ *   `${{<resource>.DATABASE_URL}}` and friends — a connection string embeds
+ *                                the password, so it is credential material
+ *                                even though the key does not say "secret"
+ */
+const SECRET_REFERENCE_PATTERN =
+  /\$\{\{\s*(?:vault\.|[^}]*\.(?:DATABASE_URL|CONNECTION_STRING|[A-Z0-9_]*(?:SECRET|PASSWORD|TOKEN|CREDENTIAL)[A-Z0-9_]*)\s*\}\})/i;
 
 export interface EffectiveEnvRow {
   key: string;
@@ -79,8 +91,13 @@ export async function listEffectiveEnv(input: {
         // The declared text is shown either way, so the surface still answers
         // "is it set" and "did it resolve" — which, per the module note, is
         // all it is for. Only the RESOLVED value is withheld.
-        const resolvesThroughReference = REFERENCE_PATTERN.test(row.value);
-        const hidden = row.isSecret || row.sealed || resolvesThroughReference;
+        const resolvedValue0 = resolvedByKey[row.key];
+        // An UNRESOLVED row is never masked: it renders the declared text and
+        // is flagged, which is precisely what the reader opened this to see.
+        // There is also nothing to leak — no dereference happened.
+        const dereferencedASecret =
+          resolvedValue0 !== undefined && SECRET_REFERENCE_PATTERN.test(row.value);
+        const hidden = row.isSecret || row.sealed || dereferencedASecret;
         const resolvedValue = resolvedByKey[row.key];
         // On resolver failure fall back to what was declared, so the tab never
         // blanks out over one bad reference elsewhere in the bag.
