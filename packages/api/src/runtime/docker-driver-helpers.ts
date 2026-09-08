@@ -12,6 +12,7 @@ import type { RequestLogger } from "evlog";
 import { Docker } from "@otterdeploy/docker";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import type { RegistryAuth } from "../swarm";
 import type { ContainerSpec, RuntimeStatus } from "./types";
 
 import { PLATFORM } from "../constants";
@@ -102,6 +103,10 @@ export async function pullImage(
   docker: Docker,
   image: string,
   onLine?: (line: string) => void,
+  /** Resolved by the spec builder; null/omitted pulls anonymously. Without it
+   *  a private image fails with "unauthorized" no matter what the operator
+   *  configured on the Registries page (od-8562). */
+  auth?: RegistryAuth | null,
 ): Promise<void> {
   // Locally-built artifacts: the daemon already holds the only copy that will
   // ever exist, so the mutable-tag refresh rationale doesn't apply and the
@@ -110,7 +115,9 @@ export async function pullImage(
   if (image.startsWith(LOCAL_IMAGE_NAMESPACE)) return;
   const summarize = createPullLineSummarizer();
   try {
-    for await (const event of streamImagePull(docker, image, null, { skipIfPresent: false })) {
+    for await (const event of streamImagePull(docker, image, auth ?? null, {
+      skipIfPresent: false,
+    })) {
       const line = summarize.push(event);
       if (line) onLine?.(line);
     }

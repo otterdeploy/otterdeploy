@@ -2,6 +2,7 @@ import { Docker } from "@otterdeploy/docker";
 import { createError, type RequestLogger } from "evlog";
 
 import type { SpecMount } from "./file-mounts";
+import type { RegistryAuth } from "./image-pull";
 
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
@@ -93,6 +94,27 @@ export interface SwarmServiceSpec {
    * before its first deploy); the label is then omitted.
    */
   deploymentId?: string | null;
+
+  /**
+   * Credentials for pulling `image`, already resolved (see
+   * `resolveRegistryAuth`). Null/absent means an anonymous pull.
+   *
+   * Resolved into the spec rather than looked up by the driver so there is ONE
+   * place that decides which credential a deploy uses, and so the drivers stay
+   * free of database access. Before this the resolver had exactly one caller,
+   * the Postgres create stream, which meant every SERVICE deploy pulled
+   * anonymously and a private image simply failed with "unauthorized" no
+   * matter what the operator had configured on the Registries page (od-8562).
+   *
+   * CONSUMED BY THE DOCKER DRIVER ONLY, today. Swarm needs the credential
+   * passed as `X-Registry-Auth` on service create (what `docker service create
+   * --with-registry-auth` sends), which this SDK does not currently expose, so
+   * a private image on DEPLOY_RUNTIME=swarm is still unauthenticated. Tracked
+   * on od-8562; the field is populated for both so the swarm half is a one-line
+   * change at the call site when the SDK gains it, and so nothing has to
+   * re-derive the credential there.
+   */
+  registryAuth?: RegistryAuth | null;
 
   /**
    * Swarm node id this service is pinned to, already resolved from the
