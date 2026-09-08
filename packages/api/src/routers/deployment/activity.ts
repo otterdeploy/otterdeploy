@@ -22,7 +22,13 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
+import {
+  deployment,
+  project,
+  resource,
+  serviceResource,
+  environment,
+} from "@otterdeploy/db/schema/project";
 import { getDeployQueue, listDeployLanes } from "@otterdeploy/jobs";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
@@ -55,6 +61,9 @@ export interface DeployActivityItem {
   projectId: ProjectId;
   projectSlug: ProjectSlug;
   projectName: string;
+  /** Environment slug, or null for the project's main environment. The header
+   *  spans every environment, so a row's link must switch environment too. */
+  environmentSlug: string | null;
   /** `pending` = waiting for the builder to pick it up; `building` = in progress. */
   status: "pending" | "building";
   reason: string;
@@ -133,6 +142,9 @@ export async function getDeployActivity(input: {
       projectId: project.id,
       projectSlug: project.slug,
       projectName: project.name,
+      // Left join: a resource predating environments has no stamp and belongs
+      // to main, which the UI represents by omitting `?env=`.
+      environmentSlug: environment.slug,
       status: deployment.status,
       reason: deployment.reason,
       gitRef: deployment.gitRef,
@@ -141,6 +153,7 @@ export async function getDeployActivity(input: {
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
+    .leftJoin(environment, eq(environment.id, resource.environmentId))
     // Left join: only service resources have a service_resource row. Databases
     // and compose stacks null out, which the stack-child filter below keeps.
     .leftJoin(serviceResource, eq(serviceResource.resourceId, deployment.resourceId))
@@ -180,6 +193,7 @@ export async function getDeployActivity(input: {
     projectId: row.projectId,
     projectSlug: projectSlugSchema.parse(row.projectSlug),
     projectName: row.projectName,
+    environmentSlug: row.environmentSlug,
     // Narrowed by the inArray(IN_FLIGHT) filter above; the ternary keeps the
     // narrowing honest without asserting over drizzle's wider status enum.
     status: row.status === "building" ? "building" : "pending",
