@@ -103,6 +103,25 @@ async function performStepUp(client: CliClient): Promise<void> {
       await client.terminal.stepUp({ password });
       return;
     }
+    if (err.code === "EMAIL_CODE_REQUIRED") {
+      // The account has no password and no authenticator, but it does control
+      // the mailbox it was invited to. Send a code there and prompt for it,
+      // rather than sending the operator off to add a credential first
+      // (od-rvca told them to; this removes the errand).
+      const sent = await Result.tryPromise({
+        try: () => client.terminal.sendStepUpCode({}),
+        catch: (cause) => cause,
+      });
+      if (sent.isErr()) {
+        const detail = sent.error instanceof ORPCError ? sent.error.message : null;
+        abort(detail ?? "Could not send a confirmation code.");
+      }
+      note(`Confirmation code sent to ${sent.value.sentTo}.`);
+      const emailCode = await secret("Emailed code");
+      if (emailCode === null) abort("Step-up cancelled. No shell was opened.");
+      await client.terminal.stepUp({ emailCode: emailCode.trim() });
+      return;
+    }
     if (err.code === "STEP_UP_UNAVAILABLE") {
       // There is no credential to prompt for. Prompting anyway is what this
       // used to do — an invited, passkey-only or social account was shown
