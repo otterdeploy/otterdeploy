@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import { ProjectDangerZone } from "@/features/projects/components/settings/danger-zone";
 import { DomainSection } from "@/features/projects/components/settings/domain-section";
+import { EnvironmentsSection } from "@/features/projects/components/settings/environments-section";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -86,6 +87,8 @@ function SettingsForm({ project }: { project: ProjectSettingsFields }) {
           {updateMut.isPending ? "Saving…" : "Save changes"}
         </Button>
       </div>
+
+      <EnvironmentsSection projectId={project.id} />
 
       <ProjectDangerZone project={project} orgSlug={orgSlug} />
     </div>
