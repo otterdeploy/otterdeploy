@@ -31,6 +31,7 @@ import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import { diffManifest, manifestSchema } from "../../stack/manifest";
+import { loadAppliedSnapshot } from "./manifest";
 import { snapshotAfterApply } from "./manifest-applied-snapshot";
 import {
   runComposeCreates,
@@ -126,8 +127,15 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // the plan (its env changes read as creates) and resolve in the write-path
   // refTable loaded after phase 1.
   const planRefTable = await loadRefTable(projectId);
+  // Same applied snapshot the diff endpoint uses, so what the operator
+  // previewed is what executes: without it apply would compute deletes the
+  // preview never showed.
+  const appliedSnapshot = await loadAppliedSnapshot({ projectId, organizationId });
   const byKind = groupChanges(
-    diffManifest(manifest, current, { resolveEnvValue: makeEnvRefResolver(planRefTable) }),
+    diffManifest(manifest, current, {
+      resolveEnvValue: makeEnvRefResolver(planRefTable),
+      applied: appliedSnapshot,
+    }),
   );
 
   let appliedCount = 0;

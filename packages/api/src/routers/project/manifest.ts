@@ -46,6 +46,29 @@ export async function loadManifest(
   });
 }
 
+/**
+ * The last successfully-applied snapshot, or null when this project has never
+ * applied one.
+ *
+ * The diff needs it to tell a DELETE from an unmanaged resource: absent from
+ * the manifest AND absent from here means the manifest never owned it, so its
+ * disappearance is not something to stage a destructive change from. See
+ * `wasDeclaredBefore` in stack/manifest/diff.ts.
+ *
+ * Safe-parsed, not asserted: a snapshot written by an older schema must read
+ * as "no snapshot" (nothing is deletable) rather than throw on the read path
+ * of every diff.
+ */
+export async function loadAppliedSnapshot(scope: ProjectScope): Promise<Manifest | null> {
+  const [row] = await db
+    .select({ lastApplied: project.lastAppliedManifest })
+    .from(project)
+    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
+    .limit(1);
+  const parsed = manifestSchema.safeParse(row?.lastApplied);
+  return parsed.success ? parsed.data : null;
+}
+
 /** Optimistic-locked write. Bump only when expectedVersion matches. */
 export async function saveManifest(
   scope: ProjectScope,
