@@ -9,11 +9,13 @@
  * rebuilt from Coolify's DB at apply time and the client's `projects` list
  * merely selects from it.
  */
+import { idSchema } from "@otterdeploy/shared/id";
 import { createError } from "evlog";
 
 import { requireInstallAdmin } from "../..";
 import { applyCoolifyPlan } from "./apply";
 import { detectPlatforms, planCoolifyImport, type CoolifyPlan } from "./coolify";
+import { detectPlatformsOnServer } from "./detect-server";
 
 /** Strip env VALUES for the wire (the plan preview shows keys only). */
 function toWirePlan(plan: CoolifyPlan) {
@@ -35,6 +37,16 @@ export const migrateRouter = {
   detect: requireInstallAdmin().migrate.detect.handler(async () => {
     return detectPlatforms();
   }),
+
+  detectOnServer: requireInstallAdmin().migrate.detectOnServer.handler(
+    async ({ input, context }) => {
+      context.log.set({ target: { type: "server", id: input.serverId }, action: "migrate.detect" });
+      return detectPlatformsOnServer({
+        serverId: idSchema.server.parse(input.serverId),
+        organizationId: context.activeOrganizationId,
+      });
+    },
+  ),
 
   coolifyPlan: requireInstallAdmin().migrate.coolifyPlan.handler(async ({ context }) => {
     context.log.set({ target: { type: "platform" }, action: "migrate.coolify-plan" });
