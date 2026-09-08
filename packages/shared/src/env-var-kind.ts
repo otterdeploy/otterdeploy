@@ -139,7 +139,36 @@ export function isVendorIssuedKey(key: string): boolean {
  * without the precedence rule in {@link classifyEnvVar}. A URL is not a
  * secret, and hiding one behind a reveal toggle is actively unhelpful.
  */
-const URL_RE = /(^|_)(URL|URI|ORIGIN|FQDN|DOMAIN|HOSTNAME|ENDPOINT|SITE|BASE)($|_)/i;
+const URL_RE = /(^|_)(URL|URI|ORIGIN|FQDN|DOMAIN|HOSTNAME|ENDPOINT|SITE)($|_)/i;
+
+/**
+ * `BASE` is the one address word that is genuinely ambiguous, so it is scored
+ * separately from the rest.
+ *
+ * It earns its place: `API_BASE` and `PUBLIC_BASE` want the address, and
+ * nothing else in URL_RE catches them (`BASE_URL` and `BASE_DOMAIN` already
+ * match on their other segment). But it also matches the tail of Rails'
+ * `SECRET_KEY_BASE`, and since URL wins over secret, that key classified as an
+ * ADDRESS: rendered unmasked in the variables editor and seeded with
+ * `https://<host>`. A session-signing key, in the clear, holding a guessable
+ * value (od-9slm).
+ *
+ * The URL-beats-secret precedence itself is not the problem and is left alone —
+ * it exists so `NEXTAUTH_URL` and `AUTH_DOMAIN` are treated as addresses rather
+ * than masked, and every word in URL_RE above is unambiguous enough to keep
+ * winning. Only `BASE` yields, and only to SECRET or PASSWORD, which are the
+ * two words that never appear in a key naming an address. Deliberately not
+ * TOKEN or KEY: `TOKEN_ENDPOINT` is a URL, and yielding on those would trade
+ * this bug for its mirror image.
+ */
+const WEAK_ADDRESS_RE = /(^|_)BASE($|_)/i;
+const UNAMBIGUOUS_SECRET_RE = /(^|_)(SECRET|PASSWORD|PASSWD)($|_)/i;
+
+/** Address-shaped, counting the ambiguous `BASE` only when nothing contradicts it. */
+function looksLikeAddress(key: string): boolean {
+  if (URL_RE.test(key)) return true;
+  return WEAK_ADDRESS_RE.test(key) && !UNAMBIGUOUS_SECRET_RE.test(key);
+}
 
 /** Keys that name a host without a scheme: `SERVER_HOST`, `PUBLIC_HOST`. */
 const HOST_RE = /(^|_)HOST($|_)/i;
@@ -158,7 +187,7 @@ export type EnvVarKind = "secret" | "url" | "host" | "plain";
  * addresses rather than credentials.
  */
 export function classifyEnvVar(key: string): EnvVarKind {
-  if (URL_RE.test(key)) return "url";
+  if (looksLikeAddress(key)) return "url";
   if (HOST_RE.test(key)) return "host";
   if (SECRET_RE.test(key) || AUTH_RE.test(key)) return "secret";
   if (KEY_RE.test(key) && !NOT_A_GENERATED_KEY_RE.test(key)) return "secret";
