@@ -12,6 +12,7 @@ import {
 } from "@/features/registries/ghcr-derived-card";
 import { registryCollection } from "@/features/registries/data/registries";
 import { RegistryCard } from "@/features/registries/registry-card";
+import { kindForHost } from "@/features/registries/registry-kinds";
 import { RegistryDialog } from "@/features/registries/registry-dialog";
 import { type RegistryRow } from "@/features/registries/shared";
 import { EmptyCollection, IllustrationPlate } from "@/shared/components/illustrations";
@@ -112,7 +113,15 @@ function RegistriesRoute() {
               to add anything?" before the list of things someone added. */}
           {showGhcr && ghcr.data ? <GhcrDerivedCard capability={ghcr.data} /> : null}
           {registries.map((r) => (
-            <RegistryCard key={r.id} registry={r} onEdit={openEdit} />
+            <RegistryCard
+              key={r.id}
+              registry={r}
+              onEdit={openEdit}
+              // The derived card above already grants this host, per request,
+              // with nothing to rotate. A stored ghcr.io credential alongside
+              // it is strictly worse and never reached.
+              redundant={showGhcr && kindForHost(r.host) === "ghcr"}
+            />
           ))}
         </div>
       )}

@@ -38,11 +38,20 @@ export interface RegistryKindMeta {
   usernamePlaceholder: string;
   usernameHint?: string;
   passwordHint: string;
+  /** What the credential actually IS, for the card badge.
+   *
+   *  The stored `authType` is "password" for every row — the add dialog
+   *  hardcodes it — so the badge told a GHCR entry holding a PAT that it held
+   *  a password. Every hint below already says "use a token, not your
+   *  password"; the badge now agrees with them. Derived from the host at
+   *  render time, so existing rows read correctly with no migration. */
+  credentialLabel: string;
 }
 
 export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   dockerhub: {
     kind: "dockerhub",
+    credentialLabel: "TOKEN",
     label: "Docker Hub",
     fullLabel: "Docker Hub",
     brand: "Docker",
@@ -54,6 +63,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   ghcr: {
     kind: "ghcr",
+    credentialLabel: "PAT",
     label: "GHCR",
     fullLabel: "GitHub Container Registry",
     brand: "GitHub",
@@ -65,6 +75,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   gitlab: {
     kind: "gitlab",
+    credentialLabel: "TOKEN",
     label: "GitLab",
     fullLabel: "GitLab Container Registry",
     brand: "GitLab",
@@ -76,6 +87,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   ecr: {
     kind: "ecr",
+    credentialLabel: "TOKEN",
     label: "AWS ECR",
     fullLabel: "Amazon Elastic Container Registry",
     brand: "AWS",
@@ -88,6 +100,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   gar: {
     kind: "gar",
+    credentialLabel: "KEY",
     label: "GAR",
     fullLabel: "Google Artifact Registry",
     brand: "Google Cloud",
@@ -100,6 +113,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   acr: {
     kind: "acr",
+    credentialLabel: "TOKEN",
     label: "ACR",
     fullLabel: "Azure Container Registry",
     brand: "Azure",
@@ -111,6 +125,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   harbor: {
     kind: "harbor",
+    credentialLabel: "SECRET",
     label: "Harbor",
     fullLabel: "Harbor (self-hosted)",
     brand: "Harbor",
@@ -121,6 +136,7 @@ export const REGISTRY_KIND_META: Record<RegistryKind, RegistryKindMeta> = {
   },
   generic: {
     kind: "generic",
+    credentialLabel: "PASSWORD",
     label: "Generic",
     fullLabel: "Generic Docker v2 registry",
     brand: "Registry",
