@@ -515,8 +515,10 @@ real aggregate envelope, a drawer, and it is already documented as an awkward fi
 architecture — so it exercises every layer and its pain is already understood.
 
 ### Explicitly out of scope for now
-AI filter inference, the MCP server, the shadcn-registry packaging, the schema *builder* UI, and
-the v9 migration. Each is a separate decision; none blocks G1–G7.
+AI filter inference, the MCP server, the shadcn-registry packaging, and the schema *builder* UI.
+Each is a separate decision; none blocks G1–G7.
+
+*(The v9 migration was listed here too, and was then folded in — see §6.)*
 
 ---
 
@@ -524,7 +526,7 @@ the v9 migration. Each is a separate decision; none blocks G1–G7.
 
 | # | Decision | Reason it is that way |
 |---|---|---|
-| 1 | Six canonical ops, closed union, no default branch | a 7th op must fail to compile in every engine, not silently match nothing |
+| 1 | Seven canonical ops, closed union, no default branch | an eighth op must fail to compile in every engine, not silently match nothing |
 | 2 | Dispatch on declared `(type, kind)`, never value shape | length-2 arrays and stringified numbers are ambiguous; declaration is not |
 | 3 | `input` on a number column = `equals` | substring on a stringified number makes `5` match `1500` |
 | 4 | checkbox on an array column = `overlaps` | the column is a set on both sides |
@@ -555,7 +557,7 @@ the v9 migration. Each is a separate decision; none blocks G1–G7.
 | 29 | Null only previously-sent keys on sync | never clobber externally-set filters |
 | 30 | Split on the first colon | values contain colons (URLs, timestamps) |
 | 31 | localStorage read after mount, dirty-key guarded | server HTML has no localStorage; early writes must survive |
-| 32 | `manualPagination: true` mandatory (v9) | a registered paginated row model silently truncates to 10 |
+| 32 | The pagination feature is left OUT of the feature set (v9) | a registered paginated row model truncates `getRowModel()` to `pageSize` unless `manualPagination` is set; not registering it is the version that cannot be got wrong |
 | 33 | Action availability declared as filter values | one declaration becomes both the per-row stamp and the SQL guard |
 | 34 | Descriptors published through an explicit pick-list | prevents leaking handlers/guards over the wire |
 
@@ -563,10 +565,33 @@ the v9 migration. Each is a separate decision; none blocks G1–G7.
 
 ## 6. Status
 
-This document is research and planning only — **no implementation has started**. Nothing in
-`apps/` or `packages/` is changed by this commit. The recommended next action is G1
-(`@otterdeploy/table-filters` + conformance suite), which is self-contained, needs no UI, and
-unblocks every other goal.
+**G1–G7 are implemented, on TanStack Table v9, with the audit log as the first surface.**
 
-`bd` (beads) is not installed in this environment, so the goals above are not yet filed as
-issues; G1–G7 map 1:1 onto issues when it is available.
+| Goal | Where it landed |
+|---|---|
+| G1 semantics | `packages/shared/src/table-filters/` — closed 7-op union, declared `(type, kind)` dispatch, `coerce`, `filterFn`; 39 tests |
+| G1 compiler | `packages/api/src/lib/table/sql.ts` — same specs → Drizzle `WHERE`; paired tests assert the two engines agree |
+| G2 contract | `packages/api/src/lib/table/feed.ts` + `feed/types.ts` — one `FeedInput`/`FeedPage` shape, three-pass filtering, facets and histogram over the same predicates |
+| G2 paging | `pagination.ts` — cursor + unique tiebreak, `size+1` overfetch, boundary snapping off a tied group |
+| G3 URL state | `state/search-schema.ts`, `state/use-search-store.ts` — typed per-table search schema (no catchall), optimistic write then router push |
+| G4 shell | `data-table.tsx` and `parts/` — virtualized rows, sticky header, CSS-variable widths, remembered columns/widths/density, honest loading, empty and error states |
+| G5 sidebar | `parts/filter-panel.tsx`, `filter-controls.tsx`, `filter-chips.tsx`, `filter-region.tsx` — facet counts, "only", chips, and a sheet below the mobile breakpoint |
+| G6 grammar | `state/grammar.ts` + `parts/filter-command.tsx` — ⌘⇧F query bar over the same `coerce`; 16 tests |
+| G7 sheet | `parts/row-sheet.tsx` — linkable, ↑/↓ walkable, focus restored; audit's drawer is now this component |
+
+Beyond the original goals, because the reference makes the case for them: the
+histogram is a TanStack Charts bar chart with a parked brush, ranked tooltips and a
+legend that filters (`parts/histogram*.tsx`); live tailing prepends through
+`fetchPreviousPage` and dims what was already on screen; rows are walkable with
+↑/↓ and j/k under a roving tabindex.
+
+**Not done, and deliberately.** Row selection and a bulk-action bar are built into the
+feature set but not surfaced — an audit log has no bulk action, and a floating bar over
+a table where every button is disabled is worse than no bar. Row actions (G7's second
+half) wait for the same reason. Edge logs and deployments are still on their own
+bespoke tables; each is a migration with its own server work, and the edge-log surface
+in particular carries an in-memory ring, threat scoring and IP bans that are not the
+table's to re-decide.
+
+`bd` (beads) is not installed in this environment, so the follow-ups above are not filed
+as issues; they map 1:1 onto issues when it is.
