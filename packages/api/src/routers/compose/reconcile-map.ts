@@ -20,6 +20,7 @@ import {
   durationMs,
   type ParsedComposeService,
 } from "../../stack/compose";
+import { projectNetworkName } from "../../swarm/network-name";
 import { type CreateServiceInput } from "../service/queries";
 import { sanitizeSlug } from "../service/views";
 import { interpolate, substituteComposeEnv } from "./env";
@@ -223,7 +224,7 @@ export function toServiceFields(
     serviceName: composeSwarmServiceName(ctx.stackName, svc.name),
     // Bare compose name = the overlay DNS alias intra-stack peers connect to.
     internalHostname: sanitize(svc.name),
-    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    networkName: projectNetworkName(projectSlug),
     fields: {
       image,
       command: svc.command?.map((c) => interpolate(c, ctx.projectVars)) ?? null,

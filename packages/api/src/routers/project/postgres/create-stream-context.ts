@@ -19,8 +19,9 @@ import { PLATFORM } from "../../../constants";
 import { loadDomainSourcesForProject } from "../../../lib/domain-sources";
 import { resolvePublicDomain } from "../../../lib/domains";
 import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
-import { scopeSuffix } from "../../../lib/environment/scoping";
+import { networkScopeSuffix, scopeSuffix } from "../../../lib/environment/scoping";
 import { getEngineAdapter, type DatabaseEngineAdapter } from "../../../swarm";
+import { projectNetworkName } from "../../../swarm/network-name";
 import { createDatabaseResourceRecord } from "../queries";
 import {
   sanitizeDatabaseName,
@@ -90,6 +91,10 @@ export interface CreateContext {
   publicHostname: string;
   containerName: string;
   volumeName: string;
+  /** Environment-only network suffix. Selects the overlay this database
+   *  attaches to, so an environment's databases are unreachable from outside
+   *  it — not merely differently named. */
+  networkSuffix: string;
   publicConnectionString: string;
   dbImage: string;
 }
@@ -149,12 +154,16 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   // BASE for main and for unstamped rows, so nothing already deployed is
   // renamed; only a non-main environment takes a suffix. See
   // lib/environment/runtime-scope.
-  const suffix = scopeSuffix(
-    await resolveRuntimeScope({
-      projectId: input.project.id,
-      environmentId: input.environmentId ?? null,
-    }),
-  );
+  const runtimeScope = await resolveRuntimeScope({
+    projectId: input.project.id,
+    environmentId: input.environmentId ?? null,
+  });
+  const suffix = scopeSuffix(runtimeScope);
+  // The NETWORK suffix is environment-only: a preview shares its base
+  // environment's overlay on purpose, while an environment gets its own so
+  // nothing outside it can resolve this database at all. See
+  // lib/environment/scoping's networkScopeSuffix.
+  const networkSuffix = networkScopeSuffix(runtimeScope);
   const { databaseName, username, internalHostname, internalPort, internalConnectionString } =
     deriveInternalDbCredentials({
       scopeSuffix: suffix,
@@ -226,6 +235,7 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
     publicHostname: resolved.fqdn,
     containerName,
     volumeName,
+    networkSuffix,
     publicConnectionString,
     dbImage,
   };
@@ -288,7 +298,7 @@ export function buildCreatedResourceView(
       // the row is persisted (see ensureSwarmRuntimeForRecord).
       serviceName: ctx.host ? hostContainerName(ctx.host) : ctx.containerName,
       volumeName: ctx.host ? hostVolumeName(ctx.host) : ctx.volumeName,
-      networkName: `otterdeploy-${ctx.projectSlug}`,
+      networkName: projectNetworkName(ctx.projectSlug, ctx.networkSuffix),
       status: "starting",
       health: "starting",
     },

@@ -29,6 +29,7 @@ import type * as z from "zod";
 import type { createServiceInput, updateServiceInput } from "./contract-inputs";
 
 import { PLATFORM } from "../../constants";
+import { projectNetworkName } from "../../swarm/network-name";
 import { sanitizeSlug } from "./views";
 
 type OrgId = OrganizationId;
@@ -314,7 +315,7 @@ export function deriveServiceNames(
   return {
     projectSlug,
     serviceName: `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(0, 63),
-    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    networkName: projectNetworkName(projectSlug),
     internalHostname: resourceSlug,
   };
 }

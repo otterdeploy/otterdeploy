@@ -36,6 +36,7 @@ import { randomBytes } from "node:crypto";
 
 import { PLATFORM } from "../../../constants";
 import { getEngineAdapter } from "../../../swarm/database-engines";
+import { projectNetworkName } from "../../../swarm/network-name";
 import { createServiceRecord, getServiceRecord } from "../../service/queries";
 import { sanitizeSlug } from "../../service/views";
 import { deriveInternalDbCredentials } from "../postgres/credentials";
@@ -151,7 +152,7 @@ async function cloneService(
     buildConfig: svc.buildConfig,
     internalHostname: resourceSlug,
     serviceName,
-    networkName: `${PLATFORM.swarm.networkPrefix}${projectSlug}`,
+    networkName: projectNetworkName(projectSlug),
     ports: record.ports.map((p) => ({
       containerPort: p.containerPort,
       protocol: p.protocol,

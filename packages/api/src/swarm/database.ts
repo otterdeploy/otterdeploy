@@ -13,10 +13,10 @@ import { Docker } from "@otterdeploy/docker";
 import { type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import { log, type RequestLogger } from "evlog";
 
-import { PLATFORM } from "../constants";
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 import { buildDatabaseSpec, inspectSwarmService, waitForServiceReady } from "./database-internals";
+import { projectNetworkName } from "./network-name";
 
 export interface SwarmDatabaseRuntime {
   serviceId: string | null;
@@ -46,6 +46,12 @@ export interface ProvisionSwarmDatabaseInput {
   serviceName: string;
   volumeName: string;
   hostnameAlias: string;
+  /** `scopeSuffix(scope)` for the environment this database belongs to: ""
+   *  for base/main, `-<env>`. Selects the overlay network, which is what
+   *  actually stops a service in another environment resolving this database
+   *  by hostname. Optional and defaulting to base, so existing databases stay
+   *  on the network they are already attached to. */
+  networkScopeSuffix?: string;
   databaseName: string;
   username: string;
   password: string;
@@ -93,7 +99,11 @@ export async function provisionSwarmDatabase(
     });
 
   swarmStep({ step: "ensure-network", status: "start", project: input.projectSlug });
-  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
+  const networkName = await ensureProjectNetwork(
+    input.projectSlug,
+    input.networkScopeSuffix ?? "",
+    rlog,
+  );
   swarmStep({ step: "ensure-network", status: "ok", network: networkName });
 
   swarmStep({ step: "inspect-existing", status: "start" });
@@ -145,7 +155,11 @@ export async function updateSwarmDatabase(
     });
 
   swarmStep({ step: "ensure-network", status: "start" });
-  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
+  const networkName = await ensureProjectNetwork(
+    input.projectSlug,
+    input.networkScopeSuffix ?? "",
+    rlog,
+  );
   swarmStep({ step: "ensure-network", status: "ok", network: networkName });
 
   const existing = await inspectSwarmService(docker, input.serviceName, networkName);
@@ -237,9 +251,12 @@ export async function inspectSwarmDatabaseRuntime(input: {
   serviceName: string;
   volumeName: string;
   projectSlug: string;
+  /** Environment's overlay. Optional: a probe that omits it inspects the base
+   *  network, which is where every pre-environment database still lives. */
+  networkScopeSuffix?: string;
 }): Promise<SwarmDatabaseRuntime> {
   const docker = Docker.fromEnv();
-  const networkName = `${PLATFORM.swarm.networkPrefix}${input.projectSlug}`;
+  const networkName = projectNetworkName(input.projectSlug, input.networkScopeSuffix ?? "");
 
   const runtime = await inspectSwarmService(docker, input.serviceName, networkName);
   docker.destroy();

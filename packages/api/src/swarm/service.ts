@@ -54,6 +54,12 @@ export interface SwarmServiceSpec {
   projectSlug: string;
   serviceName: string;
   internalHostname: string;
+  /** `scopeSuffix(scope)` for the environment (or preview) this runs in: ""
+   *  for base/main, `-<env>`, `-pr-<n>`. Selects the overlay network, so a
+   *  service can only resolve hostnames belonging to its own environment.
+   *  Optional and defaulting to base, so a caller that has no scope keeps the
+   *  network it already uses. */
+  networkScopeSuffix?: string;
 
   image: string;
   command?: string[] | null; // CMD
@@ -135,7 +141,11 @@ export async function provisionSwarmService(
 ): Promise<SwarmServiceRuntime> {
   const docker = Docker.fromEnv();
 
-  const networkName = await ensureProjectNetwork(spec.projectSlug, rlog);
+  const networkName = await ensureProjectNetwork(
+    spec.projectSlug,
+    spec.networkScopeSuffix ?? "",
+    rlog,
+  );
 
   const existing = await inspectSwarmService(docker, spec.serviceName, networkName);
   if (existing) {
@@ -170,7 +180,11 @@ export async function updateSwarmService(
 ): Promise<SwarmServiceRuntime> {
   const docker = Docker.fromEnv();
 
-  const networkName = await ensureProjectNetwork(spec.projectSlug, rlog);
+  const networkName = await ensureProjectNetwork(
+    spec.projectSlug,
+    spec.networkScopeSuffix ?? "",
+    rlog,
+  );
   const existing = await inspectSwarmService(docker, spec.serviceName, networkName);
   if (!existing) {
     // Not yet provisioned: fall through to provision path.
@@ -236,11 +250,15 @@ export async function restartSwarmService(
 // ---------------------------------------------------------------------------
 
 export async function inspectSwarmServiceRuntime(
-  input: { serviceName: string; projectSlug: string },
+  input: { serviceName: string; projectSlug: string; networkScopeSuffix?: string },
   rlog?: RequestLogger,
 ): Promise<SwarmServiceRuntime> {
   const docker = Docker.fromEnv();
-  const networkName = await ensureProjectNetwork(input.projectSlug, rlog);
+  const networkName = await ensureProjectNetwork(
+    input.projectSlug,
+    input.networkScopeSuffix ?? "",
+    rlog,
+  );
   const runtime = await inspectSwarmService(docker, input.serviceName, networkName);
   docker.destroy();
 

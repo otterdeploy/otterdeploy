@@ -8,6 +8,8 @@ import type { ResourceId } from "@otterdeploy/shared/id";
 import { reconcile } from "../../caddy";
 import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { networkScopeSuffix } from "../../lib/environment/scoping";
 import { inspectSwarmDatabaseRuntime, provisionSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor, type SwarmDatabaseRuntime } from "../../swarm";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";
@@ -230,6 +232,9 @@ export async function ensureSwarmRuntimeForRecord(
         serviceName,
         volumeName,
         hostnameAlias: record.database.internalHostname,
+        // Same overlay its dependants attach to: a non-main environment gets
+        // its own, so nothing outside that environment can resolve this host.
+        networkScopeSuffix: networkScopeSuffix(await resolveRuntimeScope(record.resource)),
         databaseName: record.database.databaseName,
         username: record.database.username,
         password: record.database.password,

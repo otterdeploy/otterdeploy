@@ -22,6 +22,8 @@
  */
 import type { RequestLogger } from "evlog";
 
+import { resolveRuntimeScope } from "../../../lib/environment/runtime-scope";
+import { networkScopeSuffix } from "../../../lib/environment/scoping";
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
@@ -105,6 +107,7 @@ export async function rollDatabaseContainer(
           stored: db.volumeName,
         }),
         hostnameAlias: db.internalHostname,
+        networkScopeSuffix: networkScopeSuffix(await resolveRuntimeScope(record.resource)),
         databaseName: db.databaseName,
         username: db.username,
         password: db.password,

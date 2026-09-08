@@ -211,6 +211,7 @@ export async function* provisionStage(
         serviceName: ctx.containerName,
         volumeName: ctx.volumeName,
         hostnameAlias: ctx.internalHostname,
+        networkScopeSuffix: ctx.networkSuffix,
         databaseName: ctx.databaseName,
         username: ctx.username,
         password: ctx.password,

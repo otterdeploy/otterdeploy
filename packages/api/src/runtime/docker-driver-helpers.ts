@@ -15,16 +15,15 @@ import { setTimeout as sleep } from "node:timers/promises";
 import type { RegistryAuth } from "../swarm";
 import type { ContainerSpec, RuntimeStatus } from "./types";
 
-import { PLATFORM } from "../constants";
 import { connectCaddyToNetwork } from "../swarm/client";
 import { streamImagePull } from "../swarm/image-pull";
 import { toHealthcheckTest } from "../swarm/internals";
+import { projectNetworkName } from "../swarm/network-name";
 import { createPullLineSummarizer } from "../swarm/pull-progress";
 import { connectExtraNetworks } from "./docker-driver-networks";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
-export const networkNameFor = (projectSlug: string) =>
-  `${PLATFORM.swarm.networkPrefix}${projectSlug}`;
+export const networkNameFor = (projectSlug: string) => projectNetworkName(projectSlug);
 
 export const otterLabels = (
   spec: { resourceId: string; projectSlug: string; deploymentId?: string | null },
