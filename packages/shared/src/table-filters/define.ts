@@ -83,10 +83,7 @@ function coerceValue(spec: FilterSpec, raw: unknown): unknown {
       // unbounded range is how a filter turns into a full table scan.
       const lower = spec.min ?? Number.NEGATIVE_INFINITY;
       const upper = spec.max ?? Number.POSITIVE_INFINITY;
-      return [
-        Math.min(Math.max(op.min, lower), upper),
-        Math.min(Math.max(op.max, lower), upper),
-      ];
+      return [Math.min(Math.max(op.min, lower), upper), Math.min(Math.max(op.max, lower), upper)];
     }
     case "instantRange":
       return [op.from.epochMilliseconds, op.to.epochMilliseconds];

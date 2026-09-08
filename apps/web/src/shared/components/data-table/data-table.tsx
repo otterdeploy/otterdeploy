@@ -21,6 +21,8 @@ import type { RowData } from "@tanstack/react-table";
 
 import { useCallback, useMemo, useState } from "react";
 
+import { useHotkey } from "@tanstack/react-hotkeys";
+
 import type { FeedPage } from "@/shared/components/data-table/feed/types";
 import type { FeedInput } from "@/shared/components/data-table/feed/types";
 import type { Density } from "@/shared/components/data-table/parts/table-view";
@@ -28,14 +30,18 @@ import type { DataTableColumn } from "@/shared/components/data-table/schema/type
 import type { TableSort } from "@/shared/components/data-table/state/search-schema";
 
 import { canLoadMore, useFeed } from "@/shared/components/data-table/feed/use-feed";
+import { useLiveTail } from "@/shared/components/data-table/feed/use-live-tail";
 import { DataTableFilterPanel } from "@/shared/components/data-table/parts/filter-panel";
-import { DataTableHistogram } from "@/shared/components/data-table/parts/histogram";
+import { isTailing, useTailedRowClassName } from "@/shared/components/data-table/parts/live-toggle";
 import { DataTableRowSheet } from "@/shared/components/data-table/parts/row-sheet";
 import { TableBodyRegion } from "@/shared/components/data-table/parts/table-body-region";
-import { DataTableToolbar } from "@/shared/components/data-table/parts/toolbar";
-import { DataTableViewOptions } from "@/shared/components/data-table/parts/view-options";
+import { TableChrome } from "@/shared/components/data-table/parts/table-chrome";
 import { buildColumns } from "@/shared/components/data-table/schema/columns";
-import { useActiveFilterCount, useFilterActions } from "@/shared/components/data-table/state/store";
+import {
+  useActiveFilterCount,
+  useFilterActions,
+  useFilterStore,
+} from "@/shared/components/data-table/state/store";
 import { useDataTable } from "@/shared/components/data-table/use-data-table";
 import { cn } from "@/shared/lib/utils";
 
@@ -61,8 +67,13 @@ export interface DataTableProps<TRow extends RowData> {
   /** Category tones for the histogram, when its categories mean something. */
   histogramTones?: Record<string, string>;
   histogramOrder?: readonly string[];
-  /** Which filter key the histogram's zoom writes to. */
+  /** Which filter key the histogram's zoom writes to, and the tail reads. */
   timeKey?: string;
+  /**
+   * Offer live tailing. Only for feeds that are actually appended to — a
+   * "Live" button on a table nothing writes to is a control that does nothing.
+   */
+  live?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
   /**
@@ -110,6 +121,7 @@ export function DataTable<TRow extends RowData>({
   histogramTones,
   histogramOrder,
   timeKey,
+  live = false,
   emptyTitle,
   emptyDescription,
   actions,
@@ -118,11 +130,26 @@ export function DataTable<TRow extends RowData>({
   className,
 }: DataTableProps<TRow>) {
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [queryOpen, setQueryOpen] = useState(false);
   const [density, setDensity] = useState<Density>("comfortable");
+
+  // ⌘K belongs to the app's own palette, so the table's query bar takes
+  // ⌘⇧F — near the browser's find, which is the reflex it is competing with.
+  useHotkey("Mod+Shift+F", (event) => {
+    event.preventDefault();
+    setQueryOpen((open) => !open);
+  });
   const { setValue, resetAll } = useFilterActions();
   const activeFilters = useActiveFilterCount();
+  const store = useFilterStore();
 
   const feed = useFeed<TRow>({ queryKey, fetchPage, filters, sort, size: pageSize });
+  const fetchPrevious = useCallback(() => void feed.fetchPreviousPage(), [feed]);
+  // Tailing and a fixed window contradict each other, so the tail only runs
+  // while no window is set — the same rule the timerange control enforces from
+  // its side.
+  const isLive = live && isTailing(store.getValues(), timeKey);
+  const tail = useLiveTail({ enabled: isLive, fetchPreviousPage: fetchPrevious });
 
   const columns = useMemo(() => buildColumns(declaration), [declaration]);
   const { table, prefs } = useDataTable({
@@ -156,6 +183,12 @@ export function DataTable<TRow extends RowData>({
     void feed.fetchNextPage();
   }, [feed]);
 
+  const combinedRowClassName = useTailedRowClassName({
+    rowClassName,
+    timeKey,
+    since: tail.since,
+  });
+
   const hasMore = canLoadMore({
     hasNextPage: feed.hasNextPage,
     loaded: feed.rows.length,
@@ -164,41 +197,27 @@ export function DataTable<TRow extends RowData>({
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
-      <DataTableToolbar
+      <TableChrome
         searchSpec={searchSpec}
         searchPlaceholder={searchPlaceholder}
-        loaded={feed.rows.length}
-        filterRowCount={feed.filterRowCount}
-        totalRowCount={feed.totalRowCount}
-        isFetching={feed.isFetching}
+        feed={feed}
+        table={table}
+        prefs={prefs}
+        density={density}
+        onDensityChange={setDensity}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((open) => !open)}
-        actions={
-          <>
-            {typeof actions === "function"
-              ? actions({ rows: feed.rows, isFetching: feed.isFetching })
-              : actions}
-            <DataTableViewOptions
-              table={table}
-              density={density}
-              onDensityChange={setDensity}
-              onResetColumns={prefs.reset}
-              isCustomized={prefs.isCustomized}
-            />
-          </>
-        }
+        queryOpen={queryOpen}
+        onQueryOpenChange={setQueryOpen}
+        specs={store.specs}
+        actions={actions}
+        live={live}
+        isLive={isLive}
+        timeKey={timeKey}
+        histogramTones={histogramTones}
+        histogramOrder={histogramOrder}
+        onZoom={(range) => timeKey && setValue(timeKey, range)}
       />
-
-      {timeKey ? (
-        <DataTableHistogram
-          data={feed.histogram}
-          tones={histogramTones}
-          order={histogramOrder}
-          isLoading={feed.isLoading}
-          onZoom={(range) => setValue(timeKey, range)}
-          className="border-b px-2 pt-2"
-        />
-      ) : null}
 
       <div className="flex min-h-0 flex-1">
         {filtersOpen ? (
@@ -223,7 +242,7 @@ export function DataTable<TRow extends RowData>({
             hasMore={hasMore}
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
-            rowClassName={rowClassName}
+            rowClassName={combinedRowClassName}
           />
         </div>
       </div>

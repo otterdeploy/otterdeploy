@@ -22,7 +22,6 @@ import {
 } from "@/shared/components/data-table/state/store";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { Kbd } from "@/shared/components/ui/kbd";
 import { cn } from "@/shared/lib/utils";
 
 /**
@@ -118,7 +117,6 @@ export function DataTableToolbar({
       {activeFilters > 0 ? (
         <Button variant="ghost" size="sm" onClick={resetAll} className="h-8 shrink-0">
           Reset
-          <Kbd className="ml-1.5 text-muted-foreground">Esc</Kbd>
         </Button>
       ) : null}
 

@@ -9,12 +9,5 @@
 export { defineFilters, type ColumnFilterFn, type Filters } from "./define";
 export { evaluateOp, valueAtKey } from "./evaluate";
 export { normalize } from "./normalize";
-export type {
-  ColKind,
-  FilterOp,
-  FilterSelection,
-  FilterSpec,
-  FilterType,
-  Scalar,
-} from "./types";
+export type { ColKind, FilterOp, FilterSelection, FilterSpec, FilterType, Scalar } from "./types";
 export { asInstant, asText, isActive } from "./values";

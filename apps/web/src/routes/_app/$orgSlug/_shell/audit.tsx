@@ -147,6 +147,7 @@ function AuditRoute() {
             openRowId={search.row ?? null}
             onOpenRow={onOpenRow}
             timeKey="at"
+            live
             histogramTones={AUDIT_OUTCOME_TONES}
             histogramOrder={AUDIT_OUTCOME_ORDER}
             searchPlaceholder="Search actions, actors, targets"
