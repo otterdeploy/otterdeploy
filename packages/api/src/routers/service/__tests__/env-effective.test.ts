@@ -137,6 +137,8 @@ describe("references that dereference a secret", () => {
 
     const out = await call();
     const [entry] = out.unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
     expect(entry.value).toBe("••••••••");
     expect(entry.value).not.toContain("2cb53385");
     // The reference itself is not the secret, so it stays readable.
@@ -152,6 +154,8 @@ describe("references that dereference a secret", () => {
     );
 
     const [entry] = (await call()).unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
     expect(entry.value).toBe("••••••••");
     expect(entry.value).not.toContain("fXzXjQwzeuN2epWmaN");
   });
@@ -163,6 +167,8 @@ describe("references that dereference a secret", () => {
     resolveServiceEnv.mockResolvedValue(Result.ok({ DB_HOST: "autumn-db" }));
 
     const [entry] = (await call()).unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
     expect(entry.value).toBe("autumn-db");
   });
 
@@ -171,6 +177,8 @@ describe("references that dereference a secret", () => {
     resolveServiceEnv.mockResolvedValue(Result.err(new Error("vault down")));
 
     const [entry] = (await call()).unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
     expect(entry.unresolved).toBe(true);
     // Showing the declared text is the whole point of opening the panel.
     expect(entry.value).toBe("${{vault.x.MISSING}}");
