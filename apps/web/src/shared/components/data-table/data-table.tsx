@@ -226,14 +226,14 @@ export function DataTable<TRow extends RowData>({
         onZoom={(range) => timeKey && setValue(timeKey, range)}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <FilterRegion
-          columns={declaration}
-          facets={feed.facets}
-          open={filterPanel.open}
-          onOpenChange={filterPanel.setOpen}
-        />
+      <FilterRegion
+        columns={declaration}
+        facets={feed.facets}
+        open={filterPanel.open}
+        onOpenChange={filterPanel.setOpen}
+      />
 
+      <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <TableBodyRegion
             feed={feed}

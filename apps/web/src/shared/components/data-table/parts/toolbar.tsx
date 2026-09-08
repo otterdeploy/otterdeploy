@@ -87,7 +87,7 @@ export function DataTableToolbar({
       >
         Filters
         {activeFilters > 0 ? (
-          <span className="rounded-full bg-primary/10 px-1.5 font-mono text-[11px] text-primary tabular-nums">
+          <span className="rounded-full bg-primary/10 px-1.5 font-mono text-xs text-primary tabular-nums">
             {activeFilters}
           </span>
         ) : null}

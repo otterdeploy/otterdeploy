@@ -116,7 +116,7 @@ export function CheckboxFilter({
               />
               <Label htmlFor={id} className="flex min-w-0 flex-1 items-center gap-2 text-xs">
                 <span className="truncate font-normal">{option.label}</span>
-                <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+                <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                   {count === undefined ? null : formatNumber(count)}
                 </span>
               </Label>
@@ -125,7 +125,7 @@ export function CheckboxFilter({
               <button
                 type="button"
                 onClick={() => setValue([option.value])}
-                className="hidden shrink-0 rounded px-1 text-[11px] text-muted-foreground group-hover:block hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                className="hidden shrink-0 rounded px-1 text-xs text-muted-foreground group-hover:block hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 only
               </button>

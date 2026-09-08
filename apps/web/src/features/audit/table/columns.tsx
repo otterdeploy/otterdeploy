@@ -140,7 +140,7 @@ export const auditColumns: readonly DataTableColumn<AuditFeedRow>[] = [
     sheet: {
       render: (row) =>
         row.changes ? (
-          <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 font-mono text-[11px]">
+          <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 font-mono text-xs">
             {JSON.stringify(row.changes, null, 2)}
           </pre>
         ) : (
@@ -156,7 +156,7 @@ export const auditColumns: readonly DataTableColumn<AuditFeedRow>[] = [
     sheet: {
       render: (row) =>
         row.target ? (
-          <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 font-mono text-[11px]">
+          <pre className="overflow-x-auto rounded-md bg-muted/40 p-2 font-mono text-xs">
             {JSON.stringify(row.target, null, 2)}
           </pre>
         ) : (

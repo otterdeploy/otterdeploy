@@ -50,7 +50,7 @@ export function HistogramTooltip({
   return (
     <div className="flex min-w-40 flex-col gap-1.5">
       {typeof at === "number" ? (
-        <div className="font-mono text-[11px] text-muted-foreground">
+        <div className="font-mono text-xs text-muted-foreground">
           {stamp(at)} → {stamp(at + bucketMs)}
         </div>
       ) : null}

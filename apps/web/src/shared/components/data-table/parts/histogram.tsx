@@ -98,7 +98,7 @@ function ParkedWindow({
   return (
     <div className="absolute inset-x-0 bottom-1 flex justify-center">
       <div className="flex items-center gap-2 rounded-lg bg-popover px-2 py-1 shadow-md ring-1 ring-foreground/10">
-        <span className="font-mono text-[11px] text-muted-foreground">
+        <span className="font-mono text-xs text-muted-foreground">
           {stamp(selection[0])} → {stamp(selection[1])}
         </span>
         <Button variant="ghost" size="xs" className="h-6" onClick={onCancel}>
@@ -129,20 +129,33 @@ export function DataTableHistogram({
   const bucketMs = data?.bucketMs ?? 60_000;
   const starts = useMemo(() => buckets.map((bucket) => bucket.at), [buckets]);
 
+  /**
+   * Whether this feed breaks its buckets down at all.
+   *
+   * Decided over the WHOLE histogram, not per bucket. Deciding per bucket meant
+   * every materialized empty bucket contributed a segment under the fallback
+   * name, so a categorised feed grew a phantom "rows" series in its legend and
+   * its colour domain — visible on the audit log as a fourth key beside
+   * success, failure and denied.
+   */
+  const hasCategories = useMemo(
+    () => buckets.some((bucket) => Object.keys(bucket.by).length > 0),
+    [buckets],
+  );
+
   const segments = useMemo<Segment[]>(() => {
     const rows: Segment[] = [];
     for (const bucket of buckets) {
-      const entries = Object.entries(bucket.by);
-      if (entries.length === 0) {
+      if (!hasCategories) {
         rows.push({ at: bucket.at, category: UNCATEGORIZED, count: bucket.total });
         continue;
       }
-      for (const [category, count] of entries) {
+      for (const [category, count] of Object.entries(bucket.by)) {
         rows.push({ at: bucket.at, category, count });
       }
     }
     return rows;
-  }, [buckets]);
+  }, [buckets, hasCategories]);
 
   const categories = useMemo(() => {
     const seen = new Set(segments.map((segment) => segment.category));
@@ -161,9 +174,9 @@ export function DataTableHistogram({
   });
 
   const hasRows = segments.some((segment) => segment.count > 0);
-  // One category is not a legend: a single grey chip labelled "rows" tells the
-  // reader nothing they cannot see.
-  const categorized = categories.length > 1 || categories[0] !== UNCATEGORIZED;
+  // One series is not a legend: a single grey chip labelled "rows" tells the
+  // reader nothing they cannot already see.
+  const categorized = hasCategories && categories.length > 0;
 
   if (isLoading && buckets.length === 0) {
     return <div className={cn("animate-pulse bg-muted/30", className)} style={{ height }} />;
@@ -187,8 +200,10 @@ export function DataTableHistogram({
 
   return (
     <div className={cn("relative", className)}>
+      {/* Above the plot, not over it: a legend floating on the bars covers the
+          tallest ones, which are the bars the reader came for. */}
       {categorized ? (
-        <div className="absolute top-0 right-1 z-10">
+        <div className="flex justify-end pb-1">
           <HistogramLegend
             categories={categories}
             tones={tones}

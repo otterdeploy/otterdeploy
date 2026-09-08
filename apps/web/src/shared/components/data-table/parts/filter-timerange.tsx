@@ -87,7 +87,7 @@ export function TimerangeFilter({ filterKey }: { filterKey: string }) {
             variant="outline"
             size="xs"
             onClick={() => applyPreset(preset.minutes)}
-            className="h-6 px-2 font-mono text-[11px]"
+            className="h-6 px-2 font-mono text-xs"
           >
             {preset.label}
           </Button>
@@ -96,7 +96,7 @@ export function TimerangeFilter({ filterKey }: { filterKey: string }) {
           variant="ghost"
           size="xs"
           onClick={reset}
-          className={cn("h-6 px-2 text-[11px]", range ? undefined : "text-muted-foreground")}
+          className={cn("h-6 px-2 text-xs", range ? undefined : "text-muted-foreground")}
         >
           All
         </Button>
@@ -108,7 +108,7 @@ export function TimerangeFilter({ filterKey }: { filterKey: string }) {
           aria-label="From date"
           value={toDateInput(range?.[0])}
           onChange={(event) => setEdge("start", event.target.value)}
-          className="h-7 flex-1 font-mono text-[11px]"
+          className="h-7 flex-1 font-mono text-xs"
         />
         <span className="text-xs text-muted-foreground">→</span>
         <Input
@@ -116,14 +116,14 @@ export function TimerangeFilter({ filterKey }: { filterKey: string }) {
           aria-label="To date"
           value={toDateInput(range?.[1])}
           onChange={(event) => setEdge("end", event.target.value)}
-          className="h-7 flex-1 font-mono text-[11px]"
+          className="h-7 flex-1 font-mono text-xs"
         />
       </div>
 
       {range ? (
         // The exact window, spelled out. A preset that resolved an hour ago is
         // not "the last hour" any more, and the reader should be able to see so.
-        <p className="px-1 font-mono text-[11px] text-muted-foreground">
+        <p className="px-1 font-mono text-xs text-muted-foreground">
           {stamp(range[0])} → {stamp(range[1])}
         </p>
       ) : null}

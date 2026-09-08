@@ -158,7 +158,7 @@ export function TableFooterRow({
  */
 function KeyboardLegend() {
   return (
-    <span className="hidden items-center justify-end gap-3 text-[11px] lg:flex">
+    <span className="hidden items-center justify-end gap-3 text-xs lg:flex">
       <KbdGroup>
         <Kbd>↑</Kbd>
         <Kbd>↓</Kbd>

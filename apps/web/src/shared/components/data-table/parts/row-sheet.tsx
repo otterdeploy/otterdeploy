@@ -177,7 +177,7 @@ function SheetField<TRow extends RowData>({
       <span className="truncate text-xs text-muted-foreground">
         {override?.label ?? column.label}
       </span>
-      <div className={cn("min-w-0 text-[13px]", isMono && "font-mono")}>
+      <div className={cn("min-w-0 text-sm", isMono && "font-mono")}>
         {override?.render ? (
           override.render(row)
         ) : column.cell ? (

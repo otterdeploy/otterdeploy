@@ -114,7 +114,11 @@ export function DataTableHead<TRow extends RowData>({
                 }
                 style={cellStyle(header.column.id)}
                 className={cn(
-                  "relative flex h-9 items-center px-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase",
+                  // The app's own table head (shared/components/ui/table.tsx):
+                  // label weight, foreground colour, sentence case. The
+                  // micro-caps this used to wear came from the reference
+                  // implementation and belong to a different type system.
+                  "relative flex h-10 items-center px-3 text-left text-sm font-medium text-foreground",
                   header.column.columnDef.meta?.headerClassName,
                 )}
               >

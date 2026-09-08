@@ -78,7 +78,7 @@ export function DataTableFilterChips({ specs }: { specs: readonly FilterSpec[] }
       {chips.map(({ spec, label }) => (
         <span
           key={spec.key}
-          className="flex max-w-full items-center gap-1 rounded-full bg-muted py-0.5 pr-0.5 pl-2 text-[11px] ring-1 ring-foreground/10"
+          className="flex max-w-full items-center gap-1 rounded-full bg-muted py-0.5 pr-0.5 pl-2 text-xs ring-1 ring-foreground/10"
         >
           <span className="shrink-0 text-muted-foreground">{spec.key}</span>
           <span className="truncate font-mono">{label}</span>
@@ -97,7 +97,7 @@ export function DataTableFilterChips({ specs }: { specs: readonly FilterSpec[] }
         <button
           type="button"
           onClick={resetAll}
-          className="rounded-sm px-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="rounded-sm px-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           Clear all
         </button>

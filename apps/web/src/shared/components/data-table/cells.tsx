@@ -55,7 +55,7 @@ export function CodeCell({ value }: { value: unknown }) {
   const text = asText(value);
   if (text === null || text === "") return <EmptyCell />;
   return (
-    <span className="block truncate font-mono text-[13px] text-foreground/85" title={text}>
+    <span className="block truncate font-mono text-sm text-foreground/85" title={text}>
       {text}
     </span>
   );
@@ -64,7 +64,7 @@ export function CodeCell({ value }: { value: unknown }) {
 export function NumberCell({ value, unit }: { value: unknown; unit?: string }) {
   if (typeof value !== "number" || !Number.isFinite(value)) return <EmptyCell />;
   return (
-    <span className="block truncate text-right font-mono text-[13px] tabular-nums">
+    <span className="block truncate text-right font-mono text-sm tabular-nums">
       {formatNumber(value)}
       {unit ? <span className="ml-0.5 text-muted-foreground">{unit}</span> : null}
     </span>
@@ -193,7 +193,7 @@ export function BarCell({
   const share = span > 0 ? Math.min(Math.max((value - min) / span, 0), 1) : 0;
   return (
     <span className="flex items-center gap-2">
-      <span className="shrink-0 font-mono text-[13px] tabular-nums">
+      <span className="shrink-0 font-mono text-sm tabular-nums">
         {formatNumber(value)}
         {unit ? <span className="ml-0.5 text-muted-foreground">{unit}</span> : null}
       </span>

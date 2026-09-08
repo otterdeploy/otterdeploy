@@ -118,7 +118,7 @@ export function TableChrome<TRow extends RowData>({
           categoryKey={histogramKey}
           isLoading={feed.isLoading}
           onZoom={onZoom}
-          className="border-b px-2 pt-2"
+          className="border-b px-3 pt-2 pb-1"
         />
       ) : null}
     </>

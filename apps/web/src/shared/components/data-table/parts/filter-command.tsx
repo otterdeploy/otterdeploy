@@ -117,7 +117,7 @@ export function DataTableFilterCommand({
         className="overflow-visible rounded-lg p-0 ring-1 ring-foreground/10"
       >
         <div className="flex items-center gap-2 px-2">
-          <span className="font-mono text-[11px] text-muted-foreground">filter</span>
+          <span className="font-mono text-xs text-muted-foreground">filter</span>
           <input
             ref={inputRef}
             value={query}
@@ -136,7 +136,7 @@ export function DataTableFilterCommand({
               }
               if (event.key === "Escape") onOpenChange(false);
             }}
-            className="h-9 flex-1 bg-transparent font-mono text-[13px] outline-none placeholder:text-muted-foreground/70"
+            className="h-9 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-muted-foreground/70"
           />
           <Kbd className="text-muted-foreground">↵</Kbd>
         </div>
@@ -149,11 +149,11 @@ export function DataTableFilterCommand({
                   key={completion.insert}
                   value={completion.insert}
                   onSelect={() => apply(completion.insert)}
-                  className="font-mono text-[12px]"
+                  className="font-mono text-xs"
                 >
                   <span className="truncate">{completion.label}</span>
                   {completion.hint === undefined ? null : (
-                    <span className="ml-auto shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">
                       {completion.hint}
                     </span>
                   )}
@@ -163,7 +163,7 @@ export function DataTableFilterCommand({
             <CommandEmpty>No matching filters.</CommandEmpty>
           </CommandList>
 
-          <p className="flex flex-wrap gap-3 border-t px-2 py-1.5 text-[11px] text-muted-foreground">
+          <p className="flex flex-wrap gap-3 border-t px-2 py-1.5 text-xs text-muted-foreground">
             <span>
               Union <span className="font-mono">outcome:a,b</span>
             </span>

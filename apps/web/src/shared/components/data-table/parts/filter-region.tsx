@@ -1,15 +1,16 @@
 /**
- * Where the filters live, at whichever width the reader is at.
+ * Where the filters live: a sheet, at every width.
  *
- * Above the mobile breakpoint they are a column beside the rows, which is the
- * shape that lets someone filter and read the effect in one glance. Below it
- * there is no room for a column, so the same panel opens as a sheet — what this
- * replaces was a Filters button wired to an element with `hidden` on it, so on
- * a phone the button did nothing at all.
+ * They were a column beside the rows, and that was the wrong trade on a table
+ * this dense. The sidebar took a fifth of the width permanently to show
+ * controls that are touched for a few seconds at a time, and the rows — which
+ * are what the page is FOR, and which carry ids and timestamps that do not
+ * shorten — spent the rest of the session squeezed into what was left.
  *
- * Each width remembers its own answer. A shared flag would mean that resizing
- * a window past the breakpoint pops a sheet open over the rows, or collapses a
- * sidebar the reader deliberately opened; neither is something they asked for.
+ * So the rows get the whole width and the filters come over them on demand,
+ * from the same Filters button at every size. The chips under the toolbar are
+ * what makes this honest: with the panel closed, the filter state is still
+ * written down on the page rather than hidden behind a count.
  */
 
 import type { RowData } from "@tanstack/react-table";
@@ -27,7 +28,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet";
-import { useIsMobile } from "@/shared/hooks/use-mobile";
 
 export interface FilterPanelState {
   open: boolean;
@@ -35,22 +35,11 @@ export interface FilterPanelState {
   setOpen: (open: boolean) => void;
 }
 
-/** Open by default where there is room for it, closed where there is not. */
+/** Closed until asked for. */
 export function useFilterPanel(): FilterPanelState {
-  const isMobile = useIsMobile();
-  const [wide, setWide] = useState(true);
-  const [narrow, setNarrow] = useState(false);
-
-  const setOpen = useCallback(
-    (next: boolean) => (isMobile ? setNarrow(next) : setWide(next)),
-    [isMobile],
-  );
-  const toggle = useCallback(
-    () => (isMobile ? setNarrow((open) => !open) : setWide((open) => !open)),
-    [isMobile],
-  );
-
-  return { open: isMobile ? narrow : wide, toggle, setOpen };
+  const [open, setOpen] = useState(false);
+  const toggle = useCallback(() => setOpen((current) => !current), []);
+  return { open, toggle, setOpen };
 }
 
 export function FilterRegion<TRow extends RowData>({
@@ -64,30 +53,15 @@ export function FilterRegion<TRow extends RowData>({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const isMobile = useIsMobile();
-
-  if (isMobile) {
-    // Mounted only below the breakpoint: a sheet rendered at every width would
-    // put a second copy of every control in the tree, and the portal it renders
-    // through ignores the `hidden` class that was supposed to keep it away.
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-4/5 max-w-xs gap-0 overflow-y-auto p-0">
-          <SheetHeader className="border-b px-3 py-3">
-            <SheetTitle className="text-left text-sm">Filters</SheetTitle>
-            <SheetDescription className="sr-only">Narrow the rows in this table.</SheetDescription>
-          </SheetHeader>
-          <DataTableFilterPanel columns={columns} facets={facets} />
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  if (!open) return null;
-
   return (
-    <aside aria-label="Filters" className="w-56 shrink-0 overflow-y-auto border-r lg:w-64">
-      <DataTableFilterPanel columns={columns} facets={facets} />
-    </aside>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-xs">
+        <SheetHeader className="border-b px-3 py-3">
+          <SheetTitle className="text-left text-sm">Filters</SheetTitle>
+          <SheetDescription className="sr-only">Narrow the rows in this table.</SheetDescription>
+        </SheetHeader>
+        <DataTableFilterPanel columns={columns} facets={facets} />
+      </SheetContent>
+    </Sheet>
   );
 }

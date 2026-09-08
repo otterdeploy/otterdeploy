@@ -210,7 +210,7 @@ function RowImpl<TRow extends RowData>({
           key={cell.id}
           style={cellStyle(cell.column.id)}
           className={cn(
-            "flex min-w-0 items-center truncate px-2",
+            "flex min-w-0 items-center truncate px-3",
             cell.column.columnDef.meta?.cellClassName,
           )}
         >

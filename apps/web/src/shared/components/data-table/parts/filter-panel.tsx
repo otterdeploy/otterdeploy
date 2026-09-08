@@ -62,9 +62,9 @@ function FilterSection<TRow extends RowData>({
           />
         }
       >
-        <span className="text-[13px] font-medium">{column.label}</span>
+        <span className="text-sm font-medium">{column.label}</span>
         {count > 0 ? (
-          <span className="rounded-full bg-primary/10 px-1.5 font-mono text-[10px] text-primary">
+          <span className="rounded-full bg-primary/10 px-1.5 font-mono text-xs text-primary">
             on
           </span>
         ) : null}
@@ -91,7 +91,7 @@ function FilterSection<TRow extends RowData>({
               variant="ghost"
               size="xs"
               onClick={reset}
-              className="mt-1.5 h-6 px-1.5 text-[11px] text-muted-foreground"
+              className="mt-1.5 h-6 px-1.5 text-xs text-muted-foreground"
             >
               Clear
             </Button>
