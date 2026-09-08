@@ -38,6 +38,13 @@ const manifestSaveOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
+/** The `environment` slug matched no environment on this project. A client
+ *  error, not a server one: the caller named something that does not exist,
+ *  and the safe answer is to refuse rather than silently scope to main. */
+const unknownEnvironment = {
+  BAD_REQUEST: { status: 400, message: "Unknown environment" as const },
+} as const;
+
 const manifestDiffInput = z.object({
   projectId: getProjectInput.shape.id,
   // Resolve overrides for this environment before diffing. Omit to diff
@@ -197,17 +204,17 @@ export const manifestContractSlice = {
     .input(manifestSaveInput)
     .output(manifestSaveOutput),
   diff: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
     .meta({ path: `${basePath}/{projectId}/manifest/diff`, tag, method: "POST" })
     .input(manifestDiffInput)
     .output(manifestDiffOutput),
   apply: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
   applyChange: oc
-    .errors({ ...projectNotFoundErrors, ...conflict })
+    .errors({ ...projectNotFoundErrors, ...conflict, ...unknownEnvironment })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)
     .output(manifestApplyChangeOutput),
