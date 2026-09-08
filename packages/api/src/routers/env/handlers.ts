@@ -14,6 +14,7 @@ import { Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
 
+import { reconcile } from "../../caddy";
 import {
   dropEnvironmentOverlay,
   ensureEnvironmentOverlay,
@@ -32,6 +33,7 @@ import {
   listEnvsByOrg,
   type EnvironmentRecord,
   renameEnvRecord,
+  setEnvProtectionRecord,
 } from "./queries";
 
 export async function listEnvs(
@@ -123,6 +125,39 @@ export async function renameEnv(
   if (!row) {
     return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
   }
+  return Result.ok(row);
+}
+
+/**
+ * Make an environment private, or public again.
+ *
+ * Writing the flag is only half of it: the gate lives in the generated
+ * Caddyfile, so the edge has to be re-rendered before the call returns.
+ * Without that the operator flips the switch, sees it stick in the UI, and the
+ * environment stays wide open until something unrelated triggers the next
+ * reconcile. For a control whose entire purpose is to close a door, "applied
+ * eventually" is indistinguishable from "not applied".
+ */
+export async function setEnvProtection(
+  input: { id: EnvironmentId; protected: boolean } & OrgRef,
+): Promise<Result<EnvironmentRecord, EnvironmentNotFoundError>> {
+  // Org check first, for the same reason rename does it: the record update
+  // matches on id alone, so a guessed id would otherwise cross tenants.
+  const existing = await getEnvInOrg({
+    environmentId: input.id,
+    organizationId: input.organizationId,
+  });
+  if (!existing) {
+    return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+  }
+  const row = await setEnvProtectionRecord({
+    environmentId: input.id,
+    protected: input.protected,
+  });
+  if (!row) {
+    return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+  }
+  await reconcile();
   return Result.ok(row);
 }
 

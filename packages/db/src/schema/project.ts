@@ -186,6 +186,20 @@ export const environment = pgTable(
       .references(() => project.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    // Environment-wide deployment protection. True ⇒ every route serving a
+    // resource in this environment renders behind the auth wall, whatever the
+    // route's own `protected` flag says.
+    //
+    // A FLOOR, not a default. A default would be copied onto each route at
+    // creation and could then be turned off one route at a time, which is the
+    // failure this exists to prevent: an environment is private because of
+    // what it holds (seed data, a copy of production, a half-finished
+    // feature), and that is a property of the environment, not of whichever
+    // route happened to be created last. Raising the floor protects the routes
+    // that already exist AND every route added later, with no second step to
+    // forget. A route may still opt itself IN independently, so lowering the
+    // floor never silently exposes a route the operator locked deliberately.
+    protected: boolean("protected").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

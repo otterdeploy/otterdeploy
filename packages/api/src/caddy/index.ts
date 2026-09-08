@@ -33,34 +33,17 @@ import {
   listEnabledProxyRoutes,
   listEnabledRoutePlacements,
   listProxyRoutesByProject,
+  protectedEnvironmentRouteIds,
   updateProxyRoute,
   type ProxyRouteRecord,
 } from "./queries";
 import { reconcileRoutes, type ReconcileResult } from "./reconciler";
+import { toRouteInput } from "./route-input";
 import { loadWithEdgeSelfHeal } from "./self-heal";
 
 export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
 export { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
-
-/** Map a DB proxy-route row onto the builder's route-input shape. Shared by
- *  the live reconcile pass and the read-only per-project render so both
- *  surfaces stay byte-identical. */
-function toRouteInput(r: ProxyRouteRecord): ProxyRouteInput {
-  return {
-    projectId: r.projectId,
-    type: r.type,
-    domain: r.domain,
-    upstreamHost: r.upstreamHost,
-    upstreamPort: r.upstreamPort,
-    protocol: r.protocol,
-    layer4Alpn: r.layer4Alpn,
-    usesAcme: r.usesAcme,
-    protected: r.protected,
-    routePolicy: r.routePolicy,
-    customDirectives: r.customDirectives,
-  };
-}
 
 interface CaddyBuildOptions {
   acmeEmail: string | null;
@@ -154,7 +137,8 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
   const records = await listEnabledProxyRoutes();
   log.info({ caddy: { step: "fetch-routes", count: records.length } });
 
-  let routes = records.map(toRouteInput);
+  const envProtected = await protectedEnvironmentRouteIds();
+  let routes = records.map((r) => toRouteInput(r, envProtected));
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
     // Write (or heal) every servable uploaded cert's files for the edge
@@ -247,7 +231,10 @@ export interface ProjectCaddyfile {
  *  stamps, so the UI can detect drift. */
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
-  let routes = records.filter((r) => r.enabled && !r.disabledByUser).map(toRouteInput);
+  const envProtected = await protectedEnvironmentRouteIds();
+  let routes = records
+    .filter((r) => r.enabled && !r.disabledByUser)
+    .map((r) => toRouteInput(r, envProtected));
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
     // DB-only read (no file writes). Shows the same `tls` lines reconcile
@@ -269,7 +256,8 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
  *  files are written); CrowdSec credentials are masked for display. */
 export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
-  let routes = records.map(toRouteInput);
+  const envProtected = await protectedEnvironmentRouteIds();
+  let routes = records.map((r) => toRouteInput(r, envProtected));
   const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
   if (customCerts.length > 0) {
     const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);

@@ -2,7 +2,7 @@ import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeplo
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
-import { resource } from "@otterdeploy/db/schema/project";
+import { environment, resource } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
@@ -47,6 +47,29 @@ export async function listEnabledRoutePlacements(): Promise<
     ...r,
     placementServerId: r.placementServerId ?? null,
   }));
+}
+
+/**
+ * Route ids whose owning ENVIRONMENT is private.
+ *
+ * The floor is declared on the environment, but the edge renders ROUTES, so it
+ * has to be resolved into route identity before the Caddyfile is built. Two
+ * hops get there: a route names a resource, a resource names an environment.
+ *
+ * An INNER join, deliberately the opposite choice from listEnabledRoutePlacements
+ * above. There a missing resource meant a route silently vanishing from the
+ * config, which is a bug. Here a route with no resource - the synthesized
+ * control-plane route, a compose member mid-reconcile - belongs to no
+ * environment and so inherits no floor. Dropping it is the answer, not a hole.
+ */
+export async function protectedEnvironmentRouteIds(): Promise<Set<ProxyRouteId>> {
+  const rows = await db
+    .select({ routeId: proxyRoute.id })
+    .from(proxyRoute)
+    .innerJoin(resource, eq(proxyRoute.resourceId, resource.id))
+    .innerJoin(environment, eq(resource.environmentId, environment.id))
+    .where(eq(environment.protected, true));
+  return new Set(rows.map((r) => r.routeId));
 }
 
 export async function listProxyRoutesByProject(projectId: ProjectId): Promise<ProxyRouteRecord[]> {

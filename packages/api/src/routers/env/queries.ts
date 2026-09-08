@@ -107,6 +107,18 @@ export async function renameEnvRecord(input: {
   return row;
 }
 
+export async function setEnvProtectionRecord(input: {
+  environmentId: EnvironmentId;
+  protected: boolean;
+}): Promise<EnvironmentRecord | undefined> {
+  const [row] = await db
+    .update(environment)
+    .set({ protected: input.protected })
+    .where(eq(environment.id, input.environmentId))
+    .returning();
+  return row;
+}
+
 export async function deleteEnvRecord(input: {
   environmentId: EnvironmentId;
   organizationId: OrgId;

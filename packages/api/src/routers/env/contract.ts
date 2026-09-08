@@ -65,6 +65,19 @@ const renameEnvInput = z.object({
   name: z.string().min(1).max(64),
 });
 
+/**
+ * Make every route in an environment private, or public again.
+ *
+ * Separate from `rename` rather than folded into a general `update`: this one
+ * changes who can REACH the environment, and a combined patch would let a
+ * rename quietly carry a protection change (or clear it by omission). A switch
+ * that closes a door should be its own call, and its own audited event.
+ */
+const setEnvProtectionInput = z.object({
+  id: environmentIdField,
+  protected: z.boolean(),
+});
+
 const deleteEnvInput = z.object({
   id: environmentIdField,
   /** Delete the resources this environment owns along with it. Omitted or
@@ -102,6 +115,13 @@ export const envContract = {
     })
     .meta({ path: `${basePath}/{id}/rename`, tag, method: "POST" })
     .input(renameEnvInput)
+    .output(envSchema),
+  setProtection: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Environment not found" as const },
+    })
+    .meta({ path: `${basePath}/{id}/protection`, tag, method: "POST" })
+    .input(setEnvProtectionInput)
     .output(envSchema),
   delete: oc
     .errors({
