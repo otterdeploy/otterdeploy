@@ -73,21 +73,42 @@ export function nodeProxyInstallScript(target: NodeProxyTarget, sudo = ""): stri
   ].join("\n");
 }
 
+/** What the install did, for the server row. Returned rather than only
+ *  narrated: a warning line scrolls past once, a column does not. */
+export interface NodeProxyOutcome {
+  status: "running" | "failed" | "unsupported";
+  /** Operator-facing reason when the status is not "running". */
+  reason: string | null;
+}
+
 export async function installNodeProxy(
   session: SshSession,
   target: NodeProxyTarget,
   onLine: (line: string) => void,
-): Promise<void> {
-  if (target.privilege === "none") return;
+): Promise<NodeProxyOutcome> {
+  if (target.privilege === "none") {
+    return {
+      status: "unsupported",
+      reason: "No privileged access on this host, so no edge proxy was installed.",
+    };
+  }
   onLine("── installing edge proxy ──");
   const sudo = target.privilege === "sudo" ? "sudo" : "";
   const res = await session.runScript(nodeProxyInstallScript(target, sudo), onLine);
-  if (res.exitCode === PROXY_UNSUPPORTED_EXIT) return; // narrated by the script
+  if (res.exitCode === PROXY_UNSUPPORTED_EXIT) {
+    // Narrated by the script itself; carried here so the row agrees with it.
+    return {
+      status: "unsupported",
+      reason: "Docker is not available on this host, so no edge proxy was installed.",
+    };
+  }
   if (res.exitCode !== 0) {
-    onLine(
-      "⚠ edge proxy install failed. The node joined fine, but it cannot serve traffic on its own. Services placed here will only be reachable while the control-plane edge is up.",
-    );
-    return;
+    const reason =
+      "The edge proxy install failed. The node joined fine, but it cannot serve traffic on its " +
+      "own: services placed here are only reachable while the control-plane edge is up.";
+    onLine(`⚠ ${reason}`);
+    return { status: "failed", reason };
   }
   onLine(`✓ edge proxy running (${NODE_PROXY_CONTAINER}): this node can serve its own traffic`);
+  return { status: "running", reason: null };
 }

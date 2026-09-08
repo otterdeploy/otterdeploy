@@ -16,7 +16,6 @@
 import type { ProvisionServerPayload } from "@otterdeploy/jobs";
 import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
-import { env } from "@otterdeploy/env/server";
 import { triggerProvisionServer } from "@otterdeploy/jobs";
 import { idSchema } from "@otterdeploy/shared/id";
 
@@ -28,9 +27,9 @@ import { filterIpv4Peers } from "./host-firewall";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { admitNodeToManager } from "./manager-peers";
 import { type MeshProvider, runRemoteProvision } from "./provision";
+import { runEdgeProxyStep } from "./provision-edge-step";
 import { installNodeFirewallBouncer, managerHostOf } from "./provision-firewall";
 import { installHostFirewall } from "./provision-host-firewall";
-import { installNodeProxy } from "./provision-node-proxy";
 import { labelBuildNode, verifyNodeJoined } from "./provision-node-verify";
 import { emitProvisionLine, endProvisionStream } from "./provision-stream";
 import { patchServerFirewall, patchServerProvision } from "./queries";
@@ -171,17 +170,15 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         { nodeHost: payload.host, managerAddr, privilege: result.probe.privilege },
         emit,
       );
-      // Every node terminates its own traffic. Without this the node's
-      // containers are only reachable through the control-plane edge, so a
-      // manager outage takes them dark even though they keep running.
-      await installNodeProxy(
+      // Every node terminates its own traffic. Decided from the probe BEFORE
+      // attempting, and recorded on the row either way: see ./provision-edge-step.
+      await runEdgeProxyStep({
         session,
-        {
-          privilege: result.probe.privilege,
-          image: `${env.OTTERDEPLOY_REGISTRY}/caddy:${env.OTTERDEPLOY_VERSION}`,
-        },
+        probe: result.probe,
+        serverId,
+        organizationId,
         emit,
-      );
+      });
       // od-5j8.11: the host-level nftables baseline: "every node, not just
       // the primary". Also best-effort; recorded on the row so a failure
       // shows up as drift instead of silently vanishing.
