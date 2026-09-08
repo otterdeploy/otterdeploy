@@ -231,6 +231,19 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
       MaxFailureRatio: 0,
     },
     EndpointSpec: publishedPorts.length > 0 ? { Ports: publishedPorts } : undefined,
+    // Credentials for pulling `image`, sent as X-Registry-Auth. This is what
+    // `docker service create --with-registry-auth` does, and without it every
+    // NODE pulls anonymously: a private image simply fails with
+    // "unauthorized", whatever the operator configured on the Registries page
+    // (od-1ifu). Resolved once in buildSwarmSpec; undefined for a public image,
+    // which is the anonymous pull swarm already did.
+    authconfig: spec.registryAuth
+      ? {
+          username: spec.registryAuth.username,
+          password: spec.registryAuth.password,
+          serveraddress: spec.registryAuth.serveraddress,
+        }
+      : undefined,
   };
 }
 

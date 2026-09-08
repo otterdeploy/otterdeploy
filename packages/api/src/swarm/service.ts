@@ -112,13 +112,13 @@ export interface SwarmServiceSpec {
    * anonymously and a private image simply failed with "unauthorized" no
    * matter what the operator had configured on the Registries page (od-8562).
    *
-   * CONSUMED BY THE DOCKER DRIVER ONLY, today. Swarm needs the credential
-   * passed as `X-Registry-Auth` on service create (what `docker service create
-   * --with-registry-auth` sends), which this SDK does not currently expose, so
-   * a private image on DEPLOY_RUNTIME=swarm is still unauthenticated. Tracked
-   * on od-8562; the field is populated for both so the swarm half is a one-line
-   * change at the call site when the SDK gains it, and so nothing has to
-   * re-derive the credential there.
+   * Consumed by BOTH runtimes. The docker driver hands it to the pull;
+   * `buildServiceSpec` sends it as `authconfig` (the X-Registry-Auth header)
+   * on swarm service create AND update, which is what `docker service create
+   * --with-registry-auth` does. Update matters as much as create: a rolling
+   * update pulls the image again on whichever node takes the new task, so
+   * authenticating only the create would work once and fail every deploy
+   * after (od-1ifu).
    */
   registryAuth?: RegistryAuth | null;
 
@@ -221,6 +221,10 @@ export async function updateSwarmService(
     UpdateConfig: newSpec.UpdateConfig,
     RollbackConfig: newSpec.RollbackConfig,
     EndpointSpec: newSpec.EndpointSpec,
+    // Carried on UPDATE too, not just create. A rolling update pulls the image
+    // again on whichever node takes the new task, so omitting it here would
+    // authenticate the first deploy and then fail every one after it.
+    authconfig: newSpec.authconfig,
   });
 
   if (updateResult.isErr()) {

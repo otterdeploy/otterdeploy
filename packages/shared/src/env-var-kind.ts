@@ -63,6 +63,75 @@ const PASS_RE = /(^|_)(PASS|MASTERPASS|PASSPHRASE)($|_)/i;
 const NOT_A_GENERATED_KEY_RE = /(LICENSE|LICENCE|PUBLIC|SSH|HOST|PGP|GPG|DEPLOY)_?KEY/i;
 
 /**
+ * Credentials ISSUED BY SOMEONE ELSE, which the platform must never invent.
+ *
+ * This is the distinction the rest of this file was missing, and it is not
+ * "is it a secret" - it is WHO ISSUES IT:
+ *
+ *   * A self-contained secret has both sides inside the stack.
+ *     `POSTGRES_PASSWORD` is whatever we say it is, because the same value is
+ *     handed to the database and to the app. Generating it is exactly right,
+ *     and is the whole point of this module.
+ *   * A vendor-issued credential is minted by a third party.
+ *     `RESEND_API_KEY` is valid only if Resend issued it. A generated one is
+ *     32 plausible random characters that will never authenticate.
+ *
+ * Filling the second kind is worse than leaving it blank, and worse in the
+ * specific way that is hardest to debug: the field LOOKS answered, the operator
+ * has no reason to revisit it, the container boots fine, and the feature is
+ * silently dead until someone notices no email ever arrived. Blank is a
+ * question. A fake key is a wrong answer that nothing contradicts.
+ *
+ * This file already made exactly this argument for `LICENSE_KEY` and
+ * `SSH_KEY` - "a field that LOOKS filled and is guaranteed invalid, which is
+ * worse than leaving it blank" - but the exclusion guarded only the `KEY_RE`
+ * branch. `RESEND_API_KEY` matches `SECRET_RE` on `API_?KEY` first and never
+ * reached it (od-uini).
+ *
+ * The classification stays `secret` either way: these ARE credentials and must
+ * still be masked. Only the FILLING changes, which is why this is a separate
+ * question from `classifyEnvVar` rather than a fourth kind.
+ */
+
+/**
+ * Named third parties. Deliberately a list rather than a pattern: there is no
+ * shape that distinguishes `RESEND_API_KEY` from `MEILI_MASTER_KEY`, only
+ * knowledge of what Resend and Meilisearch are.
+ *
+ * Bounded to a whole segment so `OPENAI_API_KEY` matches and a self-hosted
+ * `MYOPENAI_KEY` does not.
+ */
+const VENDOR_RE =
+  /(^|_)(RESEND|SENDGRID|MAILGUN|POSTMARK|MAILCHIMP|BREVO|SES|TWILIO|VONAGE|STRIPE|PADDLE|LEMONSQUEEZY|POLAR|PLAID|OPENAI|ANTHROPIC|GEMINI|MISTRAL|COHERE|GROQ|REPLICATE|HUGGINGFACE|AWS|GCP|GOOGLE|AZURE|CLOUDFLARE|VERCEL|NETLIFY|FLY|RAILWAY|RENDER|HEROKU|DIGITALOCEAN|HETZNER|LINODE|VULTR|SCALEWAY|GITHUB|GITLAB|BITBUCKET|SLACK|DISCORD|TELEGRAM|SENTRY|DATADOG|NEWRELIC|HONEYCOMB|POSTHOG|AMPLITUDE|MIXPANEL|SEGMENT|ALGOLIA|PINECONE|CLERK|AUTH0|OKTA|SUPABASE|FIREBASE|NGROK|TAILSCALE|NETBIRD|INFISICAL|DOPPLER|CLOUDINARY|UPLOADTHING|MAPBOX|RECAPTCHA|TURNSTILE)($|_)/i;
+
+/**
+ * Shapes that name a credential belonging to whatever service the key points
+ * at, even when the vendor is not one we listed.
+ *
+ * `API_KEY`, `ACCESS_KEY` and `DSN` are the three that are almost never
+ * self-issued: something already exists, and this is how you authenticate TO
+ * it. `CLIENT_ID`/`CLIENT_SECRET` are an OAuth pair, always issued by the
+ * provider you are integrating with.
+ *
+ * The asymmetry is deliberate and worth stating, because this WILL occasionally
+ * refuse to fill something that was self-issued (a self-hosted LiveKit lets you
+ * choose `LIVEKIT_API_KEY`). That costs one edit on a field that is visibly
+ * blank and marked required. The other error - generating a Stripe key - costs
+ * a silent outage nobody is looking for. When in doubt, do not invent.
+ */
+const ISSUED_SHAPE_RE = /(^|_)(API_?KEYS?|ACCESS_?KEYS?|DSN|CLIENT_ID|CLIENT_SECRET)($|_)/i;
+
+/**
+ * Is this a credential only a third party can issue?
+ *
+ * Only meaningful for keys that classify as `secret`; a URL or a plain value
+ * was never going to be generated anyway.
+ */
+export function isVendorIssuedKey(key: string): boolean {
+  return VENDOR_RE.test(key) || ISSUED_SHAPE_RE.test(key);
+}
+
+/**
  * Keys wanting the address this stack will be reachable at.
  *
  * Ordered narrower-than-`SECRET_RE` on purpose: `AUTH` matches the secret
@@ -70,7 +139,36 @@ const NOT_A_GENERATED_KEY_RE = /(LICENSE|LICENCE|PUBLIC|SSH|HOST|PGP|GPG|DEPLOY)
  * without the precedence rule in {@link classifyEnvVar}. A URL is not a
  * secret, and hiding one behind a reveal toggle is actively unhelpful.
  */
-const URL_RE = /(^|_)(URL|URI|ORIGIN|FQDN|DOMAIN|HOSTNAME|ENDPOINT|SITE|BASE)($|_)/i;
+const URL_RE = /(^|_)(URL|URI|ORIGIN|FQDN|DOMAIN|HOSTNAME|ENDPOINT|SITE)($|_)/i;
+
+/**
+ * `BASE` is the one address word that is genuinely ambiguous, so it is scored
+ * separately from the rest.
+ *
+ * It earns its place: `API_BASE` and `PUBLIC_BASE` want the address, and
+ * nothing else in URL_RE catches them (`BASE_URL` and `BASE_DOMAIN` already
+ * match on their other segment). But it also matches the tail of Rails'
+ * `SECRET_KEY_BASE`, and since URL wins over secret, that key classified as an
+ * ADDRESS: rendered unmasked in the variables editor and seeded with
+ * `https://<host>`. A session-signing key, in the clear, holding a guessable
+ * value (od-9slm).
+ *
+ * The URL-beats-secret precedence itself is not the problem and is left alone —
+ * it exists so `NEXTAUTH_URL` and `AUTH_DOMAIN` are treated as addresses rather
+ * than masked, and every word in URL_RE above is unambiguous enough to keep
+ * winning. Only `BASE` yields, and only to SECRET or PASSWORD, which are the
+ * two words that never appear in a key naming an address. Deliberately not
+ * TOKEN or KEY: `TOKEN_ENDPOINT` is a URL, and yielding on those would trade
+ * this bug for its mirror image.
+ */
+const WEAK_ADDRESS_RE = /(^|_)BASE($|_)/i;
+const UNAMBIGUOUS_SECRET_RE = /(^|_)(SECRET|PASSWORD|PASSWD)($|_)/i;
+
+/** Address-shaped, counting the ambiguous `BASE` only when nothing contradicts it. */
+function looksLikeAddress(key: string): boolean {
+  if (URL_RE.test(key)) return true;
+  return WEAK_ADDRESS_RE.test(key) && !UNAMBIGUOUS_SECRET_RE.test(key);
+}
 
 /** Keys that name a host without a scheme: `SERVER_HOST`, `PUBLIC_HOST`. */
 const HOST_RE = /(^|_)HOST($|_)/i;
@@ -89,7 +187,7 @@ export type EnvVarKind = "secret" | "url" | "host" | "plain";
  * addresses rather than credentials.
  */
 export function classifyEnvVar(key: string): EnvVarKind {
-  if (URL_RE.test(key)) return "url";
+  if (looksLikeAddress(key)) return "url";
   if (HOST_RE.test(key)) return "host";
   if (SECRET_RE.test(key) || AUTH_RE.test(key)) return "secret";
   if (KEY_RE.test(key) && !NOT_A_GENERATED_KEY_RE.test(key)) return "secret";
@@ -102,9 +200,17 @@ export function isSecretKey(key: string): boolean {
   return classifyEnvVar(key) === "secret";
 }
 
-/** Can the platform produce a value without asking? */
+/**
+ * Can the platform produce a value without asking?
+ *
+ * Must agree with `autofillValue` exactly. This drives the templates catalog
+ * copy ("we fill this in for you"), so a key that says yes here and then
+ * resolves to null there promises the operator a value that never arrives.
+ */
 export function isAutofilledKey(key: string): boolean {
-  return classifyEnvVar(key) !== "plain";
+  const kind = classifyEnvVar(key);
+  if (kind === "plain") return false;
+  return !(kind === "secret" && isVendorIssuedKey(key));
 }
 
 /**
@@ -140,7 +246,11 @@ export function autofillValue(
   const ref = ctx.frontService;
   switch (classifyEnvVar(key)) {
     case "secret":
-      return ctx.randomSecret();
+      // A credential someone else issues cannot be invented. See
+      // `isVendorIssuedKey`: a blank field asks a question, a generated one
+      // gives a wrong answer that nothing will contradict until the feature is
+      // found dead.
+      return isVendorIssuedKey(key) ? null : ctx.randomSecret();
     case "url":
       if (ref) return `\${{stack.${ref}.PUBLIC_URL}}`;
       return ctx.publicHost ? `https://${ctx.publicHost}` : null;

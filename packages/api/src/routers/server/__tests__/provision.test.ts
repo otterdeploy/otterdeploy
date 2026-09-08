@@ -29,6 +29,10 @@ describe("parseProbe", () => {
       privilege: "sudo",
       docker: "27.1.1",
       swarmState: "inactive",
+      // A probe with no port markers found nothing listening, which is the
+      // clean-host case the edge proxy installs on (od-u05r).
+      edgePortHolders: [],
+      containerList: "",
     });
   });
 
@@ -39,6 +43,8 @@ describe("parseProbe", () => {
       privilege: "none",
       docker: "none",
       swarmState: "unknown",
+      edgePortHolders: [],
+      containerList: "",
     });
   });
 

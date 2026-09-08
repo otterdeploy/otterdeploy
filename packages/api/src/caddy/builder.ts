@@ -121,9 +121,29 @@ function policyHeaderLines(policy: RoutePolicy): string[] {
   ];
 }
 
-function routePolicyLines(input: unknown): string[] {
+/** The policy a route's jsonb actually yields. A row that fails the schema
+ *  (hand-edited, or written before a field existed and since gone stale)
+ *  falls back to the default rather than taking the whole edge config down. */
+function policyOf(input: unknown): RoutePolicy {
   const parsed = routePolicySchema.safeParse(input);
-  const policy = parsed.success ? parsed.data : DEFAULT_ROUTE_POLICY;
+  return parsed.success ? parsed.data : DEFAULT_ROUTE_POLICY;
+}
+
+/**
+ * The upstream address, carrying the scheme the policy asks for.
+ *
+ * `h2c://` is the whole reason this is not just string interpolation: a gRPC
+ * backend needs HTTP/2 cleartext, and Caddy's default upstream transport is
+ * HTTP/1.1, so without the scheme the request is downgraded at the edge and
+ * gRPC fails before it ever reaches the upstream.
+ */
+function upstreamOf(route: ProxyRouteInput): string {
+  const scheme = policyOf(route.routePolicy).upstreamProtocol === "h2c" ? "h2c://" : "";
+  return `${scheme}${route.upstreamHost}:${route.upstreamPort}`;
+}
+
+function routePolicyLines(input: unknown): string[] {
+  const policy = policyOf(input);
   const lines: string[] = [];
   if (policy.compression === "gzip") lines.push("\tencode gzip");
   if (policy.compression === "zstd") lines.push("\tencode zstd");
@@ -197,10 +217,10 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
     lines.push(`\t\t\turi ${DEPLOY_AUTHZ_PATH}?domain=${encodeURIComponent(route.domain)}`);
     lines.push("\t\t\tcopy_headers Remote-User Remote-Email");
     lines.push("\t\t}");
-    lines.push(`\t\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
+    lines.push(`\t\treverse_proxy ${upstreamOf(route)}`);
     lines.push("\t}");
   } else {
-    lines.push(`\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
+    lines.push(`\treverse_proxy ${upstreamOf(route)}`);
   }
 
   lines.push(...routePolicyLines(route.routePolicy));

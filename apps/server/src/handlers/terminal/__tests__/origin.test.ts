@@ -22,10 +22,33 @@ describe("isTrustedOrigin", () => {
     expect(isTrustedOrigin("https://evil.example.net", ALLOWED, "deploy.example.com")).toBe(false);
   });
 
-  test("rejects a missing Origin outright", () => {
-    expect(isTrustedOrigin(null, ALLOWED, "deploy.example.com")).toBe(false);
-    expect(isTrustedOrigin(undefined, ALLOWED)).toBe(false);
+  test("allows a MISSING Origin: that is a non-browser client, not the threat", () => {
+    // `otd exec` upgrades from Node/Bun, which send no Origin at all, so
+    // rejecting absent meant the CLI could never open a shell on any machine
+    // (od-v7wb). Safe because the attack guarded against is cross-site
+    // hijacking, which a browser cannot mount without sending Origin — and
+    // because this upgrade carries no ambient credentials to ride, only a
+    // single-use IP-bound ticket.
+    expect(isTrustedOrigin(null, ALLOWED, "deploy.example.com")).toBe(true);
+    expect(isTrustedOrigin(undefined, ALLOWED)).toBe(true);
+  });
+
+  test("still rejects a PRESENT but untrustworthy Origin", () => {
+    // The distinction the fix turns on. An empty header, or the literal "null"
+    // an opaque/sandboxed origin serializes to, is a browser telling us where
+    // it came from and that the answer is untrustworthy. That is not the same
+    // as no browser at all.
     expect(isTrustedOrigin("", ALLOWED, "deploy.example.com")).toBe(false);
+    expect(isTrustedOrigin("   ", ALLOWED, "deploy.example.com")).toBe(false);
+    expect(isTrustedOrigin("null", ALLOWED, "deploy.example.com")).toBe(false);
+    expect(isTrustedOrigin("NULL", ALLOWED, "deploy.example.com")).toBe(false);
+  });
+
+  test("the cross-site case is unaffected by allowing absent", () => {
+    // The property that matters: relaxing absent must not relax anything a
+    // real attacker controls. An attacker page always has an Origin.
+    expect(isTrustedOrigin("https://evil.example.net", ALLOWED, "deploy.example.com")).toBe(false);
+    expect(isTrustedOrigin("https://evil.example.net", ALLOWED, null)).toBe(false);
   });
 
   test("a malformed Origin is not same-origin", () => {

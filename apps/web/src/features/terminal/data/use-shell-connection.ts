@@ -16,7 +16,7 @@ import { ServerMessage } from "@/messages";
 
 import type { SessionSource } from "../types";
 
-import { mintShellTicket, shellTargetFor, StepUpRequiredError } from "./tickets";
+import { type ShellTarget, mintShellTicket, shellTargetFor, StepUpRequiredError } from "./tickets";
 
 export type ConnState =
   | { kind: "connecting" }
@@ -30,6 +30,11 @@ export type ConnState =
 // that's incompatible with our text/binary frame discriminator.
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
+/** How long a socket may sit neither open nor errored before we call it.
+ *  Generous: a slow control plane behind a cold proxy is not a failure, and a
+ *  premature timeout on a shell that would have worked is worse than a few
+ *  extra seconds of spinner. */
+const OPEN_TIMEOUT_MS = 20_000;
 
 function wsUrlForTicket(ticket: string): string {
   const base = env.VITE_SERVER_URL.replace(/^http/, "ws");
@@ -79,6 +84,125 @@ function useStableSource(source: SessionSource): SessionSource {
   const key = JSON.stringify(source);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value, not identity
   return useMemo(() => source, [key]);
+}
+
+/**
+ * The socket's message handler.
+ *
+ * Extracted from the hook only to keep it under the function-size cap; the
+ * behaviour is unchanged and the closure it needs is passed in rather than
+ * captured.
+ */
+function makeMessageHandler(deps: {
+  writeVisible: (data: Uint8Array | string) => void;
+  update: (next: ConnState) => void;
+}): (e: MessageEvent) => void {
+  const { writeVisible, update } = deps;
+  return (e: MessageEvent) => {
+    if (e.data instanceof ArrayBuffer) {
+      writeVisible(new Uint8Array(e.data));
+      return;
+    }
+    // Everything that can reject a frame lives in one place: a non-string
+    // payload, unparseable JSON, and JSON that isn't a ServerMessage all
+    // come back as null. A peer can put anything on this socket, so none of
+    // those is exceptional. They just mean "ignore this frame".
+    const decoded = Result.try({
+      try: () => {
+        if (typeof e.data !== "string") return null;
+        const parsed = ServerMessage.safeParse(JSON.parse(e.data));
+        return parsed.success ? parsed.data : null;
+      },
+      catch: () => null,
+    });
+    if (decoded.isErr() || !decoded.value) return;
+    const msg = decoded.value;
+    switch (msg.type) {
+      case "session:exit": {
+        const detail =
+          msg.exitCode != null
+            ? ` with code ${msg.exitCode}`
+            : msg.signal
+              ? ` (${msg.signal})`
+              : "";
+        writeVisible(`\r\n[process exited${detail}]\r\n`);
+        return;
+      }
+      case "error":
+        update({ kind: "error", message: `[${msg.code}] ${msg.message}` });
+        writeVisible(`\r\n[${msg.code}] ${msg.message}\r\n`);
+        return;
+      default: {
+        const _exhaustive: never = msg;
+        return _exhaustive;
+      }
+    }
+  };
+}
+
+/**
+ * Mint a ticket, prompting for step-up once if the grant has lapsed.
+ *
+ * `promptForStepUp` resolves when the operator completes the dialog and
+ * rejects on teardown, so the wait is unbounded on purpose: a human is typing
+ * a password, and nothing here may hurry them.
+ */
+async function mintTicketWithStepUp(
+  target: ShellTarget,
+  promptForStepUp: () => Promise<void>,
+): Promise<string> {
+  const first = await Result.tryPromise({
+    try: () => mintShellTicket(target),
+    catch: (cause) => cause,
+  });
+  if (first.isOk()) return first.value.ticket;
+  // A missing step-up grant is the ONE recoverable failure here. Anything else
+  // (denied authorization, a dead network) is the caller's to report, so it
+  // propagates rather than being retried behind a prompt.
+  if (!(first.error instanceof StepUpRequiredError)) throw first.error;
+  await promptForStepUp();
+  // Retried exactly once: a second STEP_UP_REQUIRED means the grant did not
+  // take, and prompting again would loop.
+  return (await mintShellTicket(target)).ticket;
+}
+
+/**
+ * Fail a socket that neither opens nor errors, and say what did not happen.
+ *
+ * Without this the session sits on "Connecting…" forever, which is the one
+ * outcome an operator can do nothing with: no reason, no failure, no end. The
+ * report that prompted it asked for exactly this and nothing more — "it should
+ * at minimum time out with a reason" (od-nkpx).
+ *
+ * Deliberately covers ONLY the socket open, not the ticket mint before it.
+ * Everything before this point may legitimately take as long as it likes,
+ * because the step-up dialog is waiting on a human typing a password; timing
+ * that out would cancel the very prompt it exists to rescue.
+ *
+ * Returns the canceller, which every terminal handler calls.
+ */
+function boundSocketOpen(
+  ws: WebSocket,
+  hooks: { isDisposed: () => boolean; onTimeout: (message: string, line: string) => void },
+): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    timer = null;
+    if (hooks.isDisposed() || ws.readyState === WebSocket.OPEN) return;
+    hooks.onTimeout(
+      "Timed out opening the shell",
+      `\r\n\x1b[31m[timed out after ${Math.round(OPEN_TIMEOUT_MS / 1000)}s opening the shell. ` +
+        `The ticket was issued, so this is the connection itself: check that the control plane is ` +
+        `reachable and that nothing is blocking the websocket upgrade.]\x1b[0m\r\n`,
+    );
+    // Closed explicitly: a socket left hanging would fire `onclose` later and
+    // start the reconnect loop behind an error already shown to the operator.
+    ws.close();
+  }, OPEN_TIMEOUT_MS);
+
+  return () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
 }
 
 export function useShellConnection(target: SessionSource, { write, onConnChange }: Options) {
@@ -146,67 +270,19 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
     // connection needs a fresh one, the old one is single-use even on
     // success. `STEP_UP_REQUIRED` means there's no live re-auth grant;
     // prompt for one and retry exactly once.
-    const getTicket = async (): Promise<string> => {
-      const first = await Result.tryPromise({
-        try: () => mintShellTicket(target),
-        catch: (cause) => cause,
-      });
-      if (first.isOk()) return first.value.ticket;
-      // A missing step-up grant is the ONE recoverable failure here. Anything
-      // else (denied authorization, a dead network) is the caller's to
-      // report, so it propagates rather than being retried behind a prompt.
-      if (!(first.error instanceof StepUpRequiredError)) throw first.error;
-      // Rejects on teardown (see the cleanup), which surfaces to the caller as
-      // an error it discards because `disposed` is already set.
-      await new Promise<void>((resolve, reject) => {
-        stepUpWaiterRef.current = { resolve, reject };
-        setStepUpPromptOpen(true);
-      });
-      // Retried exactly once: a second STEP_UP_REQUIRED means the grant didn't
-      // take, and prompting again would loop.
-      return (await mintShellTicket(target)).ticket;
-    };
+    const getTicket = () =>
+      mintTicketWithStepUp(
+        target,
+        () =>
+          // Rejects on teardown (see the cleanup), which surfaces to the caller
+          // as an error it discards because `disposed` is already set.
+          new Promise<void>((resolve, reject) => {
+            stepUpWaiterRef.current = { resolve, reject };
+            setStepUpPromptOpen(true);
+          }),
+      );
 
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data instanceof ArrayBuffer) {
-        writeVisible(new Uint8Array(e.data));
-        return;
-      }
-      // Everything that can reject a frame lives in one place: a non-string
-      // payload, unparseable JSON, and JSON that isn't a ServerMessage all
-      // come back as null. A peer can put anything on this socket, so none of
-      // those is exceptional. They just mean "ignore this frame".
-      const decoded = Result.try({
-        try: () => {
-          if (typeof e.data !== "string") return null;
-          const parsed = ServerMessage.safeParse(JSON.parse(e.data));
-          return parsed.success ? parsed.data : null;
-        },
-        catch: () => null,
-      });
-      if (decoded.isErr() || !decoded.value) return;
-      const msg = decoded.value;
-      switch (msg.type) {
-        case "session:exit": {
-          const detail =
-            msg.exitCode != null
-              ? ` with code ${msg.exitCode}`
-              : msg.signal
-                ? ` (${msg.signal})`
-                : "";
-          writeVisible(`\r\n[process exited${detail}]\r\n`);
-          return;
-        }
-        case "error":
-          update({ kind: "error", message: `[${msg.code}] ${msg.message}` });
-          writeVisible(`\r\n[${msg.code}] ${msg.message}\r\n`);
-          return;
-        default: {
-          const _exhaustive: never = msg;
-          return _exhaustive;
-        }
-      }
-    };
+    const handleMessage = makeMessageHandler({ writeVisible, update });
 
     const connect = async () => {
       const ticket = await Result.tryPromise({
@@ -229,13 +305,27 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
       wsRef.current = ws;
       ws.binaryType = "arraybuffer";
 
+      // Bound the open: see `boundSocketOpen`.
+      const clearOpenTimer = boundSocketOpen(ws, {
+        isDisposed: () => disposed,
+        onTimeout: (message, line) => {
+          update({ kind: "error", message });
+          writeVisible(line);
+        },
+      });
+
       ws.onopen = () => {
+        clearOpenTimer();
         reconnectDelay = RECONNECT_BASE_MS;
         attempt = 0;
         update({ kind: "connected" });
       };
-      ws.onerror = () => update({ kind: "error", message: "WebSocket error" });
+      ws.onerror = () => {
+        clearOpenTimer();
+        update({ kind: "error", message: "WebSocket error" });
+      };
       ws.onclose = (e) => {
+        clearOpenTimer();
         if (disposed) return;
         // Code 1000 is a deliberate server-side end (the shell exited).
         // Leave it closed. Any other code is an abnormal drop, so reconnect

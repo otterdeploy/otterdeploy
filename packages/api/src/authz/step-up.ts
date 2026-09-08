@@ -18,7 +18,10 @@
 import type { RedisClient } from "bun";
 
 import { auth } from "@otterdeploy/auth";
+import { db } from "@otterdeploy/db";
+import { account } from "@otterdeploy/db/schema";
 import { Result, TaggedError } from "better-result";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 import { createRedis } from "../lib/redis";
 
@@ -55,9 +58,39 @@ export async function clearStepUp(userId: string): Promise<void> {
 }
 
 class StepUpVerificationError extends TaggedError("StepUpVerificationError")<{
-  reason: "two_factor_code_required" | "password_required" | "invalid";
+  reason: "two_factor_code_required" | "password_required" | "no_credential" | "invalid";
   message: string;
 }>() {}
+
+/**
+ * Does this account have a password to verify?
+ *
+ * `verifyStepUpCredential` used to assume every non-2FA user did, which is
+ * false for a whole class of accounts this install creates on purpose: an
+ * invited user who never set one, a passkey-only sign-in (the `passkey` plugin
+ * is enabled), and any social/SSO account. Those users were asked for a
+ * password that does not exist, could never satisfy it, and were locked out of
+ * every step-up-gated action permanently — with the prompt simply reappearing
+ * (od-rvca).
+ *
+ * better-auth stores a password account as `account.providerId = "credential"`
+ * with a non-null `password`. A row with a null password is a placeholder, not
+ * a usable credential, so it is excluded.
+ */
+async function hasPasswordCredential(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: account.id })
+    .from(account)
+    .where(
+      and(
+        eq(account.userId, userId),
+        eq(account.providerId, "credential"),
+        isNotNull(account.password),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
+}
 
 /** Verify a fresh TOTP code against the CURRENT session (no side effects on
  *  the session itself: `trustDevice: false`). Shared by node-enrollment
@@ -110,26 +143,75 @@ async function verifyPassword(
  * optional so the caller can distinguish "you forgot to send anything" from
  * "what you sent was wrong".
  */
+export type StepUpMethod =
+  | { kind: "totp"; code: string }
+  | { kind: "password"; password: string }
+  | {
+      kind: "unusable";
+      reason: "two_factor_code_required" | "password_required" | "no_credential";
+    };
+
+/**
+ * WHICH credential this account must present, and whether it supplied it.
+ *
+ * Pure and separated from the verifying so the matrix is testable without a
+ * database or an auth server — and the matrix is where the bug was. The old
+ * code had two branches, TOTP or password, with no third, so it asked a
+ * passwordless account for a password: unanswerable, and re-prompted forever
+ * because nothing the user could type would ever verify (od-rvca).
+ *
+ * `hasPassword` is resolved by the caller rather than looked up here, both to
+ * keep this pure and because "does this account have a credential" is a fact
+ * about the account, not a decision.
+ */
+export function chooseStepUpMethod(
+  user: { twoFactorEnabled: boolean },
+  hasPassword: boolean,
+  input: { totpCode?: string; password?: string },
+): StepUpMethod {
+  if (user.twoFactorEnabled) {
+    return input.totpCode
+      ? { kind: "totp", code: input.totpCode }
+      : { kind: "unusable", reason: "two_factor_code_required" };
+  }
+  // Checked BEFORE asking: an account with nothing to present must be told
+  // that, not handed a prompt it cannot satisfy.
+  if (!hasPassword) return { kind: "unusable", reason: "no_credential" };
+  return input.password
+    ? { kind: "password", password: input.password }
+    : { kind: "unusable", reason: "password_required" };
+}
+
+const UNUSABLE_MESSAGE: Record<Extract<StepUpMethod, { kind: "unusable" }>["reason"], string> = {
+  two_factor_code_required: "Enter the current authenticator code.",
+  password_required: "Enter your password.",
+  no_credential:
+    "This action needs you to confirm it is you, but your account has no password or " +
+    "authenticator to confirm with. Add one in Settings → Account (set a password, or enable " +
+    "two-factor authentication), then try again.",
+};
+
 export async function verifyStepUpCredential(
   context: { headers: Headers },
-  user: { twoFactorEnabled: boolean },
+  user: { id: string; twoFactorEnabled: boolean },
   input: { totpCode?: string; password?: string },
 ): Promise<Result<void, StepUpVerificationError>> {
-  if (user.twoFactorEnabled) {
-    if (!input.totpCode) {
+  // Only queried on the non-2FA path: an account with an authenticator never
+  // needs the answer, and this runs on every shell reconnect.
+  const hasPassword = user.twoFactorEnabled ? true : await hasPasswordCredential(user.id);
+  const method = chooseStepUpMethod(user, hasPassword, input);
+
+  switch (method.kind) {
+    case "totp":
+      return verifyTotpCode(context, method.code);
+    case "password":
+      return verifyPassword(context, method.password);
+    case "unusable":
       return Result.err(
         new StepUpVerificationError({
-          reason: "two_factor_code_required",
-          message: "Enter the current authenticator code.",
+          reason: method.reason,
+          message: UNUSABLE_MESSAGE[method.reason],
         }),
       );
-    }
-    return verifyTotpCode(context, input.totpCode);
   }
-  if (!input.password) {
-    return Result.err(
-      new StepUpVerificationError({ reason: "password_required", message: "Enter your password." }),
-    );
-  }
-  return verifyPassword(context, input.password);
 }

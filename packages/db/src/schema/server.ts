@@ -57,6 +57,24 @@ export const serverFirewallStatusEnum = pgEnum("server_firewall_status", [
   "unsupported",
 ]);
 
+// Node edge proxy provisioning outcome (od-u05r). Distinct from a FAILURE,
+// which is the distinction the whole column exists to draw: a host already
+// running Coolify holds 80/443, so our proxy cannot install there, and that is
+// a state to report rather than a fault to retry. "unknown" is the honest
+// default for every row provisioned before this existed.
+//
+// Mirrors serverFirewallStatusEnum deliberately, including its "something else
+// was already here" case: both answer "did otterdeploy take ownership of this
+// part of the host, and if not, why not".
+export const serverEdgeProxyStatusEnum = pgEnum("server_edge_proxy_status", [
+  "unknown",
+  "running",
+  "port_conflict",
+  "platform_present",
+  "failed",
+  "unsupported",
+]);
+
 export const server = pgTable(
   "server",
   {
@@ -119,6 +137,15 @@ export const server = pgTable(
     // bouncer): see host-firewall.ts's isFirewallDrifted(). Set by
     // provision-runner.ts on join and by the reapplyFirewall remediation
     // path; never by the operator directly.
+    // Whether this node terminates its own traffic, and why not when it does
+    // not. Set by provision-runner from the pre-flight probe; never by the
+    // operator. Without it a node that could not install an edge reported
+    // `ready` and said so only in a log line that scrolls past once, so the
+    // operator saw a healthy node with no working edge.
+    edgeProxyStatus: serverEdgeProxyStatusEnum("edge_proxy_status").notNull().default("unknown"),
+    // Operator-facing reason when the status is not "running"; cleared when it
+    // becomes "running".
+    edgeProxyError: text("edge_proxy_error"),
     firewallStatus: serverFirewallStatusEnum("firewall_status").notNull().default("unknown"),
     firewallAppliedAt: timestamp("firewall_applied_at"),
     firewallError: text("firewall_error"),

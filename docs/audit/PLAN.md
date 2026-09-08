@@ -61,7 +61,35 @@ run (3.65% to 3.63%), which is the honest reading: the column added no
 duplicated code, it completed one more instance of a boilerplate the DSL
 requires.
 
-Duplicated lines re-pinned on 2026-09-08 to 3.56%, from the data table landing.
+Re-pinned on 2026-09-08 to 386 clone groups / 3.64% (od-u05r), after taking the
+deduplication the ratchet was pointing at rather than the exemption. The first
+report was a cross-file clone between the new `queries-edge-proxy.ts` and
+`queries.ts`; both, and two more update helpers beside them, were the same six
+lines with different column names, so they now share one `patchServerColumns`.
+The part worth having once is the WHERE clause: a patch that forgets the
+organization scope writes across a tenant boundary.
+
+What remains is one pair internal to `queries.ts`, and it does not collapse the
+same way. Those functions differ in the columns they compute before writing
+(`firewallAppliedAt` from a status, an `edgeProxyError` cleared on success), so
+folding them together would replace two readable writers with one that branches
+on which caller it is serving. The measure is reading the drizzle update shape
+that every one of them necessarily has.
+
+Re-pinned on 2026-09-08 to 3.63% (#297). Rebasing the h2c branch onto main
+surfaced four findings, and taking them properly rather than exempting them
+left the floor LOWER than it found it. The gated one was a real cycle:
+`labels.ts` imported `Obj`/`isObj` from `normalize.ts`, which imports
+`normalizeLabels` back — but those are only aliases of `JsonObject`/
+`isJsonObject`, so importing the primitives directly dissolved it with no
+behaviour change. The clone was real too: `environment` and `labels` both
+accept compose's `KEY=value` list form and each carried its own copy of the
+parser, identical down to the comment about the first `=`. One copy now, in a
+leaf module both import, which is why the duplication percentage went down
+rather than sideways.
+
+Duplicated lines re-pinned on 2026-09-08 to 3.56% (#333), from the data table
+landing, measured after merging main.
 A change that adds ~4k lines of new surface would normally push every measure up;
 this one ends below the floor it started at because the shared pieces are shared
 rather than repeated. Three copies of "what does this column hold for this row"
