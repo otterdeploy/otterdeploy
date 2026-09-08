@@ -60,6 +60,11 @@ export function newPersistentEnvRow(input: {
 }): EnvRow {
   return {
     ...input,
+    // A new environment is public. Privacy is a deliberate act on an
+    // environment that already exists, so the optimistic row must not claim
+    // otherwise: showing it as private for the moment before the server
+    // answers would be the one direction that misleads.
+    protected: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
