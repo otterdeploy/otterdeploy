@@ -6,6 +6,7 @@
  * by the oRPC contract; `mapEnvVar` does the same for env-var rows.
  */
 
+import { withPromotedPrimary } from "../../lib/primary-port";
 import { runtime as activeRuntime } from "../../runtime";
 import { type SwarmServiceRuntime } from "../../swarm";
 import { type ServiceRecord } from "./queries";
@@ -96,25 +97,21 @@ export interface PortInput {
 /**
  * Ensure exactly one primary HTTP port. If the user didn't flag one,
  * promote the first HTTP port. No-op if there are no HTTP ports.
+ *
+ * The promotion rule itself lives in lib/primary-port.ts because the manifest
+ * DIFF has to apply the identical rule: it used to read an omitted `primary`
+ * as `false`, which this function then promoted back on write, so the change
+ * was re-proposed forever (od-8kqp).
  */
 export function normalizePorts(ports: PortInput[]) {
-  const hasHttp = ports.some((p) => (p.appProtocol ?? "http") === "http");
-  const hasPrimary = ports.some((p) => p.isPrimary === true);
-  let promotedPrimary = false;
-  return ports.map((p) => {
-    const appProtocol = p.appProtocol ?? "http";
-    const isPrimary =
-      p.isPrimary === true ||
-      (hasHttp && !hasPrimary && !promotedPrimary && appProtocol === "http"
-        ? ((promotedPrimary = true), true)
-        : false);
-    return {
+  return withPromotedPrimary(
+    ports.map((p) => ({
       containerPort: p.containerPort,
       protocol: p.protocol ?? "tcp",
-      appProtocol,
-      isPrimary,
-    };
-  });
+      appProtocol: p.appProtocol ?? "http",
+      isPrimary: p.isPrimary === true,
+    })),
+  );
 }
 
 // ---------------------------------------------------------------------------
