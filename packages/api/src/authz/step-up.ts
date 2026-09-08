@@ -278,17 +278,16 @@ async function verifyEmailCode(
 }
 
 /** Whether this account steps up by emailed code: no authenticator, no
- *  password. Exported so the send endpoint can refuse to email a code to an
- *  account that should be using a stronger factor it already has. */
-export async function usesEmailStepUp(user: {
-  id: string;
-  twoFactorEnabled: boolean;
-}): Promise<boolean> {
+ *  password. Internal: the only caller is `sendStepUpEmailCode`, which uses it
+ *  to refuse emailing a code to an account that already holds a stronger
+ *  factor. */
+async function usesEmailStepUp(user: { id: string; twoFactorEnabled: boolean }): Promise<boolean> {
   if (user.twoFactorEnabled) return false;
   return !(await hasPasswordCredential(user.id));
 }
 
-export class StepUpCodeSendError extends TaggedError("StepUpCodeSendError")<{
+/** Internal: callers switch on `reason`, never on the class. */
+class StepUpCodeSendError extends TaggedError("StepUpCodeSendError")<{
   reason: "not_applicable" | "rate_limited" | "no_email" | "send_failed";
   message: string;
 }>() {}
