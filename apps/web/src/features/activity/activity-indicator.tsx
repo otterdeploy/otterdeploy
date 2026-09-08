@@ -86,7 +86,19 @@ function ActivityRow({
         }}
         // Straight to the build log. Every row here is a build you are waiting
         // on, and "what is it doing right now" is the only reason to click.
-        search={{ tab: "logs", deployment: item.id, logSource: "build" }}
+        //
+        // `env` SWITCHES environment, it does not merely preserve one. This
+        // list spans every environment in the org, so a row is routinely for a
+        // resource that does not exist in the one currently being viewed —
+        // clicking a staging build from production landed on "Resource not
+        // found" for a build the same popover was showing as running. Main is
+        // represented by omitting the param.
+        search={{
+          tab: "logs",
+          deployment: item.id,
+          logSource: "build",
+          ...(item.environmentSlug === null ? {} : { env: item.environmentSlug }),
+        }}
         className="flex min-w-0 flex-1 flex-col gap-0.5"
       >
         <span className="flex items-baseline justify-between gap-2">

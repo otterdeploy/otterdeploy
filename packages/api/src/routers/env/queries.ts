@@ -88,6 +88,25 @@ async function listResourcesInEnvironment(
  * happens to them. `cascade` deletes the rows, and the caller is responsible
  * for having torn down their runtime first.
  */
+/**
+ * Rename an environment. The SLUG is not touched, and cannot be: it is baked
+ * into every scoped runtime name — container suffixes (`web-admin-staging`),
+ * internal hostnames (`postgres-staging.<project>.…`), the overlay network,
+ * and the `environments.<slug>` key in the project manifest. Changing it would
+ * leave every running container orphaned from its row.
+ */
+export async function renameEnvRecord(input: {
+  environmentId: EnvironmentId;
+  name: string;
+}): Promise<EnvironmentRecord | undefined> {
+  const [row] = await db
+    .update(environment)
+    .set({ name: input.name })
+    .where(eq(environment.id, input.environmentId))
+    .returning();
+  return row;
+}
+
 export async function deleteEnvRecord(input: {
   environmentId: EnvironmentId;
   organizationId: OrgId;

@@ -27,8 +27,10 @@ import * as z from "zod";
 
 import { AnimatePresence } from "motion/react";
 
+import { envCollection } from "@/features/projects/data/env";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { inActiveEnvironment } from "@/features/shell/environment-scope";
+import { isMainEnvironment } from "@/features/shell/environment-default";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -196,6 +198,52 @@ function RouteComponent() {
       (r) =>
         r.resourceId === resourceId || `${r.type}:${r.name}` === resourceId,
     ) ?? null;
+
+  // Self-correct the environment rather than claim the resource is missing.
+  //
+  // A resource id belongs to exactly ONE environment, but plenty of surfaces
+  // legitimately link across them: the header activity list, the volumes and
+  // backups tables, a server's service list. Landing here with the wrong
+  // `?env=` produced "Resource not found" for something that plainly exists —
+  // the activity popover showed a build as running while this panel said its
+  // resource did not exist.
+  //
+  // Fixing it per-link means fixing every link, and missing the next one. The
+  // route knows which environment the id is in, so it moves the operator there
+  // instead. `replace` keeps Back working: the corrected URL takes the place
+  // of the wrong one rather than adding a step that bounces on return.
+  const { data: elsewhere } = useLiveQuery(
+    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, project.id)),
+    [project.id],
+  );
+  const { data: environments } = useLiveQuery((q) => q.from({ e: envCollection }), []);
+  useEffect(() => {
+    if (resource !== null || resourcesLoading) return;
+    const found = elsewhere.find(
+      (r) => r.resourceId === resourceId || `${r.type}:${r.name}` === resourceId,
+    );
+    if (!found) return;
+    const target = environments.find((e) => e.id === found.environmentId);
+    // An unstamped resource belongs to main, which the URL represents by
+    // omitting the param.
+    const nextEnv =
+      target && !isMainEnvironment(target, project.environmentId) ? target.slug : undefined;
+    const currentEnv = activeEnv.slug;
+    if (nextEnv === currentEnv) return;
+    void navigate({
+      search: (prev) => ({ ...prev, env: nextEnv }),
+      replace: true,
+    });
+  }, [
+    resource,
+    resourcesLoading,
+    elsewhere,
+    environments,
+    resourceId,
+    project,
+    activeEnv.slug,
+    navigate,
+  ]);
 
   useCloseOnDelete({ resource: resource !== null, resourcesLoading, close });
   // Only when nothing is stacked on top. The deployment overlay answers

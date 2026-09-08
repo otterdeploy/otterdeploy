@@ -50,6 +50,21 @@ export const createEnvInput = z.object({
   projectId: projectIdField.optional(),
 });
 
+/**
+ * Rename is name-only, deliberately.
+ *
+ * The SLUG is load-bearing: it is baked into every scoped runtime name —
+ * container suffixes (`web-admin-staging`), internal hostnames
+ * (`postgres-staging.<project>.otterdeploy.internal`), the environment's
+ * overlay network, and the `environments.<slug>` key in the project manifest.
+ * Changing it would leave every running container orphaned from its row, so
+ * there is no slug field here rather than a slug field that half-works.
+ */
+const renameEnvInput = z.object({
+  id: environmentIdField,
+  name: z.string().min(1).max(64),
+});
+
 const deleteEnvInput = z.object({
   id: environmentIdField,
   /** Delete the resources this environment owns along with it. Omitted or
@@ -80,6 +95,13 @@ export const envContract = {
     })
     .meta({ path: basePath, tag, method: "POST" })
     .input(createEnvInput)
+    .output(envSchema),
+  rename: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Environment not found" as const },
+    })
+    .meta({ path: `${basePath}/{id}/rename`, tag, method: "POST" })
+    .input(renameEnvInput)
     .output(envSchema),
   delete: oc
     .errors({

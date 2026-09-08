@@ -121,6 +121,16 @@ const deployActivityOutput = z.object({
       // what stops an org slug being passed where a project slug belongs.
       projectSlug: zSlug(ID_PREFIX.project),
       projectName: z.string(),
+      /** Environment slug the build belongs to, or null for the project's
+       *  main environment (which is stored unstamped).
+       *
+       *  The header lists builds across EVERY environment, so a row's link has
+       *  to switch environment as well as project. Without it, clicking a
+       *  staging build while viewing production navigated to a resource id
+       *  that genuinely does not exist in the environment being viewed, and
+       *  the panel answered "Resource not found" about a build it was
+       *  simultaneously showing as running. */
+      environmentSlug: z.string().nullable(),
       status: z.enum(["pending", "building"]),
       reason: z.string(),
       gitRef: z.string().nullable(),

@@ -189,10 +189,40 @@ const deleteCommand = defineCommand({
   },
 });
 
+const renameCommand = defineCommand({
+  meta: { name: "rename", description: "Rename an environment (display name only)" },
+  args: {
+    environment: {
+      type: "positional",
+      required: true,
+      description: "Environment name or env_… id",
+    },
+    name: { type: "positional", required: true, description: "New display name" },
+    project: { type: "string", description: "Project slug to scope the name lookup" },
+    config: { type: "string", description: "Path to config file" },
+    url: { type: "string", description: "Override control plane URL" },
+  },
+  async run({ args }) {
+    const { client, projectId } = await scopeFor(args);
+    const env = await resolveEnvironment(client, args.environment, projectId);
+    const renamed = await client.env.rename({ id: env.id, name: args.name });
+    ok(`Renamed ${env.name} to ${renamed.name}.`);
+    // Say plainly what did NOT change, because the slug is what the operator
+    // actually types and sees in every scoped name. Silence here would read as
+    // "the rename did nothing".
+    detail([["slug", renamed.slug]]);
+    note("The slug is unchanged, and cannot be renamed.");
+    hint(
+      "It is baked into container names, internal hostnames, this environment's network and the manifest's `environments.<slug>` key",
+    );
+  },
+});
+
 export const environmentsCommand = defineCommand({
   meta: { name: "environments", description: "Manage project environments" },
   subCommands: {
     list: listCommand,
+    rename: renameCommand,
     create: createCommand,
     delete: deleteCommand,
   },

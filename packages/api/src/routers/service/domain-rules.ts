@@ -178,7 +178,11 @@ export function acmeForPlatformHost(args: {
   dnsState: DnsState;
 }): boolean {
   if (args.isLocalBase || !canHoldPublicCert(args.domain)) return false;
-  return args.apexVerified || provenByDns(args.dnsState);
+  // Deliberately NOT provenByDns: that answers "does this operator control the
+  // name", which a proxied record does establish. Issuance asks something
+  // stricter — can a challenge reach THIS origin — and behind a proxy it
+  // cannot, because the proxy terminates TLS and answers the challenge itself.
+  return args.apexVerified || args.dnsState === "pointed";
 }
 
 /**
@@ -289,7 +293,19 @@ export function normalizePublicHostInput(input: string): string | null {
  * three call sites (add, recheck, update) read one rule.
  */
 export function provenByDns(state: DnsState): boolean {
-  return state === "pointed";
+  // `proxied` counts. A record behind Cloudflare (or any reverse proxy) can
+  // never resolve to this origin's address, so requiring `pointed` meant a
+  // proxied host could NEVER be verified and its route stayed disabled
+  // forever — while the manifest path happily created the same host enabled.
+  // One install therefore had two identical routes, one serving and one dead,
+  // differing only in which code path created them.
+  //
+  // Pointing a proxy at this install is still a deliberate act by someone who
+  // controls the record, which is the ownership question being asked. What it
+  // does NOT establish is that ACME can complete here — the proxy terminates
+  // TLS — and that is decided separately by `acmeFor`, which continues to
+  // treat `proxied` as unsuitable for issuance.
+  return state === "pointed" || state === "proxied";
 }
 
 /**

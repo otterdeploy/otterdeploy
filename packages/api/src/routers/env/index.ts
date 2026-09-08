@@ -2,7 +2,7 @@ import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { enforceEnvScope, enforceProjectScope } from "../../authz/project-scope-guards";
-import { createEnv, deleteEnv, getEnv, listEnvs } from "./handlers";
+import { createEnv, deleteEnv, getEnv, listEnvs, renameEnv } from "./handlers";
 
 export const envRouter = {
   list: orgScopedProcedure.env.list.handler(async ({ input, context }) => {
@@ -60,6 +60,23 @@ export const envRouter = {
         });
       }
       context.log.set({ target: { type: "environment", id: result.value.id } });
+      return result.value;
+    },
+  ),
+
+  rename: requirePermission({ env: ["update"] }).env.rename.handler(
+    async ({ input, context, errors }) => {
+      await enforceEnvScope(context, input.id);
+      const result = await renameEnv({
+        id: input.id,
+        name: input.name,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          EnvironmentNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
       return result.value;
     },
   ),
