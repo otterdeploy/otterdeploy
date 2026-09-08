@@ -7,19 +7,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type RowSelectionState,
-  type SortingState,
-} from "@tanstack/react-table";
+import { useTable, type RowSelectionState, type SortingState } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 
+import { dataTableFeatures } from "@/shared/components/data-table/features";
+
 import type { TimeRange } from "./logs-histogram";
 
-import { useProjectLogStream, type LogLevel } from "../data/use-project-log-stream";
+import { useProjectLogStream, type LogLevel, type LogLine } from "../data/use-project-log-stream";
 import { makeLogColumns } from "./log-columns";
 
 interface UseLogsTableArgs {
@@ -71,17 +67,27 @@ export function useLogsTable({
     );
   }, [filteredByMeta, timeRange]);
 
-  const table = useReactTable({
-    data: filtered,
-    columns,
-    state: { sorting, rowSelection },
-    onSortingChange: setSorting,
-    onRowSelectionChange: setRowSelection,
-    getRowId: (row) => row.id,
-    enableRowSelection: true,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  /**
+   * v9 memoizes the table on the OPTIONS object, so an inline literal hands
+   * back a new instance every render and every consumer below re-renders. The
+   * row models and sort functions now live on the shared feature set rather
+   * than in these options.
+   */
+  const tableOptions = useMemo(
+    () => ({
+      features: dataTableFeatures,
+      data: filtered,
+      columns,
+      state: { sorting, rowSelection },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      getRowId: (row: LogLine) => row.id,
+      enableRowSelection: true,
+    }),
+    [filtered, columns, sorting, rowSelection],
+  );
+
+  const table = useTable(tableOptions);
 
   const rows = table.getRowModel().rows;
   const isDefaultSort = sorting.length === 0;

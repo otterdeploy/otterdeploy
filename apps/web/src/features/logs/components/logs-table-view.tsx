@@ -20,6 +20,8 @@ import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { flexRender, type Row, type Table } from "@tanstack/react-table";
 
+import type { DataTableFeatures } from "@/shared/components/data-table/features";
+
 import {
   TableBody,
   TableCell,
@@ -34,8 +36,8 @@ import type { LogStreamStatus } from "./logs-status";
 import { LEVEL_STRIPE, type LogLine } from "../data/use-project-log-stream";
 
 interface LogsTableViewProps {
-  table: Table<LogLine>;
-  rows: Row<LogLine>[];
+  table: Table<DataTableFeatures, LogLine>;
+  rows: Row<DataTableFeatures, LogLine>[];
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollRef: Ref<HTMLDivElement | null>;
   status: LogStreamStatus;
@@ -110,7 +112,7 @@ export function LogsTableView({
   );
 }
 
-function LogsTableHeader({ table }: { table: Table<LogLine> }) {
+function LogsTableHeader({ table }: { table: Table<DataTableFeatures, LogLine> }) {
   return (
     <TableHeader className="sticky top-0 z-10 grid bg-background">
       {table.getHeaderGroups().map((hg) => (
@@ -155,7 +157,7 @@ function LogsTableHeader({ table }: { table: Table<LogLine> }) {
 }
 
 interface LogsTableBodyProps {
-  rows: Row<LogLine>[];
+  rows: Row<DataTableFeatures, LogLine>[];
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;

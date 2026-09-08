@@ -1,17 +1,19 @@
 "use client";
 
-import type { ColumnDef, TableMeta } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 
 import * as React from "react";
 
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import type { DataGridFeatures } from "@/shared/components/data-grid/features";
 import type {
   CellOpts,
   CellUpdate,
   ContextMenuState,
   CopyRowsFormat,
+  DataGridTableMeta,
 } from "@/shared/components/data-grid/types";
 
 import { useAsRef } from "@/shared/components/data-grid/hooks/use-as-ref";
@@ -31,13 +33,13 @@ import { CopyIcon, EraserIcon, ScissorsIcon, Trash2Icon } from "./icons";
 
 const COPY_ROW_FORMATS: readonly CopyRowsFormat[] = ["json", "csv", "tsv", "markdown", "sql"];
 
-interface DataGridContextMenuProps<TData> {
-  tableMeta: TableMeta<TData>;
-  columns: Array<ColumnDef<TData>>;
+interface DataGridContextMenuProps<TData extends RowData> {
+  tableMeta: DataGridTableMeta;
+  columns: readonly ColumnDef<DataGridFeatures, TData>[];
   contextMenu: ContextMenuState;
 }
 
-export function DataGridContextMenu<TData>({
+export function DataGridContextMenu<TData extends RowData>({
   tableMeta,
   columns,
   contextMenu,
@@ -73,7 +75,7 @@ export function DataGridContextMenu<TData>({
 /**
  * The slice of a ColumnDef the menu actually reads (id / accessorKey lookup +
  * the cell variant). Structural and TData-free, so the memoized component
- * below needs no generic parameter: every ColumnDef<TData> satisfies it.
+ * below needs no generic parameter: every ColumnDef<DataGridFeatures, TData> satisfies it.
  */
 interface ContextMenuColumn {
   id?: string;
@@ -81,11 +83,11 @@ interface ContextMenuColumn {
 }
 
 // The custom TableMeta fields this menu uses are all row-type independent, so
-// the props can be stated over TableMeta<unknown> and accept any grid's meta.
+// the props can be stated over DataGridTableMeta and accept any grid's meta.
 interface ContextMenuProps
   extends
     Pick<
-      TableMeta<unknown>,
+      DataGridTableMeta,
       | "dataGridRef"
       | "onContextMenuOpenChange"
       | "selectionState"
@@ -96,8 +98,8 @@ interface ContextMenuProps
       | "onCellsCut"
       | "readOnly"
     >,
-    Required<Pick<TableMeta<unknown>, "contextMenu">> {
-  tableMeta: TableMeta<unknown>;
+    Required<Pick<DataGridTableMeta, "contextMenu">> {
+  tableMeta: DataGridTableMeta;
   columns: ReadonlyArray<ContextMenuColumn>;
 }
 

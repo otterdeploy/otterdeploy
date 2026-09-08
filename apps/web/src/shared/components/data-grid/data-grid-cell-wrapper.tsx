@@ -1,5 +1,7 @@
 "use client";
 
+import type { RowData } from "@tanstack/react-table";
+
 import * as React from "react";
 
 import type { DataGridCellProps } from "@/shared/components/data-grid/types";
@@ -9,7 +11,7 @@ import { useComposedRefs } from "@/shared/components/data-grid/lib/compose-refs"
 import { getCellKey } from "@/shared/components/data-grid/lib/data-grid";
 import { cn } from "@/shared/lib/utils";
 
-interface DataGridCellWrapperProps<TData>
+interface DataGridCellWrapperProps<TData extends RowData>
   extends DataGridCellProps<TData>, React.ComponentProps<"div"> {}
 
 /** `React.CSSProperties` has no channel for CSS custom properties, so the one
@@ -22,7 +24,7 @@ function presenceRingStyle(color: string): PresenceRingStyle {
   return { "--tw-ring-color": color };
 }
 
-export function DataGridCellWrapper<TData>({
+export function DataGridCellWrapper<TData extends RowData>({
   tableMeta,
   rowIndex,
   columnId,

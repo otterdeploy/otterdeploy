@@ -7,6 +7,8 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { TFunction } from "i18next";
 
+import type { DataTableFeatures } from "@/shared/components/data-table/features";
+
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { cn } from "@/shared/lib/utils";
 
@@ -29,7 +31,7 @@ const levelRank = (lv: LogLevel) => LOG_LEVELS.indexOf(lv);
  * illegal. Taking `t` as a parameter keeps the strings translated and lets the
  * caller (which IS a component) own the subscription to language changes.
  */
-export function makeLogColumns(t: TFunction): ColumnDef<LogLine>[] {
+export function makeLogColumns(t: TFunction): ColumnDef<DataTableFeatures, LogLine>[] {
   return [
     {
       id: "select",
@@ -67,7 +69,7 @@ export function makeLogColumns(t: TFunction): ColumnDef<LogLine>[] {
       accessorKey: "level",
       size: 70,
       header: "Level",
-      sortingFn: (a, b) => levelRank(a.original.level) - levelRank(b.original.level),
+      sortFn: (a, b) => levelRank(a.original.level) - levelRank(b.original.level),
       cell: ({ row }) => (
         <span
           className={cn(
