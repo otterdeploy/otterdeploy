@@ -7,6 +7,7 @@
 import type { ChangeDetails, CurrentService, CurrentServicePort } from "./diff";
 import type { ComposeManifest, DatabaseManifest, ServiceManifest } from "./schema";
 
+import { withPromotedPrimary } from "../../lib/primary-port";
 import { diffSourceFields, type FieldChanges } from "./diff-source";
 
 // ── Service field diff ─────────────────────────────────────────────────
@@ -195,13 +196,19 @@ function diffPorts(
   desired: ManifestPortLike[],
   current: CurrentServicePort[],
 ): { from: CurrentServicePort[]; to: CurrentServicePort[] } | null {
-  const normalized: CurrentServicePort[] = desired.map((p) => ({
-    containerPort: p.container,
-    protocol: p.protocol ?? "tcp",
-    appProtocol: p.appProtocol ?? "http",
-    isPrimary: p.primary ?? false,
-    name: p.name,
-  }));
+  // `primary` is optional in the manifest, and an omitted flag does NOT mean
+  // "not primary": the write path promotes the first HTTP port. Reading it as
+  // false here made every manifest that omits the flag diff as a demotion that
+  // apply immediately undid, forever (od-8kqp). Same rule, one function.
+  const normalized: CurrentServicePort[] = withPromotedPrimary(
+    desired.map((p) => ({
+      containerPort: p.container,
+      protocol: p.protocol ?? "tcp",
+      appProtocol: p.appProtocol ?? "http",
+      isPrimary: p.primary === true,
+      name: p.name,
+    })),
+  );
 
   if (samePorts(normalized, current)) return null;
   return { from: current, to: normalized };
