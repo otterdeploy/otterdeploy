@@ -88,7 +88,7 @@ export interface HistogramBucket {
   by: Record<string, number>;
 }
 
-interface RawBucket {
+export interface RawBucket {
   at: Date | string | number | null;
   category: string | null;
   total: number | string;
@@ -120,6 +120,46 @@ function bucketStart(value: RawBucket["at"]): number | null {
     return Number.isNaN(parsed) ? null : parsed;
   }
   return null;
+}
+
+/**
+ * Grouped counts → the axis the chart draws.
+ *
+ * Pure, and separate from the query, because this is where the two histogram
+ * decisions live and both are silent when wrong:
+ *
+ * - **Every bucket in the range is materialized**, including the ones nothing
+ *   landed in. A gap is information — "nothing happened here" — and a series
+ *   that skips it draws a continuous run of activity that never existed.
+ * - **Buckets are anchored**, not started at the first row, so two windows of
+ *   the same width line up with each other rather than being offset by whenever
+ *   the first row happened to arrive.
+ */
+export function buildBuckets(
+  rows: readonly RawBucket[],
+  window: { anchorMs: number; toMs: number; bucketMs: number },
+): HistogramBucket[] {
+  const { anchorMs, toMs, bucketMs } = window;
+  const counted = new Map<number, HistogramBucket>();
+
+  for (const row of rows) {
+    const at = bucketStart(row.at);
+    if (at === null) continue;
+    const bucket = counted.get(at) ?? { at, total: 0, by: {} };
+    const amount = Number(row.total);
+    bucket.total += amount;
+    // A null category is the "no breakdown" case, not a category named "null".
+    if (row.category !== null) {
+      bucket.by[row.category] = (bucket.by[row.category] ?? 0) + amount;
+    }
+    counted.set(at, bucket);
+  }
+
+  const buckets: HistogramBucket[] = [];
+  for (let at = anchorMs; at <= toMs; at += bucketMs) {
+    buckets.push(counted.get(at) ?? { at, total: 0, by: {} });
+  }
+  return buckets;
 }
 
 /**
@@ -158,23 +198,6 @@ export async function computeHistogram(params: {
     GROUP BY at, category
     ORDER BY at ASC`;
 
-  const counted = new Map<number, HistogramBucket>();
-  for (const row of rawRows(await db.execute(statement))) {
-    const at = bucketStart(row.at);
-    if (at === null) continue;
-    const bucket = counted.get(at) ?? { at, total: 0, by: {} };
-    const amount = Number(row.total);
-    bucket.total += amount;
-    if (row.category !== null) {
-      bucket.by[row.category] = (bucket.by[row.category] ?? 0) + amount;
-    }
-    counted.set(at, bucket);
-  }
-
-  // Materialize the whole axis, including the buckets nothing landed in.
-  const buckets: HistogramBucket[] = [];
-  for (let at = anchorMs; at <= range.toMs; at += bucketMs) {
-    buckets.push(counted.get(at) ?? { at, total: 0, by: {} });
-  }
-  return { buckets, bucketMs };
+  const rows = rawRows(await db.execute(statement));
+  return { buckets: buildBuckets(rows, { anchorMs, toMs: range.toMs, bucketMs }), bucketMs };
 }
