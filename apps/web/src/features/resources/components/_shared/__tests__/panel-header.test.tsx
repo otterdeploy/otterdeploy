@@ -88,6 +88,23 @@ describe("ResourcePanelHeader", () => {
 });
 
 describe("PanelStatusPill", () => {
+  it("never lets its box shrink below the label", () => {
+    // The pill sits beside the meta text with a `gap-2` measured from its BOX.
+    // With `min-w-0` the box could shrink past its own content while the dot
+    // and label stay `shrink-0`, so the label overflowed and the meta was
+    // drawn over it: `building` ran into `build dep_…` with no gap at all
+    // (od-xzkz). Verified in a browser at 460px before and after.
+    //
+    // Dropping `min-w-0` leaves `min-width: auto`, which resolves to
+    // min-content. The `why` child keeps its own `min-w-0 truncate`, so IT
+    // still absorbs the shrink and the label never does.
+    const markup = renderToStaticMarkup(
+      <PanelStatusPill tone="building" label="building" why="a rather long reason" />,
+    );
+    expect(markup).not.toContain("min-w-0 shrink items-center");
+    expect(markup).toContain("truncate");
+  });
+
   it("uses the graph's tone vocabulary so a node and its panel agree", () => {
     expect(renderToStaticMarkup(<PanelStatusPill tone="running" label="running" />)).toContain(
       "text-success",
