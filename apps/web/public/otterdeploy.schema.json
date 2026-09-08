@@ -39,17 +39,11 @@
                     },
                     "protocol": {
                       "type": "string",
-                      "enum": [
-                        "tcp",
-                        "udp"
-                      ]
+                      "enum": ["tcp", "udp"]
                     },
                     "appProtocol": {
                       "type": "string",
-                      "enum": [
-                        "http",
-                        "tcp"
-                      ]
+                      "enum": ["http", "tcp"]
                     },
                     "primary": {
                       "type": "boolean"
@@ -59,9 +53,7 @@
                       "pattern": "^[a-z][a-z0-9-]*$"
                     }
                   },
-                  "required": [
-                    "container"
-                  ],
+                  "required": ["container"],
                   "additionalProperties": false
                 }
               },
@@ -140,9 +132,7 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "required": [
-                      "cmd"
-                    ],
+                    "required": ["cmd"],
                     "additionalProperties": false
                   },
                   {
@@ -194,11 +184,7 @@
                 "properties": {
                   "condition": {
                     "type": "string",
-                    "enum": [
-                      "none",
-                      "on-failure",
-                      "any"
-                    ]
+                    "enum": ["none", "on-failure", "any"]
                   },
                   "maxAttempts": {
                     "anyOf": [
@@ -223,9 +209,7 @@
                     "maximum": 9007199254740991
                   }
                 },
-                "required": [
-                  "condition"
-                ],
+                "required": ["condition"],
                 "additionalProperties": false
               },
               "preDeploy": {
@@ -277,9 +261,7 @@
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "domain"
-                  ],
+                  "required": ["domain"],
                   "additionalProperties": false
                 }
               },
@@ -296,10 +278,7 @@
                 "minLength": 1
               }
             },
-            "required": [
-              "source",
-              "image"
-            ],
+            "required": ["source", "image"],
             "additionalProperties": false
           },
           {
@@ -322,17 +301,11 @@
                     },
                     "protocol": {
                       "type": "string",
-                      "enum": [
-                        "tcp",
-                        "udp"
-                      ]
+                      "enum": ["tcp", "udp"]
                     },
                     "appProtocol": {
                       "type": "string",
-                      "enum": [
-                        "http",
-                        "tcp"
-                      ]
+                      "enum": ["http", "tcp"]
                     },
                     "primary": {
                       "type": "boolean"
@@ -342,9 +315,7 @@
                       "pattern": "^[a-z][a-z0-9-]*$"
                     }
                   },
-                  "required": [
-                    "container"
-                  ],
+                  "required": ["container"],
                   "additionalProperties": false
                 }
               },
@@ -423,9 +394,7 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "required": [
-                      "cmd"
-                    ],
+                    "required": ["cmd"],
                     "additionalProperties": false
                   },
                   {
@@ -477,11 +446,7 @@
                 "properties": {
                   "condition": {
                     "type": "string",
-                    "enum": [
-                      "none",
-                      "on-failure",
-                      "any"
-                    ]
+                    "enum": ["none", "on-failure", "any"]
                   },
                   "maxAttempts": {
                     "anyOf": [
@@ -506,9 +471,7 @@
                     "maximum": 9007199254740991
                   }
                 },
-                "required": [
-                  "condition"
-                ],
+                "required": ["condition"],
                 "additionalProperties": false
               },
               "preDeploy": {
@@ -560,9 +523,7 @@
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "domain"
-                  ],
+                  "required": ["domain"],
                   "additionalProperties": false
                 }
               },
@@ -615,9 +576,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   },
                   {
@@ -641,11 +600,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "auto",
-                              "subdir",
-                              "root"
-                            ]
+                            "enum": ["auto", "subdir", "root"]
                           },
                           {
                             "type": "null"
@@ -676,9 +631,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   },
                   {
@@ -732,11 +685,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "auto",
-                              "turbo",
-                              "script"
-                            ]
+                            "enum": ["auto", "turbo", "script"]
                           },
                           {
                             "type": "null"
@@ -780,9 +729,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   },
                   {
@@ -809,9 +756,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   }
                 ]
@@ -831,9 +776,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "source"
-            ],
+            "required": ["source"],
             "additionalProperties": false
           },
           {
@@ -856,17 +799,11 @@
                     },
                     "protocol": {
                       "type": "string",
-                      "enum": [
-                        "tcp",
-                        "udp"
-                      ]
+                      "enum": ["tcp", "udp"]
                     },
                     "appProtocol": {
                       "type": "string",
-                      "enum": [
-                        "http",
-                        "tcp"
-                      ]
+                      "enum": ["http", "tcp"]
                     },
                     "primary": {
                       "type": "boolean"
@@ -876,9 +813,7 @@
                       "pattern": "^[a-z][a-z0-9-]*$"
                     }
                   },
-                  "required": [
-                    "container"
-                  ],
+                  "required": ["container"],
                   "additionalProperties": false
                 }
               },
@@ -957,9 +892,7 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "required": [
-                      "cmd"
-                    ],
+                    "required": ["cmd"],
                     "additionalProperties": false
                   },
                   {
@@ -1011,11 +944,7 @@
                 "properties": {
                   "condition": {
                     "type": "string",
-                    "enum": [
-                      "none",
-                      "on-failure",
-                      "any"
-                    ]
+                    "enum": ["none", "on-failure", "any"]
                   },
                   "maxAttempts": {
                     "anyOf": [
@@ -1040,9 +969,7 @@
                     "maximum": 9007199254740991
                   }
                 },
-                "required": [
-                  "condition"
-                ],
+                "required": ["condition"],
                 "additionalProperties": false
               },
               "preDeploy": {
@@ -1094,9 +1021,7 @@
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "domain"
-                  ],
+                  "required": ["domain"],
                   "additionalProperties": false
                 }
               },
@@ -1134,9 +1059,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   },
                   {
@@ -1160,11 +1083,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "auto",
-                              "subdir",
-                              "root"
-                            ]
+                            "enum": ["auto", "subdir", "root"]
                           },
                           {
                             "type": "null"
@@ -1195,9 +1114,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   },
                   {
@@ -1251,11 +1168,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "auto",
-                              "turbo",
-                              "script"
-                            ]
+                            "enum": ["auto", "turbo", "script"]
                           },
                           {
                             "type": "null"
@@ -1299,9 +1212,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   },
                   {
@@ -1328,9 +1239,7 @@
                         }
                       }
                     },
-                    "required": [
-                      "builder"
-                    ],
+                    "required": ["builder"],
                     "additionalProperties": false
                   }
                 ]
@@ -1347,9 +1256,7 @@
                 ]
               }
             },
-            "required": [
-              "source"
-            ],
+            "required": ["source"],
             "additionalProperties": false
           }
         ]
@@ -1446,9 +1353,7 @@
                 }
               }
             },
-            "required": [
-              "engine"
-            ],
+            "required": ["engine"],
             "additionalProperties": false
           },
           {
@@ -1531,9 +1436,7 @@
                 ]
               }
             },
-            "required": [
-              "engine"
-            ],
+            "required": ["engine"],
             "additionalProperties": false
           },
           {
@@ -1612,9 +1515,7 @@
                 "minLength": 1
               }
             },
-            "required": [
-              "engine"
-            ],
+            "required": ["engine"],
             "additionalProperties": false
           },
           {
@@ -1693,9 +1594,7 @@
                 "minLength": 1
               }
             },
-            "required": [
-              "engine"
-            ],
+            "required": ["engine"],
             "additionalProperties": false
           }
         ]
@@ -1736,10 +1635,7 @@
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "path",
-                    "content"
-                  ],
+                  "required": ["path", "content"],
                   "additionalProperties": false
                 }
               },
@@ -1804,10 +1700,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "service",
-                    "port"
-                  ],
+                  "required": ["service", "port"],
                   "additionalProperties": false
                 }
               },
@@ -1820,10 +1713,7 @@
                 "minLength": 1
               }
             },
-            "required": [
-              "source",
-              "content"
-            ],
+            "required": ["source", "content"],
             "additionalProperties": false
           },
           {
@@ -1934,10 +1824,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "service",
-                    "port"
-                  ],
+                  "required": ["service", "port"],
                   "additionalProperties": false
                 }
               },
@@ -1950,9 +1837,7 @@
                 "minLength": 1
               }
             },
-            "required": [
-              "source"
-            ],
+            "required": ["source"],
             "additionalProperties": false
           }
         ]
@@ -1997,17 +1882,11 @@
                               },
                               "protocol": {
                                 "type": "string",
-                                "enum": [
-                                  "tcp",
-                                  "udp"
-                                ]
+                                "enum": ["tcp", "udp"]
                               },
                               "appProtocol": {
                                 "type": "string",
-                                "enum": [
-                                  "http",
-                                  "tcp"
-                                ]
+                                "enum": ["http", "tcp"]
                               },
                               "primary": {
                                 "type": "boolean"
@@ -2017,9 +1896,7 @@
                                 "pattern": "^[a-z][a-z0-9-]*$"
                               }
                             },
-                            "required": [
-                              "container"
-                            ],
+                            "required": ["container"],
                             "additionalProperties": false
                           }
                         },
@@ -2098,9 +1975,7 @@
                                   "maximum": 9007199254740991
                                 }
                               },
-                              "required": [
-                                "cmd"
-                              ],
+                              "required": ["cmd"],
                               "additionalProperties": false
                             },
                             {
@@ -2152,11 +2027,7 @@
                           "properties": {
                             "condition": {
                               "type": "string",
-                              "enum": [
-                                "none",
-                                "on-failure",
-                                "any"
-                              ]
+                              "enum": ["none", "on-failure", "any"]
                             },
                             "maxAttempts": {
                               "anyOf": [
@@ -2181,9 +2052,7 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": [
-                            "condition"
-                          ],
+                          "required": ["condition"],
                           "additionalProperties": false
                         },
                         "preDeploy": {
@@ -2235,9 +2104,7 @@
                                 "type": "boolean"
                               }
                             },
-                            "required": [
-                              "domain"
-                            ],
+                            "required": ["domain"],
                             "additionalProperties": false
                           }
                         },
@@ -2276,17 +2143,11 @@
                               },
                               "protocol": {
                                 "type": "string",
-                                "enum": [
-                                  "tcp",
-                                  "udp"
-                                ]
+                                "enum": ["tcp", "udp"]
                               },
                               "appProtocol": {
                                 "type": "string",
-                                "enum": [
-                                  "http",
-                                  "tcp"
-                                ]
+                                "enum": ["http", "tcp"]
                               },
                               "primary": {
                                 "type": "boolean"
@@ -2296,9 +2157,7 @@
                                 "pattern": "^[a-z][a-z0-9-]*$"
                               }
                             },
-                            "required": [
-                              "container"
-                            ],
+                            "required": ["container"],
                             "additionalProperties": false
                           }
                         },
@@ -2377,9 +2236,7 @@
                                   "maximum": 9007199254740991
                                 }
                               },
-                              "required": [
-                                "cmd"
-                              ],
+                              "required": ["cmd"],
                               "additionalProperties": false
                             },
                             {
@@ -2431,11 +2288,7 @@
                           "properties": {
                             "condition": {
                               "type": "string",
-                              "enum": [
-                                "none",
-                                "on-failure",
-                                "any"
-                              ]
+                              "enum": ["none", "on-failure", "any"]
                             },
                             "maxAttempts": {
                               "anyOf": [
@@ -2460,9 +2313,7 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": [
-                            "condition"
-                          ],
+                          "required": ["condition"],
                           "additionalProperties": false
                         },
                         "preDeploy": {
@@ -2514,9 +2365,7 @@
                                 "type": "boolean"
                               }
                             },
-                            "required": [
-                              "domain"
-                            ],
+                            "required": ["domain"],
                             "additionalProperties": false
                           }
                         },
@@ -2569,9 +2418,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             },
                             {
@@ -2595,11 +2442,7 @@
                                   "anyOf": [
                                     {
                                       "type": "string",
-                                      "enum": [
-                                        "auto",
-                                        "subdir",
-                                        "root"
-                                      ]
+                                      "enum": ["auto", "subdir", "root"]
                                     },
                                     {
                                       "type": "null"
@@ -2630,9 +2473,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             },
                             {
@@ -2686,11 +2527,7 @@
                                   "anyOf": [
                                     {
                                       "type": "string",
-                                      "enum": [
-                                        "auto",
-                                        "turbo",
-                                        "script"
-                                      ]
+                                      "enum": ["auto", "turbo", "script"]
                                     },
                                     {
                                       "type": "null"
@@ -2734,9 +2571,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             },
                             {
@@ -2763,9 +2598,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             }
                           ]
@@ -2807,17 +2640,11 @@
                               },
                               "protocol": {
                                 "type": "string",
-                                "enum": [
-                                  "tcp",
-                                  "udp"
-                                ]
+                                "enum": ["tcp", "udp"]
                               },
                               "appProtocol": {
                                 "type": "string",
-                                "enum": [
-                                  "http",
-                                  "tcp"
-                                ]
+                                "enum": ["http", "tcp"]
                               },
                               "primary": {
                                 "type": "boolean"
@@ -2827,9 +2654,7 @@
                                 "pattern": "^[a-z][a-z0-9-]*$"
                               }
                             },
-                            "required": [
-                              "container"
-                            ],
+                            "required": ["container"],
                             "additionalProperties": false
                           }
                         },
@@ -2908,9 +2733,7 @@
                                   "maximum": 9007199254740991
                                 }
                               },
-                              "required": [
-                                "cmd"
-                              ],
+                              "required": ["cmd"],
                               "additionalProperties": false
                             },
                             {
@@ -2962,11 +2785,7 @@
                           "properties": {
                             "condition": {
                               "type": "string",
-                              "enum": [
-                                "none",
-                                "on-failure",
-                                "any"
-                              ]
+                              "enum": ["none", "on-failure", "any"]
                             },
                             "maxAttempts": {
                               "anyOf": [
@@ -2991,9 +2810,7 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": [
-                            "condition"
-                          ],
+                          "required": ["condition"],
                           "additionalProperties": false
                         },
                         "preDeploy": {
@@ -3045,9 +2862,7 @@
                                 "type": "boolean"
                               }
                             },
-                            "required": [
-                              "domain"
-                            ],
+                            "required": ["domain"],
                             "additionalProperties": false
                           }
                         },
@@ -3085,9 +2900,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             },
                             {
@@ -3111,11 +2924,7 @@
                                   "anyOf": [
                                     {
                                       "type": "string",
-                                      "enum": [
-                                        "auto",
-                                        "subdir",
-                                        "root"
-                                      ]
+                                      "enum": ["auto", "subdir", "root"]
                                     },
                                     {
                                       "type": "null"
@@ -3146,9 +2955,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             },
                             {
@@ -3202,11 +3009,7 @@
                                   "anyOf": [
                                     {
                                       "type": "string",
-                                      "enum": [
-                                        "auto",
-                                        "turbo",
-                                        "script"
-                                      ]
+                                      "enum": ["auto", "turbo", "script"]
                                     },
                                     {
                                       "type": "null"
@@ -3250,9 +3053,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             },
                             {
@@ -3279,9 +3080,7 @@
                                   }
                                 }
                               },
-                              "required": [
-                                "builder"
-                              ],
+                              "required": ["builder"],
                               "additionalProperties": false
                             }
                           ]
@@ -3320,17 +3119,11 @@
                               },
                               "protocol": {
                                 "type": "string",
-                                "enum": [
-                                  "tcp",
-                                  "udp"
-                                ]
+                                "enum": ["tcp", "udp"]
                               },
                               "appProtocol": {
                                 "type": "string",
-                                "enum": [
-                                  "http",
-                                  "tcp"
-                                ]
+                                "enum": ["http", "tcp"]
                               },
                               "primary": {
                                 "type": "boolean"
@@ -3340,9 +3133,7 @@
                                 "pattern": "^[a-z][a-z0-9-]*$"
                               }
                             },
-                            "required": [
-                              "container"
-                            ],
+                            "required": ["container"],
                             "additionalProperties": false
                           }
                         },
@@ -3421,9 +3212,7 @@
                                   "maximum": 9007199254740991
                                 }
                               },
-                              "required": [
-                                "cmd"
-                              ],
+                              "required": ["cmd"],
                               "additionalProperties": false
                             },
                             {
@@ -3475,11 +3264,7 @@
                           "properties": {
                             "condition": {
                               "type": "string",
-                              "enum": [
-                                "none",
-                                "on-failure",
-                                "any"
-                              ]
+                              "enum": ["none", "on-failure", "any"]
                             },
                             "maxAttempts": {
                               "anyOf": [
@@ -3504,9 +3289,7 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": [
-                            "condition"
-                          ],
+                          "required": ["condition"],
                           "additionalProperties": false
                         },
                         "preDeploy": {
@@ -3558,9 +3341,7 @@
                                 "type": "boolean"
                               }
                             },
-                            "required": [
-                              "domain"
-                            ],
+                            "required": ["domain"],
                             "additionalProperties": false
                           }
                         },
@@ -3985,9 +3766,7 @@
       }
     }
   },
-  "required": [
-    "project"
-  ],
+  "required": ["project"],
   "additionalProperties": false,
   "$id": "https://otterdeploy.com/otterdeploy.schema.json",
   "title": "Otterdeploy Manifest",
