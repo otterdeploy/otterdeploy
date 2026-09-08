@@ -15,6 +15,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/shared/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { ErrorState } from "@/shared/components/ui/error-state";
+import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 /** Placeholder rows at the real row height, so nothing moves when data lands. */
@@ -116,25 +117,61 @@ export function TableFooterRow({
   onLoadMore: () => void;
 }) {
   return (
-    <div className="flex items-center justify-center gap-3 border-b bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
-      <span className="font-mono tabular-nums">
-        {loaded.toLocaleString()}
-        {filtered === null ? null : ` of ${filtered.toLocaleString()}`}
-        {total === null || filtered === total ? null : ` (${total.toLocaleString()} total)`}
+    // Three tracks, so the counts stay centred on the table whether or not the
+    // legend is showing — a footer that re-centres itself at a breakpoint reads
+    // as movement the reader caused.
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
+      <span />
+      <span className="flex items-center justify-center gap-3">
+        <span className="font-mono tabular-nums">
+          {loaded.toLocaleString()}
+          {filtered === null ? null : ` of ${filtered.toLocaleString()}`}
+          {total === null || filtered === total ? null : ` (${total.toLocaleString()} total)`}
+        </span>
+        {hasMore ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7"
+            disabled={isFetching}
+            onClick={onLoadMore}
+          >
+            {isFetching ? "Loading…" : "Load more"}
+          </Button>
+        ) : (
+          <span>End of results</span>
+        )}
       </span>
-      {hasMore ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7"
-          disabled={isFetching}
-          onClick={onLoadMore}
-        >
-          {isFetching ? "Loading…" : "Load more"}
-        </Button>
-      ) : (
-        <span>End of results</span>
-      )}
+      <KeyboardLegend />
     </div>
+  );
+}
+
+/**
+ * What the keyboard can do here, said once where it will be read.
+ *
+ * Shortcuts nobody can discover are shortcuts nobody uses, and a table is the
+ * one surface where a keyboard is genuinely faster than a mouse. It sits at the
+ * end of the rows rather than in the toolbar because that is where the reader
+ * already is when they run out of rows, and it stands down on narrow screens
+ * where there is no keyboard to speak of.
+ */
+function KeyboardLegend() {
+  return (
+    <span className="hidden items-center justify-end gap-3 text-[11px] lg:flex">
+      <KbdGroup>
+        <Kbd>↑</Kbd>
+        <Kbd>↓</Kbd>
+        <span className="ml-0.5">move</span>
+      </KbdGroup>
+      <KbdGroup>
+        <Kbd>↵</Kbd>
+        <span className="ml-0.5">open</span>
+      </KbdGroup>
+      <KbdGroup>
+        <Kbd>⌘⇧F</Kbd>
+        <span className="ml-0.5">query</span>
+      </KbdGroup>
+    </span>
   );
 }

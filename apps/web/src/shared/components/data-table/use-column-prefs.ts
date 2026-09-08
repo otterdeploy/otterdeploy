@@ -1,5 +1,9 @@
 /**
- * Which columns a person keeps, and in what order — remembered per table.
+ * How one person reads one table — remembered per table.
+ *
+ * Which columns they keep, in what order, how wide they dragged them, and how
+ * tight the rows are. All four are the same kind of fact and live under one
+ * key, so a table restores in one read rather than four.
  *
  * Browser-local and per `tableId`: a preference about how one operator reads
  * one table is not org state, and syncing it would make two people fight over
@@ -8,21 +12,41 @@
  * is not "I do not want this data".
  */
 
-import type { ColumnOrderState, ColumnVisibilityState } from "@tanstack/react-table";
+import type {
+  ColumnOrderState,
+  ColumnSizingState,
+  ColumnVisibilityState,
+} from "@tanstack/react-table";
 
 import { useCallback, useSyncExternalStore } from "react";
 
 import { Result } from "better-result";
 import * as z from "zod";
 
+import type { Density } from "@/shared/components/data-table/parts/density";
+
+import { DEFAULT_DENSITY } from "@/shared/components/data-table/parts/density";
+
 const prefsSchema = z.object({
   order: z.array(z.string()).default([]),
   hidden: z.array(z.string()).default([]),
+  /** Only the columns the reader actually dragged; the rest keep their declared width. */
+  sizes: z.record(z.string(), z.number().positive()).default({}),
+  density: z.enum(["compact", "comfortable"]).optional(),
 });
 
 type ColumnPrefs = z.infer<typeof prefsSchema>;
 
-const EMPTY: ColumnPrefs = { order: [], hidden: [] };
+const EMPTY: ColumnPrefs = { order: [], hidden: [], sizes: {} };
+
+function isDefaultPrefs(prefs: ColumnPrefs): boolean {
+  return (
+    prefs.order.length === 0 &&
+    prefs.hidden.length === 0 &&
+    Object.keys(prefs.sizes).length === 0 &&
+    prefs.density === undefined
+  );
+}
 
 const storageKey = (tableId: string) => `otter:table-columns:${tableId}`;
 
@@ -40,7 +64,7 @@ function readStorage(tableId: string): ColumnPrefs {
 }
 
 function writeStorage(tableId: string, prefs: ColumnPrefs): void {
-  const isDefault = prefs.order.length === 0 && prefs.hidden.length === 0;
+  const isDefault = isDefaultPrefs(prefs);
   Result.try({
     try: () =>
       isDefault
@@ -77,8 +101,12 @@ function publish(tableId: string, prefs: ColumnPrefs): void {
 export interface ColumnPrefsState {
   columnOrder: ColumnOrderState;
   columnVisibility: ColumnVisibilityState;
+  columnSizing: ColumnSizingState;
+  density: Density;
   setColumnOrder: (next: ColumnOrderState) => void;
   setColumnVisibility: (next: ColumnVisibilityState) => void;
+  setColumnSizing: (next: ColumnSizingState) => void;
+  setDensity: (next: Density) => void;
   /** Back to the schema's own order and the columns it ships visible. */
   reset: () => void;
   /** True when the reader has changed something — the menu offers a reset. */
@@ -119,14 +147,25 @@ export function useColumnPrefs(
       const hidden = Object.entries(next)
         .filter(([, visible]) => visible === false)
         .map(([key]) => key);
-      publish(tableId, { order: snapshot(tableId).order, hidden });
+      publish(tableId, { ...snapshot(tableId), hidden });
     },
     [tableId],
   );
 
   const setColumnOrder = useCallback(
-    (next: ColumnOrderState) =>
-      publish(tableId, { order: [...next], hidden: snapshot(tableId).hidden }),
+    (next: ColumnOrderState) => publish(tableId, { ...snapshot(tableId), order: [...next] }),
+    [tableId],
+  );
+
+  const setColumnSizing = useCallback(
+    // Written on every drag frame, which is why it goes through the same cache
+    // as the rest: the store is the one place that decides what persists.
+    (next: ColumnSizingState) => publish(tableId, { ...snapshot(tableId), sizes: { ...next } }),
+    [tableId],
+  );
+
+  const setDensity = useCallback(
+    (next: Density) => publish(tableId, { ...snapshot(tableId), density: next }),
     [tableId],
   );
 
@@ -138,9 +177,13 @@ export function useColumnPrefs(
   return {
     columnOrder: prefs.order,
     columnVisibility,
+    columnSizing: prefs.sizes,
+    density: prefs.density ?? DEFAULT_DENSITY,
     setColumnOrder,
     setColumnVisibility,
+    setColumnSizing,
+    setDensity,
     reset,
-    isCustomized: prefs.order.length > 0 || prefs.hidden.length > 0,
+    isCustomized: !isDefaultPrefs(prefs),
   };
 }

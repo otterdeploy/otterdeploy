@@ -25,7 +25,6 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 
 import type { FeedPage } from "@/shared/components/data-table/feed/types";
 import type { FeedInput } from "@/shared/components/data-table/feed/types";
-import type { Density } from "@/shared/components/data-table/parts/table-view";
 import type { DataTableColumn } from "@/shared/components/data-table/schema/types";
 import type { TableSort } from "@/shared/components/data-table/state/search-schema";
 
@@ -131,7 +130,6 @@ export function DataTable<TRow extends RowData>({
 }: DataTableProps<TRow>) {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [queryOpen, setQueryOpen] = useState(false);
-  const [density, setDensity] = useState<Density>("comfortable");
 
   // ⌘K belongs to the app's own palette, so the table's query bar takes
   // ⌘⇧F — near the browser's find, which is the reflex it is competing with.
@@ -203,8 +201,8 @@ export function DataTable<TRow extends RowData>({
         feed={feed}
         table={table}
         prefs={prefs}
-        density={density}
-        onDensityChange={setDensity}
+        density={prefs.density}
+        onDensityChange={prefs.setDensity}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((open) => !open)}
         queryOpen={queryOpen}
@@ -234,7 +232,7 @@ export function DataTable<TRow extends RowData>({
             feed={feed}
             table={table}
             rows={rows}
-            density={density}
+            density={prefs.density}
             hasFilters={activeFilters > 0}
             onClearFilters={resetAll}
             onOpenRow={onOpenRow}

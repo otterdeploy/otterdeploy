@@ -12,7 +12,7 @@ import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { DataTableFeatures } from "@/shared/components/data-table/features";
-import type { Density } from "@/shared/components/data-table/parts/table-view";
+import type { Density } from "@/shared/components/data-table/parts/density";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -37,6 +37,7 @@ export function DataTableViewOptions<TRow extends RowData>({
   table: ReactTable<DataTableFeatures, TRow>;
   density: Density;
   onDensityChange: (density: Density) => void;
+  /** Clears everything remembered for this table: columns, widths, density. */
   onResetColumns: () => void;
   isCustomized: boolean;
 }) {
@@ -78,7 +79,7 @@ export function DataTableViewOptions<TRow extends RowData>({
         {isCustomized ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onResetColumns}>Reset columns</DropdownMenuItem>
+            <DropdownMenuItem onClick={onResetColumns}>Reset table view</DropdownMenuItem>
           </>
         ) : null}
       </DropdownMenuContent>

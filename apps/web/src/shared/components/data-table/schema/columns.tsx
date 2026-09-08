@@ -133,7 +133,10 @@ export function buildColumns<TRow extends RowData>(
           : renderDisplay(display, getValue()),
       enableSorting: column.sortable ?? false,
       enableHiding: column.alwaysVisible !== true,
-      enableResizing: column.resizable ?? false,
+      // Only a column with a declared width can be dragged: a flexing column's
+      // rendered width is not the width TanStack would resize FROM, so the
+      // first drag would jump by the difference.
+      enableResizing: (column.resizable ?? false) && column.width !== undefined,
       ...(filterFn ? { filterFn } : {}),
       ...sizing(column),
       meta: {

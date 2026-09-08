@@ -10,7 +10,7 @@ import type { RowData } from "@tanstack/react-table";
 
 import type { Facets } from "@/shared/components/data-table/feed/types";
 import type { useFeed } from "@/shared/components/data-table/feed/use-feed";
-import type { Density } from "@/shared/components/data-table/parts/table-view";
+import type { Density } from "@/shared/components/data-table/parts/density";
 import type { ColumnPrefsState } from "@/shared/components/data-table/use-column-prefs";
 import type { useDataTable } from "@/shared/components/data-table/use-data-table";
 

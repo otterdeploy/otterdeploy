@@ -10,16 +10,17 @@
 import type { RowData } from "@tanstack/react-table";
 
 import type { useFeed } from "@/shared/components/data-table/feed/use-feed";
-import type { Density } from "@/shared/components/data-table/parts/table-view";
+import type { Density } from "@/shared/components/data-table/parts/density";
 import type { useDataTable } from "@/shared/components/data-table/use-data-table";
 
+import { ROW_HEIGHT } from "@/shared/components/data-table/parts/density";
 import {
   TableEmpty,
   TableError,
   TableFooterRow,
   TableSkeleton,
 } from "@/shared/components/data-table/parts/table-states";
-import { DataTableView, ROW_HEIGHT } from "@/shared/components/data-table/parts/table-view";
+import { DataTableView } from "@/shared/components/data-table/parts/table-view";
 import { toastMessage } from "@/shared/lib/errors";
 
 type TableInstance<TRow extends RowData> = ReturnType<typeof useDataTable<TRow>>["table"];

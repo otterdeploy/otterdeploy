@@ -11,6 +11,7 @@
 import type {
   ColumnDef,
   ColumnOrderState,
+  ColumnSizingState,
   ColumnVisibilityState,
   RowSelectionState,
   SortingState,
@@ -58,7 +59,14 @@ export function useDataTable<TRow extends RowData>(options: UseDataTableOptions<
   const prefs = useColumnPrefs(store.tableId, visibilityDefaults);
   // Destructured so the memo below depends on the four values it reads rather
   // than on the prefs object, which is rebuilt every render by design.
-  const { columnOrder, columnVisibility, setColumnOrder, setColumnVisibility } = prefs;
+  const {
+    columnOrder,
+    columnVisibility,
+    columnSizing,
+    setColumnOrder,
+    setColumnVisibility,
+    setColumnSizing,
+  } = prefs;
 
   /**
    * The URL's sort, as TanStack holds it. A sort naming a column that no longer
@@ -118,6 +126,7 @@ export function useDataTable<TRow extends RowData>(options: UseDataTableOptions<
         rowSelection,
         columnOrder,
         columnVisibility,
+        columnSizing,
         ...(globalFilter === undefined ? {} : { globalFilter }),
       },
       enableRowSelection: selectable,
@@ -132,6 +141,11 @@ export function useDataTable<TRow extends RowData>(options: UseDataTableOptions<
         setColumnOrder(functionalUpdate(updater, columnOrder)),
       onColumnVisibilityChange: (updater: Updater<ColumnVisibilityState>) =>
         setColumnVisibility(functionalUpdate(updater, columnVisibility)),
+      // Controlled, so a dragged width survives a reload. Uncontrolled sizing
+      // is held inside the table instance, which a fetch or a route change
+      // rebuilds — the reason the resize handles used to snap back.
+      onColumnSizingChange: (updater: Updater<ColumnSizingState>) =>
+        setColumnSizing(functionalUpdate(updater, columnSizing)),
       onSortingChange: (updater: Updater<SortingState>) => {
         // TanStack hands a value or a reducer; `functionalUpdate` is its own resolver.
         const first = functionalUpdate(updater, sorting)[0];
@@ -149,8 +163,10 @@ export function useDataTable<TRow extends RowData>(options: UseDataTableOptions<
       selectable,
       columnOrder,
       columnVisibility,
+      columnSizing,
       setColumnOrder,
       setColumnVisibility,
+      setColumnSizing,
       onSortChange,
     ],
   );

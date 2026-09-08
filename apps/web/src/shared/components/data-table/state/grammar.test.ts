@@ -1,6 +1,6 @@
 import type { FilterSpec } from "@otterdeploy/shared/table-filters";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 
 import { parseQuery, partialToken, replaceWord, serializeQuery, tokenize, wordAt } from "./grammar";
 

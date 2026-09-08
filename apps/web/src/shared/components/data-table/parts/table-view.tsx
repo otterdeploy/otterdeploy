@@ -31,12 +31,15 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 
 import type { DataTableFeatures } from "@/shared/components/data-table/features";
 
+import { ROW_HEIGHT, type Density } from "@/shared/components/data-table/parts/density";
+import {
+  cellStyle,
+  DataTableHead,
+  sizeVarsOf,
+} from "@/shared/components/data-table/parts/table-header";
+import { useRowNavigation } from "@/shared/components/data-table/parts/use-row-navigation";
 import { useFilterValue } from "@/shared/components/data-table/state/store";
 import { cn } from "@/shared/lib/utils";
-
-/** Fixed row heights, in px. Uniform rows are what keep the virtualizer exact. */
-export const ROW_HEIGHT = { compact: 32, comfortable: 38 } as const;
-export type Density = keyof typeof ROW_HEIGHT;
 
 interface TableViewProps<TRow extends RowData> {
   table: ReactTable<DataTableFeatures, TRow>;
@@ -49,14 +52,6 @@ interface TableViewProps<TRow extends RowData> {
   /** Rendered under the last row: the load-more control, or the end of the feed. */
   footer?: React.ReactNode;
   onScrollEnd?: () => void;
-}
-
-/** A column with no size flexes; one with a size is pinned to it. */
-function cellStyle(size: number | undefined, minSize: number | undefined) {
-  if (size === undefined) {
-    return { flex: "1 1 0%", minWidth: minSize ?? 80 };
-  }
-  return { width: size, minWidth: size, flexShrink: 0 };
 }
 
 export function DataTableView<TRow extends RowData>({
@@ -88,6 +83,14 @@ export function DataTableView<TRow extends RowData>({
     getItemKey: (index) => rows[index]?.id ?? index,
   });
 
+  const scrollToIndex = useCallback(
+    // `auto` keeps a row that is already visible where it is, so walking with
+    // the arrows does not jerk the viewport under the reader on every step.
+    (index: number) => virtualizer.scrollToIndex(index, { align: "auto" }),
+    [virtualizer],
+  );
+  const nav = useRowNavigation({ count: rows.length, scrollEl, scrollToIndex });
+
   const onScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
@@ -107,57 +110,10 @@ export function DataTableView<TRow extends RowData>({
       {/* A raw <table> in grid layout: the shadcn wrapper adds an overflow
           container between the scroll element and the rows, which turns the
           sticky header into a second scroll context and breaks it. */}
-      <table className="grid w-full text-sm">
-        <thead className="sticky top-0 z-10 grid bg-background">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="flex w-full border-b">
-              {headerGroup.headers.map((header) => {
-                const sorted = header.column.getIsSorted();
-                const canSort = header.column.getCanSort();
-                return (
-                  <th
-                    key={header.id}
-                    aria-sort={
-                      sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"
-                    }
-                    style={cellStyle(header.column.columnDef.size, header.column.columnDef.minSize)}
-                    className={cn(
-                      "relative flex h-9 items-center px-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase",
-                      header.column.columnDef.meta?.headerClassName,
-                    )}
-                  >
-                    {header.isPlaceholder ? null : canSort ? (
-                      <button
-                        type="button"
-                        onClick={header.column.getToggleSortingHandler()}
-                        className="flex items-center gap-1 truncate rounded-sm transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                      >
-                        <span className="truncate">
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                        </span>
-                        <SortMark direction={sorted} />
-                      </button>
-                    ) : (
-                      <span className="truncate">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </span>
-                    )}
-                    {header.column.getCanResize() ? (
-                      <span
-                        role="separator"
-                        aria-orientation="vertical"
-                        onDoubleClick={() => header.column.resetSize()}
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
-                        className="absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize touch-none after:absolute after:inset-y-1.5 after:left-1/2 after:w-px after:bg-transparent hover:after:bg-border"
-                      />
-                    ) : null}
-                  </th>
-                );
-              })}
-            </tr>
-          ))}
-        </thead>
+      {/* The keyboard cursor listens on the TABLE, not the scroll container:
+          row keydowns bubble here, and the element already carries a role. */}
+      <table onKeyDown={nav.onKeyDown} style={sizeVarsOf(table)} className="grid w-full text-sm">
+        <DataTableHead table={table} />
 
         <tbody className="relative grid" style={{ height: virtualizer.getTotalSize() }}>
           {items.map((item) => {
@@ -167,9 +123,13 @@ export function DataTableView<TRow extends RowData>({
               <MemoRow
                 key={row.id}
                 row={row}
+                index={item.index}
                 start={item.start}
                 height={rowHeight}
                 selected={row.getIsSelected()}
+                active={nav.activeIndex === item.index}
+                tabbable={nav.isTabbable(item.index)}
+                onFocusRow={nav.onRowFocus}
                 onOpenRow={onOpenRow}
                 extraClassName={rowClassName?.(row)}
               />
@@ -182,34 +142,32 @@ export function DataTableView<TRow extends RowData>({
   );
 }
 
-function SortMark({ direction }: { direction: false | "asc" | "desc" }) {
-  if (!direction) {
-    // A reserved, empty slot: without it, sorting a column shifts its header
-    // label sideways by the width of the mark.
-    return <span aria-hidden className="w-2.5 shrink-0" />;
-  }
-  return (
-    <span aria-hidden className="w-2.5 shrink-0 text-center text-foreground">
-      {direction === "asc" ? "↑" : "↓"}
-    </span>
-  );
-}
-
 interface RowProps<TRow extends RowData> {
   row: Row<DataTableFeatures, TRow>;
+  /** Position in the feed — what the keyboard cursor addresses rows by. */
+  index: number;
   start: number;
   height: number;
   /** Read off the row, but passed in so the memo can compare it. */
   selected: boolean;
+  /** The keyboard cursor is on this row. */
+  active: boolean;
+  /** The one row in the tab order (roving tabindex). */
+  tabbable: boolean;
+  onFocusRow: (index: number) => void;
   onOpenRow: (rowId: string | null) => void;
   extraClassName?: string;
 }
 
 function RowImpl<TRow extends RowData>({
   row,
+  index,
   start,
   height,
   selected,
+  active,
+  tabbable,
+  onFocusRow,
   onOpenRow,
   extraClassName,
 }: RowProps<TRow>) {
@@ -223,9 +181,12 @@ function RowImpl<TRow extends RowData>({
   return (
     <tr
       id={row.id}
-      tabIndex={0}
+      data-row-index={index}
+      tabIndex={tabbable ? 0 : -1}
       data-open={isOpen ? "" : undefined}
       data-selected={selected ? "" : undefined}
+      data-active={active ? "" : undefined}
+      onFocus={() => onFocusRow(index)}
       onClick={() => onOpenRow(isOpen ? null : row.id)}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
@@ -237,13 +198,17 @@ function RowImpl<TRow extends RowData>({
         "absolute flex w-full cursor-pointer items-stretch border-b transition-colors",
         "hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:outline-none",
         "data-open:bg-muted/60 data-selected:bg-primary/5",
+        // The keyboard cursor, as a rail rather than a fill: it has to read as
+        // "you are here" even on a row that is also open, selected or dimmed.
+        "data-active:before:absolute data-active:before:inset-y-0 data-active:before:left-0",
+        "data-active:before:w-0.5 data-active:before:bg-primary",
         extraClassName,
       )}
     >
       {row.getVisibleCells().map((cell) => (
         <td
           key={cell.id}
-          style={cellStyle(cell.column.columnDef.size, cell.column.columnDef.minSize)}
+          style={cellStyle(cell.column.id)}
           className={cn(
             "flex min-w-0 items-center truncate px-2",
             cell.column.columnDef.meta?.cellClassName,
@@ -268,7 +233,11 @@ const MemoizedRow = memo(RowImpl, (prev, next) => {
   return (
     prev.row.id === next.row.id &&
     prev.row.original === next.row.original &&
+    prev.index === next.index &&
     prev.selected === next.selected &&
+    prev.active === next.active &&
+    prev.tabbable === next.tabbable &&
+    prev.onFocusRow === next.onFocusRow &&
     prev.start === next.start &&
     prev.height === next.height &&
     prev.extraClassName === next.extraClassName &&
