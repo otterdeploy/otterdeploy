@@ -22,6 +22,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import type { DataTableColumn } from "@/shared/components/data-table/schema/types";
 
 import { TextCell } from "@/shared/components/data-table/cells";
+import { CopyButton, copyableText } from "@/shared/components/data-table/parts/copy-value";
 import { defaultDisplay } from "@/shared/components/data-table/schema/types";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -115,6 +116,16 @@ export function DataTableRowSheet<TRow extends RowData>({
               >
                 <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-4" />
               </Button>
+              {/* The whole record, for a support thread or an issue: the
+                  fields below are a rendering, and what someone pastes
+                  elsewhere should be the record itself. */}
+              {row === undefined ? null : (
+                <CopyButton
+                  value={JSON.stringify(row, null, 2)}
+                  label="this row as JSON"
+                  className="size-8"
+                />
+              )}
               <Button variant="ghost" size="sm" onClick={close}>
                 Close
               </Button>
@@ -162,9 +173,10 @@ function SheetField<TRow extends RowData>({
 
   const display = column.display ?? defaultDisplay(column.kind);
   const isMono = display.type === "code" || display.type === "number";
+  const copyable = copyableText(value);
 
   return (
-    <div className="grid grid-cols-[minmax(0,7rem)_1fr] items-baseline gap-3 px-4 py-2.5">
+    <div className="group grid grid-cols-[minmax(0,7rem)_1fr_auto] items-baseline gap-3 px-4 py-2.5">
       <span className="truncate text-xs text-muted-foreground">
         {override?.label ?? column.label}
       </span>
@@ -181,6 +193,17 @@ function SheetField<TRow extends RowData>({
           </span>
         )}
       </div>
+      {/* Revealed on hover or focus, so a column of buttons does not compete
+          with the values it is offering to copy. */}
+      {copyable === null ? (
+        <span className="size-5" />
+      ) : (
+        <CopyButton
+          value={copyable}
+          label={override?.label ?? column.label}
+          className="self-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100"
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 
+import { copyableText } from "./copy-value";
 import { widthVars } from "./table-header";
 import { nextIndex } from "./use-row-navigation";
 
@@ -80,5 +81,32 @@ describe("nextIndex", () => {
     expect(nextIndex("a", 0, 10)).toBeNull();
     expect(nextIndex("Enter", 0, 10)).toBeNull();
     expect(nextIndex("PageDown", 0, 10)).toBeNull();
+  });
+});
+
+describe("copyableText", () => {
+  test("a scalar copies as itself", () => {
+    expect(copyableText("project.delete")).toBe("project.delete");
+    expect(copyableText(412)).toBe("412");
+    expect(copyableText(false)).toBe("false");
+  });
+
+  test("an array copies as its members", () => {
+    expect(copyableText(["ams", "fra"])).toBe("ams, fra");
+  });
+
+  test("nothing to copy is null, not an empty clipboard write", () => {
+    // The caller leaves the button out entirely. A button that copies "" or
+    // "[object Object]" is worse than no button.
+    expect(copyableText(null)).toBeNull();
+    expect(copyableText(undefined)).toBeNull();
+    expect(copyableText("")).toBeNull();
+    expect(copyableText([])).toBeNull();
+    expect(copyableText({ nested: true })).toBeNull();
+  });
+
+  test("an array of objects contributes nothing rather than object noise", () => {
+    expect(copyableText([{ a: 1 }])).toBeNull();
+    expect(copyableText(["ok", { a: 1 }])).toBe("ok");
   });
 });

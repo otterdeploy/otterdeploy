@@ -22,9 +22,10 @@ import { asInstant, asText } from "@otterdeploy/shared/table-filters";
 
 import type { BadgeTone } from "@/shared/components/data-table/schema/types";
 
+import { useNowMs } from "@/shared/components/data-table/use-now";
 import { Badge } from "@/shared/components/ui/badge";
 import { CLOCK_EXACT, clockFormatter } from "@/shared/lib/clock";
-import { relativeMs } from "@/shared/lib/time";
+import { relativeSeconds } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
 /** The one dash. A value we do not have is not a zero and not an empty cell. */
@@ -76,8 +77,13 @@ export function NumberCell({ value, unit }: { value: unknown; unit?: string }) {
  * Relative is what an operator scanning a feed actually reads ("three minutes
  * ago" answers "is this now?"), and the absolute stamp is what they need the
  * moment they care — so both are present and neither costs a column.
+ *
+ * The relative half is computed against a SHARED clock that ticks, rather than
+ * against the render's own `Date.now()`: a feed is left open, and a row that
+ * still says "just now" twenty minutes later is misinformation, not staleness.
  */
 export function InstantCell({ value }: { value: unknown }) {
+  const now = useNowMs();
   const instant = asInstant(value);
   if (instant === null) return <EmptyCell />;
   return (
@@ -86,7 +92,7 @@ export function InstantCell({ value }: { value: unknown }) {
       title={exact(instant.epochMilliseconds)}
       className="block truncate text-muted-foreground tabular-nums"
     >
-      {relativeMs(instant.epochMilliseconds)}
+      {relativeSeconds((instant.epochMilliseconds - now) / 1000)}
     </time>
   );
 }
