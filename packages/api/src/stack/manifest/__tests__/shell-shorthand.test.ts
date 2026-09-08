@@ -16,10 +16,15 @@ import { describe, expect, it } from "vite-plus/test";
 import { manifestSchema } from "../schema";
 
 function parseService(service: Record<string, unknown>) {
-  return manifestSchema.parse({
+  const parsed = manifestSchema.parse({
     project: "acme",
     services: { api: { source: "image", image: "acme:1", ...service } },
   }).services.api;
+  // The key was just written above, so this only fires if the schema stops
+  // round-tripping services at all — worth failing loudly on rather than
+  // threading `?.` through every assertion below.
+  if (!parsed) throw new Error("manifest parse dropped the service");
+  return parsed;
 }
 
 describe("shell shorthand for lifecycle hooks", () => {
