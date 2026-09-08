@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./table-filters": "./src/table-filters/index.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {
