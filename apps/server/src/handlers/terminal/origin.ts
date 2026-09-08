@@ -25,12 +25,33 @@ function normalize(origin: string): string {
 }
 
 /**
- * A missing Origin is rejected outright. Every browser sends one on a
- * WebSocket handshake (same-origin or cross-origin), so the /pty upgrade
- * (browser-only; nothing else is authorized to mint a ticket) is always
- * "browser-shaped". A request with no Origin is either a non-browser tool
- * forging the upgrade or a browser stripping it for privacy reasons neither
- * of which should ever reach a shell.
+ * A MISSING Origin is allowed. A present-but-untrusted one is not.
+ *
+ * This used to reject absent outright, on the premise stated here that the
+ * /pty upgrade is "browser-only; nothing else is authorized to mint a ticket".
+ * That premise is no longer true: `otd exec` mints a ticket over RPC and
+ * upgrades from Node/Bun, which send no Origin header at all. So the CLI could
+ * never open a shell on any machine, and did not say why — the WHATWG error
+ * event carries no status, so it surfaced as a bare "Could not open the shell
+ * connection" (od-v7wb).
+ *
+ * Allowing absent is safe, for two independent reasons:
+ *
+ *   1. The attack this defends against is cross-site WebSocket hijacking,
+ *      which is a BROWSER attack: a page on another origin opens a socket and
+ *      the browser attaches ambient credentials. A browser cannot mount it
+ *      without sending Origin — RFC 6455 requires browser clients to send one
+ *      on every handshake. So "no Origin" is precisely "not a browser", and
+ *      therefore not the threat.
+ *   2. There are no ambient credentials on this upgrade to ride. As the module
+ *      note above says, /pty does not authenticate from cookies at all; it
+ *      takes a single-use, IP-bound, ~20s ticket that only a step-up-verified
+ *      session can mint, and the target comes from the ticket rather than the
+ *      query string. The CSRF primitive does not exist here.
+ *
+ * What stays rejected is the case that actually carries signal: an Origin that
+ * IS present and does not match. That is a browser telling us where it came
+ * from, and a cross-site page cannot lie about it.
  */
 export function isTrustedOrigin(
   origin: string | null | undefined,
@@ -39,7 +60,12 @@ export function isTrustedOrigin(
    *  same-origin and is trusted without being enumerated. See below. */
   host?: string | null,
 ): boolean {
-  if (!origin) return false;
+  // Absent, not empty: a browser that sent `Origin: ""` (or the literal
+  // "null", which is what a sandboxed/opaque origin serializes to) HAS an
+  // origin and is telling us it is untrustworthy. Only a genuinely absent
+  // header means "not a browser".
+  if (origin === null || origin === undefined) return true;
+  if (origin.trim() === "" || origin.trim().toLowerCase() === "null") return false;
   const normalizedOrigin = normalize(origin);
   if (allowed.some((candidate) => normalize(candidate) === normalizedOrigin)) return true;
   return isSameOrigin(origin, host);
