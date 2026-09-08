@@ -32,10 +32,32 @@ const manifestSaveInput = z.object({
   // version you previously read so concurrent edits surface as CONFLICT
   // instead of silently overwriting.
   expectedVersion: z.number().int().nonnegative(),
+  /**
+   * Validate and report, write nothing.
+   *
+   * `save` replaces the whole manifest, so an omitted resource is a deletion.
+   * A dry run is how a caller finds that out BEFORE it happens rather than
+   * after, which matters most for the read-modify-write pattern this endpoint
+   * requires and never documented (od-mizn).
+   */
+  dryRun: z.boolean().optional(),
 });
 
 const manifestSaveOutput = z.object({
   version: z.number().int().nonnegative(),
+  /**
+   * Resources this save removes, because the payload omits them. Reported on
+   * every save, not just a dry run: a caller that did not think to ask still
+   * gets told what it just deleted.
+   */
+  removed: z.array(
+    z.object({
+      resource: z.enum(["service", "database", "compose"]),
+      name: z.string(),
+    }),
+  ),
+  /** True when nothing was written. */
+  dryRun: z.boolean(),
 });
 
 /** The `environment` slug matched no environment on this project. A client
