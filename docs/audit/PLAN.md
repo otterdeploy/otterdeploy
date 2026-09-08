@@ -61,6 +61,21 @@ run (3.65% to 3.63%), which is the honest reading: the column added no
 duplicated code, it completed one more instance of a boilerplate the DSL
 requires.
 
+Re-pinned on 2026-09-08 to 386 clone groups / 3.64% (od-u05r), after taking the
+deduplication the ratchet was pointing at rather than the exemption. The first
+report was a cross-file clone between the new `queries-edge-proxy.ts` and
+`queries.ts`; both, and two more update helpers beside them, were the same six
+lines with different column names, so they now share one `patchServerColumns`.
+The part worth having once is the WHERE clause: a patch that forgets the
+organization scope writes across a tenant boundary.
+
+What remains is one pair internal to `queries.ts`, and it does not collapse the
+same way. Those functions differ in the columns they compute before writing
+(`firewallAppliedAt` from a status, an `edgeProxyError` cleared on success), so
+folding them together would replace two readable writers with one that branches
+on which caller it is serving. The measure is reading the drizzle update shape
+that every one of them necessarily has.
+
 Regenerate the per-file evidence any time:
 
 ```bash

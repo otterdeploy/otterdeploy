@@ -11,37 +11,15 @@
 
 import type { LineSink, SshSession } from "./ssh-exec";
 
-export type Privilege = "root" | "sudo" | "none";
+import { parseProbe, probeScript, type ProbeResult } from "./provision-probe";
 
-export interface ProbeResult {
-  osId: string;
-  /** The host's own `hostname`. How it will appear in `docker node ls`, so the
-   *  manager-side verify step can find the freshly-joined node. */
-  hostname: string;
-  privilege: Privilege;
-  /** Docker server version, or "none" if not installed. */
-  docker: string;
-  /** Swarm LocalNodeState: "active" | "inactive" | "unknown". */
-  swarmState: string;
-}
+// The probe moved to ./provision-probe.ts when it grew past reporting the OS
+// and docker version. Re-exported because every existing caller imports it
+// from here (provision-runner, caddy/node-reconciler) and the split is not
+// something they should have to know about.
+export { parseProbe, probeScript, type Privilege, type ProbeResult } from "./provision-probe";
 
 // ─── pure script builders ───────────────────────────────────────────────────
-
-/** Emit `OTTER_<KEY>=<value>` markers we parse back in `parseProbe`. Tolerant:
- *  every probe is best-effort so a missing tool never aborts the whole script. */
-export function probeScript(): string {
-  return [
-    "set +e",
-    ". /etc/os-release 2>/dev/null || true",
-    'echo "OTTER_OS_ID=${ID:-unknown}"',
-    'echo "OTTER_HOSTNAME=$(hostname 2>/dev/null || echo unknown)"',
-    'if [ "$(id -u)" = "0" ]; then echo "OTTER_PRIV=root";',
-    'elif sudo -n true 2>/dev/null; then echo "OTTER_PRIV=sudo";',
-    'else echo "OTTER_PRIV=none"; fi',
-    'if command -v docker >/dev/null 2>&1; then echo "OTTER_DOCKER=$(docker version --format "{{.Server.Version}}" 2>/dev/null || echo present)"; else echo "OTTER_DOCKER=none"; fi',
-    'echo "OTTER_SWARM=$(docker info --format "{{.Swarm.LocalNodeState}}" 2>/dev/null || echo unknown)"',
-  ].join("\n");
-}
 
 const PREREQ_PKGS = "curl wget git jq ca-certificates";
 
@@ -215,22 +193,6 @@ export function authorizedKeyScript(publicKey: string): string {
 }
 
 // ─── probe parsing ───────────────────────────────────────────────────────────
-
-export function parseProbe(output: string): ProbeResult {
-  const get = (key: string): string => {
-    const m = output.match(new RegExp(`^OTTER_${key}=(.*)$`, "m"));
-    return m?.[1]?.trim() ?? "";
-  };
-  const rawPriv = get("PRIV");
-  const privilege: Privilege = rawPriv === "root" ? "root" : rawPriv === "sudo" ? "sudo" : "none";
-  return {
-    osId: get("OS_ID") || "unknown",
-    hostname: get("HOSTNAME") || "unknown",
-    privilege,
-    docker: get("DOCKER") || "none",
-    swarmState: get("SWARM") || "unknown",
-  };
-}
 
 // ─── orchestration ───────────────────────────────────────────────────────────
 
