@@ -37,7 +37,7 @@ describe("diffManifest", () => {
     ]);
   });
 
-  it("plans deletes for resources missing from the manifest", () => {
+  it("plans a delete only when the applied snapshot owned the resource", () => {
     const m = manifest({ project: "acme-api" });
     const current: CurrentState = {
       services: {
@@ -68,8 +68,61 @@ describe("diffManifest", () => {
       databases: {},
       composes: {},
     };
-    expect(diffManifest(m, current)).toEqual([
+    // Owned: the snapshot declared `old`, the manifest no longer does, so the
+    // operator removed it. That is a real deletion.
+    const applied = manifest({
+      project: "acme-api",
+      services: { old: { source: "image", image: "x" } },
+    });
+    expect(diffManifest(m, current, { applied })).toEqual([
       { kind: "delete", resource: "service", name: "old" },
+    ]);
+  });
+
+  it("refuses to stage a delete for a resource the manifest never owned", () => {
+    // od-4x2k, the P0 from the Praxly deploy. A running service can go missing
+    // from the manifest without anybody editing it: created through the wizard,
+    // or dropped from the applied snapshot because its create was SKIPPED and a
+    // later discard-all rewrote the manifest to that snapshot. Emitting a delete
+    // there presents destruction of a live service as a routine pending change.
+    const m = manifest({ project: "acme-api" });
+    const current: CurrentState = {
+      services: {
+        old: {
+          name: "old",
+          source: "image",
+          image: "x",
+          sourceSubdir: null,
+          repo: null,
+          branch: null,
+          imageRepository: null,
+          replicas: 1,
+          command: null,
+          entrypoint: null,
+          ports: [],
+          env: {},
+          publicEnabled: false,
+          previewsEnabled: false,
+          preDeploy: null,
+          postDeploy: null,
+          buildConfig: null,
+          restartWindowMs: null,
+          diskLimitMb: null,
+          swapLimitMb: null,
+          pidsLimit: null,
+        },
+      },
+      databases: {},
+      composes: {},
+    };
+
+    // No snapshot at all: nothing has ever been applied, so nothing is ours.
+    expect(diffManifest(m, current)).toEqual([{ kind: "no-op", resource: "service", name: "old" }]);
+
+    // A snapshot that simply doesn't mention it reads the same way.
+    const applied = manifest({ project: "acme-api" });
+    expect(diffManifest(m, current, { applied })).toEqual([
+      { kind: "no-op", resource: "service", name: "old" },
     ]);
   });
 

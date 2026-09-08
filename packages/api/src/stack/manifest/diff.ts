@@ -142,6 +142,45 @@ export interface DiffOptions {
    * text-matches its row: a phantom "update" that survived every apply.
    */
   resolveEnvValue?: (raw: string) => string | null;
+  /**
+   * The last successfully-applied snapshot, which is what makes a DELETE
+   * legible. Omitted (or null) means "never applied", so nothing is deletable
+   * and every live resource reads as unmanaged. See `isDeletable`.
+   */
+  applied?: Manifest | null;
+}
+
+/**
+ * Whether a resource missing from the manifest is a DELETION or merely
+ * UNMANAGED. The whole safety of the delete path is this question.
+ *
+ * Absent from the manifest is not the same as "the operator removed it". A
+ * resource also goes missing when its entry was never written (created through
+ * the wizard, or through a path that predates the manifest) or when it was
+ * dropped by something other than an edit: `snapshotAfterApply` correctly
+ * removes a SKIPPED create from the snapshot, and a later discard-all rewrites
+ * the manifest to that snapshot, so a live, running resource can lose its
+ * entry without anybody touching it (od-4x2k).
+ *
+ * Emitting a delete from that state is the worst failure this file can
+ * produce: it presents destruction of a running service as an ordinary pending
+ * change, and the operator has no way to tell it apart from one they authored.
+ *
+ * So a delete requires POSITIVE evidence that the manifest owned the resource
+ * and no longer does: it must appear in the applied snapshot. Absent from both
+ * the manifest and the snapshot means the manifest never claimed it, and the
+ * honest reading is "not mine to delete".
+ *
+ * This is the rule `diffComposes` has always applied (see its note on
+ * pre-manifest stacks reading as "pending delete"); services and databases
+ * simply never got it.
+ */
+function wasDeclaredBefore(
+  applied: Manifest | null | undefined,
+  section: "services" | "databases",
+  name: string,
+): boolean {
+  return applied?.[section]?.[name] !== undefined;
 }
 
 /**
@@ -175,6 +214,7 @@ export function diffManifest(
       name,
       details: { source: desired.source, ...summarizeService(desired) },
     }),
+    ownedBefore: (name) => wasDeclaredBefore(opts.applied, "services", name),
   }).forEach((c) => changes.push(c));
 
   diffNamedMap({
@@ -188,6 +228,7 @@ export function diffManifest(
       name,
       details: { engine: desired.engine, ...summarizeDatabase(desired) },
     }),
+    ownedBefore: (name) => wasDeclaredBefore(opts.applied, "databases", name),
   }).forEach((c) => changes.push(c));
 
   diffComposes(manifest.composes, current.composes).forEach((c) => changes.push(c));
@@ -238,6 +279,8 @@ interface DiffMapArgs<TDesired, TCurrent> {
   kind: ChangeResource;
   cmp: (name: string, desired: TDesired, current: TCurrent) => Change[];
   create: (name: string, desired: TDesired) => Change;
+  /** True when the applied snapshot declared this name: see `wasDeclaredBefore`. */
+  ownedBefore: (name: string) => boolean;
 }
 
 function diffNamedMap<TDesired, TCurrent>({
@@ -246,6 +289,7 @@ function diffNamedMap<TDesired, TCurrent>({
   kind,
   cmp,
   create,
+  ownedBefore,
 }: DiffMapArgs<TDesired, TCurrent>): Change[] {
   const out: Change[] = [];
   for (const [name, value] of Object.entries(desired)) {
@@ -257,9 +301,15 @@ function diffNamedMap<TDesired, TCurrent>({
     out.push(...cmp(name, value, existing));
   }
   for (const name of Object.keys(current)) {
-    if (!(name in desired)) {
-      out.push({ kind: "delete", resource: kind, name });
-    }
+    if (name in desired) continue;
+    // Missing from the manifest is only a deletion if the manifest owned it.
+    // Otherwise the resource is unmanaged and stays untouched: a no-op keeps
+    // it visible in the diff without ever staging its destruction.
+    out.push(
+      ownedBefore(name)
+        ? { kind: "delete", resource: kind, name }
+        : { kind: "no-op", resource: kind, name },
+    );
   }
   return out;
 }

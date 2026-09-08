@@ -6,7 +6,13 @@ import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { getProject } from "./handlers";
-import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
+import {
+  discardManifest,
+  loadAppliedSnapshot,
+  loadManifest,
+  resolvedManifest,
+  saveManifest,
+} from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { renameResource } from "./manifest-rename-apply";
@@ -98,9 +104,16 @@ export const manifestRouter = {
     // No environment pointer means nothing to diff against. An empty preview
     // beats a plan that claims every resource is new.
     if (!scope) return { resolved: resolved.value, changes: [] };
-    const [current, refTable] = await Promise.all([
+    const [current, refTable, applied] = await Promise.all([
       loadCurrentState(input.projectId, scope),
       loadRefTable(input.projectId),
+      // What the manifest has actually applied. Without it every live resource
+      // missing from the manifest reads as a pending DELETE, including ones the
+      // manifest never owned.
+      loadAppliedSnapshot({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      }),
     ]);
     // Resolve ${database:…}/${service:…} refs before comparing. Apply stores
     // the RESOLVED value in the env rows, so a raw-text compare surfaced a
@@ -108,6 +121,7 @@ export const manifestRouter = {
     const changes = enrichComposeCreates(
       diffManifest(resolved.value, current, {
         resolveEnvValue: makeEnvRefResolver(refTable),
+        applied,
       }),
       resolved.value,
     );
