@@ -67,6 +67,13 @@
                   "type": "string"
                 }
               },
+              "secrets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "startCommand": {
                 "anyOf": [
                   {
@@ -208,10 +215,15 @@
               "preDeploy": {
                 "anyOf": [
                   {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {}
+                    ]
                   },
                   {
                     "type": "null"
@@ -221,10 +233,15 @@
               "postDeploy": {
                 "anyOf": [
                   {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {}
+                    ]
                   },
                   {
                     "type": "null"
@@ -247,6 +264,10 @@
                   "required": ["domain"],
                   "additionalProperties": false
                 }
+              },
+              "server": {
+                "type": "string",
+                "minLength": 1
               },
               "source": {
                 "type": "string",
@@ -308,6 +329,13 @@
                   "type": "string"
                 }
               },
+              "secrets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "startCommand": {
                 "anyOf": [
                   {
@@ -449,10 +477,15 @@
               "preDeploy": {
                 "anyOf": [
                   {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {}
+                    ]
                   },
                   {
                     "type": "null"
@@ -462,10 +495,15 @@
               "postDeploy": {
                 "anyOf": [
                   {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {}
+                    ]
                   },
                   {
                     "type": "null"
@@ -488,6 +526,10 @@
                   "required": ["domain"],
                   "additionalProperties": false
                 }
+              },
+              "server": {
+                "type": "string",
+                "minLength": 1
               },
               "source": {
                 "type": "string",
@@ -548,6 +590,17 @@
                         "anyOf": [
                           {
                             "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "dockerfileContext": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["auto", "subdir", "root"]
                           },
                           {
                             "type": "null"
@@ -622,6 +675,47 @@
                         "anyOf": [
                           {
                             "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "buildRunner": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["auto", "turbo", "script"]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "turboFilter": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "turboRemoteCache": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "turboPrune": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
                           },
                           {
                             "type": "null"
@@ -733,6 +827,13 @@
                   "type": "string"
                 }
               },
+              "secrets": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "startCommand": {
                 "anyOf": [
                   {
@@ -874,10 +975,15 @@
               "preDeploy": {
                 "anyOf": [
                   {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {}
+                    ]
                   },
                   {
                     "type": "null"
@@ -887,10 +993,15 @@
               "postDeploy": {
                 "anyOf": [
                   {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {}
+                    ]
                   },
                   {
                     "type": "null"
@@ -913,6 +1024,10 @@
                   "required": ["domain"],
                   "additionalProperties": false
                 }
+              },
+              "server": {
+                "type": "string",
+                "minLength": 1
               },
               "source": {
                 "type": "string",
@@ -958,6 +1073,17 @@
                         "anyOf": [
                           {
                             "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "dockerfileContext": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["auto", "subdir", "root"]
                           },
                           {
                             "type": "null"
@@ -1032,6 +1158,47 @@
                         "anyOf": [
                           {
                             "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "buildRunner": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["auto", "turbo", "script"]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "turboFilter": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "turboRemoteCache": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "turboPrune": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
                           },
                           {
                             "type": "null"
@@ -1161,6 +1328,15 @@
                 "additionalProperties": {
                   "type": "string"
                 }
+              },
+              "host": {
+                "type": "string",
+                "minLength": 1
+              },
+              "connectionLimit": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10000
               },
               "engine": {
                 "type": "string",
@@ -1321,6 +1497,15 @@
                   "type": "string"
                 }
               },
+              "host": {
+                "type": "string",
+                "minLength": 1
+              },
+              "connectionLimit": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10000
+              },
               "engine": {
                 "type": "string",
                 "const": "mariadb"
@@ -1391,6 +1576,15 @@
                   "type": "string"
                 }
               },
+              "host": {
+                "type": "string",
+                "minLength": 1
+              },
+              "connectionLimit": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 10000
+              },
               "engine": {
                 "type": "string",
                 "const": "mongodb"
@@ -1436,6 +1630,9 @@
                     },
                     "content": {
                       "type": "string"
+                    },
+                    "interpolate": {
+                      "type": "boolean"
                     }
                   },
                   "required": ["path", "content"],
@@ -1460,6 +1657,29 @@
                 },
                 "additionalProperties": {
                   "type": "string"
+                }
+              },
+              "services": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "env": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "exposed": {
@@ -1487,6 +1707,10 @@
               "logoBrand": {
                 "type": "string",
                 "maxLength": 64
+              },
+              "server": {
+                "type": "string",
+                "minLength": 1
               }
             },
             "required": ["source", "content"],
@@ -1559,6 +1783,29 @@
                   "type": "string"
                 }
               },
+              "services": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "env": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
               "exposed": {
                 "type": "array",
                 "items": {
@@ -1584,6 +1831,10 @@
               "logoBrand": {
                 "type": "string",
                 "maxLength": 64
+              },
+              "server": {
+                "type": "string",
+                "minLength": 1
               }
             },
             "required": ["source"],
@@ -1610,1306 +1861,1501 @@
             "additionalProperties": {
               "anyOf": [
                 {
-                  "type": "object",
-                  "properties": {
-                    "replicas": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "ports": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "container": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "protocol": {
-                            "type": "string",
-                            "enum": ["tcp", "udp"]
-                          },
-                          "appProtocol": {
-                            "type": "string",
-                            "enum": ["http", "tcp"]
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          },
-                          "name": {
-                            "type": "string",
-                            "pattern": "^[a-z][a-z0-9-]*$"
-                          }
-                        },
-                        "required": ["container"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "env": {
+                  "anyOf": [
+                    {
                       "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "startCommand": {
-                      "anyOf": [
-                        {
+                      "properties": {
+                        "replicas": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "ports": {
                           "type": "array",
                           "items": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {
+                              "container": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "protocol": {
+                                "type": "string",
+                                "enum": ["tcp", "udp"]
+                              },
+                              "appProtocol": {
+                                "type": "string",
+                                "enum": ["http", "tcp"]
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]*$"
+                              }
+                            },
+                            "required": ["container"],
+                            "additionalProperties": false
                           }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "entrypoint": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "healthcheck": {
-                      "anyOf": [
-                        {
+                        "env": {
                           "type": "object",
-                          "properties": {
-                            "cmd": {
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "secrets": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "startCommand": {
+                          "anyOf": [
+                            {
                               "type": "array",
                               "items": {
                                 "type": "string"
                               }
-                            },
-                            "intervalMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "timeoutMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "retries": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "startMs": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": ["cmd"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "restart": {
-                      "type": "object",
-                      "properties": {
-                        "condition": {
-                          "type": "string",
-                          "enum": ["none", "on-failure", "any"]
-                        },
-                        "maxAttempts": {
-                          "anyOf": [
-                            {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
                             },
                             {
                               "type": "null"
                             }
                           ]
                         },
-                        "delayMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "windowMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": ["condition"],
-                      "additionalProperties": false
-                    },
-                    "preDeploy": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postDeploy": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "domains": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": ["domain"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "source": {
-                      "type": "string",
-                      "const": "image"
-                    },
-                    "image": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "replicas": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "ports": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "container": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "protocol": {
-                            "type": "string",
-                            "enum": ["tcp", "udp"]
-                          },
-                          "appProtocol": {
-                            "type": "string",
-                            "enum": ["http", "tcp"]
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          },
-                          "name": {
-                            "type": "string",
-                            "pattern": "^[a-z][a-z0-9-]*$"
-                          }
-                        },
-                        "required": ["container"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "env": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "startCommand": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "entrypoint": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "healthcheck": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "cmd": {
+                        "entrypoint": {
+                          "anyOf": [
+                            {
                               "type": "array",
                               "items": {
                                 "type": "string"
                               }
-                            },
-                            "intervalMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "timeoutMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "retries": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "startMs": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": ["cmd"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "restart": {
-                      "type": "object",
-                      "properties": {
-                        "condition": {
-                          "type": "string",
-                          "enum": ["none", "on-failure", "any"]
-                        },
-                        "maxAttempts": {
-                          "anyOf": [
-                            {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
                             },
                             {
                               "type": "null"
                             }
                           ]
                         },
-                        "delayMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "windowMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": ["condition"],
-                      "additionalProperties": false
-                    },
-                    "preDeploy": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postDeploy": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "domains": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": ["domain"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "source": {
-                      "type": "string",
-                      "const": "git"
-                    },
-                    "repo": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "branch": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "sourceSubdir": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "build": {
-                      "oneOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "auto"
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "dockerfile"
-                            },
-                            "dockerfilePath": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "buildArgs": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "propertyNames": {
-                                    "type": "string",
-                                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
-                                  },
-                                  "additionalProperties": {
+                        "healthcheck": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "cmd": {
+                                  "type": "array",
+                                  "items": {
                                     "type": "string"
                                   }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "railpack"
-                            },
-                            "buildCommand": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
+                                "intervalMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "spa": {
-                              "anyOf": [
-                                {
-                                  "type": "boolean"
+                                "timeoutMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "staticRoot": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
+                                "retries": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 },
-                                {
-                                  "type": "null"
+                                "startMs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 }
-                              ]
-                            },
-                            "packageManager": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "compose"
-                            },
-                            "composePath": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
-                    "imageRepository": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "previews": {
-                      "type": "boolean"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "replicas": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "ports": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "container": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "protocol": {
-                            "type": "string",
-                            "enum": ["tcp", "udp"]
-                          },
-                          "appProtocol": {
-                            "type": "string",
-                            "enum": ["http", "tcp"]
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          },
-                          "name": {
-                            "type": "string",
-                            "pattern": "^[a-z][a-z0-9-]*$"
-                          }
-                        },
-                        "required": ["container"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "env": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "startCommand": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "entrypoint": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "healthcheck": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "cmd": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "intervalMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "timeoutMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "retries": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "startMs": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": ["cmd"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "restart": {
-                      "type": "object",
-                      "properties": {
-                        "condition": {
-                          "type": "string",
-                          "enum": ["none", "on-failure", "any"]
-                        },
-                        "maxAttempts": {
-                          "anyOf": [
-                            {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
+                              },
+                              "required": ["cmd"],
+                              "additionalProperties": false
                             },
                             {
                               "type": "null"
                             }
                           ]
                         },
-                        "delayMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "windowMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": ["condition"],
-                      "additionalProperties": false
-                    },
-                    "preDeploy": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postDeploy": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "domains": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": ["domain"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "source": {
-                      "type": "string",
-                      "const": "upload"
-                    },
-                    "sourceSubdir": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "build": {
-                      "oneOf": [
-                        {
+                        "resources": {
                           "type": "object",
                           "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "auto"
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
                             },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
                             }
                           },
-                          "required": ["builder"],
                           "additionalProperties": false
                         },
-                        {
+                        "restart": {
                           "type": "object",
                           "properties": {
-                            "builder": {
+                            "condition": {
                               "type": "string",
-                              "const": "dockerfile"
+                              "enum": ["none", "on-failure", "any"]
                             },
-                            "dockerfilePath": {
+                            "maxAttempts": {
                               "anyOf": [
                                 {
-                                  "type": "string"
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
                                 },
                                 {
                                   "type": "null"
                                 }
                               ]
                             },
-                            "buildArgs": {
+                            "delayMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "windowMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["condition"],
+                          "additionalProperties": false
+                        },
+                        "preDeploy": {
+                          "anyOf": [
+                            {
                               "anyOf": [
                                 {
-                                  "type": "object",
-                                  "propertyNames": {
-                                    "type": "string",
-                                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
-                                  },
-                                  "additionalProperties": {
+                                  "type": "array",
+                                  "items": {
                                     "type": "string"
                                   }
                                 },
-                                {
-                                  "type": "null"
-                                }
+                                {}
                               ]
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "railpack"
-                            },
-                            "buildCommand": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "spa": {
-                              "anyOf": [
-                                {
-                                  "type": "boolean"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "staticRoot": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "packageManager": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "compose"
-                            },
-                            "composePath": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
-                    "imageRepository": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "replicas": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
-                    "ports": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "container": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "protocol": {
-                            "type": "string",
-                            "enum": ["tcp", "udp"]
-                          },
-                          "appProtocol": {
-                            "type": "string",
-                            "enum": ["http", "tcp"]
-                          },
-                          "primary": {
-                            "type": "boolean"
-                          },
-                          "name": {
-                            "type": "string",
-                            "pattern": "^[a-z][a-z0-9-]*$"
-                          }
-                        },
-                        "required": ["container"],
-                        "additionalProperties": false
-                      }
-                    },
-                    "env": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "startCommand": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "entrypoint": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "healthcheck": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "cmd": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "intervalMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "timeoutMs": {
-                              "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "retries": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            },
-                            "startMs": {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": ["cmd"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "restart": {
-                      "type": "object",
-                      "properties": {
-                        "condition": {
-                          "type": "string",
-                          "enum": ["none", "on-failure", "any"]
-                        },
-                        "maxAttempts": {
-                          "anyOf": [
-                            {
-                              "type": "integer",
-                              "minimum": 0,
-                              "maximum": 9007199254740991
                             },
                             {
                               "type": "null"
                             }
                           ]
                         },
-                        "delayMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
+                        "postDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
-                        "windowMs": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "domain": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["domain"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "server": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "source": {
+                          "type": "string",
+                          "const": "image"
+                        },
+                        "image": {
+                          "type": "string",
+                          "minLength": 1
                         }
                       },
-                      "required": ["condition"],
                       "additionalProperties": false
                     },
-                    "preDeploy": {
-                      "anyOf": [
-                        {
+                    {
+                      "type": "object",
+                      "properties": {
+                        "replicas": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "ports": {
                           "type": "array",
                           "items": {
+                            "type": "object",
+                            "properties": {
+                              "container": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "protocol": {
+                                "type": "string",
+                                "enum": ["tcp", "udp"]
+                              },
+                              "appProtocol": {
+                                "type": "string",
+                                "enum": ["http", "tcp"]
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]*$"
+                              }
+                            },
+                            "required": ["container"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
                             "type": "string"
                           }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "postDeploy": {
-                      "anyOf": [
-                        {
+                        "secrets": {
                           "type": "array",
                           "items": {
-                            "type": "string"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "domains": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "primary": {
-                            "type": "boolean"
                           }
                         },
-                        "required": ["domain"],
-                        "additionalProperties": false
-                      }
+                        "startCommand": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "entrypoint": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "healthcheck": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "cmd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "intervalMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "timeoutMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "retries": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "startMs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": ["cmd"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "restart": {
+                          "type": "object",
+                          "properties": {
+                            "condition": {
+                              "type": "string",
+                              "enum": ["none", "on-failure", "any"]
+                            },
+                            "maxAttempts": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "delayMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "windowMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["condition"],
+                          "additionalProperties": false
+                        },
+                        "preDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "domain": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["domain"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "server": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "source": {
+                          "type": "string",
+                          "const": "git"
+                        },
+                        "repo": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "branch": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "sourceSubdir": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "build": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "auto"
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "dockerfile"
+                                },
+                                "dockerfilePath": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "dockerfileContext": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["auto", "subdir", "root"]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "buildArgs": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "propertyNames": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                      },
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "railpack"
+                                },
+                                "buildCommand": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "spa": {
+                                  "anyOf": [
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "staticRoot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "packageManager": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "buildRunner": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["auto", "turbo", "script"]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "turboFilter": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "turboRemoteCache": {
+                                  "anyOf": [
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "turboPrune": {
+                                  "anyOf": [
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "compose"
+                                },
+                                "composePath": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "imageRepository": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "previews": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "replicas": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "ports": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "container": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "protocol": {
+                                "type": "string",
+                                "enum": ["tcp", "udp"]
+                              },
+                              "appProtocol": {
+                                "type": "string",
+                                "enum": ["http", "tcp"]
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]*$"
+                              }
+                            },
+                            "required": ["container"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "secrets": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "startCommand": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "entrypoint": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "healthcheck": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "cmd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "intervalMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "timeoutMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "retries": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "startMs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": ["cmd"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "restart": {
+                          "type": "object",
+                          "properties": {
+                            "condition": {
+                              "type": "string",
+                              "enum": ["none", "on-failure", "any"]
+                            },
+                            "maxAttempts": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "delayMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "windowMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["condition"],
+                          "additionalProperties": false
+                        },
+                        "preDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "domain": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["domain"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "server": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "source": {
+                          "type": "string",
+                          "const": "upload"
+                        },
+                        "sourceSubdir": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "build": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "auto"
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "dockerfile"
+                                },
+                                "dockerfilePath": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "dockerfileContext": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["auto", "subdir", "root"]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "buildArgs": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "propertyNames": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                      },
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "railpack"
+                                },
+                                "buildCommand": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "spa": {
+                                  "anyOf": [
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "staticRoot": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "packageManager": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "buildRunner": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": ["auto", "turbo", "script"]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "turboFilter": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "turboRemoteCache": {
+                                  "anyOf": [
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "turboPrune": {
+                                  "anyOf": [
+                                    {
+                                      "type": "boolean"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "builder": {
+                                  "type": "string",
+                                  "const": "compose"
+                                },
+                                "composePath": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "watchPatterns": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": ["builder"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "imageRepository": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "replicas": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "ports": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "container": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "protocol": {
+                                "type": "string",
+                                "enum": ["tcp", "udp"]
+                              },
+                              "appProtocol": {
+                                "type": "string",
+                                "enum": ["http", "tcp"]
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]*$"
+                              }
+                            },
+                            "required": ["container"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "env": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "secrets": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "startCommand": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "entrypoint": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "healthcheck": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "cmd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "intervalMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "timeoutMs": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "retries": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "startMs": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": ["cmd"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "restart": {
+                          "type": "object",
+                          "properties": {
+                            "condition": {
+                              "type": "string",
+                              "enum": ["none", "on-failure", "any"]
+                            },
+                            "maxAttempts": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "delayMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "windowMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": ["condition"],
+                          "additionalProperties": false
+                        },
+                        "preDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postDeploy": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                {}
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "domain": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "primary": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["domain"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "server": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
                     }
-                  },
-                  "additionalProperties": false
+                  ]
+                },
+                {
+                  "type": "null"
                 }
               ]
             }
@@ -2923,360 +3369,394 @@
             "additionalProperties": {
               "anyOf": [
                 {
-                  "type": "object",
-                  "properties": {
-                    "resources": {
+                  "anyOf": [
+                    {
                       "type": "object",
                       "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
                         },
-                        "memoryMb": {
+                        "publicEnabled": {
+                          "type": "boolean"
+                        },
+                        "previews": {
+                          "type": "boolean"
+                        },
+                        "extraEnv": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "host": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "connectionLimit": {
                           "type": "integer",
                           "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
+                          "maximum": 10000
                         },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
+                        "engine": {
+                          "type": "string",
+                          "const": "postgres"
                         },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
+                        "version": {
+                          "type": "string",
+                          "minLength": 1
                         },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
+                        "extensions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "additionalProperties": false
                     },
-                    "publicEnabled": {
-                      "type": "boolean"
-                    },
-                    "previews": {
-                      "type": "boolean"
-                    },
-                    "extraEnv": {
+                    {
                       "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
+                      "properties": {
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "publicEnabled": {
+                          "type": "boolean"
+                        },
+                        "previews": {
+                          "type": "boolean"
+                        },
+                        "extraEnv": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "engine": {
+                          "type": "string",
+                          "const": "redis"
+                        },
+                        "version": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "maxmemoryPolicy": {
+                          "type": "string",
+                          "enum": [
+                            "noeviction",
+                            "allkeys-lru",
+                            "allkeys-lfu",
+                            "allkeys-random",
+                            "volatile-lru",
+                            "volatile-lfu",
+                            "volatile-random",
+                            "volatile-ttl"
+                          ]
+                        }
                       },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
+                      "additionalProperties": false
                     },
-                    "engine": {
-                      "type": "string",
-                      "const": "postgres"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "publicEnabled": {
+                          "type": "boolean"
+                        },
+                        "previews": {
+                          "type": "boolean"
+                        },
+                        "extraEnv": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "host": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "connectionLimit": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 10000
+                        },
+                        "engine": {
+                          "type": "string",
+                          "const": "mariadb"
+                        },
+                        "version": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
                     },
-                    "version": {
-                      "type": "string",
-                      "minLength": 1
+                    {
+                      "type": "object",
+                      "properties": {
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "publicEnabled": {
+                          "type": "boolean"
+                        },
+                        "previews": {
+                          "type": "boolean"
+                        },
+                        "extraEnv": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "host": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "connectionLimit": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 10000
+                        },
+                        "engine": {
+                          "type": "string",
+                          "const": "mongodb"
+                        },
+                        "version": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
                     },
-                    "extensions": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                    {
+                      "type": "object",
+                      "properties": {
+                        "resources": {
+                          "type": "object",
+                          "properties": {
+                            "cpuLimit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cpuReservation": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "memoryReservationMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "diskMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "swapMb": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pidsLimit": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "publicEnabled": {
+                          "type": "boolean"
+                        },
+                        "previews": {
+                          "type": "boolean"
+                        },
+                        "extraEnv": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string",
+                            "pattern": "^[A-Z_][A-Z0-9_]*$"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
                     }
-                  },
-                  "additionalProperties": false
+                  ]
                 },
                 {
-                  "type": "object",
-                  "properties": {
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "publicEnabled": {
-                      "type": "boolean"
-                    },
-                    "previews": {
-                      "type": "boolean"
-                    },
-                    "extraEnv": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "engine": {
-                      "type": "string",
-                      "const": "redis"
-                    },
-                    "version": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "maxmemoryPolicy": {
-                      "type": "string",
-                      "enum": [
-                        "noeviction",
-                        "allkeys-lru",
-                        "allkeys-lfu",
-                        "allkeys-random",
-                        "volatile-lru",
-                        "volatile-lfu",
-                        "volatile-random",
-                        "volatile-ttl"
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "publicEnabled": {
-                      "type": "boolean"
-                    },
-                    "previews": {
-                      "type": "boolean"
-                    },
-                    "extraEnv": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "engine": {
-                      "type": "string",
-                      "const": "mariadb"
-                    },
-                    "version": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "publicEnabled": {
-                      "type": "boolean"
-                    },
-                    "previews": {
-                      "type": "boolean"
-                    },
-                    "extraEnv": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "engine": {
-                      "type": "string",
-                      "const": "mongodb"
-                    },
-                    "version": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "resources": {
-                      "type": "object",
-                      "properties": {
-                        "cpuLimit": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "cpuReservation": {
-                          "type": "number",
-                          "minimum": 0
-                        },
-                        "memoryReservationMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "diskMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "swapMb": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "pidsLimit": {
-                          "type": "integer",
-                          "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    "publicEnabled": {
-                      "type": "boolean"
-                    },
-                    "previews": {
-                      "type": "boolean"
-                    },
-                    "extraEnv": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "pattern": "^[A-Z_][A-Z0-9_]*$"
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "additionalProperties": false
+                  "type": "null"
                 }
               ]
             }
