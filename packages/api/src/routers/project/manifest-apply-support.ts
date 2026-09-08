@@ -102,7 +102,7 @@ function synthesizeEnvOnlyUpdates(
 }
 
 /**
- * The service this apply means by `name`, WITHIN its environment.
+ * The resource this apply means by `name`, WITHIN its environment.
  *
  * The scope is not optional, and this is why: resource names are unique per
  * environment, not per project, so `api-prod` names one row in staging and a
@@ -117,19 +117,25 @@ function synthesizeEnvOnlyUpdates(
  * answering on the production domain with the staging database URL, the
  * staging CORS list and the staging auth URL.
  *
- * `createOneService` never had this bug because creates carry
- * `environmentId` explicitly. Updates resolved by name, so only updates were
- * affected: the environment was known the whole time and simply not used.
+ * `createOneService` never had this bug because creates carry `environmentId`
+ * explicitly. Updates resolved by name, so only updates were affected: the
+ * environment was known the whole time and simply not used.
+ *
+ * Services and databases share this because they resolve identically - both
+ * extension tables key on `resourceId`, and the environment lives on the
+ * parent `resource` row either way. Two copies of a query whose whole subtlety
+ * is the WHERE clause is two places for that clause to drift.
  */
-export async function lookupServiceId(
+async function lookupResourceIdByName(
+  extension: typeof serviceResource | typeof databaseResource,
   projectId: ProjectId,
   name: string,
   scope: EnvironmentScopeInput,
 ): Promise<ResourceId | null> {
   const [row] = await db
-    .select({ id: serviceResource.resourceId })
-    .from(serviceResource)
-    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .select({ id: extension.resourceId })
+    .from(extension)
+    .innerJoin(resource, eq(resource.id, extension.resourceId))
     .where(
       and(eq(resource.projectId, projectId), eq(resource.name, name), inEnvironmentScope(scope)),
     )
@@ -137,21 +143,18 @@ export async function lookupServiceId(
   return row?.id ?? null;
 }
 
-/** The database this apply means by `name`, within its environment. Same
- *  reasoning as lookupServiceId above, and the same consequence: `postgres`
- *  exists in both environments and an unscoped match repoints the wrong one. */
+export async function lookupServiceId(
+  projectId: ProjectId,
+  name: string,
+  scope: EnvironmentScopeInput,
+): Promise<ResourceId | null> {
+  return lookupResourceIdByName(serviceResource, projectId, name, scope);
+}
+
 export async function lookupDatabaseId(
   projectId: ProjectId,
   name: string,
   scope: EnvironmentScopeInput,
 ): Promise<ResourceId | null> {
-  const [row] = await db
-    .select({ id: databaseResource.resourceId })
-    .from(databaseResource)
-    .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
-    .where(
-      and(eq(resource.projectId, projectId), eq(resource.name, name), inEnvironmentScope(scope)),
-    )
-    .limit(1);
-  return row?.id ?? null;
+  return lookupResourceIdByName(databaseResource, projectId, name, scope);
 }

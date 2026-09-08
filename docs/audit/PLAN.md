@@ -14,7 +14,7 @@ Measured at the start of the sweep. These are the numbers the sweep has to move.
 | Source files in scope (excl. tests, generated, vendored) | 1626 |
 | Import cycles / files involved | 16 / 21 |
 | Clone groups / files touched | 385 / 385 |
-| fallow dead-code findings | 197 |
+| fallow dead-code findings | 198 |
 | oxlint warnings | 196 |
 | Files with `try`/`catch` | 209 |
 | `as` assertions / `as unknown as` | 940 / 72 |
@@ -42,6 +42,15 @@ structurally identical to every other one by design. The clone groups the
 ratchet named are all pre-existing schema-shape pairs. There is nothing to
 extract here: a helper wrapping `index()` would trade a real declaration for an
 indirection, and the measure is counting the schema DSL working correctly.
+
+Dead code re-pinned on 2026-09-08 to 198, one finding, in exchange for a real
+deduplication. `lookupServiceId` and `lookupDatabaseId` resolve identically -
+both extension tables key on `resourceId`, and the environment lives on the
+parent `resource` row either way - so they now share one query. Keeping them
+apart cost duplicated lines instead (3.63% to 3.64%), which is the worse trade
+here: the whole subtlety of that query is its WHERE clause, and it is the
+clause whose absence let an apply write one environment's config onto another's
+resources. One copy is one place for it to be wrong.
 
 Re-pinned again on 2026-09-08 to 385, for the same reason one level down. The
 `environment` table gained a single `boolean(...).notNull().default(false)`
