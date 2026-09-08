@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/client";
+import { Result } from "better-result";
 import { defineCommand } from "citty";
 import * as z from "zod";
 
@@ -130,6 +131,58 @@ async function mintTicket(client: CliClient, target: ShellTarget): Promise<strin
 // Attach the local TTY to the /pty WebSocket. Wire protocol: binary frames
 // are raw PTY bytes both ways; text frames are JSON control messages. Never
 // resolves. Every exit path goes through restoreTty + process.exit.
+/**
+ * Why did the upgrade fail?
+ *
+ * A WebSocket `error` event is deliberately opaque — no status, no body, so a
+ * browser cannot probe cross-origin endpoints through it. That is right for a
+ * browser and useless in a CLI, where the server's own message is the only
+ * thing that would tell the operator what to do.
+ *
+ * So ask again over plain HTTP, WITHOUT a ticket. The server checks origin
+ * before the ticket, so an origin rejection answers 403 with its reason, while
+ * anything else answers 401 "Missing ticket" — which tells us the upgrade got
+ * past the gates and the failure lies elsewhere, and is not worth repeating to
+ * the operator as though it were the cause.
+ *
+ * Omitting the ticket is what makes this safe to run: the real one is
+ * single-use, and spending it on a diagnostic would turn a recoverable failure
+ * into a definitely-unrecoverable one.
+ *
+ * Returns null when it learns nothing, so the caller keeps its generic message
+ * rather than inventing a cause.
+ */
+async function explainUpgradeFailure(wsUrl: string): Promise<string | null> {
+  const probe = new URL(wsUrl);
+  probe.protocol = probe.protocol === "wss:" ? "https:" : "http:";
+  probe.searchParams.delete("ticket");
+
+  const response = await Result.tryPromise({
+    try: () =>
+      fetch(probe, {
+        headers: { upgrade: "websocket", connection: "Upgrade" },
+      }),
+    catch: (cause) => cause,
+  });
+  if (response.isErr()) return null;
+  // 401 means the gates passed and only the (deliberately omitted) ticket was
+  // missing. Reporting that would name the probe's own omission as the cause.
+  if (response.value.status === 401) return null;
+
+  const body = await Result.tryPromise({
+    try: () => response.value.json(),
+    catch: (cause) => cause,
+  });
+  if (body.isErr()) return null;
+  const message =
+    typeof body.value === "object" && body.value !== null && "message" in body.value
+      ? body.value.message
+      : null;
+  return typeof message === "string" && message.length > 0
+    ? `Could not open the shell connection: ${message} (HTTP ${response.value.status}).`
+    : null;
+}
+
 function attach(wsUrl: string): Promise<never> {
   return new Promise<never>(() => {
     const ws = new WebSocket(wsUrl);
@@ -201,7 +254,13 @@ function attach(wsUrl: string): Promise<never> {
     ws.addEventListener("error", () => {
       if (restored) return;
       restoreTty();
-      abort("Could not open the shell connection.");
+      // The WHATWG error event carries no status and no body, so the server's
+      // actual reason is unreachable from here. That is how a hard 403 ("Origin
+      // not allowed", od-v7wb) surfaced for weeks as a bare "could not open",
+      // with nothing to act on. Ask the endpoint directly for the reason.
+      void explainUpgradeFailure(wsUrl).then((reason) =>
+        abort(reason ?? "Could not open the shell connection."),
+      );
     });
   });
 }

@@ -96,9 +96,14 @@ describe("[od-5j8.9] /pty Origin validation", () => {
     expect(await rejectionMessage(res)).toMatch(/origin/i);
   });
 
-  test("a missing Origin is rejected. Every browser sends one on a WS handshake", async () => {
+  test("a missing Origin passes the gate: that is the CLI, not a browser", async () => {
+    // `otd exec` upgrades from Node/Bun, which send no Origin, so rejecting
+    // absent meant the CLI could never open a shell (od-v7wb). It reaches the
+    // TICKET check instead — a 401 here, not a 403 — which is the real gate:
+    // single-use, IP-bound, mintable only by a step-up-verified session.
     const res = await upgradeRequest({ ticket: "whatever" });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
+    expect(await rejectionMessage(res)).not.toMatch(/origin/i);
   });
 
   test("the trusted control-plane origin passes the Origin gate (fails later, on the ticket, not the origin)", async () => {
