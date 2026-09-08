@@ -61,6 +61,27 @@ const portSchema = z.object({
     .optional(),
 });
 
+/**
+ * Exec form, or a shell line we wrap into it.
+ *
+ * `["sh", "-c", "a && b"]` is what actually runs; a bare `"a && b"` is the
+ * same thing said shorter. The transform happens at PARSE, so everything
+ * downstream (diff, apply, the runtime spec) only ever sees exec form and no
+ * consumer has to know the shorthand exists.
+ *
+ * DELIBERATELY NOT offered for `startCommand` or `entrypoint`, even though
+ * compose allows a string for both. Those name the container's long-running
+ * process, and wrapping one in `sh -c` makes the SHELL pid 1: it does not
+ * forward SIGTERM, so the app never gets its shutdown signal and dies on the
+ * stop timeout instead. That is a silent, delayed failure attached to a
+ * convenience, and it is not worth it. Hooks run in throwaway containers to
+ * completion, so the same wrapper is harmless there.
+ */
+const shellOrExecForm = z.union([
+  z.array(z.string()),
+  z.string().transform((line) => ["sh", "-c", line]),
+]);
+
 const healthcheckSchema = z.object({
   cmd: z.array(z.string()),
   intervalMs: z.number().int().positive().optional(),
@@ -201,8 +222,14 @@ const serviceCommonSchema = z.object({
   // container off the new image. preDeploy runs after the build but
   // before the new replicas take traffic (db migrations); postDeploy runs
   // after the new task reaches running (cache warmup, smoke checks).
-  preDeploy: z.array(z.string()).nullable().optional(),
-  postDeploy: z.array(z.string()).nullable().optional(),
+  //
+  // A plain string is accepted as shorthand for `["sh", "-c", <string>]`,
+  // because the thing people write here is a shell line
+  // ("bun run db:migrate && bun run db:seed") and rejecting it taught
+  // nothing: the error said `expected array, received string` with no hint
+  // that exec form was wanted (od-3kvm).
+  preDeploy: shellOrExecForm.nullable().optional(),
+  postDeploy: shellOrExecForm.nullable().optional(),
   // Public domains to attach when the service is first created by Apply.
   // A create-time seed so an operator can set a domain *before* deploy.
   // The reconciler creates the proxy routes (and exposes the service) on
