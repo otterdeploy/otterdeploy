@@ -97,12 +97,24 @@ function PhaseSegment({ state }: { state: SegmentState }) {
     el.style.transition = transition;
     el.style.transform = transform;
   }, [state]);
-  // Mounts empty (the class), so the first creep interpolates from zero rather
-  // than snapping to its target on the first frame.
+  // Mounts empty, so the first creep interpolates from zero rather than
+  // snapping to its target on the first frame.
+  //
+  // The initial value is written as an arbitrary `transform`, deliberately not
+  // with a scale utility: Tailwind v4 compiles those to the standalone `scale`
+  // property, which COMPOSES with `transform` instead of being overridden by
+  // it. An empty scale utility therefore multiplied every creep, seal and
+  // failure fill by zero, and the bar drew an empty grey track forever — no
+  // motion, no colour — however correct the walk behind it was. Keeping the
+  // initial value on the same axis the effect writes means the inline style
+  // wins, which is the whole mechanism here.
   return (
     <span
       ref={ref}
-      className={cn("block h-full origin-left scale-x-0 rounded-full", segmentTone(state))}
+      className={cn(
+        "block h-full origin-left [transform:scaleX(0)] rounded-full",
+        segmentTone(state),
+      )}
     />
   );
 }
