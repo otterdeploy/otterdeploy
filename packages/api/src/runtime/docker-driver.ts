@@ -54,7 +54,7 @@ async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<v
       ? createStackDeployLog(spec.deploymentId)
       : nullStackDeployLog;
   try {
-    await pullImage(docker, spec.image, (line) => deployLog.line(line));
+    await pullImage(docker, spec.image, (line) => deployLog.line(line), spec.registryAuth);
   } finally {
     await deployLog.close();
   }

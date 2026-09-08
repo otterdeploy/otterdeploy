@@ -3,8 +3,18 @@
  * provisioner-shaped `SwarmServiceSpec` consumed by `swarm/*`.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { project } from "@otterdeploy/db/schema/project";
+import { Result } from "better-result";
+import { eq } from "drizzle-orm";
+
+import type { RegistryAuth } from "../../swarm";
+
 import { previewIdOf, runtimeServiceName, type ScopeLike } from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
+import { resolveRegistryAuth } from "../../swarm/registry-auth";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";
 import { getLatestDeploymentForResource } from "../project/deployments";
 import { type ServiceRecord } from "./queries";
@@ -67,14 +77,23 @@ export async function buildSwarmSpec(
     stateful: false,
   });
 
+  // Credentials for the image this deploy pulls. Resolved HERE, once, so the
+  // drivers stay free of database access and there is a single place that
+  // decides which credential a deploy uses. Null for a public image, and null
+  // on any failure, so this can only ever turn an anonymous pull into an
+  // authenticated one.
+  const image = imageOverride ?? record.service.image;
+  const registryAuth = await resolveRegistryAuthForProject(image, record.resource.projectId);
+
   return {
     resourceId: record.resource.id,
     placementNodeId: placement.nodeId,
+    registryAuth,
     resourceName,
     projectSlug: sanitizeSlug(projectSlug),
     serviceName,
     internalHostname,
-    image: imageOverride ?? record.service.image,
+    image,
     command: record.service.command,
     entrypoint: record.service.entrypoint,
     env: resolvedEnv,
@@ -112,4 +131,30 @@ export async function buildSwarmSpec(
     forceUpdateCounter: record.service.forceUpdateCounter,
     deploymentId: latestDeployment?.id ?? null,
   };
+}
+
+/**
+ * The org that owns a project, then its credential for this image's registry.
+ *
+ * Split out because it must never break a deploy: a service with a PUBLIC
+ * image does not care that the registry lookup failed, and turning a
+ * previously-working anonymous pull into a hard failure would be a far worse
+ * regression than the one this fixes. Null on every unhappy path.
+ */
+async function resolveRegistryAuthForProject(
+  image: string,
+  projectId: ProjectId,
+): Promise<RegistryAuth | null> {
+  const [row] = await db
+    .select({ organizationId: project.organizationId })
+    .from(project)
+    .where(eq(project.id, projectId))
+    .limit(1);
+  if (!row) return null;
+
+  const resolved = await Result.tryPromise({
+    try: () => resolveRegistryAuth({ image, organizationId: row.organizationId }),
+    catch: (cause) => cause,
+  });
+  return resolved.isOk() ? resolved.value : null;
 }
