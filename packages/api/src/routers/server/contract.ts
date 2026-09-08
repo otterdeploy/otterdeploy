@@ -174,6 +174,13 @@ const enrollmentErrors = {
     status: 403,
     message: "That code or password is incorrect." as const,
   },
+  /** Nothing to step up WITH: no password, no authenticator. Distinct from
+   *  PASSWORD_REQUIRED, which means "you did not send it" — see the terminal
+   *  contract's note on why collapsing the two re-prompts forever. */
+  STEP_UP_UNAVAILABLE: {
+    status: 409,
+    message: "Your account has no password or authenticator to confirm with." as const,
+  },
   MANAGER_CONFIRMATION_REQUIRED: {
     status: 400,
     message: 'Type "ENROLL MANAGER" to authorize manager enrollment.' as const,

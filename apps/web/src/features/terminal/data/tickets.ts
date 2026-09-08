@@ -69,6 +69,11 @@ export function stepUpErrorMessage(err: unknown): string {
         return "Enter your password.";
       case "INVALID_STEP_UP":
         return "That code or password is incorrect.";
+      case "STEP_UP_UNAVAILABLE":
+        // The server's message names the two ways out (set a password, or
+        // enable 2FA), and this is the one case where the client has nothing
+        // better to say: there is no credential to re-prompt for.
+        return err.message;
       default:
         break;
     }

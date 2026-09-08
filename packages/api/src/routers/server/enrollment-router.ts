@@ -17,6 +17,9 @@ interface StepUpErrors {
   TWO_FACTOR_CODE_REQUIRED: () => Error;
   PASSWORD_REQUIRED: () => Error;
   INVALID_STEP_UP: () => Error;
+  /** Takes the server's message: it names the two ways out, so the client does
+   *  not have to know them. */
+  STEP_UP_UNAVAILABLE: (opts: { message: string }) => Error;
   MANAGER_CONFIRMATION_REQUIRED: () => Error;
 }
 
@@ -50,6 +53,12 @@ async function requireEnrollmentStepUp(
     const { reason } = verified.error;
     if (reason === "two_factor_code_required") throw errors.TWO_FACTOR_CODE_REQUIRED();
     if (reason === "password_required") throw errors.PASSWORD_REQUIRED();
+    // The comment above claims this asks for whichever credential the account
+    // actually HAS. That was true only for accounts that had one; an invited,
+    // passkey-only or social account has neither and could never enrol a node.
+    if (reason === "no_credential") {
+      throw errors.STEP_UP_UNAVAILABLE({ message: verified.error.message });
+    }
     throw errors.INVALID_STEP_UP();
   }
 }

@@ -102,6 +102,15 @@ async function performStepUp(client: CliClient): Promise<void> {
       await client.terminal.stepUp({ password });
       return;
     }
+    if (err.code === "STEP_UP_UNAVAILABLE") {
+      // There is no credential to prompt for. Prompting anyway is what this
+      // used to do — an invited, passkey-only or social account was shown
+      // "Password:" for a password it does not have, and every attempt failed
+      // identically with nothing to try differently (od-rvca). The server's
+      // message names the two ways out, so it is printed rather than
+      // paraphrased.
+      abort(err.message);
+    }
     throw err;
   }
 }
