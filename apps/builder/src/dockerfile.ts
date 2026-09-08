@@ -37,6 +37,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
+import { classifyInfraFailure } from "./build-infra-failure";
 import { builderFlags, cacheFlags, noCacheFlags } from "./buildx";
 import {
   type DockerfileContext,
@@ -352,6 +353,16 @@ export async function dockerfileBuild(opts: {
     sink: opts.sink,
   });
   if (built.exitCode !== 0) {
+    // Before blaming the Dockerfile, check whether the builder could reach a
+    // registry at all. A failure at `load metadata` happens before any
+    // instruction runs, so no Dockerfile can have caused it, and reporting it
+    // as a build error sends the operator to debug the wrong file entirely.
+    const infra = classifyInfraFailure(built.tail);
+    if (infra) {
+      opts.sink.system(infra.summary);
+      opts.sink.system(infra.remedy);
+      throw new Error(`${infra.summary} ${infra.remedy}`);
+    }
     // A COPY that can't be resolved is almost always the context anchor, not a
     // broken Dockerfile. Say which knob fixes it instead of leaving the
     // operator with buildx's raw "not found".
