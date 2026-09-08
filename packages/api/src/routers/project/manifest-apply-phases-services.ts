@@ -106,7 +106,7 @@ async function updateOneService(
   refTable: RefTable,
 ): Promise<ServiceUpdateOutcome | null> {
   const spec = ctx.manifest.services[change.name];
-  const existingId = await lookupServiceId(ctx.projectId, change.name);
+  const existingId = await lookupServiceId(ctx.projectId, change.name, ctx.scope);
   if (!spec || !existingId) return null;
   const resolved = resolveEnv(
     change.name,

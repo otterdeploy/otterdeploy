@@ -10,6 +10,7 @@ import { and, eq } from "drizzle-orm";
 import * as z from "zod";
 
 import { type Change } from "../../stack/manifest";
+import { inEnvironmentScope, type EnvironmentScopeInput } from "./queries/resource";
 
 export interface GroupedChanges {
   serviceCreates: Change[];
@@ -100,28 +101,57 @@ function synthesizeEnvOnlyUpdates(
   }
 }
 
+/**
+ * The service this apply means by `name`, WITHIN its environment.
+ *
+ * The scope is not optional, and this is why: resource names are unique per
+ * environment, not per project, so `api-prod` names one row in staging and a
+ * different row in production. Matching on (project, name) alone returned
+ * whichever of them the planner reached first - with no ORDER BY, whichever
+ * Postgres felt like - and the apply then wrote the environment it had
+ * resolved the manifest FOR onto a resource belonging to the other one.
+ *
+ * The failure is silent and symmetrical: staging's overrides land on
+ * production, production's base values land on staging, and both environments
+ * come back up serving each other's config. Observed in the wild as an API
+ * answering on the production domain with the staging database URL, the
+ * staging CORS list and the staging auth URL.
+ *
+ * `createOneService` never had this bug because creates carry
+ * `environmentId` explicitly. Updates resolved by name, so only updates were
+ * affected: the environment was known the whole time and simply not used.
+ */
 export async function lookupServiceId(
   projectId: ProjectId,
   name: string,
+  scope: EnvironmentScopeInput,
 ): Promise<ResourceId | null> {
   const [row] = await db
     .select({ id: serviceResource.resourceId })
     .from(serviceResource)
     .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
-    .where(and(eq(resource.projectId, projectId), eq(resource.name, name)))
+    .where(
+      and(eq(resource.projectId, projectId), eq(resource.name, name), inEnvironmentScope(scope)),
+    )
     .limit(1);
   return row?.id ?? null;
 }
 
+/** The database this apply means by `name`, within its environment. Same
+ *  reasoning as lookupServiceId above, and the same consequence: `postgres`
+ *  exists in both environments and an unscoped match repoints the wrong one. */
 export async function lookupDatabaseId(
   projectId: ProjectId,
   name: string,
+  scope: EnvironmentScopeInput,
 ): Promise<ResourceId | null> {
   const [row] = await db
     .select({ id: databaseResource.resourceId })
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
-    .where(and(eq(resource.projectId, projectId), eq(resource.name, name)))
+    .where(
+      and(eq(resource.projectId, projectId), eq(resource.name, name), inEnvironmentScope(scope)),
+    )
     .limit(1);
   return row?.id ?? null;
 }

@@ -116,6 +116,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const ctx: ApplyContext = {
     projectId,
     environmentId: scope.environmentId,
+    scope,
     organizationId,
     manifest,
     current,
