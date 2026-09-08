@@ -38,6 +38,27 @@ export const routePolicySchema = z
       "strict-origin-when-cross-origin",
     ]),
     contentSecurityPolicy: headerValue.nullable(),
+    /**
+     * How the edge dials this route's upstream.
+     *
+     * `h2c` renders `reverse_proxy h2c://host:port`, i.e. HTTP/2 cleartext.
+     * gRPC cannot work over anything else, and Caddy's default upstream
+     * transport is HTTP/1.1, so a backend speaking gRPC is unreachable
+     * through the edge until this is set — the request loses HTTP/2 at the
+     * edge hop, before whatever the stack does internally can matter. That is
+     * exactly why NetBird's peers cannot register even though its own sidecar
+     * speaks h2c (#239).
+     *
+     * Opt-in, and it has to be: `h2c://` speaks ONLY HTTP/2 to the upstream,
+     * so turning it on for an ordinary HTTP/1.1 backend breaks that backend.
+     *
+     * Defaulted rather than required so every row written before this field
+     * existed still parses (the jsonb column is read through
+     * `routePolicySchema.safeParse`, which falls back to
+     * DEFAULT_ROUTE_POLICY on failure — a strict miss here would silently
+     * reset every other policy value on those rows).
+     */
+    upstreamProtocol: z.enum(["http", "h2c"]).default("http"),
   })
   .strict();
 
@@ -51,4 +72,5 @@ export const DEFAULT_ROUTE_POLICY: RoutePolicy = {
   frameOptions: "off",
   referrerPolicy: "off",
   contentSecurityPolicy: null,
+  upstreamProtocol: "http",
 };
