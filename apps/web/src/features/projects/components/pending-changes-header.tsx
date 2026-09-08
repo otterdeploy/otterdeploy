@@ -92,12 +92,21 @@ export function PendingBarHeader({
           )}
         </span>
       </button>
+      {/* The visible words stay short, but the ACCESSIBLE names must not: the
+          variables editor renders its own "Discard" and "Save changes" on the
+          same screen, so by accessible name alone a screen reader (or a
+          "click Discard" automation) could not tell the two apart, and the
+          wrong one throws away different work (od-dr8s). */}
       <Button
         size="sm"
         variant="ghost"
         className="ml-auto shrink-0"
         onClick={onDiscardAll}
         disabled={busy}
+        aria-label="Discard pending changes"
+        // A disabled control that says nothing reads as a dead button. Name the
+        // reason, since "an apply is running" is a state that ends by itself.
+        title={busy ? "An apply is in progress" : undefined}
       >
         Discard
       </Button>
@@ -107,7 +116,14 @@ export function PendingBarHeader({
         className="shrink-0"
         onClick={onApply}
         disabled={busy || chosenCount === 0}
-        aria-label={applying ? "Applying" : undefined}
+        aria-label={applying ? "Applying pending changes" : "Apply pending changes"}
+        title={
+          busy
+            ? "An apply is in progress"
+            : chosenCount === 0
+              ? "Tick at least one change to apply"
+              : undefined
+        }
       >
         {/* The button must never promise more than the selection: with rows
             unticked it says how many will actually run. */}

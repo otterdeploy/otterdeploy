@@ -72,18 +72,24 @@ export function Toolbar({
         Bulk edit
       </Button>
 
+      {/* Accessible names, not just labels: the pending-changes bar renders its
+          own "Discard" and "Apply" on this same screen, and the two throw away
+          (or commit) completely different work. By accessible name alone
+          nothing could tell them apart (od-dr8s). */}
       <Button
         size="sm"
         variant="ghost"
         className="h-7 text-[12px]"
         disabled={!hasPending || saving}
         onClick={onDiscard}
+        aria-label="Discard variable changes"
       >
         Discard
       </Button>
       <Button
         size="sm"
         className="h-7 text-[12px]"
+        aria-label="Save variable changes"
         disabled={!hasPending || saving || duplicateCount > 0 || blockingIssueCount > 0}
         title={
           duplicateCount > 0
