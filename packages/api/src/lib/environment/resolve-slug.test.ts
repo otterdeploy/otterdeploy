@@ -9,7 +9,7 @@
  * there. These tests pin the refusal and the message that makes the near-miss
  * obvious.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { UnknownEnvironmentError } from "./resolve-slug";
 

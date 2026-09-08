@@ -1,7 +1,7 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
-import { UnknownEnvironmentError, environmentIdForSlug } from "../../lib/environment/resolve-slug";
+import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
@@ -21,28 +21,6 @@ import { deleteDraftCredentialsNotIn } from "./queries";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 
-/**
- * `environmentIdForSlug`, with the unknown-slug throw turned into the
- * contract's BAD_REQUEST.
- *
- * Every manifest endpoint that takes `environment` goes through here so the
- * preview and the apply resolve identically — a plan shown for one environment
- * and executed against another is the failure this guards.
- */
-async function environmentIdOrReject(
-  projectId: Parameters<typeof environmentIdForSlug>[0],
-  slug: string | null | undefined,
-  errors: { BAD_REQUEST: (init?: { message?: string }) => Error },
-) {
-  try {
-    return await environmentIdForSlug(projectId, slug);
-  } catch (error) {
-    if (error instanceof UnknownEnvironmentError) {
-      throw errors.BAD_REQUEST({ message: error.message });
-    }
-    throw error;
-  }
-}
 
 /**
  * Attach a parsed service summary to each compose `create` change so the graph
