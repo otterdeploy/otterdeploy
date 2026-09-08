@@ -95,13 +95,20 @@ async function listResourcesInEnvironment(
  * and the `environments.<slug>` key in the project manifest. Changing it would
  * leave every running container orphaned from its row.
  */
-export async function renameEnvRecord(input: {
+/**
+ * Patch an environment's own columns.
+ *
+ * The patch type is the set an operator may set, NOT `Partial<row>`. `slug` is
+ * load-bearing (see above) and `projectId` decides ownership; neither belongs
+ * behind a generic patch that a future caller could reach through by accident.
+ */
+export async function updateEnvRecord(input: {
   environmentId: EnvironmentId;
-  name: string;
+  patch: { name?: string; protected?: boolean };
 }): Promise<EnvironmentRecord | undefined> {
   const [row] = await db
     .update(environment)
-    .set({ name: input.name })
+    .set(input.patch)
     .where(eq(environment.id, input.environmentId))
     .returning();
   return row;

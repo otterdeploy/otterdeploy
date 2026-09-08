@@ -218,11 +218,46 @@ const renameCommand = defineCommand({
   },
 });
 
+const protectCommand = defineCommand({
+  meta: {
+    name: "protect",
+    description: "Require sign-in for every route in an environment",
+  },
+  args: {
+    environment: {
+      type: "positional",
+      required: true,
+      description: "Environment name or env_… id",
+    },
+    off: { type: "boolean", description: "Make the environment public again" },
+    project: { type: "string", description: "Project slug to scope the name lookup" },
+    config: { type: "string", description: "Path to config file" },
+    url: { type: "string", description: "Override control plane URL" },
+  },
+  async run({ args }) {
+    const { client, projectId } = await scopeFor(args);
+    const env = await resolveEnvironment(client, args.environment, projectId);
+    const wanted = !args.off;
+    const updated = await client.env.setProtection({ id: env.id, protected: wanted });
+    if (updated.protected) {
+      ok(`${updated.name} is private. Every route in it now requires sign-in.`);
+      hint("Routes already locked individually keep their own setting either way");
+      return;
+    }
+    ok(`${updated.name} is public.`);
+    // The floor is additive, so removing it is not the same as unprotecting
+    // everything. Saying so here stops an operator reading "public" as
+    // "nothing in this environment is behind the wall any more".
+    note("Routes protected on their own are still protected.");
+  },
+});
+
 export const environmentsCommand = defineCommand({
   meta: { name: "environments", description: "Manage project environments" },
   subCommands: {
     list: listCommand,
     rename: renameCommand,
+    protect: protectCommand,
     create: createCommand,
     delete: deleteCommand,
   },

@@ -1,0 +1,1 @@
+ALTER TABLE "environment" ADD COLUMN "protected" boolean DEFAULT false NOT NULL;

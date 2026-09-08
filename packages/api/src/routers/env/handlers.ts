@@ -14,6 +14,7 @@ import { Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
 
+import { reconcile } from "../../caddy";
 import {
   dropEnvironmentOverlay,
   ensureEnvironmentOverlay,
@@ -31,7 +32,7 @@ import {
   getEnvInOrg,
   listEnvsByOrg,
   type EnvironmentRecord,
-  renameEnvRecord,
+  updateEnvRecord,
 } from "./queries";
 
 export async function listEnvs(
@@ -107,11 +108,16 @@ export async function createEnv(input: {
  * what will be destroyed, and only then does the delete take the resources with
  * it.
  */
-export async function renameEnv(
-  input: { id: EnvironmentId; name: string } & OrgRef,
+/**
+ * Org check, then patch. Shared by rename and protection because both need the
+ * same two steps and the same failure: updateEnvRecord matches on id alone, so
+ * without the read a caller could patch another tenant's environment by
+ * guessing an id.
+ */
+async function updateEnvInOrg(
+  input: { id: EnvironmentId } & OrgRef,
+  patch: { name?: string; protected?: boolean },
 ): Promise<Result<EnvironmentRecord, EnvironmentNotFoundError>> {
-  // Org check first: renameEnvRecord updates by id alone, so without this a
-  // caller could rename another tenant's environment by guessing an id.
   const existing = await getEnvInOrg({
     environmentId: input.id,
     organizationId: input.organizationId,
@@ -119,12 +125,47 @@ export async function renameEnv(
   if (!existing) {
     return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
   }
-  const row = await renameEnvRecord({ environmentId: input.id, name: input.name });
+  const row = await updateEnvRecord({ environmentId: input.id, patch });
   if (!row) {
     return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
   }
   return Result.ok(row);
 }
+
+export async function renameEnv(
+  input: { id: EnvironmentId; name: string } & OrgRef,
+): Promise<Result<EnvironmentRecord, EnvironmentNotFoundError>> {
+  return updateEnvInOrg(input, { name: input.name });
+}
+
+/**
+ * Make an environment private, or public again.
+ *
+ * Writing the flag is only half of it: the gate lives in the generated
+ * Caddyfile, so the edge is re-rendered before this returns. Without that the
+ * operator flips the switch, sees it stick in the UI, and the environment
+ * stays wide open until something unrelated triggers the next reconcile. For a
+ * control whose entire purpose is to close a door, "applied eventually" is
+ * indistinguishable from "not applied".
+ */
+export async function setEnvProtection(
+  input: { id: EnvironmentId; protected: boolean } & OrgRef,
+): Promise<Result<EnvironmentRecord, EnvironmentNotFoundError>> {
+  const result = await updateEnvInOrg(input, { protected: input.protected });
+  if (result.isOk()) await reconcile();
+  return result;
+}
+
+/**
+ * Make an environment private, or public again.
+ *
+ * Writing the flag is only half of it: the gate lives in the generated
+ * Caddyfile, so the edge has to be re-rendered before the call returns.
+ * Without that the operator flips the switch, sees it stick in the UI, and the
+ * environment stays wide open until something unrelated triggers the next
+ * reconcile. For a control whose entire purpose is to close a door, "applied
+ * eventually" is indistinguishable from "not applied".
+ */
 
 export async function deleteEnv(
   input: { id: EnvironmentId; cascade?: boolean } & OrgRef,
