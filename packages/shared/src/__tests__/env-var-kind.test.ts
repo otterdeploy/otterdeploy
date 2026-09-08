@@ -233,14 +233,29 @@ describe("vendor-issued credentials are never generated", () => {
     }
   });
 
-  test("does not rescue SECRET_KEY_BASE, which is a separate pre-existing bug", () => {
-    // Rails' SECRET_KEY_BASE matches URL_RE on its trailing `BASE` segment
-    // (intended for `BASE_URL`/`API_BASE`), so it classifies as an address and
-    // is seeded with an https:// string. Wrong, and the same family of wrong as
-    // this fix, but changing URL precedence risks the NEXTAUTH_URL case that
-    // rule exists for. Pinned here as KNOWN so the next person finds od-9slm
-    // rather than rediscovering it.
-    expect(classifyEnvVar("SECRET_KEY_BASE")).toBe("url");
+  test("treats SECRET_KEY_BASE as the secret it is (od-9slm)", () => {
+    // It matches the ambiguous `BASE` address word on its tail, and URL beats
+    // secret, so it used to classify as an address: unmasked, and seeded with
+    // an https:// string. A session-signing key in the clear with a guessable
+    // value.
+    expect(classifyEnvVar("SECRET_KEY_BASE")).toBe("secret");
+    expect(isSecretKey("SECRET_KEY_BASE")).toBe(true);
+    expect(autofillValue("SECRET_KEY_BASE", ctx)).toBe("GENERATED");
+  });
+
+  test("BASE still means an address when nothing contradicts it", () => {
+    // The word earns its place: nothing else in the address pattern catches
+    // these, and breaking them would trade one bug for another.
+    expect(classifyEnvVar("API_BASE")).toBe("url");
+    expect(classifyEnvVar("PUBLIC_BASE")).toBe("url");
+    expect(classifyEnvVar("BASE_URL")).toBe("url");
+  });
+
+  test("only SECRET and PASSWORD override it, not every credential word", () => {
+    // `TOKEN_ENDPOINT` and `..._KEY_...` shapes appear in real address names.
+    // Yielding on those would mirror the bug instead of fixing it.
+    expect(classifyEnvVar("TOKEN_ENDPOINT")).toBe("url");
+    expect(classifyEnvVar("PASSWORD_BASE")).toBe("secret");
   });
 
   test("leaves addresses alone", () => {
