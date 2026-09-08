@@ -343,6 +343,30 @@ export const serverContract = {
     .meta({ path: basePath, tag, method: "GET" })
     .input(listServersInput)
     .output(z.array(serverSchema)),
+  /**
+   * Which routed domains resolve somewhere other than the node serving them.
+   *
+   * The answer a pinned service needs and nothing was giving: with a proxy per
+   * node, moving a service moves its route while the A record stays put, and
+   * the visitor then reaches an edge that does not have it (od-rsc8).
+   */
+  dnsPlacement: oc
+    .meta({ path: `${basePath}/dns-placement`, tag, method: "GET" })
+    .input(z.object({}).optional())
+    .output(
+      z.array(
+        z.object({
+          domain: z.string(),
+          serverId: z.string().nullable(),
+          serverName: z.string().nullable(),
+          expectedAddress: z.string().nullable(),
+          resolvedAddresses: z.array(z.string()),
+          // "undetermined" is deliberately not a problem: a record added a
+          // minute ago resolves to nothing yet.
+          verdict: z.enum(["ok", "points-elsewhere", "undetermined"]),
+        }),
+      ),
+    ),
   get: oc
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },

@@ -2,6 +2,8 @@ import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { reportDomainPlacement } from "../../caddy/dns-placement";
+import { listEnabledRoutePlacements } from "../../caddy/queries";
 import { chooseServerBucketSeconds, queryServerMetrics } from "../../metrics/server-query";
 import { setServerAvailability } from "./availability";
 import { serverEnrollmentRouter } from "./enrollment-router";
@@ -26,6 +28,14 @@ import { getServerUnits } from "./units";
 export const serverRouter = {
   list: orgScopedProcedure.server.list.handler(async ({ context }) => {
     return listServers({ organizationId: context.activeOrganizationId });
+  }),
+
+  dnsPlacement: orgScopedProcedure.server.dnsPlacement.handler(async ({ context }) => {
+    const placements = await listEnabledRoutePlacements();
+    return reportDomainPlacement({
+      organizationId: context.activeOrganizationId,
+      routes: placements.map((p) => ({ domain: p.domain, placementServerId: p.placementServerId })),
+    });
   }),
 
   get: orgScopedProcedure.server.get.handler(async ({ input, context, errors }) => {
