@@ -31,6 +31,7 @@ import {
   getEnvInOrg,
   listEnvsByOrg,
   type EnvironmentRecord,
+  renameEnvRecord,
 } from "./queries";
 
 export async function listEnvs(
@@ -106,6 +107,25 @@ export async function createEnv(input: {
  * what will be destroyed, and only then does the delete take the resources with
  * it.
  */
+export async function renameEnv(
+  input: { id: EnvironmentId; name: string } & OrgRef,
+): Promise<Result<EnvironmentRecord, EnvironmentNotFoundError>> {
+  // Org check first: renameEnvRecord updates by id alone, so without this a
+  // caller could rename another tenant's environment by guessing an id.
+  const existing = await getEnvInOrg({
+    environmentId: input.id,
+    organizationId: input.organizationId,
+  });
+  if (!existing) {
+    return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+  }
+  const row = await renameEnvRecord({ environmentId: input.id, name: input.name });
+  if (!row) {
+    return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+  }
+  return Result.ok(row);
+}
+
 export async function deleteEnv(
   input: { id: EnvironmentId; cascade?: boolean } & OrgRef,
 ): Promise<Result<{ ok: true }, EnvironmentNotFoundError | EnvironmentNotEmptyError>> {
