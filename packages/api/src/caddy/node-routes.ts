@@ -83,3 +83,64 @@ export function domainsNeedingDnsMove(
   }
   return moved.sort();
 }
+
+/**
+ * Does this domain's DNS point at the node that actually serves it?
+ *
+ * The question a pinned service raises and nothing was asking. With a proxy per
+ * node, a route lives on ONE machine's edge; the domain has to resolve there.
+ * Pin a service to another box and the route moves while the A record does not,
+ * so the visitor keeps reaching an edge that no longer has the route - and
+ * `routesForNode` correctly refuses to serve it from the wrong node, which is
+ * right and also why the failure is total rather than degraded.
+ *
+ * PURE. The resolving is the caller's job (see `checkDomainPlacement`), because
+ * the interesting part is the comparison and it should be testable without DNS.
+ *
+ * A domain with no addresses is UNDETERMINED, not wrong: nothing resolves yet
+ * on a name whose record was added a minute ago, and reporting that as a
+ * misconfiguration would cry wolf on every fresh domain. Only an answer that
+ * contradicts the owner is a mismatch.
+ */
+export interface DomainPlacement {
+  domain: string;
+  /** Address the serving node answers on, or null for the control-plane edge. */
+  expectedAddress: string | null;
+  resolvedAddresses: readonly string[];
+}
+
+export type DomainPlacementVerdict = "ok" | "points-elsewhere" | "undetermined";
+
+export function checkDomainPlacement(input: DomainPlacement): DomainPlacementVerdict {
+  if (input.resolvedAddresses.length === 0) return "undetermined";
+  // No expected address means the control-plane edge serves it, and the control
+  // plane's own address is not something this layer knows. Unpinned routes are
+  // the common case and have never needed a DNS move, so silence is correct.
+  if (input.expectedAddress === null) return "undetermined";
+  return input.resolvedAddresses.includes(input.expectedAddress) ? "ok" : "points-elsewhere";
+}
+
+/**
+ * Every domain whose DNS contradicts its serving node, given resolved
+ * addresses.
+ *
+ * Built on `domainOwners`, which computed exactly this input and had no caller
+ * until now (od-rsc8): the map was right, nothing consumed it.
+ */
+export function domainsPointingElsewhere(
+  all: readonly RoutePlacement[],
+  addressOfServer: (serverId: string | null) => string | null,
+  resolved: ReadonlyMap<string, readonly string[]>,
+): string[] {
+  const owners = domainOwners(all);
+  const wrong: string[] = [];
+  for (const [domain, serverId] of owners) {
+    const verdict = checkDomainPlacement({
+      domain,
+      expectedAddress: addressOfServer(serverId),
+      resolvedAddresses: resolved.get(domain) ?? [],
+    });
+    if (verdict === "points-elsewhere") wrong.push(domain);
+  }
+  return wrong.sort();
+}
