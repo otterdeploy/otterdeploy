@@ -106,6 +106,20 @@ const stepUpErrors = {
     status: 403,
     message: "That code or password is incorrect." as const,
   },
+  /**
+   * The account has nothing to step up WITH: no password, no authenticator.
+   *
+   * Distinct from PASSWORD_REQUIRED on purpose. That one means "you did not
+   * send it"; this one means "there is nothing you could send", and a client
+   * that treats them the same re-prompts forever for a credential that does
+   * not exist. 409 rather than 400 or 403: the request is well-formed and the
+   * caller is authenticated — the ACCOUNT is in a state that cannot satisfy
+   * it, and the fix is a configuration change, not a retry.
+   */
+  STEP_UP_UNAVAILABLE: {
+    status: 409,
+    message: "Your account has no password or authenticator to confirm with." as const,
+  },
 };
 
 const mintTicketInput = z.object({ target: shellTargetSchema });

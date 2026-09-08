@@ -30,6 +30,11 @@ export const terminalRouter = {
           throw errors.TWO_FACTOR_CODE_REQUIRED();
         case "password_required":
           throw errors.PASSWORD_REQUIRED();
+        case "no_credential":
+          // Not a wrong answer — no answer exists. Carries the server's
+          // message, which names the two ways out, rather than the generic
+          // one, so the client does not have to know them.
+          throw errors.STEP_UP_UNAVAILABLE({ message: verified.error.message });
         default:
           throw errors.INVALID_STEP_UP();
       }
