@@ -191,13 +191,19 @@ describe("buildLiveNodes service pill during a deploy", () => {
       latestDeploymentFinishedAt: null,
       source: "git",
       image: "registry.internal/web-portal:5c39ccd",
+      imageDigest: null,
+      sourceSubdir: "apps/portal",
       internalHostname: "web-portal",
+      serviceName: "web-portal",
       framework: "vite",
+      replicas: 1,
       publicEnabled: true,
       publicDomain: "cmp-staging.praxly.md",
       stackId: null,
-      logoBrand: null,
-    } as Extract<ProjectResource, { type: "service" }>;
+      extraEnv: {},
+      secretKeys: [],
+      sealedKeys: [],
+    };
   }
 
   const runningTask = (resourceId: string): Map<string, Task[]> =>
