@@ -76,7 +76,7 @@ function containsAny(keys: readonly string[], value: string, columns: ColumnMap)
  * `&&` resolves no implicit casts. The `endsWith` guard keeps this correct if a
  * future version folds the dimensions back into `getSQLType()`.
  */
-export function sqlTypeOf(column: PgColumn): string {
+function sqlTypeOf(column: PgColumn): string {
   const base = column.getSQLType();
   if (base.endsWith("[]")) return base;
   return base + "[]".repeat(column.dimensions ?? 0);

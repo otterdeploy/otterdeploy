@@ -14,6 +14,8 @@
 
 import type { DataTableColumn } from "@/shared/components/data-table/schema/types";
 
+import { columnValue } from "@/shared/components/data-table/schema/read-value";
+
 /** RFC 4180: quote everything, double the quotes inside. */
 function cell(value: unknown): string {
   if (value === null || value === undefined) return '""';
@@ -26,11 +28,6 @@ function cell(value: unknown): string {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function readKey(row: unknown, key: string): unknown {
-  if (typeof row !== "object" || row === null) return undefined;
-  return Object.hasOwn(row, key) ? Reflect.get(row, key) : undefined;
-}
-
 export function toCsv<TRow>(
   rows: readonly TRow[],
   columns: readonly DataTableColumn<TRow>[],
@@ -38,9 +35,7 @@ export function toCsv<TRow>(
   const exported = columns.filter((column) => !column.filterOnly);
   const header = exported.map((column) => cell(column.label)).join(",");
   const body = rows.map((row) =>
-    exported
-      .map((column) => cell(column.accessor ? column.accessor(row) : readKey(row, column.key)))
-      .join(","),
+    exported.map((column) => cell(columnValue(column, row))).join(","),
   );
   return [header, ...body].join("\n");
 }

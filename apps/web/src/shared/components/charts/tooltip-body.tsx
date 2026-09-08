@@ -17,6 +17,8 @@ import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
 
 import type { LongRow } from "./series-rows";
 
+import { TooltipRow, TooltipTotal } from "./tooltip-row";
+
 const stamp = clockFormatter(CLOCK_STAMP);
 
 interface TooltipBodyProps {
@@ -42,30 +44,18 @@ export function TooltipBody({ points, format, showTotal }: TooltipBodyProps) {
 
       <div className="flex flex-col gap-1">
         {rows.map((point) => (
-          <div key={point.key} className="flex items-center justify-between gap-4">
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="size-2 shrink-0 rounded-[2px]"
-                style={{ background: point.color }}
-              />
-              <span className="truncate text-muted-foreground">{point.groupLabel}</span>
-            </span>
-            <span className="shrink-0 font-mono font-medium tabular-nums">
-              {format(point.yValue)}
-            </span>
-          </div>
+          <TooltipRow
+            key={point.key}
+            color={point.color}
+            label={point.groupLabel}
+            value={format(point.yValue)}
+          />
         ))}
       </div>
 
       {/* Only meaningful for a stack, where the parts genuinely sum to a whole.
           Totalling overlaid series would invent a number nothing measured. */}
-      {showTotal && rows.length > 1 && (
-        <div className="flex items-center justify-between gap-4 border-t border-border pt-1.5">
-          <span className="text-muted-foreground">Total</span>
-          <span className="font-mono font-medium tabular-nums">{format(total)}</span>
-        </div>
-      )}
+      {showTotal && rows.length > 1 && <TooltipTotal label="Total" value={format(total)} />}
     </div>
   );
 }

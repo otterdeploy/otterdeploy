@@ -130,21 +130,30 @@ export function serializeQuery(
   return parts.join(" ");
 }
 
-/** The word the caret sits in — what completions are offered for. */
-export function wordAt(value: string, caret: number): string {
+/**
+ * The span of the word the caret sits in.
+ *
+ * Both caret operations need the same two boundaries, and computing them in
+ * each is how "read the word" and "replace the word" drift into disagreeing
+ * about where it starts.
+ */
+function wordBounds(value: string, caret: number): [number, number] {
   let start = caret;
   let end = caret;
   while (start > 0 && value[start - 1] !== " ") start -= 1;
   while (end < value.length && value[end] !== " ") end += 1;
+  return [start, end];
+}
+
+/** The word the caret sits in — what completions are offered for. */
+export function wordAt(value: string, caret: number): string {
+  const [start, end] = wordBounds(value, caret);
   return value.slice(start, end);
 }
 
 /** Replace the word under the caret, leaving the rest of the line alone. */
 export function replaceWord(value: string, caret: number, replacement: string): string {
-  let start = caret;
-  let end = caret;
-  while (start > 0 && value[start - 1] !== " ") start -= 1;
-  while (end < value.length && value[end] !== " ") end += 1;
+  const [start, end] = wordBounds(value, caret);
   return `${value.slice(0, start)}${replacement}${value.slice(end)}`;
 }
 

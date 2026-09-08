@@ -27,7 +27,7 @@ import { computeFacets } from "./facets";
 import { overfetch, planCursor, snapPage } from "./pagination";
 import { allOf, buildWhere } from "./sql";
 
-export interface FeedSort {
+interface FeedSort {
   key: string;
   desc: boolean;
 }
@@ -53,7 +53,7 @@ export interface FeedConfig {
   defaultSize?: number;
 }
 
-export interface FeedRequest {
+interface FeedRequest {
   /** Filter values, exactly as the client holds them. Untrusted. */
   values: Record<string, unknown>;
   /** Tenant scope, composed by the caller. Applied to every pass. */
@@ -73,7 +73,7 @@ export interface FeedRequest {
  * Everything a feed returns except the rows themselves, whose type is inferred
  * from the projection rather than declared (and so never asserted).
  */
-export interface FeedMeta {
+interface FeedMeta {
   /** Cursor for the next (older) page. `null` at the end of the feed. */
   nextCursor: number | null;
   /** Cursor for the previous (newer) page — live tailing reads this. */

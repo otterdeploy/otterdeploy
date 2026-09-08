@@ -99,15 +99,6 @@ export interface DataTableColumn<TRow> {
   cellClassName?: string;
 }
 
-/** A whole table's declaration. */
-export interface DataTableSchema<TRow> {
-  columns: readonly DataTableColumn<TRow>[];
-  /** Stable id, namespacing this table's stored column preferences. */
-  id: string;
-  /** Row identity. Must be stable across refetches, or selection drifts. */
-  getRowId: (row: TRow) => string;
-}
-
 /** The default display for a kind, when a column does not name one. */
 export function defaultDisplay(kind: ColKind): Display {
   switch (kind) {

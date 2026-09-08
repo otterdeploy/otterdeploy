@@ -13,8 +13,8 @@ import { defineFilters, type FilterSpec } from "@otterdeploy/shared/table-filter
 import type { ColumnMap } from "../../lib/table";
 
 /** Outcomes, in the order they matter to someone reading a security feed. */
-export const AUDIT_OUTCOMES = ["denied", "failure", "success"] as const;
-export const AUDIT_ACTOR_TYPES = ["user", "system", "api", "agent"] as const;
+const AUDIT_OUTCOMES = ["denied", "failure", "success"] as const;
+const AUDIT_ACTOR_TYPES = ["user", "system", "api", "agent"] as const;
 
 export const auditFilterSpecs: readonly FilterSpec[] = [
   { key: "at", type: "timerange", kind: "instant" },

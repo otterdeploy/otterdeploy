@@ -9,7 +9,7 @@
 
 import type { Scalar } from "@otterdeploy/shared/table-filters";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,6 +19,7 @@ import type { Facet } from "@/shared/components/data-table/feed/types";
 import type { FilterDeclaration } from "@/shared/components/data-table/schema/types";
 
 import { useFilterField } from "@/shared/components/data-table/state/store";
+import { useFilterDraft } from "@/shared/components/data-table/state/use-filter-draft";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -148,24 +149,7 @@ export function CheckboxFilter({
  * value is re-seeded from it.
  */
 export function InputFilter({ filterKey, label }: { filterKey: string; label: string }) {
-  const { value, setValue } = useFilterField(filterKey);
-  const committed = typeof value === "string" ? value : "";
-  const [draft, setDraft] = useState(committed);
-  const [lastCommitted, setLastCommitted] = useState(committed);
-
-  // Re-seeded during render, not from an effect: the store can change from
-  // elsewhere (a cleared filter, a pasted link), and an effect would paint one
-  // frame of the stale text first.
-  if (lastCommitted !== committed) {
-    setLastCommitted(committed);
-    setDraft(committed);
-  }
-
-  useEffect(() => {
-    if (draft === committed) return;
-    const timer = setTimeout(() => setValue(draft.trim() === "" ? undefined : draft), 350);
-    return () => clearTimeout(timer);
-  }, [draft, committed, setValue]);
+  const draft = useFilterDraft(filterKey);
 
   return (
     <div className="relative">
@@ -175,8 +159,8 @@ export function InputFilter({ filterKey, label }: { filterKey: string; label: st
         className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
       />
       <Input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        value={draft.value}
+        onChange={(event) => draft.onChange(event.target.value)}
         placeholder={`Filter ${label.toLowerCase()}`}
         aria-label={`Filter by ${label}`}
         className="h-8 pl-7 text-xs"

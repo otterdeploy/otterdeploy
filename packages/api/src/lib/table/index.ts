@@ -2,24 +2,14 @@
  * Server-side data table: filters compiled to SQL, facets, cursor pagination
  * and the time histogram, all driven by the same declaration the client
  * filters with (`@otterdeploy/shared/table-filters`).
+ *
+ * The barrel carries what a LIST ENDPOINT needs and nothing else. The pieces
+ * behind it — the SQL compiler, the cursor planner, the facet queries — are
+ * imported from their own modules by the handler that assembles them, and
+ * re-exporting them here only made a second name for each with nothing on the
+ * other end of it.
  */
 
-export { computeFacets, type Facet, type Facets } from "./facets";
-export {
-  createFeedHandler,
-  type ExtraSelect,
-  type FeedConfig,
-  type FeedMeta,
-  type FeedRequest,
-  type FeedSort,
-} from "./feed";
-export {
-  bucketMsFor,
-  computeHistogram,
-  discoverRange,
-  type HistogramBucket,
-  type TimeRange,
-} from "./histogram";
-export { overfetch, planCursor, snapPage, type FeedDirection } from "./pagination";
-export { allOf, buildWhere, isArrayColumn, sqlTypeOf, toSql, type ColumnMap } from "./sql";
-export type { FeedDatabase } from "./types";
+export { createFeedHandler } from "./feed";
+export { computeHistogram, discoverRange } from "./histogram";
+export type { ColumnMap } from "./sql";

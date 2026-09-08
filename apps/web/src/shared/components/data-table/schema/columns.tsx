@@ -27,6 +27,7 @@ import {
   StateCell,
   TextCell,
 } from "@/shared/components/data-table/cells";
+import { columnValue } from "@/shared/components/data-table/schema/read-value";
 import { defaultDisplay, toFilterSpecs } from "@/shared/components/data-table/schema/types";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 
@@ -69,7 +70,7 @@ function sizing(column: { width?: number; minWidth?: number; resizable?: boolean
 }
 
 /** The selection gutter. Not filterable, not sortable, never hidden. */
-export function selectColumn<TRow extends RowData>(): ColumnDef<DataTableFeatures, TRow> {
+function selectColumn<TRow extends RowData>(): ColumnDef<DataTableFeatures, TRow> {
   return {
     id: "select",
     size: 36,
@@ -125,7 +126,7 @@ export function buildColumns<TRow extends RowData>(
       id: column.key,
       // A dotted key ("timing.dns") is one column id, not a path into the row,
       // so the value is read explicitly rather than through accessorKey.
-      accessorFn: (row) => column.accessor?.(row) ?? readKey(row, column.key),
+      accessorFn: (row) => columnValue(column, row),
       header: column.label,
       cell: ({ getValue, row }) =>
         column.cell
@@ -169,10 +170,4 @@ function metaKind(display: Display) {
     default:
       return "text" as const;
   }
-}
-
-/** Read a key off a row without a type assertion. */
-function readKey(row: unknown, key: string): unknown {
-  if (typeof row !== "object" || row === null) return undefined;
-  return Object.hasOwn(row, key) ? Reflect.get(row, key) : undefined;
 }

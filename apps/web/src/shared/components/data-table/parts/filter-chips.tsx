@@ -46,7 +46,7 @@ function windowLabel(value: unknown): string | null {
  * Deliberately not the query grammar: `at:1764547200000-1764633600000` is a
  * round-trippable token and an unreadable chip.
  */
-export function chipLabel(spec: FilterSpec, value: unknown): string | null {
+function chipLabel(spec: FilterSpec, value: unknown): string | null {
   if (!isActive(value)) return null;
   switch (spec.type) {
     case "checkbox":

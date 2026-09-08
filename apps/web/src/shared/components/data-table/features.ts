@@ -42,7 +42,7 @@ import {
 } from "@tanstack/react-table";
 
 /** Per-column metadata this app's tables attach. */
-export interface DataTableColumnMeta {
+interface DataTableColumnMeta {
   /** Human label, used by the column menu and the row-detail sheet. */
   label?: string;
   /** What the column holds — drives cell alignment and the mono/sans cut. */
@@ -54,7 +54,7 @@ export interface DataTableColumnMeta {
 }
 
 /** Per-table metadata. */
-export interface DataTableMeta {
+interface DataTableMeta {
   /** Extra classes per row — how live mode dims rows behind the tail. */
   rowClassName?: (rowId: string) => string;
 }

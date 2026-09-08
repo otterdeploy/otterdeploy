@@ -12,6 +12,7 @@
 
 import type { ChartPoint } from "@tanstack/charts";
 
+import { TooltipRow, TooltipTotal } from "@/shared/components/charts/tooltip-row";
 import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
 
 const stamp = clockFormatter(CLOCK_STAMP);
@@ -57,27 +58,17 @@ export function HistogramTooltip({
       {uncategorized ? null : (
         <div className="flex flex-col gap-1">
           {rows.map((point) => (
-            <div key={point.key} className="flex items-center justify-between gap-4">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span
-                  aria-hidden="true"
-                  className="size-2 shrink-0 rounded-[2px]"
-                  style={{ background: point.color }}
-                />
-                <span className="truncate text-muted-foreground">{point.groupLabel}</span>
-              </span>
-              <span className="shrink-0 font-mono font-medium tabular-nums">
-                {point.yValue.toLocaleString()}
-              </span>
-            </div>
+            <TooltipRow
+              key={point.key}
+              color={point.color}
+              label={point.groupLabel}
+              value={point.yValue.toLocaleString()}
+            />
           ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4 border-t border-border pt-1.5">
-        <span className="text-muted-foreground">Rows</span>
-        <span className="font-mono font-medium tabular-nums">{total.toLocaleString()}</span>
-      </div>
+      <TooltipTotal label="Rows" value={total.toLocaleString()} />
     </div>
   );
 }

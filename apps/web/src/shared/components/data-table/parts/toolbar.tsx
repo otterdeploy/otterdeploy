@@ -9,17 +9,12 @@
 
 import type { FilterSpec } from "@otterdeploy/shared/table-filters";
 
-import { useEffect, useState } from "react";
-
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { formatNumber } from "@otterdeploy/shared/format";
 
-import {
-  useActiveFilterCount,
-  useFilterActions,
-  useFilterField,
-} from "@/shared/components/data-table/state/store";
+import { useActiveFilterCount, useFilterActions } from "@/shared/components/data-table/state/store";
+import { useFilterDraft } from "@/shared/components/data-table/state/use-filter-draft";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
@@ -31,22 +26,8 @@ import { cn } from "@/shared/lib/utils";
  * reading the rows, and making them press Enter to see the effect turns a scan
  * into a transaction.
  */
-export function TableSearch({ spec, placeholder }: { spec: FilterSpec; placeholder?: string }) {
-  const { value, setValue } = useFilterField(spec.key);
-  const committed = typeof value === "string" ? value : "";
-  const [draft, setDraft] = useState(committed);
-  const [lastCommitted, setLastCommitted] = useState(committed);
-
-  if (lastCommitted !== committed) {
-    setLastCommitted(committed);
-    setDraft(committed);
-  }
-
-  useEffect(() => {
-    if (draft === committed) return;
-    const timer = setTimeout(() => setValue(draft.trim() === "" ? undefined : draft), 300);
-    return () => clearTimeout(timer);
-  }, [draft, committed, setValue]);
+function TableSearch({ spec, placeholder }: { spec: FilterSpec; placeholder?: string }) {
+  const draft = useFilterDraft(spec.key);
 
   return (
     <div className="relative min-w-0 flex-1 sm:max-w-xs">
@@ -56,8 +37,8 @@ export function TableSearch({ spec, placeholder }: { spec: FilterSpec; placehold
         className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
       />
       <Input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        value={draft.value}
+        onChange={(event) => draft.onChange(event.target.value)}
         placeholder={placeholder ?? "Search"}
         aria-label={placeholder ?? "Search rows"}
         className="h-8 pl-8"

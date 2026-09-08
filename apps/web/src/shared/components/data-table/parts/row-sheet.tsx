@@ -23,6 +23,7 @@ import type { DataTableColumn } from "@/shared/components/data-table/schema/type
 
 import { TextCell } from "@/shared/components/data-table/cells";
 import { CopyButton, copyableText } from "@/shared/components/data-table/parts/copy-value";
+import { columnValue } from "@/shared/components/data-table/schema/read-value";
 import { defaultDisplay } from "@/shared/components/data-table/schema/types";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -165,11 +166,7 @@ function SheetField<TRow extends RowData>({
   row: TRow;
 }) {
   const override = column.sheet === false ? undefined : column.sheet;
-  const value = column.accessor
-    ? column.accessor(row)
-    : Object.hasOwn(row, column.key)
-      ? Reflect.get(row, column.key)
-      : undefined;
+  const value = columnValue(column, row);
 
   const display = column.display ?? defaultDisplay(column.kind);
   const isMono = display.type === "code" || display.type === "number";
