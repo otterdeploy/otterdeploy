@@ -10,6 +10,8 @@ import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
+import type { EnvironmentScopeInput } from "./queries/resource";
+
 import { type Change, type CurrentState, type Manifest } from "../../stack/manifest";
 import { createComposeFromManifest } from "../compose/manifest-reconcile";
 import { deleteService } from "../service/handlers";
@@ -29,6 +31,12 @@ export interface ApplyContext {
    *  it, and every name-uniqueness check is scoped to it. Otherwise a staging
    *  apply is rejected by production's names. */
   environmentId: EnvironmentId;
+  /** The same environment as a full scope, for resolving an EXISTING resource
+   *  by name. `environmentId` alone cannot do it: main additionally owns every
+   *  row with no environment stamp, which is the `isMain` half of the scope
+   *  (see inEnvironmentScope). Carried rather than re-derived so the planner
+   *  and the writers cannot disagree about which environment they are in. */
+  scope: EnvironmentScopeInput;
   organizationId: OrgId;
   manifest: Manifest;
   current: CurrentState;
@@ -73,6 +81,7 @@ export async function runDatabaseCreates(
         createDatabase({
           projectId: ctx.projectId,
           environmentId: ctx.environmentId,
+          scope: ctx.scope,
           organizationId: ctx.organizationId,
           name: change.name,
           spec,
@@ -123,7 +132,7 @@ export async function runDatabaseUpdates(
   const results = await Promise.all(
     changes.map(async (change) => {
       const spec = ctx.manifest.databases[change.name];
-      const existingId = await lookupDatabaseId(ctx.projectId, change.name);
+      const existingId = await lookupDatabaseId(ctx.projectId, change.name, ctx.scope);
       if (!spec || !existingId) return null;
       return updateDatabaseFromManifest({
         projectId: ctx.projectId,
@@ -148,7 +157,7 @@ export async function runServiceDeletes(
 ): Promise<PhaseContribution> {
   const results = await Promise.all(
     changes.map(async (change) => {
-      const existingId = await lookupServiceId(ctx.projectId, change.name);
+      const existingId = await lookupServiceId(ctx.projectId, change.name, ctx.scope);
       if (!existingId) return null;
       const result = await deleteService(
         { projectId: ctx.projectId, organizationId: ctx.organizationId, resourceId: existingId },
@@ -184,7 +193,7 @@ export async function runDatabaseDeletes(
 ): Promise<PhaseContribution> {
   const results = await Promise.all(
     changes.map(async (change) => {
-      const existingId = await lookupDatabaseId(ctx.projectId, change.name);
+      const existingId = await lookupDatabaseId(ctx.projectId, change.name, ctx.scope);
       if (!existingId) return null;
       const result = await deleteProjectResource(
         { projectId: ctx.projectId, organizationId: ctx.organizationId, resourceId: existingId },

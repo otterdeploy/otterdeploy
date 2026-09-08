@@ -18,6 +18,7 @@ import { Result } from "better-result";
 import type { HostRow } from "../../database-hosting";
 import type { DatabaseManifest } from "../../stack/manifest";
 import type { PostgresCreateValidation } from "./postgres/create-stream";
+import type { EnvironmentScopeInput } from "./queries/resource";
 
 import { dropTenant } from "../../database-hosting";
 import { destroySwarmDatabase } from "../../runtime/db";
@@ -40,6 +41,9 @@ interface CreateDatabaseArgs {
   /** Environment the database is created in. Scopes the name check and gets
    *  stamped on the row. */
   environmentId: EnvironmentId;
+  /** The same environment as a scope, for resolving an EXISTING resource that
+   *  a manifest `host:` names. See lookupDatabaseId. */
+  scope: EnvironmentScopeInput;
   organizationId: OrganizationId;
   name: string;
   spec: DatabaseManifest;
@@ -91,7 +95,7 @@ async function preflight(
   const hostResourceId = declaredHost
     ? await resolveHostByName({
         projectId: args.projectId,
-        environmentId: args.environmentId,
+        scope: args.scope,
         name: declaredHost,
       })
     : null;
@@ -272,8 +276,8 @@ async function rollbackFailedCreate(input: {
  */
 async function resolveHostByName(input: {
   projectId: ProjectId;
-  environmentId: EnvironmentId;
+  scope: EnvironmentScopeInput;
   name: string;
 }): Promise<ResourceId | null> {
-  return lookupDatabaseId(input.projectId, input.name);
+  return lookupDatabaseId(input.projectId, input.name, input.scope);
 }
