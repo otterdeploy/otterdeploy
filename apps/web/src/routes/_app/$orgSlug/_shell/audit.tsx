@@ -150,6 +150,7 @@ function AuditRoute() {
             live
             histogramTones={AUDIT_OUTCOME_TONES}
             histogramOrder={AUDIT_OUTCOME_ORDER}
+            histogramKey="outcome"
             searchPlaceholder="Search actions, actors, targets"
             emptyTitle="No audit events yet"
             emptyDescription="Mutations and denials appear here as they happen."

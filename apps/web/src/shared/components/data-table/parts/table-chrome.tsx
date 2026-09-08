@@ -42,6 +42,8 @@ export interface TableChromeProps<TRow extends RowData> {
   timeKey: string | undefined;
   histogramTones?: Record<string, string>;
   histogramOrder?: readonly string[];
+  /** The filter the histogram's categories belong to — makes its legend clickable. */
+  histogramKey?: string;
   onZoom: (range: [number, number]) => void;
 }
 
@@ -64,6 +66,7 @@ export function TableChrome<TRow extends RowData>({
   timeKey,
   histogramTones,
   histogramOrder,
+  histogramKey,
   onZoom,
 }: TableChromeProps<TRow>) {
   const facets: Facets = feed.facets;
@@ -109,6 +112,7 @@ export function TableChrome<TRow extends RowData>({
           data={feed.histogram}
           tones={histogramTones}
           order={histogramOrder}
+          categoryKey={histogramKey}
           isLoading={feed.isLoading}
           onZoom={onZoom}
           className="border-b px-2 pt-2"

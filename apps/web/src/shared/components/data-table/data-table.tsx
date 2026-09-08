@@ -66,6 +66,13 @@ export interface DataTableProps<TRow extends RowData> {
   /** Category tones for the histogram, when its categories mean something. */
   histogramTones?: Record<string, string>;
   histogramOrder?: readonly string[];
+  /**
+   * The filter key the histogram's categories are values of.
+   *
+   * With it the legend becomes a filter — clicking a band shows only that
+   * band. Without it the categories are just paint.
+   */
+  histogramKey?: string;
   /** Which filter key the histogram's zoom writes to, and the tail reads. */
   timeKey?: string;
   /**
@@ -119,6 +126,7 @@ export function DataTable<TRow extends RowData>({
   searchPlaceholder,
   histogramTones,
   histogramOrder,
+  histogramKey,
   timeKey,
   live = false,
   emptyTitle,
@@ -214,6 +222,7 @@ export function DataTable<TRow extends RowData>({
         timeKey={timeKey}
         histogramTones={histogramTones}
         histogramOrder={histogramOrder}
+        histogramKey={histogramKey}
         onZoom={(range) => timeKey && setValue(timeKey, range)}
       />
 

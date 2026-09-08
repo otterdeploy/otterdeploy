@@ -17,31 +17,25 @@
  *   activity that never existed.
  */
 
+import type { BrushRange } from "@tanstack/charts/interaction/brush";
+
 import { useEffect, useMemo, useState } from "react";
 
-import { barY, defineChart } from "@tanstack/charts";
-import { brushX, type BrushRange, type BrushXChange } from "@tanstack/charts/interaction/brush";
-import { controlledSignal } from "@tanstack/charts/interaction/signal";
-import { Chart } from "@tanstack/charts/react";
-import { scaleBand } from "@tanstack/charts/scales/band";
-import { scaleLinear } from "@tanstack/charts/scales/linear";
-import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
+import { Chart } from "@tanstack/charts/react/tooltip";
 
 import type { FeedHistogram } from "@/shared/components/data-table/feed/types";
 
+import { useHistogramDefinition } from "@/shared/components/data-table/parts/histogram-chart";
+import { HistogramLegend } from "@/shared/components/data-table/parts/histogram-legend";
+import {
+  HistogramTooltip,
+  type Segment,
+} from "@/shared/components/data-table/parts/histogram-tooltip";
 import { Button } from "@/shared/components/ui/button";
-import { CLOCK_MINUTES, CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
-const tick = clockFormatter(CLOCK_MINUTES);
 const stamp = clockFormatter(CLOCK_STAMP);
-
-/** One bar segment: a bucket, a category, and its count. */
-interface Segment {
-  at: number;
-  category: string;
-  count: number;
-}
 
 const UNCATEGORIZED = "rows";
 
@@ -64,19 +58,23 @@ export interface HistogramProps {
   order?: readonly string[];
   /** Applies a window as `[fromMs, toMs]`. */
   onZoom: (range: [number, number]) => void;
+  /** The filter whose values the categories are, if they are a column's values. */
+  categoryKey?: string;
   isLoading?: boolean;
   height?: number;
   className?: string;
 }
 
 /**
- * Enter confirms the parked window, Escape discards it.
+ * The parked window: what a drag proposed, and the two ways out of it.
  *
- * Bound to the document rather than the chart: the drag ends with the pointer
- * over the plot and no element focused, so a handler on the container would
- * only fire if the reader thought to click it first.
+ * Enter confirms and Escape discards, bound to the document rather than to the
+ * chart: a drag ends with the pointer over the plot and nothing focused, so a
+ * handler on the container would only fire if the reader thought to click it
+ * first. The buttons say the same two things for anyone who did not read that
+ * off a keyboard hint.
  */
-function ParkedKeys({
+function ParkedWindow({
   selection,
   onCancel,
   onConfirm,
@@ -94,7 +92,24 @@ function ParkedKeys({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [selection, onCancel, onConfirm]);
-  return null;
+
+  if (!selection) return null;
+
+  return (
+    <div className="absolute inset-x-0 bottom-1 flex justify-center">
+      <div className="flex items-center gap-2 rounded-lg bg-popover px-2 py-1 shadow-md ring-1 ring-foreground/10">
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {stamp(selection[0])} → {stamp(selection[1])}
+        </span>
+        <Button variant="ghost" size="xs" className="h-6" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="outline" size="xs" className="h-6" onClick={onConfirm}>
+          Zoom
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function DataTableHistogram({
@@ -102,6 +117,7 @@ export function DataTableHistogram({
   tones,
   order,
   onZoom,
+  categoryKey,
   isLoading = false,
   height = 92,
   className,
@@ -134,57 +150,20 @@ export function DataTableHistogram({
     return [...known, ...[...seen].filter((category) => !known.includes(category)).sort()];
   }, [segments, order]);
 
-  const definition = useMemo(
-    () =>
-      defineChart({
-        marks: [
-          barY(segments, {
-            id: "buckets",
-            x: "at",
-            y: "count",
-            z: "category",
-            color: "category",
-            inset: 0.5,
-            radius: 1,
-          }),
-        ],
-        x: {
-          scale: () => scaleBand<number>().domain(starts).padding(0.12),
-          axis: {
-            line: false,
-            // Only a handful of labels: a bucketed axis with forty stamps on it
-            // is a texture, not a scale.
-            ticks: { spacing: 110, size: 0, format: (value: number) => tick(value) },
-          },
-        },
-        y: { scale: scaleLinear, nice: true, axis: false, grid: false },
-        color: {
-          scale: scaleOrdinal<string, string>,
-          domain: categories,
-          range: categories.map((category) => tones?.[category] ?? DEFAULT_TONE),
-        },
-        controls: [
-          brushX({
-            range: controlledSignal<BrushRange<number>, BrushXChange<number>>(
-              parked ?? { start: starts[0] ?? 0, end: starts[0] ?? 0 },
-              (next, { reason }) => {
-                // Park on commit. Applying here would re-query on every stray
-                // drag across a chart that sits above the rows being read.
-                if (reason.type === "commit") setParked(next);
-              },
-            ),
-            values: starts,
-            format: (value: number) => stamp(value),
-            ariaLabel: "Time window",
-            startAriaLabel: "Window start",
-            endAriaLabel: "Window end",
-          }),
-        ],
-      }),
-    [segments, starts, categories, tones, parked],
-  );
+  const definition = useHistogramDefinition({
+    segments,
+    starts,
+    categories,
+    tones,
+    defaultTone: DEFAULT_TONE,
+    parked,
+    onPark: setParked,
+  });
 
   const hasRows = segments.some((segment) => segment.count > 0);
+  // One category is not a legend: a single grey chip labelled "rows" tells the
+  // reader nothing they cannot see.
+  const categorized = categories.length > 1 || categories[0] !== UNCATEGORIZED;
 
   if (isLoading && buckets.length === 0) {
     return <div className={cn("animate-pulse bg-muted/30", className)} style={{ height }} />;
@@ -208,7 +187,28 @@ export function DataTableHistogram({
 
   return (
     <div className={cn("relative", className)}>
-      <ParkedKeys
+      {categorized ? (
+        <div className="absolute top-0 right-1 z-10">
+          <HistogramLegend
+            categories={categories}
+            tones={tones}
+            filterKey={categoryKey}
+            defaultTone={DEFAULT_TONE}
+          />
+        </div>
+      ) : null}
+
+      <Chart
+        definition={definition}
+        height={height}
+        ariaLabel="Rows over time. Drag to select a window."
+        className="otter-chart"
+        renderTooltipBody={({ points }) => (
+          <HistogramTooltip points={points} bucketMs={bucketMs} uncategorized={!categorized} />
+        )}
+      />
+
+      <ParkedWindow
         selection={selection}
         onCancel={() => setParked(null)}
         onConfirm={() => {
@@ -216,36 +216,6 @@ export function DataTableHistogram({
           setParked(null);
         }}
       />
-      <Chart
-        definition={definition}
-        height={height}
-        ariaLabel="Rows over time. Drag to select a window."
-        className="otter-chart"
-      />
-
-      {selection ? (
-        <div className="absolute inset-x-0 bottom-1 flex justify-center">
-          <div className="flex items-center gap-2 rounded-lg bg-popover px-2 py-1 shadow-md ring-1 ring-foreground/10">
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {stamp(selection[0])} → {stamp(selection[1])}
-            </span>
-            <Button variant="ghost" size="xs" className="h-6" onClick={() => setParked(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              size="xs"
-              className="h-6"
-              onClick={() => {
-                onZoom(selection);
-                setParked(null);
-              }}
-            >
-              Zoom
-            </Button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
