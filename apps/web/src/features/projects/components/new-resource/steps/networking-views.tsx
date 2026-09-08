@@ -82,6 +82,7 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
   const ports = useSelector(form.store, (s) => s.values.ports);
   const derivedHost = usePublicHostPreview(projectId, name);
   const publicWithoutHost = ports.some((p) => p.public && p.host.trim() === "");
+  const publicWithCustomHost = ports.some((p) => p.public && p.host.trim() !== "");
 
   return (
     <>
@@ -101,6 +102,19 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
           Public with no hostname publishes at{" "}
           <span className="font-mono text-foreground/80">{derivedHost}</span>. Type a hostname to
           override.
+        </p>
+      )}
+      {/* A typed hostname is NOT live on create. It has to prove itself by DNS
+          first (routers/service/domain-rules.ts: the route is created
+          `enabled: false` until `provenByDns`), and until then the Review step
+          printing "public route: https://…" reads as a promise the deploy does
+          not keep — which is exactly how the reporter read it (od-ozar).
+          The generated-host case above needs no such warning: it already shows
+          the real address, sslip fallback included. */}
+      {publicWithCustomHost && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          A custom hostname is not served until its DNS points at this install and verifies. The
+          service deploys either way; the route turns on once the record resolves.
         </p>
       )}
 
