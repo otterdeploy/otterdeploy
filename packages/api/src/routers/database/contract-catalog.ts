@@ -56,6 +56,11 @@ export const orgCatalogItemSchema = z.object({
   projectId: zId(ID_PREFIX.project),
   projectName: z.string(),
   projectSlug: z.string(),
+  /** Environment the database belongs to. Two environments routinely hold a
+   *  database of the same name (`postgres` in staging and in production), so
+   *  without this the picker offers two identical-looking rows and the
+   *  operator opens a session against whichever one they guessed. */
+  environmentName: z.string().nullable(),
   engine: catalogEngineSchema,
   engineLabel: z.string(),
   /** The database server this one lives inside, or null for a database with a

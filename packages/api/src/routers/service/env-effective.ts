@@ -29,6 +29,10 @@ import { listServiceEnvVars } from "./queries";
 /** Same glyph run the preview panel masks with, so one idea has one look. */
 const SECRET_MASK = "••••••••";
 
+/** Any `${{…}}` reference. What it resolves to is not this endpoint's to
+ *  disclose: see the masking note below. */
+const REFERENCE_PATTERN = /\$\{\{[^}]+\}\}/;
+
 export interface EffectiveEnvRow {
   key: string;
   /** Resolved, or the raw declared value when the resolver failed. Masked
@@ -62,7 +66,21 @@ export async function listEffectiveEnv(input: {
   return Result.ok(
     declaredRows
       .map((row) => {
-        const hidden = row.isSecret || row.sealed;
+        // A `${{…}}` reference resolves to whatever it points AT, and what it
+        // points at is routinely a secret: `${{vault.…}}` is one by
+        // definition, and `${{<db>.DATABASE_URL}}` carries the password.
+        //
+        // Masking used to key off `row.isSecret || row.sealed` alone, which
+        // silently fails for any row those flags were never set on — every
+        // manifest-applied variable, for one. Observed in the wild: a
+        // production BETTER_AUTH_SECRET and a full postgres connection string
+        // rendered under "resolves to" in the variables editor.
+        //
+        // The declared text is shown either way, so the surface still answers
+        // "is it set" and "did it resolve" — which, per the module note, is
+        // all it is for. Only the RESOLVED value is withheld.
+        const resolvesThroughReference = REFERENCE_PATTERN.test(row.value);
+        const hidden = row.isSecret || row.sealed || resolvesThroughReference;
         const resolvedValue = resolvedByKey[row.key];
         // On resolver failure fall back to what was declared, so the tab never
         // blanks out over one bad reference elsewhere in the bag.
@@ -71,7 +89,12 @@ export async function listEffectiveEnv(input: {
         return {
           key: row.key,
           value: hidden && effective.length > 0 ? SECRET_MASK : effective,
-          declared: declared === null ? null : hidden ? SECRET_MASK : declared,
+          // The DECLARED text is the reference itself (`${{vault.x.Y}}`), not
+          // the secret behind it, so it stays readable for a row hidden only
+          // because it resolves through one. A row the operator marked secret
+          // (or that is sealed) still masks both halves.
+          declared:
+            declared === null ? null : row.isSecret || row.sealed ? SECRET_MASK : declared,
           isSecret: row.isSecret,
           sealed: row.sealed,
           unresolved: !resolveOk && resolvedValue === undefined,
