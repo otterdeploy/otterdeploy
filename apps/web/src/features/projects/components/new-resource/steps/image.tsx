@@ -97,7 +97,8 @@ export function StepImage() {
       id: r.id,
       displayName: r.displayName,
       host: r.host,
-      sub: `${r.username}@${r.host} · ${r.authType}`,
+      // Same reason as the registry card: `authType` is hardcoded "password".
+      sub: `${r.username}@${r.host} · ${REGISTRY_KIND_META[kindForHost(r.host)].credentialLabel}`,
       brand: REGISTRY_KIND_META[kindForHost(r.host)].brand,
     })),
   ];

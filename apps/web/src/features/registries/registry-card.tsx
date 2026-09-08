@@ -64,6 +64,7 @@ import {
 import { orpc } from "@/shared/server/orpc";
 
 import { registryCollection } from "./data/registries";
+import { RedundantNote } from "./redundant-note";
 import { RegistryCardShell } from "./registry-card-shell";
 import { REGISTRY_KIND_META, kindForHost } from "./registry-kinds";
 import { formatRelative, type RegistryRow } from "./shared";
@@ -71,9 +72,15 @@ import { formatRelative, type RegistryRow } from "./shared";
 interface RegistryCardProps {
   registry: RegistryRow;
   onEdit: (r: RegistryRow) => void;
+  /** This host is ALREADY reachable without a stored credential — GHCR via
+   *  the workspace's GitHub App. The row still works, but it is a second,
+   *  weaker credential (a long-lived PAT to rotate and leak) for access the
+   *  install already has per-request. Saying so is the difference between an
+   *  operator deleting it and an operator wondering which one is in use. */
+  redundant?: boolean;
 }
 
-export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
+export function RegistryCard({ registry, onEdit, redundant = false }: RegistryCardProps) {
   const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -123,7 +130,10 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
           />
         }
         title={registry.displayName}
-        badge={registry.authType}
+        // Not `registry.authType`: the add dialog hardcodes that to "password"
+        // for every row, so a GHCR entry holding a PAT was badged PASSWORD.
+        // The kind knows what its credential really is.
+        badge={REGISTRY_KIND_META[kindForHost(registry.host)].credentialLabel}
         subtitle={`${registry.username}@${registry.host}`}
         tone={used ? "ok" : "idle"}
         meta={
@@ -138,6 +148,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
             ) : (
               <span className="text-amber-600 dark:text-amber-500">{t("registries.unused")}</span>
             )}
+            {redundant && <RedundantNote />}
             <span aria-hidden>·</span>
             <span>
               {t("registries.detail.added")} {formatRelative(registry.createdAt)}

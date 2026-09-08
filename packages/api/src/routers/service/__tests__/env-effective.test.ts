@@ -118,3 +118,69 @@ describe("listEffectiveEnv", () => {
     expect(out.value[0]?.declared).toBeNull();
   });
 });
+
+/**
+ * Regression: the flags are not a reliable signal.
+ *
+ * Masking used to key off `isSecret || sealed` alone. Manifest-applied
+ * variables set NEITHER, so on a real install every row carried
+ * `is_secret=f, sealed=f` — and the endpoint happily resolved a vault
+ * reference and a postgres connection string and returned both in cleartext.
+ * What a reference DEREFERENCES is the signal that matters.
+ */
+describe("references that dereference a secret", () => {
+  test("a vault reference is masked even with both flags false", async () => {
+    listServiceEnvVars.mockResolvedValue([
+      row({ key: "BETTER_AUTH_SECRET", value: "${{vault.praxly-prod.BETTER_AUTH_SECRET}}" }),
+    ]);
+    resolveServiceEnv.mockResolvedValue(Result.ok({ BETTER_AUTH_SECRET: "2cb53385db6968c8e2b" }));
+
+    const out = await call();
+    const [entry] = out.unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
+    expect(entry.value).toBe("••••••••");
+    expect(entry.value).not.toContain("2cb53385");
+    // The reference itself is not the secret, so it stays readable.
+    expect(entry.declared).toBe("${{vault.praxly-prod.BETTER_AUTH_SECRET}}");
+  });
+
+  test("a DATABASE_URL reference is masked: a connection string embeds the password", async () => {
+    listServiceEnvVars.mockResolvedValue([
+      row({ key: "DATABASE_URL", value: "${{postgres-prod.DATABASE_URL}}" }),
+    ]);
+    resolveServiceEnv.mockResolvedValue(
+      Result.ok({ DATABASE_URL: "postgresql://user:fXzXjQwzeuN2epWmaN@host:5432/db" }),
+    );
+
+    const [entry] = (await call()).unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
+    expect(entry.value).toBe("••••••••");
+    expect(entry.value).not.toContain("fXzXjQwzeuN2epWmaN");
+  });
+
+  test("a non-credential reference still shows what it resolved to", async () => {
+    // The surface exists to answer "is this pointing at the right database".
+    // Masking every reference would take that away for no security gain.
+    listServiceEnvVars.mockResolvedValue([row({ key: "DB_HOST", value: "${{db.HOST}}" })]);
+    resolveServiceEnv.mockResolvedValue(Result.ok({ DB_HOST: "autumn-db" }));
+
+    const [entry] = (await call()).unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
+    expect(entry.value).toBe("autumn-db");
+  });
+
+  test("an unresolved secret reference is not masked: nothing was dereferenced", async () => {
+    listServiceEnvVars.mockResolvedValue([row({ key: "S", value: "${{vault.x.MISSING}}" })]);
+    resolveServiceEnv.mockResolvedValue(Result.err(new Error("vault down")));
+
+    const [entry] = (await call()).unwrap();
+    expect(entry).toBeDefined();
+    if (!entry) return;
+    expect(entry.unresolved).toBe(true);
+    // Showing the declared text is the whole point of opening the panel.
+    expect(entry.value).toBe("${{vault.x.MISSING}}");
+  });
+});

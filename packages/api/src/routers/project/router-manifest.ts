@@ -1,7 +1,7 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
-import { environmentIdForSlug } from "../../lib/environment/resolve-slug";
+import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
@@ -99,7 +99,7 @@ export const manifestRouter = {
     if (!resolved.value) return { resolved: null, changes: [] };
     // Same slug→id conversion the apply endpoint uses, so the plan the operator
     // previews is scoped identically to the one that executes.
-    const environmentId = await environmentIdForSlug(input.projectId, input.environment);
+    const environmentId = await environmentIdOrReject(input.projectId, input.environment, errors);
     const scope = await resolveProjectEnvironmentScope(input.projectId, environmentId);
     // No environment pointer means nothing to diff against. An empty preview
     // beats a plan that claims every resource is new.
@@ -171,7 +171,7 @@ export const manifestRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
-        environmentId: await environmentIdForSlug(input.projectId, input.environment),
+        environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
         only: input.only,
         log: context.log,
       });
@@ -272,7 +272,7 @@ export const manifestRouter = {
         // Must match the environment the manifest was just resolved for. A
         // manifest resolved for staging applied against production's rows
         // would diff staging's desired state onto production's resources.
-        environmentId: await environmentIdForSlug(input.projectId, input.environment),
+        environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
         log: context.log,
       });
       return { version: saved.value.version, ...applied };

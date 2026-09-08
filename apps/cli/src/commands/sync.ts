@@ -9,7 +9,11 @@ export const syncCommand = defineCommand({
   },
   args: {
     config: { type: "string", description: "Path to config file" },
-    env: { type: "string", description: "Environment override block to apply" },
+    env: {
+      type: "string",
+      description:
+        "Environment slug to apply to (e.g. `staging`). Scopes the whole apply: resources in other environments are untouched. Omit for the project's main environment.",
+    },
     "dry-run": { type: "boolean", description: "Show the change plan without applying" },
     preview: { type: "boolean", description: "Alias of --dry-run" },
     wait: { type: "boolean", description: "Wait for changed services to reach running" },

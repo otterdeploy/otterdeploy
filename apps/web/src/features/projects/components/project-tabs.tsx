@@ -138,6 +138,17 @@ export function ProjectTabs() {
             to={tab.to}
             data-tour={tab.tourId}
             params={{ orgSlug, projectSlug }}
+            // Carry the active environment across tabs. `?env=` is the ONLY
+            // record of which environment the operator is looking at, and a
+            // Link without `search` drops it, so every tab click silently
+            // dumped them back on main — while the header still showed the
+            // environment they thought they were in. Anything they then read
+            // (or changed) belonged to a different environment.
+            //
+            // Only `env` is carried: the per-tab filters (status, time window,
+            // pagination) are meaningless on a different tab, so spreading
+            // `prev` wholesale would leak them.
+            search={(prev: { env?: string }) => (prev.env === undefined ? {} : { env: prev.env })}
             activeOptions={tab.exact ? { exact: true } : undefined}
             className={cn(
               "shrink-0 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors",

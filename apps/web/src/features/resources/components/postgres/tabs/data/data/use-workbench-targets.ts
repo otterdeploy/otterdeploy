@@ -61,7 +61,16 @@ export function useWorkbenchTargets(organizationId: string) {
       target: resourceTarget(d.resourceId),
       name: d.name,
       engine: d.engine,
-      subtitle: `${d.projectSlug} · ${d.engineLabel}`,
+      // The engine is already the row's icon, so repeating it as text spends
+      // the only subtitle slot on the one fact the operator can already see.
+      // The environment is the fact they CANNOT see, and two environments
+      // routinely hold a database of the same name — `postgres` in staging and
+      // in production render identically without it, and opening a session
+      // against the wrong one is a data incident, not a typo.
+      subtitle:
+        d.environmentName === null
+          ? `${d.projectSlug} · ${d.engineLabel}`
+          : `${d.projectSlug} · ${d.environmentName}`,
       kind: "managed",
       // The catalog already probes reachability; a database we cannot reach is
       // still worth listing, greyed, rather than silently absent.

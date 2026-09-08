@@ -14,7 +14,14 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import { db } from "@otterdeploy/db";
-import { backup, databaseResource, deployment, project, resource } from "@otterdeploy/db/schema";
+import {
+  backup,
+  databaseResource,
+  deployment,
+  environment,
+  project,
+  resource,
+} from "@otterdeploy/db/schema";
 import { DATABASE_ENGINES } from "@otterdeploy/shared/database-engines";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
@@ -68,10 +75,14 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
       database: databaseResource,
       projectName: project.name,
       projectSlug: project.slug,
+      // LEFT join: a resource predating environments has no stamp, and it must
+      // still appear in the catalog rather than vanish from the picker.
+      environmentName: environment.name,
     })
     .from(resource)
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
     .innerJoin(project, eq(project.id, resource.projectId))
+    .leftJoin(environment, eq(environment.id, resource.environmentId))
     .where(and(eq(project.organizationId, organizationId), isNull(resource.previewId)))
     .orderBy(project.slug, resource.name);
 
@@ -198,6 +209,7 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
         projectId: row.resource.projectId,
         projectName: row.projectName,
         projectSlug: row.projectSlug,
+        environmentName: row.environmentName,
         engine,
         engineLabel: DATABASE_ENGINES[engine].label,
         image,

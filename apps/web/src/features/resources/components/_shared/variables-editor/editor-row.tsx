@@ -183,6 +183,13 @@ export function EditorRow({
   );
 }
 
+/** The server masks a secret's resolved value rather than sending it (see
+ *  routers/service/env-effective.ts). Matching on the glyph run keeps the two
+ *  sides in step without shipping a second "is this secret" signal. */
+function isMasked(value: string): boolean {
+  return value.length > 0 && /^\u2022+$/.test(value);
+}
+
 function showPickerHint(value: string, pickerOpen: boolean) {
   return value.length > 0 && !pickerOpen && hasOpenRefToken(value);
 }
@@ -252,6 +259,12 @@ function ResolvedNote({ resolved }: { resolved: { value: string; unresolved: boo
       </p>
     );
   }
+  // A masked value carries no information: "resolves to ••••••••" restates
+  // what the reference already said, and the row's own controls already show
+  // it is set. The line exists to answer "is this pointing at the right
+  // thing", which a mask cannot answer — so say nothing instead of adding a
+  // row of noise under every secret.
+  if (isMasked(resolved.value)) return null;
   return (
     <p className={cn("truncate font-mono text-[10.5px] text-muted-foreground", NOTE_INDENT)}>
       <span className="font-sans">resolves to </span>
