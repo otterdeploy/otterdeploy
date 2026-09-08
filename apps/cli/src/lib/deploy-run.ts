@@ -58,8 +58,33 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   const project = await client.project.getBySlug({ slug: manifest.project });
   const current = await client.project.manifest.get({ id: project.id });
 
-  // Save first so the server diff compares the LOCAL manifest against
-  // live state; applyChange then uses the bumped version.
+  // A dry run must not write. The diff endpoint takes the local manifest
+  // directly, so the preview needs no save — previously the save happened
+  // first regardless, and `--dry-run` replaced the saved manifest while
+  // printing "Nothing was applied". That manifest is the baseline `discard`
+  // reverts to and the next `deploy` compares against, so the preview
+  // silently changed the thing it was previewing.
+  if (opts.dryRun) {
+    const preview = await client.project.manifest.diff({
+      projectId: project.id,
+      environment: opts.env,
+      manifest,
+    });
+    if (opts.json) {
+      process.stdout.write(`${JSON.stringify(preview, null, 2)}\n`);
+      return;
+    }
+    section("Planned changes");
+    printDiff(preview.changes);
+    printChangeSummary(preview.changes);
+    out();
+    note("Nothing was applied, and nothing was saved.");
+    hint("re-run without `--dry-run` to apply");
+    return;
+  }
+
+  // Save so the server diff compares the LOCAL manifest against live state;
+  // applyChange then uses the bumped version.
   const saved = await client.project.manifest.save({
     projectId: project.id,
     manifest,
@@ -69,20 +94,6 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
     projectId: project.id,
     environment: opts.env,
   });
-
-  if (opts.dryRun) {
-    if (opts.json) {
-      process.stdout.write(`${JSON.stringify(diff, null, 2)}\n`);
-      return;
-    }
-    section("Planned changes");
-    printDiff(diff.changes);
-    printChangeSummary(diff.changes);
-    out();
-    note(`Saved manifest v${saved.version}. Nothing was applied.`);
-    hint("re-run without `--dry-run` to apply");
-    return;
-  }
 
   // Destructive changes get one confirmation; skipped under --yes/--json
   // (script-friendly).

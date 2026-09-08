@@ -50,6 +50,14 @@ const manifestDiffInput = z.object({
   // Resolve overrides for this environment before diffing. Omit to diff
   // the base manifest as-is.
   environment: z.string().min(1).optional(),
+  // Diff THIS manifest instead of the project's saved one.
+  //
+  // A preview must not be a write. Without this the only way to diff a local
+  // manifest was to save it first, so `deploy --dry-run` — which prints
+  // "Nothing was applied" — still replaced the saved manifest, and that
+  // manifest is the baseline `discard` reverts to and the next `deploy`
+  // compares against. Omit for the saved-manifest behaviour.
+  manifest: manifestSchema.optional(),
 });
 
 const manifestDiffOutput = z.object({

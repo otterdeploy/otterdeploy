@@ -150,7 +150,24 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // previous manifest (manifest-applied-snapshot.ts), which is exactly
   // "stays pending". A failed create and a deliberately-deferred create want
   // the same treatment in the snapshot, so they share the path.
-  const selected = only === undefined ? null : new Set(only.map((o) => `${o.resource}:${o.name}`));
+  // `env` selections are mapped onto their OWNER before matching.
+  //
+  // Env changes never reach the plan as themselves: groupChanges folds a
+  // service's variable edits into a synthesized `service` update named after
+  // the owner. `pick` only ever compares service/database/compose keys, so an
+  // `only` entry like {resource:"env", name:"api-prod.CORS_ORIGIN"} — a shape
+  // the contract explicitly accepts — matched nothing, was never reported as
+  // skipped, and the apply returned success having reconciled nothing.
+  //
+  // The owner is the part before the first dot: env change names are
+  // `<owner>.<KEY>`, and a KEY cannot contain a dot (envKeyRegex).
+  const selectedKeys =
+    only === undefined
+      ? null
+      : only.map((o) =>
+          o.resource === "env" ? `service:${o.name.split(".")[0]}` : `${o.resource}:${o.name}`,
+        );
+  const selected = selectedKeys === null ? null : new Set(selectedKeys);
   const pick = <T extends { name: string }>(
     items: T[],
     resource: "service" | "database" | "compose",

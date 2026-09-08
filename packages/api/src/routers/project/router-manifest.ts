@@ -1,9 +1,9 @@
-import { matchError } from "better-result";
+import { Result, matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
 import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
-import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
+import { diffManifest, resolveEnvironment, type Change, type Manifest } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
 import { getProject } from "./handlers";
 import {
@@ -84,13 +84,18 @@ export const manifestRouter = {
 
   diff: orgScopedProcedure.project.manifest.diff.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "project", id: input.projectId } });
-    const resolved = await resolvedManifest(
-      {
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      },
-      input.environment,
-    );
+    // A caller-supplied manifest is previewed WITHOUT being saved: a diff is a
+    // read, and making it a write is what let `--dry-run` overwrite the
+    // baseline it claimed not to touch. Falls back to the saved manifest.
+    const resolved = input.manifest
+      ? Result.ok(resolveEnvironment(input.manifest, input.environment))
+      : await resolvedManifest(
+          {
+            projectId: input.projectId,
+            organizationId: context.activeOrganizationId,
+          },
+          input.environment,
+        );
     if (resolved.isErr()) {
       throw matchError(resolved.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
