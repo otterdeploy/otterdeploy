@@ -163,12 +163,28 @@ export async function patchServerFirewall(input: {
   firewallBouncerActive?: boolean;
 }): Promise<ServerRecord | undefined> {
   const { serverId, organizationId, ...set } = input;
+  return patchServerColumns(serverId, organizationId, {
+    ...set,
+    firewallAppliedAt: input.firewallStatus === "applied" ? new Date() : null,
+  });
+}
+
+/**
+ * Tenant-scoped update + the org event every one of these owes, in one place.
+ *
+ * The provisioning outcomes (firewall, edge proxy) are the same six lines with
+ * different column names, and the part worth having once is the WHERE clause:
+ * a patch that forgets the organization scope writes across a tenant boundary.
+ * One copy is one place for that to be wrong.
+ */
+export async function patchServerColumns(
+  serverId: ServerId,
+  organizationId: OrgId,
+  set: Partial<typeof server.$inferInsert>,
+): Promise<ServerRecord | undefined> {
   const [row] = await db
     .update(server)
-    .set({
-      ...set,
-      firewallAppliedAt: input.firewallStatus === "applied" ? new Date() : null,
-    })
+    .set(set)
     .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
     .returning();
   if (row) publishOrgEvent(organizationId, "servers");
@@ -176,33 +192,23 @@ export async function patchServerFirewall(input: {
 }
 
 /** Persist a swarm-confirmed promote/demote back onto the server row. */
-export async function updateServerRoleRecord(input: {
+export function updateServerRoleRecord(input: {
   serverId: ServerId;
   organizationId: OrgId;
   role: "manager" | "worker";
 }): Promise<ServerRecord | undefined> {
-  const [row] = await db
-    .update(server)
-    .set({ role: input.role })
-    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
-    .returning();
-  if (row) publishOrgEvent(input.organizationId, "servers");
-  return row;
+  return patchServerColumns(input.serverId, input.organizationId, { role: input.role });
 }
 
 /** Persist a swarm-confirmed availability change back onto the server row. */
-export async function updateServerAvailabilityRecord(input: {
+export function updateServerAvailabilityRecord(input: {
   serverId: ServerId;
   organizationId: OrgId;
   availability: "active" | "drain" | "pause";
 }): Promise<ServerRecord | undefined> {
-  const [row] = await db
-    .update(server)
-    .set({ availability: input.availability })
-    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
-    .returning();
-  if (row) publishOrgEvent(input.organizationId, "servers");
-  return row;
+  return patchServerColumns(input.serverId, input.organizationId, {
+    availability: input.availability,
+  });
 }
 
 export async function deleteServerRecord(input: {

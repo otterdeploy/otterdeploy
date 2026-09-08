@@ -8,13 +8,9 @@
 
 import type { OrganizationId as OrgId, ServerId } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { server } from "@otterdeploy/db/schema";
-import { and, eq } from "drizzle-orm";
-
 import type { ServerRecord } from "./queries";
 
-import { publishOrgEvent } from "../project/project-event-bus";
+import { patchServerColumns } from "./queries";
 
 /**
  * Record whether this node terminates its own traffic, and why not when it
@@ -37,17 +33,11 @@ export async function patchServerEdgeProxy(input: {
   edgeProxyError?: string | null;
 }): Promise<ServerRecord | undefined> {
   const { serverId, organizationId, ...set } = input;
-  const [row] = await db
-    .update(server)
-    .set({
-      ...set,
-      // A reason only describes a non-running edge. Leaving a stale one behind
-      // after a successful re-provision would keep telling the operator about a
-      // conflict they already resolved.
-      edgeProxyError: input.edgeProxyStatus === "running" ? null : (input.edgeProxyError ?? null),
-    })
-    .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
-    .returning();
-  if (row) publishOrgEvent(organizationId, "servers");
-  return row;
+  return patchServerColumns(serverId, organizationId, {
+    ...set,
+    // A reason only describes a non-running edge. Leaving a stale one behind
+    // after a successful re-provision would keep telling the operator about a
+    // conflict they already resolved.
+    edgeProxyError: input.edgeProxyStatus === "running" ? null : (input.edgeProxyError ?? null),
+  });
 }

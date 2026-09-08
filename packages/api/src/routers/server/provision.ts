@@ -17,13 +17,7 @@ import { parseProbe, probeScript, type ProbeResult } from "./provision-probe";
 // and docker version. Re-exported because every existing caller imports it
 // from here (provision-runner, caddy/node-reconciler) and the split is not
 // something they should have to know about.
-export {
-  parseProbe,
-  probeScript,
-  type EdgePortHolder,
-  type Privilege,
-  type ProbeResult,
-} from "./provision-probe";
+export { parseProbe, probeScript, type Privilege, type ProbeResult } from "./provision-probe";
 
 // ─── pure script builders ───────────────────────────────────────────────────
 
