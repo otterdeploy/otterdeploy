@@ -34,7 +34,13 @@ interface PageParam {
 const FIRST_PAGE: PageParam = { cursor: null, direction: "next", aggregates: true };
 
 export interface UseFeedOptions<TRow> {
-  /** Cache identity for this table's data. Filters are appended to it. */
+  /**
+   * Cache identity for this table's data. Filters and sort are appended to it.
+   *
+   * Anything `fetchPage` closes over that can change — a project id, a viewer's
+   * time zone — belongs here too: the callback is re-read on every fetch, but
+   * data already cached under this key is not re-fetched because it changed.
+   */
   queryKey: readonly unknown[];
   fetchPage: (input: FeedInput) => Promise<FeedPage<TRow>>;
   filters: Record<string, unknown>;
@@ -48,12 +54,14 @@ export interface UseFeedOptions<TRow> {
 export function useFeed<TRow>(options: UseFeedOptions<TRow>) {
   const { queryKey, fetchPage, filters, sort, size = 50, enabled = true } = options;
 
+  // oxlint-disable-next-line eslint-tanstack-query/exhaustive-deps -- `fetchPage` is the caller's binding to one endpoint, not part of this data's identity; what it closes over belongs in `queryKey` (see below)
   const query = useInfiniteQuery({
     // The filter values and the sort ARE the identity of this data. Serialized
     // rather than spread, so a key stays one stable string as filters come and
     // go rather than changing arity.
     // `fetchPage` is deliberately absent: it is the caller's binding to one
-    // endpoint and must be stable, not part of this data's identity.
+    // endpoint, and keying on it would throw the cache away whenever a caller
+    // rendered without memoizing it. What it closes over goes in `queryKey`.
     queryKey: [
       ...queryKey,
       JSON.stringify(filters),
