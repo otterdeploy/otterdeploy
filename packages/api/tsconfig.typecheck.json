@@ -1,5 +1,6 @@
 {
   "//": "Deep type-check for this library package. `turbo typecheck` on the apps resolves @otterdeploy/api through node_modules and skips its internals, so this config checks api's own src directly. composite off + noEmit so it never emits (no .js/.d.ts pollution).",
+  "//2": "This is the config to run. `tsc -p packages/api` (declarations on) reports TS7056 on the procedure builders in src/index.ts: the router contract is now large enough that its inferred type exceeds what the compiler will SERIALIZE into a .d.ts. Nothing emits declarations for this package — consumers import ./src/*.ts directly, per package.json exports — so that limit only bites the config nobody runs.",
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": false,
