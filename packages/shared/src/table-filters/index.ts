@@ -17,4 +17,4 @@ export type {
   FilterType,
   Scalar,
 } from "./types";
-export { asInstant, isActive } from "./values";
+export { asInstant, asText, isActive } from "./values";
