@@ -538,9 +538,22 @@ const partialDatabaseSchema = z.union([
   databaseCommonSchema,
 ]);
 
+// `null` removes the resource from this environment entirely, which is the
+// only way to say "this one does not exist here". merge.ts has implemented and
+// documented that since it was written ("`null` value → deletes the key from
+// the base"), but the value was typed as an object, so every null was rejected
+// at the parse boundary and the branch could never be reached.
+//
+// Without it a project whose environments genuinely hold different resources
+// has no way to say so: the base map is the set every environment is expected
+// to have, so anything living in only one of them is reported by every OTHER
+// environment's diff as a pending create. That change can be neither applied
+// (it would duplicate the resource into the wrong environment) nor discarded
+// (the declaration is legitimately in the applied snapshot), so the
+// pending-changes bar never clears. See __tests__/environment-scoping.test.ts.
 const environmentBlockSchema = z.object({
-  services: z.record(resourceName, partialServiceSchema).optional(),
-  databases: z.record(resourceName, partialDatabaseSchema).optional(),
+  services: z.record(resourceName, partialServiceSchema.nullable()).optional(),
+  databases: z.record(resourceName, partialDatabaseSchema.nullable()).optional(),
 });
 export type EnvironmentOverride = z.infer<typeof environmentBlockSchema>;
 
