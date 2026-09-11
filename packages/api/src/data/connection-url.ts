@@ -20,6 +20,7 @@ import { Result, TaggedError } from "better-result";
  * anything opens a socket.
  */
 import { isIP } from "node:net";
+import { networkInterfaces } from "node:os";
 
 /**
  * Engines an external URL can name.
@@ -183,10 +184,60 @@ export async function resolveConnectionAddress(
       ),
   });
   if (resolved.isErr()) return Result.err(resolved.error);
-  return Result.ok({
-    address: resolved.value[0].address,
-    serverName: literalFamily === 0 ? literal : null,
-  });
+  const candidates = resolved.value.map((entry) => entry.address);
+  const chosen = routableFirst(candidates)[0];
+  if (chosen === undefined) {
+    return Result.err(urlError("malformed", `${host} resolved to no usable address`));
+  }
+  return Result.ok({ address: chosen, serverName: literalFamily === 0 ? literal : null });
+}
+
+/**
+ * Validated candidates, with ones this host can actually originate traffic to
+ * first.
+ *
+ * Pinning a checked address is what closes the DNS-rebinding window, but it
+ * also throws away the fallback every other client gets for free: `psql` and
+ * `nc` walk the address list (RFC 8305) until one answers, and we dialled
+ * `[0]` and gave up. Neon's pooler answers with its AAAA records first, so on a
+ * host with no global IPv6 route — a laptop, most CI, any IPv4-only VPC —
+ * every external Neon connection died as `FailedToOpenSocket` while the same
+ * hostname worked from a terminal two feet away.
+ *
+ * Only the ORDER changes; every address here has already been through the
+ * egress policy, so nothing unvetted becomes dialable. A host with no global
+ * IPv6 source address cannot route global IPv6 at all, which is exactly the
+ * question `hasGlobalIpv6` answers.
+ */
+function routableFirst(candidates: readonly string[]): string[] {
+  if (hasGlobalIpv6()) return [...candidates];
+  const v4 = candidates.filter((address) => isIP(address) !== 6);
+  // An IPv6-only answer is still worth dialling: better a connection that may
+  // fail than refusing to try one this host might reach after all.
+  return v4.length > 0 ? v4 : [...candidates];
+}
+
+/** Re-read occasionally: a laptop changes networks without restarting us. */
+const IPV6_CHECK_TTL_MS = 30_000;
+let ipv6Check: { at: number; value: boolean } | null = null;
+
+/**
+ * Whether this host holds a global-unicast IPv6 address (`2000::/3`).
+ *
+ * Link-local (`fe80::/10`) and unique-local (`fc00::/7`) do not count: a mac on
+ * a v4-only network still carries `fe80::` on every interface, and treating
+ * that as connectivity is what produces "No route to host" on the first packet.
+ */
+function hasGlobalIpv6(): boolean {
+  const now = Date.now();
+  if (ipv6Check && now - ipv6Check.at < IPV6_CHECK_TTL_MS) return ipv6Check.value;
+  const value = Object.values(networkInterfaces()).some((addresses) =>
+    (addresses ?? []).some(
+      (entry) => !entry.internal && isIP(entry.address) === 6 && /^[23]/.test(entry.address),
+    ),
+  );
+  ipv6Check = { at: now, value };
+  return value;
 }
 
 /**

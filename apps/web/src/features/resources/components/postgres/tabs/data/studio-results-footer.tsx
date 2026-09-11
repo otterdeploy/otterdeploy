@@ -73,24 +73,29 @@ export function ResultsFooter({
   if (!result) return null;
   const selectedCount = selectedRows.length;
   return (
-    <div className="flex items-center justify-between gap-3 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
-      <div className="flex items-center gap-2 font-mono">
+    // One line, always. Every measurement below is `shrink-0 whitespace-nowrap`
+    // and only the table's NAME is allowed to give up space, because it is the
+    // one item here a reader can still identify from a prefix. Without that,
+    // flex squeezed each span to its minimum and "1 rows", "READ-ONLY" and
+    // "1–1" each broke across two lines inside a 24px bar.
+    <div className="flex items-center justify-between gap-3 border-t px-3 py-1.5 text-[11px] whitespace-nowrap text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-2 font-mono">
         {/* What you are looking at, named, before how much of it there is.
             The qualified name is the one fact a screenshot of this grid is
             useless without. */}
         {t.mode === "table" && t.selected ? (
           <>
-            <span className="text-foreground">
+            <span className="truncate text-foreground">
               {t.selected.schema === "public"
                 ? t.selected.name
                 : `${t.selected.schema}.${t.selected.name}`}
             </span>
-            <span className="text-muted-foreground/40">·</span>
+            <span className="shrink-0 text-muted-foreground/40">·</span>
           </>
         ) : null}
-        <span>{result.rows.length} rows</span>
-        <span className="text-muted-foreground/40">·</span>
-        <span>{result.durationMs}ms</span>
+        <span className="shrink-0">{result.rows.length} rows</span>
+        <span className="shrink-0 text-muted-foreground/40">·</span>
+        <span className="shrink-0">{result.durationMs}ms</span>
         {t.mode === "sql" && result.truncated ? (
           <span className="text-amber-500">· capped at {SQL_RESULT_CAP}</span>
         ) : null}
@@ -116,14 +121,15 @@ export function ResultsFooter({
         ) : null}
       </div>
       {t.mode === "table" ? (
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {/* Whether this connection can write, stated rather than discovered
-              by an edit being refused. */}
-          <span className="rounded bg-muted px-1 py-0.5 font-mono text-[9.5px] tracking-wide text-muted-foreground uppercase">
+              by an edit being refused. Below `@md` the pager alone needs the
+              width, and "which page am I on" is the more urgent of the two. */}
+          <span className="hidden shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9.5px] tracking-wide text-muted-foreground uppercase @md/results:inline">
             {t.editable ? "read-write" : "read-only"}
           </span>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="font-mono">
+          <span className="hidden shrink-0 text-muted-foreground/40 @md/results:inline">·</span>
+          <span className="shrink-0 font-mono">
             {result.rows.length === 0
               ? "0"
               : `${t.page * t.pageSize + 1}–${t.page * t.pageSize + result.rows.length}`}

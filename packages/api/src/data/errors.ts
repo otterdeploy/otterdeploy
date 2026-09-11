@@ -63,6 +63,12 @@ export function describeUnreachable(
  * mislabelling the category.
  */
 export function toDataError(cause: unknown): DataError {
+  // Already classified by us, so keep the classification. Re-deriving a reason
+  // from the message would relabel every deliberate `DataError` as `query`,
+  // because none of the patterns below match our own wording — which is how
+  // `not_connected`'s "open the database first" reached the workbench as
+  // "Query failed: open the database first", instead of as the connect step.
+  if (cause instanceof DataError) return cause;
   const message = cause instanceof Error ? cause.message : String(cause);
   const code = readErrorCode(cause);
 

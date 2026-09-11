@@ -128,8 +128,14 @@ export function ResultsToolbar({
 
   return (
     <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-2">
-      <div className="flex min-w-0 items-center gap-2">{leftSlot}</div>
-      <div className="flex items-center gap-1.5">
+      {/* Scrolls rather than squeezes. Every control inside is `shrink-0`; a
+          flex row that lets its children shrink puts each label outside its own
+          button, which is how the Filters and Columns buttons ended up drawn on
+          top of each other at narrow widths. */}
+      <div className="flex min-w-0 flex-1 [scrollbar-width:none] items-center gap-2 overflow-x-auto [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {leftSlot}
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
         {/* Hidden at 0: that is "no measurement yet", not a sub-ms query. */}
         {durationMs !== null && durationMs !== undefined && durationMs > 0 ? (
           <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
