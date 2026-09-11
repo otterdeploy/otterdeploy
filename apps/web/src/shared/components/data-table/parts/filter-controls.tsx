@@ -85,6 +85,12 @@ export function CheckboxFilter({
     return <p className="px-1 py-2 text-xs text-muted-foreground">No values in range.</p>;
   }
 
+  // A capped list says so. Presenting the busiest fifty of twelve thousand as
+  // if they were the whole set is how someone concludes an address is not in
+  // the log when it is — and the search box above filters what was SENT, which
+  // makes the omission invisible without this line.
+  const capped = facet?.groups !== undefined && facet.groups > options.length;
+
   return (
     <div className="grid gap-2">
       {options.length > 6 ? (
@@ -95,6 +101,12 @@ export function CheckboxFilter({
           className="h-7 text-xs"
           aria-label={`Search ${filterKey} values`}
         />
+      ) : null}
+      {capped && facet?.groups !== undefined ? (
+        <p className="px-1 text-[11px] text-muted-foreground">
+          Busiest {formatNumber(options.length)} of {formatNumber(facet.groups)}. Narrow the range
+          or search to reach the rest.
+        </p>
       ) : null}
       <div className="max-h-56 overflow-y-auto rounded-md ring-1 ring-foreground/10">
         {visible.map((option, index) => {
@@ -115,7 +127,9 @@ export function CheckboxFilter({
                 onCheckedChange={(checked) => toggle(option.value, checked === true)}
               />
               <Label htmlFor={id} className="flex min-w-0 flex-1 items-center gap-2 text-xs">
-                <span className="truncate font-normal">{option.label}</span>
+                <span className="truncate font-normal">
+                  {declared.optionLabel?.(option.value) ?? option.label}
+                </span>
                 <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
                   {count === undefined ? null : formatNumber(count)}
                 </span>

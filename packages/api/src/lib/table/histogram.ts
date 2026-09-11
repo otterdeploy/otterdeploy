@@ -163,6 +163,50 @@ export function buildBuckets(
 }
 
 /**
+ * The bucketing query.
+ *
+ * Split out so its shape can be pinned by a test without a database — the one
+ * bug it has had was a GROUP BY that Postgres accepts on most tables and
+ * misreads on some, which no amount of row-level testing would have found.
+ *
+ * Grouped by ORDINAL, which is neither of the two things that do not work.
+ *
+ * `GROUP BY at, category` looks right and is not: Postgres resolves a bare
+ * name in GROUP BY against the INPUT columns first, falling back to an output
+ * alias only if none matches. `edge_event` has its own `category` column, so
+ * the clause bound to that, left the SELECTed `level` ungrouped, and the query
+ * failed outright. The quieter version of the same bug is a table with its own
+ * `at` column: no error, just buckets over the wrong timestamp.
+ *
+ * Repeating the expressions instead does not work either. Each interpolation
+ * binds its own placeholders, and `date_bin(…, $5, $6)` is not the same
+ * expression as `date_bin(…, $1, $2)` as far as the grouping check is
+ * concerned — so the SELECT's own bin went ungrouped in its turn.
+ *
+ * An ordinal names the output column and nothing else.
+ */
+export function histogramStatement(params: {
+  table: PgTable;
+  timeColumn: Column;
+  categoryColumn?: Column | SQL;
+  where: readonly SQL[];
+  /** Bucket boundary both sides anchor to. */
+  anchorMs: number;
+  bucketMs: number;
+}): SQL {
+  const { table, timeColumn, categoryColumn, anchorMs, bucketMs } = params;
+  const where = allOf(params.where);
+  const interval = sql`make_interval(secs => ${bucketMs / 1000})`;
+  const bin = sql`date_bin(${interval}, ${timeColumn}, ${new Date(anchorMs)})`;
+  const category = categoryColumn ? sql`${categoryColumn}::text` : sql`NULL::text`;
+
+  return sql`SELECT ${bin} AS at, ${category} AS category, COUNT(*)::int AS total
+    FROM ${table}${where ? sql` WHERE ${where}` : sql``}
+    GROUP BY 1, 2
+    ORDER BY 1 ASC`;
+}
+
+/**
  * Count rows per time bucket over the feed's own filtered set.
  *
  * Empty buckets are materialized rather than omitted: a gap in a bar chart is
@@ -173,30 +217,35 @@ export async function computeHistogram(params: {
   db: FeedDatabase;
   table: PgTable;
   timeColumn: Column;
-  /** Optional column to break each bucket down by (level, outcome, status). */
-  categoryColumn?: Column;
+  /**
+   * What to break each bucket down by (level, outcome, status class).
+   *
+   * An SQL expression as well as a column, because the useful breakdown is not
+   * always stored: an access log's bands are `2xx`/`4xx`/`5xx`, and grouping by
+   * the raw status code instead draws forty bands nobody can read.
+   */
+  categoryColumn?: Column | SQL;
   where: readonly SQL[];
   range: TimeRange;
   bucketMs?: number;
 }): Promise<{ buckets: HistogramBucket[]; bucketMs: number }> {
   const { db, table, timeColumn, categoryColumn, range } = params;
   const bucketMs = params.bucketMs ?? bucketMsFor(range.toMs - range.fromMs);
-  const where = allOf(params.where);
 
   // Both sides anchor to the same rounded boundary, so the buckets Postgres
   // returns land exactly on the ones this function materializes — and two
   // windows of the same width line up with each other instead of being offset
   // by whenever the first row happened to arrive.
   const anchorMs = Math.floor(range.fromMs / bucketMs) * bucketMs;
-  const origin = new Date(anchorMs);
-  const interval = sql`make_interval(secs => ${bucketMs / 1000})`;
-  const bin = sql`date_bin(${interval}, ${timeColumn}, ${origin})`;
-  const category = categoryColumn ? sql`${categoryColumn}::text` : sql`NULL::text`;
 
-  const statement = sql`SELECT ${bin} AS at, ${category} AS category, COUNT(*)::int AS total
-    FROM ${table}${where ? sql` WHERE ${where}` : sql``}
-    GROUP BY at, category
-    ORDER BY at ASC`;
+  const statement = histogramStatement({
+    table,
+    timeColumn,
+    categoryColumn,
+    where: params.where,
+    anchorMs,
+    bucketMs,
+  });
 
   const rows = rawRows(await db.execute(statement));
   return { buckets: buildBuckets(rows, { anchorMs, toMs: range.toMs, bucketMs }), bucketMs };

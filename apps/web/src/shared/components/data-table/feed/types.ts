@@ -11,6 +11,14 @@ export interface Facet {
   rows: { value: string | number | boolean; total: number }[];
   /** Rows the facet was computed over. */
   total: number;
+  /**
+   * Distinct values in the filtered set, when more than `rows` holds.
+   *
+   * Set only when the server capped the list — an access log's client IPs run
+   * to five figures in a day. The control says so rather than presenting the
+   * busiest fifty as though they were all of them.
+   */
+  groups?: number;
   /** Bounds, for a numeric column. */
   min?: number;
   max?: number;

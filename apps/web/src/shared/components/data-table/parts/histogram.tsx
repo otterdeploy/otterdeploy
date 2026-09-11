@@ -32,10 +32,10 @@ import {
   type Segment,
 } from "@/shared/components/data-table/parts/histogram-tooltip";
 import { Button } from "@/shared/components/ui/button";
-import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+import { CLOCK_STAMP, utcFormatter } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
-const stamp = clockFormatter(CLOCK_STAMP);
+const stamp = utcFormatter(CLOCK_STAMP);
 
 const UNCATEGORIZED = "rows";
 
@@ -96,20 +96,39 @@ function ParkedWindow({
   if (!selection) return null;
 
   return (
-    <div className="absolute inset-x-0 bottom-1 flex justify-center">
-      <div className="flex items-center gap-2 rounded-lg bg-popover px-2 py-1 shadow-md ring-1 ring-foreground/10">
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {stamp(selection[0])} → {stamp(selection[1])}
-        </span>
+    // In flow BELOW the chart, not floating over it. Absolutely positioned at
+    // `bottom-1` it landed on the x-axis and on the right-hand end of its own
+    // selection — so the strip asking "zoom to this window?" covered both the
+    // window and the labels naming it. It wraps rather than overflowing, so a
+    // narrow table keeps Cancel and Zoom reachable.
+    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 pt-1.5 pb-1">
+      <span className="font-mono text-[11px] whitespace-nowrap text-muted-foreground">
+        {stamp(selection[0])} → {stamp(selection[1])}
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
         <Button variant="ghost" size="xs" className="h-6" onClick={onCancel}>
           Cancel
         </Button>
         <Button variant="outline" size="xs" className="h-6" onClick={onConfirm}>
           Zoom
         </Button>
-      </div>
+      </span>
     </div>
   );
+}
+
+/**
+ * The parked window as an inclusive `[from, to]`, or null when none is parked.
+ *
+ * A zero-width brush is not a selection: the controlled signal idles at
+ * `start === end` on the first bucket, and treating that as a window is what
+ * would offer to zoom into a range the reader never dragged.
+ */
+function selectionOf(parked: BrushRange<number> | null, bucketMs: number): [number, number] | null {
+  if (parked === null || parked.start === parked.end) return null;
+  // The bucket the brush ends ON is included, so the window runs to the last
+  // millisecond that bucket covers rather than to its start.
+  return [parked.start, parked.end + bucketMs - 1];
 }
 
 export function DataTableHistogram({
@@ -134,6 +153,10 @@ export function DataTableHistogram({
     for (const bucket of buckets) {
       const entries = Object.entries(bucket.by);
       if (entries.length === 0) {
+        // Kept even at zero: the band scale's domain is every bucket start, and
+        // a bucket with no segment at all leaves the x-axis with a position it
+        // cannot map. What an empty bucket must NOT do is name a category —
+        // see `categories` below.
         rows.push({ at: bucket.at, category: UNCATEGORIZED, count: bucket.total });
         continue;
       }
@@ -145,7 +168,14 @@ export function DataTableHistogram({
   }, [buckets]);
 
   const categories = useMemo(() => {
-    const seen = new Set(segments.map((segment) => segment.category));
+    // Only categories that actually OCCUR. An empty bucket carries a
+    // zero-count `UNCATEGORIZED` segment so the x-axis stays mappable, and
+    // counting that as a category put a stray "rows" swatch in the legend of
+    // every categorised feed with a quiet minute in its window — the audit log
+    // included, beside success/failure/denied.
+    const seen = new Set(
+      segments.filter((segment) => segment.count > 0).map((segment) => segment.category),
+    );
     const known = (order ?? []).filter((category) => seen.has(category));
     return [...known, ...[...seen].filter((category) => !known.includes(category)).sort()];
   }, [segments, order]);
@@ -158,6 +188,7 @@ export function DataTableHistogram({
     defaultTone: DEFAULT_TONE,
     parked,
     onPark: setParked,
+    bucketMs,
   });
 
   const hasRows = segments.some((segment) => segment.count > 0);
@@ -180,13 +211,22 @@ export function DataTableHistogram({
     );
   }
 
-  const selection =
-    parked && parked.start !== parked.end
-      ? ([parked.start, parked.end + bucketMs - 1] satisfies [number, number])
-      : null;
+  const selection = selectionOf(parked, bucketMs);
 
   return (
-    <div className={cn("relative", className)}>
+    <div
+      className={cn(
+        "relative",
+        // Nothing is selected, so nothing draws a selection. The brush parks its
+        // two 24px handles at the first bucket when its range is empty, and they
+        // painted there as a solid accent slab over the left edge of the chart —
+        // a window the reader never opened, sitting on top of real bars. Dragging
+        // anywhere on the plot still starts one; the handles are for resizing a
+        // selection that exists, so they appear with it.
+        selection === null && "[&_rect.handle]:hidden [&_rect.selection]:hidden",
+        className,
+      )}
+    >
       {categorized ? (
         <div className="absolute top-0 right-1 z-10">
           <HistogramLegend
@@ -198,15 +238,17 @@ export function DataTableHistogram({
         </div>
       ) : null}
 
-      <Chart
-        definition={definition}
-        height={height}
-        ariaLabel="Rows over time. Drag to select a window."
-        className="otter-chart"
-        renderTooltipBody={({ points }) => (
-          <HistogramTooltip points={points} bucketMs={bucketMs} uncategorized={!categorized} />
-        )}
-      />
+      <div style={{ height }}>
+        <Chart
+          definition={definition}
+          height={height}
+          ariaLabel="Rows over time. Drag to select a window."
+          className="otter-chart"
+          renderTooltipBody={({ points }) => (
+            <HistogramTooltip points={points} bucketMs={bucketMs} uncategorized={!categorized} />
+          )}
+        />
+      </div>
 
       <ParkedWindow
         selection={selection}

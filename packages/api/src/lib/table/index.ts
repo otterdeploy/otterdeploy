@@ -10,6 +10,8 @@
  * other end of it.
  */
 
+export { facetSchema, feedInput, feedOutput, histogramSchema } from "./contract";
 export { createFeedHandler } from "./feed";
 export { computeHistogram, discoverRange } from "./histogram";
-export type { ColumnMap } from "./sql";
+export { arrayExpr } from "./sql";
+export type { ArrayTarget, ColumnMap } from "./sql";

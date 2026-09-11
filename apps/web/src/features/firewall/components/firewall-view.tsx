@@ -22,11 +22,11 @@ import { cn } from "@/shared/lib/utils";
 import type { BlockedRange, BlockedState, FirewallWindow } from "../data";
 import type { FirewallTab } from "../tabs";
 
-import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
 import { flaggedFields, flaggedQuery, prefetchFirewall, statusQuery } from "../data";
 import { blockIps, unblockIp, useBannedIps, useCanBlock } from "../decisions";
 import { filterRows } from "../search";
 import { useFirewallActions } from "../use-firewall-actions";
+import { BlockAllButton } from "./block-all-button";
 import { BlockIpAction } from "./block-ip-action";
 import { BlockedPanel, useBlockedRows } from "./blocked-panel";
 import { BlocklistsPanel } from "./blocklists-panel";

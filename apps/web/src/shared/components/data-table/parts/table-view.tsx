@@ -32,8 +32,10 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { DataTableFeatures } from "@/shared/components/data-table/features";
 
 import { ROW_HEIGHT, type Density } from "@/shared/components/data-table/parts/density";
+import { JumpToTop } from "@/shared/components/data-table/parts/jump-to-top";
 import {
   cellStyle,
+  PINNED_CELL,
   DataTableHead,
   sizeVarsOf,
 } from "@/shared/components/data-table/parts/table-header";
@@ -47,11 +49,26 @@ interface TableViewProps<TRow extends RowData> {
   density: Density;
   /** Opens the detail sheet. `null` closes it. */
   onOpenRow: (rowId: string | null) => void;
-  /** Extra classes per row — how live mode dims rows behind the tail. */
+  /**
+   * Extra classes per row — how live mode dims rows behind the tail, and how a
+   * surface marks the rows someone came looking for.
+   *
+   * A tint belongs in `--row-tint` (see `ROW_TINT`), not in a `bg-*` class: a
+   * background set here wins over the row's own state backgrounds and, more to
+   * the point, never reaches the pinned cell.
+   */
   rowClassName?: (row: Row<DataTableFeatures, TRow>) => string | undefined;
   /** Rendered under the last row: the load-more control, or the end of the feed. */
   footer?: React.ReactNode;
   onScrollEnd?: () => void;
+  /** The tail is running — changes what "go to the top" means. */
+  isLive?: boolean;
+}
+
+/** Honour the OS setting: a smooth scroll across ten thousand rows is exactly
+ *  the motion someone turns that setting off for. */
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export function DataTableView<TRow extends RowData>({
@@ -62,6 +79,7 @@ export function DataTableView<TRow extends RowData>({
   rowClassName,
   footer,
   onScrollEnd,
+  isLive = false,
 }: TableViewProps<TRow>) {
   /**
    * The scroll element lives in STATE, not a ref: a table can mount inside a
@@ -91,6 +109,9 @@ export function DataTableView<TRow extends RowData>({
   );
   const nav = useRowNavigation({ count: rows.length, scrollEl, scrollToIndex });
 
+  /** Far enough down that the top is out of reach — one viewport. */
+  const [scrolledAway, setScrolledAway] = useState(false);
+
   const onScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
@@ -99,45 +120,64 @@ export function DataTableView<TRow extends RowData>({
       if (el.scrollHeight - el.scrollTop - el.clientHeight < el.clientHeight / 2) {
         onScrollEnd?.();
       }
+      // A whole viewport, not a few pixels: the control is for someone who has
+      // actually left the top, and one that appears on the first wheel notch is
+      // just a thing flickering over the rows.
+      setScrolledAway(el.scrollTop > el.clientHeight);
     },
     [onScrollEnd],
   );
 
+  const jumpToTop = useCallback(() => {
+    scrollEl?.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [scrollEl]);
+
   const items = virtualizer.getVirtualItems();
 
   return (
-    <div ref={setScrollEl} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto">
-      {/* A raw <table> in grid layout: the shadcn wrapper adds an overflow
+    // `relative` so the jump control has something to float against — it is
+    // positioned against the scroll VIEWPORT, not the scrolling content, or it
+    // would sit at the bottom of ten thousand rows.
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={setScrollEl} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto">
+        {/* A raw <table> in grid layout: the shadcn wrapper adds an overflow
           container between the scroll element and the rows, which turns the
           sticky header into a second scroll context and breaks it. */}
-      {/* The keyboard cursor listens on the TABLE, not the scroll container:
+        {/* The keyboard cursor listens on the TABLE, not the scroll container:
           row keydowns bubble here, and the element already carries a role. */}
-      <table onKeyDown={nav.onKeyDown} style={sizeVarsOf(table)} className="grid w-full text-sm">
-        <DataTableHead table={table} />
+        <table
+          onKeyDown={nav.onKeyDown}
+          style={sizeVarsOf(table)}
+          className="grid w-full text-[13px]"
+        >
+          <DataTableHead table={table} />
 
-        <tbody className="relative grid" style={{ height: virtualizer.getTotalSize() }}>
-          {items.map((item) => {
-            const row = rows[item.index];
-            if (!row) return null;
-            return (
-              <MemoRow
-                key={row.id}
-                row={row}
-                index={item.index}
-                start={item.start}
-                height={rowHeight}
-                selected={row.getIsSelected()}
-                active={nav.activeIndex === item.index}
-                tabbable={nav.isTabbable(item.index)}
-                onFocusRow={nav.onRowFocus}
-                onOpenRow={onOpenRow}
-                extraClassName={rowClassName?.(row)}
-              />
-            );
-          })}
-        </tbody>
-      </table>
-      {footer}
+          <tbody className="relative grid" style={{ height: virtualizer.getTotalSize() }}>
+            {items.map((item) => {
+              const row = rows[item.index];
+              if (!row) return null;
+              return (
+                <MemoRow
+                  key={row.id}
+                  row={row}
+                  index={item.index}
+                  start={item.start}
+                  height={rowHeight}
+                  selected={row.getIsSelected()}
+                  active={nav.activeIndex === item.index}
+                  tabbable={nav.isTabbable(item.index)}
+                  onFocusRow={nav.onRowFocus}
+                  onOpenRow={onOpenRow}
+                  extraClassName={rowClassName?.(row)}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+        {footer}
+      </div>
+
+      <JumpToTop visible={scrolledAway} isLive={isLive} onClick={jumpToTop} />
     </div>
   );
 }
@@ -195,9 +235,16 @@ function RowImpl<TRow extends RowData>({
       }}
       style={{ transform: `translateY(${start}px)`, height }}
       className={cn(
-        "absolute flex w-full cursor-pointer items-stretch border-b transition-colors",
-        "hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:outline-none",
-        "data-open:bg-muted/60 data-selected:bg-primary/5",
+        // Every state is a TINT, not a background: `tinted-surface` paints an
+        // opaque base and layers `--row-tint` over it, and the pinned cell —
+        // which scrolls over its neighbours and so cannot be see-through —
+        // inherits that one property and paints itself the same way.
+        "absolute flex w-full cursor-pointer items-stretch border-b",
+        "tinted-surface transition-[color,--row-tint]",
+        "hover:[--row-tint:var(--row-tint-hover)] focus-visible:outline-none",
+        "focus-visible:[--row-tint:var(--row-tint-focus)]",
+        "data-open:[--row-tint:var(--row-tint-open)]",
+        "data-selected:[--row-tint:var(--row-tint-selected)]",
         // The keyboard cursor, as a rail rather than a fill: it has to read as
         // "you are here" even on a row that is also open, selected or dimmed.
         "data-active:before:absolute data-active:before:inset-y-0 data-active:before:left-0",
@@ -208,9 +255,10 @@ function RowImpl<TRow extends RowData>({
       {row.getVisibleCells().map((cell) => (
         <td
           key={cell.id}
-          style={cellStyle(cell.column.id)}
+          style={cellStyle(cell.column.id, cell.column.columnDef.meta?.pinned)}
           className={cn(
             "flex min-w-0 items-center truncate px-2",
+            cell.column.columnDef.meta?.pinned && PINNED_CELL,
             cell.column.columnDef.meta?.cellClassName,
           )}
         >

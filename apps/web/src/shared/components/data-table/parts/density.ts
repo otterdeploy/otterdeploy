@@ -8,8 +8,14 @@
  * virtualizer's arithmetic is exact only while those two agree.
  */
 
-/** Fixed row heights, in px. Uniform rows are what keep the virtualizer exact. */
-export const ROW_HEIGHT = { compact: 32, comfortable: 38 } as const;
+/**
+ * Fixed row heights, in px. Uniform rows are what keep the virtualizer exact.
+ *
+ * Tuned down with the type scale (13px body, 12px mono): a row sized for 14px
+ * text around 12px text is padding pretending to be density, and this table is
+ * read a hundred rows at a time.
+ */
+export const ROW_HEIGHT = { compact: 28, comfortable: 34 } as const;
 
 export type Density = keyof typeof ROW_HEIGHT;
 

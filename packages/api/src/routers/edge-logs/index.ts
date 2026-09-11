@@ -27,6 +27,8 @@ import {
   resolveAnalyticsWindow,
 } from "../../edge-logs/analytics-query";
 import { geoAvailable } from "../../edge-logs/geo";
+import { runEdgeAccessFeed } from "./access-feed";
+import { runEdgeEventFeed } from "./events-feed";
 import { listProjectRoutes, listRouteUpstreams } from "./queries";
 import { bucketRequestSeries, coveringRange } from "./request-series";
 import { mergeRouteStats } from "./route-stats";
@@ -95,6 +97,16 @@ async function resolveAnalyticsHosts(
 }
 
 export const edgeLogsRouter = {
+  /**
+   * The Access logs pane's feed. Host scope is resolved inside
+   * `runEdgeAccessFeed` from the caller's own org, and — like every feed — it
+   * is composed OUTSIDE the filter path, so no filter value hand-edited into a
+   * URL can widen it past the domains this org owns.
+   */
+  feed: orgScopedProcedure.edgeLogs.feed.handler(({ input, context }) =>
+    runEdgeAccessFeed(input, context.activeOrganizationId),
+  ),
+
   query: orgScopedProcedure.edgeLogs.query.handler(async ({ input, context }) => {
     const orgId = context.activeOrganizationId;
     const projectId = input.projectId;
@@ -264,6 +276,16 @@ export const edgeLogsRouter = {
   },
 
   events: {
+    /**
+     * The Events pane's feed. Host scope is resolved inside `runEdgeEventFeed`
+     * from the caller's own org, exactly like `query` below — and, like every
+     * feed, it is composed OUTSIDE the filter path, so no filter value hand-
+     * edited into a URL can widen it past the domains this org owns.
+     */
+    feed: orgScopedProcedure.edgeLogs.events.feed.handler(({ input, context }) =>
+      runEdgeEventFeed(input, context.activeOrganizationId),
+    ),
+
     query: orgScopedProcedure.edgeLogs.events.query.handler(async ({ input, context }) => {
       const orgId = context.activeOrganizationId;
       const { hosts: selectedHosts, ...rest } = input;

@@ -49,6 +49,9 @@ interface DataTableColumnMeta {
   kind?: "text" | "code" | "number" | "instant" | "badge" | "select" | "actions";
   headerClassName?: string;
   cellClassName?: string;
+  /** Stick this column to the trailing edge instead of scrolling with the rest.
+   *  Row actions use it — see `actionsColumn`. */
+  pinned?: boolean;
   /** Hidden by default, still toggleable in the column menu. */
   defaultHidden?: boolean;
 }

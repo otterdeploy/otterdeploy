@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
+import { PgDialect, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vite-plus/test";
 
-import { bucketMsFor, buildBuckets } from "./histogram";
+import { bucketMsFor, buildBuckets, histogramStatement } from "./histogram";
 
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
@@ -99,5 +101,72 @@ describe("buildBuckets", () => {
       window,
     );
     expect(buckets.every((bucket) => bucket.total === 0)).toBe(true);
+  });
+});
+
+/**
+ * A table whose own columns collide with the query's output names.
+ *
+ * Not contrived: `edge_event` really does store a `category`, which is what
+ * broke the alias-based GROUP BY this pins.
+ */
+const collides = pgTable("collides", {
+  at: timestamp("at").notNull(),
+  ts: timestamp("ts").notNull(),
+  category: text("category").notNull(),
+  level: text("level").notNull(),
+});
+
+describe("histogramStatement", () => {
+  const dialect = new PgDialect();
+  const render = (statement: ReturnType<typeof histogramStatement>) =>
+    dialect.sqlToQuery(statement).sql.replace(/\s+/g, " ");
+
+  test("groups by ordinal, so a column named like an output cannot capture it", () => {
+    // `GROUP BY at, category` binds to `collides.at` and `collides.category`,
+    // not to the SELECT's aliases — silently bucketing by the wrong column on
+    // the first, and failing outright on the second.
+    const out = render(
+      histogramStatement({
+        table: collides,
+        timeColumn: collides.ts,
+        categoryColumn: collides.level,
+        where: [],
+        anchorMs: 0,
+        bucketMs: 60_000,
+      }),
+    );
+    expect(out).toContain("GROUP BY 1, 2");
+    expect(out).toContain("ORDER BY 1 ASC");
+    expect(out).not.toContain("GROUP BY at");
+    expect(out).not.toContain('GROUP BY "at"');
+  });
+
+  test("no category column still yields a groupable second output", () => {
+    const out = render(
+      histogramStatement({
+        table: collides,
+        timeColumn: collides.ts,
+        where: [],
+        anchorMs: 0,
+        bucketMs: 60_000,
+      }),
+    );
+    expect(out).toContain("NULL::text AS category");
+    expect(out).toContain("GROUP BY 1, 2");
+  });
+
+  test("the feed's predicates come through as the WHERE", () => {
+    const out = render(
+      histogramStatement({
+        table: collides,
+        timeColumn: collides.ts,
+        categoryColumn: collides.level,
+        where: [eq(collides.category, "cert")],
+        anchorMs: 0,
+        bucketMs: 60_000,
+      }),
+    );
+    expect(out).toContain('WHERE "collides"."category" = $');
   });
 });

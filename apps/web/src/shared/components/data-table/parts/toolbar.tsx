@@ -101,7 +101,12 @@ export function DataTableToolbar({
         </Button>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-2">
+      {/* `shrink-0` and `ml-auto`: the count and the actions are the toolbar's
+          fixed furniture. Without it flex hands them the leftovers, and "377 of
+          640 rows" breaks across three lines beside a two-line "LAPI
+          reachable" — each control squeezed to its narrowest word. The row
+          WRAPS instead, which is what `flex-wrap` on the container is for. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <RowCount
           loaded={loaded}
           filterRowCount={filterRowCount}
@@ -138,7 +143,7 @@ function RowCount({
     <p
       aria-live="polite"
       className={cn(
-        "hidden text-xs text-muted-foreground transition-opacity sm:block",
+        "hidden shrink-0 text-xs whitespace-nowrap text-muted-foreground transition-opacity sm:block",
         isFetching && "opacity-60",
       )}
     >
