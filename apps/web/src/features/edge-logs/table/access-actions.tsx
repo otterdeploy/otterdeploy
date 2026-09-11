@@ -45,23 +45,6 @@ const LENGTH_TEXT: Record<string, string> = {
 
 const DEFAULT_BAN_LABEL = "30 days";
 
-export interface AccessLogActions {
-  /**
-   * Ban one client at the CrowdSec edge. Reversible from the Firewall view.
-   *
-   * `hours` is undefined for the default length — see `BAN_DURATIONS`, which is
-   * the only list of ban lengths in the app.
-   */
-  onBlockIp: (ip: string, hours?: number) => Promise<void>;
-  /** Ban every listed offender in one batch. */
-  onBlockAll: (ips: readonly string[], hours?: number) => Promise<void>;
-  onExport: (rows: readonly EdgeAccessRow[]) => void;
-  /** IPs already banned — their rows offer nothing to do. */
-  bannedIps?: ReadonlySet<string>;
-  /** False when the caller lacks the capability. */
-  canBlock?: boolean;
-}
-
 /**
  * The per-row control.
  *
@@ -76,6 +59,8 @@ export function BlockIpAction({
   canBlock = true,
 }: {
   row: EdgeAccessRow;
+  /** `hours` undefined takes the default length — see `BAN_DURATIONS`, which
+   *  is the only list of ban lengths in the app. */
   onBlockIp: (ip: string, hours?: number) => Promise<void>;
   bannedIps?: ReadonlySet<string>;
   canBlock?: boolean;

@@ -27,7 +27,7 @@ import { env } from "@otterdeploy/env/server";
 import { type ProjectId } from "@otterdeploy/shared/id";
 
 import { eventPersistenceEnabled } from "../../edge-logs";
-import { computeHistogram, createFeedHandler, discoverRange } from "../../lib/table";
+import { createFeedHandler, feedResponse } from "../../lib/table";
 import {
   edgeEventColumnMap,
   edgeEventExtraSelect,
@@ -143,49 +143,14 @@ export async function runEdgeEventFeed(
     includeFacets: input.includeFacets,
   });
 
-  const items = page.rows.map((row) => toFeedRow(row, ownedSet));
-
-  if (!input.includeFacets) {
-    return {
-      items,
-      nextCursor: page.nextCursor,
-      prevCursor: page.prevCursor,
-      // Null, not a stand-in: this page did not ask, so it does not know.
-      totalRowCount: null,
-      filterRowCount: null,
-      facets: {},
-      ...collection(),
-    };
-  }
-
-  // The histogram runs over the SAME predicates the page came from, so the bars
-  // and the rows can never be describing two different queries.
-  const range = await discoverRange({
+  const response = await feedResponse(page, {
     db,
     table: edgeEvent,
-    column: edgeEvent.ts,
-    where: page.where,
+    timeColumn: edgeEvent.ts,
+    categoryColumn: edgeEvent.level,
+    includeFacets: input.includeFacets,
+    toItem: (row) => toFeedRow(row, ownedSet),
   });
 
-  const histogram = range
-    ? await computeHistogram({
-        db,
-        table: edgeEvent,
-        timeColumn: edgeEvent.ts,
-        categoryColumn: edgeEvent.level,
-        where: page.where,
-        range,
-      })
-    : undefined;
-
-  return {
-    items,
-    nextCursor: page.nextCursor,
-    prevCursor: page.prevCursor,
-    totalRowCount: page.totalRowCount,
-    filterRowCount: page.filterRowCount,
-    facets: page.facets,
-    ...(histogram ? { histogram } : {}),
-    ...collection(),
-  };
+  return { ...response, ...collection() };
 }

@@ -71,7 +71,7 @@ export function arrayExpr(expression: SQL, arrayType: string): ArrayTarget {
   return { expression, arrayType };
 }
 
-export function isArrayTarget(target: FilterTarget): target is ArrayTarget {
+function isArrayTarget(target: FilterTarget): target is ArrayTarget {
   return "arrayType" in target && typeof target.arrayType === "string";
 }
 

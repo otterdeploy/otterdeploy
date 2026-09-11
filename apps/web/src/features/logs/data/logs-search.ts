@@ -4,7 +4,8 @@
 
 import * as z from "zod";
 
-import { filterParam, tableSearchSchema } from "@/shared/components/data-table/state/search-schema";
+import { edgeAccessSearchParams } from "@/features/edge-logs/table/access-search";
+import { tableSearchSchema } from "@/shared/components/data-table/state/search-schema";
 
 const LOG_SOURCES = ["runtime", "edge"] as const;
 export type LogsSource = (typeof LOG_SOURCES)[number];
@@ -40,19 +41,7 @@ export const zLogsSearch = z.object({
    * erases its keys, and TanStack merges route search types, so one such route
    * would make `navigate` untyped everywhere else in the app.
    */
-  ...tableSearchSchema({
-    ts: filterParam.timerange(),
-    method: filterParam.checkbox(),
-    status: filterParam.checkbox(),
-    statusClass: filterParam.checkbox(),
-    host: filterParam.checkbox(),
-    clientIp: filterParam.checkbox(),
-    country: filterParam.checkbox(),
-    upstream: filterParam.checkbox(),
-    cache: filterParam.checkbox(),
-    latencyMs: filterParam.range(),
-    suspicious: filterParam.checkbox(),
-  }).shape,
+  ...tableSearchSchema(edgeAccessSearchParams).shape,
 });
 
 export type LogsSearch = z.infer<typeof zLogsSearch>;

@@ -54,7 +54,7 @@ export interface DeploymentActions {
 }
 
 /** The row's copyable provenance, in preference order. Every deploy has an image. */
-export function provenanceRef(row: ProjectDeployment): string {
+function provenanceRef(row: ProjectDeployment): string {
   return row.gitSha ?? row.sourceSha ?? row.image;
 }
 

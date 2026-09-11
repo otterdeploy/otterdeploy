@@ -15,7 +15,7 @@ import { countryFlag } from "@/shared/lib/country";
 
 /** GET reads, POST creates, PUT/PATCH change, DELETE removes — in that order
  *  of how much a mistake costs. */
-export const METHOD_TONE: Record<string, BadgeTone> = {
+const METHOD_TONE: Record<string, BadgeTone> = {
   GET: "info",
   HEAD: "info",
   OPTIONS: "info",

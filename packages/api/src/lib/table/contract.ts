@@ -37,7 +37,7 @@ export const feedInput = z.object({
 });
 
 /** One filter key's facet: option counts, plus bounds for a numeric column. */
-export const facetSchema = z.object({
+const facetSchema = z.object({
   rows: z.array(
     z.object({ value: z.union([z.string(), z.number(), z.boolean()]), total: z.number() }),
   ),
@@ -48,7 +48,7 @@ export const facetSchema = z.object({
   max: z.number().optional(),
 });
 
-export const histogramSchema = z.object({
+const histogramSchema = z.object({
   buckets: z.array(
     z.object({
       at: z.number(),

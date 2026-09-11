@@ -18,7 +18,7 @@ import { env } from "@otterdeploy/env/server";
 import { type ProjectId } from "@otterdeploy/shared/id";
 
 import { persistenceEnabled } from "../../edge-logs";
-import { computeHistogram, createFeedHandler, discoverRange } from "../../lib/table";
+import { createFeedHandler, feedResponse } from "../../lib/table";
 import {
   edgeAccessColumnMap,
   edgeAccessExtraSelect,
@@ -155,51 +155,14 @@ export async function runEdgeAccessFeed(
     includeFacets: input.includeFacets,
   });
 
-  const items = page.rows.map(toFeedRow);
-
-  if (!input.includeFacets) {
-    return {
-      items,
-      nextCursor: page.nextCursor,
-      prevCursor: page.prevCursor,
-      // Null, not a stand-in: this page did not ask, so it does not know.
-      totalRowCount: null,
-      filterRowCount: null,
-      facets: {},
-      ...collection(),
-    };
-  }
-
-  // The histogram runs over the SAME predicates the page came from, so the bars
-  // and the rows can never be describing two different queries.
-  const range = await discoverRange({
+  const response = await feedResponse(page, {
     db,
     table: edgeLog,
-    column: edgeLog.ts,
-    where: page.where,
+    timeColumn: edgeLog.ts,
+    categoryColumn: edgeAccessStatusClass,
+    includeFacets: input.includeFacets,
+    toItem: toFeedRow,
   });
 
-  const histogram = range
-    ? await computeHistogram({
-        db,
-        table: edgeLog,
-        timeColumn: edgeLog.ts,
-        // Four bands, not forty: `2xx`…`5xx` is what "is anything failing"
-        // asks, and it is the key the legend filters on.
-        categoryColumn: edgeAccessStatusClass,
-        where: page.where,
-        range,
-      })
-    : undefined;
-
-  return {
-    items,
-    nextCursor: page.nextCursor,
-    prevCursor: page.prevCursor,
-    totalRowCount: page.totalRowCount,
-    filterRowCount: page.filterRowCount,
-    facets: page.facets,
-    ...(histogram ? { histogram } : {}),
-    ...collection(),
-  };
+  return { ...response, ...collection() };
 }

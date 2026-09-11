@@ -74,8 +74,6 @@ function stateTone(value: unknown): BadgeTone {
   return value === "active" ? "danger" : "neutral";
 }
 
-export { stateTone as decisionStateTone };
-
 /**
  * What KIND of enforcement. A ban drops the packet; a captcha lets a human
  * through; a throttle only slows one down — descending severity, and the tones
@@ -87,7 +85,7 @@ const TYPE_TONE: Record<string, BadgeTone> = {
   throttle: "info",
 };
 
-export function decisionTypeTone(value: unknown): BadgeTone {
+function decisionTypeTone(value: unknown): BadgeTone {
   return TYPE_TONE[String(value).toLowerCase()] ?? "neutral";
 }
 
@@ -123,7 +121,7 @@ export const FIREWALL_ORIGIN_TONES: Record<string, string> = {
 export const FIREWALL_ORIGIN_ORDER = ["lists", "CAPI", "cscli", "crowdsec"] as const;
 
 /** The outlined chip the method and level columns use, so the three read alike. */
-export const DECISION_CHIP: Record<BadgeTone, string> = {
+const DECISION_CHIP: Record<BadgeTone, string> = {
   info: "border-info/30 text-info",
   success: "border-success/30 text-success",
   warning: "border-warning/40 text-warning",

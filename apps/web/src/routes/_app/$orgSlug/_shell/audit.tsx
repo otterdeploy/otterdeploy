@@ -39,13 +39,9 @@ import { ROW_TINT } from "@/shared/components/data-table/parts/row-tint";
 import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
 import {
   filterParam,
-  filterValuesOf,
-  parseSort,
-  serializeSort,
   tableSearchSchema,
-  type TableSort,
 } from "@/shared/components/data-table/state/search-schema";
-import { useSearchFilterStore } from "@/shared/components/data-table/state/use-search-store";
+import { useTableSurface } from "@/shared/components/data-table/state/use-table-surface";
 import { Button } from "@/shared/components/ui/button";
 import { client } from "@/shared/server/orpc";
 
@@ -76,39 +72,19 @@ function AuditRoute() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
 
-  const filters = useMemo(() => filterValuesOf(search, auditFilterSpecs), [search]);
-
-  const onChange = useCallback(
+  const onSearchChange = useCallback(
     (patch: Record<string, unknown>) => {
       void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
     },
     [navigate],
   );
 
-  const store = useSearchFilterStore({
+  const { filters, store, sort, onSortChange, openRowId, onOpenRow } = useTableSurface({
     tableId: "audit",
     specs: auditFilterSpecs,
-    values: filters,
-    onChange,
+    search,
+    onSearchChange,
   });
-
-  const sort = parseSort(search.sort);
-  const onSortChange = useCallback(
-    (next: TableSort | null) => {
-      void navigate({
-        search: (prev) => ({ ...prev, sort: serializeSort(next) }),
-        replace: true,
-      });
-    },
-    [navigate],
-  );
-
-  const onOpenRow = useCallback(
-    (rowId: string | null) => {
-      void navigate({ search: (prev) => ({ ...prev, row: rowId ?? undefined }), replace: true });
-    },
-    [navigate],
-  );
 
   /**
    * The zone the SERVER buckets and day-bounds in, and it is the same one the
@@ -169,7 +145,7 @@ function AuditRoute() {
             filters={filters}
             sort={sort}
             onSortChange={onSortChange}
-            openRowId={search.row ?? null}
+            openRowId={openRowId}
             onOpenRow={onOpenRow}
             timeKey="at"
             live

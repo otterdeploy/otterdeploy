@@ -55,7 +55,7 @@ const TICK_FORMATS = {
  * The rungs are chosen so that adjacent ticks can actually differ: dates once
  * the window is longer than a day and a half, the year once it outlives one.
  */
-export function tickFormatFor(spanMs: number): (value: number) => string {
+function tickFormatFor(spanMs: number): (value: number) => string {
   if (spanMs <= 36 * HOUR_MS) return TICK_FORMATS.clock;
   if (spanMs <= 10 * DAY_MS) return TICK_FORMATS.dayClock;
   if (spanMs <= 365 * DAY_MS) return TICK_FORMATS.day;

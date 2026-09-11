@@ -18,7 +18,7 @@
 import type { EdgeAccessFeedRow } from "@otterdeploy/api/routers/edge-logs/contract";
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { edgeAccessFilterSpecs } from "@otterdeploy/api/routers/edge-logs/access-table";
 import { Temporal } from "@otterdeploy/shared/temporal";
@@ -35,14 +35,8 @@ import {
 import { DataTable } from "@/shared/components/data-table/data-table";
 import { downloadCsv, toCsv } from "@/shared/components/data-table/export-csv";
 import { ROW_TINT } from "@/shared/components/data-table/parts/row-tint";
-import {
-  filterValuesOf,
-  parseSort,
-  serializeSort,
-  type TableSort,
-} from "@/shared/components/data-table/state/search-schema";
 import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
-import { useSearchFilterStore } from "@/shared/components/data-table/state/use-search-store";
+import { useTableSurface } from "@/shared/components/data-table/state/use-table-surface";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { LOG_ZONE } from "@/shared/lib/clock";
 import { client } from "@/shared/server/orpc";
@@ -79,27 +73,14 @@ export function EdgeAccessTable({ projectId, search, onSearchChange }: EdgeAcces
   const [collection, setCollection] = useState<Collection | null>(null);
   const { bannedIps, blockIp, blockAll, canBlock } = useEdgeBans();
 
-  const filters = useMemo(() => filterValuesOf(search, edgeAccessFilterSpecs), [search]);
-
-  const store = useSearchFilterStore({
-    // Per scope, so a project's remembered columns and widths are its own —
-    // the org-wide view and a project's are read at different zoom levels.
+  const { filters, store, sort, onSortChange, openRowId, onOpenRow } = useTableSurface({
+    // Per scope, so a project's remembered columns and widths are its own — the
+    // org-wide view and a project's are read at different zoom levels.
     tableId: projectId ? `edge-access:${projectId}` : "edge-access",
     specs: edgeAccessFilterSpecs,
-    values: filters,
-    onChange: onSearchChange,
+    search,
+    onSearchChange,
   });
-
-  const sort = parseSort(typeof search.sort === "string" ? search.sort : undefined);
-  const onSortChange = useCallback(
-    (next: TableSort | null) => onSearchChange({ sort: serializeSort(next) }),
-    [onSearchChange],
-  );
-
-  const onOpenRow = useCallback(
-    (rowId: string | null) => onSearchChange({ row: rowId ?? undefined }),
-    [onSearchChange],
-  );
 
   const fetchPage = useCallback(
     async (input: FeedInput) => {
@@ -138,8 +119,6 @@ export function EdgeAccessTable({ projectId, search, onSearchChange }: EdgeAcces
     [bannedIps, blockIp, canBlock],
   );
 
-  const openRow = typeof search.row === "string" ? search.row : null;
-
   return (
     <FilterStoreProvider store={store}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -157,7 +136,7 @@ export function EdgeAccessTable({ projectId, search, onSearchChange }: EdgeAcces
           filters={filters}
           sort={sort}
           onSortChange={onSortChange}
-          openRowId={openRow}
+          openRowId={openRowId}
           onOpenRow={onOpenRow}
           timeKey="ts"
           live

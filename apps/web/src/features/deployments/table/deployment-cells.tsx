@@ -99,7 +99,7 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   removed: "neutral",
 };
 
-export function deploymentStatusTone(value: unknown): BadgeTone {
+function deploymentStatusTone(value: unknown): BadgeTone {
   return STATUS_TONE[String(value)] ?? "neutral";
 }
 
@@ -232,6 +232,6 @@ export function DeploymentResource({ row }: { row: DeploymentRow }) {
  */
 const CURRENT_STATUSES = new Set(["running", "starting", "crashed", "paused"]);
 
-export function isCurrent(row: DeploymentRow): boolean {
+function isCurrent(row: DeploymentRow): boolean {
   return row.isLatest && CURRENT_STATUSES.has(row.status);
 }

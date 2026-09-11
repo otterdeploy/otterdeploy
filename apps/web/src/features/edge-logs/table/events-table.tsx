@@ -16,7 +16,7 @@
 
 import type { EdgeEventFeedRow } from "@otterdeploy/api/routers/edge-logs/contract";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { edgeEventFilterSpecs } from "@otterdeploy/api/routers/edge-logs/events-table";
 import { getRouteApi } from "@tanstack/react-router";
@@ -31,14 +31,8 @@ import {
 } from "@/features/edge-logs/table/events-columns";
 import { DataTable } from "@/shared/components/data-table/data-table";
 import { ROW_TINT } from "@/shared/components/data-table/parts/row-tint";
-import {
-  filterValuesOf,
-  parseSort,
-  serializeSort,
-  type TableSort,
-} from "@/shared/components/data-table/state/search-schema";
 import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
-import { useSearchFilterStore } from "@/shared/components/data-table/state/use-search-store";
+import { useTableSurface } from "@/shared/components/data-table/state/use-table-surface";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { LOG_ZONE } from "@/shared/lib/clock";
 import { client } from "@/shared/server/orpc";
@@ -76,36 +70,19 @@ export function EdgeEventsTable() {
   const navigate = routeApi.useNavigate();
   const [collection, setCollection] = useState<Collection | null>(null);
 
-  const filters = useMemo(() => filterValuesOf(search, edgeEventFilterSpecs), [search]);
-
-  const onChange = useCallback(
+  const onSearchChange = useCallback(
     (patch: Record<string, unknown>) => {
       void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
     },
     [navigate],
   );
 
-  const store = useSearchFilterStore({
+  const { filters, store, sort, onSortChange, openRowId, onOpenRow } = useTableSurface({
     tableId: "edge-events",
     specs: edgeEventFilterSpecs,
-    values: filters,
-    onChange,
+    search,
+    onSearchChange,
   });
-
-  const sort = parseSort(search.sort);
-  const onSortChange = useCallback(
-    (next: TableSort | null) => {
-      void navigate({ search: (prev) => ({ ...prev, sort: serializeSort(next) }), replace: true });
-    },
-    [navigate],
-  );
-
-  const onOpenRow = useCallback(
-    (rowId: string | null) => {
-      void navigate({ search: (prev) => ({ ...prev, row: rowId ?? undefined }), replace: true });
-    },
-    [navigate],
-  );
 
   const fetchPage = useCallback(async (input: FeedInput) => {
     const page = await client.edgeLogs.events.feed({
@@ -143,7 +120,7 @@ export function EdgeEventsTable() {
           filters={filters}
           sort={sort}
           onSortChange={onSortChange}
-          openRowId={search.row ?? null}
+          openRowId={openRowId}
           onOpenRow={onOpenRow}
           timeKey="ts"
           live

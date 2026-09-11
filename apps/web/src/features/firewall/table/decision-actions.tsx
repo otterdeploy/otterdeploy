@@ -49,7 +49,7 @@ import { cn } from "@/shared/lib/utils";
  * empty table then means "we cannot see" rather than "nothing happened", and
  * only this chip can tell the two apart.
  */
-export function LapiStatus({ reachable }: { reachable: boolean | undefined }) {
+function LapiStatus({ reachable }: { reachable: boolean | undefined }) {
   if (reachable === undefined) {
     return (
       <span className="shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">

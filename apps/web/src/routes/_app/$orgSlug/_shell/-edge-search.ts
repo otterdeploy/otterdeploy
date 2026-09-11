@@ -8,6 +8,7 @@
 
 import * as z from "zod";
 
+import { edgeAccessSearchParams } from "@/features/edge-logs/table/access-search";
 import {
   filterParam,
   tableSearchSchema,
@@ -16,11 +17,11 @@ import {
 /** Top-level planes. `caddy` groups the proxy's own facets (config / events /
  *  certs) behind a left sidebar; access logs land first because that's what
  *  people open this page for. */
-export const EDGE_TABS = ["logs", "caddy", "firewall"] as const;
+const EDGE_TABS = ["logs", "caddy", "firewall"] as const;
 export type EdgeTab = (typeof EDGE_TABS)[number];
 
 /** Sidebar panes inside the Caddy tab. */
-export const CADDY_PANES = ["config", "events", "certs"] as const;
+const CADDY_PANES = ["config", "events", "certs"] as const;
 export type CaddyPane = (typeof CADDY_PANES)[number];
 
 export function isEdgeTab(value: string): value is EdgeTab {
@@ -51,29 +52,17 @@ export const zEdgeSearch = z.object({
   tab: z.enum(EDGE_SEARCH_TABS).catch("logs"),
   pane: z.enum(CADDY_PANES).optional().catch(undefined),
   ...tableSearchSchema({
-    // Shared by both tables on this route: `ts` is a timerange on each, `q` a
-    // text box on each. Everything else is one table's or the other's, and
-    // `setTab` / `setPane` replace the whole bag on the way out, so leaving a
-    // pane drops its filters rather than carrying them somewhere they mean
-    // nothing.
-    ts: filterParam.timerange(),
+    // Access logs, which also brings `ts` — a timerange on both tables.
+    ...edgeAccessSearchParams,
+    // The table-wide search, meaning the same thing on each.
     q: filterParam.text(),
-    // Caddy events.
+    // Caddy events. `setTab` / `setPane` replace the whole bag on the way out,
+    // so leaving a pane drops its filters rather than carrying keys into a
+    // table that does not have them.
     level: filterParam.checkbox(),
     category: filterParam.checkbox(),
     hosts: filterParam.checkbox(),
     logger: filterParam.checkbox(),
-    // Access logs.
-    method: filterParam.checkbox(),
-    status: filterParam.checkbox(),
-    statusClass: filterParam.checkbox(),
-    host: filterParam.checkbox(),
-    clientIp: filterParam.checkbox(),
-    country: filterParam.checkbox(),
-    upstream: filterParam.checkbox(),
-    cache: filterParam.checkbox(),
-    latencyMs: filterParam.range(),
-    suspicious: filterParam.checkbox(),
   }).shape,
 });
 
