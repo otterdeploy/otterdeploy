@@ -24,10 +24,43 @@ import {
   rankedByCount,
   type Segment,
 } from "@/shared/components/data-table/parts/histogram-tooltip";
-import { CLOCK_MINUTES, CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+import {
+  CLOCK_DATE,
+  CLOCK_DAY,
+  CLOCK_MINUTES,
+  CLOCK_STAMP,
+  utcFormatter,
+} from "@/shared/lib/clock";
 
-const tick = clockFormatter(CLOCK_MINUTES);
-const stamp = clockFormatter(CLOCK_STAMP);
+const stamp = utcFormatter(CLOCK_STAMP);
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
+
+/** One rung per readable granularity, built once — the axis formats every tick
+ *  on every render. */
+const TICK_FORMATS = {
+  clock: utcFormatter(CLOCK_MINUTES),
+  dayClock: utcFormatter(CLOCK_STAMP),
+  day: utcFormatter(CLOCK_DAY),
+  date: utcFormatter(CLOCK_DATE),
+} as const;
+
+/**
+ * The tick format the axis's own span earns.
+ *
+ * A fixed `HH:mm` was the bug: an audit log bucketed by DAY put a tick on every
+ * midnight, so a five-week axis read `02:00 02:00 02:00 02:00 02:00` — five
+ * identical labels under bars that were weeks apart, which is not a scale.
+ * The rungs are chosen so that adjacent ticks can actually differ: dates once
+ * the window is longer than a day and a half, the year once it outlives one.
+ */
+function tickFormatFor(spanMs: number): (value: number) => string {
+  if (spanMs <= 36 * HOUR_MS) return TICK_FORMATS.clock;
+  if (spanMs <= 10 * DAY_MS) return TICK_FORMATS.dayClock;
+  if (spanMs <= 365 * DAY_MS) return TICK_FORMATS.day;
+  return TICK_FORMATS.date;
+}
 
 /** Where the tooltip may sit, in order of preference. */
 const TOOLTIP_PLACEMENT = ["top", "right", "left", "bottom"] as const;
@@ -43,10 +76,16 @@ export interface HistogramChartParams {
   defaultTone: string;
   parked: BrushRange<number> | null;
   onPark: (range: BrushRange<number>) => void;
+  /** Width of one bucket, so the axis knows what the last tick covers. */
+  bucketMs: number;
 }
 
 export function useHistogramDefinition(params: HistogramChartParams) {
-  const { segments, starts, categories, tones, defaultTone, parked, onPark } = params;
+  const { segments, starts, categories, tones, defaultTone, parked, onPark, bucketMs } = params;
+  const first = starts[0];
+  const last = starts[starts.length - 1];
+  const spanMs = first === undefined || last === undefined ? bucketMs : last - first + bucketMs;
+  const tick = tickFormatFor(spanMs);
   return useMemo(
     () =>
       defineChart({
@@ -102,6 +141,6 @@ export function useHistogramDefinition(params: HistogramChartParams) {
           }),
         ],
       }),
-    [segments, starts, categories, tones, defaultTone, parked, onPark],
+    [segments, starts, categories, tones, defaultTone, parked, onPark, tick],
   );
 }

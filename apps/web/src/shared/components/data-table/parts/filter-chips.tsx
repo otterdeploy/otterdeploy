@@ -18,9 +18,9 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { isActive } from "@otterdeploy/shared/table-filters";
 
 import { useFilterActions, useFilterValues } from "@/shared/components/data-table/state/store";
-import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+import { CLOCK_STAMP, utcFormatter } from "@/shared/lib/clock";
 
-const stamp = clockFormatter(CLOCK_STAMP);
+const stamp = utcFormatter(CLOCK_STAMP);
 
 /** Beyond this many members a chip names the count instead of the values. */
 const MAX_MEMBERS = 3;

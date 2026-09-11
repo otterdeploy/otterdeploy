@@ -17,11 +17,15 @@ export function useEdgeBans() {
   const canBlock = useCanBlock();
   return {
     bannedIps: useBannedIps(canBlock),
-    /** Ban one address for the default 30 days. */
-    blockIp: (ip: string) => blockIps([ip]),
+    /**
+     * Ban one address. `hours` undefined takes `blockIps`' default 30 days —
+     * there is one list of ban lengths in the app (`BAN_DURATIONS`) and one
+     * default, and this is not the place to introduce a second.
+     */
+    blockIp: (ip: string, hours?: number) => blockIps([ip], hours),
     /** Ban a whole sweep in one transaction; the server drops any address
      *  someone is signed in from and reports how many it skipped. */
-    blockAll: (ips: readonly string[]) => blockIps(ips),
+    blockAll: (ips: readonly string[], hours?: number) => blockIps(ips, hours),
     /** Callers omit the block affordance entirely when this is false. */
     canBlock,
   };

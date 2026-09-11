@@ -20,12 +20,21 @@ import type { ReactNode } from "react";
 export type Display =
   /** Sans, truncated, full value on hover. */
   | { type: "text" }
-  /** Mono — ids, hashes, paths, IPs, env keys. */
-  | { type: "code" }
+  /**
+   * Mono — ids, hashes, paths, IPs, env keys.
+   *
+   * `tone` tints the text. Unlike `state` it carries no dot, and it does not
+   * need one: the value IS the label. "GET", "404" and "DELETE" are read as
+   * words, and the colour only says again, faster, what the word already says
+   * — which is the line DESIGN.md's never-colour-alone rule actually draws.
+   */
+  | { type: "code"; tone?: (value: unknown) => BadgeTone }
   /** Mono, tabular figures, trailing-aligned, with an optional unit. */
   | { type: "number"; unit?: string }
   /** Relative ("3m ago") with the exact instant on hover. */
   | { type: "instant" }
+  /** A wall clock, for feeds whose rows arrive seconds apart. */
+  | { type: "clock" }
   /** A pill. `tone` maps a value to the semantic vocabulary. */
   | { type: "badge"; tone?: (value: unknown) => BadgeTone }
   /** A dot plus a label — state that never depends on colour alone. */
@@ -42,6 +51,15 @@ export interface FilterDeclaration {
   type: FilterType;
   /** Checkbox options. Server facets fill this in when it is omitted. */
   options?: readonly { label: string; value: Scalar }[];
+  /**
+   * Render an option in the sidebar.
+   *
+   * The facet only knows the raw value, so a column whose values READ as
+   * something richer — a country code as a flag, a status code with its band —
+   * says so here. The plain label is still what the option search matches on,
+   * because a reader types "US", not an emoji.
+   */
+  optionLabel?: (value: Scalar) => ReactNode;
   /** Slider bounds. */
   min?: number;
   max?: number;
@@ -94,7 +112,21 @@ export interface DataTableColumn<TRow> {
    * Show in the row-detail sheet. `false` keeps it out; an object overrides how
    * it renders there. Defaults to shown for every non-gutter column.
    */
-  sheet?: false | { label?: string; render?: (row: TRow) => ReactNode };
+  sheet?:
+    | false
+    | {
+        label?: string;
+        render?: (row: TRow) => ReactNode;
+        /**
+         * The value is a BLOCK — a pre, a table of headers, a stack trace.
+         *
+         * Those do not belong in the label/value/copy row the other fields
+         * share: a 140px-tall block in a 180px column, with its label floating
+         * at the block's baseline, reads as a broken row rather than as a
+         * field. A block field puts its label above and takes the full width.
+         */
+        block?: boolean;
+      };
   headerClassName?: string;
   cellClassName?: string;
 }
@@ -121,7 +153,9 @@ export function defaultDisplay(kind: ColKind): Display {
  *
  * Generated from the same declaration the UI renders from, so a filter cannot
  * mean one thing in the sidebar and another in the WHERE clause. Pass
- * `timeZone` so a lone date means the viewer's day rather than UTC's.
+ * `timeZone` names the zone a lone date is bounded in. Pass `LOG_ZONE`: it has
+ * to match the zone the rows PRINT in, or a picked day selects rows the table
+ * labels as the day before.
  */
 export function toFilterSpecs<TRow>(
   columns: readonly DataTableColumn<TRow>[],

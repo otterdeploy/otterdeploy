@@ -17,7 +17,7 @@ import { auditLog } from "@otterdeploy/db/schema";
 import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import { eq, isNull, or, type SQL } from "drizzle-orm";
 
-import { computeHistogram, createFeedHandler, discoverRange } from "../../lib/table";
+import { createFeedHandler, feedResponse } from "../../lib/table";
 import { auditColumnMap, auditExtraSelect, auditFilters } from "./table";
 
 type AuditRow = typeof auditLog.$inferSelect;
@@ -127,47 +127,14 @@ export async function runAuditFeed(input: AuditFeedInput, orgId: string) {
     includeFacets: input.includeFacets,
   });
 
-  const items = page.rows.map(toFeedRow);
-
-  if (!input.includeFacets) {
-    return {
-      items,
-      nextCursor: page.nextCursor,
-      prevCursor: page.prevCursor,
-      // Null, not a stand-in: this page did not ask, so it does not know.
-      totalRowCount: null,
-      filterRowCount: null,
-      facets: {},
-    };
-  }
-
-  // The histogram runs over the SAME predicates the page came from, so the bars
-  // and the rows can never be describing two different queries.
-  const range = await discoverRange({
+  const response = await feedResponse(page, {
     db,
     table: auditLog,
-    column: auditLog.timestamp,
-    where: page.where,
+    timeColumn: auditLog.timestamp,
+    categoryColumn: auditLog.outcome,
+    includeFacets: input.includeFacets,
+    toItem: toFeedRow,
   });
 
-  const histogram = range
-    ? await computeHistogram({
-        db,
-        table: auditLog,
-        timeColumn: auditLog.timestamp,
-        categoryColumn: auditLog.outcome,
-        where: page.where,
-        range,
-      })
-    : undefined;
-
-  return {
-    items,
-    nextCursor: page.nextCursor,
-    prevCursor: page.prevCursor,
-    totalRowCount: page.totalRowCount,
-    filterRowCount: page.filterRowCount,
-    facets: page.facets,
-    ...(histogram ? { histogram } : {}),
-  };
+  return response;
 }

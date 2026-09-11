@@ -39,11 +39,11 @@ export function DataStructureToggle({ t }: { t: TableController }) {
       onValueChange={([v]) =>
         (v === "data" || v === "structure" || v === "definitions") && t.setTableView(v)
       }
-      className="gap-0.5"
+      className="shrink-0 gap-0.5"
     >
       <ToggleGroupItem value="data" aria-label="Data view" className="h-6 gap-1 px-1.5 text-[11px]">
         <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3" />
-        Data
+        <ToolbarLabel>Data</ToolbarLabel>
       </ToggleGroupItem>
       <ToggleGroupItem
         value="structure"
@@ -51,7 +51,7 @@ export function DataStructureToggle({ t }: { t: TableController }) {
         className="h-6 gap-1 px-1.5 text-[11px]"
       >
         <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} className="size-3" />
-        Structure
+        <ToolbarLabel>Structure</ToolbarLabel>
       </ToggleGroupItem>
       {/* Whole-database rather than per-table: "which unused index is costing
           me writes" is a question about the database, not about a table. */}
@@ -61,9 +61,31 @@ export function DataStructureToggle({ t }: { t: TableController }) {
         className="h-6 gap-1 px-1.5 text-[11px]"
       >
         <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3" />
-        Definitions
+        <ToolbarLabel>Definitions</ToolbarLabel>
       </ToggleGroupItem>
     </ToggleGroup>
+  );
+}
+
+/**
+ * A control's word, dropped when the toolbar has no room for it.
+ *
+ * `sr-only` rather than `hidden`: the text IS the button's accessible name, so
+ * removing it from the tree would leave a nameless icon. Keyed to the toolbar's
+ * container (`/results`) and not the viewport, because this bar lives beside a
+ * rail inside a split pane — the window's width tells it nothing.
+ */
+function ToolbarLabel({ children }: { children: React.ReactNode }) {
+  return <span className="@max-3xl/results:sr-only">{children}</span>;
+}
+
+/** The count on a control, kept when its word is dropped. One badge, the same
+ *  one the shared data table's Filters button uses. */
+function ToolbarCount({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-primary/10 px-1.5 font-mono text-[10px] text-primary tabular-nums">
+      {children}
+    </span>
   );
 }
 
@@ -87,10 +109,12 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
           <Button
             variant={activeFilterCount ? "secondary" : "outline"}
             size="sm"
-            className="h-6 gap-1.5"
+            aria-label="Filters"
+            className="h-6 shrink-0 gap-1.5"
           >
             <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-3.5" />
-            Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
+            <ToolbarLabel>Filters</ToolbarLabel>
+            {activeFilterCount ? <ToolbarCount>{activeFilterCount}</ToolbarCount> : null}
           </Button>
         }
       />
@@ -103,31 +127,40 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
           <Button
             variant={t.hiddenColumns.length ? "secondary" : "outline"}
             size="sm"
-            className="h-6 gap-1.5"
+            aria-label="Columns"
+            className="h-6 shrink-0 gap-1.5"
           >
             <HugeiconsIcon icon={ViewIcon} strokeWidth={2} className="size-3.5" />
-            Columns{t.hiddenColumns.length ? ` · ${visibleCount}/${resultColumns.length}` : ""}
+            <ToolbarLabel>Columns</ToolbarLabel>
+            {t.hiddenColumns.length ? (
+              <ToolbarCount>
+                {visibleCount}/{resultColumns.length}
+              </ToolbarCount>
+            ) : null}
           </Button>
         }
       />
-      {/* Everything above narrows what you SEE; everything below changes it or
-          takes you elsewhere. The gap is the separation — same split, and the
-          same button weight, as the approved layout. */}
-      <span className="flex-1" />
+      {/* Everything left of this narrows what you SEE; everything right of it
+          changes the data or takes you elsewhere. A drawn rule, not the elastic
+          `flex-1` gap this replaces: that gap collapsed to nothing exactly when
+          the toolbar was crowded — the moment the separation was worth making —
+          and it also defeated the scroll container the row now lives in. */}
+      <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
 
       <Tooltip>
         <TooltipTrigger
           render={
-            <span className="inline-flex">
+            <span className="inline-flex shrink-0">
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 gap-1.5"
+                aria-label="Insert a row"
+                className="h-6 shrink-0 gap-1.5"
                 disabled={!canAdd}
                 onClick={() => setAddOpen(true)}
               >
                 <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-                Row
+                <ToolbarLabel>Row</ToolbarLabel>
               </Button>
             </span>
           }
@@ -140,9 +173,15 @@ export function TableActions({ studio }: { studio: DataStudioController }) {
               : "The table needs a primary key for safe writes."}
         </TooltipContent>
       </Tooltip>
-      <Button variant="outline" size="sm" className="h-6 gap-1.5" onClick={studio.openInSql}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label="Open in SQL"
+        className="h-6 shrink-0 gap-1.5"
+        onClick={studio.openInSql}
+      >
         <HugeiconsIcon icon={SourceCodeIcon} strokeWidth={2} className="size-3.5" />
-        Open in SQL
+        <ToolbarLabel>Open in SQL</ToolbarLabel>
       </Button>
 
       <AddRecordDialog

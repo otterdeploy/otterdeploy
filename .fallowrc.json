@@ -12,6 +12,13 @@
     "apps/server/src/health-agent.ts",
     // TanStack Start server entry.
     "apps/www/src/start.ts",
+    // The live-log table preview harness. A SECOND Vite HTML entry
+    // (apps/web/preview.html), which is not `apps/web`'s package.json main and
+    // so is invisible to the static graph — the same reason build-one.ts and
+    // health-agent.ts are listed. Without it every column declaration the
+    // preview is the only caller of reads as an unused file, and the surfaces
+    // still waiting to be migrated are exactly those.
+    "apps/web/src/preview/main.tsx",
     // One-shot operator/CI scripts, invoked by path from package.json scripts.
     "scripts/**/*.{ts,js,mjs}",
     "apps/*/scripts/**/*.{ts,js,mjs}",

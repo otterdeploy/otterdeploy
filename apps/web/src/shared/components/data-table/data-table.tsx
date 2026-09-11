@@ -91,6 +91,14 @@ export interface DataTableProps<TRow extends RowData> {
   actions?: React.ReactNode | ((context: { rows: TRow[]; isFetching: boolean }) => React.ReactNode);
   /** Extra content in the row-detail sheet, under the fields. */
   sheetExtra?: (row: TRow) => React.ReactNode;
+  /**
+   * Per-row actions, in a trailing column — unblock, cancel, roll back.
+   *
+   * A render prop for the same reason `actions` is: these are mutations, and a
+   * mutation needs a hook and an invalidation that a static column declaration
+   * cannot hold. Define it with `useCallback` so the column set is stable.
+   */
+  rowActions?: (row: TRow) => React.ReactNode;
   /** Dims rows behind a live tail, or marks failures. */
   rowClassName?: (row: TRow) => string | undefined;
   className?: string;
@@ -133,6 +141,7 @@ export function DataTable<TRow extends RowData>({
   emptyDescription,
   actions,
   sheetExtra,
+  rowActions,
   rowClassName,
   className,
 }: DataTableProps<TRow>) {
@@ -157,7 +166,10 @@ export function DataTable<TRow extends RowData>({
   const isLive = live && isTailing(store.getValues(), timeKey);
   const tail = useLiveTail({ enabled: isLive, fetchPreviousPage: fetchPrevious });
 
-  const columns = useMemo(() => buildColumns(declaration), [declaration]);
+  const columns = useMemo(
+    () => buildColumns(declaration, rowActions ? { rowActions } : undefined),
+    [declaration, rowActions],
+  );
   const { table, prefs } = useDataTable({
     columns,
     schema: declaration,
@@ -248,6 +260,7 @@ export function DataTable<TRow extends RowData>({
             emptyTitle={emptyTitle}
             emptyDescription={emptyDescription}
             rowClassName={combinedRowClassName}
+            isLive={isLive}
           />
         </div>
       </div>

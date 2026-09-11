@@ -13,9 +13,9 @@
 import type { ChartPoint } from "@tanstack/charts";
 
 import { TooltipRow, TooltipTotal } from "@/shared/components/charts/tooltip-row";
-import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+import { CLOCK_STAMP, utcFormatter } from "@/shared/lib/clock";
 
-const stamp = clockFormatter(CLOCK_STAMP);
+const stamp = utcFormatter(CLOCK_STAMP);
 
 /** One bar segment: a bucket, a category, and its count. */
 export interface Segment {

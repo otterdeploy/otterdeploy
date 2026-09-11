@@ -20,6 +20,8 @@ import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { auditFilterSpecs } from "@otterdeploy/api/routers/audit/table";
 import { Temporal } from "@otterdeploy/shared/temporal";
+
+import { LOG_ZONE } from "@/shared/lib/clock";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
@@ -31,18 +33,15 @@ import {
   AUDIT_OUTCOME_ORDER,
   AUDIT_OUTCOME_TONES,
 } from "@/features/audit/table/columns";
-import { Page, PageHeader } from "@/shared/components/page";
+import { PageHeader } from "@/shared/components/page";
 import { DataTable } from "@/shared/components/data-table/data-table";
+import { ROW_TINT } from "@/shared/components/data-table/parts/row-tint";
 import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
 import {
   filterParam,
-  filterValuesOf,
-  parseSort,
-  serializeSort,
   tableSearchSchema,
-  type TableSort,
 } from "@/shared/components/data-table/state/search-schema";
-import { useSearchFilterStore } from "@/shared/components/data-table/state/use-search-store";
+import { useTableSurface } from "@/shared/components/data-table/state/use-table-surface";
 import { Button } from "@/shared/components/ui/button";
 import { client } from "@/shared/server/orpc";
 
@@ -73,45 +72,30 @@ function AuditRoute() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
 
-  const filters = useMemo(() => filterValuesOf(search, auditFilterSpecs), [search]);
-
-  const onChange = useCallback(
+  const onSearchChange = useCallback(
     (patch: Record<string, unknown>) => {
       void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
     },
     [navigate],
   );
 
-  const store = useSearchFilterStore({
+  const { filters, store, sort, onSortChange, openRowId, onOpenRow } = useTableSurface({
     tableId: "audit",
     specs: auditFilterSpecs,
-    values: filters,
-    onChange,
+    search,
+    onSearchChange,
   });
 
-  const sort = parseSort(search.sort);
-  const onSortChange = useCallback(
-    (next: TableSort | null) => {
-      void navigate({
-        search: (prev) => ({ ...prev, sort: serializeSort(next) }),
-        replace: true,
-      });
-    },
-    [navigate],
-  );
-
-  const onOpenRow = useCallback(
-    (rowId: string | null) => {
-      void navigate({ search: (prev) => ({ ...prev, row: rowId ?? undefined }), replace: true });
-    },
-    [navigate],
-  );
-
   /**
-   * The viewer's own zone travels with the request, so a lone date means the
-   * day the reader is having rather than UTC's.
+   * The zone the SERVER buckets and day-bounds in, and it is the same one the
+   * table prints — see `LOG_ZONE`.
+   *
+   * It used to be the viewer's. That made a lone date mean the reader's day,
+   * which sounds friendlier and was in fact the bug: the histogram bucketed on
+   * Berlin midnight while the rows printed a UTC clock, so a bar and the rows
+   * under it disagreed about which day they belonged to.
    */
-  const timeZone = Temporal.Now.timeZoneId();
+  const timeZone = LOG_ZONE;
 
   const fetchPage = useCallback(
     (input: FeedInput) =>
@@ -128,13 +112,30 @@ function AuditRoute() {
   );
 
   return (
-    <Page className="min-h-0">
+    /**
+     * An instrument surface, not a page with a table on it.
+     *
+     * This used to be `<Page>` — a 24px gutter, a `gap-6`, and the table inside
+     * a rounded ring — with no height bound on any of it. Three things followed
+     * and all three were visible: the table grew to its content (2,247px for a
+     * page told to be `min-h-0`), so the WINDOW scrolled instead of the rows,
+     * taking the toolbar and the histogram off-screen; the filter rail grew with
+     * it, so its `border-r` ran 1,980px down the page past everything it was
+     * meant to divide; and the gutter meant that rail's edge, the toolbar's
+     * bottom rule and the histogram's all stopped at three different places.
+     *
+     * Bounded to the viewport and full-bleed, the rules meet: the rail's border
+     * runs exactly as far as the rows beside it, and each region scrolls itself.
+     * The same exception Terminal and Edge logs take, for the same reason.
+     */
+    <div className="flex h-[calc(100svh-var(--header-height))] min-h-0 min-w-0 flex-col overflow-hidden">
       <PageHeader
         title="Audit log"
         description="Append-only record of every administrative action across this workspace, including denials."
+        className="shrink-0 px-4 py-4 sm:px-6 sm:py-5"
       />
       <FilterStoreProvider store={store}>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg ring-1 ring-foreground/10">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-t">
           <DataTable<AuditFeedRow>
             columns={auditColumns}
             queryKey={["audit", "feed"]}
@@ -144,7 +145,7 @@ function AuditRoute() {
             filters={filters}
             sort={sort}
             onSortChange={onSortChange}
-            openRowId={search.row ?? null}
+            openRowId={openRowId}
             onOpenRow={onOpenRow}
             timeKey="at"
             live
@@ -154,13 +155,13 @@ function AuditRoute() {
             searchPlaceholder="Search actions, actors, targets"
             emptyTitle="No audit events yet"
             emptyDescription="Mutations and denials appear here as they happen."
-            rowClassName={(row) => (row.outcome === "denied" ? "bg-destructive/[0.04]" : undefined)}
+            rowClassName={(row) => (row.outcome === "denied" ? ROW_TINT.danger : undefined)}
             actions={({ rows }) => <ExportButton rows={rows} />}
             sheetExtra={(row) => <AuditCorrelated row={row} onOpenRow={onOpenRow} />}
           />
         </div>
       </FilterStoreProvider>
-    </Page>
+    </div>
   );
 }
 

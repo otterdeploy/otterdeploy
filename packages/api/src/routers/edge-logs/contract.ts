@@ -8,6 +8,8 @@ import { eventIterator, oc } from "@orpc/contract";
 import { zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { feedInput, feedOutput } from "../../lib/table";
+
 const tag = "edge-logs";
 
 const edgeLogLineSchema = z.object({
@@ -341,7 +343,131 @@ const edgeEventQueryResultSchema = z.object({
   sinkConfigured: z.boolean(),
 });
 
+/**
+ * One row of the access feed.
+ *
+ * Keyed by FILTER KEYS, because the projection on the server IS the column map
+ * (see `access-table.ts`). `ts` is epoch milliseconds rather than an ISO
+ * string: it is the cursor, the histogram's bucket key and the sort key, and
+ * every one of those wants a number.
+ *
+ * `statusClass` and `suspicious` are DERIVED — compiled from SQL expressions,
+ * not stored. They travel on the row rather than being recomputed per render
+ * because they are filter keys, and the server's WHERE and the client's
+ * evaluator only agree if the value itself makes the trip.
+ */
+const edgeAccessFeedRowSchema = z.object({
+  id: z.string(),
+  ts: z.number(),
+  method: z.string(),
+  status: z.number(),
+  /** `2xx` | `3xx` | `4xx` | `5xx`. */
+  statusClass: z.string(),
+  host: z.string(),
+  path: z.string(),
+  clientIp: z.string(),
+  country: z.string().nullable(),
+  upstream: z.string().nullable(),
+  cache: z.string().nullable(),
+  latencyMs: z.number(),
+  userAgent: z.string(),
+  referer: z.string(),
+  /** `yes` when the path matches a scanner-probe rule. See edge-logs/threat.ts. */
+  suspicious: z.string(),
+  tlsVersion: z.string().nullable(),
+  tlsCipher: z.string().nullable(),
+  reqBytes: z.number(),
+  resBytes: z.number(),
+  requestId: z.string().nullable(),
+  headers: z.record(z.string(), z.string()),
+});
+
+export type EdgeAccessFeedRow = z.infer<typeof edgeAccessFeedRowSchema>;
+
+const edgeAccessFeedInput = feedInput.extend({
+  /** Narrow the host scope to one project's domains. Absent = the whole org. */
+  projectId: zId("prj").optional(),
+});
+
+/** The feed, plus whether this install is recording traffic at all. */
+const edgeAccessFeedOutput = feedOutput(edgeAccessFeedRowSchema).extend({
+  /** False ⇒ EDGE_LOG_SINK is unset: Caddy's access log never reached us. */
+  sinkConfigured: z.boolean(),
+  /** False ⇒ requests arrive, but only into the ring this feed cannot read. */
+  persisting: z.boolean(),
+});
+
+/**
+ * One row of the event feed.
+ *
+ * Keyed by FILTER KEYS, because the projection on the server IS the column map
+ * (see `events-table.ts`). One identity space runs from the URL parameter
+ * through the column definition to the WHERE clause, so nothing translates.
+ *
+ * `ts` is epoch milliseconds rather than an ISO string: it is the cursor, the
+ * histogram's bucket key and the sort key, and every one of those wants a
+ * number.
+ *
+ * `level` and `category` are strings, not the enums above. Both columns are
+ * `text` written by Caddy's own logger, and a row carrying something outside
+ * the vocabulary is a row to report, not one to relabel. The FILTER is held to
+ * the declared set; see `edgeEventFilterSpecs`.
+ *
+ * `hosts` is what the row is attributable to AND the caller owns — the key the
+ * host filter is over. `domains` is the raw batch list, narrowed to the same
+ * owned set.
+ */
+const edgeEventFeedRowSchema = z.object({
+  id: z.string(),
+  ts: z.number(),
+  level: z.string(),
+  category: z.string(),
+  logger: z.string(),
+  msg: z.string(),
+  host: z.string().nullable(),
+  hosts: z.array(z.string()),
+  domains: z.array(z.string()),
+  upstream: z.string().nullable(),
+  error: z.string().nullable(),
+  raw: z.string(),
+});
+
+export type EdgeEventFeedRow = z.infer<typeof edgeEventFeedRowSchema>;
+
+const edgeEventFeedInput = feedInput.extend({
+  /** Narrow the host scope to one project's domains. Absent = the whole org. */
+  projectId: zId("prj").optional(),
+});
+
+/**
+ * The feed, plus whether this install is collecting events at all.
+ *
+ * Those two booleans are the difference between "nothing happened in this
+ * window" and "nothing has ever been recorded", which an empty table cannot
+ * express on its own — and which no time range the reader tries will fix.
+ */
+const edgeEventFeedOutput = feedOutput(edgeEventFeedRowSchema).extend({
+  /** False ⇒ EDGE_LOG_SINK is unset: Caddy's default logger never reached us. */
+  sinkConfigured: z.boolean(),
+  /** False ⇒ events arrive, but only into the ring this feed cannot read. */
+  persisting: z.boolean(),
+});
+
 export const edgeLogsContract = {
+  /**
+   * The Access logs pane. Filters, facets, histogram and cursor paging over
+   * `edge_log`, from one declaration — see `./access-feed.ts`.
+   */
+  feed: oc
+    .meta({ path: "/edge-logs/feed", tag, method: "POST" })
+    .input(edgeAccessFeedInput)
+    .output(edgeAccessFeedOutput),
+
+  /**
+   * The pre-shell range query: ring-backed, so it still answers when
+   * persistence is off, and it carries the per-host percentile summary the
+   * project metrics overview reads. The Access logs pane no longer calls it.
+   */
   query: oc
     .meta({ path: "/edge-logs", tag, method: "GET" })
     .input(edgeLogQueryInput)
@@ -387,6 +513,22 @@ export const edgeLogsContract = {
   // Operational events (cert/ACME, upstream errors): the second Caddy log
   // plane. Same org host-scope guard as access logs.
   events: {
+    /**
+     * The Events pane. Filters, facets, histogram and cursor paging over
+     * `edge_event`, from one declaration — see `./events-feed.ts`.
+     */
+    feed: oc
+      .meta({ path: "/edge-logs/events/feed", tag, method: "POST" })
+      .input(edgeEventFeedInput)
+      .output(edgeEventFeedOutput),
+
+    /**
+     * The pre-shell range query: ring-backed, so it still answers when
+     * persistence is off. Nothing in the web app calls it since the Events
+     * pane moved onto `feed`; it stays because it is a published REST path and
+     * `tail` beside it backs `otd edge events --follow`. Retiring it is a
+     * deliberate API break, not a cleanup — see od-fqhk.
+     */
     query: oc
       .meta({ path: "/edge-logs/events", tag, method: "GET" })
       .input(edgeEventQueryInput)

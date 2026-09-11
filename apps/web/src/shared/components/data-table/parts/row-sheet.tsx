@@ -21,8 +21,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { DataTableColumn } from "@/shared/components/data-table/schema/types";
 
-import { TextCell } from "@/shared/components/data-table/cells";
 import { CopyButton, copyableText } from "@/shared/components/data-table/parts/copy-value";
+import { renderDisplay } from "@/shared/components/data-table/schema/columns";
 import { columnValue } from "@/shared/components/data-table/schema/read-value";
 import { defaultDisplay } from "@/shared/components/data-table/schema/types";
 import { Button } from "@/shared/components/ui/button";
@@ -158,6 +158,16 @@ export function DataTableRowSheet<TRow extends RowData>({
   );
 }
 
+/**
+ * One field, in one of two layouts chosen by what the value IS.
+ *
+ * A scalar keeps the label/value/copy row: the fixed label column is what lets
+ * a reader run down twenty fields looking for one. A BLOCK — a raw JSON line,
+ * a table of request headers — cannot use it. Squeezed into the value column it
+ * gets ~180px of a 360px sheet, and `items-baseline` pins its label to the
+ * baseline of a 140px-tall block, so the label floats in the middle of nothing
+ * and the row reads as broken.
+ */
 function SheetField<TRow extends RowData>({
   column,
   row,
@@ -166,41 +176,91 @@ function SheetField<TRow extends RowData>({
   row: TRow;
 }) {
   const override = column.sheet === false ? undefined : column.sheet;
+  const label = override?.label ?? column.label;
   const value = columnValue(column, row);
-
   const display = column.display ?? defaultDisplay(column.kind);
-  const isMono = display.type === "code" || display.type === "number";
+  const body = (
+    <div
+      className={cn(
+        "min-w-0 text-[13px]",
+        (display.type === "code" || display.type === "number") && "font-mono",
+      )}
+    >
+      {override?.render ? (
+        override.render(row)
+      ) : column.cell ? (
+        column.cell({ value, row })
+      ) : (
+        // The sheet is where a value stops being a preview: it wraps rather
+        // than truncating, because this is the copy someone is reading. Through
+        // the column's DECLARED display, not `TextCell` for everything — an
+        // instant rendered as text is its epoch number, and an array is a dash.
+        <span className="block break-words whitespace-pre-wrap">
+          {renderDisplay(display, value, true)}
+        </span>
+      )}
+    </div>
+  );
   const copyable = copyableText(value);
 
+  return override?.block === true ? (
+    <BlockField label={label} copyable={copyable}>
+      {body}
+    </BlockField>
+  ) : (
+    <ScalarField label={label} copyable={copyable}>
+      {body}
+    </ScalarField>
+  );
+}
+
+/** Revealed on hover or focus, so a column of buttons does not compete with the
+ *  values it is offering to copy. */
+const REVEAL =
+  "opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100";
+
+function ScalarField({
+  label,
+  copyable,
+  children,
+}: {
+  label: string;
+  copyable: string | null;
+  children: React.ReactNode;
+}) {
   return (
     <div className="group grid grid-cols-[minmax(0,7rem)_1fr_auto] items-baseline gap-3 px-4 py-2.5">
-      <span className="truncate text-xs text-muted-foreground">
-        {override?.label ?? column.label}
-      </span>
-      <div className={cn("min-w-0 text-[13px]", isMono && "font-mono")}>
-        {override?.render ? (
-          override.render(row)
-        ) : column.cell ? (
-          column.cell({ value, row })
-        ) : (
-          // The sheet is where a value stops being a preview: it wraps rather
-          // than truncating, because this is the copy someone is reading.
-          <span className="block break-words whitespace-pre-wrap">
-            <TextCell value={value} />
-          </span>
-        )}
-      </div>
-      {/* Revealed on hover or focus, so a column of buttons does not compete
-          with the values it is offering to copy. */}
+      <span className="truncate text-xs text-muted-foreground">{label}</span>
+      {children}
       {copyable === null ? (
         <span className="size-5" />
       ) : (
-        <CopyButton
-          value={copyable}
-          label={override?.label ?? column.label}
-          className="self-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100"
-        />
+        <CopyButton value={copyable} label={label} className={cn("self-center", REVEAL)} />
       )}
+    </div>
+  );
+}
+
+/** Full width, label above — and the copy button rides beside the label,
+ *  because there is no third column to put it in. */
+function BlockField({
+  label,
+  copyable,
+  children,
+}: {
+  label: string;
+  copyable: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="group flex flex-col gap-1.5 px-4 py-2.5">
+      <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span className="truncate">{label}</span>
+        {copyable === null ? null : (
+          <CopyButton value={copyable} label={label} className={REVEAL} />
+        )}
+      </span>
+      {children}
     </div>
   );
 }

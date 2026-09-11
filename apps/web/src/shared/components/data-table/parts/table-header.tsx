@@ -16,10 +16,12 @@
 
 import type { ReactTable, RowData } from "@tanstack/react-table";
 
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { flexRender } from "@tanstack/react-table";
 
 import type { DataTableFeatures } from "@/shared/components/data-table/features";
 
+import { LOG_ZONE } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
 /**
@@ -84,15 +86,34 @@ export function sizeVarsOf<TRow extends RowData>(
   );
 }
 
-/** The style every cell in a column gets — the same object shape either way. */
-export function cellStyle(columnId: string): React.CSSProperties {
+/**
+ * The style every cell in a column gets — the same object shape either way.
+ *
+ * A pinned column sticks to the trailing edge instead of scrolling with the
+ * rest. `right: 0` works because the row is a flex line inside the horizontal
+ * scroller, so the cell's containing block is the scrollport.
+ */
+export function cellStyle(columnId: string, pinned = false): React.CSSProperties {
   return {
     width: `var(--col-${columnId}-size)`,
     minWidth: `var(--col-${columnId}-min)`,
     flexGrow: `var(--col-${columnId}-grow)`,
     flexShrink: 0,
+    ...(pinned ? { position: "sticky" as const, right: 0, zIndex: 1 } : {}),
   };
 }
+
+/**
+ * Classes a pinned cell needs on top of the style: a surface of its own, so the
+ * rows do not scroll THROUGH it, and an edge so it reads as pinned.
+ *
+ * `tinted-surface` rather than `bg-inherit` (see index.css). Inheriting was the
+ * first attempt and it was transparent twice over: the header row carries no
+ * background at all, and a body row's hover / open / danger states are
+ * translucent tints, so the cell dutifully inherited a background you could see
+ * the scrolling columns through.
+ */
+export const PINNED_CELL = "tinted-surface sticky right-0 z-[1] border-l";
 
 export function DataTableHead<TRow extends RowData>({
   table,
@@ -112,9 +133,10 @@ export function DataTableHead<TRow extends RowData>({
                 aria-sort={
                   sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none"
                 }
-                style={cellStyle(header.column.id)}
+                style={cellStyle(header.column.id, header.column.columnDef.meta?.pinned)}
                 className={cn(
                   "relative flex h-9 items-center px-2 text-left text-[11px] font-medium tracking-wide text-muted-foreground uppercase",
+                  header.column.columnDef.meta?.pinned && PINNED_CELL,
                   header.column.columnDef.meta?.headerClassName,
                 )}
               >
@@ -127,11 +149,15 @@ export function DataTableHead<TRow extends RowData>({
                     <span className="truncate">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </span>
+                    <ZoneMark kind={header.column.columnDef.meta?.kind} />
                     <SortMark direction={sorted} />
                   </button>
                 ) : (
-                  <span className="truncate">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="truncate">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </span>
+                    <ZoneMark kind={header.column.columnDef.meta?.kind} />
                   </span>
                 )}
                 {header.column.getCanResize() ? (
@@ -152,6 +178,31 @@ export function DataTableHead<TRow extends RowData>({
         </tr>
       ))}
     </thead>
+  );
+}
+
+/**
+ * Which zone a time column is read in.
+ *
+ * Every instant on these tables prints in {@link LOG_ZONE}, and a table that
+ * silently renders UTC to a reader in Berlin is off by two hours with nothing
+ * on screen admitting it. One quiet mark on the header answers it once for the
+ * whole column, which is cheaper than a suffix on a thousand cells — and every
+ * cell still carries the full offset stamp on hover.
+ *
+ * Nothing is shown when the viewer already lives in the zone: a "UTC" chip in
+ * front of someone in London is noise about a difference that is not there.
+ */
+function ZoneMark({ kind }: { kind?: string }) {
+  if (kind !== "instant") return null;
+  if (Temporal.Now.timeZoneId() === LOG_ZONE) return null;
+  return (
+    <span
+      className="shrink-0 text-[9px] font-normal text-muted-foreground/60"
+      title={`Times shown in ${LOG_ZONE}`}
+    >
+      {LOG_ZONE}
+    </span>
   );
 }
 

@@ -24,15 +24,28 @@ import { Button } from "@/shared/components/ui/button";
 import type { PostgresBodyProps } from "../../types";
 
 import { resourceTarget, targetKey } from "./data/target";
-import { useDataCapabilities } from "./data/use-database";
 
 interface DataTabBodyProps {
   resource: PostgresBodyProps["resource"];
 }
 
+/**
+ * A doorway asks the database NOTHING.
+ *
+ * This used to read `useDataCapabilities(target)` to label itself EDITABLE or
+ * READ-ONLY, which meant reading the schema, which for a managed database means
+ * reaching it — and a managed database is reachable only through an open
+ * session. The panel has no session and no business opening one, so every visit
+ * to a database resource fired `data.schema` at a tunnel that wasn't there.
+ *
+ * The panel renders under `keepMounted`, so this happened on EVERY tab of the
+ * panel, not just this one: opening a database from the graph produced a failed
+ * request, an error toast, and a `failure` row in the audit log, before the
+ * reader had asked for anything. The capability is a fact about a session; it
+ * is stated in the workbench, where a session exists.
+ */
 export function DataTabBody({ resource }: DataTabBodyProps) {
   const target = resourceTarget(String(resource.resourceId));
-  const canWrite = useDataCapabilities(target).data?.canWrite ?? false;
   // Read from the URL rather than threaded through two panel layers: the org
   // slug is a fact about where we are, not about this resource.
   const { orgSlug } = useParams({ strict: false });
@@ -49,9 +62,6 @@ export function DataTabBody({ resource }: DataTabBodyProps) {
           <span className="font-mono">{resource.databaseName}</span>
           <span className="text-muted-foreground/50">·</span>
           <span className="text-muted-foreground">{resource.engine}</span>
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground">
-            {canWrite ? "EDITABLE" : "READ-ONLY"}
-          </span>
         </div>
 
         <p className="text-[13px] text-muted-foreground">

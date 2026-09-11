@@ -10,6 +10,8 @@
  * other end of it.
  */
 
+export { feedInput, feedOutput } from "./contract";
 export { createFeedHandler } from "./feed";
-export { computeHistogram, discoverRange } from "./histogram";
+export { feedResponse } from "./respond";
+export { arrayExpr } from "./sql";
 export type { ColumnMap } from "./sql";

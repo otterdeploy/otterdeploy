@@ -28,6 +28,32 @@
     --comet-angle: 360deg;
   }
 }
+/* A pinned (sticky) table cell scrolls OVER the columns beside it, so unlike
+   an ordinary row it cannot be translucent: `bg-muted/40` on a pinned cell is
+   96% see-through, and what shows through is the rows sliding underneath it.
+   `bg-inherit` does not save it either — it faithfully inherits the row's
+   translucent tint, and the header row had no background at all.
+
+   So a tinted surface is TWO layers on one element: an opaque base as the
+   background-COLOR, and the tint as a one-stop gradient in the background-
+   IMAGE, which paints above it. The tint travels as an inherited custom
+   property, which is what lets a pinned cell pick up the state of the row it
+   sits in without knowing anything about that row.
+
+   Registered, so it is guaranteed to be a colour and so it can transition —
+   an unregistered custom property snaps, and a row that fades on hover
+   everywhere except its pinned cell looks broken. */
+@property --row-tint {
+  syntax: "<color>";
+  initial-value: transparent;
+  inherits: true;
+}
+
+@utility tinted-surface {
+  background-color: var(--background);
+  background-image: linear-gradient(var(--row-tint), var(--row-tint));
+}
+
 /* Horizontal strips that must stay swipeable on a phone (panel tabs, project
    tabs, toolbars) without a scrollbar gutter eating into a 40px-tall row.
    Pair with `overflow-x-auto`: this only hides the chrome, it does not
@@ -232,6 +258,38 @@
   /* Resource metrics take a fixed hue per metric, so CPU is the same blue and
      memory the same teal on every surface that draws them — the sparkline
      tile, the resource tab, the project total. Identity, not decoration. */
+  /* Bands for a stacked chart whose categories mean SEVERITY rather than
+     identity: request status, log level, run outcome.
+
+     Hue ONLY. Saturation and lightness come from `--chart-series-*` above —
+     the pair that already carries "how loud a series is in this theme" — so a
+     band is chart-tuned in light and dark without a new hex entering a palette
+     DESIGN.md deliberately keeps to one accent plus a semantic four.
+
+     The hues are the semantic tones' own, read off `--success` (141),
+     `--info` (212), `--warning` (46) and `--destructive` (4), so a band and
+     the badge for the same state are the same colour family. That is also why
+     the text tones cannot be used directly: `--warning` is `#8a6a00`, tuned to
+     be legible as TEXT on the warm canvas, and a 4px bar in it reads brown. */
+  --chart-band-ok: hsl(141 var(--chart-series-s) var(--chart-series-l));
+  --chart-band-info: hsl(212 var(--chart-series-s) var(--chart-series-l));
+  --chart-band-warn: hsl(46 var(--chart-series-s) var(--chart-series-l));
+  --chart-band-bad: hsl(4 var(--chart-series-s) var(--chart-series-l));
+
+  /* Row tints, for `tinted-surface`. Mixed against `transparent` rather than
+     against the canvas so one token works over any base the cell sits on, and
+     declared here — not inline — so the row and its pinned cell cannot drift
+     to two different greys. Resolved on <html>, where the dark theme's own
+     `--muted` / `--primary` / `--destructive` are already in effect. */
+  --row-tint-hover: color-mix(in oklab, var(--muted) 45%, transparent);
+  --row-tint-focus: color-mix(in oklab, var(--muted) 55%, transparent);
+  --row-tint-open: color-mix(in oklab, var(--muted) 65%, transparent);
+  --row-tint-selected: color-mix(in oklab, var(--primary) 7%, transparent);
+  /* The surface-level "this row is why you opened the page" tint: a failed
+     deploy, a 5xx, a live ban. Deliberately faint — it marks a row, it does
+     not shout at one. */
+  --row-tint-danger: color-mix(in oklab, var(--destructive) 6%, transparent);
+
   --chart-cpu: #2f6fd1;
   --chart-memory: #0f8f88;
   /* Sidebar matches `--background`: the demo's `os-sidebar` reads
@@ -540,4 +598,37 @@
    series without reading as a second set of edges. */
 .otter-chart .ts-chart__grid line {
   stroke-dasharray: 3 3;
+}
+
+/* The brush ships as three solid `#2563eb` rectangles: a filled selection and
+   two 24px slabs for the handles. Over a histogram that is a wall of raw blue
+   covering the very bars the reader is selecting, and it is not our blue.
+
+   Restated per DESIGN.md — the accent marks, it does not fill. The window is a
+   wash with hairline edges; the handles keep their full 24px so they stay
+   grabbable on a trackpad, but only hint at themselves until touched. */
+.otter-chart rect.selection {
+  fill: var(--primary);
+  fill-opacity: 0.1;
+  stroke: var(--primary);
+  stroke-opacity: 0.5;
+  stroke-width: 1px;
+}
+
+.otter-chart rect.handle {
+  fill: var(--primary);
+  fill-opacity: 0.14;
+  /* Painted almost not at all, so the hit area has to be claimed explicitly. */
+  pointer-events: all;
+  cursor: ew-resize;
+}
+
+.otter-chart rect.handle:hover,
+.otter-chart rect.handle:focus-visible {
+  fill-opacity: 0.28;
+}
+
+.otter-chart rect.handle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }

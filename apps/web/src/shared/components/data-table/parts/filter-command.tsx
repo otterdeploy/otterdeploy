@@ -143,7 +143,18 @@ export function DataTableFilterCommand({
 
         <div className="relative">
           <CommandList className="max-h-64 border-t">
-            <CommandGroup heading={activeSpec ? activeSpec.key : "Filters"}>
+            {/* The heading is a filter KEY, typed verbatim into the line above
+                it, so it keeps its own casing: the group style's `uppercase`
+                turned `resourceName` into `RESOURCENAME`, which is neither
+                what the reader types nor a word. */}
+            <CommandGroup
+              heading={activeSpec ? activeSpec.key : "Filters"}
+              className={
+                activeSpec
+                  ? "**:[[cmdk-group-heading]]:font-mono **:[[cmdk-group-heading]]:tracking-normal **:[[cmdk-group-heading]]:normal-case"
+                  : undefined
+              }
+            >
               {completions.map((completion) => (
                 <CommandItem
                   key={completion.insert}
@@ -151,9 +162,17 @@ export function DataTableFilterCommand({
                   onSelect={() => apply(completion.insert)}
                   className="font-mono text-[12px]"
                 >
-                  <span className="truncate">{completion.label}</span>
+                  {/* `flex-1` on the LABEL, and no `ml-auto` on the count.
+                      CommandItem appends its checkmark with `ml-auto` after
+                      these children, so a second `ml-auto` here left two auto
+                      margins splitting the free space between them — the counts
+                      landed at a different x on every row, tracking the label's
+                      length. Letting the label take the slack puts every count
+                      in one right-aligned column. Same trap, same fix, as
+                      features/backups/database-combobox.tsx. */}
+                  <span className="min-w-0 flex-1 truncate">{completion.label}</span>
                   {completion.hint === undefined ? null : (
-                    <span className="ml-auto shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                       {completion.hint}
                     </span>
                   )}

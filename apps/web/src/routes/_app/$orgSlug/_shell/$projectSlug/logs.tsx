@@ -16,7 +16,7 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
+import { EdgeAccessTable } from "@/features/edge-logs/table/access-table";
 import {
   type LogsSearch,
   type LogsSource,
@@ -252,8 +252,14 @@ function RouteComponent() {
         </div>
       </TabsContent>
 
-      <TabsContent value="edge" className="min-h-0 flex-1 overflow-hidden">
-        <EdgeLogsView projectId={project.id} />
+      <TabsContent value="edge" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <EdgeAccessTable
+          projectId={project.id}
+          search={search}
+          onSearchChange={(patch) => {
+            void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+          }}
+        />
       </TabsContent>
     </Tabs>
   );

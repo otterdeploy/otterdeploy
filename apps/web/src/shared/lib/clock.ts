@@ -35,6 +35,29 @@ export function clockFormatter(options: Intl.DateTimeFormatOptions): ClockFormat
   return (value) => format.format(instantOf(value));
 }
 
+/**
+ * The zone every LOG surface reads in.
+ *
+ * A log row is an absolute instant, and rendering it in the reader's zone means
+ * two people looking at the same row disagree about what it says — which is the
+ * one thing a shared incident timeline cannot afford. It also means the table
+ * disagrees with `docker logs`, with the server's own output, and with the `Z`
+ * stamp in the row's payload.
+ *
+ * The data workbench already settled this for grid cells (`instantDisplay` in
+ * packages/data-engine/src/value.ts); this is the same decision for the tables.
+ *
+ * It is never silent: an instant column marks its header, and every cell keeps
+ * the full offset stamp on hover.
+ */
+export const LOG_ZONE = "UTC";
+
+/** A formatter pinned to {@link LOG_ZONE}, reusable across calls. */
+export function utcFormatter(options: Intl.DateTimeFormatOptions): ClockFormat {
+  const format = new TemporalIntl.DateTimeFormat(undefined, { ...options, timeZone: LOG_ZONE });
+  return (value) => format.format(instantOf(value));
+}
+
 /** 24-hour clock whatever the locale: a clock beside a chart axis is a scale
  *  reading, and a scale should not carry "PM" eleven times over. */
 export const CLOCK_MINUTES = {
@@ -56,6 +79,13 @@ export const CLOCK_DAY = {
 export const CLOCK_STAMP = {
   ...CLOCK_DAY,
   ...CLOCK_MINUTES,
+} as const satisfies Intl.DateTimeFormatOptions;
+
+/** A calendar date with its year, no clock. For an axis whose ticks are months
+ *  apart, where the time of day is noise and the year is the missing fact. */
+export const CLOCK_DATE = {
+  year: "numeric",
+  ...CLOCK_DAY,
 } as const satisfies Intl.DateTimeFormatOptions;
 
 /** Full date + time. For a hover that has to stay unambiguous months later,

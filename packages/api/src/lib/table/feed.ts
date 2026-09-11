@@ -25,7 +25,7 @@ import type { FeedDatabase } from "./types";
 
 import { computeFacets } from "./facets";
 import { overfetch, planCursor, snapPage } from "./pagination";
-import { allOf, buildWhere } from "./sql";
+import { allOf, buildWhere, expressionOf, isColumn } from "./sql";
 
 interface FeedSort {
   key: string;
@@ -51,6 +51,16 @@ export interface FeedConfig {
   tiebreakKey?: string;
   select?: ExtraSelect;
   defaultSize?: number;
+  /**
+   * Cap on how many options a checkbox facet returns, busiest first.
+   *
+   * Unset means every distinct value, which is right for a feed whose
+   * filterable columns are closed sets. Set it when one of them is not: an
+   * access log's `client_ip` has tens of thousands of values in a day, and
+   * shipping all of them on every first page is neither a payload nor a list.
+   * The reported totals still describe the whole set — see `computeFacets`.
+   */
+  facetLimit?: number;
 }
 
 interface FeedRequest {
@@ -141,17 +151,33 @@ function assertMapped(filters: Filters, columns: ColumnMap): void {
   }
 }
 
-/** A mapped column, or a construction-time error naming the missing key. */
+/**
+ * A mapped REAL column, or a construction-time error naming the key.
+ *
+ * The cursor and the tiebreak cannot be expressions. Both are ordered on and
+ * compared against a cursor value, and the page's boundary snapping reads the
+ * column back off the row — none of which an expression can answer. A filter
+ * key may be either (see `ColumnMap`); these two may not.
+ */
 function requireColumn(columns: ColumnMap, key: string, label: string): PgColumn {
   const column = columns[key];
   if (!column) throw new Error(`[createFeedHandler] ${label} "${key}" is not in the column map`);
+  if (!isColumn(column)) {
+    throw new Error(
+      `[createFeedHandler] ${label} "${key}" maps to a derived expression. The ${label} is` +
+        ` ordered on and read back off each row, so it has to be a real column.`,
+    );
+  }
   return column;
 }
 
 function resolveTiebreak(config: FeedConfig): PgColumn {
   const explicit = config.tiebreakKey ? config.columns[config.tiebreakKey] : undefined;
-  const column =
+  const mapped =
     explicit ?? (config.tiebreakKey ? undefined : singleColumnPrimaryKey(config.table));
+  // An expression cannot break a tie: the cursor carries its value between
+  // pages, and there is nothing to read it back from.
+  const column = mapped && isColumn(mapped) ? mapped : undefined;
   if (!column) {
     throw new Error(
       `[createFeedHandler] no tiebreak column. The table has no single-column primary key, so` +
@@ -183,8 +209,15 @@ export function createFeedHandler(config: FeedConfig) {
   const tiebreakColumn = resolveTiebreak(config);
 
   // The projection IS the column map, so rows come back keyed by filter key and
-  // no caller maintains the inverse mapping.
-  const projection: ExtraSelect = { ...columns, ...config.select };
+  // no caller maintains the inverse mapping. A derived array key is projected as
+  // its expression — the array type it also carries is only the `&&` cast's
+  // business, and `select` has no use for it.
+  const projection: ExtraSelect = {
+    ...Object.fromEntries(
+      Object.entries(columns).map(([key, target]) => [key, expressionOf(target)]),
+    ),
+    ...config.select,
+  };
   const valueFacetKeys = facetKeys.filter((key) => !sliderKeys.includes(key));
 
   /** The three passes. Every one carries the tenant scope. */
@@ -197,25 +230,43 @@ export function createFeedHandler(config: FeedConfig) {
     // dragging one collapses its own range under the pointer.
     const withoutSliders = where({ exclude: sliderKeys });
     const sliderOnly = buildWhere(filters, request.values, columns, { only: sliderKeys });
-    return { withoutSliders, all: [...withoutSliders, ...sliderOnly] };
+    // The same rule, per checkbox: a facet counted AFTER its own selection
+    // reports zero for every option the reader did not tick, so the list
+    // collapses to the one box they just clicked. Excluding its own key means
+    // the other options keep the counts they would have if picked instead —
+    // which is the question a facet list is there to answer.
+    const withoutOwn = (key: string) => where({ exclude: [key] });
+    return { withoutSliders, withoutOwn, all: [...withoutSliders, ...sliderOnly] };
   }
 
   /** Counts and facets — skipped entirely on a pagination request. */
-  async function aggregates(request: FeedRequest, all: SQL[], withoutSliders: SQL[]) {
+  async function aggregates(
+    request: FeedRequest,
+    all: SQL[],
+    withoutSliders: SQL[],
+    withoutOwn: (key: string) => SQL[],
+  ) {
     if (request.includeFacets === false) {
       return { totalRowCount: null, filterRowCount: null, facets: {} satisfies Facets };
     }
     const [scoped, filtered, valueFacets, boundsFacets] = await Promise.all([
       db.select({ total: count() }).from(table).where(allOf(request.scope)),
       db.select({ total: count() }).from(table).where(allOf(all)),
-      computeFacets({ db, table, columns, where: all, keys: valueFacetKeys }),
+      computeFacets({
+        db,
+        table,
+        columns,
+        where: withoutOwn,
+        keys: valueFacetKeys,
+        ...(config.facetLimit === undefined ? {} : { limit: config.facetLimit }),
+      }),
       sliderKeys.length === 0
         ? Promise.resolve({})
         : computeFacets({
             db,
             table,
             columns,
-            where: withoutSliders,
+            where: () => withoutSliders,
             keys: sliderKeys,
             boundsKeys: sliderKeys,
           }),
@@ -230,14 +281,15 @@ export function createFeedHandler(config: FeedConfig) {
   /** The user's sort, applied between the cursor and the tiebreak. */
   function sortClauseFor(sort: FeedSort | null | undefined): SQL | undefined {
     if (!sort) return undefined;
-    const column = columns[sort.key];
-    if (!column) return undefined;
+    const target = columns[sort.key];
+    if (!target) return undefined;
+    const column = expressionOf(target);
     return sort.desc ? desc(column) : asc(column);
   }
 
   async function execute(request: FeedRequest) {
     const { sort = null, cursor = null, direction = "next", size = defaultSize } = request;
-    const { withoutSliders, all } = passes(request);
+    const { withoutSliders, withoutOwn, all } = passes(request);
 
     const plan = planCursor({
       cursor,
@@ -255,7 +307,7 @@ export function createFeedHandler(config: FeedConfig) {
         .where(pageWhere)
         .orderBy(...plan.orderBy)
         .limit(overfetch(size)),
-      aggregates(request, all, withoutSliders),
+      aggregates(request, all, withoutSliders, withoutOwn),
     ]);
 
     const snapped = snapPage(fetched, size, (row) => cursorMillis(row, cursorKey));

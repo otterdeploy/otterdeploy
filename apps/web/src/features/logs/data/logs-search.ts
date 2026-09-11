@@ -4,6 +4,9 @@
 
 import * as z from "zod";
 
+import { edgeAccessSearchParams } from "@/features/edge-logs/table/access-search";
+import { tableSearchSchema } from "@/shared/components/data-table/state/search-schema";
+
 const LOG_SOURCES = ["runtime", "edge"] as const;
 export type LogsSource = (typeof LOG_SOURCES)[number];
 
@@ -23,6 +26,22 @@ export const zLogsSearch = z.object({
    * → default to Runtime, so the page always has a valid controlled source.
    */
   source: z.enum(LOG_SOURCES).catch("runtime"),
+
+  /**
+   * The Edge source's table controls.
+   *
+   * They live here because the Edge access log is a TAB of this route, and
+   * TanStack validates search per route. `q` is deliberately not re-declared:
+   * both sources mean "free text over these log lines" by it, so carrying it
+   * across the toggle is the behaviour someone switching sources expects. The
+   * rest are the Edge table's alone, and the runtime side's `coerce` drops
+   * them, so a stale one degrades to no filter rather than an error.
+   *
+   * Spread from `tableSearchSchema` rather than a catchall: a derived shape
+   * erases its keys, and TanStack merges route search types, so one such route
+   * would make `navigate` untyped everywhere else in the app.
+   */
+  ...tableSearchSchema(edgeAccessSearchParams).shape,
 });
 
 export type LogsSearch = z.infer<typeof zLogsSearch>;

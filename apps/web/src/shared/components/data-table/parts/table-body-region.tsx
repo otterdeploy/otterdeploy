@@ -38,6 +38,8 @@ export interface TableBodyRegionProps<TRow extends RowData> {
   emptyTitle?: string;
   emptyDescription?: string;
   rowClassName?: (row: TRow) => string | undefined;
+  /** The tail is running, so the top of the feed holds unseen rows. */
+  isLive?: boolean;
 }
 
 export function TableBodyRegion<TRow extends RowData>({
@@ -53,6 +55,7 @@ export function TableBodyRegion<TRow extends RowData>({
   emptyTitle,
   emptyDescription,
   rowClassName,
+  isLive = false,
 }: TableBodyRegionProps<TRow>) {
   if (feed.isError) {
     return (
@@ -80,6 +83,7 @@ export function TableBodyRegion<TRow extends RowData>({
       density={density}
       onOpenRow={onOpenRow}
       onScrollEnd={onLoadMore}
+      isLive={isLive}
       rowClassName={rowClassName ? (row) => rowClassName(row.original) : undefined}
       footer={
         <TableFooterRow

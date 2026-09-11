@@ -170,6 +170,15 @@ function DataGridRowImpl<TData extends RowData>({
   measureElement,
   rowMapRef,
   rowHeight,
+  // Read ONLY by the memo comparator above; the row itself draws nothing from
+  // them. They are still destructured here so they cannot reach `...props` and
+  // be spread onto the row `<div>` as attributes: TanStack Table v9 builds its
+  // string-keyed state dictionaries with `Object.create(null)` (table-core's
+  // `makeObjectMap`), and React coerces an unknown attribute's value to a
+  // string — which on a null-prototype object throws rather than producing
+  // "[object Object]", taking the whole workbench down with it.
+  columnVisibility: _columnVisibility,
+  columnPinning: _columnPinning,
   focusedCell,
   editingCell,
   cellSelectionKeys,

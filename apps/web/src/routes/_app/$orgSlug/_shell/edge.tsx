@@ -25,12 +25,11 @@ import { ArrowRight01Icon, EarthIcon, RefreshIcon } from "@hugeicons/core-free-i
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import * as z from "zod";
 
 import { UploadCaDialog } from "@/features/certificates/upload-ca-dialog";
 import { UploadCertDialog } from "@/features/certificates/upload-cert-dialog";
-import { EdgeEventsView } from "@/features/edge-logs/components/edge-events-view";
-import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
+import { EdgeEventsTable } from "@/features/edge-logs/table/events-table";
+import { EdgeAccessTable } from "@/features/edge-logs/table/access-table";
 import { FirewallView } from "@/features/firewall/components/firewall-view";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
 import { prefetchEdge } from "./-edge-prefetch";
@@ -47,56 +46,13 @@ import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { CertificatesActions, CertificatesTab } from "./-edge-certificates";
-
-/** Top-level planes. `caddy` groups the proxy's own facets (config / events /
- *  certs) behind a left sidebar; access logs land first because that's what
- *  people open this page for. */
-const EDGE_TABS = ["logs", "caddy", "firewall"] as const;
-type EdgeTab = (typeof EDGE_TABS)[number];
-
-/** Sidebar panes inside the Caddy tab. */
-const CADDY_PANES = ["config", "events", "certs"] as const;
-type CaddyPane = (typeof CADDY_PANES)[number];
-
-function isEdgeTab(value: string): value is EdgeTab {
-  return EDGE_TABS.some((tab) => tab === value);
-}
-
-// `.catch` covers both a missing param and a bad value → default to Access
-// logs. The two legacy values kept the old flat-tab deep links working:
-// `caddyfile` and `certificates` were top-level tabs before the Caddy group
-// existed (and `caddy` used to mean the Events plane; it now opens the group,
-// which still contains Events one click away).
-const EDGE_SEARCH_TABS = ["logs", "caddy", "firewall", "caddyfile", "certificates"] as const;
-
-const zEdgeSearch = z.object({
-  tab: z.enum(EDGE_SEARCH_TABS).catch("logs"),
-  pane: z.enum(CADDY_PANES).optional().catch(undefined),
-});
-
-/** Fold legacy tab values + permissions into a concrete (tab, pane) pair.
- *  Install-admin-only planes (firewall, the rendered Caddyfile) fall back for
- *  everyone else, so a shared deep link never renders a 403 shell. */
-function resolveEdgeView(
-  search: z.infer<typeof zEdgeSearch>,
-  isInstallAdmin: boolean,
-): { tab: EdgeTab; pane: CaddyPane } {
-  let tab: EdgeTab;
-  let pane = search.pane;
-  if (search.tab === "caddyfile") {
-    tab = "caddy";
-    pane ??= "config";
-  } else if (search.tab === "certificates") {
-    tab = "caddy";
-    pane ??= "certs";
-  } else {
-    tab = search.tab;
-  }
-  if (!isInstallAdmin && tab === "firewall") tab = "logs";
-  pane ??= isInstallAdmin ? "config" : "events";
-  if (!isInstallAdmin && pane === "config") pane = "events";
-  return { tab, pane };
-}
+import {
+  type CaddyPane,
+  type EdgeTab,
+  isEdgeTab,
+  resolveEdgeView,
+  zEdgeSearch,
+} from "./-edge-search";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
   staticData: { crumb: "Edge" },
@@ -126,6 +82,12 @@ function RouteComponent() {
     });
   const setPane = (next: CaddyPane) =>
     navigate({ search: { tab: "caddy", pane: next }, replace: true });
+  // The two tables on this route hold their filters in the URL. They merge a
+  // patch; `setTab` / `setPane` above deliberately do not, so switching pane
+  // clears them.
+  const onSearchChange = (patch: Record<string, unknown>) => {
+    void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+  };
 
   // Lifted so the header-row "Upload" buttons and the Certs pane's own
   // "Upload" affordances (Custom / Trusted CAs sub-tabs) drive the same two
@@ -161,8 +123,8 @@ function RouteComponent() {
         ) : null}
       </div>
 
-      <TabsContent value="logs" className="min-h-0 flex-1">
-        <EdgeLogsView />
+      <TabsContent value="logs" className="flex min-h-0 flex-1 flex-col">
+        <EdgeAccessTable search={search} onSearchChange={onSearchChange} />
       </TabsContent>
 
       <TabsContent value="caddy" className="min-h-0 flex-1 overflow-hidden">
@@ -189,8 +151,8 @@ function RouteComponent() {
               </div>
             ) : null}
             {pane === "events" ? (
-              <div className="min-h-0 flex-1">
-                <EdgeEventsView />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <EdgeEventsTable />
               </div>
             ) : null}
             {pane === "certs" ? (

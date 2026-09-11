@@ -2,6 +2,7 @@ import { oc } from "@orpc/contract";
 import { zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { feedInput, feedOutput } from "../../lib/table";
 import { zJsonObject } from "../../lib/z-json";
 
 const tag = "audit";
@@ -148,65 +149,18 @@ export type AuditFeedRow = z.infer<typeof auditFeedRowSchema>;
  * The feed: one page of rows plus the aggregates that describe the whole
  * filtered set.
  *
- * `filters` is an untyped bag on purpose. Its schema is the DECLARATION in
- * `table.ts`, which the handler enforces through `coerce` — an unknown key is
- * dropped, an enum member outside the declared set is dropped, and a numeric
- * range is clamped. Restating that as zod here would be a second, weaker copy
- * of the same rules.
+ * Everything but the row shape comes from `lib/table`, because none of it is
+ * the audit log's business: a cursor, a facet and a histogram bucket mean the
+ * same thing on every feed, and a per-router copy of them is a copy to keep in
+ * agreement with four others.
  */
-const feedInput = z.object({
-  filters: z.record(z.string(), z.unknown()).default({}),
-  sort: z.object({ key: z.string(), desc: z.boolean() }).nullish(),
-  /** Epoch millis of the last row on the previous page. */
-  cursor: z.number().nullish(),
-  direction: z.enum(["next", "prev"]).default("next"),
-  size: z.number().int().min(1).max(200).default(50),
-  /**
-   * Counts, facets and the histogram. Skipped on pagination: they describe the
-   * whole filtered set, so every page after the first would recompute the same
-   * answer the client already holds.
-   */
-  includeFacets: z.boolean().default(true),
-  /** Which day a lone date means. The client knows; the server must be told. */
-  timeZone: z.string().optional(),
-});
-
-const facetSchema = z.object({
-  rows: z.array(
-    z.object({ value: z.union([z.string(), z.number(), z.boolean()]), total: z.number() }),
-  ),
-  total: z.number(),
-  min: z.number().optional(),
-  max: z.number().optional(),
-});
-
-const feedOutput = z.object({
-  items: z.array(auditFeedRowSchema),
-  nextCursor: z.number().nullable(),
-  prevCursor: z.number().nullable(),
-  /** `null` when this page skipped the aggregates — never a stand-in guess. */
-  totalRowCount: z.number().nullable(),
-  filterRowCount: z.number().nullable(),
-  facets: z.record(z.string(), facetSchema),
-  histogram: z
-    .object({
-      buckets: z.array(
-        z.object({
-          at: z.number(),
-          total: z.number(),
-          by: z.record(z.string(), z.number()),
-        }),
-      ),
-      bucketMs: z.number(),
-    })
-    .optional(),
-});
+const auditFeedOutput = feedOutput(auditFeedRowSchema);
 
 export const auditContract = {
   feed: oc
     .meta({ path: `${basePath}/feed`, tag, method: "POST" })
     .input(feedInput)
-    .output(feedOutput),
+    .output(auditFeedOutput),
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
     .input(listAuditInput)

@@ -1737,7 +1737,8 @@
     "noHosts": "No hosts found.",
     "allHosts": "All hosts",
     "eventsEmpty": "No edge events in this window. Certificate activity and upstream errors for your domains appear here.",
-    "eventsSinkOff": "Edge event collection is off on this install (EDGE_LOG_SINK is unset), so nothing can appear here — Caddy's certificate and upstream logs are going to the edge container's own output instead."
+    "eventsSinkOff": "Edge event collection is off on this install (EDGE_LOG_SINK is unset), so nothing can appear here — Caddy's certificate and upstream logs are going to the edge container's own output instead.",
+    "eventsNotPersisted": "Edge events are arriving but are not being stored (EDGE_LOG_PERSIST is off), so only the live tail has them and this table — which reads the database — stays empty."
   },
   "resources": {
     "variables": {

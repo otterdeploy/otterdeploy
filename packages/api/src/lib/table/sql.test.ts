@@ -8,13 +8,14 @@
  */
 
 import { defineFilters, type FilterSpec } from "@otterdeploy/shared/table-filters";
-import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, test } from "vite-plus/test";
 
 import type { ColumnMap } from "./sql";
 
-import { allOf, buildWhere, toSql } from "./sql";
+import { allOf, arrayExpr, buildWhere, isArrayColumn, toSql } from "./sql";
 
 const events = pgTable("events", {
   id: text("id").primaryKey(),
@@ -25,8 +26,21 @@ const events = pgTable("events", {
   latency: integer("latency").notNull(),
   tags: text("tags").array().notNull(),
   scores: integer("scores").array().notNull(),
+  domains: jsonb("domains").$type<string[]>().notNull(),
   at: timestamp("at").notNull(),
 });
+
+/**
+ * A derived ARRAY key: `jsonb` unpacked into a `text[]`.
+ *
+ * The real one (the Caddy event feed's host scope) also intersects with a
+ * per-request owned set; this keeps the expression short, because what is
+ * under test is that an expression can BE an array target at all.
+ */
+const domainList = arrayExpr(
+  sql`ARRAY(SELECT jsonb_array_elements_text(${events.domains}))`,
+  "text[]",
+);
 
 const columns: ColumnMap = {
   level: events.level,
@@ -36,6 +50,7 @@ const columns: ColumnMap = {
   latency: events.latency,
   tags: events.tags,
   scores: events.scores,
+  domains: domainList,
   at: events.at,
 };
 
@@ -44,6 +59,7 @@ const specs: FilterSpec[] = [
   { key: "status", type: "checkbox", kind: "number", options: [200, 404, 500] },
   { key: "tags", type: "checkbox", kind: "array", itemKind: "string" },
   { key: "scores", type: "checkbox", kind: "array", itemKind: "number" },
+  { key: "domains", type: "checkbox", kind: "array", itemKind: "string" },
   { key: "host", type: "input", kind: "string" },
   { key: "latency", type: "slider", kind: "number", min: 0, max: 5000 },
   { key: "at", type: "timerange", kind: "instant" },
@@ -126,6 +142,26 @@ describe("array columns overlap", () => {
     // `&&` resolves no implicit casts: `integer[] && text[]` is a type error,
     // so a hardcoded `::text[]` fails at query time on every numeric array.
     expect(compile({ scores: [1, 2] }).sql).toBe(`"events"."scores" && ARRAY[$1, $2]::integer[]`);
+  });
+
+  test("a derived array key overlaps too, cast to the type it declared", () => {
+    // The column it is built from is `jsonb`, which has no array type to read;
+    // the target carries one instead. Without this the key compiled to `IN`,
+    // comparing a text[] to a text, and matched nothing.
+    const out = compile({ domains: ["a.example.com"] });
+    expect(out.sql).toBe(
+      `ARRAY(SELECT jsonb_array_elements_text("events"."domains")) && ARRAY[$1]::text[]`,
+    );
+    expect(out.params).toEqual(["a.example.com"]);
+  });
+
+  test("a BARE expression is still a scalar", () => {
+    // Only a declared array target is one. An expression with no type to cast
+    // to has to stay on the membership path, which is right for every scalar.
+    expect(isArrayColumn(sql`lower("events"."host")`)).toBe(false);
+    expect(isArrayColumn(domainList)).toBe(true);
+    expect(isArrayColumn(events.tags)).toBe(true);
+    expect(isArrayColumn(events.host)).toBe(false);
   });
 });
 

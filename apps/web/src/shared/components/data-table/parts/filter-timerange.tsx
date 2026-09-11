@@ -12,15 +12,23 @@
  * silently keeping both is how a table looks stuck.
  */
 
+import type { DateRange } from "react-day-picker";
+
+import { useState } from "react";
+
+import { Calendar03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Temporal } from "@otterdeploy/shared/temporal";
 
 import { useFilterActions, useFilterField } from "@/shared/components/data-table/state/store";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
+import { Calendar } from "@/shared/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+import { CLOCK_DAY, CLOCK_STAMP, instantOf, LOG_ZONE, utcFormatter } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
-const stamp = clockFormatter(CLOCK_STAMP);
+const stamp = utcFormatter(CLOCK_STAMP);
+const dayStamp = utcFormatter(CLOCK_DAY);
 
 /** Windows an operator reaches for, shortest first. */
 const PRESETS = [
@@ -32,22 +40,35 @@ const PRESETS = [
   { id: "30d", label: "30d", minutes: 43_200 },
 ] as const;
 
-/** A day boundary in the viewer's own zone — what a date input means to a person. */
+/**
+ * A day boundary in {@link LOG_ZONE}.
+ *
+ * The same zone the rows print in, deliberately. Picking "Sep 8" in Berlin and
+ * getting a window that starts at 22:00 on the 7th — because that is when the
+ * local day began — would select rows the table labels as the previous day.
+ */
 function dayBounds(date: string, edge: "start" | "end"): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const zone = Temporal.Now.timeZoneId();
+  const zone = LOG_ZONE;
   const day = Temporal.PlainDate.from(date).toZonedDateTime(zone);
   const instant = edge === "start" ? day : day.add({ days: 1 }).subtract({ nanoseconds: 1 });
   return instant.toInstant().epochMilliseconds;
 }
 
-/** Epoch millis → the `YYYY-MM-DD` a date input wants, in the viewer's zone. */
-function toDateInput(ms: number | undefined): string {
-  if (ms === undefined) return "";
-  return Temporal.Instant.fromEpochMilliseconds(ms)
-    .toZonedDateTimeISO(Temporal.Now.timeZoneId())
-    .toPlainDate()
-    .toString();
+/**
+ * A day the calendar handed back, as the `YYYY-MM-DD` {@link dayBounds} wants.
+ *
+ * react-day-picker deals in `Date` and nothing else, so this is the library
+ * seam the repo's Temporal rule carves out: the value crosses into a
+ * `Temporal.Instant` on the first line and no `Date` method is called on it.
+ */
+function calendarDay(date: Date): string {
+  return instantOf(date).toZonedDateTimeISO(LOG_ZONE).toPlainDate().toString();
+}
+
+/** Epoch millis → the `Date` the calendar wants for its selection. */
+function toCalendarDate(ms: number | undefined): Date | undefined {
+  return ms === undefined ? undefined : new Date(ms);
 }
 
 function rangeOf(value: unknown): [number, number] | null {
@@ -57,8 +78,9 @@ function rangeOf(value: unknown): [number, number] | null {
 }
 
 export function TimerangeFilter({ filterKey }: { filterKey: string }) {
-  const { value, setValue, reset } = useFilterField(filterKey);
+  const { value, reset } = useFilterField(filterKey);
   const { setValues } = useFilterActions();
+  const [open, setOpen] = useState(false);
   const range = rangeOf(value);
 
   const applyPreset = (minutes: number) => {
@@ -71,11 +93,19 @@ export function TimerangeFilter({ filterKey }: { filterKey: string }) {
     });
   };
 
-  const setEdge = (edge: "start" | "end", date: string) => {
-    const bound = dayBounds(date, edge);
-    if (bound === null) return;
-    const current = range ?? [bound, Temporal.Now.instant().epochMilliseconds];
-    setValue(edge === "start" ? [bound, current[1]] : [current[0], bound]);
+  /**
+   * A picked range commits only when BOTH ends exist.
+   *
+   * The calendar reports the first click as `{ from }` with no `to`, and
+   * committing that would apply a window from that morning to itself — an empty
+   * table one click into choosing a range.
+   */
+  const pickRange = (picked: DateRange | undefined) => {
+    if (!picked?.from) return;
+    const from = dayBounds(calendarDay(picked.from), "start");
+    const to = dayBounds(calendarDay(picked.to ?? picked.from), "end");
+    if (from === null || to === null) return;
+    setValues({ [filterKey]: [from, to], live: undefined });
   };
 
   return (
@@ -102,28 +132,54 @@ export function TimerangeFilter({ filterKey }: { filterKey: string }) {
         </Button>
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <Input
-          type="date"
-          aria-label="From date"
-          value={toDateInput(range?.[0])}
-          onChange={(event) => setEdge("start", event.target.value)}
-          className="h-7 flex-1 font-mono text-[11px]"
+      {/*
+       * One popover calendar, the same control the Edge access log uses.
+       *
+       * Two `input[type=date]` fields sat here before, and they were wrong twice
+       * over. They were the browser's widget rather than ours — a `dd.mm.yyyy`
+       * mask and a native calendar glyph in a panel where every other control is
+       * a shadcn one — and a native date input has an intrinsic minimum width
+       * (~135px in Chrome) that no `flex-1` can shrink, so the pair needed 285px
+       * inside a 240px rail and hung out over its border.
+       *
+       * A popover has no such constraint: the trigger is as wide as the rail and
+       * the calendar opens over the table.
+       */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-7 w-full justify-start gap-1.5 px-2 text-[11px] font-normal",
+                range ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} className="size-3.5 shrink-0" />
+              <span className="truncate font-mono">
+                {range ? `${dayStamp(range[0])} – ${dayStamp(range[1])}` : "Pick dates"}
+              </span>
+            </Button>
+          }
         />
-        <span className="text-xs text-muted-foreground">→</span>
-        <Input
-          type="date"
-          aria-label="To date"
-          value={toDateInput(range?.[1])}
-          onChange={(event) => setEdge("end", event.target.value)}
-          className="h-7 flex-1 font-mono text-[11px]"
-        />
-      </div>
+        <PopoverContent align="start" className="w-auto p-0">
+          <Calendar
+            mode="range"
+            numberOfMonths={1}
+            selected={
+              range ? { from: toCalendarDate(range[0]), to: toCalendarDate(range[1]) } : undefined
+            }
+            onSelect={pickRange}
+            defaultMonth={toCalendarDate(range?.[0])}
+          />
+        </PopoverContent>
+      </Popover>
 
       {range ? (
         // The exact window, spelled out. A preset that resolved an hour ago is
         // not "the last hour" any more, and the reader should be able to see so.
-        <p className="px-1 font-mono text-[11px] text-muted-foreground">
+        <p className="px-1 font-mono text-[11px] break-words text-muted-foreground">
           {stamp(range[0])} → {stamp(range[1])}
         </p>
       ) : null}
