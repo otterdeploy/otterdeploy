@@ -48,6 +48,7 @@ async function loadRoot(): Promise<SubCommandsDef> {
     ["export", () => import("../commands/export").then((m) => m.exportCommand)],
     ["init", () => import("../commands/init").then((m) => m.initCommand)],
     ["login", () => import("../commands/login").then((m) => m.loginCommand)],
+    ["logout", () => import("../commands/logout").then((m) => m.logoutCommand)],
     ["logs", () => import("../commands/logs").then((m) => m.logsCommand)],
     ["metrics", () => import("../commands/metrics").then((m) => m.metricsCommand)],
     ["open", () => import("../commands/open").then((m) => m.openCommand)],

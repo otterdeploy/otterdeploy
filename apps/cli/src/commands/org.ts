@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 
 import { createCliAuthClient } from "../auth-client";
 import { ensureAuthenticated } from "../auth-flow";
-import { loadConfig, saveConfig } from "../config";
+import { saveContext } from "../config";
 import { cmd } from "../lib/name";
 import { suggestions } from "../lib/suggest";
 import { abort, dim, hint, note, ok, section, stateGlyph, table } from "../lib/ui";
@@ -81,8 +81,9 @@ const useOrg = defineCommand({
       );
     }
     // setActive rewrites activeOrganizationId on the existing session row:
-    // the stored token stays valid, only the local selection is recorded.
-    saveConfig({ ...loadConfig(), orgId: data.id, orgSlug: data.slug });
+    // the stored token stays valid, only the local selection is recorded. Into
+    // THIS host's context — an org id means nothing on a different one.
+    saveContext(url, { orgId: data.id, orgSlug: data.slug });
     ok(`Active organization is now ${data.slug} ${dim(`(${data.name})`)}.`);
   },
 });

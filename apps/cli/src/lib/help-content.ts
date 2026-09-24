@@ -186,6 +186,10 @@ export const EXAMPLES: Record<string, Example[]> = {
     { note: "create a project", run: "project create --name Storefront --slug storefront" },
   ],
   "org use": [{ note: "switch the active organization", run: "org use otter-labs" }],
+  logout: [
+    { note: "sign out of the current control plane", run: "logout" },
+    { note: "sign out of every one of them", run: "logout --all" },
+  ],
   "tokens create": [
     { note: "create an API key for CI", run: "tokens create --name ci --expires 90d" },
   ],
