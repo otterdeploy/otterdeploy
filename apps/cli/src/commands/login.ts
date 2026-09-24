@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 import { deviceCodeLogin, promptForUrl } from "../auth-flow";
-import { loadConfig, normalizeUrl, rememberHost, saveConfig } from "../config";
+import { loadConfig, normalizeUrl, rememberHost, saveContext, setCurrent } from "../config";
 import { cmd } from "../lib/name";
 import { abort, ok } from "../lib/ui";
 
@@ -29,7 +29,8 @@ export const loginCommand = defineCommand({
     // That pick-list is the point. Non-interactively there's nobody to ask,
     // so the stored URL still wins and CI behaviour is unchanged.
     const positional = args._?.[0];
-    const explicit = args.url ?? positional ?? (process.stdin.isTTY ? undefined : loadConfig().url);
+    const explicit =
+      args.url ?? positional ?? (process.stdin.isTTY ? undefined : loadConfig().current);
     let url: string | null;
     if (explicit) {
       url = normalizeUrl(explicit);
@@ -52,8 +53,11 @@ export const loginCommand = defineCommand({
     // webUrl = web origin from the device verification URL: init needs it
     // to write a working $schema URL, so persist it alongside the token.
     const { token, webUrl } = await deviceCodeLogin(url);
-    saveConfig({ ...loadConfig(), url, webUrl, token });
+    // Into this host's own context, and made current — signing into a second
+    // control plane adds it rather than displacing the first.
+    saveContext(url, { token, ...(webUrl ? { webUrl } : {}) });
+    setCurrent(url);
     rememberHost(url);
-    ok("Logged in.");
+    ok(`Logged in to ${url}.`);
   },
 });

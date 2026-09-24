@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 import { createCliAuthClient } from "../auth-client";
-import { loadConfig, resolveToken, saveConfig } from "../config";
+import { resolveContext, saveContext } from "../config";
 import { openInBrowser } from "../lib/browser";
 import { cmd } from "../lib/name";
 import { resolveProject, resolveResource } from "../lib/resolve";
@@ -12,10 +12,9 @@ import { abort, dim, interactive, note, out } from "../lib/ui";
 // does (session's activeOrganizationId, else first org) and persisted so
 // subsequent opens skip the two auth round-trips.
 async function resolveOrgSlug(url: string): Promise<string> {
-  const cached = loadConfig().orgSlug;
+  const { orgSlug: cached, token } = resolveContext(url);
   if (cached) return cached;
 
-  const token = resolveToken();
   if (!token) {
     abort("Not authenticated.", `run \`${cmd("whoami")}\` to check your session`);
   }
@@ -31,7 +30,7 @@ async function resolveOrgSlug(url: string): Promise<string> {
   if (!org) {
     abort("This account has no organizations yet.", "create one in the dashboard first");
   }
-  saveConfig({ ...loadConfig(), orgSlug: org.slug });
+  saveContext(url, { orgSlug: org.slug });
   return org.slug;
 }
 
@@ -59,7 +58,7 @@ export const openCommand = defineCommand({
 
     // Web origin diverges from the API origin in dev; single-domain
     // installs fall back to the control plane URL.
-    const base = (loadConfig().webUrl ?? ctx.url).replace(/\/$/, "");
+    const base = (resolveContext(ctx.url).webUrl ?? ctx.url).replace(/\/$/, "");
     const suffix = resource ? `/graph/${resource.resourceId}` : "";
     const target = `${base}/${orgSlug}/${ctx.projectSlug}${suffix}`;
 

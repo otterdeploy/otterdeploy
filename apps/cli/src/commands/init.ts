@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { createCliClient } from "../client";
-import { loadConfig, resolveToken, resolveUrl } from "../config";
+import { resolveContext } from "../config";
 import {
   configExists,
   JSON_CONFIG_FILENAME,
@@ -29,8 +29,7 @@ export const initCommand = defineCommand({
     yes: { type: "boolean", description: "Skip confirmation prompts" },
   },
   async run({ args }) {
-    const url = resolveUrl();
-    const token = resolveToken();
+    const { url, token, webUrl } = resolveContext();
     if (!url || !token) {
       abort("Not logged in.", `run \`${cmd("login <url>")}\` first`);
     }
@@ -70,7 +69,7 @@ export const initCommand = defineCommand({
     // The schema is served as a static asset on the WEB origin, not the
     // API. webUrl is captured during login; fall back to the API URL only
     // if a pre-existing config predates that change.
-    const schemaHost = loadConfig().webUrl ?? url;
+    const schemaHost = webUrl ?? url;
     writeConfigTemplate({
       path: targetPath,
       schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,

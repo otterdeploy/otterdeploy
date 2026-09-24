@@ -10,6 +10,7 @@ import { auditCommand } from "./commands/audit";
 import { backupsCommand } from "./commands/backups";
 import { buildCommand } from "./commands/build";
 import { completionsCommand, setCompletionRoot } from "./commands/completions";
+import { contextCommand } from "./commands/context";
 import { dbCommand } from "./commands/db";
 import { deployCommand } from "./commands/deploy";
 import { deploymentsCommand } from "./commands/deployments";
@@ -65,6 +66,7 @@ const GROUPS: CommandGroup[] = [
       login: loginCommand,
       logout: logoutCommand,
       whoami: whoamiCommand,
+      context: contextCommand,
       org: orgCommand,
       tokens: tokensCommand,
     },

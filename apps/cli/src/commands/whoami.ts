@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 
 import { createCliAuthClient } from "../auth-client";
 import { createCliClient } from "../client";
-import { resolveToken, resolveUrl } from "../config";
+import { resolveContext } from "../config";
 import { cmd } from "../lib/name";
 import { abort, detail, dim, hint, ok, paint, section } from "../lib/ui";
 
@@ -16,8 +16,7 @@ export const whoamiCommand = defineCommand({
     json: { type: "boolean", description: "Output as JSON" },
   },
   async run({ args }) {
-    const url = resolveUrl(args.url);
-    const token = resolveToken();
+    const { url, token } = resolveContext(args.url);
     if (!url || !token) {
       abort("Not logged in.", `run \`${cmd("login <url>")}\``);
     }

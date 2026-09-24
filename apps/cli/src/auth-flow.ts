@@ -16,9 +16,9 @@ import {
   loadConfig,
   normalizeUrl,
   rememberHost,
-  resolveToken,
-  resolveUrl,
-  saveConfig,
+  resolveContext,
+  saveContext,
+  setCurrent,
 } from "./config";
 import { openInBrowser } from "./lib/browser";
 import { cmd } from "./lib/name";
@@ -46,7 +46,7 @@ export async function promptForUrl(): Promise<string | null> {
   // The currently-configured `url` is folded in so a CLI upgrading from a
   // version that predates the history list still shows the domain already in
   // use, instead of an empty pick-list on the first run after upgrade.
-  const stored = normalizeUrl(loadConfig().url);
+  const stored = normalizeUrl(loadConfig().current);
   const remembered = knownHosts();
   const known = stored && !remembered.includes(stored) ? [stored, ...remembered] : remembered;
   if (known.length > 0) {
@@ -79,7 +79,11 @@ export interface AuthedSession {
 }
 
 export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedSession> {
-  const url = resolveUrl(urlOverride) ?? (await promptForUrl());
+  // One lookup, so the token is the one belonging to THIS host. Resolving the
+  // two separately is what let `--url other-host` travel with the stored
+  // host's bearer token.
+  const context = resolveContext(urlOverride);
+  const url = context.url ?? (await promptForUrl());
   if (!url) {
     abort(
       "No control plane URL configured.",
@@ -89,15 +93,21 @@ export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedS
     );
   }
 
-  const existing = resolveToken();
-  if (existing) return { url, token: existing };
+  // Re-read when the prompt supplied the URL: the context above was resolved
+  // before there was a host to resolve it against.
+  const token = context.url === url ? context.token : resolveContext(url).token;
+  if (token) return { url, token };
 
-  note(`Not authenticated. Starting browser login at ${url}.`);
-  const { token, webUrl } = await deviceCodeLogin(url);
-  saveConfig({ ...loadConfig(), url, webUrl, token });
+  // Being signed in elsewhere is not being signed in here, and saying so is
+  // the difference between a login the operator expected and one that looks
+  // like the CLI forgot them.
+  note(`Not authenticated with ${url}. Starting browser login.`);
+  const { token: fresh, webUrl } = await deviceCodeLogin(url);
+  saveContext(url, { token: fresh, ...(webUrl ? { webUrl } : {}) });
+  setCurrent(url);
   rememberHost(url);
   ok("Logged in.");
-  return { url, token };
+  return { url, token: fresh };
 }
 
 export interface DeviceLoginResult {
