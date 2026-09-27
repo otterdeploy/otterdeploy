@@ -2,7 +2,7 @@ import type { RedisClient } from "bun";
 
 import { db } from "@otterdeploy/db";
 import { deployment, preview, project, resource, serviceResource } from "@otterdeploy/db/schema";
-import { Docker, type Task } from "@otterdeploy/docker";
+import { Docker } from "@otterdeploy/docker";
 /**
  * Desired-vs-actual liveness: the watch that notices a service which SHOULD be
  * running and simply isn't.
@@ -48,6 +48,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { log } from "evlog";
 
 import { createRedis } from "../lib/redis";
+import { taskLabel } from "../lib/task-labels";
 import { emitPlatformEvent } from "../notifications/emit";
 import { isSwarmRuntime } from "../runtime";
 import {
@@ -163,22 +164,6 @@ async function listMidDeploy(): Promise<Set<string>> {
   return new Set(rows.map((row) => row.resourceId));
 }
 
-/** `Spec.ContainerSpec.Labels["otterdeploy.resource.id"]` off a swarm task. The
- *  docker client types `Task.Spec` as `Record<string, unknown>`, so each level
- *  is narrowed for real rather than asserted (mirrors resource-instances.ts's
- *  taskDeploymentId, including the literal key: a variable key would not
- *  narrow). */
-function taskResourceId(spec: Task["Spec"]): string | null {
-  const containerSpec = spec?.ContainerSpec;
-  if (typeof containerSpec !== "object" || containerSpec === null) return null;
-  if (!("Labels" in containerSpec)) return null;
-  const labels = containerSpec.Labels;
-  if (typeof labels !== "object" || labels === null) return null;
-  if (!(RESOURCE_ID_LABEL in labels)) return null;
-  const value = labels[RESOURCE_ID_LABEL];
-  return typeof value === "string" ? value : null;
-}
-
 /**
  * Resource ids with something actually up, or null when the runtime can't be
  * reached at all — which must NOT read as "everything is down".
@@ -207,7 +192,7 @@ async function listRunningResourceIds(): Promise<Set<string> | null> {
         // replacing reads `shutdown` while its successor starts, and counting
         // only `running` states would call a rolling update an outage.
         if (task.DesiredState !== "running") continue;
-        const labelled = taskResourceId(task.Spec);
+        const labelled = taskLabel(task.Spec, RESOURCE_ID_LABEL);
         if (labelled) running.add(canonicalId(labelled));
       }
       return running;
