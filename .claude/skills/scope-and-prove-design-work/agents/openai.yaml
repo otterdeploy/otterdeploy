@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scope and Prove Design Work"
+  short_description: "Scope and Prove Design Work guidance for design agents"
+  default_prompt: "Use $scope-and-prove-design-work to help me scope and prove design work."

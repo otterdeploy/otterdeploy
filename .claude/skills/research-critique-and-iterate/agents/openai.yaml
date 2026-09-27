@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research and Iterate"
+  short_description: "Research and Iterate guidance for design agents"
+  default_prompt: "Use $research-critique-and-iterate to help me research and iterate."

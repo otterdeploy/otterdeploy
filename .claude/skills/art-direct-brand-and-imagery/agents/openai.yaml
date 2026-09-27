@@ -1,0 +1,4 @@
+interface:
+  display_name: "Art-Direct Brand and Imagery"
+  short_description: "Art-Direct Brand and Imagery guidance for design agents"
+  default_prompt: "Use $art-direct-brand-and-imagery to help me art-direct brand and imagery."
