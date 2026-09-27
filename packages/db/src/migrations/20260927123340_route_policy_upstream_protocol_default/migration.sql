@@ -1,0 +1,1 @@
+ALTER TABLE "proxy_route" ALTER COLUMN "route_policy" SET DEFAULT '{"compression":"off","maxRequestBodyMb":null,"hsts":"off","contentTypeNosniff":false,"frameOptions":"off","referrerPolicy":"off","contentSecurityPolicy":null,"upstreamProtocol":"http"}';
