@@ -890,6 +890,14 @@ export const deployment = pgTable(
     index("deployment_resource_id_idx").on(table.resourceId),
     index("deployment_resource_created_idx").on(table.resourceId, table.createdAt),
     index("deployment_preview_id_idx").on(table.previewId),
+    // Status-only lookups, which run on a timer rather than on a request and
+    // so never carry a resource id to narrow by: the service-down watch asks
+    // for every `running` deployment install-wide once a minute, and the same
+    // tick asks for every `pending`/`building` one. Without this both are a
+    // sequential scan of a table that only grows — every deploy of every
+    // resource forever, the overwhelming majority of it `superseded`.
+    // See system-health/down-watch.ts (listExpected / listMidDeploy).
+    index("deployment_status_idx").on(table.status),
   ],
 );
 

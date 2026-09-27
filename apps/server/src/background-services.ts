@@ -21,6 +21,7 @@ import {
   startHostHealthMonitor,
   startLocalHealthSampler,
   startOrphanResourceGc,
+  startServiceDownWatch,
 } from "@otterdeploy/api/system-health";
 import { reconcileInterruptedDeployments } from "@otterdeploy/jobs/reconcile";
 import { log } from "evlog";
@@ -129,6 +130,12 @@ export function startBackgroundServices(): () => void {
   // lines ("restarting, attempt 2 of 5" / "gave up after 5 attempts"),
   // instant resource-changed pushes, and deploy.crashed notifications.
   start("deploy-crash-watcher", startDeployCrashWatcher);
+
+  // Service down watch. The crash watcher above only hears about deaths it is
+  // AWAKE for, and the health detector only speaks about containers that
+  // exist. This is the periodic desired-vs-actual pass that catches what both
+  // miss: a resource whose deployment says `running` with nothing running.
+  start("service-down-watch", startServiceDownWatch);
 
   // Edge-threat scan: flags client IPs hammering an org's domains with
   // scanner-style probes (/.env, /actuator, *.php, ?cmd=…) and emits

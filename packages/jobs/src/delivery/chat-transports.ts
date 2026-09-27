@@ -33,6 +33,24 @@ const TEXT = 10;
 const SEPARATOR = 14;
 const IS_COMPONENTS_V2 = 1 << 15;
 
+/**
+ * Execute Webhook ignores `components` unless this is asked for explicitly:
+ * "whether to respect the `components` field of the request … (defaults to
+ * `false`)". A components-only payload therefore arrives with nothing Discord
+ * will render, and every send is rejected `400 50006 Cannot send an empty
+ * message` — which is exactly what happened to 100% of one install's Discord
+ * alerts for as long as the channel existed. Nothing else can carry the
+ * message: with the V2 flag set, `content`/`embeds` are a 400 of their own.
+ *
+ * Appended rather than templated because a webhook target legitimately
+ * carries its own query (`?thread_id=…` posts into a thread), and dropping it
+ * would silently move every alert back to the parent channel.
+ */
+function withComponents(target: string): string {
+  if (/[?&]with_components=/.test(target)) return target;
+  return `${target}${target.includes("?") ? "&" : "?"}with_components=true`;
+}
+
 /** The bot posts as the product, not as the channel. `username: c.name` made
  *  every alert appear to come from a sender called "#alerts" — the channel's
  *  own name — so the product never appeared where a reader looks to identify
@@ -97,7 +115,7 @@ export function deliverDiscord(c: ResolvedChannel, e: ChannelEvent): Promise<Del
   }
   parts.push({ type: SEPARATOR }, { type: TEXT, content: `-# otterdeploy · ${e.eventId}` });
 
-  return post(c.target, {
+  return post(withComponents(c.target), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({

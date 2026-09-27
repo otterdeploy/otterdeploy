@@ -25,6 +25,9 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  *     there is no build.succeeded event, so "build events" means build
  *     problems. The bell's empty-state copy has to say so.
  *   - health.degraded / health.recovered (src/metrics/health-detector.ts)
+ *   - service.down / service.up (src/system-health/down-watch.ts), the
+ *     desired-vs-actual pass: a resource whose deployment reads `running`
+ *     with no container behind it
  *   - host.pressure    (src/metrics/sampler.ts)
  *   - cert.renewed     (src/edge-logs/cert-promote.ts)
  *   - ssh.rotated, audit.anomaly, edge.probe

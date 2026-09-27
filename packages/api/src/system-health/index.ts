@@ -35,6 +35,8 @@ export {
 } from "./systemd";
 export { startHealthAgentReconciler, startLocalHealthSampler } from "./agent-service";
 export { startHostHealthMonitor } from "./monitor";
+export { runDownWatchTick, startServiceDownWatch } from "./down-watch";
+export { planDownTransitions, type MissingResource } from "./down-transitions";
 export {
   recordOrphanedResource,
   startOrphanResourceGc,
