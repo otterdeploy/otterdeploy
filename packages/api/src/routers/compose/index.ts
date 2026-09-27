@@ -2,6 +2,8 @@
  * oRPC handlers for `type: compose` resources. Thin wrappers over the compose
  * service layer (parse / queries / deploy). See docs/designs/compose.md.
  */
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { projectScopedProcedure, requirePermission } from "../..";
 import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
@@ -32,6 +34,30 @@ function toView(rec: ComposeRecord) {
     services: rec.compose.services,
     exposed: rec.compose.exposed,
   };
+}
+
+/**
+ * The stack this request addresses, scoped to the caller's organization.
+ *
+ * Every handler here addresses a stack the same way — (organization, project,
+ * resource) — and the organization is the argument that makes the lookup
+ * tenant-safe. Resolving it in one place is what stops those three drifting
+ * apart across five call sites, which is how `compose.get` and friends came to
+ * read another org's stacks in the first place. Same shape as `requireBackup`
+ * and `requireSite` elsewhere in the routers.
+ */
+async function requireStack(
+  context: { activeOrganizationId: OrganizationId },
+  input: { projectId: ProjectId; resourceId: ResourceId },
+  errors: { NOT_FOUND: () => Error },
+): Promise<ComposeRecord> {
+  const rec = await getComposeRecord(
+    context.activeOrganizationId,
+    input.projectId,
+    input.resourceId,
+  );
+  if (!rec) throw errors.NOT_FOUND();
+  return rec;
 }
 
 export const composeRouter = {
@@ -75,12 +101,7 @@ export const composeRouter = {
   }),
 
   get: projectScopedProcedure.compose.get.handler(async ({ input, context, errors }) => {
-    const rec = await getComposeRecord(
-      context.activeOrganizationId,
-      input.projectId,
-      input.resourceId,
-    );
-    if (!rec) throw errors.NOT_FOUND();
+    const rec = await requireStack(context, input, errors);
     return toView(rec);
   }),
 
@@ -105,12 +126,7 @@ export const composeRouter = {
 
   redeploy: requirePermission({ service: ["deploy"] }).compose.redeploy.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(
-        context.activeOrganizationId,
-        input.projectId,
-        input.resourceId,
-      );
-      if (!rec) throw errors.NOT_FOUND();
+      const rec = await requireStack(context, input, errors);
 
       // Git-sourced stacks always redeploy through the build worker: it
       // re-clones at the branch head, rebuilds any `build:` services, and
@@ -169,12 +185,7 @@ export const composeRouter = {
   // the manifest). Takes effect on the next redeploy.
   updateContent: requirePermission({ service: ["update"] }).compose.updateContent.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(
-        context.activeOrganizationId,
-        input.projectId,
-        input.resourceId,
-      );
-      if (!rec) throw errors.NOT_FOUND();
+      const rec = await requireStack(context, input, errors);
       // A git stack's compose file lives in its repo. Editing it here would
       // drift from the source of truth and be overwritten on the next build.
       if (rec.compose.source !== "inline") {
@@ -222,12 +233,7 @@ export const composeRouter = {
 
   delete: requirePermission({ service: ["delete"] }).compose.delete.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(
-        context.activeOrganizationId,
-        input.projectId,
-        input.resourceId,
-      );
-      if (!rec) throw errors.NOT_FOUND();
+      const rec = await requireStack(context, input, errors);
       // Capture the stack's seeded `${VAR}` keys before its record is gone.
       const composeContent = rec.compose.composeContent;
       // Strip the stack from the manifest FIRST: before any physical teardown.

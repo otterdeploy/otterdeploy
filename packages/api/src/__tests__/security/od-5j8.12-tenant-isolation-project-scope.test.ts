@@ -85,7 +85,7 @@ function handlers(): Handler[] {
  * joins `project.organizationId` before returning a row.
  */
 const OWNERSHIP_PROOF =
-  /activeOrganizationId|getProjectInOrg|projectInOrg|getEnvInOrg|requireSite|requireBackup|requireProjectAccess/;
+  /activeOrganizationId|getProjectInOrg|projectInOrg|getEnvInOrg|requireSite|requireBackup|requireStack|requireProjectAccess/;
 
 /**
  * Handlers that legitimately read across tenants. An install administrator is
