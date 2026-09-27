@@ -73,6 +73,46 @@ async function groupEnvByService(
   return { envBySvc, envSourceBySvc };
 }
 
+/**
+ * Restart columns. Grouped like the write-side adapters in
+ * routers/service/inputs.ts, which split restart / healthcheck / resources for
+ * the same reason: one flat mapping of every column blows the complexity cap.
+ */
+function restartOf(row: ServiceStateRow) {
+  return {
+    restartCondition: row.service.restartCondition,
+    restartMaxAttempts: row.service.restartMaxAttempts ?? null,
+    restartDelayMs: row.service.restartDelayMs ?? null,
+    restartWindowMs: row.service.restartWindowMs ?? null,
+  };
+}
+
+function healthcheckOf(row: ServiceStateRow) {
+  return {
+    healthcheckCmd: row.service.healthcheckCmd ?? null,
+    healthcheckIntervalMs: row.service.healthcheckIntervalMs ?? null,
+    healthcheckTimeoutMs: row.service.healthcheckTimeoutMs ?? null,
+    healthcheckRetries: row.service.healthcheckRetries ?? null,
+    healthcheckStartMs: row.service.healthcheckStartMs ?? null,
+  };
+}
+
+function limitsOf(row: ServiceStateRow) {
+  return {
+    // `cpu_limit` / `cpu_reservation` are postgres `numeric`, which drizzle
+    // returns as a STRING ("1.50"). Comparing that against the manifest's number
+    // would differ on every diff and never converge, so parse here and keep the
+    // pure diff numeric.
+    cpuLimit: numericOrNull(row.service.cpuLimit),
+    memoryLimitMb: row.service.memoryLimitMb ?? null,
+    cpuReservation: numericOrNull(row.service.cpuReservation),
+    memoryReservationMb: row.service.memoryReservationMb ?? null,
+    diskLimitMb: row.service.diskLimitMb ?? null,
+    swapLimitMb: row.service.swapLimitMb ?? null,
+    pidsLimit: row.service.pidsLimit ?? null,
+  };
+}
+
 function toCurrentService(
   row: ServiceStateRow,
   ports: CurrentServicePort[],
@@ -98,11 +138,21 @@ function toCurrentService(
     preDeploy: row.service.preDeploy ?? null,
     postDeploy: row.service.postDeploy ?? null,
     buildConfig: row.service.buildConfig ?? null,
-    restartWindowMs: row.service.restartWindowMs ?? null,
-    diskLimitMb: row.service.diskLimitMb ?? null,
-    swapLimitMb: row.service.swapLimitMb ?? null,
-    pidsLimit: row.service.pidsLimit ?? null,
+    ...restartOf(row),
+    ...healthcheckOf(row),
+    ...limitsOf(row),
   };
+}
+
+/** A postgres `numeric` column as a number. Drizzle hands these back as strings
+ *  to preserve precision; the manifest declares them as numbers, so one side has
+ *  to convert and the read boundary is the honest place. A value that will not
+ *  parse becomes null rather than NaN, which would compare unequal to itself and
+ *  stage a change on every diff. */
+function numericOrNull(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /**

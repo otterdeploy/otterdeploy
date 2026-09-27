@@ -5,6 +5,16 @@ import type { Manifest } from "../../../stack/manifest";
 import { manifestSchema, resolveEnvironment } from "../../../stack/manifest";
 import { withEnvironmentOverlay, withoutEnvironmentOverlay } from "../mirror";
 
+/** Unwrap a merge that is expected to succeed. `resolveEnvironment` returns a
+ *  Result because an environment block CAN merge into an invalid manifest, and
+ *  that is a 400 the operator must see rather than a throw. Every fixture here
+ *  is a valid one, so a failure means the fixture is wrong. */
+function mergedFor(manifest: Manifest, environment?: string): Manifest {
+  const result = resolveEnvironment(manifest, environment);
+  if (result.isErr()) throw new Error(`fixture does not merge: ${result.error.message}`);
+  return result.value;
+}
+
 const base = manifestSchema.parse({
   version: 1,
   project: "demo",
@@ -29,7 +39,7 @@ describe("withEnvironmentOverlay", () => {
     // This is the whole design. Inheritance is the ABSENCE of an override, so
     // the mirror needs no copying and cannot drift.
     const next = withEnvironmentOverlay(base, "staging");
-    const resolved = resolveEnvironment(next, "staging");
+    const resolved = mergedFor(next, "staging");
     expect(resolved.services).toEqual(base.services);
     expect(resolved.databases).toEqual(base.databases);
   });
@@ -42,7 +52,7 @@ describe("withEnvironmentOverlay", () => {
       services: { web: { source: "image", image: "nginx:2", replicas: 5 } },
     };
     // ...and staging sees it, because it overrode nothing.
-    const resolved = resolveEnvironment(changed, "staging");
+    const resolved = mergedFor(changed, "staging");
     const web = resolved.services.web;
     if (web?.source !== "image") throw new Error("expected the image-sourced web service");
     expect(web.image).toBe("nginx:2");

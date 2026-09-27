@@ -32,6 +32,25 @@ export class EnvironmentNotEmptyError extends TaggedError("EnvironmentNotEmptyEr
   }
 }
 
+/**
+ * The environment is some project's MAIN environment, which is not a deletable
+ * object. `project.environment_id` is the pointer every scoped read resolves
+ * through; with it null the project reports zero resources everywhere, forever,
+ * while its containers keep running. Deleting the project is the operation that
+ * removes its main environment.
+ */
+export class EnvironmentIsMainError extends TaggedError("EnvironmentIsMainError")<{
+  message: string;
+  environmentId: EnvironmentId;
+}>() {
+  constructor(args: { environmentId: EnvironmentId }) {
+    super({
+      environmentId: args.environmentId,
+      message: `environment ${args.environmentId} is a project's main environment and cannot be deleted. Delete the project instead`,
+    });
+  }
+}
+
 export class EnvironmentConflictError extends TaggedError("EnvironmentConflictError")<{
   message: string;
   slug: string;

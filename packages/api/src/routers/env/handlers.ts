@@ -23,6 +23,7 @@ import { isUniqueViolation } from "../project/views";
 import {
   EnvironmentConflictError,
   EnvironmentDatabaseError,
+  EnvironmentIsMainError,
   EnvironmentNotEmptyError,
   EnvironmentNotFoundError,
 } from "./errors";
@@ -169,7 +170,9 @@ export async function setEnvProtection(
 
 export async function deleteEnv(
   input: { id: EnvironmentId; cascade?: boolean } & OrgRef,
-): Promise<Result<{ ok: true }, EnvironmentNotFoundError | EnvironmentNotEmptyError>> {
+): Promise<
+  Result<{ ok: true }, EnvironmentNotFoundError | EnvironmentNotEmptyError | EnvironmentIsMainError>
+> {
   // Read the row BEFORE deleting: afterwards there is no way to learn its slug
   // or project, and both are needed to find the overlay.
   const owned = await getEnvInOrg({
@@ -182,9 +185,13 @@ export async function deleteEnv(
     cascade: input.cascade,
   });
   if (!deleted.ok) {
-    return deleted.reason === "has-resources"
-      ? Result.err(new EnvironmentNotEmptyError({ environmentId: input.id }))
-      : Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+    if (deleted.reason === "has-resources") {
+      return Result.err(new EnvironmentNotEmptyError({ environmentId: input.id }));
+    }
+    if (deleted.reason === "is-main") {
+      return Result.err(new EnvironmentIsMainError({ environmentId: input.id }));
+    }
+    return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
   }
   // Drop the overlay too. Left behind it is inert, but re-creating an
   // environment with the same slug would silently inherit the deleted one's

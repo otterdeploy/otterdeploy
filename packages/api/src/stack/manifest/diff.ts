@@ -96,7 +96,29 @@ export interface CurrentService {
   preDeploy: string[] | null;
   postDeploy: string[] | null;
   buildConfig: BuildConfig | null;
+  /** Restart policy, all four columns. Only `restartWindowMs` used to be
+   *  carried, so a change to the condition, the attempt cap or the delay was
+   *  invisible to the diff while apply wrote it regardless. */
+  restartCondition: "none" | "on-failure" | "any";
+  restartMaxAttempts: number | null;
+  restartDelayMs: number | null;
   restartWindowMs: number | null;
+  /** Healthcheck, which the diff could not see at all: the whole block was
+   *  absent from this type, so editing a healthcheck produced no pending
+   *  change and then took effect on the next unrelated apply. */
+  healthcheckCmd: string[] | null;
+  healthcheckIntervalMs: number | null;
+  healthcheckTimeoutMs: number | null;
+  healthcheckRetries: number | null;
+  healthcheckStartMs: number | null;
+  /** CPU/memory limits and reservations. `cpu_limit` and `cpu_reservation` are
+   *  postgres `numeric`, which drizzle hands back as a STRING; the loader
+   *  parses them so this stays numeric and a "1.50" vs 1.5 comparison cannot
+   *  manufacture a permanent diff. */
+  cpuLimit: number | null;
+  memoryLimitMb: number | null;
+  cpuReservation: number | null;
+  memoryReservationMb: number | null;
   diskLimitMb: number | null;
   swapLimitMb: number | null;
   pidsLimit: number | null;

@@ -13,9 +13,44 @@
  * Returns a new manifest object with environment overrides resolved.
  */
 
+import type * as z from "zod";
+
 import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
+import { Result, TaggedError } from "better-result";
 
 import { manifestSchema, type Manifest } from "./schema";
+
+/**
+ * An environment block merged into something that is not a valid resource map.
+ *
+ * This is a mistake in the DOCUMENT, not a server fault: an override that adds
+ * a service without a `source`, or deletes the field that made the base block
+ * valid, merges into a shape the schema rejects. It used to be a bare `throw`
+ * inside `Result.ok(resolveEnvironment(...))`, which escaped the Result
+ * contract entirely and surfaced as a 500 on the diff/apply endpoints — an
+ * "internal error" for a typo the operator could have fixed, with a message
+ * ("overrides merge into invalid services") that named neither the resource nor
+ * the reason. The zod issues are carried so the message can name both.
+ */
+export class ManifestMergeError extends TaggedError("ManifestMergeError")<{
+  message: string;
+  environment: string;
+  /** "services" or "databases": which map failed to validate after merging. */
+  map: string;
+  issues: string[];
+}>() {
+  constructor(args: { environment: string; map: string; issues: readonly z.core.$ZodIssue[] }) {
+    const issues = args.issues.map(
+      (issue) => `${[args.map, ...issue.path].join(".")}: ${issue.message}`,
+    );
+    super({
+      environment: args.environment,
+      map: args.map,
+      issues,
+      message: `environment "${args.environment}" does not merge into a valid manifest. ${issues.join("; ")}`,
+    });
+  }
+}
 
 const SERVICE_DISCRIMINATOR = "source";
 const DATABASE_DISCRIMINATOR = "engine";
@@ -35,25 +70,50 @@ function isDatabasesMap(value: JsonObject): value is JsonObject & Manifest["data
   return databasesMapSchema.safeParse(value).success;
 }
 
-export function resolveEnvironment(manifest: Manifest, environment?: string): Manifest {
-  if (!environment) return manifest;
+/** Re-parse a map already known to be invalid, purely to collect the issues so
+ *  the error can name the resource and the field. Only ever runs on the
+ *  failure path, so the second parse costs nothing in the normal case. */
+function mergeError(
+  schema: { safeParse: (value: unknown) => z.ZodSafeParseResult<unknown> },
+  value: JsonObject,
+  environment: string,
+  map: string,
+): ManifestMergeError {
+  const parsed = schema.safeParse(value);
+  return new ManifestMergeError({
+    environment,
+    map,
+    issues: parsed.success ? [] : parsed.error.issues,
+  });
+}
+
+export function resolveEnvironment(
+  manifest: Manifest,
+  environment?: string,
+): Result<Manifest, ManifestMergeError> {
+  if (!environment) return Result.ok(manifest);
   const overrides = manifest.environments?.[environment];
-  if (!overrides) return manifest;
+  if (!overrides) return Result.ok(manifest);
 
-  const services = mergeResources(manifest.services, overrides.services, SERVICE_DISCRIMINATOR);
-  const databases = mergeResources(manifest.databases, overrides.databases, DATABASE_DISCRIMINATOR);
-  if (!isServicesMap(services)) {
-    throw new Error(`environment "${environment}" overrides merge into invalid services`);
+  const merged = mergeResources(manifest.services, overrides.services, SERVICE_DISCRIMINATOR);
+  const mergedDatabases = mergeResources(
+    manifest.databases,
+    overrides.databases,
+    DATABASE_DISCRIMINATOR,
+  );
+
+  if (!isServicesMap(merged)) {
+    return Result.err(mergeError(servicesMapSchema, merged, environment, "services"));
   }
-  if (!isDatabasesMap(databases)) {
-    throw new Error(`environment "${environment}" overrides merge into invalid databases`);
+  if (!isDatabasesMap(mergedDatabases)) {
+    return Result.err(mergeError(databasesMapSchema, mergedDatabases, environment, "databases"));
   }
 
-  return {
+  return Result.ok({
     ...manifest,
-    services,
-    databases,
-  };
+    services: merged,
+    databases: mergedDatabases,
+  });
 }
 
 function mergeResources(

@@ -108,10 +108,10 @@ export async function deployCompose(
   rlog?: RequestLogger,
 ): Promise<Result<ComposeDeployResult, ComposeDeployError>> {
   const ownsDeployment = !input.deploymentId;
-  const record = await getComposeRecord(input.projectId, input.resourceId);
-  if (!record) {
-    return Result.err(new ComposeDeployError("Compose resource not found"));
-  }
+  // The project is resolved BEFORE the stack because `getComposeRecord` is
+  // org-scoped and this internal path has no caller tenant to pass — it derives
+  // the owning org from the project row, then reads the stack within it. Callers
+  // are already authorized; the scoped read is defence in depth.
   const project = await getProjectById(input.projectId);
   if (!project) {
     return Result.err(new ComposeDeployError("Project not found"));
@@ -121,6 +121,10 @@ export async function deployCompose(
   const organizationId = project.organizationId;
   if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
     return Result.err(new ComposeDeployError("Project has a malformed organization id"));
+  }
+  const record = await getComposeRecord(organizationId, input.projectId, input.resourceId);
+  if (!record) {
+    return Result.err(new ComposeDeployError("Compose resource not found"));
   }
 
   // Invariant: only inline stacks reach a direct deploy. Git stacks always go

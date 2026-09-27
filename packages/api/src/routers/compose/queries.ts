@@ -6,13 +6,14 @@ import type {
 import type {
   EnvironmentId,
   GitRepoId,
+  OrganizationId,
   ProjectId,
   ResourceId,
   ServerId,
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { composeResource, resource } from "@otterdeploy/db/schema/project";
+import { composeResource, project, resource } from "@otterdeploy/db/schema/project";
 /**
  * DB ops for `type: compose` resources. A compose resource is a `resource`
  * row (type=compose) + a `compose_resource` row holding the file and derived
@@ -150,7 +151,18 @@ export async function createComposeRecord(input: {
   }
 }
 
+/**
+ * One stack, by project + resource id, **scoped to the owning organization**.
+ *
+ * `organizationId` is not optional and not derived from the row: it is the
+ * caller's tenant, and it is joined into the `where` so a `projectId` that
+ * belongs to another organization matches nothing. This is the only place the
+ * scope can be enforced for sure — `resource` has no org column of its own, and
+ * with no row-level security in the database a query keyed on `projectId` alone
+ * reads across tenants. See the od-5j8.12 security test.
+ */
 export async function getComposeRecord(
+  organizationId: OrganizationId,
   projectId: ProjectId,
   resourceId: ResourceId,
 ): Promise<ComposeRecord | null> {
@@ -158,10 +170,12 @@ export async function getComposeRecord(
     .select({ resource, compose: composeResource })
     .from(resource)
     .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
+    .innerJoin(project, eq(project.id, resource.projectId))
     .where(
       and(
         eq(resource.id, resourceId),
         eq(resource.projectId, projectId),
+        eq(project.organizationId, organizationId),
         eq(resource.type, "compose"),
       ),
     )
@@ -169,12 +183,24 @@ export async function getComposeRecord(
   return row ?? null;
 }
 
-export async function listComposeRecords(projectId: ProjectId): Promise<ComposeRecord[]> {
+/** Every stack in a project, scoped to the owning org. See [[getComposeRecord]]
+ *  for why `organizationId` is required rather than inferred. */
+export async function listComposeRecords(
+  organizationId: OrganizationId,
+  projectId: ProjectId,
+): Promise<ComposeRecord[]> {
   return db
     .select({ resource, compose: composeResource })
     .from(resource)
     .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-    .where(and(eq(resource.projectId, projectId), eq(resource.type, "compose")))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(
+      and(
+        eq(resource.projectId, projectId),
+        eq(project.organizationId, organizationId),
+        eq(resource.type, "compose"),
+      ),
+    )
     .orderBy(asc(resource.createdAt));
 }
 

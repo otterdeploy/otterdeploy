@@ -34,7 +34,7 @@ export function defineConfig<T extends import("./schema").Manifest>(config: T): 
   return config;
 }
 
-export { resolveEnvironment } from "./merge";
+export { resolveEnvironment, ManifestMergeError } from "./merge";
 
 export { parseRefs, isSecretSentinel, ManifestRefError, type Ref } from "./refs";
 

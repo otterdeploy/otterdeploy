@@ -33,6 +33,24 @@ function liveGitService(over: Partial<CurrentState["services"][string]> = {}): C
   return {
     services: {
       web: {
+        // Runtime columns this case does not vary. See the diff's CurrentService:
+        // apply writes every one of them, so the type requires them all.
+        restartCondition: "any",
+        restartMaxAttempts: null,
+        restartDelayMs: 5000,
+        restartWindowMs: null,
+        healthcheckCmd: null,
+        healthcheckIntervalMs: null,
+        healthcheckTimeoutMs: null,
+        healthcheckRetries: null,
+        healthcheckStartMs: null,
+        cpuLimit: null,
+        memoryLimitMb: null,
+        cpuReservation: null,
+        memoryReservationMb: null,
+        diskLimitMb: null,
+        swapLimitMb: null,
+        pidsLimit: null,
         name: "web",
         source: "git",
         image: "ghcr.io/acme/api:abc123",
@@ -50,10 +68,6 @@ function liveGitService(over: Partial<CurrentState["services"][string]> = {}): C
         preDeploy: null,
         postDeploy: null,
         buildConfig: null,
-        restartWindowMs: null,
-        diskLimitMb: null,
-        swapLimitMb: null,
-        pidsLimit: null,
         ...over,
       },
     },

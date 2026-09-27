@@ -8,6 +8,7 @@ import type { ChangeDetails, CurrentService, CurrentServicePort } from "./diff";
 import type { ComposeManifest, DatabaseManifest, ServiceManifest } from "./schema";
 
 import { withPromotedPrimary } from "../../lib/primary-port";
+import { diffHealthcheck, diffRestart } from "./diff-runtime";
 import { diffSourceFields, type FieldChanges } from "./diff-source";
 
 // ── Service field diff ─────────────────────────────────────────────────
@@ -61,12 +62,7 @@ function diffLifecycleFields(
     fc.postDeploy = { from: current.postDeploy, to: desired.postDeploy };
   }
 
-  if (desired.restart !== undefined) {
-    const desiredRestartWindow = desired.restart.windowMs ?? null;
-    if (desiredRestartWindow !== current.restartWindowMs) {
-      fc.restartWindowMs = { from: current.restartWindowMs, to: desiredRestartWindow };
-    }
-  }
+  if (desired.restart !== undefined) diffRestart(desired.restart, current, fc);
 }
 
 function diffResourceLimitFields(
@@ -75,17 +71,24 @@ function diffResourceLimitFields(
   fc: FieldChanges,
 ): void {
   if (desired.resources === undefined) return;
-  const desiredDisk = desired.resources.diskMb ?? null;
-  if (desiredDisk !== current.diskLimitMb) {
-    fc.diskLimitMb = { from: current.diskLimitMb, to: desiredDisk };
-  }
-  const desiredSwap = desired.resources.swapMb ?? null;
-  if (desiredSwap !== current.swapLimitMb) {
-    fc.swapLimitMb = { from: current.swapLimitMb, to: desiredSwap };
-  }
-  const desiredPids = desired.resources.pidsLimit ?? null;
-  if (desiredPids !== current.pidsLimit) {
-    fc.pidsLimit = { from: current.pidsLimit, to: desiredPids };
+  const r = desired.resources;
+  // `buildResourcesPatch` writes all SEVEN of these as `?? null` whenever the
+  // block is declared, so every one is authoritative and every one must be
+  // compared. Four of them — the cpu/memory limits and reservations, i.e. the
+  // knobs operators actually tune — were written by apply and never diffed, so
+  // changing them showed no pending change and then landed silently on the next
+  // apply of that service.
+  const scalars: Array<[keyof FieldChanges, number | null, number | null]> = [
+    ["cpuLimit", r.cpuLimit ?? null, current.cpuLimit],
+    ["memoryLimitMb", r.memoryMb ?? null, current.memoryLimitMb],
+    ["cpuReservation", r.cpuReservation ?? null, current.cpuReservation],
+    ["memoryReservationMb", r.memoryReservationMb ?? null, current.memoryReservationMb],
+    ["diskLimitMb", r.diskMb ?? null, current.diskLimitMb],
+    ["swapLimitMb", r.swapMb ?? null, current.swapLimitMb],
+    ["pidsLimit", r.pidsLimit ?? null, current.pidsLimit],
+  ];
+  for (const [key, want, have] of scalars) {
+    if (want !== have) fc[key] = { from: have, to: want };
   }
 }
 
@@ -96,6 +99,7 @@ export function diffServiceFields(desired: ServiceManifest, current: CurrentServ
   diffSourceFields(desired, current, fc);
   diffExecFields(desired, current, fc);
   diffLifecycleFields(desired, current, fc);
+  diffHealthcheck(desired, current, fc);
   diffResourceLimitFields(desired, current, fc);
   return fc;
 }

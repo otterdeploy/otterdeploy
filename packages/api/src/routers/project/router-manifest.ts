@@ -1,4 +1,4 @@
-import { Result, matchError } from "better-result";
+import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
 import { environmentIdOrReject } from "../../lib/environment/resolve-slug-reject";
@@ -16,6 +16,7 @@ import {
 } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
+import { resolvedManifestErrors } from "./manifest-error-map";
 import { renameResource } from "./manifest-rename-apply";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
@@ -90,6 +91,8 @@ export const manifestRouter = {
         throw matchError(outcome.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ManifestVersionConflictError: () => errors.CONFLICT(),
+          ManifestProjectMismatchError: (error) =>
+            errors.PROJECT_MISMATCH({ message: error.message }),
         });
       }
       return { ...outcome.value, removed, dryRun: false };
@@ -102,7 +105,7 @@ export const manifestRouter = {
     // read, and making it a write is what let `--dry-run` overwrite the
     // baseline it claimed not to touch. Falls back to the saved manifest.
     const resolved = input.manifest
-      ? Result.ok(resolveEnvironment(input.manifest, input.environment))
+      ? resolveEnvironment(input.manifest, input.environment)
       : await resolvedManifest(
           {
             projectId: input.projectId,
@@ -111,9 +114,7 @@ export const manifestRouter = {
           input.environment,
         );
     if (resolved.isErr()) {
-      throw matchError(resolved.error, {
-        ProjectNotFoundError: () => errors.NOT_FOUND(),
-      });
+      throw matchError(resolved.error, resolvedManifestErrors(errors));
     }
     if (!resolved.value) return { resolved: null, changes: [] };
     // Same slug→id conversion the apply endpoint uses, so the plan the operator
@@ -175,9 +176,7 @@ export const manifestRouter = {
         input.environment,
       );
       if (resolved.isErr()) {
-        throw matchError(resolved.error, {
-          ProjectNotFoundError: () => errors.NOT_FOUND(),
-        });
+        throw matchError(resolved.error, resolvedManifestErrors(errors));
       }
       if (!resolved.value) {
         return {
@@ -261,6 +260,8 @@ export const manifestRouter = {
         throw matchError(saved.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ManifestVersionConflictError: () => errors.CONFLICT(),
+          ManifestProjectMismatchError: (error) =>
+            errors.PROJECT_MISMATCH({ message: error.message }),
         });
       }
 
@@ -272,9 +273,7 @@ export const manifestRouter = {
         input.environment,
       );
       if (resolved.isErr()) {
-        throw matchError(resolved.error, {
-          ProjectNotFoundError: () => errors.NOT_FOUND(),
-        });
+        throw matchError(resolved.error, resolvedManifestErrors(errors));
       }
       if (!resolved.value) {
         return {

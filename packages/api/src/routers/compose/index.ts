@@ -69,13 +69,17 @@ export const composeRouter = {
     };
   }),
 
-  list: projectScopedProcedure.compose.list.handler(async ({ input }) => {
-    const rows = await listComposeRecords(input.projectId);
+  list: projectScopedProcedure.compose.list.handler(async ({ input, context }) => {
+    const rows = await listComposeRecords(context.activeOrganizationId, input.projectId);
     return rows.map(toView);
   }),
 
-  get: projectScopedProcedure.compose.get.handler(async ({ input, errors }) => {
-    const rec = await getComposeRecord(input.projectId, input.resourceId);
+  get: projectScopedProcedure.compose.get.handler(async ({ input, context, errors }) => {
+    const rec = await getComposeRecord(
+      context.activeOrganizationId,
+      input.projectId,
+      input.resourceId,
+    );
     if (!rec) throw errors.NOT_FOUND();
     return toView(rec);
   }),
@@ -101,7 +105,11 @@ export const composeRouter = {
 
   redeploy: requirePermission({ service: ["deploy"] }).compose.redeploy.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecord(
+        context.activeOrganizationId,
+        input.projectId,
+        input.resourceId,
+      );
       if (!rec) throw errors.NOT_FOUND();
 
       // Git-sourced stacks always redeploy through the build worker: it
@@ -161,7 +169,11 @@ export const composeRouter = {
   // the manifest). Takes effect on the next redeploy.
   updateContent: requirePermission({ service: ["update"] }).compose.updateContent.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecord(
+        context.activeOrganizationId,
+        input.projectId,
+        input.resourceId,
+      );
       if (!rec) throw errors.NOT_FOUND();
       // A git stack's compose file lives in its repo. Editing it here would
       // drift from the source of truth and be overwritten on the next build.
@@ -201,14 +213,20 @@ export const composeRouter = {
         input.composeContent,
         files,
       );
-      const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+      const updated =
+        (await getComposeRecord(context.activeOrganizationId, input.projectId, input.resourceId)) ??
+        rec;
       return toView(updated);
     },
   ),
 
   delete: requirePermission({ service: ["delete"] }).compose.delete.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecord(
+        context.activeOrganizationId,
+        input.projectId,
+        input.resourceId,
+      );
       if (!rec) throw errors.NOT_FOUND();
       // Capture the stack's seeded `${VAR}` keys before its record is gone.
       const composeContent = rec.compose.composeContent;
@@ -240,6 +258,7 @@ export const composeRouter = {
       // Drop the project variables this stack seeded that nothing else uses.
       await cleanupOrphanedComposeVars(
         {
+          organizationId: context.activeOrganizationId,
           projectId: input.projectId,
           deletedResourceId: input.resourceId,
           composeContent,

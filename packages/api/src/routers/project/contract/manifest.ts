@@ -67,6 +67,17 @@ const unknownEnvironment = {
   BAD_REQUEST: { status: 400, message: "Unknown environment" as const },
 } as const;
 
+/** An environment block that merges into an invalid manifest. The operator's
+ *  document is wrong, so 400 — this used to escape as a 500 because
+ *  `resolveEnvironment` threw rather than returning a typed error. The message
+ *  is replaced at throw time with one naming the resource and field. */
+const invalidEnvironmentOverride = {
+  INVALID_MANIFEST: {
+    status: 400,
+    message: "Environment overrides do not merge into a valid manifest" as const,
+  },
+} as const;
+
 const manifestDiffInput = z.object({
   projectId: getProjectInput.shape.id,
   // Resolve overrides for this environment before diffing. Omit to diff
@@ -222,6 +233,17 @@ const conflict = {
   },
 };
 
+/** The payload's `project` slug names a different project than the one being
+ *  written to. 400, and never silently corrected: the CLI resolves its target
+ *  FROM that field, so quietly rewriting it would point the operator's next
+ *  `deploy` at the wrong project. */
+const projectMismatch = {
+  PROJECT_MISMATCH: {
+    status: 400,
+    message: "This manifest belongs to a different project" as const,
+  },
+} as const;
+
 export const manifestContractSlice = {
   get: oc
     .errors(projectNotFoundErrors)
@@ -229,22 +251,28 @@ export const manifestContractSlice = {
     .input(getProjectInput)
     .output(manifestGetOutput),
   save: oc
-    .errors({ ...projectNotFoundErrors, ...conflict })
+    .errors({ ...projectNotFoundErrors, ...conflict, ...projectMismatch })
     .meta({ path: `${basePath}/{projectId}/manifest`, tag, method: "PUT" })
     .input(manifestSaveInput)
     .output(manifestSaveOutput),
   diff: oc
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...invalidEnvironmentOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/diff`, tag, method: "POST" })
     .input(manifestDiffInput)
     .output(manifestDiffOutput),
   apply: oc
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...invalidEnvironmentOverride })
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
   applyChange: oc
-    .errors({ ...projectNotFoundErrors, ...conflict, ...unknownEnvironment })
+    .errors({
+      ...projectNotFoundErrors,
+      ...conflict,
+      ...unknownEnvironment,
+      ...invalidEnvironmentOverride,
+      ...projectMismatch,
+    })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)
     .output(manifestApplyChangeOutput),

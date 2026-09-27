@@ -143,6 +143,54 @@ async function lookupResourceIdByName(
   return row?.id ?? null;
 }
 
+/**
+ * The resources a plan plotted but an aborted apply never attempted.
+ *
+ * The reconciler records what LANDED by writing `lastAppliedManifest` after
+ * the last phase. That works for a per-resource failure, which travels in
+ * `skipped[]` — but not for a hard throw, which skips the write entirely and
+ * loses the record of everything earlier phases already created.
+ *
+ * The consequence is not a lost status line, it is an orphan. A database
+ * created in phase 1, with the snapshot never written, is absent from
+ * `lastAppliedManifest` — so `discard` reverts the manifest to a state that
+ * never mentioned it, `wasDeclaredBefore` then reads false, and `diffNamedMap`
+ * downgrades its delete to a NO-OP. The row stays live, running and billable,
+ * and no diff will ever stage its removal again.
+ *
+ * So the write has to happen on the failure path too, which means naming the
+ * resources that never ran: they must be reported skipped, or
+ * `snapshotAfterApply` would bake them into the snapshot as applied and
+ * reintroduce the same class of ghost from the other direction.
+ */
+export function unreachedPlanEntries(
+  plan: Readonly<Record<string, ReadonlyArray<{ name: string }>>>,
+  reached: ReadonlySet<string>,
+  reason: string,
+): Array<{ resource: "service" | "database" | "compose"; name: string; reason: string }> {
+  const out: Array<{ resource: "service" | "database" | "compose"; name: string; reason: string }> =
+    [];
+  for (const [key, changes] of Object.entries(plan)) {
+    const resource = planKeyResource(key);
+    if (!resource) continue;
+    for (const change of changes) {
+      if (reached.has(`${resource}:${change.name}`)) continue;
+      out.push({ resource, name: change.name, reason });
+    }
+  }
+  return out;
+}
+
+/** `serviceCreates` -> "service". The plan's keys are `<resource><Verb>`, and
+ *  the resource is the prefix; anything unrecognized is ignored rather than
+ *  guessed at. */
+function planKeyResource(key: string): "service" | "database" | "compose" | null {
+  if (key.startsWith("service")) return "service";
+  if (key.startsWith("database")) return "database";
+  if (key.startsWith("compose")) return "compose";
+  return null;
+}
+
 export async function lookupServiceId(
   projectId: ProjectId,
   name: string,
