@@ -66,6 +66,7 @@ const binding: RepoBinding = {
   repo: "widgets",
   installationGithubId: null,
   defaultBranch: "main",
+  apiBaseUrl: "https://api.github.com",
 };
 
 describe("inspect-github fetch helpers → routed through the shared egress policy", () => {
@@ -133,5 +134,36 @@ describe("inspect-github fetch helpers → routed through the shared egress poli
     await expect(getTreeSnapshot(binding, "repo-tree-2")).rejects.toThrow(
       /GitHub API request blocked by outbound egress policy/,
     );
+  });
+});
+
+describe("inspect-github fetch helpers → a GitHub Enterprise binding's own API base", () => {
+  const fetchMock = vi.mocked(egressFetch);
+  const ghe: RepoBinding = { ...binding, apiBaseUrl: "https://ghe.acme.corp/api/v3" };
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+  });
+
+  it("getTreeSnapshot asks the enterprise host, not api.github.com", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ tree: [] }));
+
+    await getTreeSnapshot(ghe, "repo-tree-ghe");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://ghe.acme.corp/api/v3/repos/acme/widgets/git/trees/main?recursive=1",
+    );
+  });
+
+  it("fetchPackageJson and fetchTextFile ask the enterprise host", async () => {
+    fetchMock.mockResolvedValue(textResponse("{}"));
+
+    await fetchPackageJson(ghe, "package.json", "repo-pkg-ghe");
+    await fetchTextFile(ghe, ".env.example");
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://ghe.acme.corp/api/v3/repos/acme/widgets/contents/package.json?ref=main",
+      "https://ghe.acme.corp/api/v3/repos/acme/widgets/contents/.env.example?ref=main",
+    ]);
   });
 });

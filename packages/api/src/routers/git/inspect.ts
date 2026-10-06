@@ -202,7 +202,7 @@ export async function listRepoBranches(
   const names: string[] = [];
 
   for (let page = 1; page <= BRANCH_PAGE_CAP; page++) {
-    const url = `https://api.github.com/repos/${binding.owner}/${binding.repo}/branches?per_page=100&page=${page}`;
+    const url = `${binding.apiBaseUrl}/repos/${binding.owner}/${binding.repo}/branches?per_page=100&page=${page}`;
     const res = await ghFetch(url, { headers });
     const body = await res.text();
 

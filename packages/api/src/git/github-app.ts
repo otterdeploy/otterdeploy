@@ -10,6 +10,7 @@
 
 export {
   apiBaseUrlForHost,
+  apiBaseUrlForInstallation,
   type GithubAppConfig,
   type GithubAppConfigWithWebhookSecret,
   GithubAppNotConfiguredError,

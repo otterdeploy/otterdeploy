@@ -65,6 +65,25 @@ export function apiBaseUrlForHost(host: string): string {
   return `https://${host}/api/v3`;
 }
 
+/**
+ * API base for a call made on behalf of an installation: its provider's host,
+ * so a GitHub Enterprise install talks to `{host}/api/v3` rather than
+ * github.com. No installation (a public repo read anonymously) means
+ * github.com, as does an installation with no row: there is no other host it
+ * could belong to. Cheap on purpose (one indexed join, nothing decrypted) so
+ * read paths that never mint a token can still use it.
+ */
+export async function apiBaseUrlForInstallation(installationId: string | null): Promise<string> {
+  if (!installationId) return apiBaseUrlForHost("github.com");
+  const [row] = await db
+    .select({ host: gitProvider.host })
+    .from(gitInstallation)
+    .innerJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
+    .where(eq(gitInstallation.installationId, installationId))
+    .limit(1);
+  return apiBaseUrlForHost(row?.host ?? "github.com");
+}
+
 /** Look up + decrypt by provider row id (the path most callers take). */
 export async function loadGithubAppForProvider(
   providerId: GitProviderId,

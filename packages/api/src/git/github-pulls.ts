@@ -8,7 +8,7 @@
 import { createError } from "evlog";
 import * as z from "zod";
 
-import { apiBaseUrlForHost, getInstallationToken, ghFetch } from "./github-app";
+import { apiBaseUrlForInstallation, getInstallationToken, ghFetch } from "./github-app";
 
 /**
  * The slice of GitHub's pull-request payload we depend on.
@@ -57,16 +57,14 @@ export async function fetchPullRequestHead(
   prNumber: number,
 ): Promise<PullRequestHead> {
   const token = installationId ? (await getInstallationToken(installationId)).token : null;
-  const res = await ghFetch(
-    `${apiBaseUrlForHost("github.com")}/repos/${owner}/${repo}/pulls/${prNumber}`,
-    {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+  const apiBaseUrl = await apiBaseUrlForInstallation(installationId);
+  const res = await ghFetch(`${apiBaseUrl}/repos/${owner}/${repo}/pulls/${prNumber}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
     },
-  );
+  });
   if (!res.ok) {
     const body = await res.text();
     throw createError({

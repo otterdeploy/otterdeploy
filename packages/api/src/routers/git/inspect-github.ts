@@ -23,7 +23,7 @@ import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 import * as z from "zod";
 
-import { getInstallationToken, ghFetch } from "../../git/github-app";
+import { apiBaseUrlForInstallation, getInstallationToken, ghFetch } from "../../git/github-app";
 
 // Tagged so the oRPC handler can dispatch via `matchError`, same shape
 // as ProjectNotFoundError etc. in routers/project/errors.ts.
@@ -79,6 +79,9 @@ export interface RepoBinding {
   repo: string;
   installationGithubId: string | null;
   defaultBranch: string;
+  /** REST base for this repo's host: api.github.com, or `{host}/api/v3` for
+   *  a GitHub Enterprise installation. */
+  apiBaseUrl: string;
 }
 
 /** TTL on cached results. Long enough to soak up wizard navigation;
@@ -141,6 +144,7 @@ export async function resolveRepoBinding(gitRepoId: string): Promise<RepoBinding
     repo,
     installationGithubId,
     defaultBranch: row.defaultBranch ?? "main",
+    apiBaseUrl: await apiBaseUrlForInstallation(installationGithubId),
   };
 }
 
@@ -207,7 +211,7 @@ async function fetchFullTree(
   binding: RepoBinding,
 ): Promise<Result<TreeSnapshot, InspectRepoUpstreamError | InspectRepoRateLimitedError>> {
   const url = new URL(
-    `https://api.github.com/repos/${binding.owner}/${binding.repo}/git/trees/${binding.defaultBranch}`,
+    `${binding.apiBaseUrl}/repos/${binding.owner}/${binding.repo}/git/trees/${binding.defaultBranch}`,
   );
   url.searchParams.set("recursive", "1");
   const headers = await ghHeaders(binding.installationGithubId);
@@ -288,7 +292,7 @@ export async function fetchPackageJson(
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
   const url = new URL(
-    `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
+    `${binding.apiBaseUrl}/repos/${binding.owner}/${binding.repo}/contents/${path}`,
   );
   url.searchParams.set("ref", binding.defaultBranch);
   const headers = await ghHeaders(binding.installationGithubId);
@@ -309,7 +313,7 @@ export async function fetchPackageJson(
 /** Raw text read of a single file (no JSON parse), mirroring fetchPackageJson. */
 export async function fetchTextFile(binding: RepoBinding, path: string): Promise<string | null> {
   const url = new URL(
-    `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
+    `${binding.apiBaseUrl}/repos/${binding.owner}/${binding.repo}/contents/${path}`,
   );
   url.searchParams.set("ref", binding.defaultBranch);
   const headers = await ghHeaders(binding.installationGithubId);

@@ -9,7 +9,7 @@
 import { createError } from "evlog";
 import * as z from "zod";
 
-import { apiBaseUrlForHost, type GithubAppConfig } from "./github-app-config";
+import { apiBaseUrlForInstallation, type GithubAppConfig } from "./github-app-config";
 import { getInstallationToken, ghFetch, parseGithubResponse } from "./github-app-core";
 
 /**
@@ -126,8 +126,11 @@ export async function fetchBranchHead(
   // Rate-limited to 60/hr per IP, fine for the UI deploy path.
   // Private repos pass a real installation token.
   const token = installationId ? (await getInstallationToken(installationId)).token : null;
+  // The installation's own host, so a GitHub Enterprise repo is asked of its
+  // GHE API rather than github.com (where it does not exist).
+  const apiBaseUrl = await apiBaseUrlForInstallation(installationId);
   const res = await ghFetch(
-    `${apiBaseUrlForHost("github.com")}/repos/${owner}/${repo}/commits/${encodeURIComponent(branch)}`,
+    `${apiBaseUrl}/repos/${owner}/${repo}/commits/${encodeURIComponent(branch)}`,
     {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
