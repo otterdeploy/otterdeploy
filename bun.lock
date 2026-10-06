@@ -465,7 +465,9 @@
       "devDependencies": {
         "@otterdeploy/config": "workspace:*",
         "@types/bun": "catalog:",
+        "@varlock/infisical-plugin": "2.1.2",
         "typescript": "catalog:",
+        "varlock": "1.21.1",
       },
     },
   },
@@ -1780,6 +1782,16 @@
     "@uiw/react-codemirror": ["@uiw/react-codemirror@4.25.10", "", { "dependencies": { "@babel/runtime": "^7.18.6", "@codemirror/commands": "^6.1.0", "@codemirror/state": "^6.1.1", "@codemirror/theme-one-dark": "^6.0.0", "@uiw/codemirror-extensions-basic-setup": "4.25.10", "codemirror": "^6.0.0" }, "peerDependencies": { "@codemirror/view": ">=6.0.0", "react": ">=17.0.0", "react-dom": ">=17.0.0" } }, "sha512-DzgSMwM5qzB7v1FIb4gEeriYt67iiay756/HIOM9mAbeOVK0MO7rqefHf0O5c0269pJKMW7AH9FjclExD23V9w=="],
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.1", "", {}, "sha512-mUFwbeTqrVgDQxFveS+df2yfap6iuP20NAKAsBt5jDEoOTDew+zwLAOilHCeQJOVSvmgCX4ogqIrA0mnyr08yQ=="],
+
+    "@varlock/infisical-plugin": ["@varlock/infisical-plugin@2.1.2", "", { "peerDependencies": { "varlock": "^1.21.0" } }, "sha512-S5+WBUgpV8ff8ZHQ1GrFepdfbzPhT/o5EVQEajiMchNb8eQntl6ycnUjokr1HRPR5SGd8NUGB0Xmu/Ooj3/Zwg=="],
+
+    "@varlock/native-helper-darwin": ["@varlock/native-helper-darwin@1.21.1", "", { "os": "darwin" }, "sha512-hh7lB6cO/qEVJTgPY5ebVicwnbM7ROkIWjOkZ+k6PYWaoyj+UrUTymF5nHkqzg0TaZ+EA5z/eboFoZhrbsOHGw=="],
+
+    "@varlock/native-helper-linux-arm64": ["@varlock/native-helper-linux-arm64@1.21.1", "", { "os": "linux", "cpu": "arm64" }, "sha512-ppN2UIrJKDVALBzZwVXzIokAch8j2eyeABEHZn5LkMS3auXBVdVVkqN9QPIe7/Ii91LIV5mwWMeVJrV1paTI5Q=="],
+
+    "@varlock/native-helper-linux-x64": ["@varlock/native-helper-linux-x64@1.21.1", "", { "os": "linux", "cpu": "x64" }, "sha512-jAbIyjBJ0gyyg4C95P7KXufXtCR/K624Gib/6CUasO6dBnYVJ0SpbK2Ym41jgDYlJuYgkLKJuUHSrGNcAflzcA=="],
+
+    "@varlock/native-helper-win32-x64": ["@varlock/native-helper-win32-x64@1.21.1", "", { "os": [ "linux", "win32", ] }, "sha512-HaEry0HnJPY+opHiNUgQvpQ1yFZMMIVmpLZExTinQXu9Im81aovoR1By6LQsx1H4qFDyeEqcq2glV74WzHCNyA=="],
 
     "@vitejs/plugin-react": ["@vitejs/plugin-react@6.0.2", "", { "dependencies": { "@rolldown/pluginutils": "^1.0.0" }, "peerDependencies": { "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0", "babel-plugin-react-compiler": "^1.0.0", "vite": "^8.0.0" }, "optionalPeers": ["@rolldown/plugin-babel", "babel-plugin-react-compiler"] }, "sha512-DlSMqo4WhThw4vB8Mpn0Woe9J+Jfq1geJ61AKW0QEgLzGMNwtIMdxbDUzLxcun8W7NbJO0e2Jg/Nxm3cCSVzzg=="],
 
@@ -3316,6 +3328,8 @@
     "util-deprecate": ["util-deprecate@1.0.2", "", {}, "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw=="],
 
     "validate-npm-package-name": ["validate-npm-package-name@7.0.2", "", {}, "sha512-hVDIBwsRruT73PbK7uP5ebUt+ezEtCmzZz3F59BSr2F6OVFnJ/6h8liuvdLrQ88Xmnk6/+xGGuq+pG9WwTuy3A=="],
+
+    "varlock": ["varlock@1.21.1", "", { "optionalDependencies": { "@varlock/native-helper-darwin": "1.21.1", "@varlock/native-helper-linux-arm64": "1.21.1", "@varlock/native-helper-linux-x64": "1.21.1", "@varlock/native-helper-win32-x64": "1.21.1" }, "bin": { "varlock": "bin/cli.js" } }, "sha512-Qfy8/3DBEDlPcfQ8gR/Qs7YA5ERmUT2g0GqMPwz/uL00UqP8/heAAUGrwoBO8H6l4tWjPG35Ews680I78Ci0Aw=="],
 
     "vary": ["vary@1.1.2", "", {}, "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg=="],
 
