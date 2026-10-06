@@ -32,7 +32,8 @@
       "outputs": ["coverage/**"]
     },
     "test:integration": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["INTEGRATION_POSTGRES_URL", "REDIS_URL"]
     },
     "//#infra": {
       "cache": false
