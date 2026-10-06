@@ -56,9 +56,12 @@ export async function generateKeyPair(runId: string): Promise<LabResult<string>>
 export class LabSsh {
   constructor(private readonly runId: string) {}
 
-  private argv(host: string, command: string): string[] {
+  private argv(host: string, command: string, tty: boolean): string[] {
     return [
       "ssh",
+      // -tt: a pseudo-terminal even though our stdin is not one, i.e. what an
+      // operator's interactive SSH session gives the remote command.
+      ...(tty ? ["-tt"] : []),
       "-i",
       keyPath(this.runId),
       "-o",
@@ -85,7 +88,16 @@ export class LabSsh {
     timeoutMs = 120_000,
     stdin?: string,
   ): Promise<LabResult<CommandOutput>> {
-    return run(`ssh ${host}`, this.argv(host, command), timeoutMs, stdin);
+    return run(`ssh ${host}`, this.argv(host, command, false), timeoutMs, stdin);
+  }
+
+  /** Like `exec`, but inside a remote pseudo-terminal (an interactive session). */
+  execInTerminal(
+    host: string,
+    command: string,
+    timeoutMs: number,
+  ): Promise<LabResult<CommandOutput>> {
+    return run(`ssh -tt ${host}`, this.argv(host, command, true), timeoutMs);
   }
 
   /** Run `command` and fail on a non-zero exit. */

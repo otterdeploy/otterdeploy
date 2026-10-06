@@ -11,7 +11,10 @@
  *   sweep           delete every otterlab=1 resource past its `expires` label and
  *                   every *.<LAB_DNS_SUFFIX> record older than LAB_MAX_RUN_MINUTES.
  *   status          list live otterlab resources and lab DNS records.
- *   smoke           up, install, bootstrap, add w1, deploy, evidence, down.
+ *   smoke [--unattended]
+ *                   up, install, bootstrap, add w1, deploy, evidence, down. The
+ *                   installer runs in an interactive (TTY) SSH session like an
+ *                   operator's; --unattended runs it without a TTY.
  *
  * Design: research/adversarial-testing/09-vm-lab.md.
  */
@@ -69,9 +72,11 @@ async function main(argv: string[]): Promise<number> {
     case "status":
       return status(loadLabEnv());
     case "smoke":
-      return smoke(loadLabEnv());
+      return smoke(loadLabEnv(), arg === "--unattended" ? "unattended" : "terminal");
     default:
-      console.error("usage: lab.ts up [topology] | down [run] | sweep | status | smoke");
+      console.error(
+        "usage: lab.ts up [topology] | down [run] | sweep | status | smoke [--unattended]",
+      );
       return 2;
   }
 }

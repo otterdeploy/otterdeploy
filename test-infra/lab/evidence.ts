@@ -14,6 +14,8 @@ import { nowInstant, secondsSince } from "./support";
 
 const SECRET_LINE =
   /^([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|KEY|DATABASE_URL|REDIS_URL)[A-Z0-9_]*)=.*$/gm;
+// The installer prints the token on the line after this heading when it has a TTY.
+const TOKEN_BANNER = /(First-account bootstrap token[^\n]*\n\s*)(\S+)/g;
 const COOKIE = /((?:better-auth|__Secure-better-auth)\.[a-z_]+=)[^;\s"]+/g;
 
 export class Redactor {
@@ -24,7 +26,10 @@ export class Redactor {
   }
 
   redact(text: string): string {
-    let out = text.replace(SECRET_LINE, "$1=<redacted>").replace(COOKIE, "$1<redacted>");
+    let out = text
+      .replace(SECRET_LINE, "$1=<redacted>")
+      .replace(COOKIE, "$1<redacted>")
+      .replace(TOKEN_BANNER, "$1<redacted>");
     for (const secret of this.secrets) out = out.split(secret).join("<redacted>");
     return out;
   }

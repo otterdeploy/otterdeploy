@@ -15,7 +15,12 @@ import { eur, type HourlyPrice } from "./budget";
 import { Evidence } from "./evidence";
 import { ControlPlane } from "./product";
 import { addWorker, deployWhoami } from "./smoke-cluster";
-import { bootstrapAdmin, healthAndSignIn, installOtterdeploy } from "./smoke-install";
+import {
+  bootstrapAdmin,
+  healthAndSignIn,
+  type InstallMode,
+  installOtterdeploy,
+} from "./smoke-install";
 import { LabSsh } from "./ssh";
 import { nowInstant, secondsSince } from "./support";
 import { teardownRun } from "./teardown";
@@ -61,7 +66,12 @@ async function collectEvidence(ctx: SmokeContext): Promise<void> {
 }
 
 /** b–f against a live run. Returns the first failed step's name, or null. */
-async function runSteps(env: LabEnv, state: RunState, evidence: Evidence): Promise<string | null> {
+async function runSteps(
+  env: LabEnv,
+  state: RunState,
+  evidence: Evidence,
+  installMode: InstallMode,
+): Promise<string | null> {
   const cpNode = state.nodes.find((n) => n.name === "cp");
   const w1Node = state.nodes.find((n) => n.name === "w1");
   if (!cpNode || !w1Node) return "a. up (topology missing cp/w1)";
@@ -78,6 +88,8 @@ async function runSteps(env: LabEnv, state: RunState, evidence: Evidence): Promi
     email: `owner@${state.run}.${env.LAB_DNS_SUFFIX}`,
     password,
     installedVersion: null,
+    installMode,
+    bootstrapToken: null,
   };
   let failedAt: string | null = null;
   for (const [name, body] of STEPS) {
@@ -118,7 +130,7 @@ function printSummary(
   console.log(`  evidence: ${evidence.dir}`);
 }
 
-export async function smoke(env: LabEnv): Promise<number> {
+export async function smoke(env: LabEnv, installMode: InstallMode = "terminal"): Promise<number> {
   const topology = TOPOLOGIES.smoke;
   if (!topology) return 1;
   const upStarted = nowInstant();
@@ -137,7 +149,7 @@ export async function smoke(env: LabEnv): Promise<number> {
   });
   let failedAt: string | null = "aborted";
   try {
-    failedAt = await runSteps(env, state, evidence);
+    failedAt = await runSteps(env, state, evidence, installMode);
   } finally {
     // Teardown runs whatever happened above, including a thrown exception.
     const down = await evidence.step(

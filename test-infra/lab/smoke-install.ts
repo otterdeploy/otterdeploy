@@ -16,23 +16,57 @@ export const INSTALL_COMMAND =
   "curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --yes";
 const INSTALL_DIR = "/data/otterdeploy/platform/source";
 
+/**
+ * How the installer is run on cp.
+ *
+ * "terminal" (default): inside an interactive SSH session with a TTY, which is
+ * what an operator following the docs has. The installer then prints the
+ * bootstrap token to that terminal; it is registered with the redactor before
+ * any of the output is written anywhere.
+ *
+ * "unattended": no TTY (CI, cloud-init, `ssh host cmd`). As of v0.21.0 the
+ * installer brings the stack up and then exits 1 in report_bootstrap_token:
+ * `[ -w /dev/tty ]` passes without a controlling terminal, the redirect to
+ * /dev/tty fails with ENXIO, and set -e aborts (misattributed to the CrowdSec
+ * bouncer step). Kept selectable so that finding can be re-checked.
+ */
+export type InstallMode = "terminal" | "unattended";
+
+async function readBootstrapToken(ctx: SmokeContext): Promise<LabResult<string>> {
+  // Straight into memory, and registered with the redactor before anything
+  // that might contain it is printed or written.
+  const token = await ctx.ssh.must(
+    ctx.cpNode.ipv4,
+    `sed -n 's/^OTTERDEPLOY_BOOTSTRAP_TOKEN=//p' ${INSTALL_DIR}/.env`,
+  );
+  if (token.isErr()) return Result.err(token.error);
+  const value = token.value.trim();
+  if (value.length === 0)
+    return Result.err(new LabError("bootstrap", "no bootstrap token in .env"));
+  ctx.evidence.redactor.add(value);
+  ctx.bootstrapToken = value;
+  return Result.ok(value);
+}
+
 export async function installOtterdeploy(ctx: SmokeContext): Promise<LabResult<string>> {
   const { ssh, evidence, cpNode } = ctx;
-  evidence.log(`running on cp: ${INSTALL_COMMAND}`);
-  const run = await ssh.exec(cpNode.ipv4, INSTALL_COMMAND, 30 * 60_000);
+  evidence.log(`running on cp (${ctx.installMode}): ${INSTALL_COMMAND}`);
+  const run =
+    ctx.installMode === "terminal"
+      ? await ssh.execInTerminal(cpNode.ipv4, INSTALL_COMMAND, 30 * 60_000)
+      : await ssh.exec(cpNode.ipv4, INSTALL_COMMAND, 30 * 60_000);
   if (run.isErr()) return Result.err(run.error);
+  // Before any output is persisted: the terminal transcript carries the token.
+  const token = await readBootstrapToken(ctx);
+  const transcript = `${run.value.stdout}\n--- stderr ---\n${run.value.stderr}`;
   evidence.write(
     "installer-terminal.log",
-    `$ ${INSTALL_COMMAND}\n${run.value.stdout}\n--- stderr ---\n${run.value.stderr}`,
+    `$ ${INSTALL_COMMAND}  (mode: ${ctx.installMode})\n${transcript}`,
   );
   const log = await ssh.exec(cpNode.ipv4, `cat ${INSTALL_DIR}/install-*.log`, 60_000);
   if (log.isOk()) evidence.write("installer.log", log.value.stdout);
   if (run.value.code !== 0) {
-    const tail = `${run.value.stdout}\n${run.value.stderr}`
-      .trim()
-      .split("\n")
-      .slice(-20)
-      .join("\n");
+    const tail = transcript.trim().split("\n").slice(-20).join("\n");
     return Result.err(
       new LabError(
         "install",
@@ -40,6 +74,7 @@ export async function installOtterdeploy(ctx: SmokeContext): Promise<LabResult<s
       ),
     );
   }
+  if (token.isErr()) return Result.err(token.error);
   const version = await ssh.must(
     cpNode.ipv4,
     `sed -n 's/^OTTERDEPLOY_VERSION=//p' ${INSTALL_DIR}/.env`,
@@ -50,18 +85,10 @@ export async function installOtterdeploy(ctx: SmokeContext): Promise<LabResult<s
 }
 
 export async function bootstrapAdmin(ctx: SmokeContext): Promise<LabResult<string>> {
-  const { ssh, evidence, cp, cpNode } = ctx;
-  // Read straight into memory; registered with the redactor before anything
-  // could print it.
-  const token = await ssh.must(
-    cpNode.ipv4,
-    `sed -n 's/^OTTERDEPLOY_BOOTSTRAP_TOKEN=//p' ${INSTALL_DIR}/.env`,
-  );
-  if (token.isErr()) return Result.err(token.error);
-  const bootstrapToken = token.value.trim();
-  if (bootstrapToken.length === 0)
-    return Result.err(new LabError("bootstrap", "no bootstrap token in .env"));
-  evidence.redactor.add(bootstrapToken);
+  const { evidence, cp } = ctx;
+  const bootstrapToken = ctx.bootstrapToken ?? (await readBootstrapToken(ctx)).unwrapOr(null);
+  if (!bootstrapToken)
+    return Result.err(new LabError("bootstrap", "could not read the bootstrap token"));
 
   const config = await cp.auth("/public-config").then((r) => r.unwrapOr(null));
   if (config) evidence.json("api-public-config-before.json", config.json);

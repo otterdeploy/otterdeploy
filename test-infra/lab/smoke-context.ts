@@ -1,5 +1,6 @@
 import type { Evidence } from "./evidence";
 import type { ControlPlane } from "./product";
+import type { InstallMode } from "./smoke-install";
 import type { LabSsh } from "./ssh";
 import type { NodeState, RunState } from "./state";
 
@@ -16,4 +17,7 @@ export interface SmokeContext {
   email: string;
   password: string;
   installedVersion: string | null;
+  installMode: InstallMode;
+  /** Read from cp's .env over SSH; only ever held here and in the redactor. */
+  bootstrapToken: string | null;
 }
