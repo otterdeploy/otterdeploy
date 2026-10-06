@@ -25,6 +25,8 @@ export {
   updateProjectRecord,
 } from "./project";
 
+export { isProjectSlugTaken, suggestFreeProjectSlug } from "./project-slug";
+
 export {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
