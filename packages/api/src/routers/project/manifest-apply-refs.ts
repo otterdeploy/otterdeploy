@@ -7,10 +7,13 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, resource, serviceResource } from "@otterdeploy/db/schema/project";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
+
+import type { EnvironmentScopeInput } from "./queries/resource";
 
 import { isSecretSentinel, parseRefs } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
+import { inEnvironmentScope } from "./queries/resource";
 
 export interface DatabaseRefView {
   host: string;
@@ -31,18 +34,36 @@ export interface ResolvedEnv {
   skipped: ManifestApplySkipError[];
 }
 
-export async function loadRefTable(projectId: ProjectId): Promise<RefTable> {
+/**
+ * The ref table for ONE environment: the one being applied. Every
+ * environment reuses the base names, so a project-wide table folded staging's
+ * `db` and production's into one name-keyed map, last row wins. Base rows only
+ * (a preview's DB branch shares the name too). Within main a stamped row is
+ * read after a legacy unstamped one, so it wins the name.
+ */
+export async function loadRefTable(
+  projectId: ProjectId,
+  scope: EnvironmentScopeInput,
+): Promise<RefTable> {
+  const inScope = and(
+    eq(resource.projectId, projectId),
+    isNull(resource.previewId),
+    inEnvironmentScope(scope),
+  );
+  const stampedLast = sql`${resource.environmentId} nulls first`;
   const [dbRows, svcRows] = await Promise.all([
     db
       .select({ resource, database: databaseResource })
       .from(resource)
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-      .where(eq(resource.projectId, projectId)),
+      .where(inScope)
+      .orderBy(stampedLast),
     db
       .select({ resource, service: serviceResource })
       .from(resource)
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-      .where(eq(resource.projectId, projectId)),
+      .where(inScope)
+      .orderBy(stampedLast),
   ]);
 
   const databases = new Map<string, DatabaseRefView>();

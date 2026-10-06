@@ -18,7 +18,16 @@ const resolveServiceEnv = vi.fn();
 
 vi.mock("../context", () => ({ loadResource }));
 vi.mock("../queries", () => ({ listServiceEnvVars }));
-vi.mock("../../../lib/variables/resolver", () => ({ resolveServiceEnv }));
+// The cases below stub the plain bag; the detailed form adds no secret keys,
+// so masking here is decided by the row flags and the reference pattern. The
+// target-row half (a ref to a sealed row) runs against real Postgres in
+// env-effective-sealed-ref.postgres.test.ts.
+vi.mock("../../../lib/variables/resolver", () => ({
+  resolveServiceEnvDetailed: async (...args: unknown[]) => {
+    const resolved: Result<Record<string, string>, Error> = await resolveServiceEnv(...args);
+    return resolved.map((env) => ({ env, secretKeys: new Set<string>() }));
+  },
+}));
 
 const { listEffectiveEnv } = await import("../env-effective");
 
