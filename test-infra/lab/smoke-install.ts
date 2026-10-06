@@ -8,7 +8,7 @@ import * as z from "zod";
 import type { SmokeContext } from "./smoke-context";
 
 import { sessionSchema } from "./product";
-import { LabError, type LabResult } from "./support";
+import { describeCause, LabError, type LabResult } from "./support";
 
 /** The documented install command (apps/www/content/docs/start/install.mdx), with
  *  the installer's unattended flag (scripts/install.sh `-y/--yes`). */
@@ -48,21 +48,58 @@ async function readBootstrapToken(ctx: SmokeContext): Promise<LabResult<string>>
   return Result.ok(value);
 }
 
+/** Where `--installer <path>` puts the local script on cp. */
+const UPLOADED_INSTALLER = "/root/otterdeploy-install.sh";
+
+/**
+ * The command to run on cp. Default: the public one. With `--installer <path>`
+ * the local script is uploaded first and piped into bash with the SAME flags,
+ * so stdin is a pipe exactly as under `curl | bash` (only the script's source
+ * differs; images, compose and the release lookup are the published ones).
+ */
+async function installCommand(ctx: SmokeContext): Promise<LabResult<string>> {
+  const path = ctx.localInstaller;
+  if (!path) return Result.ok(INSTALL_COMMAND);
+  const script = await Result.tryPromise({
+    try: () => Bun.file(path).text(),
+    catch: (cause) => new LabError("installer", `cannot read ${path}: ${describeCause(cause)}`),
+  });
+  if (script.isErr()) return Result.err(script.error);
+  const sha256 = new Bun.CryptoHasher("sha256").update(script.value).digest("hex");
+  const uploaded = await ctx.ssh.exec(
+    ctx.cpNode.ipv4,
+    `umask 077 && cat > ${UPLOADED_INSTALLER} && sha256sum ${UPLOADED_INSTALLER}`,
+    60_000,
+    script.value,
+  );
+  if (uploaded.isErr()) return Result.err(uploaded.error);
+  if (uploaded.value.code !== 0 || !uploaded.value.stdout.startsWith(sha256)) {
+    return Result.err(new LabError("installer", `upload failed: ${uploaded.value.stderr}`));
+  }
+  ctx.evidence.log(`uploaded local installer ${path} (sha256 ${sha256})`);
+  return Result.ok(`cat ${UPLOADED_INSTALLER} | bash -s -- --yes`);
+}
+
 export async function installOtterdeploy(ctx: SmokeContext): Promise<LabResult<string>> {
   const { ssh, evidence, cpNode } = ctx;
-  evidence.log(`running on cp (${ctx.installMode}): ${INSTALL_COMMAND}`);
+  const command = await installCommand(ctx);
+  if (command.isErr()) return Result.err(command.error);
+  const installCmd = command.value;
+  evidence.log(`running on cp (${ctx.installMode}): ${installCmd}`);
   const run =
     ctx.installMode === "terminal"
-      ? await ssh.execInTerminal(cpNode.ipv4, INSTALL_COMMAND, 30 * 60_000)
-      : await ssh.exec(cpNode.ipv4, INSTALL_COMMAND, 30 * 60_000);
+      ? await ssh.execInTerminal(cpNode.ipv4, installCmd, 30 * 60_000)
+      : await ssh.exec(cpNode.ipv4, installCmd, 30 * 60_000);
   if (run.isErr()) return Result.err(run.error);
   // Before any output is persisted: the terminal transcript carries the token.
   const token = await readBootstrapToken(ctx);
   const transcript = `${run.value.stdout}\n--- stderr ---\n${run.value.stderr}`;
   evidence.write(
     "installer-terminal.log",
-    `$ ${INSTALL_COMMAND}  (mode: ${ctx.installMode})\n${transcript}`,
+    `$ ${installCmd}  (mode: ${ctx.installMode})\n${transcript}`,
   );
+  const hint = transcript.includes("First-account bootstrap token is in");
+  evidence.log(`installer exited ${run.value.code} (env-file token hint printed: ${hint})`);
   const log = await ssh.exec(cpNode.ipv4, `cat ${INSTALL_DIR}/install-*.log`, 60_000);
   if (log.isOk()) evidence.write("installer.log", log.value.stdout);
   if (run.value.code !== 0) {

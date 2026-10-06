@@ -11,13 +11,17 @@
  *   sweep           delete every otterlab=1 resource past its `expires` label and
  *                   every *.<LAB_DNS_SUFFIX> record older than LAB_MAX_RUN_MINUTES.
  *   status          list live otterlab resources and lab DNS records.
- *   smoke [--unattended]
+ *   smoke [--unattended] [--installer <path>]
  *                   up, install, bootstrap, add w1, deploy, evidence, down. The
  *                   installer runs in an interactive (TTY) SSH session like an
  *                   operator's; --unattended runs it without a TTY.
+ *                   --installer uploads a local install.sh (e.g. a fix under
+ *                   test) and runs it with the public command's flags.
  *
  * Design: research/adversarial-testing/09-vm-lab.md.
  */
+import { resolve } from "node:path";
+
 import { loadLabEnv } from "./env";
 import { smoke } from "./smoke";
 import { keyPath, localRuns } from "./state";
@@ -71,11 +75,23 @@ async function main(argv: string[]): Promise<number> {
       return (await sweep(loadLabEnv())).isOk() ? 0 : 1;
     case "status":
       return status(loadLabEnv());
-    case "smoke":
-      return smoke(loadLabEnv(), arg === "--unattended" ? "unattended" : "terminal");
+    case "smoke": {
+      const flags = argv.slice(1);
+      const at = flags.indexOf("--installer");
+      const installer = at >= 0 ? flags[at + 1] : undefined;
+      if (at >= 0 && !installer) {
+        console.error("usage: smoke [--unattended] [--installer <path/to/install.sh>]");
+        return 2;
+      }
+      return smoke(
+        loadLabEnv(),
+        flags.includes("--unattended") ? "unattended" : "terminal",
+        installer ? resolve(installer) : null,
+      );
+    }
     default:
       console.error(
-        "usage: lab.ts up [topology] | down [run] | sweep | status | smoke [--unattended]",
+        "usage: lab.ts up [topology] | down [run] | sweep | status | smoke [--unattended] [--installer <path>]",
       );
       return 2;
   }

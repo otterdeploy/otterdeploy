@@ -15,12 +15,14 @@ import { eur, type HourlyPrice } from "./budget";
 import { Evidence } from "./evidence";
 import { ControlPlane } from "./product";
 import { addWorker, deployWhoami } from "./smoke-cluster";
+import { inboundExposure } from "./smoke-exposure";
 import {
   bootstrapAdmin,
   healthAndSignIn,
   type InstallMode,
   installOtterdeploy,
 } from "./smoke-install";
+import { updateReplacesOldGuard } from "./smoke-update-guard";
 import { LabSsh } from "./ssh";
 import { nowInstant, secondsSince } from "./support";
 import { teardownRun } from "./teardown";
@@ -39,6 +41,8 @@ const STEPS: SmokeStep[] = [
   { name: "b. install (real public installer)", run: installOtterdeploy, blocking: true },
   { name: "c. bootstrap first admin", run: bootstrapAdmin, blocking: true },
   { name: "c. /health + sign-in", run: healthAndSignIn, blocking: true },
+  { name: "c2. inbound exposure + container egress", run: inboundExposure, blocking: false },
+  { name: "c3. update replaces a pre-fix guard", run: updateReplacesOldGuard, blocking: false },
   { name: "d. add w1 via server.provision", run: addWorker, blocking: false },
   { name: "e. deploy traefik/whoami + fetch", run: deployWhoami, blocking: true },
 ];
@@ -79,6 +83,7 @@ async function runSteps(
   state: RunState,
   evidence: Evidence,
   installMode: InstallMode,
+  localInstaller: string | null,
 ): Promise<string | null> {
   const cpNode = state.nodes.find((n) => n.name === "cp");
   const w1Node = state.nodes.find((n) => n.name === "w1");
@@ -97,6 +102,7 @@ async function runSteps(
     password,
     installedVersion: null,
     installMode,
+    localInstaller,
     bootstrapToken: null,
   };
   let failedAt: string | null = null;
@@ -118,6 +124,7 @@ async function runSteps(
   evidence.json("summary.json", {
     run: state.run,
     installedVersion: ctx.installedVersion,
+    installer: localInstaller ?? "public",
     failedAt,
   });
   return failedAt;
@@ -142,7 +149,11 @@ function printSummary(
   console.log(`  evidence: ${evidence.dir}`);
 }
 
-export async function smoke(env: LabEnv, installMode: InstallMode = "terminal"): Promise<number> {
+export async function smoke(
+  env: LabEnv,
+  installMode: InstallMode = "terminal",
+  localInstaller: string | null = null,
+): Promise<number> {
   const topology = TOPOLOGIES.smoke;
   if (!topology) return 1;
   const upStarted = nowInstant();
@@ -161,7 +172,7 @@ export async function smoke(env: LabEnv, installMode: InstallMode = "terminal"):
   });
   let failedAt: string | null = "aborted";
   try {
-    failedAt = await runSteps(env, state, evidence, installMode);
+    failedAt = await runSteps(env, state, evidence, installMode, localInstaller);
   } finally {
     // Teardown runs whatever happened above, including a thrown exception.
     const down = await evidence.step(

@@ -18,6 +18,8 @@ export interface SmokeContext {
   password: string;
   installedVersion: string | null;
   installMode: InstallMode;
+  /** `smoke --installer <path>`: run this local install.sh instead of the public one. */
+  localInstaller: string | null;
   /** Read from cp's .env over SSH; only ever held here and in the redactor. */
   bootstrapToken: string | null;
 }

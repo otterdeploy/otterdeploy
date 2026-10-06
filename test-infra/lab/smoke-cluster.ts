@@ -10,6 +10,8 @@ import type { SmokeContext } from "./smoke-context";
 
 import { describeCause, LabError, type LabResult, pollUntil } from "./support";
 
+const TRANSIENT = /ECONNRESET|ECONNREFUSED|socket connection was closed|fetch failed/i;
+
 export async function addWorker(ctx: SmokeContext): Promise<LabResult<string>> {
   const { cp, ssh, evidence, w1Node } = ctx;
   const key = await cp.call("sshKeys.generate", () =>
@@ -47,6 +49,9 @@ export async function addWorker(ctx: SmokeContext): Promise<LabResult<string>> {
 
   const settled = await pollUntil("server ready", 20 * 60_000, 5_000, async () => {
     const server = await cp.call("server.get", () => cp.rpc.server.get({ id: serverId }));
+    // A dropped keep-alive socket mid-provision is the poll's transport, not
+    // the product's answer: ask again rather than fail the step on it.
+    if (server.isErr() && TRANSIENT.test(server.error.message)) return Result.ok(undefined);
     if (server.isErr()) return Result.err(server.error);
     const { provisionStatus, provisionError } = server.value;
     if (provisionStatus === "failed") {
