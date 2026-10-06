@@ -32,6 +32,42 @@ bun dev:www          # via turbo + portless (www.otterdeploy)
 PORT=3002 bunx --bun vite dev    # from apps/www
 ```
 
+## Deploy
+
+Cloudflare Workers Builds deploys the `otterdeploy-www` Worker on every push
+to `main`; there is no deploy job in GitHub Actions. The build settings live in
+the Cloudflare dashboard (Workers & Pages > otterdeploy-www > Settings > Build),
+not in this repository, so keep them equal to this table:
+
+| Setting                          | Value                                                  |
+| -------------------------------- | ------------------------------------------------------ |
+| Root directory                   | `/` (the monorepo root, where `bun.lock` lives)        |
+| Build command                    | `bun run build --filter=www`                           |
+| Deploy command                   | `cd apps/www && bunx wrangler deploy`                  |
+| Non-production deploy command    | `cd apps/www && bunx wrangler versions upload`         |
+| Build variable `BUN_VERSION`     | `1.3.14` (CI's version; the image default is older)    |
+| API token                        | an existing, unrolled token with Workers edit access   |
+
+Wrangler has to run from `apps/www`: Nitro writes the real config to
+`.output/server/wrangler.json` and points `apps/www/.wrangler/deploy/config.json`
+at it. At the repo root there is no Wrangler config, and Wrangler's
+auto-detection refuses to guess inside a workspace.
+
+To reproduce a deploy without credentials:
+
+```bash
+bun install --frozen-lockfile
+env -u OTTERDEPLOY_OPENAPI_SPEC_URL -u OTTERSTACK_OPENAPI_SPEC_URL \
+  bun run build --filter=www
+cd apps/www && bunx wrangler deploy --dry-run
+```
+
+A Workers Builds failure reported within seconds of the push never reached
+this code: no container clones, installs, and builds that fast (a healthy run
+takes a few minutes). That is a dashboard problem, usually a deleted or rolled
+build API token or a broken GitHub connection, and the build log's first lines
+name it.
+
 ## Generated API reference (OpenAPI)
 
 The server already emits an OpenAPI 3.1 spec from the oRPC contracts
