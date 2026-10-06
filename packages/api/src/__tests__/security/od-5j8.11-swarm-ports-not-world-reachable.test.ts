@@ -10,6 +10,9 @@
  * depth guard (Docker-published ports can't bypass the policy) and the
  * peer-set builder's fail-closed-on-typo posture.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vite-plus/test";
 
 import {
@@ -122,6 +125,32 @@ describe("[od-5j8.11] DOCKER-USER guard: Docker-published ports cannot bypass po
   test("skips gracefully (never fails) when DOCKER-USER doesn't exist yet", () => {
     expect(guard).toContain("if sudo nft list chain ip filter DOCKER-USER");
     expect(guard).toContain("Guard skipped");
+  });
+});
+
+describe("[od-ckrq] the installer's DOCKER-USER guard is the same published-ports-only rule", () => {
+  // scripts/install.sh carries its own copy of the guard for the control-plane
+  // host. It lacked `ct status dnat`, so a default install dropped the control
+  // plane's own outbound SSH and "Add server" always timed out.
+  const repositoryRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../..");
+  const install = readFileSync(resolve(repositoryRoot, "scripts/install.sh"), "utf8");
+  const inserts = install
+    .split("\n")
+    .filter((l) => l.includes("nft insert rule ip filter DOCKER-USER"));
+
+  test("every guard the installer inserts is scoped to DNAT'd traffic, ahead of the port match", () => {
+    expect(inserts.length).toBeGreaterThan(0);
+    for (const line of inserts) {
+      expect(line).toContain("ct status dnat");
+      expect(line.indexOf("ct status dnat")).toBeLessThan(line.indexOf("tcp dport !="));
+      expect(line).toContain(`comment "${DOCKER_USER_GUARD_COMMENT}"`);
+    }
+  });
+
+  test("an update replaces an existing (older) guard instead of leaving it in place", () => {
+    const update = /update_stack\(\) \{([\s\S]*?)\n\}/.exec(install)?.[1] ?? "";
+    expect(update).toContain("refresh_docker_user_guard");
+    expect(install).toContain("nft delete rule ip filter DOCKER-USER handle");
   });
 });
 

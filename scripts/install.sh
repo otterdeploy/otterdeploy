@@ -1126,6 +1126,63 @@ detect_swarm_peer_ips() {
   done | { grep -E '^[0-9]+(\.[0-9]+){3}$' || true; } | sort -u | tr '\n' ' '
 }
 
+# DOCKER-USER guard: defense in depth. Docker manipulates iptables/nftables
+# DIRECTLY for published container ports (the classic ufw+Docker footgun: a
+# published port never touches the INPUT chain), so an accidental extra
+# `-p hostport:containerport` publish is dropped here instead. Same rule as
+# dockerUserGuardScript in packages/api/src/routers/server/host-firewall.ts,
+# which applies it to every node added from the dashboard.
+#
+# `ct status dnat` is load-bearing (od-ckrq). DOCKER-USER hangs off the FORWARD
+# hook, which carries container EGRESS as well as inbound published-port
+# traffic. Without it the rule dropped every NEW outbound connection a container
+# made to a port outside 80/443/3000, the control plane's own SSH to a server
+# it was adding included, so "Add server" always timed out on a default install
+# (and SMTP, external Postgres, git+ssh, ... failed with it). Inbound traffic
+# to a published port is DNAT'd and still matches; egress is SNAT'd and doesn't,
+# so the inbound policy is exactly what it was. The port compared is the
+# post-DNAT (container) port, since DNAT runs in prerouting, before forward.
+#
+# Idempotent: every rule tagged otterdeploy-guard is deleted (by handle) before
+# the current one is inserted, so a re-run replaces an older guard, including
+# the unscoped one installed before this fix, instead of stacking a second.
+docker_user_guard_present() {
+  local rules
+  # Capture-then-match, not `nft | grep -q` (see ufw_active for the pipefail trap).
+  rules="$($SUDO nft list chain ip filter DOCKER-USER 2>/dev/null || true)"
+  case "$rules" in *otterdeploy-guard*) return 0 ;; *) return 1 ;; esac
+}
+
+install_docker_user_guard() {
+  if ! $SUDO nft list chain ip filter DOCKER-USER >/dev/null 2>&1; then
+    say " - DOCKER-USER chain not present (Docker not started?): guard skipped, re-run once Docker is up"
+    return 0
+  fi
+  $SUDO nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/otterdeploy-guard/{print $NF}' \
+    | while read -r h; do $SUDO nft delete rule ip filter DOCKER-USER handle "$h"; done
+  $SUDO nft insert rule ip filter DOCKER-USER ct status dnat tcp dport != "{ $(edge_tcp_ports) }" ct state new counter drop comment "otterdeploy-guard"
+}
+
+# `install.sh update` skips host setup, so on its own it would leave a host
+# installed before od-ckrq with the unscoped guard that drops container egress
+# (od-v1cu). Refresh the guard there too, but ONLY where one is already
+# present: a host that opted out of the firewall, or runs ufw/firewalld, never
+# had one and must not gain one from an update.
+refresh_docker_user_guard() {
+  command -v nft >/dev/null 2>&1 || return 0
+  docker_user_guard_present || return 0
+  if dry; then
+    say "   + would replace the DOCKER-USER guard with the published-ports-only rule"
+    return 0
+  fi
+  # The guard must name the port the dashboard is actually published on, which
+  # on an update is the one in .env, not the environment's default.
+  local CONTROL_PLANE_PORT
+  CONTROL_PLANE_PORT="$(keep_or CONTROL_PLANE_PORT "${OTTERDEPLOY_CONTROL_PLANE_PORT:-3000}")"
+  install_docker_user_guard
+  say " - DOCKER-USER guard refreshed: published ports only, outbound traffic not filtered"
+}
+
 provision_host_firewall() {
   step "Applying host firewall (nftables baseline)"
   if [ "$FIREWALL" != "true" ]; then
@@ -1138,7 +1195,7 @@ provision_host_firewall() {
     say "   + would install nftables (if missing) and load a default-deny table 'otterdeploy':"
     say "     allow loopback, established/related, SSH ($ssh_port/tcp), 80/443/tcp"
     say "     swarm ports 2377/7946/4789 stay peer-scoped (current swarm members, if any joined already)"
-    say "   + would insert a DOCKER-USER guard dropping forwarded traffic to ports outside { $(edge_tcp_ports) }"
+    say "   + would insert a DOCKER-USER guard dropping inbound traffic to published ports outside { $(edge_tcp_ports) }"
     say "   + would skip entirely if ufw/firewalld is already active"
     return
   fi
@@ -1215,15 +1272,7 @@ provision_host_firewall() {
   fi
   $SUDO systemctl enable nftables >/dev/null 2>&1 || true
   $SUDO nft -f "$OTTERDEPLOY_NFT_RULESET"
-  # DOCKER-USER guard — defense in depth: Docker manipulates iptables/nftables
-  # DIRECTLY for published container ports (the classic ufw+Docker footgun —
-  # a published port never touches the INPUT chain above), so an accidental
-  # extra `-p hostport:containerport` publish is blocked here instead.
-  if $SUDO nft list chain ip filter DOCKER-USER >/dev/null 2>&1; then
-    $SUDO nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/otterdeploy-guard/{print $NF}' \
-      | while read -r h; do $SUDO nft delete rule ip filter DOCKER-USER handle "$h"; done
-    $SUDO nft insert rule ip filter DOCKER-USER tcp dport != { $(edge_tcp_ports) } ct state new counter drop comment "otterdeploy-guard"
-  fi
+  install_docker_user_guard
   say " - nftables baseline active (SSH $ssh_port, $(edge_tcp_ports), swarm ports peer-scoped)"
   chip "nftables baseline"
   say "   Rollback if needed: sudo nft delete table inet otterdeploy   (or: $(self_cmd) firewall-rollback)"
@@ -1467,6 +1516,7 @@ update_stack() {
   resolve_version
   pin_version_in_env
   prepare_tree
+  refresh_docker_user_guard
   start_stack
   wait_for_health
   phase_end
