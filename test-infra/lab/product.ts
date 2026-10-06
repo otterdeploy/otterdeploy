@@ -53,6 +53,10 @@ export class ControlPlane {
       else {
         this.jar.set(name, value);
         this.redactor.add(value);
+        // A signed cookie is `<token>.<signature>`; the bare token is the
+        // bearer credential, so mask it on its own too.
+        const decoded = Result.try(() => decodeURIComponent(value)).unwrapOr(value);
+        this.redactor.add(decoded.split(".")[0] ?? "");
       }
     }
   }

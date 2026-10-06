@@ -27,12 +27,20 @@ import { teardownRun } from "./teardown";
 import { TOPOLOGIES } from "./topology";
 import { labUp } from "./up";
 
-const STEPS: [string, (ctx: SmokeContext) => Promise<LabResult<string>>][] = [
-  ["b. install (real public installer)", installOtterdeploy],
-  ["c. bootstrap first admin", bootstrapAdmin],
-  ["c. /health + sign-in", healthAndSignIn],
-  ["d. add w1 via server.provision", addWorker],
-  ["e. deploy traefik/whoami + fetch", deployWhoami],
+interface SmokeStep {
+  name: string;
+  run: (ctx: SmokeContext) => Promise<LabResult<string>>;
+  /** A blocking step's failure stops the run; a non-blocking one is recorded
+   *  and the independent steps after it still run (e only needs c, not d). */
+  blocking: boolean;
+}
+
+const STEPS: SmokeStep[] = [
+  { name: "b. install (real public installer)", run: installOtterdeploy, blocking: true },
+  { name: "c. bootstrap first admin", run: bootstrapAdmin, blocking: true },
+  { name: "c. /health + sign-in", run: healthAndSignIn, blocking: true },
+  { name: "d. add w1 via server.provision", run: addWorker, blocking: false },
+  { name: "e. deploy traefik/whoami + fetch", run: deployWhoami, blocking: true },
 ];
 
 const NODE_EVIDENCE: [string, string][] = [
@@ -92,11 +100,15 @@ async function runSteps(
     bootstrapToken: null,
   };
   let failedAt: string | null = null;
-  for (const [name, body] of STEPS) {
-    const result = await evidence.step(name, () => body(ctx));
+  for (const step of STEPS) {
+    const result = await evidence.step(
+      step.name,
+      () => step.run(ctx),
+      (detail) => detail,
+    );
     if (result.isErr()) {
-      failedAt = name;
-      break;
+      failedAt ??= step.name;
+      if (step.blocking) break;
     }
   }
   await evidence.step("f. capture evidence", async () => {
