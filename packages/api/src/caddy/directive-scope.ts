@@ -65,7 +65,7 @@ export interface RouteDirectiveScope {
 /** How long a save waits on DNS for one upstream name. */
 export const DIRECTIVE_LOOKUP_TIMEOUT_MS = 2_000;
 
-export class DirectiveReachError extends TaggedError("DirectiveReachError")<{
+class DirectiveReachError extends TaggedError("DirectiveReachError")<{
   message: string;
   upstream: string;
 }>() {}

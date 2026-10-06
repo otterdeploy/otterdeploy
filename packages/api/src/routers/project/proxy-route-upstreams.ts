@@ -34,7 +34,7 @@ import { buildContainerName } from "./view-helpers";
  * Short aliases (resource names, a service's `internalHostname`) are left out
  * on purpose: they are not unique across the networks the edge sits on.
  */
-export async function listProjectUpstreamNames(
+async function listProjectUpstreamNames(
   projectId: ProjectId,
 ): Promise<ProjectUpstreamNames> {
   const [projectRow, services, composes, databases, environments, routes] = await Promise.all([
