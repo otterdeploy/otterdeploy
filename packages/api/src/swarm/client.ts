@@ -2,8 +2,8 @@ import type { EndpointSettings } from "@otterdeploy/docker";
 import type { RequestLogger } from "evlog";
 
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
+import { env } from "@otterdeploy/env/server";
 
-import { PLATFORM } from "../constants";
 import { asStepLogger } from "../lib/logger";
 import { projectNetworkName } from "./network-name";
 
@@ -137,7 +137,9 @@ export async function ensureProjectNetwork(
  */
 export async function findEdgeContainerId(docker: Docker): Promise<string | null> {
   const caddyNames = [
-    PLATFORM.swarm.caddyContainer,
+    // OTTERDEPLOY_CADDY_CONTAINER, default `otterdeploy-caddy` (the same name
+    // as PLATFORM.swarm.caddyContainer), so unset changes nothing.
+    env.OTTERDEPLOY_CADDY_CONTAINER,
     // Local compose names the edge container after the repo, while
     // production installs keep the otterdeploy-* name.
     "otterdeploy-caddy",

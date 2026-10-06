@@ -92,6 +92,13 @@ export const env = createEnv({
     // bind-mounted data directory.
     CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
     CADDY_ADMIN_BIND: z.string().min(1).default(`unix/${defaultCaddySocketPath}|0600`),
+    // Name of the edge (Caddy) container the control plane attaches to project
+    // networks and self-heals (packages/api/src/swarm/client.ts
+    // findEdgeContainerId). Tried first, ahead of the built-in fallbacks
+    // (`otterdeploy-caddy`, `caddy`, then the compose `caddy` service label),
+    // so only set it when your edge runs under another name: a test lab
+    // running several stacks side by side, or a hand-rolled compose file.
+    OTTERDEPLOY_CADDY_CONTAINER: z.string().min(1).default("otterdeploy-caddy"),
 
     // ACME CA override for the edge (packages/api/src/caddy/global-block.ts).
     // Unset (the default) ⇒ nothing is emitted and Caddy uses its built-in
