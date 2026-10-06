@@ -9,11 +9,11 @@ import { db } from "@otterdeploy/db";
 import { databaseResource, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
-import type { EnvironmentScopeInput } from "./queries/resource";
+import type { EnvironmentScopeInput } from "./queries/environment-scope";
 
 import { isSecretSentinel, parseRefs } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
-import { inEnvironmentScope } from "./queries/resource";
+import { inEnvironmentScope } from "./queries/environment-scope";
 
 export interface DatabaseRefView {
   host: string;

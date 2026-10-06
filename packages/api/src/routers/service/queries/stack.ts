@@ -14,9 +14,9 @@ import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { and, eq, sql } from "drizzle-orm";
 
 import type { ResourceRow } from ".";
-import type { EnvironmentScopeInput } from "../../project/queries/resource";
+import type { EnvironmentScopeInput } from "../../project/queries/environment-scope";
 
-import { inEnvironmentScope } from "../../project/queries/resource";
+import { inEnvironmentScope } from "../../project/queries/environment-scope";
 
 /**
  * A compose stack (type "compose") in the project, by resource name, within

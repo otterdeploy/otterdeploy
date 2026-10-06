@@ -5,7 +5,7 @@
  */
 import type { EnvironmentId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 
-import type { EnvironmentScopeInput } from "../../routers/project/queries/resource";
+import type { EnvironmentScopeInput } from "../../routers/project/queries/environment-scope";
 import type { VaultResolveState } from "./vault-resolve";
 
 export interface ResolveContext {
