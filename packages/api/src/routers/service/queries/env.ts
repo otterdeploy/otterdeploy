@@ -6,11 +6,11 @@ import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { EnvVarSource, ResourceRow, ServiceEnvVarRow } from ".";
-import type { EnvironmentScopeInput } from "../../project/queries/resource";
+import type { EnvironmentScopeInput } from "../../project/queries/environment-scope";
 import type { StackRefIdentity } from "./stack";
 
 import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
-import { inEnvironmentScope } from "../../project/queries/resource";
+import { inEnvironmentScope } from "../../project/queries/environment-scope";
 import { getStackRefIdentity } from "./stack";
 // ---------------------------------------------------------------------------
 // Env vars
