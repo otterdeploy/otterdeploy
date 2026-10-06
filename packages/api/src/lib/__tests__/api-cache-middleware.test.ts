@@ -21,6 +21,7 @@ const context: Context & { activeOrganizationId: OrganizationId } = {
   actor: null,
   session: null,
   apiKey: null,
+  apiKeyRateLimited: null,
   activeOrganizationId: idSchema.organization.parse("org_acme"),
   headers: new Headers(),
   log: createRequestLogger({ method: "TEST", path: "/api-cache" }),

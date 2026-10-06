@@ -118,6 +118,7 @@ export const composeRouter = {
           };
         }
         const enq = await enqueueComposeBuild({
+          organizationId: context.activeOrganizationId,
           projectId: input.projectId,
           resourceId: input.resourceId,
           gitRepoUrl: rec.compose.gitRepoUrl,

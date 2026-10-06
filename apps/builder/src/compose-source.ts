@@ -18,6 +18,7 @@ import { resolveRepoCloneBinding } from "@otterdeploy/api/git/repo-binding";
 import { materializeComposeFiles } from "@otterdeploy/api/lib/compose-materialize";
 import { db } from "@otterdeploy/db";
 import { composeResource, deployment, project, resource } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { buildDir } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
@@ -77,7 +78,12 @@ export async function loadComposeBuildContext(
   if (comp.source === "inline") {
     // no clone: files are materialized in acquireComposeSource.
   } else if (comp.gitRepoId) {
-    const bound = await resolveRepoCloneBinding(comp.gitRepoId);
+    // Scoped to the stack's own org, so a stored row bound to another
+    // tenant's repo never clones with that tenant's token.
+    const bound = await resolveRepoCloneBinding(
+      comp.gitRepoId,
+      idSchema.organization.parse(proj.organizationId),
+    );
     cloneUrl = bound.cloneUrl;
     installationId = bound.githubInstallationId;
     isPrivate = bound.isPrivate;
