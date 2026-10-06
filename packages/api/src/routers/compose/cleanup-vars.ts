@@ -1,4 +1,4 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -41,13 +41,14 @@ function extractScopeRefs(value: string, into: Set<string>): void {
  *   - databases                    → `${{project.KEY}}` in extraEnv values
  */
 async function collectReferencedKeys(
+  organizationId: OrganizationId,
   projectId: ProjectId,
   excludeResourceId: ResourceId,
 ): Promise<Set<string>> {
   const referenced = new Set<string>();
 
   // Other compose stacks (inline): their `${VAR}` refs.
-  const stacks = await listComposeRecords(projectId);
+  const stacks = await listComposeRecords(organizationId, projectId);
   for (const s of stacks) {
     if (s.resource.id === excludeResourceId) continue;
     const content = s.compose.composeContent;
@@ -97,6 +98,7 @@ async function collectReferencedKeys(
  */
 export async function cleanupOrphanedComposeVars(
   args: {
+    organizationId: OrganizationId;
     projectId: ProjectId;
     deletedResourceId: ResourceId;
     composeContent: string | null;
@@ -113,7 +115,11 @@ export async function cleanupOrphanedComposeVars(
   const environmentId = project?.environmentId;
   if (!environmentId) return;
 
-  const referenced = await collectReferencedKeys(args.projectId, args.deletedResourceId);
+  const referenced = await collectReferencedKeys(
+    args.organizationId,
+    args.projectId,
+    args.deletedResourceId,
+  );
 
   const removed: string[] = [];
   for (const key of seededKeys) {

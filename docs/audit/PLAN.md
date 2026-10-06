@@ -101,6 +101,20 @@ Dead code and clone groups land exactly on their floors: the server table module
 barrel exports what a list endpoint imports and nothing else, rather than
 re-exporting every internal under a second name with nothing on the other end.
 
+Re-pinned on 2026-09-27 to 385 clone groups / 3.48% / 196 dead-code findings,
+from the tenant-isolation and manifest-contract work (#341). The ratchet caught
+a clone group the change introduced and was right to: making `getComposeRecord`
+take the organization as a required first argument turned five call sites into
+five copies of the same four-line lookup. Rather than exempt it, the lookup
+became one `requireStack` helper — the same shape as `requireBackup` and
+`requireSite` elsewhere in the routers.
+
+That is the version worth keeping for a reason beyond tidiness. The three
+arguments drifting apart at five call sites is precisely how `compose.get` and
+`compose.list` came to read another organization's stacks; resolving them in one
+place is what stops it recurring. Dead code and duplication fell out alongside
+it, so all three measures land below the floor they started at.
+
 Regenerate the per-file evidence any time:
 
 ```bash

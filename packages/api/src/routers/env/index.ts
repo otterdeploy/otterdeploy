@@ -112,6 +112,7 @@ export const envRouter = {
         throw matchError(result.error, {
           EnvironmentNotFoundError: () => errors.NOT_FOUND(),
           EnvironmentNotEmptyError: () => errors.CONFLICT(),
+          EnvironmentIsMainError: () => errors.IS_MAIN(),
         });
       }
       return result.value;

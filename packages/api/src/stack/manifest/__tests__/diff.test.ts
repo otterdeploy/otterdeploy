@@ -1,7 +1,32 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { diffManifest, type CurrentState } from "../diff";
+import { diffManifest, type CurrentService, type CurrentState } from "../diff";
 import { manifestSchema, type Manifest } from "../schema";
+
+/**
+ * Runtime columns every `CurrentService` carries that these cases do not vary.
+ * Spread FIRST in a fixture so any case can override one. Collected here rather
+ * than repeated inline so adding a diffed field touches this object, not every
+ * fixture in the file.
+ */
+const unsetRuntimeFields = {
+  restartCondition: "any",
+  restartMaxAttempts: null,
+  restartDelayMs: 5000,
+  restartWindowMs: null,
+  healthcheckCmd: null,
+  healthcheckIntervalMs: null,
+  healthcheckTimeoutMs: null,
+  healthcheckRetries: null,
+  healthcheckStartMs: null,
+  cpuLimit: null,
+  memoryLimitMb: null,
+  cpuReservation: null,
+  memoryReservationMb: null,
+  diskLimitMb: null,
+  swapLimitMb: null,
+  pidsLimit: null,
+} satisfies Partial<CurrentService>;
 
 const empty: CurrentState = { services: {}, databases: {}, composes: {} };
 
@@ -45,6 +70,7 @@ describe("diffManifest", () => {
           name: "old",
           source: "image",
           image: "x",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -92,6 +118,7 @@ describe("diffManifest", () => {
           name: "old",
           source: "image",
           image: "x",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -139,6 +166,7 @@ describe("diffManifest", () => {
           name: "web",
           source: "image",
           image: "ghcr.io/acme/api:1.0.0",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -183,6 +211,7 @@ describe("diffManifest", () => {
           name: "web",
           source: "image",
           image: "ghcr.io/acme/api:1.0.0",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -297,6 +326,7 @@ describe("diffManifest", () => {
           name: "web",
           source: "image",
           image: "ghcr.io/acme/api:1.0.0",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -346,6 +376,7 @@ describe("diffManifest", () => {
           name: "web",
           source: "image",
           image: "ghcr.io/acme/api:1.0.0",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -468,6 +499,7 @@ describe("declared-only service fields and env", () => {
           name: "web",
           source: "image",
           image: "ghcr.io/acme/api:1.0.0",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,
@@ -721,6 +753,7 @@ describe("service placement is a create-time seed, not drift", () => {
           name: "web",
           source: "image",
           image: "ghcr.io/acme/api:1.0.0",
+          ...unsetRuntimeFields,
           sourceSubdir: null,
           repo: null,
           branch: null,

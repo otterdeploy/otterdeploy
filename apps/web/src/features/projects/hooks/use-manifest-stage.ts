@@ -22,6 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { DEPENDENCIES_COLLECTION_KEY } from "@/features/projects/data/dependencies";
+import { projectSlugById } from "@/features/projects/data/project";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { SERVICE_TASKS_COLLECTION_KEY } from "@/features/resources/data/service-tasks";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -41,7 +42,8 @@ type ManifestDraft = Omit<Manifest, "project"> & { project: string };
 type ManifestMutator = (current: ManifestDraft) => ManifestDraft;
 
 /** Seed an empty manifest so a mutator never has to special-case the
- *  first-ever change on a fresh project. */
+ *  first-ever change on a fresh project. `project` is filled in by the hook
+ *  below, not here: the seed has no access to the slug. */
 const emptyManifest = (): ManifestDraft => ({
   version: 1,
   project: "",
@@ -103,12 +105,19 @@ export function useStageManifestChange(
     mutationFn: async (mutate: ManifestMutator) => {
       const current = await orpc.project.manifest.get.call({ id: projectId });
       const next = mutate(current.manifest ?? emptyManifest());
+      // `project` is a SLUG with a 2-char minimum, so the `""` the empty seed
+      // carries is not merely cosmetic: the server rejects it, and the operator
+      // gets "Too small: expected string to have >=2 characters" as a toast.
+      // Filling it here rather than in each mutator is what makes every
+      // staging surface correct — only 2 of the 13 call sites remembered to do
+      // it, and the other 11 were relying on a manifest already existing.
+      const project = next.project || projectSlugById(projectId) || "";
       await orpc.project.manifest.save.call({
         projectId,
-        manifest: next,
+        manifest: { ...next, project },
         expectedVersion: current.version,
       });
-      return { version: current.version + 1, manifest: next };
+      return { version: current.version + 1, manifest: { ...next, project } };
     },
     onSuccess: async () => {
       if (successToast) toast.success(successToast);

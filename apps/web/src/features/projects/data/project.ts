@@ -142,3 +142,14 @@ export const projectCollection = persistence
 export function projectIdBySlug(slug: string): string | undefined {
   return projectCollection.toArray.find((p) => p.slug === slug)?.id;
 }
+
+/**
+ * The reverse lookup: a project's slug from its id, via the already-loaded
+ * collection. The manifest carries `project` as a SLUG, but every mutation
+ * surface holds only the id, so staging a manifest change needs this to fill
+ * the field rather than leaving it empty (which the server rejects — the slug
+ * has a 2-char minimum). See useStageManifestChange.
+ */
+export function projectSlugById(id: string): string | undefined {
+  return projectCollection.toArray.find((p) => p.id === id)?.slug;
+}

@@ -6,6 +6,7 @@ import { environment, project, resource } from "@otterdeploy/db/schema/project";
 import { and, asc, eq } from "drizzle-orm";
 
 import { removeEnvDir } from "../../lib/data-dir";
+import { inEnvironmentScope } from "../project/queries/resource";
 type OrgId = OrganizationId;
 
 export type EnvironmentRecord = InferSelectModel<typeof environment>;
@@ -65,14 +66,35 @@ export async function createEnvRecord(input: {
 
 /** Resources still owned by an environment. The caller needs these BEFORE the
  *  row is deleted. Afterwards there is no way to find them, because the id
- *  they carry no longer resolves to anything. */
+ *  they carry no longer resolves to anything.
+ *
+ *  Ownership is `inEnvironmentScope`, the SAME predicate every scoped read uses,
+ *  rather than a hand-written `environment_id = ?`. The two are not equivalent:
+ *  a MAIN environment also owns every row whose `environment_id` is null (see
+ *  the read path in project/queries/resource.ts), and those null rows exist —
+ *  the service and compose inserts wrote them before
+ *  `newResourceEnvironmentId` landed. Counting with the narrow predicate
+ *  reported such a project's main environment as empty, so the emptiness guard
+ *  below never fired for exactly the rows that would be stranded. */
 async function listResourcesInEnvironment(
   environmentId: EnvironmentId,
+  isMain: boolean,
 ): Promise<{ id: ResourceId; name: string; projectId: ProjectId }[]> {
   return db
     .select({ id: resource.id, name: resource.name, projectId: resource.projectId })
     .from(resource)
-    .where(eq(resource.environmentId, environmentId));
+    .where(inEnvironmentScope({ environmentId, isMain }));
+}
+
+/** True when some project names this environment as its main one
+ *  (`project.environment_id`). A soft pointer, so this is a query, not a join. */
+async function isMainEnvironmentOfAProject(environmentId: EnvironmentId): Promise<boolean> {
+  const [row] = await db
+    .select({ id: project.id })
+    .from(project)
+    .where(eq(project.environmentId, environmentId))
+    .limit(1);
+  return Boolean(row);
 }
 
 /**
@@ -121,12 +143,24 @@ export async function deleteEnvRecord(input: {
    *  non-empty environment is refused rather than orphaning its rows. */
   cascade?: boolean;
 }): Promise<
-  { ok: true; id: EnvironmentId } | { ok: false; reason: "not-found" | "has-resources" }
+  { ok: true; id: EnvironmentId } | { ok: false; reason: "not-found" | "has-resources" | "is-main" }
 > {
   const owned = await getEnvInOrg(input);
   if (!owned) return { ok: false, reason: "not-found" };
 
-  const ownedResources = await listResourcesInEnvironment(input.environmentId);
+  // A project's MAIN environment is not a deletable object. Deleting it used to
+  // null `project.environment_id` (below), and `resolveEnvironmentScope` returns
+  // null for a project with no main pointer — which every caller reads as "this
+  // project has no resources". The project then reported itself empty in the UI,
+  // the graph and the CLI, permanently, while its containers kept running and
+  // its rows kept holding their unique-name slots. There is no route back to a
+  // main environment through the product, so this refuses instead. Deleting the
+  // PROJECT is the operation that removes its main environment, and that path
+  // cascades through the `environment.project_id` FK without coming through here.
+  const isMain = await isMainEnvironmentOfAProject(input.environmentId);
+  if (isMain) return { ok: false, reason: "is-main" };
+
+  const ownedResources = await listResourcesInEnvironment(input.environmentId, isMain);
   if (ownedResources.length > 0 && !input.cascade) {
     return { ok: false, reason: "has-resources" };
   }

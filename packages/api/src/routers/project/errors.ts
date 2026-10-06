@@ -53,6 +53,33 @@ export class ProjectHasServicesError extends TaggedError("ProjectHasServicesErro
   }
 }
 
+/**
+ * The manifest's `project` slug names a different project than the one being
+ * written to.
+ *
+ * Nothing used to compare the two, which made the field decorative on the
+ * server while being LOAD-BEARING in the CLI: `runDeploy` resolves the target
+ * with `getBySlug({ slug: manifest.project })`. So a manifest persisted under
+ * the wrong slug would, on the next `otterdeploy deploy` from that directory,
+ * resolve to a DIFFERENT project and replace its manifest — and since `save`
+ * replaces wholesale, every resource the payload omits is a deletion.
+ *
+ * Refusing the mismatch at the write is the only place it is cheap to catch.
+ */
+export class ManifestProjectMismatchError extends TaggedError("ManifestProjectMismatchError")<{
+  message: string;
+  expected: string;
+  received: string;
+}>() {
+  constructor(args: { expected: string; received: string }) {
+    super({
+      expected: args.expected,
+      received: args.received,
+      message: `this manifest declares project "${args.received}" but is being saved to "${args.expected}". Fix the \`project\` field, or run from the right project's directory`,
+    });
+  }
+}
+
 export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
   message: string;
   slug: string;

@@ -14,8 +14,17 @@ import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import { Result } from "better-result";
 import { and, eq, sql } from "drizzle-orm";
 
-import { manifestSchema, resolveEnvironment, type Manifest } from "../../stack/manifest";
-import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
+import {
+  manifestSchema,
+  ManifestMergeError,
+  resolveEnvironment,
+  type Manifest,
+} from "../../stack/manifest";
+import {
+  ManifestProjectMismatchError,
+  ManifestVersionConflictError,
+  ProjectNotFoundError,
+} from "./errors";
 import { manifestAfterDiscard, type SkippedResource } from "./manifest-applied-snapshot";
 import { publishManifestChanged } from "./project-event-bus";
 
@@ -110,7 +119,33 @@ export function manifestRemovals(current: Manifest | null, next: Manifest): Mani
 export async function saveManifest(
   scope: ProjectScope,
   input: { manifest: Manifest; expectedVersion: number },
-): Promise<Result<{ version: number }, ProjectNotFoundError | ManifestVersionConflictError>> {
+): Promise<
+  Result<
+    { version: number },
+    ProjectNotFoundError | ManifestVersionConflictError | ManifestProjectMismatchError
+  >
+> {
+  // The manifest names its own project, and the CLI RESOLVES the target from
+  // that name. A mismatch here therefore means the next `deploy` from the
+  // matching directory would rewrite a different project's manifest, deleting
+  // whatever that payload omits. Compare before writing.
+  const [target] = await db
+    .select({ slug: project.slug })
+    .from(project)
+    .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
+    .limit(1);
+  if (!target) {
+    return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
+  }
+  if (input.manifest.project !== target.slug) {
+    return Result.err(
+      new ManifestProjectMismatchError({
+        expected: target.slug,
+        received: input.manifest.project,
+      }),
+    );
+  }
+
   const [updatedRow] = await db
     .update(project)
     .set({
@@ -282,9 +317,12 @@ export function removeDatabaseFromManifest(scope: ProjectScope, name: string): P
 export async function resolvedManifest(
   scope: ProjectScope,
   environment?: string,
-): Promise<Result<Manifest | null, ProjectNotFoundError>> {
+): Promise<Result<Manifest | null, ProjectNotFoundError | ManifestMergeError>> {
   const row = await loadManifest(scope);
   if (row.isErr()) return Result.err(row.error);
   if (!row.value.manifest) return Result.ok(null);
-  return Result.ok(resolveEnvironment(row.value.manifest, environment));
+  // A bad environment block is the operator's typo, so it travels as a typed
+  // error the handlers map to 400 — not as a throw out of `Result.ok(...)`,
+  // which is what made it a 500.
+  return resolveEnvironment(row.value.manifest, environment);
 }

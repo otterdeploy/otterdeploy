@@ -49,8 +49,13 @@ const envMap = z.record(
   envValue,
 );
 
+/** The TCP/UDP port space. A port outside it is not a configuration choice
+ *  the operator can make work: docker rejects it at deploy, long after the
+ *  manifest validated. Caught here so the error names the field. */
+const PORT_MAX = 65_535;
+
 const portSchema = z.object({
-  container: z.number().int().positive(),
+  container: z.number().int().positive().max(PORT_MAX),
   protocol: z.enum(["tcp", "udp"]).optional(),
   appProtocol: z.enum(["http", "tcp"]).optional(),
   primary: z.boolean().optional(),
@@ -82,32 +87,82 @@ const shellOrExecForm = z.union([
   z.string().transform((line) => ["sh", "-c", line]),
 ]);
 
+/** An hour. Any healthcheck or restart timing beyond this is a unit mistake
+ *  (seconds typed as milliseconds, or the reverse). */
+const MAX_DURATION_MS = 3_600_000;
+
 const healthcheckSchema = z.object({
-  cmd: z.array(z.string()),
-  intervalMs: z.number().int().positive().optional(),
-  timeoutMs: z.number().int().positive().optional(),
-  retries: z.number().int().nonnegative().optional(),
-  startMs: z.number().int().nonnegative().optional(),
+  // A healthcheck with no command cannot check anything; docker would treat the
+  // empty list as "inherit from the image", which is not what declaring an
+  // empty `cmd` says.
+  cmd: z.array(z.string()).min(1),
+  intervalMs: z.number().int().positive().max(MAX_DURATION_MS).optional(),
+  timeoutMs: z.number().int().positive().max(MAX_DURATION_MS).optional(),
+  retries: z.number().int().nonnegative().max(100).optional(),
+  startMs: z.number().int().nonnegative().max(MAX_DURATION_MS).optional(),
 });
 
-const resourcesSchema = z.object({
-  cpuLimit: z.number().nonnegative().optional(),
-  memoryMb: z.number().int().positive().optional(),
-  cpuReservation: z.number().nonnegative().optional(),
-  memoryReservationMb: z.number().int().positive().optional(),
-  diskMb: z.number().int().positive().optional(),
-  swapMb: z.number().int().positive().optional(),
-  pidsLimit: z.number().int().positive().optional(),
-});
+/**
+ * Ceilings for the resource knobs.
+ *
+ * Every one of these was `positive()` with no upper bound, so `memoryMb: 1e15`
+ * or `replicas: 1e9` parsed cleanly and failed later against docker — or worse,
+ * was accepted by docker and scheduled something that could never fit. A cap is
+ * not a policy decision about what a host can afford; it is the line past which
+ * the value is certainly a typo (a `memoryMb` entered as bytes, a `cpuLimit`
+ * entered as millicores). Generous on purpose.
+ */
+const MAX_CPUS = 1024;
+/** 4 TiB expressed in MB: past any single-container allocation, and the value
+ *  a byte-vs-megabyte mix-up lands on. */
+const MAX_MEMORY_MB = 4_194_304;
+/** Linux `pid_max` ceiling on 64-bit. */
+const MAX_PIDS = 4_194_304;
+
+const resourcesSchema = z
+  .object({
+    // `nonnegative`, not `positive`: 0 is docker's "no limit".
+    cpuLimit: z.number().nonnegative().max(MAX_CPUS).optional(),
+    memoryMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+    cpuReservation: z.number().nonnegative().max(MAX_CPUS).optional(),
+    memoryReservationMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+    diskMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+    swapMb: z.number().int().positive().max(MAX_MEMORY_MB).optional(),
+    pidsLimit: z.number().int().positive().max(MAX_PIDS).optional(),
+  })
+  .superRefine((resources, ctx) => {
+    // Docker refuses both of these at deploy ("Minimum memory limit can not be
+    // less than memory reservation limit"), so accepting them here only moves
+    // the error somewhere that cannot name the field.
+    const { cpuLimit, cpuReservation, memoryMb, memoryReservationMb } = resources;
+    if (cpuLimit !== undefined && cpuReservation !== undefined && cpuReservation > cpuLimit) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["cpuReservation"],
+        message: `cpuReservation (${cpuReservation}) cannot exceed cpuLimit (${cpuLimit}).`,
+      });
+    }
+    if (
+      memoryMb !== undefined &&
+      memoryReservationMb !== undefined &&
+      memoryReservationMb > memoryMb
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["memoryReservationMb"],
+        message: `memoryReservationMb (${memoryReservationMb}) cannot exceed memoryMb (${memoryMb}).`,
+      });
+    }
+  });
 
 const restartSchema = z.object({
   condition: z.enum(["none", "on-failure", "any"]),
-  maxAttempts: z.number().int().nonnegative().nullable().optional(),
-  delayMs: z.number().int().nonnegative().optional(),
+  maxAttempts: z.number().int().nonnegative().max(1_000_000).nullable().optional(),
+  delayMs: z.number().int().nonnegative().max(MAX_DURATION_MS).optional(),
   // Window (ms) over which `maxAttempts` is counted when condition is
   // `on-failure`. Matches docker swarm's restart_policy.window. Outside
   // the window, the failure counter resets to zero.
-  windowMs: z.number().int().nonnegative().optional(),
+  windowMs: z.number().int().nonnegative().max(MAX_DURATION_MS).optional(),
 });
 
 // Build config. Only meaningful for git-sourced services. Discriminated
@@ -201,7 +256,9 @@ export const buildSchema = z.discriminatedUnion("builder", [
 // ── Service ─────────────────────────────────────────────────────────────
 
 const serviceCommonSchema = z.object({
-  replicas: z.number().int().nonnegative().optional(),
+  // `nonnegative`: 0 is a deliberate scale-to-zero. Capped because a swarm
+  // service with a million replicas is a typo, not a plan.
+  replicas: z.number().int().nonnegative().max(10_000).optional(),
   ports: z.array(portSchema).optional(),
   env: envMap.optional(),
   /** Keys in `env` the operator marked sensitive. A display flag, not storage:
@@ -432,7 +489,9 @@ const composeServicesMap = z.record(z.string().min(1), z.object({ env: composeEn
 
 const composeExposedSchema = z.object({
   service: z.string().min(1),
-  port: z.number().int().positive(),
+  // Same TCP/UDP range as a service's `ports[].container`: this is the port a
+  // public route is pointed at, so an out-of-range value is a broken route.
+  port: z.number().int().positive().max(PORT_MAX),
   domain: z.string().optional(),
 });
 
@@ -559,7 +618,54 @@ export type EnvironmentOverride = z.infer<typeof environmentBlockSchema>;
 
 // ── Top-level manifest ─────────────────────────────────────────────────
 
-export const manifestSchema = z.object({
+/**
+ * Names are unique across services, databases AND compose stacks, not merely
+ * within each map.
+ *
+ * All three become rows in one `resource` table, under one unique index on
+ * (project, environment, name). Three separate maps in the JSON hides that:
+ * declaring `services.api` and `databases.api` reads as two different things
+ * and parses fine, but apply runs databases in phase 1 and services later, so
+ * the database is created and the service then dies on a raw unique-constraint
+ * violation — leaving the project half-applied, with an error that names a
+ * postgres index rather than the duplicate name that caused it. Apply is not
+ * transactional across phases, so there is no rollback.
+ *
+ * Checked per environment as well as on the base, because an environment block
+ * can introduce a name (and `null` can remove one), so an environment's
+ * effective set is not the base set.
+ */
+function collectCollisions(
+  buckets: ReadonlyArray<readonly [kind: string, names: Iterable<string>]>,
+): Map<string, string[]> {
+  const seen = new Map<string, string[]>();
+  for (const [kind, names] of buckets) {
+    for (const name of names) {
+      const kinds = seen.get(name);
+      if (kinds) kinds.push(kind);
+      else seen.set(name, [kind]);
+    }
+  }
+  return new Map([...seen].filter(([, kinds]) => kinds.length > 1));
+}
+
+/** The names an environment actually has: the base map, plus the block's own
+ *  declarations, minus the ones it set to `null` to opt out of. (A `null`
+ *  value is the documented "this resource does not exist here"; `unknown`
+ *  already covers it, so the signature cannot spell it out.) */
+function namesForEnvironment(
+  base: Readonly<Record<string, unknown>>,
+  override: Readonly<Record<string, unknown>> | undefined,
+): string[] {
+  const names = new Set(Object.keys(base));
+  for (const [name, value] of Object.entries(override ?? {})) {
+    if (value === null) names.delete(name);
+    else names.add(name);
+  }
+  return [...names];
+}
+
+const manifestObjectSchema = z.object({
   $schema: z.string().optional(),
   version: z.literal(MANIFEST_SCHEMA_VERSION).optional(),
   project: zSlug(ID_PREFIX.project),
@@ -571,6 +677,87 @@ export const manifestSchema = z.object({
   // atomic unit, not a per-env-tunable resource, in v1.
   composes: composesMap.default({}),
   environments: z.record(z.string().min(1), environmentBlockSchema).optional(),
+});
+
+export const manifestSchema = manifestObjectSchema.superRefine((manifest, ctx) => {
+  const report = (collisions: Map<string, string[]>, where: readonly (string | number)[]) => {
+    for (const [name, kinds] of collisions) {
+      ctx.addIssue({
+        code: "custom",
+        path: [...where],
+        message: `"${name}" is declared as ${kinds.join(" and ")}. Resource names share one namespace, so each must be unique across services, databases and composes.`,
+      });
+    }
+  };
+
+  report(
+    collectCollisions([
+      ["a service", Object.keys(manifest.services)],
+      ["a database", Object.keys(manifest.databases)],
+      ["a compose stack", Object.keys(manifest.composes)],
+    ]),
+    [],
+  );
+
+  for (const [envName, block] of Object.entries(manifest.environments ?? {})) {
+    report(
+      collectCollisions([
+        ["a service", namesForEnvironment(manifest.services, block.services)],
+        ["a database", namesForEnvironment(manifest.databases, block.databases)],
+        // Compose stacks are not environment-overridable (no `composes` on
+        // environmentBlockSchema), so every environment inherits the base set.
+        ["a compose stack", Object.keys(manifest.composes)],
+      ]),
+      ["environments", envName],
+    );
+  }
+
+  // Port rules are per service. Each becomes a `service_port` row and feeds the
+  // runtime spec, so a duplicate or a second primary is not a harmless
+  // redundancy: it makes which row wins depend on insertion order.
+  for (const [serviceName, service] of Object.entries(manifest.services)) {
+    const ports = service.ports ?? [];
+    const at = (index: number, field: string) => ["services", serviceName, "ports", index, field];
+
+    const primaries = ports.flatMap((port, index) => (port.primary === true ? [index] : []));
+    if (primaries.length > 1) {
+      for (const index of primaries.slice(1)) {
+        ctx.addIssue({
+          code: "custom",
+          path: at(index, "primary"),
+          // The primary port is the one the public route points at. Two
+          // candidates means the route target depends on array order.
+          message: `service "${serviceName}" marks ${primaries.length} ports primary; exactly one port can be primary.`,
+        });
+      }
+    }
+
+    const seenContainer = new Map<number, number>();
+    const seenName = new Map<string, number>();
+    for (const [index, port] of ports.entries()) {
+      const firstContainer = seenContainer.get(port.container);
+      if (firstContainer === undefined) seenContainer.set(port.container, index);
+      else {
+        ctx.addIssue({
+          code: "custom",
+          path: at(index, "container"),
+          message: `service "${serviceName}" declares container port ${port.container} twice (also at index ${firstContainer}).`,
+        });
+      }
+      if (port.name === undefined) continue;
+      const firstName = seenName.get(port.name);
+      if (firstName === undefined) seenName.set(port.name, index);
+      else {
+        ctx.addIssue({
+          code: "custom",
+          path: at(index, "name"),
+          // Port names are how `${service:foo.port.<name>}` selects a port, so
+          // a duplicate makes that reference ambiguous.
+          message: `service "${serviceName}" declares two ports named "${port.name}" (also at index ${firstName}).`,
+        });
+      }
+    }
+  }
 });
 
 export type Manifest = z.infer<typeof manifestSchema>;
