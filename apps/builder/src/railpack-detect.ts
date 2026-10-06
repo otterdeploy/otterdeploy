@@ -58,24 +58,57 @@ export async function rootIsWorkspace(workDir: string): Promise<boolean> {
   return fileExists(join(workDir, "pnpm-workspace.yaml"));
 }
 
-/** The `<pm> run` prefix used to invoke an app's scripts, derived from the
- *  `packageManager` field then lockfile presence. npm/bun/pnpm/yarn all accept
- *  `<pm> run <script>`. */
-export async function detectPackageManagerRun(workDir: string): Promise<string> {
+export type PackageManager = "bun" | "pnpm" | "yarn" | "npm";
+
+/** The repo's package manager: the `packageManager` field, then lockfile
+ *  presence, else npm. */
+export async function detectPackageManager(workDir: string): Promise<PackageManager> {
   const pkg = await readJson<{ packageManager?: string }>(join(workDir, "package.json"));
   const declared = pkg?.packageManager?.split("@")[0]?.trim();
   if (declared === "bun" || declared === "pnpm" || declared === "yarn" || declared === "npm") {
-    return `${declared} run`;
+    return declared;
   }
   if (
     (await fileExists(join(workDir, "bun.lock"))) ||
     (await fileExists(join(workDir, "bun.lockb")))
   ) {
-    return "bun run";
+    return "bun";
   }
-  if (await fileExists(join(workDir, "pnpm-lock.yaml"))) return "pnpm run";
-  if (await fileExists(join(workDir, "yarn.lock"))) return "yarn run";
-  return "npm run";
+  if (await fileExists(join(workDir, "pnpm-lock.yaml"))) return "pnpm";
+  if (await fileExists(join(workDir, "yarn.lock"))) return "yarn";
+  return "npm";
+}
+
+/** The `<pm> run` prefix used to invoke an app's scripts. npm/bun/pnpm/yarn
+ *  all accept `<pm> run <script>`. Scripts only: `pnpm run` and `npm run`
+ *  never fall back to a binary (see `workspaceBinCommand` for those). */
+export async function detectPackageManagerRun(workDir: string): Promise<string> {
+  return `${await detectPackageManager(workDir)} run`;
+}
+
+/**
+ * The command that runs a workspace-installed binary (`turbo`, …) under `pm`,
+ * forwarding every following argument to it untouched. Each form was checked
+ * against the real manager:
+ *   - pnpm `exec`: options after `exec` go to the binary (bare `pnpm <bin>`
+ *     would parse `--filter` as pnpm's own)
+ *   - yarn `<bin>`: 1.x and berry both fall through to the binary; yarn 1's
+ *     `exec` drops `--filter`-style options
+ *   - npm `npx --no`: local `.bin` first, and fails on a missing binary
+ *     instead of downloading the registry's latest
+ *   - bun `run`: resolves `.bin` and fails when absent (`bun x` would fetch)
+ */
+export function workspaceBinCommand(pm: PackageManager, bin: string): string {
+  switch (pm) {
+    case "pnpm":
+      return `pnpm exec ${bin}`;
+    case "yarn":
+      return `yarn ${bin}`;
+    case "npm":
+      return `npx --no ${bin}`;
+    case "bun":
+      return `bun run ${bin}`;
+  }
 }
 
 /** For a single-app (non-workspace) build, the start command to hand railpack
