@@ -8,7 +8,7 @@
  * using the client address and that address is only right once Caddy has been
  * told which hop in front of it to believe.
  */
-import type { CrowdsecConfig, ProxyRouteInput } from "./types";
+import type { AcmeCaConfig, CrowdsecConfig, ProxyRouteInput } from "./types";
 
 import { buildLayer4Block } from "./layer4";
 import { trustedProxyLines } from "./trusted-proxies";
@@ -54,10 +54,22 @@ function crowdsecAccessFileLines(): string[] {
   ];
 }
 
+/** `acme_ca` (+ `acme_ca_root` when the CA's certificate isn't publicly
+ *  trusted): points every ACME issuance at an operator-chosen directory, e.g.
+ *  Let's Encrypt staging in a test lab, or a private CA. */
+function acmeCaLines(cfg: AcmeCaConfig): string[] {
+  const lines = [`\tacme_ca ${cfg.directory}`];
+  if (cfg.root) lines.push(`\tacme_ca_root ${cfg.root}`);
+  return lines;
+}
+
 interface GlobalBlockOptions {
   /** The `admin` line body: `admin <bind>` or `admin off`. */
   adminLine: string;
   acmeEmail?: string | null;
+  /** Non-default ACME CA (OTTERDEPLOY_ACME_CA / _ROOT). Undefined ⇒ Caddy's
+   *  built-in issuers, and nothing is emitted. */
+  acmeCa?: AcmeCaConfig;
   anyUsesAcme: boolean;
   /** false ⇒ emit `auto_https disable_redirects` (operator runs HTTP→HTTPS
    *  elsewhere). Undefined/true keeps Caddy's default auto-redirect. */
@@ -77,6 +89,11 @@ export function buildGlobalBlock(o: GlobalBlockOptions): string[] {
   const lines = ["{", `\t${o.adminLine}`];
   if (o.anyUsesAcme && o.acmeEmail) {
     lines.push(`\temail ${o.acmeEmail}`);
+  }
+  // Same gate as `email`: the CA only matters when something issues over
+  // ACME, so a pure-internal install's global block stays untouched.
+  if (o.anyUsesAcme && o.acmeCa) {
+    lines.push(...acmeCaLines(o.acmeCa));
   }
   if (!o.anyUsesAcme) {
     lines.push("\tlocal_certs");

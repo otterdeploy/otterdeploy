@@ -2,7 +2,7 @@ import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 
-import type { CrowdsecConfig, ProxyRouteInput } from "./types";
+import type { AcmeCaConfig, CrowdsecConfig, ProxyRouteInput } from "./types";
 
 import { customDirectiveLines } from "./custom-directives";
 import { buildGlobalBlock } from "./global-block";
@@ -14,7 +14,7 @@ import { assertSafeRoute } from "./route-validation";
 export { buildLayer4Block, sanitizeMatcherName };
 // Re-exported so the many `./builder` import sites keep working after the
 // shared shapes moved to ./types to break a builder <-> global-block cycle.
-export type { CrowdsecConfig, ProxyRouteInput } from "./types";
+export type { AcmeCaConfig, CrowdsecConfig, ProxyRouteInput } from "./types";
 
 /** Reserved, ungated path prefix on every protected deployment domain.
  *  The cross-domain auth handoff callback lands here and is proxied to the
@@ -258,6 +258,8 @@ export function buildCaddyfile(
   adminBind: string,
   options: {
     acmeEmail?: string | null;
+    /** Non-default ACME CA (test lab / private CA). See ./global-block. */
+    acmeCa?: AcmeCaConfig;
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
@@ -279,6 +281,7 @@ export function buildCaddyfile(
   const lines = buildGlobalBlock({
     adminLine: `admin ${adminBind}`,
     acmeEmail: options.acmeEmail,
+    acmeCa: options.acmeCa,
     anyUsesAcme,
     httpsAutoRedirect: options.httpsAutoRedirect,
     crowdsec: options.crowdsec,
@@ -296,6 +299,7 @@ export function buildProjectFragment(
   routes: ProxyRouteInput[],
   options: {
     acmeEmail?: string | null;
+    acmeCa?: AcmeCaConfig;
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
@@ -316,6 +320,7 @@ export function buildProjectFragment(
   const lines = buildGlobalBlock({
     adminLine: "admin off",
     acmeEmail: options.acmeEmail,
+    acmeCa: options.acmeCa,
     anyUsesAcme,
     crowdsec: options.crowdsec,
     edgeLogSink: options.edgeLogSink,

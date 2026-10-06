@@ -8,6 +8,7 @@ import { asStepLogger } from "../lib/logger";
 import {
   buildCaddyfile,
   buildProjectFragment,
+  type AcmeCaConfig,
   type CrowdsecConfig,
   type ProxyRouteInput,
 } from "./builder";
@@ -36,6 +37,9 @@ interface ReconcileOptions {
    *  for any route with usesAcme=true; ignored when every route is
    *  internal-only. */
   acmeEmail?: string | null;
+  /** Non-default ACME CA from OTTERDEPLOY_ACME_CA / _ROOT. Undefined ⇒
+   *  Caddy's built-in issuers. */
+  acmeCa?: AcmeCaConfig;
   /** host:port Caddy proxies forward_auth + reserved-path requests to for
    *  protected routes (the control plane). Env-driven so dev
    *  (host.docker.internal) and Swarm (service DNS) differ. */
@@ -60,6 +64,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     routes,
     adminBind,
     acmeEmail,
+    acmeCa,
     authzUpstream,
     edgeLogSink,
     crowdsec,
@@ -102,6 +107,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
 
     const fragment = buildProjectFragment(projectRoutes, {
       acmeEmail,
+      acmeCa,
       authzUpstream,
       edgeLogSink,
       crowdsec,
@@ -128,6 +134,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
 
   const caddyfile = buildCaddyfile(validRoutes, adminBind, {
     acmeEmail,
+    acmeCa,
     authzUpstream,
     edgeLogSink,
     crowdsec,

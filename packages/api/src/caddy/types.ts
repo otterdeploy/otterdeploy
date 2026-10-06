@@ -43,6 +43,14 @@ export interface ProxyRouteInput {
   customCert?: { certPath: string; keyPath: string } | null;
 }
 
+/** Operator override of the ACME CA every ACME route issues from (Let's
+ *  Encrypt staging, a Pebble emulator, a private CA). `root` is a PEM path
+ *  the Caddy process reads to trust that CA. */
+export interface AcmeCaConfig {
+  directory: string;
+  root?: string;
+}
+
 /** CrowdSec LAPI connection for the global Caddy `crowdsec` app config. */
 export interface CrowdsecConfig {
   apiUrl: string;

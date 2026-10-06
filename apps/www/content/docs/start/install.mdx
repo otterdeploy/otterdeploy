@@ -105,6 +105,19 @@ Preview the whole run before committing to it:
 curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 ```
 
+### Runtime overrides
+
+A few settings point otterdeploy at something other than the public default:
+a staging certificate authority for a test lab, a private CA, an internal
+mirror of an upstream API. The running server reads them, not the installer:
+add them to `platform/source/.env`, then run `docker compose up -d` in that
+folder. Left unset, nothing changes.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `OTTERDEPLOY_ACME_CA` | unset (Caddy's default CAs) | ACME directory URL the edge issues certificates from, e.g. `https://acme-staging-v02.api.letsencrypt.org/directory` |
+| `OTTERDEPLOY_ACME_CA_ROOT` | unset | PEM file the edge trusts for that CA. Caddy reads the path inside its own container, so mount the file there |
+
 ## Updating
 
 ```bash

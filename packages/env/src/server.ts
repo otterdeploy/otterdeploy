@@ -75,6 +75,27 @@ export const env = createEnv({
     CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
     CADDY_ADMIN_BIND: z.string().min(1).default(`unix/${defaultCaddySocketPath}|0600`),
 
+    // ACME CA override for the edge (packages/api/src/caddy/global-block.ts).
+    // Unset (the default) ⇒ nothing is emitted and Caddy uses its built-in
+    // issuers (Let's Encrypt, then ZeroSSL). Set to an ACME directory URL to
+    // send every ACME route to that CA instead: Let's Encrypt staging
+    // (https://acme-staging-v02.api.letsencrypt.org/directory) for a test lab,
+    // a Pebble/step-ca emulator, or a private corporate CA. Rendered as the
+    // global `acme_ca` option, only when at least one route uses ACME.
+    // Whitespace is rejected because the value is written into the Caddyfile
+    // as a single token.
+    OTTERDEPLOY_ACME_CA: z.url().regex(/^\S+$/, "must not contain whitespace").optional(),
+    // Path to a PEM bundle Caddy should trust when talking to the CA above
+    // (global `acme_ca_root`), for a CA whose certificate is not publicly
+    // trusted (Pebble, step-ca, an internal CA). The path is read by the
+    // CADDY process, so it must exist inside the edge container (mount it).
+    // Only emitted alongside OTTERDEPLOY_ACME_CA.
+    OTTERDEPLOY_ACME_CA_ROOT: z
+      .string()
+      .min(1)
+      .regex(/^\S+$/, "must not contain whitespace")
+      .optional(),
+
     // Public IP the swarm manager exposes — embedded in sslip.io fallback
     // domains (`<ip>.sslip.io`) so a fresh install resolves without the
     // operator owning a domain. Persisted to platform_settings.server_ip on

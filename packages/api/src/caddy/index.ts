@@ -16,6 +16,7 @@ import { ensureEdgeOnProjectNetworks } from "../swarm/client";
 import {
   buildCaddyfile,
   buildProjectFragment,
+  type AcmeCaConfig,
   type CrowdsecConfig,
   type ProxyRouteInput,
 } from "./builder";
@@ -47,6 +48,9 @@ export { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 
 interface CaddyBuildOptions {
   acmeEmail: string | null;
+  /** OTTERDEPLOY_ACME_CA / _ROOT: the CA every ACME route issues from, when
+   *  the operator overrides Caddy's default (staging, emulator, private CA). */
+  acmeCa?: AcmeCaConfig;
   httpsAutoRedirect: boolean | null;
   /** Hops in front of Caddy, so the access log records the visitor rather
    *  than the CDN. Everything downstream (flagged IPs, ban targets, geo)
@@ -80,6 +84,9 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
 
   return {
     acmeEmail: settings?.acmeEmail ?? null,
+    acmeCa: env.OTTERDEPLOY_ACME_CA
+      ? { directory: env.OTTERDEPLOY_ACME_CA, root: env.OTTERDEPLOY_ACME_CA_ROOT }
+      : undefined,
     httpsAutoRedirect: settings?.httpsAutoRedirect ?? null,
     trustedProxies: settings?.trustedProxies ?? null,
     authzUpstream: env.DEPLOY_AUTHZ_UPSTREAM,
