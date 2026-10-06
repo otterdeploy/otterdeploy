@@ -7,6 +7,10 @@
  * the bind on the `!ctx.stackDir` guard before ever looking at the path. The
  * stack applied clean and the container crash-looped on "Could not connect to
  * any Docker Engine": an error that points at the image, not at us.
+ *
+ * A listed path is mounted only for a stack an installation
+ * administrator granted it to. These cases pin the GRANTED behaviour; the
+ * ungranted (default) half lives in docker-socket-grant.test.ts.
  */
 import { hasPrefix, type Id } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
@@ -43,7 +47,10 @@ function fixtureId<P extends string>(value: string, prefix: P): Id<P> {
   return value;
 }
 
-/** A single-file stack, no materialized tree, so no stackDir. */
+const GRANTED = { dockerSocket: true };
+
+/** A single-file stack, no materialized tree, so no stackDir. Its install
+ *  admin granted it the docker socket. */
 const ctx: StackReconcileContext = {
   projectId: fixtureId("project_1", "prj"),
   placementServerId: null,
@@ -54,39 +61,45 @@ const ctx: StackReconcileContext = {
   stackName: "dozzle",
   projectVars: {},
   builtImages: {},
+  hostBindGrants: GRANTED,
 };
 
 describe("allowedHostBind", () => {
-  it("grants the docker socket read-only", () => {
-    expect(allowedHostBind("/var/run/docker.sock")).toEqual({
+  it("grants the docker socket read-only to a stack holding the grant", () => {
+    expect(allowedHostBind("/var/run/docker.sock", GRANTED)).toEqual({
       source: "/var/run/docker.sock",
       readOnly: true,
     });
   });
 
-  it("normalizes before matching so spelling can't slip past", () => {
-    expect(allowedHostBind("/var/run//docker.sock")?.source).toBe("/var/run/docker.sock");
-    expect(allowedHostBind("/var/run/./docker.sock")?.source).toBe("/var/run/docker.sock");
+  it("does not grant it without the grant, or with no grants passed", () => {
+    expect(allowedHostBind("/var/run/docker.sock", { dockerSocket: false })).toBeNull();
+    expect(allowedHostBind("/var/run/docker.sock")).toBeNull();
   });
 
-  it("denies everything else", () => {
+  it("normalizes before matching so spelling can't slip past", () => {
+    expect(allowedHostBind("/var/run//docker.sock", GRANTED)?.source).toBe("/var/run/docker.sock");
+    expect(allowedHostBind("/var/run/./docker.sock", GRANTED)?.source).toBe("/var/run/docker.sock");
+  });
+
+  it("denies everything else, grant or not", () => {
     for (const path of ["/", "/etc/shadow", "/root/.ssh", "/var/run", "/var/run/docker.sock.bak"]) {
-      expect(allowedHostBind(path)).toBeNull();
+      expect(allowedHostBind(path, GRANTED)).toBeNull();
     }
   });
 
   it("denies traversal that resolves outside a listed path", () => {
-    expect(allowedHostBind("/var/run/docker.sock/../../../etc/shadow")).toBeNull();
+    expect(allowedHostBind("/var/run/docker.sock/../../../etc/shadow", GRANTED)).toBeNull();
   });
 
   it("never treats a relative source as a host bind", () => {
-    expect(allowedHostBind("./docker.sock")).toBeNull();
-    expect(allowedHostBind("data")).toBeNull();
+    expect(allowedHostBind("./docker.sock", GRANTED)).toBeNull();
+    expect(allowedHostBind("data", GRANTED)).toBeNull();
   });
 });
 
 describe("reconcile-map: single-file stack", () => {
-  it("mounts the socket even with no stackDir", () => {
+  it("mounts the granted socket even with no stackDir", () => {
     const { mounts } = toServiceFields(service(DOZZLE, "dozzle"), ctx, "amir20/dozzle:latest");
     expect(mounts).toEqual([
       {
@@ -135,6 +148,7 @@ describe("to-spec: the two compose paths agree", () => {
       resolvedEnv: {},
       image: "amir20/dozzle:latest",
       forceUpdateCounter: 0,
+      hostBindGrants: GRANTED,
     });
     expect(spec.mounts).toEqual([
       {
@@ -163,6 +177,7 @@ services:
       resolvedEnv: {},
       image: "nginx",
       forceUpdateCounter: 0,
+      hostBindGrants: GRANTED,
     });
     expect(spec.mounts).toEqual([]);
   });
@@ -178,14 +193,18 @@ services:
 `);
     if (r.isErr()) throw new Error(r.error.message);
     expect(r.value.warnings.join("\n")).toContain('host path "/etc/shadow" is not mounted');
-    // The warning names what IS permitted, so the reader knows the rule.
+    // The warning names what CAN be granted, so the reader knows the rule.
     expect(r.value.warnings.join("\n")).toContain("/var/run/docker.sock");
   });
 
-  it("stays quiet for an allowlisted path", () => {
+  it("says a listed path needs an install-admin grant, rather than staying quiet", () => {
+    // The parser has no stack, so it cannot know the grant; a silent drop is
+    // what made Dozzle crash-loop on "Could not connect to any Docker Engine".
     const r = parseCompose(DOZZLE);
     if (r.isErr()) throw new Error(r.error.message);
-    expect(r.value.warnings).toEqual([]);
+    expect(r.value.warnings).toHaveLength(1);
+    expect(r.value.warnings[0]).toContain('host path "/var/run/docker.sock" is mounted only after');
+    expect(r.value.warnings[0]).toContain("installation administrator");
   });
 
   it("stays quiet for named volumes and relative binds", () => {

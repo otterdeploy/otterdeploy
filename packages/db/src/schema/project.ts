@@ -784,6 +784,16 @@ export const composeResource = pgTable(
     // carried over from the template the stack was deployed from. Null for
     // hand-authored stacks, which fall back to the generic compose icon.
     logoBrand: text("logo_brand"),
+    // An installation administrator's explicit grant of the host's
+    // Docker socket to THIS stack. Null (every stack, by default) = a
+    // `/var/run/docker.sock` bind in the file is dropped. The socket is root on
+    // the host and every tenant on it, so nothing a tenant controls (the
+    // compose file, the create form, a manifest) sets these: only
+    // `compose.setDockerSocketGrant`, install-admin gated and audited. `By` is
+    // the granting user's id, kept as text so deleting that user never
+    // silently revokes or orphans the decision it recorded.
+    dockerSocketGrantedAt: timestamp("docker_socket_granted_at"),
+    dockerSocketGrantedBy: text("docker_socket_granted_by"),
     forceUpdateCounter: integer("force_update_counter").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
