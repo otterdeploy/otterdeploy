@@ -117,6 +117,7 @@ folder. Left unset, nothing changes.
 | --- | --- | --- |
 | `OTTERDEPLOY_ACME_CA` | unset (Caddy's default CAs) | ACME directory URL the edge issues certificates from, e.g. `https://acme-staging-v02.api.letsencrypt.org/directory` |
 | `OTTERDEPLOY_ACME_CA_ROOT` | unset | PEM file the edge trusts for that CA. Caddy reads the path inside its own container, so mount the file there |
+| `RESEND_BASE_URL` | unset (`https://api.resend.com`) | Resend API origin for email: a compatible emulator or an egress relay |
 
 ## Updating
 

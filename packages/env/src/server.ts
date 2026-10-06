@@ -58,6 +58,12 @@ export const env = createEnv({
     // a cryptic Resend 502 from a placeholder key.
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM_EMAIL: z.email().default("onboarding@resend.dev"),
+    // Resend API origin (packages/email/src/client.ts). Unset ⇒ the SDK's
+    // default, https://api.resend.com. Point it at a Resend-compatible
+    // emulator in a test lab, or at an egress proxy/relay on a locked-down
+    // network. Applies to every Resend send: the platform transport and a
+    // notification channel's own key alike.
+    RESEND_BASE_URL: z.url().optional(),
 
     // Notification channels (packages/jobs notification.send). All optional —
     // every notification persists an in-app row regardless; these only enable

@@ -36,7 +36,10 @@ export async function sendEmail(options: SendEmailOptions) {
 
   // Channel-provided Resend key: explicit override, no settings lookup.
   if (apiKey) {
-    return deliver(resend({ apiKey }), { ...options, from: from || env.RESEND_FROM_EMAIL });
+    return deliver(resend({ apiKey, baseUrl: env.RESEND_BASE_URL }), {
+      ...options,
+      from: from || env.RESEND_FROM_EMAIL,
+    });
   }
 
   const transport = await resolveTransport();
@@ -62,7 +65,8 @@ export async function sendEmail(options: SendEmailOptions) {
           secure: transport.secure,
           auth: transport.user ? { user: transport.user, pass: transport.pass ?? "" } : undefined,
         })
-      : resend({ apiKey: transport.apiKey });
+      : // Unset base URL ⇒ the SDK's own default (https://api.resend.com).
+        resend({ apiKey: transport.apiKey, baseUrl: env.RESEND_BASE_URL });
 
   return deliver(provider, { ...options, from: fromAddress });
 }
