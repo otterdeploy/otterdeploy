@@ -20,10 +20,18 @@
  * tagged errors keeps that classification in one place.
  */
 
+import { env } from "@otterdeploy/env/server";
 import { Result, TaggedError } from "better-result";
 import { promises as dns } from "node:dns";
 
-const PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8"];
+/** Default 1.1.1.1 + 8.8.8.8; OTTERDEPLOY_DNS_RESOLVERS swaps them for an
+ *  internal resolver (air-gapped) or an emulated one (test lab). */
+const PUBLIC_RESOLVERS = env.OTTERDEPLOY_DNS_RESOLVERS;
+/** Unset ⇒ no options, i.e. the resolver's built-in timeout, as before. */
+const RESOLVER_OPTIONS =
+  env.OTTERDEPLOY_DNS_TIMEOUT_MS === undefined
+    ? undefined
+    : { timeout: env.OTTERDEPLOY_DNS_TIMEOUT_MS };
 
 const DEFINITIVE_MISS = new Set(["ENODATA", "ENOTFOUND", "NXDOMAIN"]);
 
@@ -75,7 +83,7 @@ async function withPublicResolver<T>(
   // dns.Resolver here is the promise-based resolver (node:dns `promises`
   // namespace): its methods return Promises, unlike the top-level
   // callback Resolver.
-  const resolver = new dns.Resolver();
+  const resolver = new dns.Resolver(RESOLVER_OPTIONS);
   resolver.setServers(PUBLIC_RESOLVERS);
 
   const viaPublic = await Result.tryPromise({

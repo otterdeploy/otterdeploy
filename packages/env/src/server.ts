@@ -1,5 +1,17 @@
 import { createEnv } from "@t3-oss/env-core";
+import { isIP } from "node:net";
 import * as z from "zod";
+
+/** The address forms `dns.Resolver#setServers` accepts: a bare IPv4/IPv6,
+ *  `ipv4:port`, or `[ipv6]:port`. Checked at boot so a typo fails there
+ *  rather than throwing on every lookup. */
+function isDnsServer(entry: string): boolean {
+  if (isIP(entry) !== 0) return true;
+  const bracketed = /^\[([^\]]+)\](?::\d{1,5})?$/.exec(entry);
+  if (bracketed) return isIP(bracketed[1] ?? "") === 6;
+  const withPort = /^([^:]+):\d{1,5}$/.exec(entry);
+  return withPort !== null && isIP(withPort[1] ?? "") === 4;
+}
 
 // The native dev server and the Caddy container can share a bind-mounted
 // socket under OTTERDEPLOY_DATA_DIR. The production compose explicitly
@@ -283,6 +295,27 @@ export const env = createEnv({
           .map((entry) => entry.trim())
           .filter((entry) => entry.length > 0),
       ),
+
+    // DNS servers the control plane asks first for domain verification, DNS
+    // provider detection and reachability checks (packages/api/src/lib/
+    // dns-resolver.ts), before falling back to the host's own resolver when
+    // they're unreachable. Comma-separated `ip`, `ip:port` or `[ipv6]:port`.
+    // Default: Cloudflare + Google public DNS. Override for an air-gapped
+    // install (an internal resolver that sees the public zones) or a test lab
+    // (an emulated DNS server, e.g. 127.0.0.1:5353).
+    OTTERDEPLOY_DNS_RESOLVERS: z
+      .string()
+      .default("1.1.1.1,8.8.8.8")
+      .transform((v) =>
+        v
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0),
+      )
+      .pipe(z.array(z.string().refine(isDnsServer, "expected ip, ip:port or [ipv6]:port")).min(1)),
+    // Per-query timeout (ms) for those resolvers. Unset ⇒ the resolver's
+    // built-in default, exactly as before this setting existed.
+    OTTERDEPLOY_DNS_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
 
     // GitHub Apps are created through the manifest flow (UI button in
     // Settings → Git Providers). App ID, client secret, webhook secret,
