@@ -23,10 +23,13 @@
  * here rejects.
  */
 
+import { env } from "@otterdeploy/env/server";
 import { Result, TaggedError } from "better-result";
 import * as z from "zod";
 
-const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
+/** Default https://api.cloudflare.com/client/v4; CLOUDFLARE_API_BASE points it
+ *  at an emulator (test lab) or an egress proxy. */
+const CLOUDFLARE_API = env.CLOUDFLARE_API_BASE;
 
 /** `code` for a failure that never reached the API (DNS, TLS, timeout,
  *  unparseable body). Cloudflare's own error codes are positive, so 0 is

@@ -120,6 +120,7 @@ folder. Left unset, nothing changes.
 | `RESEND_BASE_URL` | unset (`https://api.resend.com`) | Resend API origin for email: a compatible emulator or an egress relay |
 | `OTTERDEPLOY_DNS_RESOLVERS` | `1.1.1.1,8.8.8.8` | DNS servers asked first when verifying domains (`ip`, `ip:port` or `[ipv6]:port`, comma-separated). The host's resolver is the fallback when they're unreachable |
 | `OTTERDEPLOY_DNS_TIMEOUT_MS` | unset (resolver default) | Per-query timeout for those servers |
+| `CLOUDFLARE_API_BASE` | `https://api.cloudflare.com/client/v4` | Cloudflare API the DNS auto-configure flow calls: an emulator or an egress proxy |
 
 ## Updating
 

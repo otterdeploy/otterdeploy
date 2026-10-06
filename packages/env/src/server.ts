@@ -317,6 +317,15 @@ export const env = createEnv({
     // built-in default, exactly as before this setting existed.
     OTTERDEPLOY_DNS_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
 
+    // Cloudflare API v4 base the DNS auto-configure flow calls
+    // (packages/api/src/lib/cloudflare.ts). Default is Cloudflare's own; point
+    // it at an emulator in a test lab or at an egress proxy. A trailing slash
+    // is dropped, since request paths (`/zones`, …) are appended as-is.
+    CLOUDFLARE_API_BASE: z
+      .url()
+      .transform((v) => v.replace(/\/+$/, ""))
+      .default("https://api.cloudflare.com/client/v4"),
+
     // GitHub Apps are created through the manifest flow (UI button in
     // Settings → Git Providers). App ID, client secret, webhook secret,
     // PEM private key, and slug all live on the `git_provider` row
