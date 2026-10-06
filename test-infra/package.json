@@ -6,10 +6,15 @@
     "test:integration": "bun test integration --timeout 90000"
   },
   "dependencies": {
+    "@orpc/client": "catalog:",
+    "@otterdeploy/api": "workspace:*",
     "@otterdeploy/auth": "workspace:*",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/env": "workspace:*",
-    "drizzle-orm": "catalog:"
+    "@otterdeploy/shared": "workspace:*",
+    "better-result": "catalog:",
+    "drizzle-orm": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",

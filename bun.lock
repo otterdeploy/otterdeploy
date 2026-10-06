@@ -20,6 +20,7 @@
         "oxlint-tsgolint": "^0.23.0",
         "turbo": "^2.9.14",
         "typescript": "catalog:",
+        "varlock": "1.21.1",
         "vite-plus": "0.2.1",
       },
     },
@@ -457,10 +458,15 @@
     "test-infra": {
       "name": "@otterdeploy/test-infra",
       "dependencies": {
+        "@orpc/client": "catalog:",
+        "@otterdeploy/api": "workspace:*",
         "@otterdeploy/auth": "workspace:*",
         "@otterdeploy/db": "workspace:*",
         "@otterdeploy/env": "workspace:*",
+        "@otterdeploy/shared": "workspace:*",
+        "better-result": "catalog:",
         "drizzle-orm": "catalog:",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@otterdeploy/config": "workspace:*",
