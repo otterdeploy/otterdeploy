@@ -226,6 +226,15 @@ run() {
 # run() (pipes, redirects, heredocs) and print their own "would …" line.
 dry() { [ "$DRY_RUN" = "true" ]; }
 
+# Can this process actually open a controlling terminal? `[ -w /dev/tty ]` and
+# `[ -r /dev/tty ]` only read the device node's permission bits (0666 on every
+# Linux box), so they are true even with NO controlling terminal: `ssh host
+# cmd` without -t, cloud-init, CI. The open that follows then fails with ENXIO
+# ("No such device or address") and set -e ends the install with exit 1, right
+# after the stack came up (od-5sj7.10). Opening it is the only honest test; the
+# subshell keeps a failed redirection away from this shell and its ERR trap.
+tty_usable() { ( : > /dev/tty ) 2>/dev/null; }
+
 if [ "$(id -u)" -eq 0 ]; then
   SUDO=""
 else
@@ -909,7 +918,7 @@ report_bootstrap_token() {
   # Bypass stdout/tee so this secret is shown to the controlling terminal but
   # never copied into the persistent installer log. On unattended/no-TTY runs,
   # point the operator at the root-readable env file instead.
-  if [ -w /dev/tty ]; then
+  if tty_usable; then
     {
       printf '\n\033[1mFirst-account bootstrap token\033[0m\n'
       printf '  %s\n' "$token"
@@ -1895,7 +1904,7 @@ _select_typed() {
 }
 
 configure() {
-  local tty=""; [ -r /dev/tty ] && tty=/dev/tty
+  local tty=""; tty_usable && tty=/dev/tty
   if [ "$ASSUME_YES" = "true" ] || dry || [ -z "$tty" ]; then
     return
   fi
@@ -1928,7 +1937,7 @@ configure() {
   # The cursor is noise while a selector is up, but it must come back even if
   # the operator interrupts mid-question.
   if [ "$interactive" = true ]; then
-    trap 'printf "\033[?25h" > /dev/tty 2>/dev/null || true; exit 130' INT
+    trap '{ printf "\033[?25h" > /dev/tty; } 2>/dev/null || true; exit 130' INT
     printf '\033[?25l' > "$tty"
   fi
 

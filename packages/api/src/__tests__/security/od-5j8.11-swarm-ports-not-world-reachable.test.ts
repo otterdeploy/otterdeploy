@@ -154,6 +154,22 @@ describe("[od-ckrq] the installer's DOCKER-USER guard is the same published-port
   });
 });
 
+describe("[od-5sj7.10] the installer opens /dev/tty before trusting it", () => {
+  // `[ -w /dev/tty ]` is true with no controlling terminal; the write then
+  // fails with ENXIO and set -e turned a healthy unattended install into exit 1.
+  const repositoryRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../..");
+  const install = readFileSync(resolve(repositoryRoot, "scripts/install.sh"), "utf8");
+
+  test("no permission-bit test stands in for an open", () => {
+    const code = install
+      .split("\n")
+      .filter((l) => !l.trimStart().startsWith("#"))
+      .join("\n");
+    expect(code).not.toMatch(/\[ -[rw] \/dev\/tty \]/);
+    expect(install).toContain("tty_usable() { ( : > /dev/tty ) 2>/dev/null; }");
+  });
+});
+
 describe("[od-5j8.11] hostFirewallInstallScript: end-to-end script composition", () => {
   const script = hostFirewallInstallScript({ sshPort: 22, peerIpsV4: ["10.0.0.2"] }, "sudo");
 
