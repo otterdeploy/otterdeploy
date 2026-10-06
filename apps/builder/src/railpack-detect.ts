@@ -82,7 +82,7 @@ export async function detectPackageManager(workDir: string): Promise<PackageMana
 /** The `<pm> run` prefix used to invoke an app's scripts. npm/bun/pnpm/yarn
  *  all accept `<pm> run <script>`. Scripts only: `pnpm run` and `npm run`
  *  never fall back to a binary (see `workspaceBinCommand` for those). */
-export async function detectPackageManagerRun(workDir: string): Promise<string> {
+async function detectPackageManagerRun(workDir: string): Promise<string> {
   return `${await detectPackageManager(workDir)} run`;
 }
 

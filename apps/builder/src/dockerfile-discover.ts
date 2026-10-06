@@ -36,7 +36,7 @@ const MAX_LISTED = 3;
  * Dockerfiles under `appDir` other than the default `Dockerfile` at its top,
  * as paths relative to `appDir`, shallowest first then alphabetical.
  */
-export function findDockerfiles(appDir: string): string[] {
+function findDockerfiles(appDir: string): string[] {
   const found: Array<{ path: string; depth: number }> = [];
   const queue: Array<{ rel: string; depth: number }> = [{ rel: "", depth: 0 }];
   let visited = 0;
