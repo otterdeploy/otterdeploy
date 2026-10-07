@@ -1149,8 +1149,14 @@ detect_swarm_peer_ips() {
 # it was adding included, so "Add server" always timed out on a default install
 # (and SMTP, external Postgres, git+ssh, ... failed with it). Inbound traffic
 # to a published port is DNAT'd and still matches; egress is SNAT'd and doesn't,
-# so the inbound policy is exactly what it was. The port compared is the
-# post-DNAT (container) port, since DNAT runs in prerouting, before forward.
+# so the inbound policy is exactly what it was.
+#
+# The port compared is the ORIGINAL destination, `ct original proto-dst`: the
+# host port the client dialled. By the forward hook DNAT has already
+# rewritten `tcp dport` to the CONTAINER port, so matching on that let
+# `-p 8081:80` through (80 is listed) and dropped a dashboard published as
+# `8080:3000` with OTTERDEPLOY_CONTROL_PLANE_PORT=8080 (3000 is not). The list
+# is still edge_tcp_ports, so a default install allows exactly 80, 443, 3000.
 #
 # Idempotent: every rule tagged otterdeploy-guard is deleted (by handle) before
 # the current one is inserted, so a re-run replaces an older guard, including
@@ -1169,7 +1175,7 @@ install_docker_user_guard() {
   fi
   $SUDO nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/otterdeploy-guard/{print $NF}' \
     | while read -r h; do $SUDO nft delete rule ip filter DOCKER-USER handle "$h"; done
-  $SUDO nft insert rule ip filter DOCKER-USER ct status dnat tcp dport != "{ $(edge_tcp_ports) }" ct state new counter drop comment "otterdeploy-guard"
+  $SUDO nft insert rule ip filter DOCKER-USER ct status dnat meta l4proto tcp ct original proto-dst != "{ $(edge_tcp_ports) }" ct state new counter drop comment "otterdeploy-guard"
 }
 
 # `install.sh update` skips host setup, so on its own it would leave a host

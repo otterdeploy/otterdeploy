@@ -138,15 +138,19 @@ export const DOCKER_USER_GUARD_COMMENT = "otterdeploy-guard";
  * on the way in. Inbound published-port traffic is DNAT'd and matches; egress
  * is SNAT'd and does not.
  *
- * Note the port compared here is the POST-DNAT one. The container's own port,
- * not the published host port, since DNAT runs in prerouting, before forward.
+ * The port compared is the ORIGINAL destination (`ct original proto-dst`), the
+ * host port the client dialled. DNAT runs in prerouting, before
+ * forward, so by here `tcp dport` is already the CONTAINER port: matching on it
+ * let `-p 8081:80` through (80 is listed) and dropped a host port published
+ * onto a listed container port. Same rule as scripts/install.sh's
+ * install_docker_user_guard.
  */
 export function dockerUserGuardScript(sudo = ""): string {
   const S = sudo ? `${sudo} ` : "";
   return [
     `if ${S}nft list chain ip filter DOCKER-USER >/dev/null 2>&1; then`,
     `  ${S}nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/${DOCKER_USER_GUARD_COMMENT}/{print $NF}' | while read -r h; do ${S}nft delete rule ip filter DOCKER-USER handle "$h"; done`,
-    `  ${S}nft insert rule ip filter DOCKER-USER ct status dnat tcp dport != { ${dedupe(EDGE_TCP_PORTS).join(", ")} } ct state new counter drop comment "${DOCKER_USER_GUARD_COMMENT}"`,
+    `  ${S}nft insert rule ip filter DOCKER-USER ct status dnat meta l4proto tcp ct original proto-dst != { ${dedupe(EDGE_TCP_PORTS).join(", ")} } ct state new counter drop comment "${DOCKER_USER_GUARD_COMMENT}"`,
     '  echo "DOCKER-USER guard installed"',
     "else",
     '  echo "DOCKER-USER chain not present yet (Docker not started?). Guard skipped, re-run after Docker is up"',
