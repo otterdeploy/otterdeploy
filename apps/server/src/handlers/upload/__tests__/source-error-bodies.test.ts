@@ -48,7 +48,7 @@ beforeEach(() => {
   spyOn(capability, "authorizeCapability").mockImplementation(async () => ({ allowed: true }));
   spyOn(dataDir, "prepareSourceTarballPath").mockImplementation(async () => stage.path);
   spyOn(dataDir, "removeSourceTarball").mockImplementation(async () => {});
-  spyOn(deployments, "markDeploymentFailed").mockImplementation(async () => {});
+  spyOn(deployments, "markDeploymentFailed").mockImplementation(async () => true);
   spyOn(uploadSource, "resolveUploadSourceTarget").mockImplementation(async () => ({
     organizationId: ORG_ID,
     projectId: idSchema.project.parse("prj_uploaderrors00000000000000"),
