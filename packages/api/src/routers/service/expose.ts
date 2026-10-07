@@ -11,8 +11,8 @@ import { Result } from "better-result";
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
+import { promotePrimaryRoute } from "../../caddy/primary-route";
 import {
-  clearPrimaryForResource,
   listProxyRoutesByResourceId,
   setRoutesEnabledForResource,
   updateProxyRoute,
@@ -59,8 +59,7 @@ async function settlePrimaryRoute(
   const primaryRoute =
     flagged ?? routes.find((r) => r.enabled) ?? routes.find((r) => r.isPrimary) ?? routes[0];
   if (primaryRoute && !primaryRoute.isPrimary) {
-    await clearPrimaryForResource(resourceId);
-    await updateProxyRoute(primaryRoute.id, { isPrimary: true });
+    await promotePrimaryRoute(resourceId, primaryRoute.id);
   }
   return primaryRoute?.domain ?? null;
 }
@@ -114,7 +113,6 @@ export async function exposeService(
       resolved,
       serverIp,
       primary.containerPort,
-      routes,
     );
     if (inserted.isErr()) return Result.err(inserted.error);
     routes = await listProxyRoutesByResourceId(input.resourceId);
@@ -183,7 +181,6 @@ export async function generateServiceDomain(
       resolved,
       serverIp,
       primary.containerPort,
-      routes,
     );
     if (inserted.isErr()) return Result.err(inserted.error);
   }

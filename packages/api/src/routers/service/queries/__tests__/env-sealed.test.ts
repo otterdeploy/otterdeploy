@@ -19,6 +19,8 @@ function selectChain(rows: unknown[]) {
   //   `await tx.select()...where(...).limit(1)` (upsert's existing-row read)
   const whereResult = Object.assign(Promise.resolve(rows), {
     limit: vi.fn(() => Promise.resolve(rows)),
+    // bulkReplace's row lock: `...where(...).for("no key update").$withCache(false)`
+    for: vi.fn(() => ({ $withCache: vi.fn(() => Promise.resolve([])) })),
   });
   const chain = {
     from: vi.fn(() => chain),

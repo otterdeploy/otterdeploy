@@ -82,6 +82,7 @@ export async function provisionFresh(
         networkName: record.service.networkName,
         status: "error",
         health: null,
+        errorMessage: provisioned.error,
       };
   if (provisioned.isErr()) {
     log?.set({
@@ -174,6 +175,7 @@ export async function redeployOne(
         networkName: record.service.networkName,
         status: "error",
         health: null,
+        errorMessage: updated.error,
       };
   if (updated.isErr()) {
     log?.set({
@@ -197,17 +199,22 @@ function resourceStatusAfter(result: SwarmServiceRuntime): "valid" | "invalid" {
   return result.status === "error" && !result.rolledBack ? "invalid" : "valid";
 }
 
+/** Roll a service, then every service that references it. Ok carries the
+ *  service's OWN runtime after its roll: a roll that errored is still Ok
+ *  (the write that asked for it succeeded), so a caller whose success means
+ *  "now running" (rollback) reads `status` itself. */
 export async function redeployAndFanOut(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
   log: RequestLogger,
-): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
+): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
   const result = await redeployOne(projectId, resourceId, projectSlug, log);
   if (result.isErr()) return Result.err(result.error);
+  const rolled = result.value;
 
   const sourceRecord = await getServiceRecord(projectId, resourceId);
-  if (!sourceRecord) return Result.ok(true);
+  if (!sourceRecord) return Result.ok(rolled);
 
   const dependents = await findTransitiveDependents({
     projectId,
@@ -225,7 +232,7 @@ export async function redeployAndFanOut(
     }
   }
 
-  return Result.ok(true);
+  return Result.ok(rolled);
 }
 /**
  * Settle the row a create opened: the driver already waited for the container,

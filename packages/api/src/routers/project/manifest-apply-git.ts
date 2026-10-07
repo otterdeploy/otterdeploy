@@ -20,7 +20,7 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider, gitRepo } from "@otterdeploy/db/schema/git";
-import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
+import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -36,27 +36,52 @@ import { inspectRepoTree } from "../git/inspect";
 import { emitDeployStarted } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
-/** An already-queued build for this resource at this exact SHA, or null.
- *  Returns null unconditionally for a cache-bypass request: the whole point is
- *  a fresh build, so reusing a cached in-flight one would defeat it. */
-async function findInflightBuild(
-  resourceId: ResourceId,
-  sha: string,
+type BuildRow = typeof deployment.$inferInsert & { resourceId: ResourceId; gitSha: string };
+
+/**
+ * The deployment a build request runs as: an already-queued build of this
+ * resource at this exact SHA, reused, or a fresh `pending` row.
+ *
+ * One decision per resource at a time. The read and the insert used to be
+ * two independent statements, so two clicks inside that window (a double
+ * click, a UI tab and an API key) both saw nothing in flight and both
+ * inserted: two builds of one commit. The transaction locks the resource row
+ * first, so the second request reads the first one's row and reuses it.
+ * Never from the query cache: a cached read takes no lock and can miss a row
+ * inserted a moment ago.
+ *
+ * A cache-bypass request never reuses: the whole point is a fresh build, so
+ * reusing a cached in-flight one would defeat it.
+ */
+async function claimBuildRow(
+  values: BuildRow,
   noCache: boolean,
-): Promise<{ id: DeploymentId } | null> {
-  if (noCache) return null;
-  const [row] = await db
-    .select({ id: deployment.id })
-    .from(deployment)
-    .where(
-      and(
-        eq(deployment.resourceId, resourceId),
-        eq(deployment.gitSha, sha),
-        inArray(deployment.status, ["pending", "building"]),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
+): Promise<{ id: DeploymentId; reused: boolean } | null> {
+  return db.transaction(async (tx) => {
+    await tx
+      .select({ id: resource.id })
+      .from(resource)
+      .where(eq(resource.id, values.resourceId))
+      .for("no key update")
+      .$withCache(false);
+    if (!noCache) {
+      const [inflight] = await tx
+        .select({ id: deployment.id })
+        .from(deployment)
+        .where(
+          and(
+            eq(deployment.resourceId, values.resourceId),
+            eq(deployment.gitSha, values.gitSha),
+            inArray(deployment.status, ["pending", "building"]),
+          ),
+        )
+        .limit(1)
+        .$withCache(false);
+      if (inflight) return { id: inflight.id, reused: true };
+    }
+    const [row] = await tx.insert(deployment).values(values).returning({ id: deployment.id });
+    return row ? { id: row.id, reused: false } : null;
+  });
 }
 
 /**
@@ -176,18 +201,8 @@ export async function enqueueGitBuild(args: {
   // pending/building, reuse it, creating a second row only strands it (the
   // builder no-ops the redundant SHA, leaving a phantom `pending` with no
   // logs). Idempotent: repeated applies converge on the one live deployment.
-  //
-  // A cache bypass is exempt: reusing an in-flight build that IS using the
-  // cache would silently ignore the one thing the operator asked for.
-  const inflight = await findInflightBuild(args.resourceId, sha, noCache);
-  if (inflight) {
-    args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref, reused: inflight.id } });
-    return Result.ok({ deploymentId: inflight.id });
-  }
-
-  const [row] = await db
-    .insert(deployment)
-    .values({
+  const claimed = await claimBuildRow(
+    {
       resourceId: args.resourceId,
       // Rewritten to the real registry tag by the builder once known.
       image: `pending:${sha.slice(0, 12)}`,
@@ -202,12 +217,17 @@ export async function enqueueGitBuild(args: {
       gitCommitAuthor: head.authorName,
       gitCommitAuthorAvatar: head.authorAvatar,
       noCache,
-    })
-    .returning({ id: deployment.id });
-  if (!row) return Result.err("failed to insert deployment row");
+    },
+    noCache,
+  );
+  if (!claimed) return Result.err("failed to insert deployment row");
+  if (claimed.reused) {
+    args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref, reused: claimed.id } });
+    return Result.ok({ deploymentId: claimed.id });
+  }
 
   await emitDeployStarted({
-    deploymentId: row.id,
+    deploymentId: claimed.id,
     resourceId: args.resourceId,
     reason: "create",
   });
@@ -225,7 +245,7 @@ export async function enqueueGitBuild(args: {
   // as the SHA lookup so apply folds it into skipped[].
   const routed = await routeToBuildTarget(args.projectId, args.resourceId, svc.imageRepository);
   if (!routed.ok) {
-    await markBuildTargetFailure(row.id, routed.blocked);
+    await markBuildTargetFailure(claimed.id, routed.blocked);
     return Result.err(routed.blocked);
   }
   const lane = routed.lane;
@@ -237,7 +257,7 @@ export async function enqueueGitBuild(args: {
           gitRepoId,
           ref,
           sha,
-          deploymentIds: [row.id],
+          deploymentIds: [claimed.id],
         },
         undefined,
         lane,
@@ -247,11 +267,12 @@ export async function enqueueGitBuild(args: {
   if (enqueueResult.isErr()) {
     const message = `could not queue the build (is Redis/the builder running?): ${enqueueResult.error}`;
     const { markDeploymentFailed } = await import("./deployments");
-    await markDeploymentFailed(row.id, message).catch(() => undefined);
+    // Best effort: the queue error is what the caller reports either way.
+    await Result.tryPromise(() => markDeploymentFailed(claimed.id, message));
     return Result.err(message);
   }
   args.log.set({ manifestBuild: { resourceId: args.resourceId, sha, ref } });
-  return Result.ok({ deploymentId: row.id });
+  return Result.ok({ deploymentId: claimed.id });
 }
 
 /**

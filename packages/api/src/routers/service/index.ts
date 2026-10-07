@@ -210,6 +210,7 @@ export const serviceRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           NotRollbackableError: (e) => errors.NOT_ROLLBACKABLE({ message: e.message }),
+          RollbackFailedError: (e) => errors.ROLLBACK_FAILED({ message: e.message }),
           RefMissingResourceError: (e) => new Error(e.message),
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),
