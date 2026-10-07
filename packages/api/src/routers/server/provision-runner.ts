@@ -18,6 +18,7 @@ import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id"
 
 import { triggerProvisionServer } from "@otterdeploy/jobs";
 import { idSchema } from "@otterdeploy/shared/id";
+import { Result } from "better-result";
 
 import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
@@ -26,13 +27,19 @@ import { resolveFirewallPeers, runFirewallOnlyJob } from "./firewall-remediation
 import { filterIpv4Peers } from "./host-firewall";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { admitNodeToManager } from "./manager-peers";
-import { type MeshProvider, runRemoteProvision } from "./provision";
+import { type MeshProvider, type RemoteProvisionResult, runRemoteProvision } from "./provision";
 import { runEdgeProxyStep } from "./provision-edge-step";
 import { installNodeFirewallBouncer, managerHostOf } from "./provision-firewall";
 import { installHostFirewall } from "./provision-host-firewall";
 import { labelBuildNode, verifyNodeJoined } from "./provision-node-verify";
+import {
+  claimServerProvision,
+  markServerJoining,
+  markServerProvisioned,
+  markServerProvisionFailed,
+} from "./provision-status";
 import { emitProvisionLine, endProvisionStream } from "./provision-stream";
-import { patchServerFirewall, patchServerProvision } from "./queries";
+import { patchServerFirewall } from "./queries";
 import { SshSession } from "./ssh-exec";
 
 export interface EnqueueProvisionInput {
@@ -100,12 +107,14 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
   const emit = (line: string) => emitProvisionLine(serverId, line);
 
   try {
-    await patchServerProvision({
-      serverId,
-      organizationId,
-      provisionStatus: "provisioning",
-      provisionError: null,
-    });
+    // Claim the row (pending → provisioning). Anything else means this job is
+    // a duplicate or a redelivery (the row is already being provisioned, is
+    // joined, or failed and awaits an explicit retry): do nothing, so a second
+    // run can never take down a node the first one joined.
+    if (!(await claimServerProvision(serverId, organizationId))) {
+      emit("── this server is not waiting to be provisioned; nothing to do ──");
+      return;
+    }
 
     // Manager join target from OUR daemon (throws with actionable messages).
     const { joinToken, managerAddr } = await resolveJoinTarget(payload.meshProvider, payload.role);
@@ -205,53 +214,68 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
       session.dispose();
     }
 
-    await patchServerProvision({
-      serverId,
-      organizationId,
-      provisionStatus: "joining",
-      hostname: result.probe.hostname,
-      meshAddress: result.meshAddress,
-    });
-
-    const node = await verifyNodeJoined(result.probe.hostname, emit);
-    if (!node) {
-      throw new Error(
-        "The node ran `docker swarm join` but never appeared as ready in `docker node ls`. Check the manager is reachable from the new host on port 2377.",
-      );
-    }
-
-    emit("── rotating consumed swarm join credential ──");
-    await rotateSwarmJoinCredential(payload.role);
-
-    if (payload.buildServer) {
-      emit("── labelling as a build node ──");
-      await labelBuildNode(node, emit);
-    }
-
-    await patchServerProvision({
-      serverId,
-      organizationId,
-      provisionStatus: "ready",
-      status: "ready",
-      provisionError: null,
-      hostname: result.probe.hostname,
-      daemonVersion: result.probe.docker === "none" ? null : result.probe.docker,
-      meshAddress: result.meshAddress,
-    });
-    emit("✓ server ready");
+    await completeJoin({ serverId, organizationId, payload, result, emit });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     emit(`✗ provisioning failed: ${message}`);
-    await patchServerProvision({
-      serverId,
-      organizationId,
-      provisionStatus: "failed",
-      provisionError: message,
-      status: "down",
-    }).catch(() => undefined);
+    // Best-effort: a DB that just threw may throw again; the stalled-provision
+    // reaper settles the row then.
+    await Result.tryPromise({
+      try: () => markServerProvisionFailed(serverId, organizationId, message),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    });
   } finally {
     endProvisionStream(serverId);
   }
+}
+
+const SUPERSEDED_LINE = "── this provisioning run was superseded (reaped or deleted); stopping ──";
+
+/** The second half of a provision: provisioning → joining, confirm the node
+ *  in `docker node ls`, rotate the consumed join credential, label a build
+ *  node, joining → ready. Each status move is guarded; a refused one means
+ *  the run was superseded (the stalled-provision reaper failed it, or the
+ *  server was deleted) and the job stops without touching the row. Throws
+ *  like the rest of the job; the caller records the failure. */
+async function completeJoin(input: {
+  serverId: ServerId;
+  organizationId: OrganizationId;
+  payload: ProvisionServerPayload;
+  result: RemoteProvisionResult;
+  emit: (line: string) => void;
+}): Promise<void> {
+  const { serverId, organizationId, payload, emit } = input;
+  const { probe, meshAddress } = input.result;
+  const joining = await markServerJoining(serverId, organizationId, {
+    hostname: probe.hostname,
+    meshAddress,
+  });
+  if (!joining) {
+    emit(SUPERSEDED_LINE);
+    return;
+  }
+
+  const node = await verifyNodeJoined(probe.hostname, emit);
+  if (!node) {
+    throw new Error(
+      "The node ran `docker swarm join` but never appeared as ready in `docker node ls`. Check the manager is reachable from the new host on port 2377.",
+    );
+  }
+
+  emit("── rotating consumed swarm join credential ──");
+  await rotateSwarmJoinCredential(payload.role);
+
+  if (payload.buildServer) {
+    emit("── labelling as a build node ──");
+    await labelBuildNode(node, emit);
+  }
+
+  const ready = await markServerProvisioned(serverId, organizationId, {
+    hostname: probe.hostname,
+    daemonVersion: probe.docker === "none" ? null : probe.docker,
+    meshAddress,
+  });
+  emit(ready ? "✓ server ready" : SUPERSEDED_LINE);
 }
 
 function decryptOptional(blob: string | null | undefined): Promise<string | null> {

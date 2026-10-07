@@ -17,6 +17,8 @@ import {
   backup,
   backupLock,
   backupLog,
+  backupRestore,
+  backupVerification,
   databaseResource,
   project,
   resource,
@@ -109,7 +111,11 @@ export async function releaseBackupLock(backupId: BackupId): Promise<void> {
 /**
  * Boot-time recovery: fail every run the previous process left `queued`/
  * `running` (they can never complete: the dump pipeline lives in-process) and
- * clear all orphaned locks. Returns the failed rows so the caller can notify.
+ * clear all orphaned locks. Restores and restore-proving verifications run in
+ * the same process, so the ones it left in flight are failed too, and the
+ * badge of each run whose verification was cut off goes from `running` to
+ * `failed` (an unproven run, not a passed one). Returns the failed runs so
+ * the caller can notify.
  */
 export async function reconcileInterruptedBackups(
   startedAt: Date,
@@ -124,7 +130,48 @@ export async function reconcileInterruptedBackups(
     .where(and(inArray(backup.status, ["queued", "running"]), lt(backup.createdAt, startedAt)))
     .returning({ id: backup.id, organizationId: backup.organizationId });
   await db.delete(backupLock).where(lt(backupLock.claimedAt, startedAt));
+  await reconcileInterruptedVerifications(startedAt);
+  await db
+    .update(backupRestore)
+    .set({
+      status: "failed",
+      completedAt: new Date(),
+      errorMessage: "restore interrupted: the server restarted while it was in progress",
+    })
+    .where(and(eq(backupRestore.status, "running"), lt(backupRestore.createdAt, startedAt)));
   return rows;
+}
+
+/** The verification half of the boot reconcile: in-flight verifications are
+ *  failed, then the badge of every run they were proving. */
+async function reconcileInterruptedVerifications(startedAt: Date): Promise<void> {
+  const cut = await db
+    .update(backupVerification)
+    .set({
+      status: "failed",
+      completedAt: new Date(),
+      failMessage: "verification interrupted: the server restarted while it was in progress",
+    })
+    .where(
+      and(
+        inArray(backupVerification.status, ["queued", "running"]),
+        lt(backupVerification.createdAt, startedAt),
+      ),
+    )
+    .returning({ backupId: backupVerification.backupId });
+  if (cut.length === 0) return;
+  await db
+    .update(backup)
+    .set({ verifiedStatus: "failed", verifiedAt: new Date() })
+    .where(
+      and(
+        inArray(
+          backup.id,
+          cut.map((row) => row.backupId),
+        ),
+        eq(backup.verifiedStatus, "running"),
+      ),
+    );
 }
 
 export async function appendBackupLog(
@@ -152,11 +199,33 @@ export async function listBackupLogs(
     .limit(1000);
 }
 
-export async function markBackupRunning(backupId: BackupId): Promise<void> {
-  await db
+// Every run write below is a guarded transition: it only moves a row that is
+// still in the value it expects, and reports whether it did. A row a newer
+// process's boot reconcile already failed (a rolling update overlaps the old
+// process's in-flight dump) stays failed when the old process finishes; a
+// refused write is that superseded outcome, not an error.
+
+/** Apply `fields` to the run only while its status is one of `from`. */
+async function transitionBackup(
+  backupId: BackupId,
+  from: Array<(typeof backup.$inferSelect)["status"]>,
+  fields: Partial<typeof backup.$inferInsert>,
+): Promise<boolean> {
+  const rows = await db
     .update(backup)
-    .set({ status: "running", startedAt: new Date() })
-    .where(eq(backup.id, backupId));
+    .set(fields)
+    .where(and(eq(backup.id, backupId), inArray(backup.status, from)))
+    .returning({ id: backup.id });
+  return rows.length > 0;
+}
+
+/** queued → running (re-marking running is a no-op). False when the run was
+ *  already settled. */
+export async function markBackupRunning(backupId: BackupId): Promise<boolean> {
+  return transitionBackup(backupId, ["queued", "running"], {
+    status: "running",
+    startedAt: new Date(),
+  });
 }
 
 export async function markBackupSucceeded(
@@ -170,31 +239,28 @@ export async function markBackupSucceeded(
     durationMs: number;
     method: string;
   },
-): Promise<void> {
-  await db
-    .update(backup)
-    .set({
-      status: "succeeded",
-      completedAt: new Date(),
-      storagePath: fields.storagePath,
-      checksum: fields.checksum,
-      compressedSizeBytes: fields.compressedSizeBytes,
-      sourceSizeBytes: fields.sourceSizeBytes,
-      durationMs: fields.durationMs,
-      method: fields.method,
-    })
-    .where(eq(backup.id, backupId));
+): Promise<boolean> {
+  // running → succeeded only: a run the boot reconcile failed stays failed.
+  return transitionBackup(backupId, ["running"], {
+    status: "succeeded",
+    completedAt: new Date(),
+    storagePath: fields.storagePath,
+    checksum: fields.checksum,
+    compressedSizeBytes: fields.compressedSizeBytes,
+    sourceSizeBytes: fields.sourceSizeBytes,
+    durationMs: fields.durationMs,
+    method: fields.method,
+  });
 }
 
-export async function markBackupFailed(backupId: BackupId, errorMessage: string): Promise<void> {
-  await db
-    .update(backup)
-    .set({
-      status: "failed",
-      completedAt: new Date(),
-      errorMessage: errorMessage.slice(0, 4000),
-    })
-    .where(eq(backup.id, backupId));
+/** queued/running → failed. False when the run was already settled (a
+ *  succeeded run is never turned into a failure after the fact). */
+export async function markBackupFailed(backupId: BackupId, errorMessage: string): Promise<boolean> {
+  return transitionBackup(backupId, ["queued", "running"], {
+    status: "failed",
+    completedAt: new Date(),
+    errorMessage: errorMessage.slice(0, 4000),
+  });
 }
 
 /** Validate a resource is a database in the given org (for manual run). */
