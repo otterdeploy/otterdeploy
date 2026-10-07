@@ -25,6 +25,8 @@ export {
   updateProjectRecord,
 } from "./project";
 
+export { isProjectSlugTaken, suggestFreeProjectSlug } from "./project-slug";
+
 export {
   createDatabaseResourceRecord,
   getDatabaseResourceByProjectAndName,
@@ -63,6 +65,7 @@ export {
   bulkReplaceProjectEnvVars,
   deleteProjectEnvVar,
   listProjectEnvVars,
+  listSecretProjectEnvKeys,
   upsertProjectEnvVar,
   type ProjectEnvVarRow,
 } from "./project-env";

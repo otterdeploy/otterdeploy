@@ -11,7 +11,7 @@ import type { StackReconcileContext } from "./reconcile";
 
 // Via the barrel, as reconcile.ts did before the split, importing the deep
 // paths instead orphans the re-exports and trips the dead-code ratchet.
-import { allowedHostBind } from "../../lib/host-binds";
+import { allowedHostBind, type HostBindGrants } from "../../lib/host-binds";
 import {
   bulkReplaceServiceMounts,
   createServiceRecord,
@@ -39,9 +39,10 @@ import { pickInternalHostname, pickResourceName, type toServiceFields } from "./
 async function ensureGrantedHostBinds(
   resourceId: ResourceId,
   mounts: ReturnType<typeof toServiceFields>["mounts"],
+  grants: HostBindGrants | undefined,
 ): Promise<void> {
   for (const m of mounts) {
-    if (m.type !== "bind" || !m.source || !allowedHostBind(m.source)) continue;
+    if (m.type !== "bind" || !m.source || !allowedHostBind(m.source, grants)) continue;
     await upsertServiceMount({
       serviceResourceId: resourceId,
       type: "bind",
@@ -90,7 +91,7 @@ async function materializeServiceRow(input: {
       ...mapped.fields,
       composeService: input.composeServiceName,
     });
-    await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts);
+    await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts, ctx.hostBindGrants);
     // The stored hostname, not the mapped bare one: an existing child may have
     // been renamed on ITS create, and the rename map the caller builds has to
     // describe what DNS actually answers.

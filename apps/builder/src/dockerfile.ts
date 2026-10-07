@@ -15,7 +15,8 @@
  *   - builder "dockerfile": a missing/absolute/escaping path is a HARD error
  *     (thrown, the pipeline's `step()` wrapper tags it a BuildStepError).
  *   - builder "auto": a Dockerfile present → dockerfile; absent → railpack; a
- *     bad custom path → warn + fall back to railpack.
+ *     bad custom path → warn + fall back to railpack. A Dockerfile elsewhere
+ *     (`docker/Dockerfile`) is named in a warning, never auto-selected.
  *   - builder "railpack": always railpack, but warn when a Dockerfile is
  *     present (or a custom path is set) so the pin isn't a silent surprise.
  *
@@ -46,6 +47,7 @@ import {
   resolveDockerfileContext,
   rootIsWorkspaceSync,
 } from "./dockerfile-context";
+import { undetectedDockerfileWarnings } from "./dockerfile-discover";
 import { runProcess } from "./run-process";
 
 /** Default Dockerfile name, relative to `appDir`, when no custom path is set. */
@@ -219,7 +221,9 @@ export function resolveDockerfileBuild(opts: {
         ...subdirWarnings,
       ]);
     }
-    return railpack(subdirWarnings);
+    // A Dockerfile off the default path (`docker/Dockerfile`, `Dockerfile.prod`)
+    // is not auto-selected, but must not be a silent fall-through either.
+    return railpack([...subdirWarnings, ...undetectedDockerfileWarnings(appDir, subdir)]);
   }
 
   return dockerfileResolution(opts.workDir, appDir, resolvedPath, opts.dockerfileContext);

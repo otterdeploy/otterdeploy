@@ -125,7 +125,7 @@ export const manifestRouter = {
     if (!scope) return { resolved: resolved.value, changes: [] };
     const [current, refTable, applied] = await Promise.all([
       loadCurrentState(input.projectId, scope),
-      loadRefTable(input.projectId),
+      loadRefTable(input.projectId, scope),
       // What the manifest has actually applied. Without it every live resource
       // missing from the manifest reads as a pending DELETE, including ones the
       // manifest never owned.

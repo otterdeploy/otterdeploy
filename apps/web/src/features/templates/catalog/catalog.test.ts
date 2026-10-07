@@ -1,4 +1,4 @@
-import { allowedHostBind } from "@otterdeploy/api/lib/host-binds";
+import { isGrantableHostBind } from "@otterdeploy/api/lib/host-binds";
 import { collectVarRefs } from "@otterdeploy/api/routers/compose/env";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import en from "@otterdeploy/i18n/locales/en";
@@ -106,7 +106,7 @@ volumes:
       .filter(
         (m) =>
           m.type === "bind" &&
-          (!m.source || (!allowedHostBind(m.source) && !provided.has(stackRel(m.source)))),
+          (!m.source || (!isGrantableHostBind(m.source) && !provided.has(stackRel(m.source)))),
       )
       .map((m) => m.target);
     expect(unbacked).toEqual(["/etc/netbird/config.yaml"]);
@@ -118,7 +118,7 @@ volumes:
       .filter(
         (m) =>
           m.type === "bind" &&
-          (!m.source || (!allowedHostBind(m.source) && !provided.has(stackRel(m.source)))),
+          (!m.source || (!isGrantableHostBind(m.source) && !provided.has(stackRel(m.source)))),
       )
       .map((m) => m.target);
     expect(unbacked).toEqual([]);
@@ -138,7 +138,16 @@ describe("template catalog", () => {
       it("parses with the repo's compose parser, with zero warnings", () => {
         expect(result.isOk(), result.isErr() ? result.error.message : "").toBe(true);
         if (result.isErr()) return;
-        expect(result.value.warnings).toEqual([]);
+        // The one warning a template may carry: a listed host path (Dozzle's
+        // docker socket) is mounted only once an installation administrator
+        // grants that stack it, and the wizard must say so.
+        const grantNotices = result.value.services.flatMap((s) =>
+          s.volumes.filter((m) => m.type === "bind" && m.source && isGrantableHostBind(m.source)),
+        ).length;
+        expect(
+          result.value.warnings.filter((w) => !w.includes("installation administrator grants")),
+        ).toEqual([]);
+        expect(result.value.warnings).toHaveLength(grantNotices);
       });
 
       if (result.isErr()) return;
@@ -217,8 +226,9 @@ describe("template catalog", () => {
       });
 
       // A bind is only real if something puts a file at its source. Two ways
-      // that happens: the host allowlist grants the path outright
-      // (`/var/run/docker.sock`, for Dozzle), or the template ships the file
+      // that happens: the host allowlist lists the path and an installation
+      // administrator grants it to the stack (`/var/run/docker.sock`, for
+      // Dozzle), or the template ships the file
       // itself and the deploy materializes it into the stack tree, where
       // `resolveBindSource` (reconcile-map.ts) then resolves the bind.
       //
@@ -236,7 +246,8 @@ describe("template catalog", () => {
             .filter(
               (m) =>
                 m.type === "bind" &&
-                (!m.source || (!allowedHostBind(m.source) && !provided.has(stackRel(m.source)))),
+                (!m.source ||
+                  (!isGrantableHostBind(m.source) && !provided.has(stackRel(m.source)))),
             )
             .map((m) => `${s.name}: ${m.source ?? "?"} → ${m.target}`),
         );

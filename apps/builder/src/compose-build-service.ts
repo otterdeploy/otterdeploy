@@ -20,6 +20,7 @@ import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { assertDockerfileValid } from "./dockerfile-validate";
 import { BuildStepError } from "./errors";
 import { railpackBuild } from "./railpack";
+import { NO_SERVICE_BUILD_ENV } from "./railpack-env";
 import { type RegistryCredentialSource, resolvePushCredentials } from "./registry-credential";
 
 /** Build one compose `build:` service to its own image and push it when the
@@ -76,6 +77,9 @@ export function buildComposeService(args: {
           config: null,
           builderName: cacheBuilder,
           cachePath,
+          // A compose service's env lives in the compose file, not in service
+          // variables; this path forwards none, as before.
+          serviceEnv: NO_SERVICE_BUILD_ENV,
           sink,
         });
       },

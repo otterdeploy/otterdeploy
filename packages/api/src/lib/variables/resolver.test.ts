@@ -18,6 +18,8 @@ vi.mock("../../routers/project/queries", () => ({
   getProjectRecord: vi.fn(),
   getEnvironmentById: vi.fn(),
   loadProjectEnvBag: vi.fn(),
+  // Which bag keys are secret only matters to read surfaces' masking.
+  listSecretProjectEnvKeys: vi.fn(async () => new Set()),
 }));
 
 // Vault resolution: providers + fetch are mocked so no HTTP or DB runs;
@@ -202,6 +204,32 @@ describe("resolveServiceEnv", () => {
     expect(result.isErr()).toBe(true);
     if (result.isOk()) return;
     expect(result.error._tag).toBe("RefMissingResourceError");
+  });
+
+  it("returns RefMissingResourceError for the environment when the project has none", async () => {
+    asMock(getProjectRecord).mockResolvedValueOnce({ environmentId: null });
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error).toMatchObject({
+      _tag: "RefMissingResourceError",
+      refResourceName: "environment",
+    });
+    // Refused before the service itself is even looked up.
+    expect(getServiceRecord).not.toHaveBeenCalled();
+  });
+
+  it("returns RefMissingResourceError for the service itself when it is not in the project", async () => {
+    asMock(getServiceRecord).mockResolvedValueOnce(undefined);
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error).toMatchObject({
+      _tag: "RefMissingResourceError",
+      refResourceName: "(self)",
+    });
   });
 
   it("returns RefUnknownVarError when the var isn't exported by the upstream", async () => {
