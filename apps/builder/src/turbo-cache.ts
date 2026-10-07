@@ -29,9 +29,9 @@ import type { LogSink } from "./log-stream";
 
 import { NO_TURBO_CACHE, type TurboCacheEnv } from "./buildx";
 
-/** Env keys forwarded to the build when the remote cache is enabled. Only
- *  turbo's own credentials; nothing else from the service env crosses into the
- *  build environment. */
+/** Env keys forwarded to the build when the remote cache is enabled. The rest
+ *  of the service env reaches a railpack build through build-env.ts, which
+ *  holds these three back so they only flow while this setting is on. */
 const TURBO_CACHE_KEYS = ["TURBO_TOKEN", "TURBO_TEAM", "TURBO_API"] as const;
 
 /** Turbo refuses to use the remote cache without a token; team/api are
@@ -85,5 +85,5 @@ export async function resolveTurboCacheEnv(opts: {
 
   const keys = Object.keys(env);
   opts.sink.system(`turbo remote cache enabled (${keys.join(", ")})`);
-  return { env, secretFlags: keys.flatMap((k) => ["--secret", `id=${k},env=${k}`]) };
+  return { env };
 }

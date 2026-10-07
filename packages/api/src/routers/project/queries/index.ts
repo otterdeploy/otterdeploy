@@ -65,6 +65,7 @@ export {
   bulkReplaceProjectEnvVars,
   deleteProjectEnvVar,
   listProjectEnvVars,
+  listSecretProjectEnvKeys,
   upsertProjectEnvVar,
   type ProjectEnvVarRow,
 } from "./project-env";

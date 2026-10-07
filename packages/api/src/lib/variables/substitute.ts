@@ -69,3 +69,24 @@ export async function substituteTokens(
 
   return Result.ok(out);
 }
+
+/**
+ * {@link substituteTokens}, also reporting whether the value carries a
+ * secret: a vault token is one by definition, and a ref is one when the
+ * exports it read flag that key in `secretExports` (it came from a sealed or
+ * secret row). Sealing belongs to the target row, so a name test cannot say.
+ */
+export async function substituteTracked(
+  tokens: Token[],
+  vault: VaultResolveState,
+  loadRef: (token: RefToken) => Promise<Result<Record<string, string>, ResolveError>>,
+  secretExports: WeakMap<Record<string, string>, ReadonlySet<string>>,
+): Promise<Result<{ value: string; secret: boolean }, ResolveError>> {
+  let secret = tokens.some((t) => t.kind === "vault");
+  const substituted = await substituteTokens(tokens, vault, async (token) => {
+    const loaded = await loadRef(token);
+    if (loaded.isOk() && secretExports.get(loaded.value)?.has(token.var)) secret = true;
+    return loaded;
+  });
+  return substituted.map((value) => ({ value, secret }));
+}
