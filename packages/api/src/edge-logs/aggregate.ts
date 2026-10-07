@@ -32,6 +32,7 @@ import { log } from "evlog";
 
 import type { AnalyticsLine, DayAcc, FoldMaps, MinuteAcc } from "./analytics-fold";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import {
   flushDayRows,
   flushMinuteRows,
@@ -175,9 +176,15 @@ export async function startEdgeAnalytics(): Promise<void> {
     return;
   }
   state.enabled = true;
-  state.flushTimer = setInterval(() => void flushTick(), FLUSH_INTERVAL_MS);
-  state.pruneTimer = setInterval(() => void pruneAnalyticsRollups(), PRUNE_INTERVAL_MS);
-  void pruneAnalyticsRollups();
+  state.flushTimer = setInterval(
+    () => runBackgroundPass("edge-analytics-flush", flushTick),
+    FLUSH_INTERVAL_MS,
+  );
+  state.pruneTimer = setInterval(
+    () => runBackgroundPass("edge-analytics-prune", pruneAnalyticsRollups),
+    PRUNE_INTERVAL_MS,
+  );
+  runBackgroundPass("edge-analytics-prune", pruneAnalyticsRollups);
   log.info({ edgeLog: { analytics: "started", seededDays: state.days.size } });
 }
 

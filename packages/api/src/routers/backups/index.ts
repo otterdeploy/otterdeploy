@@ -18,6 +18,7 @@ import {
 } from "../../backups";
 import { activeDestinationIdsFor } from "../../backups/destination-availability";
 import { listStackDatabaseResources, resolveStackDumpTarget } from "../../backups/stack";
+import { runBackgroundPass } from "../../lib/background-pass";
 import { inspectVolume } from "../volumes/service";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
@@ -139,7 +140,7 @@ export const backupsRouter = {
         });
         ids.push(id);
         // Run detached. Status + logs are observable via get/logs.
-        void executeBackup(id);
+        runBackgroundPass("backup-run", () => executeBackup(id));
       }
       context.log.set({ target: { type: "backup", id: ids[0] } });
       return { ids, status: "queued" };

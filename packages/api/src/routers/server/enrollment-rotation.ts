@@ -7,6 +7,7 @@ import * as z from "zod";
 
 import type { EnrollmentRole } from "./enrollment-credential";
 
+import { runBackgroundPass } from "../../lib/background-pass";
 import { zJsonObject } from "../../lib/z-json";
 import { buildSwarmRotationOptions } from "./enrollment-credential";
 
@@ -174,7 +175,7 @@ async function reapNodeEnrollments(now = new Date()): Promise<void> {
 }
 
 export function startNodeEnrollmentReaper(intervalMs = 60_000): () => void {
-  const tick = () => void reapNodeEnrollments();
+  const tick = () => runBackgroundPass("node-enrollment-reaper", () => reapNodeEnrollments());
   const timer = setInterval(tick, intervalMs);
   timer.unref();
   const kickoff = setTimeout(tick, 15_000);

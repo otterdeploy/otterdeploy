@@ -17,6 +17,7 @@ import type { BackupDestinationId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log } from "evlog";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { nextCronFire } from "../lib/cron";
 import { emitPlatformEvent } from "../notifications/emit";
 import { createBackupRun, getBackupStatus, reconcileInterruptedBackups } from "./db";
@@ -203,10 +204,10 @@ export function startBackupScheduler(intervalMs = 60_000): () => void {
   const bootStartedAt = new Date();
   startedAt = bootStartedAt;
   lastTickAt = null;
-  void reconcileAtBoot(bootStartedAt);
+  runBackgroundPass("backup-reconcile-at-boot", () => reconcileAtBoot(bootStartedAt));
   const timer = setInterval(() => {
     lastTickAt = new Date();
-    void runDueBackupSchedules();
+    runBackgroundPass("backup-scheduler", () => runDueBackupSchedules());
   }, intervalMs);
   // Don't keep the event loop alive solely for backups.
   timer.unref?.();
