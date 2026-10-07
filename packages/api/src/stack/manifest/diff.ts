@@ -100,7 +100,20 @@ export interface CurrentService {
   diskLimitMb: number | null;
   swapLimitMb: number | null;
   pidsLimit: number | null;
+  /** The stored healthcheck, null when none is set. Optional so a caller that
+   *  has not loaded it reads as "none set". */
+  healthcheck?: CurrentHealthcheck | null;
 }
+
+// Type alias, not interface: rides a FieldChange (JSON-shaped) as-is.
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type CurrentHealthcheck = {
+  cmd: string[];
+  intervalMs: number | null;
+  timeoutMs: number | null;
+  retries: number | null;
+  startMs: number | null;
+};
 
 export interface CurrentDatabase {
   name: string;
