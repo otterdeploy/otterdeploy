@@ -29,6 +29,7 @@ import { dockerPush } from "./docker-push";
 import {
   BuildStepError,
   DeployHookError,
+  DeploymentSupersededError,
   InvalidDeploymentError,
   SwarmConvergenceError,
   SwarmUpdateError,
@@ -42,6 +43,7 @@ export type BuildPipelineError =
   | PipelineLoadError
   | BuildStepError
   | DeployHookError
+  | DeploymentSupersededError
   | InvalidDeploymentError
   | SwarmUpdateError
   | SwarmConvergenceError;
@@ -53,6 +55,21 @@ export function step<T>(label: string, fn: () => Promise<T>): Promise<Result<T, 
     try: fn,
     catch: (cause) => new BuildStepError({ step: label, cause }),
   });
+}
+
+/** Run one of the guarded state writes (markBuilding / markRunning) as a
+ *  step. A write the row refused (it left pending/building: cancelled, failed
+ *  by the reconcile, settled elsewhere) ends the build as superseded rather
+ *  than as a failure. */
+export async function transitionStep(
+  label: "mark-building" | "mark-running",
+  deploymentId: DeploymentId,
+  mark: (id: DeploymentId) => Promise<boolean>,
+): Promise<Result<void, BuildStepError | DeploymentSupersededError>> {
+  const acted = await step(label, () => mark(deploymentId));
+  if (acted.isErr()) return Result.err(acted.error);
+  if (!acted.value) return Result.err(new DeploymentSupersededError({ deploymentId, step: label }));
+  return Result.ok(undefined);
 }
 
 /** Resolve how the repo is bound. A revoked GitHub App install soft-deletes by
@@ -253,6 +270,12 @@ export async function handleFailure(
   err: BuildPipelineError,
 ): Promise<void> {
   const message = err.message;
+  if (err instanceof DeploymentSupersededError) {
+    // Cancelled (or settled) out from under the build: the row is already
+    // terminal, so there is nothing to mark and no failure to announce.
+    sink.system(`build stopped: ${message}`);
+    return;
+  }
   sink.system(`build failed: ${message}`);
   await markFailed(deploymentId, message).catch((stateErr) => {
     globalLog.error({

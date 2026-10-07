@@ -1,15 +1,11 @@
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
 /**
  * Stack-deploy completion: derive the stack-level outcome, log it, and settle
  * the deployment row when the caller owns it. Split from deploy.ts for the
  * file/complexity caps.
  */
-import { eq } from "drizzle-orm";
-
-import { markDeploymentFailed } from "../project/deployments";
+import { markDeploymentFailed, markDeploymentRunning } from "../project/deployments";
 
 export type StackDeployStatus = "running" | "failed" | "partial";
 
@@ -34,14 +30,10 @@ export async function finalizeStackDeployment(input: {
     if (status === "failed") {
       await markDeploymentFailed(depId, `No services deployed (${failed.join(", ")} failed)`);
     } else {
-      await db
-        .update(deployment)
-        .set({
-          status: "running",
-          completedAt: new Date(),
-          errorMessage: failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
-        })
-        .where(eq(deployment.id, depId));
+      await markDeploymentRunning(
+        depId,
+        failed.length > 0 ? `Some services failed: ${failed.join(", ")}` : null,
+      );
     }
   }
   return status;

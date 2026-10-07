@@ -56,6 +56,7 @@ import {
   runPostDeploy,
   runPreDeploy,
   step,
+  transitionStep,
 } from "./pipeline-steps";
 import { markBuilding, markImageReady, markRunning } from "./state";
 import { resolveTurboCacheEnv } from "./turbo-cache";
@@ -192,7 +193,7 @@ function runBuildSteps(
         cause instanceof PipelineLoadError ? cause : new BuildStepError({ step: "load", cause }),
     });
 
-    yield* await step("mark-building", () => markBuilding(opts.deploymentId));
+    yield* await transitionStep("mark-building", opts.deploymentId, markBuilding);
     sink.system(
       `build start: project=${ctx.project.slug} resource=${ctx.resource.name} sha=${ctx.deployment.gitSha ?? ctx.deployment.sourceSha ?? "unknown"}`,
     );
@@ -355,7 +356,7 @@ function runBuildSteps(
     sink.system(`swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`);
     yield* await checkRollout(ctx, runtime, isPreview, sink);
 
-    yield* await step("mark-running", () => markRunning(opts.deploymentId));
+    yield* await transitionStep("mark-running", opts.deploymentId, markRunning);
     sink.system(`deployment running: ${image.shaTag}`);
 
     await runPostDeploy({

@@ -7,7 +7,7 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
+import { serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
@@ -17,6 +17,7 @@ import {
   getResourceDeploymentById,
   insertDeployment,
   markDeploymentFailed,
+  markDeploymentRunning,
 } from "../project/deployments";
 import { loadResource } from "./context";
 import { NotRollbackableError, ServiceNotFoundError, type ResolveError } from "./errors";
@@ -104,10 +105,9 @@ export async function rollbackService(
     return Result.err(redeployed.error);
   }
 
-  await db
-    .update(deployment)
-    .set({ status: "running", completedAt: new Date() })
-    .where(eq(deployment.id, row.id));
+  // Settles only a still-in-flight row: a cancel that landed during the roll
+  // keeps the row cancelled.
+  await markDeploymentRunning(row.id);
 
   return getService(input);
 }

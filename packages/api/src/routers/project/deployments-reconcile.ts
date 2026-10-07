@@ -82,16 +82,9 @@ const STALE_BUILD_MESSAGE =
  * double-fire, and a builder that grabs the row at the same moment wins.
  */
 export async function reconcileDeployFailure(deploymentIds: DeploymentId[]): Promise<void> {
-  for (const id of deploymentIds) {
-    const flipped = await db
-      .update(deployment)
-      .set({ status: "failed", errorMessage: STALE_BUILD_MESSAGE, completedAt: new Date() })
-      .where(and(eq(deployment.id, id), inArray(deployment.status, ["building", "pending"])))
-      .returning({ id: deployment.id });
-    // markDeploymentFailed re-writes the same terminal values (harmless) and
-    // owns the publish + deploy.failed notification plumbing.
-    if (flipped.length > 0) await markDeploymentFailed(id, STALE_BUILD_MESSAGE);
-  }
+  // markDeploymentFailed's conditional UPDATE (still building/pending) is the
+  // guard, and it publishes + emits only when this call settled the row.
+  for (const id of deploymentIds) await markDeploymentFailed(id, STALE_BUILD_MESSAGE);
 }
 
 /**

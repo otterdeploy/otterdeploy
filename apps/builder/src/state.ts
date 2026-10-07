@@ -48,35 +48,52 @@ function publishFor(rows: Array<{ resourceId: ResourceId }>): void {
   }
 }
 
-export async function markBuilding(deploymentId: DeploymentId): Promise<void> {
+/** Write `fields` only while the row is still in flight (pending/building),
+ *  publish the change, and report whether the row moved. */
+async function settleInFlight(
+  deploymentId: DeploymentId,
+  fields: Pick<typeof deployment.$inferInsert, "status" | "errorMessage" | "completedAt">,
+): Promise<boolean> {
   const rows = await db
     .update(deployment)
-    .set({ status: "building", errorMessage: null, completedAt: null })
-    .where(eq(deployment.id, deploymentId))
-    .returning({ resourceId: deployment.resourceId });
-  publishFor(rows);
-}
-
-export async function markFailed(deploymentId: DeploymentId, errorMessage: string): Promise<void> {
-  const rows = await db
-    .update(deployment)
-    .set({
-      // Strip ANSI first, then cap, so the 2000-char budget counts real
-      // characters, not escape bytes.
-      status: "failed",
-      errorMessage: stripAnsi(errorMessage).slice(0, 2000),
-      completedAt: new Date(),
-    })
-    // Only from a still-in-flight row. Cancelling force-removes the helper
-    // container, so the build reliably dies mid-step and its error path calls
-    // in here: unconditional, that would rewrite the operator's `cancelled`
-    // into a red `failed` moments after they clicked stop. Terminal states are
-    // terminal; the last writer must not win.
+    .set(fields)
     .where(
       and(eq(deployment.id, deploymentId), inArray(deployment.status, ["pending", "building"])),
     )
     .returning({ resourceId: deployment.resourceId });
   publishFor(rows);
+  return rows.length > 0;
+}
+
+/**
+ * Claim the row for the build: pending → building. Returns false when the row
+ * is no longer in flight (cancelled while its job sat in the queue, failed by
+ * the reconcile, settled by another writer): the build must not start, and
+ * the row keeps the status and completed_at it already has. Cancelling a
+ * deployment leaves a shared batch job queued and relies on exactly this.
+ */
+export async function markBuilding(deploymentId: DeploymentId): Promise<boolean> {
+  return settleInFlight(deploymentId, {
+    status: "building",
+    errorMessage: null,
+    completedAt: null,
+  });
+}
+
+export async function markFailed(deploymentId: DeploymentId, errorMessage: string): Promise<void> {
+  // Strip ANSI first, then cap, so the 2000-char budget counts real
+  // characters, not escape bytes.
+  //
+  // Only from a still-in-flight row. Cancelling force-removes the helper
+  // container, so the build reliably dies mid-step and its error path calls
+  // in here: unconditional, that would rewrite the operator's `cancelled`
+  // into a red `failed` moments after they clicked stop. Terminal states are
+  // terminal; the last writer must not win.
+  await settleInFlight(deploymentId, {
+    status: "failed",
+    errorMessage: stripAnsi(errorMessage).slice(0, 2000),
+    completedAt: new Date(),
+  });
 }
 
 /**
@@ -92,15 +109,17 @@ export async function markImageReady(deploymentId: DeploymentId, image: string):
 }
 
 /**
- * Swarm converged on the new image. Terminal happy-path state.
+ * Swarm converged on the new image. Terminal happy-path state, reached only
+ * from a still-in-flight row (same rule as markFailed): returns false when the
+ * row was settled meanwhile (an operator's cancel, the reconcile's failure),
+ * which is not an error, just a write that lost to an earlier terminal one.
  */
-export async function markRunning(deploymentId: DeploymentId): Promise<void> {
-  const rows = await db
-    .update(deployment)
-    .set({ status: "running", errorMessage: null, completedAt: new Date() })
-    .where(eq(deployment.id, deploymentId))
-    .returning({ resourceId: deployment.resourceId });
-  publishFor(rows);
+export async function markRunning(deploymentId: DeploymentId): Promise<boolean> {
+  return settleInFlight(deploymentId, {
+    status: "running",
+    errorMessage: null,
+    completedAt: new Date(),
+  });
 }
 
 /**
