@@ -44,6 +44,10 @@ vi.mock("../handlers", async (importOriginal) => {
   return { ...actual, createProject, updateProject };
 });
 
+// The caller is a current member of its organization: the org-scoped guard's
+// per-request membership lookup is not what these tests exercise.
+vi.mock("../../../authz/org-member", () => ({ isOrgMember: vi.fn(async () => true) }));
+
 vi.mock("@otterdeploy/auth", () => ({
   auth: { api: { hasPermission: vi.fn(async () => ({ success: true })) } },
 }));
