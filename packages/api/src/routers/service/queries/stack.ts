@@ -11,25 +11,38 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import type { ResourceRow } from ".";
+import type { EnvironmentScopeInput } from "../../project/queries/environment-scope";
+
+import { inEnvironmentScope } from "../../project/queries/environment-scope";
 
 /**
- * A compose stack (type "compose") in the project, by resource name. The
- * absolute stack-scoped ref form (`${{autumn.db.HOST}}`) resolves its first
- * segment through this.
+ * A compose stack (type "compose") in the project, by resource name, within
+ * one environment. The absolute stack-scoped ref form
+ * (`${{autumn.db.HOST}}`) resolves its first segment through this; every
+ * environment may hold its own `autumn`, so an unscoped lookup handed a
+ * staging service production's stack. Within main a stamped row wins over a
+ * legacy unstamped one, the same precedence as resolveResourceForPreview.
  */
 export async function getComposeStackByName(
   projectId: ProjectId,
   name: string,
+  scope: EnvironmentScopeInput,
 ): Promise<ResourceRow | undefined> {
   const [row] = await db
     .select()
     .from(resource)
     .where(
-      and(eq(resource.projectId, projectId), eq(resource.name, name), eq(resource.type, "compose")),
+      and(
+        eq(resource.projectId, projectId),
+        eq(resource.name, name),
+        eq(resource.type, "compose"),
+        inEnvironmentScope(scope),
+      ),
     )
+    .orderBy(sql`${resource.environmentId} nulls last`)
     .limit(1);
   return row;
 }

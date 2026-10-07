@@ -35,6 +35,8 @@ const composeViewSchema = z.object({
   services: z.array(composeServiceSummarySchema),
   /** Which service:port pairs are published, and on what domain. */
   exposed: z.array(composeExposedSchema).default([]),
+  /** An installation administrator granted this stack the Docker socket. */
+  dockerSocketGranted: z.boolean().default(false),
 });
 
 /** Stateless parse for the wizard preview, never touches the DB. */
@@ -208,6 +210,23 @@ export const composeContract = {
         projectId: projectIdField,
         resourceId: resourceIdField,
         composeContent: z.string().min(1),
+      }),
+    )
+    .output(composeViewSchema),
+
+  // Grant (or revoke) the host's Docker socket to ONE stack. The
+  // socket is root on the host and every tenant on it, so this is an
+  // installation administrator's decision, never an organization role's, and
+  // it is audited like every mutation. Takes effect on the stack's next deploy;
+  // a revoke also stops any child redeploy from carrying the socket.
+  setDockerSocketGrant: oc
+    .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+    .meta({ path: `${basePath}/{resourceId}/docker-socket-grant`, tag, method: "POST" })
+    .input(
+      z.object({
+        projectId: projectIdField,
+        resourceId: resourceIdField,
+        granted: z.boolean(),
       }),
     )
     .output(composeViewSchema),

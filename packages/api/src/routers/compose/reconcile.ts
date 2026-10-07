@@ -26,6 +26,8 @@ import { Result } from "better-result";
  */
 import { eq } from "drizzle-orm";
 
+import type { HostBindGrants } from "../../lib/host-binds";
+
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { runtime } from "../../runtime";
 import {
@@ -83,6 +85,10 @@ export interface StackReconcileContext {
   /** Materialized file-tree dir for a multi-file inline stack (absolute), where
    *  bind-mount sources resolve. Undefined for single-file / git stacks. */
   stackDir?: string;
+  /** Host paths an installation administrator has granted THIS stack (read
+   *  from its compose_resource row, see lib/host-binds.ts). Omitted = none:
+   *  a `/var/run/docker.sock` bind in the file is dropped. */
+  hostBindGrants?: HostBindGrants;
   /** Sink for human-readable progress lines on the STACK deployment's log
    *  (deployCompose wires this to the deployment_log writer). Optional so
    *  other callers stay unchanged. */

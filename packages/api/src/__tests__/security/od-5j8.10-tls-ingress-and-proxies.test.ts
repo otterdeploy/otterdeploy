@@ -334,7 +334,7 @@ describe("[od-cse] the dashboard's publish address is an operator choice, and th
     expect(install).toMatch(/127\.0\.0\.1\|localhost\) printf '80, 443' ;;/);
     expect(install).toMatch(/\*\) printf '80, 443, %s' "\$CONTROL_PLANE_PORT" ;;/);
     expect(install).toContain(
-      'nft insert rule ip filter DOCKER-USER ct status dnat tcp dport != "{ $(edge_tcp_ports) }"',
+      'nft insert rule ip filter DOCKER-USER ct status dnat meta l4proto tcp ct original proto-dst != "{ $(edge_tcp_ports) }"',
     );
     expect(install).toMatch(/tcp dport \{ %s \} accept\\n' "\$\(edge_tcp_ports\)"/);
   });

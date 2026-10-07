@@ -25,7 +25,7 @@ import { getProjectById, loadProjectEnvBag } from "../project/queries";
 import { finalizeStackDeployment } from "./deploy-finalize";
 import { interpolate } from "./env";
 import { loadManifestServiceEnv } from "./manifest-service-env";
-import { type ComposeRecord, getComposeRecord } from "./queries";
+import { type ComposeRecord, getComposeRecord, stackHostBindGrants } from "./queries";
 import { reconcileStackServices } from "./reconcile";
 import { resolveVaultInProjectVars } from "./vault-project-vars";
 
@@ -259,6 +259,9 @@ export async function deployCompose(
             projectVars,
             builtImages,
             stackDir,
+            // From the stack's row, written only by the install-admin grant
+            // . Never from the file, which a member controls.
+            hostBindGrants: stackHostBindGrants(record.compose),
             deployLog: (line) => dlog.line(line),
           },
           reason,

@@ -23,6 +23,8 @@
     "scripts/**/*.{ts,js,mjs}",
     "apps/*/scripts/**/*.{ts,js,mjs}",
     "packages/*/scripts/**/*.{ts,js,mjs}",
+    // Vitest loads global setup by its configured file path.
+    "packages/api/vitest.postgres.setup.ts",
     "test-infra/scripts/**/*.{ts,js,mjs}"
   ],
   // `brand/` is deliberately outside the bun workspaces (see brand/package.json:
@@ -53,6 +55,12 @@
   },
   "rules": {},
   "ignoreExports": [
+    // Shared PostgreSQL seed helpers: independent regression suites consume
+    // different subsets, and their companion suites exercise the full API.
+    {
+      "file": "packages/api/src/__tests__/postgres-seed.ts",
+      "exports": ["seedEnvironment", "seedDatabase", "seedService", "seedGitRepo"]
+    },
     // In-flight branch-head/deployment-sha work (commit 48340ad6): defined and
     // documented (see the `fetchPullRequestHead` doc in github-pulls.ts) but not
     // yet wired to a caller. Not dead code: don't let `fix` unexport it.
