@@ -73,6 +73,7 @@ interface GitSourceBinding {
 async function resolveGitSource(
   spec: GitManifest,
   name: string,
+  organizationId: OrganizationId,
 ): Promise<Result<GitSourceBinding, ManifestApplySkipError>> {
   const boundRepoId = spec.gitRepoId?.trim();
   if (boundRepoId) {
@@ -80,7 +81,7 @@ async function resolveGitSource(
       return skip(name, `not a git repo id: ${boundRepoId}`);
     }
     const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(boundRepoId),
+      try: () => resolveRepoCloneBinding(boundRepoId, organizationId),
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (bound.isErr()) return skip(name, bound.error);
@@ -111,9 +112,9 @@ async function createGitStackFromManifest(
   exposed: ExposedSeed[],
   stackName: string,
 ): Promise<CreateResult> {
-  const { projectId, name, log } = args;
+  const { projectId, organizationId, name, log } = args;
 
-  const source = await resolveGitSource(spec, name);
+  const source = await resolveGitSource(spec, name, organizationId);
   if (source.isErr()) return Result.err(source.error);
   const { owner, repoName, cloneUrl, gitRepoId, installationId } = source.value;
 

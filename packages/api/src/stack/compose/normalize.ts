@@ -17,7 +17,7 @@ import type {
   ParsedRestart,
 } from "./types";
 
-import { allowedHostBind, allowedHostBindPaths } from "../../lib/host-binds";
+import { allowedHostBindPaths, isGrantableHostBind } from "../../lib/host-binds";
 import { splitCommandString } from "./command-string";
 
 /** A mapping node in the parsed compose YAML tree. YAML parses to the same
@@ -198,12 +198,17 @@ function parsePortString(raw: string, service: string, warnings: string[]): Pars
  * wizard already renders warnings.
  */
 function warnUnmountableBind(mount: ParsedMount, service: string, warnings: string[]): void {
-  if (mount.type !== "bind" || !mount.source) return;
-  if (!mount.source.startsWith("/")) return;
-  if (allowedHostBind(mount.source)) return;
+  if (mount.type !== "bind" || !mount.source?.startsWith("/")) return;
+  // A listed path is still not mounted until an installation administrator
+  // grants it to this stack. The parser has no stack, so it cannot
+  // know whether that grant exists; it says what the grant is instead.
+  const head = `service "${service}": host path "${mount.source}"`;
   warnings.push(
-    `service "${service}": host path "${mount.source}" is not mounted. Compose stacks are ` +
-      `confined to their own files. Permitted host paths: ${allowedHostBindPaths().join(", ")}`,
+    isGrantableHostBind(mount.source)
+      ? `${head} is mounted only after an installation administrator grants this stack ` +
+          `access to it. It is root on the host.`
+      : `${head} is not mounted. Compose stacks are confined to their own files. Host paths ` +
+          `an installation administrator can grant a stack: ${allowedHostBindPaths().join(", ")}`,
   );
 }
 

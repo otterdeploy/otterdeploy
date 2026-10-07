@@ -18,8 +18,9 @@ import { composeResource, resource } from "@otterdeploy/db/schema/project";
  * row (type=compose) + a `compose_resource` row holding the file and derived
  * summary. See docs/designs/compose.md.
  */
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
+import { type HostBindGrants, NO_HOST_BIND_GRANTS } from "../../lib/host-binds";
 import { newResourceEnvironmentId } from "../project/queries/new-resource-environment";
 
 export interface ComposeRecord {
@@ -176,6 +177,45 @@ export async function listComposeRecords(projectId: ProjectId): Promise<ComposeR
     .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
     .where(and(eq(resource.projectId, projectId), eq(resource.type, "compose")))
     .orderBy(asc(resource.createdAt));
+}
+
+/** The host-bind grants a stack's row records. Only
+ *  `setDockerSocketGrant` below writes the column this reads. */
+export function stackHostBindGrants(
+  compose: Pick<ComposeRecord["compose"], "dockerSocketGrantedAt">,
+): HostBindGrants {
+  return { dockerSocket: compose.dockerSocketGrantedAt !== null };
+}
+
+/** The grants of the stack a service belongs to; none for a standalone
+ *  service or a stack that is gone (`stack_id` is SET NULL on delete). */
+export async function loadStackHostBindGrants(stackId: ResourceId | null): Promise<HostBindGrants> {
+  if (!stackId) return NO_HOST_BIND_GRANTS;
+  const [row] = await db
+    .select({ dockerSocketGrantedAt: composeResource.dockerSocketGrantedAt })
+    .from(composeResource)
+    .where(eq(composeResource.resourceId, stackId))
+    .limit(1);
+  return row ? stackHostBindGrants(row) : NO_HOST_BIND_GRANTS;
+}
+
+/** Record (or clear) an installation administrator's Docker socket grant on
+ *  one stack. The caller is the install-admin gated, audited procedure; no
+ *  other path writes these columns. */
+export async function setDockerSocketGrant(input: {
+  resourceId: ResourceId;
+  granted: boolean;
+  /** The granting install admin; null only if the session carried no user. */
+  userId: string | null;
+}): Promise<void> {
+  await db
+    .update(composeResource)
+    .set(
+      input.granted
+        ? { dockerSocketGrantedAt: sql`now()`, dockerSocketGrantedBy: input.userId }
+        : { dockerSocketGrantedAt: null, dockerSocketGrantedBy: null },
+    )
+    .where(eq(composeResource.resourceId, input.resourceId));
 }
 
 /** Replace an inline stack's compose YAML + its re-parsed service summary (and,

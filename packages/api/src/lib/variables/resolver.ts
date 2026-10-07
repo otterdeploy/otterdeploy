@@ -6,14 +6,17 @@
  * a visited set on the active DFS path. Exporter results are cached for the
  * duration of a single `resolveServiceEnv` call.
  */
-import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
+
+import type { ResolveContext, ResolvedServiceEnv } from "./resolve-context";
 
 import { listProxyRoutesByResourceId } from "../../caddy/queries";
 import {
   getDatabaseResourceRecord,
   getProjectRecord,
+  listSecretProjectEnvKeys,
   loadProjectEnvBag,
   type DatabaseResourceRecord,
 } from "../../routers/project/queries";
@@ -35,38 +38,28 @@ import {
 import { decryptForDomain } from "../crypto";
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type RefToken, type Token } from "./parser";
-import { overlayServiceEnv, substituteTokens } from "./substitute";
-import { createVaultState, loadVaultValues, type VaultResolveState } from "./vault-resolve";
-interface ResolveContext {
-  projectId: ProjectId;
-  // The persistent environment whose var bags apply (the project's default
-  // env). Drives the env-var overlay for user-managed environments.
-  environmentId: EnvironmentId;
-  // Preview scoping for RESOURCE lookups: a preview-scoped row (an opt-in DB
-  // branch) wins over the base row; null resolves base rows only. Previews
-  // are NOT environments. Their var bags are the base env's, unchanged.
-  previewId: PreviewId | null;
-  /** The active DFS path: resource id → the name the template addressed it
-   *  by. A Map rather than a Set so a cycle can be reported in those names
-   *  instead of the ids, which say nothing to the operator reading them. */
-  visited: Map<string, string>;
-  exportsCache: Map<string, Record<string, string>>;
-  // `${{vault.<provider>.<ref>}}` state: provider rows load once per
-  // resolve, fetched values live only for this resolve's duration.
-  vault: VaultResolveState;
-}
+import { overlayServiceEnv, substituteTracked } from "./substitute";
+import { createVaultState, loadVaultValues } from "./vault-resolve";
 
 export async function resolveServiceEnv(
   projectId: ProjectId,
   serviceResourceId: ResourceId,
   previewId?: PreviewId | null,
 ): Promise<Result<Record<string, string>, ResolveError | RefMissingResourceError>> {
-  // Var bags always come from the project's persistent environment. A
-  // preview inherits production's vars verbatim (it is not an environment);
-  // only its RESOURCE refs may re-resolve to preview-scoped branches.
+  const resolved = await resolveServiceEnvDetailed(projectId, serviceResourceId, previewId);
+  return resolved.map((r) => r.env);
+}
+
+/** {@link resolveServiceEnv} plus which keys carry a secret. For read
+ *  surfaces that show resolved values and must mask what a reference
+ *  dereferences, not just what its own row is flagged as. */
+export async function resolveServiceEnvDetailed(
+  projectId: ProjectId,
+  serviceResourceId: ResourceId,
+  previewId?: PreviewId | null,
+): Promise<Result<ResolvedServiceEnv, ResolveError | RefMissingResourceError>> {
   const projectRecord = await getProjectRecord(projectId);
-  const envId = projectRecord?.environmentId;
-  if (!envId) {
+  if (!projectRecord?.environmentId) {
     return Result.err(new RefMissingResourceError({ refResourceName: "environment" }));
   }
 
@@ -77,14 +70,23 @@ export async function resolveServiceEnv(
     return Result.err(new RefMissingResourceError({ refResourceName: "(self)" }));
   }
 
+  // Var bags and name refs come from the SERVICE's own environment (an
+  // unstamped row is main's). A preview inherits its base service's vars
+  // verbatim (it is not an environment); only its RESOURCE refs may
+  // re-resolve to preview-scoped branches. Same rule as resolveEnvironmentScope.
+  const environmentId = record.resource.environmentId ?? projectRecord.environmentId;
+  const scope = { environmentId, isMain: environmentId === projectRecord.environmentId };
+
   const ctx: ResolveContext = {
     projectId,
-    environmentId: envId,
+    environmentId,
+    scope,
     previewId: previewId ?? null,
     visited: new Map([[serviceResourceId, record.resource.name]]),
     exportsCache: new Map(),
     // Vault providers are org-scoped; the project row carries the org.
     vault: createVaultState(projectRecord.organizationId ?? null),
+    secretExports: new WeakMap(),
   };
 
   return resolveEnvFor(record, ctx);
@@ -93,8 +95,9 @@ export async function resolveServiceEnv(
 async function resolveEnvFor(
   record: ServiceRecord,
   ctx: ResolveContext,
-): Promise<Result<Record<string, string>, ResolveError>> {
+): Promise<Result<ResolvedServiceEnv, ResolveError>> {
   const resolved: Record<string, string> = {};
+  const secretKeys = new Set<string>();
 
   // Base overlay (legacy NULL-env < active persistent env), then: inside a
   // preview: that preview's per-service overrides win by key. Overrides are
@@ -131,6 +134,7 @@ async function resolveEnvFor(
       );
     }
     parsedRows.push({ key: envVar.key, tokens: parsed.tokens });
+    if (envVar.sealed || envVar.isSecret) secretKeys.add(envVar.key);
   }
 
   const vaultLoaded = await loadVaultValues(
@@ -141,14 +145,18 @@ async function resolveEnvFor(
 
   const callerStackId = record.service.stackId ?? null;
   for (const row of parsedRows) {
-    const subbed = await substituteTokens(row.tokens, ctx.vault, (token) =>
-      loadExports(token, ctx, callerStackId),
+    const subbed = await substituteTracked(
+      row.tokens,
+      ctx.vault,
+      (token) => loadExports(token, ctx, callerStackId),
+      ctx.secretExports,
     );
     if (subbed.isErr()) return Result.err(subbed.error);
-    resolved[row.key] = subbed.value;
+    resolved[row.key] = subbed.value.value;
+    if (subbed.value.secret) secretKeys.add(row.key);
   }
 
-  return Result.ok(resolved);
+  return Result.ok({ env: resolved, secretKeys });
 }
 
 async function loadExports(
@@ -168,7 +176,7 @@ async function loadExports(
     const stackResourceId =
       token.stack.name === null
         ? callerStackId
-        : ((await getComposeStackByName(ctx.projectId, token.stack.name))?.id ?? null);
+        : ((await getComposeStackByName(ctx.projectId, token.stack.name, ctx.scope))?.id ?? null);
     const child = stackResourceId
       ? await getStackChildByComposeService(ctx.projectId, stackResourceId, token.resource)
       : undefined;
@@ -192,6 +200,7 @@ async function loadExports(
     ctx.projectId,
     ctx.previewId,
     refResourceName,
+    ctx.scope,
   );
   if (!resourceRow) return Result.err(new RefMissingResourceError({ refResourceName }));
   return loadResourceExports(resourceRow, refResourceName, ctx, refVarName);
@@ -244,11 +253,12 @@ async function loadScopeExports(
   cacheKey: string,
   ctx: ResolveContext,
 ): Promise<Result<Record<string, string>, ResolveError>> {
-  // The bag is keyed by (projectId, environmentId). The persistent env's own
-  // vars. Previews read the same bag (they are not environments).
-  const bag: Record<string, string> = {
-    ...(await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.environmentId })),
-  };
+  // The bag is keyed by (projectId, environmentId): the resolving service's
+  // environment's own vars. Previews read the same bag (they are not
+  // environments).
+  const bagScope = { projectId: ctx.projectId, environmentId: ctx.environmentId };
+  const bag: Record<string, string> = { ...(await loadProjectEnvBag(bagScope)) };
+  ctx.secretExports.set(bag, await listSecretProjectEnvKeys(bagScope));
   ctx.exportsCache.set(cacheKey, bag);
   return Result.ok(bag);
 }
@@ -299,12 +309,14 @@ async function loadServiceExports(
   }
 
   let resolvedEnv: Record<string, string> = {};
+  let secretKeys: ReadonlySet<string> = new Set();
   if (!envFree) {
     ctx.visited.set(resourceRow.id, refResourceName);
     const nestedResult = await resolveEnvFor(record, ctx);
     ctx.visited.delete(resourceRow.id);
     if (nestedResult.isErr()) return Result.err(nestedResult.error);
-    resolvedEnv = nestedResult.value;
+    resolvedEnv = nestedResult.value.env;
+    secretKeys = nestedResult.value.secretKeys;
   }
 
   // Public domains (ordered primary-first) → DOMAIN / PUBLIC_URL / DOMAINS.
@@ -317,6 +329,9 @@ async function loadServiceExports(
     resolvedEnv,
     domains: routes.map((r) => r.domain),
   });
-  if (!envFree) ctx.exportsCache.set(resourceRow.id, exports);
+  if (!envFree) {
+    ctx.exportsCache.set(resourceRow.id, exports);
+    ctx.secretExports.set(exports, secretKeys);
+  }
   return Result.ok(exports);
 }

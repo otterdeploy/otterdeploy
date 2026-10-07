@@ -17,7 +17,7 @@ import { log as globalLog } from "evlog";
 
 import type { ProjectRef } from "../scopes";
 
-import { resolveServiceEnv } from "../../lib/variables";
+import { resolveServiceEnvDetailed } from "../../lib/variables/resolver";
 import { listServiceEnvVars } from "../service/queries";
 import {
   deletePreviewServiceEnvVar,
@@ -193,6 +193,8 @@ export interface EffectiveEnvRow {
 interface DeclaredEnvRow {
   value: string;
   isSecret: boolean;
+  /** Write-only: `value` is ciphertext and the resolved value is the secret. */
+  sealed: boolean;
 }
 
 const SECRET_MASK = "••••••••";
@@ -201,7 +203,8 @@ function eitherSecret(
   base: DeclaredEnvRow | undefined,
   override: DeclaredEnvRow | undefined,
 ): boolean {
-  return (base?.isSecret ?? false) || (override?.isSecret ?? false);
+  const secret = (row: DeclaredEnvRow | undefined) => Boolean(row?.isSecret || row?.sealed);
+  return secret(base) || secret(override);
 }
 
 /** The base value shown next to an override (masked for secrets); null when
@@ -221,15 +224,19 @@ function shapeEffectiveRow(args: {
   base: DeclaredEnvRow | undefined;
   override: DeclaredEnvRow | undefined;
   resolvedVal: string | undefined;
+  /** The resolver saw this key read a sealed or secret row. */
+  resolvedSecret: boolean;
   resolveOk: boolean;
 }): EffectiveEnvRow {
-  const { key, base, override, resolvedVal, resolveOk } = args;
+  const { key, base, override, resolvedVal, resolvedSecret, resolveOk } = args;
   const declared = override ?? base;
   // Prefer the resolved value; on resolver failure fall back to the raw
   // declared value so the tab never blanks (RefMissingResource etc.).
   const unresolved = !resolveOk && resolvedVal === undefined;
   const value = resolvedVal ?? declared?.value ?? "";
-  const isSecret = eitherSecret(base, override);
+  // Sealed rows and anything that dereferences a sealed or secret row mask
+  // too: the resolver decrypts them, and this is a browser read surface.
+  const isSecret = eitherSecret(base, override) || resolvedSecret;
   return {
     key,
     // Mask secrets, never return cleartext to the client.
@@ -255,12 +262,13 @@ export async function listPreviewEffectiveEnv(
   const overrideByKey = new Map(overrides.map((r) => [r.key, r]));
 
   // Fully-resolved effective values (refs expanded against the preview scope).
-  const resolved = await resolveServiceEnv(
+  const resolved = await resolveServiceEnvDetailed(
     input.projectId,
     input.serviceResourceId,
     input.previewId,
   );
-  const resolvedByKey = resolved.isOk() ? resolved.value : {};
+  const resolvedByKey = resolved.isOk() ? resolved.value.env : {};
+  const secretKeys: ReadonlySet<string> = resolved.isOk() ? resolved.value.secretKeys : new Set();
   const resolveOk = resolved.isOk();
 
   const keys = new Set<string>([...baseByKey.keys(), ...overrideByKey.keys()]);
@@ -272,6 +280,7 @@ export async function listPreviewEffectiveEnv(
           base: baseByKey.get(key),
           override: overrideByKey.get(key),
           resolvedVal: resolvedByKey[key],
+          resolvedSecret: secretKeys.has(key),
           resolveOk,
         }),
       )

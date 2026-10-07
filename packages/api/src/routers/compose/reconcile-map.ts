@@ -134,7 +134,7 @@ function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): Mapped
       continue;
     }
     if (v.type !== "bind" || !v.source) continue;
-    const granted = allowedHostBind(v.source);
+    const granted = allowedHostBind(v.source, ctx.hostBindGrants);
     if (granted) {
       out.push({
         type: "bind",

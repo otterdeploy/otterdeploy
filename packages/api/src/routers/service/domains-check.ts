@@ -52,14 +52,10 @@ export function resolveUpstreamPort(
 }
 
 /**
- * Does DNS already prove this name is the operator's?
- *
- * `pointed` means the host resolves to THIS server's IP. Only whoever
- * controls the zone can publish that record, which is the same evidence
- * ACME's HTTP-01 challenge accepts. Those hosts go live on add, with no
- * second step. `proxied` does not qualify: a Cloudflare edge address is
- * shared by millions of zones, so resolving into one says nothing about who
- * owns the name. Those keep the TXT ownership gate.
+ * Does DNS already prove this name is the operator's? On a single-org install
+ * a host resolving here (or through a proxy pointed here) does; on a
+ * multi-org install it never does, because it cannot say WHICH org owns the
+ * name, so the TXT ownership gate always applies. See domain-rules.ts.
  */
 export { provenByDns } from "./domain-rules";
 

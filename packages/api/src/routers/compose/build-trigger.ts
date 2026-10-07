@@ -1,4 +1,4 @@
-import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
@@ -26,6 +26,8 @@ import { parseGitHubUrl } from "./util";
  * content).
  */
 export async function enqueueComposeBuild(input: {
+  /** The caller's org: a bound repo must belong to it. */
+  organizationId: OrganizationId;
   projectId: ProjectId;
   resourceId: ResourceId;
   gitRepoUrl: string;
@@ -48,7 +50,7 @@ export async function enqueueComposeBuild(input: {
     const boundRepoId = input.gitRepoId;
     if (boundRepoId) {
       const bound = await Result.tryPromise({
-        try: () => resolveRepoCloneBinding(boundRepoId),
+        try: () => resolveRepoCloneBinding(boundRepoId, input.organizationId),
         catch: (e) => (e instanceof Error ? e.message : String(e)),
       });
       if (bound.isErr()) return Result.err(bound.error);

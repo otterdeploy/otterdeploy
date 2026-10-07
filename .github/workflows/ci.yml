@@ -405,6 +405,9 @@ jobs:
   #              test-infra/integration/.
   #   redis: the terminal-ticket + step-up security suite
   #              (packages/api/src/**/*.redis.test.ts).
+  #   postgres: also packages/api/src/**/*.postgres.test.ts, query-level
+  #              tenant/environment scoping and uniqueness tests run against
+  #              a migrated database (packages/api/vitest.postgres.config.ts).
   #
   # The `test` matrix leg above stays infra-free, and that is enforced by
   # config rather than convention: vitest.config.ts EXCLUDES `*.redis.test.ts`

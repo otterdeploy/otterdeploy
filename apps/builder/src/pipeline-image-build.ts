@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 
 import type { TurboCacheEnv } from "./buildx";
 import type { LogSink } from "./log-stream";
+import type { ServiceBuildEnv } from "./railpack-env";
 
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { assertDockerfileValid } from "./dockerfile-validate";
@@ -38,10 +39,13 @@ export function runImageBuild(args: {
   noCache: boolean;
   /** Turbo remote-cache credentials, empty when disabled. */
   turboCache: TurboCacheEnv;
+  /** The service's resolved env. Railpack builds see it (build-env.ts); a
+   *  Dockerfile build takes only its declared `buildArgs`, as before. */
+  serviceEnv: ServiceBuildEnv;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const { buildConfig, builder, workDir, sourceSubdir, imageRepository, gitSha } = args;
-  const { cacheBuilder, cachePath, noCache, turboCache, sink } = args;
+  const { cacheBuilder, cachePath, noCache, turboCache, serviceEnv, sink } = args;
   // `compose` has no dockerfile config; resolve it as railpack.
   const resolveBuilderKind = builder === "compose" ? "railpack" : builder;
   const resolution = resolveDockerfileBuild({
@@ -87,6 +91,7 @@ export function runImageBuild(args: {
     cachePath,
     noCache,
     turboCache,
+    serviceEnv,
     sink,
   });
 }

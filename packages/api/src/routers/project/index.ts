@@ -67,7 +67,11 @@ export const projectRouter = {
       });
       if (result.isErr()) {
         throw matchError(result.error, {
-          ProjectConflictError: () => errors.CONFLICT(),
+          ProjectConflictError: (e) =>
+            errors.CONFLICT({
+              message: e.message,
+              data: { slug: e.slug, suggestedSlug: e.suggestedSlug },
+            }),
         });
       }
       context.log.set({ target: { type: "project", id: result.value.id } });
@@ -85,7 +89,11 @@ export const projectRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
-          ProjectConflictError: () => errors.CONFLICT(),
+          ProjectConflictError: (e) =>
+            errors.CONFLICT({
+              message: e.message,
+              data: { slug: e.slug, suggestedSlug: e.suggestedSlug },
+            }),
         });
       }
       return result.value;

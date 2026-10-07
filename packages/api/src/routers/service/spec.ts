@@ -18,12 +18,24 @@ import {
   type ScopeLike,
   networkScopeSuffix,
 } from "../../lib/environment/scoping";
+import { isGrantableHostBind, withoutUngrantedHostBinds } from "../../lib/host-binds";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { resolveRegistryAuth } from "../../swarm/registry-auth";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";
+import { loadStackHostBindGrants } from "../compose/queries";
 import { getLatestDeploymentForResource } from "../project/deployments";
 import { type ServiceRecord } from "./queries";
 import { sanitizeSlug } from "./views";
+
+/** `record.mounts` minus any listed host bind its stack is not granted. The
+ *  grant lookup only runs when such a bind is present, which is almost never. */
+async function grantedMounts(record: ServiceRecord): Promise<ServiceRecord["mounts"]> {
+  if (!record.mounts.some((m) => m.type === "bind" && m.source && isGrantableHostBind(m.source))) {
+    return record.mounts;
+  }
+  const grants = await loadStackHostBindGrants(record.service.stackId);
+  return withoutUngrantedHostBinds(record.mounts, grants);
+}
 
 export async function buildSwarmSpec(
   record: ServiceRecord,
@@ -59,10 +71,13 @@ export async function buildSwarmSpec(
   );
   // Materialize file-type mounts to disk before we ship the spec to swarm.
   // A bind-mount with no source on disk causes the container to fail to
-  // start with no useful error. Volume + bind types pass through verbatim.
+  // start with no useful error. Volume + bind types pass through verbatim,
+  // except a listed host path (the docker socket) the service's stack holds no
+  // install-admin grant for: stored rows predate the grant, so the
+  // deploy is where it is enforced for every path that builds a spec.
   const mounts: SpecMount[] = await materializeServiceMounts(
     serviceName,
-    record.mounts.map((m) => ({
+    (await grantedMounts(record)).map((m) => ({
       type: m.type,
       target: m.target,
       source: m.source,
