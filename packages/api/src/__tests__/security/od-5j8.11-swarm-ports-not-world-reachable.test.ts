@@ -98,7 +98,7 @@ describe("[od-5j8.11] DOCKER-USER guard: Docker-published ports cannot bypass po
 
   test("drops NEW forwarded connections to anything but 80/443, ahead of Docker's own permissive rules", () => {
     expect(guard).toContain("nft insert rule ip filter DOCKER-USER");
-    expect(guard).toContain(`tcp dport != { ${EDGE_TCP_PORTS.join(", ")} }`);
+    expect(guard).toContain(`ct original proto-dst != { ${EDGE_TCP_PORTS.join(", ")} }`);
     expect(guard).toContain("ct state new");
     expect(guard).toContain("drop");
   });
@@ -114,7 +114,20 @@ describe("[od-5j8.11] DOCKER-USER guard: Docker-published ports cannot bypass po
       .split("\n")
       .find((l) => l.includes("nft insert rule ip filter DOCKER-USER"));
     expect(insert).toBeDefined();
-    expect(insert?.indexOf("ct status dnat")).toBeLessThan(insert?.indexOf("tcp dport !=") ?? -1);
+    expect(insert?.indexOf("ct status dnat")).toBeLessThan(
+      insert?.indexOf("ct original proto-dst !=") ?? -1,
+    );
+  });
+
+  test("matches the published host port, not the post-DNAT container port", () => {
+    // By the forward hook DNAT has rewritten `tcp dport` to the container
+    // port, so `-p 8081:80` matched 80 and slipped through. The original
+    // destination is the port the client dialled.
+    const insert = guard
+      .split("\n")
+      .find((l) => l.includes("nft insert rule ip filter DOCKER-USER"));
+    expect(insert).toContain("meta l4proto tcp ct original proto-dst !=");
+    expect(insert).not.toContain("tcp dport");
   });
 
   test("is idempotent: deletes any prior otterdeploy-tagged rule (by comment) before inserting", () => {
@@ -142,8 +155,18 @@ describe("[od-ckrq] the installer's DOCKER-USER guard is the same published-port
     expect(inserts.length).toBeGreaterThan(0);
     for (const line of inserts) {
       expect(line).toContain("ct status dnat");
-      expect(line.indexOf("ct status dnat")).toBeLessThan(line.indexOf("tcp dport !="));
+      expect(line.indexOf("ct status dnat")).toBeLessThan(line.indexOf("ct original proto-dst !="));
       expect(line).toContain(`comment "${DOCKER_USER_GUARD_COMMENT}"`);
+    }
+  });
+
+  test("every guard the installer inserts matches the published host port", () => {
+    // Same bug as the dashboard copy: `tcp dport` is the container port by
+    // here, so a custom OTTERDEPLOY_CONTROL_PLANE_PORT (published 8080:3000)
+    // was dropped and `-p 8081:80` was not.
+    for (const line of inserts) {
+      expect(line).toContain('ct original proto-dst != "{ $(edge_tcp_ports) }"');
+      expect(line).not.toContain("tcp dport");
     }
   });
 

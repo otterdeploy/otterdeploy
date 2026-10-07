@@ -2,7 +2,8 @@
  * oRPC handlers for `type: compose` resources. Thin wrappers over the compose
  * service layer (parse / queries / deploy). See docs/designs/compose.md.
  */
-import { projectScopedProcedure, requirePermission } from "../..";
+import { projectScopedProcedure, requireInstallAdminPermission, requirePermission } from "../..";
+import { recordAuditChanges } from "../../audit/changes";
 import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
@@ -17,6 +18,8 @@ import {
   deleteComposeRecord,
   getComposeRecord,
   listComposeRecords,
+  setDockerSocketGrant,
+  stackHostBindGrants,
   updateComposeContent,
 } from "./queries";
 import { removeStackServices } from "./reconcile";
@@ -31,6 +34,7 @@ function toView(rec: ComposeRecord) {
     stackName: rec.compose.stackName,
     services: rec.compose.services,
     exposed: rec.compose.exposed,
+    dockerSocketGranted: stackHostBindGrants(rec.compose).dockerSocket,
   };
 }
 
@@ -259,4 +263,28 @@ export const composeRouter = {
       return { ok: true };
     },
   ),
+
+  // Install admin AND the org's service:update. Install-admin status alone is
+  // not enough to touch a project (requireInstallAdminPermission), and no org
+  // role, owner included, can grant host root. Audited by the
+  // procedure trail; the diff names the grant that changed.
+  setDockerSocketGrant: requireInstallAdminPermission({
+    service: ["update"],
+  }).compose.setDockerSocketGrant.handler(async ({ input, context, errors }) => {
+    const rec = await getComposeRecord(input.projectId, input.resourceId);
+    if (!rec) throw errors.NOT_FOUND();
+    // The install-admin gate already refused API keys and anonymous callers,
+    // so this is the session user who made the decision.
+    await setDockerSocketGrant({
+      resourceId: input.resourceId,
+      granted: input.granted,
+      userId: context.session?.user.id ?? null,
+    });
+    recordAuditChanges(context, {
+      before: { dockerSocketGranted: stackHostBindGrants(rec.compose).dockerSocket },
+      after: { dockerSocketGranted: input.granted },
+    });
+    const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+    return toView(updated);
+  }),
 };

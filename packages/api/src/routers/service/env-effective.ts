@@ -22,7 +22,7 @@ import { Result } from "better-result";
 import type { ProjectNotFoundError } from "../project/errors";
 import type { ServiceNotFoundError } from "./errors";
 
-import { resolveServiceEnv } from "../../lib/variables/resolver";
+import { resolveServiceEnvDetailed } from "../../lib/variables/resolver";
 import { loadResource } from "./context";
 import { listServiceEnvVars } from "./queries";
 
@@ -70,9 +70,14 @@ export async function listEffectiveEnv(input: {
   if (ctx.isErr()) return Result.err(ctx.error);
 
   const declaredRows = await listServiceEnvVars(input.resourceId);
-  // Base scope (previewId null): this is the production view.
-  const resolved = await resolveServiceEnv(input.projectId, input.resourceId, null);
-  const resolvedByKey = resolved.isOk() ? resolved.value : {};
+  // Base scope (previewId null): the service's own environment's view.
+  const resolved = await resolveServiceEnvDetailed(input.projectId, input.resourceId, null);
+  const resolvedByKey = resolved.isOk() ? resolved.value.env : {};
+  // Keys whose value came from a sealed or secret row, through any chain of
+  // references. Sealing belongs to the TARGET row, not to either key's name,
+  // so the name pattern below cannot catch a reference such as
+  // `${{billing.STRIPE_API_KEY}}` on its own.
+  const secretKeys: ReadonlySet<string> = resolved.isOk() ? resolved.value.secretKeys : new Set();
   const resolveOk = resolved.isOk();
 
   return Result.ok(
@@ -96,7 +101,8 @@ export async function listEffectiveEnv(input: {
         // is flagged, which is precisely what the reader opened this to see.
         // There is also nothing to leak — no dereference happened.
         const dereferencedASecret =
-          resolvedValue0 !== undefined && SECRET_REFERENCE_PATTERN.test(row.value);
+          resolvedValue0 !== undefined &&
+          (secretKeys.has(row.key) || SECRET_REFERENCE_PATTERN.test(row.value));
         const hidden = row.isSecret || row.sealed || dereferencedASecret;
         const resolvedValue = resolvedByKey[row.key];
         // On resolver failure fall back to what was declared, so the tab never

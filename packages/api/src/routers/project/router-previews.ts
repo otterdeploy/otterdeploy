@@ -119,7 +119,10 @@ export const previewsRouter = {
   },
 
   envVars: {
-    effective: orgScopedProcedure.project.previews.envVars.effective.handler(
+    // Resolved values, sealed rows masked: still a read of the env bag, so it
+    // takes the same `env` capability as the rest of the variable surface,
+    // not bare org membership.
+    effective: requirePermission({ env: ["read"] }).project.previews.envVars.effective.handler(
       async ({ input, context, errors }) => {
         context.log.set({ target: { type: "project", id: input.projectId } });
         const result = await listPreviewEffectiveEnv({
