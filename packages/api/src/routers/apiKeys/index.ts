@@ -10,12 +10,15 @@ import { ORPCError } from "@orpc/server";
  * shows it and discards it; it's never persisted in readable form.
  */
 import { auth } from "@otterdeploy/auth";
+import { omitUndefined } from "@otterdeploy/shared/object";
 
 import { requirePermission } from "../..";
+import { ungrantableKeyPermissions } from "../../authz/api-key-scope";
+import { FULL_ACCESS } from "./contract";
 
 export const apiKeysRouter = {
   create: requirePermission({ apiKey: ["create"] }).apiKeys.create.handler(
-    async ({ input, context }) => {
+    async ({ input, context, errors }) => {
       // Minting requires a real user (the key is recorded against the caller).
       // An API-key actor can never reach here. It lacks `apiKey:create` under
       // the member role cap, but the guard also narrows `session` for TS.
@@ -44,17 +47,31 @@ export const apiKeysRouter = {
         metadata.projectIds = input.projectIds;
       }
 
+      // Full access is an explicit choice: `"full"` mints the plugin's null
+      // permission map, which authorizeKeyScope reads as full access (still
+      // capped at the member role). A limited map must name only what a key
+      // can actually use, or it is refused rather than minted as a key that
+      // silently cannot do what its creator asked.
+      const permissions = input.permissions === FULL_ACCESS ? undefined : input.permissions;
+      if (permissions) {
+        const refused = ungrantableKeyPermissions(permissions);
+        if (refused.length > 0) {
+          throw errors.PERMISSION_NOT_GRANTABLE({
+            message: `An API key cannot hold ${refused.join(", ")}: keys are capped at what a member may do.`,
+            data: { refused },
+          });
+        }
+      }
+
       const created = await auth.api.createApiKey({
-        body: {
+        body: omitUndefined({
           name: input.name,
           expiresIn: input.expiresIn,
           userId: context.session.user.id,
           organizationId: context.activeOrganizationId,
-          ...(input.permissions && Object.keys(input.permissions).length > 0
-            ? { permissions: input.permissions }
-            : {}),
-          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-        },
+          permissions,
+          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        }),
       });
 
       context.log.set({ target: { type: "apiKey", id: created.id } });

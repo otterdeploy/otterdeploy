@@ -12,6 +12,7 @@ import { Result } from "better-result";
 import { and, eq, exists, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { previewIdleTeardownHours } from "../lib/platform-runtime-settings";
 import { markPreviewClosedById } from "../routers/project/queries";
 import { teardownPreview } from "./preview-teardown";
@@ -82,9 +83,9 @@ async function reapIdlePreviews(now: Date = new Date()): Promise<number> {
 
 /** Interval scheduler (default hourly), unref'd so it never holds the process. */
 export function startPreviewReaper(intervalMs = 60 * 60 * 1000): () => void {
-  void reapIdlePreviews();
+  runBackgroundPass("preview-reaper", () => reapIdlePreviews());
   const timer = setInterval(() => {
-    void reapIdlePreviews();
+    runBackgroundPass("preview-reaper", () => reapIdlePreviews());
   }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);

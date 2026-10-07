@@ -43,6 +43,7 @@ import { log as globalLog } from "evlog";
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
+import { runBackgroundPass } from "./background-pass";
 import {
   dataRootAvailable,
   removeEnvDir,
@@ -262,9 +263,9 @@ async function sweepDataFolder(now = Date.now()): Promise<number> {
  * loop alive on its own.
  */
 export function startDataFolderSweep(intervalMs = 6 * 60 * 60 * 1000): () => void {
-  void sweepDataFolder();
+  runBackgroundPass("data-folder-sweep", () => sweepDataFolder());
   const timer = setInterval(() => {
-    void sweepDataFolder();
+    runBackgroundPass("data-folder-sweep", () => sweepDataFolder());
   }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);

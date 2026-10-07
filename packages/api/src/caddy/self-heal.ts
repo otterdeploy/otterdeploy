@@ -13,6 +13,20 @@ import { asStepLogger } from "../lib/logger";
 import { isSwarmRuntime } from "../runtime";
 import { ensureEdgeOnProjectNetworks, findEdgeContainerId } from "../swarm/client";
 import { loadCaddyfile, type LoadResult } from "./client";
+import { controlPlaneEdgeWatch } from "./edge-watch";
+
+/** Load the control-plane edge's config (with the self-heal below), then
+ *  record what Caddy runs for the edge watch (./edge-watch.ts). */
+export async function loadControlPlaneEdge(
+  caddyfile: string,
+  rlog?: RequestLogger,
+): Promise<LoadResult> {
+  const loaded = await loadWithEdgeSelfHeal(caddyfile, rlog);
+  // What the edge runs now: the edge watch reconciles when that changes
+  // under it (a Caddy restart from the stub config).
+  if (loaded.ok) await controlPlaneEdgeWatch.recordLoaded();
+  return loaded;
+}
 
 /**
  * Load with a one-shot edge restart when Caddy's admin endpoint is wedged.
@@ -23,18 +37,15 @@ import { loadCaddyfile, type LoadResult } from "./client";
  * /debug/pprof/goroutine, od-664). From then on every /load and /config read
  * hangs; the data plane keeps serving, so nothing else notices. It wedged prod
  * twice in 36 hours: this is the standing recovery until the plugin is fixed
- * or replaced: restart the edge container (frees the lock; it boots from the
- * stub Caddyfile in seconds), re-attach the project bridge networks a
- * recreated edge loses, and push the config again.
+ * or replaced: restart the edge container (frees the lock; it boots from its
+ * saved config, or the stub Caddyfile, in seconds), re-attach the project
+ * bridge networks a recreated edge loses, and push the config again.
  *
  * Restarting the edge briefly drops traffic. Acceptable only because this
  * path is reached when the admin socket is already dead, i.e. the alternative
  * is an edge that can never receive another route again.
  */
-export async function loadWithEdgeSelfHeal(
-  caddyfile: string,
-  rlog?: RequestLogger,
-): Promise<LoadResult> {
+async function loadWithEdgeSelfHeal(caddyfile: string, rlog?: RequestLogger): Promise<LoadResult> {
   const log = asStepLogger(rlog);
   const first = await loadCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog);
   if (first.ok || !first.error.includes("timed out")) return first;

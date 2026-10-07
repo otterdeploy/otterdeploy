@@ -17,6 +17,7 @@ import { log } from "evlog";
 
 import type { PendingDefinition } from "./writer-flush";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { analyticsRetentionDays } from "../lib/platform-runtime-settings";
 import {
   dropOldAnalyticsPartitions,
@@ -76,13 +77,16 @@ export function startAnalyticsIngest(): void {
   state.ready = false;
   // ensure* log (never throw) on failure, so `ready` still flips and we
   // degrade to logged flush errors rather than a wedged buffer.
-  void (async () => {
+  runBackgroundPass("analytics-ingest-start", async () => {
     await ensureAnalyticsEventTable();
     state.ready = true;
     await flush();
-  })();
+  });
   state.flushTimer = setInterval(() => void flush(), FLUSH_INTERVAL_MS);
-  state.sweepTimer = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
+  state.sweepTimer = setInterval(
+    () => runBackgroundPass("analytics-partition-sweep", sweep),
+    SWEEP_INTERVAL_MS,
+  );
   log.info({ analytics: { ingest: "started" } });
 }
 

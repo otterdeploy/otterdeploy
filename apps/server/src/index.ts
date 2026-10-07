@@ -17,6 +17,7 @@ import { agentHealthIngestHandler, checkReadiness } from "@otterdeploy/api/syste
 import { auth, getRegistrationMode } from "@otterdeploy/auth";
 import { guardSignInMethod, publicAuthConfig } from "@otterdeploy/auth/public-config";
 import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
+import { REQUEST_QUERY_TIMEOUT_MS, runWithQueryDeadline } from "@otterdeploy/db/query-deadline";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
 import {
@@ -282,30 +283,36 @@ function withCompatHeaders(response: Response): Response {
 }
 
 app.use("/*", async (c, next) => {
-  const context = await createContext({
-    context: c,
-    broadcast: (resource) => invalidate.broadcast(resource),
-  });
+  // Every Postgres statement the session lookup and the procedure await
+  // answers within the deadline or fails the call: a blackholed
+  // database must not hold every API request until the connection dies.
+  return (
+    (await runWithQueryDeadline(REQUEST_QUERY_TIMEOUT_MS, async () => {
+      const context = await createContext({
+        context: c,
+        broadcast: (resource) => invalidate.broadcast(resource),
+      });
 
-  const rpcResult = await rpcHandler.handle(c.req.raw, {
-    prefix: "/rpc",
-    context: context,
-  });
+      const rpcResult = await rpcHandler.handle(c.req.raw, {
+        prefix: "/rpc",
+        context: context,
+      });
 
-  if (rpcResult.matched) {
-    return withCompatHeaders(c.newResponse(rpcResult.response.body, rpcResult.response));
-  }
+      if (rpcResult.matched) {
+        return withCompatHeaders(c.newResponse(rpcResult.response.body, rpcResult.response));
+      }
 
-  const apiResult = await apiHandler.handle(c.req.raw, {
-    prefix: "/api/reference",
-    context: context,
-  });
+      const apiResult = await apiHandler.handle(c.req.raw, {
+        prefix: "/api/reference",
+        context: context,
+      });
 
-  if (apiResult.matched) {
-    return withCompatHeaders(c.newResponse(apiResult.response.body, apiResult.response));
-  }
-
-  await next();
+      if (apiResult.matched) {
+        return withCompatHeaders(c.newResponse(apiResult.response.body, apiResult.response));
+      }
+      return null;
+    })) ?? next()
+  );
 });
 
 app.get(

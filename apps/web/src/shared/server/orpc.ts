@@ -10,6 +10,7 @@ import { i18n } from "@otterdeploy/i18n/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { rateLimitRetryAfter } from "./rate-limited";
 import { isControlPlaneUnreachable } from "./unreachable";
 
 /**
@@ -53,6 +54,11 @@ export const queryClient = new QueryClient({
       // Screens that render a query's failure inline (e.g. the accept-invite
       // card) opt out of this global toast so the same error isn't shown twice.
       if (query.meta?.suppressErrorToast) return;
+
+      // A 429 is the server asking for a pause, not a fault: no red toast. A
+      // page that cannot load because of it shows the calm, self-retrying
+      // notice (shared/features/errors/rate-limited.tsx).
+      if (rateLimitRetryAfter(error) !== null) return;
 
       // A restarting control plane is not an error the operator can act on, and
       // during a cutover EVERY polling query fails at once. Collapse the whole

@@ -5,31 +5,34 @@
  * declared path, the legacy id spelling `zId` still accepts, an object that
  * does not exist (left to the handler's NOT_FOUND), and the fail-closed answer
  * to an undeclared id-like field. Inbound webhooks and proxy-route writes are
- * covered end to end: refused, and nothing written.
+ * covered end to end: refused, and nothing written. Reads that name no project
+ * (project and environment listings, org-wide analytics) answer with the key's
+ * projects only, and the key cannot create a project or a standalone
+ * environment.
  *
  * Drives the real router (middleware ladder included) against a migrated
  * database. The key actor is built directly, the way createContext builds it
- * from a verified key; `probe` swaps only the handler for a sentinel so
- * "reached" means exactly "the guards let this caller through".
+ * from a verified key (../../__tests__/postgres-actors.ts); `probe` swaps only
+ * the handler for a sentinel so "reached" means exactly "the guards let this
+ * caller through".
  */
 import type { AnyProcedure } from "@orpc/server";
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { createProcedureClient, isProcedure, ORPCError, Procedure } from "@orpc/server";
 import { db } from "@otterdeploy/db";
-import { member, user } from "@otterdeploy/db/schema/auth";
-import { project } from "@otterdeploy/db/schema/project";
+import { environment, project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { inboundEndpoint } from "@otterdeploy/db/schema/webhooks";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
-import { createRequestLogger } from "evlog";
-import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { count, eq } from "drizzle-orm";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import type { Context } from "../../context";
-import type { ApiKeyActor } from "../actor";
 
+import { createKeyContext, createMemberContext } from "../../__tests__/postgres-actors";
 import { seedOrganization, seedProject, seedService, uniq } from "../../__tests__/postgres-seed";
+import { ensureSite, resolveSiteScope } from "../../analytics/query/scope";
 import { appRouter } from "../../routers";
 
 // oxlint-disable-next-line node/no-process-env -- test boundary: no handler here may reach a real Docker daemon.
@@ -51,51 +54,6 @@ function requireProcedure(name: string): AnyProcedure {
   const found = procedures.get(name);
   if (!found) throw new Error(`no procedure ${name}`);
   return found;
-}
-
-function createKeyContext(organizationId: OrganizationId, projectIds: ProjectId[] | null): Context {
-  const apiKey: ApiKeyActor = {
-    kind: "api-key",
-    id: `key_${uniq()}`,
-    permissions: null,
-    organizationId,
-    ...(projectIds ? { projectScope: "selected", projectIds } : { projectScope: "all" }),
-  };
-  return {
-    actor: apiKey,
-    session: null,
-    apiKey,
-    activeOrganizationId: organizationId,
-    headers: new Headers(),
-    log: createRequestLogger({ method: "TEST", path: "/rpc" }),
-    broadcast: vi.fn(),
-  };
-}
-
-/** A real member of the organization, as a session actor. */
-async function createMemberContext(organizationId: OrganizationId): Promise<Context> {
-  const email = `member-${uniq()}@scope.test`;
-  const [created] = await db
-    .insert(user)
-    .values({ name: "member", email })
-    .returning({ id: user.id });
-  if (!created) throw new Error("user insert returned no row");
-  await db.insert(member).values({ organizationId, userId: created.id, role: "owner" });
-  const session = {
-    kind: "session" as const,
-    headers: new Headers(),
-    user: { id: created.id, email, isInstallAdmin: false, twoFactorEnabled: true },
-    session: { activeOrganizationId: organizationId },
-  };
-  return {
-    actor: session,
-    session,
-    apiKey: null,
-    activeOrganizationId: organizationId,
-    headers: new Headers(),
-    log: createRequestLogger({ method: "TEST", path: "/rpc" }),
-    broadcast: vi.fn(),
-  };
 }
 
 type Outcome = { kind: "reached" } | { kind: "refused"; code: string; message: string };
@@ -128,6 +86,30 @@ async function call(name: string, context: Context, input: Record<string, unknow
   const called = await Result.tryPromise({ try: () => client(input), catch: (error) => error });
   if (called.isErr()) return settle(called.error);
   return { kind: "reached" } satisfies Outcome;
+}
+
+/** The real procedure's output, or its refusal. */
+async function read(name: string, context: Context, input: Record<string, unknown>) {
+  const client = createProcedureClient(requireProcedure(name), { context, path: name.split(".") });
+  const called = await Result.tryPromise({ try: () => client(input), catch: (error) => error });
+  if (called.isErr()) return settle(called.error);
+  return { kind: "ok" as const, output: called.value };
+}
+
+/** One string field of every row a listing answered with. */
+async function listedField(
+  name: string,
+  context: Context,
+  field: "id" | "projectId",
+): Promise<string[]> {
+  const listed = await read(name, context, {});
+  if (listed.kind !== "ok") throw new Error(`${name}: ${JSON.stringify(listed)}`);
+  if (!Array.isArray(listed.output)) throw new Error(`${name} answered a non-array`);
+  return listed.output.flatMap((row: unknown) => {
+    if (typeof row !== "object" || row === null || !(field in row)) return [];
+    const value: unknown = Reflect.get(row, field);
+    return typeof value === "string" ? [value] : [];
+  });
 }
 
 function expectScopeRefusal(outcome: Outcome, label: string) {
@@ -335,5 +317,82 @@ describe("proxy-route writes stay inside a project-scoped key's projects", () =>
       expect(await probe(name, scopedKey, { routeId: own.routeId }), name).toEqual({
         kind: "reached",
       });
+  });
+});
+
+describe("reads that name no project are confined to a project-scoped key's projects", () => {
+  it("project.list answers the key with its own projects only", async () => {
+    expect(await listedField("project.list", scopedKey, "id")).toEqual([own.projectId]);
+    const everything = [own.projectId, other.projectId].toSorted();
+    for (const context of [
+      createKeyContext(organizationId, null),
+      await createMemberContext(organizationId),
+    ])
+      expect((await listedField("project.list", context, "id")).toSorted()).toEqual(everything);
+  });
+
+  it("env.list without a projectId lists only the key's environments", async () => {
+    expect(new Set(await listedField("env.list", scopedKey, "projectId"))).toEqual(
+      new Set([own.projectId]),
+    );
+    const member = new Set(
+      await listedField("env.list", await createMemberContext(organizationId), "projectId"),
+    );
+    expect(member.has(own.projectId) && member.has(other.projectId)).toBe(true);
+  });
+
+  it("an analytics read without a projectId covers only the key's sites", async () => {
+    const sites = new Map<ProjectId, string>();
+    for (const projectId of [own.projectId, other.projectId]) {
+      const site = await ensureSite(organizationId, projectId);
+      if (!site) throw new Error(`no analytics site for ${projectId}`);
+      sites.set(projectId, site.id);
+    }
+    const scope = async (context: Context) => {
+      if (!context.actor) throw new Error("context has no actor");
+      const resolved = await resolveSiteScope(
+        { actor: context.actor, activeOrganizationId: organizationId },
+        {},
+        (message) => {
+          throw new Error(message);
+        },
+      );
+      return resolved.toSorted();
+    };
+    expect(await scope(scopedKey)).toEqual([sites.get(own.projectId)]);
+    expect(await scope(createKeyContext(organizationId, null))).toEqual(
+      [...sites.values()].toSorted(),
+    );
+  });
+});
+
+async function organizationCounts() {
+  const [projects] = await db
+    .select({ n: count() })
+    .from(project)
+    .where(eq(project.organizationId, organizationId));
+  const [environments] = await db.select({ n: count() }).from(environment);
+  return { projects: projects?.n, environments: environments?.n };
+}
+
+describe("a project-scoped key cannot create outside its projects", () => {
+  it("project.create and an env.create without a project are refused and create nothing", async () => {
+    const before = await organizationCounts();
+    const attempts = [
+      await call("project.create", scopedKey, { name: `scoped-key-${uniq()}` }),
+      await call("env.create", scopedKey, { name: "Scoped key env", slug: `scoped-${uniq()}` }),
+    ];
+    for (const outcome of attempts)
+      expect(outcome).toMatchObject({ kind: "refused", code: "FORBIDDEN" });
+    expect(await organizationCounts()).toEqual(before);
+  });
+
+  it("an environment in the key's own project still reaches the handler; a key for every project still creates projects", async () => {
+    expect(await probe("env.create", scopedKey, { projectId: own.projectId })).toEqual({
+      kind: "reached",
+    });
+    expect(await probe("project.create", createKeyContext(organizationId, null), {})).toEqual({
+      kind: "reached",
+    });
   });
 });

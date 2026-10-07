@@ -89,6 +89,12 @@ function authorizeApiKey(
   if (capability.projectId && !requireProjectScope(actor, capability.projectId)) {
     return deny("This API key is not scoped to that project.");
   }
+  // A key minted for selected projects works inside them; a new project is by
+  // definition outside them. Environments created outside any project are
+  // refused in the env.create handler (project-scope-guards.ts).
+  if (actor.projectScope === "selected" && capability.permission.project?.includes("create")) {
+    return deny("This API key is limited to selected projects and cannot create projects.");
+  }
   return ALLOWED;
 }
 

@@ -8,7 +8,7 @@
  * Threshold: `overdueAfterHours` when set; otherwise derived from the cron
  * cadence (2× the fire interval, floored at 1h) so alerts work with zero
  * configuration. One notification per overdue episode (`overdueNotifiedAt`
- * dedupes; a later success clears it, see updateScheduleAfterRun).
+ * dedupes; a later success clears it, see recordSchedulePass).
  */
 import { Result } from "better-result";
 import { log } from "evlog";

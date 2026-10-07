@@ -20,6 +20,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 
 import { listStackDatabaseResources } from "./stack";
@@ -110,22 +111,46 @@ export async function getScheduleRunTarget(input: {
   return row ?? null;
 }
 
-export async function updateScheduleAfterRun(
+/** Arm (or re-arm) a schedule: its next fire time only. Arming is not a run,
+ *  so the last-run fields keep reporting the last pass that actually ran:
+ *  stamping `queued` here read as a pending run when nothing was queued, over
+ *  a manual run that had already succeeded. */
+export async function setScheduleNextRun(
   scheduleId: BackupScheduleId,
-  fields: {
-    lastRunAt: Date;
-    lastRunStatus: "queued" | "running" | "succeeded" | "failed";
-    nextRunAt: Date | null;
-  },
+  nextRunAt: Date | null,
 ): Promise<void> {
-  await db
+  await db.update(backupSchedule).set({ nextRunAt }).where(eq(backupSchedule.id, scheduleId));
+}
+
+/**
+ * Record a pass's outcome (a scheduled tick, or a manual "run now" of the
+ * schedule). Guarded on the pass start: a pass that finishes after a NEWER
+ * one has reported never overwrites it, so two overlapping passes settle on
+ * the latest one's outcome. Returns whether this pass's outcome was written.
+ */
+export async function recordSchedulePass(
+  scheduleId: BackupScheduleId,
+  pass: { startedAt: Temporal.Instant; status: "succeeded" | "failed" },
+): Promise<boolean> {
+  // A Date only at the drizzle timestamp seam.
+  const startedAt = new Date(pass.startedAt.epochMilliseconds);
+  const rows = await db
     .update(backupSchedule)
-    .set(
+    .set({
+      lastRunAt: startedAt,
+      lastRunStatus: pass.status,
       // A successful pass ends any overdue episode, so the next lapse notifies
       // again instead of being swallowed by a stale marker.
-      fields.lastRunStatus === "succeeded" ? { ...fields, overdueNotifiedAt: null } : fields,
+      ...(pass.status === "succeeded" ? { overdueNotifiedAt: null } : {}),
+    })
+    .where(
+      and(
+        eq(backupSchedule.id, scheduleId),
+        or(isNull(backupSchedule.lastRunAt), lte(backupSchedule.lastRunAt, startedAt)),
+      ),
     )
-    .where(eq(backupSchedule.id, scheduleId));
+    .returning({ id: backupSchedule.id });
+  return rows.length > 0;
 }
 
 // ---------------------------------------------------------------------------

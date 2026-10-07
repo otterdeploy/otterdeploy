@@ -165,3 +165,42 @@ export function isRetryablePgError(error: unknown): boolean {
 export function pgConstraint(error: unknown): string | null {
   return asPgError(error)?.constraint ?? null;
 }
+
+/** Bun SQL's codes for a connection that could not be opened, was closed, or
+ *  timed out: the database did not answer, whatever the statement was. */
+const UNREACHABLE_DRIVER_CODES: ReadonlySet<string> = new Set([
+  "ERR_POSTGRES_CONNECTION_REFUSED",
+  "ERR_POSTGRES_CONNECTION_FAILED",
+  "ERR_POSTGRES_CONNECTION_CLOSED",
+  "ERR_POSTGRES_CONNECTION_TIMEOUT",
+  "ERR_POSTGRES_IDLE_TIMEOUT",
+  "ERR_POSTGRES_LIFETIME_TIMEOUT",
+]);
+
+/** SQLSTATEs Postgres sends while it is shutting down or not yet accepting
+ *  connections (admin_shutdown, crash_shutdown, cannot_connect_now). */
+const UNAVAILABLE_SQLSTATES: ReadonlySet<string> = new Set(["57P01", "57P02", "57P03"]);
+
+/** How far down an error's `cause` chain to look: drizzle wraps the driver
+ *  error once and handlers may wrap it again. */
+const CAUSE_CHAIN_DEPTH = 8;
+
+/**
+ * True when `error`, or an error in its `cause` chain, says Postgres is not
+ * answering (refused, closed, or timed-out connection; a connection-class or
+ * shutdown SQLSTATE) rather than that the statement itself was wrong. The
+ * caller can retry such a failure; it is an outage, not a bug.
+ */
+export function isPostgresUnreachable(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < CAUSE_CHAIN_DEPTH && current instanceof Error; depth++) {
+    const pg = asPgError(current);
+    if (pg?.code !== undefined && UNREACHABLE_DRIVER_CODES.has(pg.code)) return true;
+    const state = pg?.errno;
+    if (state !== undefined && (state.startsWith("08") || UNAVAILABLE_SQLSTATES.has(state))) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
