@@ -85,25 +85,16 @@ function resolvePackageManager(
   const [name, versionSpec] = current.split("@");
   if (name !== "bun" || !versionSpec) return null;
 
+  // Compare the CORE version only: a `+build` hash or a `-canary` suffix on
+  // a release at/above the floor is not bumped (bun@1.3.13-canary.2 builds as
+  // pinned). `satisfies` (unlike `order`) never throws, and anything it cannot
+  // read as a full version ("1.3", "latest") falls below the floor and is
+  // bumped, as before.
   const version = versionSpec.split(/[+-]/)[0] ?? versionSpec;
-  if (compareVersions(version, MIN_BUN_VERSION) >= 0) return null;
+  if (Bun.semver.satisfies(version, `>=${MIN_BUN_VERSION}`)) return null;
 
   sink.system(
     `repo pins bun@${version}, below the supported floor; building with bun@${MIN_BUN_VERSION}`,
   );
   return `bun@${MIN_BUN_VERSION}`;
-}
-
-/** Compare dotted numeric versions (`1.3.1` vs `1.3.13`). Returns <0 / 0 / >0.
- *  Ignores any `+build` / `-prerelease` suffix, enough for the bun floor. */
-function compareVersions(a: string, b: string): number {
-  const parts = (v: string) =>
-    (v.split(/[+-]/)[0] ?? v).split(".").map((n) => Number.parseInt(n, 10) || 0);
-  const av = parts(a);
-  const bv = parts(b);
-  for (let i = 0; i < Math.max(av.length, bv.length); i++) {
-    const diff = (av[i] ?? 0) - (bv[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
 }
