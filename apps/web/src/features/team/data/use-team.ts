@@ -168,6 +168,10 @@ const invitationsQueryOptions = queryCollectionOptions({
               email: i.email,
               role: i.role,
               expiresAt: new Date(i.expiresAt),
+              // "sent" | "failed" | null (invitations from before this was
+              // recorded). A failed email is surfaced on the row.
+              emailStatus: i.emailStatus ?? null,
+              emailError: i.emailError ?? null,
             },
           ]
         : [],
@@ -217,7 +221,7 @@ export const invitationsCollection = persistence
       persistedCollectionOptions<InviteRow, string | number>({
         ...invitationsQueryOptions,
         persistence,
-        schemaVersion: 1,
+        schemaVersion: 2,
       }),
     )
   : createCollection(invitationsQueryOptions);

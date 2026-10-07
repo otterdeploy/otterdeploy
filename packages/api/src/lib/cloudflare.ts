@@ -28,6 +28,15 @@ import * as z from "zod";
 
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 
+/** Budget for one Cloudflare call. Every call here sits on an operator's
+ *  request (save settings, list zones, upsert a record), which used to hang
+ *  for as long as the connection did. */
+const CLOUDFLARE_REQUEST_TIMEOUT_MS = 15_000;
+
+/** "Invalid API Token": also what `/user/tokens/verify` answers for an
+ *  account-owned token, which is verified under its account instead. */
+const CLOUDFLARE_INVALID_TOKEN_CODE = 1000;
+
 /** `code` for a failure that never reached the API (DNS, TLS, timeout,
  *  unparseable body). Cloudflare's own error codes are positive, so 0 is
  *  unambiguous. */
@@ -62,6 +71,21 @@ const cfStatusSchema = z.looseObject({
     .optional(),
 });
 
+/** Cloudflare's own error, with the wait it asks for when it rate limits: a
+ *  429 blocks the token for minutes, so the operator is told for how long
+ *  rather than left to retry into the block. */
+function apiFailure(
+  res: Response,
+  first: { code?: number; message?: string } | undefined,
+): CloudflareError {
+  const message = first?.message ?? `Cloudflare API ${res.status} ${res.statusText}`;
+  const retryAfter = res.status === 429 ? res.headers.get("retry-after") : null;
+  return new CloudflareError(
+    retryAfter ? `${message} (rate limited; retry after ${retryAfter}s)` : message,
+    first?.code ?? res.status,
+  );
+}
+
 /**
  * One request, returning the WHOLE envelope: pagination needs `result_info`,
  * which {@link cfFetch} discards. Both live here so the `success`/`errors`
@@ -82,7 +106,12 @@ async function cfEnvelope<T>(
   if (!headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const res = await Result.tryPromise({
-    try: () => fetch(`${CLOUDFLARE_API}${path}`, { ...init, headers }),
+    try: () =>
+      fetch(`${CLOUDFLARE_API}${path}`, {
+        ...init,
+        headers,
+        signal: AbortSignal.timeout(CLOUDFLARE_REQUEST_TIMEOUT_MS),
+      }),
     catch: (cause) =>
       new CloudflareError(
         cause instanceof Error ? cause.message : String(cause),
@@ -116,15 +145,7 @@ async function cfEnvelope<T>(
       ),
     );
   }
-  if (!status.data.success) {
-    return Result.err(
-      new CloudflareError(
-        status.data.errors?.[0]?.message ??
-          `Cloudflare API ${res.value.status} ${res.value.statusText}`,
-        status.data.errors?.[0]?.code ?? res.value.status,
-      ),
-    );
-  }
+  if (!status.data.success) return Result.err(apiFailure(res.value, status.data.errors?.[0]));
 
   const envelope = z
     .looseObject({
@@ -184,7 +205,19 @@ export async function verifyCloudflareToken(
   token: string,
 ): Promise<Result<{ active: boolean; status: string }, CloudflareError>> {
   const result = await cfFetch("/user/tokens/verify", token, tokenVerifySchema);
-  return result.map((r) => ({ active: r.status === "active", status: r.status }));
+  if (result.isOk() || result.error.code !== CLOUDFLARE_INVALID_TOKEN_CODE) {
+    return result.map((r) => ({ active: r.status === "active", status: r.status }));
+  }
+  // An account-owned token (what Cloudflare recommends for integrations) is
+  // only known to `/accounts/{id}/tokens/verify`, and the account id is not
+  // something the operator gives us. The product only ever uses the token
+  // for zones and DNS records, so a token that sees at least one zone is a
+  // working token. One that sees none (Cloudflare answers a disabled token's
+  // zone list with an empty page) keeps the rejection.
+  const zones = await cfFetch("/zones?per_page=5", token, z.array(cloudflareZoneSchema));
+  return zones.isOk() && zones.value.length > 0
+    ? Result.ok({ active: true, status: "active" })
+    : Result.err(result.error);
 }
 
 export async function listCloudflareZones(

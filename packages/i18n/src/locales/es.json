@@ -1928,7 +1928,7 @@
       "environmentSlug": "Slug del entorno",
       "secretPathOptional": "Ruta del secreto (opcional)",
       "dopplerProjectOptional": "Proyecto (opcional)",
-      "dopplerProjectHint": "Solo es necesario cuando el token de servicio no está limitado a una configuración.",
+      "dopplerProjectHint": "Déjalo vacío para un token de servicio (dp.st.), que está limitado a una configuración. Los tokens personales, de CLI y de cuenta de servicio necesitan ambos.",
       "dopplerConfigOptional": "Configuración (opcional)"
     },
     "credentials": {

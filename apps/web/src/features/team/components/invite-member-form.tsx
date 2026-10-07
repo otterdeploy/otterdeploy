@@ -88,7 +88,15 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
       if (inviteId) {
         setSent({ email, url: acceptInviteUrl(inviteId) });
       }
-      toast.success(`Invitation created for ${email}`);
+      // The invitation exists either way; a failed email means the link has
+      // to be shared by hand.
+      if (res.data?.emailStatus === "failed") {
+        toast.warning(`Invitation created for ${email}, but the email could not be sent`, {
+          description: "Copy the invite link and share it directly.",
+        });
+      } else {
+        toast.success(`Invitation created for ${email}`);
+      }
     },
   });
 

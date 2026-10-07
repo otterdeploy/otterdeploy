@@ -118,6 +118,37 @@ function clip(value: string, max: number): string {
 }
 
 /**
+ * Provider text limits, in UTF-16 code units (JavaScript's `length`, which is
+ * never fewer than the characters a provider counts, so a fit here fits there).
+ * Past these the provider rejects the WHOLE message, so an over-long event
+ * message used to drop the alert rather than shorten it.
+ */
+export const TEXT_LIMIT = {
+  /** Slack Block Kit: a section's text object. */
+  slackSection: 3000,
+  /** Slack Block Kit: one section field. */
+  slackField: 2000,
+  /** Telegram sendMessage `text`, after entity parsing. */
+  telegramMessage: 4096,
+  /** Twilio Messages `Body`. */
+  twilioBody: 1600,
+  /** PagerDuty Events API v2 `payload.summary`. */
+  pagerdutySummary: 1024,
+} as const;
+
+/** `value` cut to at most `max` code units, ending in `…` when cut, and never
+ *  splitting a surrogate pair (an emoji cut in half is an invalid string). */
+export function truncatedText(value: string, max: number): string {
+  if (value.length <= max) return value;
+  let out = "";
+  for (const char of value) {
+    if (out.length + char.length > max - 1) break;
+    out += char;
+  }
+  return `${out}…`;
+}
+
+/**
  * The incident identity PagerDuty groups on.
  *
  * Without one, every occurrence opens a NEW incident, so a service flapping
