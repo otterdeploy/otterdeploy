@@ -2,10 +2,14 @@
  * Infisical client. Universal Auth (machine identity) against cloud or a
  * self-hosted instance.
  *
- * Ref syntax: the secret key. One login + one raw-secrets fetch per resolve
- * call: refs are looked up in that single snapshot.
+ * Ref syntax: the secret key. One raw-secrets fetch per resolve call: refs
+ * are looked up in that single snapshot, with secret references (`${OTHER}`)
+ * expanded and imported folders included, as Infisical resolves them for its
+ * own clients. Access tokens are reused until shortly before they expire
+ * instead of logging in on every resolve.
  */
 
+import { Temporal } from "@otterdeploy/shared/temporal";
 import * as z from "zod";
 
 import type { VaultProviderRuntime } from "./types";
@@ -14,18 +18,29 @@ import { normalizeBaseUrl, vaultFetch } from "./http";
 
 const INFISICAL_CLOUD_URL = "https://app.infisical.com";
 
+/** Log in again this long before Infisical says the token expires. */
+const ACCESS_TOKEN_REFRESH_MARGIN_MS = 60_000;
+
 const loginSchema = z.object({
   accessToken: z.string(),
+  expiresIn: z.number().positive().optional(),
 });
 
+const secretListSchema = z.array(
+  z.object({
+    secretKey: z.string(),
+    secretValue: z.string(),
+  }),
+);
+
 const secretsSchema = z.object({
-  secrets: z.array(
-    z.object({
-      secretKey: z.string(),
-      secretValue: z.string(),
-    }),
-  ),
+  secrets: secretListSchema,
+  /** Present with include_imports=true: the imported folders' secrets. */
+  imports: z.array(z.object({ secrets: secretListSchema })).optional(),
 });
+
+/** Access tokens by instance + machine identity + secret. */
+const accessTokens = new Map<string, { token: string; refreshAt: number }>();
 
 function baseUrl(provider: VaultProviderRuntime): string {
   return normalizeBaseUrl(provider.config.siteUrl || INFISICAL_CLOUD_URL);
@@ -36,6 +51,10 @@ async function login(provider: VaultProviderRuntime): Promise<string> {
   if (!clientId) {
     throw new Error(`secret provider "${provider.name}": missing Infisical client ID`);
   }
+  const cacheKey = `${baseUrl(provider)} ${clientId} ${provider.credential}`;
+  const now = Temporal.Now.instant().epochMilliseconds;
+  const cached = accessTokens.get(cacheKey);
+  if (cached && cached.refreshAt > now) return cached.token;
   const body = await vaultFetch({
     providerName: provider.name,
     url: `${baseUrl(provider)}/api/v1/auth/universal-auth/login`,
@@ -43,6 +62,12 @@ async function login(provider: VaultProviderRuntime): Promise<string> {
     method: "POST",
     body: { clientId, clientSecret: provider.credential },
   });
+  if (body.expiresIn !== undefined) {
+    accessTokens.set(cacheKey, {
+      token: body.accessToken,
+      refreshAt: now + body.expiresIn * 1000 - ACCESS_TOKEN_REFRESH_MARGIN_MS,
+    });
+  }
   return body.accessToken;
 }
 
@@ -59,6 +84,10 @@ async function fetchAll(provider: VaultProviderRuntime): Promise<Map<string, str
     workspaceId: projectId,
     environment: environmentSlug,
     secretPath: provider.config.secretPath || "/",
+    // Both default to false on this endpoint: a `${OTHER}` reference reached
+    // containers as that literal text, and imported secrets were "missing".
+    expandSecretReferences: "true",
+    include_imports: "true",
   });
   const body = await vaultFetch({
     providerName: provider.name,
@@ -66,7 +95,9 @@ async function fetchAll(provider: VaultProviderRuntime): Promise<Map<string, str
     schema: secretsSchema,
     headers: { authorization: `Bearer ${accessToken}` },
   });
-  return new Map(body.secrets.map((s) => [s.secretKey, s.secretValue]));
+  // The folder's own secrets win over imported ones, as in Infisical.
+  const imported = (body.imports ?? []).flatMap((folder) => folder.secrets);
+  return new Map([...imported, ...body.secrets].map((s) => [s.secretKey, s.secretValue]));
 }
 
 export async function infisicalGetSecrets(

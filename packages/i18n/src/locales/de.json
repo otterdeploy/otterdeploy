@@ -1941,7 +1941,7 @@
       "environmentSlug": "Environment-Slug",
       "secretPathOptional": "Secret-Pfad (optional)",
       "dopplerProjectOptional": "Projekt (optional)",
-      "dopplerProjectHint": "Nur nötig, wenn das Service-Token nicht auf eine Config beschränkt ist.",
+      "dopplerProjectHint": "Bei einem Service-Token (dp.st.) leer lassen, es ist auf eine Config beschränkt. Persönliche, CLI- und Service-Account-Tokens brauchen beides.",
       "dopplerConfigOptional": "Config (optional)"
     },
     "credentials": {

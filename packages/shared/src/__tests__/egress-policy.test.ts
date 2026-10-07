@@ -277,6 +277,37 @@ describe("egressFetch", () => {
     ).toThrow("timed out");
   });
 
+  test("a redirect without Location is a transport failure, not a policy denial", async () => {
+    // What the shut-down legacy FCM API answers (301, no Location): the
+    // delivery log used to read "blocked by outbound egress policy".
+    const resolveHost = mock(() => Promise.resolve([publicAddress]));
+    const request = mock().mockResolvedValue({ status: 301, headers: {}, body: Buffer.alloc(0) });
+    const thrower = await rejectionOf(
+      egressFetch("https://fcm.example/fcm/send", {}, { resolveHost, request }),
+    );
+    expect(thrower).toThrow(EgressPolicyError);
+    expect(thrower).toThrow(expect.objectContaining({ kind: "transport" }));
+  });
+
+  test("followRedirects: false hands the 3xx back as the answer", async () => {
+    const resolveHost = mock(() => Promise.resolve([publicAddress]));
+    const request = mock().mockResolvedValue({ status: 301, headers: {}, body: Buffer.alloc(0) });
+    const res = await egressFetch(
+      "https://fcm.example/fcm/send",
+      { method: "POST" },
+      { resolveHost, request, followRedirects: false },
+    );
+    expect(res.status).toBe(301);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  test("a denied destination is kind denied", async () => {
+    const thrower = await rejectionOf(
+      egressFetch("http://127.0.0.1:1/hook", {}, { allowHttp: true }),
+    );
+    expect(thrower).toThrow(expect.objectContaining({ kind: "denied" }));
+  });
+
   test("denies a plain-http target unless allowHttp is set", async () => {
     const resolveHost = mock(() => Promise.resolve([publicAddress]));
     expect(

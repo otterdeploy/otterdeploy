@@ -202,11 +202,10 @@ export async function twilioConfig(): Promise<TwilioConfig | null> {
   return { accountSid, authToken, fromNumber };
 }
 
-/** FCM server key, or null when push isn't configured. */
-export async function fcmServerKey(): Promise<string | null> {
-  const row = await loadRow();
-  return (await decryptOrNull(row?.fcmServerKeyCiphertext)) ?? env.FCM_SERVER_KEY ?? null;
-}
+// Push credentials are resolved where they are used, in packages/jobs
+// (delivery/platform-transports.ts `fcmCredentials`): FCM HTTP v1 needs the
+// service-account key file, and the legacy server key this file used to
+// return only fed the shut-down legacy API.
 
 // ─── Firewall / CrowdSec ──────────────────────────────────────────────
 

@@ -50,4 +50,8 @@ export interface ChannelEvent {
 export interface DeliveryResult {
   ok: boolean;
   error?: string;
+  /** Set on a failure that a later attempt may get past (a rate limit, an
+   *  outage, a network error), as opposed to a rejection that will repeat
+   *  (a dead token, a revoked key, a malformed message). */
+  retryable?: boolean;
 }

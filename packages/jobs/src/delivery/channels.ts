@@ -13,7 +13,8 @@ import { env } from "@otterdeploy/env/server";
  *   webhook: generic POST + optional HMAC-SHA256 signature header
  *   email: Resend (packages/email)
  *   telegram: Bot API sendMessage (bot token = secret, chat id = target)
- *   pagerduty: Events API v2 enqueue (routing key = secret || target)
+ *   pagerduty: Events API v2 enqueue, change events for `info` (routing key = secret || target)
+ *   push: FCM HTTP v1 (install-wide service account, token/topic = target)
  *
  * `channel.target` is tenant-supplied for slack/discord/webhook (a URL the
  * org pasted in): every transport POSTs through `post()`, which routes
@@ -22,14 +23,25 @@ import { env } from "@otterdeploy/env/server";
  * identity denied by default), pins the connection to the validated
  * address, and re-validates every redirect hop. See
  * packages/shared/src/egress-policy.ts. Fixed-URL transports (FCM,
- * PagerDuty) go through the same helper for consistency. Harmless, since
- * they always resolve to a public address.
+ * PagerDuty) go through the same helper for consistency, with redirects off
+ * (a provider API that redirects a POST has refused it).
  */
 import type { ChannelEvent, DeliveryResult, ResolvedChannel } from "./types";
 
 import { deliverDiscord, deliverSlack, deliverTelegram } from "./chat-transports";
-import { SEVERITY, actionLabel, actionUrl, dedupKey, nowIso, subjectOf, titleOf } from "./message";
-import { fcmServerKey } from "./platform-transports";
+import { sendFcm } from "./fcm";
+import {
+  SEVERITY,
+  TEXT_LIMIT,
+  actionLabel,
+  actionUrl,
+  dedupKey,
+  nowIso,
+  subjectOf,
+  titleOf,
+  truncatedText,
+} from "./message";
+import { FCM_LEGACY_KEY_ERROR, fcmCredentials } from "./platform-transports";
 import { post } from "./post";
 
 export async function deliverToChannel(
@@ -139,29 +151,35 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
   }
 }
 
-/** FCM push to a device token (or topic). Reuses the install-wide FCM key
- * (Settings → Instance, seeded from FCM_SERVER_KEY), mirroring the per-user
- * push path in ./notify.ts. `target` is the registration token. */
+/** FCM HTTP v1 push to a device token (or `/topics/<name>`), with the
+ *  install-wide service account (FCM_SERVICE_ACCOUNT_JSON), the same
+ *  credentials as the per-user push path in ./notify.ts. `target` is the
+ *  registration token. */
 async function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
-  const key = await fcmServerKey();
-  if (!key) return { ok: false, error: "FCM not configured" };
-  return post("https://fcm.googleapis.com/fcm/send", {
-    method: "POST",
-    headers: { Authorization: `key=${key}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      to: c.target,
-      // A tray truncates around 40 characters, so the subject goes in the
-      // title: "Deploy failed" on its own does not say which service.
-      notification: { title: titleOf(e.title, subjectOf(e.data)), body: e.message },
-      data: e.data ?? {},
-    }),
-  });
+  const credentials = await fcmCredentials();
+  switch (credentials.kind) {
+    case "none":
+      return { ok: false, error: "FCM not configured: set FCM_SERVICE_ACCOUNT_JSON" };
+    case "legacy-key":
+      return { ok: false, error: FCM_LEGACY_KEY_ERROR };
+    case "invalid":
+      return { ok: false, error: credentials.error };
+    case "service-account":
+      return sendFcm(credentials.account, {
+        target: c.target,
+        // A tray truncates around 40 characters, so the subject goes in the
+        // title: "Deploy failed" on its own does not say which service.
+        title: titleOf(e.title, subjectOf(e.data)),
+        body: e.message,
+        data: e.data,
+      });
+  }
 }
 
 /**
  * PagerDuty Events API v2.
  *
- * Two fixes here, both defects rather than presentation:
+ * Three decisions here, all defects rather than presentation:
  *
  *   `dedup_key` — without one every occurrence opened a NEW incident, so a
  *   service flapping every two minutes produced an incident every two minutes.
@@ -171,12 +189,39 @@ async function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<Deliver
  *   `resolve` — no recovery event ever sent one, so incidents could only be
  *   closed by hand. An `ok` severity is a recovery by definition, and a resolve
  *   needs no payload.
+ *
+ *   `info` is a change event, not an alert. Every non-`ok` event used to be a
+ *   `trigger`, so any informational event a channel subscribed to paged
+ *   someone. PagerDuty's Change Events API (`/v2/change/enqueue`) records it on
+ *   the service's timeline without opening an incident.
  */
 function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
   const routingKey = c.secret ?? c.target;
   const s = SEVERITY[e.severity];
   const subject = subjectOf(e.data);
   const key = dedupKey(e.eventId, subject);
+  const summary = truncatedText(titleOf(e.title, subject), TEXT_LIMIT.pagerdutySummary);
+  const options = { followRedirects: false };
+
+  if (e.severity === "info") {
+    return post(
+      "https://events.pagerduty.com/v2/change/enqueue",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          routing_key: routingKey,
+          payload: {
+            summary,
+            source: subject ?? "otterdeploy",
+            timestamp: nowIso(),
+            custom_details: e.data ?? {},
+          },
+        }),
+      },
+      options,
+    );
+  }
 
   const body =
     e.severity === "ok"
@@ -186,7 +231,7 @@ function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<Delivery
           event_action: "trigger",
           dedup_key: key,
           payload: {
-            summary: titleOf(e.title, subject),
+            summary,
             source: subject ?? "otterdeploy",
             severity: s.pd,
             component: e.data?.project ?? "instance",
@@ -196,11 +241,15 @@ function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<Delivery
           },
         };
 
-  return post("https://events.pagerduty.com/v2/enqueue", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  return post(
+    "https://events.pagerduty.com/v2/enqueue",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    options,
+  );
 }
 
 async function hmacSha256Hex(secret: string, body: string): Promise<string> {

@@ -131,9 +131,11 @@ export const platformSettings = pgTable("platform_settings", {
   gitlabOauthIssuer: text("gitlab_oauth_issuer"),
 
   // ─── External notification transports (SMS + push) ──────────────────
-  // Seeded from TWILIO_* / FCM_SERVER_KEY. Consumed by packages/jobs
-  // delivery for both the per-user sms/push fan-out and the `push`
-  // notification channel kind.
+  // Seeded from TWILIO_*. Consumed by packages/jobs delivery for both the
+  // per-user sms/push fan-out and the `push` notification channel kind.
+  // `fcm_server_key_ciphertext` is a legacy FCM server key: never sent
+  // (Google shut that API down in 2024), read only so a push configured with
+  // it reports how to migrate to FCM_SERVICE_ACCOUNT_JSON.
   twilioAccountSid: text("twilio_account_sid"),
   twilioAuthTokenCiphertext: text("twilio_auth_token_ciphertext"),
   twilioFromNumber: text("twilio_from_number"),

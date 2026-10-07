@@ -14,7 +14,19 @@ import { createAuthClient } from "better-auth/react";
 export const authClient = createAuthClient({
   baseURL: env.VITE_SERVER_URL,
   plugins: [
-    organizationClient(),
+    // Mirrors the server's invitation additionalFields (packages/auth): the
+    // outcome of the invitation email, so the members page can show a failed
+    // send instead of a pending invite that looks delivered.
+    organizationClient({
+      schema: {
+        invitation: {
+          additionalFields: {
+            emailStatus: { type: "string", required: false, input: false },
+            emailError: { type: "string", required: false, input: false },
+          },
+        },
+      },
+    }),
     adminClient(),
     magicLinkClient(),
     apiKeyClient(),
