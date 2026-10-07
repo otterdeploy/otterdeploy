@@ -123,21 +123,31 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
   return row;
 }
 
-/** Mark an existing deployment terminal (failed). Used when provisioning
+/** Mark an in-flight deployment terminal (failed). Used when provisioning
  *  throws before swarm can take over the lifecycle. Most state transitions
- *  happen lazily via task observation in the list endpoint instead. */
+ *  happen lazily via task observation in the list endpoint instead.
+ *
+ *  Only from pending/building, like every terminal write on this row (see
+ *  the builder's markFailed): a cancelled, superseded or already-settled row
+ *  stays what it is. Returns whether this call settled the row; false is not
+ *  an error, it means an earlier terminal write won, and then nothing is
+ *  published or announced (that write owned the notification). */
 export async function markDeploymentFailed(
   deploymentId: DeploymentId,
   errorMessage: string,
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const settled = await db
     .update(deployment)
     .set({
       status: "failed",
       errorMessage,
       completedAt: new Date(),
     })
-    .where(eq(deployment.id, deploymentId));
+    .where(
+      and(eq(deployment.id, deploymentId), inArray(deployment.status, ["pending", "building"])),
+    )
+    .returning({ id: deployment.id });
+  if (settled.length === 0) return false;
 
   // Fan a deploy.failed event out to subscribed notification channels.
   // Best-effort: emitPlatformEvent never throws into this path.
@@ -158,7 +168,7 @@ export async function markDeploymentFailed(
     void publishResourceChanged(info.resourceId);
     // The column is an unbranded text FK; hasPrefix is a real narrowing check
     // (every org id is minted "org_…" by the auth generateId hook).
-    if (!hasPrefix(info.organizationId, ID_PREFIX.organization)) return;
+    if (!hasPrefix(info.organizationId, ID_PREFIX.organization)) return true;
     await emitPlatformEvent({
       organizationId: info.organizationId,
       eventId: "deploy.failed",
@@ -172,6 +182,29 @@ export async function markDeploymentFailed(
       },
     });
   }
+  return true;
+}
+
+/** Mark an in-flight deployment terminal (running): the rollout its caller
+ *  drove came up. Only from pending/building (see markDeploymentFailed): an
+ *  operator's cancel or the reconcile's failure that landed first wins, and
+ *  the row is not brought back to life. Returns whether this call settled it.
+ *  `errorMessage` carries a partial outcome (a stack with some failed
+ *  services); null clears it. */
+export async function markDeploymentRunning(
+  deploymentId: DeploymentId,
+  errorMessage: string | null = null,
+): Promise<boolean> {
+  const settled = await db
+    .update(deployment)
+    .set({ status: "running", completedAt: new Date(), errorMessage })
+    .where(
+      and(eq(deployment.id, deploymentId), inArray(deployment.status, ["pending", "building"])),
+    )
+    .returning({ resourceId: deployment.resourceId });
+  const [row] = settled;
+  if (row) void publishResourceChanged(row.resourceId);
+  return row !== undefined;
 }
 
 /** Drop a deployment row. Used by the recovery path in

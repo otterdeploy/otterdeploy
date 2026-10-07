@@ -9,8 +9,11 @@ import {
   buildCaddyfile,
   buildProjectFragment,
   type CrowdsecConfig,
+  DEFAULT_AUTHZ_UPSTREAM,
   type ProxyRouteInput,
 } from "./builder";
+import { customDirectiveLines } from "./custom-directives";
+import { adaptedReachError } from "./directive-reach";
 import { routeValidationError } from "./route-validation";
 
 export interface ReconcileResult {
@@ -112,7 +115,16 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
       continue;
     }
 
-    const result = await adapt(fragment);
+    const adapted = await adapt(fragment);
+    // Raw directives passed the write schema's reach rules as Caddyfile text;
+    // hold the adapted JSON to the same rules, so a directive
+    // Caddy parses differently from that lexer still cannot reach the edge.
+    const reach =
+      adapted.ok &&
+      projectRoutes.some((route) => customDirectiveLines(route.customDirectives).length > 0)
+        ? adaptedReachError(adapted.json, generatedReach(projectRoutes, options))
+        : null;
+    const result: AdaptResult = reach ? { ok: false, error: reach } : adapted;
 
     if (result.ok) {
       validRoutes.push(...projectRoutes);
@@ -162,6 +174,29 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
   });
 
   return { applied, skipped, revision };
+}
+
+/**
+ * What the generator itself dials or loads in a project's fragment: each
+ * route's upstream, the forward_auth / reserved-path upstream (builder.ts
+ * defaults it the same way), the access-log sink, and uploaded certificate
+ * files. adaptedReachError
+ * exempts exactly these, so a project with raw directives is not skipped for
+ * config it never wrote.
+ */
+function generatedReach(
+  routes: ProxyRouteInput[],
+  options: Pick<ReconcileOptions, "authzUpstream" | "edgeLogSink">,
+): ReadonlySet<string> {
+  return new Set([
+    options.authzUpstream ?? DEFAULT_AUTHZ_UPSTREAM,
+    ...(options.edgeLogSink === undefined ? [] : [options.edgeLogSink]),
+    ...routes.flatMap((route) => [
+      // The route's own upstream, already held to route-validation.ts.
+      `${route.upstreamHost}:${route.upstreamPort}`,
+      ...(route.customCert ? [route.customCert.certPath, route.customCert.keyPath] : []),
+    ]),
+  ]);
 }
 
 function groupByProject(routes: ProxyRouteInput[]): Map<string, ProxyRouteInput[]> {

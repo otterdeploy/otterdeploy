@@ -18,9 +18,14 @@
  * fallback. Railpack keys this off the `RAILPACK_SPA_OUTPUT_DIR` env var
  * (read at `prepare` time) pointing at the build output dir, NOT the
  * Cloud-Foundry-style `Staticfile` that nixpacks used; railpack ignores
- * that file. When `spa` is set we pass `--env RAILPACK_SPA_OUTPUT_DIR=
+ * that file. When `spa` is set we declare `RAILPACK_SPA_OUTPUT_DIR=
  * <staticRoot>` to `prepare` (default `dist`, Vite's output), and expose
  * the same value to the generated BuildKit plan as a secret.
+ *
+ * The service's own env reaches the build the same way (railpack-env.ts):
+ * declared to `prepare` by name, mounted by buildx as a secret, so build-time
+ * frameworks (Next `NEXT_PUBLIC_*`, Vite `VITE_*`) and `RAILPACK_*` overrides
+ * see it while no value lands in the plan, argv, or an image layer.
  *
  * Two tags are produced for every successful build: the immutable
  * `:<sha>` tag (what the deployment row points at) and the moving
@@ -38,9 +43,11 @@ import type { LogSink } from "./log-stream";
 import { NO_TURBO_CACHE, type TurboCacheEnv, turboForceEnv } from "./buildx";
 import { buildBuildxArgs, buildPrepareArgs, nodeBuildMaxOldSpaceMb } from "./railpack-args";
 import { readJson, tanstackStartCommand } from "./railpack-detect";
+import { type RailpackBuildEnv, type ServiceBuildEnv, railpackBuildEnv } from "./railpack-env";
 import { type BuildLayout, resolveBuildLayout } from "./railpack-layout";
 import { applyPackageManager } from "./railpack-packagemanager";
 import { TURBO_CACHE_DIR, injectTurboCache } from "./railpack-plan";
+import { createSecretFiles } from "./railpack-secret-files";
 import { runProcess } from "./run-process";
 import { pruneWorkspace } from "./turbo-prune";
 import {
@@ -65,6 +72,8 @@ export async function railpackBuild(opts: {
   noCache?: boolean | null;
   /** Turbo remote-cache credentials, empty when disabled. */
   turboCache?: TurboCacheEnv;
+  /** The service's resolved env, exposed to the build (build-env.ts). */
+  serviceEnv: ServiceBuildEnv;
   sink: LogSink;
 }): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
@@ -76,21 +85,22 @@ export async function railpackBuild(opts: {
   const runnerUsesTurbo = runner?.kind === "turbo";
   const { buildDir, planPath, spaOutputDir } = layout;
 
-  opts.sink.system(`preparing railpack plan for ${shaTag}`);
-  const prepareArgs = buildPrepareArgs({
-    layout,
-    buildCmd,
-    startCmd,
-    // Declared to railpack by NAME only: `prepare --env K=V` records K in the
-    // plan's `secrets` list and never writes V to disk (verified against the
-    // pinned railpack), so the real value travels solely via buildx --secret.
-    extraEnv: {
+  const buildEnv = railpackBuildEnv({
+    serviceEnv: opts.serviceEnv.env,
+    builderEnv: {
+      // The memory guard, and the SPA dir the layout/provider check rely on.
+      NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
+      ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
       ...turboCache.env,
       ...turboForceEnv(opts.noCache),
       ...(runnerUsesTurbo ? { TURBO_CACHE_DIR } : {}),
     },
-    sink: opts.sink,
   });
+  logBuildEnv(buildEnv, opts.sink);
+  const envNames = [...Object.keys(buildEnv.builderEnv), ...Object.keys(buildEnv.serviceEnv)];
+
+  opts.sink.system(`preparing railpack plan for ${shaTag}`);
+  const prepareArgs = buildPrepareArgs({ layout, buildCmd, startCmd, envNames, sink: opts.sink });
 
   // Package-manager pinning: rewrite the repo's `packageManager` field before
   // railpack reads it. This is the one lever that works across every manager.
@@ -102,9 +112,12 @@ export async function railpackBuild(opts: {
   // deploys don't fail on bun 1.3.1's broken native install on Linux ARM64.
   await applyPackageManager(buildDir, opts.config?.packageManager, opts.sink);
 
+  // `--env NAME` reads each value from this process env (railpack-env.ts).
   const prepared = await runProcess({
     cmd: "railpack",
     args: prepareArgs,
+    env: { ...buildEnv.serviceEnv, ...buildEnv.builderEnv },
+    secrets: opts.serviceEnv.secretValues,
     sink: opts.sink,
   });
   if (prepared.exitCode !== 0) {
@@ -121,6 +134,8 @@ export async function railpackBuild(opts: {
   if (runnerUsesTurbo) await injectTurboCache(planPath, opts.sink);
 
   opts.sink.system(`building image ${shaTag} with railpack`);
+  // Service values reach buildx as files, never through its own env.
+  const secretFiles = await createSecretFiles(buildEnv.serviceEnv);
   const built = await runProcess({
     cmd: "docker",
     args: buildBuildxArgs({
@@ -128,27 +143,18 @@ export async function railpackBuild(opts: {
       shaTag,
       latestTag,
       buildDir,
-      spaOutputDir,
       builderName: opts.builderName,
       cachePath: opts.cachePath,
       noCache: opts.noCache,
-      extraSecretFlags: [
-        ...turboCache.secretFlags,
-        ...(opts.noCache ? ["--secret", "id=TURBO_FORCE,env=TURBO_FORCE"] : []),
-        ...(runnerUsesTurbo ? ["--secret", "id=TURBO_CACHE_DIR,env=TURBO_CACHE_DIR"] : []),
-      ],
+      secretEnvNames: Object.keys(buildEnv.builderEnv),
+      secretFiles: secretFiles.paths,
+      secretsHash: buildEnv.secretsHash,
     }),
-    env: {
-      // Must match the value `prepare` baked into the plan (see
-      // buildPrepareArgs): the secret mount reads it from this process env.
-      NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
-      ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
-      ...turboCache.env,
-      ...turboForceEnv(opts.noCache),
-      ...(runnerUsesTurbo ? { TURBO_CACHE_DIR } : {}),
-    },
+    // Each builder-owned `--secret id=K,env=K` reads K from here.
+    env: buildEnv.builderEnv,
+    secrets: opts.serviceEnv.secretValues,
     sink: opts.sink,
-  });
+  }).finally(secretFiles.remove);
   if (built.exitCode !== 0) {
     throw new Error(buildFailureMessage(built.exitCode, built.tail));
   }
@@ -157,6 +163,16 @@ export async function railpackBuild(opts: {
   if (runner) assertTurboRanTasks({ runner, buildLog: built.tail });
 
   return { shaTag, latestTag, buildDir };
+}
+
+/** Say which service variables the build sees (names only, never values),
+ *  and which it does not and why. */
+function logBuildEnv(buildEnv: RailpackBuildEnv, sink: LogSink): void {
+  const passed = Object.keys(buildEnv.serviceEnv).length;
+  if (passed > 0) sink.system(`build env: ${passed} service variable(s) available to the build`);
+  for (const { key, reason } of buildEnv.dropped) {
+    sink.system(`service variable ${key} is not passed to the build: ${reason}`);
+  }
 }
 
 /**

@@ -7,7 +7,7 @@ import type { BackupId, BackupRestoreId, OrganizationId, ResourceId } from "@ott
 
 import { db } from "@otterdeploy/db";
 import { backupRestore } from "@otterdeploy/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 export async function createRestoreRun(input: {
   organizationId: OrganizationId;
@@ -29,13 +29,16 @@ export async function createRestoreRun(input: {
   return row.id;
 }
 
+/** running → succeeded/failed. Guarded: a restore the boot reconcile already
+ *  failed (the process restarted mid-restore) keeps that outcome. Returns
+ *  whether this call settled the row. */
 export async function finishRestoreRun(input: {
   id: BackupRestoreId;
   status: "succeeded" | "failed";
   errorMessage?: string | null;
   durationMs: number;
-}): Promise<void> {
-  await db
+}): Promise<boolean> {
+  const rows = await db
     .update(backupRestore)
     .set({
       status: input.status,
@@ -43,7 +46,9 @@ export async function finishRestoreRun(input: {
       durationMs: input.durationMs,
       completedAt: new Date(),
     })
-    .where(eq(backupRestore.id, input.id));
+    .where(and(eq(backupRestore.id, input.id), eq(backupRestore.status, "running")))
+    .returning({ id: backupRestore.id });
+  return rows.length > 0;
 }
 
 export interface RestoreRow {

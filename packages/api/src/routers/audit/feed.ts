@@ -17,6 +17,9 @@ import { auditLog } from "@otterdeploy/db/schema";
 import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import { eq, isNull, or, type SQL } from "drizzle-orm";
 
+import type { ResolvedActor } from "../../authz/actor";
+
+import { authorizeCapability } from "../../authz/capability";
 import { createFeedHandler, feedResponse } from "../../lib/table";
 import { auditColumnMap, auditExtraSelect, auditFilters } from "./table";
 
@@ -40,18 +43,26 @@ const feed = createFeedHandler({
 });
 
 /**
- * Org scope for the feed.
+ * Which audit rows a caller may read: their own organization's, and — for an
+ * installation administrator only — the rows that belong to no organization.
  *
- * Rows with a NULL organization are included deliberately: every DENIED row
- * from an auth or org gate is written before an organization is known, so an
- * org-only predicate makes the denied count permanently zero. Those rows belong
- * to no tenant by construction, so surfacing them leaks nothing — and they are
- * the only way an operator ever sees "someone was blocked before establishing
- * identity".
+ * A NULL organization is not "nobody's data". Those rows are the failed
+ * sign-ins against an address with no account (the typed email, the caller's
+ * IP and user agent) and every auth/org-gate denial written before a tenant
+ * resolved, which includes signed-in users of OTHER organizations hitting a
+ * gate. Unioning them into every org's feed would hand each tenant's members
+ * the install-wide failure log. They are install-level records, so they need
+ * install authority, the same boundary `requireInstallAdmin` enforces (an
+ * organization API key never carries it, whatever its scope).
+ *
+ * Shared by the feed and the legacy `list`/`distinct` reads in ./index.ts, so
+ * the two read paths cannot disagree about who sees what.
  */
-function orgScope(orgId: string): SQL[] {
-  const scope = or(eq(auditLog.organizationId, orgId), isNull(auditLog.organizationId));
-  return scope ? [scope] : [];
+export async function auditScope(actor: ResolvedActor, orgId: string): Promise<SQL> {
+  const ownOrg = eq(auditLog.organizationId, orgId);
+  const install = await authorizeCapability(actor, { scope: "install", mode: "read" });
+  if (!install.allowed) return ownOrg;
+  return or(ownOrg, isNull(auditLog.organizationId)) ?? ownOrg;
 }
 
 function asNullableString(value: unknown): string | null {
@@ -111,7 +122,8 @@ export interface AuditFeedInput {
   timeZone?: string;
 }
 
-export async function runAuditFeed(input: AuditFeedInput, orgId: string) {
+/** `scope` is the caller's {@link auditScope}: composed outside the filters. */
+export async function runAuditFeed(input: AuditFeedInput, scope: SQL) {
   // Untrusted input, validated against the declaration rather than trusted:
   // unknown keys dropped, enum members checked against the declared set,
   // numeric ranges clamped to their declared bounds.
@@ -119,7 +131,7 @@ export async function runAuditFeed(input: AuditFeedInput, orgId: string) {
 
   const page = await feed.execute({
     values,
-    scope: orgScope(orgId),
+    scope: [scope],
     sort: input.sort ?? null,
     cursor: input.cursor ?? null,
     direction: input.direction,

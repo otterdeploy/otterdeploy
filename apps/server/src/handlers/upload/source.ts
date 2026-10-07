@@ -63,7 +63,12 @@ async function streamBodyToFile(c: Context, path: string): Promise<string> {
 }
 
 export async function uploadSourceHandler(c: Context): Promise<Response> {
-  const actor = await resolveRequestActor(c.req.raw.headers);
+  const resolved = await resolveRequestActor(c.req.raw.headers);
+  if (resolved.isErr()) {
+    c.header("Retry-After", String(resolved.error.retryAfterSeconds));
+    return c.json({ error: resolved.error.message }, 429);
+  }
+  const actor = resolved.value;
   if (!actor) {
     return c.json({ error: "Authentication required." }, 401);
   }

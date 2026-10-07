@@ -127,6 +127,17 @@ const saveGraphLayoutInput = z.object({
   replace: z.boolean().optional(),
 });
 
+/**
+ * Create/rename hit a slug some project on this install already holds (slugs
+ * are unique across ALL organizations). `suggestedSlug` is a free
+ * alternative the client can offer as-is.
+ */
+const projectSlugConflictError = {
+  status: 409,
+  message: "Project slug already in use",
+  data: z.object({ slug: z.string(), suggestedSlug: z.string() }),
+} as const;
+
 export const projectContractSlice = {
   get: oc
     .errors(projectNotFoundErrors)
@@ -141,7 +152,7 @@ export const projectContractSlice = {
   list: oc.meta({ path: basePath, tag, method: "GET" }).output(z.array(projectListItemSchema)),
   create: oc
     .errors({
-      CONFLICT: { status: 409, message: "Project already exists" as const },
+      CONFLICT: projectSlugConflictError,
     })
     .meta({ path: basePath, tag, method: "POST" })
     .input(createProjectInput)
@@ -149,7 +160,7 @@ export const projectContractSlice = {
   update: oc
     .errors({
       ...projectNotFoundErrors,
-      CONFLICT: { status: 409, message: "Project slug already in use" as const },
+      CONFLICT: projectSlugConflictError,
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "PATCH" })
     .input(updateProjectInput)

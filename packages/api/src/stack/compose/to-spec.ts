@@ -14,7 +14,7 @@ import type { SpecMount, SwarmServiceRestart, SwarmServiceSpec } from "../../swa
 import type { ParsedComposeService } from "./types";
 
 import { PLATFORM } from "../../constants";
-import { allowedHostBind } from "../../lib/host-binds";
+import { allowedHostBind, type HostBindGrants } from "../../lib/host-binds";
 
 export interface ComposeSpecContext {
   resourceId: string;
@@ -27,6 +27,9 @@ export interface ComposeSpecContext {
   image: string;
   deploymentId?: string | null;
   forceUpdateCounter: number;
+  /** The stack's install-admin host-bind grants. Omitted = none,
+   *  so a listed path like the docker socket is dropped. */
+  hostBindGrants?: HostBindGrants;
 }
 
 /**
@@ -82,7 +85,7 @@ export function composeServiceToSpec(
       // We can't infer L7 from compose; assume http for tcp, raw for udp.
       appProtocol: p.protocol === "udp" ? ("tcp" as const) : ("http" as const),
     })),
-    mounts: toMounts(svc, volumeBase, ctx.stackName),
+    mounts: toMounts(svc, volumeBase, ctx.stackName, ctx.hostBindGrants),
     forceUpdateCounter: ctx.forceUpdateCounter,
     deploymentId: ctx.deploymentId ?? null,
   };
@@ -121,11 +124,16 @@ function toRestart(r: ParsedComposeService["restart"]): SwarmServiceRestart {
  *  dropped here. Named volumes get the stack prefix; anonymous ones a stable
  *  derived name. Kept in step with `routers/compose/reconcile-map.ts#toMounts`.
  *  The two compose paths must agree on what a stack is allowed to mount. */
-function toMounts(svc: ParsedComposeService, volumeBase: string, stackName: string): SpecMount[] {
+function toMounts(
+  svc: ParsedComposeService,
+  volumeBase: string,
+  stackName: string,
+  grants: HostBindGrants | undefined,
+): SpecMount[] {
   const out: SpecMount[] = [];
   for (const v of svc.volumes) {
     if (v.type === "bind" && v.source) {
-      const granted = allowedHostBind(v.source);
+      const granted = allowedHostBind(v.source, grants);
       if (granted) {
         out.push({
           Type: "bind",

@@ -48,6 +48,7 @@ function ctx(apiKey: ApiKeyActor | null, activeOrganizationId = "org_1"): Contex
     actor: apiKey,
     session: null,
     apiKey,
+    apiKeyRateLimited: null,
     activeOrganizationId: zId(ID_PREFIX.organization).parse(activeOrganizationId),
     headers: new Headers(),
     log: createRequestLogger({ method: "TEST", path: "/authz" }),

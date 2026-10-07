@@ -227,8 +227,9 @@ export function noCacheFlags(noCache: boolean | null | undefined): string[] {
 }
 
 /**
- * Turbo credentials for one build: values to expose to the build process and
- * the matching buildx `--secret` flags.
+ * Turbo credentials for one build: values to expose to the build process. They
+ * join the build env (railpack-env.ts), which declares and mounts every key as
+ * a buildx secret.
  *
  * The SHAPE lives here, next to the other cache flags, rather than in
  * turbo-cache.ts. That module resolves the service's encrypted variables and
@@ -239,12 +240,10 @@ export function noCacheFlags(noCache: boolean | null | undefined): string[] {
 export interface TurboCacheEnv {
   /** Keys → values to expose to the build process, empty when disabled. */
   env: Record<string, string>;
-  /** `--secret id=KEY,env=KEY` flags for buildx. */
-  secretFlags: string[];
 }
 
 /** No turbo credentials: the shape every disabled/failed lookup returns. */
-export const NO_TURBO_CACHE: TurboCacheEnv = { env: {}, secretFlags: [] };
+export const NO_TURBO_CACHE: TurboCacheEnv = { env: {} };
 
 /**
  * `TURBO_FORCE=1` when the deploy asked to bypass caches.

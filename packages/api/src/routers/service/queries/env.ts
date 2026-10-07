@@ -6,9 +6,11 @@ import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { EnvVarSource, ResourceRow, ServiceEnvVarRow } from ".";
+import type { EnvironmentScopeInput } from "../../project/queries/environment-scope";
 import type { StackRefIdentity } from "./stack";
 
 import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
+import { inEnvironmentScope } from "../../project/queries/environment-scope";
 import { getStackRefIdentity } from "./stack";
 // ---------------------------------------------------------------------------
 // Env vars
@@ -239,28 +241,25 @@ export async function bulkReplaceServiceEnvVars(
 }
 
 /**
- * Preview-aware resource lookup for the variable resolver: a preview-scoped
- * row (an opt-in DB branch, `previewId = <preview>`) wins over the base row
- * (`previewId IS NULL`), which every non-preview resource is. Ordering NULLs
- * last puts the preview-scoped match first, so LIMIT 1 returns the branch when
- * present and the base otherwise. With no preview scope this always resolves
- * to the base row: identical to `getResourceByProjectAndName`.
+ * Preview-aware resource lookup for the variable resolver, within the CALLING
+ * service's environment. A non-main environment reuses the base
+ * names on purpose, so without the environment predicate `${{db.…}}` matched
+ * every environment's `db` and LIMIT 1 returned whichever row the scan met
+ * first: a staging service could read production's credentials.
+ *
+ * Narrowest scope wins: a preview-scoped row (an opt-in DB branch,
+ * `previewId = <preview>`) over the environment's base row, and within main an
+ * environment-stamped row over a legacy unstamped one (main owns both, see
+ * inEnvironmentScope). The preview row is matched on the preview alone: a
+ * preview belongs to exactly one environment already.
  */
 export async function resolveResourceForPreview(
   projectId: ProjectId,
   previewId: PreviewId | null,
   name: string,
+  scope: EnvironmentScopeInput,
 ): Promise<ResourceRow | undefined> {
-  if (!previewId) {
-    const [row] = await db
-      .select()
-      .from(resource)
-      .where(
-        and(eq(resource.projectId, projectId), eq(resource.name, name), isNull(resource.previewId)),
-      )
-      .limit(1);
-    return row;
-  }
+  const base = and(isNull(resource.previewId), inEnvironmentScope(scope));
   const [row] = await db
     .select()
     .from(resource)
@@ -268,10 +267,10 @@ export async function resolveResourceForPreview(
       and(
         eq(resource.projectId, projectId),
         eq(resource.name, name),
-        or(eq(resource.previewId, previewId), isNull(resource.previewId)),
+        previewId ? or(eq(resource.previewId, previewId), base) : base,
       ),
     )
-    .orderBy(sql`${resource.previewId} nulls last`)
+    .orderBy(sql`${resource.previewId} nulls last`, sql`${resource.environmentId} nulls last`)
     .limit(1);
   return row;
 }
