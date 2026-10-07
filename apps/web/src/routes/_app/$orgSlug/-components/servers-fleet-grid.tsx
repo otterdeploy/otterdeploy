@@ -134,7 +134,7 @@ function FleetCard({
   return (
     // The whole card opens the server. A stretched link covers the card;
     // the content sits above it with pointer events off, and the few real
-    // controls (the name, the retry buttons) turn them back on so they act
+    // controls (the retry buttons) turn them back on so they act
     // as themselves rather than as "open".
     <Card className="group relative flex min-w-0 flex-col gap-4 rounded-md p-4 transition-colors hover:bg-muted/30 focus-within:ring-foreground/20">
       <Link
@@ -146,14 +146,12 @@ function FleetCard({
       />
       <div className="pointer-events-none relative flex min-w-0 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-2">
-          <Link
-            to="/$orgSlug/servers/$serverId"
-            params={{ orgSlug, serverId: server.id }}
-            search={{ tab: "overview" }}
-            className="pointer-events-auto min-w-0 truncate font-mono text-sm font-medium underline-offset-4 group-hover:underline"
-          >
+          {/* The name is the card link's label, not a second link to the same
+              place: one tab stop per card, and no 19 px target crowding the
+              card-sized one (axe target-size). */}
+          <span className="min-w-0 truncate font-mono text-sm font-medium underline-offset-4 group-hover:underline">
             {server.name}
-          </Link>
+          </span>
           <ServerStateBadge state={state} className="ml-auto" />
         </div>
         <div className="truncate text-xs text-muted-foreground">

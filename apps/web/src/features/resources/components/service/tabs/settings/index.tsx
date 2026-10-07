@@ -51,6 +51,11 @@ export function ServiceSettingsBody({
 }: ServiceSettingsBodyProps) {
   return (
     <div className="flex flex-col gap-6">
+      {/* Where a service gets a hostname, first: the one place for it, and the
+          thing an operator opens Settings for most (it sat
+          half-way down, after Scaling and Health check). */}
+      {pending ? null : <ServiceNetworkingCard resource={resource} />}
+
       {/* Rename stays read-only on purpose: the name derives the runtime
           container/service name, the internal DNS hostname, and the target of
           `${{name.VAR}}` variable references: a rename would rotate all
@@ -87,7 +92,6 @@ export function ServiceSettingsBody({
               service.get/update, so they're omitted for a staged create. */}
           <ServiceScalingCard resource={resource} />
           <ServiceHealthCheckCard resource={resource} />
-          <ServiceNetworkingCard resource={resource} />
           <ServiceExtraNetworksCard resource={resource} />
           <ServiceProtectionCard resource={resource} />
         </>

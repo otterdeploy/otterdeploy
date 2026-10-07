@@ -9,10 +9,13 @@
 
 import type { IconSvgElement } from "@hugeicons/react";
 
+import { useState } from "react";
+
 import { Copy01Icon, Delete02Icon, PencilEdit02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -175,6 +178,9 @@ export function DomainRowActions({
   onSetEnabled: (enabled: boolean) => void;
 }) {
   const { t } = useTranslation();
+  // Removing a host takes it off the internet for every visitor: a styled
+  // confirm. Pausing it is the switch beside it, undone the same way.
+  const [confirmRemove, setConfirmRemove] = useState(false);
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
       {/* Pause/resume without deleting: checked while the operator hasn't
@@ -220,9 +226,20 @@ export function DomainRowActions({
       <IconAction
         label={t("domains.removeDomain")}
         icon={Delete02Icon}
-        onClick={onRemove}
+        onClick={() => setConfirmRemove(true)}
         disabled={busy}
         className="hover:text-destructive"
+      />
+      <TypedConfirmDialog
+        open={confirmRemove}
+        onOpenChange={setConfirmRemove}
+        title={`Remove ${domain.domain}?`}
+        description="Visitors stop reaching this service on this host at once. To take it offline for a while instead, turn its switch off."
+        confirmLabel="Remove domain"
+        onConfirm={() => {
+          setConfirmRemove(false);
+          onRemove();
+        }}
       />
     </div>
   );

@@ -9,12 +9,18 @@
 import type React from "react";
 import { useState } from "react";
 
-import { ArrowDown01Icon, GitBranchIcon, GitCommitIcon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDown01Icon,
+  GitBranchIcon,
+  GitCommitIcon,
+  RotateLeft01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
 
 import { logSourceForStatus } from "@/features/resources/lib/deployment-log-tab";
+import { Button } from "@/shared/components/ui/button";
 import { timeAgo } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
@@ -28,6 +34,7 @@ import {
 } from "./deployment-cards";
 import { DeploymentTimelineView } from "./deployment-timeline-view";
 import { HistoryRowMenu } from "./history-row-menu";
+import { deploymentShortName, RollbackDialog } from "./rollback-dialog";
 
 /** What kicked off this deployment, in plain words. */
 const TRIGGER_LABEL: Record<DeploymentInfo["reason"], string> = {
@@ -129,6 +136,7 @@ export function StagedDeploymentCard({
   projectId,
   resourceId,
   canRollback,
+  rollbackTo,
   focus,
 }: {
   deployment: DeploymentInfo;
@@ -139,6 +147,9 @@ export function StagedDeploymentCard({
   projectId: string;
   resourceId: string;
   canRollback: boolean;
+  /** When this (the latest) deployment failed: the last good one to go back
+   *  to, offered as the card's primary action. */
+  rollbackTo?: DeploymentInfo;
   /** "View logs" and the timeline's log links switch the panel to its Logs
    *  tab with this deployment focused: no overlay, no route change. */
   focus: PanelFocus;
@@ -233,11 +244,55 @@ export function StagedDeploymentCard({
           />
         </div>
       </div>
+      {failed && rollbackTo ? (
+        <RollbackOffer target={rollbackTo} projectId={projectId} resourceId={resourceId} />
+      ) : null}
       {open && (
         <div className="border-t border-border/60">
           <DeploymentTimelineView deployment={deployment} onOpenLogs={openLogs} />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The most useful thing to do after a failed deploy, said where the failure
+ * is: go back to the last deployment that worked. It used to live only in
+ * each history row's overflow menu, out of reach on a phone at night, which
+ * is exactly when it is needed.
+ */
+function RollbackOffer({
+  target,
+  projectId,
+  resourceId,
+}: {
+  target: DeploymentInfo;
+  projectId: string;
+  resourceId: string;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-destructive/20 bg-destructive/5 px-4 py-2.5">
+      <span className="text-[12.5px] text-muted-foreground">
+        Last good deploy:{" "}
+        <span className="font-mono text-foreground">{deploymentShortName(target)}</span>
+        {" · "}
+        {timeAgo(target.createdAt)}
+      </span>
+      {/* Outline: the card's one solid action stays "View build logs" (the
+          One Voice rule); this sits first, where the failure is read. */}
+      <Button size="sm" variant="outline" onClick={() => setConfirmOpen(true)}>
+        <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3.5" />
+        Roll back to last good deploy
+      </Button>
+      <RollbackDialog
+        deployment={target}
+        projectId={projectId}
+        resourceId={resourceId}
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+      />
     </div>
   );
 }

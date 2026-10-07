@@ -67,12 +67,12 @@
       "success": {
         "role": "tertiary",
         "displayName": "Healthy Green",
-        "canonical": "#1f7a3f",
+        "canonical": "#1d733b",
         "tonalRamp": [
           "#0a2916",
           "#103f22",
           "#16562e",
-          "#1f7a3f",
+          "#1d733b",
           "#2fa257",
           "#5fc080",
           "#9bdcb1",
@@ -82,12 +82,12 @@
       "warning": {
         "role": "tertiary",
         "displayName": "Attention Amber",
-        "canonical": "#8a6a00",
+        "canonical": "#7f6200",
         "tonalRamp": [
           "#2e2300",
           "#473700",
           "#604a00",
-          "#8a6a00",
+          "#7f6200",
           "#b58c00",
           "#d9b52e",
           "#ecd47e",
@@ -204,7 +204,7 @@
       "refersTo": "input-default",
       "description": "Standard field; same focus signature as buttons.",
       "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"my-service\" />",
-      "css": ".ds-input { height: 32px; width: 220px; padding: 4px 10px; border: 1px solid rgba(20,20,18,0.12); border-radius: 0.625rem; background: transparent; color: #141412; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; letter-spacing: -0.005em; outline: none; transition: border-color 0.18s ease, box-shadow 0.18s ease; } .ds-input::placeholder { color: #7a7a74; } .ds-input:focus-visible { border-color: #a8a8a0; box-shadow: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.5); }"
+      "css": ".ds-input { height: 32px; width: 220px; padding: 4px 10px; border: 1px solid rgba(20,20,18,0.12); border-radius: 0.625rem; background: transparent; color: #141412; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; letter-spacing: -0.005em; outline: none; transition: border-color 0.18s ease, box-shadow 0.18s ease; } .ds-input::placeholder { color: #6b6b65; } .ds-input:focus-visible { border-color: #a8a8a0; box-shadow: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.5); }"
     },
     {
       "name": "Card",
@@ -212,7 +212,7 @@
       "refersTo": "card-default",
       "description": "Flat surface lifted off the canvas by a hairline ring, no shadow at rest.",
       "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">web</div><div class=\"ds-card-body\">Running · <span class=\"ds-mono\">a4c5e1f</span></div></div>",
-      "css": ".ds-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 0.625rem; background: #ffffff; color: #141412; box-shadow: inset 0 0 0 1px rgba(20,20,18,0.10); font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; } .ds-card-title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; } .ds-card-body { font-size: 0.875rem; color: #7a7a74; } .ds-mono { font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: 'zero','ss03'; font-size: 0.8125rem; color: #141412; }"
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-radius: 0.625rem; background: #ffffff; color: #141412; box-shadow: inset 0 0 0 1px rgba(20,20,18,0.10); font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; } .ds-card-title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; } .ds-card-body { font-size: 0.875rem; color: #6b6b65; } .ds-mono { font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: 'zero','ss03'; font-size: 0.8125rem; color: #141412; }"
     },
     {
       "name": "Status Badge",
@@ -220,7 +220,7 @@
       "refersTo": "badge-default",
       "description": "Pill carrying the semantic state vocabulary (success shown).",
       "html": "<span class=\"ds-badge-success\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>Running</span>",
-      "css": ".ds-badge-success { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 2px 8px; border-radius: 9999px; background: rgba(31,122,63,0.12); color: #1f7a3f; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; letter-spacing: -0.005em; }"
+      "css": ".ds-badge-success { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 2px 8px; border-radius: 9999px; background: rgba(29,115,59,0.12); color: #1d733b; font-family: 'Geist Variable', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; letter-spacing: -0.005em; }"
     },
     {
       "name": "Sidebar Nav Item",

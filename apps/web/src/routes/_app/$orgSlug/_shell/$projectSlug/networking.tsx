@@ -189,7 +189,7 @@ function CaddyfileDisclosure({
         </span>
         <span className="flex-1" />
         {probedVia ? (
-          <span className="hidden font-mono text-[11px] text-muted-foreground/70 sm:inline">
+          <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
             probed via {probedVia}
           </span>
         ) : null}

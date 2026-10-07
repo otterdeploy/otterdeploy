@@ -106,8 +106,10 @@ function RouteComponent() {
 
   return (
     // No inset padding / rounded frame on a phone: at 375px the 12px gutter
-    // and the border are pure loss, and the canvas wants every pixel.
+    // and the border are pure loss, and the canvas wants every pixel. The
+    // canvas has no title bar, so the page is named for screen readers only.
     <div className="relative flex flex-1 overflow-hidden p-0 sm:p-3">
+      <h1 className="sr-only">Project graph</h1>
       <div className="relative flex-1 overflow-hidden border-0 sm:rounded-2xl sm:border">
         <ReactFlowProvider>
           {/* While the stack-code drawer is parked (below), the canvas sees a
@@ -389,11 +391,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
         onOpenChange={contextMenu.onOpenChange}
         actions={contextMenu.actions}
       />
-      <GraphNodeDialogs
-        projectId={project.id}
-        nodes={liveNodes}
-        menu={contextMenu}
-      />
+      <GraphNodeDialogs projectId={project.id} nodes={liveNodes} menu={contextMenu} />
     </>
   );
 }

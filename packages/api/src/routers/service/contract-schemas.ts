@@ -101,6 +101,13 @@ export const serviceSchema = z.object({
 
   runtime: serviceRuntimeSchema,
 
+  /** Is the saved env the env the container runs? See views.ts envLiveness. */
+  env: z.object({
+    state: z.enum(["live", "pending", "unknown"]),
+    changedAt: z.string().nullable(),
+    appliedAt: z.string().nullable(),
+  }),
+
   createdAt: z.string(),
   updatedAt: z.string(),
 });

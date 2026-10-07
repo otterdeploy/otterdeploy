@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
@@ -82,6 +82,21 @@ function DevicePairingPage() {
     onSuccess: () => setDone("denied"),
   });
 
+  // A double-click lands both clicks before React re-renders the button as
+  // disabled, which sent the approval twice (the only submit in the
+  // double-click probe that did). A ref flips synchronously, in the click
+  // itself, so the second click finds the decision already in flight.
+  const deciding = useRef(false);
+  const decide = (mutation: typeof approve | typeof deny) => {
+    if (deciding.current) return;
+    deciding.current = true;
+    mutation.mutate(code, {
+      onSettled: () => {
+        deciding.current = false;
+      },
+    });
+  };
+
   if (done === "approved") {
     return (
       <Shell title="Device authorized">
@@ -131,19 +146,14 @@ function DevicePairingPage() {
       </Field>
 
       <div className="flex gap-2">
-        <Button
-          type="button"
-          disabled={!canAct}
-          onClick={() => approve.mutate(code)}
-          className="flex-1"
-        >
+        <Button type="button" disabled={!canAct} onClick={() => decide(approve)} className="flex-1">
           {approve.isPending ? "Approving…" : "Approve"}
         </Button>
         <Button
           type="button"
           variant="outline"
           disabled={!canAct}
-          onClick={() => deny.mutate(code)}
+          onClick={() => decide(deny)}
           className="flex-1"
         >
           Deny

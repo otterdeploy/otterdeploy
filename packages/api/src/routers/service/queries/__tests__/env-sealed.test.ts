@@ -45,10 +45,24 @@ function deleteChain() {
   return { where: vi.fn(() => Promise.resolve(undefined)) };
 }
 
+/** `tx.update(serviceResource).set({ envChangedAt }).where(...)`: records the stamps. */
+const envStamps: unknown[] = [];
+function updateChain() {
+  const chain = {
+    set: vi.fn((v: unknown) => {
+      envStamps.push(v);
+      return chain;
+    }),
+    where: vi.fn(() => Promise.resolve(undefined)),
+  };
+  return chain;
+}
+
 interface FakeTx {
   select: (...args: unknown[]) => ReturnType<typeof selectChain>;
   insert: (...args: unknown[]) => ReturnType<typeof insertChain>;
   delete: (...args: unknown[]) => ReturnType<typeof deleteChain>;
+  update: (...args: unknown[]) => ReturnType<typeof updateChain>;
 }
 
 let nextSelectRows: unknown[] = [];
@@ -63,6 +77,7 @@ function makeTx(): FakeTx {
       return insertChain(lastInsertReturn, lastInsertCapture);
     }),
     delete: vi.fn(() => deleteChain()),
+    update: vi.fn(() => updateChain()),
   };
 }
 
@@ -229,5 +244,30 @@ describe("bulkReplaceServiceEnvVars, sealed rows survive wholesale replace", () 
     expect(byKey.PLAIN_KEY?.value).toBe("new-plain-value");
     expect(byKey.SEALED_KEY?.value).toBe(existingSealed.value);
     expect(byKey.SEALED_KEY?.sealed).toBe(true);
+  });
+});
+
+describe("env writes stamp the service's envChangedAt", () => {
+  test("a write that changes the bag stamps it; an identical wholesale save does not", async () => {
+    nextSelectRows = [];
+    lastInsertReturn = [];
+    envStamps.length = 0;
+    await bulkReplaceServiceEnvVars(serviceResourceId, [{ key: "FLAG", value: "on" }]);
+    expect(envStamps).toHaveLength(1);
+    expect(envStamps[0]).toMatchObject({ envChangedAt: expect.any(Date) });
+
+    // The editor resends the whole bag on every Save: unchanged is not stale.
+    envStamps.length = 0;
+    nextSelectRows = [];
+    await bulkReplaceServiceEnvVars(serviceResourceId, []);
+    expect(envStamps).toHaveLength(0);
+  });
+
+  test("a single upsert stamps it", async () => {
+    nextSelectRows = [];
+    lastInsertReturn = [{ id: "sev_1", key: "A", value: "x", sealed: false }];
+    envStamps.length = 0;
+    await upsertServiceEnvVar({ serviceResourceId, key: "A", value: "1" });
+    expect(envStamps).toHaveLength(1);
   });
 });

@@ -13,6 +13,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { TimeWindow } from "@/shared/components/charts/time-series-chart";
+
 import { epochMsOf } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
 
@@ -59,6 +61,21 @@ export function refetchIntervalFor(windowMinutes: number): number {
   return isLiveWindow(windowMinutes) ? SAMPLE_INTERVAL_MS : HISTORY_REFETCH_MS;
 }
 
+const MS_PER_MINUTE = 60_000;
+
+/**
+ * The window a metrics answer covers: `windowMinutes` back from the moment the
+ * answer was fetched. The charts pin their time axis to it, so "Last 30
+ * minutes" draws thirty minutes however few samples fall inside them (one
+ * sample on a fitted axis was drawn as a dot on a 24-hour scale).
+ *
+ * Undefined until there is an instant to anchor on.
+ */
+export function metricTimeWindow(endMs: number, windowMinutes: number): TimeWindow | undefined {
+  if (!(endMs > 0) || !(windowMinutes > 0)) return undefined;
+  return { startMs: endMs - windowMinutes * MS_PER_MINUTE, endMs };
+}
+
 /** One charted sample: server fields plus the derived ratio + rates. */
 export interface MetricRow {
   ts: number;
@@ -94,6 +111,8 @@ export interface ResourceMetrics {
   isError: boolean;
   /** Epoch ms of the last successful fetch. Drives the "updated" caption. */
   updatedAt: number;
+  /** The window the charts draw: see {@link metricTimeWindow}. */
+  timeWindow: TimeWindow | undefined;
 }
 
 const EMPTY_SUMMARY: MetricSummary = {
@@ -177,6 +196,12 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
     return { rows, summary };
   })();
 
+  // Anchor on the fetch, not the newest sample: a sampler that stopped five
+  // minutes ago must show five empty minutes at the right edge, not a window
+  // that slid back to meet its last point. A placeholder (the previous
+  // window's answer, held while the new one loads) has no fetch time of its
+  // own, so it anchors on its newest sample instead.
+  const anchorMs = query.dataUpdatedAt || (rows.at(-1)?.ts ?? 0);
   return {
     rows,
     summary,
@@ -184,5 +209,6 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
     isLoading: query.isLoading,
     isError: query.isError,
     updatedAt: query.dataUpdatedAt,
+    timeWindow: metricTimeWindow(anchorMs, windowMinutes),
   };
 }

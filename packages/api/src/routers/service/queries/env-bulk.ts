@@ -10,7 +10,8 @@ import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 
 import type { EnvVarSource, ServiceEnvVarRow } from ".";
 
-import { encryptEnvValue } from "../../../lib/env-crypto";
+import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
+import { envBagChanged, markEnvChanged } from "./env-liveness";
 
 /**
  * Sealed rows are DELIBERATELY exempt from this whole dance, mirroring
@@ -116,6 +117,14 @@ export async function bulkReplaceServiceEnvVars(
         ...row,
         value: plaintextByKey.get(row.key) ?? row.value,
       }));
+    }
+
+    // Only a real change makes the running env stale: the editor and the
+    // manifest reconcile both send the whole bag, usually unchanged.
+    const before = await decryptUnsealedEnvRows(baseRows.filter((r) => !r.sealed));
+    const keptPlain = before.filter((r) => keptKeys.has(r.key));
+    if (envBagChanged(before, [...toInsert, ...keptPlain])) {
+      await markEnvChanged(tx, serviceResourceId);
     }
 
     return [...inserted, ...sealedRows, ...kept].sort((a, b) => a.key.localeCompare(b.key));

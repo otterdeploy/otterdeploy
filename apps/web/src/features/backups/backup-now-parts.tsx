@@ -16,7 +16,8 @@ import { Switch } from "@/shared/components/ui/switch";
 
 import type { Destination } from "./data/destinations";
 
-import { destUri, Field, Segmented } from "./shared";
+import { Segmented } from "./segmented";
+import { destUri, Field } from "./shared";
 
 export function SourceKindField({
   value,
@@ -26,8 +27,9 @@ export function SourceKindField({
   onChange: (value: "database" | "volume") => void;
 }) {
   return (
-    <Field label="Source">
+    <Field label="Source" group>
       <Segmented
+        label="Source"
         value={value}
         onChange={onChange}
         options={[

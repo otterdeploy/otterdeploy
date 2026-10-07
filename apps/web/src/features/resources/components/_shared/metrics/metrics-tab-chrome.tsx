@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { formatDuration, useNowTick } from "@/shared/lib/duration";
 
 import { formatClockSeconds } from "./format";
 import { METRIC_WINDOWS, type MetricWindowLabel } from "./use-resource-metrics";
@@ -58,26 +59,41 @@ export function TimeRangeField({
           ))}
         </SelectContent>
       </Select>
-      <p className="text-xs text-muted-foreground">
-        Ten and thirty minute ranges refresh automatically every thirty seconds, in step with the
-        sampler. Longer ranges refresh every five minutes.
-      </p>
     </div>
   );
 }
 
-export function LiveIndicator({ updatedAt }: { updatedAt: number }) {
+/**
+ * How fresh the charts are, in words. The live ranges say so and count up
+ * from their last refresh; the long ones (refreshed every few minutes) only
+ * count. Replaces a paragraph that explained the refresh cadence: the age of
+ * what is on screen is the thing worth reading, not the schedule behind it.
+ */
+export function LiveIndicator({ live, updatedAt }: { live: boolean; updatedAt: number }) {
+  // The hook's default one-second tick: the caption reads in seconds.
+  const now = useNowTick(true);
   return (
     <div className="flex items-center gap-2">
-      <span className="inline-flex h-6 items-center gap-1.5 rounded-4xl bg-muted px-2.5 text-xs font-medium">
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-        Live updates
-      </span>
-      <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-        {updatedAt ? formatClockSeconds(updatedAt) : "–"}
+      {live ? (
+        <span className="inline-flex h-6 items-center gap-1.5 rounded-4xl bg-muted px-2.5 text-xs font-medium">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
+          Live updates
+        </span>
+      ) : null}
+      <span
+        className="text-[11px] text-muted-foreground tabular-nums"
+        title={updatedAt ? formatClockSeconds(updatedAt) : undefined}
+      >
+        {updatedAgo(updatedAt, now)}
       </span>
     </div>
   );
+}
+
+/** "updated 12s ago", or nothing worth saying before the first answer. */
+export function updatedAgo(updatedAt: number, now: number): string {
+  if (!updatedAt) return "";
+  return `updated ${formatDuration(now - updatedAt)} ago`;
 }
 
 export function LoadingState() {

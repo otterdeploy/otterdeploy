@@ -128,6 +128,9 @@ function DataPage() {
   // and the rail reads as part of the app rather than as a widget on a page.
   return (
     <div className="flex h-[calc(100svh-var(--header-height))] min-h-0 min-w-0 flex-col overflow-hidden">
+      {/* A full-bleed workbench has no title bar; screen readers still get
+          the page's name. */}
+      <h1 className="sr-only">Workbench</h1>
       {headerCrumb}
       {isLoading ? (
         <div className="min-h-0 flex-1 animate-pulse bg-muted/20" />

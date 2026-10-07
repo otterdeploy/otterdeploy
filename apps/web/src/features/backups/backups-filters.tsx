@@ -14,7 +14,8 @@ import { cn } from "@/shared/lib/utils";
 
 import type { Destination } from "./data/destinations";
 
-import { ALL_PROJECTS, type BackupKind, Segmented } from "./shared";
+import { Segmented } from "./segmented";
+import { ALL_PROJECTS, type BackupKind } from "./shared";
 
 export function BackupsFilters({
   projects,
@@ -69,6 +70,7 @@ export function BackupsFilters({
 
       {/* No "Stack" chip: no stack engine exists, so it could never match. */}
       <Segmented
+        label="Backup type"
         value={kindFilter}
         onChange={onKindFilter}
         options={[
@@ -79,7 +81,7 @@ export function BackupsFilters({
       />
 
       <Select items={destItems} value={destFilter} onValueChange={(v) => onDestFilter(v ?? "all")}>
-        <SelectTrigger size="sm" className="w-44 text-xs">
+        <SelectTrigger size="sm" className="w-44 text-xs" aria-label="Destination">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

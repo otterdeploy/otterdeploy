@@ -2,11 +2,18 @@
  * Shared destructive-confirmation dialog: the one safety pattern for every
  * irreversible action in the app.
  *
- * Two strengths, one component:
- * - `confirmPhrase` set → type-the-phrase gate: the confirm button stays
- *   disabled until the input exactly matches (deletes, drops, teardowns).
- * - `confirmPhrase` omitted → a plain styled confirm for recoverable-but-
- *   consequential actions (rollback, blocklist removal). Never `window.confirm`.
+ * ONE RULE, BY RISK (removing a teammate used to be one stray
+ * click while deleting a service took a typed phrase):
+ * - DATA LOSS (a service, project, database, volume, anything that cannot be
+ *   rebuilt): `confirmPhrase` set → type-the-phrase gate; the confirm button
+ *   stays disabled until the input exactly matches.
+ * - ACCESS LOSS (a member, an invitation, an API or SSH key, a passkey, a
+ *   backup destination or schedule, a domain) and recoverable-but-consequential
+ *   actions (rollback, blocklist removal): `confirmPhrase` omitted → a plain
+ *   styled confirm that names the thing and says what stops working.
+ * - REVERSIBLE (pause, a domain's on/off switch): no dialog at all. Do it, and
+ *   offer the way back in the toast (Undo) or the control itself.
+ * Never `window.confirm`.
  *
  * Works trigger-based (pass `trigger`, the dialog owns its open state) or
  * controlled (pass `open` + `onOpenChange`, e.g. when the confirm is raised

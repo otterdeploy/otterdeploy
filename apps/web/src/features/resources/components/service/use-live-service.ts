@@ -69,17 +69,23 @@ export function usePauseControl({
     ]);
   };
 
-  const pauseMut = useMutation({
-    ...orpc.service.pause.mutationOptions(),
-    onSuccess: () => toast.success("Service paused. Replicas scaled to zero."),
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to pause service"),
-    onSettled: invalidate,
-  });
-
   const resumeMut = useMutation({
     ...orpc.service.resume.mutationOptions(),
     onSuccess: () => toast.success("Service resuming"),
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to resume service"),
+    onSettled: invalidate,
+  });
+
+  const pauseMut = useMutation({
+    ...orpc.service.pause.mutationOptions(),
+    // Reversible, so no confirm before it: the toast carries the way back
+    // (typed confirm for data loss, a dialog for access loss, an undo for
+    // a reversible change).
+    onSuccess: (_result, input) =>
+      toast.success("Service paused. Replicas scaled to zero.", {
+        action: { label: "Undo", onClick: () => resumeMut.mutate(input) },
+      }),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to pause service"),
     onSettled: invalidate,
   });
 

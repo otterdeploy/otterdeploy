@@ -86,7 +86,7 @@ export function ObjectTable({
                 <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
               </Td>
               <Td>
-                <span className="flex items-center gap-1.5 text-primary">
+                <span className="flex items-center gap-1.5 text-brand-accent">
                   <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5" />
                   {basename(prefix)}/
                 </span>

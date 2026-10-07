@@ -129,7 +129,7 @@ export function AuthLayout({
       </div>
 
       {/* ─── Environment footer (full width, normal flow) ─── */}
-      <footer className="flex items-center justify-between border-t border-border px-7 py-3.5 font-mono text-[10px] tracking-[0.06em] text-muted-foreground/70 lg:px-16">
+      <footer className="flex items-center justify-between border-t border-border px-7 py-3.5 font-mono text-[10px] tracking-[0.06em] text-muted-foreground lg:px-16">
         <span className="uppercase">{t("auth.layoutFooter")}</span>
         <ConnectionBadge />
       </footer>

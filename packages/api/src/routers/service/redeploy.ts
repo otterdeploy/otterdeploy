@@ -20,6 +20,7 @@ import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
   getServiceRecord,
+  markServiceEnvApplied,
   type ServiceRecord,
   updateServiceResourceStatus,
 } from "./queries";
@@ -51,6 +52,9 @@ export async function provisionFresh(
     });
   }
 
+  // Taken before the read: see markServiceEnvApplied. A `Date` because the
+  // timestamp column demands one (the drizzle seam).
+  const envReadAt = new Date();
   const resolved = await resolveServiceEnv(projectId, record.service.resourceId);
   if (resolved.isErr()) {
     await updateServiceResourceStatus(record.service.resourceId, "invalid");
@@ -96,6 +100,7 @@ export async function provisionFresh(
     record.service.resourceId,
     result.status === "error" ? "invalid" : "valid",
   );
+  if (provisioned.isOk()) await markServiceEnvApplied(record.service.resourceId, envReadAt);
 
   return Result.ok(result);
 }
@@ -135,6 +140,7 @@ export async function redeployOne(
     return Result.err(new ServiceNotFoundError({ resourceId }));
   }
 
+  const envReadAt = new Date();
   const resolved = await resolveServiceEnv(projectId, resourceId, opts?.previewId);
   if (resolved.isErr()) {
     // A preview override resolve failure must not corrupt the BASE resource's
@@ -187,8 +193,10 @@ export async function redeployOne(
   }
   // Same guard: a preview roll's outcome never rewrites the base status. A
   // rolled-back rollout leaves the resource `valid`: its previous version is
-  // still the one serving, only this deploy failed.
-  if (!opts?.previewId) await updateServiceResourceStatus(resourceId, resourceStatusAfter(result));
+  // still the one serving, only this deploy failed. It is also
+  // the one case where the update "succeeded" but the new env is NOT what the
+  // container runs, so it does not count as applied.
+  if (!opts?.previewId) await settleBaseRoll(resourceId, result, updated.isOk(), envReadAt);
 
   return Result.ok(result);
 }
@@ -197,6 +205,21 @@ export async function redeployOne(
  *  healthy is serving (a rolled-back roll still has the previous version). */
 function resourceStatusAfter(result: SwarmServiceRuntime): "valid" | "invalid" {
   return result.status === "error" && !result.rolledBack ? "invalid" : "valid";
+}
+
+/**
+ * After a base (non-preview) roll: the resource's status follows the runtime,
+ * and a spec that reached the runtime and stayed (not rolled back) carries the
+ * env as read at `envReadAt`; otherwise the saved env stays pending.
+ */
+async function settleBaseRoll(
+  resourceId: ResourceId,
+  result: SwarmServiceRuntime,
+  reachedRuntime: boolean,
+  envReadAt: Date,
+): Promise<void> {
+  await updateServiceResourceStatus(resourceId, resourceStatusAfter(result));
+  if (reachedRuntime && !result.rolledBack) await markServiceEnvApplied(resourceId, envReadAt);
 }
 
 /** Roll a service, then every service that references it. Ok carries the

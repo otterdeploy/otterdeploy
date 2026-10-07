@@ -176,19 +176,11 @@ function BackupsRoute() {
       )}
 
       {view === "schedules" && (
-        <SchedulesSection
-          schedules={schedules}
-          onNew={() => openNewSchedule()}
-          onEdit={setScheduleEditor}
-        />
+        <SchedulesSection schedules={schedules} onEdit={setScheduleEditor} />
       )}
 
       {view === "destinations" && (
-        <DestinationsSection
-          destinations={destinations}
-          onAdd={() => setDestEditor("new")}
-          onEdit={setDestEditor}
-        />
+        <DestinationsSection destinations={destinations} onEdit={setDestEditor} />
       )}
 
       <BackupNowDialog

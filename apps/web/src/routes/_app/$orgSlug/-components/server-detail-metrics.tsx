@@ -69,7 +69,7 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
   const [window, setWindow] = useState<ServerMetricWindowLabel>(DEFAULT_WINDOW.label);
   const [cpuMode, setCpuMode] = useState<CpuMode>("total");
   const selected = SERVER_METRIC_WINDOWS.find((w) => w.label === window) ?? DEFAULT_WINDOW;
-  const { rows, summary, bucketMs, isLoading, isError, updatedAt } = useServerMetrics(
+  const { rows, summary, bucketMs, isLoading, isError, updatedAt, timeWindow } = useServerMetrics(
     server.id,
     selected.minutes,
   );
@@ -89,7 +89,7 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
             {selected.live ? " · live" : ""}
           </span>
         </div>
-        {selected.live && hasData ? <LiveIndicator updatedAt={updatedAt} /> : null}
+        {selected.live && hasData ? <LiveIndicator live updatedAt={updatedAt} /> : null}
       </div>
 
       {hasData ? (
@@ -98,6 +98,7 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
             rows={rows}
             summary={summary}
             sampleIntervalMs={bucketMs}
+            timeWindow={timeWindow}
             mode={cpuMode}
             onMode={setCpuMode}
           />
@@ -107,10 +108,10 @@ export function ServerMetricsTab({ server, health }: { server: Server; health: H
             </SectionCard>
           )}
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <LoadPanel rows={rows} sampleIntervalMs={bucketMs} cores={cores} />
-            <MemoryPanel rows={rows} sampleIntervalMs={bucketMs} />
-            <DiskIoPanel rows={rows} sampleIntervalMs={bucketMs} />
-            <NetworkPanel rows={rows} sampleIntervalMs={bucketMs} />
+            <LoadPanel rows={rows} sampleIntervalMs={bucketMs} timeWindow={timeWindow} cores={cores} />
+            <MemoryPanel rows={rows} sampleIntervalMs={bucketMs} timeWindow={timeWindow} />
+            <DiskIoPanel rows={rows} sampleIntervalMs={bucketMs} timeWindow={timeWindow} />
+            <NetworkPanel rows={rows} sampleIntervalMs={bucketMs} timeWindow={timeWindow} />
           </div>
         </div>
       ) : isLoading ? (

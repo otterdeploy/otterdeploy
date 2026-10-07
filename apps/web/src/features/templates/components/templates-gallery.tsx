@@ -232,7 +232,9 @@ function CategoryChip({
       )}
     >
       <span className="truncate">{label}</span>
-      <span className="shrink-0 font-mono text-[10px] tabular-nums opacity-60">{count}</span>
+      <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
+        {count}
+      </span>
     </button>
   );
 }

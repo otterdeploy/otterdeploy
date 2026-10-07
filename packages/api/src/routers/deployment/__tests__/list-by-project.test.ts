@@ -192,6 +192,8 @@ function serviceLookup(resourceId: ReturnType<typeof idSchema.resource.parse>): 
         networkName: "net",
         publicEnabled: false,
         publicDomain: null,
+        envChangedAt: null,
+        envAppliedAt: null,
         stackId: null,
         forceUpdateCounter: 0,
         createdAt: new Date(0),

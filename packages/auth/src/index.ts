@@ -18,7 +18,7 @@ import { env } from "@otterdeploy/env/server";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, deviceAuthorization, organization, twoFactor } from "better-auth/plugins";
 import { Result } from "better-result";
 import { and, asc, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
@@ -27,6 +27,7 @@ import { log } from "evlog";
 import { createAuthAuditHook } from "./audit";
 import { ANY_HTTPS_ORIGIN, mayReachExternalIdp } from "./idp-trust";
 import { enabledSocialProviderIds, setEnabledSocialProviderIds } from "./live-providers";
+import { bindPasskeyRelyingParty } from "./passkey-rp";
 import { ac, roles } from "./permissions";
 import {
   envSocialProviders,
@@ -323,6 +324,11 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
     // Durable audit rows for the identity surface: better-auth owns these routes,
     // so the oRPC audit middleware never sees them. See ./audit-policy.ts.
     hooks: {
+      // Passkey ceremonies run for the host the browser is on, not the
+      // configured BETTER_AUTH_URL. See ./passkey-rp.ts.
+      before: createAuthMiddleware(async (ctx) => {
+        bindPasskeyRelyingParty(ctx);
+      }),
       after: createAuthAuditHook({
         resolveOrganizationId: resolveActiveOrganizationId,
       }),
@@ -432,11 +438,13 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       twoFactor({ issuer: "otterdeploy" }),
       // WebAuthn passkeys — passwordless sign-in with platform biometrics or a
       // security key, plus a second credential type for password accounts.
-      // `rpID` and `origin` are deliberately omitted: the plugin derives the
-      // rpID from the request's baseURL hostname and validates the origin the
-      // client reports, which is the only workable default for a self-hosted
-      // box reachable at many names (LAN IP, hostname, tunnel) — the same
-      // reasoning as the dynamic `trustedOrigins` above. A passkey is bound to
+      // `rpID` and `origin` are deliberately omitted. The plugin derives the
+      // rpID from `options.baseURL`, which on its own is BETTER_AUTH_URL; the
+      // `hooks.before` above rebinds it to the request's host for the four
+      // ceremony endpoints (./passkey-rp.ts), so a box reachable at many
+      // names (LAN IP, hostname, tunnel) works on each. The origin is the one
+      // the client reports, behind the same-origin `trustedOrigins` rule
+      // above. A passkey is bound to
       // the hostname it was registered on; registering on a raw IP and later
       // moving to a domain means re-registering, which WebAuthn imposes by
       // design. The matching `passkey` table lives in db/schema/auth.ts

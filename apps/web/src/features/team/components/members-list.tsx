@@ -15,6 +15,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { membersCollection, useMembers, type TeamMember } from "@/features/team/data/use-team";
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -128,7 +129,10 @@ function MemberRow({
           value={member.role}
           onValueChange={(v) => changeRole(v ?? "")}
         >
-          <SelectTrigger className="h-7 w-[110px] text-[12px] capitalize">
+          <SelectTrigger
+            className="h-7 w-[110px] text-[12px] capitalize"
+            aria-label={`Role for ${member.email}`}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -145,16 +149,26 @@ function MemberRow({
         </Badge>
       )}
       {canManage && !isSelf ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 text-muted-foreground"
-          disabled={busy}
-          onClick={remove}
-          aria-label={`Remove ${member.email}`}
-        >
-          <HugeiconsIcon icon={Delete02Icon} strokeWidth={1.8} className="size-3.5" />
-        </Button>
+        // Access loss: a styled confirm, never one stray click.
+        <TypedConfirmDialog
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground"
+              disabled={busy}
+              aria-label={`Remove ${member.email}`}
+            >
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={1.8} className="size-3.5" />
+            </Button>
+          }
+          title={`Remove ${member.name || member.email}?`}
+          description="They lose access to this workspace at once: its projects, servers and keys. Invite them again to restore it."
+          confirmLabel="Remove member"
+          pendingLabel="Removing…"
+          pending={busy}
+          onConfirm={remove}
+        />
       ) : null}
     </div>
   );

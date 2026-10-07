@@ -39,7 +39,7 @@ function StatTile({
           <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-4 shrink-0" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase">
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
             <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-3.5 shrink-0 sm:hidden" />
             <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
           </div>

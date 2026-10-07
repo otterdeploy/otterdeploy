@@ -25,6 +25,19 @@ export async function bumpForceUpdateCounter(resourceId: ResourceId): Promise<nu
 }
 
 /**
+ * Record that the runtime spec now carries the env as it stood at `readAt`
+ * (the instant it was resolved, not the instant the write finished: a
+ * variable saved while the roll was in flight must still read as pending).
+ * See serviceResource.envAppliedAt.
+ */
+export async function markServiceEnvApplied(resourceId: ResourceId, readAt: Date): Promise<void> {
+  await db
+    .update(serviceResource)
+    .set({ envAppliedAt: readAt })
+    .where(eq(serviceResource.resourceId, resourceId));
+}
+
+/**
  * Atomically flip the pause state: pause writes (replicas: 0, pausedReplicas:
  * previous count); resume writes (replicas: restored count, pausedReplicas:
  * null). Kept separate from `updateServiceRecord`. pausedReplicas is runtime

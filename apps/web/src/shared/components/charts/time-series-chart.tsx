@@ -38,22 +38,17 @@ import { Chart } from "@tanstack/charts/react/tooltip";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
 import { tooltip } from "@tanstack/charts/tooltip";
-import { scaleUtc } from "d3-scale";
 import { curveMonotoneX } from "d3-shape";
 
 import { dimmedSeriesColor, rankSeries, seriesColor } from "@/shared/lib/chart-series";
-import {
-  CLOCK_DAY,
-  CLOCK_MINUTES,
-  CLOCK_SECONDS,
-  clockFormatter,
-  type ClockFormat,
-} from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
 import type { LongRow, TimeRow } from "./series-rows";
 
+export type { TimeWindow } from "./time-axis";
+
 import { applyFilter, seriesTotals, toLongRows } from "./series-rows";
+import { axisTickFormat, timeAxisScale, type TimeWindow } from "./time-axis";
 import { TooltipBody } from "./tooltip-body";
 import { useVisible } from "./use-visible";
 
@@ -85,6 +80,11 @@ interface TimeSeriesChartProps<Row extends TimeRow> {
   max?: number | "auto";
   /** Expected ms between samples. Drives gap detection; 0 disables it. */
   sampleIntervalMs?: number;
+  /** Pin the time axis to this window (epoch ms, start then end). Without it
+   *  the axis fits the data, which is wrong whenever the data does not fill
+   *  the window the reader picked: one sample on a "last 30 minutes" chart
+   *  fitted d3's nice() day and drew a 24-hour axis around a dot. */
+  timeWindow?: TimeWindow;
   /** Sparkline: no axes, no grid, no tooltip, no legend. */
   compact?: boolean;
   /** Legend under the plot. Defaults on above one series, off at one. */
@@ -97,17 +97,6 @@ interface TimeSeriesChartProps<Row extends TimeRow> {
   height?: number;
   className?: string;
 }
-
-const timeTick = clockFormatter(CLOCK_MINUTES);
-const secondTick = clockFormatter(CLOCK_SECONDS);
-const dayTick = clockFormatter(CLOCK_DAY);
-
-/** A window wider than about two days reads better as dates than as clock
- *  times; an axis of "02:00" repeated eleven times is noise, not a scale. */
-const DAY_TICK_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000;
-/** Under this span the ticks land between whole minutes, so a label without
- *  seconds would repeat itself along the axis. */
-const SECOND_TICK_THRESHOLD_MS = 15 * 60 * 1000;
 
 /** Hoisted so their literal types survive into the definition. */
 const GROUP_X = "group-x" as const;
@@ -123,29 +112,21 @@ const FILL_BOTTOM_OPACITY = 0.02;
 
 const gradientId = (index: number) => `series-fill-${index}`;
 
-/** Clock labels for the span in view: dates past two days, seconds under
- *  fifteen minutes, minutes between. */
-function tickFormatFor(spanMs: number): ClockFormat {
-  if (spanMs >= DAY_TICK_THRESHOLD_MS) return dayTick;
-  if (spanMs <= SECOND_TICK_THRESHOLD_MS) return secondTick;
-  return timeTick;
-}
-
 /**
  * No axis lines: the dashed grid already frames the plot, and a solid baseline
  * under a zero-hugging series hides the series. The x axis keeps its tick
  * stubs so a label reads as "at this instant", not "around here".
  */
 function buildAxes(
-  spanMs: number,
+  time: ReturnType<typeof timeAxisScale>,
   format: (value: number) => string,
   max: number | "auto",
   compact: boolean,
 ) {
-  const tick = tickFormatFor(spanMs);
+  const tick = axisTickFormat(time.spanMs);
   const x = {
-    scale: scaleUtc,
-    nice: true,
+    scale: time.scale,
+    nice: time.nice,
     axis: compact
       ? false
       : {
@@ -208,6 +189,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
   filter = "",
   max = "auto",
   sampleIntervalMs = 0,
+  timeWindow,
   compact = false,
   legend,
   smooth = false,
@@ -252,8 +234,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
           : undefined,
     };
 
-    const span = data.length > 1 ? data[data.length - 1].ts - data[0].ts : 0;
-    const { x, y } = buildAxes(span, format, max, compact);
+    const { x, y } = buildAxes(timeAxisScale(data, timeWindow), format, max, compact);
 
     // One uniform shape whatever the mode. Branching the *shape* rather than
     // the values gives `defineChart` a union to infer through, and it declines.
@@ -329,7 +310,20 @@ export function TimeSeriesChart<Row extends TimeRow>({
       color,
       ...interaction,
     });
-  }, [data, series, format, stacked, kind, filter, max, sampleIntervalMs, compact, legend, smooth]);
+  }, [
+    data,
+    series,
+    format,
+    stacked,
+    kind,
+    filter,
+    max,
+    sampleIntervalMs,
+    timeWindow,
+    compact,
+    legend,
+    smooth,
+  ]);
 
   // Reserve the height before the chart exists so scrolling past an unread
   // chart does not shift everything below it.

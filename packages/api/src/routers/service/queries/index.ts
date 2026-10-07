@@ -47,6 +47,7 @@ export {
 
 export {
   bumpForceUpdateCounter,
+  markServiceEnvApplied,
   setPublicExposure,
   setServicePublicDomain,
   setResourcePlacement,

@@ -37,6 +37,11 @@ function ToggleGroup({
   const gapStyle: React.CSSProperties & { "--gap": number } = { "--gap": spacing };
   return (
     <ToggleGroupPrimitive
+      // Base UI's composite root stamps aria-orientation on its role="group",
+      // which ARIA does not allow there (axe aria-allowed-attr). Arrow-key
+      // roving focus over a row of toggles IS the toolbar pattern, and a
+      // toolbar takes aria-orientation. A caller's role still wins.
+      role="toolbar"
       data-slot="toggle-group"
       data-variant={variant}
       data-size={size}

@@ -235,7 +235,9 @@
   --secondary: rgba(20, 20, 18, 0.04);
   --secondary-foreground: #141412;
   --muted: rgba(20, 20, 18, 0.04);
-  --muted-foreground: #7a7a74;
+  /* 5.2:1 on the canvas, 4.6:1 on muted fills (#7a7a74 read
+     4.17:1, under the AA floor DESIGN.md sets). */
+  --muted-foreground: #6b6b65;
   --accent: rgba(20, 20, 18, 0.04);
   --accent-foreground: #141412;
   --destructive: #b42318;
@@ -269,7 +271,7 @@
      The hues are the semantic tones' own, read off `--success` (141),
      `--info` (212), `--warning` (46) and `--destructive` (4), so a band and
      the badge for the same state are the same colour family. That is also why
-     the text tones cannot be used directly: `--warning` is `#8a6a00`, tuned to
+     the text tones cannot be used directly: `--warning` is `#7f6200`, tuned to
      be legible as TEXT on the warm canvas, and a 4px bar in it reads brown. */
   --chart-band-ok: hsl(141 var(--chart-series-s) var(--chart-series-l));
   --chart-band-info: hsl(212 var(--chart-series-s) var(--chart-series-l));
@@ -305,10 +307,10 @@
   --radius: 0.625rem;
   --info: #1f5fa8;
   --info-foreground: #1f5fa8;
-  --success: #1f7a3f;
-  --success-foreground: #1f7a3f;
-  --warning: #8a6a00;
-  --warning-foreground: #8a6a00;
+  --success: #1d733b;
+  --success-foreground: #1d733b;
+  --warning: #7f6200;
+  --warning-foreground: #7f6200;
   /* Log / console surface, a light warm panel in light mode, near-black in
      dark. Read-only log viewers use `bg-terminal`; interactive xterm
      terminals keep their own (dark) theme. */
@@ -338,7 +340,8 @@
   --secondary: rgba(255, 255, 250, 0.04);
   --secondary-foreground: #f5f5f0;
   --muted: rgba(255, 255, 250, 0.04);
-  --muted-foreground: #7a7a72;
+  /* 5.6:1 on the canvas, 4.75:1 on raised muted fills (was 4.18 on cards). */
+  --muted-foreground: #8a8a82;
   --accent: rgba(255, 255, 250, 0.04);
   --accent-foreground: #f5f5f0;
   --destructive: #f87171;

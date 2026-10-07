@@ -96,7 +96,7 @@ function SettingsZoneLayout() {
         >
           {navGroups.map((group) => (
             <div key={group.label} className="flex flex-col gap-1">
-              <span className="px-2 text-[11px] tracking-wider text-muted-foreground/70 uppercase">
+              <span className="px-2 text-[12px] text-muted-foreground">
                 {group.label}
               </span>
               {group.items.map((item) => {

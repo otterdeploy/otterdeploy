@@ -64,7 +64,7 @@ export function DomainCard({ organizationId }: { organizationId: OrganizationId 
   return (
     <SettingsSection
       icon={EarthIcon}
-      title="Domain"
+      title="Base domain"
       description={
         <>
           The apex domain your resources are published under. A service{" "}

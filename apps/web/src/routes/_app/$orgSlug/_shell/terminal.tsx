@@ -70,7 +70,7 @@ function RouteComponent() {
             strokeWidth={1.8}
             className="size-4 text-muted-foreground"
           />
-          <span className="text-[13px] font-semibold">Terminal</span>
+          <h1 className="text-[13px] font-semibold">Terminal</h1>
           <span className="font-mono text-[11px] text-muted-foreground">
             · {term.sessions.length}{" "}
             {term.sessions.length === 1 ? "session" : "sessions"}

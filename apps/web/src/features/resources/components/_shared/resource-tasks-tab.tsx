@@ -18,6 +18,7 @@ import type { PanelFocus } from "./panel-tab";
 
 import { SectionLabel } from "./atoms";
 import { HistoryRow } from "./deployment-cards";
+import { lastGoodDeployment } from "./rollback-dialog";
 import { StagedDeploymentCard } from "./staged-deployment-card";
 
 /** Exposure + scale summary shown above the active deployment (the mockup's
@@ -87,6 +88,8 @@ export function ResourceTasksTab({
   // spot, not buried below a stale superseded row.
   const active = deployments.at(0) ?? null;
   const history = deployments.slice(1);
+  // A failed latest deploy offers the last good one as its primary action.
+  const rollbackTo = canRollback ? lastGoodDeployment(active, history) : undefined;
 
   return (
     <div className="flex flex-col gap-5">
@@ -104,6 +107,7 @@ export function ResourceTasksTab({
               projectId={projectId}
               resourceId={resourceId}
               canRollback={canRollback}
+              rollbackTo={rollbackTo}
               focus={focus}
             />
           ) : (

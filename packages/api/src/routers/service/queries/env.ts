@@ -11,6 +11,7 @@ import type { StackRefIdentity } from "./stack";
 
 import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 import { inEnvironmentScope } from "../../project/queries/environment-scope";
+import { markEnvChanged } from "./env-liveness";
 import { getStackRefIdentity } from "./stack";
 // ---------------------------------------------------------------------------
 // Env vars
@@ -137,6 +138,7 @@ export async function upsertServiceEnvVar(input: {
         why: "Database upsert returned no row",
       });
     }
+    await markEnvChanged(tx, input.serviceResourceId);
     // Echo the caller's plaintext back (the UI renders the returned row);
     // sealed rows keep ciphertext so mapEnvVar's masking contract holds.
     return sealed ? row : { ...row, value: input.value };
@@ -147,17 +149,20 @@ export async function deleteServiceEnvVar(input: {
   serviceResourceId: ResourceId;
   key: string;
 }): Promise<boolean> {
-  const result = await db
-    .delete(serviceEnvVar)
-    .where(
-      and(
-        eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
-        eq(serviceEnvVar.key, input.key),
-        isNull(serviceEnvVar.previewId),
-      ),
-    )
-    .returning({ id: serviceEnvVar.id });
-  return result.length > 0;
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .delete(serviceEnvVar)
+      .where(
+        and(
+          eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
+          eq(serviceEnvVar.key, input.key),
+          isNull(serviceEnvVar.previewId),
+        ),
+      )
+      .returning({ id: serviceEnvVar.id });
+    if (result.length > 0) await markEnvChanged(tx, input.serviceResourceId);
+    return result.length > 0;
+  });
 }
 
 export { bulkReplaceServiceEnvVars } from "./env-bulk";
