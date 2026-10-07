@@ -7,7 +7,7 @@ import { enforceBackupScope, enforceResourceScope } from "../../authz/project-sc
 import {
   type BackupRunSource,
   createBackupRun,
-  executeBackup,
+  executeBackupsInOrder,
   getDatabaseResourceInOrg,
   listBackupLogs,
   listRestores,
@@ -127,7 +127,9 @@ export const backupsRouter = {
         throw errors.INVALID();
       }
 
-      // One backup record per destination; the dump runs once per record.
+      // One backup record per destination; the dump runs once per record,
+      // one destination after another (the engine allows one dump of a
+      // source at a time).
       const ids: Awaited<ReturnType<typeof createBackupRun>>[] = [];
       for (const destinationId of destinationIds) {
         const id = await createBackupRun({
@@ -139,9 +141,10 @@ export const backupsRouter = {
           approach: input.approach,
         });
         ids.push(id);
-        // Run detached. Status + logs are observable via get/logs.
-        runBackgroundPass("backup-run", () => executeBackup(id));
       }
+      // Run detached, in order (one dump of a source at a time). Status +
+      // logs are observable via get/logs.
+      runBackgroundPass("backup-run", () => executeBackupsInOrder(ids));
       context.log.set({ target: { type: "backup", id: ids[0] } });
       return { ids, status: "queued" };
     },
@@ -187,7 +190,7 @@ export const backupsRouter = {
   restore: requirePermission({ backup: ["restore"] }).backups.restore.handler(
     async ({ input, context, errors }) => {
       await requireBackup(context, input.id, () => errors.NOT_FOUND());
-      const result = await restoreBackup({
+      const restored = await restoreBackup({
         backupId: input.id,
         mode: input.mode,
         confirm: input.confirm,
@@ -196,6 +199,24 @@ export const backupsRouter = {
         // the SNAPSHOT to this org.
         targetResourceId: input.targetResourceId,
       });
+      if (restored.isErr()) {
+        throw matchError(restored.error, {
+          RestoreConfirmationError: (e) =>
+            errors.CONFIRMATION_REQUIRED({ message: e.message, data: { expected: e.expected } }),
+          RestoreTargetInvalidError: (e) =>
+            errors.INVALID_TARGET({ message: e.message, data: { reason: e.reason } }),
+          RestoreRefusedError: (e) =>
+            errors.REFUSED({ message: e.message, data: { reason: e.reason } }),
+          RestoreInProgressError: (e) => errors.RESTORE_IN_PROGRESS({ message: e.message }),
+          RestoreFailedError: (e) =>
+            errors.RESTORE_FAILED({
+              message:
+                "The restore did not complete; its cause is in this backup's restore history",
+              data: { restoreId: e.restoreId },
+            }),
+        });
+      }
+      const result = restored.value;
       return {
         ok: result.ok,
         mode: input.mode,

@@ -1,8 +1,10 @@
-import type { OrganizationId } from "@otterdeploy/shared/id";
+import type { BackupId, OrganizationId } from "@otterdeploy/shared/id";
+
+import { Temporal } from "@otterdeploy/shared/temporal";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { enforceProjectScope, enforceScheduleScope } from "../../authz/project-scope-guards";
-import { createBackupRun, executeBackup } from "../../backups";
+import { createBackupRun } from "../../backups";
 import { activeDestinationIdsFor } from "../../backups/destination-availability";
 import {
   createScheduleRecord,
@@ -10,6 +12,7 @@ import {
   updateScheduleRecord,
 } from "../../backups/schedule-crud";
 import { classifyScheduleSources, getScheduleRunTarget } from "../../backups/schedule-db";
+import { executeSchedulePass } from "../../backups/scheduler";
 import { runBackgroundPass } from "../../lib/background-pass";
 import { presentSchedule } from "./presenters";
 import { listSchedules, scheduleDestinationNames } from "./service";
@@ -128,23 +131,28 @@ export const backupSchedulesRouter = {
         context.activeOrganizationId,
         schedule.destinationIds,
       );
-      let queued = 0;
+      const ids: BackupId[] = [];
       for (const { id: resourceId, kind } of resolved) {
         for (const destinationId of destinationIds) {
-          const id = await createBackupRun({
-            organizationId: context.activeOrganizationId,
-            source: { kind, resourceId },
-            destinationId,
-            scheduleId: schedule.id,
-            encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
-            method: "manual-schedule",
-          });
-          queued += 1;
-          // Run detached. Status + logs observable via get/logs.
-          runBackgroundPass("backup-run", () => executeBackup(id));
+          ids.push(
+            await createBackupRun({
+              organizationId: context.activeOrganizationId,
+              source: { kind, resourceId },
+              destinationId,
+              scheduleId: schedule.id,
+              encryption: schedule.encryption === "aes-256-gcm" ? "aes-256-gcm" : "none",
+              method: "manual-schedule",
+            }),
+          );
         }
       }
-      return { queued };
+      // Run detached, in order (one dump of a source at a time), then report
+      // the pass on the schedule. Status + logs observable via get/logs.
+      const startedAt = Temporal.Now.instant();
+      runBackgroundPass("backup-schedule-run", () =>
+        executeSchedulePass(schedule.id, ids, startedAt),
+      );
+      return { queued: ids.length };
     },
   ),
 
