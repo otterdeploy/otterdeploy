@@ -205,15 +205,27 @@ export async function listBackupLogs(
 // process's in-flight dump) stays failed when the old process finishes; a
 // refused write is that superseded outcome, not an error.
 
+/** Apply `fields` to the run only while its status is one of `from`. */
+async function transitionBackup(
+  backupId: BackupId,
+  from: Array<(typeof backup.$inferSelect)["status"]>,
+  fields: Partial<typeof backup.$inferInsert>,
+): Promise<boolean> {
+  const rows = await db
+    .update(backup)
+    .set(fields)
+    .where(and(eq(backup.id, backupId), inArray(backup.status, from)))
+    .returning({ id: backup.id });
+  return rows.length > 0;
+}
+
 /** queued → running (re-marking running is a no-op). False when the run was
  *  already settled. */
 export async function markBackupRunning(backupId: BackupId): Promise<boolean> {
-  const rows = await db
-    .update(backup)
-    .set({ status: "running", startedAt: new Date() })
-    .where(and(eq(backup.id, backupId), inArray(backup.status, ["queued", "running"])))
-    .returning({ id: backup.id });
-  return rows.length > 0;
+  return transitionBackup(backupId, ["queued", "running"], {
+    status: "running",
+    startedAt: new Date(),
+  });
 }
 
 export async function markBackupSucceeded(
@@ -228,37 +240,27 @@ export async function markBackupSucceeded(
     method: string;
   },
 ): Promise<boolean> {
-  const rows = await db
-    .update(backup)
-    .set({
-      status: "succeeded",
-      completedAt: new Date(),
-      storagePath: fields.storagePath,
-      checksum: fields.checksum,
-      compressedSizeBytes: fields.compressedSizeBytes,
-      sourceSizeBytes: fields.sourceSizeBytes,
-      durationMs: fields.durationMs,
-      method: fields.method,
-    })
-    // running → succeeded only: a run the boot reconcile failed stays failed.
-    .where(and(eq(backup.id, backupId), eq(backup.status, "running")))
-    .returning({ id: backup.id });
-  return rows.length > 0;
+  // running → succeeded only: a run the boot reconcile failed stays failed.
+  return transitionBackup(backupId, ["running"], {
+    status: "succeeded",
+    completedAt: new Date(),
+    storagePath: fields.storagePath,
+    checksum: fields.checksum,
+    compressedSizeBytes: fields.compressedSizeBytes,
+    sourceSizeBytes: fields.sourceSizeBytes,
+    durationMs: fields.durationMs,
+    method: fields.method,
+  });
 }
 
 /** queued/running → failed. False when the run was already settled (a
  *  succeeded run is never turned into a failure after the fact). */
 export async function markBackupFailed(backupId: BackupId, errorMessage: string): Promise<boolean> {
-  const rows = await db
-    .update(backup)
-    .set({
-      status: "failed",
-      completedAt: new Date(),
-      errorMessage: errorMessage.slice(0, 4000),
-    })
-    .where(and(eq(backup.id, backupId), inArray(backup.status, ["queued", "running"])))
-    .returning({ id: backup.id });
-  return rows.length > 0;
+  return transitionBackup(backupId, ["queued", "running"], {
+    status: "failed",
+    completedAt: new Date(),
+    errorMessage: errorMessage.slice(0, 4000),
+  });
 }
 
 /** Validate a resource is a database in the given org (for manual run). */
