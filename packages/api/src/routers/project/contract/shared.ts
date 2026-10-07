@@ -19,6 +19,17 @@ export const projectNotFoundErrors = {
   },
 };
 
+/**
+ * A live event stream whose Redis subscription could not be opened (Redis
+ * down). Retryable: the client reconnects and resyncs from its snapshot.
+ */
+export const liveUpdatesUnavailableErrors = {
+  LIVE_UPDATES_UNAVAILABLE: {
+    status: 503 as const,
+    message: "Live updates are unavailable right now; reconnecting" as const,
+  },
+};
+
 /** Same for inner-resource lookups under a project. */
 export const resourceNotFoundErrors = {
   NOT_FOUND: {

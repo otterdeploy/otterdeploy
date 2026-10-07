@@ -204,32 +204,34 @@ export const projectRouter = {
   envVar: envVarRouter,
 
   events: {
-    stream: orgScopedProcedure.project.events.stream.handler(async ({ input, context, errors }) => {
-      context.log.set({ target: { type: "project", id: input.projectId } });
-      const pre = await validateProjectEventsStream({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (pre.isErr()) {
-        throw matchError(pre.error, {
-          ProjectNotFoundError: () => errors.NOT_FOUND(),
-          PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+    stream: orgScopedProcedure.project.events.stream.handler(
+      async ({ input, context, errors, signal }) => {
+        context.log.set({ target: { type: "project", id: input.projectId } });
+        const pre = await validateProjectEventsStream({
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
         });
-      }
-      const stream = streamProjectEvents({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      });
-      // Kinds added after #95 ride only the collection stream. Clients of
-      // THIS legacy endpoint were compiled against a contract without them,
-      // and an unknown discriminant fails their zod parse mid-stream.
-      return (async function* () {
-        for await (const event of stream) {
-          if (event.kind === "manifest" || event.kind === "previews") continue;
-          yield event;
+        if (pre.isErr()) {
+          throw matchError(pre.error, {
+            ProjectNotFoundError: () => errors.NOT_FOUND(),
+            PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+          });
         }
-      })();
-    }),
+        const stream = streamProjectEvents(
+          { projectId: input.projectId, organizationId: context.activeOrganizationId },
+          { signal, createUnavailableError: () => errors.LIVE_UPDATES_UNAVAILABLE() },
+        );
+        // Kinds added after #95 ride only the collection stream. Clients of
+        // THIS legacy endpoint were compiled against a contract without them,
+        // and an unknown discriminant fails their zod parse mid-stream.
+        return (async function* () {
+          for await (const event of stream) {
+            if (event.kind === "manifest" || event.kind === "previews") continue;
+            yield event;
+          }
+        })();
+      },
+    ),
   },
 
   stack: stackRouter,

@@ -12,6 +12,7 @@
 import type { ServerId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
+import { Result } from "better-result";
 import * as z from "zod";
 
 import { createRedis } from "../../lib/redis";
@@ -121,7 +122,7 @@ export async function* streamProvisionLogs(
     }
   };
 
-  await subscriber.subscribe(ch, (payload) => {
+  const listener = (payload: string) => {
     try {
       const parsed = provisionLineSchema.parse(JSON.parse(payload));
       if (parsed.line === END) ended = true;
@@ -130,7 +131,21 @@ export async function* streamProvisionLogs(
       // Defensive only: we're the sole writer and JSON.stringify.
     }
     wake();
-  });
+  };
+  // Close the dedicated connection whatever state it is in: before it ever
+  // connected, `unsubscribe` throws synchronously, which tryPromise absorbs.
+  const closeSubscriber = async () => {
+    await Result.tryPromise(() => subscriber.unsubscribe(ch));
+    Result.try(() => subscriber.close());
+  };
+
+  const subscribed = await Result.tryPromise(() => subscriber.subscribe(ch, listener));
+  if (subscribed.isErr()) {
+    // Redis down: free the connection before the stream fails, instead of
+    // leaving it to reconnect in the background.
+    await closeSubscriber();
+    throw subscribed.error;
+  }
 
   try {
     // Replay scrollback. A ring that already carries the END marker means the
@@ -157,7 +172,6 @@ export async function* streamProvisionLogs(
       for (const entry of drain) yield entry;
     }
   } finally {
-    await subscriber.unsubscribe(ch).catch(() => undefined);
-    subscriber.close();
+    await closeSubscriber();
   }
 }

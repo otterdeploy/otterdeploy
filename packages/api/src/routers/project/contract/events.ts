@@ -18,7 +18,7 @@ import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { proxyRouteSchema } from "./proxy";
-import { basePath, projectNotFoundErrors, tag } from "./shared";
+import { basePath, liveUpdatesUnavailableErrors, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
 
 const projectEventSchema = z.union([
@@ -93,7 +93,7 @@ export const projectEventsContractSlice = {
    *  client keeps the request alive; sub-second push of swarm state
    *  changes filtered to resources owned by this project. */
   stream: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, ...liveUpdatesUnavailableErrors })
     .meta({
       path: `${basePath}/{projectId}/events`,
       tag,
