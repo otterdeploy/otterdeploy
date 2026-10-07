@@ -148,11 +148,7 @@ async function failureReason(
 }
 
 /** Poll `name` through the readiness gate until it is ready or has failed. */
-async function awaitReadiness(
-  host: RolloutHost,
-  name: string,
-  plan: ReadinessPlan,
-): Promise<Gate> {
+async function awaitReadiness(host: RolloutHost, name: string, plan: ReadinessPlan): Promise<Gate> {
   const started = host.now();
   let track = READINESS_START;
   let progressAt = started;

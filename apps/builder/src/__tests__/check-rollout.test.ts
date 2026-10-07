@@ -14,6 +14,20 @@ import { beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { RolloutSubject } from "../pipeline-steps";
 
+// The real registry-credential module loads with pipeline-steps (mocking it here
+// would replace it for registry-credential.test.ts in the same run), and the
+// crypto module it imports validates env at import time.
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy the required vars before the dynamic import below.
+process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
+process.env.REDIS_URL ??= "redis://localhost:6379";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
+process.env.BETTER_AUTH_URL ??= "http://localhost:3000";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
+process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret-0123456789";
+// oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
+process.env.CORS_ORIGIN ??= "http://localhost:3000";
+
 const writes: Array<Record<string, unknown>> = [];
 let failWrite = false;
 
@@ -26,7 +40,6 @@ beforeAll(async () => {
   await mock.module("../deploy-hook", () => ({ runDeployHooks: mock() }));
   await mock.module("../docker-push", () => ({ dockerPush: mock() }));
   await mock.module("../load", () => ({ PipelineLoadError: class extends Error {} }));
-  await mock.module("../registry-credential", () => ({ resolvePushCredentials: mock() }));
   await mock.module("../state", () => ({ markFailed: mock() }));
   await mock.module("@otterdeploy/db", () => ({
     db: {
