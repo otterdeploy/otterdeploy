@@ -249,15 +249,29 @@ export async function updateServiceRecord(
     stackId: _stackId,
     ...spec
   } = input;
+  const patch = {
+    ...omitUndefined(spec),
+    // An explicit replica count supersedes a pause: whoever sets replicas
+    // (manifest apply, a scaling edit) is stating the desired state, so the
+    // pause marker must not linger and misreport "paused" afterwards.
+    ...(spec.replicas !== undefined ? { pausedReplicas: null } : {}),
+  };
+  // Nothing on this row to change (an update that only moves ports, which
+  // live in service_port): drizzle refuses an empty SET ("No values to set"),
+  // and that throw was a 500 on a second `otterdeploy deploy` of an upload
+  // service onto a new port. The row stands as it is.
+  if (Object.keys(patch).length === 0) {
+    const [current] = await db
+      .select()
+      .from(serviceResource)
+      .where(eq(serviceResource.resourceId, resourceId))
+      .limit(1)
+      .$withCache(false);
+    return current;
+  }
   const [updated] = await db
     .update(serviceResource)
-    .set({
-      ...omitUndefined(spec),
-      // An explicit replica count supersedes a pause: whoever sets replicas
-      // (manifest apply, a scaling edit) is stating the desired state, so the
-      // pause marker must not linger and misreport "paused" afterwards.
-      ...(spec.replicas !== undefined ? { pausedReplicas: null } : {}),
-    })
+    .set(patch)
     .where(eq(serviceResource.resourceId, resourceId))
     .returning();
   return updated;

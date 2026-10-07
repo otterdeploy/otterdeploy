@@ -112,7 +112,6 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
       usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
       enabled: true,
       source: "generated",
-      isPrimary: false,
       dnsState: "pointed",
     });
     changed = true;

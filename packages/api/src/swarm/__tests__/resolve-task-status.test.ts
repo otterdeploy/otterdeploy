@@ -1,6 +1,8 @@
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { describe, expect, test } from "vite-plus/test";
 
 import { resolveTaskStatus } from "../internals";
+import { IMAGE_PULL_STALL_MS, pullingImage } from "../task-status";
 
 /**
  * Guards the false-success bug: a compose/service deploy whose image can't be
@@ -58,5 +60,63 @@ describe("resolveTaskStatus", () => {
 
   test("no tasks → missing", () => {
     expect(resolveTaskStatus([])).toEqual({ status: "missing", errorMessage: null });
+  });
+
+  describe("a pull that hangs", () => {
+    const at = (iso: string) => Temporal.Instant.from(iso).epochMilliseconds;
+    const pulling = (since: string) => ({
+      CreatedAt: since,
+      Status: { State: "preparing", Timestamp: since },
+      Spec: { ContainerSpec: { Image: "traefik/whoami:v1.11@sha256:abc" } },
+    });
+    const old = task("running", "2026-01-01T00:00:00Z");
+
+    test("inside the bound it is still starting", () => {
+      const out = resolveTaskStatus(
+        [old, pulling("2026-01-01T00:10:00Z")],
+        at("2026-01-01T00:12:00Z"),
+      );
+      expect(out).toEqual({ status: "starting", errorMessage: null });
+    });
+
+    test("past the bound it is an error that names the image and the registry", () => {
+      const since = "2026-01-01T00:10:00Z";
+      const now = at(since) + IMAGE_PULL_STALL_MS + 60_000;
+      const out = resolveTaskStatus([old, pulling(since)], now);
+      expect(out.status).toBe("error");
+      expect(out.errorMessage).toBe(
+        "image traefik/whoami:v1.11 has not finished pulling after 4 min on its node: check that the node can reach the image's registry",
+      );
+    });
+
+    test("a task's own failure reason still wins over the stall note", () => {
+      const out = resolveTaskStatus(
+        [
+          task("rejected", "2026-01-01T00:00:00Z", "No such image: x"),
+          pulling("2026-01-01T00:00:05Z"),
+        ],
+        at("2026-01-01T01:00:00Z"),
+      );
+      expect(out).toEqual({ status: "error", errorMessage: "No such image: x" });
+    });
+  });
+
+  describe("pullingImage (what a timed-out rollout was still doing)", () => {
+    test("names the image the newest task is pulling, digest dropped", () => {
+      expect(
+        pullingImage([
+          task("running", "2026-01-01T00:00:00Z"),
+          {
+            CreatedAt: "2026-01-01T00:01:00Z",
+            Status: { State: "preparing" },
+            Spec: { ContainerSpec: { Image: "traefik/whoami:v1.11@sha256:abc" } },
+          },
+        ]),
+      ).toBe("traefik/whoami:v1.11");
+    });
+
+    test("is null once the newest task got past its pull", () => {
+      expect(pullingImage([task("starting", "2026-01-01T00:01:00Z")])).toBeNull();
+    });
   });
 });

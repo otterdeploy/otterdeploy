@@ -24,6 +24,7 @@ import type { HostThreatGroup } from "../edge-logs/threat-scan";
 
 import { normalizeHost } from "../edge-logs/host";
 import { scanSuspiciousGroups } from "../edge-logs/threat-scan";
+import { runBackgroundPass } from "../lib/background-pass";
 import { emitPlatformEvent } from "./emit";
 
 const WINDOW_MS = 10 * 60 * 1000; // look back 10 minutes
@@ -137,7 +138,10 @@ async function scanEdgeThreats(now = Date.now()): Promise<void> {
  * (< the 10-min window) so a burst is caught promptly but only alerted once.
  */
 export function startEdgeThreatScan(intervalMs = 5 * 60 * 1000): () => void {
-  const timer = setInterval(() => void scanEdgeThreats(), intervalMs);
+  const timer = setInterval(
+    () => runBackgroundPass("edge-threat-scan", () => scanEdgeThreats()),
+    intervalMs,
+  );
   timer.unref?.();
   return () => clearInterval(timer);
 }

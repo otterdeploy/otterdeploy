@@ -3,6 +3,7 @@ import { SQL } from "bun";
 import { drizzle } from "drizzle-orm/bun-sql";
 
 import { redisCache } from "./cache";
+import { withQueryDeadlines } from "./query-deadline";
 import { relations } from "./relations";
 
 // Own the underlying pool explicitly. Bun's SQL driver defaults to an
@@ -46,6 +47,9 @@ const client = new SQL({
   connectionTimeout: DB_CONNECT_TIMEOUT_SECONDS,
   connection: { statement_timeout: DB_STATEMENT_TIMEOUT_MS },
 });
+// Deadlines: every statement awaited inside a request scope answers in time
+// or fails the request (./query-deadline.ts); outside one, a pass-through.
+const queryClient = withQueryDeadlines(client);
 
 // `relations` (from defineRelations()) powers the RQB v2 query builder
 // (`db.query.<table>.findMany({ with: { … } })`). It's additive. Plain
@@ -53,7 +57,7 @@ const client = new SQL({
 // drizzle adapter still issues plain selects unless `experimental.joins`
 // is enabled, so passing relations here doesn't change its behaviour.
 export const db = drizzle({
-  client,
+  client: queryClient,
   relations,
   cache: redisCache({ global: true, ttl: 60 }),
   // logger: true,

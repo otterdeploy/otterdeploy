@@ -21,8 +21,8 @@
 import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { projectEnvVar } from "@otterdeploy/db/schema/project";
-import { and, asc, eq, or } from "drizzle-orm";
+import { project, projectEnvVar } from "@otterdeploy/db/schema/project";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 
 import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 export interface ProjectEnvVarRow {
@@ -196,6 +196,16 @@ export async function bulkReplaceProjectEnvVars(
   next: ReadonlyArray<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ProjectEnvVarRow[]> {
   return db.transaction(async (tx) => {
+    // One whole-map replace of a project's env at a time, for the reason
+    // bulkReplaceServiceEnvVars gives: two interleaved replaces both
+    // inserted the full map and the second one 500'd on
+    // project_env_var_unique. Never from the query cache (it takes no lock).
+    await tx
+      .select({ id: project.id })
+      .from(project)
+      .where(eq(project.id, scope.projectId))
+      .for("no key update")
+      .$withCache(false);
     const sealedRows: ProjectEnvVarRow[] = await tx
       .select()
       .from(projectEnvVar)
@@ -234,7 +244,18 @@ export async function bulkReplaceProjectEnvVars(
         })),
       );
       const plaintextByKey = new Map(toInsert.map((v) => [v.key, v.value]));
-      const rows = await tx.insert(projectEnvVar).values(values).returning();
+      // Upsert: a single-key write takes no lock and can land between this
+      // DELETE and INSERT; the replace is the later write, so it wins, except
+      // over a key that was sealed in between.
+      const rows = await tx
+        .insert(projectEnvVar)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [projectEnvVar.projectId, projectEnvVar.environmentId, projectEnvVar.key],
+          set: { value: sql`excluded.value`, isSecret: sql`excluded.is_secret` },
+          setWhere: sql`${projectEnvVar.sealed} = false`,
+        })
+        .returning();
       inserted = rows.map((row) => ({
         ...row,
         value: plaintextByKey.get(row.key) ?? row.value,

@@ -27,6 +27,8 @@ import { Result } from "better-result";
 import { log } from "evlog";
 
 import { makeBuildJob } from "./handler";
+import { reapOrphanHelpers } from "./helper-reaper";
+import { getDeploymentStatus } from "./state";
 
 let stop: (() => Promise<void>) | null = null;
 let reconcileTimer: ReturnType<typeof setInterval> | null = null;
@@ -49,6 +51,10 @@ async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
     err: (cause) =>
       log.warn({ builder: { event: "reconcile-failed", trigger, cause: String(cause) } }),
   });
+  // After the row sweep, so a row it just failed takes its orphaned helper
+  // with it on the same pass.
+  const reaped = await reapOrphanHelpers({ status: getDeploymentStatus });
+  if (reaped.length > 0) log.warn({ builder: { event: "orphan-helpers-reaped", trigger, reaped } });
 }
 
 async function bootstrap() {

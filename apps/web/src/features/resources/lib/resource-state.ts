@@ -199,6 +199,10 @@ export function stackState(
 export interface RuntimeFacts {
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health?: "healthy" | "unhealthy" | "starting" | null;
+  /** The runtime's own reason for `error` (a task that will not pull or
+   *  start, a full disk). Shown as the why: an error with no reason is the
+   *  one state an operator cannot act on. */
+  errorMessage?: string | null;
 }
 
 /**
@@ -281,7 +285,7 @@ function runtimeState(
         ? { tone: "pending", label: "not deployed", why: null }
         : { tone: "error", label: "not running", why: tasks ?? "no container" };
     case "error":
-      return { tone: "error", label: "error", why: tasks };
+      return { tone: "error", label: "error", why: rt.errorMessage ?? tasks };
   }
 }
 

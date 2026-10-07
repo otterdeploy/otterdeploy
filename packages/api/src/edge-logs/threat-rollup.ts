@@ -23,6 +23,7 @@ import { log } from "evlog";
 
 import type { EdgeLogLine } from "./types";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { classifyThreat } from "./threat";
 
 const FLUSH_INTERVAL_MS = 5_000;
@@ -65,7 +66,10 @@ const state: RollupState = (globalThis.__edgeThreatRollup ??= {
 export function startThreatRollup(): void {
   if (state.timer) clearInterval(state.timer);
   state.enabled = true;
-  state.timer = setInterval(() => void flushThreatRollup(), FLUSH_INTERVAL_MS);
+  state.timer = setInterval(
+    () => runBackgroundPass("edge-threat-rollup", flushThreatRollup),
+    FLUSH_INTERVAL_MS,
+  );
   log.info({ edgeLog: { threatRollup: "started" } });
 }
 

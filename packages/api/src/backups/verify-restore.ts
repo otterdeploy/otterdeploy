@@ -25,6 +25,7 @@ import { randomBytes } from "node:crypto";
 
 import type { VerificationTrigger } from "./verify-db";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { emitPlatformEvent } from "../notifications/emit";
 import { appendBackupLog, getExecutionContext } from "./db";
 import { findResourceContainerId } from "./exec";
@@ -151,7 +152,9 @@ export async function requestBackupVerification(
     backupId,
     trigger,
   });
-  void executeVerification(verificationId, backupId, ctx);
+  runBackgroundPass("backup-verification", () =>
+    executeVerification(verificationId, backupId, ctx),
+  );
   return Result.ok(verificationId);
 }
 

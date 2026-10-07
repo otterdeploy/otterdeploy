@@ -124,6 +124,12 @@ export const serviceContract = {
         status: 400,
         message: "This deployment can't be rolled back to" as const,
       },
+      // The roll itself failed (a concurrent roll won, or the runtime
+      // errored): the rollback's deployment is failed, retrying is safe.
+      ROLLBACK_FAILED: {
+        status: 409,
+        message: "The rollback did not take" as const,
+      },
     })
     .meta({
       path: `${basePath}/{resourceId}/rollback/{deploymentId}`,

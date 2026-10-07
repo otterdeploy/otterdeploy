@@ -67,5 +67,11 @@ export async function rollAfterEnvChange(input: {
         )
       : Result.ok(true);
   }
-  return redeployAndFanOut(input.projectId, input.resourceId, input.projectSlug, input.log);
+  const rolled = await redeployAndFanOut(
+    input.projectId,
+    input.resourceId,
+    input.projectSlug,
+    input.log,
+  );
+  return rolled.map((): true => true);
 }

@@ -35,9 +35,11 @@ import { join } from "node:path";
 import {
   buildHelperEnvFlags,
   buildHelperRunArgs,
+  helperContainerName,
   helperHardeningFlags,
   helperHardeningFromEnv,
 } from "./helper-args";
+import { helperState, removeStaleHelper } from "./helper-reaper";
 import { getDeploymentStatus, markFailed } from "./state";
 
 /** Host dir holding the persistent BuildKit layer cache + buildx instance state
@@ -99,15 +101,15 @@ const HELPER_TIMEOUT_MS = 45 * 60_000;
 /** Sentinel exitCode for a build we killed at the timeout wall. */
 const HELPER_TIMED_OUT = -2;
 
-/** Spawn the per-deployment helper container and resolve once it exits.
+/** The `docker run` argv of the per-deployment helper container.
  *  For a `source: "upload"` build, `sourceTarball` is the host path of the
  *  staged tarball; it's bind-mounted into the helper at the same path so the
  *  pipeline's extract step can read it (the helper does NOT mount DATA_ROOT, so
  *  the tarball must be mounted explicitly, same-path, docker-out-of-docker). */
-function runHelperContainer(
+function helperRunCommand(
   deploymentId: DeploymentId,
   opts: { sourceTarball?: string } = {},
-): Promise<HelperResult> {
+): string[] {
   // A DATABASE_URL/REDIS_URL of `localhost` in the worker's env points at the
   // HELPER container itself, not the host datastore. When the worker IS the
   // compose service these already use service DNS (`postgres`/`redis`), so
@@ -154,6 +156,13 @@ function runHelperContainer(
     hardeningFlags: helperHardeningFlags(helperHardeningFromEnv(process.env), hostCpuCount()),
   });
 
+  return args;
+}
+
+/** Run `docker <args>` against the deployment's helper container (`run` to
+ *  start it, `wait` to adopt one already running) and resolve once it exits,
+ *  removing the helper at the HELPER_TIMEOUT_MS wall. */
+function runHelperContainer(deploymentId: DeploymentId, args: string[]): Promise<HelperResult> {
   return new Promise<HelperResult>((resolve, reject) => {
     const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
     let tail = "";
@@ -166,7 +175,7 @@ function runHelperContainer(
     // `docker run` attach) and kill the local process as a belt-and-braces.
     const timer = setTimeout(() => {
       timedOut = true;
-      spawn("docker", ["rm", "-f", `otterbuild-${deploymentId}`], { stdio: "ignore" }).on(
+      spawn("docker", ["rm", "-f", helperContainerName(deploymentId)], { stdio: "ignore" }).on(
         "error",
         () => undefined,
       );
@@ -183,6 +192,41 @@ function runHelperContainer(
       resolve({ exitCode: timedOut ? HELPER_TIMED_OUT : (code ?? -1), tail });
     });
   });
+}
+
+/**
+ * Wait on a helper of this deployment that is already running instead of
+ * starting a second one: its builder died mid-build and this job is that
+ * build, redelivered. Starting fresh would collide on the container name
+ * (exit 125) or, after removing it, throw away a build that is still making
+ * progress. `docker wait` prints the helper's own exit code.
+ */
+async function adoptHelper(deploymentId: DeploymentId): Promise<HelperResult> {
+  const waited = await runHelperContainer(deploymentId, [
+    "wait",
+    helperContainerName(deploymentId),
+  ]);
+  if (waited.exitCode !== 0) return { exitCode: waited.exitCode, tail: waited.tail };
+  const code = Number.parseInt(waited.tail.trim().split("\n").at(-1) ?? "", 10);
+  return { exitCode: Number.isInteger(code) ? code : -1, tail: "" };
+}
+
+/** Adopt this deployment's running helper, or clear a leftover one and start
+ *  a fresh helper. */
+async function runOrAdoptHelper(
+  deploymentId: DeploymentId,
+  opts: { sourceTarball?: string },
+  log: { warn: (fields: Record<string, unknown>) => void },
+): Promise<HelperResult> {
+  const helper = await helperState(deploymentId);
+  if (helper === "running") {
+    log.warn({ build: { event: "helper-adopted", deploymentId } });
+    return adoptHelper(deploymentId);
+  }
+  if (helper === "stale" && (await removeStaleHelper(deploymentId))) {
+    log.warn({ build: { event: "stale-helper-removed", deploymentId } });
+  }
+  return runHelperContainer(deploymentId, helperRunCommand(deploymentId, opts));
 }
 
 export function makeBuildJob() {
@@ -229,7 +273,7 @@ export function makeBuildJob() {
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            const { exitCode, tail } = await runHelperContainer(deploymentId, { sourceTarball });
+            const { exitCode, tail } = await runOrAdoptHelper(deploymentId, { sourceTarball }, log);
             const status = await getDeploymentStatus(deploymentId).catch(() => null);
 
             // An operator cancelled while this was building: the control plane

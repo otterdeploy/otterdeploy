@@ -68,6 +68,15 @@ describe("serviceState", () => {
       }),
     ).toEqual({ tone: "paused", label: "paused", why: "resume restores 2 replicas" });
   });
+  it("says why the runtime is failing, in the runtime's own words", () => {
+    expect(
+      serviceState({
+        ...base,
+        runtime: { status: "error", errorMessage: "no space left on device" },
+        latestDeployment: { status: "running" },
+      }),
+    ).toEqual({ tone: "error", label: "error", why: "no space left on device" });
+  });
   it("is null while the runtime is unknown for a deployed service", () => {
     expect(
       serviceState({ ...base, runtime: undefined, latestDeployment: { status: "running" } }),

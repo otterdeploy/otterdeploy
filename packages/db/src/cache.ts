@@ -2,12 +2,12 @@ import type { CacheConfig } from "drizzle-orm/cache/core/types";
 
 import { env } from "@otterdeploy/env/server";
 import { type UnknownRecord, isJsonObject } from "@otterdeploy/shared/json";
-import { withTimeout } from "@otterdeploy/shared/promise";
-import { Result } from "better-result";
 import { getTableName, type Table } from "drizzle-orm";
 import { Cache, type MutationOption } from "drizzle-orm/cache/core";
 import { entityKind } from "drizzle-orm/entity";
 import { log as globalLog } from "evlog";
+
+import { cacheRedisCircuit, RedisCircuitOpenError } from "./redis-circuit";
 
 const KEY_PREFIX = "drizzle:cache:";
 const TABLE_SET_PREFIX = "drizzle:cache:tables:";
@@ -38,14 +38,13 @@ export function apiCacheTableSetKey(tableName: string): string {
 const DATE_TAG = "__otterCacheDate__";
 const BIGINT_TAG = "__otterCacheBigInt__";
 
-// Hard ceiling on every Redis round-trip the cache makes. `enableOfflineQueue:
-// false` rejects commands while DISCONNECTED, but a command already in flight
-// when the connection wedges can leave a promise that never settles, and
-// because the cache sits in front of every query (global: true), one such
-// promise silently hangs the query, the request, and the page awaiting it
-// (od-664). A cache that answers slower than this is worse than no cache;
-// degrade to a miss and let Postgres answer.
-const REDIS_OP_TIMEOUT_MS = 2_000;
+// Every Redis round-trip the cache makes goes through `cacheRedisCircuit`
+// (./redis-circuit.ts): a 2 s deadline per call (a command in flight when the
+// connection wedges can otherwise leave a promise that never settles, and
+// because the cache sits in front of every query, that hangs the query, the
+// request, and the page awaiting it), and a circuit breaker so a Redis
+// outage costs a request one deadline rather than one per command. A skipped
+// call is a cache miss / no-op; Postgres answers.
 
 // `this` is the replacer's holder object: raw pre-serialization driver rows
 // whose values include Dates and BigInts (runtime values, not JSON) so
@@ -123,10 +122,9 @@ export class RedisCache extends Cache {
   ): Promise<unknown[] | undefined> {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
 
-    const result = await Result.tryPromise(() =>
-      withTimeout(this.client.get(fullKey), REDIS_OP_TIMEOUT_MS, "cache GET"),
-    );
+    const result = await cacheRedisCircuit.run("cache GET", () => this.client.get(fullKey));
     if (result.isErr()) {
+      if (RedisCircuitOpenError.is(result.error)) return undefined;
       globalLog.warn({
         message: "[cache] Redis GET failed; treating as cache miss",
         key: fullKey,
@@ -163,10 +161,11 @@ export class RedisCache extends Cache {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
     const value = JSON.stringify(response, tagRichValues);
 
-    const setResult = await Result.tryPromise(() =>
-      withTimeout(this.client.set(fullKey, value, "EX", ttl), REDIS_OP_TIMEOUT_MS, "cache SET"),
+    const setResult = await cacheRedisCircuit.run("cache SET", () =>
+      this.client.set(fullKey, value, "EX", ttl),
     );
     if (setResult.isErr()) {
+      if (RedisCircuitOpenError.is(setResult.error)) return;
       globalLog.warn({
         message: "[cache] Redis SET failed; skipping put",
         key: fullKey,
@@ -177,17 +176,12 @@ export class RedisCache extends Cache {
 
     for (const table of tables) {
       const setKey = TABLE_SET_PREFIX + table;
-      const indexResult = await Result.tryPromise(() =>
-        withTimeout(
-          (async () => {
-            await this.client.sadd(setKey, fullKey);
-            await this.client.expire(setKey, ttl * 2);
-          })(),
-          REDIS_OP_TIMEOUT_MS,
-          "cache table-index update",
-        ),
-      );
+      const indexResult = await cacheRedisCircuit.run("cache table-index update", async () => {
+        await this.client.sadd(setKey, fullKey);
+        await this.client.expire(setKey, ttl * 2);
+      });
       if (indexResult.isErr()) {
+        if (RedisCircuitOpenError.is(indexResult.error)) return;
         globalLog.warn({
           message: "[cache] Redis table-index update failed",
           table,
@@ -223,8 +217,12 @@ export class RedisCache extends Cache {
 
     if (setKeys.length > 0) {
       const [first, ...rest] = setKeys;
-      const sunionResult = await Result.tryPromise(() =>
-        withTimeout(this.client.sunion(first ?? "", ...rest), REDIS_OP_TIMEOUT_MS, "cache SUNION"),
+      // Forced: invalidation is attempted even while the circuit is open, a
+      // skipped DEL could serve a stale read once Redis is back.
+      const sunionResult = await cacheRedisCircuit.run(
+        "cache SUNION",
+        () => this.client.sunion(first ?? "", ...rest),
+        { force: true },
       );
       if (sunionResult.isErr()) {
         globalLog.warn({
@@ -242,8 +240,10 @@ export class RedisCache extends Cache {
     }
 
     if (keysToDelete.length > 0) {
-      const delResult = await Result.tryPromise(() =>
-        withTimeout(this.client.del(...keysToDelete), REDIS_OP_TIMEOUT_MS, "cache DEL"),
+      const delResult = await cacheRedisCircuit.run(
+        "cache DEL",
+        () => this.client.del(...keysToDelete),
+        { force: true },
       );
       if (delResult.isErr()) {
         globalLog.warn({

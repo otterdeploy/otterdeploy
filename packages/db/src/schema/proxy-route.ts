@@ -3,6 +3,7 @@ import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { DEFAULT_ROUTE_POLICY } from "@otterdeploy/shared/route-policy";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -175,5 +176,11 @@ export const proxyRoute = pgTable(
     index("proxy_route_project_id_idx").on(table.projectId),
     index("proxy_route_resource_id_idx").on(table.resourceId),
     index("proxy_route_preview_id_idx").on(table.previewId),
+    // At most one primary base route per resource. The writers also
+    // serialize on the resource row; this is the backstop for any that
+    // forget to.
+    uniqueIndex("proxy_route_one_primary_per_resource")
+      .on(table.resourceId)
+      .where(sql`${table.isPrimary} and ${table.previewId} is null`),
   ],
 );

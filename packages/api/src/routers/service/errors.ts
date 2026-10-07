@@ -1,4 +1,4 @@
-import type { ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 
 import { TaggedError } from "better-result";
 
@@ -90,6 +90,30 @@ export class NotRollbackableError extends TaggedError("NotRollbackableError")<{
     super({
       resourceId: args.resourceId,
       message: `deployment can't be rolled back to: ${args.reason}`,
+    });
+  }
+}
+
+/**
+ * The rollback was recorded and the service re-pointed at the target image,
+ * but the runtime did not end up running it (the roll errored, or another
+ * roll of the same service was mid-flight and won). Its deployment row is
+ * failed with the runtime's reason, which is where the operator reads it: the
+ * message names that deployment rather than repeating daemon text (host
+ * paths, socket names) to the caller. Retrying is safe.
+ */
+export class RollbackFailedError extends TaggedError("RollbackFailedError")<{
+  message: string;
+  resourceId: ResourceId;
+  deploymentId: DeploymentId;
+  reason: string;
+}>() {
+  constructor(args: { resourceId: ResourceId; deploymentId: DeploymentId; reason: string }) {
+    super({
+      resourceId: args.resourceId,
+      deploymentId: args.deploymentId,
+      reason: args.reason,
+      message: `the rollback did not take: deployment ${args.deploymentId} failed (its log has the reason); retrying is safe`,
     });
   }
 }
