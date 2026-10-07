@@ -299,6 +299,19 @@ function toBuffer(body: EgressRequestInit["body"]): Buffer | undefined {
   return Buffer.from(body);
 }
 
+/**
+ * The User-Agent an outbound request carries when its caller sets none.
+ * node:http adds no default (Bun 1.4.2 sends none either), and GitHub answers
+ * any API request without one with 403 "Request forbidden by administrative
+ * rules", so public-repo commit lookups through this transport failed on Bun
+ * 1.4.2.
+ */
+export const EGRESS_USER_AGENT = "otterdeploy";
+
+function hasHeader(headers: Record<string, string> | undefined, name: string): boolean {
+  return Object.keys(headers ?? {}).some((key) => key.toLowerCase() === name);
+}
+
 /** Opens the actual socket. Dials `address` directly (via a fixed `lookup`)
  *  while the request line / Host header / TLS SNI still use `url`'s
  *  hostname, exactly like a normal request to that host would. */
@@ -359,6 +372,7 @@ function requestPinnedAddress(
         agent: false,
         method: init.method ?? "GET",
         headers: {
+          ...(hasHeader(init.headers, "user-agent") ? {} : { "user-agent": EGRESS_USER_AGENT }),
           ...(bodyBuf ? { "content-length": String(bodyBuf.byteLength) } : {}),
           ...init.headers,
         },
