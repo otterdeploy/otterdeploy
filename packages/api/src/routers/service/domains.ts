@@ -36,12 +36,11 @@ import { randomBytes } from "node:crypto";
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
+import { insertResourceRoute, promotePrimaryRoute } from "../../caddy/primary-route";
 import {
-  clearPrimaryForResource,
   deleteProxyRoute,
   getProxyRouteByDomain,
   getProxyRouteById,
-  insertProxyRoute,
   listProxyRoutesByResourceId,
   type ProxyRouteRecord,
   updateProxyRoute,
@@ -134,11 +133,9 @@ export async function addServiceDomain(
   // Anything else, and everything on a multi-org install, stays inert behind
   // the per-route TXT challenge until Recheck observes it.
   const live = provenByDns(reachability.state, { multiOrg: await isMultiOrgInstall() });
-  const existing = await listProxyRoutesByResourceId(input.resourceId);
-
   let route: ProxyRouteRecord;
   try {
-    route = await insertProxyRoute({
+    route = await insertResourceRoute({
       projectId: input.projectId,
       resourceId: input.resourceId,
       type: "http",
@@ -149,8 +146,6 @@ export async function addServiceDomain(
       usesAcme: live && acmeFor(domain, reachability.state),
       enabled: live,
       source: "custom",
-      // First host on the service is the one everything else mirrors.
-      isPrimary: existing.length === 0,
       dnsState: reachability.state,
       dnsCheckedAt: new Date(),
       domainVerifyToken: randomBytes(24).toString("base64url"),
@@ -265,8 +260,7 @@ export async function setPrimaryServiceDomain(
   const owned = await loadOwnedRoute(input);
   if (owned.isErr()) return Result.err(owned.error);
 
-  await clearPrimaryForResource(input.resourceId);
-  const updated = await updateProxyRoute(input.routeId, { isPrimary: true });
+  const updated = await promotePrimaryRoute(input.resourceId, input.routeId);
   if (!updated) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
   await setServicePublicDomain(input.resourceId, updated.domain);
 
@@ -300,10 +294,8 @@ export async function removeServiceDomain(
     // Promote a survivor: prefer a live host, fall back to any remaining
     // route, and mirror it.
     const next = survivors.find((r) => r.enabled) ?? survivors[0];
-    if (next) {
-      await updateProxyRoute(next.id, { isPrimary: true });
-      await setServicePublicDomain(input.resourceId, next.domain);
-    }
+    const promoted = next ? await promotePrimaryRoute(input.resourceId, next.id) : undefined;
+    if (promoted) await setServicePublicDomain(input.resourceId, promoted.domain);
   }
 
   // The removed host was (possibly) live; re-render to stop serving it.

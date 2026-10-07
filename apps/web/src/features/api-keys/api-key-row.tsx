@@ -6,7 +6,7 @@
  *
  * Rotation note: the better-auth api-key plugin (1.6.x) has no rotate
  * endpoint (`/api-key/{create,get,list,update,delete}` only), so rotate is
- * create-then-delete. A replacement key with the same name/scopes/expiry is
+ * create-then-delete. A replacement key with the same name/scopes/presets/expiry is
  * minted first, and the old key is deleted only after the new one persists.
  * Not atomic: if the delete fails both keys are briefly live, and we say so.
  */
@@ -83,6 +83,9 @@ export function ApiKeyRow({
         lastRequest: null,
         createdAt: new Date(),
         permissions: apiKey.permissions,
+        // Read-only / selected-project presets carry over, so a rotation can
+        // never widen what the key may reach.
+        preset: apiKey.preset,
       },
       {
         metadata: {

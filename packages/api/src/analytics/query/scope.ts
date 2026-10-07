@@ -3,7 +3,8 @@
  * read goes through. Mirrors edge-logs' host scoping: install-wide needs the
  * server-owned install:read capability; a projectId is only honoured when the
  * project belongs to the caller's active organization (the org join IS the
- * cross-tenant guard); otherwise the scope is every site of the org. An empty
+ * cross-tenant guard); otherwise the scope is every site of the org (only the
+ * selected projects' sites for a key minted for selected projects). An empty
  * scope is returned as an empty list — callers answer with honest zeros,
  * never a 404 and never someone else's data.
  */
@@ -13,9 +14,11 @@ import type { AnalyticsSiteId, OrganizationId, ProjectId } from "@otterdeploy/sh
 import { db } from "@otterdeploy/db";
 import { analyticsSite, type AnalyticsSiteRow } from "@otterdeploy/db/schema/analytics";
 import { project } from "@otterdeploy/db/schema/project";
+import { idSchema } from "@otterdeploy/shared/id";
 import { and, eq, inArray, min } from "drizzle-orm";
 
 import { type ResolvedActor } from "../../authz/actor";
+import { scopedProjectIds } from "../../authz/api-key-scope";
 import { authorizeCapability } from "../../authz/capability";
 import { mintPublicKey } from "../keys";
 
@@ -48,10 +51,25 @@ export async function resolveSiteScope(
       );
     return rows.map((r) => r.id);
   }
+  // No project named: every site of the org, narrowed to a project-scoped
+  // key's own projects. An empty allow-list is an empty scope, answered
+  // with honest zeros like any other.
+  const allowed = scopedProjectIds(
+    context.actor?.kind === "api-key" ? context.actor : null,
+  )?.flatMap((projectId) => {
+    const parsed = idSchema.project.safeParse(projectId);
+    return parsed.success ? [parsed.data] : [];
+  });
+  if (allowed && allowed.length === 0) return [];
   const rows = await db
     .select({ id: analyticsSite.id })
     .from(analyticsSite)
-    .where(eq(analyticsSite.organizationId, context.activeOrganizationId));
+    .where(
+      and(
+        eq(analyticsSite.organizationId, context.activeOrganizationId),
+        allowed ? inArray(analyticsSite.projectId, allowed) : undefined,
+      ),
+    );
   return rows.map((r) => r.id);
 }
 

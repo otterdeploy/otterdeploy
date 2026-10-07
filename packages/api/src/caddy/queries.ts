@@ -131,7 +131,8 @@ export async function getProxyRouteById(id: ProxyRouteId): Promise<ProxyRouteRec
   return record;
 }
 
-export async function insertProxyRoute(input: {
+/** A route to insert; see insertProxyRoute. */
+export interface ProxyRouteInsert {
   projectId: ProjectId;
   resourceId?: ResourceId;
   /** Present only on preview-scoped routes; see the schema comment. */
@@ -152,13 +153,24 @@ export async function insertProxyRoute(input: {
    *  DNS verification flips them on. */
   enabled?: boolean;
   source?: "generated" | "custom";
+  /** Set by primary-route.ts only, which decides it under the resource lock. */
   isPrimary?: boolean;
   dnsState?: "pointed" | "proxied" | "unpointed" | "unknown";
   dnsCheckedAt?: Date | null;
   domainVerifyToken?: string | null;
   domainVerifiedAt?: Date | null;
-}): Promise<ProxyRouteRecord> {
-  const [record] = await db
+}
+
+/** A transaction handle (primary-route.ts writes routes inside its own). */
+export type RouteTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Write one route row, defaults filled in, inside `tx`; insertProxyRoute
+ *  announces it once the transaction has committed. */
+export async function writeProxyRoute(
+  tx: RouteTx,
+  input: ProxyRouteInsert,
+): Promise<ProxyRouteRecord | undefined> {
+  const [record] = await tx
     .insert(proxyRoute)
     .values({
       projectId: input.projectId,
@@ -180,6 +192,21 @@ export async function insertProxyRoute(input: {
       domainVerifiedAt: input.domainVerifiedAt ?? null,
     })
     .returning();
+  return record;
+}
+
+/**
+ * Insert a route and announce it once committed. `write` is how the row is
+ * written inside the transaction: by default as given (preview and database
+ * routes, never primary); primary-route.ts passes one that first takes the
+ * resource lock and decides the primary flag.
+ */
+export async function insertProxyRoute(
+  input: Omit<ProxyRouteInsert, "isPrimary">,
+  write: (tx: RouteTx) => Promise<ProxyRouteRecord | undefined> = (tx) =>
+    writeProxyRoute(tx, input),
+): Promise<ProxyRouteRecord> {
+  const record = await db.transaction(write);
 
   if (!record) {
     throw createError({
@@ -276,24 +303,6 @@ function publishRemovedRows(
   for (const row of rows) {
     publishRouteRemoved(row.projectId, row.id, row.resourceId);
   }
-}
-
-/** Clear the primary flag on every route of a resource. Used before
- *  promoting a new primary so the (resourceId, isPrimary=true) invariant
- *  stays at most one. */
-export async function clearPrimaryForResource(resourceId: ResourceId): Promise<void> {
-  const rows = await db
-    .update(proxyRoute)
-    .set({ isPrimary: false, updatedAt: new Date() })
-    .where(
-      and(
-        eq(proxyRoute.resourceId, resourceId),
-        eq(proxyRoute.isPrimary, true),
-        isNull(proxyRoute.previewId),
-      ),
-    )
-    .returning();
-  for (const row of rows) publishRouteUpserted("updated", row);
 }
 
 /** Flip the live state of every route on a resource. expose enables them;

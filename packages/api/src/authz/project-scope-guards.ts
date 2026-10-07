@@ -76,6 +76,24 @@ export function enforceProjectScope(context: Context, projectId: string | null |
 }
 
 /**
+ * Refuse a key minted for selected projects when the call would create
+ * something outside every project: an environment created without a
+ * `projectId` is standalone, organization-level, and so outside the key's
+ * projects by definition. Strict no-op for every other actor.
+ */
+export function enforceNamedProject(context: Context, projectId: string | null | undefined): void {
+  if (scopeIrrelevant(context)) return;
+  if (projectId) {
+    enforceProjectScope(context, projectId);
+    return;
+  }
+  throw new ORPCError("FORBIDDEN", {
+    message:
+      "This API key is limited to selected projects and cannot create anything outside them. Name one of its projects.",
+  });
+}
+
+/**
  * Resolve `resource.projectId` and enforce. The `resource` table has no org
  * column: org scoping is through `project.organizationId` via inner join,
  * exactly like the project router's own resource queries. A miss (wrong org or

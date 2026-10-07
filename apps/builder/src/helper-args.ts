@@ -190,6 +190,14 @@ export function helperHardeningFromEnv(
   return overrides;
 }
 
+/** Every build helper container's name starts with this. */
+export const HELPER_NAME_PREFIX = "otterbuild-";
+
+/** The one container name a deployment's build helper runs under. */
+export function helperContainerName(deploymentId: DeploymentId): string {
+  return `${HELPER_NAME_PREFIX}${deploymentId}`;
+}
+
 /**
  * Compose the full `docker run` argv for one build helper. Pure (no I/O, no
  * `process.env` reads) so the exact flag set. In particular the hardening
@@ -210,7 +218,7 @@ export function buildHelperRunArgs(opts: {
     "run",
     "--rm",
     "--name",
-    `otterbuild-${opts.deploymentId}`,
+    helperContainerName(opts.deploymentId),
     "--network",
     opts.network,
     ...opts.hardeningFlags,

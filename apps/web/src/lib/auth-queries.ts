@@ -5,10 +5,14 @@
  * The `_app` beforeLoad used to call `authClient.getSession()` and
  * `authClient.organization.list()` directly on EVERY navigation: two HTTP
  * round-trips to `/api/auth/*` per route entry. Auth endpoints are rate limited
- * (100 requests / 60s, packages/auth/src/index.ts), and that bucket is keyed by
- * IP, which resolves to nothing when the caller isn't behind a trusted proxy,
- * putting every tab and every user in ONE shared bucket. Clicking around the app
- * exhausted it in well under a minute.
+ * per IP and endpoint (packages/auth/src/rate-limit.ts; these two reads have
+ * their own, larger bucket), and every tab and every user behind one NAT shares
+ * that IP. Clicking around the app used to exhaust it in well under a minute.
+ *
+ * WHEN IT STILL HAPPENS
+ * A 429 throws `RateLimitedError` with the server's retry hint, and the error
+ * boundary renders a calm, self-retrying "slow down" notice for it
+ * (shared/features/errors/rate-limited.tsx), never the 500 screen.
  *
  * WHY THAT LOOKED LIKE BEING LOGGED OUT
  * A rate-limited read returns `{ data: null, error: { status: 429 } }`. The gate
@@ -37,19 +41,24 @@ import { queryOptions } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { authQueryKeys } from "@/lib/auth-query-keys";
 import { queryClient } from "@/shared/server/orpc";
+import { createRetryAfterProbe, RateLimitedError } from "@/shared/server/rate-limited";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
+const TOO_MANY_REQUESTS = 429;
 
 type SessionData = Awaited<ReturnType<typeof authClient.getSession>>["data"];
 
 export const sessionQuery = queryOptions({
   queryKey: authQueryKeys.currentSession,
   queryFn: async (): Promise<SessionData> => {
-    const res = await authClient.getSession();
+    const probe = createRetryAfterProbe();
+    const res = await authClient.getSession({ fetchOptions: probe.fetchOptions });
     // A transport/ratelimit/server failure is NOT a signed-out user. Throwing
     // keeps it out of the cache and lets the caller tell the two apart; the
     // gate must never turn this into a redirect to /sign-in.
     if (res.error) {
+      if (res.error.status === TOO_MANY_REQUESTS)
+        throw new RateLimitedError(probe.retryAfterSeconds);
       throw new Error(res.error.message ?? "Couldn't verify your session");
     }
     // 200 with a null body: genuinely not signed in.
@@ -77,7 +86,8 @@ export type OrganizationList = OrganizationSummary[] | null;
 export const organizationsQuery = queryOptions({
   queryKey: authQueryKeys.organizations,
   queryFn: async (): Promise<OrganizationList> => {
-    const res = await authClient.organization.list();
+    const probe = createRetryAfterProbe();
+    const res = await authClient.organization.list({ fetchOptions: probe.fetchOptions });
     if (res.error) {
       // 401 is not a failure, it is an ANSWER: this endpoint requires a session
       // and there isn't one. It has to resolve rather than throw, because the
@@ -90,6 +100,8 @@ export const organizationsQuery = queryOptions({
       // logout (the bug this file's header describes). Those are failures to
       // surface, not evidence about who is signed in.
       if (res.error.status === 401) return null;
+      if (res.error.status === TOO_MANY_REQUESTS)
+        throw new RateLimitedError(probe.retryAfterSeconds);
       throw new Error(res.error.message ?? "Failed to load organizations");
     }
     // Brand every org id at this single entry point (better-auth types them as

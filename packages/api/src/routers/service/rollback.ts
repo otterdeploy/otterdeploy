@@ -20,7 +20,12 @@ import {
   markDeploymentRunning,
 } from "../project/deployments";
 import { loadResource } from "./context";
-import { NotRollbackableError, ServiceNotFoundError, type ResolveError } from "./errors";
+import {
+  NotRollbackableError,
+  RollbackFailedError,
+  ServiceNotFoundError,
+  type ResolveError,
+} from "./errors";
 import { getService } from "./handlers";
 import { type ResourceRef } from "./inputs";
 import { redeployAndFanOut } from "./redeploy";
@@ -41,7 +46,7 @@ type RedeployFailure = NotFound | ResolveError;
 export async function rollbackService(
   input: ResourceRef & { deploymentId: DeploymentId },
   log: RequestLogger,
-): Promise<Result<ServiceView, RedeployFailure | NotRollbackableError>> {
+): Promise<Result<ServiceView, RedeployFailure | NotRollbackableError | RollbackFailedError>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
@@ -103,6 +108,18 @@ export async function rollbackService(
   if (redeployed.isErr()) {
     await markDeploymentFailed(row.id, redeployed.error.message);
     return Result.err(redeployed.error);
+  }
+  // A roll that ended in error is a failed rollback, not a success with an
+  // invalid service: the runtime is not running the target, so the row
+  // must not read `running` and the caller must not read 200. That
+  // includes a roll the runtime itself reverted to the previous version.
+  const rolled = redeployed.value;
+  if (rolled.status === "error") {
+    const reason = rolled.errorMessage ?? "the runtime reported an error";
+    await markDeploymentFailed(row.id, reason);
+    return Result.err(
+      new RollbackFailedError({ resourceId: input.resourceId, deploymentId: row.id, reason }),
+    );
   }
 
   // Settles only a still-in-flight row: a cancel that landed during the roll

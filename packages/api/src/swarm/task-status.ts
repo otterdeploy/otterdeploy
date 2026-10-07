@@ -4,6 +4,9 @@
  * (line cap); consumed by its service inspection and the status tests.
  */
 
+import { Temporal } from "@otterdeploy/shared/temporal";
+import { Result } from "better-result";
+
 import type { SwarmServiceRuntime } from "./service";
 
 /** Terminal task states that mean the attempt hard-failed (as opposed to still
@@ -14,7 +17,32 @@ const FAILED_TASK_STATES = new Set(["failed", "rejected", "orphaned"]);
  *  the client's task type, but the engine always populates it on a failed task. */
 export interface TaskLike {
   CreatedAt?: string | null;
-  Status?: { State?: string; Err?: string };
+  Status?: { State?: string; Err?: string; Timestamp?: string };
+  Spec?: { ContainerSpec?: { Image?: string } };
+}
+
+/**
+ * How long a task may sit in `preparing` (its node pulling the image) before
+ * the status says so. A node that cannot reach the image's registry (dropped
+ * packets, not refused ones) keeps the pull hanging with no error for many
+ * minutes, and the service read a silent "starting" the whole time. Long
+ * enough for an ordinary large pull to finish first.
+ */
+export const IMAGE_PULL_STALL_MS = 3 * 60_000;
+
+/** Milliseconds `task` has been in its current state, or null if unknown. */
+function stateAgeMs(task: TaskLike, nowMs: number): number | null {
+  const since = task.Status?.Timestamp ?? task.CreatedAt;
+  if (!since) return null;
+  const parsed = Result.try(() => Temporal.Instant.from(since).epochMilliseconds);
+  return parsed.isOk() ? nowMs - parsed.value : null;
+}
+
+/** The reason a task stuck pulling its image is reported with. */
+function pullStallMessage(task: TaskLike, ageMs: number): string {
+  const image = task.Spec?.ContainerSpec?.Image?.split("@")[0] ?? "its image";
+  const minutes = Math.floor(ageMs / 60_000);
+  return `image ${image} has not finished pulling after ${minutes} min on its node: check that the node can reach the image's registry`;
 }
 
 /** Newest-first comparator by CreatedAt. */
@@ -40,20 +68,36 @@ function taskErr(task: TaskLike | undefined): string | null {
  * failure's reason so a stuck rollout reports as "error" (and the deploy is
  * marked failed) instead of an eternal "starting" a caller mistakes for success.
  */
-export function resolveTaskStatus(tasks: TaskLike[]): {
+export function resolveTaskStatus(
+  tasks: TaskLike[],
+  nowMs: number = Temporal.Now.instant().epochMilliseconds,
+): {
   status: SwarmServiceRuntime["status"];
   errorMessage: string | null;
 } {
   const sorted = [...tasks].sort(byCreatedDesc);
-  const currentStatus = mapTaskStateToStatus(sorted.at(0)?.Status?.State);
+  const newest = sorted.at(0);
+  const currentStatus = mapTaskStateToStatus(newest?.Status?.State);
   const recentFailure =
     currentStatus === "running"
       ? undefined
       : sorted.find((t) => FAILED_TASK_STATES.has(t.Status?.State ?? "") && taskErr(t));
-  return {
-    status: recentFailure ? "error" : currentStatus,
-    errorMessage: taskErr(recentFailure),
-  };
+  if (recentFailure) return { status: "error", errorMessage: taskErr(recentFailure) };
+  // A pull that hangs fails nothing, so no task carries an Err to surface:
+  // past the bound, say what is happening instead of "starting" forever.
+  const pulling = newest?.Status?.State === "preparing" ? stateAgeMs(newest, nowMs) : null;
+  if (newest && pulling !== null && pulling >= IMAGE_PULL_STALL_MS) {
+    return { status: "error", errorMessage: pullStallMessage(newest, pulling) };
+  }
+  return { status: currentStatus, errorMessage: null };
+}
+
+/** The image the newest task is still pulling (it sits in `preparing`), or
+ *  null: how a rollout that timed out says it never got its image. */
+export function pullingImage(tasks: TaskLike[]): string | null {
+  const newest = [...tasks].sort(byCreatedDesc).at(0);
+  if (newest?.Status?.State !== "preparing") return null;
+  return newest.Spec?.ContainerSpec?.Image?.split("@")[0] ?? "its image";
 }
 
 /** The newest hard-failed task's reason, whatever is running now: after a

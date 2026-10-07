@@ -38,6 +38,13 @@ export const gitRouter = {
   }),
 
   startConnect: orgScopedProcedure.git.startConnect.handler(async ({ input, context, errors }) => {
+    // App-install flow binds the GitHub callback to the initiating user.
+    // Session-only; API-key actors have no user identity. Refused BEFORE the
+    // provider lookup, so a key learns nothing about whether this
+    // organization has a GitHub App configured.
+    if (!context.session?.user) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
     // The App slug is per-org, set when the manifest flow created the
     // provider row. No App → no slug → can't build an install URL.
     const [provider] = await db
@@ -52,11 +59,6 @@ export const gitRouter = {
       .limit(1);
     if (!provider?.appSlug) {
       throw errors.NOT_CONFIGURED();
-    }
-    // App-install flow binds the GitHub callback to the initiating user.
-    // Session-only; API-key actors have no user identity.
-    if (!context.session?.user) {
-      throw new ORPCError("UNAUTHORIZED");
     }
     const state = await signInstallState({
       orgId: context.activeOrganizationId,

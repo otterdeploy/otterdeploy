@@ -13,6 +13,7 @@ vi.mock("../queries/mounts", () => ({
 }));
 vi.mock("../redeploy", () => ({ redeployAndFanOut: vi.fn() }));
 
+import type { SwarmServiceRuntime } from "../../../swarm";
 import type { ProjectNotFoundError } from "../../project/errors";
 import type { ProjectRow } from "../context";
 import type { ResolveError, ServiceNotFoundError } from "../errors";
@@ -150,7 +151,14 @@ function makeMountRow(overrides: {
   };
 }
 
-const redeployOk = (): Result<true, ServiceNotFoundError | ResolveError> => Result.ok(true);
+const redeployOk = (): Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError> =>
+  Result.ok({
+    serviceId: "svc",
+    serviceName: "od-web",
+    networkName: "od-net",
+    status: "running",
+    health: null,
+  });
 
 beforeEach(() => {
   vi.clearAllMocks();
