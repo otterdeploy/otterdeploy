@@ -25,7 +25,7 @@
 # ---------------------------------------------------------------- builder --
 # Full workspace install (devDependencies included) purely so the dashboard
 # can be built. None of this stage reaches the published image.
-FROM oven/bun:1.3.14 AS builder
+FROM oven/bun:1.4.2 AS builder
 
 WORKDIR /app
 
@@ -87,7 +87,7 @@ RUN cd /app/vite \
 # ---------------------------------------------------------------- runtime --
 # Only the server's dependency closure, production-only. The builder's 4.9 GB
 # node_modules never lands here; see the pruning notes on the install below.
-FROM oven/bun:1.3.14 AS runtime
+FROM oven/bun:1.4.2 AS runtime
 
 WORKDIR /app
 
