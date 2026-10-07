@@ -1,8 +1,10 @@
 import { env } from "@otterdeploy/env/server";
+import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { fileURLToPath } from "node:url";
 
-import { db } from "./client";
+import { DB_CONNECT_TIMEOUT_SECONDS } from "./client";
 
 /**
  * Resolve the migrations directory. In dev this module sits at
@@ -24,5 +26,17 @@ function migrationsFolder(): string {
  * schema.
  */
 export async function runMigrations(): Promise<void> {
-  await migrate(db, { migrationsFolder: migrationsFolder() });
+  // Its own single connection, WITHOUT the pool's statement_timeout: a
+  // migration that rewrites a large table may legitimately run for minutes,
+  // and cutting it short would leave the server refusing to boot.
+  const client = new SQL({
+    url: env.DATABASE_URL,
+    max: 1,
+    connectionTimeout: DB_CONNECT_TIMEOUT_SECONDS,
+  });
+  try {
+    await migrate(drizzle({ client }), { migrationsFolder: migrationsFolder() });
+  } finally {
+    await client.close();
+  }
 }

@@ -32,7 +32,13 @@ export const nullStackDeployLog: StackDeployLog = {
   close: async () => undefined,
 };
 
-export function createStackDeployLog(deploymentId: DeploymentId): StackDeployLog {
+export function createStackDeployLog(
+  deploymentId: DeploymentId,
+  /** Which log the lines land in. Image pulls are `build` (the default); the
+   *  rollout's readiness and cutover lines are `deploy`, beside the builder's
+   *  own "updating service" / "deployment running" lines. */
+  phase: "build" | "deploy" = "build",
+): StackDeployLog {
   const channel = `deployment:${deploymentId}:logs`;
   const publisher = createRedis();
   let chain: Promise<void> = Promise.resolve();
@@ -43,13 +49,13 @@ export function createStackDeployLog(deploymentId: DeploymentId): StackDeployLog
       // Fire-and-forget pub/sub. A missing live viewer or a publish failure
       // is never worth failing the deploy over.
       publisher
-        .publish(channel, JSON.stringify({ stream: "system", line, ts: ts.toISOString() }))
+        .publish(channel, JSON.stringify({ stream: "system", phase, line, ts: ts.toISOString() }))
         .catch(() => undefined);
       chain = chain
         .then(() =>
           db
             .insert(deploymentLog)
-            .values({ deploymentId, stream: "system", line, ts })
+            .values({ deploymentId, stream: "system", line, ts, phase })
             .then(() => undefined),
         )
         .catch((err) => {

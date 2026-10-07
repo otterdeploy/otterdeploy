@@ -3,6 +3,7 @@ import { environment } from "@otterdeploy/db/schema";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import {
   environmentSlugConflict,
   isEnvironmentSlugAllowed,
@@ -91,6 +92,7 @@ export const envContract = {
     .input(listEnvsInput)
     .output(z.array(envSchema)),
   get: oc
+    .meta(projectRefs({ id: "environment" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Environment not found" as const },
     })
@@ -98,6 +100,7 @@ export const envContract = {
     .input(getEnvInput)
     .output(envSchema),
   create: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       CONFLICT: { status: 409, message: "Environment slug already in use" as const },
       INTERNAL_SERVER_ERROR: {
@@ -110,6 +113,7 @@ export const envContract = {
     .input(createEnvInput)
     .output(envSchema),
   rename: oc
+    .meta(projectRefs({ id: "environment" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Environment not found" as const },
     })
@@ -117,6 +121,7 @@ export const envContract = {
     .input(renameEnvInput)
     .output(envSchema),
   setProtection: oc
+    .meta(projectRefs({ id: "environment" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Environment not found" as const },
     })
@@ -124,6 +129,7 @@ export const envContract = {
     .input(setEnvProtectionInput)
     .output(envSchema),
   delete: oc
+    .meta(projectRefs({ id: "environment" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Environment not found" as const },
       // 409, not 400: the request is well-formed, the environment is simply not

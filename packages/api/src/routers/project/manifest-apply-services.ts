@@ -163,6 +163,14 @@ function buildGitBindingPatch(spec: ServiceManifest, gitRepoId: GitRepoId | null
   };
 }
 
+const CLEARED_HEALTHCHECK = {
+  cmd: null,
+  intervalMs: null,
+  timeoutMs: null,
+  retries: null,
+  startMs: null,
+};
+
 /** Exported for tests: see {@link buildGitBindingPatch} on why the gates here
  *  have to match the diff's. */
 export function buildUpdateServiceInput(
@@ -186,7 +194,10 @@ export function buildUpdateServiceInput(
     replicas: args.spec.replicas,
     ports: buildPortsPatch(args.spec),
     restart: args.spec.restart,
-    healthcheck: buildHealthcheckPatch(args.spec),
+    // `healthcheck: null` declares "none": clear the stored one, so the diff
+    // that staged the removal can be applied away.
+    healthcheck:
+      args.spec.healthcheck === null ? CLEARED_HEALTHCHECK : buildHealthcheckPatch(args.spec),
     resources: buildResourcesPatch(args.spec),
     // Declared-only, matching the diff gates in diff-helpers/diff-source: an
     // omitted key leaves the live value alone. The old `?? null` CLEARED the

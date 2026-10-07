@@ -12,6 +12,8 @@ import { oc } from "@orpc/contract";
 import { zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
+
 const tag = "vault-provider";
 const basePath = "/vault-providers";
 
@@ -130,18 +132,21 @@ export const vaultProviderContract = {
     .output(z.array(providerView)),
 
   create: oc
+    .meta(projectRefs({ "config.clientId": "none", "config.projectId": "none" }))
     .errors(providerErrors)
     .route({ method: "POST", path: basePath, tags: [tag] })
     .input(createInput)
     .output(providerView),
 
   update: oc
+    .meta(projectRefs({ id: "none", "config.clientId": "none", "config.projectId": "none" }))
     .errors(providerErrors)
     .route({ method: "PATCH", path: `${basePath}/{id}`, tags: [tag] })
     .input(updateInput)
     .output(providerView),
 
   remove: oc
+    .meta(projectRefs({ id: "none" }))
     .errors(providerErrors)
     .route({ method: "DELETE", path: `${basePath}/{id}`, tags: [tag] })
     .input(byIdInput)
@@ -149,6 +154,7 @@ export const vaultProviderContract = {
 
   /** Round-trip the stored credential and record the outcome on the row. */
   test: oc
+    .meta(projectRefs({ id: "none" }))
     .errors(providerErrors)
     .route({ method: "POST", path: `${basePath}/{id}/test`, tags: [tag] })
     .input(byIdInput)
@@ -157,6 +163,7 @@ export const vaultProviderContract = {
   /** Best-effort key listing for the reference picker: `[]` on any provider
    *  failure, never an error (the picker degrades to free-text refs). */
   listSecretNames: oc
+    .meta(projectRefs({ id: "none" }))
     .errors(providerErrors)
     .route({ method: "GET", path: `${basePath}/{id}/secret-names`, tags: [tag] })
     .input(byIdInput)

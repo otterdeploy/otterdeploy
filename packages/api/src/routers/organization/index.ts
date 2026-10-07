@@ -1,5 +1,10 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
+import { ORPCError } from "@orpc/server";
 import { auth } from "@otterdeploy/auth";
 import { matchError, Result } from "better-result";
+
+import type { Context } from "../../context";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 
@@ -72,6 +77,21 @@ import { platformSettingsRouter } from "./platform-settings-router";
 // authorization or data access, trusting it let one org's owner/admin
 // read or mutate ANY other org's base domain, Cloudflare config, or member
 // list just by editing the id in the request. See od-5j8.8.
+/** Member administration reads are a signed-in user's, never an API key's. */
+const SESSION_REQUIRED = "Listing members and invitations needs a signed-in user, not an API key.";
+
+/**
+ * Tags the request log with the organization, then refuses a caller with no
+ * signed-in user: better-auth lists for the user whose session the request
+ * headers carry, and an API key has none (the call used to crash into a 500).
+ */
+function requireSessionCaller(
+  context: Pick<Context, "session" | "log"> & { activeOrganizationId: OrganizationId },
+): void {
+  context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+  if (!context.session) throw new ORPCError("FORBIDDEN", { message: SESSION_REQUIRED });
+}
+
 export const organizationRouter = {
   settings: orgScopedProcedure.organization.settings.handler(async ({ context }) => {
     context.log.set({
@@ -175,9 +195,7 @@ export const organizationRouter = {
   // re-derive/re-check the caller's membership in that org, but we don't
   // rely on that alone: this router's own scope guard must hold on its own.
   listMembers: orgScopedProcedure.organization.listMembers.handler(async ({ context }) => {
-    context.log.set({
-      target: { type: "organization", id: context.activeOrganizationId },
-    });
+    requireSessionCaller(context);
     const res = await Result.tryPromise({
       try: () =>
         auth.api.listMembers({
@@ -234,9 +252,7 @@ export const organizationRouter = {
   ),
 
   listInvitations: orgScopedProcedure.organization.listInvitations.handler(async ({ context }) => {
-    context.log.set({
-      target: { type: "organization", id: context.activeOrganizationId },
-    });
+    requireSessionCaller(context);
     const res = await Result.tryPromise({
       try: () =>
         auth.api.listInvitations({

@@ -24,6 +24,8 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
+
 const tag = "certificates";
 const basePath = "/certificates";
 
@@ -182,6 +184,7 @@ export const certificatesContract = {
     .output(customCertificateWriteResult),
 
   replaceCustom: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       INVALID_INPUT: INVALID_PEM,
       NOT_FOUND: { status: 404, message: "Certificate not found" as const },
@@ -191,6 +194,7 @@ export const certificatesContract = {
     .output(customCertificateWriteResult),
 
   deleteCustom: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Certificate not found" as const },
     })
@@ -216,6 +220,7 @@ export const certificatesContract = {
     .output(trustedCaSchema),
 
   deleteCa: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "CA not found" as const },
     })

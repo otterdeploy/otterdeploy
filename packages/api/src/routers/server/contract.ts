@@ -4,6 +4,7 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 // From the pure parse module, not the collector: the contract is imported
 // (type-only) by the web app, and it has no business pulling node:fs in.
 import { UNIT_ACTIVE_STATES, UNIT_SUB_STATES } from "../../system-health/systemd-parse";
@@ -29,6 +30,11 @@ const getServerInput = z.object({
   id: serverIdField,
 });
 
+/** Largest value a Postgres `integer` (int4) column holds. Capacity columns
+ *  are int4, so an unbounded `z.number().int()` let a larger value through
+ *  validation to fail the insert as an untyped 500. */
+const PG_INT4_MAX = 2_147_483_647;
+
 const createServerInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
   id: serverIdField.optional(),
@@ -45,9 +51,9 @@ const createServerInput = z.object({
   // Capacity is daemon-reported. The join-command flow registers the node
   // before the daemon answers, so these default to 0 and get populated when
   // the agent self-registers.
-  cpuTotal: z.number().int().min(0).default(0),
-  memTotalGb: z.number().int().min(0).default(0),
-  diskTotalGb: z.number().int().min(1).optional(),
+  cpuTotal: z.number().int().min(0).max(PG_INT4_MAX).default(0),
+  memTotalGb: z.number().int().min(0).max(PG_INT4_MAX).default(0),
+  diskTotalGb: z.number().int().min(1).max(PG_INT4_MAX).optional(),
   diskUnit: z.string().optional(),
   daemonVersion: z.string().optional(),
   labels: z.array(z.string()).optional(),
@@ -375,6 +381,7 @@ export const serverContract = {
       ),
     ),
   get: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
     })
@@ -382,6 +389,7 @@ export const serverContract = {
     .input(getServerInput)
     .output(serverSchema),
   create: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       CONFLICT: {
         status: 409,
@@ -392,6 +400,7 @@ export const serverContract = {
     .input(createServerInput)
     .output(serverSchema),
   delete: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
     })
@@ -407,6 +416,7 @@ export const serverContract = {
       }),
     ),
   setAvailability: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
       SWARM_UNAVAILABLE: {
@@ -427,6 +437,7 @@ export const serverContract = {
     .input(setAvailabilityInput)
     .output(serverSchema),
   setRole: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
       SWARM_UNAVAILABLE: {
@@ -457,6 +468,7 @@ export const serverContract = {
     .input(setRoleInput)
     .output(serverSchema),
   removeNode: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
       SWARM_UNAVAILABLE: {
@@ -500,6 +512,7 @@ export const serverContract = {
     .input(serverHealthInput)
     .output(z.array(serverHealthEntrySchema)),
   metrics: oc
+    .meta(projectRefs({ id: "none" }))
     .meta({ path: `${basePath}/{id}/metrics`, tag, method: "GET" })
     .input(serverMetricsInput)
     .output(
@@ -511,6 +524,7 @@ export const serverContract = {
       }),
     ),
   units: oc
+    .meta(projectRefs({ id: "none" }))
     .meta({ path: `${basePath}/{id}/units`, tag, method: "GET" })
     .input(serverUnitsInput)
     .output(z.array(serverUnitEntrySchema)),
@@ -531,6 +545,7 @@ export const serverContract = {
       }),
     ),
   revokeEnrollment: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({ NOT_FOUND: { status: 404, message: "Enrollment not found" as const } })
     .meta({ path: `${basePath}/enrollments/revoke`, tag, method: "POST" })
     .input(revokeEnrollmentInput)
@@ -541,6 +556,7 @@ export const serverContract = {
     .input(rotateJoinCredentialInput)
     .output(z.object({ rotated: z.literal(true) })),
   provision: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       CONFLICT: {
         status: 409,
@@ -555,10 +571,12 @@ export const serverContract = {
     .input(provisionServerInput)
     .output(serverSchema),
   provisionLogs: oc
+    .meta(projectRefs({ id: "none" }))
     .meta({ path: `${basePath}/{id}/provision-logs`, tag, method: "GET" })
     .input(provisionLogsInput)
     .output(eventIterator(provisionLineSchema)),
   retryProvision: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
       NOT_FAILED: {
@@ -581,6 +599,7 @@ export const serverContract = {
    * watch firewallStatus flip off "unknown"/"failed".
    */
   reapplyFirewall: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },
       MISSING_CREDENTIAL: {

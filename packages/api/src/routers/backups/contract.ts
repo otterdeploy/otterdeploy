@@ -15,6 +15,7 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { validateCron } from "../../lib/cron";
 import { zJsonObject } from "../../lib/z-json";
 import { projectIdField, resourceIdField } from "../project/contract/shared";
@@ -385,6 +386,7 @@ export const backupsContract = {
     .output(z.array(backupSchema)),
 
   get: oc
+    .meta(projectRefs({ id: "backup" }))
     .errors(backupNotFound)
     .meta({ path: `${basePath}/{id}`, tag, method: "GET" })
     .input(getBackupInput)
@@ -399,6 +401,7 @@ export const backupsContract = {
 
   // Restore a succeeded backup (download bytes as base64, or in-place).
   restore: oc
+    .meta(projectRefs({ id: "backup" }))
     .errors(backupNotFound)
     .meta({ path: `${basePath}/{id}/restore`, tag, method: "POST" })
     .input(restoreBackupInput)
@@ -414,6 +417,7 @@ export const backupsContract = {
 
   // Integrity check: re-fetch the stored archive and recompute its checksum.
   verify: oc
+    .meta(projectRefs({ id: "backup" }))
     .errors(backupNotFound)
     .meta({ path: `${basePath}/{id}/verify`, tag, method: "POST" })
     .input(getBackupInput)
@@ -422,6 +426,7 @@ export const backupsContract = {
   // Start a restore-proving verification (sandbox restore) detached; poll
   // `verifications` for the outcome.
   verifyRestore: oc
+    .meta(projectRefs({ id: "backup" }))
     .errors(verifyRestoreErrors)
     .meta({ path: `${basePath}/{id}/verify-restore`, tag, method: "POST" })
     .input(getBackupInput)
@@ -429,6 +434,7 @@ export const backupsContract = {
 
   // Verification history for a run, newest first.
   verifications: oc
+    .meta(projectRefs({ id: "backup" }))
     .errors(backupNotFound)
     .meta({ path: `${basePath}/{id}/verifications`, tag, method: "GET" })
     .input(getBackupInput)
@@ -436,6 +442,7 @@ export const backupsContract = {
 
   // Restore history for a run, newest first.
   restores: oc
+    .meta(projectRefs({ id: "backup" }))
     .errors(backupNotFound)
     .meta({ path: `${basePath}/{id}/restores`, tag, method: "GET" })
     .input(getBackupInput)
@@ -443,6 +450,7 @@ export const backupsContract = {
 
   // Paginated per-run log lines (cursor = afterSeq).
   logs: oc
+    .meta(projectRefs({ id: "backup" }))
     .meta({ path: `${basePath}/{id}/logs`, tag, method: "GET" })
     .input(backupLogsInput)
     .output(z.array(backupLogLineSchema)),
@@ -460,12 +468,14 @@ export const backupsContract = {
       .output(scheduleSchema),
 
     update: oc
+      .meta(projectRefs({ id: "backupSchedule" }))
       .errors({ ...scheduleNotFound, ...scheduleInvalidDestination })
       .meta({ path: `${basePath}/schedules/{id}`, tag, method: "PATCH" })
       .input(updateScheduleInput)
       .output(scheduleSchema),
 
     delete: oc
+      .meta(projectRefs({ id: "backupSchedule" }))
       .errors(scheduleNotFound)
       .meta({ path: `${basePath}/schedules/{id}`, tag, method: "DELETE" })
       .input(scheduleIdInput)
@@ -473,6 +483,7 @@ export const backupsContract = {
 
     // Trigger a schedule's backups immediately, out-of-band from its cron.
     run: oc
+      .meta(projectRefs({ id: "backupSchedule" }))
       .errors(scheduleRunErrors)
       .meta({ path: `${basePath}/schedules/{id}/run`, tag, method: "POST" })
       .input(scheduleIdInput)
@@ -499,6 +510,7 @@ export const backupsContract = {
       .output(destinationSchema),
 
     update: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({ ...destinationNotFound, ...destinationInvalidConfig, ...destinationManaged })
       .meta({ path: `${basePath}/destinations/{id}`, tag, method: "PATCH" })
       .input(updateDestinationInput)
@@ -508,6 +520,7 @@ export const backupsContract = {
     // backups but keeps its snapshots restorable. Separate from `update` so it
     // works on the managed row, whose config is not editable.
     setEnabled: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({ ...destinationNotFound, ...destinationLastActive })
       .meta({ path: `${basePath}/destinations/{id}/enabled`, tag, method: "PUT" })
       .input(setDestinationEnabledInput)
@@ -518,12 +531,14 @@ export const backupsContract = {
     // explicit "yes, back up into this bucket" the connect flow deliberately
     // does not ask for.
     setUsedForBackups: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({ ...destinationNotFound, ...destinationLastActive })
       .meta({ path: `${basePath}/destinations/{id}/used-for-backups`, tag, method: "PUT" })
       .input(setDestinationUsedForBackupsInput)
       .output(destinationSchema),
 
     delete: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({
         ...destinationNotFound,
         ...destinationManaged,
@@ -538,6 +553,7 @@ export const backupsContract = {
       .output(z.object({ ok: z.boolean() })),
 
     test: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({
         ...destinationNotFound,
         TEST_FAILED: {

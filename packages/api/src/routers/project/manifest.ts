@@ -13,6 +13,8 @@ import { project } from "@otterdeploy/db/schema";
 import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import { Result } from "better-result";
 import { and, eq, sql } from "drizzle-orm";
+import { log as globalLog } from "evlog";
+import * as z from "zod";
 
 import { manifestSchema, resolveEnvironment, type Manifest } from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
@@ -40,10 +42,79 @@ export async function loadManifest(
     .limit(1);
 
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
-  return Result.ok({
-    manifest: row.manifest ? manifestSchema.parse(row.manifest) : null,
-    version: row.version,
-  });
+  const stored = storedManifest(row.manifest);
+  if (stored.kind === "poisoned") await repairPoisonedManifest(scope, row.version);
+  if (stored.kind === "unreadable") {
+    globalLog.warn({
+      message: "[manifest] stored manifest fails the schema; reading it as absent",
+      projectId: scope.projectId,
+      issues: stored.issues,
+    });
+  }
+  return Result.ok({ manifest: stored.manifest, version: row.version });
+}
+
+/**
+ * What a selective discard on a never-saved, never-applied manifest used to
+ * store: the bare sections, no `project`. manifestSchema rejects
+ * it, so every read of such a project was a ZodError 500. It means "nothing
+ * staged", which is exactly an absent manifest.
+ */
+const poisonedManifestSchema = z.strictObject({
+  services: z.strictObject({}),
+  databases: z.strictObject({}),
+  composes: z.strictObject({}),
+});
+
+type StoredManifest =
+  | { kind: "absent" | "poisoned"; manifest: null }
+  | { kind: "valid"; manifest: Manifest }
+  | { kind: "unreadable"; manifest: null; issues: string[] };
+
+/**
+ * The stored `project.manifest` jsonb, read tolerantly. Never throws: a value
+ * the schema rejects reads as absent (and is reported as such) instead of
+ * failing every read of the project. Only the known discard poison is
+ * rewritten (`repairPoisonedManifest`); anything else is left in place for
+ * an operator to recover.
+ */
+function storedManifest(raw: unknown): StoredManifest {
+  if (raw === null || raw === undefined) return { kind: "absent", manifest: null };
+  const parsed = manifestSchema.safeParse(raw);
+  if (parsed.success) return { kind: "valid", manifest: parsed.data };
+  if (poisonedManifestSchema.safeParse(raw).success) return { kind: "poisoned", manifest: null };
+  return {
+    kind: "unreadable",
+    manifest: null,
+    issues: parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`),
+  };
+}
+
+/**
+ * Rewrite a poisoned manifest to the null it stands for. Best-effort, and
+ * only while the version is unchanged, so it can never clobber a concurrent
+ * save. The version is not bumped: the content is the same "nothing staged".
+ */
+async function repairPoisonedManifest(scope: ProjectScope, version: number): Promise<void> {
+  const repaired = await Result.tryPromise(() =>
+    db
+      .update(project)
+      .set({ manifest: null })
+      .where(
+        and(
+          eq(project.id, scope.projectId),
+          eq(project.organizationId, scope.organizationId),
+          eq(project.manifestVersion, version),
+        ),
+      ),
+  );
+  if (repaired.isErr()) {
+    globalLog.warn({
+      message: "[manifest] could not repair a poisoned manifest; it still reads as absent",
+      projectId: scope.projectId,
+      error: repaired.error.message,
+    });
+  }
 }
 
 /**
@@ -164,10 +235,11 @@ export async function discardManifest(
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
 
   const nextManifest = manifestAfterDiscard({
-    // jsonb columns are typed as free-form JSON; the schema parse is the
-    // boundary that turns them back into Manifest, same as loadManifest.
-    manifest: row.manifest ? manifestSchema.parse(row.manifest) : null,
-    applied: row.lastApplied ? manifestSchema.parse(row.lastApplied) : null,
+    // jsonb columns are typed as free-form JSON; storedManifest is the
+    // boundary that turns them back into Manifest, same as loadManifest (a
+    // poisoned or unreadable value discards as absent instead of throwing).
+    manifest: storedManifest(row.manifest).manifest,
+    applied: storedManifest(row.lastApplied).manifest,
     only,
   });
 

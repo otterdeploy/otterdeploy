@@ -1,12 +1,11 @@
-import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
-import { reportDomainPlacement } from "../../caddy/dns-placement";
-import { listEnabledRoutePlacements } from "../../caddy/queries";
+import { listOrganizationRoutePlacements, reportDomainPlacement } from "../../caddy/dns-placement";
 import { chooseServerBucketSeconds, queryServerMetrics } from "../../metrics/server-query";
 import { setServerAvailability } from "./availability";
 import { serverEnrollmentRouter } from "./enrollment-router";
+import { createDatabaseFailure } from "./errors";
 import {
   createServer,
   deleteServer,
@@ -31,11 +30,10 @@ export const serverRouter = {
   }),
 
   dnsPlacement: orgScopedProcedure.server.dnsPlacement.handler(async ({ context }) => {
-    const placements = await listEnabledRoutePlacements();
-    return reportDomainPlacement({
-      organizationId: context.activeOrganizationId,
-      routes: placements.map((p) => ({ domain: p.domain, placementServerId: p.placementServerId })),
-    });
+    // Only the caller's organization's routes: the install-wide list disclosed
+    // every tenant's domains and resolved each one per call.
+    const routes = await listOrganizationRoutePlacements(context.activeOrganizationId);
+    return reportDomainPlacement({ organizationId: context.activeOrganizationId, routes });
   }),
 
   get: orgScopedProcedure.server.get.handler(async ({ input, context, errors }) => {
@@ -62,10 +60,7 @@ export const serverRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ServerConflictError: () => errors.CONFLICT(),
-          // Surfaces the real Postgres message instead of the opaque
-          // Panic("catch handler threw") that replaced it before.
-          ServerDatabaseError: (e: { message: string }) =>
-            new ORPCError("INTERNAL_SERVER_ERROR", { message: e.message }),
+          ServerDatabaseError: (e) => createDatabaseFailure(context.log, e),
         });
       }
       context.log.set({ target: { type: "server", id: result.value.id } });
@@ -218,10 +213,7 @@ export const serverRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ServerConflictError: () => errors.CONFLICT(),
-          // Surfaces the real Postgres message instead of the opaque
-          // Panic("catch handler threw") that replaced it before.
-          ServerDatabaseError: (e: { message: string }) =>
-            new ORPCError("INTERNAL_SERVER_ERROR", { message: e.message }),
+          ServerDatabaseError: (e) => createDatabaseFailure(context.log, e),
           ProvisionCredentialError: () => errors.BAD_REQUEST(),
         });
       }

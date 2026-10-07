@@ -20,6 +20,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import type {
   CurrentCompose,
   CurrentDatabase,
+  CurrentHealthcheck,
   CurrentService,
   CurrentServicePort,
   CurrentState,
@@ -102,6 +103,19 @@ function toCurrentService(
     diskLimitMb: row.service.diskLimitMb ?? null,
     swapLimitMb: row.service.swapLimitMb ?? null,
     pidsLimit: row.service.pidsLimit ?? null,
+    healthcheck: currentHealthcheck(row.service),
+  };
+}
+
+/** The stored healthcheck in the diff's shape, null when none is set. */
+function currentHealthcheck(service: ServiceStateRow["service"]): CurrentHealthcheck | null {
+  if (!service.healthcheckCmd) return null;
+  return {
+    cmd: service.healthcheckCmd,
+    intervalMs: service.healthcheckIntervalMs ?? null,
+    timeoutMs: service.healthcheckTimeoutMs ?? null,
+    retries: service.healthcheckRetries ?? null,
+    startMs: service.healthcheckStartMs ?? null,
   };
 }
 

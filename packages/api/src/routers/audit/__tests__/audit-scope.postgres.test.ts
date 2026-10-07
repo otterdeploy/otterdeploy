@@ -20,7 +20,12 @@ import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
 import type { Context } from "../../../context";
 
 import { seedOrganization, uniq } from "../../../__tests__/postgres-seed";
-import { auditRouter } from "../index";
+
+// The synthetic session user below is a member of the organization it names:
+// the org-scoped guard's membership lookup is not under test here.
+vi.mock("../../../authz/org-member", () => ({ isOrgMember: vi.fn(async () => true) }));
+
+const { auditRouter } = await import("../index");
 
 function sessionContext(organizationId: OrganizationId, isInstallAdmin: boolean): Context {
   const actor = {

@@ -14,6 +14,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { organizationIdField } from "../project/contract/shared";
 import {
   runtimeSettingsDraftSchema,
@@ -554,6 +555,7 @@ export const organizationContract = {
     .output(z.array(socialProviderSchema)),
 
   setSocialProvider: oc
+    .meta(projectRefs({ id: "none" }))
     .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "PATCH" })
     .input(setSocialProviderInput)
     .output(z.array(socialProviderSchema)),

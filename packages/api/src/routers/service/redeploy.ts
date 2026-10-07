@@ -183,12 +183,18 @@ export async function redeployOne(
       },
     });
   }
-  // Same guard: a preview roll's outcome never rewrites the base status.
-  if (!opts?.previewId) {
-    await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
-  }
+  // Same guard: a preview roll's outcome never rewrites the base status. A
+  // rolled-back rollout leaves the resource `valid`: its previous version is
+  // still the one serving, only this deploy failed.
+  if (!opts?.previewId) await updateServiceResourceStatus(resourceId, resourceStatusAfter(result));
 
   return Result.ok(result);
+}
+
+/** The resource status a roll leaves behind: `invalid` only when nothing
+ *  healthy is serving (a rolled-back roll still has the previous version). */
+function resourceStatusAfter(result: SwarmServiceRuntime): "valid" | "invalid" {
+  return result.status === "error" && !result.rolledBack ? "invalid" : "valid";
 }
 
 export async function redeployAndFanOut(

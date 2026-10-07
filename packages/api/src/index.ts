@@ -5,11 +5,12 @@ import * as z from "zod";
 
 import type { Context } from "./context";
 
-import { requireProjectScope } from "./authz/api-key-scope";
 import { authorizeCapability } from "./authz/capability";
+import { isOrgMember } from "./authz/org-member";
 import { isReadAction, isReadMethod } from "./authz/procedure-mode";
 import { procedureTimeout } from "./authz/procedure-timeout";
 import { traceProcedure } from "./authz/procedure-trace";
+import { authorizeProjectRefs } from "./authz/project-ref-scope";
 import { analyticsContract } from "./routers/analytics/contract";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
@@ -141,6 +142,10 @@ const orgScopedMiddleware = orpc
       status: 400,
       message: "No active organization. Set one before calling this endpoint.",
     },
+    FORBIDDEN: {
+      status: 403,
+      message: "You are not a member of this organization.",
+    },
   })
   .middleware(async ({ context, next, errors }) => {
     // Session/cookie/CLI-bearer user OR a verified API-key actor. For a key
@@ -158,6 +163,17 @@ const orgScopedMiddleware = orpc
     if (!context.activeOrganizationId) {
       throw errors.NO_ACTIVE_ORGANIZATION();
     }
+    // A session names its active organization, but only the member table says
+    // the user still belongs to it: a member removed mid-session keeps a
+    // session (and up to five minutes of cookie cache) that still names the
+    // organization. One indexed lookup per org-scoped call. A key
+    // actor's organization is the key's own, so it needs no such check.
+    if (
+      context.session &&
+      !(await isOrgMember(context.session.user.id, context.activeOrganizationId))
+    ) {
+      throw errors.FORBIDDEN();
+    }
     return next({
       context: {
         actor: context.actor,
@@ -168,7 +184,41 @@ const orgScopedMiddleware = orpc
     });
   });
 
-export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
+/**
+ * Constrains an API-key actor to the project(s) its scope allows, for EVERY
+ * org-scoped procedure: each input field that names a project, or
+ * an object a project owns, is resolved to that project, as the procedure
+ * declares it (authz/project-refs.ts: conventional field names, plus the
+ * contract's `meta.projectRefs` for `id`, `slug` and nested paths). An
+ * id-like field with no declaration fails closed. Session/cookie actors and
+ * keys not minted with `projectScope: "selected"` pass without a query.
+ */
+const projectScopeMiddleware = orpc
+  .$context<Context>()
+  .errors({
+    FORBIDDEN: {
+      status: 403,
+      message: "This API key is not scoped to that project.",
+    },
+  })
+  .middleware(async ({ context, procedure, next, errors }, input: unknown) => {
+    if (context.apiKey && context.activeOrganizationId) {
+      const decision = await authorizeProjectRefs(
+        context.apiKey,
+        context.activeOrganizationId,
+        procedure["~orpc"].meta,
+        input,
+      );
+      if (!decision.allowed) {
+        throw errors.FORBIDDEN({ message: decision.reason });
+      }
+    }
+    return next();
+  });
+
+export const orgScopedProcedure = publicProcedure
+  .use(orgScopedMiddleware)
+  .use(projectScopeMiddleware);
 
 /**
  * Installation administration is a server-owned user attribute, never an
@@ -200,42 +250,13 @@ export function requireInstallAdmin() {
 }
 
 /**
- * Constrains an API-key actor to the project(s) its scope allows. `projectId`
- * is read from validated input (handlers vary in whether it's required, so it
- * no-ops when absent). Session/cookie actors are never project-restricted.
- * Only keys minted with `projectScope: "selected"` are gated. Folded into both
- * `requirePermission` and `projectScopedProcedure` below, so every gated
- * project mutation also honours the key's project scope.
- */
-const projectScopeMiddleware = orpc
-  .$context<Context>()
-  .errors({
-    FORBIDDEN: {
-      status: 403,
-      message: "This API key is not scoped to that project.",
-    },
-  })
-  .middleware(async ({ context, next, errors }, input: unknown) => {
-    if (context.apiKey) {
-      const projectId =
-        input !== null && typeof input === "object" && "projectId" in input
-          ? input.projectId
-          : undefined;
-      if (typeof projectId === "string" && !requireProjectScope(context.apiKey, projectId)) {
-        throw errors.FORBIDDEN();
-      }
-    }
-    return next();
-  });
-
-/**
  * Build an org-scoped procedure that additionally requires a specific RBAC
  * permission. Role resolution + the permission check are delegated to
  * better-auth's `auth.api.hasPermission` (statements/roles defined in
- * `@otterdeploy/auth/permissions`), no hand-rolled member-table lookups. The
- * returned procedure ALSO carries the api-key project-scope guard, so a gated
- * mutation enforces RBAC, the key's resource scope, AND the key's project scope
- * in one place.
+ * `@otterdeploy/auth/permissions`), no hand-rolled member-table lookups. Being
+ * org-scoped, the returned procedure ALSO carries the api-key project-scope
+ * guard, so a gated mutation enforces RBAC, the key's resource scope, AND the
+ * key's project scope in one place.
  *
  * Usage:
  *   requirePermission({ backup: ["run"] }).backups.run.handler(...)
@@ -276,7 +297,7 @@ export function requirePermission(permission: PermissionCheck) {
       return next();
     });
 
-  return orgScopedProcedure.use(permissionMiddleware).use(projectScopeMiddleware);
+  return orgScopedProcedure.use(permissionMiddleware);
 }
 
 /**
@@ -290,11 +311,12 @@ export function requireInstallAdminPermission(permission: PermissionCheck) {
 }
 
 /**
- * Org-scoped procedure with the api-key project-scope guard but no specific RBAC
- * permission: for project-scoped READ procedures (and any mutation gated some
- * other way). Mutating project procedures should prefer `requirePermission`,
- * which layers the RBAC check on top of this same project-scope guard.
+ * Org-scoped procedure for project-scoped READ procedures (and any mutation
+ * gated some other way). Every org-scoped builder now carries the api-key
+ * project-scope guard, so this is `orgScopedProcedure` under the name that
+ * says what the procedure reads; mutating project procedures should prefer
+ * `requirePermission`, which layers the RBAC check on top.
  */
-export const projectScopedProcedure = orgScopedProcedure.use(projectScopeMiddleware);
+export const projectScopedProcedure = orgScopedProcedure;
 
 export { isReadAction, isReadMethod } from "./authz/procedure-mode";

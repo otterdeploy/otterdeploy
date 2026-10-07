@@ -44,9 +44,9 @@ import {
   deriveDeploymentStatus,
   isBuildStillLogging,
   loadTaskStatesByDeployment,
-  reconcileDeploySuccess,
   resolveDeploymentServiceName,
 } from "../project/deployments-list";
+import { reconcileObservedSuccess } from "../project/deployments-reconcile";
 import { ProjectNotFoundError } from "../project/errors";
 import { getProjectInOrg } from "../project/queries";
 import { getResourceById, inEnvironmentScope } from "../project/queries/resource";
@@ -158,7 +158,7 @@ async function refineLatestStatuses(
         paused,
       );
       if (derived === "running" && (row.status === "building" || row.status === "pending")) {
-        await reconcileDeploySuccess([row.id], row.resourceId);
+        await reconcileObservedSuccess([row.id], row.resourceId);
       }
       refined.set(row.id, derived);
     } catch {

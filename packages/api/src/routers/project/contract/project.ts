@@ -7,6 +7,7 @@ import { ID_PREFIX, zId, zSlug } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { projectRefs } from "../../../authz/project-refs";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { environmentIdField, projectIdField } from "./shared";
 
@@ -140,17 +141,20 @@ const projectSlugConflictError = {
 
 export const projectContractSlice = {
   get: oc
+    .meta(projectRefs({ id: "project" }))
     .errors(projectNotFoundErrors)
     .meta({ path: `${basePath}/{id}`, tag, method: "GET" })
     .input(getProjectInput)
     .output(projectSchema),
   getBySlug: oc
+    .meta(projectRefs({ slug: "projectSlug" }))
     .errors(projectNotFoundErrors)
     .meta({ path: `${basePath}/by-slug/{slug}`, tag, method: "GET" })
     .input(getProjectBySlugInput)
     .output(projectSchema),
   list: oc.meta({ path: basePath, tag, method: "GET" }).output(z.array(projectListItemSchema)),
   create: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       CONFLICT: projectSlugConflictError,
     })
@@ -158,6 +162,7 @@ export const projectContractSlice = {
     .input(createProjectInput)
     .output(projectSchema),
   update: oc
+    .meta(projectRefs({ id: "project" }))
     .errors({
       ...projectNotFoundErrors,
       CONFLICT: projectSlugConflictError,
@@ -166,6 +171,7 @@ export const projectContractSlice = {
     .input(updateProjectInput)
     .output(projectSchema),
   delete: oc
+    .meta(projectRefs({ id: "project" }))
     .errors({
       ...projectNotFoundErrors,
       // Refused while service/compose resources exist. Their runtimes are
@@ -181,6 +187,7 @@ export const projectContractSlice = {
     .input(deleteProjectInput)
     .output(z.object({ ok: z.boolean() })),
   saveGraphLayout: oc
+    .meta(projectRefs({ id: "project" }))
     .errors(projectNotFoundErrors)
     .meta({ path: `${basePath}/{id}/graph-layout`, tag, method: "PATCH" })
     .input(saveGraphLayoutInput)

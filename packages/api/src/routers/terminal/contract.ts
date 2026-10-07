@@ -8,6 +8,7 @@ import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { projectIdField, resourceIdField } from "../project/contract/shared";
 
 const tag = "terminal";
@@ -206,6 +207,7 @@ export const terminalContract = {
   /** Mint a single-use, target-bound ticket for the /pty WS upgrade. Requires
    *  an interactive session with a live step-up grant. */
   mintTicket: oc
+    .meta(projectRefs({ "target.containerId": "none" }))
     .errors(mintTicketErrors)
     .meta({ path: `${basePath}/ticket`, tag, method: "POST" })
     .input(mintTicketInput)

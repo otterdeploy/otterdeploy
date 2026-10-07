@@ -1,5 +1,7 @@
 import type { ServerId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
+import { ORPCError } from "@orpc/server";
 import { TaggedError } from "better-result";
 
 export class ServerNotFoundError extends TaggedError("ServerNotFoundError")<{
@@ -217,4 +219,18 @@ export class SwarmNodeRemoveError extends TaggedError("SwarmNodeRemoveError")<{
       message: `swarm node removal failed for server ${args.serverId}: ${args.cause}`,
     });
   }
+}
+
+/**
+ * A server-row write that failed in Postgres. The driver's message (drizzle's
+ * "Failed query: insert into \"server\" ... params: ...") is logged on the
+ * request's wide event and kept as the cause; the caller gets oRPC's generic
+ * INTERNAL_SERVER_ERROR, never that text.
+ */
+export function createDatabaseFailure(
+  log: RequestLogger,
+  error: ServerDatabaseError,
+): ORPCError<"INTERNAL_SERVER_ERROR", undefined> {
+  log.error(error, { step: error.operation });
+  return new ORPCError("INTERNAL_SERVER_ERROR", { cause: error });
 }

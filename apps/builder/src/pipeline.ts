@@ -40,12 +40,7 @@ import { ensureBuildxBuilder, cachePathFor, type TurboCacheEnv } from "./buildx"
 import { cloneRepoAtSha } from "./clone";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { detectServiceFramework } from "./detect-framework";
-import {
-  BuildStepError,
-  InvalidDeploymentError,
-  SwarmConvergenceError,
-  SwarmUpdateError,
-} from "./errors";
+import { BuildStepError, InvalidDeploymentError, SwarmUpdateError } from "./errors";
 import { extractTarballToWorkDir } from "./extract";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
@@ -56,6 +51,7 @@ import {
   mintInstallationToken,
   pushImageIfRegistry,
   resolveBindingKind,
+  checkRollout,
   resolveBuilder,
   runPostDeploy,
   runPreDeploy,
@@ -358,14 +354,7 @@ function runBuildSteps(
       })
     ).mapError((cause) => new SwarmUpdateError(cause));
     sink.system(`swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`);
-    if (runtime.status !== "running") {
-      return Result.err(
-        new SwarmConvergenceError({
-          serviceName: runtime.serviceName,
-          health: runtime.health,
-        }),
-      );
-    }
+    yield* await checkRollout(ctx, runtime, isPreview, sink);
 
     yield* await transitionStep("mark-running", opts.deploymentId, markRunning);
     sink.system(`deployment running: ${image.shaTag}`);
