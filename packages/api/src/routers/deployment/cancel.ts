@@ -30,7 +30,7 @@ import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
-import { allDeployQueues } from "@otterdeploy/jobs";
+import { deployQueueName, listDeployLanes, runOnRequestQueue } from "@otterdeploy/jobs";
 import { Result, TaggedError } from "better-result";
 import { and, eq } from "drizzle-orm";
 
@@ -88,11 +88,18 @@ async function dequeue(deploymentId: DeploymentId): Promise<boolean> {
   let removed = false;
   // Every deploy lane's queue: the job may sit on a named build-server lane
   // (packages/jobs/src/lanes.ts) rather than the shared default queue.
-  for (const queue of await allDeployQueues()) {
+  for (const lane of await listDeployLanes()) {
     // `active` is deliberately excluded: removing a job BullMQ is currently
     // processing does not stop the worker, it just loses the bookkeeping.
-    const jobs = await queue.getJobs(["waiting", "delayed", "paused"]);
-    for (const job of jobs) {
+    // Fail-fast request queue: with Redis down this lane is skipped within
+    // QUEUE_READY_TIMEOUT_MS; the `cancelled` row already stops the builder.
+    const listed = await Result.tryPromise(() =>
+      runOnRequestQueue(deployQueueName(lane), (queue) =>
+        queue.getJobs(["waiting", "delayed", "paused"]),
+      ),
+    );
+    if (listed.isErr()) continue;
+    for (const job of listed.value) {
       // Untyped queue → `data` is `any`; guard the shape instead of asserting.
       const ids = job?.data?.deploymentIds;
       if (!Array.isArray(ids) || !ids.includes(deploymentId)) continue;

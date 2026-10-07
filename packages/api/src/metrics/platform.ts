@@ -2,7 +2,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, platformMetric, project, resource } from "@otterdeploy/db/schema";
-import { getAllQueues } from "@otterdeploy/jobs";
+import { jobs, runOnRequestQueue } from "@otterdeploy/jobs";
 /**
  * Install-wide platform metrics: BullMQ queue depth (sampled onto the
  * `platform_metric` time series) + deploy throughput derived from the
@@ -23,20 +23,27 @@ export interface QueueSnapshot {
   completed: number;
 }
 
-/** Live per-queue job counts (straight from BullMQ, no DB), current backlog. */
+/**
+ * Live per-queue job counts (straight from BullMQ, no DB), current backlog.
+ * On the fail-fast request queues: with Redis unreachable this throws
+ * JobQueueUnavailableError within QUEUE_READY_TIMEOUT_MS rather than waiting
+ * out the procedure deadline.
+ */
 export async function currentQueueSnapshot(): Promise<QueueSnapshot[]> {
   const snaps = await Promise.all(
-    getAllQueues().map(async (q) => {
-      const c = await q.getJobCounts("waiting", "active", "failed", "delayed", "completed");
-      return {
-        queue: q.name,
-        waiting: c.waiting ?? 0,
-        active: c.active ?? 0,
-        failed: c.failed ?? 0,
-        delayed: c.delayed ?? 0,
-        completed: c.completed ?? 0,
-      };
-    }),
+    jobs.map((job) =>
+      runOnRequestQueue(job.name, async (q) => {
+        const c = await q.getJobCounts("waiting", "active", "failed", "delayed", "completed");
+        return {
+          queue: q.name,
+          waiting: c.waiting ?? 0,
+          active: c.active ?? 0,
+          failed: c.failed ?? 0,
+          delayed: c.delayed ?? 0,
+          completed: c.completed ?? 0,
+        };
+      }),
+    ),
   );
   return snaps.sort((a, b) => a.queue.localeCompare(b.queue));
 }

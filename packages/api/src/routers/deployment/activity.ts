@@ -29,7 +29,7 @@ import {
   serviceResource,
   environment,
 } from "@otterdeploy/db/schema/project";
-import { getDeployQueue, listDeployLanes } from "@otterdeploy/jobs";
+import { deployQueueName, listDeployLanes, runOnRequestQueue } from "@otterdeploy/jobs";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
 
@@ -111,11 +111,10 @@ async function laneQueueStats(): Promise<{ anyActive: boolean; lanes?: DeployLan
     const laneNames = await listDeployLanes();
     const lanes = await Promise.all(
       laneNames.map(async (lane): Promise<DeployLaneActivity> => {
-        const counts = await getDeployQueue(lane).getJobCounts(
-          "active",
-          "waiting",
-          "delayed",
-          "paused",
+        // Fail-fast request queue: Redis down lands in the catch below within
+        // QUEUE_READY_TIMEOUT_MS instead of holding the activity feed.
+        const counts = await runOnRequestQueue(deployQueueName(lane), (queue) =>
+          queue.getJobCounts("active", "waiting", "delayed", "paused"),
         );
         return {
           lane,
