@@ -48,13 +48,23 @@ function publishFor(rows: Array<{ resourceId: ResourceId }>): void {
   }
 }
 
-export async function markBuilding(deploymentId: DeploymentId): Promise<void> {
+/**
+ * Claim the row for the build: pending → building. Returns false when the row
+ * is no longer in flight (cancelled while its job sat in the queue, failed by
+ * the reconcile, settled by another writer): the build must not start, and
+ * the row keeps the status and completed_at it already has. Cancelling a
+ * deployment leaves a shared batch job queued and relies on exactly this.
+ */
+export async function markBuilding(deploymentId: DeploymentId): Promise<boolean> {
   const rows = await db
     .update(deployment)
     .set({ status: "building", errorMessage: null, completedAt: null })
-    .where(eq(deployment.id, deploymentId))
+    .where(
+      and(eq(deployment.id, deploymentId), inArray(deployment.status, ["pending", "building"])),
+    )
     .returning({ resourceId: deployment.resourceId });
   publishFor(rows);
+  return rows.length > 0;
 }
 
 export async function markFailed(deploymentId: DeploymentId, errorMessage: string): Promise<void> {
@@ -92,15 +102,21 @@ export async function markImageReady(deploymentId: DeploymentId, image: string):
 }
 
 /**
- * Swarm converged on the new image. Terminal happy-path state.
+ * Swarm converged on the new image. Terminal happy-path state, reached only
+ * from a still-in-flight row (same rule as markFailed): returns false when the
+ * row was settled meanwhile (an operator's cancel, the reconcile's failure),
+ * which is not an error, just a write that lost to an earlier terminal one.
  */
-export async function markRunning(deploymentId: DeploymentId): Promise<void> {
+export async function markRunning(deploymentId: DeploymentId): Promise<boolean> {
   const rows = await db
     .update(deployment)
     .set({ status: "running", errorMessage: null, completedAt: new Date() })
-    .where(eq(deployment.id, deploymentId))
+    .where(
+      and(eq(deployment.id, deploymentId), inArray(deployment.status, ["pending", "building"])),
+    )
     .returning({ resourceId: deployment.resourceId });
   publishFor(rows);
+  return rows.length > 0;
 }
 
 /**
