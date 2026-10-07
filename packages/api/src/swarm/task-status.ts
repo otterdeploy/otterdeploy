@@ -56,6 +56,15 @@ export function resolveTaskStatus(tasks: TaskLike[]): {
   };
 }
 
+/** The newest hard-failed task's reason, whatever is running now: after a
+ *  rollback the old task runs again, and this is why the new one did not. */
+export function recentTaskFailure(tasks: TaskLike[]): string | null {
+  const failed = [...tasks]
+    .sort(byCreatedDesc)
+    .find((t) => FAILED_TASK_STATES.has(t.Status?.State ?? "") && taskErr(t));
+  return taskErr(failed);
+}
+
 function mapTaskStateToStatus(state: string | undefined): SwarmServiceRuntime["status"] {
   switch (state) {
     case "running":

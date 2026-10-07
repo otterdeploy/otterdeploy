@@ -8,13 +8,14 @@
  * helper preserves the exact behavior it had inline.
  */
 
+import type { SwarmServiceRuntime } from "@otterdeploy/api/swarm";
 import type { Builder, BuildConfig } from "@otterdeploy/shared/build-config";
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
 import { db } from "@otterdeploy/db";
-import { deployment, project, resource } from "@otterdeploy/db/schema";
+import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
@@ -202,6 +203,62 @@ export async function runPostDeploy(args: {
   if (hooked.isErr()) {
     sink.system(`post-deploy hook failed (deployment stays live): ${hooked.error.message}`);
   }
+}
+
+/**
+ * A rollout the runtime rolled back: the previous version keeps serving, so
+ * the service row goes back to that version's image (and digest). Best-effort:
+ * a failed write is logged, never a second failure on top of the first.
+ */
+/** The slice of the pipeline context a rollout verdict reads: the resource it
+ *  rolled, and the service row as it was BEFORE this build repointed it. */
+export interface RolloutSubject {
+  resource: Pick<PipelineContext["resource"], "id">;
+  service: Pick<PipelineContext["service"], "image" | "imageDigest">;
+}
+
+async function restorePreviousImage(
+  ctx: RolloutSubject,
+  sink: Pick<LogSink, "system">,
+): Promise<void> {
+  const restored = await Result.tryPromise({
+    try: () =>
+      db
+        .update(serviceResource)
+        .set({ image: ctx.service.image, imageDigest: ctx.service.imageDigest })
+        .where(eq(serviceResource.resourceId, ctx.resource.id)),
+    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+  });
+  sink.system(
+    restored.isOk()
+      ? `kept the previous version (${ctx.service.image}) as the service's image`
+      : `could not restore the previous image on the service row: ${restored.error}`,
+  );
+}
+
+/**
+ * The rollout's verdict. Anything but `running` fails the deployment with the
+ * runtime's own reason (the readiness gate's "nothing accepted a connection on
+ * port 3000", not "convergence failed"). When the runtime kept the previous
+ * version, the service row is pointed back at its image too, or the next
+ * restart / env change would redeploy the version that just failed
+ *. Preview rolls never wrote the base row, so never restore it.
+ */
+export async function checkRollout(
+  ctx: RolloutSubject,
+  runtime: SwarmServiceRuntime,
+  isPreview: boolean,
+  sink: Pick<LogSink, "system">,
+): Promise<Result<void, SwarmConvergenceError>> {
+  if (runtime.status === "running") return Result.ok(undefined);
+  if (runtime.rolledBack && !isPreview) await restorePreviousImage(ctx, sink);
+  return Result.err(
+    new SwarmConvergenceError({
+      serviceName: runtime.serviceName,
+      health: runtime.health,
+      reason: runtime.errorMessage,
+    }),
+  );
 }
 
 /** Mark the deployment row failed + emit logs for a build failure. Never

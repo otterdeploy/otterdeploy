@@ -8,6 +8,7 @@ import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 import { applyableSwarmExtraNetworks } from "./extra-networks";
 import { buildServiceSpec, inspectSwarmService, waitForServiceReady } from "./internals";
+import { settleSwarmUpdate } from "./update-settle";
 
 export interface SwarmServiceRuntime {
   serviceId: string | null;
@@ -19,12 +20,18 @@ export interface SwarmServiceRuntime {
    *  that can't be pulled), so callers can report *why* instead of a generic
    *  error. Absent/null on healthy or still-converging services. */
   errorMessage?: string | null;
+  /** True when the new version failed its readiness gate and the version that
+   *  was serving before it is still (or again) the one running: the deploy
+   *  failed, the service did not. */
+  rolledBack?: boolean;
 }
 
 export interface SwarmServicePort {
   containerPort: number;
   protocol: "tcp" | "udp";
   appProtocol: "http" | "tcp";
+  /** The port the service is reached on; the readiness gate probes it. */
+  isPrimary?: boolean;
 }
 
 export interface SwarmServiceHealthcheck {
@@ -232,9 +239,11 @@ export async function updateSwarmService(
     throw updateResult.error;
   }
 
-  const runtime = await waitForServiceReady(docker, spec.serviceName, networkName);
-  docker.destroy();
-  return runtime;
+  try {
+    return await settleSwarmUpdate(docker, spec, existing.serviceId ?? "", networkName);
+  } finally {
+    docker.destroy();
+  }
 }
 
 // ---------------------------------------------------------------------------

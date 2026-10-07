@@ -8,6 +8,7 @@ import type { ChangeDetails, CurrentService, CurrentServicePort } from "./diff";
 import type { ComposeManifest, DatabaseManifest, ServiceManifest } from "./schema";
 
 import { withPromotedPrimary } from "../../lib/primary-port";
+import { diffHealthcheck } from "./diff-healthcheck";
 import { diffSourceFields, type FieldChanges } from "./diff-source";
 
 // ── Service field diff ─────────────────────────────────────────────────
@@ -97,6 +98,7 @@ export function diffServiceFields(desired: ServiceManifest, current: CurrentServ
   diffExecFields(desired, current, fc);
   diffLifecycleFields(desired, current, fc);
   diffResourceLimitFields(desired, current, fc);
+  diffHealthcheck(desired, current, fc);
   return fc;
 }
 

@@ -108,13 +108,22 @@ export class DeployHookError extends TaggedError("DeployHookError")<{
 export class SwarmConvergenceError extends TaggedError("SwarmConvergenceError")<{
   serviceName: string;
   health: string | null;
+  /** Why the runtime did not reach `running` (the readiness gate's verdict,
+   *  e.g. "never became ready: nothing accepted a connection on port 3000"). */
+  reason: string | null;
   message: string;
 }>() {
-  constructor(args: { serviceName: string; health: string | null }) {
+  constructor(args: { serviceName: string; health: string | null; reason?: string | null }) {
+    const reason = args.reason ?? null;
     super({
       serviceName: args.serviceName,
       health: args.health,
-      message: `swarm convergence failed for service ${args.serviceName} (health=${args.health ?? "n/a"})`,
+      reason,
+      // The reason IS the message when there is one: it is what the deployment
+      // shows, and "convergence failed (health=n/a)" told nobody anything.
+      message:
+        reason ??
+        `swarm convergence failed for service ${args.serviceName} (health=${args.health ?? "n/a"})`,
     });
   }
 }
