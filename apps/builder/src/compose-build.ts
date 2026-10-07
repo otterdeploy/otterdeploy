@@ -32,8 +32,9 @@ import type { LogSink } from "./log-stream";
 import { ensureBuildxBuilder } from "./buildx";
 import { buildComposeService } from "./compose-build-service";
 import { acquireComposeSource, loadComposeBuildContext } from "./compose-source";
-import { BuildStepError, InvalidDeploymentError } from "./errors";
+import { BuildStepError, type DeploymentSupersededError, InvalidDeploymentError } from "./errors";
 import { PipelineLoadError } from "./load";
+import { transitionStep } from "./pipeline-steps";
 import { markBuilding, markImageReady, markRunning } from "./state";
 
 /** True when the deployment's resource is a compose stack (drives dispatch). */
@@ -51,7 +52,12 @@ export async function runComposeBuild(
   opts: { deploymentId: DeploymentId },
   sink: LogSink,
   work: { path: string | null },
-): Promise<Result<string, PipelineLoadError | BuildStepError | InvalidDeploymentError>> {
+): Promise<
+  Result<
+    string,
+    PipelineLoadError | BuildStepError | InvalidDeploymentError | DeploymentSupersededError
+  >
+> {
   return Result.gen(async function* () {
     const ctx = yield* await Result.tryPromise({
       try: () => loadComposeBuildContext(opts.deploymentId),
@@ -59,10 +65,7 @@ export async function runComposeBuild(
         cause instanceof PipelineLoadError ? cause : new BuildStepError({ step: "load", cause }),
     });
 
-    yield* await Result.tryPromise({
-      try: () => markBuilding(opts.deploymentId),
-      catch: (cause) => new BuildStepError({ step: "mark-building", cause }),
-    });
+    yield* await transitionStep("mark-building", opts.deploymentId, markBuilding);
 
     const { gitSha, gitRef } = ctx.deployment;
     if (!gitSha || !gitRef) {
@@ -212,10 +215,7 @@ export async function runComposeBuild(
       );
     }
 
-    yield* await Result.tryPromise({
-      try: () => markRunning(opts.deploymentId),
-      catch: (cause) => new BuildStepError({ step: "mark-running", cause }),
-    });
+    yield* await transitionStep("mark-running", opts.deploymentId, markRunning);
 
     return Result.ok(ctx.compose.stackName);
   });

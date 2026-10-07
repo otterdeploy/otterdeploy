@@ -138,7 +138,7 @@ async function finalizeSuccess(
   result: { snapshotId: string; addedBytes: number; sourceSizeBytes: number; durationMs: number },
   log: LogFn,
 ): Promise<void> {
-  await markBackupSucceeded(ctx.backupId, {
+  const settled = await markBackupSucceeded(ctx.backupId, {
     storagePath: result.snapshotId,
     // rustic owns integrity (`check`); no blob checksum is computed here.
     checksum: null,
@@ -147,6 +147,15 @@ async function finalizeSuccess(
     durationMs: result.durationMs,
     method,
   });
+  if (!settled) {
+    // The run was settled while the dump ran (a newer process's boot
+    // reconcile failed it). Its outcome stands: no success event, no verify.
+    await log(
+      "system",
+      `Snapshot ${result.snapshotId.slice(0, 12)} written, but this run was already settled; it stays as recorded`,
+    );
+    return;
+  }
   await log(
     "system",
     `Backup succeeded: snapshot ${result.snapshotId.slice(0, 12)} (+${result.addedBytes} B)`,
@@ -204,7 +213,11 @@ export async function executeBackup(backupId: ExecutionContext["backupId"]): Pro
 
   const docker = Docker.fromEnv();
   try {
-    await markBackupRunning(ctx.backupId);
+    if (!(await markBackupRunning(ctx.backupId))) {
+      // Settled before it started (the boot reconcile failed it): do not dump.
+      await log("system", "This run was already settled before it started; not running it");
+      return;
+    }
     await log(
       "system",
       ctx.kind === "volume"
@@ -252,7 +265,9 @@ export async function executeBackup(backupId: ExecutionContext["backupId"]): Pro
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
     await log("system", `Backup failed: ${message}`);
-    await markBackupFailed(ctx.backupId, message);
+    // Only announce a failure this call recorded: a run already settled (the
+    // boot reconcile notified for it) is not failed twice.
+    if (!(await markBackupFailed(ctx.backupId, message))) return;
     await emitPlatformEvent({
       organizationId: ctx.organizationId,
       eventId: "backup.failed",

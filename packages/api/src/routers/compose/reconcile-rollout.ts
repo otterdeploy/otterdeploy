@@ -19,19 +19,20 @@
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { db } from "@otterdeploy/db";
-import { deployment } from "@otterdeploy/db/schema/project";
 import { UPSTREAM_PROTOCOL_H2C, UPSTREAM_PROTOCOL_LABEL } from "@otterdeploy/shared/compose";
 import { mapLimit } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
 import { createLogger } from "evlog";
 
 import type { ParsedComposeService } from "../../stack/compose";
 import type { SwarmServiceRuntime } from "../../swarm";
 
 import { setPrimaryRouteUpstreamProtocol } from "../../caddy/queries";
-import { insertDeployment, markDeploymentFailed } from "../project/deployments";
+import {
+  insertDeployment,
+  markDeploymentFailed,
+  markDeploymentRunning,
+} from "../project/deployments";
 import { normalizePublicHostInput } from "../service/domain-rules";
 import { exposeService } from "../service/expose";
 import { getServiceRecord, setServicePublicDomain } from "../service/queries";
@@ -211,10 +212,9 @@ async function settleServiceRollout<E>(input: {
     progress(`Service ${svcName}: failed, ${detail}`);
     return false;
   }
-  await db
-    .update(deployment)
-    .set({ status: "running", completedAt: new Date() })
-    .where(eq(deployment.id, input.deploymentId));
+  // Only a still-in-flight row: a cancel that landed during the rollout wins.
+  // The service itself did come up, so it still counts as rolled out.
+  await markDeploymentRunning(input.deploymentId);
   progress(`Service ${svcName}: rolled out.`);
   return true;
 }

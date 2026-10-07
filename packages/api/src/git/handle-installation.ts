@@ -7,9 +7,11 @@
  * rows that the connect flow has already claimed by installation id.
  */
 
+import type { GitInstallationId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitRepo } from "@otterdeploy/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 
 import type { GithubWebhookResult, InstallationEvent } from "./types";
@@ -78,8 +80,34 @@ export async function handleInstallation(
     return { kind: "installation", action: ev.action, installationId };
   }
 
-  // Existing install: refresh metadata + repo set.
-  await db
+  if (!(await refreshLiveInstallation(existing.id, ev))) {
+    log.info({
+      github: { event: `installation.${ev.action}`, installationId, deliveryId },
+      msg: "installation is revoked. Ignoring; reconnect it to bring it back",
+    });
+    return { kind: "installation", action: ev.action, installationId };
+  }
+
+  if (ev.repositories?.length) {
+    await syncRepos(existing.id, ev.repositories);
+  }
+
+  return { kind: "installation", action: ev.action, installationId };
+}
+
+/**
+ * Refresh an existing, live install's metadata. A revoked one (the operator
+ * disconnected it, or GitHub deleted it) stays revoked: GitHub redelivers and
+ * reorders webhooks, so a late `created` or a `new_permissions_accepted` is no
+ * proof the binding is wanted again. Only the connect flow, which knows the
+ * org that claims it, revives a row. The guard is in the UPDATE itself so a
+ * `deleted` landing concurrently wins. Returns whether the row was live.
+ */
+async function refreshLiveInstallation(
+  id: GitInstallationId,
+  ev: InstallationEvent,
+): Promise<boolean> {
+  const refreshed = await db
     .update(gitInstallation)
     .set({
       accountLogin: ev.installation.account.login,
@@ -88,13 +116,8 @@ export async function handleInstallation(
       repoSelection: ev.installation.repository_selection,
       permissions: ev.installation.permissions ?? {},
       suspendedAt: null,
-      revokedAt: null,
     })
-    .where(eq(gitInstallation.id, existing.id));
-
-  if (ev.repositories?.length) {
-    await syncRepos(existing.id, ev.repositories);
-  }
-
-  return { kind: "installation", action: ev.action, installationId };
+    .where(and(eq(gitInstallation.id, id), isNull(gitInstallation.revokedAt)))
+    .returning({ id: gitInstallation.id });
+  return refreshed.length > 0;
 }
