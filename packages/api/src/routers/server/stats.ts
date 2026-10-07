@@ -20,6 +20,7 @@ import { server } from "@otterdeploy/db/schema/server";
 import { Docker, type Node, type Task } from "@otterdeploy/docker";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { createRequestDockerClient } from "../../lib/docker-client";
 import { isSwarmRuntime } from "../../runtime";
 import { isLiveTask, localHostRowIndex, unreachableNodeIds } from "./stats-attribution";
 import { readMemoryBytes, readNanoCpus } from "./stats-reservations";
@@ -234,7 +235,7 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
     .from(server)
     .where(eq(server.organizationId, input.organizationId));
 
-  const docker = Docker.fromEnv();
+  const docker = createRequestDockerClient();
 
   const empty: ServerStats = {
     perServer: servers.map((s) => ({

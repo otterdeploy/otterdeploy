@@ -3,6 +3,7 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
 import { proxyRouteSchema } from "../project/contract";
+import { liveUpdatesUnavailableErrors } from "../project/contract/shared";
 
 const projectIdField = zId(ID_PREFIX.project);
 const organizationIdField = zId(ID_PREFIX.organization);
@@ -126,6 +127,7 @@ export const eventsContract = {
         status: 404,
         message: "Project not found",
       },
+      ...liveUpdatesUnavailableErrors,
     })
     .meta({
       path: "/events",
@@ -141,6 +143,7 @@ export const eventsContract = {
         status: 403,
         message: "Project-scoped API keys cannot subscribe to organization-wide streams",
       },
+      ...liveUpdatesUnavailableErrors,
     })
     .meta({
       path: "/events/org",

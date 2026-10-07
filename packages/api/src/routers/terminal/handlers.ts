@@ -22,10 +22,12 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
-import { type ContainerSummary, Docker } from "@otterdeploy/docker";
+import { type ContainerSummary } from "@otterdeploy/docker";
 import { FRAMEWORK_KINDS, type Framework } from "@otterdeploy/shared/framework";
 import { canonicalId, hasPrefix, ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+
+import { createRequestDockerClient } from "../../lib/docker-client";
 
 /** Brands raw slugs (docker labels, unbranded DB columns) at the boundary. */
 const projectSlugSchema = zSlug(ID_PREFIX.project);
@@ -165,7 +167,7 @@ export async function listTerminalTargets(input: {
   // Docker label filter: `otterdeploy.managed=true`. We narrow further
   // server-side by checking each container's `otterdeploy.project` label is
   // an org-owned slug before emitting.
-  const docker = Docker.fromEnv();
+  const docker = createRequestDockerClient();
   const listed = await docker.containers.list({
     all: false, // running only: exec is meaningless against stopped
     filters: { label: ["otterdeploy.managed=true"] },

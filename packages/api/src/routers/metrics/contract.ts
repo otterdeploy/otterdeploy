@@ -96,6 +96,12 @@ export const metricsContract = {
   // waiting/active over the window, and org deploy throughput. Queue metrics
   // are install-wide (shared across orgs); deploy throughput is org-scoped.
   platform: oc
+    .errors({
+      QUEUE_UNAVAILABLE: {
+        status: 503,
+        message: "The job queue (Redis) is unreachable; queue metrics are unavailable" as const,
+      },
+    })
     .meta({ path: `${basePath}/platform`, tag, method: "GET" })
     .input(platformInput)
     .output(

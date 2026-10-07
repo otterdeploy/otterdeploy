@@ -5,15 +5,16 @@
  */
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
-import { Docker, DockerConflictError, DockerNotFoundError } from "@otterdeploy/docker";
+import { DockerConflictError, DockerNotFoundError } from "@otterdeploy/docker";
 
 import type { VolumeAttachment, VolumeContainerRef } from "./mapping";
 
+import { createRequestDockerClient } from "../../lib/docker-client";
 import { safeVolumeInspect, type SafeVolumeInspect } from "../docker/safe-view";
 import { buildVolumeMappingIndex, mapVolume } from "./mapping";
 import { loadOrgVolumeClaims } from "./queries";
 
-const docker = Docker.fromEnv();
+const docker = createRequestDockerClient();
 
 /** Docker reports volume creation as RFC3339 strings; normalize to unix seconds. */
 function epochSeconds(iso: string | undefined): number | null {

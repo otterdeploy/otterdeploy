@@ -12,11 +12,39 @@ import { relations } from "./relations";
 // `max_connections` and starts returning `53300 too many clients`. Capping
 // `max` and reaping idle/aged connections keeps a single process bounded
 // and lets any leaked pool drain itself.
+/**
+ * How long to wait for a new connection to be established (TCP + auth) before
+ * the query that needed it fails. Bun's default is 30s; with the procedure
+ * deadline at 120s that let a hung or black-holed Postgres (connections
+ * accepted, never answered) hold every request until the deadline.
+ * The control plane's Postgres sits next to it (same host or Docker network),
+ * where a healthy connect takes milliseconds, so 5s is generous and still
+ * answers well inside any client's patience.
+ */
+export const DB_CONNECT_TIMEOUT_SECONDS = 5;
+
+/**
+ * Server-side `statement_timeout` for every statement on this pool: a backstop
+ * that frees a connection held by a stuck statement (a lock wait, a runaway
+ * query) so one bad statement cannot drain the 10-connection pool. Deliberately
+ * generous (5 minutes): request-path statements are already abandoned by the
+ * 120s procedure deadline, and background work (retention sweeps, analytics
+ * rollups) must never be cut short by a value tuned for requests. Migrations
+ * run on their own connection without it (migrate.ts).
+ *
+ * Sent as a startup parameter. The supported topology connects straight to
+ * the bundled Postgres; a transaction-mode pooler in front of the control
+ * plane would refuse it (and Bun's prepared statements) anyway.
+ */
+export const DB_STATEMENT_TIMEOUT_MS = 300_000;
+
 const client = new SQL({
   url: env.DATABASE_URL,
   max: 10,
   idleTimeout: 20,
   maxLifetime: 60 * 30,
+  connectionTimeout: DB_CONNECT_TIMEOUT_SECONDS,
+  connection: { statement_timeout: DB_STATEMENT_TIMEOUT_MS },
 });
 
 // `relations` (from defineRelations()) powers the RQB v2 query builder

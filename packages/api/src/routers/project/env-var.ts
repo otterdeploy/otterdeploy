@@ -1,8 +1,9 @@
 /**
  * Org-checked wrappers around the project env-var queries. Every handler
  * first verifies the project belongs to the calling org (via
- * `getProjectInOrg`) so a stray `projectId` can't read or write a row in
- * a sibling tenant's bag. The queries themselves accept a raw Scope and
+ * `getProjectInOrg`) and the environment to that project, so a stray
+ * `projectId` or `environmentId` can't read or write a row in a sibling
+ * tenant's bag. The queries themselves accept a raw Scope and
  * don't enforce tenancy.
  *
  * Sealed variables: `listProjectEnvVarsForOrg` is the API/UI-facing read
@@ -16,10 +17,12 @@ import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shar
 
 import { Result } from "better-result";
 
+import { EnvironmentNotFoundError } from "../env/errors";
 import { ProjectNotFoundError } from "./errors";
 import {
   bulkReplaceProjectEnvVars as bulkReplaceProjectEnvVarsQuery,
   deleteProjectEnvVar as deleteProjectEnvVarQuery,
+  getEnvironmentById,
   getProjectInOrg,
   listProjectEnvVars as listProjectEnvVarsQuery,
   upsertProjectEnvVar as upsertProjectEnvVarQuery,
@@ -32,15 +35,27 @@ interface ProjectEnvScope {
   organizationId: OrganizationId;
 }
 
+/**
+ * The project must be the caller's AND the environment must be that
+ * project's. The environment check is what keeps a write from binding a
+ * variable to another tenant's environment: the project check alone let
+ * `environmentId` name any environment in the database. A
+ * missing and a foreign environment are the same answer, so the response is
+ * no existence oracle.
+ */
 async function verifyProjectOwnership(
   scope: ProjectEnvScope,
-): Promise<Result<true, ProjectNotFoundError>> {
+): Promise<Result<true, ProjectNotFoundError | EnvironmentNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: scope.projectId,
     organizationId: scope.organizationId,
   });
   if (!project) {
     return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
+  }
+  const environment = await getEnvironmentById(scope.environmentId);
+  if (environment?.projectId !== scope.projectId) {
+    return Result.err(new EnvironmentNotFoundError({ environmentId: scope.environmentId }));
   }
   return Result.ok(true);
 }
@@ -53,7 +68,7 @@ function maskSealed(row: ProjectEnvVarRow): ProjectEnvVarRow {
 
 export async function listProjectEnvVarsForOrg(
   scope: ProjectEnvScope,
-): Promise<Result<ProjectEnvVarRow[], ProjectNotFoundError>> {
+): Promise<Result<ProjectEnvVarRow[], ProjectNotFoundError | EnvironmentNotFoundError>> {
   const own = await verifyProjectOwnership(scope);
   if (own.isErr()) return Result.err(own.error);
   const rows = await listProjectEnvVarsQuery({
@@ -65,7 +80,7 @@ export async function listProjectEnvVarsForOrg(
 
 export async function upsertProjectEnvVarForOrg(
   input: ProjectEnvScope & { key: string; value: string; isSecret?: boolean; sealed?: boolean },
-): Promise<Result<ProjectEnvVarRow, ProjectNotFoundError>> {
+): Promise<Result<ProjectEnvVarRow, ProjectNotFoundError | EnvironmentNotFoundError>> {
   const own = await verifyProjectOwnership(input);
   if (own.isErr()) return Result.err(own.error);
   const row = await upsertProjectEnvVarQuery({
@@ -85,7 +100,7 @@ export async function upsertProjectEnvVarForOrg(
 
 export async function deleteProjectEnvVarForOrg(
   input: ProjectEnvScope & { key: string },
-): Promise<Result<{ ok: boolean }, ProjectNotFoundError>> {
+): Promise<Result<{ ok: boolean }, ProjectNotFoundError | EnvironmentNotFoundError>> {
   const own = await verifyProjectOwnership(input);
   if (own.isErr()) return Result.err(own.error);
   await deleteProjectEnvVarQuery({
@@ -99,7 +114,7 @@ export async function bulkReplaceProjectEnvVarsForOrg(
   input: ProjectEnvScope & {
     vars: ReadonlyArray<{ key: string; value: string; isSecret?: boolean }>;
   },
-): Promise<Result<ProjectEnvVarRow[], ProjectNotFoundError>> {
+): Promise<Result<ProjectEnvVarRow[], ProjectNotFoundError | EnvironmentNotFoundError>> {
   const own = await verifyProjectOwnership(input);
   if (own.isErr()) return Result.err(own.error);
   const rows = await bulkReplaceProjectEnvVarsQuery(
