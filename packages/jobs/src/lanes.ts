@@ -20,7 +20,10 @@
  * fine: a stale lane costs one empty-queue read.
  */
 
+import { withTimeout } from "@otterdeploy/shared/promise";
+
 import { deployTriggeredJob } from "./jobs/deploy";
+import { QUEUE_READY_TIMEOUT_MS } from "./timeouts";
 
 /** The shared lane every install starts on. Its queue name is the bare job
  *  name, unchanged from before lanes existed. */
@@ -113,7 +116,14 @@ export async function listDeployLanes(): Promise<string[]> {
   let raw: unknown;
   try {
     const client = await lanesRedis();
-    raw = await client.send("SMEMBERS", [LANES_SET_KEY]);
+    // Bounded: Bun's client buffers commands while Redis is down, which held
+    // every request-path reader (activity, cancel) for its whole reconnect
+    // budget. A timeout fails open like any other error.
+    raw = await withTimeout(
+      client.send("SMEMBERS", [LANES_SET_KEY]),
+      QUEUE_READY_TIMEOUT_MS,
+      "list deploy lanes",
+    );
   } catch {
     return [DEFAULT_DEPLOY_LANE];
   }

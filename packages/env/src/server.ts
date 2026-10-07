@@ -75,6 +75,13 @@ export const env = createEnv({
     CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
     CADDY_ADMIN_BIND: z.string().min(1).default(`unix/${defaultCaddySocketPath}|0600`),
 
+    // Idle-socket timeout (ms) for the Docker clients that serve API requests
+    // (lists, inspects, stats: packages/api/src/lib/docker-client.ts). Unset
+    // means the product default there (30s). Streams and long operations
+    // (log follow, events, pulls, builds) use their own clients and are not
+    // bounded by this.
+    DOCKER_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+
     // Public IP the swarm manager exposes — embedded in sslip.io fallback
     // domains (`<ip>.sslip.io`) so a fresh install resolves without the
     // operator owning a domain. Persisted to platform_settings.server_ip on

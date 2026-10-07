@@ -12,8 +12,10 @@
  *
  * Always responds 2xx once the signature passes. GitHub retries on any
  * non-2xx and we don't want a transient handler error to repeatedly
- * re-create deployment rows. Handler failures are logged and surfaced in
- * the response body but the status stays 200.
+ * re-create deployment rows. Handler failures are logged server-side; the
+ * response body says only that handling failed (the error text can carry SQL
+ * and its parameters, and GitHub shows delivery bodies to the App's admins),
+ * and the status stays 200.
  */
 
 import type { Handler } from "hono";
@@ -97,8 +99,8 @@ export const githubWebhookHandler: Handler = async (c) => {
         error: parsedErr.message,
       },
     });
-    // 200 on purpose: see file header.
-    return c.json({ ok: false, error: parsedErr.message });
+    // 200 on purpose, and no error text: see file header.
+    return c.json({ ok: false, error: "webhook handling failed" });
   }
 
   log.info({

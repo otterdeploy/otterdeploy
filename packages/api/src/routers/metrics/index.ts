@@ -1,3 +1,5 @@
+import { Result } from "better-result";
+
 import { orgScopedProcedure, requireInstallAdmin } from "../..";
 import {
   currentQueueSnapshot,
@@ -43,14 +45,21 @@ export const metricsRouter = {
     },
   ),
 
-  platform: requireInstallAdmin().metrics.platform.handler(async ({ input, context }) => {
+  platform: requireInstallAdmin().metrics.platform.handler(async ({ input, context, errors }) => {
     const since = new Date(Date.now() - input.windowMinutes * 60 * 1000);
     const [queueSnapshot, waitingSeries, activeSeries, deploy] = await Promise.all([
-      currentQueueSnapshot(),
+      Result.tryPromise({
+        try: () => currentQueueSnapshot(),
+        catch: (cause) => cause,
+      }),
       queryPlatformSeries("queue.waiting", since),
       queryPlatformSeries("queue.active", since),
       queryDeployThroughput(context.activeOrganizationId, since),
     ]);
-    return { queueSnapshot, waitingSeries, activeSeries, deploy };
+    // Every snapshot failure is the queue's (runOnRequestQueue types them
+    // all as JobQueueUnavailableError). Say so, typed and retryable, instead
+    // of an empty snapshot that would read as "no backlog".
+    if (queueSnapshot.isErr()) throw errors.QUEUE_UNAVAILABLE();
+    return { queueSnapshot: queueSnapshot.value, waitingSeries, activeSeries, deploy };
   }),
 };

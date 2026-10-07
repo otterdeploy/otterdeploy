@@ -12,7 +12,8 @@ import {
 } from "@otterdeploy/api/routers/project/upload-source";
 import { MAX_SOURCE_UPLOAD_BYTES } from "@otterdeploy/api/security/body-limit";
 import { idSchema } from "@otterdeploy/shared/id";
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
+import { log } from "evlog";
 
 /**
  * `POST /api/services/:resourceId/source`: receive an uploaded source tarball
@@ -32,12 +33,17 @@ import { Result } from "better-result";
  *  so the two caps can never drift apart. */
 const MAX_UPLOAD_BYTES = MAX_SOURCE_UPLOAD_BYTES;
 
+/** The caller's upload itself is unusable (no body, over the cap). Its message
+ *  is written for the caller; any other staging failure (a disk error naming
+ *  a server path) is logged and answered generically. */
+class UploadRejectedError extends TaggedError("UploadRejectedError")<{ message: string }>() {}
+
 /** Stream the request body into `path`, enforcing the byte cap and hashing the
  *  bytes as they pass through. Returns the sha256 (hex) content digest of the
  *  tarball. Throws on overflow or a missing body; the caller cleans up. */
 async function streamBodyToFile(c: Context, path: string): Promise<string> {
   const reader = c.req.raw.body?.getReader();
-  if (!reader) throw new Error("empty request body");
+  if (!reader) throw new UploadRejectedError({ message: "empty request body" });
   const writer = Bun.file(path).writer();
   const hasher = new Bun.CryptoHasher("sha256");
   let total = 0;
@@ -47,7 +53,9 @@ async function streamBodyToFile(c: Context, path: string): Promise<string> {
       if (done) break;
       total += value.byteLength;
       if (total > MAX_UPLOAD_BYTES) {
-        throw new Error(`source tarball exceeds the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit`);
+        throw new UploadRejectedError({
+          message: `source tarball exceeds the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit`,
+        });
       }
       hasher.update(value);
       // FileSink.write returns a number, or a Promise on backpressure, await
@@ -58,7 +66,7 @@ async function streamBodyToFile(c: Context, path: string): Promise<string> {
   } finally {
     await writer.end();
   }
-  if (total === 0) throw new Error("empty request body");
+  if (total === 0) throw new UploadRejectedError({ message: "empty request body" });
   return hasher.digest("hex");
 }
 
@@ -125,14 +133,19 @@ export async function uploadSourceHandler(c: Context): Promise<Response> {
 
   const staged = await Result.tryPromise({
     try: () => streamBodyToFile(c, path),
-    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+    catch: (cause) => cause,
   });
   if (staged.isErr()) {
     await removeSourceTarball(path);
-    await markDeploymentFailed(deploymentId, `source upload failed: ${staged.error}`).catch(
+    const detail = staged.error instanceof Error ? staged.error.message : String(staged.error);
+    await markDeploymentFailed(deploymentId, `source upload failed: ${detail}`).catch(
       () => undefined,
     );
-    return c.json({ error: staged.error }, 400);
+    if (UploadRejectedError.is(staged.error)) {
+      return c.json({ error: staged.error.message }, 400);
+    }
+    log.error({ upload: { event: "stage-failed", deploymentId }, error: detail });
+    return c.json({ error: "source upload failed" }, 500);
   }
 
   // Record the tarball's content hash so the deploy carries a stable source
@@ -147,7 +160,10 @@ export async function uploadSourceHandler(c: Context): Promise<Response> {
   });
   if (triggered.isErr()) {
     await removeSourceTarball(path);
-    return c.json({ error: triggered.error }, 502);
+    // The detail (a queue/Redis error) is on the deployment row and in the
+    // log; the response does not echo a lower layer's text.
+    log.error({ upload: { event: "trigger-failed", deploymentId }, error: triggered.error });
+    return c.json({ error: "could not queue the build; try again" }, 502);
   }
 
   return c.json({ deploymentId, sourceSha });

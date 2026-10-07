@@ -29,7 +29,7 @@ import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-
 import {
   isBuildStillLogging,
   reconcileDeployFailure,
-  reconcileDeploySuccess,
+  reconcileObservedSuccess,
 } from "./deployments-reconcile";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg, getProjectRecord } from "./queries";
@@ -44,7 +44,7 @@ export { deriveDeploymentStatus } from "./deployments-derive";
 export type { DerivedDeploymentStatus } from "./deployments-derive";
 // Settlement writers moved to a sibling under the file cap; re-exported so
 // call sites keep importing from the list module.
-export { isBuildStillLogging, reconcileDeploySuccess } from "./deployments-reconcile";
+export { isBuildStillLogging } from "./deployments-reconcile";
 
 export interface DeploymentWithStats {
   id: DeploymentId;
@@ -326,7 +326,7 @@ export async function listResourceDeployments(
   });
 
   if (justSucceeded.length > 0) {
-    await reconcileDeploySuccess(justSucceeded, input.resourceId);
+    await reconcileObservedSuccess(justSucceeded, input.resourceId);
   }
   if (justDied.length > 0) {
     await reconcileDeployFailure(justDied);

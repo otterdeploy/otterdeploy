@@ -21,6 +21,7 @@ import { eq } from "drizzle-orm";
 
 import type { ProjectRef } from "../scopes";
 
+import { createRequestDockerClient } from "../../lib/docker-client";
 import { resolveRuntimeScopesForProject } from "../../lib/environment/runtime-scope";
 import { runtimeServiceName } from "../../lib/environment/scoping";
 import { isSwarmRuntime } from "../../runtime";
@@ -312,7 +313,7 @@ export async function listProjectServiceTasks(
   // Runtime-aware live state. A missing/unreachable backend surfaces as an
   // empty result rather than failing the whole graph load. The UI keeps
   // rendering nodes without live state.
-  const docker = Docker.fromEnv();
+  const docker = createRequestDockerClient();
   const grouped = new Map<ResourceId, ServiceTaskInfo[]>();
   for (const resourceId of resourceIds) grouped.set(resourceId, []);
 

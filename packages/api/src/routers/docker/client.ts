@@ -2,9 +2,11 @@
  * Shared daemon client + result shape for the docker debug service layer
  * (service.ts lists, service-admin.ts inspect/logs/destructive ops).
  */
-import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
+import { DockerNotFoundError } from "@otterdeploy/docker";
 
-export const docker = Docker.fromEnv();
+import { createRequestDockerClient } from "../../lib/docker-client";
+
+export const docker = createRequestDockerClient();
 
 export type Listed<T> =
   | { ok: true; items: T }
