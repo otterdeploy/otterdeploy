@@ -37,12 +37,14 @@ const stage: { path: string } = { path: "" };
 const triggerUploadBuild = spyOn(uploadSource, "triggerUploadBuild");
 beforeEach(() => {
   stage.path = join(tmpdir(), `otterdeploy-upload-${crypto.randomUUID()}.tgz`);
-  spyOn(actor, "resolveRequestActor").mockImplementation(async () => ({
-    kind: "api-key",
-    id: "key_1",
-    permissions: null,
-    organizationId: ORG_ID,
-  }));
+  spyOn(actor, "resolveRequestActor").mockImplementation(async () =>
+    Result.ok({
+      kind: "api-key",
+      id: "key_1",
+      permissions: null,
+      organizationId: ORG_ID,
+    }),
+  );
   spyOn(capability, "authorizeCapability").mockImplementation(async () => ({ allowed: true }));
   spyOn(dataDir, "prepareSourceTarballPath").mockImplementation(async () => stage.path);
   spyOn(dataDir, "removeSourceTarball").mockImplementation(async () => {});
