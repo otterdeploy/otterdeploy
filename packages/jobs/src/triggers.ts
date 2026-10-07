@@ -1,5 +1,8 @@
 import type { JobsOptions } from "bullmq";
 
+import { withTimeout } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
+
 import { type DeployTriggeredPayload, deployTriggeredJob } from "./jobs/deploy";
 import { type EmailPayload, sendEmailJob } from "./jobs/email";
 import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
@@ -14,8 +17,9 @@ import {
   webhookEventJob,
 } from "./jobs/webhook";
 import { type UserSignupPayload, welcomeSequenceJob } from "./jobs/welcome-sequence";
-import { DEFAULT_DEPLOY_LANE, registerDeployLane } from "./lanes";
-import { getDeployQueue, getQueue } from "./queues";
+import { DEFAULT_DEPLOY_LANE, deployQueueName, registerDeployLane } from "./lanes";
+import { JobQueueUnavailableError, runOnRequestQueue } from "./queues";
+import { QUEUE_READY_TIMEOUT_MS } from "./timeouts";
 
 export type {
   EmailPayload,
@@ -32,14 +36,18 @@ export type {
 /**
  * Each trigger validates with the job's schema, then adds to its queue with
  * the job's default opts (callers can override via the second arg).
+ *
+ * Triggers run on request paths (and inside other jobs), so they use the
+ * fail-fast request queues: with Redis unreachable they throw
+ * JobQueueUnavailableError within QUEUE_READY_TIMEOUT_MS instead of parking
+ * the caller until its deadline.
  */
 function enqueue<P extends object>(
   jobName: string,
   payload: P,
   opts?: JobsOptions,
 ): Promise<unknown> {
-  const queue = getQueue(jobName);
-  return queue.add(jobName, payload, opts);
+  return runOnRequestQueue(jobName, (queue) => queue.add(jobName, payload, opts));
 }
 
 export async function triggerEmail(payload: EmailPayload, opts?: JobsOptions) {
@@ -114,8 +122,9 @@ export async function triggerDataProcessing(payload: DataProcessingPayload, opts
  * so we walk the queue and remove matching jobs.
  */
 export async function cancelDataProcessing(dataId: string) {
-  const queue = getQueue(processDataJob.name);
-  const queued = await queue.getJobs(["waiting", "delayed", "active"]);
+  const queued = await runOnRequestQueue(processDataJob.name, (queue) =>
+    queue.getJobs(["waiting", "delayed", "active"]),
+  );
   const toRemove = queued.filter((j) => {
     const data: unknown = j.data;
     return typeof data === "object" && data !== null && "dataId" in data && data.dataId === dataId;
@@ -138,11 +147,21 @@ export async function triggerDeploy(
   lane: string = DEFAULT_DEPLOY_LANE,
 ) {
   const parsed = deployTriggeredJob.schema.parse(payload);
-  await registerDeployLane(lane);
-  return getDeployQueue(lane).add(deployTriggeredJob.name, parsed, {
-    ...deployTriggeredJob.opts,
-    ...opts,
+  // Bounded like the add: the lane set lives on its own Redis client, which
+  // would otherwise buffer the SADD until Redis returns. A late SADD is
+  // harmless (idempotent); a request parked on it is not.
+  const registered = await Result.tryPromise({
+    try: () =>
+      withTimeout(registerDeployLane(lane), QUEUE_READY_TIMEOUT_MS, "register deploy lane"),
+    catch: (cause) => new JobQueueUnavailableError({ queue: deployQueueName(lane), cause }),
   });
+  if (registered.isErr()) throw registered.error;
+  return runOnRequestQueue(deployQueueName(lane), (queue) =>
+    queue.add(deployTriggeredJob.name, parsed, {
+      ...deployTriggeredJob.opts,
+      ...opts,
+    }),
+  );
 }
 
 export async function triggerProvisionServer(payload: ProvisionServerPayload, opts?: JobsOptions) {
@@ -162,14 +181,12 @@ export async function triggerWelcomeSequence(payload: UserSignupPayload, opts?: 
 }
 
 export async function triggerEmailBatch(payloads: EmailPayload[]) {
-  const queue = getQueue(sendEmailJob.name);
-  return queue.addBulk(
-    payloads.map((payload) => ({
-      name: sendEmailJob.name,
-      data: sendEmailJob.schema.parse(payload),
-      opts: sendEmailJob.opts,
-    })),
-  );
+  const batch = payloads.map((payload) => ({
+    name: sendEmailJob.name,
+    data: sendEmailJob.schema.parse(payload),
+    opts: sendEmailJob.opts,
+  }));
+  return runOnRequestQueue(sendEmailJob.name, (queue) => queue.addBulk(batch));
 }
 
 /**

@@ -29,6 +29,11 @@ const getServerInput = z.object({
   id: serverIdField,
 });
 
+/** Largest value a Postgres `integer` (int4) column holds. Capacity columns
+ *  are int4, so an unbounded `z.number().int()` let a larger value through
+ *  validation to fail the insert as an untyped 500. */
+const PG_INT4_MAX = 2_147_483_647;
+
 const createServerInput = z.object({
   /** Optional client-supplied id for optimistic UI. */
   id: serverIdField.optional(),
@@ -45,9 +50,9 @@ const createServerInput = z.object({
   // Capacity is daemon-reported. The join-command flow registers the node
   // before the daemon answers, so these default to 0 and get populated when
   // the agent self-registers.
-  cpuTotal: z.number().int().min(0).default(0),
-  memTotalGb: z.number().int().min(0).default(0),
-  diskTotalGb: z.number().int().min(1).optional(),
+  cpuTotal: z.number().int().min(0).max(PG_INT4_MAX).default(0),
+  memTotalGb: z.number().int().min(0).max(PG_INT4_MAX).default(0),
+  diskTotalGb: z.number().int().min(1).max(PG_INT4_MAX).optional(),
   diskUnit: z.string().optional(),
   daemonVersion: z.string().optional(),
   labels: z.array(z.string()).optional(),

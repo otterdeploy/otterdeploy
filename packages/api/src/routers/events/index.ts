@@ -9,6 +9,7 @@ import type { CollectionEvent, OrgCollectionEvent } from "./contract";
 import { orgScopedProcedure } from "../../index";
 import {
   type ProjectStreamEvent,
+  type ProjectStreamOptions,
   streamProjectEvents,
   validateProjectEventsStream,
 } from "../project/events-stream";
@@ -89,9 +90,9 @@ async function* streamCollectionEvents(
     organizationId: OrganizationId;
     projectId: ProjectId;
   },
-  signal?: AbortSignal,
+  options: ProjectStreamOptions,
 ): AsyncGenerator<CollectionEvent, void, void> {
-  for await (const event of streamProjectEvents(input, signal)) {
+  for await (const event of streamProjectEvents(input, options)) {
     for (const collectionEvent of toCollectionEvents(event, input)) {
       yield collectionEvent;
     }
@@ -156,12 +157,15 @@ export function toOrgCollectionEvent(
 async function* streamOrgCollectionEvents(
   organizationId: OrganizationId,
   viewerId: string | null,
-  signal?: AbortSignal,
+  options: ProjectStreamOptions,
 ): AsyncGenerator<OrgCollectionEvent, void, void> {
+  const { signal } = options;
   const queue: OrgCollectionEvent[] = [];
   const MAX_QUEUE = 50;
   let resolveNext: (() => void) | null = null;
   let aborted = false;
+  // An object, not a `let`: see streamProjectEvents.
+  const ended: { error: Error | null } = { error: null };
 
   const wake = () => {
     if (resolveNext) {
@@ -186,14 +190,24 @@ async function* streamOrgCollectionEvents(
   if (signal?.aborted) aborted = true;
   signal?.addEventListener("abort", onAbort);
 
-  const sub = subscribeOrgEvents(organizationId, (event) => {
-    if (aborted) return;
-    const collectionEvent = toOrgCollectionEvent(organizationId, event, viewerId);
-    if (collectionEvent === null) return;
-    queue.push(collectionEvent);
-    if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
-    wake();
-  });
+  const sub = subscribeOrgEvents(
+    organizationId,
+    (event) => {
+      if (aborted) return;
+      const collectionEvent = toOrgCollectionEvent(organizationId, event, viewerId);
+      if (collectionEvent === null) return;
+      queue.push(collectionEvent);
+      if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
+      wake();
+    },
+    () => {
+      // Redis is this stream's only source: without the subscription it
+      // would idle forever. End it with the typed error so the client's
+      // retry reconnects and resyncs.
+      ended.error = options.createUnavailableError?.() ?? null;
+      onAbort();
+    },
+  );
 
   try {
     while (!aborted) {
@@ -211,6 +225,7 @@ async function* streamOrgCollectionEvents(
     signal?.removeEventListener("abort", onAbort);
     sub.close();
   }
+  if (ended.error) throw ended.error;
 }
 
 export const eventsRouter = {
@@ -225,7 +240,10 @@ export const eventsRouter = {
     return streamOrgCollectionEvents(
       context.activeOrganizationId,
       context.session?.user.id ?? null,
-      signal,
+      {
+        signal,
+        createUnavailableError: () => errors.LIVE_UPDATES_UNAVAILABLE(),
+      },
     );
   }),
 
@@ -244,6 +262,9 @@ export const eventsRouter = {
       });
     }
 
-    return streamCollectionEvents(scope, signal);
+    return streamCollectionEvents(scope, {
+      signal,
+      createUnavailableError: () => errors.LIVE_UPDATES_UNAVAILABLE(),
+    });
   }),
 };

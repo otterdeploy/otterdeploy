@@ -69,9 +69,6 @@ function sectionsFor(resource: SkippedResource["resource"]): Section[] {
   }
 }
 
-/** Just the revertible sections of a manifest. */
-type ManifestSections = Pick<Manifest, "services" | "databases" | "composes">;
-
 /** Shallow-clone only the sections we may touch; the rest is carried by ref. */
 function cloneSections(manifest: Manifest): Manifest {
   return {
@@ -111,16 +108,15 @@ export function manifestAfterDiscard(args: {
   manifest: Manifest | null;
   applied: Manifest | null;
   only?: readonly SkippedResource[];
-}): Manifest | ManifestSections | null {
+}): Manifest | null {
   if (!args.only?.length) return args.applied;
   const target = args.manifest ?? args.applied;
-  if (!target) {
-    // Both sides are null, so `source` below would be null too and every
-    // revert is a delete on an empty map. That fixed point is exactly what
-    // reverting over `{}` used to compute; producing it directly keeps the
-    // type honest (there is no `project` to invent here).
-    return { services: {}, databases: {}, composes: {} };
-  }
+  // Both sides null: nothing is staged and nothing was ever applied, so every
+  // revert is a delete on an empty map and the manifest stays absent. This
+  // used to return the bare sections `{ services: {}, databases: {}, composes:
+  // {} }`, which has no `project` and so fails manifestSchema: once stored,
+  // every later read was a ZodError 500.
+  if (!target) return null;
   return revertEntries({
     target,
     source: args.applied,

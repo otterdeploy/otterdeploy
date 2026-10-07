@@ -41,6 +41,7 @@ export const envVarRouter = {
     if (result.isErr()) {
       throw matchError(result.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
+        EnvironmentNotFoundError: () => errors.NOT_FOUND(),
       });
     }
     return result.value;
@@ -69,6 +70,7 @@ export const envVarRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          EnvironmentNotFoundError: () => errors.NOT_FOUND(),
         });
       }
       // A key that already existed reads as `replace` (its value was rewritten,
@@ -103,6 +105,7 @@ export const envVarRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          EnvironmentNotFoundError: () => errors.NOT_FOUND(),
         });
       }
       const after = { ...before };
@@ -132,6 +135,7 @@ export const envVarRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
+          EnvironmentNotFoundError: () => errors.NOT_FOUND(),
         });
       }
       // Every surviving key is marked `written`, so the patch shows which keys

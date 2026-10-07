@@ -33,7 +33,9 @@ import {
   ORG_STREAM_COLLECTIONS,
   orgEventsChannel,
 } from "@otterdeploy/shared/org-events";
+import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
+import { log as globalLog } from "evlog";
 import * as z from "zod";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
@@ -127,13 +129,10 @@ const projectBusEventSchema = z.union([
 
 /** JSON-decode + schema-validate one bus payload; null for malformed ones. */
 function parseBusPayload<T>(payload: string, schema: z.ZodType<T>): T | null {
-  try {
-    const decoded: unknown = JSON.parse(payload);
-    const result = schema.safeParse(decoded);
-    return result.success ? result.data : null;
-  } catch {
-    return null;
-  }
+  const decoded = Result.try((): unknown => JSON.parse(payload));
+  if (decoded.isErr()) return null;
+  const result = schema.safeParse(decoded.value);
+  return result.success ? result.data : null;
 }
 
 const channel = (projectId: ProjectId | string) => `project:${projectId}:events`;
@@ -248,50 +247,109 @@ export function publishOrgBusEvent(organizationId: string, event: OrgBusEvent): 
     .catch(() => undefined);
 }
 
+/**
+ * A live subscription that could not be opened: Redis refused or dropped the
+ * subscriber before it was in subscriber mode (Bun's client rejects the
+ * `subscribe` promise once its reconnection budget is spent).
+ */
+export class EventBusSubscribeError extends TaggedError("EventBusSubscribeError")<{
+  channel: string;
+  message: string;
+  cause: unknown;
+}>() {}
+
+export interface EventBusSubscription {
+  /** Tear down the dedicated connection. Idempotent and never throws, even
+   *  for a subscriber that never connected. */
+  close: () => void;
+}
+
+/**
+ * Open a dedicated subscriber connection on one channel.
+ *
+ * A failed subscribe is HANDLED here, never left as a floating rejection: an
+ * unhandled rejection exits the Bun process, so a single browser tab on a live
+ * stream during a Redis outage would restart the whole control plane. The
+ * failure is logged, the connection is closed, and `onFailure` tells the
+ * consumer so it can end its stream with a typed error.
+ */
+function createBusSubscription<T>(options: {
+  channel: string;
+  schema: z.ZodType<T>;
+  onEvent: (event: T) => void;
+  onFailure?: (error: EventBusSubscribeError) => void;
+}): EventBusSubscription {
+  const sub = createRedis();
+  let closed = false;
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    // Before the connection is up, `unsubscribe` throws SYNCHRONOUSLY
+    // (ERR_REDIS_INVALID_STATE); `tryPromise` turns that and a rejection
+    // alike into an ignored Err.
+    void Result.tryPromise(() => sub.unsubscribe(options.channel));
+    Result.try(() => sub.close());
+  };
+
+  const listener = (payload: string) => {
+    const event = parseBusPayload(payload, options.schema);
+    if (event === null) return;
+    // best-effort: a listener error must not kill the subscriber
+    Result.try(() => options.onEvent(event));
+  };
+
+  void Result.tryPromise({
+    try: () => sub.subscribe(options.channel, listener),
+    catch: (cause) =>
+      new EventBusSubscribeError({
+        channel: options.channel,
+        message: cause instanceof Error ? cause.message : String(cause),
+        cause,
+      }),
+  }).then((subscribed) => {
+    // A rejection after close() is the teardown itself, not an outage.
+    if (subscribed.isOk() || closed) return;
+    globalLog.warn({
+      message: "[event-bus] Redis subscribe failed; closing the live subscription",
+      channel: options.channel,
+      error: subscribed.error.message,
+    });
+    close();
+    const onFailure = options.onFailure;
+    if (onFailure) Result.try(() => onFailure(subscribed.error));
+  });
+
+  return { close };
+}
+
 /** Subscribe to an organization's channel. Same contract as
  *  {@link subscribeProjectEvents}: dedicated connection, `close()` to stop. */
 export function subscribeOrgEvents(
   organizationId: string,
   onEvent: (event: OrgBusEvent) => void,
-): { close: () => void } {
-  const sub = createRedis();
-  const ch = orgEventsChannel(organizationId);
-  void sub.subscribe(ch, (payload) => {
-    try {
-      const event = parseBusPayload(payload, orgBusEventSchema);
-      if (event) onEvent(event);
-    } catch {
-      // best-effort: a listener error must not kill the subscriber
-    }
+  onFailure?: (error: EventBusSubscribeError) => void,
+): EventBusSubscription {
+  return createBusSubscription({
+    channel: orgEventsChannel(organizationId),
+    schema: orgBusEventSchema,
+    onEvent,
+    onFailure,
   });
-  return {
-    close: () => {
-      void sub.unsubscribe(ch).catch(() => undefined);
-      sub.close();
-    },
-  };
 }
 
 /** Subscribe to a project's channel. Returns a `close()` to tear down the
- *  dedicated subscriber connection. */
+ *  dedicated subscriber connection; `onFailure` fires (once) when Redis never
+ *  accepted the subscription. */
 export function subscribeProjectEvents(
   projectId: ProjectId,
   onEvent: (event: ProjectStreamEvent) => void,
-): { close: () => void } {
-  const sub = createRedis();
-  const ch = channel(projectId);
-  void sub.subscribe(ch, (payload) => {
-    try {
-      const event = parseBusPayload(payload, projectBusEventSchema);
-      if (event) onEvent(event);
-    } catch {
-      // best-effort: a listener error must not kill the subscriber
-    }
+  onFailure?: (error: EventBusSubscribeError) => void,
+): EventBusSubscription {
+  return createBusSubscription({
+    channel: channel(projectId),
+    schema: projectBusEventSchema,
+    onEvent,
+    onFailure,
   });
-  return {
-    close: () => {
-      void sub.unsubscribe(ch).catch(() => undefined);
-      sub.close();
-    },
-  };
 }

@@ -261,6 +261,18 @@ describe("manifestAfterDiscard", () => {
     expect(out?.databases?.cache).toEqual(db("7"));
   });
 
+  it("leaves the manifest absent when a selective discard has nothing on either side", () => {
+    // Never saved, never applied: the old result was the bare sections
+    // object, which manifestSchema rejects and so poisoned every later read.
+    expect(
+      manifestAfterDiscard({
+        manifest: null,
+        applied: null,
+        only: [{ resource: "env", name: "staging" }],
+      }),
+    ).toBeNull();
+  });
+
   it("falls back to the applied snapshot when there is no working manifest", () => {
     // manifest column null but changes staged elsewhere. Must not throw.
     const out = manifestAfterDiscard({

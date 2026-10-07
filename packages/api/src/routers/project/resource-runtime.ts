@@ -19,6 +19,7 @@ import type { ResourceRef } from "../scopes";
 import type { RefSelfReferenceError } from "../service/errors";
 import type { ServiceTaskInfo } from "./service-tasks";
 
+import { createRequestDockerClient } from "../../lib/docker-client";
 import { rejectSelfReferences } from "../service/env-self-ref";
 import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
@@ -132,7 +133,7 @@ export async function listResourceTasks(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const docker = Docker.fromEnv();
+  const docker = createRequestDockerClient();
 
   // A compose stack has no swarm service of its own. Aggregate instances
   // across every `${stack}-${key}` child, tagging each task with its compose

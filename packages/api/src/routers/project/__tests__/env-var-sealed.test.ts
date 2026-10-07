@@ -17,6 +17,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 // same "./queries" barrel: one mock covers the whole subject.
 vi.mock("../queries", () => ({
   getProjectInOrg: vi.fn(),
+  getEnvironmentById: vi.fn(),
   bulkReplaceProjectEnvVars: vi.fn(),
   deleteProjectEnvVar: vi.fn(),
   listProjectEnvVars: vi.fn(),
@@ -61,6 +62,17 @@ const projectRow: NonNullable<Awaited<ReturnType<typeof queries.getProjectInOrg>
   updatedAt: new Date(),
 };
 
+/** The environment row: this project's own (env-var.ts checks the binding). */
+const environmentRow: NonNullable<Awaited<ReturnType<typeof queries.getEnvironmentById>>> = {
+  id: environmentId,
+  projectId,
+  name: "production",
+  slug: "production",
+  protected: false,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 function sealedRow(overrides: Partial<ProjectEnvVarRow> = {}): ProjectEnvVarRow {
   return {
     id: idSchema.projectEnvVar.parse("penv_1"),
@@ -81,6 +93,7 @@ function sealedRow(overrides: Partial<ProjectEnvVarRow> = {}): ProjectEnvVarRow 
 describe("sealed project env vars never leak through env-var.ts's read paths", () => {
   test('list masks a sealed row\'s value to ""', async () => {
     vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
+    vi.mocked(queries.getEnvironmentById).mockResolvedValue(environmentRow);
     vi.mocked(queries.listProjectEnvVars).mockResolvedValue([sealedRow()]);
 
     const result = await listProjectEnvVarsForOrg({ projectId, environmentId, organizationId });
@@ -94,6 +107,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
 
   test("list leaves a NON-sealed row's value untouched (masking is scoped)", async () => {
     vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
+    vi.mocked(queries.getEnvironmentById).mockResolvedValue(environmentRow);
     vi.mocked(queries.listProjectEnvVars).mockResolvedValue([
       sealedRow({ key: "PLAIN", value: "hello", sealed: false }),
     ]);
@@ -107,6 +121,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
 
   test("upsert's own response masks the row when the final state is sealed", async () => {
     vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
+    vi.mocked(queries.getEnvironmentById).mockResolvedValue(environmentRow);
     // The query layer is the one that actually encrypts; simulate its
     // contract (returns the sealed row with `value` = ciphertext) and prove
     // the handler still refuses to echo it back, even on the write that
@@ -131,6 +146,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
 
   test("bulk-replace masks every sealed row in the returned set", async () => {
     vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
+    vi.mocked(queries.getEnvironmentById).mockResolvedValue(environmentRow);
     vi.mocked(queries.bulkReplaceProjectEnvVars).mockResolvedValue([
       sealedRow({ key: "SEALED_ONE", sealed: true }),
       sealedRow({ key: "PLAIN_ONE", value: "visible", sealed: false }),
@@ -148,5 +164,47 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
     const byKey = Object.fromEntries(result.value.map((r) => [r.key, r.value]));
     expect(byKey.SEALED_ONE).toBe("");
     expect(byKey.PLAIN_ONE).toBe("visible");
+  });
+});
+
+describe("env-var writes are scoped to the project's own environment", () => {
+  const otherProjectId: ProjectId = idSchema.project.parse("prj_other");
+
+  test("an environment of another project is refused as not found, and nothing is written", async () => {
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
+    vi.mocked(queries.getEnvironmentById).mockResolvedValue({
+      ...environmentRow,
+      projectId: otherProjectId,
+    });
+    vi.mocked(queries.upsertProjectEnvVar).mockClear();
+    vi.mocked(queries.bulkReplaceProjectEnvVars).mockClear();
+
+    const upserted = await upsertProjectEnvVarForOrg({
+      projectId,
+      environmentId,
+      organizationId,
+      key: "K",
+      value: "v",
+    });
+    const replaced = await bulkReplaceProjectEnvVarsForOrg({
+      projectId,
+      environmentId,
+      organizationId,
+      vars: [{ key: "K", value: "v" }],
+    });
+
+    expect(upserted.isErr() && upserted.error._tag).toBe("EnvironmentNotFoundError");
+    expect(replaced.isErr() && replaced.error._tag).toBe("EnvironmentNotFoundError");
+    expect(queries.upsertProjectEnvVar).not.toHaveBeenCalled();
+    expect(queries.bulkReplaceProjectEnvVars).not.toHaveBeenCalled();
+  });
+
+  test("a missing environment gets the same answer as another project's", async () => {
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
+    vi.mocked(queries.getEnvironmentById).mockResolvedValue(undefined);
+
+    const listed = await listProjectEnvVarsForOrg({ projectId, environmentId, organizationId });
+
+    expect(listed.isErr() && listed.error._tag).toBe("EnvironmentNotFoundError");
   });
 });

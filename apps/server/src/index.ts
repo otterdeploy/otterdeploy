@@ -1,5 +1,3 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
-
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
@@ -37,6 +35,7 @@ import { serveStatic, upgradeWebSocket, websocket } from "hono/bun";
 import { cors } from "hono/cors";
 
 import { runBootstrap } from "./bootstrap";
+import { appErrorHandler } from "./error-response";
 import {
   deployAccessHandler,
   deployAuthorizeHandler,
@@ -195,31 +194,7 @@ app.use(
   }),
 );
 
-// Every status hono's `ContentfulStatusCode` names (except the type-only -1
-// "unofficial" marker). Each literal is checked against the union, so a hono
-// upgrade that changes the set fails compilation here instead of drifting.
-const CONTENTFUL_STATUS_CODES: ReadonlySet<ContentfulStatusCode> = new Set([
-  100, 102, 103, 200, 201, 202, 203, 206, 207, 208, 226, 300, 301, 302, 303, 305, 306, 307, 308,
-  400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418,
-  421, 422, 423, 424, 425, 426, 428, 429, 431, 451, 500, 501, 502, 503, 504, 505, 506, 507, 508,
-  510, 511,
-]);
-
-function isContentfulStatusCode(status: number): status is ContentfulStatusCode {
-  const codes: ReadonlySet<number> = CONTENTFUL_STATUS_CODES;
-  return codes.has(status);
-}
-
-app.onError((error, c) => {
-  c.get("log").error(error);
-  const parsed = parseError(error);
-  return c.json(
-    { message: parsed.message, why: parsed.why, fix: parsed.fix },
-    // parseError types `status` as a bare number; a non-standard or bodyless
-    // status can't carry this JSON error body, so those collapse to 500.
-    isContentfulStatusCode(parsed.status) ? parsed.status : 500,
-  );
-});
+app.onError(appErrorHandler);
 
 // Public but deliberately low-information: everything the unauthenticated
 // sign-in page needs to render itself correctly, and nothing more.

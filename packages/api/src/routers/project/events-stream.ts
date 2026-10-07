@@ -79,6 +79,17 @@ interface StreamInput {
   organizationId: OrgId;
 }
 
+export interface ProjectStreamOptions {
+  signal?: AbortSignal;
+  /**
+   * The error the stream ends with when its Redis subscription cannot be
+   * opened (Redis down). The router passes its contract's typed
+   * LIVE_UPDATES_UNAVAILABLE, so the client's retry reconnects (and resyncs)
+   * instead of the stream silently losing build-phase events.
+   */
+  createUnavailableError?: () => Error;
+}
+
 /**
  * Build the initial service-name → resource-id map for the project.
  * Database resources don't carry a stored `serviceName` (we derive it
@@ -137,8 +148,9 @@ function eventServiceName(event: DockerEvent): string | null {
 
 export async function* streamProjectEvents(
   input: StreamInput,
-  signal?: AbortSignal,
+  options: ProjectStreamOptions = {},
 ): AsyncGenerator<ProjectStreamEvent, void, void> {
+  const { signal } = options;
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -161,6 +173,9 @@ export async function* streamProjectEvents(
   const MAX_QUEUE = 200;
   let resolveNext: (() => void) | null = null;
   let aborted = false;
+  // An object, not a `let`: TypeScript keeps a `let` narrowed to its
+  // initial null across the closure that assigns it.
+  const ended: { error: Error | null } = { error: null };
 
   // Same disconnect discipline as streamOrgCollectionEvents (events/index.ts):
   // the loop parks in an `await` between events and `generator.return()` can't
@@ -251,16 +266,28 @@ export async function* streamProjectEvents(
   // transitions (pending/building/failed), published cross-process over Redis
   // by the builder + API status writes. This is what makes deploy status
   // real-time instead of poll-driven.
-  const projectSub = subscribeProjectEvents(input.projectId, (event) => {
-    if (!aborted) push(event);
-  });
+  const projectSub = subscribeProjectEvents(
+    input.projectId,
+    (event) => {
+      if (!aborted) push(event);
+    },
+    () => {
+      // Redis never took the subscription: end the stream with the typed
+      // error (or cleanly, without a router-provided one) rather than run on
+      // without build-phase events. The bus already closed the connection.
+      ended.error = options.createUnavailableError?.() ?? null;
+      onAbort();
+    },
+  );
 
   // Periodically refresh the service map so newly-created resources show
   // up in the filter without forcing a full reconnect. Cheap (one
   // listProjectResources call per minute, all in-DB).
   const refreshTimer = setInterval(() => {
-    void loadServiceNameMap(input.projectId, project.slug).then((next) => {
-      if (!aborted) serviceMap = next;
+    // A failed refresh (Postgres blip) keeps the previous map; never a
+    // floating rejection, which would exit the process.
+    void Result.tryPromise(() => loadServiceNameMap(input.projectId, project.slug)).then((next) => {
+      if (next.isOk() && !aborted) serviceMap = next.value;
     });
   }, 60_000);
   refreshTimer.unref?.();
@@ -283,6 +310,7 @@ export async function* streamProjectEvents(
     sub.close();
     projectSub.close();
   }
+  if (ended.error) throw ended.error;
 }
 
 /**

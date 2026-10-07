@@ -5,9 +5,9 @@
  */
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
+import { createRequestDockerClient } from "../../lib/docker-client";
 import { resolveDeploymentServiceName } from "./deployments-list";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
@@ -87,7 +87,7 @@ export async function listTasksForDeployment(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const docker = Docker.fromEnv();
+  const docker = createRequestDockerClient();
 
   // A compose STACK deployment tracks the whole rollout; its containers carry
   // the per-service (child) deployment ids, never the stack row's. Aggregate
