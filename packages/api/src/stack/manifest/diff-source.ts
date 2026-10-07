@@ -79,7 +79,9 @@ function diffBuildConfigField(
   // Declared-only: an omitted `build` block leaves the live builder choice
   // alone (auto-detect / whatever the wizard persisted). Comparing it as null
   // both staged a phantom update AND made apply clear the stored config.
-  if (desired.source !== "git" || desired.build === undefined) return;
+  // Every built source has one: an upload's `build` block was never compared,
+  // so editing it on an existing service changed nothing.
+  if (desired.source === "image" || desired.build === undefined) return;
   if (!sameBuildConfig(desired.build, current.buildConfig)) {
     fc.buildConfig = { from: current.buildConfig, to: desired.build };
   }

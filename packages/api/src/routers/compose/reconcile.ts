@@ -1,3 +1,4 @@
+import type { ComposeExposed } from "@otterdeploy/shared/compose";
 import type {
   EnvironmentId,
   OrganizationId,
@@ -53,12 +54,13 @@ export interface StackReconcileContext {
    *  path a standalone service's Settings toggle calls. */
   organizationId: OrganizationId;
   /** Compose services (keyed by the file's `service:` key) to auto-expose the
-   *  FIRST time each is materialized, mapped to the public domain the seed
-   *  names for it ("" = mint the generated host). The wizard/manifest's
-   *  `exposed` seed. Seed only: applied once per service on create, never
-   *  again, so an operator's later imperative expose/unexpose on the child's
-   *  own Settings tab is the single source of truth from then on. */
-  exposedSeeds: ReadonlyMap<string, string>;
+   *  FIRST time each is materialized, mapped to the wizard/manifest's
+   *  `exposed` entry: the container port the public route fronts, and the
+   *  public domain it names ("" = mint the generated host). Seed only: applied
+   *  once per service on create, never again, so an operator's later
+   *  imperative expose/unexpose on the child's own Settings tab is the single
+   *  source of truth from then on. */
+  exposedSeeds: ReadonlyMap<string, ComposeExposed>;
   /** The manifest's per-child env (`composes[stack].services[key].env`),
    *  keyed by compose service key. Layered OVER the compose file's own env
    *  when a child is first materialized, so a stack restored from its manifest

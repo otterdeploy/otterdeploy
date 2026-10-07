@@ -319,8 +319,8 @@ function runBuildSteps(
     // Preview builds must NOT write the base serviceResource.image (it's shared
     // with production, writing it would repoint production at the preview's
     // image). They carry the built tag as a spec override instead. Base builds
-    // update the row as before; `imageDigest` + `framework` describe THIS
-    // build and are only persisted on the base row.
+    // update the row as before; `imageDigest`, `framework` and `imageBuilder`
+    // describe THIS build and are only persisted on the base row.
     const previewScope = await loadPreviewScope(ctx.deployment.previewId);
     const isPreview = previewScope != null;
     if (await previewClosedDuringBuild(ctx.deployment.previewId)) {
@@ -335,7 +335,7 @@ function runBuildSteps(
       yield* await step("set-image", () =>
         db
           .update(serviceResource)
-          .set({ image: image.shaTag, imageDigest, framework })
+          .set({ image: image.shaTag, imageDigest, framework, imageBuilder: image.imageBuilder })
           .where(eq(serviceResource.resourceId, ctx.resource.id)),
       );
     }

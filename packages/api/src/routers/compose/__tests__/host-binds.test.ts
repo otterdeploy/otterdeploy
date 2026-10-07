@@ -55,7 +55,7 @@ const ctx: StackReconcileContext = {
   projectId: fixtureId("project_1", "prj"),
   placementServerId: null,
   organizationId: fixtureId("org_1", "org"),
-  exposedSeeds: new Map<string, string>(),
+  exposedSeeds: new Map(),
   stackResourceId: fixtureId("resource_1", "res"),
   projectSlug: "store",
   stackName: "dozzle",

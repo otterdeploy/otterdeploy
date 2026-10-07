@@ -16,6 +16,7 @@
  * FIRST deploy with an unknown-variable error and succeeded only on the
  * second. See [[seedServiceExposure]], called from reconcile.ts's pass 1.5.
  */
+import type { ComposeExposed } from "@otterdeploy/shared/compose";
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
@@ -50,9 +51,9 @@ export interface RolloutContext {
   organizationId: OrganizationId;
   projectSlug: string;
   stackResourceId: ResourceId;
-  /** Compose-service name → seed domain ("" = generated host). See
-   *  StackReconcileContext.exposedSeeds. */
-  exposedSeeds: ReadonlyMap<string, string>;
+  /** Compose-service name → its exposure seed (domain "" = generated host).
+   *  See StackReconcileContext.exposedSeeds. */
+  exposedSeeds: ReadonlyMap<string, ComposeExposed>;
 }
 
 /** One service that pass 1 committed a row for, ready to roll out. */
@@ -100,8 +101,9 @@ export async function seedServiceExposure(
   progress: (line: string) => void,
 ): Promise<void> {
   if (!isCreate) return;
-  const seedDomain = ctx.exposedSeeds.get(svcName);
-  if (seedDomain === undefined) return;
+  const seed = ctx.exposedSeeds.get(svcName);
+  if (seed === undefined) return;
+  const seedDomain = seed.domain;
   const seedLog = log ?? createLogger({ operation: "compose.seed-expose" });
 
   // The wizard/manifest named an explicit public domain for this service

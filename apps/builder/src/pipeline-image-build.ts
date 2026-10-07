@@ -7,7 +7,7 @@
  * so everything downstream stays builder-agnostic.
  */
 
-import type { Builder, BuildConfig } from "@otterdeploy/shared/build-config";
+import type { Builder, BuildConfig, ImageBuilder } from "@otterdeploy/shared/build-config";
 
 import { readFileSync } from "node:fs";
 
@@ -21,12 +21,13 @@ import { railpackBuild } from "./railpack";
 
 /**
  * Build the service image. Two paths produce the same `{ shaTag, latestTag,
- * buildDir }` shape so the pipeline stays builder-agnostic: a repo Dockerfile
+ * buildDir, imageBuilder }` shape so the pipeline stays builder-agnostic
+ * (`imageBuilder` names the one that ran): a repo Dockerfile
  * via `docker buildx build --load`, or railpack's BuildKit frontend. `auto`/
  * null resolves to dockerfile when one is present, else railpack. `compose`
  * resolves as railpack so the unsupported-builder fallback takes effect.
  */
-export function runImageBuild(args: {
+export async function runImageBuild(args: {
   buildConfig: BuildConfig | null;
   builder: Builder;
   workDir: string;
@@ -43,7 +44,7 @@ export function runImageBuild(args: {
    *  Dockerfile build takes only its declared `buildArgs`, as before. */
   serviceEnv: ServiceBuildEnv;
   sink: LogSink;
-}): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
+}): Promise<{ shaTag: string; latestTag: string; buildDir: string; imageBuilder: ImageBuilder }> {
   const { buildConfig, builder, workDir, sourceSubdir, imageRepository, gitSha } = args;
   const { cacheBuilder, cachePath, noCache, turboCache, serviceEnv, sink } = args;
   // `compose` has no dockerfile config; resolve it as railpack.
@@ -63,7 +64,7 @@ export function runImageBuild(args: {
     // Fail fast on unsupported instructions BEFORE invoking docker. A clear
     // `file:line + reason + fix` beats a silent-wrong build (the VOLUME case).
     assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) => sink.system(m));
-    return dockerfileBuild({
+    const built = await dockerfileBuild({
       workDir,
       sourceSubdir,
       dockerfilePath: resolution.dockerfilePath,
@@ -80,8 +81,9 @@ export function runImageBuild(args: {
       noCache,
       sink,
     });
+    return { ...built, imageBuilder: "dockerfile" };
   }
-  return railpackBuild({
+  const built = await railpackBuild({
     workDir,
     sourceSubdir,
     imageRepository,
@@ -94,4 +96,7 @@ export function runImageBuild(args: {
     serviceEnv,
     sink,
   });
+  // Which builder ran is recorded with the image: it decides how the image's
+  // start command reaches Railpack's `bash -c` entrypoint.
+  return { ...built, imageBuilder: "railpack" };
 }

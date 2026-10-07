@@ -155,6 +155,55 @@ function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): Mapped
   return out;
 }
 
+type ServicePorts = CreateServiceInput["ports"];
+
+/** The file's `ports:` as service ports. The first http-ish (tcp) one is the
+ *  primary, the one a public domain fronts. */
+function declaredPorts(svc: ParsedComposeService): ServicePorts {
+  const seenPorts = new Set<number>();
+  let primaryAssigned = false;
+  const ports: ServicePorts = [];
+  for (const p of svc.ports) {
+    if (seenPorts.has(p.target)) continue;
+    seenPorts.add(p.target);
+    const appProtocol = p.protocol === "udp" ? ("tcp" as const) : ("http" as const);
+    const isPrimary = !primaryAssigned && appProtocol === "http";
+    if (isPrimary) primaryAssigned = true;
+    ports.push({
+      containerPort: p.target,
+      protocol: p.protocol,
+      appProtocol,
+      isPrimary,
+    });
+  }
+  return ports;
+}
+
+/**
+ * The ports with the stack's exposure seed made routable: the seeded port is
+ * the primary HTTP port, declared if the file never published it.
+ *
+ * A compose file rarely needs `ports:` for a service behind the edge, and
+ * Compose's `expose:` is documentation only, so a stack exposing `app:3000`
+ * with neither came up with NO port on the child. The seed's `exposeService`
+ * then refused ("has no HTTP port to expose"), the refusal went to the deploy
+ * log only, and the stack read `running` while nothing could reach it. The seed
+ * already says which port the route fronts; this is where that reaches the row.
+ * A udp entry at that port is left alone: the edge cannot front it, and the
+ * seed reports that.
+ */
+function withExposedPort(ports: ServicePorts, exposedPort: number | undefined): ServicePorts {
+  if (exposedPort === undefined) return ports;
+  const existing = ports.find((p) => p.containerPort === exposedPort);
+  if (existing && existing.appProtocol !== "http") return ports;
+  const marked = ports.map((p) => ({ ...p, isPrimary: p === existing }));
+  if (existing) return marked;
+  return [
+    ...marked,
+    { containerPort: exposedPort, protocol: "tcp", appProtocol: "http", isPrimary: true },
+  ];
+}
+
 export function toServiceFields(
   svc: ParsedComposeService,
   ctx: StackReconcileContext,
@@ -203,23 +252,7 @@ export function toServiceFields(
     value,
     isSecret: isSecretKey(key),
   }));
-  // First http-ish port (tcp) is the primary, the one a public domain fronts.
-  const seenPorts = new Set<number>();
-  let primaryAssigned = false;
-  const ports: CreateServiceInput["ports"] = [];
-  for (const p of svc.ports) {
-    if (seenPorts.has(p.target)) continue;
-    seenPorts.add(p.target);
-    const appProtocol = p.protocol === "udp" ? ("tcp" as const) : ("http" as const);
-    const isPrimary = !primaryAssigned && appProtocol === "http";
-    if (isPrimary) primaryAssigned = true;
-    ports.push({
-      containerPort: p.target,
-      protocol: p.protocol,
-      appProtocol,
-      isPrimary,
-    });
-  }
+  const ports = withExposedPort(declaredPorts(svc), ctx.exposedSeeds.get(svc.name)?.port);
   return {
     serviceName: composeSwarmServiceName(ctx.stackName, svc.name),
     // Bare compose name = the overlay DNS alias intra-stack peers connect to.
