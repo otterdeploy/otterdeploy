@@ -11,6 +11,7 @@ import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { inFlightDeploys } from "@otterdeploy/jobs";
+import { Result } from "better-result";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import type { InstanceGlimpse } from "./deployments-derive";
@@ -45,6 +46,28 @@ export async function reconcileDeploySuccess(
       await emitDeploySucceeded({ deploymentId: id, resourceId });
     }
   }
+}
+
+/**
+ * The READ-side success detector: `reconcileDeploySuccess` minus the rows a
+ * deploy job still owns. A row the builder is rolling out is settled by the
+ * builder, after the readiness gate; a list read that sees its new task
+ * running mid-gate must not call it a success first, because the guarded
+ * `markFailed` that follows can then never land and a rollout that was rolled
+ * back reads "running". When the job scan itself fails (Redis
+ * down) the detector behaves as it always did.
+ */
+export async function reconcileObservedSuccess(
+  deploymentIds: DeploymentId[],
+  resourceId: ResourceId,
+): Promise<void> {
+  if (deploymentIds.length === 0) return;
+  const inFlight = await Result.tryPromise({ try: () => inFlightDeploys(), catch: () => null });
+  const owned = inFlight.isOk() ? inFlight.value.ownedIds : new Set<string>();
+  await reconcileDeploySuccess(
+    deploymentIds.filter((id) => !owned.has(id)),
+    resourceId,
+  );
 }
 
 const STALE_BUILD_MESSAGE =

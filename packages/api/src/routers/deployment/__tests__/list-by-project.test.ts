@@ -20,8 +20,14 @@ vi.mock("../../project/deployments-list", () => ({
   deriveDeploymentStatus: vi.fn(),
   isBuildStillLogging: vi.fn(),
   loadTaskStatesByDeployment: vi.fn(),
-  reconcileDeploySuccess: vi.fn(),
   resolveDeploymentServiceName: vi.fn(),
+}));
+
+// The read-side success detector (it skips rows a deploy job still owns,
+// which needs the queue): its own behaviour is pinned in
+// project/__tests__/deployments-reconcile.test.ts.
+vi.mock("../../project/deployments-reconcile", () => ({
+  reconcileObservedSuccess: vi.fn(),
 }));
 
 const selectChain = {
@@ -44,6 +50,7 @@ vi.mock("@otterdeploy/db", () => ({
 }));
 
 import * as derivation from "../../project/deployments-list";
+import * as reconcile from "../../project/deployments-reconcile";
 import * as queries from "../../project/queries";
 import * as resourceQueries from "../../project/queries/resource";
 import { listProjectDeployments } from "../list-by-project";
@@ -360,7 +367,7 @@ describe("listProjectDeployments", () => {
     vi.mocked(derivation.loadTaskStatesByDeployment).mockResolvedValue(new Map());
     vi.mocked(derivation.isBuildStillLogging).mockResolvedValue(false);
     vi.mocked(derivation.deriveDeploymentStatus).mockReturnValue("running");
-    vi.mocked(derivation.reconcileDeploySuccess).mockResolvedValue(undefined);
+    vi.mocked(reconcile.reconcileObservedSuccess).mockResolvedValue(undefined);
 
     const result = await listProjectDeployments({
       projectId,
@@ -372,7 +379,7 @@ describe("listProjectDeployments", () => {
     const [first] = items;
     if (!first) throw new Error("expected a deployment item");
     expect(first.status).toBe("running");
-    expect(derivation.reconcileDeploySuccess).toHaveBeenCalledWith([first.id], a);
+    expect(reconcile.reconcileObservedSuccess).toHaveBeenCalledWith([first.id], a);
   });
 });
 
