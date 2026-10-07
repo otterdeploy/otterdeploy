@@ -219,6 +219,18 @@ export async function waitForContainer(
   };
 }
 
+/** The DNS names the edge and sibling services reach a service by. */
+export function serviceAliases(spec: ContainerSpec): string[] {
+  return [spec.serviceName, spec.internalHostname, spec.resourceName];
+}
+
+/** Does the service bind a port on the host (tcp app-protocol ports, see
+ *  buildContainerOptions)? Two containers cannot hold the same host port, so
+ *  such a service cannot run old and new side by side. */
+export function publishesHostPort(spec: ContainerSpec): boolean {
+  return spec.ports.some((p) => p.appProtocol === "tcp");
+}
+
 /** Build the `docker create` payload for a service container. */
 export function buildContainerOptions(
   spec: ContainerSpec,
@@ -273,21 +285,24 @@ export function buildContainerOptions(
     NetworkingConfig: {
       EndpointsConfig: {
         [networkName]: {
-          Aliases: [spec.serviceName, spec.internalHostname, spec.resourceName],
+          Aliases: serviceAliases(spec),
         },
       },
     },
   };
 }
 
-export async function createAndStart(
+/** Create and start a container, then join its extra networks. Returns once
+ *  it is started: readiness is the caller's question (the service rollout
+ *  gates it, the database path waits for it below). */
+export async function startContainer(
   docker: Docker,
   options: CreateContainerOptions,
   name: string,
   networkName: string,
   extraNetworks?: string[],
   rlog?: RequestLogger,
-): Promise<RuntimeStatus> {
+): Promise<void> {
   let created = await docker.containers.create(options);
   // Self-heal a name Conflict once: a leftover container from a failed prior
   // deploy (or a racing one) owns the name. Remove it and retry, instead of
@@ -302,5 +317,16 @@ export async function createAndStart(
   // Extra memberships are post-start connects (docker create honors one
   // endpoint config); per-network failures are non-fatal: see the module.
   await connectExtraNetworks(docker, name, networkName, extraNetworks ?? [], rlog);
+}
+
+export async function createAndStart(
+  docker: Docker,
+  options: CreateContainerOptions,
+  name: string,
+  networkName: string,
+  extraNetworks?: string[],
+  rlog?: RequestLogger,
+): Promise<RuntimeStatus> {
+  await startContainer(docker, options, name, networkName, extraNetworks, rlog);
   return waitForContainer(docker, name, networkName);
 }

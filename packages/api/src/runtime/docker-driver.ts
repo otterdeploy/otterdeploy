@@ -8,13 +8,18 @@
  *   - service     → one `docker create` + `start` container; `update` recreates.
  *   - replicas    → always 1 (real fan-out + load-balancing needs Swarm; the UI
  *                   gates replicas>1 behind "scaling").
- *   - rolling     → recreate (brief blip). Blue-green is a later add.
+ *   - rolling     → health-gated blue-green (docker-rollout.ts): the new
+ *                   container must pass the readiness gate before it takes
+ *                   the service's aliases; a failed one is removed and the
+ *                   previous version keeps serving.
  *   - DNS         → container Aliases on the project bridge network.
  *   - status      → `docker ps` State + Health (no swarm tasks).
  *
  * The lower-level container/network helpers live in `./docker-driver-helpers`.
  * See docs/designs/runtime.md.
  */
+
+import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
@@ -28,16 +33,28 @@ import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-
 import { runDatabase } from "./docker-driver-db";
 import {
   buildContainerOptions,
-  createAndStart,
   ensureBridgeNetwork,
   findContainer,
   mapHealth,
   mapStatus,
   networkNameFor,
+  publishesHostPort,
   pullImage,
   removeContainerByName,
+  serviceAliases,
   waitForContainer,
 } from "./docker-driver-helpers";
+import { rollOutContainer } from "./docker-rollout";
+import { createDockerRolloutHost } from "./docker-rollout-host";
+import { readinessPlan, readinessPort } from "./readiness";
+
+function deployLogFor(spec: ContainerSpec, phase: "build" | "deploy") {
+  // `ContainerSpec.deploymentId` is a plain string; recover the brand with a
+  // real prefix check instead of a cast (mirrors docker-driver-db).
+  return spec.deploymentId && hasPrefix(spec.deploymentId, ID_PREFIX.deployment)
+    ? createStackDeployLog(spec.deploymentId, phase)
+    : nullStackDeployLog;
+}
 
 /**
  * Pull the service image, mirroring condensed pull progress into the
@@ -47,14 +64,57 @@ import {
  * row → the null log swallows the lines and the pull still runs.
  */
 async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<void> {
-  // `ContainerSpec.deploymentId` is a plain string; recover the brand with a
-  // real prefix check instead of a cast (mirrors docker-driver-db).
-  const deployLog =
-    spec.deploymentId && hasPrefix(spec.deploymentId, ID_PREFIX.deployment)
-      ? createStackDeployLog(spec.deploymentId)
-      : nullStackDeployLog;
+  const deployLog = deployLogFor(spec, "build");
   try {
     await pullImage(docker, spec.image, (line) => deployLog.line(line), spec.registryAuth);
+  } finally {
+    await deployLog.close();
+  }
+}
+
+/** Remove the service's container: replicas 0 means scaled to zero. */
+async function scaleToZero(docker: Docker, spec: ContainerSpec, networkName: string) {
+  await removeContainerByName(docker, spec.serviceName);
+  return {
+    serviceId: null,
+    serviceName: spec.serviceName,
+    networkName,
+    status: "stopped" as const,
+    health: null,
+  };
+}
+
+/**
+ * Pull, then roll the new version out behind the readiness gate
+ * (docker-rollout.ts): the previous version keeps serving until the new one is
+ * ready, and stays when it never gets there.
+ */
+async function rollOut(
+  docker: Docker,
+  spec: ContainerSpec,
+  networkName: string,
+  log?: RequestLogger,
+): Promise<RuntimeStatus> {
+  await pullWithDeployLog(docker, spec);
+  const deployLog = deployLogFor(spec, "deploy");
+  try {
+    const host = createDockerRolloutHost(docker, {
+      networkName,
+      extraNetworks: spec.extraNetworks ?? [],
+      deployLog,
+      log,
+    });
+    return await rollOutContainer(host, {
+      options: buildContainerOptions(spec, networkName),
+      serviceName: spec.serviceName,
+      networkName,
+      aliases: serviceAliases(spec),
+      plan: readinessPlan({
+        healthcheck: spec.healthcheck ?? null,
+        port: readinessPort(spec.ports),
+      }),
+      publishesHostPort: publishesHostPort(spec),
+    });
   } finally {
     await deployLog.close();
   }
@@ -65,69 +125,31 @@ export const dockerDriver: RuntimeDriver = {
 
   async provision(spec, log) {
     const docker = Docker.fromEnv();
-    const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
-    // replicas:0 = scaled to zero (stopped). Plain Docker has no replica count,
-    // so honor it by ensuring no container runs.
-    if (spec.replicas === 0) {
-      await removeContainerByName(docker, spec.serviceName);
+    try {
+      const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
+      // replicas:0 = scaled to zero (stopped). Plain Docker has no replica
+      // count, so honor it by ensuring no container runs.
+      if (spec.replicas === 0) return await scaleToZero(docker, spec, networkName);
+      // Idempotent: if it's already there, report it (mirrors provisionSwarmService).
+      const existing = await findContainer(docker, spec.serviceName);
+      if (existing && existing.State === "running") {
+        return await waitForContainer(docker, spec.serviceName, networkName);
+      }
+      return await rollOut(docker, spec, networkName, log);
+    } finally {
       docker.destroy();
-      return {
-        serviceId: null,
-        serviceName: spec.serviceName,
-        networkName,
-        status: "stopped",
-        health: null,
-      };
     }
-    // Idempotent: if it's already there, report it (mirrors provisionSwarmService).
-    const existing = await findContainer(docker, spec.serviceName);
-    if (existing && existing.State === "running") {
-      const status = await waitForContainer(docker, spec.serviceName, networkName);
-      docker.destroy();
-      return status;
-    }
-    await removeContainerByName(docker, spec.serviceName);
-    await pullWithDeployLog(docker, spec);
-    const status = await createAndStart(
-      docker,
-      buildContainerOptions(spec, networkName),
-      spec.serviceName,
-      networkName,
-      spec.extraNetworks,
-      log,
-    );
-    docker.destroy();
-    return status;
   },
 
   async update(spec, log) {
     const docker = Docker.fromEnv();
-    const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
-    if (spec.replicas === 0) {
-      await removeContainerByName(docker, spec.serviceName);
+    try {
+      const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
+      if (spec.replicas === 0) return await scaleToZero(docker, spec, networkName);
+      return await rollOut(docker, spec, networkName, log);
+    } finally {
       docker.destroy();
-      return {
-        serviceId: null,
-        serviceName: spec.serviceName,
-        networkName,
-        status: "stopped",
-        health: null,
-      };
     }
-    // Recreate: plain Docker has no in-place rolling update. Stop the old
-    // container, start the new one (brief blip).
-    await removeContainerByName(docker, spec.serviceName);
-    await pullWithDeployLog(docker, spec);
-    const status = await createAndStart(
-      docker,
-      buildContainerOptions(spec, networkName),
-      spec.serviceName,
-      networkName,
-      spec.extraNetworks,
-      log,
-    );
-    docker.destroy();
-    return status;
   },
 
   async destroy(input, rlog) {

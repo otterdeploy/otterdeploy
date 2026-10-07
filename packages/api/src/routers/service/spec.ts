@@ -132,6 +132,7 @@ export async function buildSwarmSpec(
       containerPort: p.containerPort,
       protocol: p.protocol,
       appProtocol: p.appProtocol,
+      isPrimary: p.isPrimary,
     })),
     mounts,
     // Operator-attached extra networks (names). Joined in addition to the
