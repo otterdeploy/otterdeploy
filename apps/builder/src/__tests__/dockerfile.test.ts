@@ -450,3 +450,75 @@ describe("resolveDockerfileBuild — monorepo build context", () => {
     ).toThrow(/points outside the repository/);
   });
 });
+
+/**
+ * With builder `auto` and the only Dockerfile in a subdirectory (for example
+ * `docker/Dockerfile`, app code in `app/`), resolution falls back to Railpack,
+ * which then fails with its "no provider" error. Auto-selecting it would change what
+ * `auto` means for every repo with a stray `.devcontainer/` or `docker/db/`
+ * Dockerfile, so resolution stays Railpack but says what it found and how to
+ * use it.
+ */
+describe("auto: a Dockerfile only in a subdirectory", () => {
+  test("falls back to railpack but names the Dockerfile and how to point at it", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "docker/Dockerfile");
+    writeFile(workDir, "app/server.js", "");
+    writeFile(workDir, "README.md", "");
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: null,
+    });
+    expect(res.kind).toBe("railpack");
+    expect(res.warnings).toHaveLength(1);
+    expect(res.warnings[0]).toContain("docker/Dockerfile");
+    expect(res.warnings[0]).toContain('Dockerfile path to "docker/Dockerfile"');
+  });
+
+  test("relative to the root directory when one is set", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "services/api/package.json", "{}");
+    writeFile(workDir, "services/api/deploy/Dockerfile");
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: "services/api",
+    });
+    expect(res.kind).toBe("railpack");
+    expect(res.warnings.join("\n")).toContain('Dockerfile path to "deploy/Dockerfile"');
+  });
+
+  test("lists several, shallowest first, and skips dependency + hidden dirs", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "a/b/Dockerfile");
+    writeFile(workDir, "Dockerfile.prod");
+    writeFile(workDir, "node_modules/x/Dockerfile");
+    writeFile(workDir, ".devcontainer/Dockerfile");
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: null,
+    });
+    const warning = res.warnings.join("\n");
+    expect(warning).toContain("Dockerfile.prod, a/b/Dockerfile");
+    expect(warning).not.toContain("node_modules");
+    expect(warning).not.toContain(".devcontainer");
+  });
+
+  test("a repo with no Dockerfile anywhere stays silent", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "package.json", "{}");
+    writeFile(workDir, "src/index.ts", "");
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: null,
+    });
+    expect(res).toEqual({ kind: "railpack", warnings: [] });
+  });
+});
