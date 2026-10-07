@@ -20,8 +20,10 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+import { project, resource } from "@otterdeploy/db/schema/project";
+import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { server } from "@otterdeploy/db/schema/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import type { RoutePlacement } from "./node-routes";
 
@@ -36,6 +38,35 @@ export interface DomainPlacementReport {
   expectedAddress: string | null;
   resolvedAddresses: string[];
   verdict: "ok" | "points-elsewhere" | "undetermined";
+}
+
+/**
+ * One organization's enabled routes, paired with the server their resource is
+ * pinned to: the only routes an org-scoped report may describe.
+ *
+ * `listEnabledRoutePlacements` (./queries.ts) is install-wide on purpose: it
+ * feeds every node's config. Handed to a tenant, it disclosed every other
+ * organization's domains and made the report resolve each of them over public
+ * DNS, so one tenant's read cost a lookup per route in the whole install. The
+ * project join is the tenant boundary; the resource join stays LEFT for the
+ * reason given there (a route may outlive or lack its resource row).
+ */
+export async function listOrganizationRoutePlacements(
+  organizationId: OrganizationId,
+): Promise<RoutePlacement[]> {
+  const rows = await db
+    .select({ domain: proxyRoute.domain, placementServerId: resource.placementServerId })
+    .from(proxyRoute)
+    .innerJoin(project, eq(proxyRoute.projectId, project.id))
+    .leftJoin(resource, eq(proxyRoute.resourceId, resource.id))
+    .where(
+      and(
+        eq(project.organizationId, organizationId),
+        eq(proxyRoute.enabled, true),
+        eq(proxyRoute.disabledByUser, false),
+      ),
+    );
+  return rows.map((r) => ({ domain: r.domain, placementServerId: r.placementServerId ?? null }));
 }
 
 /**

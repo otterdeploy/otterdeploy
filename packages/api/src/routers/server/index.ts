@@ -2,8 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
-import { reportDomainPlacement } from "../../caddy/dns-placement";
-import { listEnabledRoutePlacements } from "../../caddy/queries";
+import { listOrganizationRoutePlacements, reportDomainPlacement } from "../../caddy/dns-placement";
 import { chooseServerBucketSeconds, queryServerMetrics } from "../../metrics/server-query";
 import { setServerAvailability } from "./availability";
 import { serverEnrollmentRouter } from "./enrollment-router";
@@ -31,11 +30,10 @@ export const serverRouter = {
   }),
 
   dnsPlacement: orgScopedProcedure.server.dnsPlacement.handler(async ({ context }) => {
-    const placements = await listEnabledRoutePlacements();
-    return reportDomainPlacement({
-      organizationId: context.activeOrganizationId,
-      routes: placements.map((p) => ({ domain: p.domain, placementServerId: p.placementServerId })),
-    });
+    // Only the caller's organization's routes: the install-wide list disclosed
+    // every tenant's domains and resolved each one per call.
+    const routes = await listOrganizationRoutePlacements(context.activeOrganizationId);
+    return reportDomainPlacement({ organizationId: context.activeOrganizationId, routes });
   }),
 
   get: orgScopedProcedure.server.get.handler(async ({ input, context, errors }) => {
