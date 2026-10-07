@@ -1,0 +1,1 @@
+CREATE INDEX "deployment_status_idx" ON "deployment" ("status");

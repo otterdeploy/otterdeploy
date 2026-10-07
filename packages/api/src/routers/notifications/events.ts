@@ -38,6 +38,13 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "build.failed", label: "Build failed", severity: "err" },
   { id: "health.degraded", label: "Health degraded", severity: "warn" },
   { id: "health.recovered", label: "Health recovered", severity: "ok" },
+  // health.* transitions on a container's healthcheck, so it can only speak
+  // about a container that EXISTS. service.down is the other half: the
+  // desired-vs-actual watch that catches a resource with no container at all
+  // (system-health/down-watch.ts), which is how a dead database went unnoticed
+  // for two days.
+  { id: "service.down", label: "Service is down", severity: "err" },
+  { id: "service.up", label: "Service back up", severity: "ok" },
   { id: "host.pressure", label: "Server resource pressure", severity: "warn" },
   // The other half of host.pressure: emitted by the monitor when a warning or
   // critical recommendation stops being true, so the inbox can close the

@@ -109,6 +109,7 @@ const FAMILY_KEY: Record<string, KeyBuilder> = {
   deploy: resourceKey("deploy"),
   build: resourceKey("deploy"),
   health: resourceKey("health"),
+  service: resourceKey("service"),
   backup: (subjectId, data) =>
     keyed("backup", subjectId ?? str(data?.resourceId) ?? str(data?.volume)),
 };
@@ -130,6 +131,7 @@ const OPENERS: Record<string, "warn" | "err"> = {
   "backup.failed": "err",
   "backup.verify-failed": "err",
   "health.degraded": "warn",
+  "service.down": "err",
 };
 
 /** Severity an OPENING row carries, or null when the row does not open anything. */
