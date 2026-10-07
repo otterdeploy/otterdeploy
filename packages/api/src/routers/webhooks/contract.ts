@@ -13,6 +13,7 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { EVENT_IDS } from "../notifications/events";
 import { isValidAllowlistEntry } from "./inbound-guard";
 
@@ -161,18 +162,21 @@ export const webhooksContract = {
       .output(webhookSchema),
 
     update: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "PATCH", path: `${basePath}/outbound`, tags: [tag] })
       .input(updateWebhookInput)
       .output(webhookSchema)
       .errors(webhookNotFound),
 
     delete: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "DELETE", path: `${basePath}/outbound`, tags: [tag] })
       .input(webhookIdInput)
       .output(webhookIdInput)
       .errors(webhookNotFound),
 
     pause: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "POST", path: `${basePath}/outbound/pause`, tags: [tag] })
       .input(webhookIdInput)
       .output(webhookSchema)
@@ -180,6 +184,7 @@ export const webhooksContract = {
 
     /** Queue a signed `test.ping` delivery to this webhook. */
     test: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "POST", path: `${basePath}/outbound/test`, tags: [tag] })
       .input(webhookIdInput)
       .output(testResultSchema)
@@ -187,6 +192,7 @@ export const webhooksContract = {
 
     /** Decrypt and return the HMAC signing secret (eye-reveal on the card). */
     reveal: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "POST", path: `${basePath}/outbound/reveal`, tags: [tag] })
       .input(webhookIdInput)
       .output(secretSchema)
@@ -214,24 +220,28 @@ export const webhooksContract = {
       .output(z.object({ endpoint: inboundEndpointSchema, secret: z.string() })),
 
     update: oc
+      .meta(projectRefs({ id: "inboundEndpoint" }))
       .route({ method: "PATCH", path: `${basePath}/inbound`, tags: [tag] })
       .input(updateInboundInput)
       .output(inboundEndpointSchema)
       .errors(endpointNotFound),
 
     delete: oc
+      .meta(projectRefs({ id: "inboundEndpoint" }))
       .route({ method: "DELETE", path: `${basePath}/inbound`, tags: [tag] })
       .input(inboundIdInput)
       .output(inboundIdInput)
       .errors(endpointNotFound),
 
     pause: oc
+      .meta(projectRefs({ id: "inboundEndpoint" }))
       .route({ method: "POST", path: `${basePath}/inbound/pause`, tags: [tag] })
       .input(inboundIdInput)
       .output(inboundEndpointSchema)
       .errors(endpointNotFound),
 
     reveal: oc
+      .meta(projectRefs({ id: "inboundEndpoint" }))
       .route({ method: "POST", path: `${basePath}/inbound/reveal`, tags: [tag] })
       .input(inboundIdInput)
       .output(secretSchema)

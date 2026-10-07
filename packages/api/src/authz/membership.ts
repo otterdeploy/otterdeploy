@@ -10,9 +10,8 @@
  */
 
 import { db } from "@otterdeploy/db";
-import { member } from "@otterdeploy/db/schema/auth";
 import { project } from "@otterdeploy/db/schema/project";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { getProxyRouteByDomain } from "../caddy/queries";
 
@@ -40,14 +39,4 @@ export async function resolveProtectedDomainOrg(domain: string): Promise<DomainO
   if (!proj) return null;
 
   return { orgId: proj.orgId, projectId: route.projectId, accessPinHash: route.accessPinHash };
-}
-
-/** True when the user is a current member of the org. */
-export async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ userId: member.userId })
-    .from(member)
-    .where(and(eq(member.userId, userId), eq(member.organizationId, orgId)))
-    .limit(1);
-  return Boolean(row);
 }

@@ -1,6 +1,8 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 
 import { auth } from "@otterdeploy/auth";
+import { Result } from "better-result";
+import * as z from "zod";
 
 import type { ResolvedActor, SessionActor } from "./actor";
 
@@ -37,6 +39,10 @@ function deny(reason: string, status: 401 | 403 = 403): AuthorizationDecision {
   return { allowed: false, status, reason };
 }
 
+/** better-auth's APIError as hasPermission throws it for a non-member
+ *  (USER_IS_NOT_A_MEMBER_OF_THE_ORGANIZATION, 401) or a forbidden caller. */
+const refusedByBetterAuth = z.object({ statusCode: z.union([z.literal(401), z.literal(403)]) });
+
 async function defaultHasSessionPermission(
   actor: SessionActor,
   permission: PermissionCheck,
@@ -47,14 +53,24 @@ async function defaultHasSessionPermission(
   for (const [resource, actions] of Object.entries(permission)) {
     if (actions) permissions[resource] = [...actions];
   }
-  const { success } = await auth.api.hasPermission({
-    headers: actor.headers,
-    body: {
-      organizationId: actor.session.activeOrganizationId ?? undefined,
-      permissions,
-    },
+  const checked = await Result.tryPromise({
+    try: () =>
+      auth.api.hasPermission({
+        headers: actor.headers,
+        body: {
+          organizationId: actor.session.activeOrganizationId ?? undefined,
+          permissions,
+        },
+      }),
+    catch: (cause) => cause,
   });
-  return success;
+  if (checked.isOk()) return checked.value.success;
+  // better-auth answers a caller it will not evaluate (no longer a member of
+  // the organization, no session) by THROWING a 401/403 APIError rather than
+  // returning success:false. That is an ordinary denial, not a server fault:
+  // anything else is a real failure and stays one.
+  if (refusedByBetterAuth.safeParse(checked.error).success) return false;
+  throw checked.error;
 }
 
 function authorizeApiKey(

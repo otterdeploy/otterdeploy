@@ -22,6 +22,8 @@ import {
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
+
 const tag = "data";
 const basePath = "/data";
 
@@ -154,6 +156,7 @@ export const dataContract = {
    * someone actually browses.
    */
   schema: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "GET", path: `${basePath}/schema`, tags: [tag] })
     .input(withTarget({}))
     .output(schemaResultSchema)
@@ -167,6 +170,7 @@ export const dataContract = {
    * so neither can carry syntax into the statement.
    */
   browse: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "POST", path: `${basePath}/browse`, tags: [tag] })
     .input(
       withTarget({
@@ -184,6 +188,7 @@ export const dataContract = {
 
   /** Exact row count for the same filtered set the grid is showing. */
   count: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "POST", path: `${basePath}/count`, tags: [tag] })
     .input(
       withTarget({
@@ -203,6 +208,7 @@ export const dataContract = {
    * which confirmation to show and has no authority here.
    */
   run: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "POST", path: `${basePath}/run`, tags: [tag] })
     .input(
       withTarget({
@@ -224,6 +230,7 @@ export const dataContract = {
    * whole-database rather than per-table, so expanding a section costs nothing.
    */
   definitions: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "GET", path: `${basePath}/definitions`, tags: [tag] })
     .input(withTarget({}))
     .output(
@@ -299,6 +306,7 @@ export const dataContract = {
 
   /** Change a connection's settings. Omit `url` to leave the credential alone. */
   updateConnection: oc
+    .meta(projectRefs({ id: "none" }))
     .route({ method: "PATCH", path: `${basePath}/connections/{id}`, tags: [tag] })
     .input(
       z.object({
@@ -325,6 +333,7 @@ export const dataContract = {
     }),
 
   deleteConnection: oc
+    .meta(projectRefs({ id: "none" }))
     .route({ method: "DELETE", path: `${basePath}/connections/{id}`, tags: [tag] })
     .input(z.object({ id: connectionIdField }))
     .output(z.object({ deleted: z.boolean() }))
@@ -332,6 +341,7 @@ export const dataContract = {
 
   /** Open the connection once and report whether it worked. */
   testConnection: oc
+    .meta(projectRefs({ id: "none" }))
     .route({ method: "POST", path: `${basePath}/connections/{id}/test`, tags: [tag] })
     .input(z.object({ id: connectionIdField }))
     .output(z.object({ ok: z.boolean(), durationMs: z.number(), serverVersion: z.string() }))
@@ -385,6 +395,7 @@ export const dataContract = {
    * the idle reaper). Idempotent: a second open joins the live session.
    */
   openSession: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "POST", path: `${basePath}/sessions`, tags: [tag] })
     .input(withTarget({}))
     .output(
@@ -399,6 +410,7 @@ export const dataContract = {
 
   /** Close the caller's session on a target and everything it held. */
   closeSession: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "DELETE", path: `${basePath}/sessions`, tags: [tag] })
     .input(withTarget({}))
     .output(z.object({ closed: z.boolean() }))
@@ -424,6 +436,7 @@ export const dataContract = {
     .errors(dataErrors),
 
   mutate: oc
+    .meta(projectRefs({ "target.resourceId": "resource", "target.connectionId": "none" }))
     .route({ method: "POST", path: `${basePath}/mutate`, tags: [tag] })
     .input(
       withTarget({

@@ -16,6 +16,7 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
 import { BUCKETS, RANGE_PRESETS } from "../../analytics/query/window";
+import { projectRefs } from "../../authz/project-refs";
 import { zJsonObject } from "../../lib/z-json";
 import { projectIdField } from "../project/contract/shared";
 
@@ -399,12 +400,14 @@ export const analyticsContract = {
       .output(definitionsResultSchema),
 
     update: oc
+      .meta(projectRefs({ id: "analyticsEventDefinition" }))
       .errors({ ...analyticsErrors, ...definitionNotFoundErrors })
       .meta({ path: "/analytics/events/update", tag, method: "POST" })
       .input(eventsUpdateInput)
       .output(definitionResultSchema),
 
     archive: oc
+      .meta(projectRefs({ id: "analyticsEventDefinition" }))
       .errors({ ...analyticsErrors, ...definitionNotFoundErrors })
       .meta({ path: "/analytics/events/archive", tag, method: "POST" })
       .input(eventsArchiveInput)

@@ -8,6 +8,7 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { zJsonObject } from "../../lib/z-json";
 import { EVENT_IDS } from "./events";
 
@@ -187,24 +188,28 @@ export const notificationsContract = {
       .output(channelSchema),
 
     update: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "PATCH", path: `${basePath}/channels`, tags: [tag] })
       .input(updateChannelInput)
       .output(channelSchema)
       .errors(channelNotFound),
 
     delete: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "DELETE", path: `${basePath}/channels`, tags: [tag] })
       .input(channelIdInput)
       .output(channelIdInput)
       .errors(channelNotFound),
 
     pause: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "POST", path: `${basePath}/channels/pause`, tags: [tag] })
       .input(channelIdInput)
       .output(channelSchema)
       .errors(channelNotFound),
 
     test: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "POST", path: `${basePath}/channels/test`, tags: [tag] })
       .input(channelIdInput)
       .output(testResultSchema)
@@ -265,6 +270,7 @@ export const notificationsContract = {
       ),
 
     markRead: oc
+      .meta(projectRefs({ id: "none" }))
       .route({ method: "POST", path: `${basePath}/inbox/read`, tags: [tag] })
       .input(z.object({ id: notificationIdField }))
       .output(z.object({ id: notificationIdField })),

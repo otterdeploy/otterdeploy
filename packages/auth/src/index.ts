@@ -142,6 +142,30 @@ function mintUnregisteredId(prefix: string): string {
   return `${prefix}${createId(ID_PREFIX.user).slice(ID_PREFIX.user.length)}`;
 }
 
+/**
+ * better-auth clears `activeOrganizationId` only on the REMOVER's own session;
+ * the removed user's sessions keep naming the organization until they expire.
+ * Clear it on every one of their sessions, so a removed member
+ * has no workspace the moment the removal commits. The org-scoped API
+ * middleware also re-checks membership per request (packages/api/src/index.ts),
+ * which covers the session cookie cache this cannot reach.
+ */
+async function clearRemovedMemberWorkspace({
+  member: removed,
+}: {
+  member: { userId: string; organizationId: string };
+}): Promise<void> {
+  await db
+    .update(sessionTbl)
+    .set({ activeOrganizationId: null })
+    .where(
+      and(
+        eq(sessionTbl.userId, removed.userId),
+        eq(sessionTbl.activeOrganizationId, removed.organizationId),
+      ),
+    );
+}
+
 function buildAuth(socialProviders: SocialProvidersConfig) {
   return betterAuth({
     appName: "otterdeploy",
@@ -552,6 +576,7 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
             });
           }
         },
+        organizationHooks: { afterRemoveMember: clearRemovedMemberWorkspace },
         // RBAC: custom access-control statements + owner/admin/member roles
         // (packages/auth/src/permissions.ts). `auth.api.hasPermission` resolves
         // the active member's role against these, no manual member lookups.

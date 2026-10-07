@@ -8,6 +8,8 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
+
 const tag = "sshKeys";
 const basePath = "/ssh-keys";
 
@@ -93,6 +95,7 @@ export const sshKeysContract = {
     .output(sshKeySchema),
 
   rotate: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "SSH key not found" as const },
       CONFLICT: {
@@ -109,6 +112,7 @@ export const sshKeysContract = {
     .output(sshKeySchema),
 
   delete: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "SSH key not found" as const },
     })

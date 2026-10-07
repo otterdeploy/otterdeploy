@@ -1,6 +1,7 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { networksContract } from "./contract-networks";
 
 const tag = "docker";
@@ -176,6 +177,9 @@ const listImagesInput = z.object({
 
 const idInput = z.object({ id: z.string().min(1) });
 
+/** A Docker object id (container, image) names nothing a project owns. */
+const dockerObjectRefs = projectRefs({ id: "none" });
+
 export const dockerContract = {
   containers: {
     list: oc
@@ -184,11 +188,13 @@ export const dockerContract = {
       .input(listContainersInput)
       .output(z.array(containerSchema)),
     inspect: oc
+      .meta(dockerObjectRefs)
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/containers/inspect`, tag, method: "GET" })
       .input(idInput)
       .output(containerInspectSchema),
     logs: oc
+      .meta(dockerObjectRefs)
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/containers/logs`, tag, method: "GET" })
       .input(
@@ -207,11 +213,13 @@ export const dockerContract = {
       .input(listImagesInput)
       .output(z.array(imageSchema)),
     inspect: oc
+      .meta(dockerObjectRefs)
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/images/inspect`, tag, method: "GET" })
       .input(idInput)
       .output(imageInspectSchema),
     remove: oc
+      .meta(dockerObjectRefs)
       .errors({ ...serverError, ...notFoundError, ...conflictError })
       .meta({ path: `${basePath}/images/remove`, tag, method: "POST" })
       .input(z.object({ id: z.string().min(1), force: z.boolean().optional() }))
