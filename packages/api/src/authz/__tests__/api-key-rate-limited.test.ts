@@ -76,7 +76,7 @@ function anonymousContext(apiKeyRateLimited: Context["apiKeyRateLimited"]): Cont
   };
 }
 
-const input = { name: "ci", expiresIn: null };
+const input = { name: "ci", expiresIn: null, permissions: "full" as const };
 const handler = async () => {
   throw new Error("the handler must not run for an unauthenticated caller");
 };

@@ -38,7 +38,7 @@ detected and re-authenticated in place.
 For CI, mint a scoped key and export it:
 
 ```bash
-otterdeploy tokens create --name ci --expires 90d --read-only
+otterdeploy tokens create --name ci --expires 90d --scope service:read --scope service:deploy
 export OTTERDEPLOY_TOKEN=otter_...
 export OTTERDEPLOY_URL=https://deploy.example.com
 ```
