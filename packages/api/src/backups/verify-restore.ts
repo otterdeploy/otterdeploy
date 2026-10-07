@@ -200,7 +200,8 @@ async function executeVerification(
 ): Promise<void> {
   const log = (line: string) => appendBackupLog(backupId, "system", line);
   const startedAt = Date.now();
-  await markVerificationRunning(verificationId);
+  // Settled before it started (the boot reconcile): nothing to verify.
+  if (!(await markVerificationRunning(verificationId))) return;
   await markBackupVerifying(backupId);
 
   const docker = Docker.fromEnv();
@@ -223,7 +224,7 @@ async function executeVerification(
   if (outcome.isOk()) {
     const evidence = outcome.value;
     const verdict = verificationVerdict(evidence);
-    await finishVerification({
+    const recorded = await finishVerification({
       id: verificationId,
       backupId,
       passed: verdict.passed,
@@ -236,12 +237,12 @@ async function executeVerification(
         ? `Verification passed: ${evidence.tableCount} tables, ${evidence.restoredSizeBytes} B restored`
         : `Verification FAILED: ${verdict.reason ?? "unknown"}`,
     );
-    if (!verdict.passed) await emitVerifyFailed(ctx, backupId, verdict.reason);
+    if (recorded && !verdict.passed) await emitVerifyFailed(ctx, backupId, verdict.reason);
     return;
   }
 
   const message = outcome.error.message;
-  await finishVerification({
+  const recorded = await finishVerification({
     id: verificationId,
     backupId,
     passed: false,
@@ -250,7 +251,7 @@ async function executeVerification(
     durationMs,
   });
   await log(`Verification errored: ${message}`);
-  await emitVerifyFailed(ctx, backupId, message);
+  if (recorded) await emitVerifyFailed(ctx, backupId, message);
 }
 
 async function emitVerifyFailed(
