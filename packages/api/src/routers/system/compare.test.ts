@@ -97,3 +97,27 @@ describe("isNewer (the update-available predicate)", () => {
     expect(isNewer("v0.5.0", null)).toBe(false);
   });
 });
+
+describe("Bun.semver-backed ordering keeps the hand-rolled contract", () => {
+  it("orders patch numerically and ignores the v prefix and surrounding whitespace", () => {
+    expect(compareVersions("1.3.10", "1.3.9")).toBe(1);
+    expect(compareVersions("v0.22.0", "0.22.0")).toBe(0);
+    expect(compareVersions("  v0.22.1\n", "v0.22.0")).toBe(1);
+  });
+
+  it("ranks prerelease identifiers per semver", () => {
+    expect(compareVersions("v1.0.0-rc.1", "v1.0.0")).toBe(-1);
+    // A numeric identifier sorts below an alphanumeric one.
+    expect(compareVersions("v1.0.0-1", "v1.0.0-alpha")).toBe(-1);
+    expect(compareVersions("v1.0.0-nightly.20260820.10", "v1.0.0-nightly.20260820.9")).toBe(1);
+    expect(compareVersions("v1.0.0-nightly.20260820.2", "v1.0.0-nightly.20260820")).toBe(1);
+  });
+
+  it("never lets a sentinel or a partial version count as newer", () => {
+    for (const latest of ["dev", "latest", "v1.2", "1", "", null, undefined]) {
+      expect(isNewer("v0.1.0", latest)).toBe(false);
+    }
+    // A partial version is unparseable on BOTH sides, so it ranks below a release.
+    expect(compareVersions("1.2", "1.2.0")).toBe(-1);
+  });
+});

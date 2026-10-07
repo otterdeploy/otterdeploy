@@ -92,5 +92,5 @@
   "overrides": {
     "hono": "^4.12.16"
   },
-  "packageManager": "bun@1.3.10"
+  "packageManager": "bun@1.4.2"
 }

@@ -1,9 +1,11 @@
 /**
- * Tiny semver comparison for platform version tags (e.g. "v0.5.0"). We ship a
- * handful of `vX.Y.Z` release tags, so a full `semver` dependency is overkill.
- * This parses `[v]major.minor.patch[-prerelease]` and orders numerically, with
- * a prerelease sorting BEFORE its release (0.5.0-rc.1 < 0.5.0), which is all the
+ * Semver comparison for platform version tags (e.g. "v0.5.0"). This parses
+ * `[v]major.minor.patch[-prerelease]` and orders with Bun's built-in semver, a
+ * prerelease sorting BEFORE its release (0.5.0-rc.1 < 0.5.0), which is all the
  * updater needs for the "is latest strictly newer than current?" question.
+ *
+ * Server-side only for the ordering: the CLI bundle (which runs on Node) reaches
+ * this module through compat.ts but only ever calls `parseVersion`.
  */
 
 export interface ParsedVersion {
@@ -30,52 +32,24 @@ export function parseVersion(input: string | null | undefined): ParsedVersion | 
   };
 }
 
-const cmpNum = (x: number, y: number): number => (x < y ? -1 : x > y ? 1 : 0);
-
-/** One dot-separated prerelease identifier, semver rule 11: numeric
- *  identifiers compare numerically and sort below alphanumeric ones. */
-function compareIdentifier(a: string, b: string): number {
-  const aNum = /^\d+$/.test(a);
-  const bNum = /^\d+$/.test(b);
-  if (aNum && bNum) return cmpNum(Number(a), Number(b));
-  if (aNum !== bNum) return aNum ? -1 : 1;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-/** A final release outranks any prerelease of the same core; otherwise compare
- *  identifier-by-identifier per semver. Numeric identifiers order numerically
- *  (nightly.20260820.10 > nightly.20260820.9 — a plain string compare would
- *  invert those), and when one list is a prefix of the other the LONGER sorts
- *  higher (nightly.20260820.2 > nightly.20260820: a same-day nightly re-cut
- *  outranks the day's first). */
-function comparePrerelease(a: string, b: string): number {
-  if (a === b) return 0;
-  if (a === "") return 1;
-  if (b === "") return -1;
-  const as = a.split(".");
-  const bs = b.split(".");
-  const shared = Math.min(as.length, bs.length);
-  for (let i = 0; i < shared; i++) {
-    // `?? ""` only satisfies noUncheckedIndexedAccess: i < both lengths.
-    const c = compareIdentifier(as[i] ?? "", bs[i] ?? "");
-    if (c !== 0) return c;
-  }
-  return cmpNum(as.length, bs.length);
-}
-
 /** -1 if a<b, 0 if equal, 1 if a>b. Unparseable inputs sort as "older" than any
  *  real version (so "dev" never counts as newer than a release, and a garbage
- *  latest never triggers an update). */
+ *  latest never triggers an update).
+ *
+ *  `parseVersion` gates first: `Bun.semver.order` throws on sentinels like
+ *  "dev"/"latest" and reads partial versions ("1.2") as ranges, so only full
+ *  `[v]X.Y.Z[-pre]` tags reach it. It orders prereleases per semver: numeric
+ *  identifiers numerically (nightly.20260820.10 > nightly.20260820.9), and when
+ *  one list prefixes the other the longer sorts higher (nightly.20260820.2 >
+ *  nightly.20260820, a same-day re-cut outranks the day's first). */
 export function compareVersions(
   a: string | null | undefined,
   b: string | null | undefined,
 ): number {
   const pa = parseVersion(a);
   const pb = parseVersion(b);
-  if (!pa || !pb) return pa ? 1 : pb ? -1 : 0;
-  const core =
-    cmpNum(pa.major, pb.major) || cmpNum(pa.minor, pb.minor) || cmpNum(pa.patch, pb.patch);
-  return core !== 0 ? core : comparePrerelease(pa.prerelease, pb.prerelease);
+  if (!pa || !pb || a == null || b == null) return pa ? 1 : pb ? -1 : 0;
+  return Bun.semver.order(a.trim(), b.trim());
 }
 
 /** True when `latest` is a real version strictly newer than `current`. */

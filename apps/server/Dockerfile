@@ -20,7 +20,7 @@
 
 # Pinned (NOT the floating tag) so `bun install --frozen-lockfile` stays
 # reproducible: keep at/above the bun that writes bun.lock locally.
-ARG BUN_VERSION=1.3.14
+ARG BUN_VERSION=1.4.2
 # Railpack CLI: kept in lockstep with the RAILPACK_FRONTEND tag in
 # apps/builder/src/railpack.ts (a CLI/frontend skew breaks builds).
 ARG RAILPACK_VERSION=0.35.0
