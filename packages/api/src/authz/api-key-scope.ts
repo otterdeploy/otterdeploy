@@ -32,10 +32,15 @@ import { isReadAction } from "./procedure-mode";
 /**
  * Does the key's own minted permission map cover the required permission?
  *
- * `null` keyPermissions means a full-access key (the plugin stores `null` for
- * keys minted without a `permissions` field) → unconditionally true. Otherwise
- * every required `{resource: actions[]}` entry must be fully covered by
- * `keyPermissions[resource]`.
+ * `null` keyPermissions means a full-access key → unconditionally true (the
+ * member-role cap below still applies). A key is null only when its creator
+ * explicitly chose full access (`apiKeys.create` with `permissions: "full"`),
+ * or when it was minted before that choice existed: such legacy keys keep
+ * working as full access, deliberately, so existing CI and scripts do not
+ * break. The plugin's own create endpoint, the one path that could still mint a
+ * null key implicitly, is closed over HTTP (`disabledPaths` in packages/auth).
+ * Otherwise every required `{resource: actions[]}` entry must be fully covered
+ * by `keyPermissions[resource]`.
  */
 export function authorizeKeyScope(
   keyPermissions: Record<string, string[]> | null,
@@ -91,6 +96,25 @@ function fitsMemberStatements(
   return true;
 }
 
+/**
+ * The `resource:action` pairs of a requested key grant that no key can ever
+ * use: every key is capped at the member role (DECISION A), so anything the
+ * member statements do not list (an unknown resource, a misspelt action,
+ * `database:write`, `apiKey:create`) would mint a key that silently cannot do
+ * what its creator asked. `apiKeys.create` refuses those instead.
+ */
+export function ungrantableKeyPermissions(requested: Record<string, string[]>): string[] {
+  const memberStatements = new Map<string, readonly string[]>(
+    Object.entries(roles.member.statements),
+  );
+  return Object.entries(requested).flatMap(([resource, actions]) => {
+    const allowed = memberStatements.get(resource) ?? [];
+    return actions
+      .filter((action) => !allowed.includes(action))
+      .map((action) => `${resource}:${action}`);
+  });
+}
+
 export function authorizeRoleScope(required: PermissionCheck): boolean {
   if (!fitsMemberStatements(required)) return false;
   return roles.member.authorize(required).success;
@@ -111,6 +135,18 @@ export function isReadAllowed(accessLevel: "read" | "write" | undefined, path: s
 export interface ApiKeyProjectScope {
   projectScope?: "all" | "selected";
   projectIds?: string[];
+}
+
+/**
+ * The projects a key's org-wide READS must be narrowed to: its allow-list when
+ * minted for selected projects, `null` when nothing narrows (a session actor,
+ * or a key for every project). A procedure with no project in its input (a
+ * listing, an org-wide analytics read) cannot be confined by the input check,
+ * so it filters its RESULT by this instead.
+ */
+export function scopedProjectIds(apiKeyCtx: ApiKeyProjectScope | null): readonly string[] | null {
+  if (!apiKeyCtx || apiKeyCtx.projectScope !== "selected") return null;
+  return apiKeyCtx.projectIds ?? [];
 }
 
 /**

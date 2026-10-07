@@ -116,6 +116,14 @@
       "retry": "⟳ Reintentar",
       "returnHome": "↩ Volver al inicio"
     },
+    "rateLimited": {
+      "title": "Un momento, más despacio",
+      "message": "Esta red envió más solicitudes de las que el servidor acepta por minuto. Tu sesión está bien; la página se volverá a cargar sola.",
+      "retryingIn_one": "Reintentando en {{count}} segundo",
+      "retryingIn_other": "Reintentando en {{count}} segundos",
+      "retrying": "Reintentando…",
+      "retryNow": "Reintentar ahora"
+    },
     "generic": "Algo salió mal",
     "connection": {
       "unreachable": "Plano de control no disponible",
@@ -640,7 +648,12 @@
     "permissions": "Permisos",
     "expiry": "Caducidad",
     "fullAccess": "Acceso completo",
-    "namePlaceholder": "Bot de despliegue de CI"
+    "namePlaceholder": "Bot de despliegue de CI",
+    "access": "Acceso",
+    "accessLimited": "Limitado",
+    "accessLimitedHint": "Solo los permisos que elijas abajo.",
+    "accessFullHint": "Todo lo que puede hacer un miembro del espacio de trabajo. Solo para automatización de confianza.",
+    "choosePermission": "Elige al menos un permiso o da a la clave acceso completo."
   },
   "registries": {
     "label": "Registro de imágenes",

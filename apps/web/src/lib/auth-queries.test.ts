@@ -17,7 +17,11 @@ interface OrgListResponse {
   error: { status: number; message?: string } | null;
 }
 
-const listOrganizations = vi.fn<() => Promise<OrgListResponse>>();
+interface ListArgs {
+  fetchOptions?: { onError?: (context: { response: Response }) => void };
+}
+
+const listOrganizations = vi.fn<(args?: ListArgs) => Promise<OrgListResponse>>();
 
 vi.mock("@/shared/server/orpc", () => ({
   get queryClient() {
@@ -25,20 +29,30 @@ vi.mock("@/shared/server/orpc", () => ({
   },
 }));
 
+interface SessionResponse {
+  data: { user: { id: string } } | null;
+  error: { status: number; message?: string } | null;
+}
+
+const getSession = vi.fn<(args?: ListArgs) => Promise<SessionResponse>>();
+
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
-    getSession: () => Promise.resolve({ data: { user: { id: "user_1" } }, error: null }),
-    organization: { list: () => listOrganizations() },
+    getSession: (args?: ListArgs) => getSession(args),
+    organization: { list: (args?: ListArgs) => listOrganizations(args) },
   },
 }));
 
-const { invalidateAuth, organizationsQuery } = await import("./auth-queries");
+const { invalidateAuth, organizationsQuery, sessionQuery } = await import("./auth-queries");
+const { RateLimitedError } = await import("@/shared/server/rate-limited");
 
 const ACME = { id: "org_acme", name: "Acme", slug: "acme", createdAt: "2026-01-01" };
 
 beforeEach(() => {
   queryClient.clear();
   listOrganizations.mockReset();
+  getSession.mockReset();
+  getSession.mockResolvedValue({ data: { user: { id: "user_1" } }, error: null });
 });
 
 describe("invalidateAuth", () => {
@@ -87,5 +101,32 @@ describe("invalidateAuth", () => {
 
     expect(settled).toBe(true);
     expect(queryClient.getQueryData(organizationsQuery.queryKey)).toEqual([ACME]);
+  });
+});
+
+/** better-auth's answer to a rate-limited read, with its retry hint. */
+async function rateLimited(
+  args?: ListArgs,
+): Promise<{ data: null; error: { status: number; message: string } }> {
+  args?.fetchOptions?.onError?.({
+    response: new Response(null, { status: 429, headers: { "X-Retry-After": "12" } }),
+  });
+  return { data: null, error: { status: 429, message: "Too many requests" } };
+}
+
+describe("a rate-limited auth read", () => {
+  it("the org list throws RateLimitedError with the server's retry hint, not a generic failure", async () => {
+    listOrganizations.mockImplementationOnce(rateLimited);
+    const failure = await queryClient.ensureQueryData(organizationsQuery).catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(RateLimitedError);
+    expect(failure).toMatchObject({ retryAfterSeconds: 12 });
+  });
+
+  it("the session read does too, and is never read as signed out", async () => {
+    getSession.mockImplementationOnce(rateLimited);
+    const failure = await queryClient.ensureQueryData(sessionQuery).catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(RateLimitedError);
+    expect(failure).toMatchObject({ retryAfterSeconds: 12 });
+    expect(queryClient.getQueryData(sessionQuery.queryKey)).toBeUndefined();
   });
 });

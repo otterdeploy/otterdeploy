@@ -93,18 +93,24 @@ Set the active organization.
 Manage API keys.
 
 ```bash
-otterdeploy tokens create --name ci --expires 90d --read-only
-otterdeploy tokens create --name deploy --project web --project api
+otterdeploy tokens create --name ci --expires 90d --full-access --read-only
+otterdeploy tokens create --name deploy --scope service:read --scope service:deploy --project web
 ```
 
 #### `tokens create`
 
 Create an API key for CI and scripts. The key is shown once, copy it
-immediately.
+immediately. Say what the key may do: pass `--scope` at least once, or
+`--full-access`. With neither, the command refuses.
 
 - `--name <name>` *(required)*: key name.
 - `--expires <spec>`: expiry as `<N>d`, `<N>h`, `<N>m`, or `never`. Default
   `90d`.
+- `--scope <resource>:<action>`: grant one permission, e.g. `service:deploy`
+  (repeatable). A key never exceeds what a workspace member may do; a scope
+  outside that is refused.
+- `--full-access`: grant everything a workspace member may do, instead of
+  `--scope`.
 - `--read-only`: restrict the key to read operations.
 - `--project <slug>`: limit the key to a project slug (repeatable, pass
   `--project` multiple times).
