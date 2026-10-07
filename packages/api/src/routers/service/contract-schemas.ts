@@ -60,6 +60,11 @@ const serviceRuntimeSchema = z.object({
   networkName: z.string(),
   status: z.enum(["running", "starting", "stopped", "missing", "error"]),
   health: z.enum(["healthy", "unhealthy", "starting"]).nullable(),
+  /** Why the runtime is failing, in the runtime's own words (a task's error:
+   *  an image that will not pull, a full disk, a container that will not
+   *  start). Null when nothing is failing, or the runtime gives no reason.
+   *  Without it, `error` left the operator nothing to act on. */
+  errorMessage: z.string().nullable(),
 });
 
 export const serviceSchema = z.object({
