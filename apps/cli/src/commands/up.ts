@@ -18,7 +18,7 @@ import { basename } from "node:path";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
-import { loadConfig as loadCliConfig } from "../config";
+import { resolveContext } from "../config";
 import {
   configExists,
   configPath,
@@ -125,7 +125,7 @@ async function scaffoldProject(
   }
 
   // $schema lives on the web origin (captured at login), not the API.
-  const schemaHost = loadCliConfig().webUrl ?? url;
+  const schemaHost = resolveContext(url).webUrl ?? url;
   writeConfigTemplate({
     path: targetPath,
     schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,

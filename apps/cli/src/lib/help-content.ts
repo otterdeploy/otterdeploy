@@ -179,6 +179,18 @@ export const EXAMPLES: Record<string, Example[]> = {
     { note: "create a project", run: "project create --name Storefront --slug storefront" },
   ],
   "org use": [{ note: "switch the active organization", run: "org use otter-labs" }],
+  // A URL, where `org use` takes a slug: the two read alike and are not, so
+  // the shape is worth showing once.
+  "context use": [
+    {
+      note: "switch which control plane commands talk to",
+      run: "context use https://otter.acme.com",
+    },
+  ],
+  logout: [
+    { note: "sign out of the current control plane", run: "logout" },
+    { note: "sign out of every one of them", run: "logout --all" },
+  ],
   "tokens create": [
     { note: "create an API key for CI", run: "tokens create --name ci --expires 90d" },
   ],
