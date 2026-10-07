@@ -20,7 +20,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { deriveGhcrCredential } from "@otterdeploy/api/git/ghcr-auth";
 import { GHCR_HOST } from "@otterdeploy/api/git/ghcr-policy";
-import { decryptSecret } from "@otterdeploy/api/lib/crypto";
+import { decryptForDomain } from "@otterdeploy/api/lib/crypto";
 
 import type { PushCredentials } from "./docker-push";
 
@@ -61,7 +61,11 @@ export async function resolvePushCredentials(
     return {
       host: source.host,
       username: source.username,
-      password: await decryptSecret(source.encryptedPassword),
+      // The API writes this column as a v2 "registry-creds" envelope
+      // (routers/registry/queries.ts), and the rotate script re-keys old v1
+      // rows into the same shape. decryptForDomain reads both; the v1-only
+      // decryptSecret refused every credential saved since the v2 rework.
+      password: await decryptForDomain(source.encryptedPassword, "registry-creds"),
     };
   }
 

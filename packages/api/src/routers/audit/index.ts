@@ -1,23 +1,10 @@
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  gte,
-  ilike,
-  isNotNull,
-  isNull,
-  lte,
-  or,
-  sql,
-  type SQL,
-} from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, isNotNull, lte, or, sql, type SQL } from "drizzle-orm";
 
 import { orgScopedProcedure } from "../..";
-import { runAuditFeed } from "./feed";
+import { auditScope, runAuditFeed } from "./feed";
 
 type AuditRow = typeof auditLog.$inferSelect;
 
@@ -45,23 +32,15 @@ function toAuditEvent(r: AuditRow) {
   };
 }
 
-/** Org scope + optional time window. Shared by `list` and `distinct`.
+/** Audit scope + optional time window. Shared by `list` and `distinct`.
  *
- * Includes rows with a NULL `organizationId` alongside the caller's own org:
- * every DENIED row from an auth/org-gate rejection (UNAUTHORIZED,
- * NO_ACTIVE_ORGANIZATION) is written before `activeOrganizationId` is ever
- * known (see `traceProcedure` in packages/api/src/index.ts, the tenant id
- * on the audit envelope comes from context captured at request start, and
- * for those two denial codes that's before a session/org has resolved). An
- * org-only `eq` filter made the DENIED counter permanently 0, no denied row
- * has ever carried a real org id, by construction, so it could never match.
- * These rows aren't another tenant's private data (there IS no tenant), so
- * surfacing them everywhere isn't a cross-org leak. It's the only way an
- * operator ever sees "someone got blocked before establishing identity" at
- * all. */
-function windowConds(orgId: string, from?: string, to?: string): SQL[] {
-  const orgScope = or(eq(auditLog.organizationId, orgId), isNull(auditLog.organizationId));
-  const conds: SQL[] = orgScope ? [orgScope] : [];
+ * `scope` is the caller's {@link auditScope}: their org's rows, plus the
+ * NULL-organization rows (pre-tenant denials, failed sign-ins against unknown
+ * addresses) only when the caller is an installation administrator. Those rows
+ * are install-wide, not tenant-less: surfacing them in every org leaked other
+ * tenants' users and strangers' typed emails/IPs to every member. */
+function windowConds(scope: SQL, from?: string, to?: string): SQL[] {
+  const conds: SQL[] = [scope];
   if (from) conds.push(gte(auditLog.timestamp, new Date(from)));
   if (to) conds.push(lte(auditLog.timestamp, new Date(to)));
   return conds;
@@ -73,14 +52,14 @@ export const auditRouter = {
    * whole filtered set. Filters, facets and the histogram all come from one
    * declaration — see `./feed.ts` and `./table.ts`.
    */
-  feed: orgScopedProcedure.audit.feed.handler(({ input, context }) =>
-    runAuditFeed(input, context.activeOrganizationId),
+  feed: orgScopedProcedure.audit.feed.handler(async ({ input, context }) =>
+    runAuditFeed(input, await auditScope(context.actor, context.activeOrganizationId)),
   ),
 
   list: orgScopedProcedure.audit.list.handler(async ({ input, context }) => {
-    const orgId = context.activeOrganizationId;
+    const scope = await auditScope(context.actor, context.activeOrganizationId);
 
-    const conds = windowConds(orgId, input.from, input.to);
+    const conds = windowConds(scope, input.from, input.to);
     if (input.action) conds.push(eq(auditLog.action, input.action));
     if (input.actorId) conds.push(eq(auditLog.actorId, input.actorId));
     if (input.outcome) conds.push(eq(auditLog.outcome, input.outcome));
@@ -161,8 +140,8 @@ export const auditRouter = {
    *  the (org, timestamp) index + hard limits, so it stays a small payload even
    *  on busy orgs. */
   distinct: orgScopedProcedure.audit.distinct.handler(async ({ input, context }) => {
-    const orgId = context.activeOrganizationId;
-    const where = and(...windowConds(orgId, input.from, input.to));
+    const scope = await auditScope(context.actor, context.activeOrganizationId);
+    const where = and(...windowConds(scope, input.from, input.to));
 
     const [actorRows, actionRows, targetRows] = await Promise.all([
       db
