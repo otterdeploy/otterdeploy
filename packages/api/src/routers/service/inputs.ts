@@ -233,12 +233,21 @@ function toHealthcheckUpdateColumns(healthcheck: UpdateServiceInput["healthcheck
   };
 }
 
+/** A numeric(4,2) column patch: undefined leaves it, null clears it. */
+function cpuColumn(cores: number | null | undefined): string | null | undefined {
+  if (cores == null) return cores;
+  return cores.toString();
+}
+
 function toResourceUpdateColumns(resources: ResourcesInput | undefined) {
   const r: ResourcesInput = resources ?? {};
   return {
-    cpuLimit: r.cpuLimit != null ? r.cpuLimit.toString() : undefined,
+    // null clears like every other limit here. It used to be dropped, so
+    // neither the Scaling card's "no limit" nor a manifest that removed
+    // `cpuLimit` could ever clear a stored CPU cap.
+    cpuLimit: cpuColumn(r.cpuLimit),
     memoryLimitMb: r.memoryLimitMb,
-    cpuReservation: r.cpuReservation != null ? r.cpuReservation.toString() : undefined,
+    cpuReservation: cpuColumn(r.cpuReservation),
     memoryReservationMb: r.memoryReservationMb,
     diskLimitMb: r.diskLimitMb,
     swapLimitMb: r.swapLimitMb,

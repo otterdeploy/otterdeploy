@@ -96,7 +96,15 @@ export interface CurrentService {
   preDeploy: string[] | null;
   postDeploy: string[] | null;
   buildConfig: BuildConfig | null;
+  restartCondition: "none" | "on-failure" | "any";
+  restartMaxAttempts: number | null;
+  restartDelayMs: number;
   restartWindowMs: number | null;
+  /** CPU cores, as stored (the column keeps 2 decimals). */
+  cpuLimit: number | null;
+  memoryLimitMb: number | null;
+  cpuReservation: number | null;
+  memoryReservationMb: number | null;
   diskLimitMb: number | null;
   swapLimitMb: number | null;
   pidsLimit: number | null;

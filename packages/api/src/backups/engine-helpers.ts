@@ -59,11 +59,14 @@ export function dumpCommand(ctx: DumpTarget): {
         cmd: [
           "sh",
           "-c",
-          `exec mysqldump -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
+          mysqlFamilyExec(
+            MYSQL_FAMILY_DUMP,
+            `-u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
+          ),
         ],
         env: [`MYSQL_PWD=${ctx.password}`],
         ext: "sql.gz",
-        method: "mysqldump | gzip",
+        method: "mariadb-dump (mysqldump on MySQL images)",
       };
     case "mongodb":
       return {
@@ -87,6 +90,23 @@ export function dumpCommand(ctx: DumpTarget): {
       // caller fails loudly instead of building an empty command.
       throw new Error(`logical dump is not supported for engine "${ctx.engine}"`);
   }
+}
+
+/**
+ * The MySQL-family tools under both names. MariaDB 11+ images ship ONLY the
+ * `mariadb-*` names (the `mysql*` compatibility symlinks are gone, so a
+ * `mysqldump` backup exited 127 on every managed MariaDB);
+ * MySQL images (a compose stack's `mysql` service backs up through this same
+ * engine) ship only the `mysql*` names. The command probes for the MariaDB
+ * name first and falls back, so one argv works on either image.
+ */
+const MYSQL_FAMILY_DUMP = { mariadb: "mariadb-dump", mysql: "mysqldump" } as const;
+const MYSQL_FAMILY_CLIENT = { mariadb: "mariadb", mysql: "mysql" } as const;
+
+/** `sh -c` body that execs whichever name of `tool` the image has, with
+ *  `args` (already shell-quoted). */
+function mysqlFamilyExec(tool: { mariadb: string; mysql: string }, args: string): string {
+  return `if command -v ${tool.mariadb} >/dev/null 2>&1; then exec ${tool.mariadb} ${args}; else exec ${tool.mysql} ${args}; fi`;
 }
 
 export function shellQuote(s: string): string {
@@ -121,7 +141,13 @@ export function physicalDumpCommand(ctx: DumpTarget): {
  * live database. Same in-container exec model, so credentials stay off the
  * wire and the restore client matches the server version by construction.
  */
-export function restoreCommand(ctx: DumpTarget): { cmd: string[]; env: string[]; method: string } {
+export function restoreCommand(
+  ctx: DumpTarget,
+  /** The database the dump was TAKEN from. A mongodump archive carries its
+   *  namespaces (`<source>.<collection>`); restoring into another database
+   *  renames them, or mongorestore filters every one out and "succeeds". */
+  source: { databaseName: string } = ctx,
+): { cmd: string[]; env: string[]; method: string } {
   switch (ctx.engine) {
     case "postgres":
       return {
@@ -139,16 +165,18 @@ export function restoreCommand(ctx: DumpTarget): { cmd: string[]; env: string[];
         method: "pg_restore --clean --if-exists",
       };
     case "mariadb":
-      // mysqldump emits plain SQL; the mysql client replays it. mariadb images
-      // ship both `mysql` and `mariadb` client names; `mysql` exists on both.
+      // The dump is plain SQL; the engine's own client replays it.
       return {
         cmd: [
           "sh",
           "-c",
-          `exec mysql -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
+          mysqlFamilyExec(
+            MYSQL_FAMILY_CLIENT,
+            `-u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
+          ),
         ],
         env: [`MYSQL_PWD=${ctx.password}`],
-        method: "mysql < dump.sql",
+        method: "mariadb < dump.sql (mysql on MySQL images)",
       };
     case "mongodb":
       return {
@@ -156,7 +184,7 @@ export function restoreCommand(ctx: DumpTarget): { cmd: string[]; env: string[];
           "mongorestore",
           "--archive",
           "--drop",
-          `--nsInclude=${ctx.databaseName}.*`,
+          ...mongoNamespaceArgs(source.databaseName, ctx.databaseName),
           `--username=${ctx.username}`,
           `--password=${ctx.password}`,
           "--authenticationDatabase=admin",
@@ -169,6 +197,52 @@ export function restoreCommand(ctx: DumpTarget): { cmd: string[]; env: string[];
     default:
       throw new Error(`in-place restore is not supported for engine "${ctx.engine}"`);
   }
+}
+
+/** A database name as a literal inside a mongorestore namespace pattern:
+ *  `*` is the wildcard, and literal asterisks and backslashes are escaped
+ *  with a backslash (mongorestore docs, --nsFrom). MongoDB database names
+ *  cannot contain `$`, so the `$var$` syntax needs no escape here. */
+function mongoNamespaceLiteral(name: string): string {
+  return name.replace(/[\\*]/g, (c) => `\\${c}`);
+}
+
+/**
+ * mongorestore namespace flags: take the archive's `<source>.*` collections
+ * and, when the target is another database, write them as `<target>.*`.
+ * Filtering on the TARGET name (the old `--nsInclude=<target>.*`) matched
+ * nothing in an archive of another database: 0 documents restored, exit 0,
+ * and a restore reported as succeeded.
+ */
+export function mongoNamespaceArgs(sourceDatabase: string, targetDatabase: string): string[] {
+  const from = mongoNamespaceLiteral(sourceDatabase);
+  const include = `--nsInclude=${from}.*`;
+  if (sourceDatabase === targetDatabase) return [include];
+  const to = mongoNamespaceLiteral(targetDatabase);
+  return [include, `--nsFrom=${from}.*`, `--nsTo=${to}.*`];
+}
+
+/** mongorestore's closing line: "N document(s) restored successfully. M document(s) failed to restore." */
+const MONGO_RESTORE_SUMMARY =
+  /(\d+) document\(s\) restored successfully\. (\d+) document\(s\) failed to restore/;
+
+/**
+ * Why a restore client that exited 0 still did not restore the snapshot, or
+ * null when it did. Only mongorestore needs this: it exits 0 having written
+ * nothing (every namespace filtered out) or with documents it failed to
+ * insert. A summary it did not print is not evidence either way.
+ */
+export function restoreShortfall(engine: DatabaseEngine, stderr: string): string | null {
+  if (engine !== "mongodb") return null;
+  const summary = MONGO_RESTORE_SUMMARY.exec(stderr);
+  if (!summary) return null;
+  const restored = Number(summary[1]);
+  const failed = Number(summary[2]);
+  if (failed > 0) return `mongorestore failed to restore ${failed} document(s)`;
+  if (restored === 0) {
+    return "mongorestore restored 0 documents: the snapshot held nothing it could write into this database";
+  }
+  return null;
 }
 
 /** Filesystem the engine's data lives on inside its container, for the

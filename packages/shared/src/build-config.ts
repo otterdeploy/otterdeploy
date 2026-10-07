@@ -23,6 +23,18 @@ export const BUILDERS = ["auto", "dockerfile", "railpack", "compose"] as const;
 
 export type Builder = (typeof BUILDERS)[number];
 
+/**
+ * The builder that actually produced a service's current image, as resolved at
+ * build time (`auto` becomes one of these). Recorded on the service row because
+ * it decides how the image's start command runs: Railpack bakes
+ * `ENTRYPOINT ["/bin/bash", "-c"]` into every image, so an exec-form command
+ * has to reach it as ONE shell line (see routers/service/start-command.ts),
+ * while a Dockerfile image's own ENTRYPOINT takes the command as plain args.
+ */
+export const IMAGE_BUILDERS = ["railpack", "dockerfile"] as const;
+
+export type ImageBuilder = (typeof IMAGE_BUILDERS)[number];
+
 // Type alias, not interface: aliases keep the implicit index signature that
 // makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
 // oxlint-disable-next-line typescript/consistent-type-definitions

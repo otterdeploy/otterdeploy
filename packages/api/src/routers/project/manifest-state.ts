@@ -99,10 +99,7 @@ function toCurrentService(
     preDeploy: row.service.preDeploy ?? null,
     postDeploy: row.service.postDeploy ?? null,
     buildConfig: row.service.buildConfig ?? null,
-    restartWindowMs: row.service.restartWindowMs ?? null,
-    diskLimitMb: row.service.diskLimitMb ?? null,
-    swapLimitMb: row.service.swapLimitMb ?? null,
-    pidsLimit: row.service.pidsLimit ?? null,
+    ...runtimeLimits(row.service),
     healthcheck: currentHealthcheck(row.service),
   };
 }
@@ -117,6 +114,28 @@ function currentHealthcheck(service: ServiceStateRow["service"]): CurrentHealthc
     retries: service.healthcheckRetries ?? null,
     startMs: service.healthcheckStartMs ?? null,
   };
+}
+
+/** numeric(4,2) columns read back as strings. */
+function storedCores(value: string | null): number | null {
+  return value === null ? null : Number(value);
+}
+
+/** The restart policy and resource limits the manifest diff compares. */
+function runtimeLimits(service: ServiceStateRow["service"]) {
+  return {
+    restartCondition: service.restartCondition,
+    restartMaxAttempts: service.restartMaxAttempts,
+    restartDelayMs: service.restartDelayMs,
+    restartWindowMs: service.restartWindowMs,
+    cpuLimit: storedCores(service.cpuLimit),
+    memoryLimitMb: service.memoryLimitMb,
+    cpuReservation: storedCores(service.cpuReservation),
+    memoryReservationMb: service.memoryReservationMb,
+    diskLimitMb: service.diskLimitMb,
+    swapLimitMb: service.swapLimitMb,
+    pidsLimit: service.pidsLimit,
+  } satisfies Partial<CurrentService>;
 }
 
 /**

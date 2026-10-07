@@ -233,8 +233,11 @@ export async function deployCompose(
     // via the normal per-service `exposeService` primitive, ONLY the first
     // time each service is materialized, so it never overwrites an operator's
     // later imperative expose/unexpose. An entry's `domain` (when the
-    // wizard/manifest named one) is the public host the seed publishes at.
-    const exposedSeeds = new Map(record.compose.exposed.map((e) => [e.service, e.domain]));
+    // wizard/manifest named one) is the public host the seed publishes at,
+    // and its `port` the container port the route fronts: a service whose
+    // file declares no `ports:` gets that port declared on create, which is
+    // what lets the seed expose it at all.
+    const exposedSeeds = new Map(record.compose.exposed.map((e) => [e.service, e]));
     // The manifest's per-child env, layered over the file's defaults the first
     // time each child materializes. See manifest-service-env.ts (od-uhot).
     const manifestServiceEnv = await loadManifestServiceEnv(

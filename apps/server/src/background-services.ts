@@ -5,6 +5,7 @@
  * startup output is unchanged. Returns a single stop handle for shutdown.
  */
 import { startBackupScheduler } from "@otterdeploy/api/backups";
+import { reconcile, startEdgeWatch } from "@otterdeploy/api/caddy";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
 import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
@@ -100,6 +101,11 @@ export function startBackgroundServices(): () => void {
   // served a self-signed cert until an operator noticed and pressed Recheck.
   // Upgrade-only; the downgrade guard owns the other direction.
   start("cert-recheck-sweep", startCertRecheckSweep);
+
+  // Edge config watch: when the control-plane Caddy stops running the config
+  // last loaded into it (it restarted from the stub Caddyfile, or its config
+  // was replaced), reconcile so routes come back without a server restart.
+  start("edge-watch", () => startEdgeWatch(() => reconcile()));
 
   // Firewall decision recorder: CrowdSec deletes a decision the moment its TTL
   // elapses, so without this an expired ban leaves no trace anywhere in the

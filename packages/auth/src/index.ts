@@ -34,11 +34,15 @@ import {
   resolveSocialProviders,
   toBetterAuthSocialProviders,
 } from "./platform-config";
+import { authRateLimit } from "./rate-limit";
 import {
   BOOTSTRAP_TOKEN_HEADER,
   decideRegistration,
   isSsoCallbackPath,
 } from "./registration-policy";
+
+/** The api-key plugin's HTTP create endpoint, closed (see `disabledPaths`). */
+export const API_KEY_CREATE_PATH = "/api-key/create";
 
 /** API-key budget: 600 requests per one-minute window per key (10/s sustained).
  *  See the `apiKey()` plugin config below. */
@@ -198,9 +202,9 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
     user: {
       additionalFields: {
         // Server-owned and returned with sessions so every transport can enforce
-        // installation authority without interpreting an organization role.
-        // No `fieldName` override: the drizzle adapter's getFieldName() treats
-        // that as the SCHEMA OBJECT'S key to look up (schema.user.fields.<js
+        // installation authority without interpreting an organization role. No
+        // `fieldName` override: the drizzle adapter's getFieldName() treats that
+        // as the SCHEMA OBJECT'S key to look up (schema.user.fields.<js
         // key>.fieldName), not the SQL column name: schema/auth.ts already
         // declares `isInstallAdmin: boolean("is_install_admin")`, i.e. the JS
         // key IS "isInstallAdmin" and drizzle owns the snake_case SQL column
@@ -223,11 +227,16 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       provider: "pg",
       schema: schema,
     }),
-    rateLimit: {
-      enabled: true,
-      window: 60, // time window in seconds
-      max: 100, // max requests in the window
-    },
+    // Per-IP, per-endpoint budgets; the dashboard's own session reads get a
+    // much larger one than sign-in and friends (./rate-limit.ts).
+    rateLimit: authRateLimit,
+    // The api-key plugin's own create endpoint is closed over HTTP: it mints a
+    // key with NO permission map (better-auth forbids `permissions` from a
+    // browser), which authorization reads as full access, so a browser call
+    // would mint a full-access key nobody chose. Keys are minted through the
+    // oRPC `apiKeys.create`, which requires an explicit choice and calls
+    // `auth.api.createApiKey` server-side (unaffected by this list).
+    disabledPaths: [API_KEY_CREATE_PATH],
     // `experimental.joins` would let the Drizzle adapter use the RQB
     // v2 query builder (`db.query.user.findFirst({ with: { session } })`).
     // That requires `relations` passed to drizzle() in

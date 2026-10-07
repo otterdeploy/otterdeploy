@@ -205,7 +205,9 @@ export function buildUpdateServiceInput(
     // that simply didn't mention them.
     ...(args.spec.preDeploy !== undefined ? { preDeploy: args.spec.preDeploy } : {}),
     ...(args.spec.postDeploy !== undefined ? { postDeploy: args.spec.postDeploy } : {}),
-    ...(args.spec.source === "git" && args.spec.build !== undefined
+    // Git and upload both build; the diff compares `build` for both
+    // (diffBuildConfigField), so apply writes it for both.
+    ...(args.spec.source !== "image" && args.spec.build !== undefined
       ? { buildConfig: args.spec.build }
       : {}),
   };

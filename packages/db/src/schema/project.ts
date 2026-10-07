@@ -1,4 +1,4 @@
-import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { BuildConfig, ImageBuilder } from "@otterdeploy/shared/build-config";
 import type {
   ComposeExposed,
   ComposeFile,
@@ -567,6 +567,12 @@ export const serviceResource = pgTable(
     // stored here so the graph reads it without any network call. Null until
     // the first successful build, or when nothing recognisable was detected.
     framework: text("framework").$type<FrameworkKind>(),
+    // Which builder produced `image` (the resolved one: `auto` lands here as
+    // railpack or dockerfile). Written by the builder with the image itself;
+    // null for a pulled image or a row last built before this column. The
+    // runtime spec reads it to run an exec-form command behind Railpack's
+    // `bash -c` entrypoint correctly.
+    imageBuilder: text("image_builder").$type<ImageBuilder>(),
 
     replicas: integer("replicas").notNull().default(1),
     // Pre-pause desired replica count. Non-null = the service is PAUSED

@@ -51,7 +51,7 @@ const ctx: StackReconcileContext = {
   projectId: testId("project_1", "prj"),
   placementServerId: null,
   organizationId: testId("org_1", "org"),
-  exposedSeeds: new Map<string, string>(),
+  exposedSeeds: new Map(),
   stackResourceId: testId("resource_1", "res"),
   projectSlug: "tenant",
   stackName: "shell",

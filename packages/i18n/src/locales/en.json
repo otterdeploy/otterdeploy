@@ -116,6 +116,14 @@
       "retry": "⟳ Retry",
       "returnHome": "↩ Return home"
     },
+    "rateLimited": {
+      "title": "Slowing down for a moment",
+      "message": "This network sent more requests than the server accepts in a minute. Your session is fine; the page loads again on its own.",
+      "retryingIn_one": "Retrying in {{count}} second",
+      "retryingIn_other": "Retrying in {{count}} seconds",
+      "retrying": "Retrying…",
+      "retryNow": "Retry now"
+    },
     "generic": "Something went wrong",
     "connection": {
       "unreachable": "Control plane unreachable",
@@ -640,7 +648,12 @@
     "permissions": "Permissions",
     "expiry": "Expiry",
     "fullAccess": "Full access",
-    "namePlaceholder": "CI deploy bot"
+    "namePlaceholder": "CI deploy bot",
+    "access": "Access",
+    "accessLimited": "Limited",
+    "accessLimitedHint": "Only the permissions you choose below.",
+    "accessFullHint": "Everything a workspace member can do. For trusted automation only.",
+    "choosePermission": "Choose at least one permission, or give the key full access."
   },
   "registries": {
     "label": "Registry",

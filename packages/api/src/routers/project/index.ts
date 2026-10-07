@@ -1,5 +1,6 @@
 import { matchError } from "better-result";
 
+import { scopedProjectIds } from "../../authz/api-key-scope";
 import { orgScopedProcedure, requirePermission } from "../../index";
 import { streamProjectEvents, validateProjectEventsStream } from "./events-stream";
 import {
@@ -55,7 +56,11 @@ export const projectRouter = {
   }),
 
   list: orgScopedProcedure.project.list.handler(async ({ context }) => {
-    return listProjects({ organizationId: context.activeOrganizationId });
+    const projects = await listProjects({ organizationId: context.activeOrganizationId });
+    // A key minted for selected projects lists only those: the input
+    // names no project, so the result is what has to be confined.
+    const allowed = scopedProjectIds(context.apiKey);
+    return allowed ? projects.filter((p) => allowed.includes(p.id)) : projects;
   }),
 
   create: requirePermission({ project: ["create"] }).project.create.handler(

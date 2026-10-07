@@ -5,6 +5,7 @@ import {
   authorizeRoleScope,
   isReadAllowed,
   requireProjectScope,
+  ungrantableKeyPermissions,
 } from "../api-key-scope";
 import { isReadAction } from "../procedure-mode";
 
@@ -95,5 +96,28 @@ describe("requireProjectScope (project scoping)", () => {
 
   test("scope 'selected' with no projectIds ⇒ denied", () => {
     expect(requireProjectScope({ projectScope: "selected" }, "project_A")).toBe(false);
+  });
+});
+
+describe("ungrantableKeyPermissions (what apiKeys.create refuses)", () => {
+  test("everything inside the member role is grantable", () => {
+    expect(
+      ungrantableKeyPermissions({
+        project: ["read", "create", "update", "delete"],
+        service: ["read", "deploy"],
+        backup: ["run", "restore"],
+      }),
+    ).toEqual([]);
+  });
+
+  test("an unknown resource, a misspelt action and an above-member action are each named", () => {
+    expect(
+      ungrantableKeyPermissions({
+        logs: ["read"],
+        project: ["write", "read"],
+        database: ["write"],
+        apiKey: ["create"],
+      }),
+    ).toEqual(["logs:read", "project:write", "database:write", "apiKey:create"]);
   });
 });

@@ -60,6 +60,18 @@ const rateLimitedVerifyError = z.object({
   details: z.object({ tryAgainIn: z.number() }).optional(),
 });
 
+/**
+ * The key's permission map as authorization reads it. Only an ABSENT map is
+ * full access (null: chosen explicitly, or a key minted before the choice
+ * existed; see authorizeKeyScope). A map that is present but does not parse
+ * grants nothing: a corrupt grant must never widen into a full-access key.
+ */
+function parseKeyPermissions(stored: unknown): Record<string, string[]> | null {
+  if (stored === null || stored === undefined) return null;
+  const parsed = permissionRecordSchema.safeParse(stored);
+  return parsed.success ? parsed.data : {};
+}
+
 function readApiKeyCredential(headers: Headers, bearerOverride?: string): string | null {
   const authorization = headers.get("authorization");
   const bearer = bearerOverride ?? authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
@@ -141,11 +153,10 @@ export async function resolveRequestActor(
   if (!verified.value.valid || !verified.value.key) return Result.ok(null);
 
   const apiKey = verified.value.key;
-  const permissions = permissionRecordSchema.safeParse(apiKey.permissions);
   return Result.ok({
     kind: "api-key",
     id: apiKey.id,
-    permissions: permissions.success ? permissions.data : null,
+    permissions: parseKeyPermissions(apiKey.permissions),
     organizationId: apiKey.referenceId ?? null,
     ...parseMetadata(apiKey.metadata),
   });
