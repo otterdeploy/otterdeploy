@@ -9,6 +9,7 @@ import type { ComposeManifest, DatabaseManifest, ServiceManifest } from "./schem
 
 import { withPromotedPrimary } from "../../lib/primary-port";
 import { diffHealthcheck } from "./diff-healthcheck";
+import { diffResourceLimitFields, diffRestartFields } from "./diff-resources";
 import { diffSourceFields, type FieldChanges } from "./diff-source";
 
 // ── Service field diff ─────────────────────────────────────────────────
@@ -62,32 +63,7 @@ function diffLifecycleFields(
     fc.postDeploy = { from: current.postDeploy, to: desired.postDeploy };
   }
 
-  if (desired.restart !== undefined) {
-    const desiredRestartWindow = desired.restart.windowMs ?? null;
-    if (desiredRestartWindow !== current.restartWindowMs) {
-      fc.restartWindowMs = { from: current.restartWindowMs, to: desiredRestartWindow };
-    }
-  }
-}
-
-function diffResourceLimitFields(
-  desired: ServiceManifest,
-  current: CurrentService,
-  fc: FieldChanges,
-): void {
-  if (desired.resources === undefined) return;
-  const desiredDisk = desired.resources.diskMb ?? null;
-  if (desiredDisk !== current.diskLimitMb) {
-    fc.diskLimitMb = { from: current.diskLimitMb, to: desiredDisk };
-  }
-  const desiredSwap = desired.resources.swapMb ?? null;
-  if (desiredSwap !== current.swapLimitMb) {
-    fc.swapLimitMb = { from: current.swapLimitMb, to: desiredSwap };
-  }
-  const desiredPids = desired.resources.pidsLimit ?? null;
-  if (desiredPids !== current.pidsLimit) {
-    fc.pidsLimit = { from: current.pidsLimit, to: desiredPids };
-  }
+  diffRestartFields(desired, current, fc);
 }
 
 /** Compute the changed-field map between a desired service manifest and the

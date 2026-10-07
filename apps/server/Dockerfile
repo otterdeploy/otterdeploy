@@ -72,8 +72,15 @@ ARG RAILPACK_VERSION
 # Alpine carries the docker CLI and the buildx plugin in its community repo, so
 # this replaces the debian path's keyring + sources.list + second apt-get update
 # with one apk call and no network round-trip to Docker's own repo.
+#
+# bash: `railpack prepare` runs HERE (builder role + per-build helpers), and for
+# a Python app it resolves the version through mise's pyenv plugin, whose
+# `python-build --definitions` is a `#!/usr/bin/env bash` script. Busybox ash
+# cannot run it, so every Python build died at prepare with
+# `env: can't execute 'bash'`. Pinned by
+# apps/builder/src/__tests__/builder-image.test.ts.
 RUN apk add --no-cache \
-      ca-certificates curl git openssh-client tar \
+      bash ca-certificates curl git openssh-client tar \
       docker-cli docker-cli-buildx
 # Railpack CLI (builder role): `railpack prepare` emits a BuildKit plan that
 # `docker buildx build` executes via the railpack-frontend image.
