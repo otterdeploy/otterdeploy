@@ -5,13 +5,13 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
+import { serviceEnvVar } from "@otterdeploy/db/schema/project";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 
 import type { EnvVarSource, ServiceEnvVarRow } from ".";
 
 import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
-import { envBagChanged, markEnvChanged } from "./env-liveness";
+import { envBagChanged, lockServiceForEnvWrite, markEnvChanged } from "./env-liveness";
 
 /**
  * Sealed rows are DELIBERATELY exempt from this whole dance, mirroring
@@ -34,13 +34,7 @@ export async function bulkReplaceServiceEnvVars(
     // both inserted the full map and the second hit service_env_var_unique: a
     // 500 for an ordinary double save. The row lock queues the second replace
     // behind the first; it then reads, prunes and writes what the first left.
-    // Never from the query cache: a cached read would take no lock.
-    await tx
-      .select({ resourceId: serviceResource.resourceId })
-      .from(serviceResource)
-      .where(eq(serviceResource.resourceId, serviceResourceId))
-      .for("no key update")
-      .$withCache(false);
+    await lockServiceForEnvWrite(tx, serviceResourceId);
     const baseRows: ServiceEnvVarRow[] = await tx
       .select()
       .from(serviceEnvVar)

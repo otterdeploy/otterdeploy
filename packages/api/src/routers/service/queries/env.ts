@@ -11,7 +11,7 @@ import type { StackRefIdentity } from "./stack";
 
 import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 import { inEnvironmentScope } from "../../project/queries/environment-scope";
-import { markEnvChanged } from "./env-liveness";
+import { lockServiceForEnvWrite, markEnvChanged } from "./env-liveness";
 import { getStackRefIdentity } from "./stack";
 // ---------------------------------------------------------------------------
 // Env vars
@@ -89,6 +89,7 @@ export async function upsertServiceEnvVar(input: {
   sealed?: boolean;
 }): Promise<ServiceEnvVarRow> {
   return db.transaction(async (tx) => {
+    await lockServiceForEnvWrite(tx, input.serviceResourceId);
     const [existing] = await tx
       .select({ sealed: serviceEnvVar.sealed })
       .from(serviceEnvVar)
@@ -150,6 +151,7 @@ export async function deleteServiceEnvVar(input: {
   key: string;
 }): Promise<boolean> {
   return db.transaction(async (tx) => {
+    await lockServiceForEnvWrite(tx, input.serviceResourceId);
     const result = await tx
       .delete(serviceEnvVar)
       .where(

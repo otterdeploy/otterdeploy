@@ -12,6 +12,29 @@ import { eq } from "drizzle-orm";
 /** Anything that can run an update: the pool or an open transaction. */
 type EnvWriter = Pick<typeof db, "update">;
 
+/** An open transaction: what can take the service row's lock. */
+type EnvTransaction = Pick<typeof db, "select">;
+
+/**
+ * Take the service row's lock before writing its env rows. A single-key
+ * write ends by stamping the service row (markEnvChanged), and a whole-map
+ * replace takes this same lock first (env-bulk.ts); locking the service row
+ * first here keeps every env writer in one lock order (service row, then env
+ * rows), so a set racing a replace waits instead of deadlocking. Never from
+ * the query cache: a cached read would take no lock.
+ */
+export async function lockServiceForEnvWrite(
+  tx: EnvTransaction,
+  serviceResourceId: ResourceId,
+): Promise<void> {
+  await tx
+    .select({ resourceId: serviceResource.resourceId })
+    .from(serviceResource)
+    .where(eq(serviceResource.resourceId, serviceResourceId))
+    .for("no key update")
+    .$withCache(false);
+}
+
 /**
  * Stamp "this service's env changed" on the service row. Every write to its
  * base env rows calls this, in the same transaction, so the Variables tab can
