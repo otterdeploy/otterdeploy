@@ -1,8 +1,7 @@
 /**
- * Restore + verify for rustic snapshots. `restoreBackup` hands back the snapshot
+ * Restore for rustic snapshots. `restoreBackup` hands back the snapshot
  * file bytes (download) or streams them into the live database/volume (in-place,
- * typed-name-confirmed); `verifyBackup` runs a structural repo `check` and
- * confirms the recorded snapshot still resolves. rustic owns dedup + zstd +
+ * typed-name-confirmed; verify-snapshot.ts holds the structural check). rustic owns dedup + zstd +
  * repo-key encryption, so there is no decrypt/gunzip/checksum plumbing here. A
  * run's `storagePath` is the snapshot id, which is all we need to address it.
  * Split out of engine.ts, which keeps the backup write path (executeBackup).
@@ -11,12 +10,13 @@ import type { BackupId, ResourceId } from "@otterdeploy/shared/id";
 import type { Writable } from "node:stream";
 
 import { Docker } from "@otterdeploy/docker";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { Writable as NodeWritable } from "node:stream";
 
 import type { ResolvedDestination } from "./backends";
 
-import { deriveRepoKey, toRusticRepo } from "./backends";
+import { deriveRepoKey, repoScope, toRusticRepo } from "./backends";
 import {
   type DatabaseTarget,
   type ExecutionContext,
@@ -24,13 +24,26 @@ import {
   resolveDatabaseTarget,
 } from "./db";
 import { resolveSecret } from "./engine-helpers";
-import { createRestoreRun, finishRestoreRun } from "./restore-db";
+import {
+  claimRestoreLock,
+  createRestoreRun,
+  finishRestoreRun,
+  releaseRestoreLock,
+} from "./restore-db";
+import {
+  RestoreConfirmationError,
+  type RestoreError,
+  RestoreFailedError,
+  RestoreInProgressError,
+  RestoreRefusedError,
+  RestoreTargetInvalidError,
+} from "./restore-errors";
 import { restoreDatabaseInPlace, restoreVolumeInPlace } from "./restore-in-place";
 import { RusticCli } from "./rustic";
 
 /** Open the run's rustic repo: resolve backend creds, derive the (resource ×
  *  destination) repo key + its password, and build a driver. */
-async function openRepo(ctx: ExecutionContext): Promise<RusticCli> {
+export async function openRepo(ctx: ExecutionContext): Promise<RusticCli> {
   const secret = await resolveSecret(ctx);
   const dest: ResolvedDestination = {
     type: ctx.destination.type,
@@ -67,13 +80,13 @@ function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
 
 export type RestoreMode = "download" | "in-place";
 
-/**
- * Restore a succeeded backup. `download` streams the snapshot's file back out
- * (`dump`) and returns its bytes for the caller to hand to the user. `in-place`
- * streams it into the live database (postgres / mariadb / mongodb) or, for
- * volume runs, replaces the volume's contents. Refused while any container
- * still mounts it.
- */
+/** What a restore hands back: `download` carries the snapshot file's bytes. */
+export interface RestoreOutput {
+  ok: true;
+  bytes?: Buffer;
+  filename?: string;
+}
+
 /**
  * The database a restore should WRITE to, or null to write back over the
  * snapshot's own source.
@@ -85,20 +98,49 @@ export type RestoreMode = "download" | "in-place";
 async function resolveRestoreTarget(
   ctx: ExecutionContext,
   targetResourceId: ResourceId | undefined,
-): Promise<DatabaseTarget | null> {
-  if (!targetResourceId) return null;
+): Promise<Result<DatabaseTarget | null, RestoreTargetInvalidError>> {
+  if (!targetResourceId) return Result.ok(null);
   if (ctx.kind === "volume") {
-    throw new Error("a volume snapshot cannot be restored into a database");
+    return Result.err(
+      new RestoreTargetInvalidError({
+        reason: "a volume snapshot cannot be restored into a database",
+      }),
+    );
   }
-  if (targetResourceId === ctx.resourceId) return null;
+  if (targetResourceId === ctx.resourceId) return Result.ok(null);
   const target = await resolveDatabaseTarget(targetResourceId, ctx.organizationId);
-  if (!target) throw new Error("restore target not found, or is not a managed database");
-  if (target.engine !== ctx.engine) {
-    throw new Error(`cannot restore a ${ctx.engine} snapshot into a ${target.engine} database`);
+  if (!target) {
+    return Result.err(
+      new RestoreTargetInvalidError({
+        reason: "restore target not found, or is not a managed database",
+      }),
+    );
   }
-  return target;
+  if (target.engine !== ctx.engine) {
+    return Result.err(
+      new RestoreTargetInvalidError({
+        reason: `cannot restore a ${ctx.engine} snapshot into a ${target.engine} database`,
+      }),
+    );
+  }
+  return Result.ok(target);
 }
 
+/** What the typed confirmation may say: the name (or id) of whatever the
+ *  in-place restore overwrites, the target database when one is given. */
+function confirmationNames(ctx: ExecutionContext, target: DatabaseTarget | null): string[] {
+  if (target) return [target.resourceName, target.resourceId];
+  return ctx.kind === "volume" ? [ctx.volumeName] : [ctx.resourceName, ctx.resourceId];
+}
+
+/**
+ * Restore a succeeded backup. `download` streams the snapshot's file back out
+ * (`dump`) and returns its bytes for the caller to hand to the user. `in-place`
+ * streams it into the live database (postgres / mariadb / mongodb) or, for
+ * volume runs, replaces the volume's contents: typed-name confirmed, one
+ * restore per target at a time, refused while any container mounts a volume.
+ * Every refusal and failure comes back as a typed RestoreError.
+ */
 export async function restoreBackup(input: {
   backupId: BackupId;
   mode: RestoreMode;
@@ -110,61 +152,96 @@ export async function restoreBackup(input: {
   /** Restore into this database instead of the one the snapshot came from.
    *  Database runs only. A volume snapshot has no such notion. */
   targetResourceId?: ResourceId;
-}): Promise<{ ok: true; bytes?: Buffer; filename?: string }> {
+}): Promise<Result<RestoreOutput, RestoreError>> {
   const ctx = await getExecutionContext(input.backupId);
-  if (!ctx) throw new Error("backup execution context not found");
+  if (!ctx) {
+    return Result.err(
+      new RestoreRefusedError({ reason: "this backup's source or destination no longer exists" }),
+    );
+  }
 
   // Resolved before the confirmation gate: what the operator has to type is
   // the name of the thing being overwritten, which differs once there's a target.
   const target = await resolveRestoreTarget(ctx, input.targetResourceId);
+  if (target.isErr()) return Result.err(target.error);
 
   // In-place overwrites live data, require the typed-name confirmation
   // server-side, not just in the dialog.
   if (input.mode === "in-place") {
-    const expected = target
-      ? [target.resourceName, target.resourceId]
-      : ctx.kind === "volume"
-        ? [ctx.volumeName]
-        : [ctx.resourceName, ctx.resourceId];
+    const expected = confirmationNames(ctx, target.value);
     if (!input.confirm || !expected.includes(input.confirm)) {
-      throw new Error(
-        `restore confirmation required: type "${expected[0]}" to confirm in-place restore`,
-      );
+      return Result.err(new RestoreConfirmationError({ expected: expected[0] ?? "" }));
     }
   }
 
   // `storagePath` holds the rustic snapshot id (set when the run succeeded).
   const snapshotId = ctx.storagePath;
-  if (!snapshotId) throw new Error("backup has no stored snapshot (did the run succeed?)");
-
-  // Every attempt past the gates gets a persisted row: history + observable
-  // status instead of an outcome that only ever lived inside this RPC.
-  const restoreId = await createRestoreRun({
-    organizationId: ctx.organizationId,
-    backupId: input.backupId,
-    mode: input.mode,
-    targetResourceId: target?.resourceId ?? null,
-  });
-  const startedAt = Date.now();
-  const outcome = await Result.tryPromise({
-    try: () => performRestore(ctx, target, input.mode, snapshotId),
-    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
-  });
-  if (outcome.isErr()) {
-    await finishRestoreRun({
-      id: restoreId,
-      status: "failed",
-      errorMessage: outcome.error.message,
-      durationMs: Date.now() - startedAt,
-    });
-    throw outcome.error;
+  if (!snapshotId) {
+    return Result.err(
+      new RestoreRefusedError({
+        reason: "this backup has no stored snapshot (the run did not succeed)",
+      }),
+    );
   }
+
+  const run = { ctx, target: target.value, mode: input.mode, snapshotId };
+  if (input.mode === "download") return recordRestore(input.backupId, run);
+
+  // One in-place restore per write target: a second one streaming into the
+  // same database (or volume) would interleave with the first.
+  const scope = target.value?.resourceId ?? repoScope(ctx);
+  if (!(await claimRestoreLock(scope, input.backupId))) {
+    const label = target.value?.resourceName ?? confirmationNames(ctx, null)[0] ?? scope;
+    return Result.err(new RestoreInProgressError({ target: label }));
+  }
+  try {
+    return await recordRestore(input.backupId, run);
+  } finally {
+    // Best-effort: a stuck claim is cleared by the boot reaper, and must not
+    // mask the restore's own outcome.
+    await Result.tryPromise({
+      try: () => releaseRestoreLock(scope, input.backupId),
+      catch: errorFromUnknown,
+    });
+  }
+}
+
+interface RestoreRun {
+  ctx: ExecutionContext;
+  target: DatabaseTarget | null;
+  mode: RestoreMode;
+  snapshotId: string;
+}
+
+/** Run a restore that passed every gate under a persisted backup_restore row:
+ *  history + observable status instead of an outcome that only ever lived
+ *  inside this RPC. A refusal raised mid-way (a mounted volume, a stopped
+ *  target) keeps its type; anything else is the restore failing. */
+async function recordRestore(
+  backupId: BackupId,
+  run: RestoreRun,
+): Promise<Result<RestoreOutput, RestoreRefusedError | RestoreFailedError>> {
+  const restoreId = await createRestoreRun({
+    organizationId: run.ctx.organizationId,
+    backupId,
+    mode: run.mode,
+    targetResourceId: run.target?.resourceId ?? null,
+  });
+  const startedAt = performance.now();
+  const outcome = await Result.tryPromise({
+    try: () => performRestore(run.ctx, run.target, run.mode, run.snapshotId),
+    catch: (cause) =>
+      RestoreRefusedError.is(cause)
+        ? cause
+        : new RestoreFailedError({ reason: errorFromUnknown(cause).message, restoreId }),
+  });
   await finishRestoreRun({
     id: restoreId,
-    status: "succeeded",
-    durationMs: Date.now() - startedAt,
+    status: outcome.isOk() ? "succeeded" : "failed",
+    errorMessage: outcome.isErr() ? outcome.error.message : null,
+    durationMs: Math.round(performance.now() - startedAt),
   });
-  return outcome.value;
+  return outcome;
 }
 
 async function performRestore(
@@ -172,7 +249,7 @@ async function performRestore(
   target: DatabaseTarget | null,
   mode: RestoreMode,
   snapshotId: string,
-): Promise<{ ok: true; bytes?: Buffer; filename?: string }> {
+): Promise<RestoreOutput> {
   const cli = await openRepo(ctx);
   const filenameInSnapshot = ctx.kind === "volume" ? "volume.tar" : "dump";
 
@@ -193,9 +270,10 @@ async function performRestore(
   // with the server stopped; streaming it into a live cluster would corrupt
   // it. Refuse with the operator path instead of attempting it.
   if (ctx.kind !== "volume" && ctx.approach === "physical") {
-    throw new Error(
-      "physical base backups cannot be restored in place: download the tar and extract it into a fresh PostgreSQL data directory",
-    );
+    throw new RestoreRefusedError({
+      reason:
+        "physical base backups cannot be restored in place: download the tar and extract it into a fresh PostgreSQL data directory",
+    });
   }
 
   const docker = Docker.fromEnv();
@@ -211,81 +289,12 @@ async function performRestore(
       username: ctx.username,
       password: ctx.password,
     };
-    return await restoreDatabaseInPlace(docker, writeTo, cli, snapshotId, ctx.sourceSizeBytes);
+    return await restoreDatabaseInPlace(docker, writeTo, cli, {
+      id: snapshotId,
+      sourceDatabaseName: ctx.databaseName,
+      sourceSizeBytes: ctx.sourceSizeBytes,
+    });
   } finally {
     docker.destroy();
-  }
-}
-
-export interface VerifyResult {
-  /** False when the repo could not be reached / checked. */
-  ok: boolean;
-  /** Repo `check` passed AND the recorded snapshot still resolves; null when
-   *  verification couldn't run. */
-  match: boolean | null;
-  /** The recorded snapshot id (rustic addresses integrity by id, not a blob hash). */
-  storedChecksum: string | null;
-  /** Always null: rustic owns integrity structurally; there is no blob hash to recompute. */
-  computedChecksum: string | null;
-  /** Not exposed by the rustic check/snapshotExists surface, always null here. */
-  archiveSizeBytes: number | null;
-  /** Why verification couldn't run (no snapshot recorded, repo unreachable). */
-  reason: string | null;
-}
-
-/**
- * Integrity check for a stored snapshot: run rustic's structural `check` over
- * the whole repo, then confirm the run's recorded snapshot id still resolves.
- * This proves the destination still holds an intact repo containing the exact
- * snapshot the run recorded, no download/decrypt/restore needed.
- */
-export async function verifyBackup(backupId: BackupId): Promise<VerifyResult> {
-  const ctx = await getExecutionContext(backupId);
-  if (!ctx) {
-    return {
-      ok: false,
-      match: null,
-      storedChecksum: null,
-      computedChecksum: null,
-      archiveSizeBytes: null,
-      reason: "backup execution context not found",
-    };
-  }
-
-  const snapshotId = ctx.storagePath;
-  if (!snapshotId) {
-    return {
-      ok: false,
-      match: null,
-      storedChecksum: null,
-      computedChecksum: null,
-      archiveSizeBytes: null,
-      reason: "run recorded no snapshot (did it succeed?)",
-    };
-  }
-
-  try {
-    const cli = await openRepo(ctx);
-    // `check` throws on structural repo/pack corruption; `snapshotExists`
-    // confirms the specific snapshot the row points at is still present.
-    await cli.check();
-    const exists = await cli.snapshotExists(snapshotId);
-    return {
-      ok: true,
-      match: exists,
-      storedChecksum: snapshotId,
-      computedChecksum: null,
-      archiveSizeBytes: null,
-      reason: exists ? null : "recorded snapshot no longer resolves in the repo",
-    };
-  } catch (cause) {
-    return {
-      ok: false,
-      match: null,
-      storedChecksum: snapshotId,
-      computedChecksum: null,
-      archiveSizeBytes: null,
-      reason: cause instanceof Error ? cause.message : String(cause),
-    };
   }
 }

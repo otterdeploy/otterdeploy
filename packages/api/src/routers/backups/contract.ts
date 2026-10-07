@@ -355,6 +355,37 @@ const restoreRowSchema = z.object({
   completedAt: z.date().nullable(),
 });
 
+/** Restore refusals and failures, each naming its reason: the wizard shows
+ *  the error text, so a bare 500 left the operator guessing. */
+const restoreErrors = {
+  ...backupNotFound,
+  CONFIRMATION_REQUIRED: {
+    status: 422 as const,
+    message: "Type the name of what this restore overwrites to confirm it" as const,
+    data: z.object({ expected: z.string() }),
+  },
+  INVALID_TARGET: {
+    status: 422 as const,
+    message: "This snapshot cannot be restored into that target" as const,
+    data: z.object({ reason: z.string() }),
+  },
+  REFUSED: {
+    status: 409 as const,
+    message: "The restore was refused" as const,
+    data: z.object({ reason: z.string() }),
+  },
+  RESTORE_IN_PROGRESS: {
+    status: 409 as const,
+    message: "Another restore into this target is running" as const,
+  },
+  RESTORE_FAILED: {
+    status: 500 as const,
+    message: "The restore did not complete" as const,
+    /** The failed restore's row: its cause is in the restore history. */
+    data: z.object({ restoreId: z.string() }),
+  },
+};
+
 /** A verification request against a run it can't prove (volume tar, non-pg
  *  engine, never-succeeded run): a 422 naming the reason, not a fake failure. */
 const verifyRestoreErrors = {
@@ -402,7 +433,7 @@ export const backupsContract = {
   // Restore a succeeded backup (download bytes as base64, or in-place).
   restore: oc
     .meta(projectRefs({ id: "backup" }))
-    .errors(backupNotFound)
+    .errors(restoreErrors)
     .meta({ path: `${basePath}/{id}/restore`, tag, method: "POST" })
     .input(restoreBackupInput)
     .output(

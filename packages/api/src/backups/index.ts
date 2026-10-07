@@ -4,8 +4,11 @@
  * owns the engine (dump/store/restore) and the schedule scanner.
  */
 export { executeBackup } from "./engine";
-export { restoreBackup, verifyBackup } from "./restore";
-export type { RestoreMode, VerifyResult } from "./restore";
+export { executeBackupsInOrder } from "./run-in-order";
+export { restoreBackup } from "./restore";
+export type { RestoreMode } from "./restore";
+export { verifyBackup } from "./verify-snapshot";
+export type { VerifyResult } from "./verify-snapshot";
 export { listRestores } from "./restore-db";
 export { backupSchedulerLiveness, runDueBackupSchedules, startBackupScheduler } from "./scheduler";
 export { createBackupRun, getDatabaseResourceInOrg, listBackupLogs } from "./db";

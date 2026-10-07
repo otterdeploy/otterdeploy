@@ -10,6 +10,7 @@
  *
  * Every name carries a random suffix: the files share one migrated database.
  */
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type {
   EnvironmentId,
   GitRepoId,
@@ -77,6 +78,8 @@ export async function seedDatabase(input: {
   environmentId: EnvironmentId;
   name: string;
   tag: string;
+  /** Defaults to postgres. */
+  engine?: DatabaseEngine;
 }): Promise<{ resourceId: ResourceId; host: string; password: string }> {
   const host = `${input.name}-${input.tag}-${uniq()}.otterdeploy.internal`;
   const password = `pw-${input.tag}-${uniq()}`;
@@ -84,7 +87,7 @@ export async function seedDatabase(input: {
     projectId: input.projectId,
     environmentId: input.environmentId,
     name: input.name,
-    engine: "postgres",
+    engine: input.engine ?? "postgres",
     databaseName: "app",
     username: "app",
     password,

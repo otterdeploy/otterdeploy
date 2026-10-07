@@ -59,6 +59,28 @@ export function buildForgetArgs(spec: ForgetSpec, filterTags: string[]): string[
   return args;
 }
 
+/**
+ * Build the `backup -` argv for a piped dump (pure, so the flags are pinned by
+ * a unit test). `--force` is load-bearing: without it rustic picks the
+ * previous snapshot as the parent, sees a stdin node whose metadata matches
+ * it (a pipe has no mtime/size to differ on), keeps the parent's content
+ * WITHOUT reading stdin, and writes a "new" snapshot holding the OLD dump.
+ * The unread pipe then EPIPEs the dump producer. A piped dump is never
+ * unchanged, so it must always be read in full into a fresh tree.
+ */
+export function buildBackupStdinArgs(input: { stdinFilename: string; tags: string[] }): string[] {
+  return [
+    "backup",
+    "-",
+    "--stdin-filename",
+    input.stdinFilename,
+    "--tag",
+    input.tags.join(","),
+    "--force",
+    "--json",
+  ];
+}
+
 /** Quote a value as a TOML basic string (escapes `\`, `"`, and controls). */
 function tomlString(value: string): string {
   const escaped = value
