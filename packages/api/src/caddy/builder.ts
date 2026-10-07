@@ -30,7 +30,7 @@ const DEPLOY_AUTHZ_PATH = "/api/internal/deploy-authz";
  *  the reconcile layer doesn't supply one. Dev default: Caddy runs in a
  *  container and reaches the host-run server via host.docker.internal.
  *  Production (Swarm) passes the real service DNS via reconcile options. */
-const DEFAULT_AUTHZ_UPSTREAM = "host.docker.internal:3000";
+export const DEFAULT_AUTHZ_UPSTREAM = "host.docker.internal:3000";
 
 interface HttpBlockOptions {
   /** host:port Caddy proxies forward_auth + reserved-path requests to. */

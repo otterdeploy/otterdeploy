@@ -42,18 +42,20 @@ const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.35.0";
  * instead of emitting a runnable-less image that builds fine but exits on boot
  * (surfacing only as an opaque "swarm convergence failed" much later, railpack
  * instead prints an actionable message: add a `start` script, a `main` field, or
- * set RAILPACK_SPA_OUTPUT_DIR for a static site). A static SPA rides on the
- * `--env RAILPACK_SPA_OUTPUT_DIR` flag, which railpack reads at prepare time.
+ * set RAILPACK_SPA_OUTPUT_DIR for a static site).
+ *
+ * Every build variable (the SPA output dir, the NODE_OPTIONS memory guard, the
+ * service's own env) is declared by NAME only: `--env NAME` makes railpack read
+ * the value from its process env and record just the name in the plan's
+ * `secrets`. See railpack-env.ts for why the value must stay out of argv.
  */
-
 export function buildPrepareArgs(opts: {
   layout: BuildLayout;
   buildCmd: string | null;
   startCmd: string | null;
-  /** Extra vars to DECLARE to railpack. `prepare --env K=V` records only the
-   *  key in the plan's `secrets` list; the value is supplied at build time via
-   *  `--secret id=K,env=K`, so secrets never touch the on-disk plan. */
-  extraEnv?: Record<string, string>;
+  /** Names of the variables in the build env (railpack-env.ts). Their values
+   *  must be in the `railpack prepare` process env. */
+  envNames: string[];
   sink: LogSink;
 }): string[] {
   const { buildDir, planPath, infoPath, spaOutputDir } = opts.layout;
@@ -69,35 +71,36 @@ export function buildPrepareArgs(opts: {
   if (opts.buildCmd) args.push("--build-cmd", opts.buildCmd);
   if (opts.startCmd) args.push("--start-cmd", opts.startCmd);
   if (spaOutputDir) {
-    args.push("--env", `RAILPACK_SPA_OUTPUT_DIR=${spaOutputDir}`);
     opts.sink.system(`SPA mode: serving "${spaOutputDir}" via Caddy with history fallback`);
   }
-  const maxOldSpaceMb = nodeBuildMaxOldSpaceMb();
-  args.push("--env", `NODE_OPTIONS=--max-old-space-size=${maxOldSpaceMb}`);
-  opts.sink.system(`build memory guard: NODE_OPTIONS max-old-space-size=${maxOldSpaceMb}MB`);
-  for (const [key, value] of Object.entries(opts.extraEnv ?? {})) {
-    args.push("--env", `${key}=${value}`);
-  }
+  opts.sink.system(
+    `build memory guard: NODE_OPTIONS max-old-space-size=${nodeBuildMaxOldSpaceMb()}MB`,
+  );
+  for (const name of opts.envNames) args.push("--env", name);
   return args;
 }
 
 /**
  * Assemble the `docker buildx build` args: execute the railpack plan through the
  * pinned BuildKit frontend, `--load` the result into the local daemon, and tag
- * both `:<sha>` and `:latest`. A static SPA additionally forwards the output dir
- * as a build secret so the plan can resolve `RAILPACK_SPA_OUTPUT_DIR`.
+ * both `:<sha>` and `:latest`. Every name `prepare` declared is mounted as a
+ * build secret: a declared name with no matching `--secret` fails the build
+ * with "secret <NAME>: not found".
  */
 export function buildBuildxArgs(opts: {
   planPath: string;
   shaTag: string;
   latestTag: string;
   buildDir: string;
-  spaOutputDir: string | null;
   builderName?: string | null;
   cachePath?: string | null;
   noCache?: boolean | null;
-  /** Additional `--secret` flags (turbo credentials, TURBO_FORCE). */
-  extraSecretFlags?: string[];
+  /** Builder-owned names, read from the buildx process env (`env=`). */
+  secretEnvNames: string[];
+  /** Service-owned names → value files (`src=`, railpack-secret-files.ts). */
+  secretFiles: Record<string, string>;
+  /** Digest of the service's values (railpack-env.ts), or null for none. */
+  secretsHash: string | null;
 }): string[] {
   return [
     "buildx",
@@ -106,16 +109,14 @@ export function buildBuildxArgs(opts: {
     ...noCacheFlags(opts.noCache),
     "--build-arg",
     `BUILDKIT_SYNTAX=${RAILPACK_FRONTEND}`,
-    ...(opts.extraSecretFlags ?? []),
-    ...(opts.spaOutputDir
-      ? ["--secret", "id=RAILPACK_SPA_OUTPUT_DIR,env=RAILPACK_SPA_OUTPUT_DIR"]
-      : []),
-    // prepare always injects NODE_OPTIONS (the build memory guard), which the
-    // generated plan consumes as a build secret. Same mechanism as the SPA
-    // output dir. Without this flag every railpack build fails with
-    // "failed to solve: secret NODE_OPTIONS: not found".
-    "--secret",
-    "id=NODE_OPTIONS,env=NODE_OPTIONS",
+    // Invalidates the steps that read secrets when a value changes; BuildKit
+    // itself never keys the layer cache on secret values.
+    ...(opts.secretsHash ? ["--build-arg", `secrets-hash=${opts.secretsHash}`] : []),
+    ...opts.secretEnvNames.flatMap((name) => ["--secret", `id=${name},env=${name}`]),
+    ...Object.entries(opts.secretFiles).flatMap(([name, path]) => [
+      "--secret",
+      `id=${name},src=${path}`,
+    ]),
     "-f",
     opts.planPath,
     "--load",
