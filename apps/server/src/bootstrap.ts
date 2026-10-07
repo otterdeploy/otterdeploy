@@ -77,6 +77,13 @@ async function resolvePublicAddresses(): Promise<void> {
   }
 }
 
+/** The innermost `cause` message: Postgres's own words under drizzle's wrapper. */
+function rootCauseMessage(cause: unknown): string {
+  let current = cause;
+  while (current instanceof Error && current.cause instanceof Error) current = current.cause;
+  return current instanceof Error ? current.message : String(current);
+}
+
 async function bootstrap() {
   // Apply any pending DB migrations BEFORE anything reads the schema. Idempotent
   // (tracked in drizzle.__drizzle_migrations, so a no-op once up to date) and
@@ -91,7 +98,15 @@ async function bootstrap() {
   migrated.match({
     ok: () => log.info({ startup: { step: "migrate", status: "ready" } }),
     err: (err) => {
-      log.error({ startup: { step: "migrate", status: "failed" }, error: err.message });
+      // drizzle wraps a failing statement as "Failed query: <the whole SQL>",
+      // with Postgres's own message on `cause`. A migration that refuses to
+      // run (e.g. global_project_slugs on cross-org duplicate slugs) says what
+      // the operator must do in that message, so surface it on its own.
+      log.error({
+        startup: { step: "migrate", status: "failed" },
+        error: err.message,
+        reason: rootCauseMessage(err.cause),
+      });
       process.exit(1);
     },
   });

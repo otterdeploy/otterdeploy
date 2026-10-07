@@ -1,5 +1,7 @@
+import { hasMetricsDirective } from "@otterdeploy/shared/custom-directives-reach";
 import { matchError } from "better-result";
 
+import { authorizeCapability } from "../../authz/capability";
 import {
   orgScopedProcedure,
   requireInstallAdmin,
@@ -110,6 +112,16 @@ export const proxyRouteRouter = {
     route: ["update"],
   }).project.proxyRoute.setCustomDirectives.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+    // Raw directives are open to every route editor; `metrics` alone exposes
+    // the whole install's traffic, so it is decided by the server-owned
+    // install-admin attribute, the same check the install-admin middleware runs.
+    if (input.directives !== null && hasMetricsDirective(input.directives)) {
+      const decision = await authorizeCapability(context.actor, {
+        scope: "install",
+        mode: "write",
+      });
+      if (!decision.allowed) throw errors.FORBIDDEN();
+    }
     const result = await setProxyRouteCustomDirectives(
       {
         routeId: input.routeId,

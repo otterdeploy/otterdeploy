@@ -6,7 +6,12 @@ import type { Context as HonoContext } from "hono";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 
 import type { AuditDraft } from "./audit/changes";
-import type { ApiKeyActor, ResolvedActor, SessionActor } from "./authz/actor";
+import type {
+  ApiKeyActor,
+  ApiKeyRateLimitedError,
+  ResolvedActor,
+  SessionActor,
+} from "./authz/actor";
 
 import { resolveRequestActor } from "./authz/actor";
 
@@ -27,6 +32,11 @@ export interface RequestContext {
   actor: ResolvedActor;
   session: SessionActor | null;
   apiKey: ApiKeyActor | null;
+  /** Set when the request carried a real API key that is over its rate limit;
+   *  `actor` is null then, and the auth middlewares answer 429, not 401.
+   *  Optional so contexts built by hand (tests, internal callers) need not
+   *  spell out the "not rate limited" case. */
+  apiKeyRateLimited?: ApiKeyRateLimitedError | null;
   activeOrganizationId: OrgId | null;
   headers: Headers;
   log: RequestLogger;
@@ -45,7 +55,9 @@ export async function createContext({
   broadcast,
 }: CreateContextOptions): Promise<RequestContext> {
   const headers = context.req.raw.headers;
-  const actor = await resolveRequestActor(headers);
+  const resolved = await resolveRequestActor(headers);
+  const actor = resolved.isOk() ? resolved.value : null;
+  const apiKeyRateLimited = resolved.isErr() ? resolved.error : null;
   const session = actor?.kind === "session" ? actor : null;
   const apiKey = actor?.kind === "api-key" ? actor : null;
 
@@ -67,6 +79,7 @@ export async function createContext({
     actor,
     session,
     apiKey,
+    apiKeyRateLimited,
     activeOrganizationId,
     // Raw request headers, carried so org-scoped middleware can delegate
     // role/permission checks to better-auth's `auth.api.hasPermission`

@@ -29,8 +29,10 @@ import {
   type SaveRoutePolicyResult,
 } from "../../caddy";
 import { RESERVED_AUTH_PREFIX } from "../../caddy/builder";
+import { parseRouteDirectives } from "../../caddy/directive-scope";
 import { listProxyRoutesByProject, updateProxyRoute } from "../../caddy/queries";
 import { ProjectNotFoundError, ProxyRouteNotFoundError } from "./errors";
+import { loadRouteDirectiveScope } from "./proxy-route-upstreams";
 import { getProjectInOrg, getRouteInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
 
@@ -162,15 +164,26 @@ export function setProxyRoutePolicy(
   return withRouteInOrg(input, (route) => saveRoutePolicy(route, input.policy, rlog));
 }
 
-/** Persist raw per-route Caddyfile directives (od-f4rb) with the same
- *  reconcile-with-rollback contract as the policy save. */
+/** Persist raw per-route Caddyfile directives with the same
+ *  reconcile-with-rollback contract as the policy save. Before anything is
+ *  written, the text is held to the project-aware reach rules:
+ *  only this project's own services by name, no private or internal address
+ *  outside the operator's egress allowlist. A refusal comes back like a Caddy
+ *  parse error (`applied: false` + the reason) and leaves the row untouched. */
 export function setProxyRouteCustomDirectives(
   input: OrgRef & { routeId: ProxyRouteId; directives: string | null },
   rlog?: RequestLogger,
 ): Promise<Result<SaveRoutePolicyResult, ProxyRouteNotFoundError>> {
   // An emptied editor means "no custom block", not an empty string row.
   const directives = input.directives === "" ? null : input.directives;
-  return withRouteInOrg(input, (route) => saveRouteCustomDirectives(route, directives, rlog));
+  return withRouteInOrg(input, async (route) => {
+    if (directives !== null) {
+      const scope = await loadRouteDirectiveScope(route.projectId);
+      const reach = await parseRouteDirectives(directives, scope);
+      if (reach.isErr()) return { route, applied: false, error: reach.error.message };
+    }
+    return saveRouteCustomDirectives(route, directives, rlog);
+  });
 }
 
 export async function setProxyRouteProtection(

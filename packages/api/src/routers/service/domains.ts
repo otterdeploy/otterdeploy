@@ -7,12 +7,16 @@
  * reachability check on add classifies where the host currently resolves,
  * which drives both the cert decision and whether it serves immediately:
  *
- *   pointed: resolves to our server IP ⇒ live now, real Let's Encrypt
- *               cert. Publishing that record is itself proof of control.
- *   proxied: resolves into a Cloudflare edge range ⇒ that address is
- *               shared, so it proves nothing: the TXT gate still applies.
- *               Once verified, Cloudflare terminates TLS and the origin
- *               serves `tls internal`.
+ *   pointed: resolves to our server IP ⇒ real Let's Encrypt cert. On a
+ *               single-org install publishing that record is itself proof
+ *               of control, so it is live now.
+ *   proxied: resolves into a Cloudflare edge range ⇒ Cloudflare
+ *               terminates TLS and the origin serves `tls internal`.
+ *               Counts as proof only on a single-org install.
+ *
+ * On a multi-org install neither is proof of WHICH org owns the name, so
+ * every custom host waits on the per-route TXT challenge (see
+ * `provenByDns`).
  *   unpointed, not pointed here yet ⇒ inert until the TXT proof or the A
  *               record lands (the UI shows both records to publish).
  *
@@ -48,6 +52,7 @@ import { loadProject, loadResource } from "./context";
 import {
   acmeFor,
   acmeForExistingRoute,
+  isMultiOrgInstall,
   isReservedControlPlaneDomain,
   normalizeDomain,
   serverIpFor,
@@ -124,10 +129,11 @@ export async function addServiceDomain(
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain, serverIp });
-  // DNS that already resolves to this server is proof of control (see
-  // `provenByDns`): those hosts serve immediately. Anything else stays inert
-  // behind the per-route TXT challenge until Recheck observes it.
-  const live = provenByDns(reachability.state);
+  // On a single-org install, DNS that already resolves to this server is
+  // proof of control (see `provenByDns`): those hosts serve immediately.
+  // Anything else, and everything on a multi-org install, stays inert behind
+  // the per-route TXT challenge until Recheck observes it.
+  const live = provenByDns(reachability.state, { multiOrg: await isMultiOrgInstall() });
   const existing = await listProxyRoutesByResourceId(input.resourceId);
 
   let route: ProxyRouteRecord;
@@ -202,11 +208,13 @@ export async function recheckServiceDomain(
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain: route.domain, serverIp });
-  // Generated hosts are ours by construction, and a host that now resolves to
-  // this server has proven itself the same way ACME would. Either way there
-  // is nothing left for the TXT challenge to establish.
+  // Generated hosts are ours by construction, and on a single-org install a
+  // host that now resolves to this server has proven itself the same way
+  // ACME would. Either way there is nothing left for the TXT challenge to
+  // establish. On a multi-org install only the TXT record proves which org.
   const ownership =
-    route.source === "generated" || provenByDns(reachability.state)
+    route.source === "generated" ||
+    provenByDns(reachability.state, { multiOrg: await isMultiOrgInstall() })
       ? { ok: true }
       : await verifyDomainTxt({
           domain: route.domain,

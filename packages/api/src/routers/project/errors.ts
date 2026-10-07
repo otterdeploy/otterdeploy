@@ -53,14 +53,23 @@ export class ProjectHasServicesError extends TaggedError("ProjectHasServicesErro
   }
 }
 
+/**
+ * A project slug is already held, by this org or by any other: slugs are
+ * unique install-wide, because the slug alone names the project's
+ * runtime objects on the shared swarm. The message deliberately does not say
+ * WHICH org holds it. `suggestedSlug` is a free alternative at the time of
+ * the check (it can still lose a race; the unique index has the last word).
+ */
 export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
   message: string;
   slug: string;
+  suggestedSlug: string;
 }>() {
-  constructor(args: { slug: string }) {
+  constructor(args: { slug: string; suggestedSlug: string }) {
     super({
       slug: args.slug,
-      message: `project with slug "${args.slug}" already exists`,
+      suggestedSlug: args.suggestedSlug,
+      message: `project slug "${args.slug}" is already in use on this install (project slugs are unique across all organizations); try "${args.suggestedSlug}"`,
     });
   }
 }

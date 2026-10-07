@@ -67,10 +67,22 @@ const setRoutePolicyInput = z.object({
   policy: routePolicySchema,
 });
 
-// Raw Caddyfile directives for the route's site block (od-f4rb). The schema
-// enforces structural integrity only (length cap, brace balance so the text
-// cannot escape its site block); Caddy's /adapt validation with rollback is
-// the syntax gate. Null clears the block.
+// Raw Caddyfile directives for the route's site block. The schema
+// enforces structure (length cap, brace balance so the text cannot escape its
+// site block) and reach (never the edge's or the platform's own surfaces);
+// the handler adds the project-aware reach rules and the install-admin gate
+// on `metrics`. Caddy's /adapt validation with rollback
+// is the syntax gate. Null clears the block.
+// `metrics` serves Prometheus metrics for every site on the install, so only
+// an installation administrator may add it to a route.
+const metricsDirectiveErrors = {
+  FORBIDDEN: {
+    status: 403,
+    message:
+      "Only an installation administrator can use the metrics directive: it exposes traffic for every site on this install.",
+  },
+} as const;
+
 const setCustomDirectivesInput = z.object({
   routeId: proxyRouteIdField,
   directives: customDirectivesSchema.nullable(),
@@ -178,6 +190,7 @@ export const proxyContractSlice = {
 
   setCustomDirectives: oc
     .errors(resourceNotFoundErrors)
+    .errors(metricsDirectiveErrors)
     .meta({
       path: `${basePath}/proxy-routes/{routeId}/directives`,
       tag,

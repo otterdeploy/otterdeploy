@@ -127,7 +127,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // phase on purpose: refs to a database created THIS apply stay unresolved in
   // the plan (its env changes read as creates) and resolve in the write-path
   // refTable loaded after phase 1.
-  const planRefTable = await loadRefTable(projectId);
+  const planRefTable = await loadRefTable(projectId, scope);
   // Same applied snapshot the diff endpoint uses, so what the operator
   // previewed is what executes: without it apply would compute deletes the
   // preview never showed.
@@ -201,7 +201,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // 1. Database creates first. Services may reference them.
   fold(await runDatabaseCreates(ctx, plan.databaseCreates));
   // 2. Build the ${database:…}/${service:…} ref table now the rows exist.
-  const refTable = await loadRefTable(projectId);
+  const refTable = await loadRefTable(projectId, scope);
   // A source change diffs to delete+create of the SAME name (see diff.ts) and
   // MUST delete before it creates. Otherwise the create collides with the
   // still-live resource ("service already exists") and is skipped, leaving the

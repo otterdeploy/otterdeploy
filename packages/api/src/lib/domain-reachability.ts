@@ -11,9 +11,12 @@
  *   unknown: lookup failed at the transport level (can't classify)
  *
  * This is intentionally a *reachability* check, not an ownership proof:
- * Let's Encrypt's own HTTP-01 challenge is the proof of control (Caddy
- * can only get a cert for a name that actually points here), so a working
- * A record + an issued cert is the verification.
+ * Let's Encrypt's own HTTP-01 challenge is the proof that a name points
+ * here (Caddy can only get a cert for one that does). Whether that also
+ * proves which organization owns the name is decided by `provenByDns`
+ * (routers/service/domain-rules.ts): only on a single-org install. With
+ * several orgs on one install, a name pointed here could belong to any of
+ * them, so ownership needs the per-route TXT record.
  */
 
 import { isCloudflareIp } from "./cloudflare-ips";

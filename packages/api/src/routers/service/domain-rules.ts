@@ -8,6 +8,7 @@
  */
 
 import { db } from "@otterdeploy/db";
+import { organization } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { stripToHostname } from "@otterdeploy/shared/public-host";
 import { eq } from "drizzle-orm";
@@ -286,25 +287,44 @@ export function normalizePublicHostInput(input: string): string | null {
  * to unverified-and-disabled: a host that has to prove itself again must not
  * keep serving, or keep its old ACME decision, in the meantime.
  */
+/** Does more than one organization share this install? Read at decision time:
+ *  the moment a second org exists, DNS stops being proof of WHICH one owns a
+ *  name (see {@link provenByDns}). */
+export async function isMultiOrgInstall(): Promise<boolean> {
+  const rows = await db.select({ id: organization.id }).from(organization).limit(2);
+  return rows.length > 1;
+}
+
 /**
- * DNS that already resolves to this server is proof of control. The same
- * thing the TXT challenge exists to establish, and the same thing ACME's
- * HTTP-01 would conclude. Lives here with the other domain decisions so all
- * three call sites (add, recheck, update) read one rule.
+ * DNS that already resolves to this server is proof of control on a
+ * single-org install. The same thing the TXT challenge exists to establish,
+ * and the same thing ACME's HTTP-01 would conclude. Lives here with the other
+ * domain decisions so all three call sites (add, recheck, update) read one
+ * rule.
+ *
+ * On a multi-org install it proves nothing about the question being asked
+ * DNS pointing here says the zone's owner chose THIS install, not
+ * which of its organizations. Any org could claim a name another org's
+ * wildcard or apex already points here, and a Cloudflare-proxied record
+ * resolves to addresses shared by every proxied zone. There, only the
+ * per-route TXT record, which only the zone's owner can publish with this
+ * route's token, establishes ownership.
  */
-export function provenByDns(state: DnsState): boolean {
-  // `proxied` counts. A record behind Cloudflare (or any reverse proxy) can
-  // never resolve to this origin's address, so requiring `pointed` meant a
-  // proxied host could NEVER be verified and its route stayed disabled
-  // forever — while the manifest path happily created the same host enabled.
-  // One install therefore had two identical routes, one serving and one dead,
-  // differing only in which code path created them.
+export function provenByDns(state: DnsState, install: { multiOrg: boolean }): boolean {
+  if (install.multiOrg) return false;
+  // `proxied` counts on a single-org install. A record behind Cloudflare (or
+  // any reverse proxy) can never resolve to this origin's address, so
+  // requiring `pointed` meant a proxied host could NEVER be verified and its
+  // route stayed disabled forever — while the manifest path happily created
+  // the same host enabled. One install therefore had two identical routes,
+  // one serving and one dead, differing only in which code path created them.
   //
   // Pointing a proxy at this install is still a deliberate act by someone who
-  // controls the record, which is the ownership question being asked. What it
-  // does NOT establish is that ACME can complete here — the proxy terminates
-  // TLS — and that is decided separately by `acmeFor`, which continues to
-  // treat `proxied` as unsuitable for issuance.
+  // controls the record, and with one org there is no one else on the install
+  // it could be claimed from. What it does NOT establish is that ACME can
+  // complete here — the proxy terminates TLS — and that is decided separately
+  // by `acmeFor`, which continues to treat `proxied` as unsuitable for
+  // issuance.
   return state === "pointed" || state === "proxied";
 }
 
@@ -328,8 +348,9 @@ export function domainRewritePatch(args: {
   dnsState: DnsState;
   requiresVerification: boolean;
   apex: ReturnType<typeof platformApexFor>;
+  multiOrg: boolean;
 }) {
-  const { domain, route, serviceName, dnsState, requiresVerification, apex } = args;
+  const { domain, route, serviceName, dnsState, requiresVerification, apex, multiOrg } = args;
   if (apex && route.source === "generated") {
     return {
       domain,
@@ -345,7 +366,14 @@ export function domainRewritePatch(args: {
       upstreamHost: serviceName,
     };
   }
-  return domainUpdatePatch({ domain, route, serviceName, dnsState, requiresVerification });
+  return domainUpdatePatch({
+    domain,
+    route,
+    serviceName,
+    dnsState,
+    requiresVerification,
+    multiOrg,
+  });
 }
 
 function domainUpdatePatch(args: {
@@ -354,8 +382,9 @@ function domainUpdatePatch(args: {
   serviceName: string;
   dnsState: DnsState;
   requiresVerification: boolean;
+  multiOrg: boolean;
 }) {
-  const { domain, route, serviceName, dnsState, requiresVerification } = args;
+  const { domain, route, serviceName, dnsState, requiresVerification, multiOrg } = args;
   // A re-verification that the DNS has ALREADY satisfied is not a
   // verification, it is a formality. This branch used to reset ownership to
   // null and disable the route without ever consulting dnsState: even though
@@ -364,7 +393,7 @@ function domainUpdatePatch(args: {
   // a TXT record to prove something the resolver had just proven. Worst on
   // sslip.io hosts, where the IP is encoded in the name and no other party can
   // ever claim it.
-  const proven = requiresVerification && provenByDns(dnsState);
+  const proven = requiresVerification && provenByDns(dnsState, { multiOrg });
   return {
     domain,
     source: "custom" as const,

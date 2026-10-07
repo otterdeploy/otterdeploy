@@ -34,6 +34,7 @@ import { rm } from "node:fs/promises";
 
 import type { PipelineContext } from "./load";
 
+import { resolveServiceBuildEnv } from "./build-env";
 import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
 import { ensureBuildxBuilder, cachePathFor, type TurboCacheEnv } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
@@ -264,6 +265,14 @@ function runBuildSteps(
     // failure, so a build never depends on the cache being available.
     const { cacheBuilder, cachePath, noCache, turboCache } = await resolveBuildCaches(ctx, sink);
 
+    // The service's env, for build-time frameworks (NEXT_PUBLIC_*, VITE_*) and
+    // RAILPACK_* overrides. Same bag + preview scoping the container gets.
+    const serviceEnv = yield* await resolveServiceBuildEnv({
+      projectId: ctx.project.id,
+      serviceResourceId: ctx.service.resourceId,
+      previewId: ctx.deployment.previewId,
+    });
+
     // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
     // path when pinned to dockerfile) becomes a tagged BuildStepError.
     const image = yield* await step("build", () =>
@@ -278,6 +287,7 @@ function runBuildSteps(
         cachePath,
         noCache,
         turboCache,
+        serviceEnv,
         sink,
       }),
     );
