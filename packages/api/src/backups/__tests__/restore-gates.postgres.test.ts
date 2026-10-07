@@ -24,12 +24,7 @@ import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  seedDatabase,
-  seedOrganization,
-  seedProject,
-  uniq,
-} from "../../__tests__/postgres-seed";
+import { seedDatabase, seedOrganization, seedProject, uniq } from "../../__tests__/postgres-seed";
 import { createDestinationRecord } from "../../routers/backups/destination-queries";
 import { createBackupRun, markBackupRunning, markBackupSucceeded } from "../db";
 import { restoreBackup } from "../restore";
