@@ -57,6 +57,8 @@ function RouteComponent() {
   if (projects.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
+        {/* The page names itself even when empty. */}
+        <h1 className="sr-only">Projects</h1>
         <Empty className="h-full border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">

@@ -119,7 +119,7 @@ export function OverviewView({
           {t("analytics.overview.footerSource")}
         </p>
         {overview.dataUpdatedAt > 0 && nowMs - overview.dataUpdatedAt < 90_000 ? (
-          <LiveIndicator updatedAt={overview.dataUpdatedAt} />
+          <LiveIndicator live updatedAt={overview.dataUpdatedAt} />
         ) : null}
       </div>
     </div>

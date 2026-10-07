@@ -19,6 +19,7 @@ import { errorFromUnknown } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { toast } from "sonner";
 
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
@@ -137,15 +138,24 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           {running ? "Running…" : "Run now"}
         </Button>
         <div className="flex-1" />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-muted-foreground hover:text-destructive"
-          onClick={remove}
-        >
-          <HugeiconsIcon icon={Delete02Icon} className="size-3" />
-          Delete
-        </Button>
+        {/* Backups stop running: a styled confirm. Existing
+            snapshots are untouched, so it is not a typed one. */}
+        <TypedConfirmDialog
+          trigger={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground hover:text-destructive"
+            >
+              <HugeiconsIcon icon={Delete02Icon} className="size-3" />
+              Delete
+            </Button>
+          }
+          title={`Delete the schedule "${s.name}"?`}
+          description="No more backups run on it. Snapshots it already took stay restorable."
+          confirmLabel="Delete schedule"
+          onConfirm={() => void remove()}
+        />
       </div>
     </div>
   );

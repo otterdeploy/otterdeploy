@@ -103,6 +103,8 @@ function RouteComponent() {
       }}
       className="flex h-[calc(100svh-var(--header-height))] min-w-0 flex-col gap-0 overflow-hidden"
     >
+      {/* Tabs are the only title bar here; the page is still named. */}
+      <h1 className="sr-only">Edge</h1>
       <div className="flex items-center justify-between gap-3 border-b px-4 pt-2 pb-2">
         <TabsList variant="line" className="h-auto bg-transparent p-0">
           <TabsTrigger value="logs" className="px-3 py-2">

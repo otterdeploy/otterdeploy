@@ -7,6 +7,8 @@
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
+import { useId } from "react";
+
 import { ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -25,6 +27,7 @@ import {
 } from "./settings-control-plane-status";
 
 export function ControlPlaneCard({ organizationId }: { organizationId: OrganizationId }) {
+  const domainInputId = useId();
   const domainQuery = useQuery(
     orpc.organization.controlPlaneDomain.queryOptions({ input: { organizationId } }),
   );
@@ -66,13 +69,16 @@ export function ControlPlaneCard({ organizationId }: { organizationId: Organizat
     >
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[13px] font-medium">Control-plane domain</span>
+          <label htmlFor={domainInputId} className="text-[13px] font-medium">
+            Control-plane domain
+          </label>
           <StatusBadge status={status} />
         </div>
         <div className="flex items-center gap-2">
           <form.Field name="domain">
             {(field) => (
               <Input
+                id={domainInputId}
                 type="text"
                 placeholder="deploy.acme.com"
                 value={field.state.value}

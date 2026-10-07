@@ -27,15 +27,16 @@ export function DomainSection(props: DomainSectionProps) {
   return (
     <section className="rounded-md border bg-card p-5">
       <header className="mb-3">
-        <h2 className="text-[14px] font-semibold">Domain</h2>
+        <h2 className="text-[14px] font-semibold">Default domain for this project</h2>
         <p className="text-[12.5px] text-muted-foreground">
-          Where this project's services land. Leave blank to fall back to the organization's default
-          domain.
+          Generated hostnames for this project's services go under it. Leave blank to use the
+          workspace's base domain. To put one service on a hostname of its own, open the service:
+          Settings → Public networking.
         </p>
       </header>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="proj-custom-domain">Custom domain</Label>
+        <Label htmlFor="proj-custom-domain">Default domain</Label>
         <Input
           id="proj-custom-domain"
           value={props.customDomain}
@@ -62,7 +63,7 @@ function StatusLine({
   if (status === "unset") {
     return (
       <p className="text-[11.5px] text-muted-foreground">
-        Currently using the organization's default domain.
+        Currently using the workspace's base domain.
       </p>
     );
   }

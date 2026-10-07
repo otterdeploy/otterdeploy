@@ -125,7 +125,10 @@ export function ProjectSidebar({
         {navGroups.map((group) => (
           <SidebarGroup key={group.label ?? group.items[0]?.title ?? "top"}>
             {group.label ? (
-              <SidebarGroupLabel className="text-[11px] tracking-wider text-sidebar-foreground/50 uppercase">
+              // Full muted ink, sentence case: the half-alpha uppercase
+              // eyebrow read at 2.5:1 (DESIGN.md sets AA as the floor, and
+              // the impeccable bans tiny uppercase eyebrows).
+              <SidebarGroupLabel className="text-[12px] text-muted-foreground">
                 {group.labelI18nKey ? t(group.labelI18nKey, group.label) : group.label}
               </SidebarGroupLabel>
             ) : null}

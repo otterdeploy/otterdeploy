@@ -1,12 +1,13 @@
-import { useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 
 import { ID_PREFIX, createId, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm, useSelector } from "@tanstack/react-form";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { Result } from "better-result";
 import * as z from "zod";
 
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -101,31 +102,40 @@ export function CreateProjectDialog({
     onOpenChange?.(next);
   };
 
+  // The server's refusal, shown in the dialog the operator is still looking at.
+  const [createError, setCreateError] = useState<string | null>(null);
+  // The dialog now stays open for the round trip, so a double-click must not
+  // submit twice: the second click lands before the button re-renders as
+  // disabled. A ref flips synchronously, inside the submit itself.
+  const submitting = useRef(false);
+
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: schema },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
+      if (submitting.current) return;
+      submitting.current = true;
+      setCreateError(null);
       const tx = projectCollection.insert(newProjectRow(value));
-
-      // Close and go straight to the new project. The optimistic row is
-      // already in `projectCollection`, so the destination renders its real
-      // name and slug immediately: there is no server round-trip to wait on
-      // and nothing to spin against ("fast is a feature": creating a thing
-      // should land you on the thing).
+      // Navigate on the server's answer, not before it. Jumping straight to
+      // the optimistic row ran the project page's own queries against a
+      // project the server had not created yet: up to eight "Project not
+      // found" errors underneath every create, and a bounce back out if the
+      // create was refused. The button says "Creating…" for the round trip;
+      // a refusal stays in the dialog, beside the input.
+      const persisted = await Result.tryPromise({
+        try: () => tx.isPersisted.promise,
+        catch: (error) => (error instanceof Error ? error.message : "Failed to create project"),
+      });
+      submitting.current = false;
+      if (persisted.isErr()) {
+        setCreateError(persisted.error);
+        return;
+      }
       setOpen(false);
       void navigate({
         to: "/$orgSlug/$projectSlug",
         params: { orgSlug, projectSlug: projectSlugSchema.parse(value.slug) },
-      });
-
-      // Surface server-side failures asynchronously; tanstack/db rolls back
-      // the optimistic row on rejection. Bounce back off the now-dead route so
-      // the operator isn't stranded on a project that no longer exists.
-      // "honest about system state" cuts both ways: the optimistic jump is
-      // only honest if a rejection undoes it visibly.
-      tx.isPersisted.promise.catch((error) => {
-        toast.error(error instanceof Error ? error.message : "Failed to create project");
-        void navigate({ to: "/$orgSlug", params: { orgSlug } });
       });
     },
   });
@@ -152,7 +162,10 @@ export function CreateProjectDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) form.reset();
+        if (!next) {
+          form.reset();
+          setCreateError(null);
+        }
       }}
     >
       {trigger ? <DialogTrigger render={trigger} /> : null}
@@ -172,11 +185,11 @@ export function CreateProjectDialog({
           className="flex flex-col gap-4"
           noValidate
         >
-          {/*{isError ? (
+          {createError ? (
             <Alert variant="destructive">
-              <AlertDescription>{createProject.error.message}</AlertDescription>
+              <AlertDescription>{createError}</AlertDescription>
             </Alert>
-          ) : null}*/}
+          ) : null}
 
           <form.Field name="name">
             {(field) => (

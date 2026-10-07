@@ -18,10 +18,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { TimeWindow } from "@/shared/components/charts/time-series-chart";
+
 import { epochMsOf } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
 
-import { METRIC_WINDOWS, refetchIntervalFor } from "./use-resource-metrics";
+import { METRIC_WINDOWS, metricTimeWindow, refetchIntervalFor } from "./use-resource-metrics";
 
 /** Metrics-page look-back windows. Extends the per-resource list with 7d.
  *  The real retention bound (`resource_metric` and the edge-log partitions
@@ -76,6 +78,8 @@ export interface ProjectAggregateMetrics {
   isLoading: boolean;
   isError: boolean;
   updatedAt: number;
+  /** The window the charts draw, pinned to the selected range. */
+  timeWindow: TimeWindow | undefined;
 }
 
 export function useProjectAggregateMetrics(
@@ -134,5 +138,6 @@ export function useProjectAggregateMetrics(
     isLoading: query.isLoading,
     isError: query.isError,
     updatedAt: query.dataUpdatedAt,
+    timeWindow: metricTimeWindow(query.dataUpdatedAt || (rows.at(-1)?.ts ?? 0), windowMinutes),
   };
 }

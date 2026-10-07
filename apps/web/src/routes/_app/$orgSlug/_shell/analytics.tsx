@@ -95,6 +95,7 @@ function ScopeSelect({
   projects: ReadonlyArray<{ slug: string; name: string }>;
   onChange: (slug: string | undefined) => void;
 }) {
+  const { t } = useTranslation();
   const items = [
     { value: "all", label: allLabel },
     ...projects.map((p) => ({ value: p.slug, label: p.name })),
@@ -105,7 +106,7 @@ function ScopeSelect({
       value={value}
       onValueChange={(next) => onChange(next === null || next === "all" ? undefined : next)}
     >
-      <SelectTrigger className="h-8 w-44 text-xs">
+      <SelectTrigger className="h-8 w-44 text-xs" aria-label={t("analytics.scopeLabel")}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

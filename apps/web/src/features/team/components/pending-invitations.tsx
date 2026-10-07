@@ -21,6 +21,7 @@ import {
   useInvitations,
   type PendingInvite,
 } from "@/features/team/data/use-team";
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 
@@ -97,16 +98,26 @@ function InviteRow({ invite, canManage }: { invite: PendingInvite; canManage: bo
       </Badge>
       <CopyLinkButton link={acceptInviteUrl(invite.id)} />
       {canManage ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 text-muted-foreground"
-          disabled={busy}
-          onClick={cancel}
-          aria-label={`Cancel invitation to ${invite.email}`}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={1.8} className="size-3.5" />
-        </Button>
+        // Access loss for the invitee: a styled confirm.
+        <TypedConfirmDialog
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground"
+              disabled={busy}
+              aria-label={`Cancel invitation to ${invite.email}`}
+            >
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={1.8} className="size-3.5" />
+            </Button>
+          }
+          title={`Cancel the invitation to ${invite.email}?`}
+          description="The invite link stops working. You can send a new invitation at any time."
+          confirmLabel="Cancel invitation"
+          pendingLabel="Cancelling…"
+          pending={busy}
+          onConfirm={cancel}
+        />
       ) : null}
     </div>
   );

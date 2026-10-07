@@ -7,6 +7,7 @@ import { describe, expect, test, vi } from "vite-plus/test";
 vi.mock("../queries", () => ({
   bumpForceUpdateCounter: vi.fn(),
   getServiceRecord: vi.fn(),
+  markServiceEnvApplied: vi.fn(),
   updateServiceResourceStatus: vi.fn(),
 }));
 vi.mock("../../../lib/variables", () => ({
@@ -94,6 +95,8 @@ const fakeRecord: ServiceRecord = {
     networkName: "net",
     publicEnabled: false,
     publicDomain: null,
+    envChangedAt: null,
+    envAppliedAt: null,
     stackId: null,
     forceUpdateCounter: 0,
     createdAt: new Date(0),
@@ -146,6 +149,7 @@ function primeCommonMocks(): void {
   vi.mocked(queries.bumpForceUpdateCounter).mockResolvedValue(undefined);
   vi.mocked(queries.getServiceRecord).mockResolvedValue(fakeRecord);
   vi.mocked(queries.updateServiceResourceStatus).mockResolvedValue(fakeRecord.resource);
+  vi.mocked(queries.markServiceEnvApplied).mockReset().mockResolvedValue(undefined);
   vi.mocked(variables.resolveServiceEnv).mockResolvedValue(Result.ok({}));
   vi.mocked(environment.loadPreviewScope).mockResolvedValue(null);
   vi.mocked(spec.buildSwarmSpec).mockResolvedValue(fakeSpec);
@@ -169,6 +173,8 @@ describe("redeployOne", () => {
       resourceId,
       "invalid",
     );
+    // Nothing reached the container, so the saved env is still not live.
+    expect(vi.mocked(queries.markServiceEnvApplied)).not.toHaveBeenCalled();
   });
 
   test("returns Ok with the live runtime when update succeeds", async () => {
@@ -191,5 +197,30 @@ describe("redeployOne", () => {
       resourceId,
       "valid",
     );
+  });
+
+  test("stamps the env as applied as of the moment it was READ, before resolving", async () => {
+    primeCommonMocks();
+    let readAt = 0;
+    vi.mocked(variables.resolveServiceEnv).mockImplementation(async () => {
+      readAt = Date.now();
+      return Result.ok({});
+    });
+    const update = vi.fn<RuntimeDriver["update"]>().mockResolvedValue({
+      serviceId: "s1",
+      serviceName: "svc",
+      networkName: "net",
+      status: "running",
+      health: null,
+    });
+    vi.mocked(runtime).mockReturnValue(stubRuntime(update));
+
+    await redeployOne(projectId, resourceId, "proj");
+
+    const stamp = vi.mocked(queries.markServiceEnvApplied).mock.calls[0];
+    expect(stamp?.[0]).toBe(resourceId);
+    // A variable saved while the roll is in flight lands after this stamp,
+    // so the Variables tab keeps calling it pending.
+    expect(stamp?.[1]?.getTime()).toBeLessThanOrEqual(readAt);
   });
 });

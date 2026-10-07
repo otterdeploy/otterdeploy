@@ -10,6 +10,7 @@
 
 import type { ComponentProps, ReactNode } from "react";
 
+import { Field } from "@base-ui/react/field";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { cn } from "@/shared/lib/utils";
@@ -42,7 +43,7 @@ export function SettingsSection({
             {title}
           </h2>
           {description && (
-            <p className="mt-1 max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground/80">
+            <p className="mt-1 max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">
               {description}
             </p>
           )}
@@ -71,23 +72,27 @@ export function SettingsRow({
   control: ReactNode;
   stacked?: boolean;
 }) {
+  // A Base UI field: the title labels, and the description describes, the
+  // row's control (a Switch, an Input, a Select trigger) without each caller
+  // wiring ids. Before, a switch read as an unnamed toggle and an input as
+  // an unlabelled field (axe aria-toggle-field-name / label on Instance).
   return (
-    <div
+    <Field.Root
       className={cn(
         "flex gap-4 px-4 py-3.5",
         stacked ? "flex-col" : "items-center justify-between",
       )}
     >
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[13px] font-medium text-foreground">{title}</span>
+        <Field.Label className="text-[13px] font-medium text-foreground">{title}</Field.Label>
         {description && (
-          <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
+          <Field.Description className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
             {description}
-          </span>
+          </Field.Description>
         )}
       </div>
       <div className={cn("shrink-0", stacked && "w-full")}>{control}</div>
-    </div>
+    </Field.Root>
   );
 }
 

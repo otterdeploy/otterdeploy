@@ -67,6 +67,23 @@ interface VariablesEditorProps {
   showResolved?: boolean;
 }
 
+/**
+ * After a direct save: the panel reads env from the react-db
+ * `resourceCollection` (cache key prefixed by RESOURCE_COLLECTION_KEY), and the
+ * save flips the service view's env liveness to "pending", which the Variables
+ * tab's strip reads. Refetch both now rather than on a poll.
+ */
+function refreshAfterEnvSave(resource: VariablesEditorResource) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
+    queryClient.invalidateQueries({
+      queryKey: orpc.service.get.queryKey({
+        input: { projectId: resource.projectId, resourceId: resource.resourceId },
+      }),
+    }),
+  ]);
+}
+
 /** Suggest an env-var key from a picked `${{Source.KEY}}` token. The KEY
  *  segment when it looks like an env name, otherwise blank for the user. */
 function suggestKeyFromToken(token: string): string {
@@ -148,18 +165,15 @@ export function VariablesEditor({
         // bare orpc list key (as before) never matched it, so the edit only
         // surfaced on the collection's 5s poll. Invalidate the collection so the
         // just-saved var appears at once.
-        await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
+        await refreshAfterEnvSave(resource);
         // Stamp the draft as saved so the ADDED/EDITED chips and Save/Discard
         // clear immediately: the refetch above returns the same values, so the
         // effect-driven re-baseline would otherwise skip (rows still "pending"
         // vs the OLD baseline) and the dirty state never cleared.
         editor.commit();
-        // Saving persists only (redeploy: false): the values take effect the
-        // next time the resource deploys (e.g. the panel's Redeploy action).
-        // This is the FALLBACK path: services declared on the manifest save
-        // via `onSave` staging instead, and their feedback is the pending-
-        // changes bar plus the staged toast.
-        toast.success(t("resources.variablesSavedRedeploy"));
+        // Saving persists only (redeploy: false): the strip says it is not
+        // live yet and offers Apply and restart.
+        toast.success(t("resources.variablesSaved"));
       },
       onError: (err) => toast.error(err.message ?? t("resources.variablesSaveFailed")),
     }),
@@ -204,8 +218,8 @@ export function VariablesEditor({
   const applyOneMut = useMutation(
     orpc.project.resource.env.bulkSet.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
-        toast.success(t("resources.variablesSavedRedeploy"));
+        await refreshAfterEnvSave(resource);
+        toast.success(t("resources.variablesSaved"));
       },
       onError: (err) => toast.error(err.message ?? t("resources.variablesSaveFailed")),
     }),

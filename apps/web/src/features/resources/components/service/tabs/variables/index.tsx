@@ -22,6 +22,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
 
+import { EnvLiveStrip } from "./env-live-strip";
 import { countPrimaryDependents, PublicHostsBar } from "./public-hosts-bar";
 
 export function ServiceVariablesTabBody({
@@ -89,6 +90,16 @@ export function ServiceVariablesTabBody({
         />
       )}
 
+      {/* Whether what is saved here is what the container runs, and the one
+          action that makes it so. Live services only. */}
+      {!pending && serviceName ? (
+        <EnvLiveStrip
+          projectId={resource.projectId}
+          resourceId={resource.resourceId}
+          serviceName={serviceName}
+        />
+      ) : null}
+
       {/* Only when the service serves more than one host: with one there is
           no ambiguity about what PUBLIC_URL means. */}
       {!pending && (
@@ -151,8 +162,10 @@ function useStagedEnvSave({
   editorResource: VariablesEditorResource;
 } {
   const { t } = useTranslation();
+  // The strip under the header says what happens next ("not applied ·
+  // Apply and restart"), so the toast only confirms the save.
   const stage = useStageManifestChange(resource.projectId, {
-    successToast: t("resources.variablesStaged"),
+    successToast: pending ? t("resources.variablesStaged") : t("resources.variablesSaved"),
   });
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({

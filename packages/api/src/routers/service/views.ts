@@ -71,8 +71,46 @@ export interface ServiceView {
   /** The live runtime; `errorMessage` always present (null when none). */
   runtime: SwarmServiceRuntime & { errorMessage: string | null };
 
+  /** Whether the env on screen is the env the container runs: see
+   *  {@link envLiveness}. */
+  env: EnvLiveness;
+
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Is the service's saved env the env its container runs?
+ *
+ * - `pending`: a variable changed after the spec was last written with
+ *   resolved env (or the spec never was, since tracking began). Not live
+ *   until the service restarts.
+ * - `live`: the last spec write read the env at or after its last change.
+ * - `unknown`: nothing to compare (both stamps predate tracking), or a
+ *   compose child, whose env reaches its container through the stack's own
+ *   rollout rather than redeployOne. Said as unknown, never guessed as live.
+ */
+export interface EnvLiveness {
+  state: "live" | "pending" | "unknown";
+  changedAt: string | null;
+  appliedAt: string | null;
+}
+
+export function envLiveness(service: {
+  envChangedAt: Date | null;
+  envAppliedAt: Date | null;
+  stackId: string | null;
+}): EnvLiveness {
+  const changedAt = service.envChangedAt?.toISOString() ?? null;
+  const appliedAt = service.envAppliedAt?.toISOString() ?? null;
+  if (service.stackId) return { state: "unknown", changedAt, appliedAt };
+  const changed = service.envChangedAt?.getTime();
+  const applied = service.envAppliedAt?.getTime();
+  if (changed === undefined) {
+    return { state: applied === undefined ? "unknown" : "live", changedAt, appliedAt };
+  }
+  const state = applied !== undefined && applied >= changed ? "live" : "pending";
+  return { state, changedAt, appliedAt };
 }
 
 export interface EnvVarView {
@@ -177,6 +215,7 @@ export async function mapServiceView(
     internalHostname: record.service.internalHostname,
     extraNetworks: record.service.extraNetworks,
     runtime: { ...live, errorMessage: live.errorMessage ?? null },
+    env: envLiveness(record.service),
     createdAt: record.resource.createdAt.toISOString(),
     updatedAt: record.resource.updatedAt.toISOString(),
   };

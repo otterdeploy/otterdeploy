@@ -32,11 +32,12 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
   const [window, setWindow] = useState<MetricWindowLabel>(DEFAULT_WINDOW.label);
   const selected = METRIC_WINDOWS.find((w) => w.label === window) ?? DEFAULT_WINDOW;
 
-  const { rows, summary, bucketMs, isLoading, isError, updatedAt } = useResourceMetrics(
+  const { rows, summary, bucketMs, isLoading, isError, updatedAt, timeWindow } = useResourceMetrics(
     resourceId,
     selected.minutes,
   );
   const hasData = rows.length > 0;
+  const panel = { rows, summary, sampleIntervalMs: bucketMs, timeWindow };
 
   return (
     <div className="flex flex-col gap-5">
@@ -47,16 +48,16 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
             CPU, memory and network for this resource’s containers, sampled every 30 seconds.
           </p>
         </div>
-        {selected.live && hasData ? <LiveIndicator updatedAt={updatedAt} /> : null}
+        {hasData ? <LiveIndicator live={selected.live} updatedAt={updatedAt} /> : null}
       </div>
 
       <TimeRangeField value={window} onChange={setWindow} />
 
       {hasData ? (
         <div className="flex flex-col gap-4">
-          <CpuPanel rows={rows} summary={summary} sampleIntervalMs={bucketMs} />
-          <MemoryPanel rows={rows} summary={summary} sampleIntervalMs={bucketMs} />
-          <NetworkPanel rows={rows} summary={summary} sampleIntervalMs={bucketMs} />
+          <CpuPanel {...panel} />
+          <MemoryPanel {...panel} />
+          <NetworkPanel {...panel} />
         </div>
       ) : isLoading ? (
         <LoadingState />

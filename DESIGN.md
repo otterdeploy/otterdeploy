@@ -10,16 +10,16 @@ colors:
   surface-dark: "#161614"
   ink: "#141412"
   ink-inverse: "#f5f5f0"
-  muted-ink: "#7a7a74"
-  muted-ink-dark: "#7a7a72"
+  muted-ink: "#6b6b65"
+  muted-ink-dark: "#8a8a82"
   border: "rgba(20,20,18,0.09)"
   border-dark: "rgba(255,255,250,0.08)"
   input: "rgba(20,20,18,0.12)"
   destructive: "#b42318"
   destructive-dark: "#f87171"
-  success: "#1f7a3f"
+  success: "#1d733b"
   success-dark: "#4ade80"
-  warning: "#8a6a00"
+  warning: "#7f6200"
   warning-dark: "#fbbf24"
   info: "#1f5fa8"
   info-dark: "#60a5fa"
@@ -141,11 +141,11 @@ A warm-neutral monochrome canvas with exactly one chromatic accent. The greys ca
 
 ### Neutral
 - **Warm Ink** (`#141412`; inverse `#f5f5f0`): Primary text and the darkest chart step. A warm near-black, never pure `#000`.
-- **Muted Ink** (`#7a7a74`; dark `#7a7a72`): Secondary text, placeholders, captions, inactive nav labels. Must still clear 4.5:1 on its surface, bump toward Warm Ink before going lighter.
+- **Muted Ink** (`#6b6b65`; dark `#8a8a82`): Secondary text, placeholders, captions, inactive nav labels. Clears 4.5:1 on every surface it sits on, muted fills included (it was `#7a7a74` / `#7a7a72`, which read 4.17:1 on the canvas and failed an axe accessibility check). Never thin it with alpha for text: bump toward Warm Ink before going lighter.
 - **Soft Canvas** (`#fbfbfa`; dark `#0c0c0b`): The body and sidebar background: they share one surface, not two tones.
 - **Raised Surface** (`#ffffff`; dark `#161614`): Cards, popovers, dialogs, menus, the one step lifted off the canvas.
 - **Hairline** (`rgba(20,20,18,0.09)`; dark `rgba(255,255,250,0.08)`): All borders and dividers. A transparency of the ink, never a separate grey.
-- Greyscale chart ramp runs from Muted Ink through to Warm Ink (`#a8a8a0 → #7a7a74 → #4a4a46 → #2a2a26 → #141412`). Data viz stays monochrome unless a category color is earned.
+- Greyscale chart ramp runs from a light grey through to Warm Ink (`#a8a8a0 → #7a7a74 → #4a4a46 → #2a2a26 → #141412`). Data viz stays monochrome unless a category color is earned.
 
 ### Data ink (charts and meters)
 
@@ -163,8 +163,8 @@ Three rules keep this from leaking into the rest of the interface:
 
 ### Semantic (state, not decoration)
 - **Destructive** (`#b42318`; dark `#f87171`): Errors and dangerous actions. Rendered as a **tint** (`destructive/10` bg + destructive text), not a solid red fill, except on the most dangerous confirmations.
-- **Success** (`#1f7a3f`; dark `#4ade80`): Healthy/running/deployed.
-- **Warning** (`#8a6a00`; dark `#fbbf24`): Pending, degraded, propagating, attention-needed.
+- **Success** (`#1d733b`; dark `#4ade80`): Healthy/running/deployed.
+- **Warning** (`#7f6200`; dark `#fbbf24`): Pending, degraded, propagating, attention-needed.
 - **Info** (`#1f5fa8`; dark `#60a5fa`): Neutral informational state and notices.
 
 ### Named Rules

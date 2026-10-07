@@ -74,7 +74,9 @@ export function BlockSplitButton({
               size={size}
               disabled={disabled}
               aria-label={menuLabel}
-              className={cn("rounded-l-none px-1", DESTRUCTIVE)}
+              // At least as wide as it is tall: a 21 px caret beside "Block" missed
+              // WCAG 2.5.8's 24 px target (axe target-size on Edge).
+              className={cn("min-w-6 rounded-l-none px-1", DESTRUCTIVE)}
             >
               <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
             </Button>

@@ -19,6 +19,16 @@ import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { SERVICE_DOMAINS_COLLECTION_KEY } from "@/features/resources/data/service-domains";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+type DomainRow = Awaited<ReturnType<typeof orpc.service.domains.list.call>>[number];
+
+/** The list with `domain` in it: replaced in place when it is already there
+ *  (by id), appended otherwise. Exported for the tests. */
+export function withDomain<Row extends { id: string }>(rows: readonly Row[], domain: Row): Row[] {
+  return rows.some((r) => r.id === domain.id)
+    ? rows.map((r) => (r.id === domain.id ? domain : r))
+    : [...rows, domain];
+}
+
 export function useServiceNetworking({
   input,
   onAdded,
@@ -46,9 +56,27 @@ export function useServiceNetworking({
     ]);
   };
 
+  /**
+   * Put the host the server just accepted into the card's own list before
+   * the toast says anything about it. The toast and the card used to read
+   * different sources: the toast the mutation's answer, the card a list
+   * that refetched afterwards, so "web.example.com is live" sat above "Not
+   * reachable from the internet". Adding a host also turns public exposure
+   * on server-side, so the service view says so too.
+   */
+  const showAccepted = (domain: DomainRow) => {
+    queryClient.setQueryData(orpc.service.domains.list.queryKey({ input }), (rows) =>
+      withDomain(rows ?? [], domain),
+    );
+    queryClient.setQueryData(orpc.service.get.queryKey({ input }), (service) =>
+      service ? { ...service, publicEnabled: true } : service,
+    );
+  };
+
   const add = useMutation({
     ...orpc.service.domains.add.mutationOptions(),
     onSuccess: (domain) => {
+      showAccepted(domain);
       onAdded();
       toast.success(
         domain.status === "live"
@@ -62,7 +90,10 @@ export function useServiceNetworking({
 
   const generate = useMutation({
     ...orpc.service.domains.generate.mutationOptions(),
-    onSuccess: (domain) => toast.success(`Published on ${domain.domain}`),
+    onSuccess: (domain) => {
+      showAccepted(domain);
+      toast.success(`Published on ${domain.domain}`);
+    },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to generate domain"),
     onSettled,
   });

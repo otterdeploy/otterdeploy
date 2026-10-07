@@ -117,6 +117,8 @@ const serviceRow: ServiceResourceRow = {
   networkName: "otterdeploy-proj",
   publicEnabled: false,
   publicDomain: null,
+  envChangedAt: null,
+  envAppliedAt: null,
   stackId: null,
   forceUpdateCounter: 0,
   createdAt: new Date(0),

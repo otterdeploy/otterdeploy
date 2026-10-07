@@ -147,7 +147,7 @@ export function kindLabel(k: BackupKind): string {
 
 // Status tone → the semantic state tokens (DESIGN.md §2). Not raw palette
 // colours: `emerald-500` is one fixed value in both themes, while `--success`
-// resolves to #1f7a3f on light and #4ade80 on dark, which is what keeps the
+// resolves to #1d733b on light and #4ade80 on dark, which is what keeps the
 // contrast bar met in each.
 function statusTone(status: BackupStatus | "active" | "degraded" | "disabled"): string {
   switch (status) {
@@ -223,57 +223,29 @@ export function Field({
   label,
   children,
   className,
+  group = false,
 }: {
   label: string;
   children: React.ReactNode;
   className?: string;
+  /** The child is a control group (a segmented choice), not one input. A
+   *  `<label>` wrapped around a group names its FIRST button after the whole
+   *  label ("Source Volume" for the Database segment), so a
+   *  group gets a plain wrapper and names itself. */
+  group?: boolean;
 }) {
+  if (group) {
+    return (
+      <div className={cn("flex flex-col gap-1.5", className)}>
+        <span className="text-xs text-muted-foreground">{label}</span>
+        {children}
+      </div>
+    );
+  }
   return (
     <label className={cn("flex flex-col gap-1.5", className)}>
       <span className="text-xs text-muted-foreground">{label}</span>
       {children}
     </label>
-  );
-}
-
-export function SectionH({ title, sub }: { title: string; sub?: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-export function Segmented<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: Array<{ id: T; label: string }>;
-}) {
-  return (
-    <div className="inline-flex w-fit items-center gap-1 rounded-md border bg-muted/40 p-0.5">
-      {options.map((o) => {
-        const active = value === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => onChange(o.id)}
-            className={cn(
-              "rounded px-2.5 py-1 text-xs transition-colors",
-              active
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }

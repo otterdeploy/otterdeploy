@@ -173,7 +173,7 @@ export function LogsHistogram({
           />
         )}
       </div>
-      <div className="mt-1 flex font-mono text-[10px] text-muted-foreground/70">
+      <div className="mt-1 flex font-mono text-[10px] text-muted-foreground">
         <span>−30m</span>
         <div className="flex-1" />
         <span>now</span>

@@ -26,7 +26,8 @@ import { runBackup } from "./data/backups";
 import { useVolumesList } from "./data/volumes";
 import { DatabaseCombobox } from "./database-combobox";
 import { MultiSelectCombobox } from "./multi-combobox";
-import { Field, Segmented } from "./shared";
+import { Segmented } from "./segmented";
+import { Field } from "./shared";
 import { VolumeCombobox } from "./volume-combobox";
 
 export function BackupNowDialog({
@@ -132,7 +133,8 @@ function BackupNowBody({
   // feature's inventory and lists managed `database_resource` rows only, so an
   // install whose databases all live inside compose stacks — the common case —
   // saw "No databases found" while holding live data.
-  const { data: databases = [] } = useQuery(orpc.backups.sources.queryOptions({ input: {} }));
+  const sources = useQuery(orpc.backups.sources.queryOptions({ input: {} }));
+  const databases = sources.data ?? [];
   const form = useForm({
     defaultValues: emptyRun(initialResourceId),
     onSubmit: ({ value }) => submitBackup(value, onClose),
@@ -171,6 +173,7 @@ function BackupNowBody({
                   <Field label="Database">
                     <DatabaseCombobox
                       databases={databases}
+                      loading={sources.isPending}
                       value={field.state.value}
                       onChange={field.handleChange}
                     />
@@ -186,8 +189,9 @@ function BackupNowBody({
                   databases.find((d) => d.resourceId === resourceId)?.engine === "postgres" ? (
                     <form.Field name="physical">
                       {(field) => (
-                        <Field label="Method">
+                        <Field label="Method" group>
                           <Segmented
+                            label="Method"
                             value={field.state.value ? "physical" : "logical"}
                             onChange={(v) => field.handleChange(v === "physical")}
                             options={[

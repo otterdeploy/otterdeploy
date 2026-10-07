@@ -71,6 +71,7 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
             <TimeSeriesChart
               smooth
               data={agg.rows}
+              timeWindow={agg.timeWindow}
               ariaLabel="Project CPU usage over the selected window"
               format={(v) => formatPercent(v, 1)}
               series={[{ dataKey: "cpuPct", label: "CPU", color: CPU_COLOR }]}
@@ -89,6 +90,7 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
             <TimeSeriesChart
               smooth
               data={agg.rows}
+              timeWindow={agg.timeWindow}
               ariaLabel="Project memory usage over the selected window"
               format={(v) => formatBytes(v)}
               series={[{ dataKey: "memBytes", label: "Memory", color: MEMORY_COLOR }]}

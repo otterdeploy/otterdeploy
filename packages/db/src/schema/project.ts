@@ -683,6 +683,17 @@ export const serviceResource = pgTable(
     publicEnabled: boolean("public_enabled").notNull().default(false),
     publicDomain: text("public_domain"),
 
+    // Is the env on screen the env the container runs? A container's env is
+    // fixed when its spec is written, so a saved variable is not live until
+    // the next roll (the Variables tab could not say which).
+    // `envChangedAt` is stamped by every write to this service's own env rows
+    // (routers/service/queries/env.ts); `envAppliedAt` by every spec write
+    // that resolved env (redeployOne / provisionFresh), with the instant the
+    // env was READ, so a write racing the roll still reads as pending. Null =
+    // not since these columns existed; the view says "unknown", not "live".
+    envChangedAt: timestamp("env_changed_at"),
+    envAppliedAt: timestamp("env_applied_at"),
+
     // When set, this service is a member of a Docker Compose stack. It was
     // materialized from the stack's compose file and is owned by it. Null for a
     // standalone service. Drives graph grouping (services sharing a stackId

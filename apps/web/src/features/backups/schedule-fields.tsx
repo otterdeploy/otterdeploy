@@ -11,7 +11,8 @@ import { SelectField, TextField } from "./form-fields";
 import { MultiSelectCombobox } from "./multi-combobox";
 import { type ScheduleFormApi, cronFromPreset } from "./schedule-form";
 import { ReliabilityFields, RetentionFields } from "./schedule-policy-fields";
-import { Field, Segmented, destUri } from "./shared";
+import { Segmented } from "./segmented";
+import { Field, destUri } from "./shared";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -157,6 +158,7 @@ function CadenceFields({ form }: { form: ScheduleFormApi }) {
       <form.Field name="preset">
         {(f) => (
           <Segmented
+            label="Runs"
             value={f.state.value}
             onChange={(np) => {
               f.handleChange(np);

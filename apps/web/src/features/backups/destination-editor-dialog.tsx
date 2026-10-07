@@ -24,7 +24,8 @@ import {
   configFromInitial,
   missingRequiredFields,
 } from "./destination-fields";
-import { Field, Segmented } from "./shared";
+import { Segmented } from "./segmented";
+import { Field } from "./shared";
 
 export function DestinationEditorDialog({
   initial,
@@ -178,8 +179,9 @@ function DestinationEditorBody({
           {!editing && (
             <form.Field name="type">
               {(field) => (
-                <Field label="Type">
+                <Field label="Type" group>
                   <Segmented
+                    label="Type"
                     value={field.state.value}
                     onChange={(t) => {
                       field.handleChange(t);

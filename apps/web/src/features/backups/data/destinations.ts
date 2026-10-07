@@ -38,23 +38,27 @@ const destinationsQueryOptions = queryCollectionOptions({
   ...orpc.backups.destinations.list.queryOptions(),
   queryKey: destinationsListKey,
   queryFn: async () => orpc.backups.destinations.list.call({}),
-  onInsert: async ({ transaction }) => {
-    await Promise.all(
-      transaction.mutations.map(async (m) => {
-        const row = m.modified;
-        const secret = metadataSecretRecord(m.metadata);
-        await orpc.backups.destinations.create.call({
-          name: row.name,
-          type: row.type,
-          config: row.config,
-          usedForBackups: row.usedForBackups,
-          ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
-        });
-        // The optimistic row used a temp id; refetch so the real row
-        // (server id, computed usage) replaces it.
-        await queryClient.invalidateQueries({ queryKey: destinationsListKey });
-      }),
-    );
+  onInsert: async ({ transaction, collection }) => {
+    for (const m of transaction.mutations) {
+      const row = m.modified;
+      const secret = metadataSecretRecord(m.metadata);
+      const created = await orpc.backups.destinations.create.call({
+        name: row.name,
+        type: row.type,
+        config: row.config,
+        usedForBackups: row.usedForBackups,
+        ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
+      });
+      // The optimistic row carried a temp id. Write the server's row in the
+      // same step, rather than refetching and hoping the list lands before
+      // anyone clicks: a refetch left the temp-id row on screen long enough
+      // for Test/Edit/Delete to send an id the server never minted (NOT_FOUND
+      // until a reload). The temp row lives only in the optimistic layer, so
+      // there is nothing to delete from the synced state: it goes when this
+      // transaction completes, a tick later.
+      collection.utils.writeUpsert(created);
+    }
+    return { refetch: false };
   },
   onUpdate: async ({ transaction }) => {
     await Promise.all(

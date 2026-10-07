@@ -116,8 +116,9 @@ export function RoutesTable({
                       </EmptyMedia>
                       <EmptyTitle>No routes yet</EmptyTitle>
                       <EmptyDescription>
-                        Expose a service or enable public access on a database to
-                        publish it through the Caddy edge proxy.
+                        Give a service a hostname from its Settings → Public networking
+                        (open it on the graph), or enable public access on a database.
+                        Every route lands here.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>

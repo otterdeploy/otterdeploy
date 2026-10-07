@@ -26,8 +26,6 @@ import { cn } from "@/shared/lib/utils";
 
 import type { Schedule } from "./data/schedules";
 
-import { SectionH } from "./shared";
-
 type Protection =
   | { kind: "protected"; schedules: Schedule[] }
   | { kind: "unprotected" }
@@ -101,16 +99,13 @@ export function CoverageSection({
 
   return (
     <>
-      <div className="mb-3 flex items-center gap-2">
-        <SectionH
-          title="Coverage"
-          sub="Every database in the org and whether a schedule protects it"
-        />
-        <div className="flex-1" />
-        {unprotected > 0 && (
-          <span className="font-mono text-[11px] text-warning">{unprotected} unprotected</span>
-        )}
-      </div>
+      {/* The page header titles this view; only the count it adds stays. */}
+      {unprotected > 0 && (
+        <p className="mb-3 text-[13px] font-medium text-warning">
+          {unprotected} {unprotected === 1 ? "database is" : "databases are"} not protected by a
+          schedule
+        </p>
+      )}
 
       {isPending ? (
         <div className="mb-8 flex flex-col gap-2">

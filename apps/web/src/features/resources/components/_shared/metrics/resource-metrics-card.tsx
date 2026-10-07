@@ -48,7 +48,10 @@ export function ResourceMetricsCard({
   windowMinutes,
 }: ResourceMetricsCardProps) {
   const node = resourceToNode(resource).data;
-  const { rows, summary, isLoading } = useResourceMetrics(resource.resourceId, windowMinutes);
+  const { rows, summary, isLoading, timeWindow } = useResourceMetrics(
+    resource.resourceId,
+    windowMinutes,
+  );
   const hasData = rows.length > 0;
   const latest = summary.latest;
 
@@ -86,6 +89,7 @@ export function ResourceMetricsCard({
             chart={
               <TimeSeriesChart
                 compact
+                timeWindow={timeWindow}
                 smooth
                 height={40}
                 data={rows}
@@ -102,6 +106,7 @@ export function ResourceMetricsCard({
             chart={
               <TimeSeriesChart
                 compact
+                timeWindow={timeWindow}
                 smooth
                 height={40}
                 data={rows}
@@ -141,6 +146,7 @@ export function ResourceMetricsCard({
             chart={
               <TimeSeriesChart
                 compact
+                timeWindow={timeWindow}
                 smooth
                 height={40}
                 data={rows}

@@ -64,7 +64,7 @@ export function LogsToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
       <Select value={svcFilter} onValueChange={(v) => v && onSvcChange(v)} items={svcItems}>
-        <SelectTrigger className="h-8 w-44 text-[12px]" size="sm">
+        <SelectTrigger className="h-8 w-44 text-[12px]" size="sm" aria-label="Service">
           <SelectValue placeholder={t("logs.allServices")} />
         </SelectTrigger>
         <SelectContent>

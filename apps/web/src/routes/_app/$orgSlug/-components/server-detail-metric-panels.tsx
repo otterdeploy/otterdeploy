@@ -12,7 +12,7 @@ import type { ServerMetricRow, ServerMetricSummary } from "@/features/servers/de
 
 import { MetricCard } from "@/features/resources/components/_shared/metrics/metric-card";
 import { formatPercent } from "@/features/resources/components/_shared/metrics/format";
-import { TimeSeriesChart } from "@/shared/components/charts/time-series-chart";
+import { TimeSeriesChart, type TimeWindow } from "@/shared/components/charts/time-series-chart";
 import { Meter } from "@/shared/components/ui/meter";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 
@@ -23,6 +23,8 @@ const MEMORY_COLOR = "var(--chart-memory)";
 interface PanelProps {
   rows: ServerMetricRow[];
   sampleIntervalMs: number;
+  /** The selected window: the axis spans exactly this. */
+  timeWindow: TimeWindow | undefined;
 }
 
 export type CpuMode = "total" | "breakdown";
@@ -51,6 +53,7 @@ export function CpuPanel({
   rows,
   summary,
   sampleIntervalMs,
+  timeWindow,
   mode,
   onMode,
 }: PanelProps & { summary: ServerMetricSummary; mode: CpuMode; onMode: (m: CpuMode) => void }) {
@@ -97,6 +100,7 @@ export function CpuPanel({
           ariaLabel="CPU time by class over the selected window"
           format={(v) => formatPercent(v, 0)}
           sampleIntervalMs={sampleIntervalMs}
+          timeWindow={timeWindow}
           series={[
             { dataKey: "cpuUserPct", label: "user" },
             { dataKey: "cpuSystemPct", label: "system" },
@@ -113,6 +117,7 @@ export function CpuPanel({
           ariaLabel="CPU usage over the selected window"
           format={(v) => formatPercent(v, 0)}
           sampleIntervalMs={sampleIntervalMs}
+          timeWindow={timeWindow}
           series={
             // Bucketed windows draw the bucket's peak beside its average, so a
             // one-minute spike is not averaged out of a week-long chart.
@@ -142,7 +147,7 @@ export function PerCoreGrid({ perCore }: { perCore: readonly number[] }) {
   );
 }
 
-export function LoadPanel({ rows, sampleIntervalMs, cores }: PanelProps & { cores: number }) {
+export function LoadPanel({ rows, sampleIntervalMs, timeWindow, cores }: PanelProps & { cores: number }) {
   const latest = rows.at(-1);
   return (
     <MetricCard
@@ -161,6 +166,7 @@ export function LoadPanel({ rows, sampleIntervalMs, cores }: PanelProps & { core
         ariaLabel="Load average over the selected window"
         format={(v) => v.toFixed(1)}
         sampleIntervalMs={sampleIntervalMs}
+          timeWindow={timeWindow}
         series={[
           { dataKey: "loadAvg1", label: "1 min" },
           { dataKey: "loadAvg5", label: "5 min" },
@@ -171,7 +177,7 @@ export function LoadPanel({ rows, sampleIntervalMs, cores }: PanelProps & { core
   );
 }
 
-export function MemoryPanel({ rows, sampleIntervalMs }: PanelProps) {
+export function MemoryPanel({ rows, sampleIntervalMs, timeWindow }: PanelProps) {
   const latest = rows.at(-1);
   return (
     <MetricCard
@@ -191,6 +197,7 @@ export function MemoryPanel({ rows, sampleIntervalMs }: PanelProps) {
         ariaLabel="Memory usage over the selected window"
         format={(v) => formatPercent(v, 0)}
         sampleIntervalMs={sampleIntervalMs}
+          timeWindow={timeWindow}
         series={[
           { dataKey: "memUsedPct", label: "used", color: MEMORY_COLOR },
           { dataKey: "memCachedPct", label: "cache" },
@@ -201,7 +208,7 @@ export function MemoryPanel({ rows, sampleIntervalMs }: PanelProps) {
   );
 }
 
-export function DiskIoPanel({ rows, sampleIntervalMs }: PanelProps) {
+export function DiskIoPanel({ rows, sampleIntervalMs, timeWindow }: PanelProps) {
   const latest = rows.at(-1);
   return (
     <MetricCard
@@ -217,6 +224,7 @@ export function DiskIoPanel({ rows, sampleIntervalMs }: PanelProps) {
         ariaLabel="Disk throughput over the selected window"
         format={rateTick}
         sampleIntervalMs={sampleIntervalMs}
+          timeWindow={timeWindow}
         series={[
           { dataKey: "diskReadBps", label: "read" },
           { dataKey: "diskWriteBps", label: "write" },
@@ -226,7 +234,7 @@ export function DiskIoPanel({ rows, sampleIntervalMs }: PanelProps) {
   );
 }
 
-export function NetworkPanel({ rows, sampleIntervalMs }: PanelProps) {
+export function NetworkPanel({ rows, sampleIntervalMs, timeWindow }: PanelProps) {
   const latest = rows.at(-1);
   return (
     <MetricCard
@@ -242,6 +250,7 @@ export function NetworkPanel({ rows, sampleIntervalMs }: PanelProps) {
         ariaLabel="Network throughput over the selected window"
         format={rateTick}
         sampleIntervalMs={sampleIntervalMs}
+          timeWindow={timeWindow}
         series={[
           { dataKey: "netRxBps", label: "in" },
           { dataKey: "netTxBps", label: "out" },

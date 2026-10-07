@@ -10,6 +10,9 @@ import type { ServerId } from "@otterdeploy/shared/id";
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { TimeWindow } from "@/shared/components/charts/time-series-chart";
+
+import { metricTimeWindow } from "@/features/resources/components/_shared/metrics/use-resource-metrics";
 import { epochMsOf } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
 
@@ -76,6 +79,8 @@ export interface ServerMetrics {
   isLoading: boolean;
   isError: boolean;
   updatedAt: number;
+  /** The window the charts draw, pinned to the selected range. */
+  timeWindow: TimeWindow | undefined;
 }
 
 type Point = Awaited<ReturnType<typeof orpc.server.metrics.call>>["points"][number];
@@ -134,5 +139,6 @@ export function useServerMetrics(serverId: ServerId, windowMinutes: number): Ser
     isLoading: query.isLoading,
     isError: query.isError,
     updatedAt: query.dataUpdatedAt,
+    timeWindow: metricTimeWindow(query.dataUpdatedAt || (rows.at(-1)?.ts ?? 0), windowMinutes),
   };
 }

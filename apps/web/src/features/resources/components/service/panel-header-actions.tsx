@@ -1,10 +1,8 @@
 /**
- * The service panel header's runtime action cluster. Pause/resume (with its
- * confirm dialog), restart, and the primary deploy button. Split out of
+ * The service panel header's runtime action cluster. Pause/resume (pause
+ * offers Undo in its toast), restart, and the primary deploy button. Split out of
  * `panel-parts.tsx` to keep that module within the file-size budget.
  */
-
-import { useState } from "react";
 
 import {
   ArrowDown01Icon,
@@ -15,16 +13,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
@@ -49,8 +37,7 @@ export interface PauseControl {
   busy: boolean;
 }
 
-function PauseResumeButton({ name, control }: { name: string; control: PauseControl }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+function PauseResumeButton({ control }: { control: PauseControl }) {
   if (control.paused) {
     return (
       <Button
@@ -69,51 +56,21 @@ function PauseResumeButton({ name, control }: { name: string; control: PauseCont
       </Button>
     );
   }
+  // No confirm: pausing keeps config, variables, domains and volumes, and
+  // the toast it raises carries Undo (an undo for a reversible change, a
+  // dialog for access loss, a typed confirm for data loss).
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setConfirmOpen(true)}
-        disabled={control.busy}
-        aria-label={control.busy ? "Pausing" : "Pause"}
-      >
-        <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-3.5" />
-        <span className="hidden sm:inline">{control.busy ? "Pausing…" : "Pause"}</span>
-      </Button>
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Pause {name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              All replicas stop and the service goes unreachable until you resume. Config,
-              variables, domains, and volumes are kept. Resume restores the current replica count.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              render={
-                <Button variant="ghost" size="sm">
-                  Cancel
-                </Button>
-              }
-            />
-            <AlertDialogAction
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setConfirmOpen(false);
-                control.onPause();
-              }}
-            >
-              <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-3.5" />
-              Pause service
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={control.onPause}
+      disabled={control.busy}
+      aria-label={control.busy ? "Pausing" : "Pause"}
+    >
+      <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-3.5" />
+      <span className="hidden sm:inline">{control.busy ? "Pausing…" : "Pause"}</span>
+    </Button>
   );
 }
 
@@ -147,7 +104,7 @@ export function HeaderActions({
     <>
       {/* Pause/Resume renders only once the live view has loaded and
           never for a never-deployed service. */}
-      {!neverDeployed && pause && <PauseResumeButton name={resource.name} control={pause} />}
+      {!neverDeployed && pause && <PauseResumeButton control={pause} />}
       {/* Restart only makes sense once something is actually running:
           nothing to restart on a never-deployed or paused service
           (restarting a paused one would re-roll zero replicas). */}

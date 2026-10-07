@@ -94,6 +94,8 @@ function BucketsPage() {
   // inside page padding wastes the two dimensions it needs most.
   return (
     <div className="flex h-[calc(100svh-var(--header-height))] min-h-0 min-w-0 flex-col overflow-hidden">
+      {/* Full-bleed: no title bar, but the page is still named. */}
+      <h1 className="sr-only">Buckets</h1>
       {headerCrumb}
       {isLoading ? (
         <div className="min-h-0 flex-1 animate-pulse bg-muted/20" />

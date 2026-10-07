@@ -1,6 +1,9 @@
+import { useState } from "react";
+
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Result } from "better-result";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -26,8 +29,14 @@ function useSignUpForm(bootstrap: boolean) {
   const queryClient = useQueryClient();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
+  // The server refusing the bootstrap token, said under the token field.
+  // It used to escape as an uncaught exception in the console with a toast
+  //: the form awaited a mutation that rejected.
+  const [tokenRefusal, setTokenRefusal] = useState<string | null>(null);
 
   const signUp = useMutation({
+    // A refusal is an answer, not a crash: returned, so it can be shown where
+    // it belongs. Only a transport failure throws.
     mutationFn: async (input: {
       name: string;
       email: string;
@@ -38,11 +47,22 @@ function useSignUpForm(bootstrap: boolean) {
       const result = await authClient.signUp.email(credentials, {
         headers: bootstrap ? { "x-otterdeploy-bootstrap-token": bootstrapToken } : undefined,
       });
-      if (result.error)
-        throw new Error(result.error.message ?? result.error.statusText ?? "Sign up failed");
-      return result.data;
+      if (!result.error) return { refused: null };
+      return {
+        refused: {
+          status: result.error.status,
+          message: result.error.message ?? result.error.statusText ?? "Sign up failed",
+        },
+      };
     },
-    onSuccess: async () => {
+    onMutate: () => setTokenRefusal(null),
+    onSuccess: async ({ refused }) => {
+      if (refused) {
+        // The first account is refused (403) exactly when the token is wrong.
+        if (bootstrap && refused.status === 403) setTokenRefusal(refused.message);
+        else toast.error(refused.message);
+        return;
+      }
       // A new session exists now. Anything cached under ["auth", …] describes
       // the pre-sign-up (or previous) session.
       await queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
@@ -57,11 +77,17 @@ function useSignUpForm(bootstrap: boolean) {
   const form = useForm({
     defaultValues: { name: "", email: "", password: "", bootstrapToken: "" },
     onSubmit: async ({ value }) => {
-      await signUp.mutateAsync({
-        name: value.name,
-        email: value.email,
-        password: value.password,
-        bootstrapToken: value.bootstrapToken,
+      // Settled either way: the mutation's own callbacks already said what
+      // happened, so nothing may reject out of the submit handler.
+      await Result.tryPromise({
+        try: () =>
+          signUp.mutateAsync({
+            name: value.name,
+            email: value.email,
+            password: value.password,
+            bootstrapToken: value.bootstrapToken,
+          }),
+        catch: () => null,
       });
     },
     validators: {
@@ -76,7 +102,7 @@ function useSignUpForm(bootstrap: boolean) {
     },
   });
 
-  return form;
+  return { form, tokenRefusal };
 }
 
 export function SignUpForm({
@@ -92,7 +118,7 @@ export function SignUpForm({
   onSwitchToSignIn: () => void;
 }) {
   const { t } = useTranslation();
-  const form = useSignUpForm(bootstrap);
+  const { form, tokenRefusal } = useSignUpForm(bootstrap);
 
   return (
     <div>
@@ -165,6 +191,11 @@ export function SignUpForm({
               )}
             </form.Field>
           )}
+          {bootstrap && tokenRefusal ? (
+            <p role="alert" className="-mt-3 text-sm text-destructive">
+              {tokenRefusal}
+            </p>
+          ) : null}
 
           <form.Subscribe selector={(state) => state}>
             {(state) => (

@@ -53,7 +53,7 @@ export function CertificatesActions({ onUploadCert }: { onUploadCert: () => void
   return (
     <div className="flex items-center gap-2">
       {inventory.data ? (
-        <span className="hidden font-mono text-[11px] text-muted-foreground/70 sm:inline">
+        <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
           via {inventory.data.edgeHost} · {new Date(inventory.data.probedAt).toLocaleTimeString()}
         </span>
       ) : null}

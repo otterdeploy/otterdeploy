@@ -167,7 +167,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
                     beats a plain h-* class anyway (data variants sort later),
                     which is exactly how this row ended up uneven. All three
                     controls sit on the system default h-8. */}
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-[130px]" aria-label="Role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

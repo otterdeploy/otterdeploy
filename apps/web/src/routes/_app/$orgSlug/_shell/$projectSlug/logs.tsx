@@ -194,16 +194,7 @@ function RouteComponent() {
       onValueChange={(v) => setSource(zLogsSearch.shape.source.parse(v))}
       className="flex h-[calc(100svh-var(--header-height)-2.5rem)] flex-col gap-0 overflow-hidden"
     >
-      <div className="flex items-center border-b px-4 pt-2">
-        <TabsList variant="line" className="h-auto bg-transparent p-0">
-          <TabsTrigger value="runtime" className="px-3 py-2">
-            Runtime
-          </TabsTrigger>
-          <TabsTrigger value="edge" className="px-3 py-2">
-            Edge
-          </TabsTrigger>
-        </TabsList>
-      </div>
+      <LogsSourceBar />
 
       <TabsContent value="runtime" className="flex min-h-0 flex-1 flex-col gap-0">
         <LogsHistogram
@@ -262,5 +253,25 @@ function RouteComponent() {
         />
       </TabsContent>
     </Tabs>
+  );
+}
+
+/** The source switch, and the page's name for screen readers: the tabs are
+ *  its only title bar. */
+function LogsSourceBar() {
+  return (
+    <>
+      <h1 className="sr-only">Logs</h1>
+      <div className="flex items-center border-b px-4 pt-2">
+        <TabsList variant="line" className="h-auto bg-transparent p-0">
+          <TabsTrigger value="runtime" className="px-3 py-2">
+            Runtime
+          </TabsTrigger>
+          <TabsTrigger value="edge" className="px-3 py-2">
+            Edge
+          </TabsTrigger>
+        </TabsList>
+      </div>
+    </>
   );
 }

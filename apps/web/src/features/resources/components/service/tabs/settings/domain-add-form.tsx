@@ -141,7 +141,7 @@ function Availability({
   if (!verdict) return <span />;
   if (verdict.available) {
     return (
-      <span className="flex items-center gap-1.5 text-[12px] text-primary">
+      <span className="flex items-center gap-1.5 text-[12px] text-brand-accent">
         <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5" />
         Available
       </span>
