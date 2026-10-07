@@ -39,11 +39,12 @@ import {
 } from "./queries";
 import { reconcileRoutes, type ReconcileResult } from "./reconciler";
 import { toRouteInput } from "./route-input";
-import { loadWithEdgeSelfHeal } from "./self-heal";
+import { loadControlPlaneEdge } from "./self-heal";
 
 export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
 export { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
+export { startEdgeWatch } from "./edge-watch";
 
 interface CaddyBuildOptions {
   acmeEmail: string | null;
@@ -158,7 +159,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     adminBind: env.CADDY_ADMIN_BIND,
     ...options,
     adapt: (caddyfile) => adaptCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
-    load: (caddyfile) => loadWithEdgeSelfHeal(caddyfile, rlog),
+    load: (caddyfile) => loadControlPlaneEdge(caddyfile, rlog),
     rlog,
   });
 

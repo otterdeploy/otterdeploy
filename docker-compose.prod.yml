@@ -215,15 +215,28 @@ services:
     # control plane has reconciled the real one; the server then pushes config
     # through a permissioned Unix socket mounted only into Caddy + server.
     # Removing the stale socket before start makes unclean restarts recover.
+    #
+    # `--resume`: start from the config the server last pushed, which Caddy
+    # autosaves to its state volume (/config/caddy/autosave.json), instead of
+    # the stub. Without it every restart (crash, OOM, reboot, update) served
+    # the stub's 503 on every app route until the server was restarted by
+    # hand. An autosave Caddy cannot load would crash-loop the edge, so it is
+    # validated first and set aside if rejected: the edge then boots from
+    # the stub and the server's edge watch re-pushes the routes within seconds.
     environment:
       CADDY_ADMIN_BIND: unix//run/caddy-admin/admin.sock|0600
       CADDY_ADMIN_SOCKET_PATH: /run/caddy-admin/admin.sock
     command: >
       sh -c "mkdir -p /etc/caddy /run/caddy-admin &&
              rm -f /run/caddy-admin/admin.sock &&
-             [ -s /etc/caddy/Caddyfile ] ||
-               printf '{\n  admin unix//run/caddy-admin/admin.sock|0600\n}\n:80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile &&
-             caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
+             { [ -s /etc/caddy/Caddyfile ] ||
+               printf '{\n  admin unix//run/caddy-admin/admin.sock|0600\n}\n:80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile; } &&
+             AUTOSAVE=/config/caddy/autosave.json &&
+             if [ -s $$AUTOSAVE ] && ! caddy validate --config $$AUTOSAVE >/dev/null 2>&1; then
+               echo 'otterdeploy: saved edge config rejected by caddy validate, starting from the stub' >&2;
+               mv -f $$AUTOSAVE $$AUTOSAVE.rejected;
+             fi &&
+             exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --resume"
     ports:
       - "80:80"
       - "443:443"

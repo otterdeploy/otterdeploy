@@ -51,16 +51,23 @@ async function loadRow(): Promise<PlatformRow | undefined> {
   const now = Date.now();
   if (cached && now - cached.at < CACHE_TTL_MS) return cached.row;
   // Collapse concurrent misses onto one query: on a cold cache the egress
-  // path can otherwise fire several identical selects for one request.
+  // path can otherwise fire several identical selects for one request. The
+  // shared read is dropped however it settles: a FAILED read kept here would
+  // answer every later caller with the same rejection until a settings write
+  // happened to invalidate it, so one Postgres blip would leave the firewall
+  // recorder, egress checks and retention sweeps failing for good.
   inflight ??= (async () => {
-    const [row] = await db
-      .select()
-      .from(platformSettings)
-      .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-      .limit(1);
-    cached = { row, at: Date.now() };
-    inflight = null;
-    return row;
+    try {
+      const [row] = await db
+        .select()
+        .from(platformSettings)
+        .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+        .limit(1);
+      cached = { row, at: Date.now() };
+      return row;
+    } finally {
+      inflight = null;
+    }
   })();
   return inflight;
 }
@@ -195,11 +202,10 @@ export async function twilioConfig(): Promise<TwilioConfig | null> {
   return { accountSid, authToken, fromNumber };
 }
 
-/** FCM server key, or null when push isn't configured. */
-export async function fcmServerKey(): Promise<string | null> {
-  const row = await loadRow();
-  return (await decryptOrNull(row?.fcmServerKeyCiphertext)) ?? env.FCM_SERVER_KEY ?? null;
-}
+// Push credentials are resolved where they are used, in packages/jobs
+// (delivery/platform-transports.ts `fcmCredentials`): FCM HTTP v1 needs the
+// service-account key file, and the legacy server key this file used to
+// return only fed the shut-down legacy API.
 
 // ─── Firewall / CrowdSec ──────────────────────────────────────────────
 

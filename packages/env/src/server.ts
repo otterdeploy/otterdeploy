@@ -66,6 +66,16 @@ export const env = createEnv({
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_FROM_NUMBER: z.string().min(1).optional(),
+    // Push: the Firebase service-account key file, its JSON as one value
+    // (Firebase console → Project settings → Service accounts → Generate new
+    // private key). Validated where it is used (packages/jobs delivery/fcm.ts),
+    // so a malformed value fails the push with a clear message instead of
+    // failing boot.
+    FCM_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    // DEPRECATED, never used to send: the legacy FCM server key. Google shut
+    // that API down from 2024-07-22, so a push configured only with this fails
+    // with a message pointing at FCM_SERVICE_ACCOUNT_JSON. Migrate by setting
+    // FCM_SERVICE_ACCOUNT_JSON and removing this.
     FCM_SERVER_KEY: z.string().min(1).optional(),
 
     // Caddy recommends a permissioned Unix socket whenever untrusted

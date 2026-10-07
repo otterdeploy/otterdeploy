@@ -11,16 +11,20 @@
  * badge is an emoji and not a coloured word.
  */
 
+import { Result } from "better-result";
+
 import type { ChannelEvent, DeliveryResult, ResolvedChannel } from "./types";
 
 import {
   SEVERITY,
+  TEXT_LIMIT,
   alignedTable,
   detailRows,
   escapeHtml,
   label,
   subjectOf,
   titleOf,
+  truncatedText,
 } from "./message";
 import { post } from "./post";
 
@@ -36,7 +40,9 @@ const IS_COMPONENTS_V2 = 1 << 15;
 /** The bot posts as the product, not as the channel. `username: c.name` made
  *  every alert appear to come from a sender called "#alerts" — the channel's
  *  own name — so the product never appeared where a reader looks to identify
- *  who sent it. */
+ *  who sent it. Discord honours it per message. Slack app webhooks (the only
+ *  kind Slack still issues) ignore `username` and post as the app, so the
+ *  Slack payload carries the product name in its context line instead. */
 const SENDER = "otterdeploy";
 
 export function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
@@ -44,13 +50,14 @@ export function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<Deliv
   const subject = subjectOf(e.data);
   const rows = detailRows(e.data, subject);
 
+  // A section's text over 3000 characters makes Slack reject the whole alert
+  // (invalid_blocks), so the free-form message is what gets shortened.
+  const head = `${s.emoji} *${s.word}*\n*${titleOf(e.title, subject)}*\n`;
+  const message = truncatedText(e.message, Math.max(0, TEXT_LIMIT.slackSection - head.length));
   const blocks: unknown[] = [
     {
       type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `${s.emoji} *${s.word}*\n*${titleOf(e.title, subject)}*\n${e.message}`,
-      },
+      text: { type: "mrkdwn", text: truncatedText(`${head}${message}`, TEXT_LIMIT.slackSection) },
     },
   ];
   // Slack renders at most 10 fields per section and truncates silently past
@@ -58,7 +65,10 @@ export function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<Deliv
   if (rows.length > 0)
     blocks.push({
       type: "section",
-      fields: rows.slice(0, 10).map(([k, v]) => ({ type: "mrkdwn", text: `*${label(k)}*\n${v}` })),
+      fields: rows.slice(0, 10).map(([k, v]) => ({
+        type: "mrkdwn",
+        text: truncatedText(`*${label(k)}*\n${v}`, TEXT_LIMIT.slackField),
+      })),
     });
   blocks.push({
     type: "context",
@@ -69,8 +79,13 @@ export function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<Deliv
     method: "POST",
     headers: { "content-type": "application/json" },
     // Top-level blocks, not a coloured attachment: the attachment's `color` was
-    // the severity stripe, and the emoji badge now carries that.
-    body: JSON.stringify({ username: SENDER, blocks }),
+    // the severity stripe, and the emoji badge now carries that. `text` is the
+    // notification fallback (push banners, screen readers) Slack asks for
+    // whenever blocks are sent.
+    body: JSON.stringify({
+      text: truncatedText(`${s.word}: ${titleOf(e.title, subject)}`, TEXT_LIMIT.slackSection),
+      blocks,
+    }),
   });
 }
 
@@ -97,7 +112,21 @@ export function deliverDiscord(c: ResolvedChannel, e: ChannelEvent): Promise<Del
   }
   parts.push({ type: SEPARATOR }, { type: TEXT, content: `-# otterdeploy · ${e.eventId}` });
 
-  return post(c.target, {
+  // A channel webhook (the URL a user copies from Discord) is not application
+  // owned, and Discord ignores `components` on it unless the request says
+  // `with_components=true`: the message is then empty and rejected with
+  // 50006 "Cannot send an empty message", i.e. every alert was dropped.
+  // `wait=true` makes Discord answer 200 with the saved message instead of a
+  // 204 sent before validation, so a 2xx here means the alert really exists.
+  const url = Result.try(() => {
+    const parsed = new URL(c.target);
+    parsed.searchParams.set("with_components", "true");
+    parsed.searchParams.set("wait", "true");
+    return parsed.toString();
+  });
+  if (url.isErr()) return Promise.resolve({ ok: false, error: "invalid Discord webhook URL" });
+
+  return post(url.value, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -117,21 +146,32 @@ export function deliverTelegram(c: ResolvedChannel, e: ChannelEvent): Promise<De
   // Telegram has no colour affordance of any kind, so this is the channel where
   // the emoji does the most work: without it a crash and a successful backup
   // were typographically identical.
+  // Telegram rejects a message over 4096 characters (counted after the HTML
+  // entities are parsed, i.e. the visible text), so the free-form message is
+  // shortened to whatever the title, table and footer leave of that budget.
+  const title = `${s.emoji} ${titleOf(e.title, subject)}`;
+  const fixed = [title, table, e.eventId].filter((part) => part !== undefined);
+  const separators = (fixed.length + (e.message ? 1 : 0) - 1) * "\n\n".length;
+  const budget = TEXT_LIMIT.telegramMessage - separators - fixed.join("").length;
   const parts = [`${s.emoji} <b>${escapeHtml(titleOf(e.title, subject))}</b>`];
-  if (e.message) parts.push(escapeHtml(e.message));
+  if (e.message) parts.push(escapeHtml(truncatedText(e.message, Math.max(1, budget))));
   if (table !== undefined) parts.push(`<pre>${escapeHtml(table)}</pre>`);
   parts.push(`<i>${escapeHtml(e.eventId)}</i>`);
 
-  return post(`https://api.telegram.org/bot${c.secret}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      chat_id: c.target,
-      text: parts.join("\n\n"),
-      parse_mode: "HTML",
-      // Alerts link back to the dashboard; an unfurl card per alert would
-      // double the height of the channel.
-      disable_web_page_preview: true,
-    }),
-  });
+  return post(
+    `https://api.telegram.org/bot${c.secret}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: c.target,
+        text: parts.join("\n\n"),
+        parse_mode: "HTML",
+        // Alerts link back to the dashboard; an unfurl card per alert would
+        // double the height of the channel.
+        disable_web_page_preview: true,
+      }),
+    },
+    { followRedirects: false },
+  );
 }

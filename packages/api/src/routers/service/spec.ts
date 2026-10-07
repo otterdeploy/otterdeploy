@@ -25,6 +25,7 @@ import { resolvePlacementForProject } from "../../swarm/resolve-placement";
 import { loadStackHostBindGrants } from "../compose/queries";
 import { getLatestDeploymentForResource } from "../project/deployments";
 import { type ServiceRecord } from "./queries";
+import { containerCommand } from "./start-command";
 import { sanitizeSlug } from "./views";
 
 /** `record.mounts` minus any listed host bind its stack is not granted. The
@@ -118,7 +119,9 @@ export async function buildSwarmSpec(
     // the base network by design — see networkScopeSuffix.
     networkScopeSuffix: networkScopeSuffix(preview),
     image,
-    command: record.service.command,
+    // Exec form as stored, except behind Railpack's `bash -c` entrypoint where
+    // it has to be one shell line. See start-command.ts.
+    command: containerCommand(record.service),
     entrypoint: record.service.entrypoint,
     env: resolvedEnv,
     replicas: record.service.replicas,

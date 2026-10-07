@@ -64,6 +64,7 @@ const fakeRecord: ServiceRecord = {
     source: "image",
     sourceSubdir: null,
     framework: null,
+    imageBuilder: null,
     replicas: 1,
     pausedReplicas: null,
     restartCondition: "on-failure",

@@ -30,6 +30,7 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { and, eq, gte, inArray, isNotNull, like, sql } from "drizzle-orm";
 import { log } from "evlog";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { emitPlatformEvent } from "./emit";
 
 const WINDOW_MS = 10 * 60 * 1000; // look back 10 minutes
@@ -154,7 +155,10 @@ async function scanAuditAnomalies(now = Date.now()): Promise<void> {
  * (< the 10-min window) so a burst is caught promptly but only alerted once.
  */
 export function startAuditAnomalyScan(intervalMs = 5 * 60 * 1000): () => void {
-  const timer = setInterval(() => void scanAuditAnomalies(), intervalMs);
+  const timer = setInterval(
+    () => runBackgroundPass("audit-anomaly-scan", () => scanAuditAnomalies()),
+    intervalMs,
+  );
   timer.unref?.();
   return () => clearInterval(timer);
 }

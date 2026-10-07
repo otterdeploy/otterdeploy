@@ -28,6 +28,27 @@ import { client, queryClient } from "@/shared/server/orpc";
  */
 const organizationIdSchema = z.string().min(1);
 
+/**
+ * The scoping presets a key carries in its metadata (read-only, selected
+ * projects; minted by the CLI's `tokens create --read-only --project`). Kept on
+ * the row so a rotation mints the replacement with the SAME restrictions: a
+ * rotate that dropped them would silently widen a read-only, single-project
+ * key into a read-write key for every project. Unknown or missing values parse
+ * to "no preset", the server's own reading (packages/api/src/authz/actor.ts).
+ */
+const keyPresetSchema = z.object({
+  accessLevel: z.enum(["read", "write"]).optional().catch(undefined),
+  projectScope: z.enum(["all", "selected"]).optional().catch(undefined),
+  projectIds: z.array(z.string()).optional().catch(undefined),
+});
+
+type KeyPreset = z.infer<typeof keyPresetSchema>;
+
+function parseKeyPreset(metadata: unknown): KeyPreset {
+  const parsed = keyPresetSchema.safeParse(metadata);
+  return parsed.success ? parsed.data : {};
+}
+
 /** React-query key for one org's key subset. */
 function apiKeysSubsetKey(organizationId: string) {
   return ["apiKeys", organizationId] as const;
@@ -69,6 +90,7 @@ const apiKeysQueryOptions = queryCollectionOptions({
       lastRequest: k.lastRequest,
       createdAt: k.createdAt,
       permissions: k.permissions,
+      preset: parseKeyPreset(k.metadata),
     }));
   },
   onInsert: async ({ transaction }) => {
@@ -80,12 +102,14 @@ const apiKeysQueryOptions = queryCollectionOptions({
         const expiresIn = row.expiresAt
           ? Math.round((new Date(row.expiresAt).getTime() - Date.now()) / 1000)
           : null;
+        // A null map on the row is full access (the plugin's representation,
+        // chosen explicitly in the create dialog or inherited by a rotation);
+        // the server requires that choice spelled out.
         const created = await client.apiKeys.create({
           name: row.name ?? "",
           expiresIn,
-          ...(row.permissions && Object.keys(row.permissions).length > 0
-            ? { permissions: row.permissions }
-            : {}),
+          permissions: row.permissions ?? "full",
+          ...row.preset,
         });
         // Hand the one-time plaintext token to the UI before we resolve; it's
         // never stored on the row. (Metadata is `unknown` at this boundary,
@@ -138,7 +162,7 @@ export const apiKeysCollection = persistence
       persistedCollectionOptions<ApiKeyRow, string | number>({
         ...apiKeysQueryOptions,
         persistence,
-        schemaVersion: 1,
+        schemaVersion: 2,
       }),
     )
   : createCollection(apiKeysQueryOptions);

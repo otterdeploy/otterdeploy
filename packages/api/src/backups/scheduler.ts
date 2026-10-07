@@ -12,11 +12,14 @@
  * reconcileInterruptedBackups first so a crashed process can't strand rows in
  * `running` forever, and the tick itself is stamped for the /health probe.
  */
-import type { BackupDestinationId } from "@otterdeploy/shared/id";
+import type { BackupDestinationId, BackupId, BackupScheduleId } from "@otterdeploy/shared/id";
 
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { Result } from "better-result";
 import { log } from "evlog";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { nextCronFire } from "../lib/cron";
 import { emitPlatformEvent } from "../notifications/emit";
 import { createBackupRun, getBackupStatus, reconcileInterruptedBackups } from "./db";
@@ -24,12 +27,14 @@ import { activeDestinationIdsFor } from "./destination-availability";
 import { executeBackup } from "./engine";
 import { sweepOverdueSchedules } from "./overdue";
 import { applyRetention } from "./retention-apply";
+import { executeBackupsInOrder } from "./run-in-order";
 import {
   type DueSchedule,
   type ResolvedSource,
   listDueSchedules,
+  recordSchedulePass,
   resolveScheduleSources,
-  updateScheduleAfterRun,
+  setScheduleNextRun,
 } from "./schedule-db";
 
 function nextFireTime(cron: string, from: Date): Date | null {
@@ -126,14 +131,11 @@ export async function runDueBackupSchedules(now = new Date()): Promise<void> {
 }
 
 async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
-  // A null nextRunAt means the schedule was just created. Only initialize its
-  // fire time, don't backfill a run. Otherwise it's genuinely due.
+  // A null nextRunAt means the schedule was just created (or its cron
+  // edited). Only arm its fire time, don't backfill a run, and leave the
+  // last-run fields reporting the last pass that ran. Otherwise it's due.
   if (schedule.nextRunAt == null) {
-    await updateScheduleAfterRun(schedule.id, {
-      lastRunAt: now,
-      lastRunStatus: "queued",
-      nextRunAt: nextFireTime(schedule.cron, now),
-    });
+    await setScheduleNextRun(schedule.id, nextFireTime(schedule.cron, now));
     return;
   }
 
@@ -166,11 +168,41 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
     await applyRetention(schedule);
   }
 
-  await updateScheduleAfterRun(schedule.id, {
-    lastRunAt: now,
-    lastRunStatus: lastStatus,
-    nextRunAt: nextFireTime(schedule.cron, now),
+  await setScheduleNextRun(schedule.id, nextFireTime(schedule.cron, now));
+  await recordSchedulePass(schedule.id, {
+    startedAt: Temporal.Instant.fromEpochMilliseconds(now.getTime()),
+    status: lastStatus,
   });
+}
+
+/**
+ * A manual "run now" of a schedule: execute its queued runs in order, then
+ * report the pass on the schedule like a scheduled tick would (the WORST run
+ * outcome), so the schedule never keeps showing a state that no longer holds.
+ * Safe to fire detached: it never rejects.
+ */
+export async function executeSchedulePass(
+  scheduleId: BackupScheduleId,
+  ids: readonly BackupId[],
+  startedAt: Temporal.Instant,
+): Promise<void> {
+  const outcome = await Result.tryPromise({
+    try: async () => {
+      await executeBackupsInOrder(ids);
+      const statuses = await Promise.all(ids.map((id) => getBackupStatus(id)));
+      // No runnable pair is a failed pass, as on a scheduled tick.
+      const status =
+        statuses.length > 0 && statuses.every((s) => s === "succeeded") ? "succeeded" : "failed";
+      await recordSchedulePass(scheduleId, { startedAt, status });
+    },
+    catch: errorFromUnknown,
+  });
+  if (outcome.isErr()) {
+    log.error({
+      backups: { scheduler: scheduleId, status: "manual-pass-error" },
+      error: outcome.error.message,
+    });
+  }
 }
 
 /** Boot-time crash recovery: fail runs the previous process left in flight,
@@ -203,10 +235,10 @@ export function startBackupScheduler(intervalMs = 60_000): () => void {
   const bootStartedAt = new Date();
   startedAt = bootStartedAt;
   lastTickAt = null;
-  void reconcileAtBoot(bootStartedAt);
+  runBackgroundPass("backup-reconcile-at-boot", () => reconcileAtBoot(bootStartedAt));
   const timer = setInterval(() => {
     lastTickAt = new Date();
-    void runDueBackupSchedules();
+    runBackgroundPass("backup-scheduler", () => runDueBackupSchedules());
   }, intervalMs);
   // Don't keep the event loop alive solely for backups.
   timer.unref?.();

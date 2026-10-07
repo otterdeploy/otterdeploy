@@ -1,6 +1,8 @@
+import type { Readable, Writable } from "node:stream";
+
 import { env } from "@otterdeploy/env/server";
 import { errorFromUnknown } from "@otterdeploy/shared/promise";
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 /**
  * Thin wrapper around the `rustic` CLI (v0.11.3, GNU x86_64, vendored into the
  * server image, see apps/server/Dockerfile). rustic is the ONLY backup engine:
@@ -22,12 +24,10 @@ import { Result } from "better-result";
  *
  * The verified rustic command surface lives in docs/rustic-backup-implementation-plan.md §0.
  */
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Readable, Writable } from "node:stream";
 import * as z from "zod";
 
 import type { RusticRepo } from "./backends";
@@ -35,16 +35,19 @@ import type { RusticRepo } from "./backends";
 import { masterSecretCandidates } from "../lib/crypto";
 import {
   type ForgetSpec,
+  buildBackupStdinArgs,
   buildRusticProfile,
   buildForgetArgs,
   deriveRepoPassword,
   isPasswordError,
 } from "./rustic-args";
+import { type RusticOutput, type RusticSpawnOptions, spawnRustic } from "./rustic-spawn";
 
 // Re-exported so existing importers (tests, retention-apply, scheduler) keep
 // their `./rustic` entry point.
 export {
   type ForgetSpec,
+  buildBackupStdinArgs,
   buildForgetArgs,
   deriveRepoPassword,
   isPasswordError,
@@ -63,6 +66,26 @@ export interface BackupStdinResult {
   addedBytes: number;
   /** Wall-clock duration of the backup invocation. */
   durationMs: number;
+}
+
+/**
+ * rustic exited 0 but its snapshot does not hold the dump it was handed: the
+ * bytes it processed differ from the bytes piped in (it reused a parent's
+ * content, or stopped reading part-way). Recording that snapshot would put an
+ * old or truncated dump behind a "succeeded" run.
+ */
+export class RusticDumpNotStoredError extends TaggedError("RusticDumpNotStoredError")<{
+  message: string;
+  piped: number;
+  stored: number;
+  snapshotId: string;
+}>() {
+  constructor(args: { piped: number; stored: number; snapshotId: string }) {
+    super({
+      ...args,
+      message: `rustic stored ${args.stored} of the dump's ${args.piped} bytes (snapshot ${args.snapshotId.slice(0, 12)}); the snapshot does not hold this dump`,
+    });
+  }
 }
 
 /** `rustic backup --json` stdout: only the fields the engine reads. */
@@ -105,14 +128,15 @@ export class RusticCli {
   private async runWithPassword(
     password: string,
     subArgs: string[],
-    opts: { stdin?: Readable; stdout?: Writable } = {},
-  ): Promise<string> {
+    opts: RusticSpawnOptions = {},
+  ): Promise<RusticOutput> {
     const base = join(tmpdir(), `rustic-${randomBytes(12).toString("hex")}`);
     // `-P <base>` reads `<base>.toml` (verified). Write with the extension,
     // pass the extensionless base.
     await writeFile(`${base}.toml`, buildRusticProfile(this.repo, password), { mode: 0o600 });
     const spawned = await Result.tryPromise({
-      try: () => this.spawn(["-P", base, ...subArgs], opts),
+      try: () =>
+        spawnRustic(this.binary, ["-P", base, ...subArgs], opts, (line) => this.emitStderr(line)),
       catch: errorFromUnknown,
     });
     const cleaned = await Result.tryPromise({
@@ -133,10 +157,7 @@ export class RusticCli {
    * don't fall back (the engine opens the repo with `ensureInit` first, which
    * settles the candidate before any stdin is attached).
    */
-  private async run(
-    subArgs: string[],
-    opts: { stdin?: Readable; stdout?: Writable } = {},
-  ): Promise<string> {
+  private async run(subArgs: string[], opts: RusticSpawnOptions = {}): Promise<RusticOutput> {
     const candidates = this.passwords();
     let index = Math.min(this.candidateIndex, candidates.length - 1);
     for (;;) {
@@ -181,109 +202,52 @@ export class RusticCli {
     }
   }
 
-  /** Spawn rustic; stream stderr to the log, collect (or pipe) stdout, reject non-zero. */
-  private spawn(args: string[], opts: { stdin?: Readable; stdout?: Writable }): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
-      const child = spawn(this.binary, args, {
-        stdio: [opts.stdin ? "pipe" : "ignore", "pipe", "pipe"],
-        // Inherit PATH etc.; NO_COLOR strips ANSI so logs + error text stay clean.
-        // No secrets ride on env or argv: the password lives in the profile.
-        // oxlint-disable-next-line node/no-process-env -- inherit host env for the child; per-call additions only.
-        env: { ...process.env, NO_COLOR: "1" },
-      });
-
-      const { stdout, stderr } = child;
-      if (!stdout || !stderr) {
-        reject(new Error("rustic: child process is missing stdout/stderr"));
-        return;
-      }
-
-      const outChunks: Buffer[] = [];
-      if (opts.stdout) stdout.pipe(opts.stdout);
-      else stdout.on("data", (c: Buffer) => outChunks.push(c));
-
-      const errTail: string[] = [];
-      let carry = "";
-      stderr.setEncoding("utf8");
-      stderr.on("data", (chunk: string) => {
-        carry += chunk;
-        let idx: number;
-        while ((idx = carry.indexOf("\n")) !== -1) {
-          const line = carry.slice(0, idx);
-          carry = carry.slice(idx + 1);
-          if (line.length > 0) this.emitStderr(line, errTail);
-        }
-      });
-
-      child.on("error", reject);
-      child.on("close", (code) => {
-        if (carry.length > 0) this.emitStderr(carry, errTail);
-        if (code === 0) {
-          resolve(Buffer.concat(outChunks).toString("utf8"));
-        } else {
-          const detail = errTail.slice(-3).join("; ");
-          reject(
-            new Error(`rustic ${args.join(" ")} exited ${code}${detail ? `: ${detail}` : ""}`),
-          );
-        }
-      });
-
-      if (opts.stdin) {
-        const childStdin = child.stdin;
-        if (!childStdin) {
-          reject(new Error("rustic: child process is missing stdin"));
-          return;
-        }
-        opts.stdin.on("error", reject);
-        opts.stdin.pipe(childStdin);
-      }
-    });
-  }
-
-  private emitStderr(line: string, tail: string[]): void {
-    tail.push(line);
-    if (tail.length > 16) tail.shift();
+  private emitStderr(line: string): void {
     void this.log("stderr", line);
   }
 
   /** Initialize the repo, tolerating an already-initialized one (idempotent). */
   async ensureInit(): Promise<void> {
-    try {
-      await this.run(["init"]);
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
-      // rustic aborts a re-init with "Config file already exists". Treat as OK.
-      if (/already (exists|initialized)/i.test(message)) return;
-      throw cause;
+    const init = await Result.tryPromise({
+      try: () => this.run(["init"]),
+      catch: errorFromUnknown,
+    });
+    // rustic aborts a re-init with "Config file already exists". Treat as OK.
+    if (init.isErr() && !/already (exists|initialized)/i.test(init.error.message)) {
+      throw init.error;
     }
   }
 
-  /** Back up a piped stream as a single-file snapshot; returns the run metrics. */
+  /**
+   * Back up a piped stream as a single-file snapshot; returns the run metrics.
+   * The snapshot only counts when rustic stored EVERY byte the dump produced:
+   * a backup that kept a parent's content, or stopped reading part-way, fails
+   * here with the byte counts instead of being recorded as a good backup.
+   */
   async backupStdin(input: {
     stdin: Readable;
     stdinFilename: string;
     tags: string[];
   }): Promise<BackupStdinResult> {
-    const started = Date.now();
-    const stdout = await this.run(
-      [
-        "backup",
-        "-",
-        "--stdin-filename",
-        input.stdinFilename,
-        "--tag",
-        input.tags.join(","),
-        "--json",
-      ],
-      { stdin: input.stdin },
-    );
-    const durationMs = Date.now() - started;
-    const parsed = rusticBackupOutput.parse(JSON.parse(stdout));
-    if (!parsed.id) throw new Error("rustic backup returned no snapshot id");
+    const started = performance.now();
+    const output = await this.run(buildBackupStdinArgs(input), { stdin: input.stdin });
+    const durationMs = Math.round(performance.now() - started);
+    const parsed = Result.try({
+      try: () => rusticBackupOutput.parse(JSON.parse(output.stdout)),
+      catch: (cause) =>
+        new Error(`rustic backup printed no readable summary: ${errorFromUnknown(cause).message}`),
+    });
+    if (parsed.isErr()) throw parsed.error;
+    const { id, summary } = parsed.value;
+    if (!id) throw new Error("rustic backup returned no snapshot id");
+    const stored = summary?.total_bytes_processed ?? 0;
+    if (stored !== output.stdinBytes) {
+      throw new RusticDumpNotStoredError({ piped: output.stdinBytes, stored, snapshotId: id });
+    }
     return {
-      snapshotId: parsed.id,
-      sourceSizeBytes: parsed.summary?.total_bytes_processed ?? 0,
-      addedBytes: parsed.summary?.data_added ?? 0,
+      snapshotId: id,
+      sourceSizeBytes: stored,
+      addedBytes: summary?.data_added ?? 0,
       durationMs,
     };
   }
@@ -324,18 +288,13 @@ export class RusticCli {
 
   /** Whether a snapshot id resolves in the repo (`snapshots <id> --json`). */
   async snapshotExists(snapshotId: string): Promise<boolean> {
-    let stdout: string;
-    try {
-      stdout = await this.run(["snapshots", snapshotId, "--json"]);
-    } catch {
-      // rustic exits non-zero when the id matches nothing: treat as absent.
-      return false;
-    }
-    try {
-      const groups = rusticSnapshotGroups.parse(JSON.parse(stdout));
-      return groups.some((g) => (g.snapshots?.length ?? 0) > 0);
-    } catch {
-      return false;
-    }
+    const listed = await Result.tryPromise({
+      try: () => this.run(["snapshots", snapshotId, "--json"]),
+      catch: errorFromUnknown,
+    });
+    // rustic exits non-zero when the id matches nothing: treat as absent.
+    if (listed.isErr()) return false;
+    const groups = Result.try(() => rusticSnapshotGroups.parse(JSON.parse(listed.value.stdout)));
+    return groups.isOk() && groups.value.some((g) => (g.snapshots?.length ?? 0) > 0);
   }
 }

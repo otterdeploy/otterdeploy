@@ -6,8 +6,39 @@
 import type { BackupId, BackupRestoreId, OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { backupRestore } from "@otterdeploy/db/schema";
+import { backupLock, backupRestore } from "@otterdeploy/db/schema";
 import { and, desc, eq } from "drizzle-orm";
+
+/** Lock-table scope of an in-place restore's write target. Prefixed so it
+ *  never collides with a backup run's source lock on the same resource. */
+function restoreLockScope(targetScope: string): string {
+  return `restore:${targetScope}`;
+}
+
+/**
+ * Claim the write target of an in-place restore: false when another restore
+ * into it already holds the claim (two restores streaming into one database
+ * at once interleave their writes). Same backup_lock table and boot
+ * reaper as backup runs, so a crash mid-restore cannot strand the claim.
+ */
+export async function claimRestoreLock(targetScope: string, backupId: BackupId): Promise<boolean> {
+  const rows = await db
+    .insert(backupLock)
+    .values({ scope: restoreLockScope(targetScope), backupId })
+    .onConflictDoNothing()
+    .returning({ scope: backupLock.scope });
+  return rows.length > 0;
+}
+
+/** Release the claim this restore took (scope AND holder, so a refused
+ *  restore can never drop the running one's claim). */
+export async function releaseRestoreLock(targetScope: string, backupId: BackupId): Promise<void> {
+  await db
+    .delete(backupLock)
+    .where(
+      and(eq(backupLock.scope, restoreLockScope(targetScope)), eq(backupLock.backupId, backupId)),
+    );
+}
 
 export async function createRestoreRun(input: {
   organizationId: OrganizationId;

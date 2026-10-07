@@ -162,6 +162,7 @@ function serviceLookup(resourceId: ReturnType<typeof idSchema.resource.parse>): 
         source: "image",
         sourceSubdir: null,
         framework: null,
+        imageBuilder: null,
         replicas: 1,
         pausedReplicas: null,
         restartCondition: "on-failure",

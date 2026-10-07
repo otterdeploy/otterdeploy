@@ -22,23 +22,43 @@ function parseExpires(raw: string): number | null {
 
 // citty doesn't collect repeated string flags into an array (last one wins),
 // so `--project a --project b` has to be recovered from rawArgs.
-function collectProjectSlugs(rawArgs: string[]): string[] {
-  const slugs: string[] = [];
+function collectRepeated(rawArgs: string[], flag: string, example: string): string[] {
+  const values: string[] = [];
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
-    if (arg === "--project") {
+    if (arg === flag) {
       const next = rawArgs[i + 1];
       if (!next || next.startsWith("-")) {
-        abort("--project requires a project slug.", "for example `--project storefront`");
+        abort(`${flag} requires a value.`, `for example \`${flag} ${example}\``);
       }
-      slugs.push(next);
+      values.push(next);
       i++;
-    } else if (arg?.startsWith("--project=")) {
-      slugs.push(arg.slice("--project=".length));
+    } else if (arg?.startsWith(`${flag}=`)) {
+      values.push(arg.slice(flag.length + 1));
     }
   }
-  return [...new Set(slugs)];
+  return [...new Set(values)];
 }
+
+// `--scope service:deploy --scope service:read` -> { service: ["deploy", "read"] }.
+// Whether a key may hold each pair is the server's call (it refuses anything a
+// key could never use); here only the shape is checked.
+function parseScopes(scopes: string[]): Record<string, string[]> {
+  const permissions: Record<string, string[]> = {};
+  for (const scope of scopes) {
+    const match = /^([A-Za-z]+):([A-Za-z]+)$/.exec(scope);
+    const resource = match?.[1];
+    const action = match?.[2];
+    if (!resource || !action) {
+      abort(`Invalid --scope "${scope}".`, "use <resource>:<action>, e.g. service:deploy");
+    }
+    permissions[resource] = [...(permissions[resource] ?? []), action];
+  }
+  return permissions;
+}
+
+const ACCESS_HINT =
+  "pass --scope <resource>:<action> (repeatable, e.g. --scope service:deploy), or --full-access";
 
 const createToken = defineCommand({
   meta: { name: "create", description: "Create an API key for CI and scripts" },
@@ -48,6 +68,14 @@ const createToken = defineCommand({
       type: "string",
       default: "90d",
       description: 'Expiry: <N>d, <N>h, <N>m, or "never"',
+    },
+    scope: {
+      type: "string",
+      description: "Grant one permission, <resource>:<action> (repeatable, e.g. service:deploy)",
+    },
+    "full-access": {
+      type: "boolean",
+      description: "Grant everything a workspace member may do, instead of --scope",
     },
     "read-only": { type: "boolean", description: "Restrict the key to read operations" },
     project: {
@@ -59,7 +87,18 @@ const createToken = defineCommand({
   },
   async run({ args, rawArgs }) {
     const expiresIn = parseExpires(args.expires);
-    const projectSlugs = collectProjectSlugs(rawArgs);
+    const projectSlugs = collectRepeated(rawArgs, "--project", "storefront");
+    // What the key may do is an explicit choice: no flags used to mean full
+    // access, so a key made in a hurry was the most powerful kind.
+    const scopes = collectRepeated(rawArgs, "--scope", "service:deploy");
+    const fullAccess = args["full-access"] === true;
+    if (fullAccess && scopes.length > 0) {
+      abort("Choose either --scope or --full-access, not both.", ACCESS_HINT);
+    }
+    if (!fullAccess && scopes.length === 0) {
+      abort("Choose what the key may do.", ACCESS_HINT);
+    }
+    const permissions = fullAccess ? ("full" as const) : parseScopes(scopes);
 
     const { url, token } = await ensureAuthenticated(args.url);
     const client = createCliClient({ url, token });
@@ -71,6 +110,7 @@ const createToken = defineCommand({
     const created = await client.apiKeys.create({
       name: args.name,
       expiresIn,
+      permissions,
       ...(args["read-only"] ? { accessLevel: "read" as const } : {}),
       ...(projectIds.length > 0 ? { projectScope: "selected" as const, projectIds } : {}),
     });
@@ -83,7 +123,8 @@ const createToken = defineCommand({
     ok(`Created API key ${args.name}.`);
     section("Key");
     detail([
-      ["scope", args["read-only"] ? "read-only" : "read-write"],
+      ["access", fullAccess ? paint("warn", "full") : scopes.join(", ")],
+      ["mode", args["read-only"] ? "read-only" : "read-write"],
       [
         "projects",
         projectSlugs.length > 0 ? projectSlugs.join(", ") : dim("all in this organization"),

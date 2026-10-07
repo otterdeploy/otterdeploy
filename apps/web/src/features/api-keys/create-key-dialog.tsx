@@ -1,7 +1,10 @@
 /**
- * Create-an-API-key dialog. Collects a name, an expiry preset, and an optional
- * set of permission scopes. On success it hands the plaintext token up to the
- * page, which opens the one-time RevealKeyDialog (this dialog never shows it).
+ * Create-an-API-key dialog. Collects a name, an expiry preset, and what the key
+ * may do: an explicit choice between "Limited" (the default; at least one
+ * permission must be ticked) and "Full access". Nothing ticked is never full
+ * access: Create stays disabled until the choice is complete. On success it
+ * hands the plaintext token up to the page, which opens the one-time
+ * RevealKeyDialog (this dialog never shows it).
  */
 
 import { useForm } from "@tanstack/react-form";
@@ -20,6 +23,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -27,10 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { cn } from "@/shared/lib/utils";
 
 import { apiKeysCollection } from "./data/api-keys";
 import { ScopePicker } from "./scope-picker";
-import { DEFAULT_EXPIRY_INDEX, EXPIRY_OPTIONS } from "./shared";
+import { DEFAULT_EXPIRY_INDEX, EXPIRY_OPTIONS, isKeyAccess, type KeyAccess } from "./shared";
 
 export function CreateKeyDialog({
   organizationId,
@@ -45,18 +50,27 @@ export function CreateKeyDialog({
   onCreated: (apiKey: string) => void;
 }) {
   const { t } = useTranslation();
-  // Annotated so the form's `scopes` field infers the full record type rather
-  // than the empty object literal.
-  const noScopes: Record<string, string[]> = {};
+  // Annotated so the form infers the full field types (`access` the whole
+  // union, `scopes` the full record) rather than the literals below. Limited
+  // by default: the safest state is the starting state.
+  const defaultValues: {
+    name: string;
+    expiryIndex: number;
+    access: KeyAccess;
+    scopes: Record<string, string[]>;
+  } = {
+    name: "",
+    expiryIndex: DEFAULT_EXPIRY_INDEX,
+    access: "limited",
+    scopes: {},
+  };
   const form = useForm({
-    defaultValues: {
-      name: "",
-      expiryIndex: DEFAULT_EXPIRY_INDEX,
-      scopes: noScopes,
-    },
+    defaultValues,
     onSubmit: async ({ value }) => {
       const expiresIn = EXPIRY_OPTIONS[value.expiryIndex]?.seconds ?? null;
-      const hasScopes = Object.keys(value.scopes).length > 0;
+      // Unreachable through the UI (Create is disabled), but never let an
+      // empty limited key fall through to anything.
+      if (value.access === "limited" && Object.keys(value.scopes).length === 0) return;
 
       // Optimistic insert: `onInsert` mints the key server-side and hands the
       // one-time plaintext token back via `onKey`. Close instantly; surface the
@@ -73,7 +87,10 @@ export function CreateKeyDialog({
           expiresAt: expiresIn == null ? null : new Date(createdAt.getTime() + expiresIn * 1000),
           lastRequest: null,
           createdAt,
-          permissions: hasScopes ? value.scopes : null,
+          // null = full access, the plugin's own representation; onInsert
+          // turns it into the explicit `"full"` the server requires.
+          permissions: value.access === "full" ? null : value.scopes,
+          preset: {},
         },
         { metadata: { onKey: onCreated } },
       );
@@ -139,15 +156,38 @@ export function CreateKeyDialog({
             {(field) => <ExpiryField value={field.state.value} onChange={field.handleChange} />}
           </form.Field>
 
-          <form.Field name="scopes">
-            {(field) => <ScopePicker value={field.state.value} onChange={field.handleChange} />}
+          <form.Field name="access">
+            {(accessField) => (
+              <div className="flex flex-col gap-2">
+                <AccessField value={accessField.state.value} onChange={accessField.handleChange} />
+                {accessField.state.value === "limited" ? (
+                  <form.Field name="scopes">
+                    {(field) => (
+                      <>
+                        <ScopePicker value={field.state.value} onChange={field.handleChange} />
+                        {Object.keys(field.state.value).length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            {t("apiKeys.choosePermission")}
+                          </p>
+                        ) : null}
+                      </>
+                    )}
+                  </form.Field>
+                ) : null}
+              </div>
+            )}
           </form.Field>
 
           <DialogFooter className="mt-1">
             <Button size="sm" variant="outline" type="button" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <form.Subscribe selector={(s) => s.canSubmit}>
+            <form.Subscribe
+              selector={(s) =>
+                s.canSubmit &&
+                (s.values.access === "full" || Object.keys(s.values.scopes).length > 0)
+              }
+            >
               {(canSubmit) => (
                 <Button size="sm" type="submit" disabled={!canSubmit}>
                   Create key
@@ -158,6 +198,51 @@ export function CreateKeyDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The explicit "what may this key do" choice. Limited is the default and
+ *  listed first; full access says plainly what it grants. */
+function AccessField({
+  value,
+  onChange,
+}: {
+  value: KeyAccess;
+  onChange: (next: KeyAccess) => void;
+}) {
+  const { t } = useTranslation();
+  const options: { value: KeyAccess; label: string; hint: string }[] = [
+    { value: "limited", label: t("apiKeys.accessLimited"), hint: t("apiKeys.accessLimitedHint") },
+    { value: "full", label: t("apiKeys.fullAccess"), hint: t("apiKeys.accessFullHint") },
+  ];
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label id="key-access-label">{t("apiKeys.access")}</Label>
+      <RadioGroup
+        aria-labelledby="key-access-label"
+        value={value}
+        onValueChange={(next) => {
+          if (isKeyAccess(next)) onChange(next);
+        }}
+        className="grid-cols-2 gap-2"
+      >
+        {options.map((option) => (
+          <Label
+            key={option.value}
+            className={cn(
+              "flex cursor-pointer items-start gap-2.5 rounded-md border p-3 font-normal transition-colors",
+              value === option.value && "bg-muted/50",
+            )}
+          >
+            <RadioGroupItem value={option.value} className="mt-0.5" />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[13px] font-medium">{option.label}</span>
+              <span className="text-[11px] text-muted-foreground">{option.hint}</span>
+            </span>
+          </Label>
+        ))}
+      </RadioGroup>
+    </div>
   );
 }
 

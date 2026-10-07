@@ -1,6 +1,7 @@
 /**
  * Pending (unaccepted) organization invitations. Owners/admins can cancel
- * one before it's accepted. Hidden entirely when there are none.
+ * one before it's accepted. Hidden entirely when there are none. An
+ * invitation whose email failed says so, with the provider's reason.
  *
  * Reads/mutates `invitationsCollection` directly: cancel is an optimistic
  * `collection.delete`, with rollback/toast off the transaction's
@@ -49,6 +50,9 @@ export function PendingInvitations({
 
 function InviteRow({ invite, canManage }: { invite: PendingInvite; canManage: boolean }) {
   const [busy, setBusy] = useState(false);
+  // A failed invitation email used to look exactly like a delivered one.
+  // The link still works; the inviter just has to share it.
+  const emailFailed = invite.emailStatus === "failed";
 
   const cancel = () => {
     setBusy(true);
@@ -70,10 +74,25 @@ function InviteRow({ invite, canManage }: { invite: PendingInvite; canManage: bo
       />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px]">{invite.email}</div>
-        <div className="truncate text-[12px] text-muted-foreground">
-          Expires {invite.expiresAt.toLocaleDateString()}
-        </div>
+        {emailFailed ? (
+          <div
+            className="truncate text-[12px] text-destructive"
+            title={invite.emailError ?? undefined}
+          >
+            Email not sent{invite.emailError ? `: ${invite.emailError}` : ""}. Copy the link to
+            share it.
+          </div>
+        ) : (
+          <div className="truncate text-[12px] text-muted-foreground">
+            Expires {invite.expiresAt.toLocaleDateString()}
+          </div>
+        )}
       </div>
+      {emailFailed ? (
+        <Badge variant="destructive" className="text-[10px] font-normal">
+          Email failed
+        </Badge>
+      ) : null}
       <Badge variant="secondary" className="text-[10px] font-normal capitalize">
         {invite.role}
       </Badge>

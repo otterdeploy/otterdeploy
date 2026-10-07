@@ -1,16 +1,27 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
-import { enforceEnvScope, enforceProjectScope } from "../../authz/project-scope-guards";
+import { scopedProjectIds } from "../../authz/api-key-scope";
+import {
+  enforceEnvScope,
+  enforceNamedProject,
+  enforceProjectScope,
+} from "../../authz/project-scope-guards";
 import { createEnv, deleteEnv, getEnv, listEnvs, renameEnv, setEnvProtection } from "./handlers";
 
 export const envRouter = {
   list: orgScopedProcedure.env.list.handler(async ({ input, context }) => {
     enforceProjectScope(context, input?.projectId);
-    return listEnvs({
+    const environments = await listEnvs({
       organizationId: context.activeOrganizationId,
       projectId: input?.projectId,
     });
+    // Without a projectId this lists the whole organization: a key minted for
+    // selected projects sees only theirs.
+    const allowed = scopedProjectIds(context.apiKey);
+    return allowed
+      ? environments.filter((env) => env.projectId !== null && allowed.includes(env.projectId))
+      : environments;
   }),
 
   get: orgScopedProcedure.env.get.handler(async ({ input, context, errors }) => {
@@ -31,7 +42,9 @@ export const envRouter = {
   create: requirePermission({ env: ["create"] }).env.create.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "environment" } });
-      enforceProjectScope(context, input.projectId);
+      // A project-scoped key must create the environment inside one of its
+      // projects, never as a standalone one.
+      enforceNamedProject(context, input.projectId);
       const result = await createEnv({
         ...input,
         // Needed to reach the project's manifest for the mirror overlay.

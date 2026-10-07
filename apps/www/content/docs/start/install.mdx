@@ -105,6 +105,27 @@ Preview the whole run before committing to it:
 curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 ```
 
+## Push notifications
+
+Push (the `push` notification channel and per-user push) goes through
+Firebase Cloud Messaging's HTTP v1 API with a service account. In the Firebase
+console open **Project settings → Service accounts → Generate new private
+key**, put the key file's JSON, on one line, in
+`/data/otterdeploy/platform/source/.env`, and restart with `update`:
+
+```bash
+echo "FCM_SERVICE_ACCOUNT_JSON='$(jq -c . service-account.json)'" \
+  >> /data/otterdeploy/platform/source/.env
+/data/otterdeploy/platform/source/install.sh update
+```
+
+<Callout type="warn" title="FCM_SERVER_KEY no longer works">
+  Google shut the legacy FCM API down in 2024, so a server key cannot send
+  anything. An install that only sets `FCM_SERVER_KEY` now reports, on every
+  push, that it needs `FCM_SERVICE_ACCOUNT_JSON`. Add the service account as
+  above and delete the `FCM_SERVER_KEY` line.
+</Callout>
+
 ## Updating
 
 ```bash

@@ -17,6 +17,7 @@ import { Readable } from "node:stream";
  */
 import * as z from "zod";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { healthFromStatus, recordHealthObservations } from "./health-detector";
 import { samplePlatformMetrics } from "./platform";
 
@@ -223,8 +224,8 @@ export async function sampleAllContainers(): Promise<void> {
  *  per-container stats and install-wide platform metrics (queue backlog). */
 export function startMetricsSampler(intervalMs = 30_000): () => void {
   const timer = setInterval(() => {
-    void sampleAllContainers();
-    void samplePlatformMetrics();
+    runBackgroundPass("metrics-sampler", () => sampleAllContainers());
+    runBackgroundPass("platform-metrics-sampler", () => samplePlatformMetrics());
   }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);

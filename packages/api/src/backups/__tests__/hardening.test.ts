@@ -11,7 +11,12 @@ import type { OverdueCandidate } from "../schedule-db";
 
 import { cronIntervalMs, nextCronFire, validateCron } from "../../lib/cron";
 import { deriveProbeRepoKey } from "../backends";
-import { engineDataDir, restoreCommand } from "../engine-helpers";
+import {
+  engineDataDir,
+  mongoNamespaceArgs,
+  restoreCommand,
+  restoreShortfall,
+} from "../engine-helpers";
 import { isOverdue, overdueThresholdMs } from "../overdue";
 import { buildForgetArgs, isPasswordError } from "../rustic";
 import { retryBackoffMs } from "../scheduler";
@@ -154,18 +159,69 @@ describe("restoreCommand", () => {
     expect(r.cmd).toContain("--if-exists");
     expect(r.env).toEqual(["PGPASSWORD=p"]);
   });
-  it("mariadb replays SQL through the mysql client with a quoted db", () => {
+  it("mariadb replays SQL through the image's client with a quoted db", () => {
     const r = restoreCommand({ engine: "mariadb", ...creds });
-    expect(r.cmd[2]).toContain("mysql -u 'u' 'app'");
+    expect(r.cmd[2]).toContain("exec mariadb -u 'u' 'app'");
+    expect(r.cmd[2]).toContain("exec mysql -u 'u' 'app'");
     expect(r.env).toEqual(["MYSQL_PWD=p"]);
   });
   it("mongodb uses mongorestore --archive --drop scoped to the db", () => {
     const r = restoreCommand({ engine: "mongodb", ...creds });
     expect(r.cmd).toContain("--drop");
     expect(r.cmd).toContain("--nsInclude=app.*");
+    expect(r.cmd.some((a) => a.startsWith("--nsFrom"))).toBe(false);
+  });
+  it("mongodb into another database filters on the SOURCE and renames into the target", () => {
+    // Filtering on the target name matched nothing in the archive.
+    const r = restoreCommand(
+      { engine: "mongodb", ...creds, databaseName: "copy" },
+      {
+        databaseName: "app",
+      },
+    );
+    expect(r.cmd).toContain("--nsInclude=app.*");
+    expect(r.cmd).toContain("--nsFrom=app.*");
+    expect(r.cmd).toContain("--nsTo=copy.*");
+    expect(r.cmd).not.toContain("--nsInclude=copy.*");
+  });
+  it("escapes namespace pattern syntax in database names", () => {
+    expect(mongoNamespaceArgs("a*b", "c")).toEqual([
+      "--nsInclude=a\\*b.*",
+      "--nsFrom=a\\*b.*",
+      "--nsTo=c.*",
+    ]);
   });
   it("redis throws toward the volume path", () => {
     expect(() => restoreCommand({ engine: "redis", ...creds })).toThrow(/volume/);
+  });
+});
+
+describe("restoreShortfall", () => {
+  it("fails a mongorestore that restored nothing, though it exited 0", () => {
+    expect(
+      restoreShortfall(
+        "mongodb",
+        "preparing collections to restore from\n0 document(s) restored successfully. 0 document(s) failed to restore.\n",
+      ),
+    ).toMatch(/restored 0 documents/);
+  });
+  it("fails a mongorestore that dropped documents", () => {
+    expect(
+      restoreShortfall(
+        "mongodb",
+        "40 document(s) restored successfully. 2 document(s) failed to restore.",
+      ),
+    ).toMatch(/failed to restore 2/);
+  });
+  it("accepts a mongorestore that wrote documents, and other engines' clients", () => {
+    expect(
+      restoreShortfall(
+        "mongodb",
+        "1200 document(s) restored successfully. 0 document(s) failed to restore.",
+      ),
+    ).toBeNull();
+    expect(restoreShortfall("mongodb", "no summary line")).toBeNull();
+    expect(restoreShortfall("postgres", "")).toBeNull();
   });
 });
 

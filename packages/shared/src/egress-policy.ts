@@ -46,10 +46,26 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { BlockList, isIP } from "node:net";
 
+/**
+ * Why an outbound request did not produce a usable response.
+ *
+ *   `denied`    the policy refused the destination (scheme, credentials, a
+ *               non-public or control-plane address, an unsafe redirect hop):
+ *               the request never reached, or was not allowed to reach, it.
+ *   `transport` the destination was allowed but the exchange failed: timeout,
+ *               oversized body, a redirect loop or a redirect without a
+ *               `Location`. Not a policy decision, so a caller must not report
+ *               it as one (a dead provider API answering 301 once read as
+ *               "blocked by outbound egress policy").
+ */
+export type EgressFailureKind = "denied" | "transport";
+
 export class EgressPolicyError extends Error {
-  constructor(message: string) {
+  readonly kind: EgressFailureKind;
+  constructor(message: string, kind: EgressFailureKind = "denied") {
     super(message);
     this.name = "EgressPolicyError";
+    this.kind = kind;
   }
 }
 
@@ -361,7 +377,7 @@ function requestPinnedAddress(
       if (settled) return;
       settled = true;
       clearTimeout(deadlineTimer);
-      reject(cause instanceof Error ? cause : new EgressPolicyError(String(cause)));
+      reject(cause instanceof Error ? cause : new EgressPolicyError(String(cause), "transport"));
     };
 
     const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
@@ -383,7 +399,7 @@ function requestPinnedAddress(
         const declared = Number(res.headers["content-length"] ?? 0);
         if (Number.isFinite(declared) && declared > maxBytes) {
           res.destroy();
-          settleReject(new EgressPolicyError(`Response exceeds ${maxBytes} bytes.`));
+          settleReject(new EgressPolicyError(`Response exceeds ${maxBytes} bytes.`, "transport"));
           return;
         }
         const chunks: Buffer[] = [];
@@ -391,7 +407,7 @@ function requestPinnedAddress(
         res.on("data", (chunk: Buffer) => {
           received += chunk.length;
           if (received > maxBytes) {
-            res.destroy(new EgressPolicyError(`Response exceeds ${maxBytes} bytes.`));
+            res.destroy(new EgressPolicyError(`Response exceeds ${maxBytes} bytes.`, "transport"));
             return;
           }
           chunks.push(Buffer.from(chunk));
@@ -407,7 +423,7 @@ function requestPinnedAddress(
       },
     );
     deadlineTimer = setTimeout(() => {
-      abortReason = new EgressPolicyError("Outbound request timed out.");
+      abortReason = new EgressPolicyError("Outbound request timed out.", "transport");
       req.destroy(abortReason);
     }, timeoutMs);
     deadlineTimer.unref?.();
@@ -418,7 +434,8 @@ function requestPinnedAddress(
       // with no response at all is the silent connect abort worth failing on.
       if (responseStarted) return;
       settleReject(
-        abortReason ?? new EgressPolicyError("Outbound request failed before any response."),
+        abortReason ??
+          new EgressPolicyError("Outbound request failed before any response.", "transport"),
       );
     });
     if (bodyBuf) req.write(bodyBuf);
@@ -429,7 +446,7 @@ function requestPinnedAddress(
 function bounded<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new EgressPolicyError("Outbound request timed out.")),
+      () => reject(new EgressPolicyError("Outbound request timed out.", "transport")),
       timeoutMs,
     );
     timer.unref?.();
@@ -457,6 +474,10 @@ export interface EgressFetchOptions extends AddressPolicy, UrlPolicy {
   maxBytes?: number;
   /** Redirect hop cap. Default 5. */
   maxRedirects?: number;
+  /** Follow 3xx answers (default true). A fixed provider API never redirects
+   *  a POST it accepted, so a caller talking to one passes false and gets the
+   *  3xx back as the response, to report as what it is: the provider's answer. */
+  followRedirects?: boolean;
   /** Injectable resolver: tests pin DNS answers without a network call. */
   resolveHost?: ResolveHost;
   /** Injectable pinned-socket request: tests drive the redirect loop
@@ -530,9 +551,11 @@ function resolveRedirectTarget(input: {
   urlPolicy: UrlPolicy;
 }): RedirectHop {
   const { raw, current, redirects, maxRedirects, urlPolicy } = input;
-  if (redirects >= maxRedirects) throw new EgressPolicyError("Too many redirects.");
+  if (redirects >= maxRedirects) throw new EgressPolicyError("Too many redirects.", "transport");
   const location = headerValue(raw.headers, "location");
-  if (!location) throw new EgressPolicyError("Redirect response has no Location.");
+  if (!location) {
+    throw new EgressPolicyError("Redirect response has no Location.", "transport");
+  }
   const next = assertAllowedEgressUrl(new URL(location, current), urlPolicy);
   if (current.protocol === "https:" && next.protocol !== "https:") {
     throw new EgressPolicyError("HTTPS redirects may not downgrade to HTTP.");
@@ -553,7 +576,7 @@ function resolveRedirectTarget(input: {
 
 function remainingBudget(deadline: number): number {
   const remaining = deadline - Date.now();
-  if (remaining <= 0) throw new EgressPolicyError("Outbound request timed out.");
+  if (remaining <= 0) throw new EgressPolicyError("Outbound request timed out.", "transport");
   return remaining;
 }
 
@@ -603,7 +626,7 @@ export async function egressFetch(
       maxBytes,
     );
 
-    if (!REDIRECT_STATUSES.has(raw.status)) {
+    if (!REDIRECT_STATUSES.has(raw.status) || options.followRedirects === false) {
       return toEgressResponse(raw, url.toString());
     }
     const hop = resolveRedirectTarget({

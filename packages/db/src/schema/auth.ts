@@ -274,6 +274,13 @@ export const invitation = pgTable(
     // `createdAt` on create). Missing it made every invite 500 with "The field
     // createdAt does not exist in the invitation Drizzle schema".
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    // Outcome of the latest invitation email: "sent" or "failed", NULL for
+    // invitations created before this was recorded. Written by the auth
+    // package's sendInvitationEmail, read by the members page so a failed
+    // email is not indistinguishable from a delivered one.
+    emailStatus: text("email_status"),
+    // The provider's reason when emailStatus is "failed".
+    emailError: text("email_error"),
   },
   (table) => [index("invitation_organizationId_idx").on(table.organizationId)],
 );

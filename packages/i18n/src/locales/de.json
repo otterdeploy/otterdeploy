@@ -116,6 +116,14 @@
       "retry": "⟳ Erneut versuchen",
       "returnHome": "↩ Zur Startseite"
     },
+    "rateLimited": {
+      "title": "Kurz langsamer",
+      "message": "Aus diesem Netzwerk kamen mehr Anfragen, als der Server pro Minute annimmt. Deine Sitzung ist in Ordnung; die Seite lädt gleich von selbst neu.",
+      "retryingIn_one": "Neuer Versuch in {{count}} Sekunde",
+      "retryingIn_other": "Neuer Versuch in {{count}} Sekunden",
+      "retrying": "Neuer Versuch…",
+      "retryNow": "Jetzt erneut versuchen"
+    },
     "generic": "Etwas ist schiefgelaufen",
     "connection": {
       "unreachable": "Control-Plane nicht erreichbar",
@@ -640,7 +648,12 @@
     "permissions": "Berechtigungen",
     "expiry": "Ablauf",
     "fullAccess": "Vollzugriff",
-    "namePlaceholder": "CI-Deploy-Bot"
+    "namePlaceholder": "CI-Deploy-Bot",
+    "access": "Zugriff",
+    "accessLimited": "Eingeschränkt",
+    "accessLimitedHint": "Nur die unten gewählten Berechtigungen.",
+    "accessFullHint": "Alles, was ein Workspace-Mitglied darf. Nur für vertrauenswürdige Automatisierung.",
+    "choosePermission": "Wähle mindestens eine Berechtigung oder gib dem Schlüssel Vollzugriff."
   },
   "registries": {
     "label": "Registry",
@@ -1934,7 +1947,7 @@
       "environmentSlug": "Environment-Slug",
       "secretPathOptional": "Secret-Pfad (optional)",
       "dopplerProjectOptional": "Projekt (optional)",
-      "dopplerProjectHint": "Nur nötig, wenn das Service-Token nicht auf eine Config beschränkt ist.",
+      "dopplerProjectHint": "Bei einem Service-Token (dp.st.) leer lassen, es ist auf eine Config beschränkt. Persönliche, CLI- und Service-Account-Tokens brauchen beides.",
       "dopplerConfigOptional": "Config (optional)"
     },
     "credentials": {

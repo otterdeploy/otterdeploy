@@ -8,6 +8,7 @@
 import type { Docker } from "@otterdeploy/docker";
 import type { Writable } from "node:stream";
 
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { Writable as NodeWritable } from "node:stream";
 
@@ -15,8 +16,9 @@ import type { DatabaseTarget, ExecutionContext } from "./db";
 import type { RusticCli } from "./rustic";
 
 import { buildContainerName } from "../routers/project/views";
-import { engineDataDir, restoreCommand } from "./engine-helpers";
+import { engineDataDir, restoreCommand, restoreShortfall } from "./engine-helpers";
 import { execCapture, findResourceContainerId } from "./exec";
+import { RestoreRefusedError } from "./restore-errors";
 import { streamSnapshotIntoExec } from "./restore-stream";
 import {
   assertVolumeExists,
@@ -62,7 +64,7 @@ export async function restoreVolumeInPlace(
   // one that could restart mid-extract, risks a corrupt half-state.
   const mounters = await listVolumeMounters(docker, ctx.volumeName);
   const blocked = volumeRestoreBlockReason(mounters);
-  if (blocked) throw new Error(blocked);
+  if (blocked) throw new RestoreRefusedError({ reason: blocked });
   await assertVolumeExists(docker, ctx.volumeName);
   // Stream the tar out of the snapshot, then load it back through the same
   // helper-container mechanics the backup path uses (clear + putArchive).
@@ -100,10 +102,11 @@ async function assertDiskSpace(
   if (!Number.isFinite(availKb)) return;
   const needed = requiredBytes * 1.1;
   if (availKb * 1024 < needed) {
-    throw new Error(
-      `not enough disk space for the restore: ${Math.round(needed / 1e6)} MB needed, ` +
+    throw new RestoreRefusedError({
+      reason:
+        `not enough disk space for the restore: ${Math.round(needed / 1e6)} MB needed, ` +
         `${Math.round((availKb * 1024) / 1e6)} MB free on ${engineDataDir(target.engine)}`,
-    );
+    });
   }
 }
 
@@ -115,8 +118,12 @@ export async function restoreDatabaseInPlace(
   docker: Docker,
   target: DatabaseTarget,
   cli: RusticCli,
-  snapshotId: string,
-  sourceSizeBytes: number | null,
+  snapshot: {
+    id: string;
+    /** The database the dump was taken from (namespaces in a mongo archive). */
+    sourceDatabaseName: string;
+    sourceSizeBytes: number | null;
+  },
 ): Promise<{ ok: true }> {
   const serviceName = buildContainerName({
     engine: target.engine,
@@ -125,12 +132,21 @@ export async function restoreDatabaseInPlace(
     stored: target.serviceName,
   });
   const containerId = await findResourceContainerId(docker, target.resourceId);
-  if (!containerId) throw new Error(`No running container for ${serviceName}`);
+  if (!containerId) {
+    throw new RestoreRefusedError({
+      reason: `${serviceName} is not running: start the database before restoring into it`,
+    });
+  }
 
-  // Throws for engines with no restore client (redis, clickhouse) BEFORE any
+  // Refuses engines with no restore client (redis, clickhouse) BEFORE any
   // destructive work, and the preflight refuses a known disk shortfall.
-  const { cmd, env, method } = restoreCommand(target);
-  await assertDiskSpace(docker, containerId, target, sourceSizeBytes);
+  const command = Result.try({
+    try: () => restoreCommand(target, { databaseName: snapshot.sourceDatabaseName }),
+    catch: (cause) => new RestoreRefusedError({ reason: errorFromUnknown(cause).message }),
+  });
+  if (command.isErr()) throw command.error;
+  const { cmd, env, method } = command.value;
+  await assertDiskSpace(docker, containerId, target, snapshot.sourceSizeBytes);
 
   const restore = await streamSnapshotIntoExec({
     docker,
@@ -138,7 +154,7 @@ export async function restoreDatabaseInPlace(
     cmd,
     env,
     cli,
-    snapshotId,
+    snapshotId: snapshot.id,
     filenameInSnapshot: "dump",
   });
   if (restore.exitCode !== 0) {
@@ -146,5 +162,9 @@ export async function restoreDatabaseInPlace(
       `${method} failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,
     );
   }
+  // Exit 0 is not proof the snapshot landed: a restore that wrote nothing
+  // must not be recorded as succeeded.
+  const shortfall = restoreShortfall(target.engine, restore.stderr);
+  if (shortfall) throw new Error(`${method} did not restore the snapshot: ${shortfall}`);
   return { ok: true };
 }

@@ -13,7 +13,6 @@ import {
   user as userTbl,
 } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
-import { OrganizationInvitationEmail, sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
@@ -25,7 +24,9 @@ import { and, asc, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { log } from "evlog";
 
 import { createAuthAuditHook } from "./audit";
+import { createGitlabProviderOptions, TRUSTED_LINKING_PROVIDERS } from "./gitlab-trust";
 import { ANY_HTTPS_ORIGIN, mayReachExternalIdp } from "./idp-trust";
+import { sendInvitationEmail } from "./invitation-email";
 import { enabledSocialProviderIds, setEnabledSocialProviderIds } from "./live-providers";
 import { bindPasskeyRelyingParty } from "./passkey-rp";
 import { ac, roles } from "./permissions";
@@ -34,12 +35,15 @@ import {
   resolveSocialProviders,
   toBetterAuthSocialProviders,
 } from "./platform-config";
+import { authRateLimit } from "./rate-limit";
 import {
   BOOTSTRAP_TOKEN_HEADER,
   decideRegistration,
   isSsoCallbackPath,
 } from "./registration-policy";
-import { resolveCanonicalWebOrigin } from "./web-origin";
+
+/** The api-key plugin's HTTP create endpoint, closed (see `disabledPaths`). */
+export const API_KEY_CREATE_PATH = "/api-key/create";
 
 /** API-key budget: 600 requests per one-minute window per key (10/s sustained).
  *  See the `apiKey()` plugin config below. */
@@ -179,19 +183,29 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
     // email matches an existing account links to it rather than erroring or
     // creating a duplicate. The set is resolved at build time from the DB (with
     // env as the fallback) and swapped in wholesale by `reloadAuth()`.
-    socialProviders,
+    //
+    // GitLab is deliberately absent from `trustedProviders`, and its email
+    // counts as verified only on gitlab.com with a confirmed address: a
+    // self-managed GitLab (operator-set issuer) could otherwise claim any
+    // account by email (see ./gitlab-trust.ts).
+    socialProviders: {
+      ...socialProviders,
+      ...(socialProviders.gitlab
+        ? { gitlab: createGitlabProviderOptions(socialProviders.gitlab) }
+        : {}),
+    },
     account: {
       accountLinking: {
         enabled: true,
-        trustedProviders: ["github", "google", "gitlab"],
+        trustedProviders: [...TRUSTED_LINKING_PROVIDERS],
       },
     },
     user: {
       additionalFields: {
         // Server-owned and returned with sessions so every transport can enforce
-        // installation authority without interpreting an organization role.
-        // No `fieldName` override: the drizzle adapter's getFieldName() treats
-        // that as the SCHEMA OBJECT'S key to look up (schema.user.fields.<js
+        // installation authority without interpreting an organization role. No
+        // `fieldName` override: the drizzle adapter's getFieldName() treats that
+        // as the SCHEMA OBJECT'S key to look up (schema.user.fields.<js
         // key>.fieldName), not the SQL column name: schema/auth.ts already
         // declares `isInstallAdmin: boolean("is_install_admin")`, i.e. the JS
         // key IS "isInstallAdmin" and drizzle owns the snake_case SQL column
@@ -214,11 +228,16 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       provider: "pg",
       schema: schema,
     }),
-    rateLimit: {
-      enabled: true,
-      window: 60, // time window in seconds
-      max: 100, // max requests in the window
-    },
+    // Per-IP, per-endpoint budgets; the dashboard's own session reads get a
+    // much larger one than sign-in and friends (./rate-limit.ts).
+    rateLimit: authRateLimit,
+    // The api-key plugin's own create endpoint is closed over HTTP: it mints a
+    // key with NO permission map (better-auth forbids `permissions` from a
+    // browser), which authorization reads as full access, so a browser call
+    // would mint a full-access key nobody chose. Keys are minted through the
+    // oRPC `apiKeys.create`, which requires an explicit choice and calls
+    // `auth.api.createApiKey` server-side (unaffected by this list).
+    disabledPaths: [API_KEY_CREATE_PATH],
     // `experimental.joins` would let the Drizzle adapter use the RQB
     // v2 query builder (`db.query.user.findFirst({ with: { session } })`).
     // That requires `relations` passed to drizzle() in
@@ -565,44 +584,9 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
         // email cancels the prior pending invite so duplicates don't pile up.
         invitationExpiresIn: 60 * 60 * 48,
         cancelPendingInvitationsOnReInvite: true,
-        sendInvitationEmail: async (data) => {
-          // Build the accept link against the CANONICAL web origin (where
-          // /accept-invite renders): the verified control-plane FQDN when the
-          // operator has set one, else the env web origin. On a default
-          // self-hosted install CORS_ORIGIN/BETTER_AUTH_URL hold the raw public
-          // IP: the FQDN keeps that IP out of invite emails. Never throws
-          // (falls back to env), so a settings hiccup can't fail inviteMember.
-          const webOrigin = await resolveCanonicalWebOrigin();
-          const inviteUrl = `${webOrigin}/accept-invite/${data.invitation.id}`;
-          // Non-fatal by design: the invitation row is already persisted before
-          // this runs, so a failed email send (e.g. missing/placeholder
-          // RESEND_API_KEY in dev) must NOT fail inviteMember. Swallow the error
-          // and log the accept link for out-of-band delivery; the invite still
-          // shows in the org's pending list either way.
-          try {
-            await sendEmail({
-              to: data.email,
-              subject: `Join ${data.organization.name} on otterdeploy`,
-              react: OrganizationInvitationEmail({
-                organizationName: data.organization.name,
-                inviterName: data.inviter.user.name,
-                inviteUrl,
-                role: String(data.role ?? "member"),
-              }),
-            });
-          } catch (error) {
-            log.warn({
-              invite: {
-                status: "email-failed",
-                email: data.email,
-                // Logged so the operator can deliver the link out-of-band when
-                // email isn't configured (e.g. placeholder RESEND_API_KEY in dev).
-                inviteUrl,
-                detail: error instanceof Error ? error.message : String(error),
-              },
-            });
-          }
-        },
+        // Sends, retries transient provider errors, and records the outcome
+        // on the invitation. See ./invitation-email.ts.
+        sendInvitationEmail,
         organizationHooks: { afterRemoveMember: clearRemovedMemberWorkspace },
         // RBAC: custom access-control statements + owner/admin/member roles
         // (packages/auth/src/permissions.ts). `auth.api.hasPermission` resolves
@@ -622,6 +606,14 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
             additionalFields: {
               slug: { type: "string", required: true },
               environmentId: { type: "string", required: true },
+            },
+          },
+          // The latest invitation email's outcome, written by
+          // sendInvitationEmail above; server-owned, never client input.
+          invitation: {
+            additionalFields: {
+              emailStatus: { type: "string", required: false, input: false },
+              emailError: { type: "string", required: false, input: false },
             },
           },
         },
