@@ -9,7 +9,7 @@ import type { SwarmServiceRuntime, SwarmServiceSpec } from "./service";
 
 import { readinessPlan, readinessPort } from "../runtime/readiness";
 import { inspectSwarmService } from "./internals";
-import { recentTaskFailure } from "./task-status";
+import { pullingImage, recentTaskFailure } from "./task-status";
 import { awaitSwarmPort, awaitSwarmUpdate, rollBackSwarmService } from "./update-watch";
 
 async function failureReason(docker: Docker, serviceName: string, fallback: string | null) {
@@ -39,6 +39,18 @@ async function failed(
   };
 }
 
+/** Why an update that never finished did not: a new task still pulling its
+ *  image says so (a node that cannot reach the registry hangs the pull with no
+ *  error at all); anything else is the bare timeout. */
+async function notReadyReason(docker: Docker, serviceName: string, timeoutMs: number) {
+  const bare = `never became ready within ${Math.round(timeoutMs / 1000)}s`;
+  const tasks = await docker.tasks.list({ filters: { service: [serviceName] } });
+  const image = tasks.isOk() ? pullingImage(tasks.value) : null;
+  return image
+    ? `${bare}: its image ${image} was still pulling (check that its node can reach the image's registry)`
+    : bare;
+}
+
 /** Wait for the update to really end and report it (never "running" for a
  *  version swarm rolled back, or one nothing can reach). */
 export async function settleSwarmUpdate(
@@ -62,7 +74,7 @@ export async function settleSwarmUpdate(
   }
   const reason =
     outcome.kind === "updating"
-      ? `never became ready within ${Math.round(plan.timeoutMs / 1000)}s`
+      ? await notReadyReason(docker, spec.serviceName, plan.timeoutMs)
       : spec.healthcheck
         ? null
         : await awaitSwarmPort(docker, spec.serviceName, plan);

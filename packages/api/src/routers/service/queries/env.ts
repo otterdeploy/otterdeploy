@@ -2,7 +2,7 @@ import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceEnvVar, serviceResource } from "@otterdeploy/db/schema/project";
-import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { EnvVarSource, ResourceRow, ServiceEnvVarRow } from ".";
@@ -160,85 +160,7 @@ export async function deleteServiceEnvVar(input: {
   return result.length > 0;
 }
 
-/**
- * Sealed rows are DELIBERATELY exempt from this whole dance, mirroring
- * `bulkReplaceProjectEnvVars`: they're never deleted by the "base rows"
- * pruning, and any `vars` entry whose key collides with an existing sealed
- * row is dropped rather than applied. The bulk editor round-trips values it
- * read back from the API. A sealed row's plaintext was never sent to it in
- * the first place (masked by `mapEnvVar`), so blindly re-inserting that
- * entry would silently clobber the secret with an empty/stale value. Sealed
- * vars are managed one at a time via `upsertServiceEnvVar` / `deleteServiceEnvVar`.
- */
-export async function bulkReplaceServiceEnvVars(
-  serviceResourceId: ResourceId,
-  vars: Array<{ key: string; value: string; isSecret?: boolean }>,
-  source: EnvVarSource = "unknown",
-): Promise<ServiceEnvVarRow[]> {
-  return db.transaction(async (tx) => {
-    const baseRows: ServiceEnvVarRow[] = await tx
-      .select()
-      .from(serviceEnvVar)
-      .where(
-        and(
-          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
-          isNull(serviceEnvVar.previewId),
-        ),
-      );
-    const sealedRows = baseRows.filter((r) => r.sealed);
-    const sealedKeys = new Set(sealedRows.map((r) => r.key));
-
-    // od-y64.8: a MANIFEST reconcile owns only what the manifest wrote. Rows a
-    // human set with `env set` are not the file's to prune, and deleting them
-    // is how imperative secrets disappeared on deploy. A live edit still
-    // replaces wholesale — the editor sends the whole bag, so omission there
-    // really is a delete.
-    const incoming = new Set(vars.map((v) => v.key));
-    const kept =
-      source === "manifest"
-        ? baseRows.filter((r) => !r.sealed && r.source !== "manifest" && !incoming.has(r.key))
-        : [];
-    const keptKeys = new Set(kept.map((r) => r.key));
-
-    // Base, unsealed rows only: a bulk edit of the base env must never wipe a
-    // PR preview's overrides, and never touches a sealed row.
-    await tx
-      .delete(serviceEnvVar)
-      .where(
-        and(
-          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
-          isNull(serviceEnvVar.previewId),
-          eq(serviceEnvVar.sealed, false),
-          keptKeys.size > 0 ? notInArray(serviceEnvVar.key, [...keptKeys]) : undefined,
-        ),
-      );
-
-    const toInsert = vars.filter((v) => !sealedKeys.has(v.key));
-    let inserted: ServiceEnvVarRow[] = [];
-    if (toInsert.length > 0) {
-      // Encrypt-at-rest (od-3pp7): ciphertext in the DB, but return the
-      // caller's plaintext (the editor re-renders the returned rows).
-      const values = await Promise.all(
-        toInsert.map(async (v) => ({
-          serviceResourceId,
-          key: v.key,
-          value: await encryptEnvValue(v.value),
-          isSecret: v.isSecret ?? false,
-          sealed: false,
-          source,
-        })),
-      );
-      const plaintextByKey = new Map(toInsert.map((v) => [v.key, v.value]));
-      const rows = await tx.insert(serviceEnvVar).values(values).returning();
-      inserted = rows.map((row) => ({
-        ...row,
-        value: plaintextByKey.get(row.key) ?? row.value,
-      }));
-    }
-
-    return [...inserted, ...sealedRows, ...kept].sort((a, b) => a.key.localeCompare(b.key));
-  });
-}
+export { bulkReplaceServiceEnvVars } from "./env-bulk";
 
 /**
  * Preview-aware resource lookup for the variable resolver, within the CALLING

@@ -9,12 +9,8 @@ import { resource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
-import {
-  getProxyRouteByDomain,
-  insertProxyRoute,
-  listProxyRoutesByResourceId,
-  updateProxyRoute,
-} from "../../caddy/queries";
+import { insertResourceRoute } from "../../caddy/primary-route";
+import { getProxyRouteByDomain, updateProxyRoute } from "../../caddy/queries";
 import { checkDomainReachability, type DnsState } from "../../lib/domain-reachability";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
@@ -23,8 +19,6 @@ import { DomainConflictError } from "./errors";
 import { type ResourceRef } from "./inputs";
 import { type ServiceRecord } from "./queries";
 import { isUniqueViolation, sanitizeSlug } from "./views";
-
-type ProxyRoutes = Awaited<ReturnType<typeof listProxyRoutesByResourceId>>;
 
 /**
  * The label a generated host is built from.
@@ -132,7 +126,6 @@ export async function insertGeneratedRoute(
   resolved: ResolvedDomain,
   serverIp: string | null,
   upstreamPort: number,
-  routes: ProxyRoutes,
 ): Promise<Result<void, DomainConflictError>> {
   // sslip/local hosts are pointed by construction; real names are measured.
   const dns = await generatedRouteDnsState(resolved, serverIp);
@@ -155,15 +148,15 @@ export async function insertGeneratedRoute(
     dnsCheckedAt: dns.dnsCheckedAt,
   };
   try {
-    await insertProxyRoute({
+    // Becomes primary only if no other route claims it (decided under the
+    // resource's lock, see caddy/primary-route.ts).
+    await insertResourceRoute({
       projectId: input.projectId,
       resourceId: input.resourceId,
       type: "http",
       domain: resolved.fqdn,
       protocol: "http",
       source: "generated",
-      // Becomes primary only if no other route already claims it.
-      isPrimary: !routes.some((r) => r.isPrimary),
       ...fields,
     });
     return Result.ok();

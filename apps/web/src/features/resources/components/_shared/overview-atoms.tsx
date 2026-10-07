@@ -56,7 +56,10 @@ export function StateBanner({
       <span aria-hidden className={cn("size-2 shrink-0 rounded-full", TONE_DOT[state.tone])} />
       <span className={cn("shrink-0 font-medium", TONE_TEXT[state.tone])}>{state.label}</span>
       {state.why && (
-        <span className="min-w-0 truncate text-muted-foreground" title={state.why}>
+        // Two lines before clamping: a runtime's reason ("image … has not
+        // finished pulling …") carries its point at the end, where a
+        // one-line truncate cut it off. The full text stays in the title.
+        <span className="line-clamp-2 min-w-0 break-words text-muted-foreground" title={state.why}>
           {state.why}
         </span>
       )}
