@@ -247,4 +247,15 @@ describe("caching", () => {
     await previewIdleTeardownHours();
     expect(selectRow).toHaveBeenCalledTimes(2);
   });
+
+  test("a failed read is not kept: the next read asks Postgres again", async () => {
+    // The shared in-flight read used to be cleared only on success, so one
+    // failed query answered every later caller with the same rejection until a
+    // settings write invalidated it.
+    selectRow.mockRejectedValueOnce(new Error("Connection timeout after 5s"));
+    await expect(crowdsecConfig()).rejects.toThrow("Connection timeout");
+    selectRow.mockResolvedValue([{ crowdsecEnabled: false }]);
+    expect(await crowdsecConfig()).toBeNull();
+    expect(selectRow).toHaveBeenCalledTimes(2);
+  });
 });

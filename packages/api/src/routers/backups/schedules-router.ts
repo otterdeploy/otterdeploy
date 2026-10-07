@@ -10,6 +10,7 @@ import {
   updateScheduleRecord,
 } from "../../backups/schedule-crud";
 import { classifyScheduleSources, getScheduleRunTarget } from "../../backups/schedule-db";
+import { runBackgroundPass } from "../../lib/background-pass";
 import { presentSchedule } from "./presenters";
 import { listSchedules, scheduleDestinationNames } from "./service";
 
@@ -140,7 +141,7 @@ export const backupSchedulesRouter = {
           });
           queued += 1;
           // Run detached. Status + logs observable via get/logs.
-          void executeBackup(id);
+          runBackgroundPass("backup-run", () => executeBackup(id));
         }
       }
       return { queued };

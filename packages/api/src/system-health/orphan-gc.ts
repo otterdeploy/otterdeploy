@@ -24,6 +24,7 @@ import { asc, eq } from "drizzle-orm";
 import { log } from "evlog";
 import * as z from "zod";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { runtime } from "../runtime";
 import { removeComposeStack, removeProjectNetwork } from "../swarm";
 
@@ -292,7 +293,7 @@ export async function sweepOrphanedResources(now = new Date()): Promise<OrphanSw
  *  interval sweeps in apps/server/src/background-services.ts. */
 export function startOrphanResourceGc(intervalMs = 5 * 60_000): () => void {
   const timer = setInterval(() => {
-    void sweepOrphanedResources();
+    runBackgroundPass("orphan-resource-gc", () => sweepOrphanedResources());
   }, intervalMs);
   timer.unref?.();
   return () => clearInterval(timer);

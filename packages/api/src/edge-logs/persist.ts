@@ -13,6 +13,7 @@ import { log } from "evlog";
 
 import type { EdgeLogLine } from "./types";
 
+import { runBackgroundPass } from "../lib/background-pass";
 import { edgeLogRetentionDays } from "../lib/platform-runtime-settings";
 import { startEventPersistence, stopEventPersistence } from "./event-persist";
 import { dropOldPartitions, ensureEdgeLogTable, ensurePartitions } from "./partition";
@@ -56,13 +57,16 @@ export function startEdgeLogPersistence(): void {
   // enqueue() buffers in the meantime; flush() no-ops until `ready`. ensure*
   // log (never throw) on failure, so `ready` still flips and we degrade to
   // logged errors rather than a wedged buffer.
-  void (async () => {
+  runBackgroundPass("edge-log-persist-start", async () => {
     await ensureEdgeLogTable();
     state.ready = true;
     await flush();
-  })();
+  });
   state.flushTimer = setInterval(() => void flush(), FLUSH_INTERVAL_MS);
-  state.sweepTimer = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
+  state.sweepTimer = setInterval(
+    () => runBackgroundPass("edge-log-partition-sweep", sweep),
+    SWEEP_INTERVAL_MS,
+  );
   // The sparse operational-event plane shares this toggle (its own plain table).
   startEventPersistence();
   log.info({ edgeLog: { persist: "started" } });

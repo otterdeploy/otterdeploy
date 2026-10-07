@@ -31,6 +31,7 @@ import { Result } from "better-result";
 import { and, inArray, isNull, sql } from "drizzle-orm";
 import { log } from "evlog";
 
+import { runBackgroundPass } from "../../lib/background-pass";
 import { decisionIdentity, rowIdentity } from "./decision-identity";
 import { fetchDecisions } from "./decisions-read";
 
@@ -149,8 +150,12 @@ export function startFirewallRecorder(intervalMs = 60_000): () => void {
     // the next one sees the same live set and reaches the same conclusion.
     if (inFlight) return;
     inFlight = true;
-    void recordDecisionsOnce()
-      .then((result) => {
+    // Through runBackgroundPass: reading the CrowdSec settings is a Postgres
+    // query outside the pass's Result, and its rejection used to float out of
+    // this timer and exit the process.
+    runBackgroundPass("firewall-recorder", async () => {
+      try {
+        const result = await recordDecisionsOnce();
         if (result.isErr()) {
           // Expected whenever the firewall profile is simply not running.
           log.debug({ firewall: { recorder: "skipped", reason: result.error } });
@@ -160,10 +165,10 @@ export function startFirewallRecorder(intervalMs = 60_000): () => void {
         if (opened > 0 || ended > 0) {
           log.info({ firewall: { recorder: "pass", ...result.value } });
         }
-      })
-      .finally(() => {
+      } finally {
         inFlight = false;
-      });
+      }
+    });
   };
   timer = setInterval(tick, intervalMs);
   // Don't hold the process open for a background recorder.

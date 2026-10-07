@@ -1,6 +1,7 @@
 import type { RequestLogger } from "evlog";
 import type { IncomingMessage, RequestOptions } from "node:http";
 
+import { Result } from "better-result";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 
@@ -36,18 +37,28 @@ function collectResponse(response: IncomingMessage): Promise<string> {
   });
 }
 
-function requestOptions(target: URL, path: string, body: string): RequestOptions {
-  const headers = {
-    "Cache-Control": "must-revalidate",
-    "Content-Length": Buffer.byteLength(body),
-    "Content-Type": "text/caddyfile",
-    Host: "localhost",
-  };
+type AdminMethod = "GET" | "POST";
+
+function requestOptions(
+  target: URL,
+  method: AdminMethod,
+  path: string,
+  body: string,
+): RequestOptions {
+  const headers =
+    method === "POST"
+      ? {
+          "Cache-Control": "must-revalidate",
+          "Content-Length": Buffer.byteLength(body),
+          "Content-Type": "text/caddyfile",
+          Host: "localhost",
+        }
+      : { Host: "localhost" };
   if (target.protocol === "unix:") {
     if (!target.pathname.startsWith("/")) {
       throw new Error("Caddy Unix socket path must be absolute.");
     }
-    return { socketPath: target.pathname, path, method: "POST", headers, agent: false };
+    return { socketPath: target.pathname, path, method, headers, agent: false };
   }
   if (target.protocol !== "http:" && target.protocol !== "https:") {
     throw new Error("Caddy admin URL must use unix, http, or https.");
@@ -57,15 +68,20 @@ function requestOptions(target: URL, path: string, body: string): RequestOptions
     hostname: target.hostname,
     port: target.port || undefined,
     path,
-    method: "POST",
+    method,
     headers,
     agent: false,
   };
 }
 
-async function requestAdmin(adminUrl: string, path: string, body: string): Promise<AdminResponse> {
+async function requestAdmin(
+  adminUrl: string,
+  method: AdminMethod,
+  path: string,
+  body = "",
+): Promise<AdminResponse> {
   const target = new URL(adminUrl);
-  const options = requestOptions(target, path, body);
+  const options = requestOptions(target, method, path, body);
   const request = target.protocol === "https:" ? httpsRequest : httpRequest;
   return new Promise((resolve, reject) => {
     // Wall-clock deadline, not just `req.setTimeout`: the socket-idle timeout
@@ -119,7 +135,7 @@ export async function adaptCaddyfile(
   const log = asStepLogger(rlog);
   log.info({ caddy: { step: "adapt", action: "request", transport: new URL(adminUrl).protocol } });
   try {
-    const response = await requestAdmin(adminUrl, "/adapt", caddyfile);
+    const response = await requestAdmin(adminUrl, "POST", "/adapt", caddyfile);
     if (!response.ok) {
       log.error({ caddy: { step: "adapt", status: "failed", detail: response.body } });
       return { ok: false, error: response.body || `Caddy returned HTTP ${response.status}.` };
@@ -142,7 +158,7 @@ export async function loadCaddyfile(
   const log = asStepLogger(rlog);
   log.info({ caddy: { step: "load", action: "request", transport: new URL(adminUrl).protocol } });
   try {
-    const response = await requestAdmin(adminUrl, "/load", caddyfile);
+    const response = await requestAdmin(adminUrl, "POST", "/load", caddyfile);
     if (!response.ok) {
       log.error({ caddy: { step: "load", status: "failed", detail: response.body } });
       return { ok: false, error: response.body || `Caddy returned HTTP ${response.status}.` };
@@ -154,4 +170,22 @@ export async function loadCaddyfile(
     log.error({ caddy: { step: "load", status: "failed", detail: message } });
     return { ok: false, error: message };
   }
+}
+
+/**
+ * The config Caddy is running right now, as the JSON text `GET /config/`
+ * returns (keys sorted, so the same config always reads back byte-identical).
+ * The edge watch (./edge-watch.ts) compares it with what was last loaded.
+ */
+export async function readCaddyConfig(adminUrl: string): Promise<Result<string, Error>> {
+  const response = await Result.tryPromise({
+    try: () => requestAdmin(adminUrl, "GET", "/config/"),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  });
+  if (response.isErr()) return Result.err(response.error);
+  if (!response.value.ok) {
+    const refusal = `Caddy GET /config/ returned HTTP ${response.value.status}: ${response.value.body}`;
+    return Result.err(new Error(refusal));
+  }
+  return Result.ok(response.value.body);
 }

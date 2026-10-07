@@ -5,6 +5,7 @@ import {
   asPgError,
   isForeignKeyViolation,
   isNotNullViolation,
+  isPostgresUnreachable,
   isRetryablePgError,
   isUniqueViolation,
   pgConstraint,
@@ -128,5 +129,46 @@ describe("pgErrorInfo", () => {
 
   test("is null for a non-database error", () => {
     expect(pgErrorInfo(new Error("nope"))).toBeNull();
+  });
+});
+
+describe("isPostgresUnreachable", () => {
+  /** bun-sql's connection-level failure: no SQLSTATE, `code` names the cause. */
+  function bunConnectionError(code: string): Error {
+    return Object.assign(new Error("Connection closed"), { code });
+  }
+
+  test("a refused, closed or timed-out connection is an outage", () => {
+    for (const code of [
+      "ERR_POSTGRES_CONNECTION_REFUSED",
+      "ERR_POSTGRES_CONNECTION_FAILED",
+      "ERR_POSTGRES_CONNECTION_CLOSED",
+      "ERR_POSTGRES_CONNECTION_TIMEOUT",
+      // What a lifted network blackhole's stalled connections closed with.
+      "ERR_POSTGRES_IDLE_TIMEOUT",
+      "ERR_POSTGRES_LIFETIME_TIMEOUT",
+    ]) {
+      expect(isPostgresUnreachable(wrapped(bunConnectionError(code))), code).toBe(true);
+    }
+  });
+
+  test("a connection-class or shutdown SQLSTATE is an outage", () => {
+    expect(isPostgresUnreachable(wrapped(bunPgError("08006")))).toBe(true);
+    expect(isPostgresUnreachable(bunPgError("57P01"))).toBe(true);
+    expect(isPostgresUnreachable(bunPgError("57P03"))).toBe(true);
+  });
+
+  test("is found below a handler's own wrapper", () => {
+    const outer = new Error("service.get failed", {
+      cause: wrapped(bunConnectionError("ERR_POSTGRES_IDLE_TIMEOUT")),
+    });
+    expect(isPostgresUnreachable(outer)).toBe(true);
+  });
+
+  test("a statement Postgres answered with an error is not an outage", () => {
+    expect(isPostgresUnreachable(wrapped(bunPgError("23505")))).toBe(false);
+    expect(isPostgresUnreachable(bunConnectionError("ERR_POSTGRES_SYNTAX_ERROR"))).toBe(false);
+    expect(isPostgresUnreachable(new Error("nope"))).toBe(false);
+    expect(isPostgresUnreachable("ERR_POSTGRES_CONNECTION_CLOSED")).toBe(false);
   });
 });
