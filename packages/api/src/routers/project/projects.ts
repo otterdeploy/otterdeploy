@@ -28,9 +28,11 @@ import {
   deleteProjectRecord,
   getProjectBySlugInOrg,
   getProjectInOrg,
+  isProjectSlugTaken,
   listDatabaseResourceRecords,
   listProjectRecordsByOrg,
   setProjectGraphLayout,
+  suggestFreeProjectSlug,
   updateProjectRecord,
 } from "./queries";
 import { countRunningServicesByProject } from "./running-services";
@@ -99,6 +101,10 @@ export async function getProjectBySlugForOrg(
   return Result.ok(record);
 }
 
+async function slugConflict(slug: string): Promise<ProjectConflictError> {
+  return new ProjectConflictError({ slug, suggestedSlug: await suggestFreeProjectSlug(slug) });
+}
+
 export async function createProject(
   input: OrgRef & {
     name: string;
@@ -107,14 +113,12 @@ export async function createProject(
     environmentId?: EnvironmentId;
   },
 ): Promise<Result<Project, ProjectConflictError>> {
-  // Slug uniqueness is org-scoped, so a sibling org owning the same slug is fine.
-  const existing = await getProjectBySlugInOrg({
-    slug: input.slug,
-    organizationId: input.organizationId,
-  });
-
-  if (existing) {
-    return Result.err(new ProjectConflictError({ slug: input.slug }));
+  // Slug uniqueness is install-wide, not per org: the slug alone
+  // names the project's swarm services, network and volumes, so a sibling org
+  // owning the same slug would share them. `project_slug_unique` backs this
+  // check against a concurrent create.
+  if (await isProjectSlugTaken(input.slug)) {
+    return Result.err(await slugConflict(input.slug));
   }
 
   try {
@@ -129,7 +133,7 @@ export async function createProject(
     return Result.ok(created.project);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return Result.err(new ProjectConflictError({ slug: input.slug }));
+      return Result.err(await slugConflict(input.slug));
     }
 
     throw error;
@@ -164,7 +168,7 @@ export async function updateProject(
     return Result.ok(updated);
   } catch (error) {
     if (isUniqueViolation(error) && input.slug !== undefined) {
-      return Result.err(new ProjectConflictError({ slug: input.slug }));
+      return Result.err(await slugConflict(input.slug));
     }
     throw error;
   }

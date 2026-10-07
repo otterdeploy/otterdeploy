@@ -23,7 +23,7 @@ import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
-import { detectPackageManagerRun, readJson } from "./railpack-detect";
+import { detectPackageManager, readJson, workspaceBinCommand } from "./railpack-detect";
 
 /** How the app's build command is produced for a workspace build. */
 export type WorkspaceRunner =
@@ -31,9 +31,12 @@ export type WorkspaceRunner =
       kind: "turbo";
       /** `--filter` value: the app's package name, or a `./path` fallback. */
       filter: string;
-      /** `<pm> run` prefix; turbo is invoked through it so no global install
-       *  is needed (`bun run turbo …` resolves the workspace-local binary). */
+      /** `<pm> run` prefix for the app's own scripts (the start command). */
       pmRun: string;
+      /** Runs the workspace-local turbo binary under the repo's manager
+       *  (`pnpm exec turbo`, `npx --no turbo`, …), so no global install is
+       *  needed. Never `<pm> run turbo`: pnpm/npm `run` only find scripts. */
+      turboBin: string;
     }
   | { kind: "script"; pmRun: string };
 
@@ -115,7 +118,8 @@ export async function resolveWorkspaceRunner(opts: {
   configuredFilter: string | null | undefined;
   sink: LogSink;
 }): Promise<WorkspaceRunner> {
-  const pmRun = await detectPackageManagerRun(opts.workDir);
+  const pm = await detectPackageManager(opts.workDir);
+  const pmRun = `${pm} run`;
   const mode = opts.configured ?? "auto";
 
   if (mode === "script") return { kind: "script", pmRun };
@@ -140,7 +144,7 @@ export async function resolveWorkspaceRunner(opts: {
   const filter =
     opts.configuredFilter?.trim() || (await resolveTurboFilter(opts.workDir, opts.subdir));
   opts.sink.system(`turborepo detected: building with --filter=${filter}`);
-  return { kind: "turbo", filter, pmRun };
+  return { kind: "turbo", filter, pmRun, turboBin: workspaceBinCommand(pm, "turbo") };
 }
 
 /**
@@ -159,7 +163,7 @@ export function workspaceBuildCommand(opts: {
 }): string | null {
   if (!opts.hasBuildScript) return null;
   if (opts.runner.kind === "turbo") {
-    return `${opts.runner.pmRun} turbo run build --filter=${opts.runner.filter}`;
+    return `${opts.runner.turboBin} run build --filter=${opts.runner.filter}`;
   }
   return `cd ${opts.subdir} && ${opts.runner.pmRun} build`;
 }

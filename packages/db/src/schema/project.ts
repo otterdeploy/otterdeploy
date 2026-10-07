@@ -143,7 +143,12 @@ export const project = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("project_org_slug_unique").on(table.organizationId, table.slug),
+    // GLOBAL, not per org: the slug alone names the project's
+    // runtime objects on the shared swarm (`od-<slug>-<service>`, the project
+    // network, volumes), none of which carry the organization, so two orgs
+    // sharing a slug would share those objects. Migration
+    // 20261006191815_global_project_slugs resolves pre-existing duplicates.
+    uniqueIndex("project_slug_unique").on(table.slug),
     index("project_organization_id_idx").on(table.organizationId),
   ],
 );
