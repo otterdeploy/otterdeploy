@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 
 import {
   assertAllowedEgressUrl,
+  EGRESS_USER_AGENT,
   EgressPolicyError,
   egressFetch,
   isForbiddenEgressAddress,
@@ -392,6 +393,25 @@ describe("egressFetch over a real socket", () => {
       expect(res.status).toBe(201);
       expect(await res.text()).toBe("part-one;part-two");
       expect(seen).toEqual({ method: "POST", auth: "Bearer jwt", body: '{"n":1}' });
+    } finally {
+      await stop();
+    }
+  });
+
+  test("sends a User-Agent when the caller sets none (GitHub refuses a request without one)", async () => {
+    const seen: (string | undefined)[] = [];
+    const { url, stop } = await serve((req, res) => {
+      seen.push(req.headers["user-agent"]);
+      res.end("ok");
+    });
+    try {
+      await egressFetch(`${url}/a`, {}, { ...loopbackCarveOut, timeoutMs: 5000 });
+      await egressFetch(
+        `${url}/b`,
+        { headers: { "User-Agent": "otterdeploy-updater" } },
+        { ...loopbackCarveOut, timeoutMs: 5000 },
+      );
+      expect(seen).toEqual([EGRESS_USER_AGENT, "otterdeploy-updater"]);
     } finally {
       await stop();
     }
