@@ -28,8 +28,9 @@
 
 import type { Handler } from "hono";
 
-import { isOrgMember, resolveProtectedDomainOrg } from "@otterdeploy/api/authz/membership";
+import { resolveProtectedDomainOrg } from "@otterdeploy/api/authz/membership";
 import { claimHandoffNonce } from "@otterdeploy/api/authz/nonce";
+import { isOrgMember } from "@otterdeploy/api/authz/org-member";
 import {
   signHandoffToken,
   signSessionCookie,

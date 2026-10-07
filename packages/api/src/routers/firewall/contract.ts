@@ -8,6 +8,8 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
+
 const tag = "firewall";
 
 const firewallDecisionSchema = z.object({
@@ -296,16 +298,19 @@ export const firewallContract = {
       .input(z.object({ slug: z.string() }))
       .output(blocklistSchema),
     toggle: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND, APPLY_FAILED: blocklistErrors.APPLY_FAILED })
       .meta({ path: "/firewall/blocklists/{id}/toggle", tag, method: "POST" })
       .input(z.object({ id: z.string(), enabled: z.boolean() }))
       .output(blocklistSchema),
     remove: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND, APPLY_FAILED: blocklistErrors.APPLY_FAILED })
       .meta({ path: "/firewall/blocklists/{id}", tag, method: "DELETE" })
       .input(z.object({ id: z.string() }))
       .output(z.object({ ok: z.boolean() })),
     syncNow: oc
+      .meta(projectRefs({ id: "none" }))
       .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND, APPLY_FAILED: blocklistErrors.APPLY_FAILED })
       .meta({ path: "/firewall/blocklists/{id}/sync", tag, method: "POST" })
       .input(z.object({ id: z.string() }))

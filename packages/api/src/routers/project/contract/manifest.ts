@@ -15,6 +15,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { projectRefs } from "../../../authz/project-refs";
 import { zJsonObject } from "../../../lib/z-json";
 import { manifestSchema } from "../../../stack/manifest";
 import { getProjectInput } from "./project";
@@ -224,16 +225,19 @@ const conflict = {
 
 export const manifestContractSlice = {
   get: oc
+    .meta(projectRefs({ id: "project" }))
     .errors(projectNotFoundErrors)
     .meta({ path: `${basePath}/{projectId}/manifest`, tag, method: "GET" })
     .input(getProjectInput)
     .output(manifestGetOutput),
   save: oc
+    .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
     .errors({ ...projectNotFoundErrors, ...conflict })
     .meta({ path: `${basePath}/{projectId}/manifest`, tag, method: "PUT" })
     .input(manifestSaveInput)
     .output(manifestSaveOutput),
   diff: oc
+    .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
     .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
     .meta({ path: `${basePath}/{projectId}/manifest/diff`, tag, method: "POST" })
     .input(manifestDiffInput)
@@ -244,6 +248,7 @@ export const manifestContractSlice = {
     .input(manifestApplyInput)
     .output(manifestApplyOutput),
   applyChange: oc
+    .meta(projectRefs({ "manifest.composes.*.gitRepoId": "none" }))
     .errors({ ...projectNotFoundErrors, ...conflict, ...unknownEnvironment })
     .meta({ path: `${basePath}/{projectId}/manifest/apply-change`, tag, method: "POST" })
     .input(manifestApplyChangeInput)

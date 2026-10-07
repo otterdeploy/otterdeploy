@@ -6,6 +6,8 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
+
 const tag = "docker";
 const basePath = "/docker";
 
@@ -120,6 +122,9 @@ const createdNetworkSchema = z.object({
 
 const idInput = z.object({ id: z.string().min(1) });
 
+/** A Docker network id names nothing a project owns. */
+const dockerObjectRefs = projectRefs({ id: "none" });
+
 export const networksContract = {
   list: oc
     .errors(serverError)
@@ -127,6 +132,7 @@ export const networksContract = {
     .input(z.object({}))
     .output(z.array(networkSchema)),
   inspect: oc
+    .meta(dockerObjectRefs)
     .errors({ ...serverError, ...notFoundError })
     .meta({ path: `${basePath}/networks/inspect`, tag, method: "GET" })
     .input(idInput)
@@ -143,6 +149,7 @@ export const networksContract = {
     .input(createNetworkInput)
     .output(createdNetworkSchema),
   remove: oc
+    .meta(dockerObjectRefs)
     .errors({ ...serverError, ...notFoundError, ...conflictError })
     .meta({ path: `${basePath}/networks/remove`, tag, method: "POST" })
     .input(idInput)

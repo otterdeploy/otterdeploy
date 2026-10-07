@@ -29,6 +29,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { projectRefs } from "../../authz/project-refs";
 import { containerRegistryIdField } from "../project/contract/shared";
 
 const tag = "registry";
@@ -177,6 +178,7 @@ export const registryContract = {
     .input(createRegistryInput)
     .output(containerRegistryViewSchema),
   update: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Registry credential not found" as const },
     })
@@ -184,6 +186,7 @@ export const registryContract = {
     .input(updateRegistryInput)
     .output(containerRegistryViewSchema),
   delete: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Registry credential not found" as const },
     })
@@ -191,6 +194,7 @@ export const registryContract = {
     .input(deleteRegistryInput)
     .output(z.object({ ok: z.boolean() })),
   testConnection: oc
+    .meta(projectRefs({ id: "none" }))
     .errors({
       NOT_FOUND: { status: 404, message: "Registry credential not found" as const },
     })

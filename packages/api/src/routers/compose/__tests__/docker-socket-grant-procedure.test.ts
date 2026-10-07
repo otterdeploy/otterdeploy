@@ -56,6 +56,10 @@ vi.mock("../queries", async (importOriginal) => {
   return { ...actual, getComposeRecord, setDockerSocketGrant };
 });
 
+// The caller is a current member of its organization: the org-scoped guard's
+// per-request membership lookup is not what these tests exercise.
+vi.mock("../../../authz/org-member", () => ({ isOrgMember: vi.fn(async () => true) }));
+
 // Every org permission check passes: the point is that org RBAC alone, the
 // most an organization owner has, never reaches this procedure.
 vi.mock("@otterdeploy/auth", () => ({

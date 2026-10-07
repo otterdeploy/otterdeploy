@@ -93,6 +93,10 @@ vi.mock("../../../caddy", async (importOriginal) => {
   return { ...actual, saveRouteCustomDirectives };
 });
 
+// The caller is a current member of its organization: the org-scoped guard's
+// per-request membership lookup is not what these tests exercise.
+vi.mock("../../../authz/org-member", () => ({ isOrgMember: vi.fn(async () => true) }));
+
 // Every org permission check passes: route:update is not what decides here.
 vi.mock("@otterdeploy/auth", () => ({
   auth: { api: { hasPermission: vi.fn(async () => ({ success: true })) } },
