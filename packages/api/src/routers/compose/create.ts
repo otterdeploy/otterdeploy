@@ -97,6 +97,7 @@ async function persistComposeVariables(
  *  GitHub App installation) or, legacy, a pasted public URL. */
 async function createGitCompose(
   input: ComposeCreateInput,
+  organizationId: OrganizationId,
   project: ComposeProject,
   exposed: ExposedSeed[],
   placementServerId: ServerId | null,
@@ -116,7 +117,7 @@ async function createGitCompose(
       return Result.err(invalid(`"${boundRepoId}" is not a repository id`));
     }
     const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(parsedRepoId.data),
+      try: () => resolveRepoCloneBinding(parsedRepoId.data, organizationId),
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (bound.isErr()) return Result.err(invalid(bound.error));
@@ -185,6 +186,7 @@ async function createGitCompose(
   }
 
   await enqueueComposeBuild({
+    organizationId,
     projectId: input.projectId,
     resourceId: created.value.resource.id,
     gitRepoUrl: cloneUrl,
@@ -237,6 +239,6 @@ export async function createComposeResource(args: {
   }));
 
   return input.source === "git"
-    ? createGitCompose(input, project, exposed, placement.value)
+    ? createGitCompose(input, organizationId, project, exposed, placement.value)
     : createInlineCompose(input, project, exposed, placement.value, log);
 }

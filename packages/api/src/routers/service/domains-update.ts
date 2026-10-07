@@ -27,6 +27,7 @@ import { checkDomainReachability } from "../../lib/domain-reachability";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import {
   domainRewritePatch,
+  isMultiOrgInstall,
   isReservedControlPlaneDomain,
   normalizeDomain,
   platformApexFor,
@@ -99,6 +100,7 @@ export async function updateServiceDomain(
     dnsState: reachability.state,
     requiresVerification,
     apex: platformApexFor(domain, sources),
+    multiOrg: await isMultiOrgInstall(),
   });
 
   let updated: ProxyRouteRecord | undefined;

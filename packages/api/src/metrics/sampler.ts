@@ -41,7 +41,14 @@ const dockerStatsFrameSchema = z.object({
       system_cpu_usage: z.number().optional(),
     })
     .optional(),
-  memory_stats: z.object({ usage: z.number().optional(), limit: z.number().optional() }).optional(),
+  memory_stats: z
+    .object({
+      usage: z.number().optional(),
+      limit: z.number().optional(),
+      // Per-cgroup breakdown: `total_*` keys on cgroup v1, flat keys on v2.
+      stats: z.record(z.string(), z.number()).optional(),
+    })
+    .optional(),
   networks: z
     .record(
       z.string(),
@@ -61,6 +68,20 @@ function computeCpuPct(f: DockerStatsFrame): number {
   const onlineCpus = cur.online_cpus || (curUsage.percpu_usage?.length ?? 1);
   if (cpuDelta <= 0 || systemDelta <= 0) return 0;
   return (cpuDelta / systemDelta) * onlineCpus * 100;
+}
+
+/**
+ * Working set, computed the way `docker stats` does: raw usage
+ * counts the page cache, so a container that has merely read a large file
+ * charts as near its limit. Subtract the inactive file pages, which the kernel
+ * reclaims first: `total_inactive_file` on cgroup v1, `inactive_file` on v2.
+ * With no breakdown (or a nonsensical one) raw usage is the best figure left.
+ */
+function workingSetBytes(f: DockerStatsFrame): number {
+  const usage = f.memory_stats?.usage ?? 0;
+  const stats = f.memory_stats?.stats ?? {};
+  const inactiveFile = stats.total_inactive_file ?? stats.inactive_file;
+  return inactiveFile !== undefined && inactiveFile < usage ? usage - inactiveFile : usage;
 }
 
 function sumNetwork(f: DockerStatsFrame): { rx: number; tx: number } {
@@ -138,7 +159,7 @@ async function readContainerMetric(
     resourceId,
     containerId,
     cpuPct: computeCpuPct(frame),
-    memBytes: frame.memory_stats?.usage ?? 0,
+    memBytes: workingSetBytes(frame),
     memLimitBytes: frame.memory_stats?.limit ?? 0,
     netRxBytes: net.rx,
     netTxBytes: net.tx,

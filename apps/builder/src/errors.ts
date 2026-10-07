@@ -118,3 +118,21 @@ export class SwarmConvergenceError extends TaggedError("SwarmConvergenceError")<
     });
   }
 }
+
+/** The deployment row left pending/building before this build could claim or
+ *  settle it: an operator cancelled it, the reconcile failed it, or another
+ *  writer settled it. Not a build failure. The row already says what
+ *  happened, so nothing marks it failed or notifies. */
+export class DeploymentSupersededError extends TaggedError("DeploymentSupersededError")<{
+  deploymentId: DeploymentId;
+  step: string;
+  message: string;
+}>() {
+  constructor(args: { deploymentId: DeploymentId; step: string }) {
+    super({
+      deploymentId: args.deploymentId,
+      step: args.step,
+      message: `deployment is no longer in flight (cancelled or settled elsewhere); stopped at "${args.step}"`,
+    });
+  }
+}

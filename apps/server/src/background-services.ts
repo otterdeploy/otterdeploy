@@ -15,6 +15,7 @@ import { startFirewallRecorder } from "@otterdeploy/api/routers/firewall/recorde
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
 import { startNodeEnrollmentReaper } from "@otterdeploy/api/routers/server/enrollment";
+import { startProvisionReaper } from "@otterdeploy/api/routers/server/provision-status";
 import { startCertRecheckSweep } from "@otterdeploy/api/routers/service/cert-recheck-sweep";
 import {
   startHealthAgentReconciler,
@@ -83,6 +84,12 @@ export function startBackgroundServices(): () => void {
   // daemon outages/restarts and rotates any redeemed enrollment that expires
   // before its joining node can report completion.
   start("node-enrollment-reaper", startNodeEnrollmentReaper);
+
+  // Stalled-provision reaper: `server.provision` runs once, so a worker that
+  // dies mid-job would leave its server in provisioning/joining forever (and
+  // retry only accepts `failed`). Fails rows with no progress past the stall
+  // window so the operator can retry them.
+  start("provision-reaper", startProvisionReaper);
 
   // Managed blocklists: re-import enabled public/custom lists into CrowdSec on
   // their interval so the imported decisions refresh before they expire.

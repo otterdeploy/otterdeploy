@@ -79,6 +79,7 @@ function sessionContext(activeOrganizationId: OrganizationId): Context {
     },
     session: null,
     apiKey: null,
+    apiKeyRateLimited: null,
     activeOrganizationId,
     headers: new Headers(),
     log: stubLogger(),

@@ -112,7 +112,12 @@ describe("resolveWorkspaceRunner", () => {
       configuredFilter: null,
       sink,
     });
-    expect(runner).toEqual({ kind: "turbo", filter: "@acme/web", pmRun: "bun run" });
+    expect(runner).toEqual({
+      kind: "turbo",
+      filter: "@acme/web",
+      pmRun: "bun run",
+      turboBin: "bun run turbo",
+    });
     expect(sink.lines.join("\n")).toContain("--filter=@acme/web");
   });
 
@@ -166,7 +171,12 @@ describe("resolveWorkspaceRunner", () => {
 });
 
 describe("workspaceBuildCommand", () => {
-  const turbo = { kind: "turbo", filter: "@acme/web", pmRun: "bun run" } as const;
+  const turbo = {
+    kind: "turbo",
+    filter: "@acme/web",
+    pmRun: "bun run",
+    turboBin: "bun run turbo",
+  } as const;
   const script = { kind: "script", pmRun: "bun run" } as const;
 
   test("turbo runs from the repo root so dependencies build first", () => {
@@ -189,7 +199,12 @@ describe("workspaceBuildCommand", () => {
 });
 
 describe("assertTurboRanTasks", () => {
-  const turbo = { kind: "turbo", filter: "@acme/web", pmRun: "bun run" } as const;
+  const turbo = {
+    kind: "turbo",
+    filter: "@acme/web",
+    pmRun: "bun run",
+    turboBin: "bun run turbo",
+  } as const;
 
   test("throws when turbo matched nothing, so no empty image ships", () => {
     expect(() =>
@@ -213,5 +228,53 @@ describe("assertTurboRanTasks", () => {
         buildLog: "No tasks were executed",
       }),
     ).not.toThrow();
+  });
+});
+
+/**
+ * The derived turbo command must resolve the workspace's turbo BINARY under
+ * every package manager. `${pm} run turbo …` is not enough: `pnpm run` /
+ * `npm run` only look up package.json scripts, so a pnpm repo fails with
+ * ERR_PNPM_NO_SCRIPT "Missing script: turbo". Each form below was
+ * checked against the real manager (npm 11, pnpm 12, yarn 1.22 + 4, bun 1.3),
+ * including that `--filter` reaches turbo rather than the manager: `yarn exec`
+ * on yarn 1 drops it, and `bun x` / bare `npx` would download a missing turbo
+ * instead of failing.
+ */
+describe("derived turbo build command per package manager", () => {
+  async function derivedCommand(setup: { packageManager?: string; lockfile?: string }) {
+    const workDir = tempDir();
+    writeJson(workDir, "package.json", {
+      workspaces: ["apps/*"],
+      ...(setup.packageManager ? { packageManager: setup.packageManager } : {}),
+      devDependencies: { turbo: "^2.0.0" },
+    });
+    if (setup.lockfile) writeFileSync(join(workDir, setup.lockfile), "");
+    writeJson(workDir, "turbo.json", { tasks: {} });
+    writeJson(workDir, "apps/web/package.json", {
+      name: "@acme/web",
+      scripts: { build: "tsc", start: "node dist/index.js" },
+    });
+    const runner = await resolveWorkspaceRunner({
+      workDir,
+      subdir: "apps/web",
+      configured: "auto",
+      configuredFilter: null,
+      sink: fakeSink(),
+    });
+    return workspaceBuildCommand({ runner, subdir: "apps/web", hasBuildScript: true });
+  }
+
+  test.each([
+    [{ packageManager: "pnpm@12.9.1" }, "pnpm exec turbo run build --filter=@acme/web"],
+    [{ lockfile: "pnpm-lock.yaml" }, "pnpm exec turbo run build --filter=@acme/web"],
+    [{ packageManager: "npm@11.19.0" }, "npx --no turbo run build --filter=@acme/web"],
+    [{}, "npx --no turbo run build --filter=@acme/web"],
+    [{ packageManager: "yarn@4.18.1" }, "yarn turbo run build --filter=@acme/web"],
+    [{ lockfile: "yarn.lock" }, "yarn turbo run build --filter=@acme/web"],
+    [{ packageManager: "bun@1.3.13" }, "bun run turbo run build --filter=@acme/web"],
+    [{ lockfile: "bun.lock" }, "bun run turbo run build --filter=@acme/web"],
+  ])("%o -> %s", async (setup, expected) => {
+    expect(await derivedCommand(setup)).toBe(expected);
   });
 });

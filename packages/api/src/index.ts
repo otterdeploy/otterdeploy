@@ -1,6 +1,7 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 
 import { implement, os as orpc } from "@orpc/server";
+import * as z from "zod";
 
 import type { Context } from "./context";
 
@@ -85,18 +86,36 @@ export const publicProcedure = implement({
   // not as a request that simply never produced a wide event (od-664).
   .use(procedureTimeout);
 
+/** A real API key over its budget is a 429 with a retry hint, not a 401
+ * . Shared by both authenticating middlewares below. Keyed by
+ *  oRPC's standard TOO_MANY_REQUESTS code: at runtime the error map is the
+ *  contract procedure's, not this middleware's, so the status comes from the
+ *  code's built-in default (429), the same way UNAUTHORIZED gets its 401. */
+const apiKeyRateLimitedError = {
+  status: 429,
+  message: "API key rate limit exceeded.",
+  data: z.object({ retryAfterSeconds: z.number() }),
+} as const;
+
 const authMiddleware = orpc
   .$context<Context>()
   .errors({
     UNAUTHORIZED: {
       message: "Unauthorized",
     },
+    TOO_MANY_REQUESTS: apiKeyRateLimitedError,
   })
   .middleware(async ({ context, next, errors }) => {
     // A session/cookie/CLI-bearer user OR a verified API-key actor counts as
     // authenticated. Session-identity handlers still read `context.session`
     // directly (null for key actors): guard there if they need a real user.
     if (!context.actor) {
+      if (context.apiKeyRateLimited) {
+        throw errors.TOO_MANY_REQUESTS({
+          message: context.apiKeyRateLimited.message,
+          data: { retryAfterSeconds: context.apiKeyRateLimited.retryAfterSeconds },
+        });
+      }
       throw errors.UNAUTHORIZED();
     }
     return next({
@@ -118,6 +137,7 @@ const orgScopedMiddleware = orpc
   .$context<Context>()
   .errors({
     UNAUTHORIZED: { message: "Unauthorized" },
+    TOO_MANY_REQUESTS: apiKeyRateLimitedError,
     NO_ACTIVE_ORGANIZATION: {
       status: 400,
       message: "No active organization. Set one before calling this endpoint.",
@@ -132,6 +152,12 @@ const orgScopedMiddleware = orpc
     // actor `activeOrganizationId` was already populated from the key's owning
     // org in createContext, so the NO_ACTIVE_ORGANIZATION gate still holds.
     if (!context.actor) {
+      if (context.apiKeyRateLimited) {
+        throw errors.TOO_MANY_REQUESTS({
+          message: context.apiKeyRateLimited.message,
+          data: { retryAfterSeconds: context.apiKeyRateLimited.retryAfterSeconds },
+        });
+      }
       throw errors.UNAUTHORIZED();
     }
     if (!context.activeOrganizationId) {

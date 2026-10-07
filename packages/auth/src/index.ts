@@ -40,6 +40,11 @@ import {
 } from "./registration-policy";
 import { resolveCanonicalWebOrigin } from "./web-origin";
 
+/** API-key budget: 600 requests per one-minute window per key (10/s sustained).
+ *  See the `apiKey()` plugin config below. */
+export const API_KEY_RATE_LIMIT_WINDOW_MS = 60_000;
+export const API_KEY_RATE_LIMIT_MAX_REQUESTS = 600;
+
 /**
  * Pick the org to make active on a fresh session. Prefers the org from the
  * user's most recent prior session that is still a current membership;
@@ -448,11 +453,25 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       // and `requireName` forces a human label so the list stays identifiable.
       // The matching `apikey` table lives in db/schema/auth.ts (schema: {} uses
       // the plugin's default field names).
+      //
+      // `rateLimit` is set explicitly. Left unset, the plugin
+      // defaults to 10 requests per 24 hours and stamps that budget onto every
+      // new key row, which locks the CLI or a CI job out after its tenth call
+      // of the day. A key is verified once per request (createContext), so this
+      // is the key's per-minute request budget across every endpoint. When it
+      // is exceeded the API answers 429 (see packages/api/src/authz/actor.ts),
+      // not 401. Existing rows were moved onto these values by the
+      // `api_key_rate_limit` migration; keep the two in step.
       apiKey({
         references: "organization",
         defaultPrefix: "otter_",
         enableMetadata: true,
         requireName: true,
+        rateLimit: {
+          enabled: true,
+          timeWindow: API_KEY_RATE_LIMIT_WINDOW_MS,
+          maxRequests: API_KEY_RATE_LIMIT_MAX_REQUESTS,
+        },
         schema: {},
       }),
       // OAuth 2.0 Device Authorization Grant (RFC 8628). The CLI requests a

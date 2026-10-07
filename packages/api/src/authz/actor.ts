@@ -1,6 +1,6 @@
 import { auth } from "@otterdeploy/auth";
 import { isJsonObject } from "@otterdeploy/shared/json";
-import { Result } from "better-result";
+import { Result, TaggedError } from "better-result";
 import * as z from "zod";
 
 /** Shape of the permissions blob better-auth stores on an API key. */
@@ -35,6 +35,30 @@ export interface SessionActor {
 }
 
 export type ResolvedActor = SessionActor | ApiKeyActor | null;
+
+/**
+ * A valid API key that has spent its request budget. Kept apart
+ * from "no actor" so the transports answer 429 with a retry hint instead of a
+ * 401 that tells automation its credential is wrong.
+ */
+export class ApiKeyRateLimitedError extends TaggedError("ApiKeyRateLimitedError")<{
+  message: string;
+  retryAfterSeconds: number;
+}>() {
+  constructor(retryAfterSeconds: number) {
+    super({
+      message: `API key rate limit exceeded. Try again in ${retryAfterSeconds}s.`,
+      retryAfterSeconds,
+    });
+  }
+}
+
+/** The plugin's rate-limit denial as `verifyApiKey` reports it (the APIError
+ *  body is spread into `error`, so `details` is there at runtime but untyped). */
+const rateLimitedVerifyError = z.object({
+  code: z.literal("RATE_LIMITED"),
+  details: z.object({ tryAgainIn: z.number() }).optional(),
+});
 
 function readApiKeyCredential(headers: Headers, bearerOverride?: string): string | null {
   const authorization = headers.get("authorization");
@@ -71,12 +95,14 @@ function parseMetadata(
 
 /**
  * Resolve one normalized request actor. Cookie/device sessions take precedence
- * over API keys, matching Better Auth's existing request behavior.
+ * over API keys, matching Better Auth's existing request behavior. Errs only
+ * for a real API key that is over its rate limit; every other failure is an
+ * anonymous (`null`) actor.
  */
 export async function resolveRequestActor(
   headers: Headers,
   options: { bearerOverride?: string } = {},
-): Promise<ResolvedActor> {
+): Promise<Result<ResolvedActor, ApiKeyRateLimitedError>> {
   const sessionResult = await Result.tryPromise({
     try: () => auth.api.getSession({ headers }),
     catch: (cause) => cause,
@@ -84,7 +110,7 @@ export async function resolveRequestActor(
   const session = sessionResult.isOk() ? sessionResult.value : null;
 
   if (session?.user) {
-    return {
+    return Result.ok({
       kind: "session",
       headers,
       user: {
@@ -96,25 +122,31 @@ export async function resolveRequestActor(
       session: {
         activeOrganizationId: session.session.activeOrganizationId,
       },
-    };
+    });
   }
 
   const credential = readApiKeyCredential(headers, options.bearerOverride);
-  if (!credential) return null;
+  if (!credential) return Result.ok(null);
 
   const verified = await Result.tryPromise({
     try: () => auth.api.verifyApiKey({ body: { key: credential } }),
     catch: (cause) => cause,
   });
-  if (verified.isErr() || !verified.value.valid || !verified.value.key) return null;
+  if (verified.isErr()) return Result.ok(null);
+  const rateLimited = rateLimitedVerifyError.safeParse(verified.value.error);
+  if (rateLimited.success) {
+    const tryAgainInMs = rateLimited.data.details?.tryAgainIn ?? 0;
+    return Result.err(new ApiKeyRateLimitedError(Math.max(1, Math.ceil(tryAgainInMs / 1000))));
+  }
+  if (!verified.value.valid || !verified.value.key) return Result.ok(null);
 
   const apiKey = verified.value.key;
   const permissions = permissionRecordSchema.safeParse(apiKey.permissions);
-  return {
+  return Result.ok({
     kind: "api-key",
     id: apiKey.id,
     permissions: permissions.success ? permissions.data : null,
     organizationId: apiKey.referenceId ?? null,
     ...parseMetadata(apiKey.metadata),
-  };
+  });
 }

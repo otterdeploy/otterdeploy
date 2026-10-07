@@ -22,7 +22,7 @@ import type { EnvironmentId, ProjectEnvVarId, ProjectId } from "@otterdeploy/sha
 
 import { db } from "@otterdeploy/db";
 import { projectEnvVar } from "@otterdeploy/db/schema/project";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 
 import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
 export interface ProjectEnvVarRow {
@@ -243,4 +243,23 @@ export async function bulkReplaceProjectEnvVars(
 
     return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
   });
+}
+
+/**
+ * The keys of the resolver's `${{environment.X}}` bag that hold a secret: the
+ * row is sealed or marked secret. The bag itself stays verbatim for the deploy
+ * path; this is what lets a READ surface mask a reference to one.
+ */
+export async function listSecretProjectEnvKeys(scope: Scope): Promise<Set<string>> {
+  const rows = await db
+    .select({ key: projectEnvVar.key })
+    .from(projectEnvVar)
+    .where(
+      and(
+        eq(projectEnvVar.projectId, scope.projectId),
+        eq(projectEnvVar.environmentId, scope.environmentId),
+        or(eq(projectEnvVar.sealed, true), eq(projectEnvVar.isSecret, true)),
+      ),
+    );
+  return new Set(rows.map((r) => r.key));
 }
