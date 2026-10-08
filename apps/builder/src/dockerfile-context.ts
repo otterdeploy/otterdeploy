@@ -25,6 +25,7 @@
 
 import type { DockerfileContextMode } from "@otterdeploy/shared/build-config";
 
+import { joinInstructions } from "@otterdeploy/shared/dockerfile";
 import { Result } from "better-result";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, join, normalize, resolve, sep } from "node:path";
@@ -50,30 +51,10 @@ const workspacePkgSchema = z.object({
  *             relative COPYs are all globs/optional and so can't be detected) */
 export type DockerfileContext = DockerfileContextMode;
 
-/**
- * Strip a Dockerfile down to logical instructions: comments removed, line
- * continuations joined. Parser directives (`# syntax=`) are comments too, and
- * carry no COPY sources, so dropping them is safe.
- */
-export function joinInstructions(text: string): string[] {
-  const out: string[] = [];
-  let pending = "";
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    // A comment inside a continuation is skipped by the Docker parser too,
-    // without terminating the continuation.
-    if (line.startsWith("#")) continue;
-    if (line.endsWith("\\")) {
-      pending += `${line.slice(0, -1).trim()} `;
-      continue;
-    }
-    const full = `${pending}${line}`.trim();
-    pending = "";
-    if (full) out.push(full);
-  }
-  if (pending.trim()) out.push(pending.trim());
-  return out;
-}
+// Logical-instruction splitting is shared with the API's repo inspection
+// (which reads EXPOSE for the wizard's port default), so it lives in
+// @otterdeploy/shared/dockerfile. Re-exported for the existing callers.
+export { joinInstructions };
 
 /**
  * The context-relative source paths of every COPY/ADD that actually reads from

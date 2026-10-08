@@ -1,4 +1,4 @@
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -13,6 +13,7 @@ import { SectionHeader } from "../form-primitives";
 import { frameworkLabel, monorepoLabel } from "../frameworks";
 import { I } from "../icons";
 import { BuilderConfig } from "./builder-config";
+import { useSourceDefaults } from "./source-defaults";
 
 // ────── Types ──────
 interface Builder {
@@ -54,12 +55,57 @@ const BUILDERS: Builder[] = [
   },
 ];
 
+/** "Vite · /Dockerfile": what the inspection found, in one line. */
+function detectedLabel(framework: string | null, dockerfilePath: string | null): string {
+  return [frameworkLabel(framework), dockerfilePath && `/${dockerfilePath}`]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** What the inspection found, and the builder that follows from it. */
+function DetectedCard({
+  framework,
+  monorepo,
+  dockerfilePath,
+  root,
+}: {
+  framework: string | null;
+  monorepo: string | null;
+  dockerfilePath: string | null;
+  root: string;
+}) {
+  return (
+    <Card className="mt-3 border-info/40 bg-info/10 p-3.5">
+      <div className="flex items-center gap-2">
+        <I.check width={14} height={14} className="text-info" />
+        <div className="flex-1 text-[13px]">
+          <div className="font-medium text-info">
+            Detected: {detectedLabel(framework, dockerfilePath)}
+          </div>
+          <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+            from {root ? `/${root}` : "repo root"} · git.inspectRepo
+          </div>
+        </div>
+        {monorepo && (
+          <Badge variant="outline" className="gap-1">
+            {monorepoLabel(monorepo)}
+          </Badge>
+        )}
+        <Badge variant="outline" className="gap-1">
+          <I.bolt width={9} height={9} />
+          {dockerfilePath ? "builds with its Dockerfile" : "railpack recommended"}
+        </Badge>
+      </div>
+    </Card>
+  );
+}
+
 // ────── DetectionBanner ──────
 // Real auto-detect, straight from `git.inspectRepo` for the bound repo + root.
 function DetectionBanner() {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo);
-  const root = useStore(form.store, (s) => s.values.root);
+  const repo = useSelector(form.store, (s) => s.values.repo);
+  const root = useSelector(form.store, (s) => s.values.root);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
@@ -86,9 +132,9 @@ function DetectionBanner() {
   }
 
   const framework = inspect.data?.framework ?? null;
-  const monorepo = inspect.data?.monorepo ?? null;
+  const dockerfilePath = inspect.data?.dockerfile?.path ?? null;
 
-  if (!framework) {
+  if (!framework && !dockerfilePath) {
     return (
       <Card className="mt-3 p-3.5 text-[13px] text-muted-foreground">
         No framework auto-detected{root ? ` in /${root}` : ""}. Pick a builder below.
@@ -97,33 +143,22 @@ function DetectionBanner() {
   }
 
   return (
-    <Card className="mt-3 border-info/40 bg-info/10 p-3.5">
-      <div className="flex items-center gap-2">
-        <I.check width={14} height={14} className="text-info" />
-        <div className="flex-1 text-[13px]">
-          <div className="font-medium text-info">Detected: {frameworkLabel(framework)}</div>
-          <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-            from {root ? `/${root}` : "repo root"} · git.inspectRepo
-          </div>
-        </div>
-        {monorepo && (
-          <Badge variant="outline" className="gap-1">
-            {monorepoLabel(monorepo)}
-          </Badge>
-        )}
-        <Badge variant="outline" className="gap-1">
-          <I.bolt width={9} height={9} />
-          railpack recommended
-        </Badge>
-      </div>
-    </Card>
+    <DetectedCard
+      framework={framework}
+      monorepo={inspect.data?.monorepo ?? null}
+      dockerfilePath={dockerfilePath}
+      root={root}
+    />
   );
 }
 
 // ────── StepBuilder ──────
 export function StepBuilder() {
   const form = useFormContext();
-  const builderId = useStore(form.store, (s) => s.values.builderId);
+  const builderId = useSelector(form.store, (s) => s.values.builderId);
+  // Same handler the Source step's "Build with" toggle uses: stops detection
+  // moving the builder, and moves an untouched port to the new build's.
+  const defaults = useSourceDefaults(form);
 
   return (
     <>
@@ -141,7 +176,7 @@ export function StepBuilder() {
             <button
               key={b.id}
               type="button"
-              onClick={() => form.setFieldValue("builderId", b.id)}
+              onClick={() => void defaults.onBuilderPicked(b.id)}
               className={cn(
                 "relative rounded-md border bg-card p-3.5 text-left text-foreground transition-colors hover:border-ring",
                 isActive &&

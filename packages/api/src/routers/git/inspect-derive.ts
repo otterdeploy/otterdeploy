@@ -5,10 +5,13 @@
  * (or a single cached package.json read), no extra HTTP beyond what
  * `fetchPackageJson` already memoizes.
  */
+import { dockerfileExposedPorts } from "@otterdeploy/shared/dockerfile";
 import { detectFrameworkFromPkg, type FrameworkKind } from "@otterdeploy/shared/framework";
+import { Temporal } from "@otterdeploy/shared/temporal";
 
 import {
   fetchPackageJson,
+  fetchTextFile,
   type InspectEntry,
   type MonorepoKind,
   type PkgJson,
@@ -121,6 +124,58 @@ export async function detectFrameworkForPath(
     return detectFromPkg(pkg);
   }
   return null;
+}
+
+/** Same TTL as the tree and package.json caches in inspect-github.ts. */
+const TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
+const textCache = new Map<string, { value: string | null; expiresAt: number }>();
+
+/**
+ * `fetchTextFile` behind the same per-repo TTL the package.json reads use, for
+ * files `git.inspectRepo` reads on every folder navigation (the Dockerfile).
+ * Without it each click in the root picker would spend an anonymous request.
+ */
+async function fetchCachedTextFile(
+  binding: RepoBinding,
+  path: string,
+  gitRepoId: string,
+): Promise<string | null> {
+  const key = `${gitRepoId}:${path}`;
+  const now = Temporal.Now.instant().epochMilliseconds;
+  const cached = textCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.value;
+  const value = await fetchTextFile(binding, path);
+  textCache.set(key, { value, expiresAt: now + TEXT_CACHE_TTL_MS });
+  return value;
+}
+
+/** What a `Dockerfile` at the inspected path tells the wizard. */
+export interface DockerfileDetection {
+  /** Repo-relative path of the Dockerfile that a Dockerfile build will use. */
+  path: string;
+  /** TCP ports its final stage EXPOSEs, first is the one to publish. Empty
+   *  when it declares none, or the file could not be read. */
+  exposedPorts: number[];
+}
+
+/**
+ * The Dockerfile a build at this root directory would use, if there is one.
+ *
+ * Only `<root>/Dockerfile`: exactly the file the builder's Dockerfile and auto
+ * modes resolve by default (apps/builder/src/dockerfile.ts). A Dockerfile
+ * somewhere else needs an explicit path, so it is not a default; reporting it
+ * here would have the wizard pick a build that then fails to find its file.
+ */
+export async function detectDockerfile(
+  binding: RepoBinding,
+  snapshot: TreeSnapshot,
+  path: string,
+  gitRepoId: string,
+): Promise<DockerfileDetection | null> {
+  const dockerfilePath = path ? `${path}/Dockerfile` : "Dockerfile";
+  if (snapshot.pathTypes.get(dockerfilePath) !== "file") return null;
+  const text = await fetchCachedTextFile(binding, dockerfilePath, gitRepoId);
+  return { path: dockerfilePath, exposedPorts: text ? dockerfileExposedPorts(text) : [] };
 }
 
 // Files that, if committed, leak real secrets, flagged to the operator.

@@ -13,6 +13,7 @@ import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/ser
 
 import type { ResourceFormState } from "../schemas";
 
+import { buildSummary, type RepoDetection } from "../build-defaults";
 import { traitsFor } from "../engine-traits";
 import { domainsFromPorts } from "../to-manifest";
 
@@ -139,6 +140,8 @@ export function buildReviewModel(
   kind: ServiceKind,
   values: ResourceFormState,
   derivedHost: string | null,
+  /** What `git.inspectRepo` found, so the Build row names the real builder. */
+  detection: RepoDetection = { framework: null, dockerfile: null },
 ) {
   const { name, version, replicas } = values;
   const { publicEnabled, healthPath, healthInterval } = values;
@@ -174,6 +177,9 @@ export function buildReviewModel(
   return {
     name,
     version,
+    // Which builder will run for a git build, the one decision the fast path
+    // hides behind defaults (null for images and databases: nothing builds).
+    build: kind.group === "source" ? buildSummary(kind.id, values.builderId, detection) : null,
     cpu,
     mem,
     isDb,

@@ -30,8 +30,8 @@ import { frameworkLabel } from "../frameworks";
  * orthogonal (you can build a web app OR a static site from the same repo)
  * so the role lives here as a field rather than as a top-level launch card.
  * Drives `kindId` directly: "app" (dynamic) ↔ "static". `to-manifest` reads
- * the static kind to emit a Caddy static build; everything else is a normal
- * railpack app. Worker / cron / one-off jobs aren't distinctly wired yet.
+ * the static kind to emit a Caddy static build; everything else builds with
+ * the "Build with" choice next to it (the repo's Dockerfile, else railpack). Worker / cron / one-off jobs aren't distinctly wired yet.
  */
 export function ServiceTypeSelector({
   kindId,
@@ -75,16 +75,6 @@ export function ServiceTypeSelector({
       </p>
     </div>
   );
-}
-
-/** Repo full_name → a sane default service name (DNS-label-ish). */
-export function deriveServiceName(fullName: string): string {
-  const last = fullName.split("/").pop() ?? fullName;
-  return last
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 63);
 }
 
 /**

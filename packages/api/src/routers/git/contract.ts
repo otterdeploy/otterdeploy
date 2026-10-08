@@ -196,6 +196,10 @@ const inspectRepoOutput = z.object({
   path: z.string(),
   entries: z.array(inspectEntrySchema),
   framework: frameworkKindSchema,
+  /** `<path>/Dockerfile`, the file a git service at this root builds with by
+   *  default, and the ports its final stage EXPOSEs. Null when there is none
+   *  (the build falls back to railpack). */
+  dockerfile: z.object({ path: z.string(), exposedPorts: z.array(z.number().int()) }).nullable(),
   monorepo: monorepoKindSchema,
   monorepoPackages: z.array(z.string()),
   /** Suggested `buildConfig.watchPatterns` for a workspace app at this path:

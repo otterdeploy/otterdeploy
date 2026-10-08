@@ -1,8 +1,9 @@
 /**
- * Read-only detection hints for the step views. The framework
- * `git.inspectRepo` found for the currently bound (repo, root), and the
- * conventional port that goes with it. Steps use these to *explain* a
- * prefilled value ("Detected Vite, port 5173 prefilled"), never to set one.
+ * Read-only detection hints for the step views. What `git.inspectRepo` found
+ * for the currently bound (repo, root): the framework and the Dockerfile, and
+ * the builder / port defaults that follow from them (see build-defaults.ts).
+ * Steps use these to *explain* a prefilled value ("Port 80 prefilled from
+ * EXPOSE in /Dockerfile"), never to set one.
  *
  * Applying detection to the form is a separate job and lives in
  * `steps/source-defaults.ts`, driven by the `repo`/`root` field listeners.
@@ -10,21 +11,16 @@
  * query is keyed on is the shape that produced the effects it replaced.
  */
 
-import { frameworkDefaultPort } from "@otterdeploy/shared/framework";
 import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
+import type { RepoDetection } from "./build-defaults";
+
 import { useFormContext } from "./form-context";
 
-interface Detection {
-  framework: string | null;
-  /** The framework's conventional listen port, when it has one. */
-  defaultPort: number | null;
-}
-
-function useInspectQuery(repo: string, root: string): Detection {
+function useInspectQuery(repo: string, root: string): RepoDetection {
   // Same query (and key) as the Builder step's DetectionBanner and the root
   // directory picker: react-query dedupes, so this adds no network cost.
   const inspect = useQuery({
@@ -34,11 +30,12 @@ function useInspectQuery(repo: string, root: string): Detection {
     staleTime: 5 * 60 * 1000,
   });
   const framework = inspect.data?.framework ?? null;
-  return { framework, defaultPort: frameworkDefaultPort(framework) };
+  const dockerfile = inspect.data?.dockerfile ?? null;
+  return { framework, dockerfile };
 }
 
 /** Step-view accessor (needs a mounted form context), for detection hints. */
-export function useRepoDetection(): Detection {
+export function useRepoDetection(): RepoDetection {
   const form = useFormContext();
   const repo = useSelector(form.store, (s) => s.values.repo);
   const root = useSelector(form.store, (s) => s.values.root);
