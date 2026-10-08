@@ -39,15 +39,20 @@ export function DeploymentLogsBody({
   deploymentStatus?: string | null;
 }) {
   const { lines, status } = useLogStream({
-    open: (signal) =>
+    // useLogStream owns reconnects, not the client retry plugin: the plugin's
+    // transparent re-invoke asked for the 500-line backfill again and appended
+    // it as duplicates, every reconnect (and, since a hidden tab releases its
+    // live socket, every return to a tab left in the background). A reopen
+    // keeps the buffer and asks for no backfill.
+    open: (signal, initial) =>
       orpc.project.resource.deployments.logs.tail.call(
         {
           projectId,
           resourceId,
           deploymentId,
-          tail: 500,
+          tail: initial ? 500 : 0,
         },
-        { signal, context: { retry: Number.POSITIVE_INFINITY } },
+        { signal },
       ),
     // Strip ANSI/SGR escapes so deploy logs render as clean text, not `[32m…`.
     map: (e, id): LogLine => ({

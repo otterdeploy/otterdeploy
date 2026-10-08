@@ -2,14 +2,15 @@ import type { RouterClient } from "@orpc/server";
 import type { AppRouter } from "@otterdeploy/api/routers/index";
 
 import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import { ClientRetryPlugin, type ClientRetryPluginContext } from "@orpc/client/plugins";
+import { type ClientRetryPluginContext } from "@orpc/client/plugins";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { env } from "@otterdeploy/env/web";
 import { i18n } from "@otterdeploy/i18n/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { createAppLink } from "./link";
+import { documentVisibility } from "./live-socket";
 import { rateLimitRetryAfter } from "./rate-limited";
 import { isControlPlaneUnreachable } from "./unreachable";
 
@@ -95,20 +96,19 @@ export const queryClient = new QueryClient({
   }),
 });
 
-const link = new RPCLink<ClientContext>({
-  url: `${env.VITE_SERVER_URL}/rpc`,
-  fetch: (input, init) =>
-    fetch(input, {
-      ...init,
-      credentials: "include",
-    }),
-  // Reconnect/retry is opt-in per call via `context.retry` (default 0 here,
-  // so non-streaming calls are untouched). Live-tail hooks pass
-  // `context: { retry: Number.POSITIVE_INFINITY }` to mirror EventSource's
-  // automatic reconnection.
-  plugins: [new ClientRetryPlugin()],
+/**
+ * Live subscriptions (event streams, log tails) share one WebSocket per tab;
+ * everything else is plain HTTP. See ./live-socket.ts.
+ */
+const app = createAppLink<ClientContext>({
+  serverUrl: env.VITE_SERVER_URL,
+  fetch: (request, init) => fetch(request, { ...init, credentials: "include" }),
+  createSocket: (url) => new WebSocket(url),
+  visibility: documentVisibility(),
 });
 
-export const client: RouterClient<AppRouter, ClientContext> = createORPCClient(link);
+export const liveSocket = app.liveSocket;
+
+export const client: RouterClient<AppRouter, ClientContext> = createORPCClient(app.link);
 
 export const orpc = createTanstackQueryUtils(client);

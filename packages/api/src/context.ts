@@ -26,6 +26,9 @@ export interface CreateContextOptions {
   // the evlog Hono middleware attaches.
   context: HonoContext<EvlogVariables>;
   broadcast: (resource: string) => void;
+  /** See `resolveRequestActor`'s `freshSession`: set when the request's
+   *  headers were captured earlier and are being replayed (the live socket). */
+  freshSession?: boolean;
 }
 
 export interface RequestContext {
@@ -53,9 +56,10 @@ export interface RequestContext {
 export async function createContext({
   context,
   broadcast,
+  freshSession,
 }: CreateContextOptions): Promise<RequestContext> {
   const headers = context.req.raw.headers;
-  const resolved = await resolveRequestActor(headers);
+  const resolved = await resolveRequestActor(headers, { freshSession });
   const actor = resolved.isOk() ? resolved.value : null;
   const apiKeyRateLimited = resolved.isErr() ? resolved.error : null;
   const session = actor?.kind === "session" ? actor : null;

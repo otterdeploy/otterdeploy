@@ -6,6 +6,7 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { createContext } from "@otterdeploy/api/context";
 import { appRouter } from "@otterdeploy/api/routers/index";
+import { LIVE_SOCKET_PATH } from "@otterdeploy/api/routers/live-socket";
 import {
   MIN_CLI_VERSION,
   MIN_CLI_VERSION_HEADER,
@@ -55,6 +56,7 @@ import {
 } from "./handlers";
 import { registerAnalyticsRoutes } from "./handlers/analytics";
 import { completeNodeEnrollmentHandler, redeemNodeEnrollmentHandler } from "./handlers/enrollment";
+import { liveSocketHandler } from "./handlers/live";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
 
@@ -315,6 +317,14 @@ app.use("/*", async (c, next) => {
   );
 });
 
+// The dashboard's live socket: every long-lived stream a tab subscribes to,
+// multiplexed over one WebSocket instead of one held HTTP request each.
+// See handlers/live/ws.ts.
+app.get(
+  LIVE_SOCKET_PATH,
+  liveSocketHandler((resource) => invalidate.broadcast(resource)),
+);
+
 app.get(
   "/ws",
   upgradeWebSocket(() => ({
@@ -433,9 +443,11 @@ app.get("/assets/*", (c) => c.notFound());
 app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
 
 // Live streams (deployment build logs, project events, container/task log
-// tails) all run over oRPC event-iterators on /rpc. See packages/api. The
-// client retry plugin gives them EventSource-style auto-reconnect, so there
-// are no bespoke /sse/* routes to maintain here.
+// tails) all run over oRPC event-iterators: on the live socket above for the
+// dashboard, on /rpc for everything else (CLI, and the dashboard's fallback
+// when a proxy refuses the upgrade). The client retry plugin gives them
+// EventSource-style auto-reconnect, so there are no bespoke /sse/* routes to
+// maintain here.
 
 // Startup (migrations → swarm → Caddy reconcile → workers → background
 // services) and the SIGTERM/SIGINT drain live in bootstrap.ts.
