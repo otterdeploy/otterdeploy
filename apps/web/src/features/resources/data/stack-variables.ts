@@ -8,7 +8,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 const resourceIdSchema = zId("res");
 
 /** Namespace prefix for the stack-variables collection's cache entries. */
-export const STACK_VARIABLES_COLLECTION_KEY = ["stackVariables"] as const;
+const STACK_VARIABLES_COLLECTION_KEY = ["stackVariables"] as const;
 
 /**
  * A compose stack's variables: its OWN values plus every `${VAR}`

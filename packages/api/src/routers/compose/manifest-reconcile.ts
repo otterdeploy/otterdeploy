@@ -46,7 +46,7 @@ interface CreateComposeArgs {
   log: RequestLogger;
 }
 
-export type ManifestProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
+type ManifestProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
 type GitManifest = Extract<ComposeManifest, { source: "git" }>;
 type InlineManifest = Extract<ComposeManifest, { source: "inline" }>;
 
