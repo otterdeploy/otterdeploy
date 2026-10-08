@@ -30,6 +30,7 @@ export type ServicePortId = Id<typeof ID_PREFIX.servicePort>;
 export type ServiceMountId = Id<typeof ID_PREFIX.serviceMount>;
 export type ServiceEnvVarId = Id<typeof ID_PREFIX.serviceEnvVar>;
 export type ProjectEnvVarId = Id<typeof ID_PREFIX.projectEnvVar>;
+export type StackEnvVarId = Id<typeof ID_PREFIX.stackEnvVar>;
 export type ProjectEnvSubscriptionId = Id<typeof ID_PREFIX.projectEnvSubscription>;
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
 export type PreviewId = Id<typeof ID_PREFIX.preview>;

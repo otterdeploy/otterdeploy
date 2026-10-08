@@ -132,6 +132,7 @@ function ComposeVarsGroup({
   hasVars,
   isPending,
   suggestions,
+  sharedNames,
   onStage,
   onBack,
 }: {
@@ -141,6 +142,8 @@ function ComposeVarsGroup({
   isPending: boolean;
   /** Known variables for every image the parsed file runs. */
   suggestions: EnvSuggestion[];
+  /** `${VAR}` names the project already has variables for. */
+  sharedNames: string[];
   onStage: () => void;
   onBack: () => void;
 }) {
@@ -168,6 +171,7 @@ function ComposeVarsGroup({
               hasVars={hasVars}
               requiredUnset={!group.state.meta.isValid}
               suggestions={suggestions}
+              sharedNames={sharedNames}
             />
           </div>
           <div className="flex items-center gap-2 border-t px-5 py-3">
@@ -240,6 +244,9 @@ export function ComposeWizardBody({
         // shape checks, and the bundled Postgres/Redis get the database
         // catalog's. Empty for a file that hasn't parsed yet.
         suggestions={envSuggestionsForImages(preview?.services.map((svc) => svc.image) ?? [])}
+        // Names this stack shares with an existing project variable: the
+        // stack keeps its own value and the project's is left alone.
+        sharedNames={preview?.vars.filter((v) => v.inProject).map((v) => v.name) ?? []}
         onStage={onStage}
         onBack={onBack}
       />

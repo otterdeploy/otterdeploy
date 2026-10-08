@@ -10,7 +10,7 @@ import type { RequestLogger } from "evlog";
 import { db } from "@otterdeploy/db";
 import { type NixpacksConfig } from "@otterdeploy/db/schema";
 import { preview, resource } from "@otterdeploy/db/schema/project";
-import { Result } from "better-result";
+import { panic, Result } from "better-result";
 import { and, count, eq, inArray } from "drizzle-orm";
 import * as z from "zod";
 
@@ -19,7 +19,12 @@ import type { OrgRef } from "../scopes";
 import { reconcile } from "../../caddy";
 import { removeProjectDir } from "../../lib/data-dir";
 import { destroySwarmPostgres } from "../../runtime/db";
-import { ProjectConflictError, ProjectHasServicesError, ProjectNotFoundError } from "./errors";
+import {
+  ProjectConflictError,
+  ProjectEnvironmentUnavailableError,
+  ProjectHasServicesError,
+  ProjectNotFoundError,
+} from "./errors";
 import { normalizeCustomDomain } from "./projects-bindings";
 import {
   countEnabledRoutesByProject,
@@ -112,7 +117,7 @@ export async function createProject(
     id?: ProjectId;
     environmentId?: EnvironmentId;
   },
-): Promise<Result<Project, ProjectConflictError>> {
+): Promise<Result<Project, ProjectConflictError | ProjectEnvironmentUnavailableError>> {
   // Slug uniqueness is install-wide, not per org: the slug alone
   // names the project's swarm services, network and volumes, so a sibling org
   // owning the same slug would share them. `project_slug_unique` backs this
@@ -121,23 +126,22 @@ export async function createProject(
     return Result.err(await slugConflict(input.slug));
   }
 
-  try {
-    const created = await createProjectRecord({
-      organizationId: input.organizationId,
-      name: input.name.trim(),
-      slug: input.slug,
-      id: input.id,
-      environmentId: input.environmentId,
-    });
-
-    return Result.ok(created.project);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return Result.err(await slugConflict(input.slug));
-    }
-
-    throw error;
-  }
+  const created = await Result.tryPromise({
+    try: () =>
+      createProjectRecord({
+        organizationId: input.organizationId,
+        name: input.name.trim(),
+        slug: input.slug,
+        id: input.id,
+        environmentId: input.environmentId,
+      }),
+    catch: async (cause) =>
+      isUniqueViolation(cause)
+        ? slugConflict(input.slug)
+        : panic("project.create: unexpected database error", cause),
+  });
+  if (created.isErr()) return Result.err(created.error);
+  return created.value.map((record) => record.project);
 }
 
 export async function updateProject(

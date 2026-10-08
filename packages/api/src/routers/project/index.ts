@@ -77,6 +77,8 @@ export const projectRouter = {
               message: e.message,
               data: { slug: e.slug, suggestedSlug: e.suggestedSlug },
             }),
+          ProjectEnvironmentUnavailableError: (e) =>
+            errors.ENVIRONMENT_UNAVAILABLE({ message: e.message }),
         });
       }
       context.log.set({ target: { type: "project", id: result.value.id } });

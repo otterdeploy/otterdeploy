@@ -35,9 +35,8 @@ describe("a project slug belongs to one organization install-wide", () => {
 
     const second = await createProject({ organizationId: orgB, name: "Shop", slug });
 
-    expect(second.isErr()).toBe(true);
-    if (second.isErr()) {
-      expect(second.error._tag).toBe("ProjectConflictError");
+    expect(second.isErr() && second.error._tag).toBe("ProjectConflictError");
+    if (second.isErr() && second.error._tag === "ProjectConflictError") {
       // The suggestion is free install-wide, so taking it succeeds.
       expect(second.error.suggestedSlug).toBe(`${slug}-2`);
       const retry = await createProject({
@@ -76,9 +75,8 @@ describe("a project slug belongs to one organization install-wide", () => {
     const second = await createProject({ organizationId: orgB, name: "Race", slug });
 
     expect(isProjectSlugTaken).toHaveBeenLastCalledWith(slug);
-    expect(second.isErr()).toBe(true);
-    if (second.isErr()) {
-      expect(second.error._tag).toBe("ProjectConflictError");
+    expect(second.isErr() && second.error._tag).toBe("ProjectConflictError");
+    if (second.isErr() && second.error._tag === "ProjectConflictError") {
       expect(second.error.suggestedSlug).toBe(`${slug}-2`);
     }
   });

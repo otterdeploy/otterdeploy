@@ -58,6 +58,10 @@ export const postgresResourceRouter = {
         throw matchError(validation.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           PostgresResourceConflictError: () => errors.CONFLICT(),
+          // This route's input carries no environment, so a create here always
+          // lands in main and cannot name a foreign one. Mapped for the type's
+          // sake, as the not-found it would be.
+          ResourceEnvironmentNotFoundError: (e) => errors.NOT_FOUND({ message: e.message }),
         });
       }
 

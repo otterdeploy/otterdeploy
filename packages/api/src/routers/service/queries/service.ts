@@ -21,7 +21,7 @@ import {
   type ServiceRecord,
   type ServiceResourceRow,
 } from ".";
-import { newResourceEnvironmentId } from "../../project/queries/new-resource-environment";
+import { resolveNewResourceEnvironment } from "../../project/queries/new-resource-environment";
 import { inEnvironmentScope } from "../../project/queries/resource";
 import { listServiceEnvVars } from "./env";
 import { listServiceMounts } from "./mounts";
@@ -128,9 +128,11 @@ export async function listServiceRecordsByProject(projectId: ProjectId): Promise
 // ---------------------------------------------------------------------------
 
 export async function createServiceRecord(input: CreateServiceInput): Promise<ServiceRecord> {
-  // Resolved before the transaction: a caller that omits the environment gets
-  // the project's main one rather than an unscoped row. See the helper.
-  const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
+  // Omitted means main; a supplied one must be this project's. Callers that
+  // take one from a request refuse first; this throw is the backstop.
+  const resolved = await resolveNewResourceEnvironment(input.projectId, input.environmentId);
+  if (resolved.isErr()) throw resolved.error;
+  const environmentId = resolved.value;
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
       .insert(resource)

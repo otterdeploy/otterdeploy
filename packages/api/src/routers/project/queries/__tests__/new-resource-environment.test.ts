@@ -25,10 +25,11 @@ vi.mock("@otterdeploy/db", () => ({
   },
 }));
 
-const { newResourceEnvironmentId } = await import("../new-resource-environment");
+const { resolveNewResourceEnvironment, ResourceEnvironmentNotFoundError } =
+  await import("../new-resource-environment");
 
 /** `db.select().from().where().limit()` resolving to `rows`. */
-function stubProject(rows: unknown[]) {
+function stubRows(rows: unknown[]) {
   const chain = {
     from: vi.fn(() => chain),
     where: vi.fn(() => chain),
@@ -38,27 +39,42 @@ function stubProject(rows: unknown[]) {
   return chain;
 }
 
-describe("newResourceEnvironmentId", () => {
+describe("resolveNewResourceEnvironment", () => {
   test("falls back to the project's main environment when none is requested", async () => {
-    stubProject([{ environmentId: MAIN_ENV }]);
-    await expect(newResourceEnvironmentId(PROJECT_ID)).resolves.toBe(MAIN_ENV);
+    stubRows([{ environmentId: MAIN_ENV }]);
+    const resolved = await resolveNewResourceEnvironment(PROJECT_ID);
+    expect(resolved.isOk() && resolved.value).toBe(MAIN_ENV);
   });
 
-  test("keeps an explicitly requested environment, without querying", async () => {
-    const chain = stubProject([{ environmentId: MAIN_ENV }]);
-    await expect(newResourceEnvironmentId(PROJECT_ID, OTHER_ENV)).resolves.toBe(OTHER_ENV);
-    // A caller that already knows the environment must not pay for a lookup,
-    // and must never be silently moved to main.
-    expect(chain.from).not.toHaveBeenCalled();
+  test("keeps a requested environment the project owns", async () => {
+    const chain = stubRows([{ id: OTHER_ENV }]);
+    const resolved = await resolveNewResourceEnvironment(PROJECT_ID, OTHER_ENV);
+    // Never silently moved to main: the requested environment is what comes back.
+    expect(resolved.isOk() && resolved.value).toBe(OTHER_ENV);
+    expect(chain.where).toHaveBeenCalledTimes(1);
+  });
+
+  // A supplied id used to be returned untouched, so an id from another
+  // project, another org, or nowhere was written verbatim and stranded the row.
+  test("refuses a requested environment the project does not own", async () => {
+    stubRows([]);
+    const resolved = await resolveNewResourceEnvironment(PROJECT_ID, OTHER_ENV);
+    expect(resolved.isErr()).toBe(true);
+    if (resolved.isErr()) {
+      expect(resolved.error).toBeInstanceOf(ResourceEnvironmentNotFoundError);
+      expect(resolved.error.environmentId).toBe(OTHER_ENV);
+    }
   });
 
   test("stays null for a project that has no environment pointer at all", async () => {
-    stubProject([{ environmentId: null }]);
-    await expect(newResourceEnvironmentId(PROJECT_ID)).resolves.toBeNull();
+    stubRows([{ environmentId: null }]);
+    const resolved = await resolveNewResourceEnvironment(PROJECT_ID);
+    expect(resolved.isOk() && resolved.value).toBeNull();
   });
 
   test("stays null when the project row is missing", async () => {
-    stubProject([]);
-    await expect(newResourceEnvironmentId(PROJECT_ID)).resolves.toBeNull();
+    stubRows([]);
+    const resolved = await resolveNewResourceEnvironment(PROJECT_ID);
+    expect(resolved.isOk() && resolved.value).toBeNull();
   });
 });

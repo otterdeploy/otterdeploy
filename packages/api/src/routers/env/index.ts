@@ -52,6 +52,7 @@ export const envRouter = {
       });
       if (result.isErr()) {
         throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
           EnvironmentConflictError: () => errors.CONFLICT(),
           EnvironmentDatabaseError: (err) => {
             // Log the actual cause to the operator stream so apps/server

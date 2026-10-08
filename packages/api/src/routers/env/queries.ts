@@ -58,6 +58,8 @@ export async function createEnvRecord(input: {
   name: string;
   slug: string;
   projectId?: ProjectId;
+  /** Standalone rows only: the org whose `project.create` may claim it. */
+  claimableByOrganizationId?: OrgId;
 }): Promise<EnvironmentRecord | undefined> {
   const [row] = await db.insert(environment).values(input).returning();
   return row;

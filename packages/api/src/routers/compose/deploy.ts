@@ -6,9 +6,9 @@ import { resourceDir, type ResourceRef } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 /**
  * Deploy a `type: compose` resource: parse the stored file → resolve each
- * service's env against the project bag → build a `SwarmServiceSpec` per
- * service → apply the whole set as one stack via `deployComposeStack`, with a
- * single deployment row tracking the rollout.
+ * service's env against the stack's own variables over the project bag →
+ * build a `SwarmServiceSpec` per service → apply the whole set as one stack
+ * via `deployComposeStack`, with a single deployment row tracking the rollout.
  *
  * v1 handles image-only stacks. Services with a `build:` context need the
  * builder (Phase 3) and are rejected with a clear error until then. See
@@ -21,12 +21,13 @@ import { materializeComposeFiles, readEnvFiles } from "../../lib/compose-materia
 import { createStackDeployLog } from "../../lib/deploy-log";
 import { parseCompose } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
-import { getProjectById, loadProjectEnvBag } from "../project/queries";
+import { getProjectById } from "../project/queries";
 import { finalizeStackDeployment } from "./deploy-finalize";
 import { interpolate } from "./env";
 import { loadManifestServiceEnv } from "./manifest-service-env";
 import { type ComposeRecord, getComposeRecord, stackHostBindGrants } from "./queries";
 import { reconcileStackServices } from "./reconcile";
+import { loadStackInterpolationVars } from "./stack-env";
 import { resolveVaultInProjectVars } from "./vault-project-vars";
 
 class ComposeDeployError extends Error {
@@ -138,17 +139,20 @@ export async function deployCompose(
     return Result.err(new ComposeDeployError(parsed.error.message));
   }
 
-  const rawProjectVars = project.environmentId
-    ? await loadProjectEnvBag({
-        projectId: input.projectId,
-        environmentId: project.environmentId,
-      })
-    : {};
-  // A vault token inside a project variable's VALUE would otherwise be
-  // inlined verbatim into image/command/ports: compose's `${VAR}` regex does
-  // not match `${{vault…}}`, and these fields never reach resolveServiceEnv.
+  // The stack's own variables over the project bag of the stack's environment
+  // (an unstamped stack is main's, the resolver's rule). Narrowest scope wins,
+  // so a stack never reads a value another stack's install wrote under the
+  // same generic name. See stack-env.ts.
+  const stackVars = await loadStackInterpolationVars({
+    projectId: input.projectId,
+    environmentId: record.resource.environmentId ?? project.environmentId,
+    stackResourceId: input.resourceId,
+  });
+  // A vault token inside a variable's VALUE would otherwise be inlined
+  // verbatim into image/command/ports: compose's `${VAR}` regex does not
+  // match `${{vault…}}`, and these fields never reach resolveServiceEnv.
   // See vault-project-vars.ts (od-i3p).
-  const projectVars = await resolveVaultInProjectVars(rawProjectVars, organizationId, rlog);
+  const projectVars = await resolveVaultInProjectVars(stackVars.vars, organizationId, rlog);
 
   // The stack's on-disk home is env-keyed (null environmentId = main env).
   const materialized = await materializeInlineTree(
@@ -217,6 +221,14 @@ export async function deployCompose(
     dlog.line(
       `Deploying stack ${record.compose.stackName}: ${parsed.value.services.length} service(s), reason: ${reason}`,
     );
+    // Not an error: the stack's own value is the one it should use. Said out
+    // loud because the same name on the project page no longer reaches it.
+    if (stackVars.shadowedProjectKeys.length > 0) {
+      dlog.line(
+        `This stack's own ${stackVars.shadowedProjectKeys.join(", ")} take precedence over ` +
+          `the project variables of the same name (used by this stack only; the project values are unchanged).`,
+      );
+    }
     if (stackDir) {
       dlog.line(`Materialized ${record.compose.files.length} inline file(s) to ${stackDir}`);
     }

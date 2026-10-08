@@ -19,12 +19,12 @@ import { Result } from "better-result";
 import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { resolvePlacementSeed } from "../../lib/placement-seed";
-import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
+import { getProjectInOrg } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { enqueueComposeBuild } from "./build-trigger";
-import { createInlineCompose } from "./create-inline";
+import { composeCreateVariables, createInlineCompose } from "./create-inline";
 import { createComposeRecord } from "./queries";
-import { parseGitHubUrl, SECRETISH, stackNameFor } from "./util";
+import { parseGitHubUrl, stackNameFor } from "./util";
 
 export type ComposeProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
 
@@ -71,27 +71,6 @@ const invalid = (message: string): ComposeCreateFailure => ({ reason: "invalid",
 /** The contract carries `gitRepoId` as a plain string; parse it to the branded
  *  id at this boundary (also canonicalizing a legacy "gitrepo_" spelling). */
 const gitRepoIdSchema = zId(ID_PREFIX.gitRepo);
-
-/**
- * Persist the filled-in `${VAR}` values as project variables so the compose
- * interpolation (and any future redeploy) resolves them. Applies to both
- * inline and git sources.
- */
-async function persistComposeVariables(
-  input: ComposeCreateInput,
-  project: ComposeProject,
-): Promise<void> {
-  if (input.variables.length === 0 || !project.environmentId) return;
-  for (const v of input.variables) {
-    if (!v.value) continue;
-    await upsertProjectEnvVar({
-      scope: { projectId: input.projectId, environmentId: project.environmentId },
-      key: v.key,
-      value: v.value,
-      isSecret: v.secret ?? SECRETISH.test(v.key),
-    });
-  }
-}
 
 /** Git source: build the stack from a bound repo (private-capable via the
  *  GitHub App installation) or, legacy, a pasted public URL. */
@@ -177,6 +156,7 @@ async function createGitCompose(
         services: [],
         exposed,
         placementServerId,
+        variables: composeCreateVariables(input),
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });
@@ -229,8 +209,6 @@ export async function createComposeResource(args: {
     organizationId,
   });
   if (placement.isErr()) return Result.err(invalid(placement.error.message));
-
-  await persistComposeVariables(input, project);
 
   const exposed: ExposedSeed[] = input.exposed.map((e) => ({
     service: e.service,

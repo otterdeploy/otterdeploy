@@ -182,11 +182,14 @@ export function toCreateRecordPayload(
     /** Already narrowed to a server in this org (lib/placement-seed.ts), so
      *  the payload carries the brand rather than re-checking it downstream. */
     placementServerId: ServerId | null;
+    /** Already resolved against this project (resolveNewResourceEnvironment):
+     *  never the caller's raw value. */
+    environmentId: EnvironmentId | null;
   },
 ) {
   return {
     projectId: input.projectId,
-    environmentId: input.environmentId ?? null,
+    environmentId: extras.environmentId,
     name: input.name,
     status: "draft" as const,
     placementServerId: extras.placementServerId,

@@ -18,13 +18,14 @@ import type {
   ComposeProject,
   ExposedSeed,
 } from "./create";
+import type { StackVariableSeed } from "./stack-env";
 
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { isUniqueViolation } from "../project/views";
 import { enqueueInlineComposeBuild } from "./build-trigger";
 import { deployCompose } from "./deploy";
 import { createComposeRecord } from "./queries";
-import { pickComposeFile, stackNameFor } from "./util";
+import { pickComposeFile, SECRETISH, stackNameFor } from "./util";
 
 const invalid = (message: string): ComposeCreateFailure => ({ reason: "invalid", message });
 
@@ -62,6 +63,19 @@ function resolveInlineInput(
   return Result.ok({ files, composeContent, composePath, parsed: parsed.value, services, name });
 }
 
+/**
+ * The wizard's filled-in `${VAR}` values, as seeds for the new stack's OWN
+ * variables. Never the project bag: a same-named project variable
+ * belongs to the project and to every other stack reading it.
+ */
+export function composeCreateVariables(input: ComposeCreateInput): StackVariableSeed[] {
+  return input.variables.map((v) => ({
+    key: v.key,
+    value: v.value,
+    isSecret: v.secret ?? SECRETISH.test(v.key),
+  }));
+}
+
 /** Inline source: parse + persist, then deploy (or enqueue a build). */
 export async function createInlineCompose(
   input: ComposeCreateInput,
@@ -93,6 +107,7 @@ export async function createInlineCompose(
         services,
         exposed,
         placementServerId,
+        variables: composeCreateVariables(input),
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });

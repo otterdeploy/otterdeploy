@@ -9,6 +9,7 @@ import type {
   DeploymentId,
   EnvironmentId,
   GitRepoId,
+  OrganizationId,
   PreviewId,
   ProjectEnvSubscriptionId,
   ProjectEnvVarId,
@@ -18,6 +19,7 @@ import type {
   ServiceEnvVarId,
   ServiceMountId,
   ServicePortId,
+  StackEnvVarId,
 } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
 
@@ -25,15 +27,19 @@ import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
   numeric,
   pgEnum,
   pgTable,
+  type PgTableExtraConfigValue,
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -79,6 +85,10 @@ export const project = pgTable(
     // a project named "web". Enforced by the (organization_id, slug) unique
     // index below.
     slug: text("slug").notNull(),
+    // The project's MAIN environment. Must be one of this project's own
+    // environments: enforced by `project_main_environment_in_project_fk`
+    // below. NULL only after that environment was deleted (env/queries.ts
+    // clears the pointer first, in the same transaction).
     environmentId: text("environment_id").$type<EnvId>(),
     // Declarative stack file (compose-compatible YAML with x-otterdeploy
     // extensions). Source of truth migration: Phase 1 ships the column
@@ -142,7 +152,10 @@ export const project = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [
+  // Annotated: the main-environment foreign key below references
+  // `environment`, which references `project` back, and TypeScript cannot
+  // infer a cycle.
+  (table): PgTableExtraConfigValue[] => [
     // GLOBAL, not per org: the slug alone names the project's
     // runtime objects on the shared swarm (`od-<slug>-<service>`, the project
     // network, volumes), none of which carry the organization, so two orgs
@@ -150,6 +163,22 @@ export const project = pgTable(
     // 20261006191815_global_project_slugs resolves pre-existing duplicates.
     uniqueIndex("project_slug_unique").on(table.slug),
     index("project_organization_id_idx").on(table.organizationId),
+    // The main-environment pointer names an environment that
+    // exists AND belongs to this project. Composite for the same reason as
+    // `resource_environment_in_project_fk`: an id that exists in ANOTHER
+    // project (or is still unclaimed) dangles just the same. A NULL pointer is
+    // not checked (MATCH SIMPLE).
+    //
+    // Not deferrable (drizzle cannot declare it), so project.create writes in
+    // an order that never needs it: project with no pointer, then its
+    // environment, then the pointer (queries/project.ts). NO ACTION on delete:
+    // env delete clears the pointer first, and a project delete removes both
+    // rows in one statement.
+    foreignKey({
+      name: "project_main_environment_in_project_fk",
+      columns: [table.id, table.environmentId],
+      foreignColumns: [environment.projectId, environment.id],
+    }),
   ],
 );
 
@@ -205,6 +234,17 @@ export const environment = pgTable(
     // forget. A route may still opt itself IN independently, so lowering the
     // floor never silently exposes a route the operator locked deliberately.
     protected: boolean("protected").notNull().default(false),
+    // The organization a STANDALONE environment (project_id NULL) was created
+    // by, and so the only one whose `project.create` may claim it.
+    // A standalone row has no project, so without this nothing tied it to an
+    // org, and any org that learned the id could adopt it as its own main
+    // environment. Cleared when the environment is claimed: from then on the
+    // org is the project's, and only the project's (CHECK below). A standalone
+    // row created before this column existed has NULL here and is claimable by
+    // no one; the client simply makes a fresh one.
+    claimableByOrganizationId: text("claimable_by_organization_id")
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -213,7 +253,17 @@ export const environment = pgTable(
   },
   (table) => [
     index("environment_project_id_idx").on(table.projectId),
+    check(
+      "environment_claimable_only_while_standalone",
+      sql`${table.projectId} IS NULL OR ${table.claimableByOrganizationId} IS NULL`,
+    ),
     uniqueIndex("environment_project_slug_unique").on(table.projectId, table.slug),
+    // Redundant as a uniqueness rule (`id` alone is the key) and there for one
+    // reason: it is the target of `resource_environment_in_project_fk` and
+    // `project_main_environment_in_project_fk`, which have to name (project,
+    // environment) together so a resource, or a project's main pointer, can
+    // only name an environment of its OWN project.
+    unique("environment_project_id_id_unique").on(table.projectId, table.id),
   ],
 );
 
@@ -311,7 +361,8 @@ export const resource = pgTable(
     // Environment scoping. NULL = base resource (and, after the backfill, the
     // project's MAIN environment. Main is represented as base so existing
     // container/volume/host names never change; see lib/environment/scoping.ts).
-    // Set = a resource owned by a non-main environment such as staging.
+    // Set = a resource owned by that environment, which must be one of THIS
+    // project's: enforced by `resource_environment_in_project_fk` below.
     environmentId: text("environment_id").$type<EnvId>(),
     // Preview scoping. NULL = base resource (the normal case); set = a
     // preview-scoped instance such as an opt-in DB branch. The variable
@@ -359,6 +410,25 @@ export const resource = pgTable(
     index("resource_project_id_idx").on(table.projectId),
     index("resource_preview_id_idx").on(table.previewId),
     index("resource_environment_id_idx").on(table.environmentId),
+    // A resource's environment exists AND belongs to the resource's
+    // own project. Without it a bad id was writable, and a row carrying one
+    // matches no scoped read (`environment_id = <the one being viewed>`), so it
+    // vanished from every list while its container kept running and its name
+    // stayed taken. Composite rather than `environment_id -> environment.id`
+    // alone, because an id that exists in ANOTHER project (or org) strands the
+    // row just the same. A NULL environment_id is not checked (MATCH SIMPLE),
+    // which is the unstamped-means-main rows the read path still honours.
+    //
+    // NO ACTION on delete, deliberately not CASCADE: deleting an environment
+    // that still owns resources is refused, which is what the application
+    // already does (env/queries.ts deletes the owned resources first, in the
+    // same transaction, only when the operator asked for the cascade). A
+    // project delete still works: both rows go with the project.
+    foreignKey({
+      name: "resource_environment_in_project_fk",
+      columns: [table.projectId, table.environmentId],
+      foreignColumns: [environment.projectId, environment.id],
+    }),
   ],
 );
 
@@ -1140,6 +1210,54 @@ export const projectEnvVar = pgTable(
     index("project_env_var_project_id_idx").on(table.projectId),
     index("project_env_var_environment_id_idx").on(table.environmentId),
     index("project_env_var_key_idx").on(table.projectId, table.key),
+  ],
+);
+
+// A compose stack's OWN variables: the values its file's `${VAR}` refs (and
+// any supporting file marked `interpolate`) resolve against.
+//
+// Before this table a stack had no scope of its own, so every stack's `${VAR}`
+// values landed in `projectEnvVar`, one flat bag per (project, environment)
+// that every other stack ALSO interpolates against. Template variable names
+// are generic (`POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRET_KEY`), so installing
+// one template rotated a credential another stack was running on.
+//
+// Resolution for a stack's `${VAR}` (routers/compose/deploy.ts):
+//   1. this table, for the stack being deployed
+//   2. the (project, stack's environment) bag in `projectEnvVar`
+//   3. the file's own `${VAR:-default}`
+// A child service's own `serviceEnvVar` rows sit above all three: they are
+// seeded from the interpolated file once, then owned by the operator.
+//
+// Keyed by the stack resource, which already belongs to exactly one
+// environment, so there is no environment column to drift from it. Cascades
+// with the stack: a deleted stack's variables go with it.
+export const stackEnvVar = pgTable(
+  "stack_env_var",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<StackEnvVarId>()
+      .$defaultFn(() => createId(ID_PREFIX.stackEnvVar)),
+    stackResourceId: text("stack_resource_id")
+      .notNull()
+      .$type<ResourceId>()
+      .references(() => composeResource.resourceId, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    // Encrypted at rest: see the matching column on `serviceEnvVar`.
+    value: text("value").notNull(),
+    isSecret: boolean("is_secret").notNull().default(true),
+    // Write-only secret; same sticky one-way contract as `serviceEnvVar.sealed`.
+    sealed: boolean("sealed").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("stack_env_var_unique").on(table.stackResourceId, table.key),
+    index("stack_env_var_stack_resource_id_idx").on(table.stackResourceId),
   ],
 );
 

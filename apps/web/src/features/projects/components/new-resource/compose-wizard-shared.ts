@@ -33,6 +33,10 @@ export interface DetectedService {
 export interface VarRef {
   name: string;
   default: string | null;
+  /** The project already has a variable by this name (compose.parse). The
+   *  stack keeps its own value; the project's is left alone.
+   *  Absent on refs found in supporting files, which the parser never sees. */
+  inProject?: boolean;
 }
 
 export interface Preview {

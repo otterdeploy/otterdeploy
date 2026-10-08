@@ -8,6 +8,7 @@ import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
 import { removeComposeFromManifest, syncManifestComposeContent } from "../project/manifest";
+import { getProjectById } from "../project/queries";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
 import { createComposeResource } from "./create";
@@ -23,6 +24,8 @@ import {
   updateComposeContent,
 } from "./queries";
 import { removeStackServices } from "./reconcile";
+import { composeVariablesRouter } from "./router-variables";
+import { listProjectEnvKeys, listStoredStackEnvVars } from "./stack-env";
 import { reclaimStackVolumes, stackVolumeNames } from "./volumes";
 
 function toView(rec: ComposeRecord) {
@@ -39,6 +42,8 @@ function toView(rec: ComposeRecord) {
 }
 
 export const composeRouter = {
+  ...composeVariablesRouter,
+
   // Stateless preview for the wizard: validate + summarize a pasted file.
   parse: projectScopedProcedure.compose.parse.handler(async ({ input }) => {
     const parsed = parseCompose(input.content);
@@ -54,6 +59,13 @@ export const composeRouter = {
         warnings: [],
       };
     }
+    const project = await getProjectById(input.projectId);
+    const projectKeys = project?.environmentId
+      ? await listProjectEnvKeys({
+          projectId: input.projectId,
+          environmentId: project.environmentId,
+        })
+      : new Set<string>();
     return {
       valid: true,
       error: null,
@@ -62,7 +74,12 @@ export const composeRouter = {
       // Compose `name:`, else the first service: a sensible stack-name default.
       name: parsed.value.name ?? parsed.value.services[0]?.name ?? null,
       // `${VAR}` refs the file uses, the wizard prompts the user to fill these.
-      vars: collectVarRefs(parsed.value),
+      // `inProject` lets it say which names the project already uses: the new
+      // stack keeps its own value and leaves the project's alone.
+      vars: collectVarRefs(parsed.value).map((ref) => ({
+        ...ref,
+        inProject: projectKeys.has(ref.name),
+      })),
       // Resolve `${VAR:-default}` in the image so the preview shows the real
       // ref (project vars aren't loaded here, so only defaults apply).
       services: summarizeCompose(parsed.value).map((s) => ({
@@ -215,8 +232,9 @@ export const composeRouter = {
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();
-      // Capture the stack's seeded `${VAR}` keys before its record is gone.
-      const composeContent = rec.compose.composeContent;
+      // Capture the stack's own variables, as stored, before they cascade away
+      // with its record: the legacy project-bag cleanup below compares them.
+      const ownVariables = await listStoredStackEnvVars(input.resourceId);
       // Strip the stack from the manifest FIRST: before any physical teardown.
       // Once a delete is initiated the stack is no longer "desired", so even if
       // a child teardown fails partway, the next diff can only ever show a
@@ -242,12 +260,13 @@ export const composeRouter = {
         environmentId: rec.resource.environmentId ?? null,
         resourceId: input.resourceId,
       });
-      // Drop the project variables this stack seeded that nothing else uses.
+      // Drop the legacy project-bag copies of this stack's variables that
+      // nothing else uses. Never a project value the stack did not own.
       await cleanupOrphanedComposeVars(
         {
           projectId: input.projectId,
           deletedResourceId: input.resourceId,
-          composeContent,
+          ownRows: ownVariables,
         },
         context.log,
       );

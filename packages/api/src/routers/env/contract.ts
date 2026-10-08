@@ -12,10 +12,14 @@ import { environmentIdField, projectIdField } from "../project/contract/shared";
 const tag = "env";
 const basePath = "/envs";
 
-const envSchema = createSelectSchema(environment).extend({
-  id: environmentIdField,
-  projectId: projectIdField.nullable(),
-});
+const envSchema = createSelectSchema(environment)
+  // Claim bookkeeping for standalone rows, not part of what an
+  // environment IS: the client never reads or sets it.
+  .omit({ claimableByOrganizationId: true })
+  .extend({
+    id: environmentIdField,
+    projectId: projectIdField.nullable(),
+  });
 
 const listEnvsInput = z
   .object({
@@ -102,6 +106,9 @@ export const envContract = {
   create: oc
     .meta(projectRefs({ id: "none" }))
     .errors({
+      // `projectId` names no project of the caller's org: missing, or another
+      // org's. One answer for both.
+      NOT_FOUND: { status: 404, message: "Project not found" as const },
       CONFLICT: { status: 409, message: "Environment slug already in use" as const },
       INTERNAL_SERVER_ERROR: {
         status: 500,
