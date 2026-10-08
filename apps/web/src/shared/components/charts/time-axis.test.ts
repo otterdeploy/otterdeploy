@@ -10,7 +10,7 @@ import { updatedAgo } from "@/features/resources/components/_shared/metrics/metr
 import { metricTimeWindow } from "@/features/resources/components/_shared/metrics/use-resource-metrics";
 import { epochMsOf } from "@/shared/lib/clock";
 
-import { axisTickFormat, timeAxisScale } from "./time-axis";
+import { axisDomain, chartAxes, timeXAxis } from "./time-axis";
 
 const MINUTE = 60_000;
 const END = 1_791_000_000_000;
@@ -26,37 +26,43 @@ describe("metricTimeWindow", () => {
   });
 });
 
-describe("timeAxisScale", () => {
+describe("timeXAxis", () => {
   const oneSample = [{ ts: END - MINUTE }];
 
   it("draws exactly the pinned window for a single sample", () => {
     const window = metricTimeWindow(END, 30);
-    const axis = timeAxisScale(oneSample, window);
-    expect(axis.spanMs).toBe(30 * MINUTE);
+    const axis = timeXAxis(oneSample, window, 800);
     expect(axis.nice).toBe(false);
     if (typeof axis.scale === "function" && "domain" in axis.scale) {
       const domain = axis.scale.domain().map((d: Date) => epochMsOf(d));
       expect(domain).toEqual([END - 30 * MINUTE, END]);
-      // Every tick lands inside the half hour: no day-long scale around a dot.
-      for (const tick of axis.scale.ticks()) {
-        const ms = epochMsOf(tick);
-        expect(ms).toBeGreaterThanOrEqual(END - 30 * MINUTE);
-        expect(ms).toBeLessThanOrEqual(END);
-      }
     } else {
       throw new Error("a pinned window must produce a configured scale instance");
     }
+    // Every tick lands inside the half hour: no day-long scale around a dot.
+    expect(axis.ticks.values?.length).toBeGreaterThan(0);
+    for (const tick of axis.ticks.values ?? []) {
+      const ms = epochMsOf(tick);
+      expect(ms).toBeGreaterThanOrEqual(END - 30 * MINUTE);
+      expect(ms).toBeLessThanOrEqual(END);
+    }
   });
 
-  it("still fits the data when no window is given", () => {
+  it("spans the data exactly when no window is given", () => {
     const rows = [{ ts: END - 10 * MINUTE }, { ts: END }];
-    const axis = timeAxisScale(rows, undefined);
-    expect(axis.spanMs).toBe(10 * MINUTE);
-    expect(axis.nice).toBe(true);
+    expect(axisDomain(rows, undefined)).toEqual({ startMs: END - 10 * MINUTE, endMs: END });
+    expect(timeXAxis(rows, undefined, 800).nice).toBe(false);
   });
 
   it("ignores an empty or inverted window", () => {
-    expect(timeAxisScale(oneSample, { startMs: END, endMs: END }).nice).toBe(true);
+    expect(timeXAxis(oneSample, { startMs: END, endMs: END }, 800).nice).toBe(true);
+  });
+
+  it("fits fewer labels on a narrower chart", () => {
+    const window = metricTimeWindow(END, 30);
+    const wide = timeXAxis(oneSample, window, 1200).ticks.values ?? [];
+    const narrow = timeXAxis(oneSample, window, 300).ticks.values ?? [];
+    expect(narrow.length).toBeLessThan(wide.length);
   });
 });
 
@@ -71,15 +77,37 @@ describe("updatedAgo", () => {
   });
 });
 
-describe("axisTickFormat", () => {
-  const at = Date.UTC(2026, 9, 7, 9, 5, 30);
+describe("chartAxes", () => {
+  // The chart throws "Axis ticks accept only one candidate policy" when an
+  // axis carries `values` beside `spacing` or `count`, and takes the whole
+  // chart down with it. Each axis must pick exactly one.
+  const base = {
+    data: [{ ts: END - 30 * MINUTE }, { ts: END }],
+    timeWindow: undefined,
+    widthPx: 800,
+    format: String,
+    max: "auto" as const,
+    compact: false,
+    sampleIntervalMs: 0,
+  };
 
-  it("labels seconds up to fifteen minutes, minutes up to two days, dates beyond", () => {
-    const seconds = axisTickFormat(15 * MINUTE)(at);
-    const minutes = axisTickFormat(15 * MINUTE + 1)(at);
-    const days = axisTickFormat(2 * 24 * 60 * MINUTE)(at);
-    expect(seconds.split(":")).toHaveLength(3);
-    expect(minutes.split(":")).toHaveLength(2);
-    expect(days).not.toContain(":");
+  function policies(ticks: object): string[] {
+    return ["values", "spacing", "count"].filter((key) => key in ticks);
+  }
+
+  it("gives each axis exactly one tick policy", () => {
+    for (const countPeak of [undefined, 0, 7]) {
+      const { x, y } = chartAxes({ ...base, countPeak });
+      if (x.axis === false || y.axis === false) throw new Error("axes expected");
+      expect(policies(x.axis.ticks)).toHaveLength(1);
+      expect(policies(y.axis.ticks)).toHaveLength(1);
+    }
+  });
+
+  it("ticks a count axis on whole numbers up to a reachable top", () => {
+    const { y } = chartAxes({ ...base, countPeak: 0 });
+    if (y.axis === false) throw new Error("axis expected");
+    expect(y.axis.ticks).toMatchObject({ values: [0, 1] });
+    expect(y.domain).toEqual([0, 1]);
   });
 });

@@ -117,8 +117,47 @@ export function edgeAccessColumnMap(): ColumnMap {
   };
 }
 
+/**
+ * Whether a probe "hit" was really the app's index page.
+ *
+ * A single-page app answers every unknown path with its `index.html`, so a
+ * scanner asking for `/.env` or `/.git/config` gets a 200, and the row read as
+ * a leaked secret. The access log does not record the response's content type,
+ * but it does record its size: when a probe's 2xx body is byte-for-byte the
+ * size the same host served for `/` within a day of it, the probe got the
+ * index page and the file was never served.
+ *
+ * Only probe paths with a 2xx and a body are checked, so the correlated lookup
+ * runs for a handful of rows per page, on the `(host, ts)` index. A real
+ * secret file that happens to be exactly the index page's size would be
+ * missed; the probe badge itself stays, so the row is never silent.
+ */
+/**
+ * The root-document lookup, written out in full: drizzle prints a single-table
+ * select's columns unqualified, and an unqualified `host` inside this
+ * subquery would bind to the subquery's own row rather than the outer one. The
+ * outer table is named explicitly, the inner one is aliased. A constant: no
+ * input reaches it.
+ */
+const SAME_SIZE_AS_ROOT = sql.raw(`exists (
+    select 1 from edge_log root_document
+    where root_document.host = edge_log.host
+      and root_document.path = '/'
+      and root_document.status = 200
+      and root_document.res_bytes = edge_log.res_bytes
+      and root_document.ts between edge_log.ts - interval '1 day' and edge_log.ts + interval '1 day'
+  )`);
+
+const spaFallback = sql<boolean>`(
+  ${edgeLog.status} between 200 and 299
+  and ${edgeLog.resBytes} > 0
+  and ${edgeLog.path} ~* ${THREAT_SQL_REGEX}
+  and ${SAME_SIZE_AS_ROOT}
+)`;
+
 /** Columns the feed returns but nobody filters or sorts on. */
 export const edgeAccessExtraSelect = {
+  spaFallback,
   tlsVersion: edgeLog.tlsVersion,
   tlsCipher: edgeLog.tlsCipher,
   reqBytes: edgeLog.reqBytes,

@@ -21,7 +21,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { auditFilterSpecs } from "@otterdeploy/api/routers/audit/table";
 import { Temporal } from "@otterdeploy/shared/temporal";
 
-import { LOG_ZONE } from "@/shared/lib/clock";
+import { VIEW_ZONE } from "@/shared/lib/clock";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
@@ -88,14 +88,13 @@ function AuditRoute() {
 
   /**
    * The zone the SERVER buckets and day-bounds in, and it is the same one the
-   * table prints — see `LOG_ZONE`.
+   * table prints — see `VIEW_ZONE`.
    *
-   * It used to be the viewer's. That made a lone date mean the reader's day,
-   * which sounds friendlier and was in fact the bug: the histogram bucketed on
-   * Berlin midnight while the rows printed a UTC clock, so a bar and the rows
-   * under it disagreed about which day they belonged to.
+   * The two must be one zone. When they differed (histogram on Berlin
+   * midnight, rows on a UTC clock) a bar and the rows under it disagreed about
+   * which day they belonged to.
    */
-  const timeZone = LOG_ZONE;
+  const timeZone = VIEW_ZONE;
 
   const fetchPage = useCallback(
     (input: FeedInput) =>

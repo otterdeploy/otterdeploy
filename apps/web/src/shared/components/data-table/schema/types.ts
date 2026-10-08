@@ -153,7 +153,7 @@ export function defaultDisplay(kind: ColKind): Display {
  *
  * Generated from the same declaration the UI renders from, so a filter cannot
  * mean one thing in the sidebar and another in the WHERE clause. Pass
- * `timeZone` names the zone a lone date is bounded in. Pass `LOG_ZONE`: it has
+ * `timeZone` names the zone a lone date is bounded in. Pass `VIEW_ZONE`: it has
  * to match the zone the rows PRINT in, or a picked day selects rows the table
  * labels as the day before.
  */

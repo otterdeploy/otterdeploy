@@ -24,7 +24,7 @@ import type { BadgeTone } from "@/shared/components/data-table/schema/types";
 
 import { useNowMs } from "@/shared/components/data-table/use-now";
 import { Badge } from "@/shared/components/ui/badge";
-import { CLOCK_DAY, CLOCK_EXACT, CLOCK_SECONDS, utcFormatter } from "@/shared/lib/clock";
+import { CLOCK_DAY, CLOCK_EXACT, CLOCK_SECONDS, clockFormatter, utcIso } from "@/shared/lib/clock";
 import { relativeSeconds } from "@/shared/lib/time";
 import { cn } from "@/shared/lib/utils";
 
@@ -37,7 +37,7 @@ export function EmptyCell() {
   );
 }
 
-const exact = utcFormatter({ ...CLOCK_EXACT, timeZoneName: "short" });
+const exact = clockFormatter({ ...CLOCK_EXACT, timeZoneName: "short" });
 
 /**
  * One format, every row: the date, then the clock, to the second.
@@ -54,7 +54,7 @@ const exact = utcFormatter({ ...CLOCK_EXACT, timeZoneName: "short" });
  * either way (see {@link CLOCK_WIDTH}), so omitting the date bought no width.
  * It only bought a convention the reader had to be taught.
  */
-const clock = utcFormatter({ ...CLOCK_DAY, ...CLOCK_SECONDS });
+const clock = clockFormatter({ ...CLOCK_DAY, ...CLOCK_SECONDS });
 
 /**
  * What a clock column has to be wide enough for.
@@ -85,7 +85,10 @@ export function ClockCell({ value }: { value: unknown }) {
   return (
     <time
       dateTime={at.toString()}
-      title={exact(at)}
+      // The local stamp with its zone, then UTC: the cell reads in the
+      // viewer's clock, and the hover gives the string that reads the same
+      // for everyone a row gets pasted to.
+      title={`${exact(at)} · ${utcIso(at)}`}
       className="block truncate font-mono text-[12px] text-muted-foreground tabular-nums"
     >
       {clock(at)}

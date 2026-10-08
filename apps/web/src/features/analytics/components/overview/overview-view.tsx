@@ -1,6 +1,7 @@
 /**
- * The Overview view: nudge → filter bar → stat tiles → hero chart →
- * breakdown grid → the honesty footer. Layout and wiring only; every number
+ * The Overview view: filter bar → stat tiles → hero chart → breakdown grid →
+ * the honesty footer, or, while nothing in scope can have data yet, the setup
+ * state in their place. Layout and wiring only; every number
  * on screen is read from one overview query so the tiles, chart and live
  * badge can never disagree.
  */
@@ -27,7 +28,7 @@ import { type OverviewMetricKey } from "../../lib/overview-metrics";
 import { FilterBar } from "../filter-bar";
 import { BreakdownGrid } from "./breakdown-grid";
 import { HeroChart } from "./hero-chart";
-import { type NudgeProject, SetupNudge } from "./setup-nudge";
+import { AnalyticsSetupState, type NudgeProject, useAnalyticsSetup } from "./setup-nudge";
 import { StatTiles } from "./stat-tiles";
 
 export function OverviewView({
@@ -55,6 +56,7 @@ export function OverviewView({
 }) {
   const { t } = useTranslation();
   const overview = useOverview(scope, win);
+  const setup = useAnalyticsSetup(project, projects);
 
   const addFilter = (dim: FilterDimension, key: string) =>
     onFiltersChange(withFilter(win.filters, { dim, op: "is", value: key }));
@@ -75,12 +77,16 @@ export function OverviewView({
     );
   }
 
+  // Nothing in scope can have data: lead with the one thing to do rather than
+  // a dashboard of zeros explained by a sentence above it.
+  if (setup.kind === "unset" || setup.kind === "waiting") {
+    return <AnalyticsSetupState state={setup} onGoSetup={onGoSetup} />;
+  }
+
   const nowMs = Temporal.Now.instant().epochMilliseconds;
 
   return (
     <div className="flex flex-col gap-4">
-      <SetupNudge project={project} projects={projects} onGoSetup={onGoSetup} />
-
       <FilterBar scope={scope} win={win} filters={win.filters} onFiltersChange={onFiltersChange} />
 
       <StatTiles

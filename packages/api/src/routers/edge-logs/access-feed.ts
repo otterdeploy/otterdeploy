@@ -115,6 +115,8 @@ function toFeedRow(row: Record<string, unknown>) {
     tlsCipher: asNullableString(row.tlsCipher),
     reqBytes: asNumber(row.reqBytes),
     resBytes: asNumber(row.resBytes),
+    // A probe answered with the host's index page: see `spaFallback`.
+    spaFallback: row.spaFallback === true,
     requestId: asNullableString(row.requestId),
     headers: asStringRecord(row.headers),
   };

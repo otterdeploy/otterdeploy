@@ -10,6 +10,7 @@ import type { TFunction } from "i18next";
 import type { DataTableFeatures } from "@/shared/components/data-table/features";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
+import { VIEW_ZONE, zoneAbbreviation } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
 import {
@@ -59,7 +60,19 @@ export function makeLogColumns(t: TFunction): ColumnDef<DataTableFeatures, LogLi
       id: "timestamp",
       accessorKey: "tsIso",
       size: 150,
-      header: "Timestamp",
+      // The zone, named once for the column: rows print in the viewer's own
+      // zone, like every clock in the app (see `VIEW_ZONE`).
+      header: () => (
+        <span className="flex items-center gap-1.5">
+          Timestamp
+          <span
+            className="text-[9px] font-normal tracking-normal normal-case"
+            title={`Times shown in ${VIEW_ZONE} (your browser's zone). Open a row for the UTC stamp.`}
+          >
+            {zoneAbbreviation()}
+          </span>
+        </span>
+      ),
       cell: ({ row }) => (
         <span className="text-[11.5px] text-muted-foreground">{row.original.ts}</span>
       ),
@@ -95,33 +108,46 @@ export function makeLogColumns(t: TFunction): ColumnDef<DataTableFeatures, LogLi
       accessorKey: "msg",
       enableSorting: false,
       header: "Message",
-      cell: ({ row }) => {
-        // Strip ANSI/SGR escapes: build/runtime tools emit color codes that would
-        // otherwise render as literal `[32m…` garbage in the (uncolored) table.
-        const msg = stripAnsi(row.original.msg);
-        // Every row is ALWAYS a single truncated line, so all rows share one
-        // fixed height. That is what keeps the virtualizer's size estimate exact
-        // and its absolutely-positioned rows from overlapping: a soft-wrapped row
-        // grows to the full many-line height of a long JSON log entry, and the
-        // virtualizer's post-paint measurement can't reliably repaint that under
-        // a bursty live tail, so tall rows smeared over each other into an
-        // unreadable overlap. Click a row to read the whole entry (pretty-printed
-        // JSON, metadata) in the side detail panel: that overlays the table
-        // instead of reflowing it.
-        const firstBreak = msg.indexOf("\n");
-        const summary = firstBreak === -1 ? msg : msg.slice(0, firstBreak);
-        const extra = firstBreak === -1 ? 0 : msg.split("\n").length - 1;
-        return (
-          <span className="min-w-0 flex-1 truncate text-xs text-foreground">
-            {summary}
-            {extra > 0 && (
-              <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 align-middle text-[10px] font-medium text-muted-foreground/80">
-                +{extra}
-              </span>
-            )}
-          </span>
-        );
-      },
+      cell: ({ row }) => <MessageCell line={row.original} />,
     },
   ];
+}
+
+/**
+ * Every row is ALWAYS a single truncated line, so all rows share one fixed
+ * height. That is what keeps the virtualizer's size estimate exact and its
+ * absolutely-positioned rows from overlapping: a soft-wrapped row grows to the
+ * full many-line height of a long entry, and under a bursty live tail the
+ * measured rows smeared over each other. Click a row to read the whole entry
+ * (message, fields, metadata) in the side detail panel.
+ */
+function MessageCell({ line }: { line: LogLine }) {
+  // A JSON log line reads as its message, with its fields as a muted preview
+  // after it; the detail panel expands them. The raw JSON is one click away.
+  if (line.structured) {
+    return (
+      <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+        {line.structured.message}
+        {line.structured.preview ? (
+          <span className="ml-2 text-muted-foreground">{line.structured.preview}</span>
+        ) : null}
+      </span>
+    );
+  }
+  // Strip ANSI/SGR escapes: build/runtime tools emit color codes that would
+  // otherwise render as literal `[32m…` garbage in the (uncolored) table.
+  const msg = stripAnsi(line.msg);
+  const firstBreak = msg.indexOf("\n");
+  const summary = firstBreak === -1 ? msg : msg.slice(0, firstBreak);
+  const extra = firstBreak === -1 ? 0 : msg.split("\n").length - 1;
+  return (
+    <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+      {summary}
+      {extra > 0 && (
+        <span className="ml-2 rounded-sm bg-muted px-1.5 py-0.5 align-middle text-[10px] font-medium text-muted-foreground/80">
+          +{extra}
+        </span>
+      )}
+    </span>
+  );
 }

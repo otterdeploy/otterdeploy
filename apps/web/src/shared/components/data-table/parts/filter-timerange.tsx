@@ -24,11 +24,11 @@ import { useFilterActions, useFilterField } from "@/shared/components/data-table
 import { Button } from "@/shared/components/ui/button";
 import { Calendar } from "@/shared/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { CLOCK_DAY, CLOCK_STAMP, instantOf, LOG_ZONE, utcFormatter } from "@/shared/lib/clock";
+import { CLOCK_DAY, CLOCK_STAMP, instantOf, VIEW_ZONE, clockFormatter } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
-const stamp = utcFormatter(CLOCK_STAMP);
-const dayStamp = utcFormatter(CLOCK_DAY);
+const stamp = clockFormatter(CLOCK_STAMP);
+const dayStamp = clockFormatter(CLOCK_DAY);
 
 /** Windows an operator reaches for, shortest first. */
 const PRESETS = [
@@ -41,15 +41,15 @@ const PRESETS = [
 ] as const;
 
 /**
- * A day boundary in {@link LOG_ZONE}.
+ * A day boundary in {@link VIEW_ZONE}.
  *
- * The same zone the rows print in, deliberately. Picking "Sep 8" in Berlin and
- * getting a window that starts at 22:00 on the 7th — because that is when the
- * local day began — would select rows the table labels as the previous day.
+ * The same zone the rows print in, deliberately. Bounding "Sep 8" in one zone
+ * while the rows print in another selects rows the table labels as the day
+ * before or after.
  */
 function dayBounds(date: string, edge: "start" | "end"): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const zone = LOG_ZONE;
+  const zone = VIEW_ZONE;
   const day = Temporal.PlainDate.from(date).toZonedDateTime(zone);
   const instant = edge === "start" ? day : day.add({ days: 1 }).subtract({ nanoseconds: 1 });
   return instant.toInstant().epochMilliseconds;
@@ -63,7 +63,7 @@ function dayBounds(date: string, edge: "start" | "end"): number | null {
  * `Temporal.Instant` on the first line and no `Date` method is called on it.
  */
 function calendarDay(date: Date): string {
-  return instantOf(date).toZonedDateTimeISO(LOG_ZONE).toPlainDate().toString();
+  return instantOf(date).toZonedDateTimeISO(VIEW_ZONE).toPlainDate().toString();
 }
 
 /** Epoch millis → the `Date` the calendar wants for its selection. */

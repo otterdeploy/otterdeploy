@@ -10,14 +10,15 @@ import type { BreakdownDimension } from "@otterdeploy/shared/analytics-filters";
 
 import { useQuery } from "@tanstack/react-query";
 
+import { VIEW_ZONE } from "@/shared/lib/clock";
 import { orpc } from "@/shared/server/orpc";
 
 import type { WebAnalyticsFilter } from "../lib/filter-codec";
 import type { RangeKey } from "../lib/range";
 
-/** One tz lookup for the whole surface — the permitted use of the bare
- *  constructor; all *formatting* goes through @/shared/lib/clock.ts. */
-export const BROWSER_TZ: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
+/** The zone the server buckets days in: the app-wide viewer zone, so a day
+ *  bar here and a clock on the Edge or Logs page are the same day. */
+export const BROWSER_TZ: string = VIEW_ZONE;
 
 const POLL_MS = 30_000;
 const REALTIME_POLL_MS = 10_000;

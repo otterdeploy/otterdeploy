@@ -35,7 +35,6 @@ import { colorLegend, defineChart, areaY, lineY } from "@tanstack/charts";
 import { d3Curve } from "@tanstack/charts/d3/shape";
 import { decorative } from "@tanstack/charts/mark/decorative";
 import { Chart } from "@tanstack/charts/react/tooltip";
-import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { scaleOrdinal } from "@tanstack/charts/scales/ordinal";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { curveMonotoneX } from "d3-shape";
@@ -47,8 +46,8 @@ import type { LongRow, TimeRow } from "./series-rows";
 
 export type { TimeWindow } from "./time-axis";
 
-import { applyFilter, seriesTotals, toLongRows } from "./series-rows";
-import { axisTickFormat, timeAxisScale, type TimeWindow } from "./time-axis";
+import { applyFilter, peakValue, seriesTotals, toLongRows } from "./series-rows";
+import { chartAxes, type TimeWindow } from "./time-axis";
 import { TooltipBody } from "./tooltip-body";
 import { useVisible } from "./use-visible";
 
@@ -78,6 +77,9 @@ interface TimeSeriesChartProps<Row extends TimeRow> {
   filter?: string;
   /** Upper Y bound. "auto" fits the data. */
   max?: number | "auto";
+  /** The series are counts (visitors, requests): the y axis ticks on whole
+   *  numbers. Without it a quiet window draws `0.2 · 0.4 · 0.6` people. */
+  integer?: boolean;
   /** Expected ms between samples. Drives gap detection; 0 disables it. */
   sampleIntervalMs?: number;
   /** Pin the time axis to this window (epoch ms, start then end). Without it
@@ -111,42 +113,6 @@ const FILL_TOP_OPACITY = 0.32;
 const FILL_BOTTOM_OPACITY = 0.02;
 
 const gradientId = (index: number) => `series-fill-${index}`;
-
-/**
- * No axis lines: the dashed grid already frames the plot, and a solid baseline
- * under a zero-hugging series hides the series. The x axis keeps its tick
- * stubs so a label reads as "at this instant", not "around here".
- */
-function buildAxes(
-  time: ReturnType<typeof timeAxisScale>,
-  format: (value: number) => string,
-  max: number | "auto",
-  compact: boolean,
-) {
-  const tick = axisTickFormat(time.spanMs);
-  const x = {
-    scale: time.scale,
-    nice: time.nice,
-    axis: compact
-      ? false
-      : {
-          line: false,
-          // d3's time scale hands us Date ticks; `tick` crosses them into
-          // Temporal before formatting.
-          ticks: { spacing: 90, size: 4, format: (value: Date) => tick(value) },
-        },
-  } as const;
-  const y = {
-    scale: scaleLinear,
-    nice: true,
-    grid: !compact,
-    domain: max === "auto" ? undefined : [0, max],
-    axis: compact
-      ? false
-      : { line: false, ticks: { count: 4, size: 0, format: (value: number) => format(value) } },
-  } as const;
-  return { x, y };
-}
 
 /** One vertical gradient per series in its own paint, so the fill fades from
  *  the line down to the baseline. Ids are scoped per chart instance by the
@@ -188,6 +154,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
   kind = "area",
   filter = "",
   max = "auto",
+  integer = false,
   sampleIntervalMs = 0,
   timeWindow,
   compact = false,
@@ -234,12 +201,17 @@ export function TimeSeriesChart<Row extends TimeRow>({
           : undefined,
     };
 
-    const { x, y } = buildAxes(timeAxisScale(data, timeWindow), format, max, compact);
+    // Whole-number ticks need the peak the plot will draw, so a count axis
+    // tops out at a reachable number rather than a fraction above it.
+    const countPeak = integer ? peakValue(long, stacked) : undefined;
+    // Responsive: the x ticks depend on how many labels fit, which only the
+    // rendered width can say. Everything else is built once per data change.
+    const axesFor = (widthPx: number) =>
+      chartAxes({ data, timeWindow, widthPx, format, max, compact, countPeak, sampleIntervalMs });
 
     // One uniform shape whatever the mode. Branching the *shape* rather than
     // the values gives `defineChart` a union to infer through, and it declines.
     const interaction = {
-      clip: true,
       // Grouped focus: one hover reports every series at that instant, which is
       // the whole point of drawing them together.
       focus: compact ? false : GROUP_X,
@@ -262,15 +234,13 @@ export function TimeSeriesChart<Row extends TimeRow>({
       // Implicit stacking: repeated x positions stack by series when no
       // explicit y1/y2 is given. A stacked segment reports its own value in the
       // tooltip, not the cumulative endpoint.
-      return defineChart({
-        marks: [
-          areaY(long, { id: "series", x: "t", y: "value", z: "series", fillOpacity: 0.55, curve }),
-        ],
-        x,
-        y,
-        color,
-        ...interaction,
-      });
+      const marks = [
+        areaY(long, { id: "series", x: "t", y: "value", z: "series", fillOpacity: 0.55, curve }),
+      ] as const;
+      return defineChart(
+        ({ width }) => ({ marks, ...axesFor(width), color, clip: true }),
+        interaction,
+      );
     }
 
     const line = lineY(long, {
@@ -283,33 +253,35 @@ export function TimeSeriesChart<Row extends TimeRow>({
     });
 
     if (kind === "line") {
-      return defineChart({ marks: [line], x, y, color, ...interaction });
+      const marks = [line] as const;
+      return defineChart(
+        ({ width }) => ({ marks, ...axesFor(width), color, clip: true }),
+        interaction,
+      );
     }
 
     // Overlaid: explicit y1/y2 endpoints opt out of the implicit stack, so the
     // fill is decoration under a line that owns interaction.
-    return defineChart({
-      marks: [
-        decorative(
-          areaY(long, {
-            id: "series-fill",
-            x: "t",
-            y1: 0,
-            y2: "value",
-            z: "series",
-            fill: (row: LongRow) => `url(#${gradientId(ordered.indexOf(row.series))})`,
-            fillOpacity: 1,
-            curve,
-          }),
-        ),
-        line,
-      ],
-      gradients: buildGradients(ordered, paint),
-      x,
-      y,
-      color,
-      ...interaction,
-    });
+    const marks = [
+      decorative(
+        areaY(long, {
+          id: "series-fill",
+          x: "t",
+          y1: 0,
+          y2: "value",
+          z: "series",
+          fill: (row: LongRow) => `url(#${gradientId(ordered.indexOf(row.series))})`,
+          fillOpacity: 1,
+          curve,
+        }),
+      ),
+      line,
+    ] as const;
+    const gradients = buildGradients(ordered, paint);
+    return defineChart(
+      ({ width }) => ({ marks, gradients, ...axesFor(width), color, clip: true }),
+      interaction,
+    );
   }, [
     data,
     series,
@@ -318,6 +290,7 @@ export function TimeSeriesChart<Row extends TimeRow>({
     kind,
     filter,
     max,
+    integer,
     sampleIntervalMs,
     timeWindow,
     compact,
