@@ -19,6 +19,9 @@ import {
   startEdgeWatch,
 } from "../edge-watch";
 
+/** A database whose routes never change: the revision every reconcile records. */
+const unchangedRoutes = async () => Result.ok("rev-1");
+
 /** What the compose stub boots Caddy with (docker-compose.prod.yml). */
 const STUB =
   '{"apps":{"http":{"servers":{"srv0":{"routes":[{"handle":[{"body":"otterdeploy is starting…","handler":"static_response","status_code":503}]}]}}}}}';
@@ -76,19 +79,22 @@ describe("edge watch against a Caddy admin socket", () => {
     const routes = "app.example.com {\n  reverse_proxy app:80\n}\n";
     const reconcile = vi.fn(async () => {
       const loaded = await loadCaddyfile(routes, caddy.adminUrl);
-      if (loaded.ok) await watch.recordLoaded();
+      if (loaded.ok) await watch.recordLoaded("rev-1");
       return loaded.ok ? {} : { loadError: loaded.error };
     });
 
     // Server boot: the bootstrap reconcile.
     await reconcile();
-    expect(await watch.tick(reconcile)).toEqual({ kind: "in-sync" });
+    expect(await watch.tick(reconcile, unchangedRoutes)).toEqual({ kind: "in-sync" });
     expect(reconcile).toHaveBeenCalledTimes(1);
 
     caddy.restart();
-    expect(await watch.tick(reconcile)).toEqual({ kind: "reconciled", reason: "config-changed" });
+    expect(await watch.tick(reconcile, unchangedRoutes)).toEqual({
+      kind: "reconciled",
+      reason: "config-changed",
+    });
     expect(caddy.state.config).toContain("app.example.com");
-    expect(await watch.tick(reconcile)).toEqual({ kind: "in-sync" });
+    expect(await watch.tick(reconcile, unchangedRoutes)).toEqual({ kind: "in-sync" });
     expect(caddy.state.loads).toBe(2);
   });
 
@@ -99,7 +105,7 @@ describe("edge watch against a Caddy admin socket", () => {
     });
     const reconcile = vi.fn(async () => {
       await loadCaddyfile("app.example.com\n", caddy.adminUrl);
-      await watch.recordLoaded();
+      await watch.recordLoaded("rev-1");
       return {};
     });
     await reconcile();
@@ -107,7 +113,59 @@ describe("edge watch against a Caddy admin socket", () => {
     const before = caddy.state.config;
     caddy.restart();
     caddy.state.config = before;
-    expect(await watch.tick(reconcile)).toEqual({ kind: "in-sync" });
+    expect(await watch.tick(reconcile, unchangedRoutes)).toEqual({ kind: "in-sync" });
+    expect(reconcile).toHaveBeenCalledTimes(1);
+  });
+
+  test("a route another process wrote reaches the edge on the next tick", async () => {
+    // The build worker seeds a git compose stack's public route. Its own
+    // reconcile cannot reach the admin socket (the socket is mounted into the
+    // server only), so Caddy keeps running the old config and the host fails
+    // its TLS handshake. Caddy's config is unchanged, so only the database
+    // says anything moved.
+    const watch = createEdgeWatch({
+      readConfig: () => readCaddyConfig(caddy.adminUrl),
+      now: () => performance.now(),
+    });
+    const db = { revision: "rev-1", routes: "app.example.com {\n  reverse_proxy app:80\n}\n" };
+    const readDesired = async () => Result.ok(db.revision);
+    const reconcile = vi.fn(async () => {
+      const revision = db.revision;
+      const loaded = await loadCaddyfile(db.routes, caddy.adminUrl);
+      if (loaded.ok) await watch.recordLoaded(revision);
+      return loaded.ok ? {} : { loadError: loaded.error };
+    });
+    await reconcile();
+    expect(await watch.tick(reconcile, readDesired)).toEqual({ kind: "in-sync" });
+
+    // The builder's write: a new row, no load.
+    db.revision = "rev-2";
+    db.routes += "stack-app.example.com {\n  reverse_proxy od-stack-app:3000\n}\n";
+
+    expect(await watch.tick(reconcile, readDesired)).toEqual({
+      kind: "reconciled",
+      reason: "routes-changed",
+    });
+    expect(caddy.state.config).toContain("stack-app.example.com");
+    expect(await watch.tick(reconcile, readDesired)).toEqual({ kind: "in-sync" });
+    expect(reconcile).toHaveBeenCalledTimes(2);
+  });
+
+  test("a database that cannot be read leaves a running edge alone", async () => {
+    const watch = createEdgeWatch({
+      readConfig: () => readCaddyConfig(caddy.adminUrl),
+      now: () => performance.now(),
+    });
+    const reconcile = vi.fn(async () => {
+      await loadCaddyfile("app.example.com\n", caddy.adminUrl);
+      await watch.recordLoaded("rev-1");
+      return {};
+    });
+    await reconcile();
+    const outcome = await watch.tick(reconcile, async () =>
+      Result.err(new Error("connection terminated")),
+    );
+    expect(outcome).toEqual({ kind: "desired-unreadable", error: "connection terminated" });
     expect(reconcile).toHaveBeenCalledTimes(1);
   });
 
@@ -121,7 +179,7 @@ describe("edge watch against a Caddy admin socket", () => {
       now: () => performance.now(),
     });
     const reconcile = vi.fn(async () => ({}));
-    const outcome = await watch.tick(reconcile);
+    const outcome = await watch.tick(reconcile, unchangedRoutes);
     void broken.stop(true);
     expect(outcome).toMatchObject({ kind: "unreachable" });
     expect(outcome.kind === "unreachable" && outcome.error).toContain("HTTP 500");
@@ -135,7 +193,7 @@ describe("edge watch against a Caddy admin socket", () => {
       now: () => performance.now(),
     });
     const reconcile = vi.fn(async () => ({}));
-    const outcome = await watch.tick(reconcile);
+    const outcome = await watch.tick(reconcile, unchangedRoutes);
     expect(outcome.kind).toBe("unreachable");
     expect(reconcile).not.toHaveBeenCalled();
   });
@@ -154,24 +212,27 @@ describe("createEdgeWatch", () => {
   test("reconciles when nothing has been loaded since boot", async () => {
     const { watch } = scripted(["stub"]);
     const reconcile = vi.fn(async () => ({}));
-    expect(await watch.tick(reconcile)).toEqual({ kind: "reconciled", reason: "never-loaded" });
+    expect(await watch.tick(reconcile, unchangedRoutes)).toEqual({
+      kind: "reconciled",
+      reason: "never-loaded",
+    });
   });
 
   test("a config Caddy keeps refusing backs off instead of reloading every tick", async () => {
     const { watch, advance } = scripted([]);
     const reconcile = vi.fn(async () => ({ loadError: "adapt: unknown directive" }));
-    const first = await watch.tick(reconcile);
+    const first = await watch.tick(reconcile, unchangedRoutes);
     expect(first).toMatchObject({
       kind: "reconcile-failed",
       retryInMs: 2 * EDGE_WATCH_INTERVAL_MS,
     });
 
     advance(EDGE_WATCH_INTERVAL_MS);
-    expect((await watch.tick(reconcile)).kind).toBe("backoff");
+    expect((await watch.tick(reconcile, unchangedRoutes)).kind).toBe("backoff");
     expect(reconcile).toHaveBeenCalledTimes(1);
 
     advance(EDGE_WATCH_INTERVAL_MS);
-    expect(await watch.tick(reconcile)).toMatchObject({
+    expect(await watch.tick(reconcile, unchangedRoutes)).toMatchObject({
       kind: "reconcile-failed",
       retryInMs: 4 * EDGE_WATCH_INTERVAL_MS,
     });
@@ -181,10 +242,10 @@ describe("createEdgeWatch", () => {
   test("the backoff stops growing at its ceiling", async () => {
     const { watch, advance } = scripted([]);
     const reconcile = vi.fn(async () => ({ loadError: "refused" }));
-    let last = await watch.tick(reconcile);
+    let last = await watch.tick(reconcile, unchangedRoutes);
     for (let i = 0; i < 10; i++) {
       advance(EDGE_WATCH_MAX_BACKOFF_MS);
-      last = await watch.tick(reconcile);
+      last = await watch.tick(reconcile, unchangedRoutes);
     }
     expect(last).toMatchObject({ kind: "reconcile-failed", retryInMs: EDGE_WATCH_MAX_BACKOFF_MS });
   });
@@ -193,7 +254,7 @@ describe("createEdgeWatch", () => {
     const { watch } = scripted([]);
     const outcome = await watch.tick(async () => {
       throw new Error("Postgres is down");
-    });
+    }, unchangedRoutes);
     expect(outcome).toMatchObject({ kind: "reconcile-failed", error: "Postgres is down" });
   });
 
@@ -206,9 +267,9 @@ describe("createEdgeWatch", () => {
           release = () => resolve({});
         }),
     );
-    const first = watch.tick(slow);
+    const first = watch.tick(slow, unchangedRoutes);
     await Promise.resolve();
-    expect(await watch.tick(slow)).toEqual({ kind: "busy" });
+    expect(await watch.tick(slow, unchangedRoutes)).toEqual({ kind: "busy" });
     release();
     expect((await first).kind).toBe("reconciled");
     expect(slow).toHaveBeenCalledTimes(1);
@@ -227,12 +288,12 @@ describe("startEdgeWatch", () => {
       .spyOn(controlPlaneEdgeWatch, "tick")
       .mockResolvedValue({ kind: "reconciled", reason: "config-changed" });
     const reconcile = vi.fn(async () => ({}));
-    const stop = startEdgeWatch(reconcile);
+    const stop = startEdgeWatch(reconcile, unchangedRoutes);
     await vi.advanceTimersByTimeAsync(EDGE_WATCH_INTERVAL_MS - 1);
     expect(tick).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(tick).toHaveBeenCalledTimes(1);
-    expect(tick).toHaveBeenCalledWith(reconcile);
+    expect(tick).toHaveBeenCalledWith(reconcile, unchangedRoutes);
     await vi.advanceTimersByTimeAsync(EDGE_WATCH_INTERVAL_MS);
     expect(tick).toHaveBeenCalledTimes(2);
     stop();

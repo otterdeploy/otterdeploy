@@ -84,9 +84,15 @@ export interface StackReconcileContext {
   projectVars: Record<string, string>;
   /** Built image tags for `build:` services (compose name → ref). */
   builtImages: Record<string, string>;
-  /** Materialized file-tree dir for a multi-file inline stack (absolute), where
-   *  bind-mount sources resolve. Undefined for single-file / git stacks. */
+  /** Where bind-mount sources resolve (absolute): the materialized file tree
+   *  of a multi-file inline stack, or the copy a git stack's build staged of
+   *  its repo's bind sources. Undefined for a single-file inline stack and for
+   *  a git stack rolled without a build. */
   stackDir?: string;
+  /** A git stack's bind sources that were staged into `stackDir`. Set only
+   *  for a git stack: its other relative binds name nothing in the repo
+   *  (a data dir compose would create), so they are not mounted. */
+  repoBindSources?: ReadonlySet<string>;
   /** Host paths an installation administrator has granted THIS stack (read
    *  from its compose_resource row, see lib/host-binds.ts). Omitted = none:
    *  a `/var/run/docker.sock` bind in the file is dropped. */

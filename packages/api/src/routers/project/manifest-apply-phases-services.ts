@@ -10,9 +10,10 @@ import { serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
+import type { RolloutTiming } from "../service/handlers";
 import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
 
-import { declaredEnvOf, type Change } from "../../stack/manifest";
+import { declaredEnvOf, type Change, type ServiceManifest } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
 import { type RefTable, resolveEnv } from "./manifest-apply-refs";
 import {
@@ -114,6 +115,13 @@ async function updateOneService(
     refTable,
     ctx.current.services[change.name]?.env ?? {},
   );
+  // A git service created but never successfully built sits on a `pending:*`
+  // image with no deployment. Builds normally fire only on create (or git
+  // push), so without this a "Deploy" on such a stuck service no-ops forever.
+  const builds: GitBuild[] =
+    spec.source === "git" && (await hasPendingImage(existingId))
+      ? [{ resourceId: existingId, name: change.name }]
+      : [];
   const updated = await updateServiceFromManifest({
     projectId: ctx.projectId,
     organizationId: ctx.organizationId,
@@ -124,23 +132,38 @@ async function updateOneService(
     // Synthesized by groupChanges when the diff for this service is env-only:
     // skip the field patch, run just the env reconcile (one container roll).
     envOnly: change.details?.envOnly === true,
+    rollout: resolveRolloutTiming(ctx, change.name, spec.source, builds.length > 0),
     log: ctx.log,
   });
-  // A git service created but never successfully built sits on a `pending:*`
-  // image with no deployment. Builds normally fire only on create (or git
-  // push), so without this a "Deploy" on such a stuck service no-ops forever.
-  const builds: GitBuild[] = [];
-  if (spec.source === "git") {
-    const [svc] = await db
-      .select({ image: serviceResource.image })
-      .from(serviceResource)
-      .where(eq(serviceResource.resourceId, existingId))
-      .limit(1);
-    if (svc?.image.startsWith("pending:")) {
-      builds.push({ resourceId: existingId, name: change.name });
-    }
-  }
   return { updated, builds, localSkipped: resolved.skipped };
+}
+
+async function hasPendingImage(resourceId: ResourceId): Promise<boolean> {
+  const [svc] = await db
+    .select({ image: serviceResource.image })
+    .from(serviceResource)
+    .where(eq(serviceResource.resourceId, resourceId))
+    .limit(1);
+  return svc?.image.startsWith("pending:") === true;
+}
+
+/**
+ * A service whose build runs as part of this deploy rolls with that build, not
+ * before it: the apply enqueues one (a git service still on its placeholder
+ * image), or the caller uploads its source right after (`otterdeploy deploy`).
+ * Rolling the running image onto the new fields first is wasted at best; with
+ * a changed port it is a rollout that can never pass, and the request waits
+ * out its whole readiness window for it.
+ */
+function resolveRolloutTiming(
+  ctx: ApplyContext,
+  name: string,
+  source: ServiceManifest["source"],
+  buildEnqueued: boolean,
+): RolloutTiming {
+  if (buildEnqueued) return "with-build";
+  if (source === "upload" && ctx.sourceUploads.has(name)) return "with-build";
+  return "now";
 }
 
 export async function runServiceUpdates(

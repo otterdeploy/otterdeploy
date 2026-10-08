@@ -40,6 +40,10 @@ export interface ApplyContext {
   organizationId: OrgId;
   manifest: Manifest;
   current: CurrentState;
+  /** Upload-sourced services whose new source the caller sends right after
+   *  this apply (`otterdeploy deploy`). Their updates ride that upload's build
+   *  instead of rolling the running image first. */
+  sourceUploads: ReadonlySet<string>;
   log: RequestLogger;
 }
 

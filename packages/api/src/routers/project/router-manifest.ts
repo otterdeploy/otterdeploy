@@ -15,7 +15,7 @@ import {
   saveManifest,
 } from "./manifest";
 import { applyManifest } from "./manifest-apply";
-import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
+import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
 import { renameResource } from "./manifest-rename-apply";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
@@ -137,9 +137,12 @@ export const manifestRouter = {
     // Resolve ${database:…}/${service:…} refs before comparing. Apply stores
     // the RESOLVED value in the env rows, so a raw-text compare surfaced a
     // permanent phantom "update" for every ref-valued declaration.
+    // Same staged-service view apply resolves with, so a ref to a service this
+    // manifest creates previews as the value it will get.
+    const stagedServices = Object.keys(resolved.value.services).filter((n) => !current.services[n]);
     const changes = enrichComposeCreates(
       diffManifest(resolved.value, current, {
-        resolveEnvValue: makeEnvRefResolver(refTable),
+        resolveEnvValue: makeEnvRefResolver(withStagedServices(refTable, stagedServices)),
         applied,
       }),
       resolved.value,
@@ -179,13 +182,10 @@ export const manifestRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
         });
       }
-      if (!resolved.value) {
-        return {
-          appliedCount: 0,
-          skipped: [],
-          lastAppliedAt: new Date().toISOString(),
-        };
-      }
+      // Nothing saved (or a stored manifest that no longer parses, which
+      // loadManifest reports and reads as absent). Answering success with
+      // appliedCount 0 here was indistinguishable from "up to date".
+      if (!resolved.value) throw errors.NO_MANIFEST();
       return applyManifest({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
@@ -264,34 +264,18 @@ export const manifestRouter = {
         });
       }
 
-      const resolved = await resolvedManifest(
-        {
-          projectId: input.projectId,
-          organizationId: context.activeOrganizationId,
-        },
-        input.environment,
-      );
-      if (resolved.isErr()) {
-        throw matchError(resolved.error, {
-          ProjectNotFoundError: () => errors.NOT_FOUND(),
-        });
-      }
-      if (!resolved.value) {
-        return {
-          version: saved.value.version,
-          appliedCount: 0,
-          skipped: [],
-          lastAppliedAt: new Date().toISOString(),
-        };
-      }
+      // Apply exactly what was just saved. Re-reading it raced a concurrent
+      // discard (which could leave nothing to apply) and gained nothing.
+      const resolved = resolveEnvironment(input.manifest, input.environment);
       const applied = await applyManifest({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
-        manifest: resolved.value,
+        manifest: resolved,
         // Must match the environment the manifest was just resolved for. A
         // manifest resolved for staging applied against production's rows
         // would diff staging's desired state onto production's resources.
         environmentId: await environmentIdOrReject(input.projectId, input.environment, errors),
+        sourceUploads: input.sourceUploads,
         log: context.log,
       });
       return { version: saved.value.version, ...applied };

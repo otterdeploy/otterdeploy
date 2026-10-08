@@ -39,7 +39,12 @@ export async function loadManifest(
     })
     .from(project)
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
-    .limit(1);
+    .limit(1)
+    // Never from the query cache. This is the optimistic-locked document every
+    // save, diff and apply starts from; a cached copy taken before the last
+    // save made apply see the EMPTY manifest and answer success having applied
+    // nothing, for up to the cache TTL.
+    .$withCache(false);
 
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   const stored = storedManifest(row.manifest);
@@ -135,7 +140,9 @@ export async function loadAppliedSnapshot(scope: ProjectScope): Promise<Manifest
     .select({ lastApplied: project.lastAppliedManifest })
     .from(project)
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
-    .limit(1);
+    .limit(1)
+    // Fresh, like loadManifest: the diff's notion of "already applied".
+    .$withCache(false);
   const parsed = manifestSchema.safeParse(row?.lastApplied);
   return parsed.success ? parsed.data : null;
 }
@@ -206,7 +213,9 @@ export async function saveManifest(
     .select({ version: project.manifestVersion })
     .from(project)
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
-    .limit(1);
+    .limit(1)
+    // The version a retry must send: a cached one would conflict again.
+    .$withCache(false);
   if (!current) {
     return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   }

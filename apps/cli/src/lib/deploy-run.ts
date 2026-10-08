@@ -121,6 +121,14 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
         .map((c) => c.name)
     : [];
 
+  // Upload-sourced services build from the LOCAL tree, not a repo: after the
+  // apply, the project is tarred and pushed to the server, which builds it.
+  // Runs every deploy (there's no sha to diff against, shipping the current
+  // local code is the whole point).
+  const uploadNames = Object.entries(manifest.services)
+    .filter(([, svc]) => svc.source === "upload")
+    .map(([name]) => name);
+
   if (!opts.json) note(`Applying${opts.env ? ` to ${opts.env}` : ""}…`);
 
   const result = await client.project.manifest.applyChange({
@@ -128,6 +136,10 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
     manifest,
     expectedVersion: saved.version,
     environment: opts.env,
+    // Their builds follow, so their changes ride those builds instead of
+    // rolling the running image first: the old image on a new port never
+    // comes up, and the apply would wait out the readiness window for it.
+    sourceUploads: uploadNames,
   });
 
   if (!opts.json) {
@@ -149,13 +161,6 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   }
   if (result.skipped.length > 0) process.exitCode = 1;
 
-  // Upload-sourced services build from the LOCAL tree, not a repo: apply just
-  // created/updated the resource, so now tar the project and push it to the
-  // server, which builds it. Runs every deploy (there's no sha to diff against,
-  // shipping the current local code is the whole point).
-  const uploadNames = Object.entries(manifest.services)
-    .filter(([, svc]) => svc.source === "upload")
-    .map(([name]) => name);
   if (uploadNames.length > 0) {
     await uploadServiceSources({
       client,

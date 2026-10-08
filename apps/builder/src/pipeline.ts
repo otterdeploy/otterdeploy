@@ -48,6 +48,7 @@ import {
   SwarmUpdateError,
 } from "./errors";
 import { extractTarballToWorkDir } from "./extract";
+import { persistImageVolumes } from "./image-volumes";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
 import { runImageBuild } from "./pipeline-image-build";
@@ -362,6 +363,17 @@ function runBuildSteps(
           .where(eq(serviceResource.resourceId, ctx.resource.id)),
       );
     }
+
+    // Every path the image declares as VOLUME gets a persistent volume (or the
+    // one already attached there) BEFORE the rollout, so the first container
+    // already writes to storage that outlives it. See ./image-volumes.ts.
+    yield* await persistImageVolumes({
+      image: image.shaTag,
+      serviceResourceId: ctx.resource.id,
+      serviceName: ctx.service.serviceName,
+      isPreview,
+      sink,
+    });
 
     yield* await runPreDeploy({
       ctx,

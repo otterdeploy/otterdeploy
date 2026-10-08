@@ -9,7 +9,7 @@ import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { type NixpacksConfig } from "@otterdeploy/db/schema";
-import { preview, resource } from "@otterdeploy/db/schema/project";
+import { environment, preview, resource } from "@otterdeploy/db/schema/project";
 import { panic, Result } from "better-result";
 import { and, count, eq, inArray } from "drizzle-orm";
 import * as z from "zod";
@@ -25,6 +25,7 @@ import {
   ProjectHasServicesError,
   ProjectNotFoundError,
 } from "./errors";
+import { projectNetworkCandidates, removeProjectNetworks } from "./project-networks";
 import { normalizeCustomDomain } from "./projects-bindings";
 import {
   countEnabledRoutesByProject,
@@ -247,6 +248,12 @@ export async function deleteProject(
     .from(preview)
     .where(eq(preview.projectId, input.id));
   const previewSlugById = new Map(previewRows.map((r) => [r.id, r.slug]));
+  // Read before the delete cascades the environment rows away: each
+  // additional environment has an overlay network of its own.
+  const environments = await db
+    .select({ id: environment.id, slug: environment.slug })
+    .from(environment)
+    .where(eq(environment.projectId, input.id));
 
   // 1. Tear down each child postgres Swarm service before dropping DB rows.
   //    FK cascade handles preview / resource / database_resource / proxy_route.
@@ -275,7 +282,20 @@ export async function deleteProject(
   // 3. Refresh Caddy so removed proxy routes drop out of the live config.
   await reconcile(log);
 
-  // 4. Drop the project's whole host subtree
+  // 4. Remove the project's overlay networks (main + one per environment).
+  //    One still in use, or a daemon that is unreachable, goes to the orphan
+  //    GC rather than failing a delete that has already committed.
+  const networks = await removeProjectNetworks(
+    projectNetworkCandidates({
+      slug: project.slug,
+      environments,
+      mainEnvironmentId: project.environmentId,
+    }),
+    { organizationId: input.organizationId, projectId: input.id },
+    log,
+  );
+
+  // 5. Drop the project's whole host subtree
   //    (`orgs/<org>/projects/<prj>/`: envs, resources, DR escape hatch).
   //    Guarded + best-effort; no-op when the data folder isn't in use.
   await removeProjectDir(input.organizationId, input.id);
@@ -283,6 +303,8 @@ export async function deleteProject(
   log.set({
     teardown: {
       swarmServicesDestroyed: dbRecords.length,
+      networksRemoved: networks.removed,
+      networksDeferred: networks.deferred,
       projectDeleted: true,
     },
   });

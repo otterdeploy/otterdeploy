@@ -61,6 +61,11 @@ export interface SwarmServiceSpec {
   projectSlug: string;
   serviceName: string;
   internalHostname: string;
+  /** A stack child's compose key, when it is not already `internalHostname`
+   *  (`plausible_db` beside `plausible-db`): one more alias on the project
+   *  network, so names an app has built in still resolve. See
+   *  stack/compose/hostname.ts. Omitted for everything else. */
+  composeKeyAlias?: string | null;
   /** `scopeSuffix(scope)` for the environment (or preview) this runs in: ""
    *  for base/main, `-<env>`, `-pr-<n>`. Selects the overlay network, so a
    *  service can only resolve hostnames belonging to its own environment.

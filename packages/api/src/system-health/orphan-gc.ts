@@ -39,8 +39,8 @@ export type OrphanResourceType =
 export interface RecordOrphanInput {
   organizationId: OrganizationId;
   resourceType: OrphanResourceType;
-  /** The ref the teardown primitive needs (service name, volume name, project
-   *  slug for a network, image repo, compose resource id). */
+  /** The ref the teardown primitive needs (service name, volume name, network
+   *  name, image repo, compose resource id). */
   ref: string;
   projectId?: ProjectId;
   serverId?: ServerId;
@@ -192,6 +192,26 @@ async function destroyHostedDatabaseOrphan(row: OrphanRow): Promise<DestroyOutco
   );
 }
 
+/** A network orphan's payload: the project slug the network must be labelled
+ *  with to be ours to remove (`ref` is the network name). */
+const networkOrphanPayload = z.object({ projectSlug: z.string().min(1) });
+
+/**
+ * Retry removing a project network that was still in use (or unreachable)
+ * when its project was deleted. Removed, absent, or created by another project
+ * all mean there is nothing left for this row to do; a daemon error retries.
+ */
+async function destroyNetworkOrphan(row: OrphanRow): Promise<DestroyOutcome> {
+  const payload = networkOrphanPayload.safeParse(row.payload ?? {});
+  // Without the slug the ownership guard cannot run; never remove blind.
+  if (!payload.success) return "gone";
+  const removed = await removeProjectNetwork({
+    networkName: row.ref,
+    projectSlug: payload.data.projectSlug,
+  });
+  return removed.isOk() ? "gone" : "retry";
+}
+
 async function destroyOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   switch (row.resourceType) {
     case "service":
@@ -207,11 +227,7 @@ async function destroyOrphan(row: OrphanRow): Promise<DestroyOutcome> {
     case "hosted_database":
       return destroyHostedDatabaseOrphan(row);
     case "network":
-      // removeProjectNetwork is best-effort (logs, never throws), so we can't
-      // distinguish "removed" from "daemon down". Attempt once and clear: a
-      // leaked empty overlay network is low-cost and the next deploy reuses it.
-      await removeProjectNetwork(row.ref);
-      return "gone";
+      return destroyNetworkOrphan(row);
     default:
       return "gone";
   }

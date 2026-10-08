@@ -16,15 +16,18 @@ import { loadCaddyfile, type LoadResult } from "./client";
 import { controlPlaneEdgeWatch } from "./edge-watch";
 
 /** Load the control-plane edge's config (with the self-heal below), then
- *  record what Caddy runs for the edge watch (./edge-watch.ts). */
+ *  record what Caddy runs for the edge watch (./edge-watch.ts), with the
+ *  database revision `caddyfile` was rendered from. */
 export async function loadControlPlaneEdge(
   caddyfile: string,
+  desiredRevision: string,
   rlog?: RequestLogger,
 ): Promise<LoadResult> {
   const loaded = await loadWithEdgeSelfHeal(caddyfile, rlog);
   // What the edge runs now: the edge watch reconciles when that changes
-  // under it (a Caddy restart from the stub config).
-  if (loaded.ok) await controlPlaneEdgeWatch.recordLoaded();
+  // under it (a Caddy restart from the stub config), or when the database's
+  // routes move on without this process loading them.
+  if (loaded.ok) await controlPlaneEdgeWatch.recordLoaded(desiredRevision);
   return loaded;
 }
 

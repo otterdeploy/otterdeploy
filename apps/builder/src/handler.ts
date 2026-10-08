@@ -26,15 +26,18 @@ import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
 import { idSchema } from "@otterdeploy/shared/id";
 import { DATA_ROOT, buildxCacheDir, sourceTarballPath } from "@otterdeploy/shared/paths";
+import { Result } from "better-result";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { cpus } from "node:os";
 import { join } from "node:path";
 
+import { resolveComposeBindDir } from "./compose-bind-dir";
 import {
   buildHelperEnvFlags,
   buildHelperRunArgs,
+  createStackBindFlags,
   helperContainerName,
   helperHardeningFlags,
   helperHardeningFromEnv,
@@ -101,15 +104,19 @@ const HELPER_TIMEOUT_MS = 45 * 60_000;
 /** Sentinel exitCode for a build we killed at the timeout wall. */
 const HELPER_TIMED_OUT = -2;
 
+/** Host paths mounted into a helper beyond the cache: an upload build's
+ *  tarball, a git stack's bind-source dir. */
+interface HelperMounts {
+  sourceTarball?: string;
+  stackBindDir?: string | null;
+}
+
 /** The `docker run` argv of the per-deployment helper container.
  *  For a `source: "upload"` build, `sourceTarball` is the host path of the
  *  staged tarball; it's bind-mounted into the helper at the same path so the
  *  pipeline's extract step can read it (the helper does NOT mount DATA_ROOT, so
  *  the tarball must be mounted explicitly, same-path, docker-out-of-docker). */
-function helperRunCommand(
-  deploymentId: DeploymentId,
-  opts: { sourceTarball?: string } = {},
-): string[] {
+function helperRunCommand(deploymentId: DeploymentId, opts: HelperMounts = {}): string[] {
   // A DATABASE_URL/REDIS_URL of `localhost` in the worker's env points at the
   // HELPER container itself, not the host datastore. When the worker IS the
   // compose service these already use service DNS (`postgres`/`redis`), so
@@ -129,6 +136,7 @@ function helperRunCommand(
     opts.sourceTarball && existsSync(opts.sourceTarball)
       ? ["-v", `${opts.sourceTarball}:${opts.sourceTarball}:ro`]
       : [];
+  const stackBindFlags = createStackBindFlags(opts.stackBindDir ?? null, existsSync(DATA_ROOT));
 
   // Persist the BuildKit layer cache + the buildx instance registration across
   // these throwaway containers, but only when the data folder is actually
@@ -150,7 +158,7 @@ function helperRunCommand(
     network: env.BUILDER_HELPER_NETWORK,
     image: env.BUILDER_HELPER_IMAGE,
     envFlags,
-    sourceFlags,
+    sourceFlags: [...sourceFlags, ...stackBindFlags],
     cacheFlags,
     // eslint-disable-next-line node/no-process-env
     hardeningFlags: helperHardeningFlags(helperHardeningFromEnv(process.env), hostCpuCount()),
@@ -215,7 +223,7 @@ async function adoptHelper(deploymentId: DeploymentId): Promise<HelperResult> {
  *  a fresh helper. */
 async function runOrAdoptHelper(
   deploymentId: DeploymentId,
-  opts: { sourceTarball?: string },
+  opts: HelperMounts,
   log: { warn: (fields: Record<string, unknown>) => void },
 ): Promise<HelperResult> {
   const helper = await helperState(deploymentId);
@@ -269,11 +277,23 @@ export function makeBuildJob() {
           payload.sourceKind === "tarball"
             ? sourceTarballPath(idSchema.project.parse(payload.projectId), deploymentId)
             : undefined;
+        // A lookup that fails mounts nothing: the stack then reports its
+        // missing bind sources at deploy, which names the problem.
+        const stackBindDir = (
+          await Result.tryPromise({
+            try: () => resolveComposeBindDir(deploymentId),
+            catch: (cause) => cause,
+          })
+        ).unwrapOr(null);
         let outcome: { ok: boolean; error?: string } = { ok: false, error: "not attempted" };
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            const { exitCode, tail } = await runOrAdoptHelper(deploymentId, { sourceTarball }, log);
+            const { exitCode, tail } = await runOrAdoptHelper(
+              deploymentId,
+              { sourceTarball, stackBindDir },
+              log,
+            );
             const status = await getDeploymentStatus(deploymentId).catch(() => null);
 
             // An operator cancelled while this was building: the control plane

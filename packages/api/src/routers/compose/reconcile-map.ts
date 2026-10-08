@@ -17,19 +17,14 @@ import { resolveBindSource } from "../../lib/compose-materialize";
 import { allowedHostBind } from "../../lib/host-binds";
 import {
   composeSwarmServiceName,
+  createComposeHostLabel,
   durationMs,
   type ParsedComposeService,
 } from "../../stack/compose";
 import { projectNetworkName } from "../../swarm/network-name";
 import { type CreateServiceInput } from "../service/queries";
 import { sanitizeSlug } from "../service/views";
-import { interpolate, substituteComposeEnv } from "./env";
-
-const sanitize = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+import { interpolate, passthroughEnvValues, substituteComposeEnv } from "./env";
 
 /** Compose `restart:` → the service resource's restart condition enum. */
 function toRestartCondition(r: ParsedComposeService["restart"]): "none" | "on-failure" | "any" {
@@ -148,6 +143,7 @@ function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): Mapped
       continue;
     }
     if (!ctx.stackDir) continue;
+    if (ctx.repoBindSources && !ctx.repoBindSources.has(v.source)) continue;
     const abs = resolveBindSource(v.source, ctx.stackDir);
     if (!abs) continue;
     out.push({ type: "bind", target: v.target, source: abs, content: null, readOnly: v.readOnly });
@@ -241,7 +237,11 @@ export function toServiceFields(
   // The manifest's per-child env wins over the file's default for the same
   // key: it is what an operator set on this child, recorded so a restore can
   // put it back (od-uhot). Seed only — the update branch never re-applies it.
-  const resolvedEnv = { ...composeEnv, ...(ctx.manifestServiceEnv?.get(svc.name) ?? {}) };
+  const resolvedEnv = {
+    ...composeEnv,
+    ...passthroughEnvValues(svc.passthroughEnv, ctx.projectVars),
+    ...ctx.manifestServiceEnv?.get(svc.name),
+  };
   // Flag credentials as they are written. Nothing on the compose path ever set
   // this, so every child service stored its secrets unflagged and any UI that
   // trusts the flag rendered AUTHENTIK_SECRET_KEY and POSTGRES_PASSWORD in the
@@ -256,7 +256,7 @@ export function toServiceFields(
   return {
     serviceName: composeSwarmServiceName(ctx.stackName, svc.name),
     // Bare compose name = the overlay DNS alias intra-stack peers connect to.
-    internalHostname: sanitize(svc.name),
+    internalHostname: createComposeHostLabel(svc.name),
     networkName: projectNetworkName(projectSlug),
     fields: {
       image,
@@ -351,9 +351,9 @@ export async function pickInternalHostname(
     return row !== undefined;
   };
 
-  const bare = sanitize(composeName);
+  const bare = createComposeHostLabel(composeName);
   if (!(await taken(bare))) return bare;
-  const namespaced = sanitize(`${stackName}-${composeName}`);
+  const namespaced = createComposeHostLabel(`${stackName}-${composeName}`);
   if (namespaced !== bare && !(await taken(namespaced))) return namespaced;
   for (let i = 2; i < 50; i++) {
     const candidate = `${namespaced}-${i}`;

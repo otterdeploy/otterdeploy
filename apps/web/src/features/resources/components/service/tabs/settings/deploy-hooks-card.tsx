@@ -3,16 +3,19 @@
 // (same manifest.get → patch → manifest.save path as the build card), so the
 // change rides the pending-changes bar and takes effect on the next Deploy.
 //
-// The builder runs each command in a throwaway container off the freshly built
-// image (`sh -c "<command>"`): preDeploy AFTER the build but BEFORE the rollout
-// (a non-zero exit aborts the deploy, the slot for db migrations); postDeploy
-// AFTER the new replicas are live + healthy (best-effort, a failure is logged
-// but doesn't roll back).
+// A hook is stored in exec form; the rows are its shell lines, saved as one
+// `sh -c "a && b"` so they run in order and stop at the first failure (see
+// @otterdeploy/shared/deploy-hook, which the builder reads hooks through).
+// The builder runs it in a throwaway container off the freshly built image:
+// preDeploy AFTER the build but BEFORE the rollout (a non-zero exit aborts the
+// deploy, the slot for db migrations); postDeploy AFTER the new replicas are
+// live + healthy (best-effort, a failure is logged but doesn't roll back).
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
+import { hookFromShellLines, hookShellLines } from "@otterdeploy/shared/deploy-hook";
 import { useQuery } from "@tanstack/react-query";
 
 import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
@@ -30,12 +33,9 @@ interface CmdRow {
 let cmdSeq = 0;
 const newCmdRow = (value = ""): CmdRow => ({ id: `cmd-${cmdSeq++}`, value });
 
-/** Editor rows → the `string[]` the manifest stores. Blank rows are dropped. */
-const toCommands = (rows: CmdRow[]): string[] =>
-  rows.flatMap((r) => {
-    const v = r.value.trim();
-    return v ? [v] : [];
-  });
+/** Editor rows → the exec-form hook the manifest stores (null when empty). */
+const storedHook = (rows: CmdRow[]): string[] | null =>
+  hookFromShellLines(rows.map((r) => r.value));
 
 /**
  * Reads the service's current hooks from the manifest and renders the editor.
@@ -93,8 +93,10 @@ function DeployHooksEditor({
   initialPre: string[];
   initialPost: string[];
 }) {
-  const [preRows, setPreRows] = useState<CmdRow[]>(() => initialPre.map(newCmdRow));
-  const [postRows, setPostRows] = useState<CmdRow[]>(() => initialPost.map(newCmdRow));
+  const [preRows, setPreRows] = useState<CmdRow[]>(() => hookShellLines(initialPre).map(newCmdRow));
+  const [postRows, setPostRows] = useState<CmdRow[]>(() =>
+    hookShellLines(initialPost).map(newCmdRow),
+  );
 
   const stage = useStageManifestChange(projectId, {
     successToast: "Deploy hooks saved. Deploy to apply.",
@@ -104,24 +106,25 @@ function DeployHooksEditor({
     stage.mutate((m) => {
       const svc = m.services[serviceName];
       if (!svc || svc.source !== "git") return m;
-      const pre = toCommands(preRows);
-      const post = toCommands(postRows);
       return {
         ...m,
         services: {
           ...m.services,
           [serviceName]: {
             ...svc,
-            preDeploy: pre.length > 0 ? pre : null,
-            postDeploy: post.length > 0 ? post : null,
+            preDeploy: storedHook(preRows),
+            postDeploy: storedHook(postRows),
           },
         },
       };
     });
 
+  // Compared as shell lines, not stored arrays: an untouched hook saved in an
+  // older form re-encodes differently but is not a change the operator made.
+  const rowLines = (rows: CmdRow[]) => JSON.stringify(hookShellLines(storedHook(rows) ?? []));
   const dirty =
-    JSON.stringify(toCommands(preRows)) !== JSON.stringify(initialPre) ||
-    JSON.stringify(toCommands(postRows)) !== JSON.stringify(initialPost);
+    rowLines(preRows) !== JSON.stringify(hookShellLines(initialPre)) ||
+    rowLines(postRows) !== JSON.stringify(hookShellLines(initialPost));
 
   const busy = stage.isPending;
 

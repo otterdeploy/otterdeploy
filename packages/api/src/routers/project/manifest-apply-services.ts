@@ -17,7 +17,13 @@ import { Result } from "better-result";
 
 import { declaredEnvOf, type ServiceManifest } from "../../stack/manifest";
 import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
-import { bulkSetEnv, createService, exposeService, updateService } from "../service/handlers";
+import {
+  bulkSetEnv,
+  createService,
+  exposeService,
+  type RolloutTiming,
+  updateService,
+} from "../service/handlers";
 import { ManifestApplySkipError } from "./errors";
 import { resolveManifestRepo } from "./manifest-apply-git";
 import { resolveManifestPlacement } from "./manifest-apply-placement";
@@ -129,6 +135,9 @@ interface UpdateServiceArgs {
   /** True when the diff for this service was env-only (synthesized update):
    *  skip the field patch, run just the env reconcile. */
   envOnly?: boolean;
+  /** `with-build` when this service's own build runs as part of the deploy:
+   *  the writes land, that build rolls them in (see RolloutTiming). */
+  rollout?: RolloutTiming;
   log: RequestLogger;
 }
 
@@ -221,7 +230,11 @@ export async function updateServiceFromManifest(
       args.spec.source === "git"
         ? await resolveManifestRepo(args.spec.repo, args.organizationId)
         : null;
-    const updated = await updateService(buildUpdateServiceInput(args, gitRepoId), args.log);
+    const updated = await updateService(
+      buildUpdateServiceInput(args, gitRepoId),
+      args.log,
+      args.rollout,
+    );
     if (updated.isErr()) {
       return Result.err(
         new ManifestApplySkipError({
@@ -254,6 +267,7 @@ export async function updateServiceFromManifest(
       // Stamps these rows as the manifest's, so a later diff prunes them and
       // leaves an operator's `env set` keys alone (od-y64.8).
       source: "manifest",
+      rollout: args.rollout,
     },
     args.log,
   );

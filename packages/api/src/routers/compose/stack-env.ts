@@ -210,6 +210,16 @@ export async function loadStackInterpolationVars(input: {
   };
 }
 
+/** The deploy-log line for a stack whose own variables hide same-named
+ *  project ones: one line, or none when nothing is shadowed. */
+export function shadowedProjectKeysNotes(keys: readonly string[]): string[] {
+  if (keys.length === 0) return [];
+  return [
+    `This stack's own ${keys.join(", ")} take precedence over ` +
+      `the project variables of the same name (used by this stack only; the project values are unchanged).`,
+  ];
+}
+
 /** The keys of one (project, environment) bag, values never read. For
  *  read surfaces that only need to say "the project also sets this". */
 export async function listProjectEnvKeys(scope: {

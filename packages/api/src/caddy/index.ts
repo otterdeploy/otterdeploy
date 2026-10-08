@@ -39,6 +39,7 @@ import {
 } from "./queries";
 import { reconcileRoutes, type ReconcileResult } from "./reconciler";
 import { toRouteInput } from "./route-input";
+import { routeValidationError } from "./route-validation";
 import { loadControlPlaneEdge } from "./self-heal";
 
 export type { ReconcileResult } from "./reconciler";
@@ -129,6 +130,10 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
 
 export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> {
   const log = asStepLogger(rlog);
+  // Read BEFORE the routes below, so a row written while this reconcile runs
+  // can only make the recorded revision stale (one extra reconcile from the
+  // edge watch), never make a route the edge lacks look loaded.
+  const desiredRevision = await desiredEdgeRevision();
   // Plain docker: re-attach the edge to every project bridge network first: a
   // recreated Caddy container drops those dynamic attachments, which 502s every
   // deployed service until reconnected. No-op under swarm (shared overlay) and
@@ -159,7 +164,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     adminBind: env.CADDY_ADMIN_BIND,
     ...options,
     adapt: (caddyfile) => adaptCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
-    load: (caddyfile) => loadControlPlaneEdge(caddyfile, rlog),
+    load: (caddyfile) => loadControlPlaneEdge(caddyfile, desiredRevision, rlog),
     rlog,
   });
 
@@ -256,9 +261,36 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
  *  assembles it, for the admin-gated org Networking view. DB-only (no cert
  *  files are written); CrowdSec credentials are masked for display. */
 export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
+  const { caddyfile, revision } = await renderDesiredCaddyfile({ dropUnsafeRoutes: false });
+  return { caddyfile: maskCaddySecrets(caddyfile), revision };
+}
+
+/**
+ * The revision of the edge config the database describes right now: the hash
+ * of the full install Caddyfile rendered from DB rows alone.
+ *
+ * A fingerprint of the INPUTS, not of what a reconcile ends up loading (which
+ * drops projects that fail validation and certs whose files could not be
+ * written): both the reconcile that records it and the edge watch that
+ * re-reads it compute it this one way, so an unchanged database always reads
+ * as in sync and a skipped project cannot make the watch reconcile forever.
+ *
+ * A stored route that fails route validation is left out of the fingerprint
+ * rather than failing it: the reconcile skips that route's project and serves
+ * the rest, and one bad row must not stop every reconcile (and the watch)
+ * before it loads anything.
+ */
+export async function desiredEdgeRevision(): Promise<string> {
+  return (await renderDesiredCaddyfile({ dropUnsafeRoutes: true })).revision;
+}
+
+async function renderDesiredCaddyfile(opts: {
+  dropUnsafeRoutes: boolean;
+}): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
   const envProtected = await protectedEnvironmentRouteIds();
   let routes = records.map((r) => toRouteInput(r, envProtected));
+  if (opts.dropUnsafeRoutes) routes = routes.filter((r) => routeValidationError(r) === null);
   const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
   if (customCerts.length > 0) {
     const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
@@ -271,7 +303,7 @@ export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
     ...options,
   });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
-  return { caddyfile: maskCaddySecrets(caddyfile), revision };
+  return { caddyfile, revision };
 }
 
 export interface SaveRoutePolicyResult {

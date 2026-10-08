@@ -26,7 +26,7 @@ import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
@@ -204,6 +204,9 @@ export async function runComposeBuild(
             projectId: ctx.project.id,
             resourceId: ctx.resource.id,
             deploymentId: opts.deploymentId,
+            // A git stack's env_file targets live in this checkout, beside
+            // the compose file; nothing after the build can read them.
+            sourceDir: join(workDir, subdir, dirname(found)),
           },
           "redeploy",
         );

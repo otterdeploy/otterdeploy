@@ -3,6 +3,7 @@
  * raw compose file; this module turns it into the platform's normal shapes.
  * See docs/designs/compose.md.
  */
+export { createComposeHostLabel, resolveComposeKeyAlias } from "./hostname";
 export { parseCompose } from "./parse";
 export { summarizeCompose } from "./summary";
 export { composeSwarmServiceName, durationMs } from "./to-spec";
@@ -11,6 +12,7 @@ export type {
   ParsedBuild,
   ParsedCompose,
   ParsedComposeService,
+  ParsedEnvFile,
   ParsedHealthcheck,
   ParsedMount,
   ParsedPort,

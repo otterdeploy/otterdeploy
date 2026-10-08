@@ -59,6 +59,19 @@ interface ResourcesInput {
 // shared `BuildConfig` discriminated union.
 export type BuildConfigInput = BuildConfig;
 
+/**
+ * When a write rolls the service's own container.
+ *   - `now` (the default): the running image rolls onto the new row.
+ *   - `with-build`: a build of this service is about to run (the caller uploads
+ *     its source right after the apply, or the apply itself enqueues it), and
+ *     that build's deployment rolls the NEW image onto the new row. Rolling the
+ *     OLD image first puts it on fields it was never built for, a changed port
+ *     above all: it never listens there, so the rollout waits out the whole
+ *     readiness window and the request with it.
+ * Dependents roll either way: their `${{name.VAR}}` tokens read the row.
+ */
+export type RolloutTiming = "now" | "with-build";
+
 /** Common (projectId, resourceId) addressing tuple used by most handlers. */
 export interface ResourceRef {
   projectId: ProjectId;
@@ -328,6 +341,15 @@ export function deriveServiceNames(
     projectSlug,
     serviceName: `${PLATFORM.service.serviceNamePrefix}${projectSlug}-${resourceSlug}`.slice(0, 63),
     networkName: projectNetworkName(projectSlug),
-    internalHostname: resourceSlug,
+    internalHostname: serviceInternalHostname(name),
   };
+}
+
+/**
+ * The DNS alias siblings reach a service on, from its name alone. Known before
+ * the service exists, which is what lets a manifest apply resolve a
+ * `${service:<name>.host}` ref to a service it is creating in the same apply.
+ */
+export function serviceInternalHostname(name: string): string {
+  return sanitizeSlug(name);
 }

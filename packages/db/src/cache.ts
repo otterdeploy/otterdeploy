@@ -46,6 +46,35 @@ const BIGINT_TAG = "__otterCacheBigInt__";
 // outage costs a request one deadline rather than one per command. A skipped
 // call is a cache miss / no-op; Postgres answers.
 
+/**
+ * KEYS[1] = the cache key, KEYS[2..] = its table-index sets;
+ * ARGV = value, ttl, index ttl. SET + SADD + EXPIRE as one atomic step.
+ */
+const PUT_SCRIPT = `
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+for i = 2, #KEYS do
+  redis.call('SADD', KEYS[i], KEYS[1])
+  redis.call('EXPIRE', KEYS[i], ARGV[3])
+end
+return 1
+`;
+
+/**
+ * KEYS[1..n] = table-index sets, KEYS[n+1..] = tag keys; ARGV[1] = n.
+ * Deletes every key indexed under the sets, the sets, and the tags, atomically.
+ * DEL is chunked to stay under Lua's unpack() limit.
+ */
+const INVALIDATE_SCRIPT = `
+local n = tonumber(ARGV[1])
+local doomed = {}
+if n > 0 then doomed = redis.call('SUNION', unpack(KEYS, 1, n)) end
+for i = 1, #doomed, 1000 do
+  redis.call('DEL', unpack(doomed, i, math.min(i + 999, #doomed)))
+end
+redis.call('DEL', unpack(KEYS))
+return #doomed
+`;
+
 // `this` is the replacer's holder object: raw pre-serialization driver rows
 // whose values include Dates and BigInts (runtime values, not JSON) so
 // `JsonObject` would be dishonest here and `UnknownRecord` is the fit.
@@ -161,8 +190,19 @@ export class RedisCache extends Cache {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
     const value = JSON.stringify(response, tagRichValues);
 
+    // One script: the value and its table-index entries land together or not
+    // at all. As separate commands an invalidation could run between the SET
+    // and the SADD and miss the key, leaving it served until its TTL.
     const setResult = await cacheRedisCircuit.run("cache SET", () =>
-      this.client.set(fullKey, value, "EX", ttl),
+      this.client.send("EVAL", [
+        PUT_SCRIPT,
+        String(1 + tables.length),
+        fullKey,
+        ...tables.map((table) => TABLE_SET_PREFIX + table),
+        value,
+        String(ttl),
+        String(ttl * 2),
+      ]),
     );
     if (setResult.isErr()) {
       if (RedisCircuitOpenError.is(setResult.error)) return;
@@ -171,24 +211,6 @@ export class RedisCache extends Cache {
         key: fullKey,
         error: setResult.error,
       });
-      return;
-    }
-
-    for (const table of tables) {
-      const setKey = TABLE_SET_PREFIX + table;
-      const indexResult = await cacheRedisCircuit.run("cache table-index update", async () => {
-        await this.client.sadd(setKey, fullKey);
-        await this.client.expire(setKey, ttl * 2);
-      });
-      if (indexResult.isErr()) {
-        if (RedisCircuitOpenError.is(indexResult.error)) return;
-        globalLog.warn({
-          message: "[cache] Redis table-index update failed",
-          table,
-          key: fullKey,
-          error: indexResult.error,
-        });
-      }
     }
   }
 
@@ -213,45 +235,35 @@ export class RedisCache extends Cache {
       TABLE_SET_PREFIX + tableName,
       apiCacheTableSetKey(tableName),
     ]);
-    const keysToDelete: string[] = [];
+    const tagKeys = tags.map((tag) => TAG_PREFIX + tag);
+    if (setKeys.length === 0 && tagKeys.length === 0) return;
 
-    if (setKeys.length > 0) {
-      const [first, ...rest] = setKeys;
-      // Forced: invalidation is attempted even while the circuit is open, a
-      // skipped DEL could serve a stale read once Redis is back.
-      const sunionResult = await cacheRedisCircuit.run(
-        "cache SUNION",
-        () => this.client.sunion(first ?? "", ...rest),
-        { force: true },
-      );
-      if (sunionResult.isErr()) {
-        globalLog.warn({
-          message: "[cache] Redis SUNION failed; skipping invalidation",
-          tables: tableNames,
-          error: sunionResult.error,
-        });
-        return;
-      }
-      keysToDelete.push(...sunionResult.value, ...setKeys);
-    }
-
-    if (tags.length > 0) {
-      keysToDelete.push(...tags.map((tag) => TAG_PREFIX + tag));
-    }
-
-    if (keysToDelete.length > 0) {
-      const delResult = await cacheRedisCircuit.run(
-        "cache DEL",
-        () => this.client.del(...keysToDelete),
-        { force: true },
-      );
-      if (delResult.isErr()) {
-        globalLog.warn({
-          message: "[cache] Redis DEL failed during invalidation",
-          keyCount: keysToDelete.length,
-          error: delResult.error,
-        });
-      }
+    // One script: collect every key indexed under these tables and delete it
+    // with the indexes in a single step. As separate SUNION and DEL calls, a
+    // put landing between them had its index entry deleted with the set while
+    // its value survived, unreachable by any later invalidation: a stale read
+    // for the whole TTL (a just-saved manifest read back as the empty one for
+    // ~60 s). Forced: invalidation is attempted even while the
+    // circuit is open, a skipped DEL could serve a stale read once Redis is
+    // back.
+    const invalidated = await cacheRedisCircuit.run(
+      "cache INVALIDATE",
+      () =>
+        this.client.send("EVAL", [
+          INVALIDATE_SCRIPT,
+          String(setKeys.length + tagKeys.length),
+          ...setKeys,
+          ...tagKeys,
+          String(setKeys.length),
+        ]),
+      { force: true },
+    );
+    if (invalidated.isErr()) {
+      globalLog.warn({
+        message: "[cache] Redis invalidation failed",
+        tables: tableNames,
+        error: invalidated.error,
+      });
     }
   }
 }

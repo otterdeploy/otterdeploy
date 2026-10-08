@@ -10,6 +10,7 @@ import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 import type {
   ParsedBuild,
   ParsedComposeService,
+  ParsedEnvFile,
   ParsedHealthcheck,
   ParsedMount,
   ParsedPort,
@@ -26,7 +27,7 @@ export type Obj = JsonObject;
 
 export const isObj: (v: unknown) => v is Obj = isJsonObject;
 
-import { parseKeyValueList } from "./kv-list";
+import { parseEnvironment, parseKeyValueList } from "./kv-list";
 import { normalizeLabels } from "./labels";
 
 export function normalizeService(name: string, svc: Obj, warnings: string[]): ParsedComposeService {
@@ -35,6 +36,7 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     isObj(deploy.resources) && isObj(deploy.resources.limits) ? deploy.resources.limits : {};
 
   if (svc.profiles) warnings.push(`service "${name}": \`profiles\` ignored`);
+  const environment = parseEnvironment(svc.environment);
 
   return {
     name,
@@ -42,7 +44,8 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     build: normalizeBuild(svc.build),
     command: toExecArray(svc.command),
     entrypoint: toExecArray(svc.entrypoint),
-    env: normalizeEnv(svc.environment),
+    env: environment.values,
+    passthroughEnv: environment.passthrough,
     envFile: normalizeEnvFile(svc.env_file),
     ports: normalizePorts(svc.ports, name, warnings),
     volumes: normalizeVolumes(svc.volumes, name, warnings),
@@ -87,19 +90,17 @@ function toExecArray(v: unknown): string[] | null {
   return null;
 }
 
-function normalizeEnv(v: unknown): Record<string, string> {
-  return normalizeKeyVals(v);
-}
-
-/** `env_file` accepts a string or a list of paths (relative to the stack tree).
- *  The long form `{ path, required }` is reduced to its path. */
-function normalizeEnvFile(v: unknown): string[] {
-  const one = (x: unknown): string | null => {
-    if (typeof x === "string") return x;
-    if (isObj(x) && typeof x.path === "string") return x.path;
+/** `env_file` accepts a string or a list of paths (relative to the compose
+ *  file), and the long form `{ path, required }`. Required unless it says
+ *  `required: false`, which is compose's default too. */
+function normalizeEnvFile(v: unknown): ParsedEnvFile[] {
+  const one = (x: unknown): ParsedEnvFile | null => {
+    if (typeof x === "string") return { path: x, required: true };
+    if (isObj(x) && typeof x.path === "string")
+      return { path: x.path, required: x.required !== false };
     return null;
   };
-  if (Array.isArray(v)) return v.map(one).filter((p): p is string => p != null);
+  if (Array.isArray(v)) return v.map(one).filter((p): p is ParsedEnvFile => p != null);
   const single = one(v);
   return single ? [single] : [];
 }

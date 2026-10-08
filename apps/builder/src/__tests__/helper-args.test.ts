@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildHelperEnvFlags,
   buildHelperRunArgs,
+  createStackBindFlags,
   FORWARDED_ENV,
   clampCpus,
   helperHardeningFlags,
@@ -257,5 +258,34 @@ describe("buildHelperRunArgs", () => {
     expect(hardeningIdx).toBeGreaterThan(-1);
     expect(hardeningIdx).toBeLessThan(socketIdx);
     expect(hardeningIdx).toBeLessThan(envIdx);
+  });
+});
+
+describe("createStackBindFlags", () => {
+  const dir = "/data/otterdeploy/orgs/org_1/projects/prj_1/envs/main/resources/res_1/repo";
+
+  test("a git stack's build mounts its bind-source dir same-path, so the copy reaches the host", () => {
+    // Without it the pipeline's copy of n8n's init-data.sh stayed inside the
+    // helper, and Postgres was created with a bind source that did not exist.
+    expect(createStackBindFlags(dir, true)).toEqual(["-v", `${dir}:${dir}`]);
+  });
+
+  test("any other build, or no data folder, mounts nothing", () => {
+    expect(createStackBindFlags(null, true)).toEqual([]);
+    expect(createStackBindFlags(dir, false)).toEqual([]);
+  });
+
+  test("the run args carry the mount before the image", () => {
+    const args = buildHelperRunArgs({
+      deploymentId: deploymentIdFixture("dep_1"),
+      network: "otterdeploy",
+      image: "server:test",
+      envFlags: [],
+      sourceFlags: createStackBindFlags(dir, true),
+      cacheFlags: [],
+      hardeningFlags: [],
+    });
+    expect(args.indexOf(`${dir}:${dir}`)).toBeGreaterThan(-1);
+    expect(args.indexOf(`${dir}:${dir}`)).toBeLessThan(args.indexOf("server:test"));
   });
 });

@@ -121,6 +121,12 @@ export const envDir = (
 export const resourceDir = (ref: ResourceRef): string =>
   `${envDir(ref.organizationId, ref.projectId, ref.environmentId)}/resources/${ref.resourceId}`;
 
+/** A git compose stack's copy of its repo's bind-mount sources (./init.sh,
+ *  ./config/), made by the build so the binds outlive the build's checkout.
+ *  Beside, never inside, the file tree an inline stack writes at the resource
+ *  root. The build helper mounts exactly this dir. */
+export const composeRepoBindDir = (ref: ResourceRef): string => `${resourceDir(ref)}/repo`;
+
 /** Managed DB data volume for a resource: the canonical, rename-safe placement
  *  keyed by the stable `resourceId` (NOT the Docker volume name). A branch is a
  *  new resource → its own dir automatically. On a ZFS host this is a managed
