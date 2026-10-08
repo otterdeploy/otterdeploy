@@ -4,11 +4,19 @@
  *  - startLocalHealthSampler: every 60s, sample THIS machine with
  *    getHostHealth() and upsert into server_health_sample for the bootstrap
  *    localhost row(s). Runs under every runtime; on the single-host default
- *    this alone makes per-server health complete.
+ *    this alone makes per-server health complete. Each pass first makes sure
+ *    every org HAS its localhost row: the row used to be born only when
+ *    someone listed servers, so an install nobody had opened yet (or one set
+ *    up over the API) had no row to sample and reported nothing for hours.
  *
- *  - startHealthAgentReconciler: swarm runtime only: ensure the
- *    `otterdeploy-health-agent` GLOBAL service exists (one task per node,
- *    including late joiners). The spec is hand-built, not routed through
+ *  - startHealthAgentReconciler: wherever this daemon is a swarm manager,
+ *    ensure the `otterdeploy-health-agent` GLOBAL service exists (one task
+ *    per node, including late joiners). Keyed on the swarm, NOT on
+ *    DEPLOY_RUNTIME: joining a worker makes it a swarm node under either
+ *    runtime, and the agent is platform infrastructure, so a worker on the
+ *    plain-Docker runtime reports the same way. A single-host install with
+ *    no swarm has no other node to watch and is left alone (no swarm init).
+ *    The spec is hand-built, not routed through
  *    buildServiceSpec: the agent is platform infrastructure, not an app
  *    service, and it needs Mode.Global which the app builder doesn't emit.
  *    Drift (image or ingest URL changed, e.g. after a platform update)
@@ -27,7 +35,7 @@ import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { log } from "evlog";
 import { cpus, totalmem } from "node:os";
 
-import { isSwarmRuntime } from "../runtime";
+import { bootstrapLocalhostForEveryOrg } from "../routers/server/queries";
 import { HEALTH_SAMPLE_INTERVAL_MS, recordHealthSample } from "./agent-ingest";
 import { mintAgentToken } from "./agent-token";
 import { getHostHealth } from "./host-health";
@@ -38,7 +46,10 @@ const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 
 // ─── local sampler ──────────────────────────────────────────────────────────
 
-async function sampleLocalHost(): Promise<void> {
+/** One sampler pass. Exported for tests: the timer only repeats it. */
+export async function sampleLocalHost(): Promise<void> {
+  // Born here, not on first list: the control plane reports from boot.
+  await bootstrapLocalhostForEveryOrg();
   // The bootstrap convention: every org gets a `localhost` row for the
   // machine the control plane runs on. Match by host, not hostname: the
   // hostname column is descriptive (and was a container id until the host's
@@ -154,20 +165,31 @@ function buildAgentServiceSpec(
   };
 }
 
+/** A swarm manager can create the global service; anything else (no swarm,
+ *  or a worker's daemon) has nothing to reconcile. */
+async function isSwarmManager(docker: Docker): Promise<boolean> {
+  const info = await docker.system.info();
+  if (info.isErr()) throw info.error;
+  const swarm = info.value.Swarm;
+  return swarm?.LocalNodeState === "active" && swarm.ControlAvailable === true;
+}
+
 async function reconcileAgentService(): Promise<void> {
-  const ingestUrl = await resolveIngestUrl();
-  if (!ingestUrl) {
-    log.warn({
-      healthAgent: {
-        event: "reconcile-skipped",
-        reason: "no server IP on record: set it on the Instance page",
-      },
-    });
-    return;
-  }
-  const image = agentImage();
   const docker = Docker.fromEnv();
   try {
+    // Checked first so a single-host install never warns about the server IP.
+    if (!(await isSwarmManager(docker))) return;
+    const ingestUrl = await resolveIngestUrl();
+    if (!ingestUrl) {
+      log.warn({
+        healthAgent: {
+          event: "reconcile-skipped",
+          reason: "no server IP on record: set it on the Instance page",
+        },
+      });
+      return;
+    }
+    const image = agentImage();
     const listResult = await docker.services.list({ filters: { name: [AGENT_SERVICE_NAME] } });
     if (listResult.isErr()) throw listResult.error;
     const existing = listResult.value.find((s) => s.Spec?.Name === AGENT_SERVICE_NAME);
@@ -196,7 +218,6 @@ async function reconcileAgentService(): Promise<void> {
 }
 
 export function startHealthAgentReconciler(): () => void {
-  if (!isSwarmRuntime()) return () => {};
   const run = () =>
     void reconcileAgentService().catch((cause) =>
       log.warn({

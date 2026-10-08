@@ -186,6 +186,9 @@ async function getDockerServerStats(
   let tasksRunning = 0;
 
   for (const c of list.value) {
+    // The health agent is platform plumbing, not a workload: "Containers
+    // running" counts what the operator deployed.
+    if (c.Labels["otterdeploy.role"] === "health-agent") continue;
     tasksRunning++;
     const slug = c.Labels["otterdeploy.project"];
     if (slug) {

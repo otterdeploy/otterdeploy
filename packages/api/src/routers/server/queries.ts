@@ -2,9 +2,10 @@ import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id"
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
+import { organization } from "@otterdeploy/db/schema/auth";
 import { project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notExists } from "drizzle-orm";
 import os from "node:os";
 
 import { hostHostname } from "../../system-health/host-identity";
@@ -323,4 +324,26 @@ export async function bootstrapLocalhostIfMissing(organizationId: OrgId): Promis
       target: [server.organizationId, server.host],
       set: { name: "localhost", hostname },
     });
+}
+
+/**
+ * Give every org that lacks one its bootstrap localhost row. The local health
+ * sampler runs this on each pass, so the control plane has a row to report
+ * against from boot: an install nobody has opened yet (or one driven only
+ * through the API) used to have no row until the first `server.list`, and so
+ * no health report at all. Steady state is one anti-join that finds nothing.
+ */
+export async function bootstrapLocalhostForEveryOrg(): Promise<void> {
+  const missing = await db
+    .select({ id: organization.id })
+    .from(organization)
+    .where(
+      notExists(
+        db
+          .select({ id: server.id })
+          .from(server)
+          .where(and(eq(server.organizationId, organization.id), eq(server.host, "127.0.0.1"))),
+      ),
+    );
+  for (const org of missing) await bootstrapLocalhostIfMissing(org.id);
 }

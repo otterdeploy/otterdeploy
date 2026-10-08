@@ -4,6 +4,8 @@ import { useSelector } from "@tanstack/react-form";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
+import { useDeployRuntime } from "@/features/servers/data/swarm";
+
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { usePublicHostPreview } from "../use-public-host-preview";
@@ -23,6 +25,7 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
   const formName = useSelector(form.store, (s) => s.values.name);
   const derivedHost = usePublicHostPreview(projectId, formName);
   const detection = useRepoDetection();
+  const runtime = useDeployRuntime();
   return (
     <form.Subscribe selector={(s) => s.values}>
       {(values) => {
@@ -39,7 +42,7 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
               <div>
                 <SectionLabel>summary</SectionLabel>
                 <ReviewSummaryCard kind={kind} model={model} />
-                <ApplyNote kind={kind} model={model} />
+                <ApplyNote kind={kind} model={model} runtime={runtime} />
               </div>
 
               <div>

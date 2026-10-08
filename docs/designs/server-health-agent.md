@@ -36,9 +36,12 @@ unified server image running a different command.
   per-node Docker clients over the mesh: when that lands, health could become
   pull; until then push works over any network where the node can reach the
   control-plane URL (which it must anyway for the dashboard to be useful).
-- **Runtime gating:** the agent reconciler runs only under
-  `DEPLOY_RUNTIME=swarm`. The plain-docker default is single-host, there, the
-  local sampler (below) covers "every server".
+- **Runtime gating:** the agent reconciler runs wherever the control plane's
+  daemon is a swarm manager, under either `DEPLOY_RUNTIME`. Joining a worker
+  makes it a swarm node on the plain-docker default too, and without the agent
+  that worker could never report. A single-host install with no
+  swarm is left alone (no swarm init); there the local sampler (below) covers
+  "every server".
 
 ### Local host: same table, no agent
 

@@ -7,7 +7,9 @@
  */
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
+import type { DeployRuntime } from "@/features/servers/data/runtime";
 
+import { deployPhrase } from "@/features/servers/data/runtime";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { copyToClipboard } from "@/shared/lib/clipboard";
@@ -75,16 +77,24 @@ export function ReviewSummaryCard({ kind, model }: { kind: ServiceKind; model: R
 
 /** The work `apply` will do, in one sentence. Registry pulls don't build or
  *  push anything (the exact ref from the Image step is pulled and run) so
- *  the wording (and the rough timing) differ per kind. */
-export function ApplyNote({ kind, model }: { kind: ServiceKind; model: ReviewModel }) {
+ *  the wording (and the rough timing) differ per kind. How it is started
+ *  names the runtime this install actually deploys with. */
+export function ApplyNote({
+  kind,
+  model,
+  runtime,
+}: {
+  kind: Pick<ServiceKind, "id">;
+  model: Pick<ReviewModel, "isDb" | "replicas">;
+  runtime: DeployRuntime | null;
+}) {
   const { isDb, replicas } = model;
-  const plural = replicas > 1 ? "s" : "";
-  const deployPhrase = `deploy ${replicas} replica${plural} via Docker Swarm`;
+  const deploy = deployPhrase(replicas, runtime);
   const work = isDb
     ? "pull the image, provision a volume, and start the database"
     : kind.id === "docker"
-      ? `pull the image and ${deployPhrase}`
-      : `build the image from source and ${deployPhrase}`;
+      ? `pull the image and ${deploy}`
+      : `build the image from source and ${deploy}`;
   const seconds = isDb || kind.id === "docker" ? "45" : "90";
   return (
     <Card className="mt-3.5 gap-0 rounded-md bg-muted p-3">
