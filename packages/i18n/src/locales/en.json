@@ -1772,6 +1772,8 @@
     "source": {
       "title": "Source",
       "description": "Where this service builds from. Pushing to its branch deploys it.",
+      "descriptionManual": "Where this service builds from. Bound by public URL, so there is no push webhook: it deploys when you click Deploy.",
+      "descriptionUnknown": "Where this service builds from.",
       "installation": "Installation",
       "installationHint": "Which connected account owns the repo.",
       "repository": "Repository",

@@ -101,6 +101,12 @@ export const serviceSchema = z.object({
 
   runtime: serviceRuntimeSchema,
 
+  /** What deploys a git-built service: `push` when its repo is bound through
+   *  a connected installation (the provider webhook fires on commits),
+   *  `manual` when it is bound by public URL (no webhook, so only a Deploy
+   *  click builds it). Null for a pulled image or an upload. */
+  deployTrigger: z.enum(["push", "manual"]).nullable(),
+
   /** Is the saved env the env the container runs? See views.ts envLiveness. */
   env: z.object({
     state: z.enum(["live", "pending", "unknown"]),

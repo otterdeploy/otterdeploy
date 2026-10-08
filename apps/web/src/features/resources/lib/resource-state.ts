@@ -208,9 +208,10 @@ export interface RuntimeFacts {
 /**
  * A service's state, from the RUNTIME. Never from the schema row.
  *
- * Returns null while nothing is known yet (the live view has not loaded and
- * there is no deployment to read): the header then shows no pill, which is
- * more honest than a guessed one.
+ * `latestDeployment` undefined means not known yet (see
+ * `knownDeploymentStatus` in ./known-deployment); `{ status: null }` means never deployed.
+ * Returns null while nothing is known yet: the header then shows no pill,
+ * which is more honest than a guessed one.
  */
 export function serviceState(input: {
   pausedReplicas: number | null | undefined;
@@ -225,7 +226,12 @@ export function serviceState(input: {
       why: `resume restores ${plural(input.pausedReplicas, "replica")}`,
     };
   }
-  const dep = input.latestDeployment?.status ?? null;
+  // Unknown (still loading) is not the same as never deployed: only a known
+  // empty history may say "not deployed".
+  if (!input.latestDeployment) {
+    return input.runtime ? runtimeState(input.runtime, undefined, taskWhy(input.tasks)) : null;
+  }
+  const dep = input.latestDeployment.status;
   const tasks = taskWhy(input.tasks);
   return deploymentOwnedState(dep, tasks) ?? runtimeState(input.runtime, dep, tasks);
 }
@@ -261,12 +267,13 @@ function deploymentOwnedState(
   }
 }
 
+/** `dep` undefined = the deployment history is not known yet. */
 function runtimeState(
   rt: RuntimeFacts | undefined,
-  dep: DeploymentLifecycle | null,
+  dep: DeploymentLifecycle | null | undefined,
   tasks: string | null,
 ): ResourceState | null {
-  if (!rt) return dep === null ? { tone: "pending", label: "not deployed", why: null } : null;
+  if (!rt) return stateBeforeRuntime(dep);
   switch (rt.status) {
     case "running":
       if (rt.health === "unhealthy")
@@ -281,11 +288,31 @@ function runtimeState(
         ? { tone: "paused", label: "paused", why: null }
         : { tone: "error", label: "stopped", why: tasks ?? "container exited" };
     case "missing":
+      if (dep === undefined) return null;
       return dep === null
         ? { tone: "pending", label: "not deployed", why: null }
         : { tone: "error", label: "not running", why: tasks ?? "no container" };
     case "error":
       return { tone: "error", label: "error", why: rt.errorMessage ?? tasks };
+  }
+}
+
+/**
+ * Before the live runtime answers, say what the graph node says: its pill is
+ * the latest deployment's status, so a settled `running` deploy reads as
+ * running here too rather than as a blank (or worse, "not deployed") beside
+ * a green node. Anything the deployment cannot vouch for stays unknown.
+ */
+function stateBeforeRuntime(dep: DeploymentLifecycle | null | undefined): ResourceState | null {
+  switch (dep) {
+    case null:
+      return { tone: "pending", label: "not deployed", why: null };
+    case "running":
+      return { tone: "running", label: "running", why: null };
+    case "paused":
+      return { tone: "paused", label: "paused", why: null };
+    default:
+      return null;
   }
 }
 

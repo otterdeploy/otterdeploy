@@ -71,7 +71,7 @@ export function ServiceSettingsBody({
 
       {resource.source === "git" ? (
         <>
-          <ServiceSourceCard resource={resource} />
+          <ServiceSourceCard resource={resource} pending={pending} />
           <ServiceBuildCard resource={resource} />
           <ServiceDeployHooksCard projectId={resource.projectId} serviceName={resource.name} />
         </>

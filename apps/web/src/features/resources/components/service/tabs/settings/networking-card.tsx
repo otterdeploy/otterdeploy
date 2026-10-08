@@ -80,6 +80,7 @@ export function ServiceNetworkingCard({
       <DomainList
         loading={domains.isLoading}
         rows={rows}
+        addingDomain={add.domain}
         noHttpPort={noHttpPort}
         unpublished={unpublished}
         republish={republish}
@@ -95,6 +96,7 @@ export function ServiceNetworkingCard({
           input={input}
           ports={ports}
           adding={add.pending}
+          existing={rows.map((d) => d.domain)}
           onSubmit={add.run}
           onCancel={() => setAdding(false)}
         />
@@ -146,6 +148,7 @@ function useBaseDomainStatus(): BaseDomainStatus | undefined {
 function DomainList({
   loading,
   rows,
+  addingDomain,
   noHttpPort,
   unpublished,
   republish,
@@ -157,6 +160,8 @@ function DomainList({
 }: {
   loading: boolean;
   rows: DomainView[];
+  /** A host whose add is still in flight, listed ahead of the server's row. */
+  addingDomain: string | null;
   noHttpPort: boolean;
   unpublished: boolean;
   republish: { run: () => void; pending: boolean };
@@ -173,7 +178,11 @@ function DomainList({
       </div>
     );
   }
-  if (rows.length === 0) {
+  const pendingRow =
+    addingDomain && !rows.some((d) => d.domain === addingDomain) ? (
+      <PendingDomainRow domain={addingDomain} />
+    ) : null;
+  if (rows.length === 0 && !pendingRow) {
     return (
       <div className="px-4 py-7 text-center text-[12.5px] text-muted-foreground">
         {noHttpPort
@@ -208,6 +217,29 @@ function DomainList({
           onAddCustomDomain={onAddCustomDomain}
         />
       ))}
+      {pendingRow}
+    </div>
+  );
+}
+
+/**
+ * A host the operator just added, before the server answers. The add waits
+ * on a proxy reload that can take many seconds; the list used to stay as it
+ * was for all of it while the form re-checked the name, found the route the
+ * add had already written, and called it "Already in use".
+ * Exported for the tests.
+ */
+export function PendingDomainRow({ domain }: { domain: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2.5 text-[12.5px]"
+      aria-busy="true"
+      aria-label={`Adding ${domain}`}
+    >
+      <span className="min-w-0 truncate font-mono text-foreground">{domain}</span>
+      <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[12px] text-muted-foreground">
+        <Spinner className="size-3" /> Adding…
+      </span>
     </div>
   );
 }

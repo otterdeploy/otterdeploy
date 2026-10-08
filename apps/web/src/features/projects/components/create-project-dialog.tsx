@@ -145,6 +145,7 @@ export function CreateProjectDialog({
   // the value at the initial render and the live query below would never
   // re-run.
   const slug = useSelector(form.store, (s) => s.values.slug);
+  const isSubmitting = useSelector(form.store, (s) => s.isSubmitting);
 
   // Reactive uniqueness check against rows already in the collection. No
   // server roundtrip needed. `projectCollection` holds the org's projects.
@@ -156,6 +157,9 @@ export function CreateProjectDialog({
         .findOne(),
     [slug],
   );
+  // The create inserts its own optimistic row, so mid-create the lookup above
+  // finds the very project being created and would call its slug taken.
+  const slugTaken = !isSubmitting && !!conflict && conflict.slug === slug;
 
   return (
     <Dialog
@@ -229,9 +233,7 @@ export function CreateProjectDialog({
                 {field.state.meta.errors.map((err) => (
                   <FieldError key={err?.message}>{err?.message}</FieldError>
                 ))}
-                {conflict && conflict.slug === slug ? (
-                  <FieldError>Slug "{slug}" is already in use</FieldError>
-                ) : null}
+                {slugTaken ? <FieldError>Slug "{slug}" is already in use</FieldError> : null}
               </Field>
             )}
           </form.Field>
@@ -246,14 +248,11 @@ export function CreateProjectDialog({
                 canSubmit: s.canSubmit,
               })}
             >
-              {({ isSubmitting, canSubmit }) => {
-                const hasSlugConflict = !!conflict && conflict.slug === slug;
-                return (
-                  <Button type="submit" disabled={isSubmitting || !canSubmit || hasSlugConflict}>
-                    {isSubmitting ? "Creating…" : "Create project"}
-                  </Button>
-                );
-              }}
+              {({ isSubmitting: submittingNow, canSubmit }) => (
+                <Button type="submit" disabled={submittingNow || !canSubmit || slugTaken}>
+                  {submittingNow ? "Creating…" : "Create project"}
+                </Button>
+              )}
             </form.Subscribe>
           </DialogFooter>
         </form>

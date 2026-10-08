@@ -1772,6 +1772,8 @@
     "source": {
       "title": "Origen",
       "description": "Desde dónde se construye este servicio. Un push a su rama lo despliega.",
+      "descriptionManual": "Desde dónde se construye este servicio. Vinculado por URL pública, así que no hay webhook de push: se despliega cuando haces clic en Deploy.",
+      "descriptionUnknown": "Desde dónde se construye este servicio.",
       "installation": "Instalación",
       "installationHint": "Qué cuenta conectada es dueña del repositorio.",
       "repository": "Repositorio",

@@ -9,9 +9,12 @@
  * Nothing here renders; source-card.tsx stays presentational + wiring.
  */
 
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
@@ -105,4 +108,45 @@ export function boundRepoId(
   repo: string,
 ) {
   return repos?.find((r) => r.fullName === repo)?.id ?? null;
+}
+
+/**
+ * The Source card's one-line promise about what deploys this service. Only a
+ * repo bound through a connected installation has a push webhook; a repo
+ * bound by public URL builds when someone clicks Deploy, which is what the
+ * wizard told the operator when they bound it. The card used to say
+ * "pushing to its branch deploys it" for both. Unknown (the
+ * live view still loading, or a staged create) promises neither.
+ */
+export function sourceDescriptionKey(
+  trigger: "push" | "manual" | null | undefined,
+):
+  | "resources.source.description"
+  | "resources.source.descriptionManual"
+  | "resources.source.descriptionUnknown" {
+  switch (trigger) {
+    case "push":
+      return "resources.source.description";
+    case "manual":
+      return "resources.source.descriptionManual";
+    default:
+      return "resources.source.descriptionUnknown";
+  }
+}
+
+/** {@link sourceDescriptionKey} for a live service. What deploys it is a fact
+ *  about the binding only the server knows; this reads the same
+ *  `service.get` cache entry the panel's live view does, so it costs no
+ *  extra request. */
+export function useSourceDescriptionKey(
+  resource: { projectId: ProjectId; resourceId: ResourceId },
+  pending: boolean,
+) {
+  const live = useQuery({
+    ...orpc.service.get.queryOptions({
+      input: { projectId: resource.projectId, resourceId: resource.resourceId },
+    }),
+    enabled: !pending,
+  });
+  return sourceDescriptionKey(live.data?.deployTrigger);
 }

@@ -115,6 +115,9 @@ export function useServiceNetworking({
       run: (value: { domain: string; port: number | undefined }) =>
         add.mutate({ ...input, ...value }),
       pending: add.isPending,
+      /** The host being added, while the add is in flight: the card lists it
+       *  straight away instead of after the proxy reload the add waits on. */
+      domain: add.isPending ? (add.variables?.domain ?? null) : null,
     },
     generate: { run: () => generate.mutate(input), pending: generate.isPending },
     republish: {
