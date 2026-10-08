@@ -16,7 +16,7 @@ import { randomBytes } from "node:crypto";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { DnsState } from "../../lib/domain-reachability";
-import type { DomainSources } from "../../lib/domains";
+import type { DomainSources, ResolvedDomain } from "../../lib/domains";
 import type { ResourceRef } from "./inputs";
 
 import { VERIFY_TXT_PREFIX } from "../../lib/dns-verify";
@@ -45,6 +45,11 @@ export interface ServiceDomainView {
   certError: string | null;
   certCheckedAt: string | null;
   usesAcme: boolean;
+  /** Whether any public CA could ever sign this name. False for generated
+   *  sslip.io and `.localhost` hosts: they stay on a self-signed certificate
+   *  for good, so the dashboard says so and points at a custom domain instead
+   *  of suggesting a DNS fix that cannot help. */
+  publicCertEligible: boolean;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -81,6 +86,7 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
     certError: route.certError,
     certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
     usesAcme: route.usesAcme,
+    publicCertEligible: canHoldPublicCert(route.domain),
     protected: route.protected,
     ownershipVerified: route.source === "generated" || route.domainVerifiedAt !== null,
     verifyRecord: route.source === "custom" ? `${VERIFY_TXT_PREFIX}.${route.domain}` : null,
@@ -135,6 +141,23 @@ export async function isReservedControlPlaneDomain(domain: string): Promise<bool
  */
 function canHoldPublicCert(domain: string): boolean {
   return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
+}
+
+/**
+ * Can a host the platform is about to MINT ever be served with a publicly
+ * trusted certificate? The question the new-service wizard asks before any
+ * route exists, so it can say "self-signed" up front instead of promising
+ * Let's Encrypt for an sslip.io address.
+ *
+ * The same two permanent exclusions {@link acmeForPlatformHost} applies: the
+ * dev-only local base (whatever LOCAL_BASE_DOMAIN is named), and names no CA
+ * signs. Everything else can, once its DNS points here or its apex verifies.
+ */
+export function resolvedHostCanHoldPublicCert(resolved: {
+  fqdn: string;
+  source: ResolvedDomain["source"];
+}): boolean {
+  return resolved.source !== "local-base" && canHoldPublicCert(resolved.fqdn);
 }
 
 /** ACME can only issue for a publicly resolvable name that points at us. A

@@ -13,6 +13,7 @@
 import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 import type { ResourceState } from "@/features/resources/lib/resource-state";
 
+import { useIsSelfSigned } from "@/features/projects/data/self-signed-hosts";
 import {
   LatestDeploymentSection,
   LogTail,
@@ -75,6 +76,13 @@ function sourceTile(resource: OverviewResource, latest: DeploymentInfo | null) {
   };
 }
 
+/** The Public tile's second line: where traffic comes in, and whether the
+ *  browser will trust the certificate it finds there. */
+function publicTileSub(exposed: boolean, selfSigned: boolean): string {
+  if (!exposed) return "project network only";
+  return selfSigned ? "self-signed certificate · browsers warn" : "via the Caddy edge";
+}
+
 /** The four facts. Split out so the tab itself stays under the complexity cap. */
 function OverviewTiles({
   resource,
@@ -93,6 +101,9 @@ function OverviewTiles({
   const running = latest ? latest.runningTaskCount : null;
   const source = sourceTile(resource, latest);
   const exposed = resource.publicEnabled && !!resource.publicDomain;
+  // A generated sslip.io host is up but served self-signed: say so where the
+  // tile used to imply a working URL.
+  const selfSigned = useIsSelfSigned(exposed ? resource.publicDomain : null);
   return (
     <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
       <StatTile
@@ -117,7 +128,7 @@ function OverviewTiles({
         label="Public"
         value={exposed && resource.publicDomain ? resource.publicDomain : "internal only"}
         mono={exposed}
-        sub={exposed ? "via the Caddy edge" : "project network only"}
+        sub={publicTileSub(exposed, selfSigned)}
       />
     </div>
   );

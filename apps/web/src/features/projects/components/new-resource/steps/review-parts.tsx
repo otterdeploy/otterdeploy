@@ -44,7 +44,24 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
 function accessValue(model: ReviewModel): string {
   if (!model.isPublic) return "Internal only";
   if (model.isDb) return "Public (exposed)";
-  return `Public: ${model.serviceDomains.join(", ")}`;
+  const hosts = model.serviceDomains.map((d) =>
+    d === model.selfSignedHost ? `${d} (self-signed)` : d,
+  );
+  return `Public: ${hosts.join(", ")}`;
+}
+
+/** Says what "(self-signed)" on the Access row means and what to do about it.
+ *  Rendered only when the service will publish at a generated host no public
+ *  CA signs. The old wizard promised Let's Encrypt for that host instead. */
+export function TlsNote({ model }: { model: ReviewModel }) {
+  if (!model.selfSignedHost) return null;
+  return (
+    <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+      <span className="font-mono text-foreground/80">{model.selfSignedHost}</span> is served with a
+      self-signed certificate, so browsers will warn. Add a custom domain pointed at this server and
+      it gets a trusted Let&apos;s Encrypt certificate automatically.
+    </p>
+  );
 }
 
 /** Everything that will be staged, as rows. */

@@ -7,6 +7,7 @@
 
 import { useTranslation } from "react-i18next";
 
+import { SelfSignedBadge } from "@/shared/components/domains/self-signed-badge";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 
@@ -34,6 +35,10 @@ export interface DomainView {
   dnsState: DnsState;
   dnsCheckedAt: string | null;
   usesAcme: boolean;
+  /** False for names no public CA signs (generated sslip.io / .localhost
+   *  hosts): their self-signed certificate is permanent, so the fix is a
+   *  custom domain, not DNS. Decided server-side (domain-rules.ts). */
+  publicCertEligible: boolean;
   /** TLS lifecycle, promoted from Caddy's own ACME log events
    *  (packages/api/src/edge-logs/cert-promote.ts). */
   certState: CertState;
@@ -56,15 +61,8 @@ export type DomainStatusView = Pick<
 /** Just the fields the TLS chip reads. */
 type DomainCertView = Pick<
   DomainView,
-  "domain" | "status" | "dnsState" | "usesAcme" | "certState" | "certError"
+  "status" | "dnsState" | "usesAcme" | "publicCertEligible" | "certState" | "certError"
 >;
-
-/** A name no public CA will ever issue for, so "self-signed" is its correct
- *  and permanent state rather than a problem to report. Mirrors
- *  `canHoldPublicCert` in packages/api/src/routers/service/domain-rules.ts. */
-function canHoldPublicCert(domain: string): boolean {
-  return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
-}
 
 /**
  * Whether TLS is actually trusted, which {@link StatusBadge} does NOT say.
@@ -84,13 +82,22 @@ function canHoldPublicCert(domain: string): boolean {
  * Silent on the healthy path: a badge on every working row is noise, and
  * StatusBadge already says Live. This speaks only when something is wrong or
  * in flight.
+ *
+ * A generated sslip.io / `.localhost` host used to be skipped here as "correct
+ * and permanent", and that silence is how a fresh install's first URL read
+ * `Live` while every browser refused it. Permanent is not the
+ * same as fine: it gets the chip too, with the fix that actually applies (a
+ * custom domain) instead of a DNS recheck that can never help.
  */
 export function CertBadge({ domain }: { domain: DomainCertView }) {
   const { t } = useTranslation();
 
   // Nothing is being served, so TLS is not the operator's current problem.
   if (domain.status !== "live") return null;
-  if (!canHoldPublicCert(domain.domain)) return null;
+
+  if (!domain.usesAcme && !domain.publicCertEligible) {
+    return <SelfSignedBadge />;
+  }
 
   if (!domain.usesAcme) {
     // A proxied host is NOT the same failure as a pointed one, and painting
@@ -100,20 +107,18 @@ export function CertBadge({ domain }: { domain: DomainCertView }) {
     // warning right now. One is a caution to read, the other is an outage, so
     // the proxied case states the fact quietly and lets the Cloudflare chip
     // beside it carry the context.
-    const proxied = domain.dnsState === "proxied";
-    return (
-      <Badge
-        variant={proxied ? "outline" : "secondary"}
-        className={
-          proxied
-            ? "text-muted-foreground"
-            : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500"
-        }
-        title={proxied ? t("domains.certSelfSignedProxiedHint") : t("domains.certSelfSignedHint")}
-      >
-        {proxied ? t("domains.certOriginSelfSigned") : t("domains.certSelfSigned")}
-      </Badge>
-    );
+    if (domain.dnsState === "proxied") {
+      return (
+        <Badge
+          variant="outline"
+          className="text-muted-foreground"
+          title={t("domains.certSelfSignedProxiedHint")}
+        >
+          {t("domains.certOriginSelfSigned")}
+        </Badge>
+      );
+    }
+    return <SelfSignedBadge hint={t("domains.certSelfSignedHint")} />;
   }
 
   if (domain.certState === "failed") {

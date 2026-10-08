@@ -16,6 +16,7 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
 
+import { SelfSignedMark } from "@/features/projects/components/self-signed-mark";
 import { PublicHostLink } from "@/shared/components/public-host-link";
 
 import type { PanelTabDef } from "../_shared/panel-tabs-layout";
@@ -227,6 +228,7 @@ export function ServiceResourcePanel({
                 <>
                   {" · "}
                   <PublicHostLink host={resource.publicDomain} className="text-foreground/90" />
+                  <SelfSignedMark host={resource.publicDomain} className="ml-1.5 align-middle" />
                 </>
               ) : null}
             </>

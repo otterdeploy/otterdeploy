@@ -10,7 +10,8 @@
  * public-networking panel uses, and it is the shape people arrive expecting.
  *
  * Being direct is not the same as being quiet: a generated sslip.io host says
- * on its own row that it is temporary and self-signed, and a custom host that
+ * on its own row that it is self-signed (a chip beside Live, a line saying
+ * browsers will warn, and an "Add custom domain" button), and a custom host that
  * DNS hasn't reached yet shows the exact records to publish. Backed by
  * `service.domains.*`; each host is a proxy_route, so deployment protection
  * (the Protection card) applies per domain.
@@ -86,6 +87,7 @@ export function ServiceNetworkingCard({
         ports={ports}
         onSettled={onSettled}
         baseDomainStatus={baseDomainStatus}
+        onAddCustomDomain={adding || noHttpPort ? undefined : () => setAdding(true)}
       />
 
       {adding ? (
@@ -151,6 +153,7 @@ function DomainList({
   ports,
   onSettled,
   baseDomainStatus,
+  onAddCustomDomain,
 }: {
   loading: boolean;
   rows: DomainView[];
@@ -161,6 +164,7 @@ function DomainList({
   ports: PortChoice[];
   onSettled: () => Promise<void>;
   baseDomainStatus: BaseDomainStatus | undefined;
+  onAddCustomDomain: (() => void) | undefined;
 }) {
   if (loading) {
     return (
@@ -201,6 +205,7 @@ function DomainList({
           onSettled={onSettled}
           baseDomainStatus={baseDomainStatus}
           ports={ports}
+          onAddCustomDomain={onAddCustomDomain}
         />
       ))}
     </div>

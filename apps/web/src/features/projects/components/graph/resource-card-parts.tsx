@@ -10,6 +10,7 @@ import { ArrowReloadHorizontalIcon, CheckmarkCircle02Icon } from "@hugeicons/cor
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
+import { SelfSignedMark } from "@/features/projects/components/self-signed-mark";
 import { hasImageBrand, ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
 import { useLiveDuration } from "@/shared/lib/duration";
 import { cn } from "@/shared/lib/utils";
@@ -180,14 +181,22 @@ export function ResourceCardFooter({ data }: { data: ResourceNodeData }) {
           <span className="truncate text-muted-foreground/90">{data.git.message}</span>
         </div>
       )}
-      {data.publicUrl ? (
-        <div className="flex min-w-0 items-center gap-2 pt-0.5">
-          <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/80">
-            {data.publicUrl}
-          </span>
-          <VisitPill url={data.publicUrl} />
-        </div>
-      ) : null}
+      {data.publicUrl ? <PublicUrlRow url={data.publicUrl} /> : null}
+    </div>
+  );
+}
+
+/** The card's address line. Says "Self-signed" in words beside the host when
+ *  the edge serves it that way, so the Visit pill's warning dot is never the
+ *  only signal. */
+function PublicUrlRow({ url }: { url: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 pt-0.5">
+      <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/80">
+        {url}
+      </span>
+      <SelfSignedMark host={url} className="shrink-0" />
+      <VisitPill url={url} />
     </div>
   );
 }

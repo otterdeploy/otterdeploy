@@ -15,6 +15,7 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "@tanstack/react-router";
 
+import { SelfSignedMark } from "@/features/projects/components/self-signed-mark";
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import {
   StatusBadge,
@@ -119,10 +120,13 @@ export function ComposeExposedSummary({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {svc.publicDomain && (
-                  <StatusBadge
-                    domain={toDomainView(svc.publicDomain)}
-                    baseDomainStatus={baseDomainStatus}
-                  />
+                  <>
+                    <StatusBadge
+                      domain={toDomainView(svc.publicDomain)}
+                      baseDomainStatus={baseDomainStatus}
+                    />
+                    <SelfSignedMark host={svc.publicDomain} />
+                  </>
                 )}
                 <Link
                   to="/$orgSlug/$projectSlug/graph/$resourceId"

@@ -14,6 +14,7 @@ import type { ProjectRef, ResourceRef } from "../scopes";
 
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
+import { resolvedHostCanHoldPublicCert } from "../service/domain-rules";
 import { listServiceEnvVarsForResources } from "../service/queries";
 import { sanitizeSlug } from "../service/views";
 import { getLatestDeploymentsForResources } from "./deployments";
@@ -89,7 +90,12 @@ export async function checkResourceName(
  */
 export async function previewResourcePublicHost(
   input: ProjectRef & { name: string },
-): Promise<Result<{ fqdn: string; source: ResolvedDomain["source"] }, ProjectNotFoundError>> {
+): Promise<
+  Result<
+    { fqdn: string; source: ResolvedDomain["source"]; publicCertEligible: boolean },
+    ProjectNotFoundError
+  >
+> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -114,7 +120,11 @@ export async function previewResourcePublicHost(
     },
     sources,
   );
-  return Result.ok({ fqdn: resolved.fqdn, source: resolved.source });
+  return Result.ok({
+    fqdn: resolved.fqdn,
+    source: resolved.source,
+    publicCertEligible: resolvedHostCanHoldPublicCert(resolved),
+  });
 }
 
 export async function listProjectResources(

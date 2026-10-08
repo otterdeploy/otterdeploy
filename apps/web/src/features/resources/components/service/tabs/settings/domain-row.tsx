@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 
 import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 
 import type { PortChoice } from "./domain-row-parts";
@@ -40,12 +41,22 @@ function dnsRecordsFor(domain: DomainView) {
   ];
 }
 
+/** Live, on `tls internal`, and on a name no public CA will ever sign: the
+ *  self-signed certificate is permanent, so the row explains it and offers the
+ *  one thing that fixes it. */
+export function servedSelfSignedForGood(
+  domain: Pick<DomainView, "status" | "usesAcme" | "publicCertEligible">,
+): boolean {
+  return domain.status === "live" && !domain.usesAcme && !domain.publicCertEligible;
+}
+
 export function DomainRow({
   domain,
   input,
   onSettled,
   baseDomainStatus,
   ports,
+  onAddCustomDomain,
 }: {
   domain: DomainView;
   input: { projectId: ProjectId; resourceId: ResourceId };
@@ -53,6 +64,10 @@ export function DomainRow({
   baseDomainStatus: BaseDomainStatus | undefined;
   /** Container ports this service publishes: the edit row's port options. */
   ports: PortChoice[];
+  /** Opens the card's add-domain form. Offered on a host that can never hold
+   *  a trusted certificate, because a custom domain is the fix. Omitted while
+   *  the form is already open or there is no HTTP port to route to. */
+  onAddCustomDomain?: () => void;
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
@@ -170,9 +185,20 @@ export function DomainRow({
 
       {/* The generated host is honest about what it is instead of a modal
           asking permission to be it: sslip.io resolves without any DNS setup
-          but can't hold a public certificate, so browsers will warn. */}
-      {domain.source === "generated" && domain.domain.endsWith(".sslip.io") && (
-        <p className="text-[11.5px] text-muted-foreground">{t("domains.sslipNote")}</p>
+          but can't hold a public certificate, so browsers will warn. Decided
+          from the route (served without ACME, on a name no CA signs), not by
+          matching the hostname here. */}
+      {servedSelfSignedForGood(domain) && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+          <p className="min-w-0 flex-1 text-[11.5px] text-muted-foreground">
+            {t("domains.sslipNote")}
+          </p>
+          {onAddCustomDomain ? (
+            <Button size="xs" variant="outline" className="shrink-0" onClick={onAddCustomDomain}>
+              {t("domains.addCustomDomain")}
+            </Button>
+          ) : null}
+        </div>
       )}
 
       {needsDns && <DnsHint domain={domain} onConfigure={() => setDnsOpen(true)} />}

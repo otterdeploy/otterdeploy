@@ -1873,14 +1873,17 @@
     "dnsHintGenerated": "Dieser Host löst noch nicht zu diesem Server auf. Richte ihn mit dem A-Record unten hierher (ein Wildcard-Eintrag auf der Basisdomain deckt alle generierten Hosts ab) und prüfe dann erneut.",
     "dnsHintCustom": "Füge den TXT-Record zum Inhaberschaftsnachweis hinzu und richte den Host auf diesen Server, dann erneut prüfen. Die Route bleibt deaktiviert, bis die Inhaberschaft bestätigt ist.",
     "configureDns": "DNS konfigurieren",
-    "sslipNote": "Temporäre Adresse mit selbstsigniertem Zertifikat – Browser zeigen eine Warnung. Füge eine eigene Domain für eine vertrauenswürdige URL hinzu.",
+    "sslipNote": "Selbstsigniertes Zertifikat – Browser zeigen für diese Adresse eine Warnung. Eine eigene Domain, die auf diesen Server zeigt, erhält automatisch ein vertrauenswürdiges Let's-Encrypt-Zertifikat.",
     "certSelfSigned": "Selbstsigniert",
     "certIssuing": "Wird ausgestellt…",
     "certFailed": "Zertifikat fehlgeschlagen",
     "certSelfSignedHint": "Es wird ein selbstsigniertes Zertifikat ausgeliefert – Browser lehnen es ab. DNS erneut prüfen, sobald dieser Host auf diesen Server zeigt.",
     "certSelfSignedProxiedHint": "Cloudflare liefert Besuchern ein gültiges Zertifikat, der Ursprung hier ist jedoch selbstsigniert. SSL-Modus auf Full (nicht Full strict) belassen oder den Eintrag kurz auf grau stellen, damit ein echtes Zertifikat ausgestellt werden kann.",
     "certFailedHint": "Ausstellung des Zertifikats fehlgeschlagen.",
-    "certOriginSelfSigned": "Ursprung selbstsigniert"
+    "certOriginSelfSigned": "Ursprung selbstsigniert",
+    "certSelfSignedGeneratedHint": "Generierte Adressen werden mit einem selbstsignierten Zertifikat ausgeliefert, daher warnen Browser vor dem Öffnen. Eine eigene Domain, die auf diesen Server zeigt, erhält automatisch ein vertrauenswürdiges Let's-Encrypt-Zertifikat.",
+    "addCustomDomain": "Eigene Domain hinzufügen",
+    "visitSelfSigned": "{{url}} öffnen. Selbstsigniertes Zertifikat: Der Browser warnt zuerst."
   },
   "backups": {
     "restoreDialogTitle": "Wiederherstellen · {{source}}",

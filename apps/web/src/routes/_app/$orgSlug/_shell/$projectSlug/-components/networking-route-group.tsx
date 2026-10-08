@@ -36,8 +36,18 @@ function TlsCell({
   cert: RouteCertificate | undefined;
 }) {
   const status = cert ? CERT_STATUS[cert.status] : null;
+  // "internal" is Caddy's word; a visitor meets a self-signed certificate and a
+  // browser warning, so that is what the cell says.
+  const selfSigned = mode === "internal";
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
+    <span
+      className="inline-flex items-center gap-1.5 font-mono text-[12px]"
+      title={
+        selfSigned
+          ? "Served with a self-signed certificate: browsers warn before opening it. A custom domain pointed at this server gets a trusted Let's Encrypt certificate automatically."
+          : undefined
+      }
+    >
       <span
         className={cn(
           "size-1.5 rounded-full",
@@ -45,17 +55,31 @@ function TlsCell({
             ? status.dot
             : mode === "letsencrypt"
               ? "bg-success"
-              : "bg-muted-foreground/60",
+              : CERT_STATUS.internal.dot,
         )}
       />
-      {mode}
-      {status && cert?.status !== "valid" ? (
+      {selfSigned ? "self-signed" : mode}
+      {/* The probe's own "self-signed" would only repeat the mode. */}
+      {status && cert?.status !== "valid" && !(selfSigned && cert?.status === "internal") ? (
         <span className={cn("text-[11px]", status.text)}>
           · {status.label.toLowerCase()}
         </span>
       ) : null}
     </span>
   );
+}
+
+/** Green reads "this works". A self-signed HTTP host is up but opens on a
+ *  browser warning, so it stays ink; layer-4 routes carry no browser trust
+ *  and keep the plain served/not-served colouring. */
+function hostTone(r: {
+  enabled: boolean;
+  disabledByUser: boolean;
+  isHttp: boolean;
+  tls: "letsencrypt" | "internal";
+}): string {
+  if (!r.enabled || r.disabledByUser) return "text-muted-foreground";
+  return r.isHttp && r.tls !== "letsencrypt" ? "text-foreground" : "text-success";
 }
 
 /** The operator's on/off switch beside the state word. "paused" is that
@@ -166,9 +190,7 @@ export function RouteGroupRows({
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
                         "group inline-flex items-center gap-1 font-mono text-[12.5px] hover:underline",
-                        r.enabled && !r.disabledByUser
-                          ? "text-success"
-                          : "text-muted-foreground",
+                        hostTone(r),
                       )}
                     >
                       {r.publicHost}
@@ -180,12 +202,7 @@ export function RouteGroupRows({
                     </a>
                   ) : (
                     <span
-                      className={cn(
-                        "font-mono text-[12.5px]",
-                        r.enabled && !r.disabledByUser
-                          ? "text-success"
-                          : "text-muted-foreground",
-                      )}
+                      className={cn("font-mono text-[12.5px]", hostTone(r))}
                     >
                       {r.publicHost}
                     </span>

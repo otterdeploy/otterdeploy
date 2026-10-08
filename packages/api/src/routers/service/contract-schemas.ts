@@ -161,6 +161,9 @@ export const serviceDomainSchema = z.object({
   certError: z.string().nullable(),
   certCheckedAt: z.string().nullable(),
   usesAcme: z.boolean(),
+  // False for names no public CA will sign (generated sslip.io / .localhost
+  // hosts): their self-signed certificate is permanent, not a DNS problem.
+  publicCertEligible: z.boolean(),
   protected: z.boolean(),
   ownershipVerified: z.boolean(),
   verifyRecord: z.string().nullable(),
