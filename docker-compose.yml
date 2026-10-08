@@ -112,6 +112,12 @@ services:
       # (this compose project's default network, so they resolve postgres/redis).
       BUILDER_HELPER_IMAGE: *builder-image
       BUILDER_HELPER_NETWORK: otterdeploy_default
+      # Local dev builds trusted source on the host daemon (fast default
+      # driver, no rootless buildkitd sandbox). Tenant build isolation (od-48w)
+      # is enforced on prod installs by the rootless sandbox the builder
+      # provisions itself (apps/builder/src/build-sandbox.ts); here we
+      # explicitly accept the unisolated path so builds don't fail closed.
+      BUILDER_ALLOW_UNISOLATED: "true"
       # Host data folder. Must match the bind-mount path below AND be a real host
       # path, since the worker bind-mounts <dir>/cache/buildx into helper
       # containers via the HOST daemon for the persistent BuildKit cache.

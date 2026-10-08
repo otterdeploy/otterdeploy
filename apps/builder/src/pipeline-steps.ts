@@ -27,6 +27,7 @@ import type { LogSink } from "./log-stream";
 import { runDeployHooks } from "./deploy-hook";
 import { dockerPush } from "./docker-push";
 import {
+  BuildIsolationError,
   BuildStepError,
   DeployHookError,
   DeploymentSupersededError,
@@ -42,6 +43,7 @@ import { markFailed } from "./state";
 export type BuildPipelineError =
   | PipelineLoadError
   | BuildStepError
+  | BuildIsolationError
   | DeployHookError
   | DeploymentSupersededError
   | InvalidDeploymentError

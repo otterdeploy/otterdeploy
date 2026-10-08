@@ -161,3 +161,8 @@ export const sourceTarballPath = (projectId: ProjectId, deploymentId: Deployment
 
 /** BuildKit layer cache (per-image OCI caches + buildx state). */
 export const buildxCacheDir = (): string => `${DATA_ROOT}/cache/buildx`;
+
+/** Last known state of the isolated build sandbox (od-48w), written by the
+ *  builder after each provisioning check and read by the server's System
+ *  health card, so a sandbox that cannot start is visible outside a build log. */
+export const buildSandboxStatusPath = (): string => `${DATA_ROOT}/platform/build-sandbox.json`;

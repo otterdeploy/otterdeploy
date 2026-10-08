@@ -26,6 +26,14 @@ import {
 import { Result } from "better-result";
 import { log } from "evlog";
 
+import type { LogSink } from "./log-stream";
+
+import {
+  BUILD_SANDBOX_IMAGE,
+  buildHelpersRunning,
+  ensureBuildSandbox,
+  writeBuildSandboxStatus,
+} from "./build-sandbox";
 import { makeBuildJob } from "./handler";
 import { reapOrphanHelpers } from "./helper-reaper";
 import { getDeploymentStatus } from "./state";
@@ -39,6 +47,51 @@ let reconcileTimer: ReturnType<typeof setInterval> | null = null;
 // orphans stuck forever. Redis-lock-guarded + idempotent, so running it
 // periodically (and across multiple builder replicas) is safe.
 const RECONCILE_INTERVAL_MS = 5 * 60 * 1000;
+
+/** A LogSink for the builder's own housekeeping: lines go to the process log,
+ *  not to a deployment. */
+function housekeepingSink(event: string): LogSink {
+  return {
+    write: () => undefined,
+    system: (line) => log.info({ builder: { event, line } }),
+    setPhase: () => undefined,
+    close: async () => undefined,
+  };
+}
+
+/**
+ * Provision (or heal) the rootless build sandbox and record the outcome for
+ * System health (od-48w). Runs at boot and on every reconcile tick, so an
+ * in-app upgrade, a removed container or a stopped one all converge without
+ * the installer. Never throws; builds re-check on their own and fail closed.
+ */
+async function checkBuildSandbox(trigger: "boot" | "interval"): Promise<void> {
+  if (env.BUILDER_ALLOW_UNISOLATED && env.BUILDKIT_HOST.trim() === "") {
+    await writeBuildSandboxStatus({
+      state: "unisolated",
+      reason: "BUILDER_ALLOW_UNISOLATED=true",
+      image: "",
+    });
+    return;
+  }
+  if (env.BUILDKIT_HOST.trim() !== "") return; // operator-managed BuildKit
+  const sink = housekeepingSink("build-sandbox");
+  // Recreating the sandbox kills every build in it, so a spec update waits
+  // for a moment with no build helper running.
+  const recreateOnDrift = !(await buildHelpersRunning(sink));
+  const ready = await ensureBuildSandbox(sink, { recreateOnDrift });
+  if (ready.isOk()) {
+    log.info({ builder: { event: "build-sandbox-ready", trigger } });
+    await writeBuildSandboxStatus({ state: "ready", reason: null, image: BUILD_SANDBOX_IMAGE });
+    return;
+  }
+  log.error({ builder: { event: "build-sandbox-failed", trigger, reason: ready.error.reason } });
+  await writeBuildSandboxStatus({
+    state: "failed",
+    reason: ready.error.reason,
+    image: BUILD_SANDBOX_IMAGE,
+  });
+}
 
 async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
   (
@@ -55,6 +108,7 @@ async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
   // with it on the same pass.
   const reaped = await reapOrphanHelpers({ status: getDeploymentStatus });
   if (reaped.length > 0) log.warn({ builder: { event: "orphan-helpers-reaped", trigger, reaped } });
+  await checkBuildSandbox(trigger);
 }
 
 async function bootstrap() {

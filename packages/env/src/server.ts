@@ -308,6 +308,20 @@ export const env = createEnv({
     BUILDER_HELPER_IMAGE: z.string().min(1).default("otterdeploy-builder:latest"),
     BUILDER_HELPER_NETWORK: z.string().min(1).default("otterdeploy_default"),
 
+    // Tenant build isolation (od-48w). Builds run in a ROOTLESS buildkitd
+    // sandbox the builder provisions itself (apps/builder/src/build-sandbox.ts).
+    // BUILDKIT_HOST optionally points buildx's `remote` driver at an
+    // operator-managed BuildKit instead; empty (the default) = the sandbox.
+    BUILDKIT_HOST: z.string().default(""),
+    // Explicit single-operator opt-out: build on the unisolated host daemon.
+    // Off by default so a multi-tenant install cannot silently run untrusted
+    // RUN steps where an escape is host root. Only honoured when BUILDKIT_HOST
+    // is empty. Local dev (docker-compose.yml) sets it.
+    BUILDER_ALLOW_UNISOLATED: z
+      .union([z.boolean(), z.string()])
+      .transform((v) => v === true || v === "true" || v === "1")
+      .default(false),
+
     // Basic-auth creds for the Workbench BullMQ dashboard (/jobs on the
     // server). Both must be set for the dashboard to mount — it can
     // retry/remove jobs, so it never runs unauthenticated.

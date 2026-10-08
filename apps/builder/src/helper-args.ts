@@ -45,6 +45,12 @@ export const FORWARDED_ENV = [
   "CORS_ORIGIN",
   "NODE_ENV",
   "OTTERDEPLOY_DATA_DIR",
+  // Tenant build isolation (od-48w): an operator-managed BuildKit endpoint,
+  // when set, replaces the self-provisioned rootless sandbox.
+  "BUILDKIT_HOST",
+  // The explicit single-operator opt-out must reach the helper too, else a
+  // configured-unisolated dev install fails closed inside the helper.
+  "BUILDER_ALLOW_UNISOLATED",
 ] as const;
 
 /** A DATABASE_URL/REDIS_URL of `localhost` in the worker's env points at the

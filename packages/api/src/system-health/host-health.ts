@@ -22,6 +22,7 @@ import { freemem, totalmem } from "node:os";
 import type { HostDiskIo, HostNetworkInterface } from "./proc-io";
 
 import { getBranchPoolHealth, type BranchPoolHealth } from "./branch-pool";
+import { buildSandboxRecommendations, readBuildSandboxStatus } from "./build-sandbox";
 import { readProcTelemetry } from "./host-telemetry";
 import { parseArcSize, type HostCpu, type HostLoad } from "./proc-cpu";
 import { readFilesystems, type HostFilesystem } from "./proc-filesystems";
@@ -249,24 +250,26 @@ async function readDockerUsage(): Promise<DockerUsage | null> {
 }
 
 export async function getHostHealth(): Promise<HostHealth> {
-  const [memory, disk, filesystems, telemetry, dockerUsage, branchPool] = await Promise.all([
-    readMemory(),
-    readDisk(),
-    readFilesystems(),
-    readProcTelemetry(),
-    withTimeout(
-      Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
-        r.isOk() ? r.value : null,
+  const [memory, disk, filesystems, telemetry, dockerUsage, branchPool, buildSandbox] =
+    await Promise.all([
+      readMemory(),
+      readDisk(),
+      readFilesystems(),
+      readProcTelemetry(),
+      withTimeout(
+        Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
+          r.isOk() ? r.value : null,
+        ),
+        DOCKER_USAGE_TIMEOUT_MS,
       ),
-      DOCKER_USAGE_TIMEOUT_MS,
-    ),
-    withTimeout(
-      Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
-        r.isOk() ? r.value : null,
+      withTimeout(
+        Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
+          r.isOk() ? r.value : null,
+        ),
+        DOCKER_USAGE_TIMEOUT_MS,
       ),
-      DOCKER_USAGE_TIMEOUT_MS,
-    ),
-  ]);
+      readBuildSandboxStatus(),
+    ]);
   return {
     memory,
     disk,
@@ -277,7 +280,10 @@ export async function getHostHealth(): Promise<HostHealth> {
     network: telemetry.network,
     docker: dockerUsage,
     branchPool,
-    recommendations: deriveRecommendations(memory, disk, dockerUsage, branchPool),
+    recommendations: [
+      ...buildSandboxRecommendations(buildSandbox),
+      ...deriveRecommendations(memory, disk, dockerUsage, branchPool),
+    ],
     sampledAt: new Date().toISOString(),
   };
 }
