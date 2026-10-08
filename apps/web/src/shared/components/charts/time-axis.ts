@@ -77,7 +77,7 @@ export function timeXAxis(
 }
 
 /** A d3 tick (a `Date`) as the label its step earned. */
-export function tickLabel(label: (ms: number) => string) {
+function tickLabel(label: (ms: number) => string) {
   return (value: Date) => label(epochMsOf(value));
 }
 

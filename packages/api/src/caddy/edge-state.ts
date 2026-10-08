@@ -29,7 +29,7 @@ import { publishRouteUpserted } from "../routers/project/project-event-bus";
 /** The routes a write changed: by id, or every base route of a resource. */
 export type EdgeReloadTarget = { routeIds: ProxyRouteId[] } | { resourceId: ResourceId };
 
-export interface UnsettledRoute {
+interface UnsettledRoute {
   id: ProxyRouteId;
   projectId: ProjectId;
   edgeRevision: number;
@@ -64,7 +64,7 @@ export async function markRoutesEdgePending(target: EdgeReloadTarget): Promise<P
 
 /** Rows whose last change the edge has not confirmed: pending, or failed and
  *  waiting on a retry that may now succeed. */
-export async function listUnsettledRoutes(): Promise<UnsettledRoute[]> {
+async function listUnsettledRoutes(): Promise<UnsettledRoute[]> {
   return db
     .select({
       id: proxyRoute.id,
@@ -96,7 +96,7 @@ export function edgeVerdict(projectId: string, result: ReconcileResult): EdgeVer
  * that says nothing about the route, and the control plane's own reload is
  * the one whose failure counts.
  */
-export async function settleRoutes(
+async function settleRoutes(
   carried: UnsettledRoute[],
   outcome: { result: ReconcileResult } | { failure: string },
   options: { recordFailures: boolean },

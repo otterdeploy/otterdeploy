@@ -117,13 +117,6 @@ export const CLOCK_STAMP = {
   ...CLOCK_MINUTES,
 } as const satisfies Intl.DateTimeFormatOptions;
 
-/** A calendar date with its year, no clock. For an axis whose ticks are months
- *  apart, where the time of day is noise and the year is the missing fact. */
-export const CLOCK_DATE = {
-  year: "numeric",
-  ...CLOCK_DAY,
-} as const satisfies Intl.DateTimeFormatOptions;
-
 /** Full date + time. For a hover that has to stay unambiguous months later,
  *  where `CLOCK_STAMP`'s month/day alone would not say which year. */
 export const CLOCK_EXACT = {

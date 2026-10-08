@@ -78,7 +78,7 @@ const UNAUTHORIZED = 401;
 
 /** The live socket could not be (re)opened. Thrown like a dropped connection,
  *  so the caller's reconnect handles it. */
-export class LiveSocketUnavailableError extends TaggedError("LiveSocketUnavailableError")<{
+class LiveSocketUnavailableError extends TaggedError("LiveSocketUnavailableError")<{
   message: string;
 }>() {
   constructor() {
