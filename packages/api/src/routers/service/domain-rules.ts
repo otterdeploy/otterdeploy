@@ -45,6 +45,9 @@ export interface ServiceDomainView {
   certState: "unknown" | "obtaining" | "valid" | "failed";
   certError: string | null;
   certCheckedAt: string | null;
+  /** Whether the edge runs this host's latest change: see edge-state.ts. */
+  edgeState: "synced" | "pending" | "failed";
+  edgeError: string | null;
   usesAcme: boolean;
   /** Whether any public CA could ever sign this name. False for generated
    *  sslip.io and `.localhost` hosts: they stay on a self-signed certificate
@@ -97,6 +100,8 @@ export function toDomainView(
     certState: route.certState,
     certError: route.certError,
     certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
+    edgeState: route.edgeState,
+    edgeError: route.edgeError,
     usesAcme: route.usesAcme,
     publicCertEligible: canHoldPublicCert(route.domain),
     certSource: routeCertSource(route, customCertHosts),

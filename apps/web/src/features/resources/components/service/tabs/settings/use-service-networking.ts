@@ -29,6 +29,19 @@ export function withDomain<Row extends { id: string }>(rows: readonly Row[], dom
     : [...rows, domain];
 }
 
+/** What the add toast says. The add answers before the proxy reload,
+ *  so a servable host is not "live" yet: its row carries the
+ *  reload, and the toast must not claim more than the row does. Exported for
+ *  the tests. */
+export function addedMessage(domain: Pick<DomainRow, "domain" | "status" | "edgeState">): string {
+  if (domain.status !== "live") {
+    return `${domain.domain} added. Publish its DNS records to take it live`;
+  }
+  return domain.edgeState === "synced"
+    ? `${domain.domain} is live`
+    : `${domain.domain} added. Applying it to the proxy`;
+}
+
 export function useServiceNetworking({
   input,
   onAdded,
@@ -78,11 +91,7 @@ export function useServiceNetworking({
     onSuccess: (domain) => {
       showAccepted(domain);
       onAdded();
-      toast.success(
-        domain.status === "live"
-          ? `${domain.domain} is live`
-          : `${domain.domain} added. Publish its DNS records to take it live`,
-      );
+      toast.success(addedMessage(domain));
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to add domain"),
     onSettled,

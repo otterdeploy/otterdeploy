@@ -1887,7 +1887,11 @@
     "certCustom": "Eigenes Zertifikat",
     "certCustomHint": "Wird mit einem unter Edge → Zertifikate hochgeladenen Zertifikat ausgeliefert, nicht mit einem hier ausgestellten.",
     "addCustomDomain": "Eigene Domain hinzufügen",
-    "visitSelfSigned": "{{url}} öffnen. Selbstsigniertes Zertifikat: Der Browser warnt zuerst."
+    "visitSelfSigned": "{{url}} öffnen. Selbstsigniertes Zertifikat: Der Browser warnt zuerst.",
+    "edgePending": "Wird angewendet…",
+    "edgePendingHint": "Der Proxy wird neu geladen, um diese Änderung auszuliefern.",
+    "edgeFailed": "Nicht angewendet",
+    "edgeFailedHint": "Das Neuladen des Proxys ist fehlgeschlagen. Es wird automatisch erneut versucht."
   },
   "backups": {
     "restoreDialogTitle": "Wiederherstellen · {{source}}",

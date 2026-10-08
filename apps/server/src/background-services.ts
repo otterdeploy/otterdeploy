@@ -5,7 +5,8 @@
  * startup output is unchanged. Returns a single stop handle for shutdown.
  */
 import { startBackupScheduler } from "@otterdeploy/api/backups";
-import { desiredEdgeRevision, reconcile, startEdgeWatch } from "@otterdeploy/api/caddy";
+import { desiredEdgeRevision, startEdgeWatch } from "@otterdeploy/api/caddy";
+import { claimEdgeOwnership, requestEdgeSync } from "@otterdeploy/api/caddy/edge-sync";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
 import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
@@ -108,9 +109,17 @@ export function startBackgroundServices(): () => void {
   // was replaced), reconcile so routes come back without a server restart.
   // Also when the database holds routes this process never loaded: the build
   // worker writes a git stack's routes but cannot reach the edge.
+  // Its reconciles ride the same queue as the route writers', so the two
+  // never load Caddy at once, and a reload it retries records its failure on
+  // the routes it carried.
+  claimEdgeOwnership();
   start("edge-watch", () =>
     startEdgeWatch(
-      () => reconcile(),
+      // A reconcile that threw counts as a failed load: the watch backs off.
+      () =>
+        requestEdgeSync().then((outcome) =>
+          outcome.isOk() ? outcome.value : { loadError: outcome.error.message },
+        ),
       () =>
         Result.tryPromise({
           try: desiredEdgeRevision,

@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { SelfSignedBadge } from "@/shared/components/domains/self-signed-badge";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { Spinner } from "@/shared/components/ui/spinner";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 type CertState = "unknown" | "obtaining" | "valid" | "failed";
@@ -47,6 +48,11 @@ export interface DomainView {
    *  (packages/api/src/edge-logs/cert-promote.ts). */
   certState: CertState;
   certError: string | null;
+  /** Whether the edge runs this host's latest change. Writes answer before
+   *  the proxy reload; the reload's outcome lands here over the project
+   *  event stream (packages/api/src/caddy/edge-state.ts). */
+  edgeState: "synced" | "pending" | "failed";
+  edgeError: string | null;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -160,6 +166,36 @@ export function CertBadge({ domain }: { domain: DomainCertView }) {
     return <Badge variant="outline">{t("domains.certIssuing")}</Badge>;
   }
 
+  return null;
+}
+
+/**
+ * The proxy reload behind the host's last change. A domain write answers as
+ * soon as the route is saved and the reload runs behind it, so for a moment
+ * (or, when Caddy is slow to swap configs, many seconds) the row exists but
+ * the edge does not serve it yet. Silent once the edge has it.
+ */
+export function EdgeBadge({ domain }: { domain: Pick<DomainView, "edgeState" | "edgeError"> }) {
+  const { t } = useTranslation();
+  if (domain.edgeState === "pending") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1 text-muted-foreground"
+        title={t("domains.edgePendingHint")}
+      >
+        <Spinner className="size-3" />
+        {t("domains.edgePending")}
+      </Badge>
+    );
+  }
+  if (domain.edgeState === "failed") {
+    return (
+      <Badge variant="destructive" title={domain.edgeError ?? t("domains.edgeFailedHint")}>
+        {t("domains.edgeFailed")}
+      </Badge>
+    );
+  }
   return null;
 }
 

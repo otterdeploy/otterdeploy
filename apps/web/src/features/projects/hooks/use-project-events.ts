@@ -21,7 +21,7 @@ import type { CollectionEvent } from "@otterdeploy/api/routers/events/contract";
 import { useEffect } from "react";
 
 import { type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
-import { useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { Result } from "better-result";
 
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
@@ -58,6 +58,30 @@ const RESYNC_COLLECTIONS = [
   "manifest",
   "previews",
 ] as const satisfies readonly ResyncCollection[];
+
+/**
+ * Apply a pushed route row (or its removal) to the routes collection, and
+ * resync the service's `service.domains.list` it projects into. Domain writes
+ * answer before the proxy reload, and the reload's outcome (`edgeState`) and
+ * every cert event arrive only as route rows, so the Public networking card
+ * follows them from here.
+ */
+function applyRouteEvent(
+  event: Extract<CollectionEvent, { op: "upsert" | "delete" }>,
+  projectId: ProjectId,
+  scheduleResync: (key: string, run: () => void) => void,
+  qc: QueryClient,
+): void {
+  if (event.op === "upsert") proxyRoutesCollection.utils.writeUpsert(event.rows);
+  else proxyRoutesCollection.utils.writeDelete(event.keys);
+  const resourceId = event.scope.resourceId;
+  if (!resourceId) return;
+  scheduleResync(`service-domains:${resourceId}`, () => {
+    void qc.invalidateQueries({
+      queryKey: orpc.service.domains.list.queryKey({ input: { projectId, resourceId } }),
+    });
+  });
+}
 
 export function useProjectEvents(projectId?: ProjectId | null): void {
   const qc = useQueryClient();
@@ -147,6 +171,11 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
       scheduleResync("proxy-routes", () => {
         void proxyRoutesCollection.utils.refetch();
       });
+      // Route rows also project into each service's domain list (edge and
+      // cert state included); a missed row means a stale list.
+      scheduleResync("service-domains:*", () => {
+        void qc.invalidateQueries({ queryKey: orpc.service.domains.list.key() });
+      });
       scheduleResync("resource-get:*", () => {
         void qc.invalidateQueries({ queryKey: orpc.project.resource.get.key() });
         void qc.invalidateQueries({ queryKey: orpc.service.get.key() });
@@ -171,13 +200,8 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
           for await (const event of stream) {
             if (ctrl.signal.aborted) break;
 
-            if (event.op === "upsert") {
-              proxyRoutesCollection.utils.writeUpsert(event.rows);
-              continue;
-            }
-
-            if (event.op === "delete") {
-              proxyRoutesCollection.utils.writeDelete(event.keys);
+            if (event.op === "upsert" || event.op === "delete") {
+              applyRouteEvent(event, projectId, scheduleResync, qc);
               continue;
             }
 

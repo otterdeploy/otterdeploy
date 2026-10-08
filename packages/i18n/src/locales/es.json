@@ -1887,7 +1887,11 @@
     "certCustom": "Certificado propio",
     "certCustomHint": "Se sirve con un certificado subido en Edge → Certificados, no con uno emitido aquí.",
     "addCustomDomain": "Añadir dominio propio",
-    "visitSelfSigned": "Abrir {{url}}. Certificado autofirmado: el navegador mostrará una advertencia primero."
+    "visitSelfSigned": "Abrir {{url}}. Certificado autofirmado: el navegador mostrará una advertencia primero.",
+    "edgePending": "Aplicando…",
+    "edgePendingHint": "Recargando el proxy para servir este cambio.",
+    "edgeFailed": "No aplicado",
+    "edgeFailedHint": "La recarga del proxy falló. Se reintenta automáticamente."
   },
   "backups": {
     "restoreDialogTitle": "Restaurar · {{source}}",

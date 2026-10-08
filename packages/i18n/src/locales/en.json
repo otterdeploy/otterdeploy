@@ -1887,7 +1887,11 @@
     "certCustom": "Custom certificate",
     "certCustomHint": "Served with a certificate uploaded under Edge → Certificates, not one issued here.",
     "addCustomDomain": "Add custom domain",
-    "visitSelfSigned": "Open {{url}}. Self-signed certificate: the browser will warn first."
+    "visitSelfSigned": "Open {{url}}. Self-signed certificate: the browser will warn first.",
+    "edgePending": "Applying…",
+    "edgePendingHint": "Reloading the proxy to serve this change.",
+    "edgeFailed": "Not applied",
+    "edgeFailedHint": "The proxy reload failed. It is retried automatically."
   },
   "backups": {
     "restoreDialogTitle": "Restore · {{source}}",

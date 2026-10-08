@@ -23,7 +23,7 @@ import type { PortChoice } from "./domain-row-parts";
 import type { BaseDomainStatus, DomainView } from "./domains-card-parts";
 
 import { DomainEditRow, DomainRowActions } from "./domain-row-parts";
-import { CertBadge, DnsHint, StatusBadge } from "./domains-card-parts";
+import { CertBadge, DnsHint, EdgeBadge, StatusBadge } from "./domains-card-parts";
 import { useDomainRow } from "./use-domain-row";
 
 /** Same pair the server derives (packages/api/src/lib/dns-records.ts). Built
@@ -172,6 +172,7 @@ export function DomainRow({
               and a proxied host is "Cloudflare" for one and self-signed for the
               other. */}
           <CertBadge domain={domain} />
+          <EdgeBadge domain={domain} />
         </div>
 
         <DomainRowActions
