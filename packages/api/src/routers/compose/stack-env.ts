@@ -78,9 +78,7 @@ export async function listStoredStackEnvVars(
  * the deploy boundary, so sealed rows are decrypted here and nowhere a read
  * API can reach.
  */
-async function loadStackEnvBag(
-  stackResourceId: ResourceId,
-): Promise<Record<string, string>> {
+async function loadStackEnvBag(stackResourceId: ResourceId): Promise<Record<string, string>> {
   const rows = await db
     .select({ key: stackEnvVar.key, value: stackEnvVar.value, sealed: stackEnvVar.sealed })
     .from(stackEnvVar)
