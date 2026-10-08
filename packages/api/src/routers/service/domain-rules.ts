@@ -19,6 +19,7 @@ import type { DnsState } from "../../lib/domain-reachability";
 import type { DomainSources, ResolvedDomain } from "../../lib/domains";
 import type { ResourceRef } from "./inputs";
 
+import { type CertSource, loadCustomCertHosts, routeCertSource } from "../../caddy/certs";
 import { VERIFY_TXT_PREFIX } from "../../lib/dns-verify";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 
@@ -50,6 +51,11 @@ export interface ServiceDomainView {
    *  for good, so the dashboard says so and points at a custom domain instead
    *  of suggesting a DNS fix that cannot help. */
   publicCertEligible: boolean;
+  /** Which certificate the edge serves on this host: Let's Encrypt (`acme`),
+   *  an operator-uploaded chain (`custom`, see caddy/certs.ts), or Caddy's own
+   *  self-signed one (`internal`). An uploaded certificate leaves `usesAcme`
+   *  false, so that flag alone would call it self-signed. */
+  certSource: CertSource;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -67,7 +73,13 @@ export function domainStatusFor(route: Pick<ProxyRouteRecord, "enabled" | "disab
   return route.enabled ? ("live" as const) : ("disabled" as const);
 }
 
-export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): ServiceDomainView {
+/** `customCertHosts`: the hosts an uploaded certificate covers
+ *  (caddy/certs.ts `loadCustomCertHosts`). */
+export function toDomainView(
+  route: ProxyRouteRecord,
+  dnsTarget: string | null,
+  customCertHosts: ReadonlySet<string>,
+): ServiceDomainView {
   return {
     id: route.id,
     projectId: route.projectId,
@@ -87,12 +99,23 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
     certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
     usesAcme: route.usesAcme,
     publicCertEligible: canHoldPublicCert(route.domain),
+    certSource: routeCertSource(route, customCertHosts),
     protected: route.protected,
     ownershipVerified: route.source === "generated" || route.domainVerifiedAt !== null,
     verifyRecord: route.source === "custom" ? `${VERIFY_TXT_PREFIX}.${route.domain}` : null,
     verifyToken: route.source === "custom" ? route.domainVerifyToken : null,
     dnsTarget,
   };
+}
+
+/** {@link toDomainView} for a single route, with its uploaded-certificate
+ *  match loaded for the route's organization. */
+export async function loadDomainView(
+  route: ProxyRouteRecord,
+  dnsTarget: string | null,
+  organizationId: string,
+): Promise<ServiceDomainView> {
+  return toDomainView(route, dnsTarget, await loadCustomCertHosts(organizationId, [route.domain]));
 }
 
 // ---------------------------------------------------------------------------

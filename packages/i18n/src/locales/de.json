@@ -1882,6 +1882,8 @@
     "certFailedHint": "Ausstellung des Zertifikats fehlgeschlagen.",
     "certOriginSelfSigned": "Ursprung selbstsigniert",
     "certSelfSignedGeneratedHint": "Generierte Adressen werden mit einem selbstsignierten Zertifikat ausgeliefert, daher warnen Browser vor dem Öffnen. Eine eigene Domain, die auf diesen Server zeigt, erhält automatisch ein vertrauenswürdiges Let's-Encrypt-Zertifikat.",
+    "certCustom": "Eigenes Zertifikat",
+    "certCustomHint": "Wird mit einem unter Edge → Zertifikate hochgeladenen Zertifikat ausgeliefert, nicht mit einem hier ausgestellten.",
     "addCustomDomain": "Eigene Domain hinzufügen",
     "visitSelfSigned": "{{url}} öffnen. Selbstsigniertes Zertifikat: Der Browser warnt zuerst."
   },

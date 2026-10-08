@@ -28,13 +28,30 @@ const COLUMN_COUNT = 5;
  *  probe has landed. The live health of what the edge is actually serving.
  *  Mode alone was misleading: a route can say "letsencrypt" while the edge
  *  serves an expired cert. */
-function TlsCell({
-  mode,
-  cert,
-}: {
-  mode: string;
-  cert: RouteCertificate | undefined;
-}) {
+type TlsMode = RouteGroup["routes"][number]["tls"];
+
+const TLS_LABEL: Record<TlsMode, string> = {
+  letsencrypt: "letsencrypt",
+  internal: "self-signed",
+  custom: "custom",
+};
+
+/** The dot before a probe lands: green only for what ACME issues, the shared
+ *  self-signed tone, and neutral for an uploaded chain we have not probed. */
+const TLS_DOT: Record<TlsMode, string> = {
+  letsencrypt: "bg-success",
+  internal: CERT_STATUS.internal.dot,
+  custom: "bg-muted-foreground/60",
+};
+
+const TLS_TITLE: Record<TlsMode, string | undefined> = {
+  letsencrypt: undefined,
+  internal:
+    "Served with a self-signed certificate: browsers warn before opening it. A custom domain pointed at this server gets a trusted Let's Encrypt certificate automatically.",
+  custom: "Served with a certificate uploaded under Edge → Certificates.",
+};
+
+function TlsCell({ mode, cert }: { mode: TlsMode; cert: RouteCertificate | undefined }) {
   const status = cert ? CERT_STATUS[cert.status] : null;
   // "internal" is Caddy's word; a visitor meets a self-signed certificate and a
   // browser warning, so that is what the cell says.
@@ -42,23 +59,10 @@ function TlsCell({
   return (
     <span
       className="inline-flex items-center gap-1.5 font-mono text-[12px]"
-      title={
-        selfSigned
-          ? "Served with a self-signed certificate: browsers warn before opening it. A custom domain pointed at this server gets a trusted Let's Encrypt certificate automatically."
-          : undefined
-      }
+      title={TLS_TITLE[mode]}
     >
-      <span
-        className={cn(
-          "size-1.5 rounded-full",
-          status
-            ? status.dot
-            : mode === "letsencrypt"
-              ? "bg-success"
-              : CERT_STATUS.internal.dot,
-        )}
-      />
-      {selfSigned ? "self-signed" : mode}
+      <span className={cn("size-1.5 rounded-full", status ? status.dot : TLS_DOT[mode])} />
+      {TLS_LABEL[mode]}
       {/* The probe's own "self-signed" would only repeat the mode. */}
       {status && cert?.status !== "valid" && !(selfSigned && cert?.status === "internal") ? (
         <span className={cn("text-[11px]", status.text)}>
@@ -76,10 +80,10 @@ function hostTone(r: {
   enabled: boolean;
   disabledByUser: boolean;
   isHttp: boolean;
-  tls: "letsencrypt" | "internal";
+  tls: TlsMode;
 }): string {
   if (!r.enabled || r.disabledByUser) return "text-muted-foreground";
-  return r.isHttp && r.tls !== "letsencrypt" ? "text-foreground" : "text-success";
+  return r.isHttp && r.tls === "internal" ? "text-foreground" : "text-success";
 }
 
 /** The operator's on/off switch beside the state word. "paused" is that

@@ -164,6 +164,9 @@ export const serviceDomainSchema = z.object({
   // False for names no public CA will sign (generated sslip.io / .localhost
   // hosts): their self-signed certificate is permanent, not a DNS problem.
   publicCertEligible: z.boolean(),
+  // Which certificate the edge serves: Let's Encrypt, an uploaded chain, or
+  // Caddy's self-signed one. An uploaded chain leaves usesAcme false.
+  certSource: z.enum(["acme", "internal", "custom"]),
   protected: z.boolean(),
   ownershipVerified: z.boolean(),
   verifyRecord: z.string().nullable(),

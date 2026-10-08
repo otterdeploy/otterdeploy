@@ -10,6 +10,7 @@
  */
 
 import type { Port } from "../form-fields/ports-field";
+import type { DomainRow } from "../stack-domains";
 import type { PublicHostPreview } from "../use-public-host-preview";
 
 import { domainsFromPorts } from "../to-manifest";
@@ -39,4 +40,28 @@ export function tlsEdgeRow(selfSignedHost: string | null): { label: string; sub:
     label: "TLS certificates",
     sub: "Let's Encrypt for hostnames that point at this server · issued and renewed automatically",
   };
+}
+
+/**
+ * The compose/template wizard's version of {@link selfSignedGeneratedHost}:
+ * which of the stack's published hostnames will go out self-signed.
+ *
+ * The front door is seeded with the generated host the server previewed for
+ * the front service; every row the operator has not typed into is a flat
+ * sibling of it, under the same generated zone. So while the front door still
+ * carries that host and the server says no CA signs it, the front door and
+ * every derived row are self-signed. A row the operator typed is their own
+ * domain and is not claimed. Rows come front-door-first, as `file.exposed`.
+ */
+export function selfSignedStackHosts(
+  rows: readonly DomainRow[],
+  exposed: ReadonlySet<string>,
+  preview: PublicHostPreview | null,
+): string[] {
+  if (!preview || preview.publicCertEligible) return [];
+  const front = rows[0];
+  if (!front || front.domain.trim().toLowerCase() !== preview.fqdn) return [];
+  return rows
+    .filter((r, i) => exposed.has(r.key) && r.domain.trim() !== "" && (i === 0 || !r.custom))
+    .map((r) => r.domain.trim());
 }

@@ -47,6 +47,12 @@ describe("selfSignedHosts", () => {
     expect([...selfSignedHosts(routes)]).toEqual([SSLIP]);
   });
 
+  it("leaves out a host an uploaded certificate covers, though its route is not ACME", () => {
+    // An uploaded chain keeps usesAcme false; the route flag alone marked the
+    // operator's own trusted certificate self-signed.
+    expect([...selfSignedHosts(routes, new Set([SSLIP]))]).toEqual([]);
+  });
+
   it("ignores routes that serve nothing and layer-4 routes", () => {
     const hosts = selfSignedHosts([
       { ...sslipRoute, disabledByUser: true },
@@ -74,6 +80,18 @@ describe("VisitPill", () => {
     const out = render(<VisitPill url={ACME} />);
     expect(out).not.toContain("data-self-signed");
     expect(out).toContain(`title="Open https://${ACME}"`);
+  });
+
+  it("stays plain for a host served with an uploaded certificate", () => {
+    const covered = new Set([SSLIP]);
+    const out = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <SelfSignedHostsProvider hosts={selfSignedHosts(routes, covered)} customCertHosts={covered}>
+          <VisitPill url={SSLIP} />
+        </SelfSignedHostsProvider>
+      </I18nextProvider>,
+    );
+    expect(out).not.toContain("data-self-signed");
   });
 
   it("stays plain outside a provider: no data, no warning invented", () => {

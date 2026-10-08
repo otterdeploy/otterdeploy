@@ -16,7 +16,10 @@ export interface RouteRow {
   internalPort: number;
   domain: string;
   publicHost: string;
-  tls: "letsencrypt" | "internal";
+  /** Which certificate the edge serves. `custom` is an operator-uploaded
+   *  chain: its route keeps usesAcme=false, so the flag alone read it as
+   *  Caddy's self-signed `internal`. */
+  tls: "letsencrypt" | "internal" | "custom";
   enabled: boolean;
   /** The operator's explicit off switch: orthogonal to the system-owned
    *  `enabled` gate. The route serves only when `enabled && !disabledByUser`. */
@@ -40,6 +43,8 @@ export interface RouteGroup {
 export function mapRoute(
   route: ProxyRouteItem,
   byResourceId: Map<string, ResourceListItem>,
+  /** Hosts an uploaded certificate covers (`proxyRoute.customCertHosts`). */
+  customCertHosts: ReadonlySet<string>,
 ): RouteRow {
   const resource = route.resourceId ? byResourceId.get(route.resourceId) : null;
   const kind: RouteRow["kind"] = resource
@@ -60,7 +65,12 @@ export function mapRoute(
     internalPort: route.upstreamPort,
     domain: route.domain,
     publicHost,
-    tls: route.usesAcme ? "letsencrypt" : "internal",
+    tls:
+      isHttp && customCertHosts.has(route.domain.toLowerCase())
+        ? "custom"
+        : route.usesAcme
+          ? "letsencrypt"
+          : "internal",
     enabled: route.enabled,
     disabledByUser: route.disabledByUser,
     isHttp,

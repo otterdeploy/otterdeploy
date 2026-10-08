@@ -1882,6 +1882,8 @@
     "certFailedHint": "Fallo al emitir el certificado.",
     "certOriginSelfSigned": "Origen autofirmado",
     "certSelfSignedGeneratedHint": "Las direcciones generadas se sirven con un certificado autofirmado, por lo que los navegadores avisan antes de abrirlas. Un dominio propio que apunte a este servidor obtiene automáticamente un certificado de confianza de Let's Encrypt.",
+    "certCustom": "Certificado propio",
+    "certCustomHint": "Se sirve con un certificado subido en Edge → Certificados, no con uno emitido aquí.",
     "addCustomDomain": "Añadir dominio propio",
     "visitSelfSigned": "Abrir {{url}}. Certificado autofirmado: el navegador mostrará una advertencia primero."
   },

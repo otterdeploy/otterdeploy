@@ -15,7 +15,7 @@ import type { ResourceRef } from "./inputs";
 
 import { reconcile } from "../../caddy";
 import { updateProxyRoute } from "../../caddy/queries";
-import { serverIpFor, toDomainView, type ServiceDomainView } from "./domain-rules";
+import { loadDomainView, serverIpFor, type ServiceDomainView } from "./domain-rules";
 import { loadOwnedRoute } from "./domains";
 import { DomainNotFoundError } from "./errors";
 
@@ -40,5 +40,5 @@ export async function setServiceDomainEnabled(
   log.set({
     domain: { action: input.enabled ? "resume" : "pause", domain: route.domain },
   });
-  return Result.ok(toDomainView(updated, await serverIpFor(input)));
+  return Result.ok(await loadDomainView(updated, await serverIpFor(input), input.organizationId));
 }

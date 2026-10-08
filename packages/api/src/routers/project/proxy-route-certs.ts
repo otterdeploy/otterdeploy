@@ -8,6 +8,7 @@ import { Result } from "better-result";
 
 import type { ProjectRef } from "../scopes";
 
+import { loadCustomCertHosts } from "../../caddy/certs";
 import { listProxyRoutesByProject } from "../../caddy/queries";
 import { type CertProbe, probeCertificate } from "../../lib/cert-probe";
 import { readEdgeHost } from "../../lib/edge-host";
@@ -51,4 +52,30 @@ export async function listProjectCertificates(
     probedAt: new Date().toISOString(),
     certificates,
   });
+}
+
+/**
+ * The project's public hosts the edge serves with an uploaded certificate.
+ *
+ * A route carrying an uploaded chain keeps `uses_acme = false`, so the route
+ * rows alone would mark it self-signed on every surface that only knows a
+ * hostname (graph Visit pills, the Networking table). Derived from the DB, the
+ * same match reconcile uses to emit `tls <cert> <key>`; no probe, so it is
+ * cheap enough to read at the project layout.
+ */
+export async function listProjectCustomCertHosts(
+  input: ProjectRef,
+): Promise<Result<string[], ProjectNotFoundError>> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+  const domains = (await listProxyRoutesByProject(input.projectId))
+    .filter((r) => r.previewId == null && r.type === "http")
+    .map((r) => r.domain);
+  const hosts = await loadCustomCertHosts(input.organizationId, domains);
+  return Result.ok([...hosts].toSorted());
 }

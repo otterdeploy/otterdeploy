@@ -15,11 +15,17 @@
  * the project event stream, so a host that earns a real certificate stops
  * being marked without a reload.
  *
+ * A route the edge serves with an UPLOADED certificate keeps `uses_acme =
+ * false` too (an operator's chain is not ACME), so the flag alone would call it
+ * self-signed. The project layout also reads which hosts an uploaded
+ * certificate covers (`project.proxyRoute.customCertHosts`, the reconciler's
+ * own match), and those are never marked.
+ *
  * Outside a provider (tests, surfaces with no project) every answer is "no":
  * an absent mark only withholds a warning, it never invents one.
  */
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 /** The route fields the decision reads. */
 export interface RouteCertFacts {
@@ -30,22 +36,32 @@ export interface RouteCertFacts {
   usesAcme: boolean;
 }
 
+const EMPTY: ReadonlySet<string> = new Set();
+
 /** Hosts a browser would reach and find a self-signed certificate on: HTTP
- *  routes the edge is serving right now that did not earn ACME. A paused or
- *  system-disabled route serves nothing, so it has no certificate to warn
- *  about. */
-export function selfSignedHosts(routes: readonly RouteCertFacts[]): ReadonlySet<string> {
+ *  routes the edge is serving right now that did not earn ACME and that no
+ *  uploaded certificate covers. A paused or system-disabled route serves
+ *  nothing, so it has no certificate to warn about. */
+export function selfSignedHosts(
+  routes: readonly RouteCertFacts[],
+  customCertHosts: ReadonlySet<string> = EMPTY,
+): ReadonlySet<string> {
   const out = new Set<string>();
   for (const r of routes) {
     if (r.type !== "http" || !r.enabled || r.disabledByUser || r.usesAcme) continue;
-    out.add(r.domain.toLowerCase());
+    const host = r.domain.toLowerCase();
+    if (customCertHosts.has(host)) continue;
+    out.add(host);
   }
   return out;
 }
 
-const EMPTY: ReadonlySet<string> = new Set();
+interface HostCerts {
+  selfSigned: ReadonlySet<string>;
+  customCert: ReadonlySet<string>;
+}
 
-const SelfSignedHostsContext = createContext<ReadonlySet<string>>(EMPTY);
+const SelfSignedHostsContext = createContext<HostCerts>({ selfSigned: EMPTY, customCert: EMPTY });
 
 /** Supplies an already-computed set. The seam tests use; the app mounts
  *  ProjectSelfSignedHosts (./project-self-signed-hosts), which computes it
@@ -53,23 +69,38 @@ const SelfSignedHostsContext = createContext<ReadonlySet<string>>(EMPTY);
  *  the answer does not pull the persisted collection into its import graph. */
 export function SelfSignedHostsProvider({
   hosts,
+  customCertHosts = EMPTY,
   children,
 }: {
   hosts: ReadonlySet<string>;
+  /** Hosts an uploaded certificate covers (never self-signed). */
+  customCertHosts?: ReadonlySet<string>;
   children: ReactNode;
 }) {
-  return (
-    <SelfSignedHostsContext.Provider value={hosts}>{children}</SelfSignedHostsContext.Provider>
+  const value = useMemo(
+    () => ({ selfSigned: hosts, customCert: customCertHosts }),
+    [hosts, customCertHosts],
   );
+  return (
+    <SelfSignedHostsContext.Provider value={value}>{children}</SelfSignedHostsContext.Provider>
+  );
+}
+
+function bareHost(host: string): string {
+  return host
+    .replace(/^https?:\/\//, "")
+    .replace(/[/:].*$/, "")
+    .toLowerCase();
 }
 
 /** Is this host (bare, or a full URL) served with a self-signed certificate? */
 export function useIsSelfSigned(host: string | null | undefined): boolean {
-  const hosts = useContext(SelfSignedHostsContext);
+  const { selfSigned } = useContext(SelfSignedHostsContext);
   if (!host) return false;
-  const bare = host
-    .replace(/^https?:\/\//, "")
-    .replace(/[/:].*$/, "")
-    .toLowerCase();
-  return hosts.has(bare);
+  return selfSigned.has(bareHost(host));
+}
+
+/** The project's hosts an uploaded certificate covers. */
+export function useCustomCertHosts(): ReadonlySet<string> {
+  return useContext(SelfSignedHostsContext).customCert;
 }

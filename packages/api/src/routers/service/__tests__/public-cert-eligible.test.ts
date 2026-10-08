@@ -18,7 +18,10 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { ProxyRouteRecord } from "../../../caddy/queries";
 
+import { routeCertSource } from "../../../caddy/certs";
 import { resolvedHostCanHoldPublicCert, toDomainView } from "../domain-rules";
+
+const NO_CUSTOM_CERTS: ReadonlySet<string> = new Set();
 
 function route(overrides: Partial<ProxyRouteRecord>): ProxyRouteRecord {
   // drizzle's timestamp columns are `Date`: the library seam the row type
@@ -60,21 +63,23 @@ function route(overrides: Partial<ProxyRouteRecord>): ProxyRouteRecord {
 
 describe("toDomainView publicCertEligible", () => {
   it("is false for a generated sslip.io host on tls internal", () => {
-    const view = toDomainView(route({}), "116.203.148.168");
+    const view = toDomainView(route({}), "116.203.148.168", NO_CUSTOM_CERTS);
     expect(view.usesAcme).toBe(false);
     expect(view.publicCertEligible).toBe(false);
   });
 
   it("is false for a .localhost dev host", () => {
-    expect(toDomainView(route({ domain: "web.shop.localhost" }), null).publicCertEligible).toBe(
-      false,
-    );
+    expect(
+      toDomainView(route({ domain: "web.shop.localhost" }), null, NO_CUSTOM_CERTS)
+        .publicCertEligible,
+    ).toBe(false);
   });
 
   it("is true for an ACME route on a real name", () => {
     const view = toDomainView(
       route({ domain: "app.example.com", source: "custom", usesAcme: true, certState: "valid" }),
       "116.203.148.168",
+      NO_CUSTOM_CERTS,
     );
     expect(view.publicCertEligible).toBe(true);
   });
@@ -83,9 +88,32 @@ describe("toDomainView publicCertEligible", () => {
     const view = toDomainView(
       route({ domain: "app.example.com", source: "custom", dnsState: "unpointed" }),
       "116.203.148.168",
+      NO_CUSTOM_CERTS,
     );
     expect(view.usesAcme).toBe(false);
     expect(view.publicCertEligible).toBe(true);
+  });
+});
+
+describe("toDomainView certSource", () => {
+  it("is custom when an uploaded certificate covers the host, whatever usesAcme says", () => {
+    // The reconciler emits `tls <cert> <key>` for such a host and leaves
+    // uses_acme false: read on its own, that flag called it self-signed.
+    const covered = new Set(["app.example.com"]);
+    const view = toDomainView(
+      route({ domain: "App.Example.com", source: "custom", usesAcme: false }),
+      "116.203.148.168",
+      covered,
+    );
+    expect(view.certSource).toBe("custom");
+    expect(routeCertSource({ domain: "app.example.com", usesAcme: true }, covered)).toBe("custom");
+  });
+
+  it("is acme or internal from the route when no uploaded certificate covers it", () => {
+    expect(routeCertSource({ domain: "app.example.com", usesAcme: true }, NO_CUSTOM_CERTS)).toBe(
+      "acme",
+    );
+    expect(toDomainView(route({}), null, NO_CUSTOM_CERTS).certSource).toBe("internal");
   });
 });
 

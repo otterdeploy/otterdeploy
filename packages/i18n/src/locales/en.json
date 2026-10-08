@@ -1882,6 +1882,8 @@
     "certFailedHint": "Certificate issuance failed.",
     "certOriginSelfSigned": "Self-signed origin",
     "certSelfSignedGeneratedHint": "Generated addresses are served with a self-signed certificate, so browsers warn before opening them. A custom domain pointed at this server gets a trusted Let's Encrypt certificate automatically.",
+    "certCustom": "Custom certificate",
+    "certCustomHint": "Served with a certificate uploaded under Edge → Certificates, not one issued here.",
     "addCustomDomain": "Add custom domain",
     "visitSelfSigned": "Open {{url}}. Self-signed certificate: the browser will warn first."
   },

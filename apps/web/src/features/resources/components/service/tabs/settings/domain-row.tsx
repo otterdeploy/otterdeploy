@@ -43,11 +43,17 @@ function dnsRecordsFor(domain: DomainView) {
 
 /** Live, on `tls internal`, and on a name no public CA will ever sign: the
  *  self-signed certificate is permanent, so the row explains it and offers the
- *  one thing that fixes it. */
+ *  one thing that fixes it. Not when an uploaded certificate serves the host:
+ *  that one is the operator's own and needs no fixing. */
 export function servedSelfSignedForGood(
-  domain: Pick<DomainView, "status" | "usesAcme" | "publicCertEligible">,
+  domain: Pick<DomainView, "status" | "usesAcme" | "publicCertEligible" | "certSource">,
 ): boolean {
-  return domain.status === "live" && !domain.usesAcme && !domain.publicCertEligible;
+  return (
+    domain.status === "live" &&
+    domain.certSource === "internal" &&
+    !domain.usesAcme &&
+    !domain.publicCertEligible
+  );
 }
 
 export function DomainRow({

@@ -56,7 +56,7 @@ import {
   normalizeDomain,
   serverIpFor,
   type ServiceDomainView,
-  toDomainView,
+  loadDomainView,
 } from "./domain-rules";
 import { provenByDns, resolveUpstreamPort } from "./domains-check";
 import {
@@ -172,7 +172,7 @@ export async function addServiceDomain(
   log.set({
     domain: { action: "add", domain, dnsState: reachability.state, port: upstreamPort.value, live },
   });
-  return Result.ok(toDomainView(route, serverIp));
+  return Result.ok(await loadDomainView(route, serverIp, input.organizationId));
 }
 
 /** Load a route and confirm it belongs to the addressed resource: folds
@@ -250,7 +250,7 @@ export async function recheckServiceDomain(
   }
 
   log.set({ domain: { action: "recheck", domain: route.domain, dnsState: reachability.state } });
-  return Result.ok(toDomainView(updated, serverIp));
+  return Result.ok(await loadDomainView(updated, serverIp, input.organizationId));
 }
 
 export async function setPrimaryServiceDomain(
@@ -270,7 +270,7 @@ export async function setPrimaryServiceDomain(
   // the address every dependent resolves.
   await republishAddressDependents(input, log);
   log.set({ domain: { action: "set-primary", domain: updated.domain } });
-  return Result.ok(toDomainView(updated, await serverIpFor(input)));
+  return Result.ok(await loadDomainView(updated, await serverIpFor(input), input.organizationId));
 }
 
 export async function removeServiceDomain(

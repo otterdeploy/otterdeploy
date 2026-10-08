@@ -18,7 +18,7 @@ import {
   updateProxyRoute,
 } from "../../caddy/queries";
 import { loadResource } from "./context";
-import { type ServiceDomainView, toDomainView } from "./domain-rules";
+import { loadDomainView, type ServiceDomainView } from "./domain-rules";
 import {
   DomainConflictError,
   NoHttpPortError,
@@ -138,6 +138,23 @@ export async function exposeService(
 }
 
 /**
+ * The host {@link generateServiceDomain} would mint for this service, without
+ * writing anything. Null when the service cannot be loaded.
+ *
+ * The manifest seed asks this to tell the platform's own address apart from a
+ * domain the operator brought: the new-service wizard stages the generated
+ * host it previewed, and that host has to land as the generated route, not as
+ * a custom domain that happens to carry the same name.
+ */
+export async function previewGeneratedHost(input: ResourceRef): Promise<string | null> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return null;
+  const { project, record } = ctx.value;
+  const { resolved } = await resolveGeneratedDomain(input, record, sanitizeSlug(project.slug));
+  return resolved.fqdn;
+}
+
+/**
  * Mint the platform-generated host for this service and publish on it.
  *
  * This is the "Generate Domain" button, not a toggle: it always yields a
@@ -199,7 +216,7 @@ export async function generateServiceDomain(
   await reconcile(log);
 
   log.set({ domain: { action: "generate", domain: resolved.fqdn, source: resolved.source } });
-  return Result.ok(toDomainView(route, serverIp));
+  return Result.ok(await loadDomainView(route, serverIp, input.organizationId));
 }
 
 export async function unexposeService(

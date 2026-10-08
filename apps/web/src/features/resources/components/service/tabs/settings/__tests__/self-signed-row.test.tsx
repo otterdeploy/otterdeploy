@@ -32,6 +32,7 @@ const sslip = {
   dnsState: "pointed" as const,
   usesAcme: false,
   publicCertEligible: false,
+  certSource: "internal" as const,
   certState: "unknown" as const,
   certError: null,
 };
@@ -42,7 +43,17 @@ const acme = {
   domain: "app.example.com",
   usesAcme: true,
   publicCertEligible: true,
+  certSource: "acme" as const,
   certState: "valid" as const,
+};
+
+/** A host the edge serves with a certificate the operator uploaded. The route
+ *  keeps usesAcme false: an uploaded chain is not ACME. */
+const uploaded = {
+  ...acme,
+  usesAcme: false,
+  certSource: "custom" as const,
+  certState: "unknown" as const,
 };
 
 function render(domain: Parameters<typeof CertBadge>[0]["domain"]) {
@@ -71,8 +82,20 @@ describe("CertBadge", () => {
     expect(render({ ...sslip, status: "paused" })).toBe("");
   });
 
+  it("names an uploaded certificate instead of calling it self-signed", () => {
+    const out = render(uploaded);
+    expect(out).toContain("Custom certificate");
+    expect(out).not.toContain("Self-signed");
+  });
+
+  it("wears the info tint, the one colour self-signed has everywhere", () => {
+    const out = render(sslip);
+    expect(out).toContain("text-info");
+    expect(out).not.toContain("text-warning");
+  });
+
   it("keeps the DNS advice for a real name that is still self-signed", () => {
-    const out = render({ ...acme, usesAcme: false, certState: "unknown" });
+    const out = render({ ...acme, usesAcme: false, certSource: "internal", certState: "unknown" });
     expect(out).toContain("Self-signed");
     expect(out).toContain("Recheck DNS");
   });
@@ -88,6 +111,12 @@ describe("servedSelfSignedForGood (the row's note + Add custom domain)", () => {
   });
 
   it("is false for a real name still on tls internal: that one is fixable by DNS", () => {
-    expect(servedSelfSignedForGood({ ...acme, usesAcme: false })).toBe(false);
+    expect(servedSelfSignedForGood({ ...acme, usesAcme: false, certSource: "internal" })).toBe(
+      false,
+    );
+  });
+
+  it("is false for a generated host served with an uploaded certificate", () => {
+    expect(servedSelfSignedForGood({ ...sslip, certSource: "custom" })).toBe(false);
   });
 });

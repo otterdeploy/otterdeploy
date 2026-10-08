@@ -39,6 +39,10 @@ export interface DomainView {
    *  hosts): their self-signed certificate is permanent, so the fix is a
    *  custom domain, not DNS. Decided server-side (domain-rules.ts). */
   publicCertEligible: boolean;
+  /** Which certificate the edge serves: Let's Encrypt, an operator-uploaded
+   *  chain, or Caddy's self-signed one. An uploaded chain leaves `usesAcme`
+   *  false, so that flag alone would call it self-signed. */
+  certSource: "acme" | "internal" | "custom";
   /** TLS lifecycle, promoted from Caddy's own ACME log events
    *  (packages/api/src/edge-logs/cert-promote.ts). */
   certState: CertState;
@@ -61,7 +65,13 @@ export type DomainStatusView = Pick<
 /** Just the fields the TLS chip reads. */
 type DomainCertView = Pick<
   DomainView,
-  "status" | "dnsState" | "usesAcme" | "publicCertEligible" | "certState" | "certError"
+  | "status"
+  | "dnsState"
+  | "usesAcme"
+  | "publicCertEligible"
+  | "certSource"
+  | "certState"
+  | "certError"
 >;
 
 /**
@@ -88,12 +98,29 @@ type DomainCertView = Pick<
  * `Live` while every browser refused it. Permanent is not the
  * same as fine: it gets the chip too, with the fix that actually applies (a
  * custom domain) instead of a DNS recheck that can never help.
+ *
+ * An uploaded certificate is checked first: its route keeps `usesAcme` false,
+ * so without `certSource` the operator's own trusted chain read "Self-signed".
+ * It is named rather than left silent, because the row is otherwise the only
+ * place that says why this host has no Let's Encrypt certificate.
  */
 export function CertBadge({ domain }: { domain: DomainCertView }) {
   const { t } = useTranslation();
 
   // Nothing is being served, so TLS is not the operator's current problem.
   if (domain.status !== "live") return null;
+
+  if (domain.certSource === "custom") {
+    return (
+      <Badge
+        variant="outline"
+        className="text-muted-foreground"
+        title={t("domains.certCustomHint")}
+      >
+        {t("domains.certCustom")}
+      </Badge>
+    );
+  }
 
   if (!domain.usesAcme && !domain.publicCertEligible) {
     return <SelfSignedBadge />;

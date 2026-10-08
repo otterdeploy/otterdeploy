@@ -1,3 +1,4 @@
+import { SELF_SIGNED_TONE } from "@/shared/components/domains/self-signed-tone";
 /**
  * Org-wide certificates page data layer. Everything rides the oRPC
  * `certificates` router via plain TanStack Query:
@@ -26,7 +27,8 @@ export const PROBE_STATUS: Record<ProbeStatus, { label: string; dot: string; tex
   valid: { label: "Valid", dot: "bg-success", text: "text-success" },
   expiring: { label: "Expiring soon", dot: "bg-amber-500", text: "text-amber-500" },
   expired: { label: "Expired", dot: "bg-destructive", text: "text-destructive" },
-  internal: { label: "Self-signed", dot: "bg-sky-500", text: "text-sky-500" },
+  // The one colour self-signed wears everywhere (self-signed-tone.ts).
+  internal: { label: "Self-signed", dot: SELF_SIGNED_TONE.dot, text: SELF_SIGNED_TONE.text },
   error: { label: "Unreachable", dot: "bg-muted-foreground", text: "text-muted-foreground" },
 };
 
@@ -78,4 +80,7 @@ export function truncateMiddle(value: string, max = 24): string {
 export function invalidateCertificates(): void {
   void queryClient.invalidateQueries({ queryKey: orpc.certificates.inventory.queryKey() });
   void queryClient.invalidateQueries({ queryKey: orpc.certificates.listCustom.queryKey() });
+  // Every project's "served with an uploaded certificate" set: an upload,
+  // replace or delete changes which hosts read Custom instead of Self-signed.
+  void queryClient.invalidateQueries({ queryKey: orpc.project.proxyRoute.customCertHosts.key() });
 }

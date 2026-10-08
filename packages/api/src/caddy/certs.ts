@@ -207,6 +207,43 @@ export function matchCustomCert(
   return covering;
 }
 
+export type CertSource = "acme" | "internal" | "custom";
+
+/** The certificate a route is served with. An uploaded certificate wins: the
+ *  builder emits its `tls <cert> <key>` whatever `usesAcme` says. */
+export function routeCertSource(
+  route: { domain: string; usesAcme: boolean },
+  customCertHosts: ReadonlySet<string>,
+): CertSource {
+  if (customCertHosts.has(route.domain.toLowerCase())) return "custom";
+  return route.usesAcme ? "acme" : "internal";
+}
+
+/**
+ * Which of `domains` the edge serves with one of `organizationId`'s uploaded
+ * certificates: the same match {@link applyCustomCertsToRoutes} makes when
+ * reconcile emits `tls <cert> <key>`, read from the DB without touching disk.
+ *
+ * Such a route keeps `uses_acme = false` (an uploaded chain is not ACME), so
+ * the flag alone reads it as self-signed. Anything that labels a host's
+ * certificate asks this first.
+ */
+export async function loadCustomCertHosts(
+  organizationId: string,
+  domains: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (domains.length === 0) return new Set();
+  const certs = (await listServableCustomCerts()).filter(
+    (c) => c.organizationId === organizationId,
+  );
+  const hosts = new Set<string>();
+  if (certs.length === 0) return hosts;
+  for (const domain of domains) {
+    if (matchCustomCert(certs, domain, organizationId)) hosts.add(domain.trim().toLowerCase());
+  }
+  return hosts;
+}
+
 /**
  * Pure: attach `customCert` (container cert/key paths) to every http route a
  * servable cert covers, scoped to the cert's organization. Returns new route

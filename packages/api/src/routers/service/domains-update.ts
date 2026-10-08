@@ -32,7 +32,7 @@ import {
   normalizeDomain,
   platformApexFor,
   type ServiceDomainView,
-  toDomainView,
+  loadDomainView,
 } from "./domain-rules";
 import { loadOwnedRoute } from "./domains";
 import {
@@ -123,5 +123,5 @@ export async function updateServiceDomain(
   if (route.enabled || updated.enabled) await reconcile(log);
 
   log.set({ domain: { action: "update", from: route.domain, to: domain } });
-  return Result.ok(toDomainView(updated, serverIp));
+  return Result.ok(await loadDomainView(updated, serverIp, input.organizationId));
 }
