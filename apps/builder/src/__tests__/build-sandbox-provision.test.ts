@@ -47,7 +47,9 @@ interface FakeHost {
  * A fake `docker` with just enough state for the sandbox + buildx flows.
  * Flags (files in the state dir): network, sandbox, running, ready, legacy,
  * legacy-builder, builder (contents = endpoint), run-fails, create-fails,
- * helpers (a running build helper).
+ * helpers (a running build helper), needs-profile (the sandbox only starts
+ * once the AppArmor loader ran: Ubuntu 24.04 without install.sh's profile),
+ * profile-loaded, loader-fails.
  */
 function installFakeDocker(): FakeHost {
   const binDir = mkdtempSync(join(tmpdir(), "otter-fake-docker-bin-"));
@@ -63,6 +65,9 @@ function installFakeDocker(): FakeHost {
     '  "network inspect") [ -e "$S/network" ] && exit 0; exit 1 ;;',
     '  "network create") : > "$S/network"; exit 0 ;;',
     '  "ps -q") [ -e "$S/helpers" ] && echo abc123; exit 0 ;;',
+    '  "run --rm")',
+    '    [ -e "$S/loader-fails" ] && { echo "apparmor_parser: Unable to replace otterdeploy-buildkitd. Permission denied" >&2; exit 1; }',
+    '    : > "$S/profile-loaded"; echo "profile loaded"; exit 0 ;;',
     '  "buildx inspect")',
     '    if [ "$3" = "otterdeploy-cache" ]; then [ -e "$S/legacy-builder" ] && exit 0; exit 1; fi',
     '    [ -e "$S/builder" ] || exit 1',
@@ -80,14 +85,14 @@ function installFakeDocker(): FakeHost {
     '    if [ -e "$S/running" ]; then r=true; else r=false; fi',
     '    echo "$r $(cat "$S/sandbox")"; exit 0 ;;',
     "  run)",
-    '    if [ -e "$S/run-fails" ]; then',
+    '    if [ -e "$S/run-fails" ] || { [ -e "$S/needs-profile" ] && [ ! -e "$S/profile-loaded" ]; }; then',
     '      [ -e "$S/run-leaves-created" ] && printf %s created > "$S/sandbox"',
     '      echo "docker: Error response from daemon: AppArmor enabled on system but the otterdeploy-buildkitd profile could not be loaded." >&2; exit 125',
     "    fi",
     '    for a in "$@"; do case "$a" in otterdeploy.buildkitd.spec=*) spec="${a#*=}" ;; esac; done',
     '    printf %s "$spec" > "$S/sandbox"; : > "$S/running"; exit 0 ;;',
     '  start) : > "$S/running"; exit 0 ;;',
-    '  rm) if [ "$3" = "buildx_buildkit_otterdeploy-cache0" ]; then rm -f "$S/legacy"; else rm -f "$S/sandbox" "$S/running"; fi; exit 0 ;;',
+    '  rm) [ "$3" = "otterdeploy-apparmor-loader" ] && exit 0; if [ "$3" = "buildx_buildkit_otterdeploy-cache0" ]; then rm -f "$S/legacy"; else rm -f "$S/sandbox" "$S/running"; fi; exit 0 ;;',
     '  exec) [ -e "$S/running" ] && [ -e "$S/ready" ] && exit 0; exit 1 ;;',
     '  logs) echo "[rootlesskit:parent] error: failed to start the child: fork/exec /proc/self/exe: permission denied"; exit 0 ;;',
     "esac",
@@ -220,6 +225,100 @@ describe("a refused start that leaves a stopped container", () => {
       expect(ready.error.reason).not.toContain("did not become ready");
     }
     expect(host.has("sandbox")).toBe(false);
+  });
+});
+
+describe("an in-app update on Ubuntu 24.04 without install.sh's profile", () => {
+  const restricted = { recreateOnDrift: true, readyTimeoutMs: 1_500, usernsRestriction: "1" };
+
+  test("the builder loads the profile itself, then starts the sandbox", async () => {
+    const host = installFakeDocker();
+    host.set("ready");
+    host.set("needs-profile");
+    const out = sink();
+    const ready = await ensureBuildSandbox(out.sink, {
+      ...restricted,
+      appArmorLoaderImage: "ghcr.io/otterdeploy/server:v1",
+    });
+    expect(ready.isOk() && ready.value).toBe(BUILD_SANDBOX_ENDPOINT);
+    // The profile rides in a multi-line argv, so read the log as one text.
+    const log = host.calls().join("\n");
+    const loader = log.indexOf("run --rm --name otterdeploy-apparmor-loader");
+    expect(loader).toBeGreaterThan(-1);
+    expect(loader).toBeLessThan(log.indexOf("run -d"));
+    const loaderCall = log.slice(loader, log.indexOf("run -d"));
+    expect(loaderCall).toContain("ghcr.io/otterdeploy/server:v1");
+    expect(loaderCall).toContain("profile otterdeploy-buildkitd flags=(unconfined)");
+    expect(out.lines.join("\n")).toContain("loading the otterdeploy-buildkitd AppArmor profile");
+  });
+
+  test("without the loader the same host refuses every build", async () => {
+    const host = installFakeDocker();
+    host.set("ready");
+    host.set("needs-profile");
+    const ready = await ensureBuildSandbox(sink().sink, restricted);
+    expect(ready.isErr()).toBe(true);
+    expect(host.has("profile-loaded")).toBe(false);
+  });
+
+  test("a failed load still fails closed, and says why in the refusal", async () => {
+    const host = installFakeDocker();
+    host.set("ready");
+    host.set("needs-profile");
+    host.set("loader-fails");
+    const ready = await ensureBuildSandbox(sink().sink, {
+      ...restricted,
+      appArmorLoaderImage: "ghcr.io/otterdeploy/server:v1",
+    });
+    expect(ready.isErr()).toBe(true);
+    if (ready.isErr()) {
+      expect(ready.error.reason).toContain("could not start otterdeploy-buildkitd");
+      expect(ready.error.reason).toContain(
+        "loading the otterdeploy-buildkitd AppArmor profile failed",
+      );
+      expect(ready.error.reason).toContain("Permission denied");
+      expect(ready.error.reason).toContain("install.sh | sudo bash -s -- update");
+    }
+    expect(host.has("sandbox")).toBe(false);
+  });
+
+  test("a host without the restriction, or a running sandbox, never runs the loader", async () => {
+    const host = installFakeDocker();
+    host.set("ready");
+    const image = { appArmorLoaderImage: "ghcr.io/otterdeploy/server:v1" };
+    await ensureBuildSandbox(sink().sink, { ...restricted, usernsRestriction: "0", ...image });
+    expect(host.calls().some((c) => c.startsWith("run --rm"))).toBe(false);
+    const host2 = installFakeDocker();
+    host2.set("ready");
+    await ensureBuildSandbox(sink().sink, { ...restricted, ...image });
+    const loads = () => host2.calls().filter((c) => c.startsWith("run --rm")).length;
+    expect(loads()).toBe(1);
+    await ensureBuildSandbox(sink().sink, { ...restricted, ...image });
+    expect(loads()).toBe(1);
+  });
+
+  test("a missing profile source is reported, not guessed", async () => {
+    const host = installFakeDocker();
+    host.set("ready");
+    host.set("needs-profile");
+    const ready = await ensureBuildSandbox(sink().sink, {
+      ...restricted,
+      appArmorLoaderImage: "img",
+      installerPath: join(tmpdir(), "no-such-install.sh"),
+    });
+    expect(ready.isErr() && ready.error.reason).toContain(
+      "profile source (scripts/install.sh) is missing",
+    );
+    expect(host.calls().some((c) => c.startsWith("run --rm"))).toBe(false);
+    const stale = mkdtempSync(join(tmpdir(), "otter-installer-"));
+    tmpDirs.push(stale);
+    writeFileSync(join(stale, "install.sh"), "#!/bin/sh\necho an installer without the profile\n");
+    const noProfile = await ensureBuildSandbox(sink().sink, {
+      ...restricted,
+      appArmorLoaderImage: "img",
+      installerPath: join(stale, "install.sh"),
+    });
+    expect(noProfile.isErr() && noProfile.error.reason).toContain("carries no sandbox profile");
   });
 });
 

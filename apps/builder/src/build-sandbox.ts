@@ -20,9 +20,10 @@
  *     form (no nested per-step user namespace). rootlesskit itself still needs
  *     ONE user namespace, which Ubuntu 24.04 restricts by default
  *     (`kernel.apparmor_restrict_unprivileged_userns=1`); there the sandbox
- *     runs under the narrow `otterdeploy-buildkitd` AppArmor profile the
- *     installer loads (see sandboxAppArmorProfile). The host-wide sysctl is
- *     never relaxed;
+ *     runs under the narrow `otterdeploy-buildkitd` AppArmor profile, which
+ *     the installer loads and, when an in-app update skipped the installer,
+ *     the builder loads itself (see loadSandboxAppArmorProfile). The host-wide
+ *     sysctl is never relaxed;
  *   - its own `otterdeploy-build` network, off the shared compose network with
  *     postgres/redis/server (od-5j8.36);
  *   - memory / cpu / pids limits, so a runaway tenant build cannot starve the
@@ -41,15 +42,22 @@ import { buildSandboxStatusPath } from "@otterdeploy/shared/paths";
 import { Temporal } from "@otterdeploy/shared/temporal";
 import { Result } from "better-result";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { cpus, totalmem } from "node:os";
 import { dirname } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
+import {
+  BUILD_SANDBOX_APPARMOR_PROFILE,
+  ensureSandboxAppArmorProfile,
+  hostPrepHint,
+  readUsernsRestriction,
+  sandboxAppArmorProfile,
+} from "./build-sandbox-apparmor";
 import { BuildIsolationError } from "./errors";
 import { clampCpus } from "./helper-args";
-import { runProcess } from "./run-process";
+import { dockerQuiet as docker } from "./run-process";
 
 /** Current stable rootless BuildKit (v0.33.1, 2026-09-30), pinned by the
  *  multi-arch index digest so an upstream retag cannot change what runs. */
@@ -91,34 +99,6 @@ export interface BuildSandboxLimits {
   memoryBytes: number;
   cpus: string;
   pidsLimit: string;
-}
-
-/** Host AppArmor profile that grants ONLY the sandbox permission to create a
- *  user namespace (Ubuntu's per-application pattern). Installed and loaded by
- *  scripts/install.sh; never by this process. */
-export const BUILD_SANDBOX_APPARMOR_PROFILE = "otterdeploy-buildkitd";
-
-/** Where the kernel says whether unprivileged user namespaces are restricted
- *  to AppArmor profiles that allow them (Ubuntu 23.10+ defaults it to 1). */
-const USERNS_RESTRICT_SYSCTL = "/proc/sys/kernel/apparmor_restrict_unprivileged_userns";
-
-/**
- * AppArmor profile for the sandbox. PURE given the sysctl text.
- *
- * Rootless BuildKit needs a user namespace. On a host that restricts them to
- * profiles which allow it (Ubuntu 24.04: the sysctl reads 1), `unconfined` is
- * not enough: rootlesskit fails with "fork/exec /proc/self/exe: permission
- * denied". There the sandbox runs under the narrow
- * `otterdeploy-buildkitd` profile, which allows `userns` and nothing else
- * beyond unconfined. Elsewhere (sysctl absent or 0) `unconfined` works as is.
- */
-export function sandboxAppArmorProfile(restrictSysctl: string | null): string {
-  return restrictSysctl?.trim() === "1" ? BUILD_SANDBOX_APPARMOR_PROFILE : "unconfined";
-}
-
-async function readUsernsRestriction(): Promise<string | null> {
-  const read = await Result.tryPromise(() => readFile(USERNS_RESTRICT_SYSCTL, "utf8"));
-  return read.isOk() ? read.value : null;
 }
 
 /** Limits for this host: 75% of RAM, every CPU (clamped like the helper's),
@@ -222,13 +202,6 @@ export function planSandbox(
   return state.running ? "ready" : "start";
 }
 
-async function docker(sink: LogSink, args: string[]) {
-  return Result.tryPromise({
-    try: () => runProcess({ cmd: "docker", args, sink, echo: false }),
-    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
-  });
-}
-
 /** `docker <args>` succeeded? Spawn failures count as no. */
 async function dockerOk(sink: LogSink, args: string[]): Promise<boolean> {
   const ran = await docker(sink, args);
@@ -264,31 +237,6 @@ async function waitReady(sink: LogSink, timeoutMs: number): Promise<boolean> {
   return false;
 }
 
-/** The installer command that prepares the host. Run on the host itself. */
-export const HOST_PREP_COMMAND =
-  "curl -fsSL https://get.otterdeploy.com/install.sh | sudo bash -s -- update";
-
-/**
- * What the operator should run when the sandbox cannot start, or nothing.
- * PURE.
- *
- * On a host that restricts unprivileged user namespaces (Ubuntu 23.10+), the
- * sandbox only starts under the `otterdeploy-buildkitd` AppArmor profile, and
- * only the installer loads it. An install upgraded from inside the app never
- * runs the installer, so there the profile is the usual reason the sandbox is
- * down: every failure on such a host names the command, whatever docker said.
- * On other hosts the command is named only when the failure is the host's
- * user-namespace policy itself.
- */
-export function hostPrepHint(apparmor: string, detail: string): string {
-  const restrictedHost = apparmor === BUILD_SANDBOX_APPARMOR_PROFILE;
-  const userns = /apparmor_restrict_unprivileged_userns|\/proc\/self\/exe|user namespace/i.test(
-    detail,
-  );
-  if (!restrictedHost && !userns) return "";
-  return `. This host restricts unprivileged user namespaces, so the build sandbox needs the ${BUILD_SANDBOX_APPARMOR_PROFILE} AppArmor profile, which only the installer loads (an update made from inside the app does not). Load it once by running this on the host, then retry the deploy: \`${HOST_PREP_COMMAND}\``;
-}
-
 /** The last lines of the sandbox's own log: why it did not come up. */
 async function sandboxLogTail(sink: LogSink): Promise<string> {
   const ran = await docker(sink, ["logs", "--tail", "5", BUILD_SANDBOX_CONTAINER]);
@@ -321,7 +269,12 @@ export async function removeLegacyPrivilegedSandbox(sink: LogSink): Promise<bool
 async function applySandboxPlan(
   sink: LogSink,
   plan: ReturnType<typeof planSandbox>,
-  { image, limits, apparmor }: { image: string; limits: BuildSandboxLimits; apparmor: string },
+  {
+    image,
+    limits,
+    apparmor,
+    loaderNote,
+  }: { image: string; limits: BuildSandboxLimits; apparmor: string; loaderNote: string },
 ): Promise<Result<void, BuildIsolationError>> {
   if (plan === "start") {
     await dockerOk(sink, ["start", BUILD_SANDBOX_CONTAINER]);
@@ -344,7 +297,7 @@ async function applySandboxPlan(
   if (after?.running) return Result.ok();
   if (after) await dockerOk(sink, ["rm", "--force", BUILD_SANDBOX_CONTAINER]);
   const detail = ran.isOk() ? ran.value.tail.trim().split("\n").slice(-2).join(" | ") : ran.error;
-  const reason = `could not start ${BUILD_SANDBOX_CONTAINER} from ${image}: ${detail}${hostPrepHint(apparmor, detail)}`;
+  const reason = `could not start ${BUILD_SANDBOX_CONTAINER} from ${image}: ${detail}${loaderNote}${hostPrepHint(apparmor, detail)}`;
   return Result.err(new BuildIsolationError(reason));
 }
 
@@ -362,6 +315,12 @@ export async function ensureBuildSandbox(
     /** The userns-restriction sysctl's text; read from /proc when omitted.
      *  Tests pass it so the AppArmor choice does not depend on the test host. */
     usernsRestriction?: string | null;
+    /** Image for the AppArmor loader container (the builder's own). Given by
+     *  the builder's boot + periodic check, which then load the sandbox's
+     *  profile on a host that needs it before starting the sandbox. */
+    appArmorLoaderImage?: string;
+    /** Where the profile text is read from; tests point it elsewhere. */
+    installerPath?: URL | string;
   },
 ): Promise<Result<string, BuildIsolationError>> {
   const readyTimeoutMs = opts.readyTimeoutMs ?? READY_TIMEOUT_MS;
@@ -378,13 +337,21 @@ export async function ensureBuildSandbox(
   }
 
   const plan = planSandbox(await inspectSandbox(sink), wanted, opts.recreateOnDrift);
-  const applied = await applySandboxPlan(sink, plan, { image, limits, apparmor });
+  // About to (re)start the sandbox under the narrow profile: make sure the
+  // host has it loaded. A load that fails is not fatal by itself (install.sh
+  // may have loaded it already); if the sandbox then cannot start, the
+  // refusal carries the loader's reason too.
+  const loaderNote =
+    opts.appArmorLoaderImage && apparmor === BUILD_SANDBOX_APPARMOR_PROFILE && plan !== "ready"
+      ? await ensureSandboxAppArmorProfile(sink, opts.appArmorLoaderImage, opts.installerPath)
+      : "";
+  const applied = await applySandboxPlan(sink, plan, { image, limits, apparmor, loaderNote });
   if (applied.isErr()) return Result.err(applied.error);
 
   if (!(await waitReady(sink, readyTimeoutMs))) {
     const why = await sandboxLogTail(sink);
     return fail(
-      `${BUILD_SANDBOX_CONTAINER} did not become ready within ${readyTimeoutMs / 1000}s${why ? `: ${why}` : ""}${hostPrepHint(apparmor, why)}`,
+      `${BUILD_SANDBOX_CONTAINER} did not become ready within ${readyTimeoutMs / 1000}s${why ? `: ${why}` : ""}${loaderNote}${hostPrepHint(apparmor, why)}`,
     );
   }
   return Result.ok(BUILD_SANDBOX_ENDPOINT);

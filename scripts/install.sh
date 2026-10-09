@@ -721,6 +721,11 @@ ensure_network() {
 # No-op on hosts without the restriction (e.g. Debian 12), where the sandbox
 # uses `apparmor=unconfined`. Runs on install AND update, so an existing host
 # picks it up with `install.sh update`.
+#
+# The heredoc below is the ONE copy of the profile text: the builder reads it
+# out of this file (apps/builder/src/build-sandbox-apparmor.ts,
+# appArmorProfileFromInstaller) and loads the same profile itself when an
+# in-app update skipped this step. Keep the `<<'PROFILE'` ... `PROFILE` markers.
 BUILD_SANDBOX_PROFILE="otterdeploy-buildkitd"
 provision_build_sandbox_apparmor() {
   local sysctl=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
@@ -735,7 +740,7 @@ provision_build_sandbox_apparmor() {
   local file="/etc/apparmor.d/$BUILD_SANDBOX_PROFILE"
   if dry; then say "   + would install + load AppArmor profile $file (userns for the build sandbox)"; return 0; fi
   $SUDO tee "$file" >/dev/null <<'PROFILE'
-# otterdeploy: rootless BuildKit build sandbox. Managed by install.sh.
+# otterdeploy: rootless BuildKit build sandbox. Managed by otterdeploy (install.sh + builder).
 abi <abi/4.0>,
 include <tunables/global>
 

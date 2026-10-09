@@ -5,9 +5,10 @@
  * same argv was booted on a real Ubuntu 24.04 host.
  */
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
-  BUILD_SANDBOX_APPARMOR_PROFILE,
   BUILD_SANDBOX_CONTAINER,
   BUILD_SANDBOX_ENDPOINT,
   BUILD_SANDBOX_IMAGE,
@@ -15,12 +16,19 @@ import {
   buildSandboxLimits,
   buildSandboxRunArgs,
   buildSandboxSpecHash,
-  HOST_PREP_COMMAND,
-  hostPrepHint,
   parseSandboxState,
   planSandbox,
-  sandboxAppArmorProfile,
 } from "../build-sandbox";
+import {
+  APPARMOR_LOADER_CONTAINER,
+  appArmorLoaderRunArgs,
+  appArmorLoaderScript,
+  appArmorProfileFromInstaller,
+  BUILD_SANDBOX_APPARMOR_PROFILE,
+  HOST_PREP_COMMAND,
+  hostPrepHint,
+  sandboxAppArmorProfile,
+} from "../build-sandbox-apparmor";
 
 const GiB = 1024 ** 3;
 const limits = buildSandboxLimits(8 * GiB, 4);
@@ -175,11 +183,10 @@ describe("hostPrepHint", () => {
   });
 
   test("on a host that restricts user namespaces, names the exact command for any failure", () => {
-    // An install upgraded from inside the app never ran the installer, so the
-    // profile is the likely gap even when docker's message does not say so.
+    // The profile is the likely gap even when docker's message does not say so.
     const hint = hostPrepHint(BUILD_SANDBOX_APPARMOR_PROFILE, "context deadline exceeded");
     expect(hint).toContain(HOST_PREP_COMMAND);
-    expect(hint).toContain("from inside the app");
+    expect(hint).toContain("The builder loads it itself");
   });
 
   test("names it on an unrestricted host when the failure is the user-namespace policy", () => {
@@ -190,5 +197,58 @@ describe("hostPrepHint", () => {
 
   test("stays quiet for unrelated failures on an unrestricted host", () => {
     expect(hostPrepHint("unconfined", "pull access denied for moby/buildkit")).toBe("");
+  });
+});
+
+describe("the AppArmor profile the builder loads itself", () => {
+  const installer = readFileSync(
+    join(import.meta.dir, "..", "..", "..", "..", "scripts", "install.sh"),
+    "utf8",
+  );
+
+  test("is read out of install.sh's own heredoc: one profile text, two loaders", () => {
+    const profile = appArmorProfileFromInstaller(installer);
+    expect(profile).not.toBeNull();
+    expect(profile).toContain(`profile ${BUILD_SANDBOX_APPARMOR_PROFILE} flags=(unconfined) {`);
+    expect(profile).toContain("  userns,");
+    // Byte for byte what install.sh tees into /etc/apparmor.d.
+    const heredoc = installer.split("<<'PROFILE'\n")[1]?.split("\nPROFILE\n")[0];
+    expect(profile).toBe(`${heredoc}\n`);
+  });
+
+  test("refuses an installer without the markers or without the profile", () => {
+    expect(appArmorProfileFromInstaller("#!/bin/sh\necho hi\n")).toBeNull();
+    expect(
+      appArmorProfileFromInstaller("tee x <<'PROFILE'\nprofile other {}\nPROFILE\n"),
+    ).toBeNull();
+  });
+
+  const loader = appArmorLoaderRunArgs("ghcr.io/otterdeploy/server:v1", "profile text\n");
+  const after = (flag: string) => loader.flatMap((arg, i) => (arg === flag ? [loader[i + 1]] : []));
+
+  test("is a short-lived container with two capabilities and no network", () => {
+    expect(loader.slice(0, 4)).toEqual(["run", "--rm", "--name", APPARMOR_LOADER_CONTAINER]);
+    expect(loader).not.toContain("--privileged");
+    expect(after("--cap-drop")).toEqual(["ALL"]);
+    expect(after("--cap-add")).toEqual(["MAC_ADMIN", "SYS_CHROOT"]);
+    expect(after("--network")).toEqual(["none"]);
+  });
+
+  test("sees the host read-only and writes only the profile directory and securityfs", () => {
+    expect(after("-v")).toEqual([
+      "/:/host:ro",
+      "/etc/apparmor.d:/host/etc/apparmor.d",
+      "/sys/kernel/security:/host/sys/kernel/security",
+    ]);
+  });
+
+  test("runs the HOST's apparmor_parser (an image's can be too old for `userns`)", () => {
+    expect(after("-e")).toEqual(["OTTERDEPLOY_APPARMOR_PROFILE=profile text\n"]);
+    expect(after("--entrypoint")).toEqual(["chroot"]);
+    const image = loader.indexOf("ghcr.io/otterdeploy/server:v1");
+    expect(loader.slice(image + 1, image + 4)).toEqual(["/host", "/bin/sh", "-c"]);
+    expect(loader.at(-1)).toBe(appArmorLoaderScript());
+    expect(appArmorLoaderScript()).toContain(`apparmor_parser -r -K "$f"`);
+    expect(appArmorLoaderScript()).toContain(`f=/etc/apparmor.d/${BUILD_SANDBOX_APPARMOR_PROFILE}`);
   });
 });

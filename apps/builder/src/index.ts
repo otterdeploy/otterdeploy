@@ -79,7 +79,13 @@ async function checkBuildSandbox(trigger: "boot" | "interval"): Promise<void> {
   // Recreating the sandbox kills every build in it, so a spec update waits
   // for a moment with no build helper running.
   const recreateOnDrift = !(await buildHelpersRunning(sink));
-  const ready = await ensureBuildSandbox(sink, { recreateOnDrift });
+  // The loader runs the builder's own image: an in-app update never runs
+  // install.sh, so the builder loads the sandbox's AppArmor profile itself on
+  // a host that restricts user namespaces.
+  const ready = await ensureBuildSandbox(sink, {
+    recreateOnDrift,
+    appArmorLoaderImage: env.BUILDER_HELPER_IMAGE,
+  });
   if (ready.isOk()) {
     log.info({ builder: { event: "build-sandbox-ready", trigger } });
     await writeBuildSandboxStatus({ state: "ready", reason: null, image: BUILD_SANDBOX_IMAGE });
