@@ -158,6 +158,11 @@ export const organizationRouter = {
         token: input.token,
         zoneId: input.zoneId,
       });
+      // A token Cloudflare rejects, or a save with no zone picked, is the
+      // caller's input: a 400 that says why, not an untyped 500.
+      if (result.isErr() && result.error._tag === "CloudflareConfigError") {
+        throw new ORPCError("BAD_REQUEST", { message: result.error.message });
+      }
       if (result.isErr()) throw result.error;
       return result.value;
     },

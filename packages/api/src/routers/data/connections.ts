@@ -7,17 +7,20 @@
  * would hand every viewer a working credential for a database otterdeploy does
  * not run and cannot rotate.
  */
-import type { OrganizationId, UserId } from "@otterdeploy/shared/id";
+import type { DataConnectionId, OrganizationId, UserId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { dataConnection } from "@otterdeploy/db/schema";
 import { normalizeTags } from "@otterdeploy/shared/data-tags";
+import { Result } from "better-result";
 import { and, desc, eq, or } from "drizzle-orm";
 
 import { requirePermission } from "../..";
 import { describeConnection, parseConnectionUrl, resolveExternalTarget } from "../../data";
+import { toDataError } from "../../data/errors";
 import { encryptForDomain } from "../../lib/crypto";
 import { publishOrgBusEvent } from "../project/project-event-bus";
+import { raise } from "./plumbing";
 import { allowsPrivateAddresses, probeVersion, testUrlHandler } from "./test-probe";
 
 /** Row shape every procedure here returns. Never includes the URL. */
@@ -87,6 +90,23 @@ function publishDeleted(
 type ConnectionRow = {
   [Key in keyof typeof SELECTION]: (typeof dataConnection.$inferSelect)[Key];
 };
+
+/**
+ * Resolve a saved connection for a test. Always read-only: a test must not be a
+ * way to acquire a writable session on a production database. A miss (unknown
+ * id, another org's row, someone else's private one) comes back as a typed
+ * DataError for the handler to map, never escaping as a 500.
+ */
+function resolveTestTarget(input: {
+  organizationId: OrganizationId;
+  connectionId: DataConnectionId;
+  viewerId: UserId | null;
+}) {
+  return Result.tryPromise({
+    try: () => resolveExternalTarget({ ...input, mode: "read-only" }),
+    catch: toDataError,
+  });
+}
 
 export function makeConnectionHandlers(deps: {
   viewerIdOf: (context: { session?: { user?: { id?: string } } | null }) => UserId | null;
@@ -237,15 +257,13 @@ export function makeConnectionHandlers(deps: {
     testConnection: requirePermission({ database: ["read"] }).data.testConnection.handler(
       async ({ input, context, errors }) => {
         context.log.set({ dataConnection: { id: input.id, test: true } });
-        const target = await resolveExternalTarget({
+        const target = await resolveTestTarget({
           organizationId: context.activeOrganizationId,
           connectionId: input.id,
           viewerId: deps.viewerIdOf(context),
-          // A test always opens read-only: it must not be a way to acquire a
-          // writable session on a production database.
-          mode: "read-only",
         });
-        const probe = await probeVersion(target);
+        if (target.isErr()) throw raise(target.error, errors);
+        const probe = await probeVersion(target.value);
         if (probe.isErr()) {
           throw errors.UNREACHABLE({ data: { reason: probe.error.message } });
         }

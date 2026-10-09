@@ -94,3 +94,15 @@ describe("update run state", () => {
     expect(state.snapshot().handedOff).toBe(true);
   });
 });
+
+describe("a cancelled run stays settled", () => {
+  it("the cancelled orchestrator's late lines and finish do not change it", () => {
+    state.begin("v5.0.0");
+    expect(state.cancel("reset by operator")).toBe(true);
+    const settled = state.snapshot();
+    state.emit("recreate", "still unwinding");
+    state.finish(true);
+    expect(state.snapshot()).toEqual(settled);
+    expect(state.snapshot().status).toBe("failed");
+  });
+});

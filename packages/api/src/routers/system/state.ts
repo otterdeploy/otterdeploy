@@ -104,6 +104,10 @@ export function begin(targetVersion: string): void {
 }
 
 export function emit(phase: UpdatePhase, message: string, level: ProgressLevel = "info"): void {
+  // A run that already ended (an operator reset, most of all) is settled: the
+  // orchestrator that is still unwinding in the background must not append to
+  // it, nor flip it back to "succeeded" through finish() below.
+  if (run.status !== "running") return;
   run.logs.push({ seq: ++seq, ts: new Date().toISOString(), level, phase, message });
   if (run.logs.length > MAX_LOGS) run.logs = run.logs.slice(run.logs.length - MAX_LOGS);
   notify();
@@ -119,6 +123,7 @@ export function markHandoff(): void {
 }
 
 export function finish(ok: boolean, error?: string): void {
+  if (run.status !== "running") return;
   run.status = ok ? "succeeded" : "failed";
   run.finishedAt = new Date().toISOString();
   run.error = error ?? null;
