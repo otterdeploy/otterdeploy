@@ -10,6 +10,7 @@ import { withPromotedPrimary } from "../../lib/primary-port";
 import { runtime as activeRuntime } from "../../runtime";
 import { type SwarmServiceRuntime } from "../../swarm";
 import { type ServiceRecord } from "./queries";
+import { serviceRuntimeName } from "./runtime-name";
 
 // ---------------------------------------------------------------------------
 // View types
@@ -165,7 +166,8 @@ export async function mapServiceView(
   const live =
     runtime ??
     (await activeRuntime().inspect({
-      serviceName: record.service.serviceName,
+      // The runtime name: a staging service's container is `<base>-staging`.
+      serviceName: await serviceRuntimeName(record),
       projectSlug: sanitizeSlug(projectSlug),
     }));
 

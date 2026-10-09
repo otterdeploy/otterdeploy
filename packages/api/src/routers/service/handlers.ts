@@ -14,6 +14,8 @@ import type { ProjectNotFoundError } from "../project/errors";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { resolveRuntimeScopesForProject } from "../../lib/environment/runtime-scope";
+import { runtimeServiceName } from "../../lib/environment/scoping";
 import { runtime } from "../../runtime";
 import { removeServiceFromManifest } from "../project/manifest";
 import { loadProject, loadResource } from "./context";
@@ -34,6 +36,7 @@ import {
   updateServiceRecord,
 } from "./queries";
 import { redeployAndFanOut, redeployDependents } from "./redeploy";
+import { serviceRuntimeName } from "./runtime-name";
 import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   mapEnvVar,
@@ -71,12 +74,21 @@ export async function listServices(
   // Resolve every service's live runtime in ONE runtime round-trip, then hand
   // each pre-resolved status to mapServiceView: instead of mapServiceView
   // opening a fresh Docker connection + lookup per service (the list N+1).
+  // Looked up by RUNTIME name: a staging service runs as `<base>-staging`, and
+  // reading the base name reported production's container as staging's.
   const projectSlug = sanitizeSlug(project.value.slug);
+  const scopeOf = await resolveRuntimeScopesForProject(input.projectId);
+  const runtimeNames = records.map((r) =>
+    runtimeServiceName(r.service.serviceName, scopeOf(r.resource.environmentId)),
+  );
   const runtimes = await runtime().inspectMany(
-    records.map((r) => ({ serviceName: r.service.serviceName, projectSlug })),
+    runtimeNames.map((serviceName) => ({ serviceName, projectSlug })),
   );
   const views = await Promise.all(
-    records.map((r) => mapServiceView(r, project.value.slug, runtimes.get(r.service.serviceName))),
+    records.map((r, i) => {
+      const name = runtimeNames[i];
+      return mapServiceView(r, project.value.slug, name ? runtimes.get(name) : undefined);
+    }),
   );
   return Result.ok(views);
 }
@@ -133,6 +145,12 @@ export async function deleteService(
     );
   }
 
+  // What this resource actually runs as. The stored name is the base one that
+  // production shares, so destroying by it from a staging delete would take
+  // down production's container and leave staging's running.
+  // Resolved before anything is written, so a failure here changes nothing.
+  const runtimeName = await serviceRuntimeName(record);
+
   // Strip it from the manifest FIRST: before any physical teardown. Once a
   // delete is initiated the service is no longer "desired", so even if teardown
   // fails partway the next diff can only ever show a (recoverable) delete -
@@ -151,13 +169,13 @@ export async function deleteService(
   // record the leaked object as an orphan and let the GC sweep retry teardown
   // (system-health/orphan-gc.ts).
   await runtime()
-    .destroy({ serviceName: record.service.serviceName }, log)
+    .destroy({ serviceName: runtimeName }, log)
     .catch(async (cause) => {
       const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
       await recordOrphanedResource({
         organizationId: input.organizationId,
         resourceType: "service",
-        ref: record.service.serviceName,
+        ref: runtimeName,
         projectId: input.projectId,
         label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
         // environmentId (null = main env) lets a GC retry rebuild the
@@ -172,12 +190,15 @@ export async function deleteService(
   // Reclaim host artifacts (built images, buildx cache, volumes): the container
   // teardown above only removes the running container. The host ref is
   // environment-keyed (null = main env).
+  // By runtime name too: the builder keys its local image repo on the BASE
+  // name, which production shares, so a staging delete must not force-remove
+  // those images out from under production's running container.
   const hostRef = { ...input, environmentId: record.resource.environmentId ?? null };
-  await reclaimServiceHostArtifacts(record.service.serviceName, hostRef, log);
+  await reclaimServiceHostArtifacts(runtimeName, hostRef, log);
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
 
-  log.set({ teardown: { service: record.service.serviceName, ok: true } });
+  log.set({ teardown: { service: runtimeName, ok: true } });
 
   return Result.ok({ ok: true });
 }

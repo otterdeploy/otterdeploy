@@ -9,8 +9,10 @@
  * See docs/designs/deployment-protection.md §7.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
+
 import { db } from "@otterdeploy/db";
-import { project } from "@otterdeploy/db/schema/project";
+import { environment, project, resource } from "@otterdeploy/db/schema/project";
 import { eq } from "drizzle-orm";
 
 import { getProxyRouteByDomain } from "../caddy/queries";
@@ -24,12 +26,31 @@ export interface DomainOrg {
   accessPinHash: string | null;
 }
 
+/** Whether the environment that owns `resourceId` is private. A route with
+ *  no resource (the control-plane route) belongs to no environment. */
+async function inProtectedEnvironment(resourceId: ResourceId | null): Promise<boolean> {
+  if (!resourceId) return false;
+  const [row] = await db
+    .select({ protected: environment.protected })
+    .from(resource)
+    .innerJoin(environment, eq(resource.environmentId, environment.id))
+    .where(eq(resource.id, resourceId))
+    .limit(1);
+  return row?.protected ?? false;
+}
+
 /** Resolve the org that authorizes a protected deployment domain. Returns
  *  null when the domain is unknown OR not protection-enabled. Callers
- *  treat null as "no gate, allow through". */
+ *  treat null as "no gate, allow through".
+ *
+ *  "Protection-enabled" is the same OR the edge renders with (see
+ *  caddy/route-protection.ts): the route's own switch, or a private
+ *  environment, so the authorizer gates exactly the routes the edge sends
+ *  to it. */
 export async function resolveProtectedDomainOrg(domain: string): Promise<DomainOrg | null> {
   const route = await getProxyRouteByDomain(domain);
-  if (!route?.protected) return null;
+  if (!route) return null;
+  if (!route.protected && !(await inProtectedEnvironment(route.resourceId))) return null;
 
   const [proj] = await db
     .select({ orgId: project.organizationId })
