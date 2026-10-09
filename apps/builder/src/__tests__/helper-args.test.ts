@@ -47,6 +47,17 @@ describe("buildHelperEnvFlags", () => {
     expect(FORWARDED_ENV).not.toContain("PUBLIC_WEB_URL");
   });
 
+  test("forwards the build-isolation knobs (BUILDKIT_HOST, BUILDER_ALLOW_UNISOLATED)", () => {
+    // od-48w: an operator-managed BUILDKIT_HOST and the opt-out must reach the
+    // helper so it makes the same fail-closed decision as the worker.
+    expect(FORWARDED_ENV).toContain("BUILDKIT_HOST");
+    expect(FORWARDED_ENV).toContain("BUILDER_ALLOW_UNISOLATED");
+    const flags = buildHelperEnvFlags({
+      BUILDKIT_HOST: "unix:///data/otterdeploy/build/buildkit/buildkitd.sock",
+    });
+    expect(flags).toEqual(["-e", "BUILDKIT_HOST"]);
+  });
+
   test("rewrites a localhost DATABASE_URL/REDIS_URL to host.docker.internal", () => {
     const flags = buildHelperEnvFlags({
       DATABASE_URL: "postgres://user:pass@localhost:5432/db",
@@ -231,6 +242,11 @@ describe("buildHelperRunArgs", () => {
     const args = buildHelperRunArgs(baseArgs);
     expect(args).toContain("otterbuild-dep_123");
     expect(args.slice(-4)).toEqual(["bun", "run", "src/build-one.ts", "dep_123"]);
+  });
+
+  test("never mounts a BuildKit socket: the sandbox is reached via docker exec (od-48w)", () => {
+    const args = buildHelperRunArgs(baseArgs);
+    expect(args.join(" ")).not.toMatch(/buildkit/);
   });
 
   test("places hardening flags before the --add-host / socket mount / env flags", () => {

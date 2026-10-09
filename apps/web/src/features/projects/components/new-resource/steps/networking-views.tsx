@@ -24,6 +24,7 @@ import { useSelector } from "@tanstack/react-form";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
 
+import { portDefaultHint } from "../build-defaults";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { frameworkLabel } from "../frameworks";
@@ -71,8 +72,11 @@ const EDGE_DEFAULTS: Array<{ label: string; sub: string }> = [
 
 export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
   const form = useFormContext();
-  const { framework, defaultPort } = useRepoDetection();
-  const label = frameworkLabel(framework);
+  const detection = useRepoDetection();
+  const builderId = useSelector(form.store, (s) => s.values.builderId);
+  // Where the prefilled port came from: the Dockerfile's EXPOSE when the
+  // Dockerfile builds it, else the framework's conventional port.
+  const portHint = portDefaultHint(builderId, detection);
 
   // The hostname a public row with no typed host will actually publish at.
   // Resolved by the server (org base domain → local dev base → sslip), shown
@@ -86,14 +90,7 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
 
   return (
     <>
-      <SectionHeader
-        title="Ports"
-        sub={
-          label && defaultPort != null
-            ? `Detected ${label}. Port ${defaultPort} prefilled; most apps don't need to change it.`
-            : "Which container ports should be exposed?"
-        }
-      />
+      <SectionHeader title="Ports" sub={portHint ?? "Which container ports should be exposed?"} />
       <form.AppField name="ports">
         {(f) => <f.PortsField hostPlaceholder={derivedHost ?? undefined} />}
       </form.AppField>

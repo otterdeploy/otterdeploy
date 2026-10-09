@@ -7,6 +7,7 @@ import type { ServiceKind } from "@/features/projects/data/service-kinds";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { usePublicHostPreview } from "../use-public-host-preview";
+import { useRepoDetection } from "../use-repo-detection";
 import { buildReviewModel } from "./review-model";
 import { ApplyNote, ComposePreview, ReviewSummaryCard, SectionLabel } from "./review-parts";
 
@@ -21,10 +22,11 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
   // server-side so Review shows the same FQDN the create will stage.
   const formName = useSelector(form.store, (s) => s.values.name);
   const derivedHost = usePublicHostPreview(projectId, formName);
+  const detection = useRepoDetection();
   return (
     <form.Subscribe selector={(s) => s.values}>
       {(values) => {
-        const model = buildReviewModel(kind, values, derivedHost);
+        const model = buildReviewModel(kind, values, derivedHost, detection);
 
         return (
           <>

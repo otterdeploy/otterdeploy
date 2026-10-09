@@ -28,6 +28,8 @@ import { type RegistryCredentialSource, resolvePushCredentials } from "./registr
 export function buildComposeService(args: {
   serviceName: string;
   build: ParsedBuild;
+  organizationId: string;
+  projectId: string;
   imageRepository: string;
   registry: RegistryCredentialSource | null;
   workDir: string;
@@ -40,7 +42,16 @@ export function buildComposeService(args: {
       args;
     const subdir = build.context.replace(/^\.\//, "").replace(/\/$/, "");
     const repoBase = `${imageRepository}-${serviceName}`.toLowerCase();
-    const cachePath = cacheBuilder ? cachePathFor(repoBase) : null;
+    // Cache namespaced by org/project (od-48w): no stack's service cache can
+    // ever collide with another tenant's; `repoBase` keeps per-service dirs
+    // distinct within this project.
+    const cachePath = cacheBuilder
+      ? cachePathFor({
+          organizationId: args.organizationId,
+          projectId: args.projectId,
+          imageRepository: repoBase,
+        })
+      : null;
 
     const image = yield* await Result.tryPromise({
       try: () => {

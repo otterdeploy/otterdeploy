@@ -19,6 +19,7 @@ process.env.CORS_ORIGIN ??= "http://localhost:3000";
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary (see above).
 process.env.RESEND_API_KEY ??= "test-resend-key";
 
+import { Temporal } from "@otterdeploy/shared/temporal";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // A public-URL-bound repo (installationId null) so resolveRepoBinding's
@@ -71,7 +72,7 @@ vi.mock("../../lib/egress-options", () => ({
 
 import { EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 
-import { listRepoBranches } from "./inspect";
+import { inspectRepoTree, listRepoBranches } from "./inspect";
 
 /** The minimal Response surface the code under test touches. */
 function jsonResponse(body: unknown, ok = true, status = 200) {
@@ -121,5 +122,82 @@ describe("listRepoBranches → routed through the shared egress policy", () => {
     await expect(listRepoBranches("gitr_repo2")).rejects.toThrow(
       /GitHub API request blocked by outbound egress policy/,
     );
+  });
+});
+
+/** A raw-text Contents API response (the shape `Accept: raw` returns). */
+function textResponse(body: string, ok = true, status = 200) {
+  return { ok, status, headers: { get: () => null }, text: async () => body };
+}
+
+/** Route the stubbed egress fetch by URL: the tree, then any file contents. */
+function serveRepo(files: Record<string, string>) {
+  egressFetchMock.mockImplementation(async (url: string) => {
+    if (url.includes("/git/trees/")) {
+      const tree = Object.keys(files).map((path) => ({ path, type: "blob", sha: path }));
+      return jsonResponse({ tree });
+    }
+    const match = /\/contents\/([^?]+)/.exec(url);
+    const body = match?.[1] ? files[match[1]] : undefined;
+    return body === undefined ? textResponse("Not Found", false, 404) : textResponse(body);
+  });
+}
+
+describe("inspectRepoTree → Dockerfile detection", () => {
+  beforeEach(() => {
+    egressFetchMock.mockReset();
+    currentRow = {
+      installationId: null,
+      fullName: "corentinth/it-tools",
+      defaultBranch: "main",
+      providerRepoId: null,
+    };
+  });
+
+  it("reports the root Dockerfile and the port its final stage EXPOSEs", async () => {
+    serveRepo({
+      "package.json": JSON.stringify({ devDependencies: { vite: "^5" } }),
+      Dockerfile:
+        "FROM node:lts-alpine AS build\nRUN pnpm build\nFROM nginx:stable-alpine\nEXPOSE 80\n",
+    });
+
+    const result = await inspectRepoTree({ gitRepoId: "gitr_ittools", path: "" });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.framework).toBe("vite");
+    expect(result.value.dockerfile).toEqual({ path: "Dockerfile", exposedPorts: [80] });
+  });
+
+  it("reports no Dockerfile for a repo without one, so the build stays on railpack", async () => {
+    serveRepo({ "package.json": JSON.stringify({ dependencies: { next: "15" } }) });
+
+    const result = await inspectRepoTree({ gitRepoId: "gitr_nodocker", path: "" });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.dockerfile).toBeNull();
+  });
+
+  it("reads the Dockerfile once per TTL across folder navigations, then again after it", async () => {
+    serveRepo({ Dockerfile: "FROM nginx\nEXPOSE 80\n" });
+    const dockerfileReads = () =>
+      egressFetchMock.mock.calls.filter((call: unknown[]) =>
+        String(call[0]).includes("/contents/Dockerfile"),
+      ).length;
+
+    await inspectRepoTree({ gitRepoId: "gitr_ttl", path: "" });
+    await inspectRepoTree({ gitRepoId: "gitr_ttl", path: "" });
+    expect(dockerfileReads()).toBe(1);
+
+    // The cache clock is Temporal's, which fake timers do not move.
+    const later = Temporal.Now.instant().add({ minutes: 5, milliseconds: 1 });
+    const clock = vi.spyOn(Temporal.Now, "instant").mockReturnValue(later);
+    try {
+      await inspectRepoTree({ gitRepoId: "gitr_ttl", path: "" });
+      expect(dockerfileReads()).toBe(2);
+    } finally {
+      clock.mockRestore();
+    }
   });
 });

@@ -52,6 +52,7 @@ export function ReviewSummaryCard({ kind, model }: { kind: ServiceKind; model: R
     <Card className="gap-0 overflow-hidden rounded-md p-0">
       <ReviewRow label="Type" value={kind.name} />
       <ReviewRow label="Name" value={name} />
+      <ReviewRow label="Build" value={model.build ?? undefined} />
       {isDb && version && <ReviewRow label="Version" value={`${kind.id} ${version}`} />}
       <ReviewRow
         label="Resources"

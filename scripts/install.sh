@@ -710,6 +710,53 @@ ensure_network() {
     || warn "Could not create network '$EDGE_NETWORK' — the stack may fail to start."
 }
 
+# ── tenant build sandbox: user-namespace permission (od-48w) ────────────────
+# Tenant builds run in a ROOTLESS buildkitd container the builder provisions
+# itself (apps/builder/src/build-sandbox.ts). Rootless BuildKit needs one user
+# namespace. Ubuntu 23.10+ restricts unprivileged user namespaces to AppArmor
+# profiles that allow them (kernel.apparmor_restrict_unprivileged_userns=1), so
+# on those hosts the sandbox runs under this narrow profile: unconfined like
+# Docker's `apparmor=unconfined`, plus `userns`. This is Ubuntu's own
+# per-application pattern; the host-wide sysctl is left as the distro set it.
+# No-op on hosts without the restriction (e.g. Debian 12), where the sandbox
+# uses `apparmor=unconfined`. Runs on install AND update, so an existing host
+# picks it up with `install.sh update`.
+#
+# The heredoc below is the ONE copy of the profile text: the builder reads it
+# out of this file (apps/builder/src/build-sandbox-apparmor.ts,
+# appArmorProfileFromInstaller) and loads the same profile itself when an
+# in-app update skipped this step. Keep the `<<'PROFILE'` ... `PROFILE` markers.
+BUILD_SANDBOX_PROFILE="otterdeploy-buildkitd"
+provision_build_sandbox_apparmor() {
+  local sysctl=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+  if [ "$(cat "$sysctl" 2>/dev/null || echo 0)" != "1" ]; then
+    say " - Build sandbox: host does not restrict user namespaces; no AppArmor profile needed"
+    return 0
+  fi
+  if ! command -v apparmor_parser >/dev/null 2>&1; then
+    warn "This host restricts user namespaces but has no apparmor_parser, so the isolated build sandbox cannot start and builds will be refused. Install the 'apparmor' package and re-run this installer with 'update'."
+    return 0
+  fi
+  local file="/etc/apparmor.d/$BUILD_SANDBOX_PROFILE"
+  if dry; then say "   + would install + load AppArmor profile $file (userns for the build sandbox)"; return 0; fi
+  $SUDO tee "$file" >/dev/null <<'PROFILE'
+# otterdeploy: rootless BuildKit build sandbox. Managed by otterdeploy (install.sh + builder).
+abi <abi/4.0>,
+include <tunables/global>
+
+profile otterdeploy-buildkitd flags=(unconfined) {
+  userns,
+
+  include if exists <local/otterdeploy-buildkitd>
+}
+PROFILE
+  if $SUDO apparmor_parser -r -W "$file" >/dev/null 2>&1; then
+    say " - Loaded AppArmor profile '$BUILD_SANDBOX_PROFILE' (user namespaces for the build sandbox only)"
+  else
+    warn "Could not load the '$BUILD_SANDBOX_PROFILE' AppArmor profile; the isolated build sandbox will not start and builds will be refused until it loads."
+  fi
+}
+
 # ── 5. data dir + compose file ──────────────────────────────────────────────
 # Run published images — fetch the production compose (image tags pinned via
 # ${OTTERDEPLOY_VERSION}). Re-runs re-fetch so you pick up compose fixes.
@@ -1532,6 +1579,7 @@ update_stack() {
   pin_version_in_env
   prepare_tree
   refresh_docker_user_guard
+  provision_build_sandbox_apparmor
   start_stack
   wait_for_health
   phase_end
@@ -2142,6 +2190,7 @@ main() {
   configure_docker_pool
   ensure_swarm
   ensure_network
+  provision_build_sandbox_apparmor
 
   # resolve_version moved in here from the Docker group: it is a plain network
   # lookup that only needs curl (installed above), and the release tag it picks

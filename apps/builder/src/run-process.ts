@@ -18,6 +18,7 @@
  * or in env).
  */
 
+import { Result } from "better-result";
 import { spawn } from "node:child_process";
 
 import type { LogSink } from "./log-stream";
@@ -117,4 +118,13 @@ function maskSecrets(s: string, secrets?: string[]): string {
     out = out.split(secret).join("***");
   }
   return out;
+}
+
+/** `docker <args>` without echoing the command line: Ok(result) whatever the
+ *  exit code, Err(message) only when docker could not be spawned. */
+export async function dockerQuiet(sink: LogSink, args: string[]) {
+  return Result.tryPromise({
+    try: () => runProcess({ cmd: "docker", args, sink, echo: false }),
+    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+  });
 }

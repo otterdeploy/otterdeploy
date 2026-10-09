@@ -1,193 +1,193 @@
 /**
- * Persistent BuildKit layer cache via a `docker-container` buildx builder.
+ * Tenant build isolation (od-48w) + the persistent BuildKit layer cache.
  *
- * The default docker driver (host-daemon `buildx --load`) can't EXPORT a
- * BuildKit cache — `--cache-to type=local` is rejected with "Cache export is
- * not supported for the docker driver". A `docker-container` driver builder
- * can, and still `--load`s the result into the host daemon, so we run builds
- * through a shared named one and export/import a local cache under the data
- * folder. The cache (and the builder's instance registration, via
- * `BUILDX_CONFIG` — set in handler.ts) live on the mounted data folder, so they
- * survive the throwaway per-build helper containers and warm later builds.
+ * Every tenant Dockerfile/Railpack `RUN` step runs inside buildkitd. The old
+ * design pointed buildx at a shared `--driver docker-container` builder, which
+ * boots its buildkitd companion `--privileged`, so one tenant `RUN` that
+ * escaped runc got host root and every other tenant's build. That is the P0
+ * this module closes.
  *
- * Everything here is BEST-EFFORT: if the builder can't be set up (no docker, no
- * permission, an old docker without buildx), `ensureBuildxBuilder` returns null
- * and the caller builds the original way — default driver, `--load`, no cache.
- * A build NEVER fails because the cache is unavailable.
+ * Now every build goes through buildx's `remote` driver to the ROOTLESS
+ * sandbox the builder provisions itself (build-sandbox.ts): unprivileged, on
+ * its own network, reached through `docker-container://` so it has no
+ * listener at all. The insecure entitlement (`security.insecure`, which
+ * `RUN --security=insecure` needs) is NEVER granted.
+ *
+ * `ensureBuildxBuilder` FAILS CLOSED: if the sandbox cannot be readied it
+ * returns an error rather than building on the host daemon. The only
+ * unisolated path is the explicit single-operator opt-out
+ * (`BUILDER_ALLOW_UNISOLATED=true`), used by local dev.
+ *
+ * Cache: exported/imported `--cache-to/from type=local` under the data folder,
+ * NAMESPACED by org + project so no two tenants ever share a mutable cache dir
+ * (the old shared, repo-keyed dir let two orgs' images with one name collide
+ * and feed layers into each other). Within one project the cache stays warm.
  */
 
 import { buildxCacheDir } from "@otterdeploy/shared/paths";
+import { Result } from "better-result";
 import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
+import { ensureBuildSandbox, removeLegacyPrivilegedSandbox } from "./build-sandbox";
+import { BuildIsolationError } from "./errors";
 import { runProcess } from "./run-process";
 
-/** Stable name for the shared cache builder. Its instance metadata is persisted
- *  across helper containers via BUILDX_CONFIG on the mounted data folder, so
- *  after the first build this resolves on the fast `inspect` path. */
-const BUILDER_NAME = "otterdeploy-cache";
+/** Name of the isolated rootless remote-driver builder. */
+const REMOTE_BUILDER_NAME = "otterdeploy-rootless";
 
-/** Root for exported BuildKit caches — one subdir per image repo. */
+/** The legacy SHARED PRIVILEGED `docker-container` builder registration. */
+const LEGACY_BUILDER_NAME = "otterdeploy-cache";
+
+/** Root for exported BuildKit caches: one subtree per org/project/repo. */
 const CACHE_ROOT = buildxCacheDir();
 
 /**
- * Dedicated docker network for the buildkitd container.
+ * `buildx create` argv for the isolated rootless remote builder. PURE.
  *
- * Created for two independent reasons, either of which would justify it:
- *
- *   1. DNS. On the DEFAULT bridge a container gets a filtered copy of the
- *      host's `/etc/resolv.conf`; when the host resolves through a loopback
- *      stub (systemd-resolved on 127.0.0.53) docker strips it and falls back
- *      to a public resolver the box may not be able to reach. The host itself
- *      is fine, so `docker pull` works and the BUILDER times out resolving
- *      `registry-1.docker.io` — exactly the reported failure (od-jgn3). A
- *      user-defined network instead gets docker's embedded resolver at
- *      127.0.0.11, which is the standard remedy for "the host resolves and the
- *      container does not".
- *   2. Isolation. buildkitd's OCI worker runs RUN steps in its own netns, so a
- *      tenant Dockerfile reaches whatever buildkitd reaches. On the shared
- *      compose network that is postgres, redis and the control plane
- *      (od-5j8.36). Its own network is the fix that issue asks for.
- *
- * NOT `--internal`: builds must reach registries. This narrows what the build
- * sandbox can talk to on the LAN, it is not an egress lock.
- *
- * The obvious alternative, `--driver-opt network=host`, would fix (1) and make
- * (2) strictly worse, which is why it is not used despite being the usual
- * advice.
+ * INVARIANTS (each pinned by a unit test: this is the od-48w fix):
+ *   - the driver is ALWAYS `remote`, NEVER `docker-container` (the privileged
+ *     path) and never the default docker driver;
+ *   - the rootless sandbox endpoint is the only thing it points at;
+ *   - no `--allow-insecure-entitlement` / `security.insecure` is ever emitted,
+ *     so `RUN --security=insecure` has no entitlement to use and fails.
  */
-const BUILD_NETWORK = "otterdeploy-build";
+export function buildxCreateArgs(endpoint: string): string[] {
+  return [
+    "buildx",
+    "create",
+    "--name",
+    REMOTE_BUILDER_NAME,
+    "--driver",
+    "remote",
+    "--bootstrap",
+    endpoint,
+  ];
+}
 
-/**
- * Create the build network if it is missing. Returns whether it can be used.
- *
- * Best-effort: a builder on the default bridge is what every install has today,
- * so failing to create the network must degrade to that rather than stop the
- * build. Never throws.
- */
-async function ensureBuildNetwork(sink: LogSink): Promise<boolean> {
-  const existing = await runProcess({
-    cmd: "docker",
-    args: ["network", "inspect", BUILD_NETWORK],
-    sink,
-    echo: false,
-  }).catch(() => null);
-  if (existing && existing.exitCode === 0) return true;
+/** The endpoint an existing builder registration points at, from
+ *  `docker buildx inspect` output, or null. PURE. */
+export function parseBuilderEndpoint(inspect: string): string | null {
+  const match = inspect.match(/^\s*Endpoint:\s*(\S+)/m);
+  return match?.[1] ?? null;
+}
 
-  const created = await runProcess({
-    cmd: "docker",
-    args: ["network", "create", BUILD_NETWORK],
-    sink,
-    echo: false,
-  }).catch(() => null);
-  // A concurrent build may have created it between the two calls; that races to
-  // a non-zero exit here and is not a failure.
-  if (created && created.exitCode === 0) return true;
+async function inspectBuilder(sink: LogSink, name: string): Promise<string | null> {
+  const ran = await Result.tryPromise(() =>
+    runProcess({ cmd: "docker", args: ["buildx", "inspect", name], sink, echo: false }),
+  );
+  if (ran.isErr() || ran.value.exitCode !== 0) return null;
+  return ran.value.tail;
+}
 
-  const recheck = await runProcess({
-    cmd: "docker",
-    args: ["network", "inspect", BUILD_NETWORK],
-    sink,
-    echo: false,
-  }).catch(() => null);
-  return recheck !== null && recheck.exitCode === 0;
+async function buildx(sink: LogSink, args: string[]): Promise<boolean> {
+  const ran = await Result.tryPromise(() => runProcess({ cmd: "docker", args, sink, echo: false }));
+  return ran.isOk() && ran.value.exitCode === 0;
 }
 
 /**
- * Ensure the shared docker-container buildx builder exists and is booted.
- * Returns its name (to pass as `--builder`), or null if it can't be made ready —
- * in which case the caller falls back to the default-driver `--load` build with
- * no cache. Never throws.
+ * Remove the legacy shared PRIVILEGED `docker-container` builder (its buildx
+ * registration and its buildkitd container) if this install still has it, so
+ * no build ever routes through the privileged path again. Best-effort; the
+ * on-disk layer cache under CACHE_ROOT is untouched.
  */
-
-/**
- * Is the existing buildkitd container attached to the build network?
- *
- * Answering "no" for a builder we cannot inspect is deliberate: a false "yes"
- * leaves a broken builder in place forever, while a false "no" costs one
- * recreate. The asymmetry is the whole reason this is not `?? true`.
- */
-async function builderIsOnBuildNetwork(sink: LogSink): Promise<boolean> {
-  const container = `buildx_buildkit_${BUILDER_NAME}0`;
-  const inspected = await runProcess({
-    cmd: "docker",
-    args: ["inspect", container, "--format", "{{json .NetworkSettings.Networks}}"],
-    sink,
-    echo: false,
-  }).catch(() => null);
-  if (!inspected || inspected.exitCode !== 0) return false;
-  return inspected.tail.includes(`"${BUILD_NETWORK}"`);
-}
-
-export async function ensureBuildxBuilder(sink: LogSink): Promise<string | null> {
-  // Already registered (BUILDX_CONFIG persisted it across helpers) — `--bootstrap`
-  // restarts the buildkitd container if it was stopped.
-  const inspect = await runProcess({
-    cmd: "docker",
-    args: ["buildx", "inspect", BUILDER_NAME, "--bootstrap"],
-    sink,
-    echo: false,
-  }).catch(() => null);
-  if (inspect && inspect.exitCode === 0) {
-    // An install that predates BUILD_NETWORK has a builder on the default
-    // bridge, and this early return is what would keep it there forever: the
-    // fix would only ever reach fresh installs, i.e. not the ones actually
-    // suffering the DNS failure. Migrate it once instead.
-    if (await builderIsOnBuildNetwork(sink)) return BUILDER_NAME;
-    sink.system(`moving the ${BUILDER_NAME} builder onto the ${BUILD_NETWORK} network`);
-    await runProcess({
-      cmd: "docker",
-      args: ["buildx", "rm", BUILDER_NAME],
-      sink,
-      echo: false,
-    }).catch(() => null);
-    // Falls through to create below. The persistent LAYER cache is on disk
-    // under CACHE_ROOT and is untouched by this; only buildkitd's own internal
-    // state is lost, once.
-  }
-
-  // Not registered for this client yet — create it. If a prior build already
-  // created the underlying buildkitd container and it isn't visible here (no
-  // persisted BUILDX_CONFIG, e.g. dev), create can conflict; we just fall back
-  // to no-cache rather than tear down a possibly-live builder.
-  // Put buildkitd on its own network when we can. See BUILD_NETWORK: it fixes
-  // container DNS on hosts that resolve through a loopback stub, and stops a
-  // tenant RUN step from reaching postgres/redis on the shared compose network.
-  const onBuildNetwork = await ensureBuildNetwork(sink);
-  if (!onBuildNetwork) {
+async function removeLegacyPrivilegedBuilder(sink: LogSink): Promise<void> {
+  if ((await inspectBuilder(sink, LEGACY_BUILDER_NAME)) !== null) {
     sink.system(
-      `could not create the ${BUILD_NETWORK} network; the builder will use the default bridge`,
+      `removing the legacy shared privileged '${LEGACY_BUILDER_NAME}' builder: builds now run in the rootless sandbox`,
     );
+    await buildx(sink, ["buildx", "rm", "--force", LEGACY_BUILDER_NAME]);
   }
-
-  const create = await runProcess({
-    cmd: "docker",
-    args: [
-      "buildx",
-      "create",
-      "--name",
-      BUILDER_NAME,
-      "--driver",
-      "docker-container",
-      ...(onBuildNetwork ? ["--driver-opt", `network=${BUILD_NETWORK}`] : []),
-      "--bootstrap",
-    ],
-    sink,
-    echo: false,
-  }).catch(() => null);
-  if (create && create.exitCode === 0) return BUILDER_NAME;
-
-  sink.system("buildx cache builder unavailable — building without a persistent layer cache");
-  return null;
+  await removeLegacyPrivilegedSandbox(sink);
 }
 
-/** Local cache dir for an image repo, e.g.
- *  `<DATA_ROOT>/cache/buildx/ghcr.io_acme_web`. Path-unsafe chars in the repo
- *  (`/`, `:`) collapse to `_` so each repo maps to exactly one dir. */
-export function cachePathFor(imageRepository: string): string {
-  const safe = imageRepository.replace(/[^A-Za-z0-9_.-]+/g, "_");
-  return join(CACHE_ROOT, safe);
+/**
+ * Ready the isolated build backend and return the builder name to pass as
+ * `--builder`, or `null` for the opt-out default-driver path.
+ *
+ * FAILS CLOSED (od-48w): unless the operator explicitly opted out, the build
+ * MUST go through the rootless sandbox; if it cannot be readied this returns
+ * the reason instead of degrading to the host daemon.
+ */
+export async function ensureBuildxBuilder(
+  sink: LogSink,
+  /** Read from `@otterdeploy/env/server` by the caller and passed in so this
+   *  module (and its unit tests) never import the env schema, which throws at
+   *  import time without the full platform secret set. */
+  opts: { buildkitHost: string; allowUnisolated: boolean },
+): Promise<Result<string | null, BuildIsolationError>> {
+  await removeLegacyPrivilegedBuilder(sink);
+
+  if (opts.allowUnisolated && opts.buildkitHost.trim() === "") {
+    sink.system(
+      "BUILDER_ALLOW_UNISOLATED=true: building on the host daemon without tenant isolation (trusted local use only)",
+    );
+    return Result.ok(null);
+  }
+
+  // An operator-supplied BuildKit endpoint wins; otherwise the self-provisioned
+  // sandbox. Never recreate it from inside a build (that would kill the other
+  // builds running in it); the builder's own checks handle spec drift.
+  let endpoint = opts.buildkitHost.trim();
+  if (endpoint === "") {
+    const sandbox = await ensureBuildSandbox(sink, { recreateOnDrift: false });
+    if (sandbox.isErr()) return Result.err(sandbox.error);
+    endpoint = sandbox.value;
+  }
+
+  // Registered already (BUILDX_CONFIG persists it across helper containers)
+  // and pointing at the right place: fast path.
+  const existing = await inspectBuilder(sink, REMOTE_BUILDER_NAME);
+  if (existing !== null && parseBuilderEndpoint(existing) === endpoint) {
+    return Result.ok(REMOTE_BUILDER_NAME);
+  }
+  if (existing !== null) {
+    await buildx(sink, ["buildx", "rm", "--force", REMOTE_BUILDER_NAME]);
+  }
+  if (await buildx(sink, buildxCreateArgs(endpoint))) return Result.ok(REMOTE_BUILDER_NAME);
+  // A concurrent build may have registered it between the inspect and create.
+  const raced = await inspectBuilder(sink, REMOTE_BUILDER_NAME);
+  if (raced !== null && parseBuilderEndpoint(raced) === endpoint) {
+    return Result.ok(REMOTE_BUILDER_NAME);
+  }
+  return Result.err(
+    new BuildIsolationError(
+      `could not register the '${REMOTE_BUILDER_NAME}' builder at ${endpoint}`,
+    ),
+  );
+}
+
+/** One component of a cache namespace, made path-safe (collapse `/`, `:`, etc.
+ *  so each distinct value maps to exactly one dir). PURE. */
+function cacheSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9_.-]+/g, "_");
+}
+
+/** The tenant + image a build's cache belongs to. */
+export interface CacheScope {
+  organizationId: string;
+  projectId: string;
+  imageRepository: string;
+}
+
+/**
+ * Local cache dir for one build, e.g.
+ * `<DATA_ROOT>/cache/buildx/<org>/<project>/ghcr.io_acme_web`.
+ *
+ * NAMESPACED by org + project (od-48w): the old shared, repo-keyed dir let two
+ * orgs' registry-less `otterdeploy-local/web` images (serviceName is not
+ * org-scoped) collide on one mutable dir, so one tenant could read or poison
+ * another's cached layers. Scoping by org+project makes that impossible while
+ * keeping a given project's cache warm across builds. PURE.
+ */
+export function cachePathFor(scope: CacheScope): string {
+  return join(
+    CACHE_ROOT,
+    cacheSegment(scope.organizationId),
+    cacheSegment(scope.projectId),
+    cacheSegment(scope.imageRepository),
+  );
 }
 
 /** `--builder <name>` when a cache builder is in use, else nothing. PURE. */
@@ -197,16 +197,13 @@ export function builderFlags(builderName: string | null | undefined): string[] {
 
 /**
  * `--cache-from`/`--cache-to type=local` flags — emitted ONLY when both a
- * docker-container builder and a cache path are present (the default driver
- * rejects cache export, so we must not emit these without the builder). PURE.
+ * remote builder and a (tenant-scoped) cache path are present (the default
+ * driver rejects cache export, so we must not emit these without the builder).
+ * PURE.
  *
  * `noCache` is the per-deploy bypass ("Redeploy without cache"): it drops
- * `--cache-from` so nothing stale is READ, but deliberately keeps `--cache-to`
- * so the run repopulates the cache for the next build. A bypass that also
- * stopped writing would make every subsequent build slow too, which is not what
- * anyone means by "rebuild this one from scratch". The matching `--no-cache`
- * (which invalidates BuildKit's own in-builder cache) is emitted by the
- * callers alongside these flags.
+ * `--cache-from` so nothing stale is READ, but keeps `--cache-to` so the run
+ * repopulates the cache for the next build.
  */
 export function cacheFlags(
   builderName: string | null | undefined,
@@ -234,8 +231,7 @@ export function noCacheFlags(noCache: boolean | null | undefined): string[] {
  * The SHAPE lives here, next to the other cache flags, rather than in
  * turbo-cache.ts. That module resolves the service's encrypted variables and
  * therefore imports the db, and railpack.ts must not drag a database
- * connection into its module graph just to name a type — doing so broke
- * builder unit tests that have no DATABASE_URL.
+ * connection into its module graph just to name a type.
  */
 export interface TurboCacheEnv {
   /** Keys → values to expose to the build process, empty when disabled. */
@@ -246,14 +242,7 @@ export interface TurboCacheEnv {
 export const NO_TURBO_CACHE: TurboCacheEnv = { env: {} };
 
 /**
- * `TURBO_FORCE=1` when the deploy asked to bypass caches.
- *
- * The per-deploy bypass is one flag across every layer: buildx gets
- * `--no-cache` plus a dropped `--cache-from`, and turbo gets this, which makes
- * it re-run every task instead of restoring outputs from the (local or remote)
- * cache. Without it a "rebuild without cache" would still hydrate the app's
- * build output straight out of the turbo cache, which is exactly what the
- * operator was trying to rule out. PURE.
+ * `TURBO_FORCE=1` when the deploy asked to bypass caches. PURE.
  */
 export function turboForceEnv(noCache: boolean | null | undefined): Record<string, string> {
   return noCache ? { TURBO_FORCE: "1" } : {};

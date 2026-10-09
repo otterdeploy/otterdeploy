@@ -195,7 +195,11 @@ services:
       # runs from (so the runtime can pull them).
       - /var/run/docker.sock:/var/run/docker.sock
       # Same-path data folder — holds the persistent BuildKit layer cache
-      # (cache/buildx) and the ephemeral build scratch (work/).
+      # (cache/buildx) and the ephemeral build scratch (work/). Tenant builds
+      # themselves run in the rootless sandbox container the builder
+      # provisions through the docker socket above (apps/builder/src/build-sandbox.ts):
+      # self-provisioned so in-app upgrades, which never refresh this file,
+      # get it too.
       - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -26,6 +26,8 @@ import { ghFetch } from "../../git/github-app";
 import {
   collectWorkspaceGlobs,
   COMMITTED_ENV_FILES,
+  detectDockerfile,
+  type DockerfileDetection,
   detectFrameworkForPath,
   detectMonorepoFromPaths,
   ENV_TEMPLATE_FILES,
@@ -62,6 +64,9 @@ export interface InspectResult {
   path: string;
   entries: InspectEntry[];
   framework: FrameworkKind;
+  /** The Dockerfile at this path, which a git service builds with by default
+   *  (railpack is the fallback when there is none). */
+  dockerfile: DockerfileDetection | null;
   monorepo: MonorepoKind;
   monorepoPackages: string[];
   /** Suggested `buildConfig.watchPatterns` for a workspace app at this path.
@@ -94,6 +99,7 @@ export async function inspectRepoTree(args: {
 
   const entries = listChildren(snap.value, path);
   const framework = await detectFrameworkForPath(binding, snap.value, path, args.gitRepoId);
+  const dockerfile = await detectDockerfile(binding, snap.value, path, args.gitRepoId);
 
   // The monorepo signals describe the REPO, so they're derived once at the
   // root. `watchPatterns` describe one app inside it, so they're derived for a
@@ -128,6 +134,7 @@ export async function inspectRepoTree(args: {
     path,
     entries,
     framework,
+    dockerfile,
     monorepo,
     monorepoPackages,
     watchPatterns,

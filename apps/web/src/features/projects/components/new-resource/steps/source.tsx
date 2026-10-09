@@ -31,6 +31,8 @@ import { orpc } from "@/shared/server/orpc";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { RootDirectoryPicker } from "../root-directory-picker";
+import { useRepoDetection } from "../use-repo-detection";
+import { BuildMethodSelector } from "./build-method-selector";
 import { BindingSummary, useBindingSummary } from "./source-binding";
 import { useSourceDefaults } from "./source-defaults";
 import {
@@ -49,6 +51,8 @@ export function StepSource() {
   const root = useSelector(form.store, (s) => s.values.root);
   const name = useSelector(form.store, (s) => s.values.name);
   const kindId = useSelector(form.store, (s) => s.values.kindId);
+  const builderId = useSelector(form.store, (s) => s.values.builderId);
+  const detection = useRepoDetection();
   // This step only renders inside a project route, so both params exist; the
   // `?? ""` only satisfies the `strict: false` typing.
   const params = useParams({ strict: false });
@@ -157,6 +161,13 @@ export function StepSource() {
                   defaults.pinKind();
                   form.setFieldValue("kindId", next);
                 }}
+              />
+              <BuildMethodSelector
+                kindId={kindId}
+                builderId={builderId}
+                detection={detection}
+                root={root}
+                onChange={(next) => void defaults.onBuilderPicked(next)}
               />
               <form.AppField name="name">
                 {(f) => (

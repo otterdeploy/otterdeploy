@@ -6,6 +6,7 @@ import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
 import { db } from "@otterdeploy/db";
 import { composeResource, deployment, resource } from "@otterdeploy/db/schema";
+import { env } from "@otterdeploy/env/server";
 import { COMPOSE_FILENAMES } from "@otterdeploy/shared/compose";
 /**
  * Build path for `type: compose` resources with `build:` services.
@@ -32,7 +33,12 @@ import type { LogSink } from "./log-stream";
 import { ensureBuildxBuilder } from "./buildx";
 import { buildComposeService } from "./compose-build-service";
 import { acquireComposeSource, loadComposeBuildContext } from "./compose-source";
-import { BuildStepError, type DeploymentSupersededError, InvalidDeploymentError } from "./errors";
+import {
+  BuildIsolationError,
+  BuildStepError,
+  type DeploymentSupersededError,
+  InvalidDeploymentError,
+} from "./errors";
 import { PipelineLoadError } from "./load";
 import { transitionStep } from "./pipeline-steps";
 import { markBuilding, markImageReady, markRunning } from "./state";
@@ -55,7 +61,11 @@ export async function runComposeBuild(
 ): Promise<
   Result<
     string,
-    PipelineLoadError | BuildStepError | InvalidDeploymentError | DeploymentSupersededError
+    | PipelineLoadError
+    | BuildStepError
+    | BuildIsolationError
+    | InvalidDeploymentError
+    | DeploymentSupersededError
   >
 > {
   return Result.gen(async function* () {
@@ -119,9 +129,13 @@ export async function runComposeBuild(
       );
     }
 
-    // Best-effort persistent layer cache, shared across this stack's services
-    // (each keyed by its own image repo below). Null → no cache, default build.
-    const cacheBuilder = await ensureBuildxBuilder(sink);
+    // Ready the isolated rootless build backend, shared across this stack's
+    // services (each cache-namespaced by org/project/image below). FAILS CLOSED
+    // on a configured install (od-48w); null only under the explicit opt-out.
+    const cacheBuilder = yield* await ensureBuildxBuilder(sink, {
+      buildkitHost: env.BUILDKIT_HOST,
+      allowUnisolated: env.BUILDER_ALLOW_UNISOLATED,
+    });
 
     // Build each `build:` service to its own image; image-only services pass
     // through untouched.
@@ -147,6 +161,8 @@ export async function runComposeBuild(
       builtImages[svc.name] = yield* await buildComposeService({
         serviceName: svc.name,
         build: svc.build,
+        organizationId: ctx.project.organizationId,
+        projectId: ctx.project.id,
         imageRepository: ctx.imageRepository,
         registry: ctx.registry,
         workDir,

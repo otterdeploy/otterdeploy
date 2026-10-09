@@ -64,6 +64,23 @@ export class BuildStepError extends TaggedError("BuildStepError")<{
   }
 }
 
+/** The rootless build sandbox required to run an untrusted tenant build could
+ *  not be readied, and the install has not explicitly opted in to building on
+ *  the unisolated host daemon. Failing closed is the point (od-48w): a tenant
+ *  `RUN` step must never execute where an escape is host root. `reason` says
+ *  why and, when the host needs preparing, the exact command. */
+export class BuildIsolationError extends TaggedError("BuildIsolationError")<{
+  reason: string;
+  message: string;
+}>() {
+  constructor(reason: string) {
+    super({
+      reason,
+      message: `isolated build sandbox unavailable: ${reason}. The build was refused rather than run unisolated on the host; System health shows the same status. A single-operator install that builds only trusted code can set BUILDER_ALLOW_UNISOLATED=true instead.`,
+    });
+  }
+}
+
 /** The deployment row carries no gitSha / gitRef. It isn't a git-triggered
  *  build, so there's nothing to check out. */
 export class InvalidDeploymentError extends TaggedError("InvalidDeploymentError")<{

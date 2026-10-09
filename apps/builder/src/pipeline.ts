@@ -28,6 +28,7 @@ import { isPreviewActive, loadPreviewScope } from "@otterdeploy/api/lib/environm
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema";
+import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { rm } from "node:fs/promises";
@@ -40,7 +41,12 @@ import { ensureBuildxBuilder, cachePathFor, type TurboCacheEnv } from "./buildx"
 import { cloneRepoAtSha } from "./clone";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { detectServiceFramework } from "./detect-framework";
-import { BuildStepError, InvalidDeploymentError, SwarmUpdateError } from "./errors";
+import {
+  BuildIsolationError,
+  BuildStepError,
+  InvalidDeploymentError,
+  SwarmUpdateError,
+} from "./errors";
 import { extractTarballToWorkDir } from "./extract";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
@@ -140,14 +146,33 @@ async function previewClosedDuringBuild(
 async function resolveBuildCaches(
   ctx: PipelineContext,
   sink: LogSink,
-): Promise<{
-  cacheBuilder: string | null;
-  cachePath: string | null;
-  noCache: boolean;
-  turboCache: TurboCacheEnv;
-}> {
-  const cacheBuilder = await ensureBuildxBuilder(sink);
-  const cachePath = cacheBuilder ? cachePathFor(ctx.imageRepository) : null;
+): Promise<
+  Result<
+    {
+      cacheBuilder: string | null;
+      cachePath: string | null;
+      noCache: boolean;
+      turboCache: TurboCacheEnv;
+    },
+    BuildIsolationError
+  >
+> {
+  // Ready the isolated rootless build backend. FAILS CLOSED: on a configured
+  // install this short-circuits the whole build rather than running a tenant
+  // RUN step on the unisolated host daemon (od-48w).
+  const builder = await ensureBuildxBuilder(sink, {
+    buildkitHost: env.BUILDKIT_HOST,
+    allowUnisolated: env.BUILDER_ALLOW_UNISOLATED,
+  });
+  if (builder.isErr()) return Result.err(builder.error);
+  const cacheBuilder = builder.value;
+  const cachePath = cacheBuilder
+    ? cachePathFor({
+        organizationId: ctx.project.organizationId,
+        projectId: ctx.project.id,
+        imageRepository: ctx.imageRepository,
+      })
+    : null;
 
   const noCache = ctx.deployment.noCache === true;
   if (noCache) {
@@ -165,7 +190,7 @@ async function resolveBuildCaches(
     sink,
   });
 
-  return { cacheBuilder, cachePath, noCache, turboCache };
+  return Result.ok({ cacheBuilder, cachePath, noCache, turboCache });
 }
 
 function runBuildSteps(
@@ -255,11 +280,12 @@ function runBuildSteps(
     // below stays builder-agnostic.
     const builder = resolveBuilder(ctx.service.buildConfig, sink);
 
-    // Best-effort persistent layer cache: when a docker-container buildx builder
-    // can be set up, route the build through it with a local cache keyed by the
-    // image repo. Returns null (→ no cache, default-driver `--load`) on any
-    // failure, so a build never depends on the cache being available.
-    const { cacheBuilder, cachePath, noCache, turboCache } = await resolveBuildCaches(ctx, sink);
+    // Ready the isolated rootless build backend + the tenant-scoped layer
+    // cache. FAILS CLOSED on a configured install: a build never runs a tenant
+    // RUN step on the unisolated host daemon (od-48w). An explicit opt-out
+    // (BUILDER_ALLOW_UNISOLATED) is the only unisolated path, and yields a null
+    // builder → no cache, default-driver `--load`.
+    const caches = yield* await resolveBuildCaches(ctx, sink);
 
     // The service's env, for build-time frameworks (NEXT_PUBLIC_*, VITE_*) and
     // RAILPACK_* overrides. Same bag + preview scoping the container gets.
@@ -279,10 +305,7 @@ function runBuildSteps(
         sourceSubdir: ctx.service.sourceSubdir,
         imageRepository: ctx.imageRepository,
         gitSha: buildTag,
-        cacheBuilder,
-        cachePath,
-        noCache,
-        turboCache,
+        ...caches,
         serviceEnv,
         sink,
       }),
