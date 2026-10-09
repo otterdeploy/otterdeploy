@@ -17,8 +17,9 @@
  * These tests drive the real oRPC procedures end-to-end (via
  * `createProcedureClient`, with a hand-built `Context` standing in for a
  * real session) and prove that a caller whose ACTIVE org is org A, but whose
- * INPUT claims org B, only ever touches org A's data, never org B's, and
- * never a leak/500 in between.
+ * INPUT claims org B, never touches org B's data and never leaks or 500s.
+ * The request is refused outright (409 ORGANIZATION_SWITCHED) rather than
+ * quietly served from org A.
  */
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
@@ -130,31 +131,35 @@ function sessionContext(activeOrganizationId: OrganizationId): Context {
 }
 
 describe("organization router tenant scope (od-5j8.8)", () => {
-  test("settings: org-A actor claiming org B in input still only ever sees org A's data", async () => {
+  // An input naming another organization is refused outright: a page that
+  // names organization B is not one this session acts in, and acting in A
+  // instead would be a silent mismatch.
+  test("settings: org-A actor claiming org B in input is refused, and never sees org B's data", async () => {
     const client = createProcedureClient(organizationRouter.settings, {
       context: sessionContext(orgA),
     });
 
-    const result = await client({ organizationId: orgB });
-
-    expect(result.baseDomain).toBe("org-a.example.com");
-    expect(getOrganizationSettings).toHaveBeenCalledWith(orgA);
+    await expect(client({ organizationId: orgB })).rejects.toMatchObject({
+      code: "ORGANIZATION_SWITCHED",
+      status: 409,
+    });
     expect(getOrganizationSettings).not.toHaveBeenCalledWith(orgB);
+
+    const own = await client({ organizationId: orgA });
+    expect(own.baseDomain).toBe("org-a.example.com");
+    expect(getOrganizationSettings).toHaveBeenCalledWith(orgA);
   });
 
-  test("setBaseDomain: org-A actor claiming org B in input mutates org A, never org B", async () => {
+  test("setBaseDomain: org-A actor claiming org B in input is refused, mutating neither", async () => {
     const client = createProcedureClient(organizationRouter.setBaseDomain, {
       context: sessionContext(orgA),
     });
 
-    const result = await client({ organizationId: orgB, baseDomain: "evil-takeover.example.com" });
-
-    expect(result.baseDomain).toBe("evil-takeover.example.com");
-    expect(updateOrganizationBaseDomain).toHaveBeenCalledWith({
-      organizationId: orgA,
-      baseDomain: "evil-takeover.example.com",
-    });
-    // Org B's row is untouched by the attacker's request.
+    await expect(
+      client({ organizationId: orgB, baseDomain: "other.example.com" }),
+    ).rejects.toMatchObject({ code: "ORGANIZATION_SWITCHED", status: 409 });
+    expect(updateOrganizationBaseDomain).not.toHaveBeenCalled();
     expect(settingsByOrg[orgB]?.baseDomain).toBe("org-b.example.com");
+    expect(settingsByOrg[orgA]?.baseDomain).toBe("org-a.example.com");
   });
 });

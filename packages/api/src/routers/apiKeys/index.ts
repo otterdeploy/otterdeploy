@@ -1,3 +1,5 @@
+import type * as z from "zod";
+
 import { ORPCError } from "@orpc/server";
 /**
  * API keys router. A single server-side `create` that delegates to the
@@ -10,11 +12,52 @@ import { ORPCError } from "@orpc/server";
  * shows it and discards it; it's never persisted in readable form.
  */
 import { auth } from "@otterdeploy/auth";
+import { claimRequest, releaseRequest } from "@otterdeploy/db/request-claim";
 import { omitUndefined } from "@otterdeploy/shared/object";
+import { Result } from "better-result";
+import { createHash } from "node:crypto";
 
 import { requirePermission } from "../..";
 import { ungrantableKeyPermissions } from "../../authz/api-key-scope";
-import { FULL_ACCESS } from "./contract";
+import { createApiKeyInput, FULL_ACCESS } from "./contract";
+
+/**
+ * How long a create claims its request for: long enough to
+ * cover a double click, two CLI runs started together, and a client retrying
+ * after it lost the response; short enough that deliberately making the very
+ * same key again a moment later is only a short wait.
+ */
+const API_KEY_CREATE_WINDOW_SECONDS = 30;
+
+type CreateInput = z.infer<typeof createApiKeyInput>;
+
+/**
+ * What makes two creates "the same request": the organization, the user, and
+ * everything the key is made of (name, expiry, grant, presets), in a canonical
+ * order. A second key with another name or grant is a different request and
+ * goes through; the same submit again inside the window does not.
+ */
+function createClaimKey(organizationId: string, userId: string, input: CreateInput): string {
+  const permissions =
+    input.permissions === FULL_ACCESS
+      ? FULL_ACCESS
+      : Object.entries(input.permissions)
+          .map(([resource, actions]) => [resource, actions.toSorted()] as const)
+          .toSorted(([a], [b]) => a.localeCompare(b));
+  const fingerprint = createHash("sha256")
+    .update(
+      JSON.stringify([
+        input.name,
+        input.expiresIn,
+        permissions,
+        input.accessLevel ?? null,
+        input.projectScope ?? null,
+        input.projectIds?.toSorted() ?? null,
+      ]),
+    )
+    .digest("hex");
+  return `api-key.create:${organizationId}:${userId}:${fingerprint}`;
+}
 
 export const apiKeysRouter = {
   create: requirePermission({ apiKey: ["create"] }).apiKeys.create.handler(
@@ -63,16 +106,38 @@ export const apiKeysRouter = {
         }
       }
 
-      const created = await auth.api.createApiKey({
-        body: omitUndefined({
-          name: input.name,
-          expiresIn: input.expiresIn,
-          userId: context.session.user.id,
-          organizationId: context.activeOrganizationId,
-          permissions,
-          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-        }),
+      // The plaintext key is in the response and nowhere else, so a repeated
+      // create (a double click, a retry after the response was lost) would
+      // leave a second live credential nobody holds. The first request claims
+      // the name for a short window; an identical one inside it is refused.
+      const userId = context.session.user.id;
+      const claimKey = createClaimKey(context.activeOrganizationId, userId, input);
+      if (!(await claimRequest(claimKey, API_KEY_CREATE_WINDOW_SECONDS))) {
+        throw errors.CONFLICT({
+          message: `An identical API key named "${input.name}" was created moments ago. If that was this same request repeated, the key is in your list; revoke it there if you never saw its secret.`,
+          data: { name: input.name, retryAfterSeconds: API_KEY_CREATE_WINDOW_SECONDS },
+        });
+      }
+      const minted = await Result.tryPromise({
+        try: () =>
+          auth.api.createApiKey({
+            body: omitUndefined({
+              name: input.name,
+              expiresIn: input.expiresIn,
+              userId,
+              organizationId: context.activeOrganizationId,
+              permissions,
+              metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+            }),
+          }),
+        catch: (cause) => cause,
       });
+      if (minted.isErr()) {
+        // Nothing was made, so a corrected resubmit is not a duplicate.
+        await releaseRequest(claimKey);
+        throw minted.error;
+      }
+      const created = minted.value;
 
       context.log.set({ target: { type: "apiKey", id: created.id } });
 

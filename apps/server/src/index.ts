@@ -4,6 +4,7 @@ import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
+import { ACTING_ORGANIZATION_HEADER } from "@otterdeploy/api/authz/acting-organization";
 import { createContext } from "@otterdeploy/api/context";
 import { appRouter } from "@otterdeploy/api/routers/index";
 import {
@@ -190,7 +191,14 @@ app.use(
     // sends `x-otterdeploy-bootstrap-token` as a CORS-unsafe request header. Left
     // out, the browser fails the preflight and the first-account form can never
     // reach the server, the one flow with no alternative path in.
-    allowHeaders: ["Content-Type", "Authorization", BOOTSTRAP_TOKEN_HEADER],
+    // The acting-organization header rides on every dashboard RPC call;
+    // unlisted, a split-origin deploy would fail every preflight.
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      BOOTSTRAP_TOKEN_HEADER,
+      ACTING_ORGANIZATION_HEADER,
+    ],
     credentials: true,
   }),
 );

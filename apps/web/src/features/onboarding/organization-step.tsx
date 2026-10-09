@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { authClient } from "@/lib/auth-client";
 import { invalidateAuth } from "@/lib/auth-queries";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import { actInOrganization } from "@/shared/server/acting-organization";
 
 import { messages, nameAndSlugSchema, slugifier, type CreatedOrg } from "./shared";
 import { StepFrame, WizardActions, WizardField } from "./wizard-parts";
@@ -27,6 +28,8 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
           `Could not activate organization: ${activated.error.message ?? "Unknown error"}`,
         );
       }
+      // The next steps (domain, first project) act in the new organization.
+      actInOrganization(created.data.id);
 
       return { id: created.data.id, slug: created.data.slug, name: created.data.name };
     },

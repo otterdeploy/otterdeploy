@@ -2,6 +2,7 @@ import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { UpdateProvider } from "@/features/updates";
+import { actInOrganization } from "@/shared/server/acting-organization";
 
 const zOrgSlug = z.object({
   orgSlug: z
@@ -33,6 +34,15 @@ export const Route = createFileRoute("/_app/$orgSlug")({
   ),
   params: {
     parse: (raw) => zOrgSlug.parse(raw),
+  },
+  // Every page under here acts in the URL's organization while the session is
+  // in it: its API calls say so (shared/server/acting-organization.ts), and
+  // the server refuses one the session has since left (another tab switched
+  // it) rather than acting in the other organization.
+  beforeLoad: ({ context, params }) => {
+    const organization = context.organizations.find((o) => o.slug === params.orgSlug);
+    const inSession = organization && context.activeOrganizationId === organization.id;
+    actInOrganization(inSession ? organization.id : null);
   },
   loader: ({ context, params }) => {
     const organization = context.organizations.find(

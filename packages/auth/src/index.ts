@@ -28,6 +28,7 @@ import { createGitlabProviderOptions, TRUSTED_LINKING_PROVIDERS } from "./gitlab
 import { ANY_HTTPS_ORIGIN, mayReachExternalIdp } from "./idp-trust";
 import { sendInvitationEmail } from "./invitation-email";
 import { enabledSocialProviderIds, setEnabledSocialProviderIds } from "./live-providers";
+import { organizationGuards } from "./organization-guards";
 import { bindPasskeyRelyingParty } from "./passkey-rp";
 import { ac, roles } from "./permissions";
 import {
@@ -636,6 +637,10 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
           },
         },
       }),
+      // A refused org switch keeps the session's workspace; an
+      // invitation sent twice at once, or retried, is sent once.
+      // See ./organization-guards.ts.
+      organizationGuards(),
     ],
   });
 }

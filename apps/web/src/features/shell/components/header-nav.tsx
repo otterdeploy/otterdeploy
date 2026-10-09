@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { cn } from "@/shared/lib/utils";
+import { actInOrganization } from "@/shared/server/acting-organization";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 function Separator() {
@@ -117,7 +118,10 @@ export function HeaderNav() {
 
   const selectOrg = async (org: { id: string; slug: string }) => {
     if (org.id === organization.id) return;
-    await authClient.organization.setActive({ organizationId: org.id });
+    const switched = await authClient.organization.setActive({ organizationId: org.id });
+    // This tab now acts in the new organization: the refetches below must say
+    // so, or the server refuses them as calls from the previous one.
+    if (!switched.error) actInOrganization(org.id);
     await Promise.all([
       // The session payload carries activeOrganizationId, and the gate now
       // serves it from a 5min-stale cache, so switching org MUST drop it, or

@@ -71,12 +71,15 @@ import {
 import { platformSettingsRouter } from "./platform-settings-router";
 
 // Every handler below derives the org it acts on from `context.activeOrganizationId`
-// (the caller's own session/API-key org), NEVER from `input.organizationId`.
-// The path/input still carries `organizationId` (REST needs it in the URL,
-// and the contract types it as required) but it is intentionally unused for
-// authorization or data access, trusting it let one org's owner/admin
-// read or mutate ANY other org's base domain, Cloudflare config, or member
-// list just by editing the id in the request. See od-5j8.8.
+// (the caller's own session/API-key org), NEVER from `input.organizationId`:
+// trusting it let one org's owner/admin read or mutate ANY other org's base
+// domain, Cloudflare config, or member list just by editing the id in the
+// request (od-5j8.8). The path/input still carries `organizationId` (REST
+// needs it in the URL) and it is not ignored: the org-scoped middleware
+// refuses a request whose `organizationId` is not the active organization
+// (409 ORGANIZATION_SWITCHED), so a save sent from organization
+// A's settings page after another tab switched the session to B never writes
+// B's settings. See authz/acting-organization.ts.
 /** Member administration reads are a signed-in user's, never an API key's. */
 const SESSION_REQUIRED = "Listing members and invitations needs a signed-in user, not an API key.";
 

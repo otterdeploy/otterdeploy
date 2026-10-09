@@ -1,12 +1,11 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 
 import { implement, os as orpc } from "@orpc/server";
-import * as z from "zod";
 
 import type { Context } from "./context";
 
 import { authorizeCapability } from "./authz/capability";
-import { isOrgMember } from "./authz/org-member";
+import { apiKeyRateLimitedError, orgScopedMiddleware } from "./authz/org-scope-middleware";
 import { isReadAction, isReadMethod } from "./authz/procedure-mode";
 import { procedureTimeout } from "./authz/procedure-timeout";
 import { traceProcedure } from "./authz/procedure-trace";
@@ -86,17 +85,6 @@ export const publicProcedure = implement({
   // not as a request that simply never produced a wide event (od-664).
   .use(procedureTimeout);
 
-/** A real API key over its budget is a 429 with a retry hint, not a 401
- * . Shared by both authenticating middlewares below. Keyed by
- *  oRPC's standard TOO_MANY_REQUESTS code: at runtime the error map is the
- *  contract procedure's, not this middleware's, so the status comes from the
- *  code's built-in default (429), the same way UNAUTHORIZED gets its 401. */
-const apiKeyRateLimitedError = {
-  status: 429,
-  message: "API key rate limit exceeded.",
-  data: z.object({ retryAfterSeconds: z.number() }),
-} as const;
-
 const authMiddleware = orpc
   .$context<Context>()
   .errors({
@@ -128,61 +116,6 @@ const authMiddleware = orpc
   });
 
 export const protectedProcedure = publicProcedure.use(authMiddleware);
-
-/**
- * Procedure that requires both authentication AND an active organization.
- * Handlers receive `context.activeOrganizationId` narrowed to `string`.
- */
-const orgScopedMiddleware = orpc
-  .$context<Context>()
-  .errors({
-    UNAUTHORIZED: { message: "Unauthorized" },
-    TOO_MANY_REQUESTS: apiKeyRateLimitedError,
-    NO_ACTIVE_ORGANIZATION: {
-      status: 400,
-      message: "No active organization. Set one before calling this endpoint.",
-    },
-    FORBIDDEN: {
-      status: 403,
-      message: "You are not a member of this organization.",
-    },
-  })
-  .middleware(async ({ context, next, errors }) => {
-    // Session/cookie/CLI-bearer user OR a verified API-key actor. For a key
-    // actor `activeOrganizationId` was already populated from the key's owning
-    // org in createContext, so the NO_ACTIVE_ORGANIZATION gate still holds.
-    if (!context.actor) {
-      if (context.apiKeyRateLimited) {
-        throw errors.TOO_MANY_REQUESTS({
-          message: context.apiKeyRateLimited.message,
-          data: { retryAfterSeconds: context.apiKeyRateLimited.retryAfterSeconds },
-        });
-      }
-      throw errors.UNAUTHORIZED();
-    }
-    if (!context.activeOrganizationId) {
-      throw errors.NO_ACTIVE_ORGANIZATION();
-    }
-    // A session names its active organization, but only the member table says
-    // the user still belongs to it: a member removed mid-session keeps a
-    // session (and up to five minutes of cookie cache) that still names the
-    // organization. One indexed lookup per org-scoped call. A key
-    // actor's organization is the key's own, so it needs no such check.
-    if (
-      context.session &&
-      !(await isOrgMember(context.session.user.id, context.activeOrganizationId))
-    ) {
-      throw errors.FORBIDDEN();
-    }
-    return next({
-      context: {
-        actor: context.actor,
-        session: context.session,
-        apiKey: context.apiKey,
-        activeOrganizationId: context.activeOrganizationId,
-      },
-    });
-  });
 
 /**
  * Constrains an API-key actor to the project(s) its scope allows, for EVERY
