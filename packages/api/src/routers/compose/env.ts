@@ -47,6 +47,24 @@ export function substituteComposeEnv(
   return { env: out, missing: [...missing] };
 }
 
+/**
+ * A bare `environment` key's value: the same-named stack variable, the way
+ * compose reads it from the shell it runs in. A key with no such variable is
+ * left out entirely, so an `env_file` value for it still applies and anything
+ * else stays UNSET in the container, never `""`.
+ */
+export function passthroughEnvValues(
+  keys: readonly string[],
+  projectVars: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of keys) {
+    const value = projectVars[key];
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
+}
+
 export interface ComposeVarRef {
   name: string;
   /** The `:-default` if the file provides one, else null (value required). */

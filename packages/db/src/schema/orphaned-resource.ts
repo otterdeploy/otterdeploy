@@ -61,7 +61,7 @@ export const orphanedResource = pgTable(
     serverId: text("server_id").$type<ServerId>(),
     resourceType: orphanedResourceTypeEnum("resource_type").notNull(),
     // The runtime ref the teardown primitive needs (swarm service name, volume
-    // name, network/project slug, image repo, compose resource id).
+    // name, network name, image repo, compose resource id).
     ref: text("ref").notNull(),
     // Originating project/resource: already deleted, forensics/UI only, no FK.
     projectId: text("project_id").$type<ProjectId>(),

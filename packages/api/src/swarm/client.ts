@@ -2,9 +2,11 @@ import type { EndpointSettings } from "@otterdeploy/docker";
 import type { RequestLogger } from "evlog";
 
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
+import { Result } from "better-result";
 
 import { PLATFORM } from "../constants";
 import { asStepLogger } from "../lib/logger";
+import { SwarmOperationError } from "./errors";
 import { projectNetworkName } from "./network-name";
 
 export async function ensureSwarm(): Promise<void> {
@@ -220,41 +222,71 @@ export async function ensureEdgeOnProjectNetworks(rlog?: RequestLogger): Promise
   }
 }
 
+/** What happened to a project network on removal. */
+export type NetworkRemoval =
+  /** It existed, belonged to the project, and is gone. */
+  | "removed"
+  /** There was nothing to remove. */
+  | "absent"
+  /** A network by that name exists but another project created it: two slugs
+   *  can render the same name (`web` + env `staging` vs project
+   *  `web-staging`), and that one is not ours to take down. */
+  | "foreign";
+
 /**
- * Remove a project's overlay network.
- * Disconnects all containers first.
+ * Remove one of a project's overlay networks (`networkName`, as
+ * `projectNetworkName` renders it for the project or one of its environments).
+ *
+ * Disconnects what is still attached first: the edge (Caddy) is connected to
+ * every project network and holds an endpoint on it until told otherwise. A
+ * network still used by a swarm service is refused by the daemon, which comes
+ * back as an error to retry, never as a forced removal.
  */
 export async function removeProjectNetwork(
-  projectSlug: string,
-  scopeSuffix = "",
+  input: { networkName: string; projectSlug: string },
   rlog?: RequestLogger,
-): Promise<void> {
+): Promise<Result<NetworkRemoval, SwarmOperationError>> {
   const log = asStepLogger(rlog);
-  const networkName = projectNetworkName(projectSlug, scopeSuffix);
   const docker = Docker.fromEnv();
+  try {
+    const inspectResult = await docker.networks.inspect(input.networkName);
+    if (inspectResult.isErr()) {
+      return inspectResult.error instanceof DockerNotFoundError
+        ? Result.ok("absent")
+        : Result.err(
+            new SwarmOperationError({ step: "inspect-network", cause: inspectResult.error }),
+          );
+    }
+    const network = inspectResult.value;
+    if (network.Labels?.["otterdeploy.project"] !== input.projectSlug) return Result.ok("foreign");
 
-  const inspectResult = await docker.networks.inspect(networkName);
-  if (inspectResult.isErr()) {
+    const handle = docker.networks.getNetwork(input.networkName);
+    for (const [containerId, endpoint] of Object.entries(network.Containers ?? {})) {
+      const disconnected = await handle.disconnect({ Container: containerId, Force: true });
+      if (disconnected.isErr()) {
+        log.warn({
+          swarm: {
+            step: "disconnect-container",
+            network: input.networkName,
+            container: endpoint.Name ?? containerId,
+            error: disconnected.error.message,
+          },
+        });
+      }
+    }
+
+    const removeResult = await handle.remove();
+    if (removeResult.isErr()) {
+      return removeResult.error instanceof DockerNotFoundError
+        ? Result.ok("absent")
+        : Result.err(
+            new SwarmOperationError({ step: "remove-network", cause: removeResult.error }),
+          );
+    }
+    log.info({ swarm: { step: "remove-network", network: input.networkName } });
+    return Result.ok("removed");
+  } finally {
     docker.destroy();
-    return;
-  }
-
-  const network = inspectResult.value;
-  const containers = network.Containers ?? {};
-
-  for (const containerId of Object.keys(containers)) {
-    await docker.networks
-      .getNetwork(networkName)
-      .disconnect({ Container: containerId, Force: true });
-  }
-
-  const removeResult = await docker.networks.getNetwork(networkName).remove();
-  docker.destroy();
-
-  if (removeResult.isErr()) {
-    log.warn({
-      swarm: { step: "remove-network", network: networkName, error: removeResult.error.message },
-    });
   }
 }
 

@@ -5,7 +5,7 @@
  * startup output is unchanged. Returns a single stop handle for shutdown.
  */
 import { startBackupScheduler } from "@otterdeploy/api/backups";
-import { reconcile, startEdgeWatch } from "@otterdeploy/api/caddy";
+import { desiredEdgeRevision, reconcile, startEdgeWatch } from "@otterdeploy/api/caddy";
 import { startEphemeralDbSweeper } from "@otterdeploy/api/ephemeral-db";
 import { startPreviewReaper } from "@otterdeploy/api/git/preview-reaper";
 import { startDataFolderSweep } from "@otterdeploy/api/lib/data-folder-sweep";
@@ -25,6 +25,7 @@ import {
   startOrphanResourceGc,
 } from "@otterdeploy/api/system-health";
 import { reconcileInterruptedDeployments } from "@otterdeploy/jobs/reconcile";
+import { Result } from "better-result";
 import { log } from "evlog";
 
 /** Periodic deploy reconcile. The builder runs the same pass at ITS boot, but
@@ -105,7 +106,18 @@ export function startBackgroundServices(): () => void {
   // Edge config watch: when the control-plane Caddy stops running the config
   // last loaded into it (it restarted from the stub Caddyfile, or its config
   // was replaced), reconcile so routes come back without a server restart.
-  start("edge-watch", () => startEdgeWatch(() => reconcile()));
+  // Also when the database holds routes this process never loaded: the build
+  // worker writes a git stack's routes but cannot reach the edge.
+  start("edge-watch", () =>
+    startEdgeWatch(
+      () => reconcile(),
+      () =>
+        Result.tryPromise({
+          try: desiredEdgeRevision,
+          catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+        }),
+    ),
+  );
 
   // Firewall decision recorder: CrowdSec deletes a decision the moment its TTL
   // elapses, so without this an expired ban leaves no trace anywhere in the

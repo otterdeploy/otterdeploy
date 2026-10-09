@@ -156,6 +156,11 @@ import type { EnvironmentScopeInput } from "./queries/resource";
 import { decryptEnvValue } from "../../lib/env-crypto";
 import { inEnvironmentScope } from "./queries/resource";
 
+/**
+ * What is deployed, read FRESH (never from the query cache): the reconciler
+ * plans against it, and a stale copy plans work that is already done or misses
+ * work that is not.
+ */
 export async function loadCurrentState(
   projectId: ProjectId,
   environmentScope: EnvironmentScopeInput,
@@ -184,26 +189,33 @@ export async function loadCurrentState(
           isNull(resource.previewId),
           inScope,
         ),
-      ),
+      )
+      .$withCache(false),
     db
       .select({ resource, database: databaseResource })
       .from(resource)
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
       // Base rows only: a PR preview's branch DB reuses the base name and
       // would silently overwrite the base entry in the by-name map below.
-      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope)),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope))
+      .$withCache(false),
     db
       .select({ name: resource.name })
       .from(resource)
       .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope)),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope))
+      .$withCache(false),
   ]);
 
   const services: Record<string, CurrentService> = {};
   if (serviceRows.length > 0) {
     const serviceIds = serviceRows.map((r) => r.service.resourceId);
     const [ports, envs] = await Promise.all([
-      db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, serviceIds)),
+      db
+        .select()
+        .from(servicePort)
+        .where(inArray(servicePort.serviceResourceId, serviceIds))
+        .$withCache(false),
       db
         .select()
         .from(serviceEnvVar)
@@ -212,7 +224,8 @@ export async function loadCurrentState(
             inArray(serviceEnvVar.serviceResourceId, serviceIds),
             isNull(serviceEnvVar.previewId),
           ),
-        ),
+        )
+        .$withCache(false),
     ]);
 
     const portsBySvc = new Map<string, CurrentServicePort[]>();

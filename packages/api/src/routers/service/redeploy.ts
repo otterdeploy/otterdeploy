@@ -234,10 +234,23 @@ export async function redeployAndFanOut(
 ): Promise<Result<SwarmServiceRuntime, ServiceNotFoundError | ResolveError>> {
   const result = await redeployOne(projectId, resourceId, projectSlug, log);
   if (result.isErr()) return Result.err(result.error);
-  const rolled = result.value;
+  const dependents = await redeployDependents(projectId, resourceId, projectSlug, log);
+  if (dependents.isErr()) return Result.err(dependents.error);
+  return Result.ok(result.value);
+}
 
+/** Roll every service that references this one (its `${{<name>.<VAR>}}`
+ *  tokens resolve against this service's current row), without rolling the
+ *  service itself. The fan-out half of {@link redeployAndFanOut}, on its own
+ *  for a change whose own rollout rides a build that is about to run. */
+export async function redeployDependents(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+  projectSlug: string,
+  log: RequestLogger,
+): Promise<Result<true, ServiceNotFoundError | ResolveError>> {
   const sourceRecord = await getServiceRecord(projectId, resourceId);
-  if (!sourceRecord) return Result.ok(rolled);
+  if (!sourceRecord) return Result.ok(true);
 
   const dependents = await findTransitiveDependents({
     projectId,
@@ -255,7 +268,7 @@ export async function redeployAndFanOut(
     }
   }
 
-  return Result.ok(rolled);
+  return Result.ok(true);
 }
 /**
  * Settle the row a create opened: the driver already waited for the container,

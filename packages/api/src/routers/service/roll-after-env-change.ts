@@ -27,9 +27,10 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 import type { ResolveError, ServiceNotFoundError } from "./errors";
+import type { RolloutTiming } from "./inputs";
 
 import { StackRollFailedError } from "./errors";
-import { redeployAndFanOut } from "./redeploy";
+import { redeployAndFanOut, redeployDependents } from "./redeploy";
 
 export type RollFailure =
   | ProjectNotFoundError
@@ -43,6 +44,9 @@ export async function rollAfterEnvChange(input: {
   projectSlug: string;
   /** The owning stack, when this service is a compose child. */
   stackId: ResourceId | null | undefined;
+  /** A standalone service's own roll can ride a build that is about to run
+   *  (see RolloutTiming); its dependents roll either way. */
+  rollout?: RolloutTiming;
   log: RequestLogger;
 }): Promise<Result<true, RollFailure>> {
   if (input.stackId) {
@@ -66,6 +70,9 @@ export async function rollAfterEnvChange(input: {
           }),
         )
       : Result.ok(true);
+  }
+  if (input.rollout === "with-build") {
+    return redeployDependents(input.projectId, input.resourceId, input.projectSlug, input.log);
   }
   const rolled = await redeployAndFanOut(
     input.projectId,

@@ -19,6 +19,7 @@ import {
   networkScopeSuffix,
 } from "../../lib/environment/scoping";
 import { isGrantableHostBind, withoutUngrantedHostBinds } from "../../lib/host-binds";
+import { resolveComposeKeyAlias } from "../../stack/compose";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { resolveRegistryAuth } from "../../swarm/registry-auth";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";
@@ -60,6 +61,11 @@ export async function buildSwarmSpec(
   // (serviceName, internalHostname, resourceName) gets the preview scope;
   // base deploys pass through byte-identical.
   const internalHostname = runtimeServiceName(record.service.internalHostname, preview);
+  // Scoped exactly like internalHostname, for the same reason.
+  const composeKeyAlias = resolveComposeKeyAlias(
+    record.service.composeService,
+    record.service.internalHostname,
+  );
   const resourceName = runtimeServiceName(record.resource.name, preview);
   // Stamp the rollout with the resource's latest deployment row. By the time
   // we build the spec the latest deployment IS the one being applied (the
@@ -114,6 +120,7 @@ export async function buildSwarmSpec(
     projectSlug: sanitizeSlug(projectSlug),
     serviceName,
     internalHostname,
+    composeKeyAlias: composeKeyAlias ? runtimeServiceName(composeKeyAlias, preview) : null,
     // Environment-scoped network. A non-main environment gets its own overlay,
     // so this service can only resolve hostnames inside it. Previews stay on
     // the base network by design — see networkScopeSuffix.

@@ -20,6 +20,8 @@ function blackholedRedis() {
     del: vi.fn(never),
     sunion: vi.fn(never),
     publish: vi.fn(never),
+    // The query cache's put and invalidation each run as one EVAL script.
+    send: vi.fn(never),
   };
 }
 
@@ -98,7 +100,7 @@ describe("query cache under a blackholed Redis", () => {
     const put = await timed(cache.put("k", [{ id: 1 }], ["resource"]));
     expect(get.value).toBeUndefined();
     expect(get.ms + put.ms).toBeLessThanOrEqual(REDIS_OP_TIMEOUT_MS + 100);
-    expect(redis.set).not.toHaveBeenCalled();
+    expect(redis.send).not.toHaveBeenCalled();
   });
 
   test("invalidation is still attempted while the circuit is open", async () => {
@@ -108,7 +110,8 @@ describe("query cache under a blackholed Redis", () => {
     expect(cacheRedisCircuit.isOpen).toBe(true);
 
     await timed(cache.onMutate({ tables: ["resource"] }));
-    expect(redis.sunion).toHaveBeenCalledTimes(1);
+    expect(redis.send).toHaveBeenCalledTimes(1);
+    expect(redis.send).toHaveBeenCalledWith("EVAL", expect.any(Array));
   });
 });
 

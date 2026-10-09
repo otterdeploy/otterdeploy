@@ -17,17 +17,24 @@ import { Result } from "better-result";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
-import { materializeComposeFiles, readEnvFiles } from "../../lib/compose-materialize";
+import { materializeComposeFiles } from "../../lib/compose-materialize";
 import { createStackDeployLog } from "../../lib/deploy-log";
 import { parseCompose } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById } from "../project/queries";
 import { finalizeStackDeployment } from "./deploy-finalize";
 import { interpolate } from "./env";
+import {
+  applyEnvFiles,
+  type EnvFileHome,
+  type EnvFileOutcome,
+  missingEnvFilesMessage,
+} from "./env-files";
 import { loadManifestServiceEnv } from "./manifest-service-env";
 import { type ComposeRecord, getComposeRecord, stackHostBindGrants } from "./queries";
 import { reconcileStackServices } from "./reconcile";
-import { loadStackInterpolationVars } from "./stack-env";
+import { stageGitStackBinds } from "./repo-binds";
+import { loadStackInterpolationVars, shadowedProjectKeysNotes } from "./stack-env";
 import { resolveVaultInProjectVars } from "./vault-project-vars";
 
 class ComposeDeployError extends Error {
@@ -58,15 +65,12 @@ export interface ComposeDeployResult {
 
 /**
  * Multi-file inline stack: write the file tree to disk so bind-mounted scripts
- * resolve and env_file targets are readable, then merge each service's env_file
- * contents into its env (env_file first, `environment:` wins) so the existing
- * per-service env seed picks them up unchanged. Single-file / git stacks carry
- * no `files` and return undefined. The returned absolute dir is where bind
- * sources resolve (reconcile-map).
+ * resolve and env_file targets are readable (see applyEnvFiles). Single-file /
+ * git stacks carry no `files` and return undefined. The returned absolute dir
+ * is where bind sources resolve (reconcile-map).
  */
 async function materializeInlineTree(
   record: ComposeRecord,
-  parsed: { services: Array<{ envFile: string[]; env: Record<string, string> }> },
   ref: ResourceRef,
   projectVars: Record<string, string>,
 ): Promise<{ stackDir: string | undefined; missing: string[] }> {
@@ -89,12 +93,76 @@ async function materializeInlineTree(
   );
   if (missing.size > 0) return { stackDir: undefined, missing: [...missing].sort() };
   const stackDir = await materializeComposeFiles(files, resourceDir(ref));
-  for (const svc of parsed.services) {
-    if (svc.envFile.length === 0) continue;
-    const fromFiles = await readEnvFiles(svc.envFile, stackDir);
-    svc.env = { ...fromFiles, ...svc.env };
-  }
   return { stackDir, missing: [] };
+}
+
+interface StagedStackFiles {
+  stackDir: string | undefined;
+  envNotes: string[];
+  repoBindSources: ReadonlySet<string> | undefined;
+}
+
+/**
+ * Lay down what the stack reads from disk: the inline file tree (refusing a
+ * config file whose `${VAR}` has no value), then each service's env_file.
+ */
+async function stageStackFiles(
+  record: ComposeRecord,
+  parsed: Parameters<typeof applyEnvFiles>[0],
+  ref: ResourceRef,
+  vars: { projectVars: Record<string, string>; sourceDir: string | undefined },
+): Promise<Result<StagedStackFiles, ComposeDeployError>> {
+  const materialized = await materializeInlineTree(record, ref, vars.projectVars);
+  if (materialized.missing.length > 0) {
+    return Result.err(
+      new ComposeDeployError(
+        `These stack variables have no value, and this stack's config files need them: ` +
+          `${materialized.missing.join(", ")}. Set them under Variables, then redeploy.`,
+      ),
+    );
+  }
+  const home: EnvFileHome = record.compose.source === "git" ? "repo" : "stack files";
+  const envFiles = await mergeEnvFiles(
+    home,
+    parsed,
+    { stackDir: materialized.stackDir, sourceDir: vars.sourceDir },
+    vars.projectVars,
+  );
+  if (envFiles.missing.length > 0) {
+    return Result.err(new ComposeDeployError(missingEnvFilesMessage(envFiles.missing, home)));
+  }
+  // A git stack's bind sources live in the build checkout, which is deleted
+  // when the build ends: copy them somewhere that outlives it. A deploy with
+  // no checkout (a variable change) creates no child, and binds are seeded
+  // only when a child is created, so it has nothing to stage.
+  if (home !== "repo" || !vars.sourceDir) {
+    const { stackDir } = materialized;
+    return Result.ok({ stackDir, envNotes: envFiles.notes, repoBindSources: undefined });
+  }
+  const binds = await stageGitStackBinds(parsed, vars.sourceDir, ref);
+  if (binds.isErr()) return Result.err(new ComposeDeployError(binds.error.message));
+  const { stackDir, notes, sources } = binds.value;
+  return Result.ok({ stackDir, envNotes: [...envFiles.notes, ...notes], repoBindSources: sources });
+}
+
+/**
+ * Merge each service's env_file under its env, from wherever this deploy can
+ * see the stack's files: the inline tree, or the git build checkout the
+ * builder passed in. A git stack rolled WITHOUT a build (a variable change)
+ * has no checkout to read, and needs none: env is seeded once, when a child
+ * is created, which only a build of a changed file can cause.
+ */
+async function mergeEnvFiles(
+  home: EnvFileHome,
+  parsed: Parameters<typeof applyEnvFiles>[0],
+  dirs: { stackDir: string | undefined; sourceDir: string | undefined },
+  stackVars: Record<string, string>,
+): Promise<EnvFileOutcome> {
+  if (home === "stack files") {
+    return applyEnvFiles(parsed, { dir: dirs.stackDir, home, stackVars });
+  }
+  if (!dirs.sourceDir) return { notes: [], missing: [] };
+  return applyEnvFiles(parsed, { dir: dirs.sourceDir, home, stackVars });
 }
 
 export async function deployCompose(
@@ -104,6 +172,9 @@ export async function deployCompose(
     /** Reuse an existing build deployment instead of opening a new one. The
      *  build worker passes its own; the caller then owns status transitions. */
     deploymentId?: DeploymentId;
+    /** A git stack's compose-file directory in the build checkout, where its
+     *  env_file targets resolve. Passed by the build worker only. */
+    sourceDir?: string;
   },
   reason: "create" | "redeploy" | "env-change",
   rlog?: RequestLogger,
@@ -155,7 +226,7 @@ export async function deployCompose(
   const projectVars = await resolveVaultInProjectVars(stackVars.vars, organizationId, rlog);
 
   // The stack's on-disk home is env-keyed (null environmentId = main env).
-  const materialized = await materializeInlineTree(
+  const staged = await stageStackFiles(
     record,
     parsed.value,
     {
@@ -164,17 +235,10 @@ export async function deployCompose(
       environmentId: record.resource.environmentId ?? null,
       resourceId: input.resourceId,
     },
-    projectVars,
+    { projectVars, sourceDir: input.sourceDir },
   );
-  if (materialized.missing.length > 0) {
-    return Result.err(
-      new ComposeDeployError(
-        `These stack variables have no value, and this stack's config files need them: ` +
-          `${materialized.missing.join(", ")}. Set them under Variables, then redeploy.`,
-      ),
-    );
-  }
-  const stackDir = materialized.stackDir;
+  if (staged.isErr()) return Result.err(staged.error);
+  const { stackDir, envNotes, repoBindSources } = staged.value;
 
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
@@ -221,17 +285,13 @@ export async function deployCompose(
     dlog.line(
       `Deploying stack ${record.compose.stackName}: ${parsed.value.services.length} service(s), reason: ${reason}`,
     );
-    // Not an error: the stack's own value is the one it should use. Said out
-    // loud because the same name on the project page no longer reaches it.
-    if (stackVars.shadowedProjectKeys.length > 0) {
-      dlog.line(
-        `This stack's own ${stackVars.shadowedProjectKeys.join(", ")} take precedence over ` +
-          `the project variables of the same name (used by this stack only; the project values are unchanged).`,
-      );
-    }
     if (stackDir) {
       dlog.line(`Materialized ${record.compose.files.length} inline file(s) to ${stackDir}`);
     }
+    // Not an error: the stack's own value is the one it should use. Said out
+    // loud because the same name on the project page no longer reaches it.
+    const notes = [...shadowedProjectKeysNotes(stackVars.shadowedProjectKeys), ...envNotes];
+    for (const note of notes) dlog.line(note);
 
     // Materialize each compose service as a real service_resource owned by the
     // stack, then deploy each via the normal per-service path. This is what makes
@@ -274,6 +334,7 @@ export async function deployCompose(
             projectVars,
             builtImages,
             stackDir,
+            repoBindSources,
             // From the stack's row, written only by the install-admin grant
             // . Never from the file, which a member controls.
             hostBindGrants: stackHostBindGrants(record.compose),

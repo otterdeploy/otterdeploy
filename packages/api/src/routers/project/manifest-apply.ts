@@ -6,7 +6,9 @@
  * Execution order (phases run in sequence; resources WITHIN a phase run in
  * parallel: they're mutually independent once the prior phase has settled):
  *   1. Database creates                     (services may reference them)
- *   2. Resolve refs in service env values   (database rows exist by step 1)
+ *   2. Resolve refs in service env values   (database rows exist by step 1;
+ *                                            services created in step 3 resolve
+ *                                            by the hostname they will get)
  *   3. Service creates
  *   4. Service updates (fields + env)
  *   4b. Compose stack creates
@@ -42,7 +44,7 @@ import {
   runServiceDeletes,
 } from "./manifest-apply-phases";
 import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-services";
-import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
+import { loadRefTable, makeEnvRefResolver, withStagedServices } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
 import { loadCurrentState } from "./manifest-state";
 import { publishManifestChanged } from "./project-event-bus";
@@ -73,6 +75,9 @@ export interface ApplyInput {
    *  Omitted = apply everything. See the contract for why this is not the
    *  same as a selective discard. */
   only?: ReadonlyArray<{ resource: "service" | "database" | "env" | "compose"; name: string }>;
+  /** Services whose source the caller uploads right after this apply. See
+   *  the applyChange contract; only upload-sourced services are honoured. */
+  sourceUploads?: ReadonlyArray<string>;
   log: ApplyContext["log"];
 }
 
@@ -98,7 +103,7 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 }
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
-  const { projectId, organizationId, manifest, environmentId, only, log } = input;
+  const { projectId, organizationId, manifest, environmentId, only, sourceUploads, log } = input;
   // Load state inside the queue slot. A snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
   // Resolve to a concrete scope before diffing. A project with no environment
@@ -120,6 +125,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     organizationId,
     manifest,
     current,
+    sourceUploads: new Set(sourceUploads),
     log,
   };
   // Plan with the same ref resolver the router's diff endpoint uses, so what
@@ -127,7 +133,10 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // phase on purpose: refs to a database created THIS apply stay unresolved in
   // the plan (its env changes read as creates) and resolve in the write-path
   // refTable loaded after phase 1.
-  const planRefTable = await loadRefTable(projectId, scope);
+  // Services this manifest declares that don't exist yet: refs to them resolve
+  // to the hostname they are about to get (withStagedServices).
+  const stagedServices = Object.keys(manifest.services).filter((n) => !current.services[n]);
+  const planRefTable = withStagedServices(await loadRefTable(projectId, scope), stagedServices);
   // Same applied snapshot the diff endpoint uses, so what the operator
   // previewed is what executes: without it apply would compute deletes the
   // preview never showed.
@@ -200,8 +209,13 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
 
   // 1. Database creates first. Services may reference them.
   fold(await runDatabaseCreates(ctx, plan.databaseCreates));
-  // 2. Build the ${database:…}/${service:…} ref table now the rows exist.
-  const refTable = await loadRefTable(projectId, scope);
+  // 2. Build the ${database:…}/${service:…} ref table now the database rows
+  // exist, with the services this apply creates already in it, so a ref to
+  // one lands in THIS apply instead of a second one.
+  const refTable = withStagedServices(
+    await loadRefTable(projectId, scope),
+    plan.serviceCreates.map((c) => c.name),
+  );
   // A source change diffs to delete+create of the SAME name (see diff.ts) and
   // MUST delete before it creates. Otherwise the create collides with the
   // still-live resource ("service already exists") and is skipped, leaving the
@@ -236,7 +250,8 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     .select({ lastApplied: project.lastAppliedManifest })
     .from(project)
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
-    .limit(1);
+    .limit(1)
+    .$withCache(false);
   // `lastApplied` is a jsonb column written exclusively by this pipeline from
   // schema-validated manifests, so re-parse it at the read boundary instead of
   // asserting. A row that no longer parses is treated as a first apply.

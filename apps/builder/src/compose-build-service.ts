@@ -64,8 +64,10 @@ export function buildComposeService(args: {
         for (const w of resolution.warnings) sink.system(w);
         if (resolution.kind === "dockerfile") {
           // Fail fast on unsupported instructions before docker runs.
-          assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) =>
-            sink.system(m),
+          assertDockerfileValid(
+            readFileSync(resolution.dockerfilePath, "utf8"),
+            (m) => sink.system(m),
+            "compose",
           );
           return dockerfileBuild({
             workDir,

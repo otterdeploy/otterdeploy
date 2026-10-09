@@ -682,7 +682,9 @@ export const serviceResource = pgTable(
 
     // Lifecycle hooks. Each runs once in a throwaway container off the
     // freshly-built image, on the project network, with the resolved env.
-    // Exec-form (text[], one shell command per entry, run in order).
+    // Exec form: text[] is ONE command's argv (`sh -c <line>` for a shell
+    // line). Older rows hold whole shell lines instead and
+    // still run one per entry; @otterdeploy/shared/deploy-hook reads both.
     //   preDeploy: after the build, BEFORE the new replicas take traffic.
     //                A non-zero exit aborts the rollout. Use: db migrations.
     //   postDeploy: after the new task reaches running. Use: cache warmup,

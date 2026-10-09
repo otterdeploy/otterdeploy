@@ -23,6 +23,8 @@ import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { listTenantRows } from "../../database-hosting";
 import { branchDependencyConflict } from "../../lib/environment/branch-dependents";
+import { deleteComposeStack } from "../compose/delete-stack";
+import { getComposeRecord } from "../compose/queries";
 import { reclaimDatabaseVolume, reclaimServiceHostArtifacts } from "../service/teardown";
 import {
   DatabaseHasBranchesError,
@@ -286,11 +288,17 @@ export async function deleteProjectResource(
       break;
     }
     case "compose": {
-      // Stack deletion is compose.delete's job. It tears down every child
-      // service, the swarm stack, routes, and seeded vars. Falling through
-      // here would report success without removing anything.
-      log.set({ resource: { outcome: "compose_not_deletable_here" } });
-      return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
+      // The same teardown compose.delete runs: every child, the stack's
+      // routes, record, variables and volumes. Refusing here left a stack no
+      // generic client could delete, and its project undeletable behind it.
+      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      if (!rec)
+        return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
+      log.set({
+        resource: { kind: "compose", projectId: input.projectId, name: rec.resource.name },
+      });
+      await deleteComposeStack(rec, { ...input, keepVolumes: false }, log);
+      break;
     }
   }
 

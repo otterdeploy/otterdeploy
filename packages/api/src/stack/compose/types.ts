@@ -50,6 +50,13 @@ export interface ParsedResources {
 
 export type ParsedRestart = "no" | "always" | "on-failure" | "unless-stopped";
 
+/** One `env_file` entry. Compose refuses to start a service whose REQUIRED
+ *  env_file is missing; `required: false` (long form) lets it skip. */
+export interface ParsedEnvFile {
+  path: string;
+  required: boolean;
+}
+
 export interface ParsedComposeService {
   name: string;
   /** Image ref, or `null` when the service builds from source. */
@@ -57,10 +64,17 @@ export interface ParsedComposeService {
   build: ParsedBuild | null;
   command: string[] | null;
   entrypoint: string[] | null;
+  /** `environment` entries that carry a value (`KEY=value`, `KEY: value`). */
   env: Record<string, string>;
-  /** `env_file` paths (relative to the stack tree); read + merged into `env`
-   *  at deploy time from the materialized files. */
-  envFile: string[];
+  /**
+   * `environment` entries with no value (`- KEY`, `KEY:`): compose passes the
+   * same-named variable through, and leaves the key unset when there is none.
+   * Never an empty string.
+   */
+  passthroughEnv: string[];
+  /** `env_file` targets, relative to the compose file; read + merged under
+   *  `env` at deploy time (see routers/compose/env-files.ts). */
+  envFile: ParsedEnvFile[];
   ports: ParsedPort[];
   volumes: ParsedMount[];
   networks: string[];

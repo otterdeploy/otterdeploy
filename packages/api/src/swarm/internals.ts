@@ -153,7 +153,12 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     Networks: [
       {
         Target: networkName,
-        Aliases: [spec.serviceName, spec.internalHostname, spec.resourceName],
+        Aliases: [
+          spec.serviceName,
+          spec.internalHostname,
+          spec.resourceName,
+          ...(spec.composeKeyAlias ? [spec.composeKeyAlias] : []),
+        ],
       },
       ...resolveExtraNetworkTargets(spec.extraNetworks, networkName).map((name) => ({
         Target: name,

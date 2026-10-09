@@ -4,29 +4,24 @@
  */
 import { projectScopedProcedure, requireInstallAdminPermission, requirePermission } from "../..";
 import { recordAuditChanges } from "../../audit/changes";
-import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
-import { removeComposeStack } from "../../swarm";
-import { removeComposeFromManifest, syncManifestComposeContent } from "../project/manifest";
+import { syncManifestComposeContent } from "../project/manifest";
 import { getProjectById } from "../project/queries";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
-import { cleanupOrphanedComposeVars } from "./cleanup-vars";
 import { createComposeResource } from "./create";
-import { deployCompose, removeComposeDomains } from "./deploy";
+import { deleteComposeStack } from "./delete-stack";
+import { deployCompose } from "./deploy";
 import { collectVarRefs, interpolate } from "./env";
 import {
   type ComposeRecord,
-  deleteComposeRecord,
   getComposeRecord,
   listComposeRecords,
   setDockerSocketGrant,
   stackHostBindGrants,
   updateComposeContent,
 } from "./queries";
-import { removeStackServices } from "./reconcile";
 import { composeVariablesRouter } from "./router-variables";
-import { listProjectEnvKeys, listStoredStackEnvVars } from "./stack-env";
-import { reclaimStackVolumes, stackVolumeNames } from "./volumes";
+import { listProjectEnvKeys } from "./stack-env";
 
 function toView(rec: ComposeRecord) {
   return {
@@ -232,54 +227,15 @@ export const composeRouter = {
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();
-      // Capture the stack's own variables, as stored, before they cascade away
-      // with its record: the legacy project-bag cleanup below compares them.
-      const ownVariables = await listStoredStackEnvVars(input.resourceId);
-      // Strip the stack from the manifest FIRST: before any physical teardown.
-      // Once a delete is initiated the stack is no longer "desired", so even if
-      // a child teardown fails partway, the next diff can only ever show a
-      // (recoverable) delete, NEVER a phantom `create` ghost. A deployed stack
-      // must never revert to pending-create.
-      await removeComposeFromManifest(
-        { projectId: input.projectId, organizationId: context.activeOrganizationId },
-        rec.resource.name,
-      );
-      // Tear down each child service resource (swarm service + routes + row),
-      // then the stack's own routes + record. removeComposeStack also clears any
-      // legacy services still labelled with the stack id (pre-real-resource).
-      await removeStackServices(input.resourceId, context.log);
-      await removeComposeStack({ resourceId: input.resourceId }, context.log);
-      await removeComposeDomains(input.resourceId);
-      await deleteComposeRecord(input.projectId, input.resourceId);
-      // Drop the stack's host artifact dir (deleteComposeRecord removes the row
-      // directly, bypassing deleteResourceById's cleanup). No-op unless the data
-      // folder is in use. The dir is env-keyed (null environmentId = main env).
-      await removeResourceDir({
-        organizationId: context.activeOrganizationId,
-        projectId: input.projectId,
-        environmentId: rec.resource.environmentId ?? null,
-        resourceId: input.resourceId,
-      });
-      // Drop the legacy project-bag copies of this stack's variables that
-      // nothing else uses. Never a project value the stack did not own.
-      await cleanupOrphanedComposeVars(
+      await deleteComposeStack(
+        rec,
         {
           projectId: input.projectId,
-          deletedResourceId: input.resourceId,
-          ownRows: ownVariables,
+          organizationId: context.activeOrganizationId,
+          keepVolumes: input.keepVolumes ?? false,
         },
         context.log,
       );
-      // Last, after the services are gone: the named volumes. Deterministic
-      // names mean a stack re-created under this name would otherwise adopt
-      // them, old database password included. Best-effort and retried; the
-      // outcome is logged, never raised (the stack is already deleted).
-      const volumeNames = stackVolumeNames(rec.compose.services, rec.compose.stackName);
-      if (input.keepVolumes) {
-        context.log.set({ composeVolumes: { kept: volumeNames } });
-      } else {
-        await reclaimStackVolumes(volumeNames, context.log);
-      }
       return { ok: true };
     },
   ),

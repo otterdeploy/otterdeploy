@@ -221,7 +221,8 @@ export async function waitForContainer(
 
 /** The DNS names the edge and sibling services reach a service by. */
 export function serviceAliases(spec: ContainerSpec): string[] {
-  return [spec.serviceName, spec.internalHostname, spec.resourceName];
+  const composeKey = spec.composeKeyAlias ? [spec.composeKeyAlias] : [];
+  return [spec.serviceName, spec.internalHostname, spec.resourceName, ...composeKey];
 }
 
 /** Does the service bind a port on the host (tcp app-protocol ports, see

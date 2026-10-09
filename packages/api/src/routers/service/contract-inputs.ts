@@ -82,9 +82,10 @@ export const createServiceInput = z.object({
     })
     .optional(),
 
-  // Lifecycle hooks. Exec-form shell commands, run in order off the new
-  // image. preDeploy runs before the rollout (db migrations); postDeploy
-  // after the new replicas are live (cache warmup, smoke checks).
+  // Lifecycle hooks, each ONE exec-form command (`["sh", "-c", "a && b"]` for
+  // shell lines) run off the new image. preDeploy runs before the rollout
+  // (db migrations); postDeploy after the new replicas are live (cache
+  // warmup, smoke checks). See @otterdeploy/shared/deploy-hook.
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
 });

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  assertDockerfileValid,
   formatDockerfileError,
   parseInstructions,
   validateDockerfile,
@@ -38,47 +39,69 @@ CMD ["sh"]`);
 });
 
 describe("validateDockerfile", () => {
-  test("flags VOLUME as a hard error with its line number and a fix", () => {
-    const { errors } = validateDockerfile(`FROM node:20
+  // VOLUME used to be a hard error, which refused many widely used apps with
+  // no way through. It is a warning now; the build log says the
+  // path is backed by a persistent volume after the build.
+  test("warns on VOLUME with its line number, never refuses the build", () => {
+    const { errors, warnings } = validateDockerfile(`FROM node:20
 WORKDIR /app
 VOLUME /data
 CMD ["node", "server.js"]`);
-    expect(errors).toHaveLength(1);
-    expect(errors[0]?.instruction).toBe("VOLUME");
-    expect(errors[0]?.line).toBe(3);
-    expect(errors[0]?.fix).toContain("otterdeploy volume add");
+    expect(errors).toHaveLength(0);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.instruction).toBe("VOLUME");
+    expect(warnings[0]?.line).toBe(3);
+    expect(warnings[0]?.message).toContain("/data");
+    expect(warnings[0]?.fix).toContain("persistent volume");
+  });
+
+  test("a compose build is told to declare the volume in its compose file", () => {
+    const { errors, warnings } = validateDockerfile("FROM x\nVOLUME /data", "compose");
+    expect(errors).toHaveLength(0);
+    expect(warnings[0]?.fix).toContain("compose file");
   });
 
   test("does not flag a valid Dockerfile", () => {
-    const { errors } = validateDockerfile(`FROM node:20
+    const { errors, warnings } = validateDockerfile(`FROM node:20
 COPY . .
 RUN npm ci
 CMD ["node", "server.js"]`);
     expect(errors).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("does not flag a lowercase 'volume' appearing as an argument", () => {
-    const { errors } = validateDockerfile(`FROM node:20
+    const { warnings } = validateDockerfile(`FROM node:20
 RUN echo "creating volume dir" && mkdir /volume`);
-    expect(errors).toHaveLength(0);
+    expect(warnings).toHaveLength(0);
   });
 
   test("reports the real line number for VOLUME after a continued instruction", () => {
-    const { errors } = validateDockerfile(`FROM node:20
+    const { warnings } = validateDockerfile(`FROM node:20
 RUN set -e \\
   && apt-get update
 VOLUME /data`);
-    expect(errors[0]?.line).toBe(4);
+    expect(warnings[0]?.line).toBe(4);
+  });
+});
+
+describe("assertDockerfileValid", () => {
+  test("a VOLUME passes, with the warning forwarded to the build log", () => {
+    const lines: string[] = [];
+    assertDockerfileValid('FROM gitea/gitea\nVOLUME ["/data"]', (m) => lines.push(m));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/^dockerfile warning: VOLUME at line 2/);
   });
 });
 
 describe("formatDockerfileError", () => {
   test("renders a single Railway-style line", () => {
-    const { errors } = validateDockerfile("FROM x\nVOLUME /data");
-    const first = errors[0];
-    if (!first) throw new Error("expected a VOLUME error");
-    const line = formatDockerfileError(first);
-    expect(line).toMatch(/^dockerfile invalid: /);
-    expect(line).toContain("otterdeploy volume add");
+    const line = formatDockerfileError({
+      line: 1,
+      instruction: "X",
+      message: "X is not supported.",
+      fix: "Remove it.",
+    });
+    expect(line).toBe("dockerfile invalid: X is not supported. Remove it.");
   });
 });

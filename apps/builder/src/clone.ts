@@ -86,7 +86,7 @@ export async function cloneRepoAtSha(opts: {
 
   const clone = await runProcess({
     cmd: "git",
-    args: ["clone", "--depth", "1", "--branch", stripRefsHeadsPrefix(opts.ref), url, workDir],
+    args: cloneArgs(opts.ref, url, workDir),
     sink: opts.sink,
     secrets,
   });
@@ -149,6 +149,27 @@ function injectToken(cloneUrl: string, token: string): string {
   } catch {
     return cloneUrl;
   }
+}
+
+/** A full commit id (SHA-1, or SHA-256 in a sha256 repo), not a branch/tag. */
+const COMMIT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i;
+
+/**
+ * The `git clone` argv for a ref.
+ *
+ * `--branch` takes a branch or tag name only: given a commit id it fails with
+ * "Remote branch <sha> not found", so a service pinned to a commit could not
+ * build at all. A commit id is cloned at the default branch
+ * WITHOUT a checkout instead; the fetch + reset that follow pin the exact
+ * commit, as they already do for a branch that moved since the push.
+ *
+ * Tested AFTER the `refs/heads/` prefix comes off: a manifest apply records
+ * whatever the service names as `refs/heads/<branch>`, commit ids included.
+ */
+function cloneArgs(ref: string, url: string, workDir: string): string[] {
+  const name = stripRefsHeadsPrefix(ref);
+  if (COMMIT_ID.test(name)) return ["clone", "--depth", "1", "--no-checkout", url, workDir];
+  return ["clone", "--depth", "1", "--branch", name, url, workDir];
 }
 
 function stripRefsHeadsPrefix(ref: string): string {

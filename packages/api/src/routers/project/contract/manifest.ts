@@ -193,6 +193,12 @@ const manifestApplyChangeInput = z.object({
   manifest: manifestSchema,
   expectedVersion: z.number().int().nonnegative(),
   environment: z.string().min(1).optional(),
+  // Upload-sourced services whose new source the caller sends right after
+  // this apply, as `otterdeploy deploy` does. Their field and env changes are
+  // saved and ride that upload's build: the running image is NOT rolled onto
+  // them first. A changed port above all, which the old image never listens
+  // on. Names that are not upload services are ignored.
+  sourceUploads: z.array(z.string().min(1)).max(200).optional(),
 });
 
 const manifestApplyChangeOutput = z.object({
@@ -223,6 +229,18 @@ const conflict = {
   },
 };
 
+/**
+ * Apply found no saved manifest to reconcile. It used to answer SUCCESS with
+ * `appliedCount: 0` and nothing skipped, which a caller cannot tell apart from
+ * "already up to date" while nothing it asked for exists.
+ */
+const noManifest = {
+  NO_MANIFEST: {
+    status: 409,
+    message: "This project has no saved manifest to apply. Save one, then apply." as const,
+  },
+};
+
 export const manifestContractSlice = {
   get: oc
     .meta(projectRefs({ id: "project" }))
@@ -243,7 +261,7 @@ export const manifestContractSlice = {
     .input(manifestDiffInput)
     .output(manifestDiffOutput),
   apply: oc
-    .errors({ ...projectNotFoundErrors, ...unknownEnvironment })
+    .errors({ ...projectNotFoundErrors, ...unknownEnvironment, ...noManifest })
     .meta({ path: `${basePath}/{projectId}/manifest/apply`, tag, method: "POST" })
     .input(manifestApplyInput)
     .output(manifestApplyOutput),

@@ -61,8 +61,8 @@ export async function runImageBuild(args: {
   for (const warning of resolution.warnings) sink.system(warning);
 
   if (resolution.kind === "dockerfile") {
-    // Fail fast on unsupported instructions BEFORE invoking docker. A clear
-    // `file:line + reason + fix` beats a silent-wrong build (the VOLUME case).
+    // Fail fast on unsupported instructions BEFORE invoking docker, and say up
+    // front what happens to a VOLUME (backed after the build, ./image-volumes).
     assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) => sink.system(m));
     const built = await dockerfileBuild({
       workDir,

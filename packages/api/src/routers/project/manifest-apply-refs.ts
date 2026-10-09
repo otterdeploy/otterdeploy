@@ -12,6 +12,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import type { EnvironmentScopeInput } from "./queries/environment-scope";
 
 import { isSecretSentinel, parseRefs } from "../../stack/manifest";
+import { serviceInternalHostname } from "../service/inputs";
 import { ManifestApplySkipError } from "./errors";
 import { inEnvironmentScope } from "./queries/environment-scope";
 
@@ -57,13 +58,15 @@ export async function loadRefTable(
       .from(resource)
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
       .where(inScope)
-      .orderBy(stampedLast),
+      .orderBy(stampedLast)
+      .$withCache(false),
     db
       .select({ resource, service: serviceResource })
       .from(resource)
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
       .where(inScope)
-      .orderBy(stampedLast),
+      .orderBy(stampedLast)
+      .$withCache(false),
   ]);
 
   const databases = new Map<string, DatabaseRefView>();
@@ -84,6 +87,25 @@ export async function loadRefTable(
   }
 
   return { databases, services };
+}
+
+/**
+ * The ref table plus the services this apply is about to CREATE.
+ *
+ * `${service:<name>.host}` resolves to the service's internal hostname, which
+ * is derived from its name alone ({@link serviceInternalHostname}), so it is
+ * known before the row exists. Without this, a ref to a service staged in the
+ * same apply was skipped as "service not found" (the table is read before the
+ * creates run) and only a second Apply landed it: fider, documenso, rallly and
+ * plausible all needed two. A service that already exists keeps
+ * its stored hostname.
+ */
+export function withStagedServices(refs: RefTable, staged: Iterable<string>): RefTable {
+  const services = new Map(refs.services);
+  for (const name of staged) {
+    if (!services.has(name)) services.set(name, { host: serviceInternalHostname(name) });
+  }
+  return { databases: refs.databases, services };
 }
 
 /**

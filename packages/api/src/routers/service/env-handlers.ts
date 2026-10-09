@@ -15,7 +15,7 @@ import { syncManifestServiceEnv, type ManifestEnvTarget } from "../project/manif
 import { loadResource } from "./context";
 import { rejectSelfReferences } from "./env-self-ref";
 import { type RefSelfReferenceError, ServiceNotFoundError } from "./errors";
-import { type ResourceRef } from "./inputs";
+import { type ResourceRef, type RolloutTiming } from "./inputs";
 import {
   bulkReplaceServiceEnvVars,
   deleteServiceEnvVar,
@@ -38,12 +38,14 @@ function rollFor(
     record: { service: { stackId?: ResourceId | null } };
   },
   log: RequestLogger,
+  rollout: RolloutTiming = "now",
 ): Promise<Result<true, RollFailure>> {
   return rollAfterEnvChange({
     projectId: input.projectId,
     resourceId: input.resourceId,
     projectSlug: ctx.project.slug,
     stackId: ctx.record.service.stackId,
+    rollout,
     log,
   });
 }
@@ -156,6 +158,10 @@ export async function bulkSetEnv(
     /** Who is writing. The manifest apply passes "manifest"; that is what
      *  lets the next diff tell its own rows from an operator's (od-y64.8). */
     source?: EnvVarSource;
+    /** The manifest apply passes "with-build" when this service's own build
+     *  runs right after (see RolloutTiming): the rows are written, the build
+     *  rolls them in. */
+    rollout?: RolloutTiming;
   },
   log: RequestLogger,
 ): Promise<Result<EnvVarView[], RedeployFailure>> {
@@ -171,7 +177,7 @@ export async function bulkSetEnv(
     input.vars.map((v) => ({ ...v, isSecret: secretSet.has(v.key) })),
     input.source ?? "ui",
   );
-  const redeployed = await rollFor(input, ctx.value, log);
+  const redeployed = await rollFor(input, ctx.value, log, input.rollout);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return Result.ok(rows.map(mapEnvVar));

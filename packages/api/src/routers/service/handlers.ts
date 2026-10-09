@@ -22,6 +22,7 @@ import { getService } from "./get-service";
 import {
   type ProjectRef,
   type ResourceRef,
+  type RolloutTiming,
   type UpdateServiceInput,
   toUpdateRecordPatch,
 } from "./inputs";
@@ -32,7 +33,7 @@ import {
   replaceServicePorts,
   updateServiceRecord,
 } from "./queries";
-import { redeployAndFanOut } from "./redeploy";
+import { redeployAndFanOut, redeployDependents } from "./redeploy";
 import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   mapEnvVar,
@@ -46,7 +47,7 @@ import {
 export type { EnvVarView, ServiceView } from "./views";
 // `CreateServiceInput` is deliberately NOT re-exported here: `createService`
 // moved to ./create.ts, so this module is no longer where callers reach it.
-export type { UpdateServiceInput } from "./inputs";
+export type { RolloutTiming, UpdateServiceInput } from "./inputs";
 
 export { exposeService, unexposeService } from "./expose";
 export { bulkSetEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./env-handlers";
@@ -89,6 +90,7 @@ export async function listEnv(input: ResourceRef): Promise<Result<EnvVarView[], 
 export async function updateService(
   input: UpdateServiceInput,
   log: RequestLogger,
+  rollout: RolloutTiming = "now",
 ): Promise<Result<ServiceView, RedeployFailure>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
@@ -99,12 +101,8 @@ export async function updateService(
     await replaceServicePorts(input.resourceId, normalizePorts(input.ports));
   }
 
-  const redeployed = await redeployAndFanOut(
-    input.projectId,
-    input.resourceId,
-    ctx.value.project.slug,
-    log,
-  );
+  const roll = rollout === "now" ? redeployAndFanOut : redeployDependents;
+  const redeployed = await roll(input.projectId, input.resourceId, ctx.value.project.slug, log);
   if (redeployed.isErr()) return Result.err(redeployed.error);
 
   return getService(input);
