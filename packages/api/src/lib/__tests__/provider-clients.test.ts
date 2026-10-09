@@ -149,6 +149,18 @@ function requestsTo(host: string, path?: string): Seen[] {
   return seen.filter((r) => r.url.hostname === host && (!path || r.url.pathname === path));
 }
 
+// The secret providers send through the outbound egress client, whose
+// address policy has its own suite (../vault/vault-egress.test.ts); here the
+// client is the fake, since this file is about each provider's protocol.
+vi.mock("@otterdeploy/shared/egress-policy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@otterdeploy/shared/egress-policy")>()),
+  egressFetch: (url: string, init: RequestInit) => fakeFetch(url, init),
+}));
+vi.mock("../egress-denylist", () => ({
+  controlPlaneEgressDenylist: () => Promise.resolve({ blockedHosts: [], blockedAddresses: [] }),
+}));
+vi.mock("../egress-options", () => ({ egressAllowlist: () => Promise.resolve([]) }));
+
 beforeAll(() => {
   vi.stubGlobal("fetch", fakeFetch);
 });
