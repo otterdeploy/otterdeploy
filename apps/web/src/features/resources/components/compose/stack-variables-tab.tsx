@@ -1,5 +1,6 @@
 /**
- * Variables for every service in a stack, grouped by service.
+ * A stack's variables: its own `${VAR}` values first (./stack-own-variables),
+ * then every service's container env, grouped by service.
  *
  * A stack had no variables view at all: the Services tab showed image, ports
  * and volumes, and env lived one level down in each child's own panel. So
@@ -17,6 +18,8 @@ import { useLiveQuery } from "@tanstack/react-db";
 
 import { resourceCollection } from "@/features/resources/data/resource";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+
+import { StackOwnVariables } from "./stack-own-variables";
 
 function SecretValue({ value }: { value: string }) {
   // Masked, not omitted: the operator needs to know the key HAS a value. An
@@ -144,16 +147,21 @@ export function StackVariablesTab({
       </div>
     );
   }
+  const own = <StackOwnVariables projectId={projectId} stackResourceId={stackResourceId} />;
   if (children.length === 0) {
     return (
-      <p className="text-[12px] text-muted-foreground">
-        No services materialized yet. Variables appear once the stack deploys.
-      </p>
+      <div className="flex flex-col gap-3">
+        {own}
+        <p className="text-[12px] text-muted-foreground">
+          No services materialized yet. Their variables appear once the stack deploys.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {own}
       {[...children]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((c) => (

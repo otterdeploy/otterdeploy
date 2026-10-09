@@ -67,9 +67,27 @@ New `compose_resource` table (parallel to `service_resource`):
 | exposed | jsonb | wizard/manifest SEED of which `service:port` start out public. Applied once, the first time each service is created (`reconcileStackServices`), via the same `exposeService` primitive a standalone service's Settings toggle calls. Not read again after that: each child `service_resource`'s own `publicEnabled`/`publicDomain` is the single source of truth from then on (od-80d). There is no stack-level "edit exposures" write path. |
 | forceUpdateCounter | int | force swarm task diff |
 
-`${VAR}` interpolation: compose `${FOO}` refs resolve against the project/env
-variable cascade at deploy time (reuse `resolveServiceEnv`), and unknown refs are
-surfaced as "promote to project variable" in the UI (Phase 5).
+`${VAR}` interpolation: compose `${FOO}` refs resolve at deploy time, narrowest
+scope first:
+
+1. the stack's own variables (`stack_env_var`, keyed by the stack resource);
+2. the project variables of the stack's environment (`project_env_var`, the
+   bag `${{project.X}}` / `${{environment.X}}` read);
+3. the file's own `${FOO:-default}`; otherwise empty.
+
+A child service's own `service_env_var` rows sit above all three: they are
+seeded from the interpolated file when the child is first created, then owned
+by the operator. Every install path (wizard, manifest apply, `compose.create`)
+writes a stack's `${VAR}` values to step 1 only, so two stacks that both want
+`POSTGRES_PASSWORD` never share or rotate each other's value. Sharing
+a value across stacks is the explicit act of setting it on the project and not
+on the stacks. The stack panel's Variables tab shows each ref with the scope
+that supplies it (`compose.listVariables` / `setVariable` / `deleteVariable`).
+
+Upgrade: migration `20261007140000_stack_env_var` COPIES each project variable
+that exactly one stack references into that stack's own variables (value and
+flags verbatim) and leaves the project row in place, so every stack resolves
+the same value before and after. Keys two or more stacks reference stay shared.
 
 ## Phases
 

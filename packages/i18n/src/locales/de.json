@@ -1734,7 +1734,9 @@
     "upload": "Hochladen",
     "varsNoRefs": "Lege alle Variablen fest, die dieser Stack vor dem Deployment braucht.",
     "varsRequiredBanner": "Fülle die rot markierten Felder aus: Sie sind erforderlich und noch leer. Geheimnisse sind bereits erzeugt; übrig bleibt meist eine URL oder ein Name, den nur du kennst.",
-    "varsShared": "Eine rote Markierung kennzeichnet einen erforderlichen Wert, der noch leer ist. Klicke auf das Auge, um ein Geheimnis anzuzeigen oder zu bearbeiten. Wird als Projektvariable gespeichert.",
+    "varsShared": "Eine rote Markierung kennzeichnet einen erforderlichen Wert, der noch leer ist. Klicke auf das Auge, um ein Geheimnis anzuzeigen oder zu bearbeiten. Wird nur für diesen Stack gespeichert.",
+    "varsSharedNames_one": "Das Projekt hat bereits eine Variable mit diesem Namen. Dieser Stack behält seinen eigenen Wert; der des Projekts bleibt unverändert:",
+    "varsSharedNames_other": "Das Projekt hat bereits Variablen mit diesen Namen. Dieser Stack behält seine eigenen Werte; die des Projekts bleiben unverändert:",
     "varsTitle": "Umgebungsvariablen",
     "varsWithRefs": "Die Compose-Datei verweist auf diese: Geheimnisse werden automatisch erzeugt, Standardwerte sind vorausgefüllt.",
     "view": "Ansehen"

@@ -12,7 +12,7 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { composeResource, resource } from "@otterdeploy/db/schema/project";
+import { composeResource, resource, stackEnvVar } from "@otterdeploy/db/schema/project";
 /**
  * DB ops for `type: compose` resources. A compose resource is a `resource`
  * row (type=compose) + a `compose_resource` row holding the file and derived
@@ -21,7 +21,8 @@ import { composeResource, resource } from "@otterdeploy/db/schema/project";
 import { and, asc, eq, sql } from "drizzle-orm";
 
 import { type HostBindGrants, NO_HOST_BIND_GRANTS } from "../../lib/host-binds";
-import { newResourceEnvironmentId } from "../project/queries/new-resource-environment";
+import { resolveNewResourceEnvironment } from "../project/queries/new-resource-environment";
+import { createStackVariableRows, type StackVariableSeed } from "./stack-env";
 
 export interface ComposeRecord {
   resource: typeof resource.$inferSelect;
@@ -95,9 +96,16 @@ export async function createComposeRecord(input: {
    *  let the scheduler place it. Already narrowed to a server in this org by
    *  lib/placement-seed.ts. */
   placementServerId?: ServerId | null;
+  /** The install's `${VAR}` values, written to THIS stack's own variables in
+   *  the same transaction as the stack, never to the shared project bag
+   * . Empty values are skipped so they fall through. */
+  variables?: ReadonlyArray<StackVariableSeed>;
 }): Promise<ComposeRecord> {
-  // An omitted environment resolves to the project's main one.
-  const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
+  // Omitted means main; a supplied one must be this project's. Callers that
+  // take one from a request refuse first; this throw is the backstop.
+  const resolved = await resolveNewResourceEnvironment(input.projectId, input.environmentId);
+  if (resolved.isErr()) throw resolved.error;
+  const environmentId = resolved.value;
   try {
     return await db.transaction(async (tx) => {
       const [res] = await tx
@@ -132,6 +140,9 @@ export async function createComposeRecord(input: {
         })
         .returning();
       if (!comp) throw new Error("Failed to create compose_resource row");
+
+      const variables = await createStackVariableRows(res.id, input.variables ?? []);
+      if (variables.length > 0) await tx.insert(stackEnvVar).values(variables);
 
       return { resource: res, compose: comp };
     });

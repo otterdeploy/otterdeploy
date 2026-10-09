@@ -2,10 +2,15 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
-import { databaseResource, resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
+import {
+  databaseResource,
+  projectEnvVar,
+  resource,
+  serviceEnvVar,
+} from "@otterdeploy/db/schema/project";
 /**
- * On compose-stack deletion, remove the project variables the stack seeded
- * (its `${VAR}` values, written to the shared project bag at create time),
+ * On compose-stack deletion, remove the LEGACY project variables the stack
+ * seeded before stacks had their own scope (see cleanupOrphanedComposeVars),
  * but ONLY the ones no surviving resource still references. Project variables
  * are shared and reach a container only through an explicit reference
  * (`${{project.KEY}}` in a service/database, or `${KEY}` in another compose
@@ -90,33 +95,59 @@ async function collectReferencedKeys(
 }
 
 /**
- * Delete the orphaned project variables a now-deleted compose stack seeded.
+ * Delete the project variables a now-deleted compose stack left behind from
+ * before stacks had a scope of their own, and nothing else.
  *
- * @param composeContent the stack's stored inline YAML (null for git stacks →
- *   we can't know which keys it seeded, so nothing is removed)
+ * Stacks used to seed their `${VAR}` values into the shared project bag. The
+ * stack_env_var migration COPIED each stack-local one into the stack's own
+ * variables, ciphertext verbatim, and left the project row in place (a
+ * service could still reach it through `${{project.KEY}}`). A project row
+ * whose stored value is still byte-identical to this stack's copy is that
+ * leftover; it goes, unless something else still references the key.
+ *
+ * Anything else is the project's, never a stack's to delete: a key the stack
+ * only read through the project bag, a project value an operator has edited
+ * since (re-encryption makes the stored value differ), a key another resource
+ * references. Before stacks had their own variables, this removed every key the stack's file named
+ * that nothing else referenced, which deleted project variables an operator
+ * had set by hand.
+ *
+ * @param ownRows the deleted stack's own variables as STORED (read before its
+ *   rows cascaded away)
  */
 export async function cleanupOrphanedComposeVars(
   args: {
     projectId: ProjectId;
     deletedResourceId: ResourceId;
-    composeContent: string | null;
+    ownRows: ReadonlyArray<{ key: string; value: string }>;
   },
   log: RequestLogger,
 ): Promise<void> {
-  if (!args.composeContent) return;
-  const parsed = parseCompose(args.composeContent);
-  if (parsed.isErr()) return;
-  const seededKeys = collectVarRefs(parsed.value).map((r) => r.name);
-  if (seededKeys.length === 0) return;
+  if (args.ownRows.length === 0) return;
 
   const project = await getProjectById(args.projectId);
   const environmentId = project?.environmentId;
   if (!environmentId) return;
 
+  const projectRows = await db
+    .select({ key: projectEnvVar.key, value: projectEnvVar.value })
+    .from(projectEnvVar)
+    .where(
+      and(
+        eq(projectEnvVar.projectId, args.projectId),
+        eq(projectEnvVar.environmentId, environmentId),
+      ),
+    );
+  const storedByKey = new Map(projectRows.map((r) => [r.key, r.value]));
+  const leftovers = args.ownRows
+    .filter((own) => storedByKey.get(own.key) === own.value)
+    .map((own) => own.key);
+  if (leftovers.length === 0) return;
+
   const referenced = await collectReferencedKeys(args.projectId, args.deletedResourceId);
 
   const removed: string[] = [];
-  for (const key of seededKeys) {
+  for (const key of leftovers) {
     if (referenced.has(key)) continue;
     await deleteProjectEnvVar({
       scope: { projectId: args.projectId, environmentId },

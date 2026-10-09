@@ -16,6 +16,10 @@ import type { ProjectNotFoundError } from "../project/errors";
 
 import { resolvePlacementSeed, UnknownPlacementServerError } from "../../lib/placement-seed";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
+import {
+  resolveNewResourceEnvironment,
+  type ResourceEnvironmentNotFoundError,
+} from "../project/queries/new-resource-environment";
 import { resolveEnvironmentScope } from "../project/queries/resource";
 import { loadProject } from "./context";
 import { MissingServiceBuildBindingError, ServiceConflictError, type ResolveError } from "./errors";
@@ -46,9 +50,10 @@ import { isUniqueViolation, mapServiceView, normalizePorts, type ServiceView } f
  */
 async function serviceNameTaken(
   project: { environmentId: EnvironmentId | null },
-  input: { projectId: ProjectId; name: string; environmentId?: EnvironmentId },
+  input: { projectId: ProjectId; name: string },
+  environmentId: EnvironmentId | null,
 ): Promise<boolean> {
-  const scope = resolveEnvironmentScope(project, input.environmentId);
+  const scope = resolveEnvironmentScope(project, environmentId);
   if (!scope) return false;
   return (await getServiceRecordByName(input.projectId, input.name, scope)) !== undefined;
 }
@@ -64,6 +69,7 @@ export async function createService(
     | MissingServiceBuildBindingError
     | ResolveError
     | UnknownPlacementServerError
+    | ResourceEnvironmentNotFoundError
   >
 > {
   log.set({
@@ -74,7 +80,13 @@ export async function createService(
   if (projectResult.isErr()) return Result.err(projectResult.error);
   const project = projectResult.value;
 
-  if (await serviceNameTaken(project, input)) {
+  // The environment comes first: a name check against an environment that is
+  // not this project's would answer a question about someone else's rows, and
+  // the insert must never stamp a foreign id. Omitted means main.
+  const environment = await resolveNewResourceEnvironment(input.projectId, input.environmentId);
+  if (environment.isErr()) return Result.err(environment.error);
+
+  if (await serviceNameTaken(project, input, environment.value)) {
     return Result.err(new ServiceConflictError({ name: input.name }));
   }
 
@@ -109,6 +121,7 @@ export async function createService(
         networkName,
         internalHostname,
         placementServerId: placement.value,
+        environmentId: environment.value,
       }),
     );
   } catch (error) {

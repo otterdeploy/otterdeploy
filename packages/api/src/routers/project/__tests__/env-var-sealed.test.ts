@@ -69,6 +69,7 @@ const environmentRow: NonNullable<Awaited<ReturnType<typeof queries.getEnvironme
   name: "production",
   slug: "production",
   protected: false,
+  claimableByOrganizationId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

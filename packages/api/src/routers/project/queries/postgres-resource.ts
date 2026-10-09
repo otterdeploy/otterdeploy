@@ -8,7 +8,7 @@ import { createError } from "evlog";
 
 import type { ResourceScope } from "./resource";
 
-import { newResourceEnvironmentId } from "./new-resource-environment";
+import { resolveNewResourceEnvironment } from "./new-resource-environment";
 import { inEnvironmentScope } from "./resource";
 
 export interface DatabaseResourceRecord {
@@ -116,8 +116,11 @@ export async function createDatabaseResourceRecord(input: {
   /** Cap on the tenant's concurrent connections (shared servers only). */
   connectionLimit?: number | null;
 }): Promise<DatabaseResourceRecord> {
-  // An omitted environment resolves to the project's main one.
-  const environmentId = await newResourceEnvironmentId(input.projectId, input.environmentId);
+  // Omitted means main; a supplied one must be this project's. Callers that
+  // take one from a request refuse first; this throw is the backstop.
+  const resolved = await resolveNewResourceEnvironment(input.projectId, input.environmentId);
+  if (resolved.isErr()) throw resolved.error;
+  const environmentId = resolved.value;
   return db.transaction(async (tx) => {
     const [createdResource] = await tx
       .insert(resource)

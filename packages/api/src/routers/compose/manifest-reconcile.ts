@@ -30,7 +30,7 @@ import { getProjectInOrg } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import { enqueueInlineComposeBuild } from "./build-trigger";
 import { deployCompose } from "./deploy";
-import { persistManifestEnv } from "./manifest-reconcile-env";
+import { manifestStackVariables } from "./manifest-reconcile-env";
 import { createComposeRecord } from "./queries";
 import { parseGitHubUrl, pickComposeFile, stackNameFor } from "./util";
 
@@ -46,7 +46,7 @@ interface CreateComposeArgs {
   log: RequestLogger;
 }
 
-export type ManifestProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
+type ManifestProject = NonNullable<Awaited<ReturnType<typeof getProjectInOrg>>>;
 type GitManifest = Extract<ComposeManifest, { source: "git" }>;
 type InlineManifest = Extract<ComposeManifest, { source: "inline" }>;
 
@@ -151,6 +151,7 @@ async function createGitStackFromManifest(
         exposed,
         logoBrand: spec.logoBrand ?? null,
         placementServerId: args.placementServerId,
+        variables: manifestStackVariables(spec),
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });
@@ -229,6 +230,7 @@ async function createInlineStackFromManifest(
         exposed,
         logoBrand: spec.logoBrand ?? null,
         placementServerId: args.placementServerId,
+        variables: manifestStackVariables(spec),
       }),
     catch: (e) => (e instanceof Error ? e : new Error(String(e))),
   });
@@ -275,8 +277,6 @@ export async function createComposeFromManifest(args: CreateComposeArgs): Promis
 
   const project = await getProjectInOrg({ projectId, organizationId });
   if (!project) return skip(name, "project not found");
-
-  await persistManifestEnv(spec, projectId, project);
 
   const exposed: ExposedSeed[] = (spec.exposed ?? []).map((e) => ({
     service: e.service,

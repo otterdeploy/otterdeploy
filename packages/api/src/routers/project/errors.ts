@@ -1,4 +1,4 @@
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 
 import { TaggedError } from "better-result";
 
@@ -70,6 +70,30 @@ export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
       slug: args.slug,
       suggestedSlug: args.suggestedSlug,
       message: `project slug "${args.slug}" is already in use on this install (project slugs are unique across all organizations); try "${args.suggestedSlug}"`,
+    });
+  }
+}
+
+/**
+ * `project.create` was handed an environment id it may not take as the new
+ * project's main environment. A supplied id is honoured in two
+ * cases only: a standalone environment THIS org made through `env.create`
+ * (claimed), or an id no environment has yet (created under it). Anything
+ * else, whether another project already holds it, another org's standalone
+ * row, or a standalone row too old to say who made it, gets this one refusal,
+ * with the same message, so a probe cannot tell those apart or learn which org
+ * an id belongs to.
+ */
+export class ProjectEnvironmentUnavailableError extends TaggedError(
+  "ProjectEnvironmentUnavailableError",
+)<{
+  message: string;
+  environmentId: EnvironmentId;
+}>() {
+  constructor(args: { environmentId: EnvironmentId }) {
+    super({
+      environmentId: args.environmentId,
+      message: `environment ${args.environmentId} cannot become this project's environment; omit environmentId, or create one with env.create first`,
     });
   }
 }

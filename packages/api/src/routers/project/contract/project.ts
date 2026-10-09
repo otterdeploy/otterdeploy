@@ -77,7 +77,11 @@ const createProjectInput = z.object({
    * Server generates a fresh one when omitted.
    */
   id: projectIdField.optional(),
-  /** Same idea for the default environment created alongside the project. */
+  /**
+   * The project's main environment: a standalone one this org made with
+   * `env.create` (claimed), or a fresh id (created under it). Anything else is
+   * refused with ENVIRONMENT_UNAVAILABLE. Generated when omitted.
+   */
   environmentId: environmentIdField.optional(),
   name: z.string().min(1),
   slug: z.string().slugify().min(2).max(48),
@@ -157,6 +161,13 @@ export const projectContractSlice = {
     .meta(projectRefs({ id: "none" }))
     .errors({
       CONFLICT: projectSlugConflictError,
+      // The supplied `environmentId` may not be claimed: another
+      // project holds it, or it is another org's standalone environment. One
+      // answer for all of them, so it says nothing about who owns the id.
+      ENVIRONMENT_UNAVAILABLE: {
+        status: 409,
+        message: "Environment cannot be claimed by this project" as const,
+      },
     })
     .meta({ path: basePath, tag, method: "POST" })
     .input(createProjectInput)

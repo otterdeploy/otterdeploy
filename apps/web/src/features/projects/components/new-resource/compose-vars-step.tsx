@@ -21,6 +21,7 @@ export function ComposeVarsStep({
   hasVars,
   requiredUnset,
   suggestions = [],
+  sharedNames = [],
 }: {
   form: ComposeForm;
   projectId: ProjectId;
@@ -30,6 +31,10 @@ export function ComposeVarsStep({
    *  projected through the env-catalog. Drives key autocomplete and the
    *  per-row shape checks. */
   suggestions?: EnvSuggestion[];
+  /** `${VAR}` names the project already has a variable for. Said up front
+   *  because two stacks used to share such a name, and one install could
+   *  rotate the other's credential. Now each keeps its own. */
+  sharedNames?: string[];
 }) {
   const { t } = useTranslation();
   return (
@@ -40,6 +45,12 @@ export function ComposeVarsStep({
           {t(hasVars ? "compose.varsWithRefs" : "compose.varsNoRefs")} {t("compose.varsShared")}
         </span>
       </div>
+      {sharedNames.length > 0 && (
+        <div className="rounded-md bg-info/10 px-3 py-2 text-xs text-info" role="note">
+          {t("compose.varsSharedNames", { count: sharedNames.length })}{" "}
+          <span className="font-mono">{sharedNames.join(", ")}</span>
+        </div>
+      )}
       {requiredUnset && (
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {t("compose.varsRequiredBanner")}

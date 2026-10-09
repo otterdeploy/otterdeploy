@@ -1734,7 +1734,9 @@
     "upload": "Subir",
     "varsNoRefs": "Define las variables que este stack necesita antes de desplegarse.",
     "varsRequiredBanner": "Rellena los campos marcados en rojo: son obligatorios y siguen vacíos. Los secretos ya están generados; lo que queda suele ser una URL o un nombre que solo tú conoces.",
-    "varsShared": "Una marca roja señala un valor obligatorio que sigue vacío; haz clic en el ojo para revelar o editar un secreto. Se guardan como variables del proyecto.",
+    "varsShared": "Una marca roja señala un valor obligatorio que sigue vacío; haz clic en el ojo para revelar o editar un secreto. Se guardan solo en este stack.",
+    "varsSharedNames_one": "El proyecto ya tiene una variable con este nombre. Este stack conserva su propio valor; el del proyecto no cambia:",
+    "varsSharedNames_other": "El proyecto ya tiene variables con estos nombres. Este stack conserva sus propios valores; los del proyecto no cambian:",
     "varsTitle": "Variables de entorno",
     "varsWithRefs": "El archivo compose hace referencia a estas: los secretos se generan automáticamente y los valores por defecto vienen rellenados.",
     "view": "Ver"

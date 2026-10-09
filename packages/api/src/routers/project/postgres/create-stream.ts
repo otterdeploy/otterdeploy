@@ -21,6 +21,10 @@ import {
   getProjectInOrg,
   updateDatabaseResourceStatus,
 } from "../queries";
+import {
+  resolveNewResourceEnvironment,
+  type ResourceEnvironmentNotFoundError,
+} from "../queries/new-resource-environment";
 import { mapDatabaseResource, type PostgresResource } from "../views";
 import {
   type CreateContext,
@@ -87,7 +91,10 @@ export async function validatePostgresCreate(
 ): Promise<
   Result<
     PostgresCreateValidation,
-    ProjectNotFoundError | PostgresResourceConflictError | DatabaseHostingError
+    | ProjectNotFoundError
+    | PostgresResourceConflictError
+    | DatabaseHostingError
+    | ResourceEnvironmentNotFoundError
   >
 > {
   const project = await getProjectInOrg({
@@ -98,10 +105,15 @@ export async function validatePostgresCreate(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
+  // The environment must be this project's before anything is checked against
+  // it or written into it. Omitted means main.
+  const environment = await resolveNewResourceEnvironment(input.projectId, input.environmentId);
+  if (environment.isErr()) return Result.err(environment.error);
+
   // Same-environment names only. A `postgres` in production must not block a
   // `postgres` in staging: they are different rows under
   // resource_project_name_env_unique.
-  const environmentScope = resolveEnvironmentScope(project, input.environmentId);
+  const environmentScope = resolveEnvironmentScope(project, environment.value);
   const existing = environmentScope
     ? await getDatabaseResourceByProjectAndName(input.projectId, input.name, environmentScope)
     : undefined;

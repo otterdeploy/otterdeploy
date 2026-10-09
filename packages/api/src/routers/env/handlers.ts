@@ -2,8 +2,10 @@
  * Environment lifecycle.
  *
  * Envs are created standalone (no projectId) and attached to a project by
- * the subsequent `project.create` call that supplies the env's id. Org
- * scoping for reads is through `project.organizationId` via inner join.
+ * the subsequent `project.create` call that supplies the env's id. A
+ * standalone env records the org that made it, and only a project of that org
+ * can claim it. Org scoping for reads is through
+ * `project.organizationId` via inner join.
  * Standalone envs are intentionally invisible to `list` / `get` until a
  * project claims them.
  */
@@ -19,6 +21,9 @@ import {
   dropEnvironmentOverlay,
   ensureEnvironmentOverlay,
 } from "../../lib/environment/mirror-apply";
+import { isForeignKeyViolation } from "../../lib/pg-error";
+import { ProjectNotFoundError } from "../project/errors";
+import { getProjectInOrg } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
 import {
   EnvironmentConflictError,
@@ -59,9 +64,27 @@ export async function createEnv(input: {
   name: string;
   slug: string;
   projectId?: ProjectId;
-  /** Needed to reach the project's manifest for the mirror overlay. */
-  organizationId?: OrganizationId;
-}): Promise<Result<EnvironmentRecord, EnvironmentConflictError | EnvironmentDatabaseError>> {
+  /** The caller's org: owns a standalone environment until a project of this
+   *  org claims it, and reaches the project's manifest for the
+   *  mirror overlay. */
+  organizationId: OrganizationId;
+}): Promise<
+  Result<
+    EnvironmentRecord,
+    EnvironmentConflictError | EnvironmentDatabaseError | ProjectNotFoundError
+  >
+> {
+  // A named project must be one of the caller's org. The FK
+  // only proves it exists SOMEWHERE, so without this an org could add an
+  // environment to another org's project by id. Another org's project and no
+  // project at all get the same NOT_FOUND, so a probe learns nothing.
+  if (
+    input.projectId &&
+    !(await getProjectInOrg({ projectId: input.projectId, organizationId: input.organizationId }))
+  ) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+  const projectId = input.projectId;
   // The catch handler MUST return an error, never throw. Better-result wraps
   // a throwing catch as a Panic, which surfaces to the operator as the
   // unhelpful "Result.tryPromise catch handler threw" with no clue what the
@@ -75,11 +98,15 @@ export async function createEnv(input: {
         name: input.name.trim(),
         slug: input.slug,
         projectId: input.projectId,
+        // Standalone only: once attached, the org is the project's.
+        claimableByOrganizationId: input.projectId ? undefined : input.organizationId,
       }),
-    catch: (cause) =>
-      isUniqueViolation(cause)
-        ? new EnvironmentConflictError({ slug: input.slug })
-        : new EnvironmentDatabaseError({ cause }),
+    catch: (cause) => {
+      if (isUniqueViolation(cause)) return new EnvironmentConflictError({ slug: input.slug });
+      // The project was deleted between the check above and the insert.
+      if (projectId && isForeignKeyViolation(cause)) return new ProjectNotFoundError({ projectId });
+      return new EnvironmentDatabaseError({ cause });
+    },
   });
   if (Result.isError(insert)) return Result.err(insert.error);
   if (!insert.value) {
@@ -89,7 +116,7 @@ export async function createEnv(input: {
   // which resolves to a manifest identical to base and keeps tracking it. Only
   // meaningful once the env is attached to a project. A standalone env has no
   // manifest to overlay onto yet.
-  if (input.projectId && input.organizationId) {
+  if (input.projectId) {
     await ensureEnvironmentOverlay(
       { projectId: input.projectId, organizationId: input.organizationId },
       input.slug,

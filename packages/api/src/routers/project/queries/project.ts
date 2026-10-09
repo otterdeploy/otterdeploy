@@ -13,13 +13,13 @@ import {
   projectEnvVar,
   type NixpacksConfig,
 } from "@otterdeploy/db/schema/project";
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { and, asc, eq, isNull } from "drizzle-orm";
-import { createError } from "evlog";
+import { and, asc, eq } from "drizzle-orm";
 
 import { getProxyRouteById } from "../../../caddy/queries";
 import { decryptForDomain } from "../../../lib/crypto";
 import { decryptEnvValue } from "../../../lib/env-crypto";
+
+export { createProjectRecord } from "./project-create";
 
 // The org-wide GROUP BY tallies behind the project-list cards now live in
 // ./project-tallies.ts (this file stays row-level project/environment CRUD).
@@ -187,88 +187,6 @@ export async function deleteProjectRecord(input: {
     .where(and(eq(project.id, input.projectId), eq(project.organizationId, input.organizationId)))
     .returning({ id: project.id });
   return record;
-}
-
-export async function createProjectRecord(input: {
-  organizationId: OrganizationId;
-  name: string;
-  slug: string;
-  /** Caller-supplied ids for optimistic UI; generated when absent. */
-  id?: ProjectId;
-  environmentId?: EnvironmentId;
-}) {
-  return db.transaction(async (tx) => {
-    const projectId = input.id ?? createId(ID_PREFIX.project);
-    const environmentId = input.environmentId ?? createId(ID_PREFIX.environment);
-
-    const [createdProject] = await tx
-      .insert(project)
-      .values({
-        id: projectId,
-        organizationId: input.organizationId,
-        name: input.name,
-        slug: input.slug,
-        environmentId,
-      })
-      .returning();
-
-    if (!createdProject) {
-      throw createError({
-        message: "Failed to create project",
-        status: 500,
-        why: "Database insert returned no row for the new project",
-      });
-    }
-
-    // If the caller pre-allocated an env id via env.create, claim that
-    // standalone row by stamping the projectId. Otherwise insert a fresh row.
-    let createdEnvironment: typeof environment.$inferSelect | undefined;
-
-    if (input.environmentId) {
-      const [linked] = await tx
-        .update(environment)
-        .set({ projectId })
-        .where(and(eq(environment.id, environmentId), isNull(environment.projectId)))
-        .returning();
-      createdEnvironment = linked;
-    }
-
-    if (!createdEnvironment) {
-      const [inserted] = await tx
-        .insert(environment)
-        .values({
-          id: environmentId,
-          projectId,
-          name: "production",
-          // NOT `<projectSlug>-production`. Environment slugs are unique per
-          // PROJECT (`environment_project_slug_unique`), so a project prefix
-          // buys no uniqueness: it only leaks the project name into the
-          // operator's URL (`?env=store-production`) for the one environment
-          // every project has. It also disagreed with the other two creation
-          // paths, which both write a bare `production`: the web onboarding
-          // pre-allocates the row via `env.create`, and the create dialog
-          // slugifies whatever the operator typed. Same concept, three code
-          // paths, two different slugs, and the `slug === "production"`
-          // lookups downstream silently missed the prefixed ones.
-          slug: "production",
-        })
-        .returning();
-      createdEnvironment = inserted;
-    }
-
-    if (!createdEnvironment) {
-      throw createError({
-        message: "Failed to create default environment",
-        status: 500,
-        why: "Database insert returned no row for the default environment",
-      });
-    }
-
-    return {
-      project: createdProject,
-      environment: createdEnvironment,
-    };
-  });
 }
 
 /**

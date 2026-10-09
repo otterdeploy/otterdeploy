@@ -68,6 +68,9 @@ export const serviceRouter = {
           ServiceConflictError: () => errors.CONFLICT(),
           MissingServiceBuildBindingError: () => errors.MISSING_BUILD_BINDING(),
           UnknownPlacementServerError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          // A bad environment reference in the input, like a bad server one:
+          // the project exists, the thing the caller pointed at does not.
+          ResourceEnvironmentNotFoundError: (e) => errors.INVALID_INPUT({ message: e.message }),
           RefMissingResourceError: () => errors.REF_MISSING(),
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),

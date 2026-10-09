@@ -49,7 +49,15 @@ const parsePreviewSchema = z.object({
   /** Compose's top-level `name:`, if the file declares one. */
   name: z.string().nullable(),
   /** `${VAR}` refs the file uses, the wizard asks the user to fill these in. */
-  vars: z.array(z.object({ name: z.string(), default: z.string().nullable() })),
+  vars: z.array(
+    z.object({
+      name: z.string(),
+      default: z.string().nullable(),
+      /** The project bag (main environment) already holds this key. The new
+       *  stack keeps its own value; the project's is not touched. */
+      inProject: z.boolean().default(false),
+    }),
+  ),
   services: z.array(composeServiceSummarySchema),
   warnings: z.array(z.string()),
 });
@@ -59,6 +67,29 @@ const deployResultSchema = z.object({
   error: z.string().nullable(),
   status: z.string(),
 });
+
+/**
+ * One variable a stack's `${VAR}` refs can see, and the scope that supplies it
+ *. `stack` rows are the stack's own; the rest are refs in its files
+ * that the stack does not set itself, resolved at deploy from the project bag
+ * of its environment (`project`), the file's `:-default` (`default`), or
+ * nowhere (`missing`, interpolates empty). Only `stack` rows carry a value; a
+ * sealed one's is "".
+ */
+const stackVariableSchema = z.object({
+  key: z.string(),
+  scope: z.enum(["stack", "project", "default", "missing"]),
+  value: z.string(),
+  isSecret: z.boolean(),
+  sealed: z.boolean(),
+  /** A `stack` row whose key the project bag also holds. This stack uses its
+   *  own value; the project's is untouched and reaches everything else. */
+  overridesProject: z.boolean(),
+});
+
+// Compose `${VAR}` names are author-chosen (a file may use `${db_password}`),
+// so keys are only required to be valid interpolation names.
+const stackVariableKey = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "Not a valid variable name");
 
 const sharedErrors = {
   NOT_FOUND: { status: 404, message: "Compose resource or project not found" as const },
@@ -230,4 +261,37 @@ export const composeContract = {
       }),
     )
     .output(composeViewSchema),
+
+  // A stack's OWN variables: what its `${VAR}` refs resolve against
+  // before the project bag. Writes never touch the project's variables.
+  // Takes effect on the stack's next deploy.
+  listVariables: oc
+    .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+    .meta({ path: `${basePath}/{resourceId}/variables`, tag, method: "GET" })
+    .input(z.object({ projectId: projectIdField, resourceId: resourceIdField }))
+    .output(z.array(stackVariableSchema)),
+
+  setVariable: oc
+    .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+    .meta({ path: `${basePath}/{resourceId}/variables`, tag, method: "PUT" })
+    .input(
+      z.object({
+        projectId: projectIdField,
+        resourceId: resourceIdField,
+        key: stackVariableKey,
+        value: z.string(),
+        isSecret: z.boolean().optional(),
+        /** Write-only from here on. Sticky: a sealed key never unseals. */
+        sealed: z.boolean().optional(),
+      }),
+    )
+    .output(stackVariableSchema),
+
+  deleteVariable: oc
+    .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+    .meta({ path: `${basePath}/{resourceId}/variables/{key}`, tag, method: "DELETE" })
+    .input(
+      z.object({ projectId: projectIdField, resourceId: resourceIdField, key: stackVariableKey }),
+    )
+    .output(z.object({ ok: z.boolean() })),
 };

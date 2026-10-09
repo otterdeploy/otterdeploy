@@ -1734,7 +1734,9 @@
     "upload": "Upload",
     "varsNoRefs": "Set any variables this stack needs before it deploys.",
     "varsRequiredBanner": "Fill in the fields flagged in red: they're required and still empty. Secrets are already generated; what's left is usually a URL or name only you know.",
-    "varsShared": "A red marker flags a required value that's still empty; click the eye to reveal or edit a secret. Saved as project variables.",
+    "varsShared": "A red marker flags a required value that's still empty; click the eye to reveal or edit a secret. Saved to this stack only.",
+    "varsSharedNames_one": "The project already has a variable with this name. This stack keeps its own value; the project's stays as it is:",
+    "varsSharedNames_other": "The project already has variables with these names. This stack keeps its own values; the project's stay as they are:",
     "varsTitle": "Environment variables",
     "varsWithRefs": "The compose file references these: secrets are auto-generated, defaults pre-filled.",
     "view": "View"
