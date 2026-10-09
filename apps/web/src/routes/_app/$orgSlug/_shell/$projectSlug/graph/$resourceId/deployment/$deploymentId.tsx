@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Cancel01Icon, LinkSquare02Icon } from "@hugeicons/core-free-icons";
 import * as m from "motion/react-client";
 
+import { SelfSignedMark } from "@/features/projects/components/self-signed-mark";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 
 import { useResolvedDeployment } from "./-components/use-resolved-deployment";
@@ -132,19 +133,24 @@ function Subline({ text, href }: { text: string; href: string | null }) {
   if (!text) return null;
   if (!href) return <div className="font-mono text-[12px] text-muted-foreground/80">{text}</div>;
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group inline-flex w-fit items-center gap-1 font-mono text-[12px] text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
-    >
-      {text}
-      <HugeiconsIcon
-        icon={LinkSquare02Icon}
-        strokeWidth={2}
-        className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
-      />
-    </a>
+    <div className="flex items-center gap-2">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group inline-flex w-fit items-center gap-1 font-mono text-[12px] text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
+      >
+        {text}
+        <HugeiconsIcon
+          icon={LinkSquare02Icon}
+          strokeWidth={2}
+          className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
+        />
+      </a>
+      {/* A generated sslip.io address opens on a browser warning; say so
+          beside the link rather than letting the click find out. */}
+      <SelfSignedMark host={href} />
+    </div>
   );
 }
 

@@ -101,6 +101,12 @@ export const serviceSchema = z.object({
 
   runtime: serviceRuntimeSchema,
 
+  /** What deploys a git-built service: `push` when its repo is bound through
+   *  a connected installation (the provider webhook fires on commits),
+   *  `manual` when it is bound by public URL (no webhook, so only a Deploy
+   *  click builds it). Null for a pulled image or an upload. */
+  deployTrigger: z.enum(["push", "manual"]).nullable(),
+
   /** Is the saved env the env the container runs? See views.ts envLiveness. */
   env: z.object({
     state: z.enum(["live", "pending", "unknown"]),
@@ -160,7 +166,18 @@ export const serviceDomainSchema = z.object({
   certState: z.enum(["unknown", "obtaining", "valid", "failed"]),
   certError: z.string().nullable(),
   certCheckedAt: z.string().nullable(),
+  // Whether the edge runs this host's latest change. Writes
+  // answer before the Caddy reload: "pending" until it lands, "failed" (with
+  // `edgeError`) when Caddy refused it. Pushed live on the project stream.
+  edgeState: z.enum(["synced", "pending", "failed"]),
+  edgeError: z.string().nullable(),
   usesAcme: z.boolean(),
+  // False for names no public CA will sign (generated sslip.io / .localhost
+  // hosts): their self-signed certificate is permanent, not a DNS problem.
+  publicCertEligible: z.boolean(),
+  // Which certificate the edge serves: Let's Encrypt, an uploaded chain, or
+  // Caddy's self-signed one. An uploaded chain leaves usesAcme false.
+  certSource: z.enum(["acme", "internal", "custom"]),
   protected: z.boolean(),
   ownershipVerified: z.boolean(),
   verifyRecord: z.string().nullable(),

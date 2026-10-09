@@ -113,10 +113,21 @@ function parseMetadata(
  */
 export async function resolveRequestActor(
   headers: Headers,
-  options: { bearerOverride?: string } = {},
+  options: {
+    bearerOverride?: string;
+    /** Read the session from Postgres, not the signed session-cache cookie.
+     *  For headers captured once and replayed for a long time (the live
+     *  socket's upgrade request): the cache cookie in them never refreshes,
+     *  so an org switch would otherwise go unseen for up to its maxAge. */
+    freshSession?: boolean;
+  } = {},
 ): Promise<Result<ResolvedActor, ApiKeyRateLimitedError>> {
   const sessionResult = await Result.tryPromise({
-    try: () => auth.api.getSession({ headers }),
+    try: () =>
+      auth.api.getSession({
+        headers,
+        query: options.freshSession ? { disableCookieCache: true } : undefined,
+      }),
     catch: (cause) => cause,
   });
   const session = sessionResult.isOk() ? sessionResult.value : null;

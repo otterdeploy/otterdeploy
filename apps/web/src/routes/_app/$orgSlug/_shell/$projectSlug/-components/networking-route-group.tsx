@@ -28,34 +28,62 @@ const COLUMN_COUNT = 5;
  *  probe has landed. The live health of what the edge is actually serving.
  *  Mode alone was misleading: a route can say "letsencrypt" while the edge
  *  serves an expired cert. */
-function TlsCell({
-  mode,
-  cert,
-}: {
-  mode: string;
-  cert: RouteCertificate | undefined;
-}) {
+type TlsMode = RouteGroup["routes"][number]["tls"];
+
+const TLS_LABEL: Record<TlsMode, string> = {
+  letsencrypt: "letsencrypt",
+  internal: "self-signed",
+  custom: "custom",
+};
+
+/** The dot before a probe lands: green only for what ACME issues, the shared
+ *  self-signed tone, and neutral for an uploaded chain we have not probed. */
+const TLS_DOT: Record<TlsMode, string> = {
+  letsencrypt: "bg-success",
+  internal: CERT_STATUS.internal.dot,
+  custom: "bg-muted-foreground/60",
+};
+
+const TLS_TITLE: Record<TlsMode, string | undefined> = {
+  letsencrypt: undefined,
+  internal:
+    "Served with a self-signed certificate: browsers warn before opening it. A custom domain pointed at this server gets a trusted Let's Encrypt certificate automatically.",
+  custom: "Served with a certificate uploaded under Edge → Certificates.",
+};
+
+function TlsCell({ mode, cert }: { mode: TlsMode; cert: RouteCertificate | undefined }) {
   const status = cert ? CERT_STATUS[cert.status] : null;
+  // "internal" is Caddy's word; a visitor meets a self-signed certificate and a
+  // browser warning, so that is what the cell says.
+  const selfSigned = mode === "internal";
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
-      <span
-        className={cn(
-          "size-1.5 rounded-full",
-          status
-            ? status.dot
-            : mode === "letsencrypt"
-              ? "bg-success"
-              : "bg-muted-foreground/60",
-        )}
-      />
-      {mode}
-      {status && cert?.status !== "valid" ? (
+    <span
+      className="inline-flex items-center gap-1.5 font-mono text-[12px]"
+      title={TLS_TITLE[mode]}
+    >
+      <span className={cn("size-1.5 rounded-full", status ? status.dot : TLS_DOT[mode])} />
+      {TLS_LABEL[mode]}
+      {/* The probe's own "self-signed" would only repeat the mode. */}
+      {status && cert?.status !== "valid" && !(selfSigned && cert?.status === "internal") ? (
         <span className={cn("text-[11px]", status.text)}>
           · {status.label.toLowerCase()}
         </span>
       ) : null}
     </span>
   );
+}
+
+/** Green reads "this works". A self-signed HTTP host is up but opens on a
+ *  browser warning, so it stays ink; layer-4 routes carry no browser trust
+ *  and keep the plain served/not-served colouring. */
+function hostTone(r: {
+  enabled: boolean;
+  disabledByUser: boolean;
+  isHttp: boolean;
+  tls: TlsMode;
+}): string {
+  if (!r.enabled || r.disabledByUser) return "text-muted-foreground";
+  return r.isHttp && r.tls === "internal" ? "text-foreground" : "text-success";
 }
 
 /** The operator's on/off switch beside the state word. "paused" is that
@@ -166,9 +194,7 @@ export function RouteGroupRows({
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
                         "group inline-flex items-center gap-1 font-mono text-[12.5px] hover:underline",
-                        r.enabled && !r.disabledByUser
-                          ? "text-success"
-                          : "text-muted-foreground",
+                        hostTone(r),
                       )}
                     >
                       {r.publicHost}
@@ -180,12 +206,7 @@ export function RouteGroupRows({
                     </a>
                   ) : (
                     <span
-                      className={cn(
-                        "font-mono text-[12.5px]",
-                        r.enabled && !r.disabledByUser
-                          ? "text-success"
-                          : "text-muted-foreground",
-                      )}
+                      className={cn("font-mono text-[12.5px]", hostTone(r))}
                     >
                       {r.publicHost}
                     </span>

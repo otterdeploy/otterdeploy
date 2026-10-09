@@ -27,10 +27,12 @@ import { ComposeNameField } from "./compose-name-field";
 import { ComposePreview } from "./compose-preview";
 import { stackNamePlaceholder } from "./compose-schema";
 import { ComposeServerField } from "./compose-server-field";
-import { rederiveDomains } from "./stack-domains";
+import { rederiveDomains, serviceOf } from "./stack-domains";
+import { selfSignedStackHosts } from "./steps/edge-tls";
 import { RepoPicker } from "./steps/repo-picker";
 import { useBindingSummary } from "./steps/source-binding";
 import { BranchPicker } from "./steps/source-pickers";
+import { usePublicHostPreview } from "./use-public-host-preview";
 
 /** "Paste file" / "From repo". Rendered only when no template prefilled the
  *  content: a template IS the source, so switching away only discards it. */
@@ -236,6 +238,11 @@ export function ComposeInlineFields({
   };
 
   const domains = useSelector(form.store, (s) => s.values.vars.domains);
+  // The same server preview the single-service wizard reads, for the front
+  // door's service: it says whether the generated host can hold a trusted
+  // certificate, so the rows can be honest about the ones that cannot.
+  const frontPreview = usePublicHostPreview(projectId, domains[0] ? serviceOf(domains[0].key) : "");
+  const selfSigned = selfSignedStackHosts(domains, exposed, frontPreview);
   /**
    * Editing the FRONT DOOR renames the whole stack: every row that has not
    * been typed into follows it. Editing any other row pins that row, and the
@@ -263,6 +270,7 @@ export function ComposeInlineFields({
         buildServices={buildServices}
         exposed={exposed}
         domains={domains}
+        selfSignedHosts={selfSigned}
         onToggleExpose={toggleExpose}
         onDomainChange={setDomain}
       />

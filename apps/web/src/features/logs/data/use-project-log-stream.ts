@@ -10,10 +10,14 @@
 
 import { useMemo } from "react";
 
+import { Temporal } from "@otterdeploy/shared/temporal";
+
+import { clockFormatter, epochMsFromIso, LOG_CLOCK } from "@/shared/lib/clock";
 import { displayServiceName } from "@/shared/lib/service-name";
 import { orpc } from "@/shared/server/orpc";
 
 import { classifyLogSeverity } from "../components/log-severity";
+import { parseStructuredLine, type StructuredLine } from "./structured-line";
 import { useLogStream, type LogStreamStatus } from "./use-log-stream";
 
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
@@ -62,6 +66,9 @@ export interface LogLine {
   resourceId: string;
   stream: "stdout" | "stderr" | "system";
   msg: string;
+  /** The line read as a JSON log (`msg` plus fields), or null when it is
+   *  plain text. Parsed once here so the table and the detail panel agree. */
+  structured: StructuredLine | null;
   /** Lowercased `msg`, computed once at ingest for the same reason: the text
    *  filter otherwise allocated a lowercased copy of every message per pass. */
   msgLower: string;
@@ -112,6 +119,8 @@ function coalesceMultiline(lines: LogLine[]): LogLine[] {
       out[out.length - 1] = {
         ...head,
         msg: `${head.msg}\n${ln.msg}`,
+        // A folded block is no longer one JSON object: show it as text.
+        structured: null,
         msgLower: `${head.msgLower}\n${ln.msgLower}`,
       };
     } else {
@@ -121,15 +130,13 @@ function coalesceMultiline(lines: LogLine[]): LogLine[] {
   return out;
 }
 
-function shortTs(iso: string | null): string {
-  if (!iso) return "–";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(11, 23);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${hh}:${mm}:${ss}.${ms}`;
+/** The row's clock: the viewer's zone (see `VIEW_ZONE`), to the millisecond,
+ *  like every other clock in the app. The zone is named once in the header. */
+const rowClock = clockFormatter(LOG_CLOCK);
+
+function shortTs(ms: number | null, iso: string | null): string {
+  if (ms !== null) return rowClock(ms);
+  return iso ? iso.slice(11, 23) : "–";
 }
 
 export function useProjectLogStream({
@@ -162,33 +169,35 @@ export function useProjectLogStream({
         { signal },
       ),
     map: (ev, id): LogLine => {
-      const tsMs = ev.ts ? Date.parse(ev.ts) : NaN;
+      const tsMs = ev.ts ? epochMsFromIso(ev.ts) : null;
       return {
         id: String(id),
-        ts: shortTs(ev.ts),
+        ts: shortTs(tsMs, ev.ts),
         tsIso: ev.ts,
-        tsMs: Number.isNaN(tsMs) ? null : tsMs,
+        tsMs,
         level: inferLevel(ev.stream, ev.line),
         svc: ev.serviceName ? displayServiceName(ev.serviceName) : "system",
         resourceId: ev.resourceId,
         stream: ev.stream,
         msg: ev.line,
+        structured: parseStructuredLine(ev.line),
         msgLower: ev.line.toLowerCase(),
       };
     },
     onError: (err, id): LogLine => {
-      const now = new Date();
+      const now = Temporal.Now.instant();
       const msg = `Log stream error: ${err instanceof Error ? err.message : String(err)}`;
       return {
         id: `err-${id}`,
-        ts: shortTs(now.toISOString()),
-        tsIso: now.toISOString(),
-        tsMs: now.getTime(),
+        ts: shortTs(now.epochMilliseconds, null),
+        tsIso: now.toString(),
+        tsMs: now.epochMilliseconds,
         level: "error",
         svc: "system",
         resourceId: "",
         stream: "system",
         msg,
+        structured: null,
         msgLower: msg.toLowerCase(),
       };
     },

@@ -378,6 +378,9 @@ const edgeAccessFeedRowSchema = z.object({
   tlsCipher: z.string().nullable(),
   reqBytes: z.number(),
   resBytes: z.number(),
+  /** A probe path answered with the host's own index page (an SPA fallback),
+   *  so the file it asked for was not served. See `access-table.ts`. */
+  spaFallback: z.boolean(),
   requestId: z.string().nullable(),
   headers: z.record(z.string(), z.string()),
 });

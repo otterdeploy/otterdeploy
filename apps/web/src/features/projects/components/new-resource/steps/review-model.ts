@@ -12,10 +12,12 @@ import { POSTGRES_EXTENSIONS, resolvePostgresImage } from "@otterdeploy/shared/p
 import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/service-kinds";
 
 import type { ResourceFormState } from "../schemas";
+import type { PublicHostPreview } from "../use-public-host-preview";
 
 import { buildSummary, type RepoDetection } from "../build-defaults";
 import { traitsFor } from "../engine-traits";
 import { domainsFromPorts } from "../to-manifest";
+import { selfSignedGeneratedHost } from "./edge-tls";
 
 export interface ComposeArgs {
   isDb: boolean;
@@ -139,10 +141,11 @@ function resolveServiceDomains(
 export function buildReviewModel(
   kind: ServiceKind,
   values: ResourceFormState,
-  derivedHost: string | null,
+  preview: PublicHostPreview | null,
   /** What `git.inspectRepo` found, so the Build row names the real builder. */
   detection: RepoDetection = { framework: null, dockerfile: null },
 ) {
+  const derivedHost = preview?.fqdn ?? null;
   const { name, version, replicas } = values;
   const { publicEnabled, healthPath, healthInterval } = values;
   const { cpu, mem } = resolveSize(values);
@@ -156,6 +159,10 @@ export function buildReviewModel(
     .join(", ");
 
   const serviceDomains = resolveServiceDomains(kind, isDb, values, derivedHost);
+  // The generated host among them, when it will be served self-signed. Read
+  // off the same domains list so Review never flags a host it isn't staging.
+  const selfSignedHost =
+    serviceDomains.length > 0 ? selfSignedGeneratedHost(values.ports, preview) : null;
 
   const compose = generateComposeYaml({
     isDb,
@@ -187,6 +194,7 @@ export function buildReviewModel(
     replicas,
     publicEnabled,
     serviceDomains,
+    selfSignedHost,
     // Databases publish through the exposed flag; services publish because a
     // port mapped to a hostname.
     isPublic: isDb ? publicEnabled : serviceDomains.length > 0,

@@ -64,6 +64,9 @@ export function edgeAccessFixtures(count = 900, hours = 6, seed = 11): EdgeAcces
       resBytes:
         route.method === "GET" ? 400 + Math.floor(random() * 48_000) : Math.floor(random() * 2_400),
       requestId: `req_${Math.floor(random() * 1e12).toString(36)}`,
+      // A probe that drew a 200 drew the SPA's index page in this sample data: the
+      // common case on a single-page app, and the one the row has to explain.
+      spaFallback: classifyThreat(route.path) !== null && route.status === 200,
       suspicious: classifyThreat(route.path) === null ? "no" : "yes",
       headers: {
         "accept-encoding": "gzip, br",

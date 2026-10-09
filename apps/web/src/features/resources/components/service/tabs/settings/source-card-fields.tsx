@@ -8,6 +8,7 @@
 
 import { GithubIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { repoWebUrl } from "@/features/resources/lib/repo-url";
 import {
@@ -169,5 +170,30 @@ export function PreviewsField({
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
+  );
+}
+
+/** Host-match preview for the image target: surface which shared credential
+ *  the builder will push with (or that none matches), so it's transparent. */
+export function RegistryHint({
+  image,
+  registries,
+}: {
+  image: string;
+  registries: { host: string; displayName: string }[];
+}) {
+  const { t } = useTranslation();
+  const imageHost = image.trim().split("/")[0] ?? "";
+  const matched = imageHost ? (registries.find((r) => r.host === imageHost) ?? null) : null;
+  if (!imageHost) return null;
+  return (
+    <p className={`mt-1 text-[11px] ${matched ? "text-muted-foreground" : "text-destructive"}`}>
+      {matched
+        ? t("resources.source.registryMatched", {
+            name: matched.displayName,
+            host: matched.host,
+          })
+        : t("resources.source.registryUnmatched", { host: imageHost })}
+    </p>
   );
 }

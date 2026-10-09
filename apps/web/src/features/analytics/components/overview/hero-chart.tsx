@@ -63,6 +63,8 @@ export function HeroChart({
           ariaLabel={t("analytics.overview.chartAria", { metric: t(chartedDef.labelKey) })}
           height={HERO_HEIGHT}
           kind="area"
+          // Every charted series here is a count of people or pages.
+          integer
           sampleIntervalMs={bucketIntervalMs(bucket)}
         />
       </MetricCard>

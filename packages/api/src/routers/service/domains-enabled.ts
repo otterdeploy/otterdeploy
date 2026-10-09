@@ -13,9 +13,9 @@ import type { ProjectNotFoundError } from "../project/errors";
 import type { ServiceNotFoundError } from "./errors";
 import type { ResourceRef } from "./inputs";
 
-import { reconcile } from "../../caddy";
+import { queueReloadOf } from "../../caddy/edge-sync";
 import { updateProxyRoute } from "../../caddy/queries";
-import { serverIpFor, toDomainView, type ServiceDomainView } from "./domain-rules";
+import { loadDomainView, serverIpFor, type ServiceDomainView } from "./domain-rules";
 import { loadOwnedRoute } from "./domains";
 import { DomainNotFoundError } from "./errors";
 
@@ -32,13 +32,14 @@ export async function setServiceDomainEnabled(
   if (owned.isErr()) return Result.err(owned.error);
   const { route } = owned.value;
 
-  const updated = await updateProxyRoute(input.routeId, { disabledByUser: !input.enabled });
-  if (!updated) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
+  const written = await updateProxyRoute(input.routeId, { disabledByUser: !input.enabled });
+  if (!written) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
 
-  // Re-render so the host drops out of (or returns to) Caddy immediately.
-  await reconcile(log);
+  // Re-render so the host drops out of (or returns to) Caddy. Queued, not
+  // awaited: the row says pending until the reload settles it.
+  const updated = await queueReloadOf(written);
   log.set({
     domain: { action: input.enabled ? "resume" : "pause", domain: route.domain },
   });
-  return Result.ok(toDomainView(updated, await serverIpFor(input)));
+  return Result.ok(await loadDomainView(updated, await serverIpFor(input), input.organizationId));
 }

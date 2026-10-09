@@ -7,8 +7,10 @@
 
 import { useTranslation } from "react-i18next";
 
+import { SelfSignedBadge } from "@/shared/components/domains/self-signed-badge";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { Spinner } from "@/shared/components/ui/spinner";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 type CertState = "unknown" | "obtaining" | "valid" | "failed";
@@ -34,10 +36,23 @@ export interface DomainView {
   dnsState: DnsState;
   dnsCheckedAt: string | null;
   usesAcme: boolean;
+  /** False for names no public CA signs (generated sslip.io / .localhost
+   *  hosts): their self-signed certificate is permanent, so the fix is a
+   *  custom domain, not DNS. Decided server-side (domain-rules.ts). */
+  publicCertEligible: boolean;
+  /** Which certificate the edge serves: Let's Encrypt, an operator-uploaded
+   *  chain, or Caddy's self-signed one. An uploaded chain leaves `usesAcme`
+   *  false, so that flag alone would call it self-signed. */
+  certSource: "acme" | "internal" | "custom";
   /** TLS lifecycle, promoted from Caddy's own ACME log events
    *  (packages/api/src/edge-logs/cert-promote.ts). */
   certState: CertState;
   certError: string | null;
+  /** Whether the edge runs this host's latest change. Writes answer before
+   *  the proxy reload; the reload's outcome lands here over the project
+   *  event stream (packages/api/src/caddy/edge-state.ts). */
+  edgeState: "synced" | "pending" | "failed";
+  edgeError: string | null;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -56,15 +71,14 @@ export type DomainStatusView = Pick<
 /** Just the fields the TLS chip reads. */
 type DomainCertView = Pick<
   DomainView,
-  "domain" | "status" | "dnsState" | "usesAcme" | "certState" | "certError"
+  | "status"
+  | "dnsState"
+  | "usesAcme"
+  | "publicCertEligible"
+  | "certSource"
+  | "certState"
+  | "certError"
 >;
-
-/** A name no public CA will ever issue for, so "self-signed" is its correct
- *  and permanent state rather than a problem to report. Mirrors
- *  `canHoldPublicCert` in packages/api/src/routers/service/domain-rules.ts. */
-function canHoldPublicCert(domain: string): boolean {
-  return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
-}
 
 /**
  * Whether TLS is actually trusted, which {@link StatusBadge} does NOT say.
@@ -84,13 +98,39 @@ function canHoldPublicCert(domain: string): boolean {
  * Silent on the healthy path: a badge on every working row is noise, and
  * StatusBadge already says Live. This speaks only when something is wrong or
  * in flight.
+ *
+ * A generated sslip.io / `.localhost` host used to be skipped here as "correct
+ * and permanent", and that silence is how a fresh install's first URL read
+ * `Live` while every browser refused it. Permanent is not the
+ * same as fine: it gets the chip too, with the fix that actually applies (a
+ * custom domain) instead of a DNS recheck that can never help.
+ *
+ * An uploaded certificate is checked first: its route keeps `usesAcme` false,
+ * so without `certSource` the operator's own trusted chain read "Self-signed".
+ * It is named rather than left silent, because the row is otherwise the only
+ * place that says why this host has no Let's Encrypt certificate.
  */
 export function CertBadge({ domain }: { domain: DomainCertView }) {
   const { t } = useTranslation();
 
   // Nothing is being served, so TLS is not the operator's current problem.
   if (domain.status !== "live") return null;
-  if (!canHoldPublicCert(domain.domain)) return null;
+
+  if (domain.certSource === "custom") {
+    return (
+      <Badge
+        variant="outline"
+        className="text-muted-foreground"
+        title={t("domains.certCustomHint")}
+      >
+        {t("domains.certCustom")}
+      </Badge>
+    );
+  }
+
+  if (!domain.usesAcme && !domain.publicCertEligible) {
+    return <SelfSignedBadge />;
+  }
 
   if (!domain.usesAcme) {
     // A proxied host is NOT the same failure as a pointed one, and painting
@@ -100,20 +140,18 @@ export function CertBadge({ domain }: { domain: DomainCertView }) {
     // warning right now. One is a caution to read, the other is an outage, so
     // the proxied case states the fact quietly and lets the Cloudflare chip
     // beside it carry the context.
-    const proxied = domain.dnsState === "proxied";
-    return (
-      <Badge
-        variant={proxied ? "outline" : "secondary"}
-        className={
-          proxied
-            ? "text-muted-foreground"
-            : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500"
-        }
-        title={proxied ? t("domains.certSelfSignedProxiedHint") : t("domains.certSelfSignedHint")}
-      >
-        {proxied ? t("domains.certOriginSelfSigned") : t("domains.certSelfSigned")}
-      </Badge>
-    );
+    if (domain.dnsState === "proxied") {
+      return (
+        <Badge
+          variant="outline"
+          className="text-muted-foreground"
+          title={t("domains.certSelfSignedProxiedHint")}
+        >
+          {t("domains.certOriginSelfSigned")}
+        </Badge>
+      );
+    }
+    return <SelfSignedBadge hint={t("domains.certSelfSignedHint")} />;
   }
 
   if (domain.certState === "failed") {
@@ -128,6 +166,36 @@ export function CertBadge({ domain }: { domain: DomainCertView }) {
     return <Badge variant="outline">{t("domains.certIssuing")}</Badge>;
   }
 
+  return null;
+}
+
+/**
+ * The proxy reload behind the host's last change. A domain write answers as
+ * soon as the route is saved and the reload runs behind it, so for a moment
+ * (or, when Caddy is slow to swap configs, many seconds) the row exists but
+ * the edge does not serve it yet. Silent once the edge has it.
+ */
+export function EdgeBadge({ domain }: { domain: Pick<DomainView, "edgeState" | "edgeError"> }) {
+  const { t } = useTranslation();
+  if (domain.edgeState === "pending") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1 text-muted-foreground"
+        title={t("domains.edgePendingHint")}
+      >
+        <Spinner className="size-3" />
+        {t("domains.edgePending")}
+      </Badge>
+    );
+  }
+  if (domain.edgeState === "failed") {
+    return (
+      <Badge variant="destructive" title={domain.edgeError ?? t("domains.edgeFailedHint")}>
+        {t("domains.edgeFailed")}
+      </Badge>
+    );
+  }
   return null;
 }
 

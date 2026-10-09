@@ -4,6 +4,8 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
+import { CLOCK_MINUTES, clockFormatter } from "@/shared/lib/clock";
+
 import {
   bucketize,
   HISTOGRAM_BUCKET_MS,
@@ -28,10 +30,7 @@ interface LogsHistogramProps {
   onSelectRange: (range: TimeRange | null) => void;
 }
 
-function clockHM(ms: number): string {
-  const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
+const clockHM = clockFormatter(CLOCK_MINUTES);
 
 export function LogsHistogram({
   lines,

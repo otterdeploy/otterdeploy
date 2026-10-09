@@ -36,26 +36,55 @@ export function clockFormatter(options: Intl.DateTimeFormatOptions): ClockFormat
 }
 
 /**
- * The zone every LOG surface reads in.
+ * The zone every clock in the app reads in: the viewer's own.
  *
- * A log row is an absolute instant, and rendering it in the reader's zone means
- * two people looking at the same row disagree about what it says — which is the
- * one thing a shared incident timeline cannot afford. It also means the table
- * disagrees with `docker logs`, with the server's own output, and with the `Z`
- * stamp in the row's payload.
+ * One install used to show three clocks: the edge tables printed UTC, the
+ * project logs and metrics printed local time, and Analytics named the
+ * browser's zone in its footer. An operator lining up a 502 on the Edge page
+ * against a log line and a CPU spike read three different numbers for one
+ * instant. Every surface now reads in this zone, and the two things the old
+ * UTC tables were protecting are kept another way:
  *
- * The data workbench already settled this for grid cells (`instantDisplay` in
- * packages/data-engine/src/value.ts); this is the same decision for the tables.
+ * - The unambiguous instant is one hover away: every clock cell carries the
+ *   UTC ISO stamp in its title (see {@link utcIso}), so two people comparing
+ *   a row still have a shared string to paste.
+ * - The zone is never silent: a time column names it once, in its header
+ *   (see {@link zoneAbbreviation}), rather than on a thousand cells.
  *
- * It is never silent: an instant column marks its header, and every cell keeps
- * the full offset stamp on hover.
+ * Feeds that bucket or day-bound on the server pass this zone too, so a
+ * histogram bar and the rows under it agree about which day they are in.
  */
-export const LOG_ZONE = "UTC";
+export const VIEW_ZONE: string = Temporal.Now.timeZoneId();
 
-/** A formatter pinned to {@link LOG_ZONE}, reusable across calls. */
-export function utcFormatter(options: Intl.DateTimeFormatOptions): ClockFormat {
-  const format = new TemporalIntl.DateTimeFormat(undefined, { ...options, timeZone: LOG_ZONE });
+/** A formatter pinned to `timeZone`, for code that must not depend on the
+ *  runtime default (tests, and anything computed for a zone other than the
+ *  viewer's). */
+export function zonedFormatter(options: Intl.DateTimeFormatOptions, timeZone: string): ClockFormat {
+  const format = new TemporalIntl.DateTimeFormat(undefined, { ...options, timeZone });
   return (value) => format.format(instantOf(value));
+}
+
+/** The instant as an ISO-8601 UTC stamp, to the millisecond. The string to
+ *  paste into an incident channel: it reads the same in every zone. */
+export function utcIso(value: Moment): string {
+  return instantOf(value).toString({ smallestUnit: "millisecond" });
+}
+
+/**
+ * The short name of a zone at an instant: "CEST", "GMT+2", "UTC".
+ *
+ * At an instant because the name moves: Berlin is CET in winter and CEST in
+ * summer, and a header that said "CET" over summer rows would be a lie.
+ */
+export function zoneAbbreviation(
+  timeZone: string = VIEW_ZONE,
+  at: Moment = Temporal.Now.instant(),
+): string {
+  const parts = new TemporalIntl.DateTimeFormat(undefined, {
+    timeZone,
+    timeZoneName: "short",
+  }).formatToParts(instantOf(at));
+  return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone;
 }
 
 /** 24-hour clock whatever the locale: a clock beside a chart axis is a scale
@@ -71,6 +100,13 @@ export const CLOCK_SECONDS = {
   second: "2-digit",
 } as const satisfies Intl.DateTimeFormatOptions;
 
+/** A log row's clock: to the millisecond, because log lines arrive within the
+ *  same second and their order is the information. */
+export const LOG_CLOCK = {
+  ...CLOCK_SECONDS,
+  fractionalSecondDigits: 3,
+} as const satisfies Intl.DateTimeFormatOptions;
+
 export const CLOCK_DAY = {
   month: "short",
   day: "numeric",
@@ -79,13 +115,6 @@ export const CLOCK_DAY = {
 export const CLOCK_STAMP = {
   ...CLOCK_DAY,
   ...CLOCK_MINUTES,
-} as const satisfies Intl.DateTimeFormatOptions;
-
-/** A calendar date with its year, no clock. For an axis whose ticks are months
- *  apart, where the time of day is noise and the year is the missing fact. */
-export const CLOCK_DATE = {
-  year: "numeric",
-  ...CLOCK_DAY,
 } as const satisfies Intl.DateTimeFormatOptions;
 
 /** Full date + time. For a hover that has to stay unambiguous months later,

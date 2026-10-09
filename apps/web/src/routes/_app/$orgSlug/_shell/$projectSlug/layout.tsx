@@ -6,6 +6,7 @@ import * as z from "zod";
 import { useProjectDeployStatus } from "@/features/deployments/hooks/use-deploy-status";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
+import { ProjectSelfSignedHosts } from "@/features/projects/data/project-self-signed-hosts";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
@@ -132,7 +133,12 @@ function RouteComponent() {
       />
       <SidebarInset>
         <ProjectTabs />
-        <Outlet />
+        {/* Every URL offered below (graph Visit, service header, stack
+            summary, deployment address) can say whether the browser will
+            warn on it, from the route rows rather than the hostname. */}
+        <ProjectSelfSignedHosts projectId={project.id}>
+          <Outlet />
+        </ProjectSelfSignedHosts>
       </SidebarInset>
       <PendingChangesBar projectId={project.id} environment={envSlug} />
     </>

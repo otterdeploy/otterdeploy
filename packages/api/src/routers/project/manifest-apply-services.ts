@@ -16,7 +16,9 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { declaredEnvOf, type ServiceManifest } from "../../stack/manifest";
+import { normalizeDomain } from "../service/domain-rules";
 import { addServiceDomain, setPrimaryServiceDomain } from "../service/domains";
+import { generateServiceDomain, previewGeneratedHost } from "../service/expose";
 import {
   bulkSetEnv,
   createService,
@@ -77,6 +79,15 @@ export async function createServiceFromManifest(
  * generated host because real custom routes already exist, and finally pin
  * the operator's chosen primary. Every step's failure becomes a non-fatal
  * skip so a single bad domain never rolls back the created service.
+ *
+ * A declared domain that IS the platform's generated host for this service
+ * goes through `generateServiceDomain`, the "Generate domain" button's path,
+ * not `addServiceDomain`. The new-service wizard stages exactly that host when
+ * a public port has no hostname of its own, and adding it as a custom domain
+ * left a `source = custom` row that nothing else treats as the platform's
+ * address: the card kept offering "Generate domain", the row asked for DNS
+ * ownership proof of a name we mint, and a later base-domain change could not
+ * recognise it (od-mc6m).
  */
 export async function seedServiceDomains(args: {
   projectId: ProjectId;
@@ -95,9 +106,22 @@ export async function seedServiceDomains(args: {
   const skip = (reason: string) =>
     skips.push(new ManifestApplySkipError({ resource: "service", name: args.name, reason }));
 
+  const generatedHost = await previewGeneratedHost(ref);
+  const isGenerated = (d: { domain: string }) =>
+    generatedHost !== null && normalizeDomain(d.domain) === generatedHost;
+  // The generated host goes first. Adding a custom domain mirrors the primary
+  // host into the service's `publicDomain`, which the generated-host resolver
+  // reads as an override, so minting after it would resolve to that custom
+  // name instead of the platform's own.
+  const ordered = [
+    ...args.domains.filter(isGenerated),
+    ...args.domains.filter((d) => !isGenerated(d)),
+  ];
   let primaryRouteId: ProxyRouteId | null = null;
-  for (const d of args.domains) {
-    const added = await addServiceDomain({ ...ref, domain: d.domain }, args.log);
+  for (const d of ordered) {
+    const added = isGenerated(d)
+      ? await generateServiceDomain(ref, args.log)
+      : await addServiceDomain({ ...ref, domain: d.domain }, args.log);
     if (added.isErr()) {
       skip(`domain ${d.domain} skipped: ${added.error.message}`);
       continue;
@@ -109,7 +133,7 @@ export async function seedServiceDomains(args: {
   const routesAdded = primaryRouteId !== null || skips.length < args.domains.length;
   if (!routesAdded) return skips;
 
-  // Custom routes were just added above, so expose enables them in place and
+  // Routes were just added above, so expose enables them in place and
   // never reaches the sslip fallback. Pass `false` (no silent sslip opt-in);
   // if it ever did, refusing here becomes a non-fatal skip, which is correct.
   const exposed = await exposeService(ref, false, args.log);

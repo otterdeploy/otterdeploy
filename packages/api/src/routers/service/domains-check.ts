@@ -11,6 +11,7 @@ import { Result } from "better-result";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
+import { loadCustomCertHosts } from "../../caddy/certs";
 import { getProxyRouteByDomain, listProxyRoutesByResourceId } from "../../caddy/queries";
 import { loadResource } from "./context";
 import {
@@ -95,5 +96,9 @@ export async function listServiceDomains(
     listProxyRoutesByResourceId(input.resourceId),
     serverIpFor(input),
   ]);
-  return Result.ok(routes.map((r) => toDomainView(r, dnsTarget)));
+  const customCertHosts = await loadCustomCertHosts(
+    input.organizationId,
+    routes.map((r) => r.domain),
+  );
+  return Result.ok(routes.map((r) => toDomainView(r, dnsTarget, customCertHosts)));
 }

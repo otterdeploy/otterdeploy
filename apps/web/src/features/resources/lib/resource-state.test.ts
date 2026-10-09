@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { knownDeploymentStatus } from "./known-deployment";
 import {
   databaseState,
   memberState,
@@ -77,15 +78,60 @@ describe("serviceState", () => {
       }),
     ).toEqual({ tone: "error", label: "error", why: "no space left on device" });
   });
-  it("is null while the runtime is unknown for a deployed service", () => {
+  it("says what the graph says while the runtime loads", () => {
+    // The graph node's pill is the latest deployment's status; the header
+    // used to show nothing (or "not deployed") beside a green node.
     expect(
       serviceState({ ...base, runtime: undefined, latestDeployment: { status: "running" } }),
+    ).toEqual({ tone: "running", label: "running", why: null });
+  });
+  it("stays unknown for a settled deploy the runtime has not confirmed", () => {
+    expect(
+      serviceState({ ...base, runtime: undefined, latestDeployment: { status: "superseded" } }),
     ).toBeNull();
+  });
+  it("never says 'not deployed' while the deployment history is still loading", () => {
+    expect(serviceState({ ...base, runtime: undefined, latestDeployment: undefined })).toBeNull();
+    expect(
+      serviceState({ ...base, runtime: { status: "missing" }, latestDeployment: undefined }),
+    ).toBeNull();
+  });
+  it("reads the runtime alone when the history is not known yet", () => {
+    expect(
+      serviceState({ ...base, runtime: { status: "running" }, latestDeployment: undefined }),
+    ).toEqual({ tone: "running", label: "running", why: null });
   });
   it("is not-deployed when nothing ever ran", () => {
     expect(
       serviceState({ ...base, runtime: undefined, latestDeployment: { status: null } }),
     ).toEqual({ tone: "pending", label: "not deployed", why: null });
+  });
+});
+
+describe("knownDeploymentStatus", () => {
+  it("starts from the resource row (the graph's source) while the list loads", () => {
+    expect(
+      knownDeploymentStatus({ listed: undefined, listLoading: true, fromResource: "running" }),
+    ).toEqual({ status: "running" });
+  });
+  it("prefers the live list once it has a row", () => {
+    expect(
+      knownDeploymentStatus({
+        listed: { status: "building" },
+        listLoading: false,
+        fromResource: "running",
+      }),
+    ).toEqual({ status: "building" });
+  });
+  it("is unknown, not empty, while loading with nothing else to go on", () => {
+    expect(
+      knownDeploymentStatus({ listed: undefined, listLoading: true, fromResource: undefined }),
+    ).toBeUndefined();
+  });
+  it("is empty once a loaded list says so", () => {
+    expect(
+      knownDeploymentStatus({ listed: undefined, listLoading: false, fromResource: undefined }),
+    ).toEqual({ status: null });
   });
 });
 

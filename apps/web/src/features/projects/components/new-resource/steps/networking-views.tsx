@@ -30,6 +30,7 @@ import { SectionHeader } from "../form-primitives";
 import { frameworkLabel } from "../frameworks";
 import { usePublicHostPreview } from "../use-public-host-preview";
 import { useRepoDetection } from "../use-repo-detection";
+import { selfSignedGeneratedHost, tlsEdgeRow } from "./edge-tls";
 
 export function StaticBuild() {
   const form = useFormContext();
@@ -62,9 +63,10 @@ export function StaticBuild() {
 }
 
 // What the Caddy edge applies to every public route. Stated, not toggled:
-// none of these are per-service settings in the reconciler today.
+// none of these are per-service settings in the reconciler today. The TLS row
+// is not in this list because it is not the same for every route: see
+// ./edge-tls (a generated sslip.io host is served self-signed).
 const EDGE_DEFAULTS: Array<{ label: string; sub: string }> = [
-  { label: "TLS certificates", sub: "Let's Encrypt · issued and renewed automatically" },
   { label: "HTTP → HTTPS", sub: "Plain-HTTP requests are redirected" },
   { label: "HTTP/3 + compression", sub: "QUIC and zstd/gzip encoding where clients support them" },
   { label: "WebSockets + real IP", sub: "ws:// upgrades pass through; X-Forwarded-For is set" },
@@ -84,7 +86,9 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
   // hostname" is never a silent unknown.
   const name = useSelector(form.store, (s) => s.values.name);
   const ports = useSelector(form.store, (s) => s.values.ports);
-  const derivedHost = usePublicHostPreview(projectId, name);
+  const preview = usePublicHostPreview(projectId, name);
+  const derivedHost = preview?.fqdn ?? null;
+  const edgeRows = [tlsEdgeRow(selfSignedGeneratedHost(ports, preview)), ...EDGE_DEFAULTS];
   const publicWithoutHost = ports.some((p) => p.public && p.host.trim() === "");
   const publicWithCustomHost = ports.some((p) => p.public && p.host.trim() !== "");
 
@@ -153,11 +157,11 @@ export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
         />
       </div>
       <Card className="mt-2.5 gap-0 rounded-md p-4">
-        {EDGE_DEFAULTS.map((d, i) => (
+        {edgeRows.map((d, i) => (
           <div
             key={d.label}
             className={`flex items-start gap-3 py-2 text-xs ${
-              i === EDGE_DEFAULTS.length - 1 ? "" : "border-b border-border/60"
+              i === edgeRows.length - 1 ? "" : "border-b border-border/60"
             }`}
           >
             <span className="w-36 shrink-0 pt-px text-[11px] text-muted-foreground">{d.label}</span>

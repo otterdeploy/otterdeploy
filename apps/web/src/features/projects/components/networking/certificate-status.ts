@@ -7,6 +7,8 @@
 
 import type { orpc } from "@/shared/server/orpc";
 
+import { SELF_SIGNED_TONE } from "@/shared/components/domains/self-signed-tone";
+
 export type RouteCertificate = Awaited<
   ReturnType<typeof orpc.project.proxyRoute.certificates.call>
 >["certificates"][number];
@@ -17,7 +19,8 @@ export const CERT_STATUS: Record<CertStatus, { label: string; dot: string; text:
   valid: { label: "Valid", dot: "bg-success", text: "text-success" },
   expiring: { label: "Expiring soon", dot: "bg-amber-500", text: "text-amber-500" },
   expired: { label: "Expired", dot: "bg-destructive", text: "text-destructive" },
-  internal: { label: "Self-signed", dot: "bg-sky-500", text: "text-sky-500" },
+  // The one colour self-signed wears everywhere (self-signed-tone.ts).
+  internal: { label: "Self-signed", dot: SELF_SIGNED_TONE.dot, text: SELF_SIGNED_TONE.text },
   error: { label: "Unreachable", dot: "bg-muted-foreground", text: "text-muted-foreground" },
 };
 

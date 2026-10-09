@@ -158,6 +158,18 @@ export const proxyContractSlice = {
     .input(listProxyRoutesInput)
     .output(projectCertificatesSchema),
 
+  // Hosts served with an uploaded certificate. Their routes keep
+  // usesAcme=false, so the route rows alone would call them self-signed.
+  customCertHosts: oc
+    .errors(projectNotFoundErrors)
+    .meta({
+      path: `${basePath}/{projectId}/custom-cert-hosts`,
+      tag,
+      method: "GET",
+    })
+    .input(listProxyRoutesInput)
+    .output(z.array(z.string())),
+
   globalOptions: oc
     .errors(projectNotFoundErrors)
     .meta({

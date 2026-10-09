@@ -9,9 +9,13 @@
  * drift from the badges and dots the rest of the app uses.
  */
 
+import { formatBytes } from "@otterdeploy/shared/format";
+
 import type { BadgeTone } from "@/shared/components/data-table/schema/types";
 
+import { classifyThreat } from "@/features/edge-logs/threat";
 import { countryFlag } from "@/shared/lib/country";
+import { cn } from "@/shared/lib/utils";
 
 /** GET reads, POST creates, PUT/PATCH change, DELETE removes — in that order
  *  of how much a mistake costs. */
@@ -89,6 +93,65 @@ export function CountryLabel({ code }: { code: string }) {
         </span>
       ) : null}
       <span className="truncate">{code}</span>
+    </span>
+  );
+}
+
+/** What a probe row has to say about itself. */
+export interface ProbeReading {
+  /** The probe category, e.g. `secret-file`. */
+  category: string;
+  /** The app answered with its index page, so the file was not served. */
+  fallback: boolean;
+  /** The hover: what came back, in plain words. */
+  detail: string;
+}
+
+/**
+ * A scanner probe, read honestly.
+ *
+ * The category stays on every probe: someone asked this host for `/.env`, and
+ * that is worth knowing whatever the answer was. What changes is the claim.
+ * A single-page app answers every unknown path with its index page, so a probe
+ * "succeeding" with a 200 is usually the SPA fallback, not a leaked file; the
+ * server recognises that from the response size (see `spaFallback` in
+ * `routers/edge-logs/access-table.ts`). Those rows say so and drop the alarm
+ * colour, so the red tag is left for a probe that actually got something.
+ */
+export function readProbe(row: {
+  path: string;
+  status: number;
+  resBytes: number;
+  spaFallback: boolean;
+}): ProbeReading | null {
+  const category = classifyThreat(row.path);
+  if (category === null) return null;
+  const size = formatBytes(row.resBytes);
+  if (row.spaFallback) {
+    return {
+      category,
+      fallback: true,
+      detail: `Scanner probe (${category}). The host answered with its index page (${size}, the same response as /), so the file was not served.`,
+    };
+  }
+  return {
+    category,
+    fallback: false,
+    detail: `Scanner probe (${category}). Response ${row.status}, ${size}.`,
+  };
+}
+
+/** The probe tag in front of a path. */
+export function ProbeTag({ probe }: { probe: ProbeReading }) {
+  return (
+    <span
+      title={probe.detail}
+      className={cn(
+        "shrink-0 rounded-[3px] px-1 py-px font-mono text-[9.5px] font-semibold tracking-wide uppercase",
+        probe.fallback ? "bg-muted text-muted-foreground" : "bg-destructive/10 text-destructive",
+      )}
+    >
+      {probe.category}
     </span>
   );
 }

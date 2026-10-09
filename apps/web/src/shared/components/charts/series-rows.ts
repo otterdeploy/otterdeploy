@@ -158,3 +158,25 @@ export function applyFilter(labels: readonly string[], filter: string): Set<stri
   });
   return new Set(lit.length > 0 ? lit : labels);
 }
+
+/**
+ * The tallest thing the plot draws: the largest single value, or for a
+ * stacked chart the largest per-instant total. A count axis sizes its top
+ * from this.
+ */
+export function peakValue(rows: readonly LongRow[], stacked: boolean): number {
+  if (!stacked) {
+    let peak = 0;
+    for (const row of rows) if (row.value !== null && row.value > peak) peak = row.value;
+    return peak;
+  }
+  const totals = new Map<number, number>();
+  for (const row of rows) {
+    if (row.value === null) continue;
+    const at = row.t.getTime();
+    totals.set(at, (totals.get(at) ?? 0) + row.value);
+  }
+  let peak = 0;
+  for (const total of totals.values()) if (total > peak) peak = total;
+  return peak;
+}

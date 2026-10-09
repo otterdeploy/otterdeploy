@@ -15,6 +15,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useTranslation } from "react-i18next";
 
 import { ServiceImageIcon } from "@/shared/components/brand/service-image-icon";
+import { SelfSignedBadge } from "@/shared/components/domains/self-signed-badge";
 import { Badge } from "@/shared/components/ui/badge";
 import { Spinner } from "@/shared/components/ui/spinner";
 
@@ -30,6 +31,7 @@ export function ComposePreview({
   buildServices,
   exposed,
   domains,
+  selfSignedHosts,
   onToggleExpose,
   onDomainChange,
 }: {
@@ -39,6 +41,9 @@ export function ComposePreview({
   exposed: Set<string>;
   /** Front-door-first, matching `file.exposed`. Row 0 names the stack. */
   domains: readonly DomainRow[];
+  /** Published hostnames that will be served self-signed (generated hosts no
+   *  public CA signs). See `selfSignedStackHosts`. */
+  selfSignedHosts: readonly string[];
   onToggleExpose: (key: string) => void;
   onDomainChange: (key: string, domain: string) => void;
 }) {
@@ -122,6 +127,17 @@ export function ComposePreview({
           </div>
         ))}
       </div>
+      {/* The generated addresses above are served self-signed: say so where
+          they are handed out, the same way the single-service wizard does
+         , instead of letting the first visit find out. The rows
+          already show the hosts, so the note does not repeat them, and it is
+          the same sentence the Public networking row uses. */}
+      {selfSignedHosts.length > 0 ? (
+        <div className="flex items-start gap-2 text-[11px] text-muted-foreground">
+          <SelfSignedBadge className="shrink-0 text-[10px]" />
+          <span className="min-w-0">{t("domains.certSelfSignedGeneratedHint")}</span>
+        </div>
+      ) : null}
       {/* The port pills are toggles, which is not obvious from looking at
           them. Say it once, under the list, only when there is one to click. */}
       {preview.services.some((s) => s.ports.length > 0) ? (

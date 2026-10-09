@@ -10,7 +10,8 @@
  * public-networking panel uses, and it is the shape people arrive expecting.
  *
  * Being direct is not the same as being quiet: a generated sslip.io host says
- * on its own row that it is temporary and self-signed, and a custom host that
+ * on its own row that it is self-signed (a chip beside Live, a line saying
+ * browsers will warn, and an "Add custom domain" button), and a custom host that
  * DNS hasn't reached yet shows the exact records to publish. Backed by
  * `service.domains.*`; each host is a proxy_route, so deployment protection
  * (the Protection card) applies per domain.
@@ -79,6 +80,7 @@ export function ServiceNetworkingCard({
       <DomainList
         loading={domains.isLoading}
         rows={rows}
+        addingDomain={add.domain}
         noHttpPort={noHttpPort}
         unpublished={unpublished}
         republish={republish}
@@ -86,6 +88,7 @@ export function ServiceNetworkingCard({
         ports={ports}
         onSettled={onSettled}
         baseDomainStatus={baseDomainStatus}
+        onAddCustomDomain={adding || noHttpPort ? undefined : () => setAdding(true)}
       />
 
       {adding ? (
@@ -93,6 +96,7 @@ export function ServiceNetworkingCard({
           input={input}
           ports={ports}
           adding={add.pending}
+          existing={rows.map((d) => d.domain)}
           onSubmit={add.run}
           onCancel={() => setAdding(false)}
         />
@@ -144,6 +148,7 @@ function useBaseDomainStatus(): BaseDomainStatus | undefined {
 function DomainList({
   loading,
   rows,
+  addingDomain,
   noHttpPort,
   unpublished,
   republish,
@@ -151,9 +156,12 @@ function DomainList({
   ports,
   onSettled,
   baseDomainStatus,
+  onAddCustomDomain,
 }: {
   loading: boolean;
   rows: DomainView[];
+  /** A host whose add is still in flight, listed ahead of the server's row. */
+  addingDomain: string | null;
   noHttpPort: boolean;
   unpublished: boolean;
   republish: { run: () => void; pending: boolean };
@@ -161,6 +169,7 @@ function DomainList({
   ports: PortChoice[];
   onSettled: () => Promise<void>;
   baseDomainStatus: BaseDomainStatus | undefined;
+  onAddCustomDomain: (() => void) | undefined;
 }) {
   if (loading) {
     return (
@@ -169,7 +178,11 @@ function DomainList({
       </div>
     );
   }
-  if (rows.length === 0) {
+  const pendingRow =
+    addingDomain && !rows.some((d) => d.domain === addingDomain) ? (
+      <PendingDomainRow domain={addingDomain} />
+    ) : null;
+  if (rows.length === 0 && !pendingRow) {
     return (
       <div className="px-4 py-7 text-center text-[12.5px] text-muted-foreground">
         {noHttpPort
@@ -201,8 +214,32 @@ function DomainList({
           onSettled={onSettled}
           baseDomainStatus={baseDomainStatus}
           ports={ports}
+          onAddCustomDomain={onAddCustomDomain}
         />
       ))}
+      {pendingRow}
+    </div>
+  );
+}
+
+/**
+ * A host the operator just added, before the server answers. The add waits
+ * on a proxy reload that can take many seconds; the list used to stay as it
+ * was for all of it while the form re-checked the name, found the route the
+ * add had already written, and called it "Already in use".
+ * Exported for the tests.
+ */
+export function PendingDomainRow({ domain }: { domain: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2.5 text-[12.5px]"
+      aria-busy="true"
+      aria-label={`Adding ${domain}`}
+    >
+      <span className="min-w-0 truncate font-mono text-foreground">{domain}</span>
+      <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[12px] text-muted-foreground">
+        <Spinner className="size-3" /> Adding…
+      </span>
     </div>
   );
 }

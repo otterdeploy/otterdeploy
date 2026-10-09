@@ -14,6 +14,7 @@ import { ServerCreateDialog } from "@/features/servers/components/server-create-
 import { useAddServerDialog } from "@/features/servers/components/use-add-server-dialog";
 import { serverCollection } from "@/features/servers/data/server";
 import { serverHealthCollection } from "@/features/servers/data/health";
+import { deployRuntime, serversDescriptionKey } from "@/features/servers/data/runtime";
 import {
   serverClusterStatsCollection,
   serverNodeStatsCollection,
@@ -200,7 +201,9 @@ function ServersRoute() {
       <div className="border-b px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
         <PageHeader
           title={t("servers.title")}
-          description={t("servers.nodeDescription", { count: servers.length })}
+          description={t(serversDescriptionKey(deployRuntime(swarmView)), {
+            count: servers.length,
+          })}
           actions={
             <ServerPageActions
               tab={tab}

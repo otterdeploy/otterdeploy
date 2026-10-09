@@ -16,12 +16,11 @@
 
 import type { ReactTable, RowData } from "@tanstack/react-table";
 
-import { Temporal } from "@otterdeploy/shared/temporal";
 import { flexRender } from "@tanstack/react-table";
 
 import type { DataTableFeatures } from "@/shared/components/data-table/features";
 
-import { LOG_ZONE } from "@/shared/lib/clock";
+import { VIEW_ZONE, zoneAbbreviation } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
 /**
@@ -184,24 +183,21 @@ export function DataTableHead<TRow extends RowData>({
 /**
  * Which zone a time column is read in.
  *
- * Every instant on these tables prints in {@link LOG_ZONE}, and a table that
- * silently renders UTC to a reader in Berlin is off by two hours with nothing
- * on screen admitting it. One quiet mark on the header answers it once for the
- * whole column, which is cheaper than a suffix on a thousand cells — and every
- * cell still carries the full offset stamp on hover.
- *
- * Nothing is shown when the viewer already lives in the zone: a "UTC" chip in
- * front of someone in London is noise about a difference that is not there.
+ * Every instant on these tables prints in {@link VIEW_ZONE}, the viewer's own
+ * zone, like every other clock in the app. The zone is still named, once, on
+ * the header: a column of bare clocks says nothing about whose clock it is,
+ * and an operator pasting a row into a channel read by another continent needs
+ * to know. One quiet mark answers it for the whole column, which is cheaper
+ * than a suffix on a thousand cells; every cell carries the UTC stamp on hover.
  */
 function ZoneMark({ kind }: { kind?: string }) {
   if (kind !== "instant") return null;
-  if (Temporal.Now.timeZoneId() === LOG_ZONE) return null;
   return (
     <span
-      className="shrink-0 text-[9px] font-normal text-muted-foreground/60"
-      title={`Times shown in ${LOG_ZONE}`}
+      className="shrink-0 text-[9px] font-normal text-muted-foreground"
+      title={`Times shown in ${VIEW_ZONE} (your browser's zone). Hover a time for UTC.`}
     >
-      {LOG_ZONE}
+      {zoneAbbreviation()}
     </span>
   );
 }

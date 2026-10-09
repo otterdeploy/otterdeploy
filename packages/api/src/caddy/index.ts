@@ -28,6 +28,7 @@ import {
 import { adaptCaddyfile } from "./client";
 import { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 import { maskCaddySecrets, stripGlobalBlock } from "./display";
+import { type ReconcileOptions, settleAround } from "./edge-state";
 import { reconcileNodeEdges, type NodeEdgeResult, type PlacedRoute } from "./node-reconciler";
 import {
   listEnabledProxyRoutes,
@@ -128,7 +129,18 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
   };
 }
 
-export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> {
+/**
+ * Render every enabled route and load it into the edge, then settle the
+ * routes waiting on it (./edge-state.ts, which reads them before the load).
+ */
+export function reconcile(
+  rlog?: RequestLogger,
+  options: ReconcileOptions = {},
+): Promise<ReconcileResult> {
+  return settleAround(() => reconcileEdges(rlog), options);
+}
+
+async function reconcileEdges(rlog?: RequestLogger): Promise<ReconcileResult> {
   const log = asStepLogger(rlog);
   // Read BEFORE the routes below, so a row written while this reconcile runs
   // can only make the recorded revision stale (one extra reconcile from the
@@ -296,12 +308,8 @@ async function renderDesiredCaddyfile(opts: {
     const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
-  if (options.controlPlane) {
-    routes.push(controlPlaneRoute(options.controlPlane));
-  }
-  const caddyfile = buildCaddyfile(routes, env.CADDY_ADMIN_BIND, {
-    ...options,
-  });
+  if (options.controlPlane) routes.push(controlPlaneRoute(options.controlPlane));
+  const caddyfile = buildCaddyfile(routes, env.CADDY_ADMIN_BIND, options);
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
   return { caddyfile, revision };
 }

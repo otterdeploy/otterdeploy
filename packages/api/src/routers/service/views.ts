@@ -6,6 +6,12 @@
  * by the oRPC contract; `mapEnvVar` does the same for env-var rows.
  */
 
+import type { GitRepoId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { gitRepo } from "@otterdeploy/db/schema/git";
+import { eq } from "drizzle-orm";
+
 import { withPromotedPrimary } from "../../lib/primary-port";
 import { runtime as activeRuntime } from "../../runtime";
 import { type SwarmServiceRuntime } from "../../swarm";
@@ -70,6 +76,9 @@ export interface ServiceView {
 
   /** The live runtime; `errorMessage` always present (null when none). */
   runtime: SwarmServiceRuntime & { errorMessage: string | null };
+
+  /** What deploys it: see {@link deployTriggerOf}. */
+  deployTrigger: DeployTrigger | null;
 
   /** Whether the env on screen is the env the container runs: see
    *  {@link envLiveness}. */
@@ -157,6 +166,33 @@ export function normalizePorts(ports: PortInput[]) {
 // View mappers
 // ---------------------------------------------------------------------------
 
+export type DeployTrigger = "push" | "manual";
+
+/**
+ * What deploys a git-built service. A repo bound through a connected
+ * installation gets the provider's push webhook, so a commit to its branch
+ * deploys it. A repo bound by public URL has no installation and no webhook:
+ * it builds only when someone clicks Deploy. The panel used to promise
+ * "pushing to its branch deploys it" for both.
+ */
+export function deployTriggerFromRepo(repo: { installationId: string | null }): DeployTrigger {
+  return repo.installationId ? "push" : "manual";
+}
+
+async function deployTriggerOf(service: {
+  source: string;
+  gitRepoId: GitRepoId | null;
+}): Promise<DeployTrigger | null> {
+  if (service.source !== "git" || !service.gitRepoId) return null;
+  const [repo] = await db
+    .select({ installationId: gitRepo.installationId })
+    .from(gitRepo)
+    .where(eq(gitRepo.id, service.gitRepoId))
+    .limit(1);
+  // A binding whose repo row is gone deploys nothing on push either.
+  return repo ? deployTriggerFromRepo(repo) : "manual";
+}
+
 export async function mapServiceView(
   record: ServiceRecord,
   projectSlug: string,
@@ -215,6 +251,7 @@ export async function mapServiceView(
     internalHostname: record.service.internalHostname,
     extraNetworks: record.service.extraNetworks,
     runtime: { ...live, errorMessage: live.errorMessage ?? null },
+    deployTrigger: await deployTriggerOf(record.service),
     env: envLiveness(record.service),
     createdAt: record.resource.createdAt.toISOString(),
     updatedAt: record.resource.updatedAt.toISOString(),

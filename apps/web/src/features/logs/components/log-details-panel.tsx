@@ -1,12 +1,13 @@
 // Right-hand "Log details" panel: slides in when a row is clicked. Mirrors the
-// graph resource panel's motion pattern. Shows the full (coalesced) message; when
-// the message is valid JSON it's pretty-printed via the shared JsonView, with a
-// raw/prettify toggle.
+// graph resource panel's motion pattern. Shows the full (coalesced) message; a
+// JSON log line shows its message as text and its remaining fields expanded
+// below; any other valid JSON is pretty-printed. Both keep a raw toggle.
 
 import { useState } from "react";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Result } from "better-result";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-client";
 import { useTranslation } from "react-i18next";
@@ -21,12 +22,10 @@ import { stripAnsi } from "./ansi";
 function parseJson(msg: string): unknown {
   const t = msg.trim();
   if (!t.startsWith("{") && !t.startsWith("[")) return undefined;
-  try {
-    const v = JSON.parse(t);
-    return v && typeof v === "object" ? v : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = Result.try({ try: (): unknown => JSON.parse(t), catch: () => undefined });
+  if (parsed.isErr()) return undefined;
+  const v = parsed.value;
+  return v && typeof v === "object" ? v : undefined;
 }
 
 export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClose: () => void }) {
@@ -46,7 +45,8 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
   // Strip ANSI/SGR escapes so the full entry (and its JSON detection) works on
   // clean text instead of showing literal `[32m…` codes.
   const msg = stripAnsi(line.msg);
-  const json = parseJson(msg);
+  const structured = line.structured;
+  const json = structured ? structured.fields : parseJson(msg);
   const [raw, setRaw] = useState(false);
 
   return (
@@ -87,10 +87,17 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
           <Meta label="resource" value={line.resourceId || "–"} />
         </dl>
 
+        {structured ? (
+          <>
+            <SectionLabel>Message</SectionLabel>
+            <p className="mt-1.5 font-mono text-[12px] break-words text-foreground">
+              {structured.message}
+            </p>
+          </>
+        ) : null}
+
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-            Message
-          </span>
+          <SectionLabel>{structured ? "Fields" : "Message"}</SectionLabel>
           {json !== undefined && (
             <button
               type="button"
@@ -114,6 +121,14 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
         )}
       </div>
     </m.div>
+  );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <span className="text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+      {children}
+    </span>
   );
 }
 

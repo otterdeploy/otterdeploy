@@ -7,7 +7,9 @@
  */
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
+import type { DeployRuntime } from "@/features/servers/data/runtime";
 
+import { deployPhrase } from "@/features/servers/data/runtime";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { copyToClipboard } from "@/shared/lib/clipboard";
@@ -42,7 +44,24 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
 function accessValue(model: ReviewModel): string {
   if (!model.isPublic) return "Internal only";
   if (model.isDb) return "Public (exposed)";
-  return `Public: ${model.serviceDomains.join(", ")}`;
+  const hosts = model.serviceDomains.map((d) =>
+    d === model.selfSignedHost ? `${d} (self-signed)` : d,
+  );
+  return `Public: ${hosts.join(", ")}`;
+}
+
+/** Says what "(self-signed)" on the Access row means and what to do about it.
+ *  Rendered only when the service will publish at a generated host no public
+ *  CA signs. The old wizard promised Let's Encrypt for that host instead. */
+export function TlsNote({ model }: { model: ReviewModel }) {
+  if (!model.selfSignedHost) return null;
+  return (
+    <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+      <span className="font-mono text-foreground/80">{model.selfSignedHost}</span> is served with a
+      self-signed certificate, so browsers will warn. Add a custom domain pointed at this server and
+      it gets a trusted Let&apos;s Encrypt certificate automatically.
+    </p>
+  );
 }
 
 /** Everything that will be staged, as rows. */
@@ -75,16 +94,24 @@ export function ReviewSummaryCard({ kind, model }: { kind: ServiceKind; model: R
 
 /** The work `apply` will do, in one sentence. Registry pulls don't build or
  *  push anything (the exact ref from the Image step is pulled and run) so
- *  the wording (and the rough timing) differ per kind. */
-export function ApplyNote({ kind, model }: { kind: ServiceKind; model: ReviewModel }) {
+ *  the wording (and the rough timing) differ per kind. How it is started
+ *  names the runtime this install actually deploys with. */
+export function ApplyNote({
+  kind,
+  model,
+  runtime,
+}: {
+  kind: Pick<ServiceKind, "id">;
+  model: Pick<ReviewModel, "isDb" | "replicas">;
+  runtime: DeployRuntime | null;
+}) {
   const { isDb, replicas } = model;
-  const plural = replicas > 1 ? "s" : "";
-  const deployPhrase = `deploy ${replicas} replica${plural} via Docker Swarm`;
+  const deploy = deployPhrase(replicas, runtime);
   const work = isDb
     ? "pull the image, provision a volume, and start the database"
     : kind.id === "docker"
-      ? `pull the image and ${deployPhrase}`
-      : `build the image from source and ${deployPhrase}`;
+      ? `pull the image and ${deploy}`
+      : `build the image from source and ${deploy}`;
   const seconds = isDb || kind.id === "docker" ? "45" : "90";
   return (
     <Card className="mt-3.5 gap-0 rounded-md bg-muted p-3">

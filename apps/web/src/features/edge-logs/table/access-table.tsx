@@ -38,7 +38,7 @@ import { ROW_TINT } from "@/shared/components/data-table/parts/row-tint";
 import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
 import { useTableSurface } from "@/shared/components/data-table/state/use-table-surface";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { LOG_ZONE } from "@/shared/lib/clock";
+import { VIEW_ZONE } from "@/shared/lib/clock";
 import { client } from "@/shared/server/orpc";
 
 /** See the events pane's notice: two different absences, one empty table. */
@@ -93,8 +93,8 @@ export function EdgeAccessTable({ projectId, search, onSearchChange }: EdgeAcces
         includeFacets: input.includeFacets ?? true,
         ...(projectId ? { projectId } : {}),
         // The zone the SERVER buckets and day-bounds in, and the one the table
-        // prints — see `LOG_ZONE`.
-        timeZone: LOG_ZONE,
+        // prints — see `VIEW_ZONE`.
+        timeZone: VIEW_ZONE,
       });
       // Set in the callback that learns it, not in an effect watching for it.
       setCollection((previous) =>

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 vi.mock("@/shared/server/orpc", () => ({ orpc: {}, queryClient: {} }));
 vi.mock("@/features/projects/data/proxy-routes", () => ({ proxyRoutesCollection: {} }));
 
-const { withDomain } = await import("./use-service-networking");
+const { addedMessage, withDomain } = await import("./use-service-networking");
 
 function host(id: string, domain: string, status: "live" | "disabled" = "live") {
   return { id, domain, status };
@@ -25,5 +25,27 @@ describe("withDomain", () => {
     const after = withDomain(before, host("prt_1", "web.example.com", "live"));
     expect(after).toHaveLength(1);
     expect(after[0]?.status).toBe("live");
+  });
+});
+
+describe("addedMessage", () => {
+  // The add answers before the proxy reload: a host the edge
+  // does not serve yet must not be announced as live.
+  it("does not call a host live while the proxy reload is pending", () => {
+    expect(addedMessage({ domain: "web.example.com", status: "live", edgeState: "pending" })).toBe(
+      "web.example.com added. Applying it to the proxy",
+    );
+  });
+
+  it("calls it live once the edge has it", () => {
+    expect(addedMessage({ domain: "web.example.com", status: "live", edgeState: "synced" })).toBe(
+      "web.example.com is live",
+    );
+  });
+
+  it("asks for DNS when the host is not servable yet", () => {
+    expect(
+      addedMessage({ domain: "web.example.com", status: "disabled", edgeState: "synced" }),
+    ).toBe("web.example.com added. Publish its DNS records to take it live");
   });
 });

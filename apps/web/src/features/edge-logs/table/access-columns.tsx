@@ -25,9 +25,10 @@ import {
   LATENCY_FILL,
   METHOD_CHIP,
   methodTone,
+  ProbeTag,
+  readProbe,
   statusTone,
 } from "@/features/edge-logs/table/access-cells";
-import { classifyThreat } from "@/features/edge-logs/threat";
 import { CLOCK_WIDTH, CodeCell, EmptyCell } from "@/shared/components/data-table/cells";
 import { cn } from "@/shared/lib/utils";
 
@@ -118,17 +119,18 @@ export const edgeAccessColumns: readonly DataTableColumn<EdgeAccessRow>[] = [
     // `/wp-login.php` are not ordinary 404s, and the reader should not have to
     // recognise every scanner path by sight to know that.
     cell: ({ row }) => {
-      const threat = classifyThreat(row.path);
+      const probe = readProbe(row);
       return (
         <span className="flex min-w-0 items-center gap-1.5">
-          {threat ? (
-            <span className="shrink-0 rounded-[3px] bg-destructive/10 px-1 py-px font-mono text-[9.5px] font-semibold tracking-wide text-destructive uppercase">
-              {threat}
-            </span>
-          ) : null}
+          {probe ? <ProbeTag probe={probe} /> : null}
           <span className="truncate font-mono text-[12px] text-foreground/85" title={row.path}>
             {row.path}
           </span>
+          {probe?.fallback ? (
+            <span className="shrink-0 text-[11px] text-muted-foreground" title={probe.detail}>
+              index page, not served
+            </span>
+          ) : null}
         </span>
       );
     },

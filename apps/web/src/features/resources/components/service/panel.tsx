@@ -15,7 +15,9 @@ import { useState } from "react";
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 import type { PanelCrumb } from "@/features/resources/components/_shared/panel-breadcrumb";
 import type { PanelFocus } from "@/features/resources/components/_shared/panel-tab";
+import type { DeploymentLifecycle } from "@/features/resources/lib/resource-state";
 
+import { SelfSignedMark } from "@/features/projects/components/self-signed-mark";
 import { PublicHostLink } from "@/shared/components/public-host-link";
 
 import type { PanelTabDef } from "../_shared/panel-tabs-layout";
@@ -49,6 +51,9 @@ interface ServiceResourcePanelProps {
     source: "image" | "git" | "upload";
     replicas: number;
     status: string;
+    /** The graph node's status source. Optional: a staged-create draft has
+     *  no deployment row to read. */
+    latestDeploymentStatus?: DeploymentLifecycle | null;
     publicEnabled: boolean;
     publicDomain: string | null;
     extraEnv: Record<string, string>;
@@ -179,6 +184,7 @@ export function ServiceResourcePanel({
     resourceId: resource.resourceId,
     service,
     pending,
+    latestDeploymentStatus: resource.latestDeploymentStatus,
   });
   const stack = useStackMembers({
     projectId: resource.projectId,
@@ -227,6 +233,7 @@ export function ServiceResourcePanel({
                 <>
                   {" · "}
                   <PublicHostLink host={resource.publicDomain} className="text-foreground/90" />
+                  <SelfSignedMark host={resource.publicDomain} className="ml-1.5 align-middle" />
                 </>
               ) : null}
             </>

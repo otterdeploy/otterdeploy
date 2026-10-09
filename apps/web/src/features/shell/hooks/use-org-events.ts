@@ -48,16 +48,52 @@ export function useOrgEvents(): void {
     const batcher = createResyncBatcher(RESYNC_BATCH_MS);
     const scheduleResync = batcher.schedule;
 
+    const resync = (collection: "activity" | "inbox" | "servers") => {
+      switch (collection) {
+        case "activity":
+          scheduleResync("activity", () => {
+            void qc.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
+            void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
+          });
+          break;
+        case "inbox":
+          scheduleResync("inbox", () => {
+            void qc.invalidateQueries({ queryKey: orpc.notifications.inbox.list.key() });
+          });
+          break;
+        case "servers":
+          scheduleResync("servers", () => {
+            void serverCollection.utils.refetch();
+          });
+          break;
+      }
+    };
+
     void (async () => {
       const consumed = await Result.tryPromise({
         try: async () => {
           const stream = await orpc.events.orgStream.call(
             {},
-            { signal: ctrl.signal, context: { retry: Number.POSITIVE_INFINITY } },
+            {
+              signal: ctrl.signal,
+              context: {
+                retry: Number.POSITIVE_INFINITY,
+                // Redis pub/sub has no replay cursor, so a reconnect (a
+                // dropped connection, or a hidden tab's released live socket
+                // coming back) takes a fresh snapshot of everything this
+                // stream feeds: whatever happened in between was missed.
+                onRetry: () => (reconnected) => {
+                  if (!reconnected) return;
+                  void connections.utils.refetch();
+                  resync("activity");
+                  resync("inbox");
+                  resync("servers");
+                },
+              },
+            },
           );
-          // Redis pub/sub has no replay cursor. Every initial connection and
-          // reconnect therefore takes a fresh snapshot before consuming the
-          // incremental stream, repairing events missed while disconnected.
+          // The same snapshot on the first connection, for the window between
+          // the collection's own load and the subscription starting.
           void connections.utils.refetch();
           for await (const event of stream) {
             if (ctrl.signal.aborted) break;
@@ -73,24 +109,7 @@ export function useOrgEvents(): void {
               continue;
             }
 
-            switch (event.collection) {
-              case "activity":
-                scheduleResync("activity", () => {
-                  void qc.invalidateQueries({ queryKey: orpc.deployment.activity.key() });
-                  void qc.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
-                });
-                break;
-              case "inbox":
-                scheduleResync("inbox", () => {
-                  void qc.invalidateQueries({ queryKey: orpc.notifications.inbox.list.key() });
-                });
-                break;
-              case "servers":
-                scheduleResync("servers", () => {
-                  void serverCollection.utils.refetch();
-                });
-                break;
-            }
+            resync(event.collection);
           }
         },
         catch: (cause) => cause,

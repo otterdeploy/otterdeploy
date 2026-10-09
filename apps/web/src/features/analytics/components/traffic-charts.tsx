@@ -86,6 +86,7 @@ export function TrafficCharts({
             ariaLabel={t("analytics.traffic.requestsAria")}
             format={formatCount}
             height={REQUESTS_HEIGHT}
+            integer
             sampleIntervalMs={bucketMs}
             series={[
               {

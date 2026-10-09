@@ -34,7 +34,7 @@ import { ROW_TINT } from "@/shared/components/data-table/parts/row-tint";
 import { FilterStoreProvider } from "@/shared/components/data-table/state/store";
 import { useTableSurface } from "@/shared/components/data-table/state/use-table-surface";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { LOG_ZONE } from "@/shared/lib/clock";
+import { VIEW_ZONE } from "@/shared/lib/clock";
 import { client } from "@/shared/server/orpc";
 
 const routeApi = getRouteApi("/_app/$orgSlug/_shell/edge");
@@ -93,9 +93,9 @@ export function EdgeEventsTable() {
       size: input.size ?? 50,
       includeFacets: input.includeFacets ?? true,
       // The zone the SERVER buckets and day-bounds in, and the one the table
-      // prints — see `LOG_ZONE`. A viewer's zone here would bucket the
-      // histogram on their midnight while the rows printed a UTC clock.
-      timeZone: LOG_ZONE,
+      // prints — see `VIEW_ZONE`. A different zone here would bucket the
+      // histogram on one midnight while the rows printed another's clock.
+      timeZone: VIEW_ZONE,
     });
     // Set in the callback that learns it, not in an effect watching for it.
     // Compared first so a page that agrees with the last one is not a render.

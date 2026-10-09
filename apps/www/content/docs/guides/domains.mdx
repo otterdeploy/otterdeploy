@@ -9,6 +9,21 @@ hand-edit a Caddyfile: the platform generates one for the whole install and
 reloads it, but you can read the rendered config in the dashboard, which is
 usually how you confirm what it actually did.
 
+## Generated addresses
+
+A service you publish without naming a host gets a generated one. If your
+workspace has a verified base domain, it is `<service>-<project>.<base>` and
+earns a Let's Encrypt certificate like any other name that points here.
+Without one, it falls back to `<service>-<project>.<server-ip>.sslip.io`,
+which resolves with no DNS setup at all.
+
+An sslip.io address is served with a **self-signed certificate**. No public
+certificate authority issues for it, so browsers show a certificate warning
+before the page, and some in-app browsers offer no way past it. The dashboard
+marks these addresses `Self-signed`. For a URL that opens cleanly, add a
+domain of your own (below) or set a base domain for the workspace; once its
+DNS points at the server it gets a trusted certificate automatically.
+
 ## Adding a domain
 
 Point a DNS record at the server first, then:

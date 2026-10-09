@@ -32,10 +32,10 @@ import {
   type Segment,
 } from "@/shared/components/data-table/parts/histogram-tooltip";
 import { Button } from "@/shared/components/ui/button";
-import { CLOCK_STAMP, utcFormatter } from "@/shared/lib/clock";
+import { CLOCK_STAMP, clockFormatter } from "@/shared/lib/clock";
 import { cn } from "@/shared/lib/utils";
 
-const stamp = utcFormatter(CLOCK_STAMP);
+const stamp = clockFormatter(CLOCK_STAMP);
 
 const UNCATEGORIZED = "rows";
 

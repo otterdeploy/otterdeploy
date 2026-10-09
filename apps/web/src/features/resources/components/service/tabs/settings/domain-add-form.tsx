@@ -39,12 +39,16 @@ export function DomainAddForm({
   input,
   ports,
   adding,
+  existing,
   onSubmit,
   onCancel,
 }: {
   input: { projectId: ProjectId; resourceId: ResourceId };
   ports: PortChoice[];
   adding: boolean;
+  /** Hosts this service already answers on, so a clash with one of them says
+   *  so instead of the generic "Already in use". */
+  existing: readonly string[];
   onSubmit: (value: { domain: string; port: number | undefined }) => void;
   onCancel: () => void;
 }) {
@@ -60,9 +64,13 @@ export function DomainAddForm({
   // round trip, and "Not a valid hostname" while you're still typing the TLD
   // reads as an error you caused.
   const worthChecking = debounced.length > 3 && debounced.includes(".");
+  // Not while the add is in flight: the add inserts the route long before it
+  // answers (it reloads the proxy first, which can take many seconds), so a
+  // check in that window finds the host the operator is adding and calls it
+  // taken.
   const check = useQuery({
     ...orpc.service.domains.check.queryOptions({ input: { ...input, domain: debounced } }),
-    enabled: worthChecking,
+    enabled: worthChecking && !adding,
     staleTime: 10_000,
   });
 
@@ -85,6 +93,7 @@ export function DomainAddForm({
 
       <Input
         autoFocus
+        disabled={adding}
         value={domain}
         onChange={(e) => setDomain(e.target.value)}
         onKeyDown={(e) => {
@@ -103,7 +112,12 @@ export function DomainAddForm({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Availability checking={checking} verdict={settled} />
+        <Availability
+          adding={adding}
+          checking={checking}
+          verdict={settled}
+          onThisService={existing.includes(trimmed)}
+        />
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant="ghost" className="h-7" onClick={onCancel}>
             Cancel
@@ -114,7 +128,12 @@ export function DomainAddForm({
             className="h-7"
             // A failed check doesn't block: the server is the authority, and
             // refusing to submit on a network hiccup would be a dead end.
-            disabled={adding || trimmed.length === 0 || settled?.available === false}
+            disabled={
+              adding ||
+              trimmed.length === 0 ||
+              settled?.available === false ||
+              existing.includes(trimmed)
+            }
           >
             {adding ? <Spinner className="size-3.5" /> : "Add domain"}
           </Button>
@@ -124,13 +143,36 @@ export function DomainAddForm({
   );
 }
 
-function Availability({
+/** The verdict line under the field. Exported for the tests. */
+export function Availability({
+  adding,
   checking,
   verdict,
+  onThisService,
 }: {
+  /** The add is in flight. Its own route makes any verdict read "taken", so
+   *  the line says what is happening instead. */
+  adding: boolean;
   checking: boolean;
   verdict: { available: boolean; reason: "ok" | "invalid" | "reserved" | "taken" } | undefined;
+  /** The name is one this service already answers on. */
+  onThisService: boolean;
 }) {
+  if (adding) {
+    return (
+      <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+        <Spinner className="size-3" /> Adding and reloading the proxy…
+      </span>
+    );
+  }
+  if (onThisService) {
+    return (
+      <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+        <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5" />
+        Already on this service
+      </span>
+    );
+  }
   if (checking) {
     return (
       <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">

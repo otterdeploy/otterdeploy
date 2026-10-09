@@ -14,6 +14,7 @@ import type { ProjectRef, ResourceRef } from "../scopes";
 
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
+import { resolvedHostCanHoldPublicCert } from "../service/domain-rules";
 import { listServiceEnvVarsForResources } from "../service/queries";
 import { sanitizeSlug } from "../service/views";
 import { getLatestDeploymentsForResources } from "./deployments";
@@ -28,7 +29,6 @@ import {
   mapComposeResource,
   mapDatabaseResource,
   mapServiceResource,
-  sanitizeProjectSlug,
   type ProjectResource,
 } from "./views";
 
@@ -89,7 +89,12 @@ export async function checkResourceName(
  */
 export async function previewResourcePublicHost(
   input: ProjectRef & { name: string },
-): Promise<Result<{ fqdn: string; source: ResolvedDomain["source"] }, ProjectNotFoundError>> {
+): Promise<
+  Result<
+    { fqdn: string; source: ResolvedDomain["source"]; publicCertEligible: boolean },
+    ProjectNotFoundError
+  >
+> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -109,12 +114,20 @@ export async function previewResourcePublicHost(
   const resolved = resolvePublicDomain(
     {
       resourceSlug: sanitizeSlug(input.name),
-      projectSlug: sanitizeProjectSlug(project.slug),
+      // The same label `exposeService` / `generateServiceDomain` mint with
+      // (sanitizeSlug caps it at 32), so a long project slug previews the
+      // host the service actually gets, and the manifest seed recognises the
+      // staged host as the generated one (od-mc6m).
+      projectSlug: sanitizeSlug(project.slug),
       kind: "service",
     },
     sources,
   );
-  return Result.ok({ fqdn: resolved.fqdn, source: resolved.source });
+  return Result.ok({
+    fqdn: resolved.fqdn,
+    source: resolved.source,
+    publicCertEligible: resolvedHostCanHoldPublicCert(resolved),
+  });
 }
 
 export async function listProjectResources(

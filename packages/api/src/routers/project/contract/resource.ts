@@ -126,6 +126,10 @@ const publicHostPreviewSchema = z.object({
     "local-base",
     "sslip-fallback",
   ]),
+  // Whether this host can ever be served with a publicly trusted certificate.
+  // False for the sslip.io fallback and the local dev base: those are served
+  // self-signed, and the wizard says so instead of promising Let's Encrypt.
+  publicCertEligible: z.boolean(),
 });
 
 // Imported by the slice below: see ./service-tasks for the schema definition.

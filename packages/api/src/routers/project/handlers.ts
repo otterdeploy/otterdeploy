@@ -63,6 +63,7 @@ export {
   getProjectCaddyfile,
   getRouteAccessPin,
   listProjectCertificates,
+  listProjectCustomCertHosts,
   inviteDeploymentGuest,
   listDeploymentGuests,
   listProjectProxyRoutes,

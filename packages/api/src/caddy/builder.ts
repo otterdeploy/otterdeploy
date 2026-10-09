@@ -155,6 +155,35 @@ function routePolicyLines(input: unknown): string[] {
   return lines;
 }
 
+/**
+ * What a visitor gets while nothing answers behind the route.
+ *
+ * A route is published when the service is exposed, which for a git service
+ * is before its first build finishes, so for the length of that build every
+ * request died on a dial error and Caddy answered a bare, empty 502. The live
+ * tour counted seventeen of them in four minutes on one new service. A 502
+ * says "the gateway is broken"; the truth is "nothing is listening yet", which
+ * is a 503 with a Retry-After and a sentence saying so.
+ *
+ * Only errors Caddy raises itself reach `handle_errors`: an upstream that is up
+ * and answers its own 502 is passed through untouched, so an application's
+ * real failures still read as theirs. A route whose operator wrote their own
+ * `handle_errors` keeps it alone; theirs is the page they chose.
+ */
+export const UNAVAILABLE_BODY =
+  "Nothing is answering at {http.request.host} yet. If this service was just deployed, it is still building or starting. Try again in a moment.";
+
+function unavailableLines(customDirectives: string | null | undefined): string[] {
+  if (customDirectives && /(^|\n)\s*handle_errors\b/.test(customDirectives)) return [];
+  return [
+    "\thandle_errors 502 503 {",
+    "\t\theader Retry-After 10",
+    "\t\theader Cache-Control no-store",
+    `\t\trespond ${JSON.stringify(UNAVAILABLE_BODY)} 503`,
+    "\t}",
+  ];
+}
+
 export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
   assertSafeRoute(route);
   const lines = [`${route.domain} {`];
@@ -223,6 +252,7 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
     lines.push(`\treverse_proxy ${upstreamOf(route)}`);
   }
 
+  lines.push(...unavailableLines(route.customDirectives));
   lines.push(...routePolicyLines(route.routePolicy));
   lines.push(...customDirectiveLines(route.customDirectives));
 

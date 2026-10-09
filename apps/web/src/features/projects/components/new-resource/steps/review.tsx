@@ -4,12 +4,20 @@ import { useSelector } from "@tanstack/react-form";
 
 import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
+import { useDeployRuntime } from "@/features/servers/data/swarm";
+
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { usePublicHostPreview } from "../use-public-host-preview";
 import { useRepoDetection } from "../use-repo-detection";
 import { buildReviewModel } from "./review-model";
-import { ApplyNote, ComposePreview, ReviewSummaryCard, SectionLabel } from "./review-parts";
+import {
+  ApplyNote,
+  ComposePreview,
+  ReviewSummaryCard,
+  SectionLabel,
+  TlsNote,
+} from "./review-parts";
 
 interface StepReviewProps {
   kind: ServiceKind;
@@ -21,12 +29,13 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
   // Hostname a public port with no typed host will publish at. Resolved
   // server-side so Review shows the same FQDN the create will stage.
   const formName = useSelector(form.store, (s) => s.values.name);
-  const derivedHost = usePublicHostPreview(projectId, formName);
+  const preview = usePublicHostPreview(projectId, formName);
   const detection = useRepoDetection();
+  const runtime = useDeployRuntime();
   return (
     <form.Subscribe selector={(s) => s.values}>
       {(values) => {
-        const model = buildReviewModel(kind, values, derivedHost, detection);
+        const model = buildReviewModel(kind, values, preview, detection);
 
         return (
           <>
@@ -39,7 +48,8 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
               <div>
                 <SectionLabel>summary</SectionLabel>
                 <ReviewSummaryCard kind={kind} model={model} />
-                <ApplyNote kind={kind} model={model} />
+                <TlsNote model={model} />
+                <ApplyNote kind={kind} model={model} runtime={runtime} />
               </div>
 
               <div>

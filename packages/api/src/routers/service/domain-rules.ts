@@ -16,9 +16,10 @@ import { randomBytes } from "node:crypto";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { DnsState } from "../../lib/domain-reachability";
-import type { DomainSources } from "../../lib/domains";
+import type { DomainSources, ResolvedDomain } from "../../lib/domains";
 import type { ResourceRef } from "./inputs";
 
+import { type CertSource, loadCustomCertHosts, routeCertSource } from "../../caddy/certs";
 import { VERIFY_TXT_PREFIX } from "../../lib/dns-verify";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 
@@ -44,7 +45,20 @@ export interface ServiceDomainView {
   certState: "unknown" | "obtaining" | "valid" | "failed";
   certError: string | null;
   certCheckedAt: string | null;
+  /** Whether the edge runs this host's latest change: see edge-state.ts. */
+  edgeState: "synced" | "pending" | "failed";
+  edgeError: string | null;
   usesAcme: boolean;
+  /** Whether any public CA could ever sign this name. False for generated
+   *  sslip.io and `.localhost` hosts: they stay on a self-signed certificate
+   *  for good, so the dashboard says so and points at a custom domain instead
+   *  of suggesting a DNS fix that cannot help. */
+  publicCertEligible: boolean;
+  /** Which certificate the edge serves on this host: Let's Encrypt (`acme`),
+   *  an operator-uploaded chain (`custom`, see caddy/certs.ts), or Caddy's own
+   *  self-signed one (`internal`). An uploaded certificate leaves `usesAcme`
+   *  false, so that flag alone would call it self-signed. */
+  certSource: CertSource;
   protected: boolean;
   ownershipVerified: boolean;
   verifyRecord: string | null;
@@ -62,7 +76,13 @@ export function domainStatusFor(route: Pick<ProxyRouteRecord, "enabled" | "disab
   return route.enabled ? ("live" as const) : ("disabled" as const);
 }
 
-export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): ServiceDomainView {
+/** `customCertHosts`: the hosts an uploaded certificate covers
+ *  (caddy/certs.ts `loadCustomCertHosts`). */
+export function toDomainView(
+  route: ProxyRouteRecord,
+  dnsTarget: string | null,
+  customCertHosts: ReadonlySet<string>,
+): ServiceDomainView {
   return {
     id: route.id,
     projectId: route.projectId,
@@ -80,13 +100,27 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
     certState: route.certState,
     certError: route.certError,
     certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
+    edgeState: route.edgeState,
+    edgeError: route.edgeError,
     usesAcme: route.usesAcme,
+    publicCertEligible: canHoldPublicCert(route.domain),
+    certSource: routeCertSource(route, customCertHosts),
     protected: route.protected,
     ownershipVerified: route.source === "generated" || route.domainVerifiedAt !== null,
     verifyRecord: route.source === "custom" ? `${VERIFY_TXT_PREFIX}.${route.domain}` : null,
     verifyToken: route.source === "custom" ? route.domainVerifyToken : null,
     dnsTarget,
   };
+}
+
+/** {@link toDomainView} for a single route, with its uploaded-certificate
+ *  match loaded for the route's organization. */
+export async function loadDomainView(
+  route: ProxyRouteRecord,
+  dnsTarget: string | null,
+  organizationId: string,
+): Promise<ServiceDomainView> {
+  return toDomainView(route, dnsTarget, await loadCustomCertHosts(organizationId, [route.domain]));
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +169,23 @@ export async function isReservedControlPlaneDomain(domain: string): Promise<bool
  */
 function canHoldPublicCert(domain: string): boolean {
   return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
+}
+
+/**
+ * Can a host the platform is about to MINT ever be served with a publicly
+ * trusted certificate? The question the new-service wizard asks before any
+ * route exists, so it can say "self-signed" up front instead of promising
+ * Let's Encrypt for an sslip.io address.
+ *
+ * The same two permanent exclusions {@link acmeForPlatformHost} applies: the
+ * dev-only local base (whatever LOCAL_BASE_DOMAIN is named), and names no CA
+ * signs. Everything else can, once its DNS points here or its apex verifies.
+ */
+export function resolvedHostCanHoldPublicCert(resolved: {
+  fqdn: string;
+  source: ResolvedDomain["source"];
+}): boolean {
+  return resolved.source !== "local-base" && canHoldPublicCert(resolved.fqdn);
 }
 
 /** ACME can only issue for a publicly resolvable name that points at us. A

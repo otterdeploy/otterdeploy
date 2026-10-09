@@ -1,3 +1,5 @@
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { useLiveQuery } from "@tanstack/react-db";
 import { useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -18,13 +20,19 @@ import {
   type ServiceBuildResource,
   stageSource,
 } from "./build-card-shared";
-import { InstallationField, PreviewsField, RepositoryField } from "./source-card-fields";
+import {
+  InstallationField,
+  PreviewsField,
+  RegistryHint,
+  RepositoryField,
+} from "./source-card-fields";
 import {
   boundRepoId,
   readGitSource,
   repoOptions,
   seedSource,
   sourceDirty,
+  useSourceDescriptionKey,
   useActiveInstallation,
   useSourceFormState,
 } from "./source-card-model";
@@ -83,33 +91,15 @@ function PipeStrip({
   );
 }
 
-/** Host-match preview for the image target: surface which shared credential
- *  the builder will push with (or that none matches), so it's transparent. */
-function RegistryHint({
-  image,
-  registries,
-}: {
-  image: string;
-  registries: { host: string; displayName: string }[];
-}) {
-  const { t } = useTranslation();
-  const imageHost = image.trim().split("/")[0] ?? "";
-  const matched = imageHost ? (registries.find((r) => r.host === imageHost) ?? null) : null;
-  if (!imageHost) return null;
-  return (
-    <p className={`mt-1 text-[11px] ${matched ? "text-muted-foreground" : "text-destructive"}`}>
-      {matched
-        ? t("resources.source.registryMatched", {
-            name: matched.displayName,
-            host: matched.host,
-          })
-        : t("resources.source.registryUnmatched", { host: imageHost })}
-    </p>
-  );
+interface ServiceSourceCardProps {
+  resource: ServiceBuildResource & { projectId: ProjectId; resourceId: ResourceId };
+  pending?: boolean;
 }
 
-export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource }) {
+/** `pending`: a staged create, with no live service to ask what deploys it. */
+export function ServiceSourceCard({ resource, pending = false }: ServiceSourceCardProps) {
   const { t } = useTranslation();
+  const descriptionKey = useSourceDescriptionKey(resource, pending);
   // Current source block from the saved manifest (the source of truth this card
   // edits). Read straight off manifest.get. The same call stageSource writes.
   const manifest = useQuery(
@@ -195,10 +185,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   const selectedRepoId = boundRepoId(reposQuery.data, repo);
 
   return (
-    <SettingsCard
-      title={t("resources.source.title")}
-      description={t("resources.source.description")}
-    >
+    <SettingsCard title={t("resources.source.title")} description={t(descriptionKey)}>
       <PipeStrip repo={repo} branch={branch} image={image} builder={builder} />
 
       <div className="mt-3">

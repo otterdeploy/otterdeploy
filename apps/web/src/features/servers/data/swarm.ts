@@ -3,9 +3,12 @@ import type { Collection } from "@tanstack/db";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
+import { useLiveQuery } from "@tanstack/react-db";
 
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+import { type DeployRuntime, deployRuntime } from "./runtime";
 
 /**
  * Live swarm topology (server.swarmNodes), manager reachability, leadership
@@ -53,4 +56,10 @@ export const swarmNodesCollection: Collection<SwarmNodesView, string | number> =
  *  out the 10s poll to show the new quorum truth. */
 export function refetchSwarmNodes(): void {
   void queryClient.invalidateQueries({ queryKey: orpc.server.swarmNodes.queryKey() });
+}
+
+/** The runtime this install deploys with, `null` until the first read. */
+export function useDeployRuntime(): DeployRuntime | null {
+  const { data = [] } = useLiveQuery(() => swarmNodesCollection);
+  return deployRuntime(data[0]);
 }

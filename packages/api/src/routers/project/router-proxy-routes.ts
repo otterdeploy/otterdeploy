@@ -12,6 +12,7 @@ import {
   getGlobalCaddyOptions,
   getProjectCaddyfile,
   listProjectCertificates,
+  listProjectCustomCertHosts,
   listProjectProxyRoutes,
   saveGlobalCaddyOptions,
   setProxyRouteCustomDirectives,
@@ -57,6 +58,21 @@ export const proxyRouteRouter = {
   certificates: orgScopedProcedure.project.proxyRoute.certificates.handler(
     async ({ input, context, errors }) => {
       const result = await listProjectCertificates({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  customCertHosts: orgScopedProcedure.project.proxyRoute.customCertHosts.handler(
+    async ({ input, context, errors }) => {
+      const result = await listProjectCustomCertHosts({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
       });

@@ -36,7 +36,11 @@ import { loadRouteDirectiveScope } from "./proxy-route-upstreams";
 import { getProjectInOrg, getRouteInOrg } from "./queries";
 import { type ProxyRoute } from "./views";
 
-export { listProjectCertificates, type ProjectCertificates } from "./proxy-route-certs";
+export {
+  listProjectCertificates,
+  listProjectCustomCertHosts,
+  type ProjectCertificates,
+} from "./proxy-route-certs";
 export { getRouteAccessPin, setRouteAccessPin } from "./proxy-route-pin";
 
 export async function listProjectProxyRoutes(

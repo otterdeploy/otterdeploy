@@ -10,7 +10,12 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
 import { useResourceDeployments } from "@/features/resources/data/use-resource-deployments";
-import { serviceState, type ResourceState } from "@/features/resources/lib/resource-state";
+import { knownDeploymentStatus } from "@/features/resources/lib/known-deployment";
+import {
+  type DeploymentLifecycle,
+  serviceState,
+  type ResourceState,
+} from "@/features/resources/lib/resource-state";
 
 import type { LiveServiceView } from "./use-live-service";
 
@@ -21,9 +26,13 @@ export function useServiceState(input: {
   service: LiveServiceView | undefined;
   /** Staged create: nothing to read, report pending rather than subscribe. */
   pending: boolean;
+  /** The resource row's `latestDeploymentStatus`: what the graph node reads.
+   *  Stands in until the panel's own deployment list has loaded, so the
+   *  header and the node never disagree while it does. */
+  latestDeploymentStatus?: DeploymentLifecycle | null;
 }): ResourceState | null {
   const { projectId, resourceId, service, pending } = input;
-  const { deployments } = useResourceDeployments(projectId, resourceId, 1);
+  const { deployments, isLoading } = useResourceDeployments(projectId, resourceId, 1);
   const { data: taskRows } = useLiveQuery(
     (q) =>
       q
@@ -36,7 +45,11 @@ export function useServiceState(input: {
   return serviceState({
     pausedReplicas: service?.pausedReplicas,
     runtime: service?.runtime,
-    latestDeployment: latest ? { status: latest.status } : undefined,
+    latestDeployment: knownDeploymentStatus({
+      listed: latest ? { status: latest.status } : undefined,
+      listLoading: isLoading,
+      fromResource: input.latestDeploymentStatus,
+    }),
     tasks: taskRows.flatMap((row) => row.tasks),
   });
 }

@@ -8,7 +8,17 @@ import {
   buildProjectFragment,
   sanitizeMatcherName,
   type ProxyRouteInput,
+  UNAVAILABLE_BODY,
 } from "../builder";
+
+/** The 503 page every proxied site carries for errors Caddy raises itself. */
+const UNAVAILABLE = [
+  "\thandle_errors 502 503 {",
+  "\t\theader Retry-After 10",
+  "\t\theader Cache-Control no-store",
+  `\t\trespond ${JSON.stringify(UNAVAILABLE_BODY)} 503`,
+  "\t}",
+];
 
 describe("builder", () => {
   const httpRoute: ProxyRouteInput = {
@@ -46,6 +56,7 @@ describe("builder", () => {
         "myapp-acme.otterdeploy.dev {",
         "\ttls internal",
         "\treverse_proxy otterdeploy-acme-myapp:3000",
+        ...UNAVAILABLE,
         "}",
       ].join("\n"),
     );
@@ -54,9 +65,12 @@ describe("builder", () => {
   test("buildHttpBlock with usesAcme=true omits the tls directive (Caddy defaults to ACME)", () => {
     const output = buildHttpBlock({ ...httpRoute, usesAcme: true });
     expect(output).toBe(
-      ["myapp-acme.otterdeploy.dev {", "\treverse_proxy otterdeploy-acme-myapp:3000", "}"].join(
-        "\n",
-      ),
+      [
+        "myapp-acme.otterdeploy.dev {",
+        "\treverse_proxy otterdeploy-acme-myapp:3000",
+        ...UNAVAILABLE,
+        "}",
+      ].join("\n"),
     );
   });
 
@@ -86,9 +100,12 @@ describe("builder", () => {
       customDirectives: "}\nevil.example.com {\n\treverse_proxy 127.0.0.1:2019",
     });
     expect(output).toBe(
-      ["myapp-acme.otterdeploy.dev {", "\treverse_proxy otterdeploy-acme-myapp:3000", "}"].join(
-        "\n",
-      ),
+      [
+        "myapp-acme.otterdeploy.dev {",
+        "\treverse_proxy otterdeploy-acme-myapp:3000",
+        ...UNAVAILABLE,
+        "}",
+      ].join("\n"),
     );
   });
 
@@ -112,6 +129,7 @@ describe("builder", () => {
         "\t\t}",
         "\t\treverse_proxy otterdeploy-acme-myapp:3000",
         "\t}",
+        ...UNAVAILABLE,
         "}",
       ].join("\n"),
     );
@@ -204,7 +222,30 @@ describe("builder", () => {
     const output = buildCaddyfile([httpRoute], "0.0.0.0:2019");
     expect(output).toContain("myapp-acme.otterdeploy.dev {");
     expect(output).not.toContain("layer4");
-    expect(output).not.toContain("respond");
+    // No cert-automation dummy site without a layer4 route.
+    expect(output).not.toContain('respond "ok"');
+  });
+
+  // A git service's route is live before its first build finishes,
+  // and for those minutes every request died on a dial error as a bare 502.
+  test("buildHttpBlock answers an unreachable upstream with a 503 that says why", () => {
+    const output = buildHttpBlock(httpRoute);
+    expect(output).toContain("\thandle_errors 502 503 {");
+    expect(output).toContain("\t\theader Retry-After 10");
+    expect(output).toContain("still building or starting");
+    expect(output).toMatch(/respond ".*" 503\n/);
+    // Inside the site block, after the proxy it covers.
+    expect(output.indexOf("handle_errors")).toBeGreaterThan(output.indexOf("reverse_proxy"));
+    expect(output.trimEnd().endsWith("}")).toBe(true);
+  });
+
+  test("buildHttpBlock leaves an operator's own handle_errors as the only one", () => {
+    const output = buildHttpBlock({
+      ...httpRoute,
+      customDirectives: 'handle_errors {\n\trespond "our page" 503\n}',
+    });
+    expect(output.match(/handle_errors/g)).toHaveLength(1);
+    expect(output).not.toContain(UNAVAILABLE_BODY);
   });
 
   test("buildCaddyfile with empty routes produces minimal global block", () => {

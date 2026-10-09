@@ -11,6 +11,7 @@ import type { RouteCertificate } from "@/features/projects/components/networking
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
+import { useCustomCertHosts } from "@/features/projects/data/self-signed-hosts";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -67,12 +68,13 @@ function RouteComponent() {
     orpc.project.proxyRoute.certificates.queryOptions({ input: { projectId } }),
   );
 
+  const customCertHosts = useCustomCertHosts();
   const rows: RouteRow[] = (() => {
     const routes = routesData ?? [];
     const resources = resourcesQuery.data ?? [];
     const byResourceId = new Map<string, ResourceListItem>();
     for (const r of resources) byResourceId.set(r.resourceId, r);
-    return routes.map((r) => mapRoute(r, byResourceId));
+    return routes.map((r) => mapRoute(r, byResourceId, customCertHosts));
   })();
 
   const certsByDomain = new Map<string, RouteCertificate>(
