@@ -16,6 +16,7 @@ import { environment, project, resource } from "@otterdeploy/db/schema/project";
 import { eq } from "drizzle-orm";
 
 import { getProxyRouteByDomain } from "../caddy/queries";
+import { serviceRoutesOf } from "../caddy/service-protection";
 
 export interface DomainOrg {
   orgId: string;
@@ -44,13 +45,20 @@ async function inProtectedEnvironment(resourceId: ResourceId | null): Promise<bo
  *  treat null as "no gate, allow through".
  *
  *  "Protection-enabled" is the same OR the edge renders with (see
- *  caddy/route-protection.ts): the route's own switch, or a private
- *  environment, so the authorizer gates exactly the routes the edge sends
- *  to it. */
+ *  caddy/route-protection.ts): the switch on any of the service's hosts, or
+ *  a private environment, so the authorizer gates exactly the routes the
+ *  edge sends to it. */
 export async function resolveProtectedDomainOrg(domain: string): Promise<DomainOrg | null> {
   const route = await getProxyRouteByDomain(domain);
   if (!route) return null;
-  if (!route.protected && !(await inProtectedEnvironment(route.resourceId))) return null;
+  // Protection and its PIN are per SERVICE: any of the service's hosts being
+  // protected protects them all, and the PIN set from whichever host the
+  // settings card showed opens every one of them.
+  const service = await serviceRoutesOf(route);
+  const serviceProtected = service.some((r) => r.protected);
+  if (!serviceProtected && !(await inProtectedEnvironment(route.resourceId))) return null;
+  const accessPinHash =
+    route.accessPinHash ?? service.find((r) => r.accessPinHash !== null)?.accessPinHash ?? null;
 
   const [proj] = await db
     .select({ orgId: project.organizationId })
@@ -59,5 +67,5 @@ export async function resolveProtectedDomainOrg(domain: string): Promise<DomainO
     .limit(1);
   if (!proj) return null;
 
-  return { orgId: proj.orgId, projectId: route.projectId, accessPinHash: route.accessPinHash };
+  return { orgId: proj.orgId, projectId: route.projectId, accessPinHash };
 }

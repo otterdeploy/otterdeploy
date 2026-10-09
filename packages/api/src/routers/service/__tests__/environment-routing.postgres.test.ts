@@ -1,7 +1,8 @@
 /**
  * A service's hosts reach the container of the environment it lives in, a
- * private environment's hosts are gated, and "Generate domain" mints the
- * platform's host beside a primary custom one.
+ * private environment's hosts are gated, "Generate domain" mints the
+ * platform's host beside a primary custom one, and protecting a service gates
+ * every one of its hosts.
  *
  * `service_resource.service_name` is the base name a production and a staging
  * `web` share; the deploy path runs a non-main environment as
@@ -9,7 +10,8 @@
  * use that runtime name. A private environment's routes are gated by the
  * authorizer as well as the edge. Generate domain no longer resolves the
  * "generated" host through the `publicDomain` mirror of a primary custom
- * domain.
+ * domain. Protection, the access PIN and the guest list apply to every host
+ * of the service.
  *
  * The handlers run as shipped against a migrated Postgres. Only the edge's
  * admin API, DNS, and the container runtime are stood in for.
@@ -74,6 +76,12 @@ vi.mock("../../../runtime", async (importOriginal) => {
 });
 
 const { resolveProtectedDomainOrg } = await import("../../../authz/membership");
+const { guestSessionHoursFor } = await import("../../../authz/guests");
+const { protectionFloorRouteIds } = await import("../../../caddy/service-protection");
+const { toRouteInput } = await import("../../../caddy/route-input");
+const { inviteDeploymentGuest, setProxyRouteProtection } =
+  await import("../../project/proxy-routes");
+const { setRouteAccessPin } = await import("../../project/proxy-route-pin");
 const { setEnvProtection } = await import("../../env/handlers");
 const { addServiceDomain } = await import("../domains");
 const { generateServiceDomain } = await import("../expose");
@@ -210,5 +218,60 @@ describe("Generate domain beside a primary custom domain", () => {
     expect(routes.find((r) => r.domain === generated.domain)?.source).toBe("generated");
     // The custom domain keeps primary: generating does not take it over.
     expect(routes.find((r) => r.domain === custom)?.isPrimary).toBe(true);
+  });
+});
+
+describe("protection is per service, not per host", () => {
+  it("protecting one host walls every host of the service, including one added later", async () => {
+    const shop = await createWeb(mainId, "shop", `od-shop-${uniq()}`);
+    const custom = await add(shop, `shop-${uniq()}.example.org`);
+    const generated = await generate(shop);
+    expect(generated.domain).not.toBe(custom.domain);
+
+    // The settings card binds its one switch to whichever host it found.
+    const routeId = (await routesOf(shop)).find((r) => r.domain === generated.domain)?.id;
+    if (!routeId) throw new Error("generated route missing");
+    const on = await setProxyRouteProtection({ organizationId, routeId, protected: true });
+    expect(on.isOk()).toBe(true);
+
+    const later = await add(shop, `later-${uniq()}.example.org`);
+    const hosts = [custom.domain, generated.domain, later.domain];
+    for (const host of hosts) {
+      const gate = await resolveProtectedDomainOrg(host);
+      expect(gate?.orgId, `${host} answered without a wall`).toBe(organizationId);
+    }
+    // And the edge renders each of them behind forward_auth.
+    const floor = await protectionFloorRouteIds();
+    const rendered = (await routesOf(shop)).map((r) => toRouteInput(r, floor));
+    expect(rendered.map((r) => [r.domain, r.protected]).toSorted()).toEqual(
+      hosts.map((host) => [host, true]).toSorted(),
+    );
+
+    // Off again: every host opens, not just the one the switch was bound to.
+    await setProxyRouteProtection({ organizationId, routeId, protected: false });
+    for (const host of hosts) expect(await resolveProtectedDomainOrg(host)).toBeNull();
+  });
+
+  it("the PIN and the guest list set from one host open every host", async () => {
+    const desk = await createWeb(mainId, "desk", `od-desk-${uniq()}`);
+    const custom = await add(desk, `desk-${uniq()}.example.org`);
+    const generated = await generate(desk);
+    const routeId = (await routesOf(desk)).find((r) => r.domain === generated.domain)?.id;
+    if (!routeId) throw new Error("generated route missing");
+    await setProxyRouteProtection({ organizationId, routeId, protected: true });
+
+    const pinned = await setRouteAccessPin({ organizationId, routeId, pin: "48151623" });
+    expect(pinned.isOk()).toBe(true);
+    expect((await resolveProtectedDomainOrg(custom.domain))?.accessPinHash).not.toBeNull();
+
+    const email = `guest-${uniq()}@example.org`;
+    const invited = await inviteDeploymentGuest({
+      organizationId,
+      routeId,
+      email,
+      sessionHours: 12,
+    });
+    expect(invited.isOk()).toBe(true);
+    expect(await guestSessionHoursFor(custom.domain, email)).toBe(12);
   });
 });

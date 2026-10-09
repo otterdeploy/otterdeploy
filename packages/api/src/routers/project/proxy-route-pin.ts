@@ -14,6 +14,7 @@ import type { OrgRef } from "../scopes";
 
 import { hashPin } from "../../authz/pin";
 import { updateProxyRoute } from "../../caddy/queries";
+import { updateServiceSiblings } from "../../caddy/service-protection";
 import { ProxyRouteNotFoundError } from "./errors";
 import { getRouteInOrg } from "./queries";
 
@@ -42,6 +43,9 @@ export async function setRouteAccessPin(
   }
 
   const accessPinHash = input.pin === null ? null : await hashPin(input.pin);
+  // One PIN per service, like the protection it opens: every
+  // host of the service takes the same hash.
+  await updateServiceSiblings(route, { accessPinHash });
   const updated = await updateProxyRoute(input.routeId, { accessPinHash });
   if (!updated) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
