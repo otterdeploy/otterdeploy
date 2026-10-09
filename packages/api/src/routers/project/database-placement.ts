@@ -31,6 +31,7 @@ import { Result, TaggedError } from "better-result";
 import { setResourcePlacement } from "../service/queries";
 import { ProjectNotFoundError } from "./errors";
 import { restartDatabaseResource } from "./postgres";
+import { getProjectInOrg } from "./queries";
 import { getDatabaseResourceRecord } from "./queries/postgres-resource";
 
 /**
@@ -80,6 +81,14 @@ export async function setDatabasePlacement(
     ProjectNotFoundError | DatabaseResourceNotFoundError | DatabaseMoveDataLossError
   >
 > {
+  // The project must be the caller's: the record lookup below is scoped to the
+  // project only, not to the organization.
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+
   const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
   if (!record) {
     return Result.err(new DatabaseResourceNotFoundError({ resourceId: input.resourceId }));

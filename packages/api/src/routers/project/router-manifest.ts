@@ -98,18 +98,20 @@ export const manifestRouter = {
 
   diff: orgScopedProcedure.project.manifest.diff.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "project", id: input.projectId } });
+    // The project must be the caller's before anything of it is read. An
+    // inline manifest skips `resolvedManifest` (the only org-scoped read
+    // below), and the diff it computes carries the project's current state.
+    const ref = { projectId: input.projectId, organizationId: context.activeOrganizationId };
+    const owned = await getProject({ id: ref.projectId, organizationId: ref.organizationId });
+    if (owned.isErr()) {
+      throw matchError(owned.error, { ProjectNotFoundError: () => errors.NOT_FOUND() });
+    }
     // A caller-supplied manifest is previewed WITHOUT being saved: a diff is a
     // read, and making it a write is what let `--dry-run` overwrite the
     // baseline it claimed not to touch. Falls back to the saved manifest.
     const resolved = input.manifest
       ? Result.ok(resolveEnvironment(input.manifest, input.environment))
-      : await resolvedManifest(
-          {
-            projectId: input.projectId,
-            organizationId: context.activeOrganizationId,
-          },
-          input.environment,
-        );
+      : await resolvedManifest(ref, input.environment);
     if (resolved.isErr()) {
       throw matchError(resolved.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
@@ -129,10 +131,7 @@ export const manifestRouter = {
       // What the manifest has actually applied. Without it every live resource
       // missing from the manifest reads as a pending DELETE, including ones the
       // manifest never owned.
-      loadAppliedSnapshot({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      }),
+      loadAppliedSnapshot(ref),
     ]);
     // Resolve ${database:…}/${service:…} refs before comparing. Apply stores
     // the RESOLVED value in the env rows, so a raw-text compare surfaced a

@@ -49,11 +49,11 @@ const stackRow = {
 };
 
 const setDockerSocketGrant = vi.fn(async () => undefined);
-const getComposeRecord = vi.fn<() => Promise<typeof stackRow | null>>(async () => stackRow);
+const getComposeRecordInOrg = vi.fn<() => Promise<typeof stackRow | null>>(async () => stackRow);
 
 vi.mock("../queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../queries")>();
-  return { ...actual, getComposeRecord, setDockerSocketGrant };
+  return { ...actual, getComposeRecordInOrg, setDockerSocketGrant };
 });
 
 // The caller is a current member of its organization: the org-scoped guard's
@@ -145,7 +145,7 @@ describe("compose.setDockerSocketGrant is install-admin only", () => {
   });
 
   it("granting on a stack that does not exist is NOT_FOUND and records nothing", async () => {
-    getComposeRecord.mockResolvedValueOnce(null);
+    getComposeRecordInOrg.mockResolvedValueOnce(null);
     const client = createProcedureClient(composeRouter.setDockerSocketGrant, {
       context: sessionContext(true, orgId),
     });

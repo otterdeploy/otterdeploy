@@ -6,7 +6,7 @@ import { projectScopedProcedure, requireInstallAdminPermission, requirePermissio
 import { recordAuditChanges } from "../../audit/changes";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { syncManifestComposeContent } from "../project/manifest";
-import { getProjectById } from "../project/queries";
+import { getProjectInOrg } from "../project/queries";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { createComposeResource } from "./create";
 import { deleteComposeStack } from "./delete-stack";
@@ -14,8 +14,8 @@ import { deployCompose } from "./deploy";
 import { collectVarRefs, interpolate } from "./env";
 import {
   type ComposeRecord,
-  getComposeRecord,
-  listComposeRecords,
+  getComposeRecordInOrg,
+  listComposeRecordsInOrg,
   setDockerSocketGrant,
   stackHostBindGrants,
   updateComposeContent,
@@ -40,7 +40,7 @@ export const composeRouter = {
   ...composeVariablesRouter,
 
   // Stateless preview for the wizard: validate + summarize a pasted file.
-  parse: projectScopedProcedure.compose.parse.handler(async ({ input }) => {
+  parse: projectScopedProcedure.compose.parse.handler(async ({ input, context }) => {
     const parsed = parseCompose(input.content);
     if (parsed.isErr()) {
       return {
@@ -54,7 +54,12 @@ export const composeRouter = {
         warnings: [],
       };
     }
-    const project = await getProjectById(input.projectId);
+    // Only the caller's own project answers which names it already uses: a
+    // foreign project id reads as a project with no variables.
+    const project = await getProjectInOrg({
+      projectId: input.projectId,
+      organizationId: context.activeOrganizationId,
+    });
     const projectKeys = project?.environmentId
       ? await listProjectEnvKeys({
           projectId: input.projectId,
@@ -85,13 +90,13 @@ export const composeRouter = {
     };
   }),
 
-  list: projectScopedProcedure.compose.list.handler(async ({ input }) => {
-    const rows = await listComposeRecords(input.projectId);
+  list: projectScopedProcedure.compose.list.handler(async ({ input, context }) => {
+    const rows = await listComposeRecordsInOrg(context.activeOrganizationId, input.projectId);
     return rows.map(toView);
   }),
 
-  get: projectScopedProcedure.compose.get.handler(async ({ input, errors }) => {
-    const rec = await getComposeRecord(input.projectId, input.resourceId);
+  get: projectScopedProcedure.compose.get.handler(async ({ input, context, errors }) => {
+    const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
     if (!rec) throw errors.NOT_FOUND();
     return toView(rec);
   }),
@@ -117,7 +122,7 @@ export const composeRouter = {
 
   redeploy: requirePermission({ service: ["deploy"] }).compose.redeploy.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
       if (!rec) throw errors.NOT_FOUND();
 
       // Git-sourced stacks always redeploy through the build worker: it
@@ -178,7 +183,7 @@ export const composeRouter = {
   // the manifest). Takes effect on the next redeploy.
   updateContent: requirePermission({ service: ["update"] }).compose.updateContent.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
       if (!rec) throw errors.NOT_FOUND();
       // A git stack's compose file lives in its repo. Editing it here would
       // drift from the source of truth and be overwritten on the next build.
@@ -218,14 +223,14 @@ export const composeRouter = {
         input.composeContent,
         files,
       );
-      const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+      const updated = (await getComposeRecordInOrg(context.activeOrganizationId, input)) ?? rec;
       return toView(updated);
     },
   ),
 
   delete: requirePermission({ service: ["delete"] }).compose.delete.handler(
     async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
       if (!rec) throw errors.NOT_FOUND();
       await deleteComposeStack(
         rec,
@@ -247,7 +252,7 @@ export const composeRouter = {
   setDockerSocketGrant: requireInstallAdminPermission({
     service: ["update"],
   }).compose.setDockerSocketGrant.handler(async ({ input, context, errors }) => {
-    const rec = await getComposeRecord(input.projectId, input.resourceId);
+    const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
     if (!rec) throw errors.NOT_FOUND();
     // The install-admin gate already refused API keys and anonymous callers,
     // so this is the session user who made the decision.
@@ -260,7 +265,7 @@ export const composeRouter = {
       before: { dockerSocketGranted: stackHostBindGrants(rec.compose).dockerSocket },
       after: { dockerSocketGranted: input.granted },
     });
-    const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+    const updated = (await getComposeRecordInOrg(context.activeOrganizationId, input)) ?? rec;
     return toView(updated);
   }),
 };

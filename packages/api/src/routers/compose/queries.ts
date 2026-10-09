@@ -6,13 +6,14 @@ import type {
 import type {
   EnvironmentId,
   GitRepoId,
+  OrganizationId,
   ProjectId,
   ResourceId,
   ServerId,
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { composeResource, resource, stackEnvVar } from "@otterdeploy/db/schema/project";
+import { composeResource, project, resource, stackEnvVar } from "@otterdeploy/db/schema/project";
 /**
  * DB ops for `type: compose` resources. A compose resource is a `resource`
  * row (type=compose) + a `compose_resource` row holding the file and derived
@@ -179,6 +180,55 @@ export async function getComposeRecord(
     )
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * The stack, only when its project belongs to `organizationId`. Every compose
+ * procedure takes `projectId` + `resourceId` from its input, and the org-
+ * scoped builder does not check which organization the project is in: this
+ * is that scoping, so a compose procedure only ever reads or changes a stack
+ * of the caller's own organization. Null for missing and out-of-scope alike.
+ */
+export async function getComposeRecordInOrg(
+  organizationId: OrganizationId,
+  { projectId, resourceId }: { projectId: ProjectId; resourceId: ResourceId },
+): Promise<ComposeRecord | null> {
+  const [row] = await db
+    .select({ resource, compose: composeResource })
+    .from(resource)
+    .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(
+      and(
+        eq(resource.id, resourceId),
+        eq(resource.projectId, projectId),
+        eq(resource.type, "compose"),
+        eq(project.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/** The project's stacks, only when the project belongs to `organizationId`
+ *  (see getComposeRecordInOrg). */
+export async function listComposeRecordsInOrg(
+  organizationId: OrganizationId,
+  projectId: ProjectId,
+): Promise<ComposeRecord[]> {
+  return db
+    .select({ resource, compose: composeResource })
+    .from(resource)
+    .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(
+      and(
+        eq(resource.projectId, projectId),
+        eq(resource.type, "compose"),
+        eq(project.organizationId, organizationId),
+      ),
+    )
+    .orderBy(asc(resource.createdAt));
 }
 
 export async function listComposeRecords(projectId: ProjectId): Promise<ComposeRecord[]> {

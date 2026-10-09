@@ -21,6 +21,7 @@ import {
   mintEphemeralCredential,
   revokeEphemeralCredential,
 } from "../../ephemeral-db";
+import { getDatabaseConnInfo } from "./query";
 
 export const ephemeralDatabaseHandlers = {
   ephemeralCreate: requirePermission({ database: ["query"] }).database.ephemeralCreate.handler(
@@ -69,9 +70,19 @@ export const ephemeralDatabaseHandlers = {
   ),
 
   ephemeralList: requirePermission({ database: ["read"] }).database.ephemeralList.handler(
-    async ({ input, context }) => {
+    async ({ input, context, errors }) => {
       context.log.set({ target: { type: "resource", id: input.resourceId } });
       await enforceResourceScope(context, input.resourceId);
+      // The credential table has no org column: the resource IS the tenant
+      // boundary, so it must be the caller's before any row is read.
+      if (
+        !(await getDatabaseConnInfo({
+          organizationId: context.activeOrganizationId,
+          resourceId: input.resourceId,
+        }))
+      ) {
+        throw errors.NOT_FOUND();
+      }
 
       const rows = await db
         .select()
@@ -107,6 +118,16 @@ export const ephemeralDatabaseHandlers = {
         ephemeralDb: { action: "revoke", credentialId: input.credentialId },
       });
       await enforceResourceScope(context, input.resourceId);
+      // Same scoping as the list: the credential lookup is by resource id
+      // alone, so the resource must be the caller's first.
+      if (
+        !(await getDatabaseConnInfo({
+          organizationId: context.activeOrganizationId,
+          resourceId: input.resourceId,
+        }))
+      ) {
+        throw errors.NOT_FOUND();
+      }
 
       // The contract accepts any non-empty string; brand it here. A string
       // that isn't a dbeph id can't match a row, which is exactly the
