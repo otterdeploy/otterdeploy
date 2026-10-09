@@ -17,7 +17,7 @@ import { recordSecretMapChanges } from "../../audit/changes";
 import { parseCompose } from "../../stack/compose";
 import { getProjectById } from "../project/queries";
 import { collectFileVarRefs, collectVarRefs, type ComposeVarRef } from "./env";
-import { type ComposeRecord, getComposeRecord } from "./queries";
+import { type ComposeRecord, getComposeRecordInOrg } from "./queries";
 import {
   deleteStackEnvVar,
   listProjectEnvKeys,
@@ -97,7 +97,7 @@ export const composeVariablesRouter = {
       context.log.set({
         target: { type: "resource", kind: "compose", id: input.resourceId },
       });
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
       if (!rec) throw errors.NOT_FOUND();
       const [own, projectKeys] = await Promise.all([
         listStackEnvVars(rec.resource.id),
@@ -119,7 +119,7 @@ export const composeVariablesRouter = {
         target: { type: "resource", kind: "compose", id: input.resourceId },
         envKey: input.key,
       });
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
       if (!rec) throw errors.NOT_FOUND();
       const before = keyMarkers(await listStackEnvVars(rec.resource.id));
       const row = await upsertStackEnvVar({
@@ -141,7 +141,7 @@ export const composeVariablesRouter = {
         target: { type: "resource", kind: "compose", id: input.resourceId },
         envKey: input.key,
       });
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      const rec = await getComposeRecordInOrg(context.activeOrganizationId, input);
       if (!rec) throw errors.NOT_FOUND();
       const before = keyMarkers(await listStackEnvVars(rec.resource.id));
       await deleteStackEnvVar({ stackResourceId: rec.resource.id, key: input.key });

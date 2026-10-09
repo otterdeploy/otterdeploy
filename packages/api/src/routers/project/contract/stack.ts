@@ -53,6 +53,28 @@ const stackApplyResultSchema = z.object({
   lastAppliedAt: z.string(),
 });
 
+/** The saved YAML is not a stack file (unparseable, or the wrong shape): the
+ *  caller's input, so a 400, never the 500 an untyped throw made it. */
+const invalidStackErrors = {
+  INVALID_STACK: { status: 400 as const, message: "The stack file is not valid." as const },
+};
+
+/** Someone saved since the caller read the version (optimistic lock). */
+const stackConflictErrors = {
+  CONFLICT: {
+    status: 409 as const,
+    message: "The stack file changed since you loaded it." as const,
+  },
+};
+
+/** `apply` before any `save`: nothing to apply. */
+const stackNotSavedErrors = {
+  STACK_NOT_SAVED: {
+    status: 409 as const,
+    message: "Save a stack file before applying it." as const,
+  },
+};
+
 export const stackContractSlice = {
   diff: oc
     .errors(projectNotFoundErrors)
@@ -64,7 +86,7 @@ export const stackContractSlice = {
     .input(stackDiffInput)
     .output(stackDiffOutput),
   save: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, ...invalidStackErrors, ...stackConflictErrors })
     .meta({
       path: `${basePath}/{projectId}/stack/save`,
       tag,
@@ -73,7 +95,7 @@ export const stackContractSlice = {
     .input(stackSaveInput)
     .output(stackSaveOutput),
   apply: oc
-    .errors(projectNotFoundErrors)
+    .errors({ ...projectNotFoundErrors, ...stackNotSavedErrors })
     .meta({
       path: `${basePath}/{projectId}/stack/apply`,
       tag,

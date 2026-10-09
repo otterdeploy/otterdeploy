@@ -14,10 +14,12 @@ import { getProxyRouteByDomain, updateProxyRoute } from "../../caddy/queries";
 import { checkDomainReachability, type DnsState } from "../../lib/domain-reachability";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
+import { previewHostLabel } from "../../lib/environment/scoping";
 import { acmeForPlatformHost } from "./domain-rules";
 import { DomainConflictError } from "./errors";
 import { type ResourceRef } from "./inputs";
 import { type ServiceRecord } from "./queries";
+import { serviceRuntimeName, serviceRuntimeScope } from "./runtime-name";
 import { isUniqueViolation, sanitizeSlug } from "./views";
 
 /**
@@ -60,13 +62,27 @@ async function generatedHostLabel(record: ServiceRecord): Promise<string> {
 /** Resolve the host expose *would* mint when nothing else is serving. The
  *  chain resource-override → project → org → local → sslip fallback. Kept
  *  separate from the insert so the caller can inspect `source` (and refuse the
- *  sslip fallback) before anything is written. */
+ *  sslip fallback) before anything is written.
+ *
+ *  `honorOverride: false` skips the resource-override level. The "Generate
+ *  domain" button asks for the PLATFORM's host, and `publicDomain` is not only
+ *  an operator-typed override: every domain write mirrors the primary route's
+ *  host into it. Once a custom domain was primary, the "generated" host
+ *  resolved to that custom domain, found its existing route and returned it:
+ *  a 200 that minted nothing. */
 export async function resolveGeneratedDomain(
   input: ResourceRef,
   record: ServiceRecord,
   projectSlug: string,
+  options: { honorOverride: boolean } = { honorOverride: true },
 ): Promise<{ resolved: ResolvedDomain; serverIp: string | null }> {
-  const resourceSlug = await generatedHostLabel(record);
+  // A non-main environment's host carries its suffix (`web-staging`), exactly
+  // like its container name, so staging's generated host never lands on, or
+  // collides with, production's. Main and unstamped rows are unchanged.
+  const resourceSlug = previewHostLabel(
+    await generatedHostLabel(record),
+    await serviceRuntimeScope(record),
+  );
   // Walk the chain (resource override → project → org → sslip). The
   // per-resource `publicDomain` column on serviceResource is what feeds
   // resourceOverride: operators who already typed a literal FQDN in
@@ -83,7 +99,10 @@ export async function resolveGeneratedDomain(
   return {
     resolved: resolvePublicDomain(
       { resourceSlug, projectSlug, kind: "service" },
-      { ...sources, resourceOverride: record.service.publicDomain },
+      {
+        ...sources,
+        resourceOverride: options.honorOverride ? record.service.publicDomain : null,
+      },
     ),
     serverIp: sources.serverIp,
   };
@@ -130,7 +149,8 @@ export async function insertGeneratedRoute(
   // sslip/local hosts are pointed by construction; real names are measured.
   const dns = await generatedRouteDnsState(resolved, serverIp);
   const fields = {
-    upstreamHost: record.service.serviceName,
+    // The RUNTIME name: a staging service runs as `<base>-staging`.
+    upstreamHost: await serviceRuntimeName(record),
     upstreamPort,
     // One rule with the rename path (domainRewritePatch), so a host does not
     // get a different answer depending on which one last touched it. We just

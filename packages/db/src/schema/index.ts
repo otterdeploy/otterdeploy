@@ -35,6 +35,7 @@ export * from "./platform";
 export * from "./project";
 export * from "./platform-metric";
 export * from "./proxy-route";
+export * from "./request-claim";
 export * from "./resource-metric";
 export * from "./server";
 export * from "./server-metric";

@@ -34,11 +34,9 @@ export const stackRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
-          // The contract doesn't enumerate parse/version errors today;
-          // bubble them as native Errors so orpc serializes the
-          // message into the response body.
-          StackParseError: (err) => new Error(err.message),
-          StackVersionMismatchError: (err) => new Error(err.message),
+          // Both are the caller's to fix: a typed 400 / 409 that says why.
+          StackParseError: (err) => errors.INVALID_STACK({ message: err.message }),
+          StackVersionMismatchError: (err) => errors.CONFLICT({ message: err.message }),
         });
       }
       return result.value;
@@ -57,7 +55,7 @@ export const stackRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
-          StackNotSavedError: () => new Error("stack-not-saved"),
+          StackNotSavedError: () => errors.STACK_NOT_SAVED(),
         });
       }
       return result.value;

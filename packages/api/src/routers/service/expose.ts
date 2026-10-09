@@ -29,6 +29,7 @@ import { insertGeneratedRoute, resolveGeneratedDomain } from "./expose-generated
 import { getService } from "./get-service";
 import { type ResourceRef } from "./inputs";
 import { getPrimaryHttpPort, setPublicExposure } from "./queries";
+import { serviceRuntimeName } from "./runtime-name";
 import { sanitizeSlug, type ServiceView } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
@@ -86,7 +87,11 @@ export async function exposeService(
   // hosts back live, and guarantees at least one live host by minting the
   // generated one whenever nothing else is serving.
   await setRoutesEnabledForResource(input.resourceId, true);
-  await refreshRouteUpstreams(input.resourceId, primary.containerPort, record.service.serviceName);
+  await refreshRouteUpstreams(
+    input.resourceId,
+    primary.containerPort,
+    await serviceRuntimeName(record),
+  );
 
   let routes = await listProxyRoutesByResourceId(input.resourceId);
   if (!routes.some((r) => r.enabled)) {
@@ -160,10 +165,13 @@ export async function generateServiceDomain(
   const primary = getPrimaryHttpPort(record.ports);
   if (!primary) return Result.err(new NoHttpPortError({ resourceId: input.resourceId }));
 
+  // The platform's host, never the `publicDomain` mirror of whatever route is
+  // primary: see resolveGeneratedDomain.
   const { resolved, serverIp } = await resolveGeneratedDomain(
     input,
     record,
     sanitizeSlug(project.slug),
+    { honorOverride: false },
   );
   const routes = await listProxyRoutesByResourceId(input.resourceId);
   const existing = routes.find((r) => r.domain === resolved.fqdn);
@@ -171,7 +179,7 @@ export async function generateServiceDomain(
   if (existing) {
     await updateProxyRoute(existing.id, {
       enabled: true,
-      upstreamHost: record.service.serviceName,
+      upstreamHost: await serviceRuntimeName(record),
       upstreamPort: primary.containerPort,
     });
   } else {

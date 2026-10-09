@@ -19,6 +19,7 @@
  * browser is presentation, and presentation must never be load-bearing.
  */
 
+import { ORPCError } from "@orpc/server";
 import { auth } from "@otterdeploy/auth";
 import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
@@ -61,6 +62,14 @@ export const ssoRouter = {
       target: { type: "organization", id: context.activeOrganizationId },
     });
 
+    // better-auth's admin check needs the signed-in USER these headers carry;
+    // an API key has none, and the call used to surface as a 500
+    // ("Unauthorized"). Refuse it plainly, like the members router does.
+    if (!context.session) {
+      throw new ORPCError("FORBIDDEN", {
+        message: "Listing identity providers needs a signed-in user, not an API key.",
+      });
+    }
     const res = await Result.tryPromise({
       try: () => auth.api.listSSOProviders({ headers: context.headers }),
       catch: (e) => (e instanceof Error ? e : new Error(String(e))),

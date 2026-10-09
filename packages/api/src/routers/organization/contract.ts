@@ -374,21 +374,34 @@ const invitationViewSchema = z.object({
   expiresAt: z.string().nullable(),
 });
 
+/**
+ * A member / invitation reference handed to better-auth, which looks it up in
+ * Postgres. A NUL byte cannot be stored there, so the lookup FAILS rather than
+ * finding nothing, and the failed query's SQL text used to come back as the
+ * NOT_FOUND message. No real id or email holds a control character: refused
+ * here as invalid input instead.
+ */
+const authRowRef = z
+  .string()
+  .min(1)
+  .max(320)
+  .refine((value) => !/\p{Cc}/u.test(value), { message: "must not contain control characters" });
+
 const removeMemberInput = z.object({
   organizationId: organizationIdField,
   // better-auth accepts a member id or the member's email.
-  memberIdOrEmail: z.string().min(1),
+  memberIdOrEmail: authRowRef,
 });
 
 const updateMemberRoleInput = z.object({
   organizationId: organizationIdField,
-  memberId: z.string().min(1),
+  memberId: authRowRef,
   role: z.enum(["admin", "member"]),
 });
 
 const cancelInvitationInput = z.object({
   organizationId: organizationIdField,
-  invitationId: z.string().min(1),
+  invitationId: authRowRef,
 });
 
 export const organizationContract = {

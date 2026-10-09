@@ -146,20 +146,25 @@ export const backupDestinationsRouter = {
     },
   ),
 
-  test: orgScopedProcedure.backups.destinations.test.handler(async ({ input, context, errors }) => {
-    context.log.set({
-      target: { type: "backup_destination", id: input.id },
-    });
-    const result = await testDestination({
-      organizationId: context.activeOrganizationId,
-      id: input.id,
-    });
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        DestinationNotFoundError: () => errors.NOT_FOUND(),
-        DestinationTestFailedError: (err) => errors.TEST_FAILED({ data: { reason: err.reason } }),
+  // A live test writes a probe repository to the destination with its stored
+  // credentials, so it needs a write permission (the same as verifyRestore,
+  // which exercises the same engine), not just membership.
+  test: requirePermission({ backup: ["run"] }).backups.destinations.test.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "backup_destination", id: input.id },
       });
-    }
-    return result.value;
-  }),
+      const result = await testDestination({
+        organizationId: context.activeOrganizationId,
+        id: input.id,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          DestinationNotFoundError: () => errors.NOT_FOUND(),
+          DestinationTestFailedError: (err) => errors.TEST_FAILED({ data: { reason: err.reason } }),
+        });
+      }
+      return result.value;
+    },
+  ),
 };

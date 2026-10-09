@@ -9,7 +9,9 @@ import { isRouteProtected } from "./route-protection";
  *  the live reconcile pass and the read-only per-project render so both
  *  surfaces stay byte-identical.
  *
- *  `envProtected` carries the ids of routes sitting in a private environment.
+ *  `envProtected` carries the ids of routes sitting in a private environment,
+ *  and of every route of a service that is protected on any of its hosts
+ *  (`protectionFloorRouteIds`).
  *  It is passed in rather than looked up here so all three render paths run
  *  the same single query, and so the read-only views show the gate the live
  *  reconcile would actually emit: a "why is this public?" answered from the

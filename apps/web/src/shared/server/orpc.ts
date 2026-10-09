@@ -10,6 +10,7 @@ import { i18n } from "@otterdeploy/i18n/web";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { actingOrganizationHeaders } from "./acting-organization";
 import { rateLimitRetryAfter } from "./rate-limited";
 import { isControlPlaneUnreachable } from "./unreachable";
 
@@ -97,6 +98,8 @@ export const queryClient = new QueryClient({
 
 const link = new RPCLink<ClientContext>({
   url: `${env.VITE_SERVER_URL}/rpc`,
+  // The organization this tab's page acts in, read per request.
+  headers: actingOrganizationHeaders,
   fetch: (input, init) =>
     fetch(input, {
       ...init,

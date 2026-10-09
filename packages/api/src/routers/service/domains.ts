@@ -69,6 +69,7 @@ import {
 import { type ResourceRef } from "./inputs";
 import { setPublicExposure, setServicePublicDomain, type ServiceRecord } from "./queries";
 import { redeployAndFanOut } from "./redeploy";
+import { serviceRuntimeName } from "./runtime-name";
 import { isUniqueViolation } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
@@ -133,6 +134,9 @@ export async function addServiceDomain(
   // Anything else, and everything on a multi-org install, stays inert behind
   // the per-route TXT challenge until Recheck observes it.
   const live = provenByDns(reachability.state, { multiOrg: await isMultiOrgInstall() });
+  // The runtime name, environment suffix included: a staging service's host
+  // must reach staging's container, not production's.
+  const upstreamHost = await serviceRuntimeName(record);
   let route: ProxyRouteRecord;
   try {
     route = await insertResourceRoute({
@@ -140,7 +144,7 @@ export async function addServiceDomain(
       resourceId: input.resourceId,
       type: "http",
       domain,
-      upstreamHost: record.service.serviceName,
+      upstreamHost,
       upstreamPort: upstreamPort.value,
       protocol: "http",
       usesAcme: live && acmeFor(domain, reachability.state),
@@ -239,7 +243,7 @@ export async function recheckServiceDomain(
     usesAcme,
     domainVerifiedAt,
     enabled,
-    upstreamHost: record.service.serviceName,
+    upstreamHost: await serviceRuntimeName(record),
   });
   if (!updated) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
 

@@ -43,6 +43,7 @@ import {
 } from "./errors";
 import { type ResourceRef } from "./inputs";
 import { setServicePublicDomain, type ServiceRecord } from "./queries";
+import { serviceRuntimeName } from "./runtime-name";
 import { isUniqueViolation } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
@@ -96,7 +97,7 @@ export async function updateServiceDomain(
   const patch = domainRewritePatch({
     domain,
     route,
-    serviceName: record.service.serviceName,
+    serviceName: await serviceRuntimeName(record),
     dnsState: reachability.state,
     requiresVerification,
     apex: platformApexFor(domain, sources),

@@ -28,6 +28,7 @@ import { createGitlabProviderOptions, TRUSTED_LINKING_PROVIDERS } from "./gitlab
 import { ANY_HTTPS_ORIGIN, mayReachExternalIdp } from "./idp-trust";
 import { sendInvitationEmail } from "./invitation-email";
 import { enabledSocialProviderIds, setEnabledSocialProviderIds } from "./live-providers";
+import { organizationGuards } from "./organization-guards";
 import { bindPasskeyRelyingParty } from "./passkey-rp";
 import { ac, roles } from "./permissions";
 import {
@@ -44,6 +45,23 @@ import {
 
 /** The api-key plugin's HTTP create endpoint, closed (see `disabledPaths`). */
 export const API_KEY_CREATE_PATH = "/api-key/create";
+
+/**
+ * The organization plugin's team WRITE endpoints, closed over HTTP. Teams are
+ * modelled on the `project` table (see `teams.schema.team` below), so these
+ * would write project rows directly, bypassing `project.create` /
+ * `project.delete` (their slug and environment rules, teardown and
+ * protection). Nothing in the product calls them. Reads stay open (they list
+ * the caller's own organization's projects).
+ */
+export const TEAM_WRITE_PATHS = [
+  "/organization/create-team",
+  "/organization/update-team",
+  "/organization/remove-team",
+  "/organization/add-team-member",
+  "/organization/remove-team-member",
+  "/organization/set-active-team",
+] as const;
 
 /** API-key budget: 600 requests per one-minute window per key (10/s sustained).
  *  See the `apiKey()` plugin config below. */
@@ -237,7 +255,8 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
     // would mint a full-access key nobody chose. Keys are minted through the
     // oRPC `apiKeys.create`, which requires an explicit choice and calls
     // `auth.api.createApiKey` server-side (unaffected by this list).
-    disabledPaths: [API_KEY_CREATE_PATH],
+    // The team writes are closed for the same reason: see TEAM_WRITE_PATHS.
+    disabledPaths: [API_KEY_CREATE_PATH, ...TEAM_WRITE_PATHS],
     // `experimental.joins` would let the Drizzle adapter use the RQB
     // v2 query builder (`db.query.user.findFirst({ with: { session } })`).
     // That requires `relations` passed to drizzle() in
@@ -618,6 +637,10 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
           },
         },
       }),
+      // A refused org switch keeps the session's workspace; an
+      // invitation sent twice at once, or retried, is sent once.
+      // See ./organization-guards.ts.
+      organizationGuards(),
     ],
   });
 }

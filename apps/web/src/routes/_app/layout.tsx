@@ -92,6 +92,9 @@ export const Route = createFileRoute("/_app")({
       user,
       organizations: orgs,
       activeOrgSlug: activeOrg.slug,
+      // The session's own pointer, unresolved: null when it has none.
+      // `/$orgSlug` compares it with the organization in the URL.
+      activeOrganizationId: activeId ?? null,
       // Server-owned installation authority, already returned with every
       // session (packages/auth/src/index.ts marks it `returned: true`). Read
       // here so navigation can OMIT the surfaces it gates rather than render

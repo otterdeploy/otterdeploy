@@ -12,9 +12,10 @@
  * server decides what that route requires.
  */
 
-import type { OrganizationId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { Result, TaggedError } from "better-result";
 import { and, eq } from "drizzle-orm";
@@ -31,17 +32,28 @@ class DomainAutoConfigureError extends TaggedError("DomainAutoConfigureError")<{
 
 export async function autoConfigureServiceDomainDns(input: {
   organizationId: OrganizationId;
+  projectId: ProjectId;
   resourceId: ResourceId;
   routeId: ProxyRouteId;
   serverIp: string | null;
 }): Promise<Result<{ recordIds: string[] }, DomainAutoConfigureError>> {
+  // Scoped to the caller: the route must sit in the addressed project of the
+  // caller's own organization.
   const [route] = await db
     .select({
       domain: proxyRoute.domain,
       verifyToken: proxyRoute.domainVerifyToken,
     })
     .from(proxyRoute)
-    .where(and(eq(proxyRoute.id, input.routeId), eq(proxyRoute.resourceId, input.resourceId)))
+    .innerJoin(project, eq(project.id, proxyRoute.projectId))
+    .where(
+      and(
+        eq(proxyRoute.id, input.routeId),
+        eq(proxyRoute.resourceId, input.resourceId),
+        eq(proxyRoute.projectId, input.projectId),
+        eq(project.organizationId, input.organizationId),
+      ),
+    )
     .limit(1);
 
   if (!route) {

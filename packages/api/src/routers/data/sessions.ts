@@ -7,15 +7,35 @@
  * its probe is closed on the spot: a dead tunnel must never sit in the
  * registry looking live.
  */
-import type { UserId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ResourceId, UserId } from "@otterdeploy/shared/id";
 
+import { db } from "@otterdeploy/db";
+import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
+import { and, eq } from "drizzle-orm";
 
 import { requirePermission } from "../..";
 import { closeSession, listSessions, openSession, ownerOf, sessionKey } from "../../data";
 import { toDataError } from "../../data/errors";
 import { guardTarget, raise, resolveTarget, targetLog } from "./plumbing";
 import { probeVersion } from "./test-probe";
+
+/** Is `resourceId` a managed database in this organization? */
+async function isOrgDatabase(
+  organizationId: OrganizationId,
+  resourceId: ResourceId,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: databaseResource.resourceId })
+    .from(databaseResource)
+    .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(
+      and(eq(databaseResource.resourceId, resourceId), eq(project.organizationId, organizationId)),
+    )
+    .limit(1);
+  return row !== undefined;
+}
 
 export function makeSessionHandlers(deps: {
   viewerIdOf: (context: { session?: { user?: { id?: string } } | null }) => UserId | null;
@@ -25,6 +45,16 @@ export function makeSessionHandlers(deps: {
       async ({ input, context, errors }) => {
         context.log.set({ ...targetLog(input.target), dataSession: { open: true } });
         await guardTarget(context, input.target);
+        // A managed target must be a database of the caller's organization
+        // before the session locates its container: that lookup is by resource
+        // id alone, and the scope guard above leaves the NOT_FOUND answer for
+        // an unknown id to this handler.
+        if (
+          input.target.kind === "resource" &&
+          !(await isOrgDatabase(context.activeOrganizationId, input.target.resourceId))
+        ) {
+          throw errors.NOT_FOUND();
+        }
         const opened = await openSession({
           owner: ownerOf(deps.viewerIdOf(context)),
           organizationId: context.activeOrganizationId,

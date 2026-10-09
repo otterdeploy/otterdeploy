@@ -26,7 +26,7 @@ const limitedPermissionsSchema = z
     message: `Choose at least one permission, or "${FULL_ACCESS}" for a full-access key.`,
   });
 
-const createApiKeyInput = z.object({
+export const createApiKeyInput = z.object({
   name: z.string().min(1).max(64),
   /** Seconds until expiry, or null for a key that never expires. */
   expiresIn: z.number().int().positive().nullable(),
@@ -73,6 +73,14 @@ export const apiKeysContract = {
   create: oc
     .route({ method: "POST", path: basePath, tags: [tag] })
     .errors({
+      // A repeat of a create that just ran (double submit, a retry after a
+      // lost response): refused rather than minting a second live key whose
+      // secret nobody saw.
+      CONFLICT: {
+        status: 409,
+        message: "An API key with this name was just created.",
+        data: z.object({ name: z.string(), retryAfterSeconds: z.number() }),
+      },
       PERMISSION_NOT_GRANTABLE: {
         status: 400,
         message: "A key cannot hold that permission.",

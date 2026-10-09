@@ -12,6 +12,7 @@
  */
 import type { BackupDestinationId, OrganizationId } from "@otterdeploy/shared/id";
 
+import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
 import { backupDestination } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -20,6 +21,7 @@ import * as z from "zod";
 import type { StorageError, StorageTarget } from "../../storage";
 
 import { requirePermission } from "../..";
+import { authorizeCapability } from "../../authz/capability";
 import {
   deleteObjects,
   deletePrefix,
@@ -159,6 +161,18 @@ export const storageRouter = {
       context.log.set({
         storage: { bucketId: input.bucketId, key: input.key, presign: input.method },
       });
+      // A PUT URL is an upload (it can create or replace an object under the
+      // prefix, backups included), so it needs `backup:create`, not only
+      // `backup:read`.
+      if (input.method === "PUT") {
+        const decision = await authorizeCapability(context.actor, {
+          scope: "organization",
+          mode: "write",
+          organizationId: context.activeOrganizationId,
+          permission: { backup: ["create"] },
+        });
+        if (!decision.allowed) throw new ORPCError("FORBIDDEN", { message: decision.reason });
+      }
       const target = await open(context.activeOrganizationId, input.bucketId, errors);
       const url = presignObject(target, input.key, input.method);
       if (url.isErr()) throw raise(url.error, errors);

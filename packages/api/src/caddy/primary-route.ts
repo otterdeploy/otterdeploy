@@ -60,7 +60,20 @@ export async function insertResourceRoute(
       .where(primaryRouteFilter(input.resourceId))
       .limit(1)
       .$withCache(false);
-    return writeProxyRoute(tx, { ...input, isPrimary: primary === undefined });
+    // Protection is per service: a host added to a protected
+    // service is born behind the same wall and opens with the same PIN, so
+    // its own row says what the edge already enforces for it.
+    const [guarded] = await tx
+      .select({ accessPinHash: proxyRoute.accessPinHash })
+      .from(proxyRoute)
+      .where(and(eq(proxyRoute.resourceId, input.resourceId), eq(proxyRoute.protected, true)))
+      .limit(1)
+      .$withCache(false);
+    return writeProxyRoute(tx, {
+      ...input,
+      isPrimary: primary === undefined,
+      ...(guarded ? { protected: true, accessPinHash: guarded.accessPinHash } : {}),
+    });
   });
 }
 

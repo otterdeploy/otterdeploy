@@ -1,6 +1,7 @@
 /**
  * Provider-client tests: fixture JSON through the real zod response
- * schemas, no live HTTP (global fetch is stubbed).
+ * schemas, no live HTTP: the egress client is stubbed with `fetchMock`
+ * (./vault-egress.test.ts drives the real egress policy instead).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -12,9 +13,17 @@ import { infisicalGetSecrets, infisicalListSecretNames } from "./infisical";
 
 const fetchMock = vi.fn<typeof fetch>();
 
+vi.mock("@otterdeploy/shared/egress-policy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@otterdeploy/shared/egress-policy")>()),
+  egressFetch: (url: string, init: RequestInit) => fetchMock(url, init),
+}));
+vi.mock("../egress-denylist", () => ({
+  controlPlaneEgressDenylist: () => Promise.resolve({ blockedHosts: [], blockedAddresses: [] }),
+}));
+vi.mock("../egress-options", () => ({ egressAllowlist: () => Promise.resolve([]) }));
+
 beforeEach(() => {
   fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => {
   vi.unstubAllGlobals();

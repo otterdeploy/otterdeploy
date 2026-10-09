@@ -9,12 +9,32 @@
  * `message` and Doppler's `messages[]` say what to fix ("Folder with path
  * '/web' in environment 'prod' was not found", "You must specify a project")
  * and carry no secret material; nothing else from an error body is read.
+ *
+ * The provider URL is operator-supplied, so the request goes through the
+ * same outbound egress policy as every other tenant-supplied destination
+ * (packages/shared/src/egress-policy.ts): loopback, private, link-local and
+ * cloud-metadata addresses are refused, every DNS answer for the hostname is
+ * checked and the connection pinned to it, and each redirect hop is
+ * re-checked. A Vault on a private network is reached by adding its address
+ * to the egress allowlist (Settings, Instance), the same carve-out webhooks
+ * and registries use; the control plane's own addresses stay refused
+ * regardless.
  */
 
+import {
+  EgressPolicyError,
+  type EgressResponse,
+  egressFetch,
+} from "@otterdeploy/shared/egress-policy";
 import { Result } from "better-result";
 import * as z from "zod";
 
+import { controlPlaneEgressDenylist } from "../egress-denylist";
+import { egressAllowlist } from "../egress-options";
+
 const TIMEOUT_MS = 15_000;
+/** Largest provider response read (a whole Vault/Doppler config fits). */
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 /** Longest provider message quoted in an error. */
 const PROVIDER_MESSAGE_MAX_CHARS = 300;
 
@@ -38,10 +58,22 @@ export interface VaultFetchOptions<T> {
   body?: unknown;
 }
 
-export async function vaultFetch<T>(opts: VaultFetchOptions<T>): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(opts.url, {
+/** Why the request produced no response, in the provider's words. */
+function requestFailure(err: unknown): string {
+  if (err instanceof EgressPolicyError && err.kind === "denied") {
+    return `blocked by the outbound egress policy: ${err.message} A provider on a private network needs its address on the egress allowlist`;
+  }
+  if (err instanceof EgressPolicyError && /timed out/i.test(err.message)) {
+    return `timed out after ${TIMEOUT_MS / 1000}s`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function send(opts: VaultFetchOptions<unknown>): Promise<EgressResponse> {
+  const denylist = await controlPlaneEgressDenylist();
+  return egressFetch(
+    opts.url,
+    {
       method: opts.method ?? "GET",
       headers: {
         accept: "application/json",
@@ -49,17 +81,28 @@ export async function vaultFetch<T>(opts: VaultFetchOptions<T>): Promise<T> {
         ...opts.headers,
       },
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch (err) {
-    const reason =
-      err instanceof Error && err.name === "TimeoutError"
-        ? `timed out after ${TIMEOUT_MS / 1000}s`
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    throw new Error(`secret provider "${opts.providerName}": request failed (${reason})`);
+    },
+    {
+      timeoutMs: TIMEOUT_MS,
+      maxBytes: MAX_RESPONSE_BYTES,
+      maxRedirects: 5,
+      // Self-hosted Vault/Infisical often speak plain HTTP on a LAN; the
+      // address policy, not the scheme, is what keeps this off internal
+      // targets.
+      allowHttp: true,
+      denyHosts: denylist.blockedHosts,
+      denyAddresses: denylist.blockedAddresses,
+      allowAddresses: await egressAllowlist(),
+    },
+  );
+}
+
+export async function vaultFetch<T>(opts: VaultFetchOptions<T>): Promise<T> {
+  const sent = await Result.tryPromise({ try: () => send(opts), catch: requestFailure });
+  if (sent.isErr()) {
+    throw new Error(`secret provider "${opts.providerName}": request failed (${sent.error})`);
   }
+  const res = sent.value;
 
   if (!res.ok) {
     const text = (await Result.tryPromise({ try: () => res.text(), catch: () => "" })).unwrapOr("");

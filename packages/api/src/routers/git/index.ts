@@ -6,7 +6,7 @@ import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
 import { and, eq } from "drizzle-orm";
 
-import { orgScopedProcedure } from "../..";
+import { orgScopedProcedure, requirePermission } from "../..";
 import {
   buildManifestRequest,
   disconnectGithubInstallation,
@@ -32,49 +32,58 @@ import {
   listResourcesForProvider,
 } from "./queries";
 
+// Git provider writes (connect, sync, repo grants) change what every project
+// in the organization can build from, so they need the same permission as
+// other project edits, `project:update`. Disconnecting an installation and
+// deleting a provider are org-wide (every project loses the source), so those
+// two need `organization:update` like the other org-wide settings: admins and
+// owners only, and no API key (keys are capped at the member role). Reads stay
+// on `orgScopedProcedure`.
 export const gitRouter = {
   list: orgScopedProcedure.git.list.handler(async ({ context }) => {
     return listProvidersForOrg(context.activeOrganizationId);
   }),
 
-  startConnect: orgScopedProcedure.git.startConnect.handler(async ({ input, context, errors }) => {
-    // App-install flow binds the GitHub callback to the initiating user.
-    // Session-only; API-key actors have no user identity. Refused BEFORE the
-    // provider lookup, so a key learns nothing about whether this
-    // organization has a GitHub App configured.
-    if (!context.session?.user) {
-      throw new ORPCError("UNAUTHORIZED");
-    }
-    // The App slug is per-org, set when the manifest flow created the
-    // provider row. No App → no slug → can't build an install URL.
-    const [provider] = await db
-      .select()
-      .from(gitProvider)
-      .where(
-        and(
-          eq(gitProvider.organizationId, context.activeOrganizationId),
-          eq(gitProvider.kind, "github"),
-        ),
-      )
-      .limit(1);
-    if (!provider?.appSlug) {
-      throw errors.NOT_CONFIGURED();
-    }
-    const state = await signInstallState({
-      orgId: context.activeOrganizationId,
-      userId: context.session.user.id,
-      returnTo: sanitizeReturnTo(input.returnTo),
-    });
-    // GitHub App install URL: the user picks repos on GitHub, then GitHub
-    // redirects to the App's configured callback URL with installation_id +
-    // setup_action + our state param. Built off the host on the provider
-    // row so future GHE installs Just Work.
-    const host = provider.host;
-    const base = host === "github.com" ? "https://github.com" : `https://${host}`;
-    const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
-    url.searchParams.set("state", state);
-    return { redirectUrl: url.toString() };
-  }),
+  startConnect: requirePermission({ project: ["update"] }).git.startConnect.handler(
+    async ({ input, context, errors }) => {
+      // App-install flow binds the GitHub callback to the initiating user.
+      // Session-only; API-key actors have no user identity. Refused BEFORE the
+      // provider lookup, so a key learns nothing about whether this
+      // organization has a GitHub App configured.
+      if (!context.session?.user) {
+        throw new ORPCError("UNAUTHORIZED");
+      }
+      // The App slug is per-org, set when the manifest flow created the
+      // provider row. No App → no slug → can't build an install URL.
+      const [provider] = await db
+        .select()
+        .from(gitProvider)
+        .where(
+          and(
+            eq(gitProvider.organizationId, context.activeOrganizationId),
+            eq(gitProvider.kind, "github"),
+          ),
+        )
+        .limit(1);
+      if (!provider?.appSlug) {
+        throw errors.NOT_CONFIGURED();
+      }
+      const state = await signInstallState({
+        orgId: context.activeOrganizationId,
+        userId: context.session.user.id,
+        returnTo: sanitizeReturnTo(input.returnTo),
+      });
+      // GitHub App install URL: the user picks repos on GitHub, then GitHub
+      // redirects to the App's configured callback URL with installation_id +
+      // setup_action + our state param. Built off the host on the provider
+      // row so future GHE installs Just Work.
+      const host = provider.host;
+      const base = host === "github.com" ? "https://github.com" : `https://${host}`;
+      const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
+      url.searchParams.set("state", state);
+      return { redirectUrl: url.toString() };
+    },
+  ),
 
   /**
    * Manifest flow: first half. Returns the form-action URL + manifest
@@ -87,110 +96,119 @@ export const gitRouter = {
    * It runs even when no provider row exists yet (the common case for
    * a fresh install).
    */
-  startManifest: orgScopedProcedure.git.startManifest.handler(async ({ input, context }) => {
-    // Manifest flow binds the GitHub callback to the initiating user.
-    // Session-only; API-key actors have no user identity.
-    if (!context.session?.user) {
-      throw new ORPCError("UNAUTHORIZED");
-    }
-    // GHE host (omit → github.com). Carried through the signed state so the
-    // manifest callback exchanges the code against the right API + stores it.
-    const host = input.host?.trim() || undefined;
-    const state = await signInstallState({
-      orgId: context.activeOrganizationId,
-      userId: context.session.user.id,
-      host,
-      returnTo: sanitizeReturnTo(input.returnTo),
-    });
-    // Browser-facing URLs (redirect/callback/setup) go to the control plane the
-    // operator's browser can reach. The local `.localhost` address in dev.
-    // Only the webhook URL must be public (GitHub's servers POST it), so that
-    // one gets the tunnel (PUBLIC_API_URL); prod is single-origin and falls back.
-    //
-    // Both resolve through the canonical origin first: these values are written
-    // into the GitHub App's own settings and GitHub keeps them forever. An App
-    // created against the raw server address goes on receiving webhooks over
-    // plaintext at an IP that changes if the box does, and verifying a
-    // control-plane domain later cannot rewrite them.
-    const canonicalBase = await resolveCanonicalWebOrigin(env.BETTER_AUTH_URL);
-    const canonicalWebhookBase = await resolveCanonicalWebOrigin(
-      env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL,
-    );
-    return buildManifestRequest({
-      state,
-      baseUrl: canonicalBase,
-      webhookBaseUrl: canonicalWebhookBase,
-      host,
-      accountLogin: input.accountLogin ?? null,
-      appName: input.appName,
-    });
-  }),
-
-  disconnect: orgScopedProcedure.git.disconnect.handler(async ({ input, context, errors }) => {
-    const inst = await getInstallationForOrg({
-      installationDbId: input.installationId,
-      organizationId: context.activeOrganizationId,
-    });
-    if (!inst) throw errors.NOT_FOUND();
-    context.log.set({
-      target: { type: "git_installation", id: input.installationId },
-    });
-    await disconnectGithubInstallation({
-      organizationId: context.activeOrganizationId,
-      installationDbId: input.installationId,
-    });
-    return { ok: true };
-  }),
-
-  refreshRepos: orgScopedProcedure.git.refreshRepos.handler(async ({ input, context, errors }) => {
-    const inst = await getInstallationForOrg({
-      installationDbId: input.installationId,
-      organizationId: context.activeOrganizationId,
-    });
-    if (!inst) throw errors.NOT_FOUND();
-    context.log.set({
-      target: { type: "git_installation", id: input.installationId },
-    });
-
-    try {
-      const tokenResp = await getInstallationToken(inst.installation.installationId);
-      const appConfig = await loadGithubAppForInstallation(inst.installation.installationId);
-      const { repositories, totalCount } = await listInstallationRepos(tokenResp.token, appConfig);
-      // Full sync: upsert everything GitHub granted and unlink what it
-      // didn't. "Sync now" is the repair path, so it must converge the
-      // mirror in both directions.
-      await syncRepos(
-        inst.installation.id,
-        repositories.map((r) => ({
-          id: r.id,
-          node_id: r.node_id,
-          full_name: r.full_name,
-          name: r.name,
-          private: r.private,
-          default_branch: r.default_branch,
-          clone_url: r.clone_url,
-        })),
-        { prune: true },
+  startManifest: requirePermission({ project: ["update"] }).git.startManifest.handler(
+    async ({ input, context }) => {
+      // Manifest flow binds the GitHub callback to the initiating user.
+      // Session-only; API-key actors have no user identity.
+      if (!context.session?.user) {
+        throw new ORPCError("UNAUTHORIZED");
+      }
+      // GHE host (omit → github.com). Carried through the signed state so the
+      // manifest callback exchanges the code against the right API + stores it.
+      const host = input.host?.trim() || undefined;
+      const state = await signInstallState({
+        orgId: context.activeOrganizationId,
+        userId: context.session.user.id,
+        host,
+        returnTo: sanitizeReturnTo(input.returnTo),
+      });
+      // Browser-facing URLs (redirect/callback/setup) go to the control plane the
+      // operator's browser can reach. The local `.localhost` address in dev.
+      // Only the webhook URL must be public (GitHub's servers POST it), so that
+      // one gets the tunnel (PUBLIC_API_URL); prod is single-origin and falls back.
+      //
+      // Both resolve through the canonical origin first: these values are written
+      // into the GitHub App's own settings and GitHub keeps them forever. An App
+      // created against the raw server address goes on receiving webhooks over
+      // plaintext at an IP that changes if the box does, and verifying a
+      // control-plane domain later cannot rewrite them.
+      const canonicalBase = await resolveCanonicalWebOrigin(env.BETTER_AUTH_URL);
+      const canonicalWebhookBase = await resolveCanonicalWebOrigin(
+        env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL,
       );
-      // Store GitHub's total_count (not repositories.length): it stays
-      // truthful even if the page walk was cut short.
-      await db
-        .update(gitInstallation)
-        .set({ repoCount: totalCount })
-        .where(eq(gitInstallation.id, inst.installation.id));
-      return { repoCount: totalCount };
-    } catch (cause) {
-      if (cause instanceof GithubAppNotConfiguredError) {
-        throw errors.NOT_CONFIGURED();
+      return buildManifestRequest({
+        state,
+        baseUrl: canonicalBase,
+        webhookBaseUrl: canonicalWebhookBase,
+        host,
+        accountLogin: input.accountLogin ?? null,
+        appName: input.appName,
+      });
+    },
+  ),
+
+  disconnect: requirePermission({ organization: ["update"] }).git.disconnect.handler(
+    async ({ input, context, errors }) => {
+      const inst = await getInstallationForOrg({
+        installationDbId: input.installationId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (!inst) throw errors.NOT_FOUND();
+      context.log.set({
+        target: { type: "git_installation", id: input.installationId },
+      });
+      await disconnectGithubInstallation({
+        organizationId: context.activeOrganizationId,
+        installationDbId: input.installationId,
+      });
+      return { ok: true };
+    },
+  ),
+
+  refreshRepos: requirePermission({ project: ["update"] }).git.refreshRepos.handler(
+    async ({ input, context, errors }) => {
+      const inst = await getInstallationForOrg({
+        installationDbId: input.installationId,
+        organizationId: context.activeOrganizationId,
+      });
+      if (!inst) throw errors.NOT_FOUND();
+      context.log.set({
+        target: { type: "git_installation", id: input.installationId },
+      });
+
+      try {
+        const tokenResp = await getInstallationToken(inst.installation.installationId);
+        const appConfig = await loadGithubAppForInstallation(inst.installation.installationId);
+        const { repositories, totalCount } = await listInstallationRepos(
+          tokenResp.token,
+          appConfig,
+        );
+        // Full sync: upsert everything GitHub granted and unlink what it
+        // didn't. "Sync now" is the repair path, so it must converge the
+        // mirror in both directions.
+        await syncRepos(
+          inst.installation.id,
+          repositories.map((r) => ({
+            id: r.id,
+            node_id: r.node_id,
+            full_name: r.full_name,
+            name: r.name,
+            private: r.private,
+            default_branch: r.default_branch,
+            clone_url: r.clone_url,
+          })),
+          { prune: true },
+        );
+        // Store GitHub's total_count (not repositories.length): it stays
+        // truthful even if the page walk was cut short.
+        await db
+          .update(gitInstallation)
+          .set({ repoCount: totalCount })
+          .where(eq(gitInstallation.id, inst.installation.id));
+        return { repoCount: totalCount };
+      } catch (cause) {
+        if (cause instanceof GithubAppNotConfiguredError) {
+          throw errors.NOT_CONFIGURED();
+        }
+        // Installation gone on GitHub's side → tell the client to reinstall,
+        // with a clear message (not a generic 500 "Internal server error").
+        if (cause instanceof GithubInstallationInvalidError) {
+          throw errors.REINSTALL_REQUIRED({ message: cause.message });
+        }
+        throw cause;
       }
-      // Installation gone on GitHub's side → tell the client to reinstall,
-      // with a clear message (not a generic 500 "Internal server error").
-      if (cause instanceof GithubInstallationInvalidError) {
-        throw errors.REINSTALL_REQUIRED({ message: cause.message });
-      }
-      throw cause;
-    }
-  }),
+    },
+  ),
 
   getProvider: orgScopedProcedure.git.getProvider.handler(async ({ input, context, errors }) => {
     const detail = await getProviderDetail({
@@ -231,7 +249,7 @@ export const gitRouter = {
     };
   }),
 
-  refetchPermissions: orgScopedProcedure.git.refetchPermissions.handler(
+  refetchPermissions: requirePermission({ project: ["update"] }).git.refetchPermissions.handler(
     async ({ input, context, errors }) => {
       const inst = await getInstallationForOrg({
         installationDbId: input.installationId,
@@ -264,7 +282,7 @@ export const gitRouter = {
     });
   }),
 
-  deleteProvider: orgScopedProcedure.git.deleteProvider.handler(
+  deleteProvider: requirePermission({ organization: ["update"] }).git.deleteProvider.handler(
     async ({ input, context, errors }) => {
       // Cascade: installations are FK-cascade-deleted; git_repo rows keep their
       // history with installationId set null (FK is ON DELETE SET NULL).
@@ -291,7 +309,7 @@ export const gitRouter = {
     return listReposForInstallation(input.installationId);
   }),
 
-  connectPublicRepo: orgScopedProcedure.git.connectPublicRepo.handler(
+  connectPublicRepo: requirePermission({ project: ["update"] }).git.connectPublicRepo.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "git_public_repo" } });
       const result = await connectPublicRepo({ cloneUrl: input.cloneUrl });

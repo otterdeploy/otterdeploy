@@ -23,6 +23,8 @@ import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { listTenantRows } from "../../database-hosting";
 import { branchDependencyConflict } from "../../lib/environment/branch-dependents";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
+import { runtimeServiceName } from "../../lib/environment/scoping";
 import { deleteComposeStack } from "../compose/delete-stack";
 import { getComposeRecord } from "../compose/queries";
 import { reclaimDatabaseVolume, reclaimServiceHostArtifacts } from "../service/teardown";
@@ -266,6 +268,14 @@ export async function deleteProjectResource(
           name: found.record.resource.name,
         },
       });
+      // The name it RUNS as. The stored one is the base production shares, so
+      // tearing down by it from a staging delete would destroy production's
+      // container and orphan staging's. Resolved before any
+      // write, so a failure here leaves everything as it was.
+      const runtimeName = runtimeServiceName(
+        found.record.service.serviceName,
+        await resolveRuntimeScope(found.record.resource),
+      );
       // Strip it from the manifest FIRST (see the database branch) so a partial
       // teardown can never leave the service declared-but-absent → phantom
       // `create`. A deployed service must never revert to pending.
@@ -275,7 +285,7 @@ export async function deleteProjectResource(
       );
       await deleteProxyRoutesByResource(input.resourceId);
       await teardownServiceRuntime(
-        found.record.service.serviceName,
+        runtimeName,
         // Host-side paths key on the resource's environment too (null = main) -
         // the row carries it; the API-scope ref does not.
         { ...input, environmentId: found.record.resource.environmentId ?? null },

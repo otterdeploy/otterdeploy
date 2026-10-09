@@ -180,6 +180,7 @@ export const serviceDomainsRouter = {
     const routeId = requireRouteId(input.routeId, errors);
     const result = await autoConfigureServiceDomainDns({
       organizationId: context.activeOrganizationId,
+      projectId: input.projectId,
       resourceId: input.resourceId,
       routeId,
       serverIp: await serverIpFor({

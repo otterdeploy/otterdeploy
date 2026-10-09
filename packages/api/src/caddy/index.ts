@@ -33,7 +33,6 @@ import {
   listEnabledProxyRoutes,
   listEnabledRoutePlacements,
   listProxyRoutesByProject,
-  protectedEnvironmentRouteIds,
   updateProxyRoute,
   type ProxyRouteRecord,
 } from "./queries";
@@ -41,6 +40,7 @@ import { reconcileRoutes, type ReconcileResult } from "./reconciler";
 import { toRouteInput } from "./route-input";
 import { routeValidationError } from "./route-validation";
 import { loadControlPlaneEdge } from "./self-heal";
+import { protectionFloorRouteIds } from "./service-protection";
 
 export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
@@ -143,7 +143,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
   const records = await listEnabledProxyRoutes();
   log.info({ caddy: { step: "fetch-routes", count: records.length } });
 
-  const envProtected = await protectedEnvironmentRouteIds();
+  const envProtected = await protectionFloorRouteIds();
   let routes = records.map((r) => toRouteInput(r, envProtected));
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
@@ -237,7 +237,7 @@ export interface ProjectCaddyfile {
  *  stamps, so the UI can detect drift. */
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
-  const envProtected = await protectedEnvironmentRouteIds();
+  const envProtected = await protectionFloorRouteIds();
   let routes = records
     .filter((r) => r.enabled && !r.disabledByUser)
     .map((r) => toRouteInput(r, envProtected));
@@ -288,7 +288,7 @@ async function renderDesiredCaddyfile(opts: {
   dropUnsafeRoutes: boolean;
 }): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
-  const envProtected = await protectedEnvironmentRouteIds();
+  const envProtected = await protectionFloorRouteIds();
   let routes = records.map((r) => toRouteInput(r, envProtected));
   if (opts.dropUnsafeRoutes) routes = routes.filter((r) => routeValidationError(r) === null);
   const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);

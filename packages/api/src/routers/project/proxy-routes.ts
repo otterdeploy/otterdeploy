@@ -31,6 +31,7 @@ import {
 import { RESERVED_AUTH_PREFIX } from "../../caddy/builder";
 import { parseRouteDirectives } from "../../caddy/directive-scope";
 import { listProxyRoutesByProject, updateProxyRoute } from "../../caddy/queries";
+import { serviceRouteIdsOf, updateServiceSiblings } from "../../caddy/service-protection";
 import { ProjectNotFoundError, ProxyRouteNotFoundError } from "./errors";
 import { loadRouteDirectiveScope } from "./proxy-route-upstreams";
 import { getProjectInOrg, getRouteInOrg } from "./queries";
@@ -195,6 +196,10 @@ export async function setProxyRouteProtection(
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
   }
 
+  // Per SERVICE, not per host: the card's one switch protects
+  // every host of the service, generated and custom, previews included.
+  // Writing only the addressed row left the service's other hosts public.
+  await updateServiceSiblings(route, { protected: input.protected });
   const updated = await updateProxyRoute(input.routeId, {
     protected: input.protected,
   });
@@ -283,7 +288,7 @@ export async function listDeploymentGuests(
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
   }
-  const guests = await listGuests(input.routeId);
+  const guests = await listGuests(await serviceRouteIdsOf(route));
   return Result.ok(guests.map(toGuestView));
 }
 
@@ -319,7 +324,7 @@ export async function removeDeploymentGuest(
   // prefix) can't match a row, so skipping the delete is the same no-op the
   // unmatched DELETE would have been.
   if (hasPrefix(input.guestId, ID_PREFIX.deploymentGuest)) {
-    await removeGuest(input.routeId, input.guestId);
+    await removeGuest(await serviceRouteIdsOf(route), input.guestId);
   }
   return Result.ok({ ok: true });
 }
