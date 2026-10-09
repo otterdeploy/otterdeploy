@@ -2,7 +2,7 @@ import { idSchema } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import { DatabaseHostingError } from "../../database-hosting";
-import { orgScopedProcedure, requirePermission } from "../../index";
+import { requirePermission } from "../../index";
 import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import { scopeSuffix } from "../../lib/environment/scoping";
 import {
@@ -82,7 +82,12 @@ export const postgresResourceRouter = {
     },
   ),
 
-  draftCredentials: orgScopedProcedure.project.resource.database.postgres.draftCredentials.handler(
+  // Mints (and persists) the password the database about to be created will
+  // use, so it needs what that create needs, not just membership: a
+  // read-only key must not write it.
+  draftCredentials: requirePermission({
+    database: ["create"],
+  }).project.resource.database.postgres.draftCredentials.handler(
     async ({ input, context, errors }) => {
       const project = await getProjectInOrg({
         projectId: input.projectId,
