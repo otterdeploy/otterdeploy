@@ -8,6 +8,7 @@ import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
 import { applyableSwarmExtraNetworks } from "./extra-networks";
 import { buildServiceSpec, inspectSwarmService, waitForServiceReady } from "./internals";
+import { pinLocalImage } from "./local-image-placement";
 import { settleSwarmUpdate } from "./update-settle";
 
 export interface SwarmServiceRuntime {
@@ -168,8 +169,9 @@ export async function provisionSwarmService(
   // Filter the extras against the live daemon FIRST: swarm rejects the whole
   // create if any Networks target is missing or not an overlay.
   const extraNetworks = await applyableSwarmExtraNetworks(docker, spec, networkName, rlog);
+  const placed = await pinLocalImage(docker, spec);
   const createResult = await docker.services.create(
-    buildServiceSpec({ ...spec, extraNetworks }, networkName),
+    buildServiceSpec({ ...placed, extraNetworks }, networkName),
   );
 
   if (createResult.isErr()) {
@@ -223,7 +225,8 @@ export async function updateSwarmService(
   // Same live filter as the provision path: a deleted extra network must
   // degrade to a logged skip, not a failed rolling update.
   const extraNetworks = await applyableSwarmExtraNetworks(docker, spec, networkName, rlog);
-  const newSpec = buildServiceSpec({ ...spec, extraNetworks }, networkName);
+  const placed = await pinLocalImage(docker, spec);
+  const newSpec = buildServiceSpec({ ...placed, extraNetworks }, networkName);
   const updateResult = await docker.services.getService(existing.serviceId ?? "").update({
     version: currentVersion,
     Name: newSpec.Name,

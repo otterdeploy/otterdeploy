@@ -59,6 +59,14 @@ describe("buildHelperEnvFlags", () => {
     expect(flags).toEqual(["-e", "BUILDKIT_HOST"]);
   });
 
+  test("forwards DEPLOY_RUNTIME, so a swarm install's builds roll out to swarm", () => {
+    // With DEPLOY_RUNTIME=swarm on the
+    // worker, the helper fell back to the plain-docker default and every build
+    // rolled out a container: `docker service ls` never listed the service.
+    expect(FORWARDED_ENV).toContain("DEPLOY_RUNTIME");
+    expect(buildHelperEnvFlags({ DEPLOY_RUNTIME: "swarm" })).toEqual(["-e", "DEPLOY_RUNTIME"]);
+  });
+
   test("rewrites a localhost DATABASE_URL/REDIS_URL to host.docker.internal", () => {
     const flags = buildHelperEnvFlags({
       DATABASE_URL: "postgres://user:pass@localhost:5432/db",

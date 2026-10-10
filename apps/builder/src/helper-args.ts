@@ -45,6 +45,11 @@ export const FORWARDED_ENV = [
   "CORS_ORIGIN",
   "NODE_ENV",
   "OTTERDEPLOY_DATA_DIR",
+  // The helper rolls the built image out itself (redeployOne), and the runtime
+  // is picked from this switch: unforwarded, a DEPLOY_RUNTIME=swarm install's
+  // builds rolled out as plain containers and no swarm service ever got a
+  // task.
+  "DEPLOY_RUNTIME",
   // Tenant build isolation (od-48w): an operator-managed BuildKit endpoint,
   // when set, replaces the self-provisioned rootless sandbox.
   "BUILDKIT_HOST",
