@@ -8,6 +8,7 @@ import { render } from "@react-email/components";
 import { Result } from "better-result";
 import { createError, log } from "evlog";
 
+import { type SmtpTlsMode, smtpTlsOptions } from "./smtp-tls";
 import { resolveTransport } from "./transport";
 
 export interface SendEmailOptions {
@@ -103,7 +104,7 @@ export async function sendEmail(options: SendEmailOptions) {
       ? smtp({
           host: transport.host,
           port: transport.port,
-          secure: transport.secure,
+          ...smtpTlsOptions(transport),
           auth: transport.user ? { user: transport.user, pass: transport.pass ?? "" } : undefined,
         })
       : resend({ apiKey: transport.apiKey, fetch: tracker.fetch });
@@ -114,7 +115,10 @@ export async function sendEmail(options: SendEmailOptions) {
 export interface SmtpServerConfig {
   host: string;
   port?: number;
+  /** Legacy TLS flag, used only when `tlsMode` is unset (see ./smtp-tls.ts). */
   secure?: boolean;
+  /** How the connection is secured, independent of auth. */
+  tlsMode?: SmtpTlsMode | null;
   user?: string;
   pass?: string;
 }
@@ -131,7 +135,7 @@ export async function sendViaSmtpServer(
   const provider = smtp({
     host: config.host,
     port: config.port,
-    secure: config.secure,
+    ...smtpTlsOptions(config),
     auth: config.user ? { user: config.user, pass: config.pass ?? "" } : undefined,
   });
   return deliver(provider, options);

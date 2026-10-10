@@ -23,7 +23,9 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  *   - deploy.crashed   (src/routers/project/deploy-crash-watcher.ts)
  *   - build.failed     (apps/builder pipeline-steps.ts) — FAILURES ONLY;
  *     there is no build.succeeded event, so "build events" means build
- *     problems. The bell's empty-state copy has to say so.
+ *     problems. The bell's empty-state copy has to say so. Also delivered to
+ *     `deploy.failed` subscribers: a broken push is a failed deploy to the
+ *     operator (packages/jobs/src/delivery/subscribed-events.ts).
  *   - health.degraded / health.recovered (src/metrics/health-detector.ts)
  *   - host.pressure    (src/metrics/sampler.ts)
  *   - cert.renewed     (src/edge-logs/cert-promote.ts)

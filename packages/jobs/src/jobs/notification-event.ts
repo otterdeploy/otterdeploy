@@ -17,7 +17,7 @@ import { idSchema } from "@otterdeploy/shared/id";
  *   - test (`channelId` set): deliver to that one channel regardless of its
  *     subscriptions: the "Test" / "Send test" button. Still logged.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import * as z from "zod";
 
 import type { ResolvedChannel } from "../delivery/types";
@@ -25,6 +25,7 @@ import type { ResolvedChannel } from "../delivery/types";
 import { defineJob } from "../define";
 import { deliverToChannel } from "../delivery/channels";
 import { decryptSecret } from "../delivery/secret-crypto";
+import { subscriberEventIds } from "../delivery/subscribed-events";
 import { shouldFanOutInApp, writeInboxRows } from "./notification-inbox";
 
 export const PlatformEventPayload = z.object({
@@ -47,6 +48,11 @@ type ChannelRow = typeof notificationChannel.$inferSelect;
 const orgIdOf = (payload: PlatformEventPayload) =>
   idSchema.organization.parse(payload.organizationId);
 
+/**
+ * The channels an event goes to: the one named in test mode, else every active
+ * channel subscribed to the event or to an event it is a kind of
+ * (./delivery/subscribed-events.ts), each once.
+ */
 async function resolveChannels(payload: PlatformEventPayload): Promise<ChannelRow[]> {
   const orgId = orgIdOf(payload);
   if (payload.channelId) {
@@ -67,11 +73,13 @@ async function resolveChannels(payload: PlatformEventPayload): Promise<ChannelRo
     .where(
       and(
         eq(notificationSubscription.organizationId, orgId),
-        eq(notificationSubscription.eventId, payload.eventId),
+        inArray(notificationSubscription.eventId, subscriberEventIds(payload.eventId)),
         eq(notificationChannel.status, "active"),
       ),
     );
-  return rows.map((r) => r.channel);
+  // A channel subscribed to both `build.failed` and `deploy.failed` joins twice.
+  const byId = new Map(rows.map((r) => [r.channel.id, r.channel]));
+  return [...byId.values()];
 }
 
 async function toResolved(row: ChannelRow): Promise<ResolvedChannel> {

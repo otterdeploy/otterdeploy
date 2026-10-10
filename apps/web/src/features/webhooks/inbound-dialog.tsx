@@ -174,9 +174,9 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
                   <>
                     You'll get a unique URL and an HMAC secret. Requests must be signed with{" "}
                     <span className="font-mono text-foreground">
-                      X-Otterdeploy-Signature: sha256=&lt;hmac&gt;
+                      webhook-signature: v1,&lt;hmac&gt;
                     </span>{" "}
-                    over the raw body.
+                    over the webhook-id, webhook-timestamp and raw body.
                   </>
                 )}
               </DialogDescription>

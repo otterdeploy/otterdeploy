@@ -2,6 +2,8 @@ export { sendEmail, sendViaSmtpServer } from "./client";
 export type { SendEmailOptions, SmtpServerConfig } from "./client";
 export { resolveTransport, invalidateTransport, hasEnvTransport } from "./transport";
 export type { ResolvedTransport } from "./transport";
+export { parseSmtpTlsMode, SMTP_TLS_MODES, smtpTlsOptions } from "./smtp-tls";
+export type { SmtpTlsMode, SmtpTlsOptions } from "./smtp-tls";
 
 // Account & access
 export { WelcomeEmail } from "./templates/welcome";

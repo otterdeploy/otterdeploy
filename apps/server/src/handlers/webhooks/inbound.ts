@@ -3,7 +3,8 @@
  *
  * No session auth (the route sits under the identify middleware's
  * `/api/webhooks/**` exclusion): every request is verified per-source
- * instead: HMAC-SHA256 over the raw body against the endpoint's secret,
+ * instead: HMAC-SHA256 over id.timestamp.body against the endpoint's secret
+ * (timestamp window + single-use id, so a captured request cannot be replayed),
  * optional source-IP allowlist, light per-token rate limit. All of that plus
  * the action (redeploy the bound service via the same primitive the UI uses)
  * lives in @otterdeploy/api's `handleInboundInvocation`; this handler only
@@ -15,6 +16,9 @@ import type { Context } from "hono";
 
 import {
   SIGNATURE_HEADER,
+  WEBHOOK_ID_HEADER,
+  WEBHOOK_SIGNATURE_HEADER,
+  WEBHOOK_TIMESTAMP_HEADER,
   handleInboundInvocation,
 } from "@otterdeploy/api/routers/webhooks/inbound";
 import { resolveClient } from "@otterdeploy/api/security/trusted-proxy";
@@ -39,6 +43,9 @@ export const inboundWebhookHandler = async (c: Context<EvlogVariables>) => {
 
   const result = await handleInboundInvocation({
     token,
+    webhookId: c.req.header(WEBHOOK_ID_HEADER) ?? null,
+    webhookTimestamp: c.req.header(WEBHOOK_TIMESTAMP_HEADER) ?? null,
+    webhookSignature: c.req.header(WEBHOOK_SIGNATURE_HEADER) ?? null,
     signatureHeader: c.req.header(SIGNATURE_HEADER) ?? null,
     rawBody,
     ip: callerIp(c),

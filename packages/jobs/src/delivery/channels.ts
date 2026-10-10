@@ -1,4 +1,5 @@
 import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
+import { parseSmtpTlsMode } from "@otterdeploy/email/smtp-tls";
 import { env } from "@otterdeploy/env/server";
 
 /**
@@ -43,6 +44,7 @@ import {
 } from "./message";
 import { FCM_LEGACY_KEY_ERROR, fcmCredentials } from "./platform-transports";
 import { post } from "./post";
+import { webhookChannelHeaders } from "./webhook-headers";
 
 export async function deliverToChannel(
   channel: ResolvedChannel,
@@ -81,11 +83,8 @@ async function deliverWebhook(c: ResolvedChannel, e: ChannelEvent): Promise<Deli
     channel: c.name,
     occurredAt: nowIso(),
   });
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  // Optional HMAC-SHA256 over the raw body so receivers can verify origin.
-  if (c.secret) {
-    headers["x-otterdeploy-signature"] = `sha256=${await hmacSha256Hex(c.secret, body)}`;
-  }
+  // Signed (timestamped, replay-checkable) when the channel has a secret.
+  const headers = await webhookChannelHeaders(c.secret, body);
   return post(c.target, { method: "POST", headers, body });
 }
 
@@ -123,9 +122,18 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
       const user = typeof c.config.username === "string" ? c.config.username : undefined;
       if (!host) return { ok: false, error: "SMTP host not configured" };
       // Channel's own SMTP server, same SDK + React Email path as everything
-      // else. 465 = implicit TLS; 587/25 = STARTTLS.
+      // else. `config.tlsMode` ("none" | "starttls" | "implicit") states the
+      // TLS choice explicitly; without it, 465 = implicit TLS and
+      // anything else the legacy STARTTLS-when-authenticated default.
       await sendViaSmtpServer(
-        { host, port, secure: port === 465, user, pass: c.secret ?? undefined },
+        {
+          host,
+          port,
+          secure: port === 465,
+          tlsMode: parseSmtpTlsMode(c.config.tlsMode),
+          user,
+          pass: c.secret ?? undefined,
+        },
         {
           to: c.target,
           subject: emailSubject,
@@ -250,16 +258,4 @@ function deliverPagerduty(c: ResolvedChannel, e: ChannelEvent): Promise<Delivery
     },
     options,
   );
-}
-
-async function hmacSha256Hex(secret: string, body: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
-  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

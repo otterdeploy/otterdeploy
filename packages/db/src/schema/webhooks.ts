@@ -156,6 +156,12 @@ export const inboundEndpoint = pgTable(
     // AES-GCM ciphertext of the HMAC secret callers must sign requests with.
     // Returned in plaintext exactly once, on create.
     encryptedSecret: text("encrypted_secret").notNull(),
+    // The secret a rotation replaced, still accepted until
+    // `previousSecretExpiresAt` so senders can move to the new one without a
+    // window of rejected calls. Both NULL when there is no grace
+    // window: a rotation without one revokes the old secret at once.
+    previousEncryptedSecret: text("previous_encrypted_secret"),
+    previousSecretExpiresAt: timestamp("previous_secret_expires_at"),
     action: inboundEndpointActionEnum("action").notNull().default("redeploy"),
     // The service resource a `redeploy` action targets. SET NULL on resource
     // deletion: the endpoint survives but degrades to "no target" (invoke

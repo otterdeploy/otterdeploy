@@ -259,7 +259,9 @@ function stored(row: PlatformRow | undefined, id: SocialProviderId) {
   const col = PROVIDER_COLUMNS[id];
   return {
     enabled: row?.[col.enabled] ?? null,
-    clientId: row?.[col.clientId] ?? null,
+    // Blank counts as unset: a row holding '' must fall back to
+    // the env id, not outrank it and then fail the credential check.
+    clientId: row?.[col.clientId]?.trim() || null,
     secretBlob: row?.[col.secret] ?? null,
     // Only GitLab has an instance URL; the others are always the vendor's.
     issuer: id === "gitlab" ? (row?.gitlabOauthIssuer ?? env.GITLAB_OAUTH_ISSUER ?? null) : null,

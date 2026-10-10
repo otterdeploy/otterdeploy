@@ -311,7 +311,16 @@ const setSocialProviderInput = z.object({
   organizationId: organizationIdField,
   id: socialProviderIdEnum,
   enabled: z.boolean(),
-  clientId: z.string().trim().max(255).nullable(),
+  // A blank client id means "none stored": stored as '' it
+  // would outrank the env-configured id (`?? env`) and then fail the
+  // credential check, so the provider silently left sign-in while the row
+  // still read enabled.
+  clientId: z
+    .string()
+    .trim()
+    .max(255)
+    .nullable()
+    .transform((value) => value || null),
   clientSecret: z.string().min(1).nullable().optional(),
   issuer: z.url().nullable().optional(),
 });

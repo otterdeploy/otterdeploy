@@ -14,7 +14,9 @@
       "default": "./src/templates/*.tsx"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "test": "bun test ./src"
+  },
   "dependencies": {
     "@opencoredev/email-sdk": "^0.6.5",
     "@otterdeploy/db": "workspace:*",

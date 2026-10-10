@@ -15,8 +15,10 @@ import { ORPCError } from "@orpc/server";
  */
 import { triggerWebhookDelivery } from "@otterdeploy/jobs";
 import { decryptSecret, encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
+import { omitUndefined } from "@otterdeploy/shared/object";
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { revealInboundSecretHandler, rotateInboundSecretHandler } from "./inbound-secret";
 import {
   deleteInboundEndpoint,
   deleteWebhook,
@@ -32,6 +34,8 @@ import {
   listWebhookRows,
   serviceBelongsToOrg,
   statsByWebhook,
+  toggleInboundEndpointStatus,
+  toggleWebhookStatus,
   toWebhookView,
   updateInboundEndpoint,
   updateWebhook,
@@ -66,14 +70,15 @@ export const webhooksRouter = {
       notificationChannel: ["update"],
     }).webhooks.outbound.update.handler(async ({ input, context, errors }) => {
       context.log.set({ target: { type: "webhook", id: input.id } });
-      const row = await updateWebhook(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        {
-          ...(input.url !== undefined ? { url: input.url } : {}),
-          ...(input.events !== undefined ? { events: input.events } : {}),
-        },
-      );
+      const patch = omitUndefined({ url: input.url, events: input.events });
+      // Only an id: nothing to write, and an empty SET is a database error.
+      // Read the row instead, so a wrong id is still NOT_FOUND, then say there
+      // was nothing to change.
+      const empty = Object.keys(patch).length === 0;
+      const scope = { organizationId: context.activeOrganizationId, id: input.id };
+      const row = empty ? await getWebhookRow(scope) : await updateWebhook(scope, patch);
       if (!row) throw errors.NOT_FOUND();
+      if (empty) throw errors.NOTHING_TO_CHANGE();
       const stats = await statsByWebhook(context.activeOrganizationId);
       return toWebhookView(row, stats.get(row.id));
     }),
@@ -94,16 +99,10 @@ export const webhooksRouter = {
       notificationChannel: ["update"],
     }).webhooks.outbound.pause.handler(async ({ input, context, errors }) => {
       context.log.set({ target: { type: "webhook", id: input.id } });
-      const current = await getWebhookRow({
+      const row = await toggleWebhookStatus({
         organizationId: context.activeOrganizationId,
         id: input.id,
       });
-      if (!current) throw errors.NOT_FOUND();
-      const status = current.status === "active" ? ("paused" as const) : ("active" as const);
-      const row = await updateWebhook(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        { status },
-      );
       if (!row) throw errors.NOT_FOUND();
       const stats = await statsByWebhook(context.activeOrganizationId);
       return toWebhookView(row, stats.get(row.id));
@@ -206,16 +205,18 @@ export const webhooksRouter = {
         });
         if (!owned) throw new ORPCError("BAD_REQUEST", { message: "Unknown service." });
       }
-      const row = await updateInboundEndpoint(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        {
-          ...(input.name !== undefined ? { name: input.name } : {}),
-          ...(input.action !== undefined ? { action: input.action } : {}),
-          ...(input.resourceId !== undefined ? { resourceId: input.resourceId } : {}),
-          ...(input.ipAllowlist !== undefined ? { ipAllowlist: input.ipAllowlist } : {}),
-        },
-      );
+      const patch = omitUndefined({
+        name: input.name,
+        action: input.action,
+        resourceId: input.resourceId,
+        ipAllowlist: input.ipAllowlist,
+      });
+      // Same as outbound.update: only an id is nothing to change.
+      const empty = Object.keys(patch).length === 0;
+      const scope = { organizationId: context.activeOrganizationId, id: input.id };
+      const row = empty ? await getInboundRow(scope) : await updateInboundEndpoint(scope, patch);
       if (!row) throw errors.NOT_FOUND();
+      if (empty) throw errors.NOTHING_TO_CHANGE();
       const view = await getInboundView({
         organizationId: context.activeOrganizationId,
         id: row.id,
@@ -240,16 +241,10 @@ export const webhooksRouter = {
       notificationChannel: ["update"],
     }).webhooks.inbound.pause.handler(async ({ input, context, errors }) => {
       context.log.set({ target: { type: "inboundEndpoint", id: input.id } });
-      const current = await getInboundRow({
+      const row = await toggleInboundEndpointStatus({
         organizationId: context.activeOrganizationId,
         id: input.id,
       });
-      if (!current) throw errors.NOT_FOUND();
-      const status = current.status === "active" ? ("paused" as const) : ("active" as const);
-      const row = await updateInboundEndpoint(
-        { organizationId: context.activeOrganizationId, id: input.id },
-        { status },
-      );
       if (!row) throw errors.NOT_FOUND();
       const view = await getInboundView({
         organizationId: context.activeOrganizationId,
@@ -259,17 +254,8 @@ export const webhooksRouter = {
       return view;
     }),
 
-    reveal: requirePermission({
-      notificationChannel: ["update"],
-    }).webhooks.inbound.reveal.handler(async ({ input, context, errors }) => {
-      const row = await getInboundRow({
-        organizationId: context.activeOrganizationId,
-        id: input.id,
-      });
-      if (!row) throw errors.NOT_FOUND();
-      context.log.set({ target: { type: "inboundEndpoint", id: input.id } });
-      return { secret: await decryptSecret(row.encryptedSecret) };
-    }),
+    reveal: revealInboundSecretHandler,
+    rotateSecret: rotateInboundSecretHandler,
 
     serviceOptions: orgScopedProcedure.webhooks.inbound.serviceOptions.handler(
       async ({ context }) => {
