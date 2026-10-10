@@ -5,7 +5,11 @@ import { implement, os as orpc } from "@orpc/server";
 import type { Context } from "./context";
 
 import { authorizeCapability } from "./authz/capability";
-import { apiKeyRateLimitedError, orgScopedMiddleware } from "./authz/org-scope-middleware";
+import {
+  apiKeyRateLimitedError,
+  authUnavailableError,
+  orgScopedMiddleware,
+} from "./authz/org-scope-middleware";
 import { isReadAction, isReadMethod } from "./authz/procedure-mode";
 import { procedureTimeout } from "./authz/procedure-timeout";
 import { traceProcedure } from "./authz/procedure-trace";
@@ -104,7 +108,7 @@ const authMiddleware = orpc
           data: { retryAfterSeconds: context.apiKeyRateLimited.retryAfterSeconds },
         });
       }
-      throw errors.UNAUTHORIZED();
+      throw authUnavailableError(context) ?? errors.UNAUTHORIZED();
     }
     return next({
       context: {

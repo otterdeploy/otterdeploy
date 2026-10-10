@@ -111,15 +111,16 @@ export class NetbirdClient implements MeshProviderClient {
     } catch (err) {
       // Never reached the provider. A reachability problem, NOT a credential
       // problem. Reporting this as "invalid token" sends operators chasing the
-      // wrong thing, so `status` stays null and the message says what happened.
-      const reason = err instanceof Error ? err.message : String(err);
+      // wrong thing, so `status` stays null and the message says what happened,
+      // in our words: the runtime's own text (resolver and socket details)
+      // used to ride along verbatim to the caller.
       throw new MeshProviderError({
         provider: "netbird",
         status: null,
         message:
           controller.signal.aborted && err instanceof Error && err.name === "AbortError"
             ? `NetBird management server at ${this.base} did not respond within ${REQUEST_TIMEOUT_MS / 1000}s.`
-            : `Could not reach the NetBird management server at ${this.base}: ${reason}`,
+            : `Could not reach the NetBird management server at ${this.base}. Check the URL and that this server can reach it.`,
       });
     } finally {
       clearTimeout(timer);

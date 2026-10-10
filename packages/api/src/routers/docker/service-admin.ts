@@ -1,3 +1,4 @@
+import { dockerFailureReason } from "../../lib/docker-failure";
 import { HELPER_LABEL } from "../../lib/helper-container";
 /**
  * Docker debug service: inspect passthroughs, bounded log tails, and the
@@ -93,7 +94,7 @@ export async function tailContainerLogs(id: string, tail: number): Promise<Liste
 /** Containers (running or stopped) whose image resolves to this image id. */
 async function containersUsingImage(imageId: string): Promise<Listed<number>> {
   const result = await docker.containers.list({ all: true });
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   const short = imageId.replace(/^sha256:/, "");
   const count = result.value.filter(
     (c) => c.ImageID === imageId || c.ImageID?.replace(/^sha256:/, "") === short,
@@ -174,7 +175,7 @@ export async function pruneHelperContainers(): Promise<Listed<{ containersDelete
 /** Names of containers (running or stopped) that mount this volume. */
 async function volumeAttachments(name: string): Promise<Listed<string[]>> {
   const result = await docker.containers.list({ all: true });
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   const names = result.value
     .filter((c) => (c.Mounts ?? []).some((m) => m.Type === "volume" && m.Name === name))
     .map((c) => (c.Names?.[0] ?? c.Id).replace(/^\//, ""));

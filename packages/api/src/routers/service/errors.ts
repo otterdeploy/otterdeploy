@@ -256,18 +256,25 @@ export class RefCycleError extends TaggedError("RefCycleError")<{
  * time: unknown provider name, provider API failure, or a ref the provider
  * doesn't hold. `detail` is operator-actionable and never contains the secret
  * value or the stored credential.
+ *
+ * `unavailable` splits the two kinds of failure for the caller:
+ * false = the reference itself is wrong (no such provider, a ref the provider
+ * does not hold), which the operator fixes by editing it; true = the provider
+ * could not be asked (its API or our stored credential failed).
  */
 export class VaultResolveError extends TaggedError("VaultResolveError")<{
   message: string;
   providerName: string;
   ref: string;
   detail: string;
+  unavailable: boolean;
 }>() {
-  constructor(args: { providerName: string; ref: string; detail: string }) {
+  constructor(args: { providerName: string; ref: string; detail: string; unavailable?: boolean }) {
     super({
       providerName: args.providerName,
       ref: args.ref,
       detail: args.detail,
+      unavailable: args.unavailable ?? false,
       message: `vault reference \${{vault.${args.providerName}.${args.ref}}} failed: ${args.detail}`,
     });
   }

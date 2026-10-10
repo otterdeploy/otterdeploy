@@ -10,6 +10,8 @@ import { Result, TaggedError } from "better-result";
 
 import { writeBaseDomainRecords, type PointRecordOutcome } from "../../lib/base-domain-dns";
 import {
+  CLOUDFLARE_TRANSPORT_CODE,
+  type CloudflareError,
   listCloudflareZones,
   verifyCloudflareToken,
   type CloudflareZone,
@@ -82,13 +84,36 @@ export interface VerifyDomainResponse extends VerifyOutcome {
   settings: OrgSettingsView | null;
 }
 
+type CloudflareConfigReason = "token" | "zone" | "domain" | "api" | "unreachable";
+
 class CloudflareConfigError extends TaggedError("CloudflareConfigError")<{
-  reason: "token" | "zone" | "domain" | "api";
+  reason: CloudflareConfigReason;
   message: string;
 }>() {
-  constructor(reason: "token" | "zone" | "domain" | "api", message: string) {
+  constructor(reason: CloudflareConfigReason, message: string) {
     super({ reason, message });
   }
+}
+
+/**
+ * A Cloudflare call that failed, as what the operator should hear. A failure
+ * that never reached Cloudflare (DNS, TLS, timeout) is not Cloudflare's
+ * verdict on the token: it was reported as "Cloudflare rejected token: <the
+ * fetch error>", blaming the token and echoing the transport's own text.
+ * It is `unreachable` now, in our words.
+ */
+function cloudflareFailure(
+  reason: Exclude<CloudflareConfigReason, "unreachable">,
+  error: CloudflareError,
+  describe: (message: string) => string,
+): CloudflareConfigError {
+  if (error.code === CLOUDFLARE_TRANSPORT_CODE) {
+    return new CloudflareConfigError(
+      "unreachable",
+      "Could not reach Cloudflare from this server. Check its outbound network, then try again.",
+    );
+  }
+  return new CloudflareConfigError(reason, describe(error.message));
 }
 
 export async function listZonesForToken(
@@ -100,7 +125,7 @@ export async function listZonesForToken(
   const verify = await verifyCloudflareToken(token);
   if (verify.isErr()) {
     return Result.err(
-      new CloudflareConfigError("token", `Cloudflare rejected token: ${verify.error.message}`),
+      cloudflareFailure("token", verify.error, (m) => `Cloudflare rejected token: ${m}`),
     );
   }
   if (!verify.value.active) {
@@ -110,7 +135,7 @@ export async function listZonesForToken(
   }
 
   const zones = await listCloudflareZones(token);
-  if (zones.isErr()) return Result.err(new CloudflareConfigError("api", zones.error.message));
+  if (zones.isErr()) return Result.err(cloudflareFailure("api", zones.error, (m) => m));
   return Result.ok(zones.value);
 }
 
@@ -127,9 +152,7 @@ export async function saveOrganizationCloudflareConfig(input: {
     // already-dead credentials.
     const verify = await verifyCloudflareToken(input.token);
     if (verify.isErr()) {
-      return Result.err(
-        new CloudflareConfigError("token", `Token rejected: ${verify.error.message}`),
-      );
+      return Result.err(cloudflareFailure("token", verify.error, (m) => `Token rejected: ${m}`));
     }
     if (!verify.value.active) {
       return Result.err(
@@ -208,7 +231,7 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     serverIpv6,
     verifyToken: row.baseDomainVerifyToken,
   });
-  if (written.isErr()) return Result.err(new CloudflareConfigError("api", written.error.message));
+  if (written.isErr()) return Result.err(cloudflareFailure("api", written.error, (m) => m));
 
   // Cloudflare-managed DNS typically propagates within ~10s. We
   // attempt verification immediately; if it fails (record not yet

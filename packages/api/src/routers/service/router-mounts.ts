@@ -49,11 +49,14 @@ export const serviceMountsRouter = {
           // Env-resolution failures can't occur on a mount add (no vars change),
           // but the RedeployFailure union carries them. Map to NOT_FOUND's
           // sibling generic path defensively.
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;
@@ -78,11 +81,14 @@ export const serviceMountsRouter = {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;

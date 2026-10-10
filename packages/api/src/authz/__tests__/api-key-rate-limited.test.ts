@@ -19,6 +19,11 @@ const verifyApiKey = vi.fn();
 vi.mock("@otterdeploy/auth", () => ({
   auth: { api: { getSession: vi.fn(async () => null), verifyApiKey } },
 }));
+// The key store answers (a refused key is a verdict, not an outage):
+// auth-store-unavailable.test.ts covers the store that does not.
+vi.mock("../credential-store", () => ({
+  credentialStoreAnswers: async () => Result.ok(undefined),
+}));
 
 const { ApiKeyRateLimitedError, resolveRequestActor } = await import("../actor");
 const { orgScopedProcedure, protectedProcedure } = await import("../../index");
@@ -46,7 +51,9 @@ describe("resolveRequestActor", () => {
     expect(resolved.isErr()).toBe(true);
     if (resolved.isErr()) {
       expect(resolved.error).toBeInstanceOf(ApiKeyRateLimitedError);
-      expect(resolved.error.retryAfterSeconds).toBe(2);
+      if (resolved.error instanceof ApiKeyRateLimitedError) {
+        expect(resolved.error.retryAfterSeconds).toBe(2);
+      }
     }
   });
 

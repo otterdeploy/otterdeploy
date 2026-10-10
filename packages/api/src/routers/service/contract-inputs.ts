@@ -12,6 +12,10 @@ import * as z from "zod";
 import { projectIdField, proxyRouteIdField, resourceIdField } from "../project/contract/shared";
 import { servicePortInputSchema } from "./contract-schemas";
 
+/** Replica count. Bounded by the int4 column it is stored in: a larger one
+ *  overflowed the write, an untyped 500. */
+const replicasField = z.number().int().nonnegative().max(2_147_483_647);
+
 // ---------------------------------------------------------------------------
 // Input schemas
 // ---------------------------------------------------------------------------
@@ -35,7 +39,7 @@ export const createServiceInput = z.object({
   image: z.string().min(1),
   command: z.array(z.string()).nullable().optional(),
   entrypoint: z.array(z.string()).nullable().optional(),
-  replicas: z.number().int().nonnegative().optional(),
+  replicas: replicasField.optional(),
 
   // The machine this runs on, chosen up front instead of discovered after the
   // first rollout landed the volume on the wrong disk. Omitted / null = let the
@@ -97,7 +101,7 @@ export const updateServiceInput = z.object({
   image: z.string().min(1).optional(),
   command: z.array(z.string()).nullable().optional(),
   entrypoint: z.array(z.string()).nullable().optional(),
-  replicas: z.number().int().nonnegative().optional(),
+  replicas: replicasField.optional(),
 
   ports: z.array(servicePortInputSchema).optional(),
 

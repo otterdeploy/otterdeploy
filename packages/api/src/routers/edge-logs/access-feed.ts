@@ -16,8 +16,11 @@ import { db } from "@otterdeploy/db";
 import { edgeLog } from "@otterdeploy/db/schema/edge-log";
 import { env } from "@otterdeploy/env/server";
 import { type ProjectId } from "@otterdeploy/shared/id";
+import { sql } from "drizzle-orm";
+import * as z from "zod";
 
 import { persistenceEnabled } from "../../edge-logs";
+import { executeRows } from "../../edge-logs/analytics-query-buckets";
 import { createFeedHandler, feedResponse } from "../../lib/table";
 import {
   edgeAccessColumnMap,
@@ -132,12 +135,39 @@ function collection() {
   return { sinkConfigured: Boolean(env.EDGE_LOG_SINK), persisting: persistenceEnabled() };
 }
 
+/**
+ * Whether the partitioned edge_log table exists. Only `startEdgeLogPersistence`
+ * creates it, so on an install that never enabled persistence the feed queried
+ * a missing relation, an untyped 500, where the page should have
+ * been told nothing is being recorded.
+ */
+const presenceRow = z.object({ present: z.boolean() });
+
+async function edgeLogTableExists(): Promise<boolean> {
+  const result = await db.execute(sql`select to_regclass('edge_log') is not null as present`);
+  const [row] = executeRows(result);
+  return presenceRow.safeParse(row).data?.present === true;
+}
+
 export async function runEdgeAccessFeed(
   input: EdgeAccessFeedInput,
   // Branded at the parameter instead of cast at the call: the org id comes off
   // an authenticated context that already carries the brand.
   orgId: Parameters<typeof resolveHosts>[0],
 ) {
+  if (!persistenceEnabled() && !(await edgeLogTableExists())) {
+    // Nothing was ever recorded: an empty page, and `persisting: false` says why.
+    const counted = input.includeFacets ? 0 : null;
+    return {
+      items: [],
+      nextCursor: null,
+      prevCursor: null,
+      totalRowCount: counted,
+      filterRowCount: counted,
+      facets: {},
+      ...collection(),
+    };
+  }
   const owned = await resolveHosts(orgId, input.projectId);
 
   // Untrusted input, validated against the declaration rather than trusted:

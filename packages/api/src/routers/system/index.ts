@@ -6,7 +6,7 @@
 import { requireInstallAdmin } from "../..";
 import { renderInstalledCaddyfile } from "../../caddy";
 import { getHostHealth, growBranchPool, reclaimSpace } from "../../system-health";
-import { cancelUpdate, startApply } from "./apply";
+import { cancelUpdate, settleStaleRun, startApply } from "./apply";
 import { checkForUpdate, getUpdateSettings, getVersionInfo, saveUpdateSettings } from "./check";
 import { snapshot, streamProgress } from "./state";
 
@@ -44,6 +44,7 @@ export const systemRouter = {
   }),
 
   updateState: requireInstallAdmin().system.updateState.handler(async () => {
+    settleStaleRun();
     return snapshot();
   }),
 

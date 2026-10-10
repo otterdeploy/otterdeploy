@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
 
 import type { IdPrefix } from "../id";
 
@@ -146,5 +147,37 @@ describe("zId legacy handling", () => {
   test("still rejects a different entity's prefix", () => {
     expect(() => parse(ID_PREFIX.project, "res_mze9u0mgjah2gvroyzjoqqvm")).toThrow();
     expect(() => parse(ID_PREFIX.project, "resource_mze9u0mgjah2gvroyzjoqqvm")).toThrow();
+  });
+});
+
+describe("zId refuses control characters", () => {
+  // A NUL passed the prefix check, reached Postgres (which cannot store one)
+  // and came back as an untyped 500 from every procedure that takes an id.
+  test("a NUL byte anywhere in the id is a validation failure, not a pass", () => {
+    const schema = zId(ID_PREFIX.project);
+    expect(schema.safeParse("prj_\u0000").success).toBe(false);
+    expect(schema.safeParse("prj_abc\u0000def").success).toBe(false);
+    expect(schema.safeParse("project_\u0000").success).toBe(false);
+  });
+
+  test("other control characters are refused too", () => {
+    const schema = zId(ID_PREFIX.project);
+    for (const ch of ["\t", "\n", "\r", "\u001b", "\u007f"]) {
+      expect(schema.safeParse(`prj_abc${ch}`).success).toBe(false);
+    }
+  });
+
+  test("a minted id still parses", () => {
+    const id = createId(ID_PREFIX.project);
+    expect(zId(ID_PREFIX.project).parse(id)).toBe(id);
+  });
+
+  // Tools that read the contract recognise an id field by the single
+  // `^<prefix>_` pattern at the top of its JSON Schema. A second .regex would
+  // make it an allOf and hide every id field.
+  test("the JSON Schema still carries one top-level id pattern", () => {
+    const json = z.toJSONSchema(zId(ID_PREFIX.project), { io: "input" });
+    expect(json.pattern).toBe("^(?:prj|project)_");
+    expect(json.allOf).toBeUndefined();
   });
 });

@@ -14,7 +14,7 @@
 
 import type { RedisClient } from "bun";
 
-import { createRedis } from "../lib/redis";
+import { createRedis, incrWithExpiry } from "../lib/redis";
 
 /** Wrong-guess budget per (domain, ip) window. A 6-digit PIN has 10^6
  *  combinations; 10 tries per 15 minutes makes online guessing hopeless. */
@@ -49,12 +49,11 @@ export async function pinFingerprint(hash: string): Promise<string> {
 }
 
 /** Increment the per-(domain, ip) attempt counter; true = still under the
- *  limit. First attempt in a window sets the expiry (same pattern as the
- *  guest-OTP limiter in ./otp.ts). */
+ *  limit. The window's expiry is set atomically with the increment (same
+ *  helper as the guest-OTP limiter in ./otp.ts). */
 export async function underPinRateLimit(domain: string, ip: string): Promise<boolean> {
   const r = redis();
   const key = rateKey(domain, ip);
-  const count = await r.incr(key);
-  if (count === 1) await r.expire(key, RATE_WINDOW_SECONDS);
+  const count = await incrWithExpiry(r, key, RATE_WINDOW_SECONDS);
   return count <= MAX_ATTEMPTS_PER_WINDOW;
 }

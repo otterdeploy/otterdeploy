@@ -270,6 +270,15 @@ export function canonicalId(id: string): string {
   return id;
 }
 
+/** True when the string holds a C0 control character (NUL included) or DEL. */
+function hasControlCharacter(value: string): boolean {
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
 /**
  * Zod schema for a branded, prefixed ID.
  *
@@ -292,6 +301,14 @@ export function zId<P extends IdPrefix>(
     z
       .string()
       .regex(new RegExp(pattern), `ID must start with ${expected}`)
+      // No id we mint carries a control character, and Postgres cannot store
+      // a NUL at all: one that got past the prefix check reached the query and
+      // came back as an untyped 500 from every procedure taking an id.
+      // Refused here, it is the caller's 400. A refinement, not a
+      // second .regex: a second pattern turns the JSON Schema into an allOf and
+      // hides the `^<prefix>_` pattern that tools reading the contract use to
+      // recognise an id field.
+      .refine((s) => !hasControlCharacter(s), "ID must not contain control characters")
       // Rewrite to the current spelling here, at the edge, so nothing downstream
       // has to know the old one existed. Accepting a legacy ID without
       // translating it would only move the failure: it passes validation and then

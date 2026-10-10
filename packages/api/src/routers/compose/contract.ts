@@ -177,7 +177,7 @@ export const composeContract = {
           .array(
             z.object({
               service: z.string(),
-              port: z.number().int(),
+              port: z.number().int().min(1).max(65_535),
               domain: z.string().optional(),
             }),
           )

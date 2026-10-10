@@ -75,9 +75,12 @@ export const serviceRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
-          // Not enumerated by the contract; surfaces as a generic 500 with
-          // the provider-facing reason in the message.
-          VaultResolveError: (e) => new Error(e.message),
+          // A reference the operator can fix answers 400; a provider that
+          // could not be asked answers 502. Either way the message says which.
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       context.log.set({
@@ -174,16 +177,19 @@ export const serviceRouter = {
         context.log,
       );
       if (result.isErr()) {
-        // restartService can propagate ResolveError via fan-out redeploy; the
-        // contract doesn't enumerate REF_* so they surface as generic 500s.
+        // restartService can propagate ResolveError via fan-out redeploy:
+        // typed, and the message names the reference that broke.
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;
@@ -214,11 +220,14 @@ export const serviceRouter = {
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           NotRollbackableError: (e) => errors.NOT_ROLLBACKABLE({ message: e.message }),
           RollbackFailedError: (e) => errors.ROLLBACK_FAILED({ message: e.message }),
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;

@@ -30,6 +30,7 @@ import {
 } from "./inputs";
 import {
   createServiceRecord,
+  deleteServiceRecord,
   getServiceRecord,
   getServiceRecordByName,
   type ServiceRecord,
@@ -152,7 +153,15 @@ export async function createService(
   // buildSwarmSpec stamps onto the container) and its id is the answer; the
   // outcome lands on it. A broken env reference is still refused here.
   const resolvable = await checkRolloutResolvable(input.projectId, record.service.resourceId);
-  if (resolvable.isErr()) return Result.err(resolvable.error);
+  if (resolvable.isErr()) {
+    // The env did not resolve (a broken reference, a vault provider that is
+    // not configured): the create is refused with a 4xx, and a 4xx means
+    // nothing was created. Keeping the row made the corrected retry answer
+    // 409 CONFLICT under the same name. The env, port and service rows go
+    // with it (ON DELETE CASCADE).
+    await deleteServiceRecord(record.service.resourceId);
+    return Result.err(resolvable.error);
+  }
   const deploymentId = await startRollout({
     kind: "create",
     projectId: input.projectId,

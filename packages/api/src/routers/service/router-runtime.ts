@@ -67,16 +67,19 @@ export const serviceRuntimeRouter = {
         context.log,
       );
       if (result.isErr()) {
-        // Resolve errors can propagate from the redeploy. The contract doesn't
-        // enumerate REF_*, so they surface as generic 500s (same as restart).
+        // Resolve errors propagate from the redeploy: typed, and the message
+        // names the reference that broke.
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;
@@ -135,11 +138,14 @@ export const serviceRuntimeRouter = {
           UnknownPlacementServerError: () => errors.NOT_FOUND(),
           PlacementVolumeLossError: (e) =>
             errors.PLACEMENT_VOLUME_LOSS({ message: e.message, data: { mounts: e.mounts } }),
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;
@@ -163,11 +169,14 @@ export const serviceRuntimeRouter = {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
-          RefMissingResourceError: (e) => new Error(e.message),
-          RefCycleError: (e) => new Error(e.message),
-          RefParseError: (e) => new Error(e.message),
-          RefUnknownVarError: (e) => new Error(e.message),
-          VaultResolveError: (e) => new Error(e.message),
+          RefMissingResourceError: (e) => errors.REF_MISSING({ message: e.message }),
+          RefCycleError: (e) => errors.REF_CYCLE({ message: e.message }),
+          RefParseError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          RefUnknownVarError: (e) => errors.INVALID_INPUT({ message: e.message }),
+          VaultResolveError: (e) =>
+            e.unavailable
+              ? errors.VAULT_UNAVAILABLE({ message: e.message })
+              : errors.VAULT_UNRESOLVED({ message: e.message }),
         });
       }
       return result.value;

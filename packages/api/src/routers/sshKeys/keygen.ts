@@ -109,7 +109,9 @@ export async function generateKeyPair(opts: {
   const dir = await mkdtemp(join(tmpdir(), "otter-sshkey-"));
   const keyPath = join(dir, "key");
   try {
-    const bits = opts.bits ?? DEFAULT_BITS[opts.type];
+    // ed25519 is fixed-size: a caller's `bits` means nothing to it, so it is
+    // neither passed on nor recorded.
+    const bits = opts.type === "ed25519" ? null : (opts.bits ?? DEFAULT_BITS[opts.type]);
     const args = [
       "-t",
       opts.type,
