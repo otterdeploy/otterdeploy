@@ -120,10 +120,22 @@ const connectPublicRepoInput = z.object({
   cloneUrl: z.string().min(1),
 });
 
+/** A branch to inspect instead of the repo's default. Branch names may hold
+ *  `/`; `..`, whitespace and git's other forbidden ref characters are refused
+ *  so the name cannot steer the GitHub API path. */
+const inspectRefField = z
+  .string()
+  .max(255)
+  .regex(/^[^\s~^:?*[\\]*$/, "Not a branch name")
+  .refine((ref) => !ref.includes(".."), "Not a branch name")
+  .optional();
+
 const inspectRepoInput = z.object({
   gitRepoId: gitRepoIdField,
   /** Repo-relative path to list. Empty string = root. */
   path: z.string().default(""),
+  /** Branch to read; omitted or blank = the repo's default branch. */
+  ref: inspectRefField,
 });
 
 const listBranchesInput = z.object({
@@ -147,6 +159,7 @@ const getRepoOutput = z.object({
 const inspectEnvInput = z.object({
   gitRepoId: gitRepoIdField,
   path: z.string().default(""),
+  ref: inspectRefField,
 });
 
 const inspectEnvOutput = z.object({

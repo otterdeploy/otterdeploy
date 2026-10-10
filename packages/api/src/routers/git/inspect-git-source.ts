@@ -24,7 +24,7 @@ export async function gitTree(
   expiresAt: number,
 ): Promise<TreeSnapshot | null> {
   const url = publicGitUrl(binding);
-  const entries = url ? await gitTreeEntries(url, binding.defaultBranch) : null;
+  const entries = url ? await gitTreeEntries(url, binding.ref) : null;
   if (!entries) return null;
   const pathTypes = new Map<string, "dir" | "file">();
   for (const e of entries) pathTypes.set(e.path, e.type);
@@ -43,6 +43,6 @@ export async function gitFile(
 ): Promise<Exclude<FileRead, { status: "unavailable" }> | null> {
   const url = publicGitUrl(binding);
   if (!url) return null;
-  const read = await gitReadFile(url, binding.defaultBranch, path);
+  const read = await gitReadFile(url, binding.ref, path);
   return read.status === "unavailable" ? null : read;
 }

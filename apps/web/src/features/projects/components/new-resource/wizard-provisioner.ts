@@ -12,6 +12,7 @@ import type { Port } from "./form-fields/ports-field";
 import type { Var } from "./form-fields/variables-field";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
+import { inspectInput } from "./inspect-input";
 import { buildDatabaseSpec, buildServiceSpec } from "./to-manifest";
 
 export interface DatabaseCreatePayload {
@@ -78,10 +79,9 @@ export interface ServiceCreatePayload {
 async function deriveWatchPatterns(payload: ServiceCreatePayload): Promise<string[] | undefined> {
   if (payload.source !== "git" || !payload.gitRepoId || !payload.root) return undefined;
   try {
-    const inspected = await orpc.git.inspectRepo.call({
-      gitRepoId: payload.gitRepoId,
-      path: payload.root,
-    });
+    const inspected = await orpc.git.inspectRepo.call(
+      inspectInput(payload.gitRepoId, payload.root, payload.branch ?? ""),
+    );
     return inspected.watchPatterns.length > 0 ? inspected.watchPatterns : undefined;
   } catch {
     return undefined;

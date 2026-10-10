@@ -127,3 +127,54 @@ describe("createSourceDefaults: a repo without a Dockerfile keeps the railpack p
     expect(form.getFieldValue("ports")[0]?.port).toBe(8080);
   });
 });
+
+describe("createSourceDefaults: detection reads the branch the form builds", () => {
+  /** traefik/whoami: `master` has a Dockerfile; a feature branch does not. */
+  const byBranch: Record<string, RepoInspection> = {
+    master: {
+      fullName: "traefik/whoami",
+      framework: null,
+      dockerfile: { path: "Dockerfile", exposedPorts: [80] },
+      monorepo: null,
+      monorepoPackages: [],
+    },
+    "feat/next": {
+      fullName: "traefik/whoami",
+      framework: "next",
+      dockerfile: null,
+      monorepo: null,
+      monorepoPackages: [],
+    },
+  };
+
+  it("asks for the Branch field's tree, and re-detects when the branch changes", async () => {
+    const form = makeForm({ kindId: "app", branch: "master" });
+    const asked: string[] = [];
+    const defaults = createSourceDefaults(
+      form,
+      {
+        inspect: async (_repo, _path, branch) => {
+          asked.push(branch);
+          const hit = byBranch[branch];
+          if (!hit) throw new Error(`no such branch ${branch}`);
+          return hit;
+        },
+        inspectEnv: async () => ({ keys: [] }),
+      },
+      { current: false },
+    );
+    form.setFieldValue("repo", "gitr_whoami");
+    await defaults.onRepoBound("gitr_whoami");
+
+    expect(asked.every((b) => b === "master")).toBe(true);
+    expect(form.getFieldValue("builderId")).toBe("dockerfile");
+    expect(form.getFieldValue("ports")[0]?.port).toBe(80);
+
+    form.setFieldValue("branch", "feat/next");
+    await defaults.onBranchPicked();
+
+    expect(asked.at(-1)).toBe("feat/next");
+    expect(form.getFieldValue("builderId")).toBe("railpack");
+    expect(form.getFieldValue("ports")[0]?.port).toBe(3000);
+  });
+});

@@ -6,6 +6,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { useFormContext } from "../form-context";
 
+import { inspectInput } from "../inspect-input";
 import { createSourceDefaults, type SourceDefaults } from "./source-defaults-apply";
 
 export type { SourceDefaults } from "./source-defaults-apply";
@@ -25,17 +26,17 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
     {
       // Same query key the RepoCheck / framework badge / root picker use, so
       // this reads their cache rather than adding a request.
-      inspect: (gitRepoId, path) =>
+      inspect: (gitRepoId, path, branch) =>
         queryClient.fetchQuery({
-          ...orpc.git.inspectRepo.queryOptions({ input: { gitRepoId, path } }),
+          ...orpc.git.inspectRepo.queryOptions({ input: inspectInput(gitRepoId, path, branch) }),
           staleTime: INSPECT_STALE_MS,
         }),
       // Same key + staleTime the Variables step's own `useQuery` uses (it still
       // needs the response for the committed-env warning and the "pre-filled N
       // keys" note), so this warms that cache instead of adding a request.
-      inspectEnv: (gitRepoId, path) =>
+      inspectEnv: (gitRepoId, path, branch) =>
         queryClient.fetchQuery({
-          ...orpc.git.inspectEnv.queryOptions({ input: { gitRepoId, path } }),
+          ...orpc.git.inspectEnv.queryOptions({ input: inspectInput(gitRepoId, path, branch) }),
           staleTime: INSPECT_STALE_MS,
         }),
     },

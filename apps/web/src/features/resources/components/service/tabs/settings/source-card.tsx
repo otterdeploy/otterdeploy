@@ -258,6 +258,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
                 value={field.state.value}
                 onChange={field.handleChange}
                 repoFullName={repo || null}
+                branch={branch}
               />
             )}
           </form.Field>

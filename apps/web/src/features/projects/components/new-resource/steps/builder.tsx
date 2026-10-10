@@ -12,6 +12,7 @@ import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { frameworkLabel, monorepoLabel } from "../frameworks";
 import { I } from "../icons";
+import { inspectInput } from "../inspect-input";
 import { BuilderConfig } from "./builder-config";
 import { useSourceDefaults } from "./source-defaults";
 
@@ -106,10 +107,11 @@ function DetectionBanner() {
   const form = useFormContext();
   const repo = useSelector(form.store, (s) => s.values.repo);
   const root = useSelector(form.store, (s) => s.values.root);
+  const branch = useSelector(form.store, (s) => s.values.branch);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
-      input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
+      input: repo ? inspectInput(repo, root || "", branch) : skipToken,
     }),
     staleTime: 5 * 60 * 1000,
   });

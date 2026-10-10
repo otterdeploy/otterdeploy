@@ -116,6 +116,15 @@ export function StepSource() {
       >
         {() => null}
       </form.AppField>
+      <form.AppField
+        name="branch"
+        listeners={{
+          onChange: () => void defaults.onBranchPicked(),
+          onChangeDebounceMs: 250,
+        }}
+      >
+        {() => null}
+      </form.AppField>
 
       <SectionHeader title="Source" />
 
@@ -184,6 +193,7 @@ export function StepSource() {
                   gitRepoId={repo || null}
                   value={root}
                   repoFullName={boundFullName}
+                  branch={branch}
                   // A plain write: it marks the field dirty, which is what
                   // stops the monorepo guess from moving it again, and it
                   // fires the `root` listener above to re-detect there.

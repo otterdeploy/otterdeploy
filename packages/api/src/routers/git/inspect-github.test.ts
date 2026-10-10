@@ -79,6 +79,7 @@ const binding: RepoBinding = {
   repo: "widgets",
   installationGithubId: null,
   defaultBranch: "main",
+  ref: "main",
 };
 
 describe("inspect-github fetch helpers → routed through the shared egress policy", () => {
@@ -206,6 +207,43 @@ describe("inspect-github on a public repo: git first, the API only as a fallback
     fileViaGit.mockResolvedValueOnce({ status: "ok", text: "KEY=\n" });
 
     expect(await fetchTextFile(binding, ".env.example")).toBe("KEY=\n");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reads the branch the binding names, not a hardcoded main", async () => {
+    // traefik/whoami: the default is `master`, and the wizard's Branch field can
+    // name another. git must be asked for that branch's tree and files.
+    const whoami: RepoBinding = {
+      owner: "traefik",
+      repo: "whoami",
+      installationGithubId: null,
+      defaultBranch: "master",
+      ref: "master",
+    };
+    treeViaGit.mockResolvedValue([{ path: "Dockerfile", type: "file" }]);
+    fileViaGit.mockResolvedValue({ status: "ok", text: "KEY=\n" });
+
+    expect((await getTreeSnapshot(whoami, "repo-whoami-default")).isOk()).toBe(true);
+    expect(treeViaGit).toHaveBeenLastCalledWith("https://github.com/traefik/whoami.git", "master");
+    await fetchTextFile(whoami, ".env.example");
+    expect(fileViaGit).toHaveBeenLastCalledWith(
+      "https://github.com/traefik/whoami.git",
+      "master",
+      ".env.example",
+    );
+
+    const onFeature = { ...whoami, ref: "feat/next" };
+    expect((await getTreeSnapshot(onFeature, "repo-whoami-feature")).isOk()).toBe(true);
+    expect(treeViaGit).toHaveBeenLastCalledWith(
+      "https://github.com/traefik/whoami.git",
+      "feat/next",
+    );
+    await fetchTextFile(onFeature, ".env.example");
+    expect(fileViaGit).toHaveBeenLastCalledWith(
+      "https://github.com/traefik/whoami.git",
+      "feat/next",
+      ".env.example",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

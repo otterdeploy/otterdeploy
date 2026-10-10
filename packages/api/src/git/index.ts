@@ -27,3 +27,5 @@ export {
 
 export { buildManifestRequest, completeManifestExchange, orgHasGithubApp } from "./manifest";
 export type { GithubAppManifest, StartManifestResult } from "./manifest";
+
+export { resolveRemoteDefaultBranch } from "./remote-default-branch";

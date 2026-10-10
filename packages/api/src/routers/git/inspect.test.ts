@@ -213,3 +213,84 @@ describe("inspectRepoTree → Dockerfile detection", () => {
     }
   });
 });
+
+describe("inspectRepoTree → reads the branch it was asked for", () => {
+  beforeEach(() => {
+    egressFetchMock.mockReset();
+    // A binding whose stored default is `main` while the remote's real default
+    // is `master` (traefik/whoami): the shape every public-URL binding had
+    // before connectPublicRepo resolved the default.
+    currentRow = {
+      installationId: null,
+      fullName: "traefik/whoami",
+      defaultBranch: "main",
+      providerRepoId: "public:github.com/traefik/whoami",
+    };
+  });
+
+  /** Two branches with different trees; any other ref 404s like GitHub. */
+  function serveBranches(branches: Record<string, Record<string, string>>) {
+    egressFetchMock.mockImplementation(async (url: string) => {
+      const parsed = new URL(url);
+      const tree = /\/git\/trees\/([^/]+)$/.exec(parsed.pathname);
+      if (tree?.[1]) {
+        const files = branches[decodeURIComponent(tree[1])];
+        if (!files) return jsonResponse({ message: "Not Found" }, false, 404);
+        return jsonResponse({
+          tree: Object.keys(files).map((path) => ({ path, type: "blob", sha: path })),
+        });
+      }
+      const file = /\/contents\/(.+)$/.exec(parsed.pathname)?.[1];
+      const body = file ? branches[parsed.searchParams.get("ref") ?? ""]?.[file] : undefined;
+      return body === undefined ? textResponse("Not Found", false, 404) : textResponse(body);
+    });
+  }
+
+  it("inspects the picked branch's tree, Dockerfile and all, not the stored default", async () => {
+    serveBranches({
+      master: { Dockerfile: "FROM golang\nEXPOSE 80\n", "go.mod": "module whoami\n" },
+      "release/2.x": { "package.json": JSON.stringify({ dependencies: { next: "15" } }) },
+    });
+
+    const onDefault = await inspectRepoTree({ gitRepoId: "gitr_whoami", path: "" });
+    // The stored `main` does not exist upstream: an honest upstream error.
+    expect(onDefault.isErr()).toBe(true);
+
+    const master = await inspectRepoTree({ gitRepoId: "gitr_whoami", path: "", ref: "master" });
+    expect(master.isOk()).toBe(true);
+    if (!master.isOk()) return;
+    expect(master.value.dockerfile).toEqual({ path: "Dockerfile", exposedPorts: [80] });
+
+    // Same repo, another branch: its own snapshot, not master's cached one.
+    const release = await inspectRepoTree({
+      gitRepoId: "gitr_whoami",
+      path: "",
+      ref: "release/2.x",
+    });
+    expect(release.isOk()).toBe(true);
+    if (!release.isOk()) return;
+    expect(release.value.dockerfile).toBeNull();
+    expect(release.value.framework).toBe("next");
+    expect(
+      egressFetchMock.mock.calls.some((call: unknown[]) =>
+        String(call[0]).includes("/git/trees/release%2F2.x"),
+      ),
+    ).toBe(true);
+  });
+
+  it("a blank ref falls back to the stored default branch", async () => {
+    currentRow = {
+      installationId: null,
+      fullName: "traefik/whoami",
+      defaultBranch: "master",
+      providerRepoId: "public:github.com/traefik/whoami",
+    };
+    serveBranches({ master: { Dockerfile: "FROM nginx\n" } });
+
+    const result = await inspectRepoTree({ gitRepoId: "gitr_whoami_blank", path: "", ref: " " });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+    expect(result.value.dockerfile?.path).toBe("Dockerfile");
+  });
+});

@@ -36,6 +36,7 @@ import {
   parseEnvKeys,
 } from "./inspect-derive";
 import {
+  atRef,
   fetchPackageJson,
   fetchTextFile,
   getTreeSnapshot,
@@ -77,14 +78,19 @@ export interface InspectResult {
 export async function inspectRepoTree(args: {
   gitRepoId: string;
   path: string;
+  /** Branch to read; blank = the repo's default branch. */
+  ref?: string;
 }): Promise<
   Result<
     InspectResult,
     InspectRepoNotFoundError | InspectRepoUpstreamError | InspectRepoRateLimitedError
   >
 > {
-  const binding = await resolveRepoBinding(args.gitRepoId);
-  if (!binding) return Result.err(new InspectRepoNotFoundError());
+  const bound = await resolveRepoBinding(args.gitRepoId);
+  if (!bound) return Result.err(new InspectRepoNotFoundError());
+  // Detection must describe the tree that will be built: the branch the user
+  // picked, not whatever the repo's default happens to be.
+  const binding = atRef(bound, args.ref);
 
   const path = args.path.replace(/^\/+|\/+$/g, "");
 
@@ -158,14 +164,16 @@ export interface EnvInspection {
 export async function inspectEnvFiles(
   gitRepoId: string,
   path: string,
+  ref?: string,
 ): Promise<
   Result<
     EnvInspection,
     InspectRepoNotFoundError | InspectRepoUpstreamError | InspectRepoRateLimitedError
   >
 > {
-  const binding = await resolveRepoBinding(gitRepoId);
-  if (!binding) return Result.err(new InspectRepoNotFoundError());
+  const bound = await resolveRepoBinding(gitRepoId);
+  if (!bound) return Result.err(new InspectRepoNotFoundError());
+  const binding = atRef(bound, ref);
 
   const snapshot = await getTreeSnapshot(binding, gitRepoId);
   if (snapshot.isErr()) return Result.err(snapshot.error);

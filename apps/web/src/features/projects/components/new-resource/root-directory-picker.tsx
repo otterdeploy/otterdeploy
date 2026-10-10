@@ -43,6 +43,7 @@ import { isRateLimitedError } from "./root-directory-picker-data";
 function parentPath(path: string): string {
   return path.includes("/") ? path.split("/").slice(0, -1).join("/") : "";
 }
+import { inspectInput } from "./inspect-input";
 import {
   BrowsePaneBody,
   BrowsePaneHeader,
@@ -58,6 +59,8 @@ interface RootDirectoryPickerProps {
   onChange: (path: string) => void;
   /** Optional display label for the repo (full_name). */
   repoFullName?: string | null;
+  /** Branch to browse; blank = the repo's default branch. */
+  branch?: string;
 }
 
 export function RootDirectoryPicker({
@@ -65,6 +68,7 @@ export function RootDirectoryPicker({
   value,
   onChange,
   repoFullName,
+  branch = "",
 }: RootDirectoryPickerProps) {
   const [open, setOpen] = useState(false);
   // Two independent paths inside the dialog:
@@ -85,7 +89,7 @@ export function RootDirectoryPicker({
   // be called with skipToken"; useQuery disables cleanly on skipToken instead.
   useQuery(
     orpc.git.inspectRepo.queryOptions({
-      input: gitRepoId ? { gitRepoId, path: browsePath } : skipToken,
+      input: gitRepoId ? inspectInput(gitRepoId, browsePath, branch) : skipToken,
     }),
   );
 
@@ -141,6 +145,7 @@ export function RootDirectoryPicker({
 
         <BrowsePane
           gitRepoId={gitRepoId}
+          branch={branch}
           path={browsePath}
           selected={selected}
           onNavigate={setBrowsePath}
@@ -178,12 +183,14 @@ export function RootDirectoryPicker({
  */
 function BrowsePane({
   gitRepoId,
+  branch,
   path,
   selected,
   onNavigate,
   onSelect,
 }: {
   gitRepoId: string;
+  branch: string;
   path: string;
   selected: string;
   onNavigate: (next: string) => void;
@@ -194,7 +201,7 @@ function BrowsePane({
   // 5min staleTime matches the server-side CACHE_TTL_MS.
   const inspectQuery = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
-      input: { gitRepoId, path },
+      input: inspectInput(gitRepoId, path, branch),
     }),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

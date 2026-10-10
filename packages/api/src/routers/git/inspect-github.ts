@@ -88,6 +88,16 @@ export interface RepoBinding {
   repo: string;
   installationGithubId: string | null;
   defaultBranch: string;
+  /** The branch the tree/file reads target: the default unless the caller
+   *  asked for another (the wizard's Branch field, see {@link atRef}). */
+  ref: string;
+}
+
+/** The binding read at `ref` instead of its default branch; a blank ref
+ *  keeps the default. */
+export function atRef(binding: RepoBinding, ref: string | undefined): RepoBinding {
+  const wanted = ref?.trim();
+  return wanted ? { ...binding, ref: wanted } : binding;
 }
 
 /** TTL on cached results. Long enough to soak up wizard navigation;
@@ -107,8 +117,9 @@ export interface TreeSnapshot {
 const treeCache = new Map<string, TreeSnapshot>();
 const pkgCache = new Map<string, { value: PkgJson | null; expiresAt: number }>();
 
-function cacheKeyForRepo(gitRepoId: string): string {
-  return gitRepoId;
+/** Snapshots are per branch: two branches of one repo are two trees. */
+function cacheKeyForRepo(gitRepoId: string, ref: string): string {
+  return `${gitRepoId}@${ref}`;
 }
 
 export async function resolveRepoBinding(gitRepoId: string): Promise<RepoBinding | null> {
@@ -145,12 +156,8 @@ export async function resolveRepoBinding(gitRepoId: string): Promise<RepoBinding
     installationGithubId = inst?.installationId ?? null;
   }
 
-  return {
-    owner,
-    repo,
-    installationGithubId,
-    defaultBranch: row.defaultBranch ?? "main",
-  };
+  const defaultBranch = row.defaultBranch ?? "main";
+  return { owner, repo, installationGithubId, defaultBranch, ref: defaultBranch };
 }
 
 export async function ghHeaders(
@@ -188,7 +195,7 @@ async function fetchFullTree(
   const viaGit = await gitTree(binding, Date.now() + CACHE_TTL_MS);
   if (viaGit) return Result.ok(viaGit);
   const url = new URL(
-    `https://api.github.com/repos/${binding.owner}/${binding.repo}/git/trees/${binding.defaultBranch}`,
+    `https://api.github.com/repos/${binding.owner}/${binding.repo}/git/trees/${encodeURIComponent(binding.ref)}`,
   );
   url.searchParams.set("recursive", "1");
   const headers = await ghHeaders(binding.installationGithubId);
@@ -226,7 +233,7 @@ export async function getTreeSnapshot(
   binding: RepoBinding,
   gitRepoId: string,
 ): Promise<Result<TreeSnapshot, InspectRepoUpstreamError | InspectRepoRateLimitedError>> {
-  const key = cacheKeyForRepo(gitRepoId);
+  const key = cacheKeyForRepo(gitRepoId, binding.ref);
   const cached = treeCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return Result.ok(cached);
 
@@ -270,7 +277,7 @@ export async function fetchPackageJson(
   path: string,
   gitRepoId: string,
 ): Promise<PkgJson | null> {
-  const key = `${gitRepoId}:${path}`;
+  const key = `${cacheKeyForRepo(gitRepoId, binding.ref)}:${path}`;
   const cached = pkgCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
@@ -284,7 +291,7 @@ export async function fetchPackageJson(
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
   );
-  url.searchParams.set("ref", binding.defaultBranch);
+  url.searchParams.set("ref", binding.ref);
   const headers = await ghHeaders(binding.installationGithubId);
   headers.Accept = "application/vnd.github.raw+json";
   const res = await ghFetch(url.toString(), { headers });
@@ -304,7 +311,7 @@ export async function fetchTextFile(binding: RepoBinding, path: string): Promise
   const url = new URL(
     `https://api.github.com/repos/${binding.owner}/${binding.repo}/contents/${path}`,
   );
-  url.searchParams.set("ref", binding.defaultBranch);
+  url.searchParams.set("ref", binding.ref);
   const headers = await ghHeaders(binding.installationGithubId);
   headers.Accept = "application/vnd.github.raw+json";
   const res = await ghFetch(url.toString(), { headers });

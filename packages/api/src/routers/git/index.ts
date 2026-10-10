@@ -17,6 +17,7 @@ import {
   loadGithubAppForInstallation,
   loadGithubAppForOrgIfPresent,
   lookupInstallation,
+  resolveRemoteDefaultBranch,
   sanitizeReturnTo,
   signInstallState,
 } from "../../git";
@@ -312,7 +313,10 @@ export const gitRouter = {
   connectPublicRepo: requirePermission({ project: ["update"] }).git.connectPublicRepo.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "git_public_repo" } });
-      const result = await connectPublicRepo({ cloneUrl: input.cloneUrl });
+      const result = await connectPublicRepo({
+        cloneUrl: input.cloneUrl,
+        resolveDefaultBranch: resolveRemoteDefaultBranch,
+      });
       if (result.isErr()) {
         // Operator-supplied URL was rejected. Surface the message so
         // the form can show what's wrong (missing owner/repo, http://, …).
@@ -338,6 +342,7 @@ export const gitRouter = {
     const result = await inspectRepoTree({
       gitRepoId: input.gitRepoId,
       path: input.path,
+      ref: input.ref,
     });
     if (result.isErr()) {
       throw matchError(result.error, {
@@ -393,7 +398,7 @@ export const gitRouter = {
       organizationId: context.activeOrganizationId,
     });
     if (!repo) throw errors.NOT_FOUND();
-    const result = await inspectEnvFiles(input.gitRepoId, input.path);
+    const result = await inspectEnvFiles(input.gitRepoId, input.path, input.ref);
     if (result.isErr()) {
       throw matchError(result.error, {
         InspectRepoNotFoundError: () => errors.NOT_FOUND(),

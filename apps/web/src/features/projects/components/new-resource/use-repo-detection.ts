@@ -19,13 +19,14 @@ import { orpc } from "@/shared/server/orpc";
 import type { RepoDetection } from "./build-defaults";
 
 import { useFormContext } from "./form-context";
+import { inspectInput } from "./inspect-input";
 
-function useInspectQuery(repo: string, root: string): RepoDetection {
+function useInspectQuery(repo: string, root: string, branch: string): RepoDetection {
   // Same query (and key) as the Builder step's DetectionBanner and the root
   // directory picker: react-query dedupes, so this adds no network cost.
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
-      input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
+      input: repo ? inspectInput(repo, root || "", branch) : skipToken,
     }),
     staleTime: 5 * 60 * 1000,
   });
@@ -39,5 +40,6 @@ export function useRepoDetection(): RepoDetection {
   const form = useFormContext();
   const repo = useSelector(form.store, (s) => s.values.repo);
   const root = useSelector(form.store, (s) => s.values.root);
-  return useInspectQuery(repo, root);
+  const branch = useSelector(form.store, (s) => s.values.branch);
+  return useInspectQuery(repo, root, branch);
 }
