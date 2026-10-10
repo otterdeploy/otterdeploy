@@ -1728,13 +1728,13 @@ report_access() {
 
   tsay ""
   tsay "             For HTTPS, point a domain at this host and set it as the"
-  tsay "             control-plane domain in Settings → Networking. Caddy is already"
+  tsay "             control-plane domain in Instance settings. Caddy is already"
   tsay "             listening on 80/443 and will front the dashboard."
   tsay ""
   tsay "  Your apps  Exposed services get a working URL with no domain and no DNS"
   tsay "             setup: <app>-<project>.$server_ip.sslip.io, served by Caddy on"
   tsay "             80/443. Wrong address? Edit SERVER_IP in $ENV_FILE and re-run,"
-  tsay "             or change it in Settings → Networking."
+  tsay "             or change it in Instance settings."
   return 0
 }
 

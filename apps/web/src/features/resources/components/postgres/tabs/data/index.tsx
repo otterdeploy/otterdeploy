@@ -76,7 +76,7 @@ export function DataTabBody({ resource }: DataTabBodyProps) {
               className="gap-1.5"
               render={
                 <Link
-                  to="/$orgSlug/data"
+                  to="/$orgSlug/data/query"
                   params={{ orgSlug }}
                   search={{ target: targetKey(target) }}
                 />

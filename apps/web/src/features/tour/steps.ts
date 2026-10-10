@@ -19,6 +19,8 @@
 import type { Translation } from "@otterdeploy/i18n";
 import type { Alignment, Side } from "driver.js";
 
+import type { RoutePath } from "@/features/shell/components/sidebar";
+
 /**
  * Step ids are exactly the keys the tour has copy for.
  *
@@ -33,12 +35,17 @@ export interface TourContext {
   orgSlug: string;
   /** Slug of the project the tour will walk through, when the org has one. */
   projectSlug: string | null;
+  /** The environment the project steps open in: the one on screen, or the
+   *  project's main one. */
+  envSlug: string | null;
   hasServers: boolean;
   isInstallAdmin: boolean;
 }
 
 export interface TourStepRoute {
-  to: string;
+  /** Typed against the route tree, so a moved page breaks the step at
+   *  compile time instead of the tour silently skipping it. */
+  to: NonNullable<RoutePath>;
   params: Record<string, string>;
 }
 
@@ -139,7 +146,7 @@ const SERVERS: readonly TourStep[] = [
 const PROJECT: readonly TourStep[] = [
   {
     id: "projectGraph",
-    route: { to: "/$orgSlug/$projectSlug/graph", params: {} },
+    route: { to: "/$orgSlug/projects/$projectSlug/$envSlug", params: {} },
     element: ".react-flow",
     side: "top",
     align: "center",
@@ -161,7 +168,7 @@ const PROJECT: readonly TourStep[] = [
   },
   {
     id: "deployments",
-    route: { to: "/$orgSlug/$projectSlug/deployments", params: {} },
+    route: { to: "/$orgSlug/projects/$projectSlug/$envSlug/deployments", params: {} },
     element: '[data-tour="project-tab-deployments"]',
     side: "bottom",
     align: "start",
@@ -169,7 +176,7 @@ const PROJECT: readonly TourStep[] = [
   },
   {
     id: "logs",
-    route: { to: "/$orgSlug/$projectSlug/logs", params: {} },
+    route: { to: "/$orgSlug/projects/$projectSlug/$envSlug/logs", params: {} },
     element: '[data-tour="project-tab-logs"]',
     side: "bottom",
     align: "start",
@@ -177,7 +184,7 @@ const PROJECT: readonly TourStep[] = [
   },
   {
     id: "variables",
-    route: { to: "/$orgSlug/$projectSlug/variables", params: {} },
+    route: { to: "/$orgSlug/projects/$projectSlug/variables", params: {} },
     element: '[data-tour="project-tab-variables"]',
     side: "bottom",
     align: "start",
@@ -185,7 +192,7 @@ const PROJECT: readonly TourStep[] = [
   },
   {
     id: "networking",
-    route: { to: "/$orgSlug/$projectSlug/networking", params: {} },
+    route: { to: "/$orgSlug/projects/$projectSlug/$envSlug/networking", params: {} },
     element: '[data-tour="project-tab-networking"]',
     side: "bottom",
     align: "start",
@@ -216,5 +223,6 @@ export function buildTourSteps(ctx: TourContext): TourStep[] {
 export function resolveRouteParams(route: TourStepRoute, ctx: TourContext): Record<string, string> {
   const params: Record<string, string> = { ...route.params, orgSlug: ctx.orgSlug };
   if (ctx.projectSlug !== null) params.projectSlug = ctx.projectSlug;
+  if (ctx.envSlug !== null) params.envSlug = ctx.envSlug;
   return params;
 }

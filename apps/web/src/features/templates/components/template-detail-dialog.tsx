@@ -178,7 +178,7 @@ function DeployFooter({
               // Plain history push so the untyped params survive. They're read
               // from raw location search by the wizard overlay provider.
               router.history.push(
-                `/${orgSlug}/${projectSlug}/graph?new=template&template=${template.id}`,
+                `/${orgSlug}/projects/${projectSlug}?new=template&template=${template.id}`,
               )
             }
           >

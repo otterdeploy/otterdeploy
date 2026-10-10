@@ -45,8 +45,8 @@ export function BackupsCard({ resourceId }: { resourceId: string }) {
     >
       {snapshots.length === 0 ? (
         <p className="px-4 py-3 text-[12px] text-muted-foreground">
-          No completed snapshots yet. Run a backup for this database from the Backups page, or
-          attach it to a schedule.
+          No completed snapshots yet. Run a backup for this database from Data → Backups, or attach
+          it to a schedule.
         </p>
       ) : (
         <ul className="divide-y">

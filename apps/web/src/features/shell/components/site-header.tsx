@@ -20,7 +20,7 @@ export function SiteHeader() {
   const { t } = useTranslation();
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/_shell/$projectSlug",
+    from: "/_app/$orgSlug/_shell/projects/$projectSlug",
     shouldThrow: false,
   });
   const project = projectMatch?.loaderData?.project;

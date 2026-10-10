@@ -97,7 +97,7 @@ export async function cloneRepoAtSha(opts: {
       // revoked fails right here — make the remedy explicit instead of leaking a
       // raw "Authentication failed" / "Repository not found" from git.
       throw new Error(
-        `git clone failed (exit ${clone.exitCode}) — the GitHub App installation may have lost access to this repository (removed or repo de-selected). Reconnect GitHub in Settings → Git. Details: ${detail}`,
+        `git clone failed (exit ${clone.exitCode}) — the GitHub App installation may have lost access to this repository (removed or repo de-selected). Reconnect GitHub in Workspace → Git providers. Details: ${detail}`,
       );
     }
     throw new Error(`git clone failed (exit ${clone.exitCode}): ${detail}`);

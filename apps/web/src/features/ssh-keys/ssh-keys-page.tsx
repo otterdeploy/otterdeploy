@@ -157,7 +157,7 @@ function GitDeployKeysSoon() {
       <Button
         variant="outline"
         size="xs"
-        render={<Link to="/$orgSlug/git-providers" params={{ orgSlug }} />}
+        render={<Link to="/$orgSlug/workspace/git" params={{ orgSlug }} />}
       >
         <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} />
         Git providers

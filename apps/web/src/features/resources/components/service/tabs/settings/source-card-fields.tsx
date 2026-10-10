@@ -41,7 +41,7 @@ export function InstallationField({
   if (installations.length === 0) {
     return (
       <p className="text-[11.5px] text-muted-foreground">
-        No git installations connected. Connect one in Settings → Git providers.
+        No git installations connected. Connect one in Workspace → Git providers.
       </p>
     );
   }

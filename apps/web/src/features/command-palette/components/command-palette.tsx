@@ -20,6 +20,9 @@ import type { RoutePath } from "@/features/shell/components/sidebar";
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
+import { FALLBACK_ENV_SLUG } from "@/features/shell/environment-default";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
+import { switchedEnvironmentPath } from "@/features/shell/use-switch-environment";
 import {
   CommandDialog,
   CommandEmpty,
@@ -47,8 +50,13 @@ function makeGoHandlers(opts: {
   run: (fn: () => void) => void;
   orgSlug?: string;
   projectSlug?: string;
+  /** The environment in the path, when the page has one. */
+  envSlug?: string;
+  /** The environment per-environment destinations open in: the one in the
+   *  path, or the project's default. */
+  activeEnvSlug: string;
 }) {
-  const { navigate, run, orgSlug, projectSlug } = opts;
+  const { navigate, run, orgSlug, projectSlug, envSlug, activeEnvSlug } = opts;
 
   const goOrg = (to: RoutePath) => {
     if (!orgSlug || !to) return;
@@ -59,24 +67,29 @@ function makeGoHandlers(opts: {
     run(
       () =>
         void navigate({
-          to: to.replace("$orgSlug", orgSlug).replace("$projectSlug", projectSlug),
+          to: to
+            .replace("$orgSlug", orgSlug)
+            .replace("$projectSlug", projectSlug)
+            .replace("$envSlug", activeEnvSlug),
         }),
     );
   };
   const openProject = (slug: string) => {
     if (!orgSlug) return;
-    run(() => void navigate({ to: `/${orgSlug}/${slug}` }));
+    run(() => void navigate({ to: `/${orgSlug}/projects/${slug}` }));
   };
-  // Same-page search tweak. The current route (and so its search schema) is
-  // opaque at this call site, so go through the concrete URL instead of a
-  // cast: TanStack's search serializer round-trips raw values losslessly.
+  // The environment is a path segment; see use-switch-environment.
   const switchEnv = (slug: string) =>
     run(() => {
-      const url = new URL(window.location.href);
-      url.searchParams.set("env", slug);
+      if (!orgSlug || !projectSlug) return;
       void navigate({
-        to: url.pathname,
-        search: Object.fromEntries(url.searchParams.entries()),
+        to: switchedEnvironmentPath({
+          pathname: window.location.pathname,
+          orgSlug,
+          projectSlug,
+          currentEnvSlug: envSlug,
+          nextEnvSlug: slug,
+        }),
       });
     });
 
@@ -119,14 +132,14 @@ export function CommandPalette() {
   const { t } = useTranslation();
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
-  const { orgSlug, projectSlug } = useParams({ strict: false });
+  const { orgSlug, projectSlug, envSlug } = useParams({ strict: false });
   const overlay = useResourceOverlay();
   const { setTheme } = useTheme();
 
   // Live-query environments for the active project (loader exposes the project
   // but environments are a separate collection, same pattern as the layout).
   const projectMatch = useMatch({
-    from: "/_app/$orgSlug/_shell/$projectSlug",
+    from: "/_app/$orgSlug/_shell/projects/$projectSlug",
     shouldThrow: false,
   });
   const projectId = projectMatch?.loaderData?.project?.id;
@@ -143,11 +156,14 @@ export function CommandPalette() {
     fn();
   };
 
+  const activeEnv = useActiveEnvironment(projectId);
   const { goOrg, goProject, openProject, switchEnv } = makeGoHandlers({
     navigate,
     run,
     orgSlug,
     projectSlug,
+    envSlug,
+    activeEnvSlug: activeEnv.slug ?? FALLBACK_ENV_SLUG,
   });
 
   const goNewResource = () =>

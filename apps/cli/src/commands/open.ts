@@ -1,10 +1,11 @@
+import { projectUrl } from "@otterdeploy/shared/dashboard-links";
 import { defineCommand } from "citty";
 
 import { createCliAuthClient } from "../auth-client";
 import { loadConfig, resolveToken, saveConfig } from "../config";
 import { openInBrowser } from "../lib/browser";
 import { cmd } from "../lib/name";
-import { resolveProject, resolveResource } from "../lib/resolve";
+import { type ProjectContext, resolveProject, resolveResource } from "../lib/resolve";
 import { abort, dim, interactive, note, out } from "../lib/ui";
 
 // Slug of the org that owns the project. Dashboard paths are org-scoped.
@@ -35,6 +36,17 @@ async function resolveOrgSlug(url: string): Promise<string> {
   return org.slug;
 }
 
+// The project's main environment slug: its own pointer, else its first
+// environment, else the convention.
+async function mainEnvironmentSlug(ctx: ProjectContext): Promise<string> {
+  const [project, envs] = await Promise.all([
+    ctx.client.project.getBySlug({ slug: ctx.projectSlug }),
+    ctx.client.env.list({ projectId: ctx.projectId }),
+  ]);
+  const main = envs.find((e) => e.id === project.environmentId) ?? envs[0];
+  return main?.slug ?? "production";
+}
+
 export const openCommand = defineCommand({
   meta: {
     name: "open",
@@ -59,9 +71,18 @@ export const openCommand = defineCommand({
 
     // Web origin diverges from the API origin in dev; single-domain
     // installs fall back to the control plane URL.
-    const base = (loadConfig().webUrl ?? ctx.url).replace(/\/$/, "");
-    const suffix = resource ? `/graph/${resource.resourceId}` : "";
-    const target = `${base}/${orgSlug}/${ctx.projectSlug}${suffix}`;
+    const base = loadConfig().webUrl ?? ctx.url;
+    // A resource panel lives under its environment. `resource.list` answers
+    // for the project's main environment, so that is the one to open.
+    const target = resource
+      ? projectUrl({
+          base,
+          orgSlug,
+          projectSlug: ctx.projectSlug,
+          envSlug: await mainEnvironmentSlug(resource),
+          resourceId: resource.resourceId,
+        })
+      : projectUrl({ base, orgSlug, projectSlug: ctx.projectSlug });
 
     // The URL goes to stdout bare so `otd open` is usable in a subshell; the
     // "opening" line is a diagnostic and stays off stdout.

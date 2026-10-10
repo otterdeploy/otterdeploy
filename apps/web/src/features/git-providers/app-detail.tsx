@@ -226,7 +226,7 @@ export function ResourcesTab({
             <tr key={r.projectId} className="border-b last:border-0">
               <td className="px-4 py-2.5">
                 <Link
-                  to="/$orgSlug/$projectSlug"
+                  to="/$orgSlug/projects/$projectSlug"
                   params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(r.projectSlug) }}
                   className="font-medium text-foreground hover:text-primary hover:underline"
                 >

@@ -163,9 +163,9 @@ future. Channels (Direct, Organic Search, Organic Social, Referral, Email, Paid 
 Display, Affiliate, Video) are classified in SQL from `referrer_host` + `utm_medium/source` via a
 generated CASE from `@otterdeploy/shared/channels`.
 
-## 7. Web IA (`/$orgSlug/analytics`)
+## 7. Web IA (`/$orgSlug/monitoring/analytics`)
 
-One page, search-param views (`servers.tsx` idiom): **Overview · Realtime · Traffic · Events ·
+One page, one child route per view (`/realtime`, `/traffic`, …): **Overview · Realtime · Traffic · Events ·
 Funnels · Setup**. Header: `PageHeader` + scope selector (install/org/project) + range picker
 (presets + calendar) + filter bar (chips; rows in every breakdown card add a filter) + live
 badge. All state in the URL. Overview: 5 stat tiles with period deltas (click a tile to switch the

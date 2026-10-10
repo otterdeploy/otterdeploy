@@ -139,8 +139,8 @@ function ConnectBucketBody({
         <DialogTitle>Connect a bucket</DialogTitle>
         <DialogDescription>
           Any S3-compatible bucket — AWS, R2, MinIO, Spaces. The credential is encrypted at rest and
-          never leaves the control plane. Backups are not written here unless you say so under
-          Backups → Destinations.
+          never leaves the control plane. Backups are not written here unless you say so under Data
+          → Backups → Destinations.
         </DialogDescription>
       </DialogHeader>
 

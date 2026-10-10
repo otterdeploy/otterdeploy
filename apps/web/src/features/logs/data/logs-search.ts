@@ -7,7 +7,9 @@ import * as z from "zod";
 import { edgeAccessSearchParams } from "@/features/edge-logs/table/access-search";
 import { tableSearchSchema } from "@/shared/components/data-table/state/search-schema";
 
-const LOG_SOURCES = ["runtime", "edge"] as const;
+/** The page's two sources. Each is a route (`/logs`, `/logs/edge`), not a
+ *  search param. */
+export const LOG_SOURCES = ["runtime", "edge"] as const;
 export type LogsSource = (typeof LOG_SOURCES)[number];
 
 export const zLogsSearch = z.object({
@@ -20,13 +22,6 @@ export const zLogsSearch = z.object({
   /** Histogram time-window filter (epoch ms); both set or both absent. */
   from: z.number().optional(),
   to: z.number().optional(),
-  /**
-   * Runtime | Edge source toggle (od-u63.5, the project Edge logs tab
-   * merged into Logs). `.catch` covers both a missing param and a bad value
-   * → default to Runtime, so the page always has a valid controlled source.
-   */
-  source: z.enum(LOG_SOURCES).catch("runtime"),
-
   /**
    * The Edge source's table controls.
    *
@@ -41,6 +36,7 @@ export const zLogsSearch = z.object({
    * erases its keys, and TanStack merges route search types, so one such route
    * would make `navigate` untyped everywhere else in the app.
    */
+
   ...tableSearchSchema(edgeAccessSearchParams).shape,
 });
 

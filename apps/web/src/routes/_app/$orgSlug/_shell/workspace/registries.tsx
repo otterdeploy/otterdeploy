@@ -1,0 +1,136 @@
+import { useState } from "react";
+
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useLiveQuery } from "@tanstack/react-db";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
+
+import {
+  GhcrDerivedCard,
+  shouldShowDerivedGhcr,
+} from "@/features/registries/ghcr-derived-card";
+import { registryCollection } from "@/features/registries/data/registries";
+import { RegistryCard } from "@/features/registries/registry-card";
+import { kindForHost } from "@/features/registries/registry-kinds";
+import { RegistryDialog } from "@/features/registries/registry-dialog";
+import { type RegistryRow } from "@/features/registries/shared";
+import { EmptyCollection, IllustrationPlate } from "@/shared/components/illustrations";
+import { Page, PageHeader } from "@/shared/components/page";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/shared/components/ui/empty";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+import { orpc } from "@/shared/server/orpc";
+
+export const Route = createFileRoute("/_app/$orgSlug/_shell/workspace/registries")({
+  staticData: { crumb: "Registries" },
+  component: RegistriesRoute,
+  // Warm the collection(s) on hover (intent-preload) so the page renders
+  // from cache instead of spinning. Non-blocking + best-effort.
+  loader: () => {
+    void registryCollection.preload();
+  },
+});
+
+function RegistriesRoute() {
+  const { data: registries, isLoading } = useLiveQuery((q) =>
+    q.from({ r: registryCollection }),
+  );
+
+  // Whether GHCR is already covered by the workspace's GitHub App. Its own
+  // query rather than part of the collection: it describes an installation,
+  // not a stored row, and there is no row for it to live in.
+  const ghcr = useQuery(orpc.registry.ghcrCapability.queryOptions({ input: {} }));
+  const showGhcr = shouldShowDerivedGhcr(ghcr.data);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<RegistryRow | null>(null);
+
+  const openCreate = () => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+  const openEdit = (r: RegistryRow) => {
+    setEditing(r);
+    setDialogOpen(true);
+  };
+
+  return (
+    <Page>
+      <PageHeader
+        title="Container registries"
+        description="Where built images get pushed. Per-host credentials are used by both the builder (`docker push`) and the swarm daemon (`docker pull`)."
+        actions={
+          <Button size="sm" className="h-8 gap-1.5" onClick={openCreate}>
+            <HugeiconsIcon
+              icon={PlusSignIcon}
+              strokeWidth={2}
+              className="size-3.5"
+            />
+            Add registry
+          </Button>
+        }
+      />
+
+      {isLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <Skeleton className="h-[104px] rounded-xl" />
+          <Skeleton className="h-[104px] rounded-xl" />
+        </div>
+      ) : registries.length === 0 && !showGhcr ? (
+        <Empty className="flex-1 rounded-md border border-dashed bg-muted/20 py-12">
+          <EmptyHeader>
+            <IllustrationPlate className="h-[140px]">
+              <EmptyCollection />
+            </IllustrationPlate>
+            <EmptyTitle>No registries configured yet</EmptyTitle>
+            <EmptyDescription>
+              Add a credential for the registry you want to push built images
+              to.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button size="sm" onClick={openCreate}>
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+              Add your first registry
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        // The same grid as the projects index and the notification channels, so
+        // a registry, a channel and a project are one kind of object at one
+        // size on every breakpoint. Full-bleed rows spent a 1960px page on
+        // eighty characters of content and put the actions a corridor away
+        // from the name they belonged to.
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/* First: it needs no setup, so it is the answer to "do I even have
+              to add anything?" before the list of things someone added. */}
+          {showGhcr && ghcr.data ? <GhcrDerivedCard capability={ghcr.data} /> : null}
+          {registries.map((r) => (
+            <RegistryCard
+              key={r.id}
+              registry={r}
+              onEdit={openEdit}
+              // The derived card above already grants this host, per request,
+              // with nothing to rotate. A stored ghcr.io credential alongside
+              // it is strictly worse and never reached.
+              redundant={showGhcr && kindForHost(r.host) === "ghcr"}
+            />
+          ))}
+        </div>
+      )}
+
+      <RegistryDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        existing={editing}
+      />
+    </Page>
+  );
+}

@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/")({
     const search: z.infer<typeof callbackSearch> = parsed.success ? parsed.data : {};
     if (search.git_install) {
       throw redirect({
-        to: "/$orgSlug/git-providers",
+        to: "/$orgSlug/workspace/git",
         params: { orgSlug: context.activeOrgSlug },
         search: { git_install: search.git_install, reason: search.reason },
       });

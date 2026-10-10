@@ -86,7 +86,7 @@ export async function resolveRepoCloneBinding(
       .limit(1);
     if (!inst) {
       throw new RepoBindingError(
-        `git_installation ${repo.installationId} not found, reconnect GitHub in Settings → Git Providers`,
+        `git_installation ${repo.installationId} not found, reconnect GitHub in Workspace → Git providers`,
       );
     }
     githubInstallationId = inst.installationId;

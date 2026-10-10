@@ -101,7 +101,7 @@ export function previewCapMessage(verdict: { cap: number; current: number }): st
   return [
     `**Preview not created**. This project is at its limit of ${verdict.cap} concurrent previews (${verdict.current} open).`,
     "",
-    "Close or tear down another preview to free a slot, or raise the limit in Settings → Instance.",
+    "Close or tear down another preview to free a slot, or raise the limit in Instance settings.",
   ].join("\n");
 }
 

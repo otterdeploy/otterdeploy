@@ -28,32 +28,32 @@ describe("nav manifest", () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
-  // A page that moved chromes must not be left behind in the one it came from:
-  // two nav entries pointing at the same page (one of them through a redirect
-  // shim) is how a "moved" page keeps appearing in its old home.
+  // A page lives in one chrome: two nav entries pointing at the same page is
+  // how a "moved" page keeps appearing in its old home.
   it("no settings entry points at a page the operational shell owns", () => {
     const operational = new Set<string>(
       OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => String(i.to))),
     );
     for (const group of SETTINGS_NAV) {
       for (const item of group.items) {
-        const asOperational = String(item.to)
-          .replace("/settings/workspace", "")
-          .replace("/settings", "");
-        expect(operational.has(asOperational), `${item.title} → ${item.to}`).toBe(false);
+        expect(operational.has(String(item.to)), `${item.title} → ${item.to}`).toBe(false);
       }
     }
   });
 
   it("moved workspace destinations live in the sidebar, not settings", () => {
     const sidebar = OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => i.to));
-    for (const path of ["/$orgSlug/git-providers", "/$orgSlug/registries", "/$orgSlug/ssh-keys"]) {
+    for (const path of [
+      "/$orgSlug/workspace/git",
+      "/$orgSlug/workspace/registries",
+      "/$orgSlug/workspace/ssh-keys",
+    ]) {
       expect(sidebar, path).toContain(path);
     }
     // API keys deliberately stayed: programmatic access to otterdeploy itself
     // is configuration, not something a deployment reaches for.
     const settings = SETTINGS_NAV.flatMap((g) => g.items.map((i) => i.to));
-    expect(settings).toContain("/$orgSlug/settings/workspace/api-keys");
+    expect(settings).toContain("/$orgSlug/workspace/api-keys");
   });
 
   // All three chromes filter through `visibleNav`, so an install admin must
@@ -65,9 +65,7 @@ describe("nav manifest", () => {
 
   it("install-admin-only destinations are absent for everyone else", () => {
     const visible = visibleNav(SETTINGS_NAV, false);
-    expect(visible.flatMap((g) => g.items.map((i) => i.to))).not.toContain(
-      "/$orgSlug/settings/instance/general",
-    );
+    expect(visible.flatMap((g) => g.items.map((i) => i.to))).not.toContain("/$orgSlug/instance");
     // Instance is that one item, so the heading goes with it. A group label
     // with nothing under it is worse than no label.
     expect(visible.map((g) => g.label)).not.toContain("Instance");
@@ -78,6 +76,6 @@ describe("nav manifest", () => {
   // searchable and 403'd on arrival. Guard the flag's survival end to end.
   it("the palette carries the gate flag through to its groups", () => {
     const gated = ORG_NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.installAdminOnly === true);
-    expect(gated.map((i) => i.to)).toContain("/$orgSlug/settings/instance/general");
+    expect(gated.map((i) => i.to)).toContain("/$orgSlug/instance");
   });
 });

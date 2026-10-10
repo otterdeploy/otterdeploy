@@ -25,13 +25,21 @@ export function useProjectNavHotkeys(go: (to: RoutePath) => void): void {
   const overlayOpen = useIsOverlayOpen();
   const enabled = !overlayOpen;
 
-  // No "G O": there's no Overview tab (project index redirects to /graph).
-  useHotkeySequence(["G", "G"], () => go("/$orgSlug/$projectSlug/graph"), { enabled });
-  useHotkeySequence(["G", "D"], () => go("/$orgSlug/$projectSlug/deployments"), { enabled });
-  useHotkeySequence(["G", "L"], () => go("/$orgSlug/$projectSlug/logs"), { enabled });
-  useHotkeySequence(["G", "M"], () => go("/$orgSlug/$projectSlug/metrics"), { enabled });
-  useHotkeySequence(["G", "V"], () => go("/$orgSlug/$projectSlug/variables"), { enabled });
-  useHotkeySequence(["G", "N"], () => go("/$orgSlug/$projectSlug/networking"), { enabled });
+  // No "G O": there's no Overview tab (the graph is the overview).
+  useHotkeySequence(["G", "G"], () => go("/$orgSlug/projects/$projectSlug/$envSlug"), { enabled });
+  useHotkeySequence(["G", "D"], () => go("/$orgSlug/projects/$projectSlug/$envSlug/deployments"), {
+    enabled,
+  });
+  useHotkeySequence(["G", "L"], () => go("/$orgSlug/projects/$projectSlug/$envSlug/logs"), {
+    enabled,
+  });
+  useHotkeySequence(["G", "M"], () => go("/$orgSlug/projects/$projectSlug/$envSlug/metrics"), {
+    enabled,
+  });
+  useHotkeySequence(["G", "V"], () => go("/$orgSlug/projects/$projectSlug/variables"), { enabled });
+  useHotkeySequence(["G", "N"], () => go("/$orgSlug/projects/$projectSlug/$envSlug/networking"), {
+    enabled,
+  });
   // No "G E": Edge logs merged into Logs (od-u63.5); "G L" already covers it.
-  useHotkeySequence(["G", "S"], () => go("/$orgSlug/$projectSlug/settings"), { enabled });
+  useHotkeySequence(["G", "S"], () => go("/$orgSlug/projects/$projectSlug/settings"), { enabled });
 }

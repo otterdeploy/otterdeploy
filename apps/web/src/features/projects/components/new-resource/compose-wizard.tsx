@@ -34,6 +34,8 @@ import { omitUndefined } from "@otterdeploy/shared/object";
 import { useSelector } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 
+import { usePanelRouteContext } from "@/features/resources/components/_shared/panel-routes";
+
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
 import { type ComposeFileValues, type ComposeStep, stackNamePlaceholder } from "./compose-schema";
 import { ComposeWizardBody } from "./compose-wizard-body";
@@ -162,6 +164,7 @@ export function ComposeWizard({
   onCancel?: () => void;
 }) {
   const navigate = useNavigate();
+  const { envSlug: canvasEnvSlug } = usePanelRouteContext();
   const fileInput = useRef<HTMLInputElement>(null);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
 
@@ -221,8 +224,10 @@ export function ComposeWizard({
     }));
     onComplete?.();
     void navigate({
-      to: "/$orgSlug/$projectSlug/graph",
-      params: { orgSlug, projectSlug },
+      // The canvas of the environment on screen (its default on a page that
+      // has none): that is where the new node lives, as a pending ghost.
+      to: "/$orgSlug/projects/$projectSlug/$envSlug",
+      params: { orgSlug, projectSlug, envSlug: canvasEnvSlug },
     });
   };
 

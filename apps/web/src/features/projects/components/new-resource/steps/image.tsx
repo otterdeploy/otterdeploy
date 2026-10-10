@@ -141,7 +141,7 @@ export function StepImage() {
       {registries.length === 0 && (
         <p className="mt-2 text-[11px] text-muted-foreground">
           No private registries configured. Public images work without one. Add a credential under{" "}
-          <span className="font-mono">Settings → Registries</span> to pull from a private host.
+          <span className="font-mono">Workspace → Registries</span> to pull from a private host.
         </p>
       )}
 

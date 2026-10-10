@@ -180,7 +180,7 @@ export function SignInForm({
       {anyMethod ? null : (
         <p className="rounded-lg border border-dashed p-4 text-[13px] text-muted-foreground">
           No sign-in method is enabled on this installation. An administrator has to re-enable one
-          in Settings → Instance → Access.
+          in Instance → Access.
         </p>
       )}
 

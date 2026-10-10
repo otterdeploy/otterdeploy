@@ -61,7 +61,6 @@ export function ServerChip({ server }: { server: KeyServer }) {
           <Link
             to="/$orgSlug/servers/$serverId"
             params={{ orgSlug, serverId: server.serverId }}
-            search={{ tab: "overview" }}
             className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-muted px-2 text-[11.5px] ring-1 ring-foreground/10 transition-colors outline-none hover:bg-foreground/7 hover:ring-foreground/20 focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ServerStateMark server={server} />

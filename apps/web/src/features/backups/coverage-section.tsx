@@ -18,6 +18,7 @@ import type { CatalogDatabase } from "@/features/databases/data";
 
 import { useDatabaseCatalog } from "@/features/databases/data";
 import { fmtBytes, relTime } from "@/features/databases/shared";
+import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -161,6 +162,7 @@ function CoverageRow({
   onCreateSchedule: (resourceId: ResourceId) => void;
   onBackupNow: () => void;
 }) {
+  const envSlugFor = useEnvSlugResolver();
   return (
     <div
       className={cn(
@@ -169,10 +171,11 @@ function CoverageRow({
       )}
     >
       <Link
-        to="/$orgSlug/$projectSlug/graph/$resourceId"
+        to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId"
         params={{
           orgSlug,
           projectSlug: zSlug(ID_PREFIX.project).parse(db.projectSlug),
+          envSlug: envSlugFor({ projectSlug: db.projectSlug }),
           resourceId: db.resourceId,
         }}
         className="flex min-w-0 flex-1 items-center gap-3"

@@ -17,7 +17,6 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 
 import {
   resourceStatus,
@@ -35,6 +34,8 @@ import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 import type { PanelCrumb } from "./panel-breadcrumb";
+
+import { useOpenResource } from "./panel-routes";
 
 /** Dot colours, same vocabulary the graph nodes and the panel pill use. A
  *  resource with no status (never deployed) gets a hollow ring rather than a
@@ -62,21 +63,14 @@ export function ResourceSwitcher({
   crumb: PanelCrumb;
   onNavigate: () => void;
 }) {
-  const navigate = useNavigate();
+  const openResource = useOpenResource();
   const resources = useQuery(
     orpc.project.resource.list.queryOptions({ input: { projectId: crumb.projectId } }),
   );
 
   const open = (resourceId: string) => {
     onNavigate();
-    void navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId",
-      params: {
-        orgSlug: crumb.orgSlug,
-        projectSlug: crumb.projectSlug,
-        resourceId,
-      },
-    });
+    openResource(resourceId);
   };
 
   // Top-level only: a stack's children are reachable from inside the stack,

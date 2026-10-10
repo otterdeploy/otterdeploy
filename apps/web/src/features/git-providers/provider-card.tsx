@@ -27,7 +27,7 @@ import {
 } from "./shared";
 
 export function ConnectedProviderCard({ provider }: { provider: ProviderView }) {
-  const { orgSlug } = useParams({ from: "/_app/$orgSlug/_shell/git-providers" });
+  const { orgSlug } = useParams({ from: "/_app/$orgSlug/_shell/workspace/git/" });
   const reinstall = useGithubReinstall();
   if (provider.installations.length === 0) return null;
 
@@ -41,7 +41,7 @@ export function ConnectedProviderCard({ provider }: { provider: ProviderView }) 
         />
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Link
-            to="/$orgSlug/github-app/$providerId"
+            to="/$orgSlug/workspace/git/$providerId"
             params={{ orgSlug, providerId: provider.id }}
             className="text-[13.5px] font-semibold hover:text-primary hover:underline"
           >
@@ -198,7 +198,7 @@ function InstallationActions({ installation }: { installation: InstallationView 
 function useGithubReinstall() {
   // Carry the page's returnTo through the GitHub round-trip so the operator
   // lands back where they started the connect (e.g. the deploy wizard).
-  const { returnTo } = useSearch({ from: "/_app/$orgSlug/_shell/git-providers" });
+  const { returnTo } = useSearch({ from: "/_app/$orgSlug/_shell/workspace/git/" });
   const startConnect = useMutation({
     ...orpc.git.startConnect.mutationOptions(),
     onSuccess: (res) => {

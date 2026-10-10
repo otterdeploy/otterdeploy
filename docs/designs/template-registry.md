@@ -31,7 +31,7 @@ Writing 300 more templates into `catalog/templates-*.ts` would work exactly once
 | Gallery | Reads `TEMPLATES` directly, synchronously | `components/templates-gallery.tsx:27` |
 | Filter/sort | Pure functions over the array | `catalog/filter.ts` |
 | Route | `/$orgSlug/templates`, `?project=<slug>` preselects deploy target | `routes/_app/$orgSlug/_shell/templates.tsx` |
-| Deploy handoff | `router.history.push('/<org>/<proj>/graph?new=template&template=<id>')` | `components/template-detail-dialog.tsx:181` |
+| Deploy handoff | `router.history.push('/<org>/projects/<proj>?new=template&template=<id>')` | `components/template-detail-dialog.tsx:181` |
 | Handoff resolution | **Synchronous** `getTemplateById(id)` deriving wizard `open` from the URL | `features/projects/components/new-resource/overlay-provider.tsx:45` |
 | Validation | Build-time test: parses every compose with the repo's own parser | `catalog/catalog.test.ts` |
 | Logos | `logoBrand` → SvglLogo search, monogram fallback | `shared/components/brand/svgl-logo.tsx:49` |

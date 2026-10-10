@@ -36,7 +36,7 @@ type ShellStyle = CSSProperties & { "--header-height": string };
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const match = useMatch({
-    from: "/_app/$orgSlug/_shell/$projectSlug",
+    from: "/_app/$orgSlug/_shell/projects/$projectSlug",
     shouldThrow: false,
   });
   // Read once on mount so a re-render never clobbers the live toggle state.

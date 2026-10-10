@@ -9,10 +9,11 @@
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
-import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
+import { useMatch } from "@tanstack/react-router";
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { toast } from "sonner";
 
+import { useOpenResource } from "@/features/resources/components/_shared/panel-routes";
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import {
   Tooltip,
@@ -153,25 +154,13 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
   // Open a member service's full detail panel. Each stack service is a real
   // service resource, so this routes to the same panel a standalone service
   // gets (deployments/logs/terminal/variables/settings).
-  const navigate = useNavigate();
-  const params = useParams({ strict: false });
+  const openResource = useOpenResource();
   // One history entry per open: replace while a panel is already showing.
   const panelOpen = !!useMatch({
-    from: "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
+    from: "/_app/$orgSlug/_shell/projects/$projectSlug/_canvas/$envSlug/r/$resourceId",
     shouldThrow: false,
   });
-  const openService = (resourceId: string) => {
-    if (!params.orgSlug || !params.projectSlug) return;
-    void navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId",
-      params: {
-        orgSlug: params.orgSlug,
-        projectSlug: params.projectSlug,
-        resourceId,
-      },
-      replace: panelOpen,
-    });
-  };
+  const openService = (resourceId: string) => openResource(resourceId, { replace: panelOpen });
 
   const { isHovered, show, scheduleHide } = useToolbarHover();
 

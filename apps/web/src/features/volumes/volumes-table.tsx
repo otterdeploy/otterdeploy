@@ -18,6 +18,7 @@ import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
 import {
   SelectAllHead,
   SelectRowCell,
@@ -60,15 +61,17 @@ function AttachmentChip({
   orgSlug: string;
   attachment: VolumeAttachment;
 }) {
+  const envSlugFor = useEnvSlugResolver();
   return (
     <Link
-      to="/$orgSlug/$projectSlug/graph/$resourceId"
+      to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId"
       params={{
         orgSlug,
         // Route param is the branded Slug<"project">; the API returns the
         // plain string it was derived from (same cast idiom as the graph's
         // own deep links, e.g. history-row-menu).
         projectSlug: zSlug(ID_PREFIX.project).parse(attachment.projectSlug),
+        envSlug: envSlugFor({ projectSlug: attachment.projectSlug }),
         resourceId: attachment.resourceId,
       }}
       className="inline-flex h-5 max-w-full items-center gap-1 rounded-4xl bg-secondary px-2 text-xs font-medium text-secondary-foreground transition-all hover:bg-muted"

@@ -12,11 +12,7 @@ import { useState } from "react";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import {
-  actionTone,
-  timeAgoOrDash,
-  type ActionTone,
-} from "@/routes/_app/$orgSlug/-components/audit-helpers";
+import { actionTone, timeAgoOrDash, type ActionTone } from "@/features/audit/audit-helpers";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";

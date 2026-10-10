@@ -25,7 +25,7 @@ export function LinkedSecretsField() {
       <p className="text-[11.5px] text-muted-foreground">
         Keeping secrets in Vault, Infisical or Doppler?{" "}
         <Link
-          to="/$orgSlug/settings/workspace/secret-providers"
+          to="/$orgSlug/workspace/secret-providers"
           params={{ orgSlug }}
           className="underline underline-offset-2 hover:text-foreground"
         >

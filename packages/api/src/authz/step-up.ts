@@ -210,7 +210,7 @@ const UNUSABLE_MESSAGE: Record<Extract<StepUpMethod, { kind: "unusable" }>["reas
   no_credential:
     "This action needs you to confirm it is you, but your account has no password or " +
     "authenticator to confirm with, and no email address to send a code to. Add one in " +
-    "Settings → Account, then try again.",
+    "Account → Security, then try again.",
 };
 
 export async function verifyStepUpCredential(
@@ -348,8 +348,8 @@ export async function sendStepUpEmailCode(user: {
       new StepUpCodeSendError({
         reason: "send_failed",
         message:
-          "Could not send the code. The install has no working email transport: configure one " +
-          "in Settings → Email, or add a password/authenticator to this account instead.",
+          "Could not send the code. The install has no working email transport: set " +
+          "RESEND_API_KEY on the server, or add a password/authenticator to this account instead.",
       }),
     );
   }

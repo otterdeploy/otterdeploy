@@ -158,7 +158,7 @@ export function NavUser({ user }: { user: User }) {
                   onClick={() => {
                     if (orgSlug) {
                       void navigate({
-                        to: "/$orgSlug/settings/account/profile",
+                        to: "/$orgSlug/account",
                         params: { orgSlug },
                       });
                     }
@@ -178,7 +178,7 @@ export function NavUser({ user }: { user: User }) {
                   disabled={!orgSlug}
                   render={
                     orgSlug ? (
-                      <Link to="/$orgSlug/settings/account/sessions" params={{ orgSlug }} />
+                      <Link to="/$orgSlug/account/sessions" params={{ orgSlug }} />
                     ) : undefined
                   }
                 >
@@ -189,7 +189,7 @@ export function NavUser({ user }: { user: User }) {
                   disabled={!orgSlug}
                   render={
                     orgSlug ? (
-                      <Link to="/$orgSlug/settings/account/security" params={{ orgSlug }} />
+                      <Link to="/$orgSlug/account/security" params={{ orgSlug }} />
                     ) : undefined
                   }
                 >

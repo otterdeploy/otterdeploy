@@ -47,7 +47,7 @@ export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | n
     const slug = zSlug(ID_PREFIX.project).safeParse(projectSlug);
     if (!slug.success) return;
     void navigate({
-      to: "/$orgSlug/$projectSlug",
+      to: "/$orgSlug/projects/$projectSlug",
       params: { orgSlug: org.slug, projectSlug: slug.data },
     });
   }

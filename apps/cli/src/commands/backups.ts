@@ -104,7 +104,7 @@ const runCmd = defineCommand({
       if (destinations.length === 0) {
         abort(
           "No backup destinations configured.",
-          "add one in the dashboard under Backups → Destinations",
+          "add one in the dashboard under Data → Backups → Destinations",
         );
       }
       if (!only) {

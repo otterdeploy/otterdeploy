@@ -64,7 +64,7 @@
       "noAccount": "¿No tienes una cuenta?",
       "createAccount": "Crea una",
       "dividerContinue": "o continuar con",
-      "noMethods": "No hay ningún método de acceso habilitado en esta instalación. Un administrador debe volver a habilitar uno en Ajustes → Instancia → Métodos de acceso."
+      "noMethods": "No hay ningún método de acceso habilitado en esta instalación. Un administrador debe volver a habilitar uno en Instancia → Acceso."
     },
     "signUp": {
       "title": "Crear una cuenta",
@@ -206,6 +206,8 @@
     "apiKeys": "Claves de API",
     "webhooks": "Webhooks",
     "instance": "Instancia",
+    "instanceAccess": "Acceso",
+    "instanceMigration": "Migración",
     "groups": {
       "infrastructure": "Infraestructura",
       "workspace": "Espacio de trabajo",
@@ -703,7 +705,7 @@
     "clientSecret": "Secreto de cliente",
     "clientSecretHint": "Se guarda cifrado y no se vuelve a mostrar. Para rotarlo, elimina el proveedor y vuelve a añadirlo.",
     "deriveHint": "Déjalo en blanco para derivarlo del emisor.",
-    "instanceDisabled": "El SSO empresarial está desactivado en esta instalación, así que estos proveedores no aparecen en la página de acceso ni pueden autenticar a nadie. Un administrador de la instalación puede reactivarlo en Ajustes → Instancia → Métodos de acceso. Los proveedores registrados aquí se conservan en cualquier caso.",
+    "instanceDisabled": "El SSO empresarial está desactivado en esta instalación, así que estos proveedores no aparecen en la página de acceso ni pueden autenticar a nadie. Un administrador de la instalación puede reactivarlo en Instancia → Acceso. Los proveedores registrados aquí se conservan en cualquier caso.",
     "methodsTitle": "Métodos de acceso",
     "methodsDescription": "Cómo demuestran las personas quiénes son en esta instalación. La página de acceso muestra exactamente lo que esté habilitado aquí.",
     "methodsSaved": "Métodos de acceso actualizados",

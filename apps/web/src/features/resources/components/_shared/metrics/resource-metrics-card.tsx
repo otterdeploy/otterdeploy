@@ -24,6 +24,7 @@ import { Card } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 
+import { usePanelRouteContext } from "../panel-routes";
 import { formatBytes, formatPercent, formatRate } from "./format";
 import { CPU_COLOR, MEMORY_COLOR } from "./metric-panels";
 import { useResourceMetrics } from "./use-resource-metrics";
@@ -47,6 +48,7 @@ export function ResourceMetricsCard({
   projectSlug,
   windowMinutes,
 }: ResourceMetricsCardProps) {
+  const { envSlug } = usePanelRouteContext();
   const node = resourceToNode(resource).data;
   const { rows, summary, isLoading, timeWindow } = useResourceMetrics(
     resource.resourceId,
@@ -57,8 +59,8 @@ export function ResourceMetricsCard({
 
   return (
     <Link
-      to="/$orgSlug/$projectSlug/graph/$resourceId"
-      params={{ orgSlug, projectSlug, resourceId: resource.resourceId }}
+      to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId"
+      params={{ orgSlug, projectSlug, envSlug, resourceId: resource.resourceId }}
       className="group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       <Card className="gap-0 overflow-hidden p-0 transition-colors group-hover:border-foreground/20">

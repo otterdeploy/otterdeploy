@@ -5,14 +5,15 @@
  * ONLY this file when a destination is added, moved, or renamed:
  *
  *   - the operational sidebar   (features/shell/components/sidebar/project-sidebar.tsx)
- *   - the settings-zone rail    (routes/_app/$orgSlug/settings/layout.tsx)
+ *   - the settings-zone rail    (routes/_app/$orgSlug/_settings/layout.tsx)
  *   - the command palette       (features/command-palette/components/nav-items.tsx)
  *
  * Two chromes, never coexisting:
  *   OPERATIONAL_NAV : the org shell (sidebar chrome). Day-to-day operating
  *                      surfaces: projects, infrastructure, observability.
- *   SETTINGS_NAV    : the settings zone (Linear-style takeover under
- *                      `/$orgSlug/settings/*`): Account / Workspace / Instance.
+ *   SETTINGS_NAV    : the settings zone (Linear-style takeover over
+ *                      `/$orgSlug/{account,workspace,instance}`): Account /
+ *                      Workspace / Instance.
  *
  * `to` values are typed against the generated route tree via `RoutePath`
  * (the `LinkProps["to"]` idiom) so a route move breaks loudly here, not
@@ -167,14 +168,14 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       {
         title: "Backups",
         i18nKey: "nav.backups",
-        to: "/$orgSlug/backups",
+        to: "/$orgSlug/data/backups",
         icon: DatabaseIcon,
         keywords: ["restore", "snapshot", "database", "databases", "connections"],
       },
       {
         title: "Analytics",
         i18nKey: "nav.analytics",
-        to: "/$orgSlug/analytics",
+        to: "/$orgSlug/monitoring/analytics",
         icon: Analytics01Icon,
         keywords: [
           "traffic",
@@ -219,7 +220,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       {
         title: "Audit",
         i18nKey: "nav.audit",
-        to: "/$orgSlug/audit",
+        to: "/$orgSlug/workspace/audit",
         icon: File01Icon,
         keywords: ["activity", "history"],
       },
@@ -237,7 +238,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         // all — those are attached to no resource. The panel keeps a link in.
         title: "Workbench",
         i18nKey: "nav.data",
-        to: "/$orgSlug/data",
+        to: "/$orgSlug/data/query",
         icon: SqlIcon,
         keywords: ["data", "sql", "query", "postgres", "mysql", "table", "rows", "workbench"],
       },
@@ -246,7 +247,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         // credential already stored on it. Nothing new to configure.
         title: "Buckets",
         i18nKey: "nav.storage",
-        to: "/$orgSlug/buckets",
+        to: "/$orgSlug/data/buckets",
         icon: FolderLibraryIcon,
         keywords: ["storage", "s3", "bucket", "buckets", "objects", "minio", "files", "blob"],
       },
@@ -266,21 +267,21 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       {
         title: "Git providers",
         i18nKey: "nav.gitProviders",
-        to: "/$orgSlug/git-providers",
+        to: "/$orgSlug/workspace/git",
         icon: GitBranchIcon,
         keywords: ["github", "gitlab", "gitea", "bitbucket", "source", "repo", "connection"],
       },
       {
         title: "Registries",
         i18nKey: "nav.registries",
-        to: "/$orgSlug/registries",
+        to: "/$orgSlug/workspace/registries",
         icon: ContainerIcon,
         keywords: ["docker", "image", "ghcr", "ecr", "pull", "credentials"],
       },
       {
         title: "SSH keys",
         i18nKey: "nav.sshKeys",
-        to: "/$orgSlug/ssh-keys",
+        to: "/$orgSlug/workspace/ssh-keys",
         icon: Key01Icon,
         keywords: ["deploy key", "git", "node", "credentials", "keypair"],
       },
@@ -291,7 +292,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         // Settings → Workspace.
         title: "Secrets",
         i18nKey: "nav.secrets",
-        to: "/$orgSlug/secrets",
+        to: "/$orgSlug/workspace/secret-providers",
         icon: LockKeyIcon,
         keywords: [
           "vault",
@@ -310,7 +311,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         // Settings → Workspace.
         title: "Notifications",
         i18nKey: "nav.notifications",
-        to: "/$orgSlug/notifications",
+        to: "/$orgSlug/workspace/notifications",
         icon: BellDotIcon,
         keywords: ["alerts", "slack", "discord", "email", "webhook", "telegram", "pagerduty"],
       },
@@ -334,7 +335,7 @@ export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [];
 export const SETTINGS_ENTRY: NavManifestItem = {
   title: "Settings",
   i18nKey: "nav.settings",
-  to: "/$orgSlug/settings",
+  to: "/$orgSlug/workspace",
   icon: Settings01Icon,
   keywords: ["preferences", "configuration", "workspace", "instance", "account"],
 };

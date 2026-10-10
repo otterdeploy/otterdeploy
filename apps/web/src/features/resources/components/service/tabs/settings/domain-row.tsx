@@ -184,7 +184,7 @@ export function DomainRow({
         records={dnsRecordsFor(domain)}
         onAutoConfigure={actions.autoConfigure.run}
         autoConfiguring={actions.autoConfigure.pending}
-        connectHref={`/${organization.slug}/settings/workspace/general`}
+        connectHref={`/${organization.slug}/workspace/domains`}
       />
     </div>
   );

@@ -17,6 +17,8 @@ import type { ReactNode } from "react";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 
+import { useEnvSlugResolver } from "@/features/shell/use-env-slug-resolver";
+
 export type InboxTarget =
   | {
       kind: "service";
@@ -79,29 +81,55 @@ export function InboxLink({
   children: ReactNode;
   onClick?: () => void;
 }) {
+  const envSlugFor = useEnvSlugResolver();
   switch (target.kind) {
-    case "service":
-      return (
+    case "service": {
+      const params = {
+        orgSlug,
+        projectSlug: target.projectSlug,
+        // The subject names no environment; the project's main one, and the
+        // resource route moves to the resource's own if that is elsewhere.
+        envSlug: envSlugFor({ projectSlug: target.projectSlug }),
+        resourceId: target.resourceId,
+      };
+      if (view === "build-log") {
+        return (
+          <Link
+            to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/logs/build"
+            params={params}
+            search={{ deployment: target.deploymentId ?? undefined }}
+            className={className}
+            onClick={onClick}
+          >
+            {children}
+          </Link>
+        );
+      }
+      return target.deploymentId ? (
         <Link
-          to="/$orgSlug/$projectSlug/graph/$resourceId"
-          params={{ orgSlug, projectSlug: target.projectSlug, resourceId: target.resourceId }}
-          search={
-            view === "build-log"
-              ? { tab: "logs", logSource: "build", deployment: target.deploymentId ?? undefined }
-              : { tab: "deployments", deployment: target.deploymentId ?? undefined }
-          }
+          to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/deployments/$deploymentId"
+          params={{ ...params, deploymentId: target.deploymentId }}
+          className={className}
+          onClick={onClick}
+        >
+          {children}
+        </Link>
+      ) : (
+        <Link
+          to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/deployments"
+          params={params}
           className={className}
           onClick={onClick}
         >
           {children}
         </Link>
       );
+    }
     case "servers":
       return (
         <Link
-          to="/$orgSlug/servers"
+          to="/$orgSlug/servers/install-health"
           params={{ orgSlug }}
-          search={{ tab: "install-health" }}
           className={className}
           onClick={onClick}
         >
@@ -111,9 +139,8 @@ export function InboxLink({
     case "backups":
       return (
         <Link
-          to="/$orgSlug/backups"
+          to="/$orgSlug/data/backups"
           params={{ orgSlug }}
-          search={{ view: "activity" }}
           className={className}
           onClick={onClick}
         >
@@ -122,13 +149,7 @@ export function InboxLink({
       );
     case "edge":
       return (
-        <Link
-          to="/$orgSlug/edge"
-          params={{ orgSlug }}
-          search={{ tab: "logs" }}
-          className={className}
-          onClick={onClick}
-        >
+        <Link to="/$orgSlug/edge" params={{ orgSlug }} className={className} onClick={onClick}>
           {children}
         </Link>
       );

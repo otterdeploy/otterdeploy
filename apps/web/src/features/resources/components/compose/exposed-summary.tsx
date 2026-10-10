@@ -27,6 +27,8 @@ import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
+import { usePanelRouteContext } from "../_shared/panel-routes";
+
 /** Synthesize the minimal `DomainView` `StatusBadge` needs from a child
  *  service's own denormalized public fields. The same "generated" host the
  *  child's own Domains card would show a Live/Pending DNS chip for. Custom
@@ -57,6 +59,7 @@ export function ComposeExposedSummary({
   orgSlug: string;
   projectSlug: ProjectSlug;
 }) {
+  const { envSlug } = usePanelRouteContext();
   // Same on-demand collection the graph node + services tab read. A toggle
   // on the child's own Settings tab shows up here without a second fetch.
   const activeEnv = useActiveEnvironment(projectId);
@@ -125,9 +128,8 @@ export function ComposeExposedSummary({
                   />
                 )}
                 <Link
-                  to="/$orgSlug/$projectSlug/graph/$resourceId"
-                  params={{ orgSlug, projectSlug, resourceId: svc.resourceId }}
-                  search={{ tab: "settings" }}
+                  to="/$orgSlug/projects/$projectSlug/$envSlug/r/$resourceId/settings"
+                  params={{ orgSlug, projectSlug, envSlug, resourceId: svc.resourceId }}
                   className={buttonVariants({ size: "xs", variant: "ghost" })}
                 >
                   Manage

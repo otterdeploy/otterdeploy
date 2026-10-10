@@ -28,7 +28,7 @@ export function ProjectCard({ orgSlug, project }: Props) {
 
   return (
     <Link
-      to="/$orgSlug/$projectSlug"
+      to="/$orgSlug/projects/$projectSlug"
       params={{
         orgSlug,
         projectSlug: zSlug(ID_PREFIX.project).parse(project.slug),
