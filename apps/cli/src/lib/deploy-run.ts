@@ -256,25 +256,39 @@ async function uploadServiceSources(args: {
       warn(`Upload service \`${name}\` not found after apply; skipping source upload.`);
       continue;
     }
-    if (!args.json) note(`Uploading source for ${name}…`);
-    const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${name}`);
-    try {
-      const { deploymentId, sourceSha } = await uploadSource({
-        url: args.url,
-        token: args.token,
-        resourceId,
-        tarballPath: tarball,
-      });
-      if (!args.json) {
-        ok(`Source uploaded for ${name}.`);
-        detail([
-          ["source", sourceSha ? sourceSha.slice(0, 7) : ""],
-          ["build", `${deploymentId} queued`],
-        ]);
-      }
-    } finally {
-      rmSync(tarball, { force: true });
+    await uploadServiceSource({ ...args, resourceId, name });
+  }
+}
+
+/** Tar the local project and push it for one upload-sourced service; the
+ *  server queues a build of it. Shared with `redeploy`. */
+export async function uploadServiceSource(args: {
+  url: string;
+  token: string;
+  projectDir: string;
+  resourceId: string;
+  name: string;
+  json?: boolean;
+}): Promise<{ deploymentId: string }> {
+  if (!args.json) note(`Uploading source for ${args.name}…`);
+  const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${args.name}`);
+  try {
+    const { deploymentId, sourceSha } = await uploadSource({
+      url: args.url,
+      token: args.token,
+      resourceId: args.resourceId,
+      tarballPath: tarball,
+    });
+    if (!args.json) {
+      ok(`Source uploaded for ${args.name}.`);
+      detail([
+        ["source", sourceSha ? sourceSha.slice(0, 7) : ""],
+        ["build", `${deploymentId} queued`],
+      ]);
     }
+    return { deploymentId };
+  } finally {
+    rmSync(tarball, { force: true });
   }
 }
 

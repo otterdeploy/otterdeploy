@@ -8,6 +8,7 @@ import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
 import { abort, detail, hint, ok, paint, section } from "../lib/ui";
 import { waitForDeployments } from "../lib/wait";
+import { redeployNonGit } from "./redeploy-source";
 
 // Parse an optional --timeout (minutes) shared by the service/compose paths.
 function parseTimeout(raw: string | undefined): number | undefined {
@@ -62,11 +63,12 @@ async function announceAndWait(
 }
 
 // A git-sourced service: rebuild from the head of its bound branch (same path
-// as `build`). Image-sourced services have nothing to build. Point the user at
-// `restart` / an image change instead of a raw error code.
+// as `build`). Anything else is decided by its source (./redeploy-source.ts):
+// an upload-built one is rebuilt from this directory, an image-sourced one has
+// nothing to build and the user is pointed at `restart` / an image change.
 async function redeployService(
   ctx: ResourceContext,
-  opts: { wait: boolean; timeoutMs?: number; json: boolean; noCache?: boolean },
+  opts: { wait: boolean; timeoutMs?: number; json: boolean; noCache?: boolean; config?: string },
 ): Promise<void> {
   let deploymentId: string;
   try {
@@ -76,15 +78,8 @@ async function redeployService(
       ...(opts.noCache ? { noCache: true } : {}),
     }));
   } catch (error) {
-    if (error instanceof ORPCError && error.code === "NOT_GIT_SOURCED") {
-      // Both recoveries are real and different, so both are offered.
-      abort(
-        `${ctx.resourceName} runs a prebuilt image, so there is nothing to rebuild.`,
-        `run \`${cmd(`restart ${ctx.resourceName}`)}\` to roll it with the current image`,
-        `or change its image tag and run \`${cmd("deploy")}\``,
-      );
-    }
-    throw error;
+    if (!(error instanceof ORPCError && error.code === "NOT_GIT_SOURCED")) throw error;
+    deploymentId = await redeployNonGit(ctx, opts);
   }
 
   await announceAndWait(ctx, opts, { deploymentId, payload: { deploymentId } });
@@ -121,7 +116,8 @@ async function redeployCompose(
 export const redeployCommand = defineCommand({
   meta: {
     name: "redeploy",
-    description: "Rebuild a service or compose stack from the head of its bound branch",
+    description:
+      "Rebuild a service or compose stack from its source (its bound branch, or this directory for an uploaded service)",
   },
   args: {
     resource: {
@@ -150,6 +146,7 @@ export const redeployCommand = defineCommand({
       timeoutMs,
       json: Boolean(args.json),
       noCache: Boolean(args["no-cache"]),
+      config: args.config,
     };
 
     if (ctx.resourceType === "service") {
