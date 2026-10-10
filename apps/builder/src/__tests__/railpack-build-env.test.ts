@@ -130,11 +130,11 @@ function nextApp(): string {
   return workDir;
 }
 
-async function build(serviceEnv: ServiceBuildEnv, extra: { spa?: boolean } = {}) {
+async function build(serviceEnv: ServiceBuildEnv, extra: { spa?: boolean; workDir?: string } = {}) {
   const tools = installFakeTools();
   const { sink, lines } = fakeSink();
   await railpackBuild({
-    workDir: nextApp(),
+    workDir: extra.workDir ?? nextApp(),
     sourceSubdir: null,
     imageRepository: "registry.local/acme/web",
     sha: "abc123",
@@ -292,5 +292,38 @@ describe("railpackBuildEnv", () => {
     });
     expect(a.secretsHash).toBe(b.secretsHash);
     expect(railpackBuildEnv({ serviceEnv: {}, builderEnv: { X: "1" } }).secretsHash).toBeNull();
+  });
+});
+
+describe("railpackBuild: the Java provider fixes reach prepare", () => {
+  /** spring-petclinic's shape: gradlew + a build.gradle toolchain pinned to 17. */
+  function gradleApp(): string {
+    const workDir = tempDir("otter-build-jdk-");
+    writeFileSync(join(workDir, "gradlew"), "#!/bin/sh\n");
+    writeFileSync(
+      join(workDir, "build.gradle"),
+      "java {\n  toolchain {\n    languageVersion = JavaLanguageVersion.of(17)\n  }\n}\n",
+    );
+    return workDir;
+  }
+
+  test("a Gradle toolchain of 17 is passed as RAILPACK_JDK_VERSION=17", async () => {
+    const { prepare, lines } = await build(NO_SERVICE_BUILD_ENV, { workDir: gradleApp() });
+    expect(flagValues(prepare.argv, "--env")).toContain("RAILPACK_JDK_VERSION");
+    expect(prepare.env.get("RAILPACK_JDK_VERSION")).toBe("17");
+    expect(lines.join("\n")).toContain("Java 17 declared by build.gradle toolchain");
+  });
+
+  test("a Gradle build gets a start command that also finds a root build/libs jar", async () => {
+    const { prepare } = await build(NO_SERVICE_BUILD_ENV, { workDir: gradleApp() });
+    const [startCmd] = flagValues(prepare.argv, "--start-cmd");
+    expect(startCmd).toContain("|| ls -1 build/libs/*jar | grep -v plain");
+  });
+
+  test("the service's RAILPACK_JDK_VERSION is left as the service set it", async () => {
+    const { prepare } = await build(plain({ RAILPACK_JDK_VERSION: "21" }), {
+      workDir: gradleApp(),
+    });
+    expect(prepare.env.get("RAILPACK_JDK_VERSION")).toBe("21");
   });
 });
