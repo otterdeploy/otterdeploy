@@ -16,6 +16,7 @@
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { Result, TaggedError } from "better-result";
 
 class InvalidCloneUrlError extends TaggedError("InvalidCloneUrlError")<{
@@ -102,10 +103,20 @@ function normalizeCloneUrl(raw: string): Result<NormalizedRepo, InvalidCloneUrlE
  */
 export async function connectPublicRepo(args: {
   cloneUrl: string;
+  /** Asks the remote which branch its HEAD points at (null = could not ask).
+   *  Injected so tests never reach the network. */
+  resolveDefaultBranch: (cloneUrl: string) => Promise<string | null>;
 }): Promise<Result<PublicRepoView, InvalidCloneUrlError>> {
   const normalized = normalizeCloneUrl(args.cloneUrl);
   if (normalized.isErr()) return Result.err(normalized.error);
   const { cloneUrl, fullName, providerRepoId } = normalized.value;
+
+  // The wizard seeds its Branch field from this, the branch picker lists it
+  // first, and repo inspection reads the tree at it, so it has to be the
+  // repo's real default: whoami's is `master`, and a stored `main` 404s every
+  // inspection. When the remote cannot be asked we keep the column default
+  // on insert and leave an existing row's value alone.
+  const defaultBranch = await args.resolveDefaultBranch(cloneUrl);
 
   const [row] = await db
     .insert(gitRepo)
@@ -121,14 +132,20 @@ export async function connectPublicRepo(args: {
       // repo as private. The `public:` prefix on providerRepoId remains the
       // row-kind signal; this just keeps the flag truthful.
       isPrivate: false,
-      // defaultBranch falls back to the column default ("main"). The
-      // builder reads the actual ref from the deployment row, not from
-      // here: this is just a display default for the UI dropdown.
+      // undefined = the column default ("main") when the remote said nothing.
+      defaultBranch: defaultBranch ?? undefined,
     })
     .onConflictDoUpdate({
       target: gitRepo.providerRepoId,
-      // Also corrects rows created before isPrivate was written here.
-      set: { fullName, cloneUrl, isPrivate: false, updatedAt: new Date() },
+      // Also corrects rows created before isPrivate (and the real default
+      // branch) were written here.
+      set: omitUndefined({
+        fullName,
+        cloneUrl,
+        isPrivate: false,
+        defaultBranch: defaultBranch ?? undefined,
+        updatedAt: new Date(),
+      }),
     })
     .returning({
       id: gitRepo.id,

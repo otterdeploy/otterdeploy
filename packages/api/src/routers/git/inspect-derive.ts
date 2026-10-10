@@ -140,7 +140,7 @@ async function fetchCachedTextFile(
   path: string,
   gitRepoId: string,
 ): Promise<string | null> {
-  const key = `${gitRepoId}:${path}`;
+  const key = `${gitRepoId}@${binding.ref}:${path}`;
   const now = Temporal.Now.instant().epochMilliseconds;
   const cached = textCache.get(key);
   if (cached && cached.expiresAt > now) return cached.value;

@@ -117,6 +117,7 @@ export async function createProject(
     slug: string;
     id?: ProjectId;
     environmentId?: EnvironmentId;
+    importedFrom?: string;
   },
 ): Promise<Result<Project, ProjectConflictError | ProjectEnvironmentUnavailableError>> {
   // Slug uniqueness is install-wide, not per org: the slug alone
@@ -135,6 +136,7 @@ export async function createProject(
         slug: input.slug,
         id: input.id,
         environmentId: input.environmentId,
+        importedFrom: input.importedFrom,
       }),
     catch: async (cause) =>
       isUniqueViolation(cause)

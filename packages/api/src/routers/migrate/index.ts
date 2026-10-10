@@ -25,7 +25,8 @@ function toWirePlan(plan: CoolifyPlan) {
     projects: plan.projects.map((project) => ({
       name: project.name,
       databases: project.databases,
-      services: project.services.map(({ env, ...rest }) => ({
+      // The clone URL stays server-side: it can carry credentials.
+      services: project.services.map(({ env, cloneUrl: _cloneUrl, ...rest }) => ({
         ...rest,
         envKeys: env.map((e) => e.key),
       })),

@@ -33,6 +33,7 @@ import {
   splitRepoPath,
   staticPathIssue,
 } from "./compose-detect-path";
+import { inspectInput } from "./inspect-input";
 
 /** What the listing says about the configured repo + subdirectory. */
 type Detection =
@@ -44,10 +45,13 @@ type Detection =
 function useComposeDetection(form: ComposeForm): Detection {
   const gitRepoId = useSelector(form.store, (s) => s.values.file.gitRepoId);
   const subdir = useSelector(form.store, (s) => s.values.file.sourceSubdir);
+  const gitRef = useSelector(form.store, (s) => s.values.file.gitRef);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
-      input: gitRepoId ? { gitRepoId, path: subdir.trim().replace(/^\/+|\/+$/g, "") } : skipToken,
+      input: gitRepoId
+        ? inspectInput(gitRepoId, subdir.trim().replace(/^\/+|\/+$/g, ""), gitRef)
+        : skipToken,
     }),
     staleTime: 5 * 60 * 1000,
   });
@@ -134,6 +138,7 @@ async function validateComposePath(args: {
   value: string;
   gitRepoId: string;
   sourceSubdir: string;
+  gitRef: string;
 }): Promise<string | undefined> {
   const typed = args.value.trim();
   // Blank is the auto-detect case and always valid. That is the whole point
@@ -145,7 +150,7 @@ async function validateComposePath(args: {
 
   const { dir, base } = splitRepoPath(typed);
   const listing = await orpc.git.inspectRepo
-    .call({ gitRepoId: args.gitRepoId, path: joinRepoPath(args.sourceSubdir, dir) })
+    .call(inspectInput(args.gitRepoId, joinRepoPath(args.sourceSubdir, dir), args.gitRef))
     .catch(() => null);
   if (!listing) return undefined;
 
@@ -156,6 +161,7 @@ export function ComposeFileField({ form }: { form: ComposeForm }) {
   const detection = useComposeDetection(form);
   const subdir = useSelector(form.store, (s) => s.values.file.sourceSubdir);
   const gitRepoId = useSelector(form.store, (s) => s.values.file.gitRepoId);
+  const gitRef = useSelector(form.store, (s) => s.values.file.gitRef);
   const composePathId = useId();
   const detected = detection.kind === "found" ? detection.names[0] : null;
 
@@ -165,7 +171,7 @@ export function ComposeFileField({ form }: { form: ComposeForm }) {
       validators={{
         onChangeAsyncDebounceMs: 400,
         onChangeAsync: ({ value }) =>
-          validateComposePath({ value, gitRepoId, sourceSubdir: subdir }),
+          validateComposePath({ value, gitRepoId, sourceSubdir: subdir, gitRef }),
       }}
     >
       {(field) => {

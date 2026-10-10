@@ -12,6 +12,7 @@ import { useFormContext } from "../form-context";
 import { LinkedSecretsField } from "../form-fields/linked-secrets-field";
 import { noDuplicateKeysValidator } from "../form-fields/variables-field";
 import { SectionHeader } from "../form-primitives";
+import { inspectInput } from "../inspect-input";
 
 interface StepVariablesProps {
   kind: ServiceKind | null;
@@ -28,6 +29,7 @@ export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
   const repo = useSelector(form.store, (s) => s.values.repo);
   const root = useSelector(form.store, (s) => s.values.root);
+  const branch = useSelector(form.store, (s) => s.values.branch);
   // Docker-image services: the typed image keys the env-catalog autocomplete.
   // Git-sourced services have no image yet, so this stays empty for them.
   const image = useSelector(form.store, (s) => s.values.image);
@@ -35,7 +37,7 @@ export function StepVariables({ projectId }: StepVariablesProps) {
 
   const env = useQuery({
     ...orpc.git.inspectEnv.queryOptions({
-      input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
+      input: repo ? inspectInput(repo, root || "", branch) : skipToken,
     }),
     staleTime: 5 * 60 * 1000,
   });

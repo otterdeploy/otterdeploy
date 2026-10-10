@@ -11,6 +11,7 @@ import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { preview } from "@otterdeploy/db/schema/project";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { and, eq, sql } from "drizzle-orm";
 
 import { previewIdleTeardownHours } from "../lib/platform-runtime-settings";
@@ -125,10 +126,13 @@ export async function markPreviewsClosed(
   projectId: ProjectId,
   gitRepoId: GitRepoId,
   prNumber: number,
+  /** The PR's head when it closed. Recorded so a `synchronize` for that same
+   *  commit delivered after the close is recognisably stale. */
+  headSha?: string,
 ): Promise<PreviewRow[]> {
   const rows = await db
     .update(preview)
-    .set({ state: "closed", paused: false, updatedAt: new Date() })
+    .set(omitUndefined({ state: "closed" as const, paused: false, headSha, updatedAt: new Date() }))
     .where(
       and(
         eq(preview.projectId, projectId),

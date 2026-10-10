@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 // module is mocked anyway so the import chain never touches @otterdeploy/db.
 vi.mock("./github-app-config", () => ({
   loadGithubAppForInstallation: vi.fn(),
+  apiBaseUrlForHost: () => "https://api.github.com",
 }));
 // github-app.ts's `ghFetch` wrapper routes every request through the shared
 // egress policy (SSRF hardening): stub both the network call and the
@@ -19,6 +20,8 @@ vi.mock("../lib/egress-denylist", () => ({
 vi.mock("../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
+// The anonymous head lookup's git fallback: no network in a unit test.
+vi.mock("./git-ls-remote", () => ({ lsRemoteSha: vi.fn() }));
 
 import type { EgressResponse } from "@otterdeploy/shared/egress-policy";
 
@@ -26,7 +29,8 @@ import { egressFetch } from "@otterdeploy/shared/egress-policy";
 
 import type { GithubAppConfig, InstallationRepo } from "./github-app";
 
-import { listInstallationRepos } from "./github-app";
+import { lsRemoteSha } from "./git-ls-remote";
+import { fetchBranchHead, listInstallationRepos } from "./github-app";
 
 const config: GithubAppConfig = {
   appId: "12345",
@@ -125,5 +129,49 @@ describe("listInstallationRepos → repo list + truthful count", () => {
     await expect(listInstallationRepos("ghs_test", config)).rejects.toThrow(
       /GitHub repos list failed \(403\)/,
     );
+  });
+});
+
+describe("fetchBranchHead on an anonymous (public) repo", () => {
+  const fetchMock = vi.mocked(egressFetch);
+  const lsRemote = vi.mocked(lsRemoteSha);
+  const SHA = "1".repeat(40);
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    lsRemote.mockReset();
+  });
+
+  it("falls back to git ls-remote when GitHub rate-limits the anonymous lookup", async () => {
+    // GitHub allows 60 anonymous calls an hour per IP; a few deploys spend
+    // them, and every next public-repo deploy failed at the head lookup.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ message: "API rate limit exceeded for 203.0.113.7." }, false, 403),
+    );
+    lsRemote.mockResolvedValueOnce(SHA);
+
+    const head = await fetchBranchHead(null, "miniflux", "v2", "2.3.3");
+
+    expect(head).toEqual({ sha: SHA, message: null, authorName: null, authorAvatar: null });
+    expect(lsRemote).toHaveBeenCalledWith("https://github.com/miniflux/v2.git", "2.3.3");
+  });
+
+  it("still fails, with GitHub's status, when git cannot resolve the ref either", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "rate limited" }, false, 429));
+    lsRemote.mockResolvedValueOnce(null);
+
+    await expect(fetchBranchHead(null, "acme", "private", "main")).rejects.toThrow(
+      /GitHub commit lookup failed for acme\/private@main \(429\)/,
+    );
+  });
+
+  it("an unknown or private repo: git finds nothing, and the API's 404 is the deploy's failure", async () => {
+    // Git is asked first; it cannot see the repo, so the API is the only road
+    // left and its answer is the error.
+    lsRemote.mockResolvedValueOnce(null);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Not Found" }, false, 404));
+
+    await expect(fetchBranchHead(null, "acme", "gone", "main")).rejects.toThrow(/\(404\)/);
+    expect(lsRemote).toHaveBeenCalledWith("https://github.com/acme/gone.git", "main");
   });
 });

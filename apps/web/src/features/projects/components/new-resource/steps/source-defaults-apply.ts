@@ -34,9 +34,11 @@ export interface RepoInspection extends RepoDetection {
   monorepoPackages: string[];
 }
 
+/** Every read names the branch the form will build ("" = the repo's default
+ *  branch): detection must describe the tree that ships. */
 export interface SourceDefaultsDeps {
-  inspect: (gitRepoId: string, path: string) => Promise<RepoInspection>;
-  inspectEnv: (gitRepoId: string, path: string) => Promise<{ keys: string[] }>;
+  inspect: (gitRepoId: string, path: string, branch: string) => Promise<RepoInspection>;
+  inspectEnv: (gitRepoId: string, path: string, branch: string) => Promise<{ keys: string[] }>;
 }
 
 export interface SourceDefaults {
@@ -44,6 +46,9 @@ export interface SourceDefaults {
   onRepoBound: (gitRepoId: string) => Promise<void>;
   /** The operator browsed to a different folder: re-detect there. */
   onRootPicked: (root: string) => Promise<void>;
+  /** The Branch field changed (picked, or seeded from the repo's default):
+   *  re-detect on that branch's tree. */
+  onBranchPicked: () => Promise<void>;
   /** The operator chose a service type: detection stops moving it. */
   pinKind: () => void;
   /** The operator chose a builder: detection stops moving it, and the port
@@ -77,7 +82,10 @@ export function createSourceDefaults(
   /** Survives re-renders (a `useRef` in the hook): the operator chose a type. */
   kindPinned: { current: boolean },
 ): SourceDefaults {
-  const { inspect, inspectEnv } = deps;
+  const branch = (): string => form.getFieldValue("branch");
+  const inspect = (gitRepoId: string, path: string) => deps.inspect(gitRepoId, path, branch());
+  const inspectEnv = (gitRepoId: string, path: string) =>
+    deps.inspectEnv(gitRepoId, path, branch());
 
   /**
    * Pick the builder: the root directory's Dockerfile when there is one,
@@ -214,6 +222,13 @@ export function createSourceDefaults(
     await applyDetection(gitRepoId, root);
   };
 
+  const onBranchPicked = async (): Promise<void> => {
+    const gitRepoId = form.getFieldValue("repo");
+    if (!gitRepoId) return;
+    // Another branch can add or drop the Dockerfile, or be another framework.
+    await applyDetection(gitRepoId, form.getFieldValue("root"));
+  };
+
   const pinKind = (): void => {
     kindPinned.current = true;
   };
@@ -247,5 +262,5 @@ export function createSourceDefaults(
     kindPinned.current = false;
   };
 
-  return { onRepoBound, onRootPicked, pinKind, onBuilderPicked, clearBinding };
+  return { onRepoBound, onRootPicked, onBranchPicked, pinKind, onBuilderPicked, clearBinding };
 }

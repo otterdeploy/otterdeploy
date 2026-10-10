@@ -27,7 +27,7 @@ import { type RunningContainer } from "./detect-remote";
 import { decryptLaravelValue, looksLaravelEncrypted, parseAppKey } from "./laravel-crypt";
 
 export type { CoolifyPlan, PlannedProject, PlannedService } from "./coolify-plan";
-export { normalizeDomains, normalizeRepo, toResourceName } from "./coolify-plan";
+export { httpsCloneUrl, normalizeDomains, normalizeRepo, toResourceName } from "./coolify-plan";
 
 const EXEC_TIMEOUT_MS = 30_000;
 
