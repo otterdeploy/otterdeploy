@@ -10,6 +10,10 @@ import * as z from "zod";
 
 import { feedInput, feedOutput } from "../../lib/table";
 
+/** An epoch-ms window edge. Bounded to year 9999: past it the value became an
+ *  Invalid Date (a RangeError) or a year Postgres cannot parse, an untyped 500. */
+const epochMsField = z.number().int().positive().max(253_402_300_799_999);
+
 const tag = "edge-logs";
 
 const edgeLogLineSchema = z.object({
@@ -45,8 +49,8 @@ export const edgeLogQueryInput = z
     /** Custom window (epoch ms), overriding `range`. Both or neither. Capped
      *  at 7 days: the edge-log retention window (persist.ts RETENTION_DAYS),
      *  so a wider ask can't pretend to cover data that no longer exists. */
-    from: z.number().int().positive().optional(),
-    to: z.number().int().positive().optional(),
+    from: epochMsField.optional(),
+    to: epochMsField.optional(),
     /** Multi-select method/status/host filters; empty/omitted ⇒ no filter. */
     methods: z.array(z.string()).optional(),
     statuses: z.array(statusBucket).optional(),
@@ -184,8 +188,8 @@ const analyticsInput = z
      *  someone else's. */
     host: z.string().optional(),
     /** Custom window (epoch ms), overriding `range`. Both or neither. */
-    from: z.number().int().positive().optional(),
-    to: z.number().int().positive().optional(),
+    from: epochMsField.optional(),
+    to: epochMsField.optional(),
   })
   .refine((v) => (v.from === undefined) === (v.to === undefined), {
     message: "from and to must be provided together",
@@ -453,6 +457,10 @@ const edgeEventFeedOutput = feedOutput(edgeEventFeedRowSchema).extend({
   persisting: z.boolean(),
 });
 
+/** A tail for a project that is not the caller's (or does not exist): an
+ *  answer, where it used to be a stream that stayed open and silent forever. */
+const tailProjectNotFound = { status: 404, message: "Project not found" as const };
+
 export const edgeLogsContract = {
   /**
    * The Access logs pane. Filters, facets, histogram and cursor paging over
@@ -474,6 +482,7 @@ export const edgeLogsContract = {
     .output(edgeLogQueryResultSchema),
 
   tail: oc
+    .errors({ NOT_FOUND: tailProjectNotFound })
     .meta({ path: "/edge-logs/tail", tag, method: "GET" })
     .input(edgeLogTailInput)
     .output(eventIterator(edgeLogLineSchema)),
@@ -535,6 +544,7 @@ export const edgeLogsContract = {
       .output(edgeEventQueryResultSchema),
 
     tail: oc
+      .errors({ NOT_FOUND: tailProjectNotFound })
       .meta({ path: "/edge-logs/events/tail", tag, method: "GET" })
       .input(edgeEventTailInput)
       .output(eventIterator(edgeEventLineSchema)),

@@ -8,6 +8,7 @@ import type { Port } from "@otterdeploy/docker";
 
 import * as z from "zod";
 
+import { dockerFailureReason } from "../../lib/docker-failure";
 import { isSwarmRuntime } from "../../runtime";
 import { docker, type Listed } from "./client";
 import { type ContainerOwner, containerOwner } from "./container-owner";
@@ -122,7 +123,7 @@ function formatPorts(ports: Port[] | undefined): string[] {
 
 export async function listContainers(opts: { all?: boolean }): Promise<Listed<ListedContainer[]>> {
   const result = await docker.containers.list({ all: opts.all ?? false });
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   return {
     ok: true,
     items: result.value.map((c) => ({
@@ -141,7 +142,7 @@ export async function listContainers(opts: { all?: boolean }): Promise<Listed<Li
 
 export async function listImages(opts: { all?: boolean }): Promise<Listed<ListedImage[]>> {
   const result = await docker.images.list({ all: opts.all ?? false });
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   return {
     ok: true,
     items: result.value.map((img) => ({
@@ -156,7 +157,7 @@ export async function listImages(opts: { all?: boolean }): Promise<Listed<Listed
 
 export async function listVolumes(): Promise<Listed<ListedVolume[]>> {
   const result = await docker.volumes.list();
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   return {
     ok: true,
     items: (result.value.Volumes ?? []).map((v) => ({
@@ -172,7 +173,7 @@ export async function listVolumes(): Promise<Listed<ListedVolume[]>> {
 
 export async function listNetworks(): Promise<Listed<ListedNetwork[]>> {
   const result = await docker.networks.list();
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   return {
     ok: true,
     items: result.value.map((n) => {
@@ -227,7 +228,7 @@ export async function listTasks(): Promise<Listed<ListedTask[]>> {
   // error as a SERVER_ERROR on the debug page's Tasks tab.
   if (!isSwarmRuntime()) return { ok: true, items: [] };
   const result = await docker.tasks.list();
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   return {
     ok: true,
     items: result.value.map((t) => ({
@@ -248,7 +249,7 @@ export async function listNodes(): Promise<Listed<{ swarm: boolean; nodes: Liste
   // Same swarm gate as listTasks: a plain-docker daemon has no /nodes API.
   if (!isSwarmRuntime()) return { ok: true, items: { swarm: false, nodes: [] } };
   const result = await docker.nodes.list();
-  if (result.isErr()) return { ok: false, reason: result.error.message };
+  if (result.isErr()) return { ok: false, reason: dockerFailureReason(result.error) };
   return {
     ok: true,
     items: {

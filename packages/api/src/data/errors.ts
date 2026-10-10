@@ -6,7 +6,7 @@
  * to surface as-is, and `query` is the user's SQL and must carry the engine's
  * own message verbatim — a console that swallows the error text is useless.
  */
-import { TaggedError } from "better-result";
+import { Result, TaggedError } from "better-result";
 
 export type DataErrorReason =
   /** No route to the database: container down, DNS gone, credentials wrong. */
@@ -93,4 +93,26 @@ function readErrorCode(cause: unknown): string | undefined {
   if (!("code" in cause)) return undefined;
   const { code } = cause;
   return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * Settle the RESOLUTION of a target (the control plane's own lookup of the
+ * connection row, its credentials, the session's tunnel), as distinct from
+ * talking to the target.
+ *
+ * Its deliberate refusals are DataErrors and stay typed. Anything else it
+ * throws is the control plane failing (its Postgres down, a NUL its driver
+ * refuses), never the user's database: run through `toDataError` it became a
+ * QUERY_FAILED carrying our own driver's "Failed query: select … from
+ * data_connection …" text. Those are rethrown instead, for the
+ * procedure deadline to answer (SERVICE_UNAVAILABLE for a database outage)
+ * or oRPC's generic 500.
+ */
+export async function resolveTargetOrDataError<T>(
+  resolve: () => Promise<T>,
+): Promise<Result<T, DataError>> {
+  const resolved = await Result.tryPromise({ try: resolve, catch: (cause) => cause });
+  if (resolved.isOk()) return Result.ok(resolved.value);
+  if (resolved.error instanceof DataError) return Result.err(resolved.error);
+  throw resolved.error;
 }

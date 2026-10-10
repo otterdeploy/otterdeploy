@@ -10,6 +10,7 @@ import { DockerConflictError, DockerNotFoundError } from "@otterdeploy/docker";
 import type { VolumeAttachment, VolumeContainerRef } from "./mapping";
 
 import { createRequestDockerClient } from "../../lib/docker-client";
+import { dockerFailureReason } from "../../lib/docker-failure";
 import { safeVolumeInspect, type SafeVolumeInspect } from "../docker/safe-view";
 import { buildVolumeMappingIndex, mapVolume } from "./mapping";
 import { loadOrgVolumeClaims } from "./queries";
@@ -102,7 +103,7 @@ export async function listEnrichedVolumes(
   organizationId: OrganizationId,
 ): Promise<Listed<VolumesListResult>> {
   const listed = await docker.volumes.list();
-  if (listed.isErr()) return { ok: false, reason: listed.error.message };
+  if (listed.isErr()) return { ok: false, reason: dockerFailureReason(listed.error) };
 
   const [containers, sizes, info, orgClaims] = await Promise.all([
     listVolumeContainerRefs(),
@@ -149,7 +150,7 @@ export async function inspectVolume(
   const result = await docker.volumes.inspect(name);
   if (result.isErr()) {
     const kind = result.error instanceof DockerNotFoundError ? "not-found" : "error";
-    return { ok: false, kind, reason: result.error.message };
+    return { ok: false, kind, reason: dockerFailureReason(result.error) };
   }
   return { ok: true, details: safeVolumeInspect(result.value) };
 }
@@ -184,7 +185,7 @@ export async function createVolume(input: {
   });
   if (created.isErr()) {
     const kind = created.error instanceof DockerConflictError ? "conflict" : "error";
-    return { ok: false, kind, reason: created.error.message };
+    return { ok: false, kind, reason: dockerFailureReason(created.error) };
   }
   const v = created.value;
   return {
@@ -204,7 +205,7 @@ export async function removeVolume(
   const existing = await docker.volumes.inspect(name);
   if (existing.isErr()) {
     const kind = existing.error instanceof DockerNotFoundError ? "not-found" : "error";
-    return { ok: false, kind, reason: existing.error.message };
+    return { ok: false, kind, reason: dockerFailureReason(existing.error) };
   }
 
   // In-use / claimed guard. The daemon only rejects removal while a container
