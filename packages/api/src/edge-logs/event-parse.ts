@@ -33,10 +33,16 @@ const CaddyEventSchema = z.object({
   msg: z.string().optional(),
   error: z.string().optional(),
   // ACME challenge errors carry the single host; cert-management batches carry
-  // a `domains` array; OCSP stapling uses `identifiers`.
+  // a `domains` array; OCSP stapling uses `identifiers`. The issuance
+  // lifecycle itself (certmagic's `tls.obtain` / `tls.renew` loggers:
+  // "obtaining certificate", "certificate obtained successfully", "could not
+  // get certificate from issuer") names its domain in a single `identifier`
+  // string, and without it those lines carried no domain at all, so no route
+  // ever left `cert_state = unknown`.
   host: z.string().optional(),
   domains: z.array(z.string()).optional(),
   identifiers: z.array(z.string()).optional(),
+  identifier: z.string().optional(),
   // reverse_proxy errors carry the upstream dial + the proxied request.
   upstream: z.string().optional(),
   request: z.looseObject({ host: z.string().optional() }).optional(),
@@ -83,7 +89,11 @@ function hostAndDomains(data: z.infer<typeof CaddyEventSchema>): {
   host: string | null;
   domains: string[];
 } {
-  const domains = (data.domains ?? data.identifiers ?? []).map(normalizeHost);
+  const domains = (
+    data.domains ??
+    data.identifiers ??
+    (data.identifier === undefined ? [] : [data.identifier])
+  ).map(normalizeHost);
   const rawHost = data.host ?? data.request?.host ?? null;
   return { host: rawHost ? normalizeHost(rawHost) : null, domains };
 }

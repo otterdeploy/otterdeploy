@@ -46,6 +46,11 @@ const DEFAULT_TIMEOUT_MS = 5_000;
 interface ProbeResult {
   cert: RawCert | null;
   error: string | null;
+  /** Why the TLS stack would NOT trust the presented chain for this SNI
+   *  (self-signed, expired, unknown issuer, …); null when it would. Read off
+   *  the socket even though `rejectUnauthorized` is off: we still inspect an
+   *  untrusted cert, we just also record that it is one. */
+  trustError: string | null;
 }
 
 /** Open one TLS connection and resolve the presented leaf cert (or an error
@@ -80,21 +85,25 @@ function connectAndRead(opts: {
         // narrowed into our structural subset so the rest of the module is
         // socket-free.
         const peer: unknown = socket.getPeerCertificate(true);
+        const trustError = socket.authorized
+          ? null
+          : String(socket.authorizationError ?? "certificate not trusted");
         socket.end();
         const cert = toRawCert(peer);
         done({
           cert,
           error: cert ? null : "no certificate presented",
+          trustError,
         });
       },
     );
 
     socket.once("timeout", () => {
       socket.destroy();
-      done({ cert: null, error: "connection timed out" });
+      done({ cert: null, error: "connection timed out", trustError: null });
     });
     socket.once("error", (err: Error) => {
-      done({ cert: null, error: err.message });
+      done({ cert: null, error: err.message, trustError: null });
     });
   });
 }
@@ -237,19 +246,34 @@ export function shapeCertProbe(
   };
 }
 
-/** Probe one domain at the edge and shape the result for the UI. */
-export async function probeCertificate(opts: {
+interface ProbeOptions {
   domain: string;
   host: string;
   port?: number;
   timeoutMs?: number;
   now?: number;
-}): Promise<CertProbe> {
-  const { cert, error } = await connectAndRead({
+}
+
+/** Probe one domain at the edge and shape the result for the UI. */
+export async function probeCertificate(opts: ProbeOptions): Promise<CertProbe> {
+  return (await probeServedCertificate(opts)).probe;
+}
+
+/** {@link probeCertificate} plus whether a client would trust the served chain
+ *  for this name. The route cert-state sweep needs the second half: an issuer
+ *  and a date can be read off any cert, but only the TLS stack's own verdict
+ *  says a browser will accept it. */
+export async function probeServedCertificate(
+  opts: ProbeOptions,
+): Promise<{ probe: CertProbe; trustError: string | null }> {
+  const { cert, error, trustError } = await connectAndRead({
     host: opts.host,
     port: opts.port ?? 443,
     servername: opts.domain,
     timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   });
-  return shapeCertProbe(opts.domain, cert, error, opts.now ?? Date.now());
+  return {
+    probe: shapeCertProbe(opts.domain, cert, error, opts.now ?? Date.now()),
+    trustError: cert ? trustError : null,
+  };
 }

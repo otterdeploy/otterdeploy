@@ -23,6 +23,7 @@ import {
   applyCustomCertsToRoutes,
   listServableCustomCerts,
   mapProjectOrganizations,
+  markRecoveredCertsInstalled,
   materializeCustomCerts,
 } from "./certs";
 import { adaptCaddyfile } from "./client";
@@ -145,10 +146,11 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
 
   const envProtected = await protectionFloorRouteIds();
   let routes = records.map((r) => toRouteInput(r, envProtected));
-  const [options, customCerts] = await Promise.all([
+  const [options, { servable: customCerts, recovered: recoveredCerts }] = await Promise.all([
     loadCaddyOptions(),
     // Write (or heal) every servable uploaded cert's files for the edge
     // container; only certs actually on disk are eligible for `tls` emission.
+    // Certs whose files could not be written last time are retried too.
     materializeCustomCerts(rlog),
   ]);
   if (customCerts.length > 0) {
@@ -167,6 +169,9 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     load: (caddyfile) => loadControlPlaneEdge(caddyfile, desiredRevision, rlog),
     rlog,
   });
+  // A cert whose files were written this time is live once the edge took the
+  // config carrying it.
+  if (!result.loadError) await markRecoveredCertsInstalled(recoveredCerts);
 
   // Then every OTHER node's edge, over SSH. Deliberately after the control
   // plane: it serves every unplaced route, so getting it right first means a

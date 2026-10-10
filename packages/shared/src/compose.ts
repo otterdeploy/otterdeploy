@@ -68,6 +68,10 @@ export type ComposeExposed = {
   service: string;
   port: number;
   domain: string;
+  /** The seed has not landed yet: its expose failed on the child's create
+   *  (or on a later retry), so the next stack deploy tries again. Absent once
+   *  it lands, and on every entry written before retries existed. */
+  seedPending?: boolean;
 };
 
 /**

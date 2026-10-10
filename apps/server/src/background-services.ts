@@ -18,6 +18,7 @@ import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy
 import { startNodeEnrollmentReaper } from "@otterdeploy/api/routers/server/enrollment";
 import { startProvisionReaper } from "@otterdeploy/api/routers/server/provision-status";
 import { startCertRecheckSweep } from "@otterdeploy/api/routers/service/cert-recheck-sweep";
+import { startCertStateProbe } from "@otterdeploy/api/routers/service/cert-state-probe";
 import {
   startHealthAgentReconciler,
   startHostHealthMonitor,
@@ -102,6 +103,12 @@ export function startBackgroundServices(): () => void {
   // served a self-signed cert until an operator noticed and pressed Recheck.
   // Upgrade-only; the downgrade guard owns the other direction.
   start("cert-recheck-sweep", startCertRecheckSweep);
+
+  // Certificate state probe: settles each ACME route's cert_state from the
+  // certificate the edge actually serves, so a route whose issuance event was
+  // never seen (cert obtained before an upgrade, sink down) still shows its
+  // valid cert instead of "unknown" until the next renewal.
+  start("cert-state-probe", startCertStateProbe);
 
   // Edge config watch: when the control-plane Caddy stops running the config
   // last loaded into it (it restarted from the stub Caddyfile, or its config
