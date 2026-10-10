@@ -215,6 +215,8 @@ export function toServiceFields(
     | "entrypoint"
     | "replicas"
     | "restartCondition"
+    | "stopGracePeriodMs"
+    | "stopSignal"
     | "healthcheckCmd"
     | "healthcheckIntervalMs"
     | "healthcheckTimeoutMs"
@@ -264,6 +266,8 @@ export function toServiceFields(
       entrypoint: svc.entrypoint?.map((c) => interpolate(c, ctx.projectVars)) ?? null,
       replicas: svc.replicas,
       restartCondition: toRestartCondition(svc.restart),
+      stopGracePeriodMs: durationMs(svc.stopGracePeriod ?? undefined) ?? null,
+      stopSignal: svc.stopSignal,
       ...toHealthcheck(svc),
       cpuLimit: svc.resources.cpus ? String(svc.resources.cpus) : null,
       memoryLimitMb: svc.resources.memoryMb ?? null,

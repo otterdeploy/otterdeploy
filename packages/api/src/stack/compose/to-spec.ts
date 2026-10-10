@@ -158,13 +158,26 @@ function toMounts(
   return out;
 }
 
-/** Compose duration ("30s", "5ms", "1m", "1h", "500us", "10ns") → ms. */
+const DURATION_PART = /(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)/g;
+const COMPOUND_DURATION = /^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/;
+
+/** Compose duration ("30s", "5ms", "1m", "1h", "500us", "10ns", "1m30s") → ms. */
 export function durationMs(d: string | undefined): number | undefined {
   if (!d) return undefined;
-  const m = d.trim().match(/^(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)?$/);
+  const text = d.trim();
+  if (COMPOUND_DURATION.test(text)) {
+    let total = 0;
+    for (const part of text.matchAll(DURATION_PART)) total += unitMs(part[1], part[2]);
+    return total;
+  }
+  const m = text.match(/^(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)?$/);
   if (!m?.[1]) return undefined;
-  const n = parseFloat(m[1]);
-  switch (m[2]) {
+  return unitMs(m[1], m[2]);
+}
+
+function unitMs(amount: string | undefined, unit: string | undefined): number {
+  const n = parseFloat(amount ?? "0");
+  switch (unit) {
     case "ns":
       return n / 1_000_000;
     case "us":

@@ -670,6 +670,16 @@ export const serviceResource = pgTable(
     // counter resets. Maps to docker swarm `restart_policy.window`.
     restartWindowMs: integer("restart_window_ms"),
 
+    // How long the runtime waits between the stop signal and the kill when it
+    // stops this container (a redeploy, a stop, the host shutting down).
+    // Null = the runtime's default for the kind of service (longer when it
+    // keeps a volume, so a database finishes its checkpoint).
+    // Seeded from a compose file's `stop_grace_period`.
+    stopGracePeriodMs: integer("stop_grace_period_ms"),
+    // The signal that asks the process to stop (compose `stop_signal`). Null =
+    // the image's own STOPSIGNAL (Postgres: SIGINT), else SIGTERM.
+    stopSignal: text("stop_signal"),
+
     healthcheckCmd: text("healthcheck_cmd").array(),
     healthcheckIntervalMs: integer("healthcheck_interval_ms"),
     healthcheckTimeoutMs: integer("healthcheck_timeout_ms"),

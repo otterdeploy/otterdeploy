@@ -74,6 +74,8 @@ const fakeRecord: ServiceRecord = {
     restartMaxAttempts: null,
     restartDelayMs: 5000,
     restartWindowMs: null,
+    stopGracePeriodMs: null,
+    stopSignal: null,
     healthcheckCmd: null,
     healthcheckIntervalMs: null,
     healthcheckTimeoutMs: null,

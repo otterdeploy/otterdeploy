@@ -18,9 +18,12 @@
 import type { Docker, Mount } from "@otterdeploy/docker";
 
 import { DockerNotFoundError, followProgress } from "@otterdeploy/docker";
+import { Result } from "better-result";
+import { randomUUID } from "node:crypto";
 import { PassThrough, Readable, Writable } from "node:stream";
 
 import { HELPER_ROLES, helperLabels } from "../lib/helper-container";
+import { execCapture } from "./exec";
 
 /** Helper image for tar/clear runs, small, ships GNU-compatible busybox tar. */
 const VOLUME_HELPER_IMAGE = "alpine:3.20";
@@ -195,35 +198,87 @@ export async function listVolumeMounters(docker: Docker, volumeName: string): Pr
 }
 
 /**
- * Replace the volume's contents with a plain tar archive: clear, then extract
- * through the daemon's archive endpoint on a created (never started) helper
- * container. Caller MUST have run the in-use guard first.
+ * Stage and validate the complete archive before changing existing entries.
+ * Moves within the volume retain original data (including dotfiles) until the
+ * replacement succeeds. A daemon/host interruption during commit leaves the
+ * originals under `.otterdeploy-restore-<id>/old` for recovery, never erased.
+ * Caller MUST have run the in-use guard first.
  */
 export async function restoreVolumeFromTar(
   docker: Docker,
   volumeName: string,
   tar: Buffer,
 ): Promise<void> {
-  const clear = await runHelper(
-    docker,
-    volumeClearArgs(),
-    volumeMountSpec(volumeName, { readOnly: false }),
-  );
-  if (clear.statusCode !== 0) {
-    throw new Error(`volume clear exited ${clear.statusCode}: restore aborted before extraction`);
-  }
-
-  const created = await docker.containers.create({
+  const work = `.otterdeploy-restore-${randomUUID()}`;
+  const root = `${VOLUME_MOUNT_TARGET}/${work}`;
+  const options = {
     Image: VOLUME_HELPER_IMAGE,
-    Cmd: ["true"],
-    HostConfig: { Mounts: [volumeMountSpec(volumeName, { readOnly: false })] },
-  });
+    Cmd: ["sleep", "3600"],
+    Labels: helperLabels(HELPER_ROLES.volumeBackup),
+    HostConfig: {
+      Mounts: [volumeMountSpec(volumeName, { readOnly: false })],
+      NetworkMode: "none",
+      AutoRemove: true,
+    },
+  };
+  let created = await docker.containers.create(options);
+  if (created.isErr() && created.error instanceof DockerNotFoundError) {
+    await pullHelperImage(docker);
+    created = await docker.containers.create(options);
+  }
   if (created.isErr()) throw created.error;
   const helper = created.value;
+  let committing = false;
   try {
-    const put = await helper.putArchive({ path: VOLUME_MOUNT_TARGET }, Readable.from(tar));
+    const started = await helper.start();
+    if (started.isErr()) throw started.error;
+    await execCapture(docker, helper.id, ["mkdir", "-p", `${root}/new`, `${root}/old`]);
+    const put = await helper.putArchive({ path: `${root}/new` }, Readable.from([tar]));
     if (put.isErr()) throw put.error;
+    // This SAME helper is already running and extraction has succeeded. No
+    // helper creation, pull or archive transport remains after this point.
+    committing = true;
+    await execCapture(docker, helper.id, [
+      "sh",
+      "-eu",
+      "-c",
+      volumeCommitScript(),
+      "restore",
+      work,
+    ]);
   } finally {
+    // Before commit, only staging bytes can exist. Once commit starts, keep
+    // its journal on failure; never clean away the only surviving originals.
+    if (!committing) {
+      await Result.tryPromise(() => execCapture(docker, helper.id, ["rm", "-rf", root]));
+    }
     await helper.remove({ force: true });
   }
+}
+
+/** Same-filesystem renames with rollback on command failure; no clear window. */
+function volumeCommitScript(): string {
+  return `cd /v
+work=$1
+restore_old() {
+  for entry in "$work/old/"* "$work/old/".[!.]* "$work/old/"..?*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    name=\${entry##*/}
+    rm -rf -- "$name"
+    mv -- "$entry" "$name" || return 1
+  done
+}
+# First collect originals. Failure here restores only entries already moved.
+for entry in * .[!.]* ..?*; do
+  [ "$entry" != "$work" ] || continue
+  [ -e "$entry" ] || [ -L "$entry" ] || continue
+  mv -- "$entry" "$work/old/" || { restore_old; exit 1; }
+done
+# Original bytes stay in old until ALL replacement entries have landed.
+for entry in "$work/new/"* "$work/new/".[!.]* "$work/new/"..?*; do
+  [ -e "$entry" ] || [ -L "$entry" ] || continue
+  mv -- "$entry" ./ || { restore_old; exit 1; }
+done
+rm -rf -- "$work"
+`;
 }

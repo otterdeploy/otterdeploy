@@ -74,6 +74,16 @@ const cli = new RusticCli({
   repoId: "otterdeploy-backups/res_test",
   passwordDomain: "otterdeploy-backups/res_test",
 });
+/** pg_restore --clean --if-exists into a database that still holds a
+ *  partitioned table with a primary key (pg_restore from postgres:17). */
+const INHERITED_DROP_STDERR = [
+  'pg_restore: error: could not execute query: ERROR:  cannot drop inherited constraint "zoo_part_rest_pkey" of relation "zoo_part_rest"',
+  "Command was: ALTER TABLE IF EXISTS ONLY public.zoo_part_rest DROP CONSTRAINT IF EXISTS zoo_part_rest_pkey;",
+  'pg_restore: error: could not execute query: ERROR:  cannot drop inherited constraint "zoo_part_eu_pkey" of relation "zoo_part_eu"',
+  "Command was: ALTER TABLE IF EXISTS ONLY public.zoo_part_eu DROP CONSTRAINT IF EXISTS zoo_part_eu_pkey;",
+  "pg_restore: warning: errors ignored on restore: 2",
+  "",
+].join("\n");
 const snapshot = { id: "snap1", sourceDatabaseName: "orders", sourceSizeBytes: 10 * MB };
 
 beforeEach(() => {
@@ -113,6 +123,26 @@ describe("restoreDatabaseInPlace", () => {
     await expect(restore).rejects.toThrow(
       /failed \(exit 1\): pg_restore: error: could not connect/,
     );
+  });
+
+  it("restores a Postgres with a partitioned table over itself: the inherited drops are forgiven", async () => {
+    fake.stream = { exitCode: 1, stderr: INHERITED_DROP_STDERR };
+    await expect(
+      restoreDatabaseInPlace(docker, createTarget("postgres"), cli, snapshot),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it("still fails a pg_restore whose errors include anything beyond those drops", async () => {
+    fake.stream = {
+      exitCode: 1,
+      stderr: INHERITED_DROP_STDERR.replace(
+        "pg_restore: warning: errors ignored on restore: 2",
+        'pg_restore: error: could not execute query: ERROR:  relation "t" already exists\nCommand was: CREATE TABLE public.t (id integer);\npg_restore: warning: errors ignored on restore: 3',
+      ),
+    };
+    await expect(
+      restoreDatabaseInPlace(docker, createTarget("postgres"), cli, snapshot),
+    ).rejects.toThrow(/failed \(exit 1\)/);
   });
 
   it("fails a mongorestore that exits 0 having restored 0 documents", async () => {

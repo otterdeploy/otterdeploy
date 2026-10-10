@@ -20,6 +20,7 @@ import { ensureServerIp, ensureServerIpv6 } from "@otterdeploy/api/lib/server-ip
 import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
 import { runServiceRollout } from "@otterdeploy/api/routers/service/rollout";
 import { finalizeUpdateRunOnBoot } from "@otterdeploy/api/routers/system/apply";
+import { reconcileDockerNetworks } from "@otterdeploy/api/runtime/docker-network-reconcile";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { reloadAuth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
@@ -219,6 +220,9 @@ async function bootstrap() {
         error: err.message,
       }),
   });
+
+  // Fail startup rather than advertise an isolated runtime after a failed transition.
+  await reconcileDockerNetworks();
 
   await resolvePublicAddresses();
 

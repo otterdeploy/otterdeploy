@@ -127,6 +127,17 @@ function buildTaskResources(resources: SwarmServiceResources): SwarmTaskResource
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/**
+ * start-first (new task beside the old) unless the service writes a mount: two
+ * copies of one app must not write the same volume at once. The same rule as
+ * databases (database-internals.ts): gitea's second copy could not take its
+ * LevelDB lock on the shared /data and exited, so every redeploy failed. The
+ * cost is a short gap during the update.
+ */
+function updateOrder(spec: SwarmServiceSpec): "start-first" | "stop-first" {
+  return spec.mounts.some((m) => !m.ReadOnly) ? "stop-first" : "start-first";
+}
+
 export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
   // Identity labels mirror onto BOTH the service spec (so `docker service ls`
   // filters work) AND the container spec (so they propagate to each live task.
@@ -209,6 +220,7 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
       }),
     );
 
+  const order = updateOrder(spec);
   return {
     Name: spec.serviceName,
     Labels: otterdeployLabels,
@@ -222,7 +234,7 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     UpdateConfig: {
       Parallelism: 1,
       Delay: 0,
-      Order: "start-first" as const,
+      Order: order,
       FailureAction: "rollback" as const,
       Monitor: 10_000_000_000,
       MaxFailureRatio: 0,
@@ -230,7 +242,7 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     RollbackConfig: {
       Parallelism: 1,
       Delay: 0,
-      Order: "start-first" as const,
+      Order: order,
       FailureAction: "pause" as const,
       Monitor: 10_000_000_000,
       MaxFailureRatio: 0,

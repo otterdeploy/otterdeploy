@@ -13,9 +13,12 @@
  *     so the edge cannot route to it yet. Ready → it takes the aliases, the old
  *     container is stopped (gracefully) and removed, and the new one is renamed
  *     to `<name>`. Not ready → it is removed; the old one never noticed.
- *   swap (a service that publishes a host port): two containers cannot bind the
- *     same host port, so the old one is stopped and parked as `<name>--prev`,
- *     the new one starts as `<name>`. Ready → the parked one is removed. Not
+ *   swap (a service that publishes a host port, or writes to a volume): two
+ *     containers cannot bind the same host port, and two copies of one app
+ *     must not write the same volume at once (gitea's second copy cannot take
+ *     its queue lock and exits, so every redeploy failed; an app without such
+ *     a lock would corrupt its data instead). So the old one is stopped and
+ *     parked as `<name>--prev`, the new one starts as `<name>`. Ready → the parked one is removed. Not
  *     ready → the new one is removed and the parked one renamed back and
  *     started: a short gap, then the previous version again.
  *   fresh (nothing running yet): start it, gate it, report the verdict. There
@@ -84,8 +87,9 @@ export interface RolloutInput {
   networkName: string;
   aliases: string[];
   plan: ReadinessPlan;
-  /** The service publishes a port on the host: blue-green is impossible. */
-  publishesHostPort: boolean;
+  /** Why the previous version must stop before the new one starts (a host
+   *  port, a writable volume), or null when both may run side by side. */
+  exclusive: string | null;
 }
 
 /** The new version's name while it is being gated beside the old one. */
@@ -251,7 +255,7 @@ async function rollOutBlueGreen(
 async function rollOutSwap(host: RolloutHost, input: RolloutInput): Promise<RuntimeStatus> {
   const parked = parkedName(input.serviceName);
   await host.remove(parked);
-  host.log("the service publishes a host port: stopping the previous version to start the new one");
+  host.log(`${input.exclusive}: stopping the previous version to start the new one`);
   await host.stop(input.serviceName);
   await host.rename(input.serviceName, parked);
   await host.createAndStart(input.options);
@@ -276,6 +280,6 @@ export async function rollOutContainer(
 ): Promise<RuntimeStatus> {
   const current = await host.observe(input.serviceName);
   if (!current || current.state !== "running") return rollOutFresh(host, input);
-  if (input.publishesHostPort) return rollOutSwap(host, input);
+  if (input.exclusive) return rollOutSwap(host, input);
   return rollOutBlueGreen(host, input, current);
 }
