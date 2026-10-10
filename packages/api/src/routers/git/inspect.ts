@@ -51,6 +51,7 @@ import {
   resolveRepoBinding,
   humanizeUpstreamBody,
 } from "./inspect-github";
+import { type InspectRepoNotConfiguredError, withInstallationToken } from "./inspect-token";
 import { deriveWatchPatterns } from "./watch-patterns";
 
 // Canonical type lives in @otterdeploy/shared/framework (single source of
@@ -75,7 +76,23 @@ export interface InspectResult {
   watchPatterns: string[];
 }
 
-export async function inspectRepoTree(args: {
+/** Every way a GitHub-backed inspection can fail, as the router maps them. */
+type InspectFailure =
+  | InspectRepoNotFoundError
+  | InspectRepoNotConfiguredError
+  | InspectRepoUpstreamError
+  | InspectRepoRateLimitedError;
+
+export function inspectRepoTree(args: {
+  gitRepoId: string;
+  path: string;
+  /** Branch to read; blank = the repo's default branch. */
+  ref?: string;
+}): Promise<Result<InspectResult, InspectFailure>> {
+  return withInstallationToken(() => inspectRepoTreeWithToken(args));
+}
+
+async function inspectRepoTreeWithToken(args: {
   gitRepoId: string;
   path: string;
   /** Branch to read; blank = the repo's default branch. */
@@ -161,7 +178,15 @@ export interface EnvInspection {
  * `.env` (security flaw) and harvest keys from a `.env.example`/`.env.sample`
  * template so the wizard can prefill the Variables step.
  */
-export async function inspectEnvFiles(
+export function inspectEnvFiles(
+  gitRepoId: string,
+  path: string,
+  ref?: string,
+): Promise<Result<EnvInspection, InspectFailure>> {
+  return withInstallationToken(() => inspectEnvFilesWithToken(gitRepoId, path, ref));
+}
+
+async function inspectEnvFilesWithToken(
   gitRepoId: string,
   path: string,
   ref?: string,
@@ -201,7 +226,13 @@ const BRANCH_PAGE_CAP = 5;
  * Reuses inspectRepoTree's binding resolution, auth, and rate-limit handling.
  * The default branch is surfaced first so the Select can preselect it.
  */
-export async function listRepoBranches(
+export function listRepoBranches(
+  gitRepoId: string,
+): Promise<Result<{ branches: string[]; defaultBranch: string }, InspectFailure>> {
+  return withInstallationToken(() => listRepoBranchesWithToken(gitRepoId));
+}
+
+async function listRepoBranchesWithToken(
   gitRepoId: string,
 ): Promise<
   Result<

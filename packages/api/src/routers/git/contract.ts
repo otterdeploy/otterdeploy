@@ -74,17 +74,37 @@ const startConnectOutput = z.object({
   redirectUrl: z.url(),
 });
 
+/** A DNS hostname, optionally with a port: what goes between `https://` and
+ *  the path of the App-creation URL. */
+const GITHUB_HOST =
+  /^(?=.{1,253}(?::|$))[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*(?::\d{1,5})?$/i;
+
 const startManifestInput = z.object({
   /** Optional GitHub org login: when set, the manifest form POSTs to
    *  the org's app-creation URL so the operator doesn't have to switch
    *  account context on GitHub. */
-  accountLogin: z.string().min(1).nullable().optional(),
+  accountLogin: z
+    .string()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/, "Enter a GitHub organization login.")
+    .nullable()
+    .optional(),
   /** Optional override of the App's display name. Defaults to "Otterdeploy".
    *  GitHub App names are globally unique, so the UI pre-fills a random one. */
   appName: z.string().min(1).optional(),
   /** GitHub host to create the App on, omit for github.com, or a GHE
-   *  hostname (e.g. "github.acme.com") for a self-hosted Enterprise instance. */
-  host: z.string().min(1).optional(),
+   *  hostname (e.g. "github.acme.com") for a self-hosted Enterprise instance.
+   *  A hostname (optionally with a port), checked here: any other string went
+   *  into the form-action URL, which then failed the output schema, an
+   *  untyped 500. */
+  host: z
+    .string()
+    .trim()
+    // Blank still means github.com, as the handler has always read it.
+    .refine(
+      (host) => host === "" || (GITHUB_HOST.test(host) && URL.canParse(`https://${host}/`)),
+      "Enter a hostname, like github.acme.com.",
+    )
+    .optional(),
   returnTo: returnToField,
 });
 
@@ -376,6 +396,12 @@ export const gitContract = {
         status: 429,
         message: "GitHub rate-limited the inspection" as const,
       },
+      // The repo's GitHub App has no credentials on this install, so nothing
+      // can be read through it (was an untyped 500).
+      NOT_CONFIGURED: {
+        status: 503,
+        message: "GitHub App is not configured on this instance" as const,
+      },
     })
     .meta({
       path: `${basePath}/repos/{gitRepoId}/inspect`,
@@ -392,6 +418,12 @@ export const gitContract = {
       RATE_LIMITED: {
         status: 429,
         message: "GitHub rate-limited the branch listing" as const,
+      },
+      // The repo's GitHub App has no credentials on this install, so nothing
+      // can be read through it (was an untyped 500).
+      NOT_CONFIGURED: {
+        status: 503,
+        message: "GitHub App is not configured on this instance" as const,
       },
     })
     .meta({
@@ -423,6 +455,12 @@ export const gitContract = {
       RATE_LIMITED: {
         status: 429,
         message: "GitHub rate-limited the inspection" as const,
+      },
+      // The repo's GitHub App has no credentials on this install, so nothing
+      // can be read through it (was an untyped 500).
+      NOT_CONFIGURED: {
+        status: 503,
+        message: "GitHub App is not configured on this instance" as const,
       },
     })
     .meta({

@@ -347,6 +347,7 @@ export const gitRouter = {
     if (result.isErr()) {
       throw matchError(result.error, {
         InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+        InspectRepoNotConfiguredError: (err) => errors.NOT_CONFIGURED({ message: err.message }),
         InspectRepoRateLimitedError: (err) => errors.RATE_LIMITED({ message: err.message }),
         InspectRepoUpstreamError: (err) => errors.UPSTREAM({ message: err.message }),
       });
@@ -367,6 +368,7 @@ export const gitRouter = {
     if (result.isErr()) {
       throw matchError(result.error, {
         InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+        InspectRepoNotConfiguredError: (err) => errors.NOT_CONFIGURED({ message: err.message }),
         InspectRepoRateLimitedError: (err) => errors.RATE_LIMITED({ message: err.message }),
         InspectRepoUpstreamError: (err) => errors.UPSTREAM({ message: err.message }),
       });
@@ -402,6 +404,7 @@ export const gitRouter = {
     if (result.isErr()) {
       throw matchError(result.error, {
         InspectRepoNotFoundError: () => errors.NOT_FOUND(),
+        InspectRepoNotConfiguredError: (err) => errors.NOT_CONFIGURED({ message: err.message }),
         InspectRepoRateLimitedError: (err) => errors.RATE_LIMITED({ message: err.message }),
         InspectRepoUpstreamError: (err) => errors.UPSTREAM({ message: err.message }),
       });

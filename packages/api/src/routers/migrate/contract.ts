@@ -7,6 +7,8 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { serverIdField } from "../project/contract/shared";
+
 const tag = "migrate";
 const base = "/migrate";
 const emptyInput = z.object({}).optional();
@@ -74,6 +76,18 @@ const applyInput = z.object({
   projects: z.array(z.string()).optional(),
 });
 
+/** Reading Coolify's plan: there is none to read, or it could not be read. */
+const coolifyErrors = {
+  COOLIFY_NOT_FOUND: {
+    status: 409,
+    message: "No running Coolify install found on this docker daemon." as const,
+  },
+  COOLIFY_UNREADABLE: {
+    status: 502,
+    message: "The Coolify install could not be read." as const,
+  },
+};
+
 export const migrateContract = {
   detect: oc
     .meta({ path: `${base}/detect`, tag, method: "GET" })
@@ -91,7 +105,7 @@ export const migrateContract = {
    */
   detectOnServer: oc
     .meta({ path: `${base}/detect-on-server`, tag, method: "POST" })
-    .input(z.object({ serverId: z.string().min(1) }))
+    .input(z.object({ serverId: serverIdField }))
     .output(
       z.object({
         serverId: z.string(),
@@ -102,11 +116,13 @@ export const migrateContract = {
     ),
 
   coolifyPlan: oc
+    .errors(coolifyErrors)
     .meta({ path: `${base}/coolify/plan`, tag, method: "POST" })
     .input(emptyInput)
     .output(coolifyPlanSchema),
 
   coolifyApply: oc
+    .errors(coolifyErrors)
     .meta({ path: `${base}/coolify/apply`, tag, method: "POST" })
     .input(applyInput)
     .output(importResultSchema),
