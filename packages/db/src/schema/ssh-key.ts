@@ -1,7 +1,8 @@
 import type { SshKeyId } from "@otterdeploy/shared/id";
 
-// SSH keys: org-scoped keypairs used to authenticate Git pulls (deploy keys)
-// and to manage swarm nodes. Two flavours live in this one table:
+// SSH keys: org-scoped keypairs otterdeploy signs in to servers with (the
+// node reconciler and firewall remediation SSH to a server with the key its
+// `server.ssh_key_id` names). Two flavours live in this one table:
 //
 //   - generated keys: we run `ssh-keygen`, store the PUBLIC half in the clear
 //     (`publicKey`) and the PRIVATE half as AES-GCM ciphertext
@@ -11,9 +12,10 @@ import type { SshKeyId } from "@otterdeploy/shared/id";
 //     public half (`privateKeyCiphertext` is null). The private key lives on the
 //     operator's machine, not ours.
 //
-// "Used by" (git providers / nodes / services consuming the key) is derived at
-// read time from the subsystems that reference a key, not denormalized here,
-// so this table never drifts out of sync with actual usage.
+// "Used by" is derived at read time from `server.ssh_key_id`, not
+// denormalized here, so this table never drifts out of sync with actual
+// usage. A key a server uses can't be deleted (the API refuses), and rotating
+// it pushes the new public key to those servers before swapping.
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import {
   boolean,

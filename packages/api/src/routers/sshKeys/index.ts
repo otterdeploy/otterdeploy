@@ -3,20 +3,21 @@ import type * as z from "zod";
 import { matchError } from "better-result";
 
 import type { sshKeySchema } from "./contract";
-import type { SshKeyRecord } from "./queries";
+import type { SshKeyView } from "./usage";
 
 import { requirePermission } from "../..";
-import { deleteSshKey, generateSshKey, importSshKey, listSshKeys, rotateSshKey } from "./handlers";
+import { deleteSshKey, generateSshKey, importSshKey, listSshKeys } from "./handlers";
+import { rotateSshKey } from "./rotate";
 
 type SshKeyPublic = z.infer<typeof sshKeySchema>;
 
 /**
- * Map a DB row to the public wire shape. Drops `privateKeyCiphertext`
- * entirely and surfaces `hasPrivateKey` instead. `usedBy` is empty for now:
- * the Git-provider / node / service subsystems don't yet reference keys, so
- * reporting usage would be fiction. Wired in when those consumers land.
+ * Map a key (with its derived usage) to the public wire shape. Drops
+ * `privateKeyCiphertext` entirely and surfaces `hasPrivateKey` instead.
+ * `usedBy` is the servers whose `ssh_key_id` points at the key: the node
+ * reconciler and firewall remediation sign in to them with it.
  */
-function toPublic(row: SshKeyRecord): SshKeyPublic {
+function toPublic(row: SshKeyView): SshKeyPublic {
   return {
     id: row.id,
     name: row.name,
@@ -27,7 +28,7 @@ function toPublic(row: SshKeyRecord): SshKeyPublic {
     comment: row.comment,
     imported: row.imported,
     hasPrivateKey: row.privateKeyCiphertext != null,
-    usedBy: [],
+    usedBy: row.usedBy,
     lastUsedAt: row.lastUsedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -55,7 +56,8 @@ export const sshKeysRouter = {
         });
       }
       context.log.set({ target: { type: "sshKey", id: result.value.id } });
-      return toPublic(result.value);
+      // A key that was just created has no server using it yet.
+      return toPublic({ ...result.value, usedBy: [] });
     },
   ),
 
@@ -73,7 +75,7 @@ export const sshKeysRouter = {
         });
       }
       context.log.set({ target: { type: "sshKey", id: result.value.id } });
-      return toPublic(result.value);
+      return toPublic({ ...result.value, usedBy: [] });
     },
   ),
 
@@ -89,9 +91,12 @@ export const sshKeysRouter = {
           SshKeyNotFoundError: () => errors.NOT_FOUND(),
           SshKeyNotRotatableError: (e) => errors.INVALID_INPUT({ message: e.message }),
           SshKeyConflictError: () => errors.CONFLICT(),
+          SshKeyChangedError: (e) => errors.CONFLICT({ message: e.message }),
+          SshKeyRotateFailedError: (e) =>
+            errors.ROTATE_FAILED({ message: e.message, data: { servers: e.servers } }),
         });
       }
-      return toPublic(result.value);
+      return { ...toPublic(result.value.key), servers: result.value.servers };
     },
   ),
 
@@ -105,6 +110,8 @@ export const sshKeysRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           SshKeyNotFoundError: () => errors.NOT_FOUND(),
+          SshKeyInUseError: (e) =>
+            errors.IN_USE({ message: e.message, data: { servers: e.servers } }),
         });
       }
       return result.value;

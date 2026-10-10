@@ -15,26 +15,31 @@ import { panic, Result } from "better-result";
 import type { OrgRef } from "../scopes";
 
 import { encryptForDomain } from "../../lib/crypto";
-import { emitPlatformEvent } from "../../notifications/emit";
 import { isUniqueViolation } from "../project/views";
 import {
   SshKeyConflictError,
   SshKeyImportError,
+  SshKeyInUseError,
   SshKeyNotFoundError,
-  SshKeyNotRotatableError,
 } from "./errors";
 import { generateKeyPair, InvalidPublicKeyError, parsePublicKey, type SshKeyType } from "./keygen";
 import {
-  deleteSshKeyRecord,
+  deleteUnusedSshKeyRecord,
   getSshKeyInOrg,
   insertSshKeyRecord,
+  listServersUsingSshKeys,
   listSshKeysByOrg,
-  updateSshKeyMaterial,
   type SshKeyRecord,
 } from "./queries";
+import { toUsage, type SshKeyView } from "./usage";
 
-export async function listSshKeys(input: OrgRef): Promise<SshKeyRecord[]> {
-  return listSshKeysByOrg(input.organizationId);
+export async function listSshKeys(input: OrgRef): Promise<SshKeyView[]> {
+  const [keys, servers] = await Promise.all([
+    listSshKeysByOrg(input.organizationId),
+    listServersUsingSshKeys({ organizationId: input.organizationId }),
+  ]);
+  const byKey = Map.groupBy(servers, (s) => s.sshKeyId);
+  return keys.map((k) => ({ ...k, usedBy: (byKey.get(k.id) ?? []).map(toUsage) }));
 }
 
 export async function generateSshKey(
@@ -92,74 +97,26 @@ export async function importSshKey(
   });
 }
 
-export async function rotateSshKey(
-  input: { id: SshKeyId } & OrgRef,
-): Promise<
-  Result<SshKeyRecord, SshKeyNotFoundError | SshKeyNotRotatableError | SshKeyConflictError>
-> {
-  const existing = await getSshKeyInOrg({
-    id: input.id,
-    organizationId: input.organizationId,
-  });
-  if (!existing) return Result.err(new SshKeyNotFoundError({ id: input.id }));
-  if (existing.imported) {
-    return Result.err(new SshKeyNotRotatableError({ id: input.id }));
-  }
-
-  const pair = await generateKeyPair({
-    type: existing.type,
-    bits: existing.bits,
-    comment: existing.comment ?? existing.name,
-    passphrase: null,
-  });
-  const privateKeyCiphertext = await encryptForDomain(pair.privateKey, "ssh-keys");
-
-  const updated = await Result.tryPromise({
-    try: () =>
-      updateSshKeyMaterial({
-        id: input.id,
-        organizationId: input.organizationId,
-        type: pair.type,
-        bits: pair.bits,
-        publicKey: pair.publicKey,
-        privateKeyCiphertext,
-        fingerprint: pair.fingerprint,
-        comment: pair.comment,
-      }),
-    catch: (cause) =>
-      isUniqueViolation(cause)
-        ? new SshKeyConflictError({ fingerprint: pair.fingerprint })
-        : panic("sshKeys.rotate: unexpected DB error", cause),
-  });
-  if (Result.isError(updated)) return Result.err(updated.error);
-  if (!updated.value) return Result.err(new SshKeyNotFoundError({ id: input.id }));
-
-  // Best-effort: notify subscribed channels the key was rotated (its old
-  // material is now invalid anywhere it was authorized). emitPlatformEvent
-  // never throws, so it can't fail the rotation.
-  await emitPlatformEvent({
-    organizationId: input.organizationId,
-    eventId: "ssh.rotated",
-    title: "SSH key rotated",
-    message: `${updated.value.name}. New fingerprint ${updated.value.fingerprint}`,
-    data: {
-      sshKeyId: input.id,
-      name: updated.value.name,
-      fingerprint: updated.value.fingerprint,
-    },
-  });
-  return Result.ok(updated.value);
-}
-
 export async function deleteSshKey(
   input: { id: SshKeyId } & OrgRef,
-): Promise<Result<{ ok: true }, SshKeyNotFoundError>> {
-  const deleted = await deleteSshKeyRecord({
+): Promise<Result<{ ok: true }, SshKeyNotFoundError | SshKeyInUseError>> {
+  const deleted = await deleteUnusedSshKeyRecord({
     id: input.id,
     organizationId: input.organizationId,
   });
-  if (!deleted) return Result.err(new SshKeyNotFoundError({ id: input.id }));
-  return Result.ok({ ok: true });
+  if (deleted) return Result.ok({ ok: true });
+  const existing = await getSshKeyInOrg({ id: input.id, organizationId: input.organizationId });
+  if (!existing) return Result.err(new SshKeyNotFoundError({ id: input.id }));
+  const servers = await listServersUsingSshKeys({
+    organizationId: input.organizationId,
+    sshKeyId: input.id,
+  });
+  return Result.err(
+    new SshKeyInUseError({
+      id: input.id,
+      servers: servers.map((s) => ({ serverId: s.serverId, name: s.name })),
+    }),
+  );
 }
 
 async function insertOrConflict(values: {
