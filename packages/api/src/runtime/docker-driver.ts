@@ -38,7 +38,6 @@ import {
   mapHealth,
   mapStatus,
   networkNameFor,
-  publishesHostPort,
   pullImage,
   removeContainerByName,
   serviceAliases,
@@ -47,6 +46,7 @@ import {
 import { moveToScopedNetwork } from "./docker-network-migration";
 import { rollOutContainer } from "./docker-rollout";
 import { createDockerRolloutHost } from "./docker-rollout-host";
+import { exclusiveRollout } from "./exclusive-rollout";
 import { readinessPlan, readinessPort } from "./readiness";
 
 function deployLogFor(spec: ContainerSpec, phase: "build" | "deploy") {
@@ -114,7 +114,7 @@ async function rollOut(
         healthcheck: spec.healthcheck ?? null,
         port: readinessPort(spec.ports),
       }),
-      publishesHostPort: publishesHostPort(spec),
+      exclusive: exclusiveRollout(spec),
     });
   } finally {
     await deployLog.close();

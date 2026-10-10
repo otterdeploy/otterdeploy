@@ -206,13 +206,6 @@ export function serviceAliases(spec: ContainerSpec): string[] {
   return [spec.serviceName, spec.internalHostname, spec.resourceName, ...composeKey];
 }
 
-/** Does the service bind a port on the host (tcp app-protocol ports, see
- *  buildContainerOptions)? Two containers cannot hold the same host port, so
- *  such a service cannot run old and new side by side. */
-export function publishesHostPort(spec: ContainerSpec): boolean {
-  return spec.ports.some((p) => p.appProtocol === "tcp");
-}
-
 /** Build the `docker create` payload for a service container. */
 export function buildContainerOptions(
   spec: ContainerSpec,
