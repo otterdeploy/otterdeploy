@@ -20,7 +20,12 @@ import { describe, expect, test, vi } from "vite-plus/test";
 
 function selectChain(rows: unknown[]) {
   const whereResult = Object.assign(Promise.resolve(rows), {
-    limit: vi.fn(() => Promise.resolve(rows)),
+    // The change-detection reads skip the query cache: `.limit(1).$withCache(false)`
+    // (upsert) and `.where(...).$withCache(false)` (bulkReplace's before-image).
+    limit: vi.fn(() =>
+      Object.assign(Promise.resolve(rows), { $withCache: vi.fn(() => Promise.resolve(rows)) }),
+    ),
+    $withCache: vi.fn(() => Promise.resolve(rows)),
   });
   const chain = {
     from: vi.fn(() => chain),
@@ -61,6 +66,13 @@ function makeTx(): FakeTx {
     }),
   };
 }
+
+// Which services a shared-key change marks is covered against a
+// real database (lib/variables/shared-var-liveness.postgres.test.ts).
+vi.mock("../project-env-dependents", () => ({
+  changedSharedKeys: vi.fn(() => new Set<string>()),
+  markSharedVarDependentsChanged: vi.fn(async () => []),
+}));
 
 vi.mock("@otterdeploy/db", () => ({
   db: {

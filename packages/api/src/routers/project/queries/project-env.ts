@@ -24,7 +24,8 @@ import { db } from "@otterdeploy/db";
 import { project, projectEnvVar } from "@otterdeploy/db/schema/project";
 import { and, asc, eq, or, sql } from "drizzle-orm";
 
-import { decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
+import { decryptEnvValue, decryptUnsealedEnvRows, encryptEnvValue } from "../../../lib/env-crypto";
+import { changedSharedKeys, markSharedVarDependentsChanged } from "./project-env-dependents";
 export interface ProjectEnvVarRow {
   id: ProjectEnvVarId;
   projectId: ProjectId;
@@ -97,7 +98,7 @@ export async function upsertProjectEnvVar(input: {
 }): Promise<ProjectEnvVarRow> {
   return db.transaction(async (tx) => {
     const [existing] = await tx
-      .select({ sealed: projectEnvVar.sealed })
+      .select({ sealed: projectEnvVar.sealed, value: projectEnvVar.value })
       .from(projectEnvVar)
       .where(
         and(
@@ -106,7 +107,9 @@ export async function upsertProjectEnvVar(input: {
           eq(projectEnvVar.key, input.key),
         ),
       )
-      .limit(1);
+      .limit(1)
+      // The old value decides whether anything changed: never a cached read.
+      .$withCache(false);
 
     // Seed-only and the key is already there: hand back what is stored rather
     // than replacing it. Read through the same decrypt path the list query
@@ -154,6 +157,14 @@ export async function upsertProjectEnvVar(input: {
       })
       .returning();
     if (!row) throw new Error("projectEnvVar upsert returned no row");
+    // A new or different value is not live in the services that reference it
+    // until they roll. A sealed row's old plaintext is not read.
+    const unchanged =
+      existing !== undefined &&
+      !existing.sealed &&
+      !sealed &&
+      (await decryptEnvValue(existing.value)) === input.value;
+    if (!unchanged) await markSharedVarDependentsChanged(tx, input.scope, new Set([input.key]));
     // Echo the caller's plaintext back for unsealed rows (the UI renders the
     // returned row); sealed rows keep ciphertext so masking holds.
     return sealed ? row : { ...row, value: input.value };
@@ -164,15 +175,22 @@ export async function upsertProjectEnvVar(input: {
  *  doesn't exist. Keeps idempotent client behaviour. Deleting is the one
  *  form of "undo" a sealed variable supports (no read-back). */
 export async function deleteProjectEnvVar(input: { scope: Scope; key: string }): Promise<void> {
-  await db
-    .delete(projectEnvVar)
-    .where(
-      and(
-        eq(projectEnvVar.projectId, input.scope.projectId),
-        eq(projectEnvVar.environmentId, input.scope.environmentId),
-        eq(projectEnvVar.key, input.key),
-      ),
-    );
+  await db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(projectEnvVar)
+      .where(
+        and(
+          eq(projectEnvVar.projectId, input.scope.projectId),
+          eq(projectEnvVar.environmentId, input.scope.environmentId),
+          eq(projectEnvVar.key, input.key),
+        ),
+      )
+      .returning({ key: projectEnvVar.key });
+    // A reference to a removed key now resolves differently.
+    if (deleted.length > 0) {
+      await markSharedVarDependentsChanged(tx, input.scope, new Set([input.key]));
+    }
+  });
 }
 
 /**
@@ -217,6 +235,24 @@ export async function bulkReplaceProjectEnvVars(
         ),
       );
     const sealedKeys = new Set(sealedRows.map((r) => r.key));
+    // What the replace changes, for the services that reference it.
+    const before = await decryptUnsealedEnvRows(
+      await tx
+        .select({
+          key: projectEnvVar.key,
+          value: projectEnvVar.value,
+          sealed: projectEnvVar.sealed,
+        })
+        .from(projectEnvVar)
+        .where(
+          and(
+            eq(projectEnvVar.projectId, scope.projectId),
+            eq(projectEnvVar.environmentId, scope.environmentId),
+            eq(projectEnvVar.sealed, false),
+          ),
+        )
+        .$withCache(false),
+    );
 
     await tx
       .delete(projectEnvVar)
@@ -262,6 +298,7 @@ export async function bulkReplaceProjectEnvVars(
       }));
     }
 
+    await markSharedVarDependentsChanged(tx, scope, changedSharedKeys(before, toInsert));
     return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
   });
 }

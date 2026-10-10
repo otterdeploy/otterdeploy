@@ -22,7 +22,12 @@ function selectChain(rows: unknown[]) {
   // so it returns a Promise (thenable, awaitable directly) that ALSO carries
   // a chainable `.limit()`.
   const whereResult = Object.assign(Promise.resolve(rows), {
-    limit: vi.fn(() => Promise.resolve(rows)),
+    // The change-detection reads skip the query cache: `.limit(1).$withCache(false)`
+    // (upsert) and `.where(...).$withCache(false)` (bulkReplace's before-image).
+    limit: vi.fn(() =>
+      Object.assign(Promise.resolve(rows), { $withCache: vi.fn(() => Promise.resolve(rows)) }),
+    ),
+    $withCache: vi.fn(() => Promise.resolve(rows)),
     // bulkReplace's row lock: `...where(...).for("no key update").$withCache(false)`
     for: vi.fn(() => ({ $withCache: vi.fn(() => Promise.resolve([])) })),
   });
@@ -80,6 +85,13 @@ function makeTx(): FakeTx {
     }),
   };
 }
+
+// Which services a shared-key change marks is covered against a
+// real database (lib/variables/shared-var-liveness.postgres.test.ts).
+vi.mock("../project-env-dependents", () => ({
+  changedSharedKeys: vi.fn(() => new Set<string>()),
+  markSharedVarDependentsChanged: vi.fn(async () => []),
+}));
 
 vi.mock("@otterdeploy/db", () => ({
   db: {
