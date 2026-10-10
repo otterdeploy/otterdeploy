@@ -10,6 +10,7 @@ import { Result } from "better-result";
 
 import type { SwarmServiceRuntime } from "../../swarm";
 
+import { reconcile } from "../../caddy";
 import { loadPreviewScope } from "../../lib/environment/load";
 import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
@@ -17,12 +18,14 @@ import { runtime } from "../../runtime";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
+  getPrimaryHttpPort,
   getServiceRecord,
   markServiceEnvApplied,
   type ServiceRecord,
   updateServiceResourceStatus,
 } from "./queries";
 import { rollKey, serializeRoll } from "./roll-lock";
+import { pointRoutesAtPort } from "./route-upstreams";
 import { buildSwarmSpec } from "./spec";
 import { sanitizeSlug } from "./views";
 /**
@@ -220,7 +223,7 @@ async function redeployOneNow(
   // still the one serving, only this deploy failed. It is also
   // the one case where the update "succeeded" but the new env is NOT what the
   // container runs, so it does not count as applied.
-  if (!opts?.previewId) await settleBaseRoll(resourceId, result, updated.isOk(), envReadAt);
+  if (!opts?.previewId) await settleBaseRoll(record, result, updated.isOk(), envReadAt);
 
   return Result.ok(result);
 }
@@ -237,13 +240,37 @@ function resourceStatusAfter(result: SwarmServiceRuntime): "valid" | "invalid" {
  * env as read at `envReadAt`; otherwise the saved env stays pending.
  */
 async function settleBaseRoll(
-  resourceId: ResourceId,
+  record: ServiceRecord,
   result: SwarmServiceRuntime,
   reachedRuntime: boolean,
   envReadAt: Date,
 ): Promise<void> {
+  const resourceId = record.service.resourceId;
   await updateServiceResourceStatus(resourceId, resourceStatusAfter(result));
-  if (reachedRuntime && !result.rolledBack) await markServiceEnvApplied(resourceId, envReadAt);
+  if (!reachedRuntime || result.rolledBack) return;
+  await markServiceEnvApplied(resourceId, envReadAt);
+  await followPrimaryPort(record);
+}
+
+/**
+ * The roll landed: the container now listens on the record's primary http
+ * port, so its routes must dial that port too. A port change saved by the
+ * Settings tab or a manifest apply reaches here through the roll it triggers,
+ * and one that rides a build reaches here through the build's own roll, so the
+ * edge moves exactly when the container does. A no-op whenever the routes
+ * already match, which is every roll that did not change a port.
+ */
+async function followPrimaryPort(record: ServiceRecord): Promise<void> {
+  const primary = getPrimaryHttpPort(record.ports);
+  if (!primary) return;
+  const changed = await pointRoutesAtPort(record.service.resourceId, {
+    port: primary.containerPort,
+  });
+  if (changed.length === 0) return;
+  // Best effort: the rows are already right, and they are what the edge
+  // converges on. From the build worker this load cannot reach the edge; the
+  // server's edge watch sees the routes move and loads them within a tick.
+  await Result.tryPromise({ try: () => reconcile(), catch: (cause) => cause });
 }
 
 /** Roll a service, then every service that references it. Ok carries the

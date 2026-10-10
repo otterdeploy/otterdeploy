@@ -6,6 +6,9 @@ import { describe, expect, test, vi } from "vite-plus/test";
 // behaviour under test: what happens when runtime().update() throws.
 vi.mock("../queries", () => ({
   bumpForceUpdateCounter: vi.fn(),
+  // No primary http port: the route-follow step after a landed roll is a
+  // no-op here (port-change-routes.postgres.test.ts drives it for real).
+  getPrimaryHttpPort: vi.fn(),
   getServiceRecord: vi.fn(),
   markServiceEnvApplied: vi.fn(),
   updateServiceResourceStatus: vi.fn(),

@@ -29,25 +29,12 @@ import { insertGeneratedRoute, resolveGeneratedDomain } from "./expose-generated
 import { getService } from "./get-service";
 import { type ResourceRef } from "./inputs";
 import { getPrimaryHttpPort, setPublicExposure } from "./queries";
+import { pointRoutesAtPort } from "./route-upstreams";
 import { serviceRuntimeName } from "./runtime-name";
 import { sanitizeSlug, type ServiceView } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
 type ProxyRoutes = Awaited<ReturnType<typeof listProxyRoutesByResourceId>>;
-
-/** Refresh each route's upstream in case the primary HTTP port moved while the
- *  service was unexposed. */
-async function refreshRouteUpstreams(
-  resourceId: ResourceId,
-  upstreamPort: number,
-  upstreamHost: string,
-): Promise<void> {
-  for (const r of await listProxyRoutesByResourceId(resourceId)) {
-    if (r.upstreamPort !== upstreamPort || r.upstreamHost !== upstreamHost) {
-      await updateProxyRoute(r.id, { upstreamPort, upstreamHost });
-    }
-  }
-}
 
 /** Settle the primary on a live host: keep the flagged one if it's live, else
  *  promote any live route (falling back to any route at all). Returns the
@@ -87,11 +74,12 @@ export async function exposeService(
   // hosts back live, and guarantees at least one live host by minting the
   // generated one whenever nothing else is serving.
   await setRoutesEnabledForResource(input.resourceId, true);
-  await refreshRouteUpstreams(
-    input.resourceId,
-    primary.containerPort,
-    await serviceRuntimeName(record),
-  );
+  // Refresh each route's upstream in case the primary HTTP port moved while
+  // the service was unexposed.
+  await pointRoutesAtPort(input.resourceId, {
+    port: primary.containerPort,
+    host: await serviceRuntimeName(record),
+  });
 
   let routes = await listProxyRoutesByResourceId(input.resourceId);
   if (!routes.some((r) => r.enabled)) {
