@@ -15,7 +15,6 @@ import {
   useBaseDomainDns,
   useBaseDomainHostnames,
 } from "@/features/domains/data/use-base-domain";
-import { previewSuffix } from "@/features/domains/lib/base-domain-copy";
 import { useCanManageWorkspace } from "@/features/team/data/use-team";
 import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
@@ -173,13 +172,7 @@ function DomainCardDetails({
   const dns = dnsQuery.data;
   return (
     <>
-      <PublishAtRow
-        publishing={dns?.publishing}
-        previewSuffix={dirty ? previewSuffix({ typed, serverIp: dns?.serverIp ?? null }) : null}
-        wildcard={dns?.wildcard?.state ?? null}
-        proxied={dns?.wildcard?.proxied ?? false}
-        loading={dnsQuery.isLoading}
-      />
+      <PublishAtRow dns={dns} typed={typed} dirty={dirty} loading={dnsQuery.isLoading} />
 
       {current ? (
         <BaseDomainRecords

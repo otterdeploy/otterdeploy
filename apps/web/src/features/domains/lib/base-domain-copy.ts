@@ -49,6 +49,7 @@ export function txtStatus(check: { state: TxtState }): RecordStatus {
 export interface Publishing {
   source: "org-base" | "local-base" | "sslip-fallback";
   suffix: string;
+  onServerIp: boolean;
   certificate: "lets-encrypt" | "self-signed";
 }
 
@@ -89,19 +90,29 @@ export function publishNote(input: {
     : "Not reachable until the DNS records below are in place. Self-signed certificate until then.";
 }
 
+/** What follows `<service>-<project>.` With `onServerIp`, the server's
+ *  (masked) address goes in front of `suffix`: the IP is never in the text. */
+export interface PublishSuffix {
+  suffix: string;
+  onServerIp: boolean;
+}
+
 /** The suffix a domain typed into the field would publish under. */
-export function previewSuffix(input: { typed: string; serverIp: string | null }): string {
+export function previewSuffix(input: { typed: string; hasServerIp: boolean }): PublishSuffix {
   const typed = input.typed.trim().toLowerCase();
+  if (typed) return { suffix: typed, onServerIp: false };
   // An emptied field falls back the way the resolver does: sslip.io on this
   // server's IP, loopback when the IP isn't known.
-  return typed || `${input.serverIp ?? "127.0.0.1"}.sslip.io`;
+  return input.hasServerIp
+    ? { suffix: "sslip.io", onServerIp: true }
+    : { suffix: "127.0.0.1.sslip.io", onServerIp: false };
 }
 
 /** A warning under the records, for the states that need the operator to act
- *  on something the status pill can't fit. */
+ *  on something the status pill can't fit. Never names this server's address:
+ *  the page shows it masked, and only to installation admins. */
 export function wildcardWarning(input: {
   baseDomain: string;
-  serverIp: string | null;
   check: { state: WildcardState; addresses: string[]; proxied: boolean };
 }): string | null {
   const name = `*.${input.baseDomain}`;
@@ -110,8 +121,45 @@ export function wildcardWarning(input: {
   if (check.proxied) {
     return `${name} is proxied by Cloudflare. Turn the proxy off (grey cloud) for this record: the proxy answers certificate challenges itself, so certificates here can't be issued.`;
   }
-  const target = check.addresses.join(", ");
-  return input.serverIp
-    ? `${name} resolves to ${target}, not this server (${input.serverIp}). Update the A record, or remove the old one.`
-    : `${name} resolves to ${target}.`;
+  const target = check.addresses.join(", ") || "another host";
+  return `${name} resolves to ${target}, not this server. Update that record at your DNS provider, or remove it: Write DNS records never overwrites an existing record.`;
+}
+
+/** Where the bare domain points, when that is somewhere else. Not a fault:
+ *  services only use the wildcard, and one-click leaves the apex alone. */
+export function apexNote(input: {
+  baseDomain: string;
+  apex: { state: WildcardState; addresses: string[]; proxied: boolean } | null;
+}): string | null {
+  const { apex } = input;
+  if (apex?.state !== "pointing-elsewhere") return null;
+  const target = apex.proxied ? "Cloudflare's proxy" : apex.addresses.join(", ") || "another host";
+  return `${input.baseDomain} itself points to ${target}. That's fine: services use the wildcard, and Write DNS records leaves an existing record alone.`;
+}
+
+export type WriteOutcome = "created" | "present" | "elsewhere";
+
+/** The toast after one-click: what it wrote, and what it left alone. */
+export function writeResultMessage(input: {
+  baseDomain: string;
+  verified: boolean;
+  apex: WriteOutcome;
+  wildcard: WriteOutcome;
+}): { tone: "success" | "warning"; text: string } {
+  if (input.wildcard === "elsewhere") {
+    return {
+      tone: "warning",
+      text: `*.${input.baseDomain} already points somewhere else, so it was left as it is. Services won't be reachable until it points here.`,
+    };
+  }
+  const left =
+    input.apex === "elsewhere"
+      ? ` ${input.baseDomain} itself already points elsewhere; left as it is.`
+      : "";
+  return {
+    tone: "success",
+    text: input.verified
+      ? `DNS records written and the domain is verified.${left}`
+      : `DNS records written. Check DNS again in a minute, once they've propagated.${left}`,
+  };
 }

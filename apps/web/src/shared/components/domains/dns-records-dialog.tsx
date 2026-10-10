@@ -125,16 +125,20 @@ function OneClickRow({
  *  saved. There is no "this provider needs no records" case.
  *
  *  `caption` says what a record is for, under its name; `status` adds a
- *  column with what DNS says about it now. Both optional: the dialog shows
- *  neither, Settings → Domains shows both. */
+ *  column with what DNS says about it now; `renderValue` replaces a value's
+ *  copy cell (Settings → Domains masks the server IP). All optional: the
+ *  dialog uses none of them. */
 export function RecordsTable({
   records,
   caption,
   status,
+  renderValue,
 }: {
   records: DnsRecordRow[];
   caption?: (record: DnsRecordRow) => ReactNode;
   status?: (record: DnsRecordRow) => ReactNode;
+  /** Return undefined to keep the default copy cell. */
+  renderValue?: (record: DnsRecordRow) => ReactNode | undefined;
 }) {
   const { t } = useTranslation();
   const columns = status ? 4 : 3;
@@ -164,7 +168,7 @@ export function RecordsTable({
                 ) : null}
               </td>
               <td className="max-w-[20rem] px-1 py-1">
-                <CopyCell text={r.value} />
+                {renderValue?.(r) ?? <CopyCell text={r.value} />}
               </td>
               {status ? <td className="px-2 py-1.5 whitespace-nowrap">{status(r)}</td> : null}
             </tr>

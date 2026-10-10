@@ -14,6 +14,7 @@ import { Button } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
 import { invalidateBaseDomain } from "../data/use-base-domain";
+import { writeResultMessage } from "../lib/base-domain-copy";
 import { DnsStatusPill } from "./dns-status-pill";
 
 type ZoneView = Awaited<ReturnType<typeof orpc.organization.cloudflareZone.call>>;
@@ -92,11 +93,16 @@ export function CloudflareConnected({
     ...orpc.organization.autoConfigureBaseDomain.mutationOptions(),
     onSuccess: async (result) => {
       await invalidateBaseDomain(organizationId);
-      toast.success(
-        result.ok
-          ? "DNS records written and the domain is verified"
-          : "DNS records written. Check DNS again in a minute, once they've propagated.",
-      );
+      // One-click never overwrites an existing apex or wildcard record, so
+      // say which one it left alone.
+      const message = writeResultMessage({
+        baseDomain: result.settings.baseDomain ?? "",
+        verified: result.ok,
+        apex: result.apex,
+        wildcard: result.wildcard,
+      });
+      if (message.tone === "warning") toast.warning(message.text);
+      else toast.success(message.text);
     },
     onError: (err) => toast.error(err.message ?? "Couldn't write the DNS records"),
   });

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  apexNote,
   previewSuffix,
+  writeResultMessage,
   publishNote,
   txtStatus,
   wildcardStatus,
@@ -12,6 +14,7 @@ import {
 const orgBase = (certificate: Publishing["certificate"]): Publishing => ({
   source: "org-base",
   suffix: "acme.com",
+  onServerIp: false,
   certificate,
 });
 
@@ -49,7 +52,8 @@ describe("publishNote", () => {
     const note = publishNote({
       publishing: {
         source: "sslip-fallback",
-        suffix: "203.0.113.24.sslip.io",
+        suffix: "sslip.io",
+        onServerIp: true,
         certificate: "self-signed",
       },
       wildcard: null,
@@ -116,33 +120,41 @@ describe("publishNote", () => {
 
 describe("previewSuffix", () => {
   it("uses the typed domain, normalised", () => {
-    expect(previewSuffix({ typed: "  Acme.DEV ", serverIp: "203.0.113.24" })).toBe("acme.dev");
+    expect(previewSuffix({ typed: "  Acme.DEV ", hasServerIp: true })).toEqual({
+      suffix: "acme.dev",
+      onServerIp: false,
+    });
   });
 
-  it("falls back to sslip.io on this server's IP when the field is emptied", () => {
-    expect(previewSuffix({ typed: "", serverIp: "203.0.113.24" })).toBe("203.0.113.24.sslip.io");
-    expect(previewSuffix({ typed: "", serverIp: null })).toBe("127.0.0.1.sslip.io");
+  it("falls back to sslip.io on this server's IP, without ever spelling the IP", () => {
+    expect(previewSuffix({ typed: "", hasServerIp: true })).toEqual({
+      suffix: "sslip.io",
+      onServerIp: true,
+    });
+    expect(previewSuffix({ typed: "", hasServerIp: false })).toEqual({
+      suffix: "127.0.0.1.sslip.io",
+      onServerIp: false,
+    });
   });
 });
 
+const SERVER_IP = "203.0.113.24";
+
 describe("wildcardWarning", () => {
-  it("names the wrong address and this server's", () => {
-    expect(
-      wildcardWarning({
-        baseDomain: "acme.com",
-        serverIp: "203.0.113.24",
-        check: { state: "pointing-elsewhere", addresses: ["198.51.100.7"], proxied: false },
-      }),
-    ).toBe(
-      "*.acme.com resolves to 198.51.100.7, not this server (203.0.113.24). Update the A record, or remove the old one.",
-    );
+  it("names the wrong address, never this server's, and says nothing is overwritten", () => {
+    const text = wildcardWarning({
+      baseDomain: "acme.com",
+      check: { state: "pointing-elsewhere", addresses: ["198.51.100.7"], proxied: false },
+    });
+    expect(text).toMatch(/^\*\.acme\.com resolves to 198\.51\.100\.7, not this server\./);
+    expect(text).toContain("never overwrites an existing record");
+    expect(text).not.toContain(SERVER_IP);
   });
 
   it("tells a proxied wildcard to turn the proxy off", () => {
     expect(
       wildcardWarning({
         baseDomain: "acme.com",
-        serverIp: "203.0.113.24",
         check: { state: "pointing-elsewhere", addresses: ["104.16.1.1"], proxied: true },
       }),
     ).toMatch(/proxied by Cloudflare/);
@@ -153,10 +165,58 @@ describe("wildcardWarning", () => {
       expect(
         wildcardWarning({
           baseDomain: "acme.com",
-          serverIp: "203.0.113.24",
           check: { state, addresses: [], proxied: false },
         }),
       ).toBeNull();
     }
+  });
+});
+
+describe("apexNote", () => {
+  it("explains an apex serving another site is fine and left alone", () => {
+    expect(
+      apexNote({
+        baseDomain: "acme.com",
+        apex: { state: "pointing-elsewhere", addresses: ["198.51.100.7"], proxied: false },
+      }),
+    ).toBe(
+      "acme.com itself points to 198.51.100.7. That's fine: services use the wildcard, and Write DNS records leaves an existing record alone.",
+    );
+  });
+
+  it("says nothing when the apex points here, is missing, or is unknown", () => {
+    for (const state of ["pointing-here", "not-resolving", "unknown"] as const) {
+      expect(
+        apexNote({ baseDomain: "acme.com", apex: { state, addresses: [], proxied: false } }),
+      ).toBeNull();
+    }
+    expect(apexNote({ baseDomain: "acme.com", apex: null })).toBeNull();
+  });
+});
+
+describe("writeResultMessage", () => {
+  it("warns when the wildcard was left pointing elsewhere", () => {
+    expect(
+      writeResultMessage({
+        baseDomain: "acme.com",
+        verified: false,
+        apex: "created",
+        wildcard: "elsewhere",
+      }),
+    ).toMatchObject({ tone: "warning", text: expect.stringMatching(/left as it is/) });
+  });
+
+  it("mentions an apex it left alone", () => {
+    expect(
+      writeResultMessage({
+        baseDomain: "acme.com",
+        verified: true,
+        apex: "elsewhere",
+        wildcard: "created",
+      }),
+    ).toEqual({
+      tone: "success",
+      text: "DNS records written and the domain is verified. acme.com itself already points elsewhere; left as it is.",
+    });
   });
 });

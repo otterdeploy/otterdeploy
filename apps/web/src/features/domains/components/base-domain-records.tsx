@@ -17,8 +17,9 @@ import { Button } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
 import { invalidateBaseDomain } from "../data/use-base-domain";
-import { txtStatus, wildcardStatus, wildcardWarning } from "../lib/base-domain-copy";
+import { apexNote, txtStatus, wildcardStatus, wildcardWarning } from "../lib/base-domain-copy";
 import { DnsStatusPill } from "./dns-status-pill";
+import { ServerIp } from "./server-ip";
 
 type BaseDomainDns = Awaited<ReturnType<typeof orpc.organization.checkBaseDomainDns.call>>;
 
@@ -54,24 +55,15 @@ export function BaseDomainRecords({
   const check = () =>
     canManage ? verify.mutate({ organizationId }) : void invalidateBaseDomain(organizationId);
 
-  const records = dns?.baseDomain === baseDomain ? dns.records : [];
-  const byPurpose = new Map(records.map((r) => [`${r.type}:${r.name}`, r.purpose]));
+  // A null value is the server IP, redacted for anyone but an install admin.
+  const records: DnsRecordRow[] =
+    dns?.baseDomain === baseDomain ? dns.records.map((r) => ({ ...r, value: r.value ?? "" })) : [];
+  const byPurpose = new Map<string, "wildcard" | "verify">(
+    (dns?.records ?? []).map((r) => [`${r.type}:${r.name}`, r.purpose]),
+  );
   const purposeOf = (row: DnsRecordRow) => byPurpose.get(`${row.type}:${row.name}`);
 
-  const status = (row: DnsRecordRow) => {
-    const purpose = purposeOf(row);
-    if (busy || !dns) return <DnsStatusPill tone="muted" label="Checking" />;
-    if (purpose === "wildcard" && dns.wildcard) {
-      return <DnsStatusPill {...wildcardStatus(dns.wildcard)} />;
-    }
-    if (purpose === "verify" && dns.txt) return <DnsStatusPill {...txtStatus(dns.txt)} />;
-    return null;
-  };
-
-  const warning =
-    dns?.wildcard && !busy
-      ? wildcardWarning({ baseDomain, serverIp: dns.serverIp, check: dns.wildcard })
-      : null;
+  const status = (row: DnsRecordRow) => recordStatus(purposeOf(row), dns, busy);
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3.5">
@@ -105,16 +97,47 @@ export function BaseDomainRecords({
           return purpose ? PURPOSE[purpose] : null;
         }}
         status={status}
+        renderValue={(row) =>
+          purposeOf(row) === "wildcard" && dns ? (
+            <ServerIp ip={dns.serverIp} hidden={dns.serverIpHidden} className="px-1" />
+          ) : undefined
+        }
       />
 
-      {dns && !dns.serverIp ? (
+      {dns && !busy ? <RecordNotices baseDomain={baseDomain} dns={dns} /> : null}
+    </div>
+  );
+}
+
+function recordStatus(
+  purpose: "wildcard" | "verify" | undefined,
+  dns: BaseDomainDns | undefined,
+  busy: boolean,
+) {
+  if (busy || !dns) return <DnsStatusPill tone="muted" label="Checking" />;
+  if (purpose === "wildcard" && dns.wildcard) {
+    return <DnsStatusPill {...wildcardStatus(dns.wildcard)} />;
+  }
+  if (purpose === "verify" && dns.txt) return <DnsStatusPill {...txtStatus(dns.txt)} />;
+  return null;
+}
+
+/** What the pills can't fit: no address to point at, a wildcard pointing
+ *  elsewhere, and (calmly) an apex serving another site. */
+function RecordNotices({ baseDomain, dns }: { baseDomain: string; dns: BaseDomainDns }) {
+  const warning = dns.wildcard ? wildcardWarning({ baseDomain, check: dns.wildcard }) : null;
+  const apex = apexNote({ baseDomain, apex: dns.apex });
+  return (
+    <>
+      {!dns.serverIp && !dns.serverIpHidden ? (
         <Notice>
           This install has no public IP set, so there is no address for the wildcard record yet. Set
           it under Instance settings.
         </Notice>
       ) : null}
       {warning ? <Notice tone="bad">{warning}</Notice> : null}
-    </div>
+      {apex ? <p className="text-[12px] leading-relaxed text-muted-foreground">{apex}</p> : null}
+    </>
   );
 }
 
