@@ -97,6 +97,11 @@ const autoConfigureDomainOutput = z.object({
   aRecordId: z.string().nullable(),
   /** The `*.<base>` record every service hostname resolves through. */
   wildcardRecordId: z.string().nullable(),
+  /** What happened to each address record. `elsewhere`: the name already
+   *  had a record pointing somewhere else, which one-click never overwrites
+   *  (its id is then null). */
+  apex: z.enum(["created", "present", "elsewhere"]),
+  wildcard: z.enum(["created", "present", "elsewhere"]),
   /** Outcome of the verify step that runs after DNS is in place. Lets
    *  the UI show "Verified" or "DNS created, still propagating" without
    *  a separate roundtrip. */

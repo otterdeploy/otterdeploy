@@ -77,7 +77,7 @@ vi.mock("../queries", () => ({
   setOrganizationBaseDomain: vi.fn(async () => state.row),
   markOrganizationBaseDomainVerified: vi.fn(async () => state.row),
   setOrganizationCloudflareConfig: vi.fn(async () => state.row),
-  readPlatformServerIp: vi.fn(async () => state.serverIp),
+  readPlatformServerIps: vi.fn(async () => ({ serverIp: state.serverIp, serverIpv6: null })),
   readLocalBaseDomain: vi.fn(() => null),
   listGeneratedHostnamesUnder: vi.fn(async () => ({ hostnames: [], total: 0 })),
 }));
@@ -120,6 +120,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+const ADMIN = { revealServerIp: true };
+const MEMBER = { revealServerIp: false };
 
 function wildcardsIn(cf: ReturnType<typeof fakeCloudflare>) {
   return cf.records.filter((r) => r.name === "*.acme.com");
@@ -193,7 +196,7 @@ describe("already-connected workspaces get the missing wildcard", () => {
 
     const result = (await verifyOrganizationBaseDomain(orgId)).unwrap();
 
-    expect(result.wildcard).toBe("present");
+    expect(result.wildcard).toBe("elsewhere");
     expect(cf.records).toEqual([theirs]);
   });
 
@@ -226,7 +229,7 @@ describe("checkOrganizationBaseDomainDns", () => {
     state.addresses.set("otterdeploy-dns-check.acme.com", [SERVER_IP]);
     state.txt.set("_otterdeploy-verify.acme.com", ["tok"]);
 
-    const view = (await checkOrganizationBaseDomainDns(orgId)).unwrap();
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
 
     expect(view.records.map((r) => [r.purpose, r.type, r.relativeName, r.value])).toEqual([
       ["wildcard", "A", "*", SERVER_IP],
@@ -240,19 +243,20 @@ describe("checkOrganizationBaseDomainDns", () => {
   test("a wildcard pointing at another host is pointing-elsewhere, with its address", async () => {
     state.addresses.set("otterdeploy-dns-check.acme.com", [ELSEWHERE]);
 
-    const view = (await checkOrganizationBaseDomainDns(orgId)).unwrap();
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
 
     expect(view.wildcard).toMatchObject({ state: "pointing-elsewhere", addresses: [ELSEWHERE] });
     expect(view.txt).toMatchObject({ state: "not-found" });
   });
 
   test("a missing wildcard is not-resolving, and new services get a self-signed cert", async () => {
-    const view = (await checkOrganizationBaseDomainDns(orgId)).unwrap();
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
 
     expect(view.wildcard).toMatchObject({ state: "not-resolving", addresses: [] });
     expect(view.publishing).toEqual({
       source: "org-base",
       suffix: "acme.com",
+      onServerIp: false,
       certificate: "self-signed",
     });
   });
@@ -261,7 +265,7 @@ describe("checkOrganizationBaseDomainDns", () => {
     state.row = connectedRow({ baseDomainVerifiedAt: new Date(0) });
     state.addresses.set("otterdeploy-dns-check.acme.com", [SERVER_IP]);
 
-    const view = (await checkOrganizationBaseDomainDns(orgId)).unwrap();
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
 
     expect(view.publishing.certificate).toBe("lets-encrypt");
   });
@@ -269,16 +273,87 @@ describe("checkOrganizationBaseDomainDns", () => {
   test("with no base domain, services publish on sslip.io with a self-signed cert", async () => {
     state.row = connectedRow({ baseDomain: null, baseDomainVerifyToken: null });
 
-    const view = (await checkOrganizationBaseDomainDns(orgId)).unwrap();
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
 
+    // The suffix never carries the address: the page puts it in front, masked.
     expect(view.publishing).toEqual({
       source: "sslip-fallback",
-      suffix: `${SERVER_IP}.sslip.io`,
+      suffix: "sslip.io",
+      onServerIp: true,
       certificate: "self-signed",
     });
+    expect(view.serverIp).toBe(SERVER_IP);
     expect(view.records).toEqual([]);
     expect(view.wildcard).toBeNull();
     expect(view.txt).toBeNull();
+  });
+});
+
+describe("the server IP is for installation admins only", () => {
+  test("a member gets every state and record name, and never the address", async () => {
+    state.addresses.set("otterdeploy-dns-check.acme.com", [SERVER_IP]);
+    state.addresses.set("acme.com", [SERVER_IP]);
+    state.txt.set("_otterdeploy-verify.acme.com", ["tok"]);
+
+    const view = (await checkOrganizationBaseDomainDns(orgId, MEMBER)).unwrap();
+
+    expect(JSON.stringify(view)).not.toContain(SERVER_IP);
+    expect(view.serverIp).toBeNull();
+    expect(view.serverIpHidden).toBe(true);
+    expect(view.wildcard).toMatchObject({ state: "pointing-here", addresses: [] });
+    expect(view.apex).toMatchObject({ state: "pointing-here", addresses: [] });
+    expect(view.records.map((r) => [r.type, r.name, r.value])).toEqual([
+      ["A", "*.acme.com", null],
+      ["TXT", "_otterdeploy-verify.acme.com", "tok"],
+    ]);
+  });
+
+  test("a member keeps the addresses that are not this server", async () => {
+    state.addresses.set("otterdeploy-dns-check.acme.com", [ELSEWHERE]);
+
+    const view = (await checkOrganizationBaseDomainDns(orgId, MEMBER)).unwrap();
+
+    expect(view.wildcard).toMatchObject({ state: "pointing-elsewhere", addresses: [ELSEWHERE] });
+  });
+
+  test("a member's sslip.io address hides the IP too", async () => {
+    state.row = connectedRow({ baseDomain: null, baseDomainVerifyToken: null });
+
+    const view = (await checkOrganizationBaseDomainDns(orgId, MEMBER)).unwrap();
+
+    expect(JSON.stringify(view)).not.toContain(SERVER_IP);
+    expect(view.publishing).toMatchObject({ suffix: "sslip.io", onServerIp: true });
+  });
+
+  test("an admin sees the address", async () => {
+    state.addresses.set("otterdeploy-dns-check.acme.com", [SERVER_IP]);
+
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
+
+    expect(view.serverIp).toBe(SERVER_IP);
+    expect(view.serverIpHidden).toBe(false);
+    expect(view.records[0]?.value).toBe(SERVER_IP);
+  });
+});
+
+describe("the apex", () => {
+  test("reports an apex serving another site as pointing elsewhere", async () => {
+    state.addresses.set("acme.com", [ELSEWHERE]);
+
+    const view = (await checkOrganizationBaseDomainDns(orgId, ADMIN)).unwrap();
+
+    expect(view.apex).toMatchObject({ state: "pointing-elsewhere", addresses: [ELSEWHERE] });
+  });
+
+  test("one-click leaves an apex record pointing elsewhere untouched (od-pq4i)", async () => {
+    const site = { id: "site", type: "A", name: "acme.com", content: ELSEWHERE, proxied: true };
+    const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com", records: [site] });
+    vi.stubGlobal("fetch", cf.fetch);
+
+    const result = (await autoConfigureBaseDomainViaCloudflare(orgId)).unwrap();
+
+    expect(cf.records.filter((r) => r.name === "acme.com")).toEqual([site]);
+    expect(result).toMatchObject({ apex: "elsewhere", aRecordId: null, wildcard: "created" });
   });
 });
 

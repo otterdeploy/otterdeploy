@@ -8,7 +8,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { Result, TaggedError } from "better-result";
 
-import { writeBaseDomainRecords } from "../../lib/base-domain-dns";
+import { writeBaseDomainRecords, type PointRecordOutcome } from "../../lib/base-domain-dns";
 import {
   listCloudflareZones,
   verifyCloudflareToken,
@@ -20,7 +20,7 @@ import { OrganizationNotFoundError } from "./errors";
 import {
   getOrganizationById,
   markOrganizationBaseDomainVerified,
-  readPlatformServerIp,
+  readPlatformServerIps,
   setOrganizationBaseDomain,
   setOrganizationCloudflareConfig,
 } from "./queries";
@@ -71,6 +71,11 @@ export async function updateOrganizationBaseDomain(input: {
   if (!row) return Result.err(new OrganizationNotFoundError(input.organizationId));
   await repairBaseDomainWildcard(row);
   return Result.ok(toView(row));
+}
+
+/** The record one-click wrote or found, null when it left another one alone. */
+function recordIdOf(outcome: PointRecordOutcome): string | null {
+  return outcome.state === "elsewhere" ? null : outcome.recordId;
 }
 
 export interface VerifyDomainResponse extends VerifyOutcome {
@@ -153,6 +158,8 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
       txtRecordId: string | null;
       aRecordId: string | null;
       wildcardRecordId: string | null;
+      apex: PointRecordOutcome["state"];
+      wildcard: PointRecordOutcome["state"];
       verify: { ok: boolean; reason: VerifyOutcome["reason"] };
       settings: OrgSettingsView;
     },
@@ -181,7 +188,7 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
   // The A records point at the platform's serverIp. The sslip fallback would
   // not help here: auto-configure only means something when there is a real
   // IP to publish under the operator's own domain.
-  const serverIp = await readPlatformServerIp();
+  const { serverIp, serverIpv6 } = await readPlatformServerIps();
   if (!serverIp) {
     return Result.err(
       new CloudflareConfigError(
@@ -198,6 +205,7 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     zoneId: row.cloudflareZoneId,
     baseDomain: row.baseDomain,
     serverIp,
+    serverIpv6,
     verifyToken: row.baseDomainVerifyToken,
   });
   if (written.isErr()) return Result.err(new CloudflareConfigError("api", written.error.message));
@@ -219,8 +227,10 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
   return Result.ok({
     ok: verifyResult.ok,
     txtRecordId: written.value.txtRecordId,
-    aRecordId: written.value.aRecordId,
-    wildcardRecordId: written.value.wildcardRecordId,
+    aRecordId: recordIdOf(written.value.apex),
+    wildcardRecordId: recordIdOf(written.value.wildcard),
+    apex: written.value.apex.state,
+    wildcard: written.value.wildcard.state,
     verify: { ok: verifyResult.ok, reason: verifyResult.reason },
     settings: toView(updated),
   });

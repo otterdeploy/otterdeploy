@@ -204,34 +204,74 @@ describe("writeBaseDomainRecords (Cloudflare one-click)", () => {
       "A acme.com",
       "TXT _otterdeploy-verify.acme.com",
     ]);
-    expect(written.unwrap().wildcardRecordId).toBe(wildcard?.id);
+    expect(written.unwrap().wildcard).toEqual({ state: "created", recordId: wildcard?.id });
   });
 
   it("is idempotent: a second run leaves the zone exactly as the first did", async () => {
     const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com" });
     vi.stubGlobal("fetch", cf.fetch);
 
-    const first = (await writeBaseDomainRecords(input)).unwrap();
+    (await writeBaseDomainRecords(input)).unwrap();
     const snapshot = cf.records.map((r) => ({ ...r }));
     const second = (await writeBaseDomainRecords(input)).unwrap();
 
     expect(cf.records).toEqual(snapshot);
-    expect(second).toEqual(first);
+    expect(second.apex.state).toBe("present");
+    expect(second.wildcard.state).toBe("present");
   });
 
-  it("repoints a wildcard that targets another host, and turns its proxy off", async () => {
-    const cf = fakeCloudflare({
-      zoneId: "zone_1",
-      zoneName: "acme.com",
-      records: [{ id: "old", type: "A", name: "*.acme.com", content: ELSEWHERE, proxied: true }],
+  // od-pq4i: the apex is usually a live website. One-click must never repoint it.
+  for (const existing of [
+    { type: "A", content: ELSEWHERE },
+    { type: "AAAA", content: "2001:db8::7" },
+    { type: "CNAME", content: "acme.netlify.app" },
+  ]) {
+    it(`leaves an existing apex ${existing.type} pointing elsewhere untouched`, async () => {
+      const theirs = { id: "site", name: "acme.com", proxied: true, ...existing };
+      const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com", records: [theirs] });
+      vi.stubGlobal("fetch", cf.fetch);
+
+      const written = (await writeBaseDomainRecords(input)).unwrap();
+
+      expect(cf.records.filter((r) => r.name === "acme.com")).toEqual([theirs]);
+      expect(cf.calls.some((c) => c.method === "PATCH")).toBe(false);
+      expect(written.apex).toEqual({ state: "elsewhere", existing });
+      // The wildcard is what services need, and it was free: still written.
+      expect(written.wildcard.state).toBe("created");
     });
+  }
+
+  it("leaves an existing wildcard pointing elsewhere untouched, and says so", async () => {
+    const theirs = { id: "old", type: "A", name: "*.acme.com", content: ELSEWHERE, proxied: true };
+    const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com", records: [theirs] });
     vi.stubGlobal("fetch", cf.fetch);
 
-    (await writeBaseDomainRecords(input)).unwrap();
+    const written = (await writeBaseDomainRecords(input)).unwrap();
 
-    expect(cf.records.filter((r) => r.name === "*.acme.com")).toEqual([
-      { id: "old", type: "A", name: "*.acme.com", content: SERVER_IP, proxied: false },
-    ]);
+    expect(cf.records.filter((r) => r.name === "*.acme.com")).toEqual([theirs]);
+    expect(written.wildcard).toEqual({
+      state: "elsewhere",
+      existing: { type: "A", content: ELSEWHERE },
+    });
+  });
+
+  it("counts an AAAA already pointing at this install's IPv6 as present", async () => {
+    const ours = {
+      id: "v6",
+      type: "AAAA",
+      name: "acme.com",
+      content: "2001:db8::1",
+      proxied: false,
+    };
+    const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com", records: [ours] });
+    vi.stubGlobal("fetch", cf.fetch);
+
+    const written = (
+      await writeBaseDomainRecords({ ...input, serverIpv6: "2001:db8::1" })
+    ).unwrap();
+
+    expect(written.apex).toEqual({ state: "present", recordId: "v6" });
+    expect(cf.records.filter((r) => r.name === "acme.com")).toEqual([ours]);
   });
 
   it("returns Cloudflare's error rather than throwing", async () => {
@@ -257,9 +297,9 @@ describe("ensureBaseDomainWildcard (already-connected workspaces)", () => {
 
     const ensured = (await ensureBaseDomainWildcard(input)).unwrap();
 
-    expect(ensured.created).toBe(true);
-    expect(cf.records).toEqual([
-      { id: ensured.id, type: "A", name: "*.acme.com", content: SERVER_IP, proxied: false },
+    expect(ensured.state).toBe("created");
+    expect(cf.records).toMatchObject([
+      { type: "A", name: "*.acme.com", content: SERVER_IP, proxied: false },
     ]);
   });
 
@@ -267,9 +307,9 @@ describe("ensureBaseDomainWildcard (already-connected workspaces)", () => {
     // A background repair must not overwrite a record the operator chose.
     const existing = {
       id: "theirs",
-      type: "A",
+      type: "CNAME",
       name: "*.acme.com",
-      content: ELSEWHERE,
+      content: "edge.example.net",
       proxied: true,
     };
     const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com", records: [existing] });
@@ -277,7 +317,7 @@ describe("ensureBaseDomainWildcard (already-connected workspaces)", () => {
 
     const ensured = (await ensureBaseDomainWildcard(input)).unwrap();
 
-    expect(ensured).toEqual({ id: "theirs", created: false });
+    expect(ensured.state).toBe("elsewhere");
     expect(cf.records).toEqual([existing]);
     expect(cf.calls.filter((c) => c.method !== "GET")).toEqual([]);
   });
@@ -286,10 +326,10 @@ describe("ensureBaseDomainWildcard (already-connected workspaces)", () => {
     const cf = fakeCloudflare({ zoneId: "zone_1", zoneName: "acme.com" });
     vi.stubGlobal("fetch", cf.fetch);
 
-    const first = (await ensureBaseDomainWildcard(input)).unwrap();
+    (await ensureBaseDomainWildcard(input)).unwrap();
     const second = (await ensureBaseDomainWildcard(input)).unwrap();
 
-    expect(second).toEqual({ id: first.id, created: false });
+    expect(second.state).toBe("present");
     expect(cf.records).toHaveLength(1);
   });
 });

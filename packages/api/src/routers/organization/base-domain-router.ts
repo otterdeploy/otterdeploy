@@ -5,6 +5,7 @@
  */
 
 import { orgScopedProcedure } from "../..";
+import { authorizeCapability } from "../../authz/capability";
 import {
   checkOrganizationBaseDomainDns,
   getOrganizationCloudflareZone,
@@ -15,7 +16,12 @@ export const baseDomainRouter = {
   checkBaseDomainDns: orgScopedProcedure.organization.checkBaseDomainDns.handler(
     async ({ context }) => {
       context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
-      const result = await checkOrganizationBaseDomainDns(context.activeOrganizationId);
+      // The server IP is for installation admins only (the same rule that
+      // gates organization.getServerIp). Everyone else gets the states.
+      const admin = await authorizeCapability(context.actor, { scope: "install", mode: "read" });
+      const result = await checkOrganizationBaseDomainDns(context.activeOrganizationId, {
+        revealServerIp: admin.allowed,
+      });
       if (result.isErr()) throw result.error;
       context.log.set({
         baseDomainDns: {

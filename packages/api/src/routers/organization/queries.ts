@@ -79,14 +79,17 @@ export async function setOrganizationCloudflareConfig(input: {
   return row;
 }
 
-/** The install's public IP (platform settings), or null when unknown. */
-export async function readPlatformServerIp(): Promise<string | null> {
+/** The install's public addresses (platform settings), null when unknown. */
+export async function readPlatformServerIps(): Promise<{
+  serverIp: string | null;
+  serverIpv6: string | null;
+}> {
   const [settings] = await db
-    .select({ serverIp: platformSettings.serverIp })
+    .select({ serverIp: platformSettings.serverIp, serverIpv6: platformSettings.serverIpv6 })
     .from(platformSettings)
     .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
     .limit(1);
-  return settings?.serverIp ?? null;
+  return { serverIp: settings?.serverIp ?? null, serverIpv6: settings?.serverIpv6 ?? null };
 }
 
 /** Dev-only local wildcard (resolver level 4); null outside development, the

@@ -287,7 +287,7 @@ export async function upsertCloudflareDnsRecord(input: {
     );
     return patched.map(() => ({ id: target.id }));
   }
-  return createDnsRecord(input);
+  return createCloudflareDnsRecord(input);
 }
 
 type DnsRecordInput = Parameters<typeof upsertCloudflareDnsRecord>[0];
@@ -303,7 +303,8 @@ function findDnsRecords(
   );
 }
 
-async function createDnsRecord(
+/** Create one record. The caller has already established the name is free. */
+export async function createCloudflareDnsRecord(
   input: DnsRecordInput,
 ): Promise<Result<{ id: string }, CloudflareError>> {
   const created = await cfFetch(
@@ -324,23 +325,32 @@ async function createDnsRecord(
   return created.map((r) => ({ id: r.id }));
 }
 
-/**
- * Create the record only when the zone has none of that name and type.
- *
- * {@link upsertCloudflareDnsRecord} is for a write the operator asked for: it
- * repoints whatever is there. This is for a repair nobody asked for in that
- * moment (adding a record an older version forgot), which must never
- * overwrite a record the operator set up themselves, proxied or pointed
- * elsewhere on purpose.
- */
-export async function ensureCloudflareDnsRecord(
-  input: DnsRecordInput,
-): Promise<Result<{ id: string; created: boolean }, CloudflareError>> {
-  const existing = await findDnsRecords(input);
-  if (existing.isErr()) return Result.err(existing.error);
-  const present = existing.value[0];
-  if (present) return Result.ok({ id: present.id, created: false });
-  return (await createDnsRecord(input)).map((r) => ({ id: r.id, created: true }));
+export interface CloudflareDnsRecord {
+  id: string;
+  type: string;
+  content: string;
+  proxied: boolean;
+}
+
+const fullDnsRecordSchema = z.looseObject({
+  id: z.string(),
+  type: z.string(),
+  content: z.string(),
+  proxied: z.boolean().default(false),
+});
+
+/** Every record on the zone with exactly this name, of any type: what a
+ *  caller must look at before deciding a name is free to write. */
+export function listCloudflareDnsRecordsByName(input: {
+  token: string;
+  zoneId: string;
+  name: string;
+}): Promise<Result<CloudflareDnsRecord[], CloudflareError>> {
+  return cfFetch(
+    `/zones/${encodeURIComponent(input.zoneId)}/dns_records?name=${encodeURIComponent(input.name)}`,
+    input.token,
+    z.array(fullDnsRecordSchema),
+  );
 }
 
 /** One zone by id: how a stored zone id becomes a name the operator knows.
@@ -351,16 +361,5 @@ export async function getCloudflareZone(
 ): Promise<Result<CloudflareZone, CloudflareError>> {
   return (await cfFetch(`/zones/${encodeURIComponent(zoneId)}`, token, cloudflareZoneSchema)).map(
     (zone) => ({ id: zone.id, name: zone.name, status: zone.status }),
-  );
-}
-
-/** Cloudflare's answers for a token it no longer accepts: invalid (1000),
- *  bad or expired access token (9109), authentication error (10000), and
- *  the token-format errors (6003, 6111). */
-const CLOUDFLARE_REJECTED_TOKEN_CODES = new Set([1000, 6003, 6111, 9109, 10000]);
-
-export function isRejectedTokenError(error: CloudflareError): boolean {
-  return (
-    CLOUDFLARE_REJECTED_TOKEN_CODES.has(error.code) || error.code === 401 || error.code === 403
   );
 }

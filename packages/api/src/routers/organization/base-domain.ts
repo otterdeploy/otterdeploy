@@ -13,31 +13,38 @@ import { Result } from "better-result";
 import {
   checkBaseDomainTxt,
   checkBaseDomainWildcard,
+  checkPointsHere,
   ensureBaseDomainWildcard,
-  type TxtDnsCheck,
+  type PointRecordOutcome,
   type WildcardDnsCheck,
 } from "../../lib/base-domain-dns";
 import {
   CLOUDFLARE_TRANSPORT_CODE,
   getCloudflareZone,
-  isRejectedTokenError,
+  type CloudflareError,
 } from "../../lib/cloudflare";
 import { detectDnsProvider } from "../../lib/dns-detect";
-import { baseDomainDnsRecords, type RequiredDnsRecord } from "../../lib/dns-records";
+import { baseDomainDnsRecords } from "../../lib/dns-records";
 import { resolvePublicDomain } from "../../lib/domains";
 import { acmeForPlatformHost } from "../service/domain-rules";
+import {
+  redactServerIp,
+  toPointingView,
+  type BaseDomainDnsView,
+  type BaseDomainPublishingView,
+} from "./base-domain-view";
 import { OrganizationNotFoundError } from "./errors";
 import {
   getOrganizationById,
   listGeneratedHostnamesUnder,
   readLocalBaseDomain,
-  readPlatformServerIp,
+  readPlatformServerIps,
 } from "./queries";
 
 type OrgId = OrganizationId;
 type OrgRow = NonNullable<Awaited<ReturnType<typeof getOrganizationById>>>;
 
-export type WildcardRepair = "created" | "present" | "skipped" | "failed";
+export type WildcardRepair = PointRecordOutcome["state"] | "skipped" | "failed";
 
 /**
  * Add the `*.<base>` record for a workspace whose Cloudflare one-click ran
@@ -50,53 +57,22 @@ export type WildcardRepair = "created" | "present" | "skipped" | "failed";
  */
 export async function repairBaseDomainWildcard(row: OrgRow): Promise<WildcardRepair> {
   if (!row.baseDomain || !row.cloudflareApiToken || !row.cloudflareZoneId) return "skipped";
-  const serverIp = await readPlatformServerIp();
+  const { serverIp, serverIpv6 } = await readPlatformServerIps();
   if (!serverIp) return "skipped";
   const ensured = await ensureBaseDomainWildcard({
     token: row.cloudflareApiToken,
     zoneId: row.cloudflareZoneId,
     baseDomain: row.baseDomain,
     serverIp,
+    serverIpv6,
   });
-  if (ensured.isErr()) return "failed";
-  return ensured.value.created ? "created" : "present";
-}
-
-/** What a newly exposed service gets right now, from the real resolver. */
-export interface BaseDomainPublishingView {
-  source: "org-base" | "local-base" | "sslip-fallback";
-  /** The hostname after `<service>-<project>.`: `acme.com`, or
-   *  `203.0.113.24.sslip.io` when no base domain is set. */
-  suffix: string;
-  certificate: "lets-encrypt" | "self-signed";
-}
-
-export interface BaseDomainDnsView {
-  baseDomain: string | null;
-  serverIp: string | null;
-  publishing: BaseDomainPublishingView;
-  /** Zone apex and provider, from the nameservers. Null zone when the lookup
-   *  could not find one. */
-  zone: string | null;
-  provider: "cloudflare" | "unknown";
-  /** The two records the base domain needs, each with what DNS says now. */
-  records: (RequiredDnsRecord & { purpose: "wildcard" | "verify" })[];
-  wildcard: Omit<WildcardDnsCheck, "reachability"> | null;
-  txt: TxtDnsCheck | null;
+  return ensured.isErr() ? "failed" : ensured.value.state;
 }
 
 // Placeholder slugs: the resolver needs a name to build a host, and the UI
 // shows only the suffix after them.
 const SAMPLE = { resourceSlug: "service", projectSlug: "project", kind: "service" } as const;
 
-/**
- * The base domain's DNS as it is right now: the two records it needs, whether
- * each is in place, and what a newly exposed service is published at.
- *
- * Read-only. Verification is still stamped only by `verifyBaseDomain`; this
- * reports, so the page can tell the truth about the wildcard, which nothing
- * checked before.
- */
 /** What a service exposed now would be published at, through the real
  *  resolver, with the same certificate decision the mint path makes. */
 function publishingFor(
@@ -119,40 +95,71 @@ function publishingFor(
     apexVerified: resolved.verified,
     dnsState: wildcard?.reachability ?? "unknown",
   });
+  const suffix = resolved.fqdn.slice(`${SAMPLE.resourceSlug}-${SAMPLE.projectSlug}.`.length);
+  // Only the three workspace-level sources can come back: no override or
+  // project domain was passed in.
+  if (resolved.source === "org-base" || resolved.source === "local-base") {
+    return {
+      source: resolved.source,
+      suffix,
+      onServerIp: false,
+      certificate: trusted ? "lets-encrypt" : "self-signed",
+    };
+  }
+  // The sslip suffix embeds the server IP. It is returned without it, and the
+  // page puts the (masked) address in front: see ./base-domain-view.
   return {
-    // Only the three workspace-level sources can come back: no override or
-    // project domain was passed in.
-    source:
-      resolved.source === "org-base" || resolved.source === "local-base"
-        ? resolved.source
-        : "sslip-fallback",
-    suffix: resolved.fqdn.slice(`${SAMPLE.resourceSlug}-${SAMPLE.projectSlug}.`.length),
+    source: "sslip-fallback",
+    suffix: serverIp ? "sslip.io" : suffix,
+    onServerIp: serverIp !== null,
     certificate: trusted ? "lets-encrypt" : "self-signed",
   };
 }
 
+/**
+ * The base domain's DNS as it is right now: the two records it needs, whether
+ * each is in place, where the apex points, and what a newly exposed service is
+ * published at.
+ *
+ * Read-only. Verification is still stamped only by `verifyBaseDomain`.
+ *
+ * `revealServerIp` is the caller's install-admin status. The server's address
+ * is sensitive: every other caller gets the same states with the address
+ * removed (see {@link redactServerIp}).
+ */
 export async function checkOrganizationBaseDomainDns(
   orgId: OrgId,
+  options: { revealServerIp: boolean },
 ): Promise<Result<BaseDomainDnsView, OrganizationNotFoundError>> {
   const row = await getOrganizationById(orgId);
   if (!row) return Result.err(new OrganizationNotFoundError(orgId));
-  const serverIp = await readPlatformServerIp();
+  const ips = await readPlatformServerIps();
+  const { serverIp } = ips;
   const baseDomain = row.baseDomain;
   if (!baseDomain) {
-    return Result.ok({
-      baseDomain: null,
-      serverIp,
-      publishing: publishingFor(row, serverIp, null),
-      zone: null,
-      provider: "unknown",
-      records: [],
-      wildcard: null,
-      txt: null,
-    });
+    return Result.ok(
+      redactServerIp(
+        {
+          baseDomain: null,
+          serverIp,
+          serverIpHidden: false,
+          publishing: publishingFor(row, serverIp, null),
+          zone: null,
+          provider: "unknown",
+          records: [],
+          wildcard: null,
+          apex: null,
+          txt: null,
+        },
+        ips,
+        options.revealServerIp,
+      ),
+    );
   }
 
-  const [wildcard, txt, detected] = await Promise.all([
+  const [wildcard, apex, txt, detected] = await Promise.all([
     checkBaseDomainWildcard({ baseDomain, serverIp }),
+    checkPointsHere({ name: baseDomain, serverIp }),
     checkBaseDomainTxt({ baseDomain, verifyToken: row.baseDomainVerifyToken }),
     detectDnsProvider(baseDomain),
   ]);
@@ -166,21 +173,35 @@ export async function checkOrganizationBaseDomainDns(
     purpose: record.type === "A" ? ("wildcard" as const) : ("verify" as const),
   }));
 
-  return Result.ok({
-    baseDomain,
-    serverIp,
-    publishing: publishingFor(row, serverIp, wildcard),
-    zone: detected.zone,
-    provider: detected.provider,
-    records,
-    wildcard: {
-      probe: wildcard.probe,
-      state: wildcard.state,
-      addresses: wildcard.addresses,
-      proxied: wildcard.proxied,
-    },
-    txt,
-  });
+  return Result.ok(
+    redactServerIp(
+      {
+        baseDomain,
+        serverIp,
+        serverIpHidden: false,
+        publishing: publishingFor(row, serverIp, wildcard),
+        zone: detected.zone,
+        provider: detected.provider,
+        records,
+        wildcard: toPointingView(wildcard),
+        apex: toPointingView(apex),
+        txt,
+      },
+      ips,
+      options.revealServerIp,
+    ),
+  );
+}
+
+/** Cloudflare's answers for a token it no longer accepts: invalid (1000),
+ *  bad or expired access token (9109), authentication error (10000), and
+ *  the token-format errors (6003, 6111). */
+const CLOUDFLARE_REJECTED_TOKEN_CODES = new Set([1000, 6003, 6111, 9109, 10000]);
+
+function isRejectedTokenError(error: CloudflareError): boolean {
+  return (
+    CLOUDFLARE_REJECTED_TOKEN_CODES.has(error.code) || error.code === 401 || error.code === 403
+  );
 }
 
 export interface CloudflareZoneView {
